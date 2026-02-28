@@ -7,9 +7,11 @@
 
 import { BarChart3, MessageSquare, Zap, DollarSign, Activity } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface AgentAnalyticsProps {
   agentId: Id<"objects">;
@@ -99,6 +101,8 @@ export function AgentAnalytics({ agentId, sessionId, organizationId }: AgentAnal
           <InfoRow label="Max Msgs/Day" value={String(props.maxMessagesPerDay || 100)} />
           <InfoRow label="Max Cost/Day" value={`$${props.maxCostPerDay || 5}`} />
           <InfoRow label="Language" value={props.language || "en"} />
+          <InfoRow label="Voice Language" value={props.voiceLanguage || props.language || "en"} />
+          <InfoRow label="ElevenLabs Voice ID" value={props.elevenLabsVoiceId || "org default"} />
         </div>
       </div>
 

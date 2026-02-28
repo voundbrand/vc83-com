@@ -1,16 +1,23 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react"
+import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, PanelRightClose } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useNotification } from "@/hooks/use-notification"
+import {
+  buildFrontlineFeatureIntakeKickoff,
+  summarizeToolBoundaryContext,
+} from "@/lib/ai/frontline-feature-intake"
 import { useQuery } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any }
 
 interface ToolExecution {
   id: string
   toolName: string
-  status: "running" | "success" | "error"
+  status: "proposed" | "approved" | "executing" | "running" | "success" | "error" | "rejected" | "cancelled"
   startTime: Date
   endTime?: Date
   input: Record<string, unknown>
@@ -27,6 +34,24 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const statusConfig = {
+    proposed: {
+      icon: Loader2,
+      color: 'var(--warning)',
+      bgColor: 'var(--warning-bg)',
+      animate: false
+    },
+    approved: {
+      icon: CheckCircle2,
+      color: 'var(--success)',
+      bgColor: 'var(--success-bg)',
+      animate: false
+    },
+    executing: {
+      icon: Loader2,
+      color: 'var(--info)',
+      bgColor: 'var(--info-bg)',
+      animate: true
+    },
     running: {
       icon: Loader2,
       color: 'var(--shell-text-dim)',
@@ -44,6 +69,18 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
       color: 'var(--error)',
       bgColor: 'var(--error-bg)',
       animate: false
+    },
+    rejected: {
+      icon: XCircle,
+      color: 'var(--shell-text-dim)',
+      bgColor: 'var(--shell-surface-elevated)',
+      animate: false
+    },
+    cancelled: {
+      icon: XCircle,
+      color: 'var(--shell-text-dim)',
+      bgColor: 'var(--shell-surface-elevated)',
+      animate: false
     }
   }
 
@@ -53,6 +90,22 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
   const duration = execution.endTime
     ? Math.round((execution.endTime.getTime() - execution.startTime.getTime()) / 1000)
     : null
+  const statusLabel =
+    execution.status === "proposed"
+      ? "Pending approval"
+      : execution.status === "approved"
+        ? "Approved"
+        : execution.status === "executing"
+          ? "Executing"
+          : execution.status === "rejected"
+            ? "Rejected"
+            : execution.status === "cancelled"
+              ? "Cancelled"
+              : execution.status === "success"
+                ? "Success"
+                : execution.status === "error"
+                  ? "Failed"
+                  : t("ui.ai_assistant.tool.running")
 
   return (
     <div
@@ -65,7 +118,7 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-2 p-2 hover-menu-item transition-colors"
       >
         <div className="flex-shrink-0">
           {isExpanded ? (
@@ -85,7 +138,7 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
           <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
             {duration !== null
               ? `${duration}s`
-              : t("ui.ai_assistant.tool.running")}
+              : statusLabel}
           </p>
         </div>
       </button>
@@ -153,19 +206,33 @@ function ToolExecutionItem({ execution }: ToolExecutionItemProps): ReactNode {
   )
 }
 
-export function ToolExecutionPanel() {
+interface ToolExecutionPanelProps {
+  onClose?: () => void
+}
+
+export function ToolExecutionPanel({ onClose }: ToolExecutionPanelProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { currentConversationId, organizationId } = useAIChatContext()
+  const {
+    chat,
+    currentConversationId,
+    organizationId,
+    setCurrentConversationId,
+    isSending,
+    setIsSending,
+  } = useAIChatContext()
+  const notification = useNotification()
   const [activeTab, setActiveTab] = useState<"tools" | "work">("tools")
+  const [frontlineExecutionId, setFrontlineExecutionId] = useState<string | null>(null)
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => any
 
   // Get tool executions for the current conversation
-  const toolExecutionsData = useQuery(
+  const toolExecutionsData = useQueryUntyped(
     api.ai.conversations.getToolExecutions,
     currentConversationId ? { conversationId: currentConversationId, limit: 20 } : "skip"
   )
 
   // Get work items (contact syncs + email campaigns)
-  const workItems = useQuery(
+  const workItems = useQueryUntyped(
     api.ai.workItems.getActiveWorkItems,
     organizationId ? { organizationId } : "skip"
   )
@@ -174,41 +241,110 @@ export function ToolExecutionPanel() {
   interface ConvexToolExecution {
     _id: string;
     toolName: string;
-    success?: boolean;
+    status?: string;
     error?: string;
     executedAt: number;
-    completedAt?: number;
-    input?: Record<string, unknown>;
-    output?: unknown;
+    durationMs?: number;
+    parameters?: Record<string, unknown>;
+    result?: unknown;
   }
 
   // Transform Convex data to match our interface
-  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: ConvexToolExecution) => ({
-    id: exec._id,
-    toolName: exec.toolName,
-    status: exec.success ? "success" : exec.error ? "error" : "running",
-    startTime: new Date(exec.executedAt),
-    endTime: exec.completedAt ? new Date(exec.completedAt) : undefined,
-    input: exec.input as Record<string, unknown>,
-    output: exec.output,
-    error: exec.error
-  }))
+  const executions: ToolExecution[] = (toolExecutionsData || []).map((exec: ConvexToolExecution) => {
+    const endTime = exec.durationMs ? new Date(exec.executedAt + exec.durationMs) : undefined
+    let status: ToolExecution["status"]
+    if (exec.status === "proposed") status = "proposed"
+    else if (exec.status === "approved") status = "approved"
+    else if (exec.status === "executing") status = "executing"
+    else if (exec.status === "success") status = "success"
+    else if (exec.status === "failed") status = "error"
+    else if (exec.status === "rejected") status = "rejected"
+    else if (exec.status === "cancelled") status = "cancelled"
+    else status = "running"
+
+    return {
+      id: exec._id,
+      toolName: exec.toolName,
+      status,
+      startTime: new Date(exec.executedAt),
+      endTime,
+      input: exec.parameters || {},
+      output: exec.result,
+      error: exec.error,
+    }
+  })
+
+  const latestFailedExecution = executions.find((execution) => execution.status === "error")
+
+  const handleStartFrontlineIntake = async () => {
+    if (!latestFailedExecution || isSending) {
+      return
+    }
+
+    const lastUserMessage = [...(chat.messages || [])]
+      .reverse()
+      .find((message) => message.role === "user")?.content
+    const boundaryReason =
+      summarizeToolBoundaryContext({
+        error: latestFailedExecution.error,
+        output: latestFailedExecution.output,
+      }) || "tool_execution_failed"
+    const kickoff = buildFrontlineFeatureIntakeKickoff({
+      trigger: "tool_failure",
+      failedToolName: latestFailedExecution.toolName,
+      boundaryReason,
+      lastUserMessage,
+    })
+
+    setFrontlineExecutionId(latestFailedExecution.id)
+    setIsSending(true)
+    try {
+      const result = await chat.sendMessage(kickoff, currentConversationId)
+      if (!currentConversationId && result.conversationId) {
+        setCurrentConversationId(result.conversationId)
+      }
+
+      notification.info(
+        "Let's Capture What's Missing",
+        "The assistant will ask what's missing and what you need, then prepare the feature request draft."
+      )
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to start intake."
+      notification.error(
+        "Unable to Start Intake",
+        errorMessage.length > 120 ? "Please retry in a moment." : errorMessage
+      )
+    } finally {
+      setFrontlineExecutionId(null)
+      setIsSending(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
       {/* Header with Tabs */}
       <div
-        className="border-b-2"
+        className="border-b"
         style={{
           borderColor: 'var(--shell-border-strong)',
-          background: 'var(--shell-title-bg)'
+          background: 'var(--shell-surface-elevated)'
         }}
       >
         <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: 'var(--shell-border-soft)' }}>
           <Wrench className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
+          <span className="flex-1 text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
             {t("ui.ai_assistant.tools.title")}
           </span>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="desktop-shell-button p-1 transition-colors"
+              style={{ color: "var(--shell-text)" }}
+              title="Close workflow drawer"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
 
         {/* Tab Buttons */}
@@ -240,6 +376,38 @@ export function ToolExecutionPanel() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-2">
+        {latestFailedExecution ? (
+          <div
+            className="mb-2 rounded border p-2"
+            style={{
+              borderColor: "var(--warning)",
+              background: "var(--warning-bg)",
+            }}
+          >
+            <p className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+              Looks like we hit a limit in {latestFailedExecution.toolName}
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--shell-text-dim)" }}>
+              Tell us what's missing and what you need, and we'll turn it into a clear feature request.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void handleStartFrontlineIntake()
+              }}
+              disabled={isSending}
+              className="mt-2 rounded border px-2 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                borderColor: "var(--shell-border-soft)",
+                background: "var(--shell-surface)",
+                color: "var(--shell-text)",
+              }}
+            >
+              {frontlineExecutionId === latestFailedExecution.id ? "Opening..." : "Tell Us What's Missing"}
+            </button>
+          </div>
+        ) : null}
+
         {activeTab === "tools" ? (
           executions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">

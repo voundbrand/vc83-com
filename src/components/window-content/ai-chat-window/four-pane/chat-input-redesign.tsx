@@ -14,6 +14,7 @@ import {
   consumeVoiceAgentCoCreationHandoff,
   VOICE_AGENT_HANDOFF_EVENT,
 } from "@/lib/voice-assistant/agent-co-creation-handoff"
+import { buildFrontlineFeatureIntakeKickoff } from "@/lib/ai/frontline-feature-intake"
 
 // Provider icons
 const PROVIDER_INFO: Record<string, { icon: typeof Brain; color: string }> = {
@@ -155,7 +156,6 @@ export function ChatInput() {
     e.preventDefault()
     if (!message.trim() || isSending) return
 
-    // Check if AI is enabled and ready
     if (!settings?.enabled) {
       notification.error(
         "AI Features Not Enabled",
@@ -198,12 +198,7 @@ export function ChatInput() {
       // Parse error message for user-friendly feedback
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
 
-      if (errorMessage.includes("not enabled")) {
-        notification.error(
-          "AI Features Not Enabled",
-          "Please enable AI features in Organization Settings > AI."
-        )
-      } else if (
+      if (
         errorMessage.includes("CREDITS_EXHAUSTED") ||
         (errorMessage.toLowerCase().includes("not enough") && errorMessage.toLowerCase().includes("credit"))
       ) {
@@ -242,6 +237,41 @@ export function ChatInput() {
   const handleModelSelect = (model: string) => {
     setSelectedModel(model)
     setIsModelSelectorOpen(false)
+  }
+
+  const startFrontlineIntake = async () => {
+    if (isSending) return
+
+    const kickoff = buildFrontlineFeatureIntakeKickoff({
+      trigger: "manual_feedback",
+      lastUserMessage: message.trim() || undefined,
+    })
+
+    setMessage("")
+    setIsSending(true)
+    abortController.current = new AbortController()
+
+    try {
+      const result = await chat.sendMessage(kickoff, currentConversationId)
+
+      if (!currentConversationId && result.conversationId) {
+        setCurrentConversationId(result.conversationId)
+      }
+
+      notification.info(
+        "Let's Capture What's Missing",
+        "I asked the assistant to ask what's missing and what you need, then draft the feature request."
+      )
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      notification.error(
+        "Unable to Start Intake",
+        errorMessage.length > 100 ? "Please try again." : errorMessage
+      )
+    } finally {
+      setIsSending(false)
+      abortController.current = null
+    }
   }
 
   return (
@@ -300,13 +330,7 @@ export function ChatInput() {
           <button
             type="button"
             onClick={() => {
-              // Send a message to AI to start feature request flow
-              const featureRequestMessage = "I'd like to request a new feature";
-              setMessage(featureRequestMessage);
-              notification.info(
-                "Feedback",
-                "Type your feature idea and send it. The AI will help you submit it to the dev team!"
-              );
+              void startFrontlineIntake()
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--shell-hover-surface)';
@@ -320,11 +344,11 @@ export function ChatInput() {
               background: 'var(--shell-surface)',
               color: 'var(--shell-text-dim)'
             }}
-            title="Send feedback or request a new feature"
+            title="Tell us what's missing and what you need"
           >
             <Lightbulb className="w-4 h-4" />
             <span className="text-xs font-medium hidden sm:inline">
-              Feedback
+              Frontline
             </span>
           </button>
 

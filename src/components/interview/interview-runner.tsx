@@ -28,6 +28,7 @@ import {
 import {
   Send,
   Mic,
+  MicOff,
   Loader2,
   CheckCircle,
   HelpCircle,
@@ -46,6 +47,8 @@ import {
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { AIChatWindow } from "@/components/window-content/ai-chat-window";
 import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
+import { WebPublishingWindow } from "@/components/window-content/web-publishing-window";
+import { IntegrationsWindow } from "@/components/window-content/integrations-window";
 import {
   buildVoiceAgentCoCreationHandoffPayload,
   stageVoiceAgentCoCreationHandoff,
@@ -80,6 +83,17 @@ interface VoiceConsentSummary {
   memoryCandidateCount: number;
 }
 
+type VoiceCaptureState = "idle" | "listening" | "transcribing" | "error";
+
+interface VoiceTranscriptEntry {
+  id: string;
+  text: string;
+  source: "captured" | "system";
+  createdAt: number;
+}
+
+type DeployChannelChoice = "webchat" | "telegram" | "both";
+
 export function InterviewRunner({
   authSessionId,
   sessionId,
@@ -111,6 +125,7 @@ export function InterviewRunner({
   const [voicePreviewText, setVoicePreviewText] = useState(
     DEFAULT_VOICE_PREVIEW_TEXT,
   );
+  const [draftAnswer, setDraftAnswer] = useState("");
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const [isSavingVoicePreferences, setIsSavingVoicePreferences] =
     useState(false);
@@ -118,9 +133,23 @@ export function InterviewRunner({
   const [previewVoiceSessionId, setPreviewVoiceSessionId] = useState<
     string | null
   >(null);
+  const [captureVoiceSessionId, setCaptureVoiceSessionId] = useState<
+    string | null
+  >(null);
+  const [voiceCaptureState, setVoiceCaptureState] =
+    useState<VoiceCaptureState>("idle");
+  const [voiceCaptureError, setVoiceCaptureError] = useState<string | null>(
+    null,
+  );
+  const [voiceTranscriptEntries, setVoiceTranscriptEntries] = useState<
+    VoiceTranscriptEntry[]
+  >([]);
   const [isPreparingAgentHandoff, setIsPreparingAgentHandoff] = useState(false);
   const [agentHandoffFeedback, setAgentHandoffFeedback] = useState<string | null>(null);
   const voicePreferencesHydratedRef = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const captureChunksRef = useRef<Blob[]>([]);
 
   const context = useQuery(api.ai.interviewRunner.getCurrentContext as any, { sessionId } as any) as any;
   const progress = useQuery(api.ai.interviewRunner.getInterviewProgress as any, { sessionId } as any) as any;
@@ -160,28 +189,30 @@ export function InterviewRunner({
     voicePreferencesHydratedRef.current = true;
   }, [voicePreferences, voicePreferencesLoading]);
 
-  const handleSubmitAnswer = useCallback(async (answer: string) => {
-    if (!answer.trim()) return;
-    setIsProcessing(true);
-    setError(null);
-    try {
-      const result = await submitAnswer({ sessionId, answer });
+  const handleSubmitAnswer = useCallback(
+    async (answer: string): Promise<boolean> => {
+      const normalizedAnswer = answer.trim();
+      if (!normalizedAnswer) return false;
+      setIsProcessing(true);
+      setError(null);
+      try {
+        const result = await submitAnswer({ sessionId, answer: normalizedAnswer });
 
-      if (!result.success) {
-        setError(result.error || "Failed to process answer");
-        return;
-      }
+        if (!result.success) {
+          setError(result.error || "Failed to process answer");
+          return false;
+        }
 
-      // If interview completed, trigger callback
-      if (result.advanceResult?.isComplete) {
-        // Context will update via query, completion handled by useEffect
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to submit");
+        return false;
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [sessionId, submitAnswer]);
+    },
+    [sessionId, submitAnswer],
+  );
 
   const handleMemoryConsentDecision = useCallback(
     async (decision: "accept" | "decline") => {
@@ -335,6 +366,252 @@ export function InterviewRunner({
     voiceRuntime,
   ]);
 
+  const appendTranscriptEntry = useCallback(
+    (entry: Omit<VoiceTranscriptEntry, "id" | "createdAt">) => {
+      setVoiceTranscriptEntries((current) => {
+        const next: VoiceTranscriptEntry[] = [
+          ...current,
+          {
+            id: `voice:${Date.now()}:${Math.random().toString(16).slice(2)}`,
+            createdAt: Date.now(),
+            ...entry,
+          },
+        ];
+        return next.slice(-8);
+      });
+    },
+    [],
+  );
+
+  const releaseVoiceMediaStream = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }, []);
+
+  const closeCaptureSession = useCallback(
+    (voiceSessionIdToClose: string, reason: string) => {
+      void voiceRuntime
+        .closeSession({
+          voiceSessionId: voiceSessionIdToClose,
+          activeProviderId: voiceProviderId,
+          reason,
+        })
+        .catch(() => {});
+      setCaptureVoiceSessionId((current) =>
+        current === voiceSessionIdToClose ? null : current,
+      );
+    },
+    [voiceProviderId, voiceRuntime],
+  );
+
+  const ensureCaptureVoiceSession = useCallback(async () => {
+    if (captureVoiceSessionId) {
+      return captureVoiceSessionId;
+    }
+
+    const openedSession = await voiceRuntime.openSession({
+      requestedProviderId: voiceProviderId,
+      requestedVoiceId: voiceId.trim() || undefined,
+    });
+
+    if (openedSession.fallbackProviderId) {
+      setVoiceFeedback(
+        `Voice capture fallback active (${openedSession.requestedProviderId} -> ${openedSession.providerId}).`,
+      );
+    }
+
+    setCaptureVoiceSessionId(openedSession.voiceSessionId);
+    return openedSession.voiceSessionId;
+  }, [captureVoiceSessionId, voiceRuntime, voiceProviderId, voiceId]);
+
+  const transcribeCapturedAudio = useCallback(
+    async (voiceSessionIdToUse: string, audioBlob: Blob) => {
+      setVoiceCaptureState("transcribing");
+      try {
+        const result = await voiceRuntime.transcribeAudioBlob({
+          voiceSessionId: voiceSessionIdToUse,
+          blob: audioBlob,
+          requestedProviderId: voiceProviderId,
+          requestedVoiceId: voiceId.trim() || undefined,
+        });
+
+        if (!result.success || !result.text?.trim()) {
+          const transcriptError = result.error || "Voice transcription returned no text.";
+          setVoiceCaptureError(transcriptError);
+          setVoiceCaptureState("error");
+          appendTranscriptEntry({
+            source: "system",
+            text: `Voice transcript unavailable: ${transcriptError}`,
+          });
+          return;
+        }
+
+        const transcript = result.text.trim();
+        setDraftAnswer((current) =>
+          current.trim().length > 0 ? `${current.trim()} ${transcript}` : transcript,
+        );
+        appendTranscriptEntry({ source: "captured", text: transcript });
+        setVoiceCaptureError(null);
+        setVoiceCaptureState("idle");
+      } catch (err) {
+        const transcriptError =
+          err instanceof Error ? err.message : "Voice transcription failed.";
+        setVoiceCaptureError(transcriptError);
+        setVoiceCaptureState("error");
+        appendTranscriptEntry({
+          source: "system",
+          text: `Voice transcript unavailable: ${transcriptError}`,
+        });
+      } finally {
+        closeCaptureSession(voiceSessionIdToUse, "interview_voice_capture_complete");
+      }
+    },
+    [
+      appendTranscriptEntry,
+      closeCaptureSession,
+      voiceId,
+      voiceProviderId,
+      voiceRuntime,
+    ],
+  );
+
+  const stopVoiceCapture = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) {
+      releaseVoiceMediaStream();
+      if (voiceCaptureState !== "transcribing") {
+        setVoiceCaptureState("idle");
+      }
+      return;
+    }
+
+    if (recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  }, [releaseVoiceMediaStream, voiceCaptureState]);
+
+  const startVoiceCapture = useCallback(async () => {
+    if (voiceCaptureState === "listening" || voiceCaptureState === "transcribing") {
+      return;
+    }
+
+    if (!authSessionId) {
+      const authError = "Authentication session missing. Reload and try again.";
+      setVoiceCaptureError(authError);
+      setVoiceCaptureState("error");
+      appendTranscriptEntry({ source: "system", text: authError });
+      return;
+    }
+
+    if (
+      typeof window === "undefined"
+      || typeof window.MediaRecorder === "undefined"
+      || !navigator.mediaDevices?.getUserMedia
+    ) {
+      const unsupportedError =
+        "Voice capture requires MediaRecorder support. Use typed fallback on this device.";
+      setVoiceCaptureError(unsupportedError);
+      setVoiceCaptureState("error");
+      appendTranscriptEntry({ source: "system", text: unsupportedError });
+      return;
+    }
+
+    setVoiceCaptureError(null);
+    setVoiceCaptureState("idle");
+
+    try {
+      const voiceSessionIdForCapture = await ensureCaptureVoiceSession();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      captureChunksRef.current = [];
+
+      const preferredMimeTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ];
+      const supportedMimeType = preferredMimeTypes.find((mimeType) =>
+        window.MediaRecorder.isTypeSupported(mimeType),
+      );
+
+      const recorder = supportedMimeType
+        ? new window.MediaRecorder(stream, { mimeType: supportedMimeType })
+        : new window.MediaRecorder(stream);
+
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          captureChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onerror = () => {
+        setVoiceCaptureError("Voice capture failed. Use typed fallback.");
+        setVoiceCaptureState("error");
+      };
+      recorder.onstop = () => {
+        releaseVoiceMediaStream();
+        mediaRecorderRef.current = null;
+        const audioType = captureChunksRef.current[0]?.type || "audio/webm";
+        const audioBlob = new Blob(captureChunksRef.current, { type: audioType });
+        captureChunksRef.current = [];
+
+        if (!audioBlob.size) {
+          setVoiceCaptureState("idle");
+          return;
+        }
+
+        void transcribeCapturedAudio(voiceSessionIdForCapture, audioBlob);
+      };
+
+      recorder.start();
+      setVoiceCaptureState("listening");
+      appendTranscriptEntry({
+        source: "system",
+        text: "Listening now. Tap Stop Mic when you finish your answer.",
+      });
+    } catch (err) {
+      releaseVoiceMediaStream();
+      const startError =
+        err instanceof Error ? err.message : "Unable to start voice capture.";
+      setVoiceCaptureError(startError);
+      setVoiceCaptureState("error");
+      appendTranscriptEntry({ source: "system", text: startError });
+      if (captureVoiceSessionId) {
+        closeCaptureSession(captureVoiceSessionId, "interview_voice_capture_failed_to_start");
+      }
+    }
+  }, [
+    appendTranscriptEntry,
+    authSessionId,
+    captureVoiceSessionId,
+    closeCaptureSession,
+    ensureCaptureVoiceSession,
+    releaseVoiceMediaStream,
+    transcribeCapturedAudio,
+    voiceCaptureState,
+  ]);
+
+  const toggleVoiceCapture = useCallback(() => {
+    if (voiceCaptureState === "listening") {
+      stopVoiceCapture();
+      return;
+    }
+    if (voiceCaptureState === "transcribing") {
+      return;
+    }
+    void startVoiceCapture();
+  }, [startVoiceCapture, stopVoiceCapture, voiceCaptureState]);
+
+  const handleQuestionSubmit = useCallback(
+    async (answer: string) => {
+      const submitted = await handleSubmitAnswer(answer);
+      if (submitted) {
+        setDraftAnswer("");
+      }
+    },
+    [handleSubmitAnswer],
+  );
+
   const handleAgentForThis = useCallback(() => {
     if (!context?.contentDNAId) {
       setError("Content DNA must be saved before creating an agent handoff.");
@@ -403,6 +680,44 @@ export function InterviewRunner({
     }
   }, [contentDNAObject, context, openWindow, sessionId]);
 
+  const openDeployWebchatHandoff = useCallback(() => {
+    openWindow(
+      "webchat-deployment",
+      "Webchat Deployment",
+      <WebPublishingWindow initialTab="webchat-deployment" />,
+      { x: 125, y: 65 },
+      { width: 1000, height: 680 },
+      undefined,
+      "webchat-deployment",
+      {
+        initialTab: "webchat-deployment",
+        initialPanel: "webchat-deployment",
+        openContext: "onboarding_completion_webchat",
+      },
+    );
+  }, [openWindow]);
+
+  const openDeployTelegramHandoff = useCallback(() => {
+    openWindow(
+      "integrations",
+      "Integrations & API",
+      <IntegrationsWindow initialPanel="telegram" />,
+      { x: 150, y: 100 },
+      { width: 900, height: 650 },
+      "ui.windows.integrations.title",
+      "integrations",
+      {
+        initialPanel: "telegram",
+        openContext: "onboarding_completion_telegram",
+      },
+    );
+  }, [openWindow]);
+
+  const openDeployBothHandoff = useCallback(() => {
+    openDeployWebchatHandoff();
+    openDeployTelegramHandoff();
+  }, [openDeployTelegramHandoff, openDeployWebchatHandoff]);
+
   useEffect(() => {
     return () => {
       if (!previewVoiceSessionId) {
@@ -417,6 +732,36 @@ export function InterviewRunner({
         .catch(() => {});
     };
   }, [previewVoiceSessionId, voiceProviderId, voiceRuntime]);
+
+  useEffect(() => {
+    if (!context?.question?.questionId) {
+      return;
+    }
+    setDraftAnswer("");
+    setVoiceCaptureError(null);
+    setVoiceTranscriptEntries([]);
+    setShowHelp(false);
+    if (voiceCaptureState === "listening") {
+      stopVoiceCapture();
+    }
+  }, [context?.question?.questionId, stopVoiceCapture, voiceCaptureState]);
+
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+      }
+      releaseVoiceMediaStream();
+      if (captureVoiceSessionId) {
+        closeCaptureSession(captureVoiceSessionId, "interview_voice_capture_dispose");
+      }
+    };
+  }, [
+    captureVoiceSessionId,
+    closeCaptureSession,
+    releaseVoiceMediaStream,
+  ]);
 
   if (!context || !progress) {
     return (
@@ -465,6 +810,9 @@ export function InterviewRunner({
         onAgentForThis={handleAgentForThis}
         isPreparingAgentHandoff={isPreparingAgentHandoff}
         agentHandoffFeedback={agentHandoffFeedback}
+        onDeployWebchat={openDeployWebchatHandoff}
+        onDeployTelegram={openDeployTelegramHandoff}
+        onDeployBoth={openDeployBothHandoff}
         onExit={onExit}
         className={className}
         tx={tx}
@@ -487,6 +835,24 @@ export function InterviewRunner({
       </InteriorRoot>
     );
   }
+
+  const isListening = voiceCaptureState === "listening";
+  const isTranscribing = voiceCaptureState === "transcribing";
+  const voiceCaptureStatusLabel = isListening
+    ? "Listening"
+    : isTranscribing
+      ? "Transcribing"
+      : voiceCaptureState === "error"
+        ? "Needs Attention"
+        : "Ready";
+  const trainingCadenceLabel =
+    context.trainingMode?.cadence === "ongoing"
+      ? "Ongoing recursion"
+      : "First-run calibration";
+  const coachingTrackLabel =
+    context.trainingMode?.coachingTrack === "team"
+      ? "Team coaching"
+      : "One-on-one coaching";
 
   return (
     <InteriorRoot className={`flex h-full flex-col ${className}`}>
@@ -511,8 +877,8 @@ export function InterviewRunner({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="mx-auto max-w-5xl">
           {context.adaptiveSession && (
             <InteriorPanel
               className="mb-4 space-y-2 p-4"
@@ -531,6 +897,9 @@ export function InterviewRunner({
                 {context.adaptiveSession.progressivePrompt}
               </p>
               <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Soul-binding mode: {trainingCadenceLabel} · {coachingTrackLabel}.
+              </p>
+              <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                 Active checkpoint: {context.activeConsentCheckpointId || "cp0_capture_notice"}.
                 Source attribution remains visible at each checkpoint before any save.
               </p>
@@ -547,15 +916,15 @@ export function InterviewRunner({
             </InteriorPanel>
           )}
 
-          <InteriorPanel className="p-6">
-            <div className="mb-6">
+          <InteriorPanel className="p-4 md:p-6">
+            <div className="mb-5">
               <p
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: "var(--desktop-menu-text-muted)" }}
               >
                 Adaptive prompt
               </p>
-              <p className="text-lg leading-relaxed" style={{ color: "var(--window-document-text)" }}>
+              <p className="mt-1 text-lg leading-relaxed" style={{ color: "var(--window-document-text)" }}>
                 {context.question.promptText}
               </p>
               {context.question.helpText && (
@@ -582,137 +951,243 @@ export function InterviewRunner({
               )}
             </div>
 
-            <QuestionInput
-              questionId={context.question.questionId}
-              expectedDataType={context.question.expectedDataType}
-              validationRules={context.question.validationRules}
-              onSubmit={handleSubmitAnswer}
-              isProcessing={isProcessing}
-              onToggleVoiceControls={() => {
-                setShowVoiceControls((current) => !current);
-              }}
-              isVoiceControlsOpen={showVoiceControls}
-              tx={tx}
-            />
-
-            {showVoiceControls && (
-              <InteriorPanel
-                className="mt-4 space-y-3 p-4"
-                style={{
-                  borderColor: "var(--window-document-border)",
-                  background: "var(--desktop-shell-accent)",
-                }}
+            <div className="grid gap-4 lg:min-h-[34rem] lg:grid-cols-[minmax(18rem,0.95fr)_minmax(0,1.35fr)]">
+              <div
+                className="flex min-h-[22rem] flex-col justify-between rounded border p-4"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
               >
                 <div>
                   <p
-                    className="text-sm font-medium"
-                    style={{ color: "var(--window-document-text)" }}
-                  >
-                    Voice runtime preferences
-                  </p>
-                  <p
-                    className="text-xs mt-1"
+                    className="text-xs font-semibold uppercase tracking-wide"
                     style={{ color: "var(--desktop-menu-text-muted)" }}
                   >
-                    Deterministic order: user preference, then org default voice,
-                    then browser fallback when provider health degrades.
+                    Voice orb
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    State: {voiceCaptureStatusLabel}. Voice and typed fallback stay in the same consent path.
                   </p>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label
-                      className="block text-xs mb-1"
-                      style={{ color: "var(--desktop-menu-text-muted)" }}
-                    >
-                      Preferred provider
-                    </label>
-                    <select
-                      value={voiceProviderId}
-                      onChange={(event) =>
-                        setVoiceProviderId(
-                          event.target.value === "elevenlabs"
-                            ? "elevenlabs"
-                            : "browser",
-                        )
-                      }
-                      className="desktop-interior-input w-full text-sm"
-                    >
-                      <option value="browser">Browser fallback</option>
-                      <option value="elevenlabs">ElevenLabs</option>
-                    </select>
+                <div className="my-4 flex flex-col items-center gap-3">
+                  <div
+                    className={`interview-voice-orb ${
+                      isListening
+                        ? "interview-voice-orb-listening"
+                        : isTranscribing
+                          ? "interview-voice-orb-transcribing"
+                          : voiceCaptureState === "error"
+                            ? "interview-voice-orb-error"
+                            : ""
+                    }`}
+                  >
+                    <span className="interview-voice-orb-core" />
                   </div>
-
-                  <div>
-                    <label
-                      className="block text-xs mb-1"
-                      style={{ color: "var(--desktop-menu-text-muted)" }}
-                    >
-                      Preferred voice ID (optional)
-                    </label>
-                    <input
-                      value={voiceId}
-                      onChange={(event) => setVoiceId(event.target.value)}
-                      placeholder="voice_xxxxx"
-                      className="desktop-interior-input w-full text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs mb-1"
-                    style={{ color: "var(--desktop-menu-text-muted)" }}
-                  >
-                    Preview text
-                  </label>
-                  <textarea
-                    value={voicePreviewText}
-                    onChange={(event) => setVoicePreviewText(event.target.value)}
-                    rows={2}
-                    className="desktop-interior-textarea w-full text-sm"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
                   <InteriorButton
-                    onClick={handleSaveVoicePreferences}
-                    disabled={isSavingVoicePreferences}
-                    size="sm"
-                    variant="subtle"
-                    className="gap-2"
+                    onClick={toggleVoiceCapture}
+                    disabled={isProcessing || isTranscribing}
+                    variant={isListening ? "danger" : "primary"}
+                    className="w-full max-w-56 gap-2 justify-center"
                   >
-                    {isSavingVoicePreferences ? (
+                    {isTranscribing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    Save voice preference
-                  </InteriorButton>
-                  <InteriorButton
-                    onClick={handlePreviewVoice}
-                    disabled={isPreviewingVoice}
-                    size="sm"
-                    variant="primary"
-                    className="gap-2"
-                  >
-                    {isPreviewingVoice ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isListening ? (
+                      <MicOff className="h-4 w-4" />
                     ) : (
                       <Mic className="h-4 w-4" />
                     )}
-                    Preview voice
+                    {isListening ? "Stop Mic" : isTranscribing ? "Transcribing..." : "Start Mic"}
                   </InteriorButton>
                 </div>
 
-                {voiceFeedback && (
-                  <p
-                    className="text-xs"
-                    style={{ color: "var(--desktop-menu-text-muted)" }}
+                <div className="space-y-2">
+                  <div className="max-h-44 space-y-1 overflow-y-auto rounded border p-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    {voiceTranscriptEntries.length === 0 ? (
+                      <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Transcript appears here after each recorded answer.
+                      </p>
+                    ) : (
+                      voiceTranscriptEntries.map((entry) => (
+                        <p
+                          key={entry.id}
+                          className="text-xs"
+                          style={{
+                            color:
+                              entry.source === "captured"
+                                ? "var(--window-document-text)"
+                                : "var(--desktop-menu-text-muted)",
+                          }}
+                        >
+                          {entry.text}
+                        </p>
+                      ))
+                    )}
+                  </div>
+                  {voiceCaptureError && (
+                    <p className="text-xs" style={{ color: "var(--error)" }}>
+                      {voiceCaptureError}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <InteriorPanel
+                  className="space-y-3 p-4"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--desktop-shell-accent)",
+                  }}
+                >
+                  <div>
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "var(--window-document-text)" }}
+                    >
+                      Typed fallback
+                    </p>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--desktop-menu-text-muted)" }}
+                    >
+                      You can always type, even while voice runtime providers degrade.
+                    </p>
+                  </div>
+                  <QuestionInput
+                    questionId={context.question.questionId}
+                    value={draftAnswer}
+                    onValueChange={setDraftAnswer}
+                    expectedDataType={context.question.expectedDataType}
+                    validationRules={context.question.validationRules}
+                    onSubmit={handleQuestionSubmit}
+                    isProcessing={isProcessing}
+                    onToggleVoiceControls={() => {
+                      setShowVoiceControls((current) => !current);
+                    }}
+                    isVoiceControlsOpen={showVoiceControls}
+                    tx={tx}
+                  />
+                </InteriorPanel>
+
+                {showVoiceControls && (
+                  <InteriorPanel
+                    className="space-y-3 p-4"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--desktop-shell-accent)",
+                    }}
                   >
-                    {voiceFeedback}
-                  </p>
+                    <div>
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: "var(--window-document-text)" }}
+                      >
+                        Voice runtime preferences
+                      </p>
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: "var(--desktop-menu-text-muted)" }}
+                      >
+                        Deterministic order: user preference, then org default voice,
+                        then browser fallback when provider health degrades.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <label
+                          className="block text-xs mb-1"
+                          style={{ color: "var(--desktop-menu-text-muted)" }}
+                        >
+                          Preferred provider
+                        </label>
+                        <select
+                          value={voiceProviderId}
+                          onChange={(event) =>
+                            setVoiceProviderId(
+                              event.target.value === "elevenlabs"
+                                ? "elevenlabs"
+                                : "browser",
+                            )
+                          }
+                          className="desktop-interior-input w-full text-sm"
+                        >
+                          <option value="browser">Browser fallback</option>
+                          <option value="elevenlabs">ElevenLabs</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label
+                          className="block text-xs mb-1"
+                          style={{ color: "var(--desktop-menu-text-muted)" }}
+                        >
+                          Preferred voice ID (optional)
+                        </label>
+                        <input
+                          value={voiceId}
+                          onChange={(event) => setVoiceId(event.target.value)}
+                          placeholder="voice_xxxxx"
+                          className="desktop-interior-input w-full text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        className="block text-xs mb-1"
+                        style={{ color: "var(--desktop-menu-text-muted)" }}
+                      >
+                        Preview text
+                      </label>
+                      <textarea
+                        value={voicePreviewText}
+                        onChange={(event) => setVoicePreviewText(event.target.value)}
+                        rows={2}
+                        className="desktop-interior-textarea w-full text-sm"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <InteriorButton
+                        onClick={handleSaveVoicePreferences}
+                        disabled={isSavingVoicePreferences}
+                        size="sm"
+                        variant="subtle"
+                        className="gap-2"
+                      >
+                        {isSavingVoicePreferences ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : null}
+                        Save voice preference
+                      </InteriorButton>
+                      <InteriorButton
+                        onClick={handlePreviewVoice}
+                        disabled={isPreviewingVoice}
+                        size="sm"
+                        variant="primary"
+                        className="gap-2"
+                      >
+                        {isPreviewingVoice ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                        Preview voice
+                      </InteriorButton>
+                    </div>
+
+                    {voiceFeedback && (
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--desktop-menu-text-muted)" }}
+                      >
+                        {voiceFeedback}
+                      </p>
+                    )}
+                  </InteriorPanel>
                 )}
-              </InteriorPanel>
-            )}
+              </div>
+            </div>
 
             {error && (
               <InteriorPanel className="mt-4 flex items-center gap-2 p-3 text-sm" style={{ borderColor: "var(--error)", background: "var(--error-bg)", color: "var(--error)" }}>
@@ -728,7 +1203,7 @@ export function InterviewRunner({
         className="border-t p-4"
         style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
-        <div className="max-w-2xl mx-auto space-y-3">
+        <div className="max-w-5xl mx-auto space-y-3">
           {showDiscardConfirm && (
             <InteriorPanel
               className="flex flex-col gap-2 p-3 text-sm"
@@ -765,7 +1240,7 @@ export function InterviewRunner({
               </div>
             </InteriorPanel>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <InteriorButton onClick={handlePauseAndExit} variant="ghost" size="sm" disabled={isPausing}>
               {isPausing
@@ -793,6 +1268,8 @@ export function InterviewRunner({
 
 interface QuestionInputProps {
   questionId: string;
+  value: string;
+  onValueChange: (value: string) => void;
   expectedDataType: "text" | "list" | "choice" | "rating" | "freeform";
   validationRules?: {
     minLength?: number;
@@ -811,6 +1288,8 @@ interface QuestionInputProps {
 
 function QuestionInput({
   questionId,
+  value,
+  onValueChange,
   expectedDataType,
   validationRules,
   onSubmit,
@@ -819,12 +1298,10 @@ function QuestionInput({
   isVoiceControlsOpen = false,
   tx,
 }: QuestionInputProps) {
-  const [answer, setAnswer] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    setAnswer("");
     setValidationError(null);
     textareaRef.current?.focus();
   }, [questionId]);
@@ -834,7 +1311,7 @@ function QuestionInput({
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [answer]);
+  }, [value]);
 
   const validate = useCallback((value: string): string | null => {
     if (!validationRules) return null;
@@ -857,11 +1334,11 @@ function QuestionInput({
   }, [tx, validationRules]);
 
   const handleSubmit = useCallback(() => {
-    const err = validate(answer);
+    const err = validate(value);
     if (err) { setValidationError(err); return; }
     setValidationError(null);
-    onSubmit(answer);
-  }, [answer, validate, onSubmit]);
+    onSubmit(value);
+  }, [onSubmit, validate, value]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
@@ -874,9 +1351,12 @@ function QuestionInput({
         {validationRules.options.map((option) => (
           <InteriorButton
             key={option}
-            onClick={() => onSubmit(option)}
+            onClick={() => {
+              onValueChange(option);
+              onSubmit(option);
+            }}
             disabled={isProcessing}
-            variant={answer === option ? "primary" : "subtle"}
+            variant={value === option ? "primary" : "subtle"}
             className="w-full justify-start"
           >
             {option}
@@ -893,16 +1373,20 @@ function QuestionInput({
     const range = Array.from({ length: max - min + 1 }, (_, i) => min + i);
     return (
       <div className="flex items-center gap-2 justify-center py-4">
-        {range.map((value) => (
+        {range.map((ratingValue) => (
           <InteriorButton
-            key={value}
-            onClick={() => onSubmit(String(value))}
+            key={ratingValue}
+            onClick={() => {
+              const normalized = String(ratingValue);
+              onValueChange(normalized);
+              onSubmit(normalized);
+            }}
             disabled={isProcessing}
-            variant={answer === String(value) ? "primary" : "subtle"}
+            variant={value === String(ratingValue) ? "primary" : "subtle"}
             size="sm"
             className="h-10 w-10 rounded-full px-0"
           >
-            {value}
+            {ratingValue}
           </InteriorButton>
         ))}
       </div>
@@ -915,8 +1399,8 @@ function QuestionInput({
       <div className="relative">
         <textarea
           ref={textareaRef}
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
             expectedDataType === "list"
@@ -940,7 +1424,7 @@ function QuestionInput({
           </InteriorButton>
           <InteriorButton
             onClick={handleSubmit}
-            disabled={isProcessing || !answer.trim()}
+            disabled={isProcessing || !value.trim()}
             variant="primary"
             size="sm"
             className="h-8 w-8 px-0"
@@ -953,7 +1437,7 @@ function QuestionInput({
       <div className="flex items-center justify-between text-xs">
         <div>{validationError && <span style={{ color: "var(--error)" }}>{validationError}</span>}</div>
         <div style={{ color: "var(--desktop-menu-text-muted)" }}>
-          {validationRules?.maxLength && <span>{answer.length}/{validationRules.maxLength}</span>}
+          {validationRules?.maxLength && <span>{value.length}/{validationRules.maxLength}</span>}
         </div>
       </div>
     </div>
@@ -969,6 +1453,9 @@ interface InterviewCompleteProps {
   onAgentForThis?: () => void;
   isPreparingAgentHandoff?: boolean;
   agentHandoffFeedback?: string | null;
+  onDeployWebchat?: () => void;
+  onDeployTelegram?: () => void;
+  onDeployBoth?: () => void;
   onExit?: () => void;
   className?: string;
   tx: (key: string, fallback: string, params?: Record<string, string | number>) => string;
@@ -1286,11 +1773,45 @@ function InterviewComplete({
   onAgentForThis,
   isPreparingAgentHandoff = false,
   agentHandoffFeedback = null,
+  onDeployWebchat,
+  onDeployTelegram,
+  onDeployBoth,
   onExit,
   className = "",
   tx,
 }: InterviewCompleteProps) {
   const dataCount = Object.keys(extractedData).length;
+  const [selectedDeployChoice, setSelectedDeployChoice] =
+    useState<DeployChannelChoice | null>(null);
+
+  const deploySetupPackets: Record<
+    Exclude<DeployChannelChoice, "both">,
+    { title: string; steps: string[] }
+  > = {
+    webchat: {
+      title: "Webchat setup packet",
+      steps: [
+        "Open Webchat Deployment with your current organization context.",
+        "Select the trained agent and confirm webchat channel binding is enabled.",
+        "Copy the bootstrap/config snippets and run one live visitor smoke test.",
+      ],
+    },
+    telegram: {
+      title: "Telegram setup packet",
+      steps: [
+        "Open Integrations > Telegram to continue onboarding.",
+        "Choose platform bot onboarding or deploy your custom BYOA bot token.",
+        "Validate one direct message and confirm delivery path in the Telegram panel.",
+      ],
+    },
+  };
+
+  const selectedPackets: Array<Exclude<DeployChannelChoice, "both">> =
+    selectedDeployChoice === "both"
+      ? ["webchat", "telegram"]
+      : selectedDeployChoice
+        ? [selectedDeployChoice]
+        : [];
 
   return (
     <InteriorRoot className={`flex flex-col items-center justify-center p-8 ${className}`}>
@@ -1306,6 +1827,7 @@ function InterviewComplete({
         </h2>
         <p className="mb-6" style={{ color: "var(--desktop-menu-text-muted)" }}>
           We've captured {dataCount} data points about your content style and preferences.
+          First-run calibration is designed to complete in about 15 minutes, then deploy handoff starts immediately.
         </p>
         <div className="flex flex-col gap-3">
           {contentDNAId && onViewResults && (
@@ -1333,6 +1855,74 @@ function InterviewComplete({
             <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
               {agentHandoffFeedback}
             </p>
+          )}
+          {(onDeployWebchat || onDeployTelegram || onDeployBoth) && (
+            <InteriorPanel className="space-y-2 p-3 text-left">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Deploy handoff
+              </p>
+              <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Choose where to deploy now. Setup packets stay inline so onboarding does not dead-end.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {onDeployWebchat && (
+                  <InteriorButton
+                    onClick={() => {
+                      setSelectedDeployChoice("webchat");
+                      onDeployWebchat();
+                    }}
+                    variant={selectedDeployChoice === "webchat" ? "primary" : "subtle"}
+                    size="sm"
+                  >
+                    Deploy to Webchat
+                  </InteriorButton>
+                )}
+                {onDeployTelegram && (
+                  <InteriorButton
+                    onClick={() => {
+                      setSelectedDeployChoice("telegram");
+                      onDeployTelegram();
+                    }}
+                    variant={selectedDeployChoice === "telegram" ? "primary" : "subtle"}
+                    size="sm"
+                  >
+                    Deploy to Telegram
+                  </InteriorButton>
+                )}
+                {onDeployBoth && (
+                  <InteriorButton
+                    onClick={() => {
+                      setSelectedDeployChoice("both");
+                      onDeployBoth();
+                    }}
+                    variant={selectedDeployChoice === "both" ? "primary" : "subtle"}
+                    size="sm"
+                  >
+                    Deploy to Both
+                  </InteriorButton>
+                )}
+              </div>
+              {selectedPackets.length > 0 && (
+                <div className="space-y-2">
+                  {selectedPackets.map((packetKey) => (
+                    <div
+                      key={packetKey}
+                      className="rounded border p-2"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                    >
+                      <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                        {deploySetupPackets[packetKey].title}
+                      </p>
+                      <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {deploySetupPackets[packetKey].steps.map((step) => (
+                          <li key={`${packetKey}:${step}`}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </InteriorPanel>
           )}
           <InteriorButton onClick={onExit} variant="subtle">
             {tx("ui.brain.learn.complete.actions.return", "Return to Dashboard")}

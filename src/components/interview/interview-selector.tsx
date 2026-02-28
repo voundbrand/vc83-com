@@ -24,6 +24,9 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
+  Repeat2,
+  UserRound,
+  Users,
 } from "lucide-react";
 import {
   InteriorButton,
@@ -52,6 +55,9 @@ interface InterviewTemplateListItem {
   };
 }
 
+type SoulBindingCadence = "first_run" | "ongoing";
+type CoachingTrack = "one_on_one" | "team";
+
 const MODE_CONFIG = {
   quick: { icon: Zap, label: "Quick", description: "Fast adaptive micro-sessions" },
   standard: { icon: BookOpen, label: "Standard", description: "Progressive trust capture flow" },
@@ -63,6 +69,14 @@ const MODE_ACCENT: Record<keyof typeof MODE_CONFIG, { border: string; bg: string
   standard: { border: "#4e6f98", bg: "rgba(104, 135, 177, 0.2)", icon: "#6887b1" },
   deep_discovery: { border: "#6f62a8", bg: "rgba(111, 98, 168, 0.2)", icon: "#988dd6" },
 };
+
+function buildTrainingExternalContactIdentifier(args: {
+  cadence: SoulBindingCadence;
+  coachingTrack: CoachingTrack;
+  timestamp: number;
+}): string {
+  return `training:${args.cadence}:${args.coachingTrack}:${args.timestamp}`;
+}
 
 export function InterviewSelector({
   sessionId,
@@ -77,6 +91,8 @@ export function InterviewSelector({
     return value === key ? fallback : value;
   };
   const [selectedTemplateId, setSelectedTemplateId] = useState<Id<"objects"> | null>(null);
+  const [trainingCadence, setTrainingCadence] = useState<SoulBindingCadence>("first_run");
+  const [coachingTrack, setCoachingTrack] = useState<CoachingTrack>("one_on_one");
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -116,11 +132,17 @@ export function InterviewSelector({
     setError(null);
 
     try {
+      const startedAt = Date.now();
       const result = await startInterview({
-        sessionId: `interview_${Date.now()}`,
+        sessionId: `interview_${trainingCadence}_${coachingTrack}_${startedAt}`,
         templateId: selectedTemplateId,
         organizationId,
         channel: "interview",
+        externalContactIdentifier: buildTrainingExternalContactIdentifier({
+          cadence: trainingCadence,
+          coachingTrack,
+          timestamp: startedAt,
+        }),
       });
 
       onStart(result.sessionId);
@@ -130,6 +152,9 @@ export function InterviewSelector({
       setIsStarting(false);
     }
   };
+
+  const coachingTrackLabel =
+    coachingTrack === "team" ? "Team coaching" : "One-on-one coaching";
 
   if (!templates) {
     return (
@@ -181,6 +206,80 @@ export function InterviewSelector({
     <InteriorRoot className={`flex h-full flex-col ${className}`}>
       <div className="flex-1 overflow-y-auto p-3">
         <div className="mx-auto max-w-3xl space-y-2">
+          <InteriorPanel
+            className="mb-2 space-y-3 p-3"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--desktop-shell-accent)",
+            }}
+          >
+            <div>
+              <p
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "var(--desktop-menu-text-muted)" }}
+              >
+                Soul-binding recursion
+              </p>
+              <p className="mt-1 text-sm" style={{ color: "var(--window-document-text)" }}>
+                Choose the training cycle and coaching track before launching this guided session.
+              </p>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs font-medium" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  Training cycle
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <InteriorButton
+                    onClick={() => setTrainingCadence("first_run")}
+                    size="sm"
+                    variant={trainingCadence === "first_run" ? "primary" : "subtle"}
+                    className="gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    First-run
+                  </InteriorButton>
+                  <InteriorButton
+                    onClick={() => setTrainingCadence("ongoing")}
+                    size="sm"
+                    variant={trainingCadence === "ongoing" ? "primary" : "subtle"}
+                    className="gap-1.5"
+                  >
+                    <Repeat2 className="h-3.5 w-3.5" />
+                    Ongoing
+                  </InteriorButton>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-medium" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  Coaching track
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <InteriorButton
+                    onClick={() => setCoachingTrack("one_on_one")}
+                    size="sm"
+                    variant={coachingTrack === "one_on_one" ? "primary" : "subtle"}
+                    className="gap-1.5"
+                  >
+                    <UserRound className="h-3.5 w-3.5" />
+                    One-on-one
+                  </InteriorButton>
+                  <InteriorButton
+                    onClick={() => setCoachingTrack("team")}
+                    size="sm"
+                    variant={coachingTrack === "team" ? "primary" : "subtle"}
+                    className="gap-1.5"
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Team coaching
+                  </InteriorButton>
+                </div>
+              </div>
+            </div>
+          </InteriorPanel>
+
           {templates.map((template) => {
             const props = template.customProperties;
 
@@ -275,7 +374,7 @@ export function InterviewSelector({
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                {tx("ui.brain.learn.selector.actions.start", "Start Interview")}
+                {tx("ui.brain.learn.selector.actions.start", `Start ${coachingTrackLabel}`)}
               </>
             )}
           </InteriorButton>

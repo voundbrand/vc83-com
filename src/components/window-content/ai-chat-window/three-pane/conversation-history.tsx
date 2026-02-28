@@ -1,16 +1,21 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, FolderOpen, Plus, Search, Layers, ExternalLink } from "lucide-react"
+import { MessageSquare, FolderOpen, Plus, Search, Layers, ExternalLink, PanelLeftClose } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import Link from "next/link"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
-export function ConversationHistory() {
+interface ConversationHistoryProps {
+  onClose?: () => void
+}
+
+export function ConversationHistory({ onClose }: ConversationHistoryProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { chat, currentConversationId, setCurrentConversationId } = useAIChatContext()
   const [searchQuery, setSearchQuery] = useState("")
+  const [hoveredConversationId, setHoveredConversationId] = useState<string | null>(null)
 
   // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
@@ -39,73 +44,75 @@ export function ConversationHistory() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* l4yercak3 Builder Link */}
+      {/* SevenLayers Builder Link */}
       <Link
         href="/builder"
-        className="flex items-center gap-2 p-3 border-b-2 transition-colors group"
+        className="flex items-center gap-2 p-3 border-b hover-menu-item transition-colors group"
         style={{
-          borderColor: 'var(--shell-border-strong)',
-          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+          borderColor: "var(--shell-border-strong)",
+          color: "var(--shell-text)",
         }}
       >
-        <Layers className="w-4 h-4 text-white" />
-        <span className="text-sm font-semibold text-white flex-1">
-          l4yercak3 Builder
+        <Layers className="w-4 h-4" style={{ color: "var(--shell-accent)" }} />
+        <span className="text-sm font-semibold flex-1">
+          SevenLayers Builder
         </span>
-        <ExternalLink className="w-3 h-3 text-white/70 group-hover:text-white transition-colors" />
+        <ExternalLink className="w-3 h-3 transition-colors" style={{ color: "var(--shell-text-dim)" }} />
       </Link>
 
       {/* Conversations Header */}
       <div
-        className="flex items-center justify-between p-3 border-b-2"
+        className="flex items-center justify-between p-3 border-b"
         style={{
-          borderColor: 'var(--shell-border-strong)',
-          background: 'var(--shell-title-bg)'
+          borderColor: "var(--shell-border-strong)",
+          background: "var(--shell-surface-elevated)",
         }}
       >
         <div className="flex items-center gap-2">
-          <FolderOpen className="w-4 h-4" style={{ color: 'var(--shell-text)' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--shell-text)' }}>
+          <FolderOpen className="w-4 h-4" style={{ color: "var(--shell-text)" }} />
+          <span className="text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
             {t("ui.ai_assistant.history.title")}
           </span>
         </div>
-        <button
-          onClick={handleNewChat}
-          className="p-1 rounded transition-colors"
-          style={{
-            color: 'var(--shell-text)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--shell-hover-bg)'
-            e.currentTarget.style.color = 'var(--shell-hover-text)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = 'var(--shell-text)'
-          }}
-          title={t("ui.ai_assistant.history.new_chat")}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleNewChat}
+            className="desktop-shell-button p-1 transition-colors"
+            style={{ color: "var(--shell-text)" }}
+            title={t("ui.ai_assistant.history.new_chat")}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="desktop-shell-button p-1 transition-colors"
+              style={{ color: "var(--shell-text)" }}
+              title="Close conversation history drawer"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* Search Bar */}
-      <div className="p-2 border-b" style={{ borderColor: 'var(--shell-border-soft)' }}>
+      <div className="p-2 border-b" style={{ borderColor: "var(--shell-border-soft)" }}>
         <div
           className="flex items-center gap-2 px-2 py-1 border rounded"
           style={{
-            borderColor: 'var(--shell-border-strong)',
-            background: 'var(--shell-input-surface)'
+            borderColor: "var(--shell-border-strong)",
+            background: "var(--shell-input-surface)",
           }}
         >
-          <Search className="w-3 h-3" style={{ color: 'var(--shell-text-dim)' }} />
+          <Search className="w-3 h-3" style={{ color: "var(--shell-text-dim)" }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("ui.ai_assistant.history.search_placeholder")}
             className="flex-1 text-xs bg-transparent outline-none"
-            style={{ color: 'var(--shell-text)' }}
+            style={{ color: "var(--shell-text)" }}
           />
         </div>
       </div>
@@ -125,6 +132,7 @@ export function ConversationHistory() {
           <div className="p-1">
             {filteredConversations.map((conv: any) => {
               const isActive = currentConversationId === conv._id
+              const isHovered = hoveredConversationId === conv._id
               // Calculate message count from messages array
               const messageCount = chat.messages?.filter((msg: any) => msg.conversationId === conv._id).length || 0
 
@@ -132,31 +140,26 @@ export function ConversationHistory() {
                 <button
                   key={conv._id}
                   onClick={() => handleSelectConversation(conv._id)}
-                  className={`w-full text-left p-2 mb-1 rounded transition-colors ${
-                    isActive ? 'border-l-2' : ''
-                  }`}
+                  onMouseEnter={() => setHoveredConversationId(conv._id)}
+                  onMouseLeave={() => setHoveredConversationId((current) => (current === conv._id ? null : current))}
+                  className="w-full text-left p-2 mb-1 rounded border transition-colors duration-120"
                   style={isActive ? {
-                    borderColor: 'var(--shell-accent)',
-                    background: 'var(--shell-surface-elevated)',
-                    color: 'var(--shell-text)'
+                    borderColor: "var(--shell-neutral-active-border)",
+                    background: "var(--shell-selection-surface)",
+                    color: "var(--shell-selection-text)",
+                  } : isHovered ? {
+                    borderColor: "transparent",
+                    background: "var(--shell-neutral-hover-surface)",
+                    color: "var(--shell-input-text)",
                   } : {
-                    color: 'var(--shell-text)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'var(--shell-hover-surface)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                    }
+                    borderColor: "transparent",
+                    color: "var(--shell-text)",
                   }}
                 >
                   <div className="flex items-start gap-2">
-                    <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: 'currentColor' }} />
+                    <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "currentColor" }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: 'currentColor' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: "currentColor" }}>
                         {conv.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1 text-xs opacity-70">
@@ -177,8 +180,8 @@ export function ConversationHistory() {
       <div
         className="p-2 border-t text-xs"
         style={{
-          borderColor: 'var(--shell-border-soft)',
-          color: 'var(--shell-text-dim)'
+          borderColor: "var(--shell-border-soft)",
+          color: "var(--shell-text-dim)",
         }}
       >
         {filteredConversations.length} {t("ui.ai_assistant.history.conversations")}

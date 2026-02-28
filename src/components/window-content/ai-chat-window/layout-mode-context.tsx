@@ -1,12 +1,13 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 
-export type LayoutMode = "single" | "three-pane" | "four-pane"
+export type LayoutMode = "slick" | "single" | "three-pane" | "four-pane"
 
 interface LayoutModeContextType {
   mode: LayoutMode
   setMode: (mode: LayoutMode) => void
+  switchToSlick: () => void
   switchToSinglePane: () => void
   switchToThreePane: () => void
   switchToFourPane: () => void
@@ -14,9 +15,30 @@ interface LayoutModeContextType {
 
 const LayoutModeContext = createContext<LayoutModeContextType | undefined>(undefined)
 
-export function LayoutModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<LayoutMode>("single") // Default to simple Codex-like view
+const isLayoutMode = (value: unknown): value is LayoutMode =>
+  value === "slick" || value === "single" || value === "three-pane" || value === "four-pane"
 
+const normalizeLayoutMode = (mode: LayoutMode | undefined): LayoutMode => {
+  if (!mode) {
+    return "slick"
+  }
+  return isLayoutMode(mode) ? mode : "slick"
+}
+
+export function LayoutModeProvider({
+  children,
+  initialMode,
+}: {
+  children: ReactNode
+  initialMode?: LayoutMode
+}) {
+  const [mode, setMode] = useState<LayoutMode>(() => normalizeLayoutMode(initialMode))
+
+  useEffect(() => {
+    setMode(normalizeLayoutMode(initialMode))
+  }, [initialMode])
+
+  const switchToSlick = () => setMode("slick")
   const switchToSinglePane = () => setMode("single")
   const switchToThreePane = () => setMode("three-pane")
   const switchToFourPane = () => setMode("four-pane")
@@ -26,6 +48,7 @@ export function LayoutModeProvider({ children }: { children: ReactNode }) {
       value={{
         mode,
         setMode,
+        switchToSlick,
         switchToSinglePane,
         switchToThreePane,
         switchToFourPane,

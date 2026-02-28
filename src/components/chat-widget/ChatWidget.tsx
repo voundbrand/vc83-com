@@ -120,6 +120,23 @@ export interface ChatWidgetProps {
 // ============================================================================
 
 const STORAGE_KEY_PREFIX = "l4yercak3_webchat_";
+const PUBLIC_OPERATOR_NAME_FALLBACK = "Operator";
+const INTERNAL_OPERATOR_NAME_PATTERN = /\b(midwife|quin|quinn|worker\s*\d+)\b/i;
+const GENERIC_AGENT_LABEL_PATTERN = /^(the\s+)?(ai\s+)?agent$/i;
+
+function normalizePublicOperatorName(name?: string): string {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  if (INTERNAL_OPERATOR_NAME_PATTERN.test(trimmed)) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  if (GENERIC_AGENT_LABEL_PATTERN.test(trimmed)) {
+    return PUBLIC_OPERATOR_NAME_FALLBACK;
+  }
+  return trimmed;
+}
 
 function getStorageKey(agentId: string, key: string): string {
   return `${STORAGE_KEY_PREFIX}${agentId}_${key}`;
@@ -351,10 +368,11 @@ function parseWidgetConfigPayload(payload: unknown, fallbackAgentId: string): We
 
   const source = isRecord(payload.config) ? payload.config : payload;
   const customization = normalizeWebchatCustomizationContract(source);
-  const agentName =
+  const agentName = normalizePublicOperatorName(
     typeof source.agentName === "string" && source.agentName.trim().length > 0
-      ? source.agentName.trim()
-      : "AI Assistant";
+      ? source.agentName
+      : PUBLIC_OPERATOR_NAME_FALLBACK
+  );
   const avatar =
     typeof source.avatar === "string" && source.avatar.trim().length > 0
       ? source.avatar.trim()
@@ -490,7 +508,7 @@ export function ChatWidget({
 
     return {
       agentId: resolvedAgentId || config?.agentId || "",
-      agentName: config?.agentName || "AI Assistant",
+      agentName: normalizePublicOperatorName(config?.agentName),
       avatar: config?.avatar,
       ...normalized,
     };

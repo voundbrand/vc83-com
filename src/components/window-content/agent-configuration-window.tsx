@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Bot,
+  Crown,
   Plus,
   Play,
   Pause,
@@ -23,10 +24,20 @@ import {
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { AIChatWindow } from "@/components/window-content/ai-chat-window";
+import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
+import { DEFAULT_AGENT_MODEL_ID } from "@/lib/ai/model-defaults";
 import { CreditWall } from "@/components/credit-wall";
 import { CreditBalance } from "@/components/credit-balance";
 import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  canMakePrimaryInUi,
+  canPauseAgentInUi,
+  countActiveAgents,
+  isPrimaryAgentRecord,
+} from "./agents/primary-agent-ui";
 
 // ============================================================================
 // TYPES
@@ -56,6 +67,7 @@ interface AgentCustomProps {
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
   totalMessages?: number;
   totalCostUsd?: number;
+  isPrimary?: boolean;
 }
 
 const SUBTYPES = [
@@ -71,7 +83,7 @@ const CHANNELS = [
 ];
 
 const MODELS = [
-  { value: "anthropic/claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+  { value: DEFAULT_AGENT_MODEL_ID, label: "Claude Sonnet 4.5" },
   { value: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
   { value: "openai/gpt-4o", label: "GPT-4o" },
   { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
@@ -84,6 +96,15 @@ const MODELS = [
 
 export function AgentConfigurationWindow() {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.agents.configuration");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const currentOrg = useCurrentOrganization();
   const [activeTab, setActiveTab] = useState<TabType>("agents");
   const [editingAgentId, setEditingAgentId] = useState<Id<"objects"> | null>(null);
@@ -113,17 +134,23 @@ export function AgentConfigurationWindow() {
     return (
       <div className="h-full flex items-center justify-center" style={{ background: "var(--win95-bg)" }}>
         <p className="text-sm" style={{ color: "var(--win95-text)" }}>
-          Sign in and select an organization to manage agents.
+          {tx("auth.required", "Sign in and select an organization to manage agents.")}
         </p>
       </div>
     );
   }
 
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
-    { id: "agents", label: "Agents", icon: <Bot size={14} /> },
-    { id: "create", label: editingAgentId ? "Edit Agent" : "Create Agent", icon: <Plus size={14} /> },
-    { id: "activity", label: "Activity", icon: <Activity size={14} /> },
-    { id: "approvals", label: "Approvals", icon: <Shield size={14} /> },
+    { id: "agents", label: tx("tabs.agents", "Agents"), icon: <Bot size={14} /> },
+    {
+      id: "create",
+      label: editingAgentId
+        ? tx("tabs.edit_agent", "Edit Agent")
+        : tx("tabs.create_agent", "Create Agent"),
+      icon: <Plus size={14} />,
+    },
+    { id: "activity", label: tx("tabs.activity", "Activity"), icon: <Activity size={14} /> },
+    { id: "approvals", label: tx("tabs.approvals", "Approvals"), icon: <Shield size={14} /> },
   ];
 
   return (
@@ -186,7 +213,16 @@ export function AgentConfigurationWindow() {
             boxShadow: "inset 3px 0 0 var(--warning)",
           }}
         >
-          <span>Credits running low ({creditBalance.totalCredits} remaining of {creditBalance.monthlyCreditsTotal} monthly). Agents may stop responding when credits run out.</span>
+          <span>
+            {tx(
+              "credits.low_warning",
+              "Credits running low ({{remaining}} remaining of {{monthly}} monthly). Agents may stop responding when credits run out.",
+              {
+                remaining: creditBalance.totalCredits,
+                monthly: creditBalance.monthlyCreditsTotal,
+              }
+            )}
+          </span>
         </div>
       )}
 
@@ -247,33 +283,69 @@ function AgentsListTab({
   organizationId: Id<"organizations">;
   onEdit: (id: Id<"objects">) => void;
 }) {
+  const { t } = useNamespaceTranslations("ui.agents.configuration");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const { openWindow } = useWindowManager();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agents = useQuery(api.agentOntology.getAgents, { sessionId, organizationId }) as any[] | undefined;
   const activateAgent = useMutation(api.agentOntology.activateAgent);
   const pauseAgent = useMutation(api.agentOntology.pauseAgent);
+  const setPrimaryAgent = useMutation(api.agentOntology.setPrimaryAgent);
   const deleteAgent = useMutation(api.agentOntology.deleteAgent);
 
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const openAgentBuilder = () => { openWindow("builder", "Agent Setup Wizard", null, { x: 80, y: 40 }, { width: 1100, height: 750 }, undefined, undefined, { initialSetupMode: true }); };
+  const openAgentBuilder = () => {
+    const aiAssistantWindowContract = getVoiceAssistantWindowContract("ai-assistant");
+    openWindow(
+      aiAssistantWindowContract.windowId,
+      aiAssistantWindowContract.title,
+      <AIChatWindow initialLayoutMode="slick" />,
+      aiAssistantWindowContract.position,
+      aiAssistantWindowContract.size,
+      aiAssistantWindowContract.titleKey,
+      aiAssistantWindowContract.iconId,
+      {
+        openContext: "agent_configuration_window",
+        initialLayoutMode: "slick",
+        initialPanel: "agent-creation",
+        sourceSessionId: sessionId,
+        sourceOrganizationId: String(organizationId),
+      }
+    );
+  };
   if (!agents) {
-    return <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>Loading agents...</div>;
+    return (
+      <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>
+        {tx("agents_list.loading", "Loading agents...")}
+      </div>
+    );
   }
+  const activeAgentCount = countActiveAgents(agents);
 
   if (agents.length === 0) {
     return (
       <div className="p-8 text-center">
         <Bot size={48} className="mx-auto mb-4 opacity-30" />
         <p className="text-sm font-medium mb-2" style={{ color: "var(--win95-text)" }}>
-          No agents configured
+          {tx("agents_list.empty.title", "No agents configured")}
         </p>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-          Create your first AI agent to start handling customer conversations automatically.
+          {tx(
+            "agents_list.empty.description",
+            "Create your first AI agent to start handling customer conversations automatically."
+          )}
         </p>
         <button
           onClick={openAgentBuilder}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-medium mx-auto border-2 hover:brightness-110 transition-all"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-medium mx-auto border hover:brightness-110 transition-colors"
           style={{
             background: "var(--win95-highlight)",
             borderColor: "var(--win95-border)",
@@ -281,7 +353,7 @@ function AgentsListTab({
           }}
         >
           <Sparkles size={14} />
-          New Agent (AI Setup)
+          {tx("agents_list.new_agent_setup", "New Agent (AI Setup)")}
         </button>
       </div>
     );
@@ -292,11 +364,14 @@ function AgentsListTab({
       {/* Header with New Agent button */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium" style={{ color: "var(--neutral-gray)" }}>
-          {agents.length} agent{agents.length !== 1 ? "s" : ""}
+          {agents.length}{" "}
+          {agents.length === 1
+            ? tx("agents_list.count.agent", "agent")
+            : tx("agents_list.count.agents", "agents")}
         </span>
         <button
           onClick={openAgentBuilder}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border hover:brightness-110 transition-all"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border hover:brightness-110 transition-colors"
           style={{
             background: "var(--win95-highlight)",
             borderColor: "var(--win95-border)",
@@ -304,21 +379,24 @@ function AgentsListTab({
           }}
         >
           <Sparkles size={12} />
-          New Agent
+          {tx("agents_list.new_agent", "New Agent")}
         </button>
       </div>
       <div className="space-y-2">
         {agents.map((agent) => {
           const props = (agent.customProperties || {}) as AgentCustomProps;
           const isDeleting = confirmDelete === agent._id;
+          const isPrimary = isPrimaryAgentRecord(agent);
+          const canPause = canPauseAgentInUi(agent, activeAgentCount);
+          const canMakePrimary = canMakePrimaryInUi(agent);
 
           return (
             <div
               key={agent._id}
-              className="border-2 p-3 flex items-center gap-3"
+              className="border p-3 flex items-center gap-3"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light, #fff)",
+                background: "var(--win95-bg-light)",
               }}
             >
               {/* Status indicator */}
@@ -338,6 +416,18 @@ function AgentsListTab({
                   <span className="text-sm font-medium truncate" style={{ color: "var(--win95-text)" }}>
                     {agent.name}
                   </span>
+                  {isPrimary && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded border"
+                      style={{
+                        borderColor: "var(--win95-border)",
+                        background: "var(--warning)",
+                        color: "#111827",
+                      }}
+                    >
+                      {tx("agents_list.primary_badge", "Primary")}
+                    </span>
+                  )}
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded"
                     style={{
@@ -349,9 +439,11 @@ function AgentsListTab({
                   </span>
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                  <span>{props.autonomyLevel || "supervised"}</span>
-                  <span>{props.modelId?.split("/").pop() || "claude-sonnet-4"}</span>
-                  <span>{props.totalMessages || 0} msgs</span>
+                  <span>{props.autonomyLevel || tx("agents_list.defaults.supervised", "supervised")}</span>
+                  <span>{props.modelId?.split("/").pop() || tx("agents_list.defaults.model", "claude-sonnet-4")}</span>
+                  <span>
+                    {props.totalMessages || 0} {tx("agents_list.metrics.msgs", "msgs")}
+                  </span>
                   <span>${(props.totalCostUsd || 0).toFixed(2)}</span>
                 </div>
               </div>
@@ -360,21 +452,52 @@ function AgentsListTab({
               <div className="flex items-center gap-1 flex-shrink-0">
                 {agent.status === "active" ? (
                   <button
-                    onClick={() => pauseAgent({ sessionId, agentId: agent._id })}
-                    className="p-1.5 border hover:bg-yellow-50"
+                    onClick={() => {
+                      if (!canPause) {
+                        return;
+                      }
+                      void pauseAgent({ sessionId, agentId: agent._id });
+                    }}
+                    disabled={!canPause}
+                    className="p-1.5 border hover:bg-yellow-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ borderColor: "var(--win95-border)" }}
-                    title="Pause agent"
+                    title={
+                      canPause
+                        ? tx("agents_list.actions.pause", "Pause agent")
+                        : tx(
+                          "agents_list.actions.pause_primary_blocked",
+                          "Primary agent cannot be paused while it is the only active agent"
+                        )
+                    }
                   >
                     <Pause size={12} />
                   </button>
                 ) : (
                   <button
-                    onClick={() => activateAgent({ sessionId, agentId: agent._id })}
+                    onClick={() => {
+                      void activateAgent({ sessionId, agentId: agent._id });
+                    }}
                     className="p-1.5 border hover:bg-green-50"
                     style={{ borderColor: "var(--win95-border)" }}
-                    title="Activate agent"
+                    title={tx("agents_list.actions.activate", "Activate agent")}
                   >
                     <Play size={12} />
+                  </button>
+                )}
+                {canMakePrimary && (
+                  <button
+                    onClick={() => {
+                      void setPrimaryAgent({
+                        sessionId,
+                        agentId: agent._id,
+                        reason: "agent_configuration_window_make_primary",
+                      });
+                    }}
+                    className="p-1.5 border hover:bg-amber-50"
+                    style={{ borderColor: "var(--win95-border)" }}
+                    title={tx("agents_list.actions.make_primary", "Make Primary")}
+                  >
+                    <Crown size={12} />
                   </button>
                 )}
 
@@ -382,7 +505,7 @@ function AgentsListTab({
                   onClick={() => onEdit(agent._id)}
                   className="p-1.5 border hover:bg-blue-50"
                   style={{ borderColor: "var(--win95-border)" }}
-                  title="Edit agent"
+                  title={tx("agents_list.actions.edit", "Edit agent")}
                 >
                   <Settings size={12} />
                 </button>
@@ -396,7 +519,7 @@ function AgentsListTab({
                       }}
                       className="p-1.5 border bg-red-100 hover:bg-red-200 text-red-600"
                       style={{ borderColor: "var(--win95-border)" }}
-                      title="Confirm delete"
+                      title={tx("agents_list.actions.confirm_delete", "Confirm delete")}
                     >
                       <CheckCircle size={12} />
                     </button>
@@ -404,7 +527,7 @@ function AgentsListTab({
                       onClick={() => setConfirmDelete(null)}
                       className="p-1.5 border hover:bg-gray-50"
                       style={{ borderColor: "var(--win95-border)" }}
-                      title="Cancel"
+                      title={tx("agents_list.actions.cancel", "Cancel")}
                     >
                       <XCircle size={12} />
                     </button>
@@ -414,7 +537,7 @@ function AgentsListTab({
                     onClick={() => setConfirmDelete(agent._id)}
                     className="p-1.5 border hover:bg-red-50"
                     style={{ borderColor: "var(--win95-border)" }}
-                    title="Delete agent"
+                    title={tx("agents_list.actions.delete", "Delete agent")}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -445,6 +568,15 @@ function AgentFormTab({
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useNamespaceTranslations("ui.agents.configuration");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const existingAgent = useQuery(
     api.agentOntology.getAgent,
     editingAgentId ? { sessionId, agentId: editingAgentId } : "skip"
@@ -472,7 +604,7 @@ function AgentFormTab({
   const [autonomyLevel, setAutonomyLevel] = useState<"supervised" | "autonomous" | "draft_only">("supervised");
   const [maxMsgsPerDay, setMaxMsgsPerDay] = useState(100);
   const [maxCostPerDay, setMaxCostPerDay] = useState(5);
-  const [modelId, setModelId] = useState("anthropic/claude-sonnet-4-20250514");
+  const [modelId, setModelId] = useState(DEFAULT_AGENT_MODEL_ID);
   const [temperature, setTemperature] = useState(0.7);
   const [channelBindings, setChannelBindings] = useState<Array<{ channel: string; enabled: boolean }>>(
     CHANNELS.map((c) => ({ channel: c, enabled: false }))
@@ -495,7 +627,7 @@ function AgentFormTab({
     setAutonomyLevel(p.autonomyLevel || "supervised");
     setMaxMsgsPerDay(p.maxMessagesPerDay || 100);
     setMaxCostPerDay(p.maxCostPerDay || 5);
-    setModelId(p.modelId || "anthropic/claude-sonnet-4-20250514");
+    setModelId(p.modelId || DEFAULT_AGENT_MODEL_ID);
     setTemperature(p.temperature ?? 0.7);
     setChannelBindings(
       p.channelBindings?.length
@@ -560,11 +692,11 @@ function AgentFormTab({
   };
 
   const sections = [
-    { id: "identity" as const, label: "Identity" },
-    { id: "knowledge" as const, label: "Knowledge" },
-    { id: "model" as const, label: "Model" },
-    { id: "guardrails" as const, label: "Guardrails" },
-    { id: "channels" as const, label: "Channels" },
+    { id: "identity" as const, label: tx("form.sections.identity", "Identity") },
+    { id: "knowledge" as const, label: tx("form.sections.knowledge", "Knowledge") },
+    { id: "model" as const, label: tx("form.sections.model", "Model") },
+    { id: "guardrails" as const, label: tx("form.sections.guardrails", "Guardrails") },
+    { id: "channels" as const, label: tx("form.sections.channels", "Channels") },
   ];
 
   return (
@@ -574,9 +706,9 @@ function AgentFormTab({
         <button
           onClick={onCancel}
           className="flex items-center gap-1 text-xs mb-3 hover:underline"
-          style={{ color: "var(--win95-highlight, #000080)" }}
+          style={{ color: "var(--win95-highlight)" }}
         >
-          <ArrowLeft size={12} /> Back to list
+          <ArrowLeft size={12} /> {tx("form.back_to_list", "Back to list")}
         </button>
         {sections.map((s) => (
           <button
@@ -584,7 +716,7 @@ function AgentFormTab({
             onClick={() => setFormSection(s.id)}
             className="w-full text-left text-xs px-2 py-1.5 flex items-center gap-1"
             style={{
-              background: formSection === s.id ? "var(--win95-highlight, #000080)" : "transparent",
+              background: formSection === s.id ? "var(--win95-highlight)" : "transparent",
               color: formSection === s.id ? "#fff" : "var(--win95-text)",
             }}
           >
@@ -598,55 +730,68 @@ function AgentFormTab({
       <div className="flex-1 p-4 overflow-y-auto">
         {formSection === "identity" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>Agent Identity</h3>
-            <FormField label="Name *" value={name} onChange={setName} placeholder="My Support Agent" />
-            <FormField label="Display Name" value={displayName} onChange={setDisplayName} placeholder="How the agent introduces itself" />
+            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {tx("form.identity.title", "Agent Identity")}
+            </h3>
+            <FormField label={tx("form.identity.name", "Name *")} value={name} onChange={setName} placeholder={tx("form.identity.name_placeholder", "My Support Agent")} />
+            <FormField label={tx("form.identity.display_name", "Display Name")} value={displayName} onChange={setDisplayName} placeholder={tx("form.identity.display_name_placeholder", "How the agent introduces itself")} />
             <div>
-              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>Type</label>
+              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                {tx("form.identity.type", "Type")}
+              </label>
               <select
                 value={subtype}
                 onChange={(e) => setSubtype(e.target.value)}
-                className="w-full border-2 px-2 py-1 text-xs"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+                className="w-full border px-2 py-1 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
               >
                 {SUBTYPES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
             </div>
-            <FormField label="Personality" value={personality} onChange={setPersonality} multiline placeholder="Friendly, professional, concise..." />
-            <FormField label="Language" value={language} onChange={setLanguage} placeholder="en" />
-            <FormField label="Brand Voice" value={brandVoice} onChange={setBrandVoice} multiline placeholder="Tone and style guidelines..." />
+            <FormField label={tx("form.identity.personality", "Personality")} value={personality} onChange={setPersonality} multiline placeholder={tx("form.identity.personality_placeholder", "Friendly, professional, concise...")} />
+            <FormField label={tx("form.identity.language", "Language")} value={language} onChange={setLanguage} placeholder={tx("form.identity.language_placeholder", "en")} />
+            <FormField label={tx("form.identity.brand_voice", "Brand Voice")} value={brandVoice} onChange={setBrandVoice} multiline placeholder={tx("form.identity.brand_voice_placeholder", "Tone and style guidelines...")} />
           </div>
         )}
 
         {formSection === "knowledge" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>Knowledge Base</h3>
+            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {tx("form.knowledge.title", "Knowledge Base")}
+            </h3>
             <FormField
-              label="System Prompt"
+              label={tx("form.knowledge.system_prompt", "System Prompt")}
               value={systemPrompt}
               onChange={setSystemPrompt}
               multiline
               rows={8}
-              placeholder="Additional instructions for the agent..."
+              placeholder={tx("form.knowledge.system_prompt_placeholder", "Additional instructions for the agent...")}
             />
             <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              FAQ entries and training data can be managed in the AI System settings.
+              {tx(
+                "form.knowledge.faq_hint",
+                "FAQ entries and training data can be managed in the AI System settings."
+              )}
             </p>
           </div>
         )}
 
         {formSection === "model" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>Model Configuration</h3>
+            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {tx("form.model.title", "Model Configuration")}
+            </h3>
             <div>
-              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>Model</label>
+              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                {tx("form.model.label", "Model")}
+              </label>
               <select
                 value={modelId}
                 onChange={(e) => setModelId(e.target.value)}
-                className="w-full border-2 px-2 py-1 text-xs"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+                className="w-full border px-2 py-1 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
               >
                 {MODELS.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -655,7 +800,7 @@ function AgentFormTab({
             </div>
             <div>
               <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
-                Temperature: {temperature}
+                {tx("form.model.temperature", "Temperature:")} {temperature}
               </label>
               <input
                 type="range"
@@ -667,8 +812,8 @@ function AgentFormTab({
                 className="w-full"
               />
               <div className="flex justify-between text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                <span>Precise (0)</span>
-                <span>Creative (1)</span>
+                <span>{tx("form.model.temperature_precise", "Precise (0)")}</span>
+                <span>{tx("form.model.temperature_creative", "Creative (1)")}</span>
               </div>
             </div>
           </div>
@@ -676,50 +821,64 @@ function AgentFormTab({
 
         {formSection === "guardrails" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>Guardrails & Autonomy</h3>
+            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {tx("form.guardrails.title", "Guardrails & Autonomy")}
+            </h3>
             <div>
-              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>Autonomy Level</label>
+              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                {tx("form.guardrails.autonomy_level", "Autonomy Level")}
+              </label>
               <select
                 value={autonomyLevel}
                 onChange={(e) => setAutonomyLevel(e.target.value as "supervised" | "autonomous" | "draft_only")}
-                className="w-full border-2 px-2 py-1 text-xs"
-                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+                className="w-full border px-2 py-1 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
               >
-                <option value="supervised">Supervised (all actions need approval)</option>
-                <option value="autonomous">Autonomous (acts within guardrails)</option>
-                <option value="draft_only">Draft Only (read-only, no actions)</option>
+                <option value="supervised">
+                  {tx("form.guardrails.autonomy.supervised", "Supervised (all actions need approval)")}
+                </option>
+                <option value="autonomous">
+                  {tx("form.guardrails.autonomy.autonomous", "Autonomous (acts within guardrails)")}
+                </option>
+                <option value="draft_only">
+                  {tx("form.guardrails.autonomy.draft_only", "Draft Only (read-only, no actions)")}
+                </option>
               </select>
             </div>
             <FormField
-              label="Max Messages / Day"
+              label={tx("form.guardrails.max_messages", "Max Messages / Day")}
               value={String(maxMsgsPerDay)}
               onChange={(v) => setMaxMsgsPerDay(parseInt(v) || 100)}
               placeholder="100"
             />
             <FormField
-              label="Max Cost / Day ($)"
+              label={tx("form.guardrails.max_cost", "Max Cost / Day ($)")}
               value={String(maxCostPerDay)}
               onChange={(v) => setMaxCostPerDay(parseFloat(v) || 5)}
               placeholder="5.00"
             />
             <FormField
-              label="Blocked Topics"
+              label={tx("form.guardrails.blocked_topics", "Blocked Topics")}
               value={blockedTopics}
               onChange={setBlockedTopics}
-              placeholder="competitors, pricing details, legal advice"
+              placeholder={tx("form.guardrails.blocked_topics_placeholder", "competitors, pricing details, legal advice")}
             />
             <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              Comma-separated list of topics the agent should avoid.
+              {tx("form.guardrails.blocked_topics_hint", "Comma-separated list of topics the agent should avoid.")}
             </p>
           </div>
         )}
 
         {formSection === "channels" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>Channel Bindings</h3>
+            <h3 className="text-sm font-bold mb-2" style={{ color: "var(--win95-text)" }}>
+              {tx("form.channels.title", "Channel Bindings")}
+            </h3>
             <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-              Enable the channels this agent should respond on. Channels marked with a provider
-              are connected through Integrations.
+              {tx(
+                "form.channels.description",
+                "Enable the channels this agent should respond on. Channels marked with a provider are connected through Integrations."
+              )}
             </p>
             {channelBindings.map((binding, idx) => {
               const providerBinding = configuredChannels?.find(
@@ -752,7 +911,7 @@ function AgentFormTab({
                         color: "#166534",
                       }}
                     >
-                      via {providerBinding.providerId}
+                      {tx("form.channels.via", "via")} {providerBinding.providerId}
                     </span>
                   )}
                   {!hasProvider && binding.channel !== "api" && (
@@ -763,7 +922,7 @@ function AgentFormTab({
                         color: "#92400e",
                       }}
                     >
-                      no provider
+                      {tx("form.channels.no_provider", "no provider")}
                     </span>
                   )}
                 </label>
@@ -778,8 +937,10 @@ function AgentFormTab({
                   color: "#854d0e",
                 }}
               >
-                No channel providers configured yet. Set up Chatwoot or ManyChat in
-                Integrations to enable outbound messaging.
+                {tx(
+                  "form.channels.no_providers_configured",
+                  "No channel providers configured yet. Set up Chatwoot or ManyChat in Integrations to enable outbound messaging."
+                )}
               </p>
             )}
           </div>
@@ -790,7 +951,7 @@ function AgentFormTab({
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 border-2 text-xs font-medium disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-1.5 border text-xs font-medium disabled:opacity-50"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-bg)",
@@ -798,18 +959,22 @@ function AgentFormTab({
             }}
           >
             <Save size={12} />
-            {saving ? "Saving..." : editingAgentId ? "Update Agent" : "Create Agent"}
+            {saving
+              ? tx("form.actions.saving", "Saving...")
+              : editingAgentId
+                ? tx("form.actions.update_agent", "Update Agent")
+                : tx("form.actions.create_agent", "Create Agent")}
           </button>
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 border-2 text-xs"
+            className="px-4 py-1.5 border text-xs"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-bg)",
               color: "var(--win95-text)",
             }}
           >
-            Cancel
+            {tx("form.actions.cancel", "Cancel")}
           </button>
         </div>
       </div>
@@ -828,6 +993,15 @@ function ActivityTab({
   sessionId: string;
   organizationId: Id<"organizations">;
 }) {
+  const { t } = useNamespaceTranslations("ui.agents.configuration");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sessions = useQuery(api.ai.agentSessions.getActiveSessions, {
     sessionId,
@@ -835,7 +1009,11 @@ function ActivityTab({
   }) as any[] | undefined;
 
   if (!sessions) {
-    return <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>Loading sessions...</div>;
+    return (
+      <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>
+        {tx("activity.loading", "Loading sessions...")}
+      </div>
+    );
   }
 
   if (sessions.length === 0) {
@@ -843,10 +1021,13 @@ function ActivityTab({
       <div className="p-8 text-center">
         <MessageSquare size={48} className="mx-auto mb-4 opacity-30" />
         <p className="text-sm font-medium mb-2" style={{ color: "var(--win95-text)" }}>
-          No active sessions
+          {tx("activity.empty.title", "No active sessions")}
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Sessions will appear here when your agent starts handling conversations.
+          {tx(
+            "activity.empty.description",
+            "Sessions will appear here when your agent starts handling conversations."
+          )}
         </p>
       </div>
     );
@@ -858,10 +1039,10 @@ function ActivityTab({
         {sessions.map((session) => (
           <div
             key={session._id}
-            className="border-2 p-3"
+            className="border p-3"
             style={{
               borderColor: "var(--win95-border)",
-              background: "var(--win95-bg-light, #fff)",
+              background: "var(--win95-bg-light)",
             }}
           >
             <div className="flex items-center justify-between">
@@ -882,8 +1063,8 @@ function ActivityTab({
               </span>
             </div>
             <div className="flex items-center gap-4 mt-1.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              <span>{session.messageCount} messages</span>
-              <span>{session.tokensUsed.toLocaleString()} tokens</span>
+              <span>{session.messageCount} {tx("activity.metrics.messages", "messages")}</span>
+              <span>{session.tokensUsed.toLocaleString()} {tx("activity.metrics.tokens", "tokens")}</span>
               <span>${session.costUsd.toFixed(4)}</span>
               <span>{new Date(session.lastMessageAt).toLocaleString()}</span>
             </div>
@@ -905,6 +1086,15 @@ function ApprovalsTab({
   sessionId: string;
   organizationId: Id<"organizations">;
 }) {
+  const { t } = useNamespaceTranslations("ui.agents.configuration");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const approvals = useQuery(api.ai.agentApprovals.getPendingApprovals, {
     sessionId,
@@ -914,7 +1104,11 @@ function ApprovalsTab({
   const rejectAction = useMutation(api.ai.agentApprovals.rejectAction);
 
   if (!approvals) {
-    return <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>Loading approvals...</div>;
+    return (
+      <div className="p-4 text-xs" style={{ color: "var(--win95-text)" }}>
+        {tx("approvals.loading", "Loading approvals...")}
+      </div>
+    );
   }
 
   if (approvals.length === 0) {
@@ -922,10 +1116,13 @@ function ApprovalsTab({
       <div className="p-8 text-center">
         <Shield size={48} className="mx-auto mb-4 opacity-30" />
         <p className="text-sm font-medium mb-2" style={{ color: "var(--win95-text)" }}>
-          No pending approvals
+          {tx("approvals.empty.title", "No pending approvals")}
         </p>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          When agents in supervised mode want to take actions, they will appear here for your review.
+          {tx(
+            "approvals.empty.description",
+            "When agents in supervised mode want to take actions, they will appear here for your review."
+          )}
         </p>
       </div>
     );
@@ -939,10 +1136,10 @@ function ApprovalsTab({
           return (
             <div
               key={approval._id}
-              className="border-2 p-3"
+              className="border p-3"
               style={{
                 borderColor: "var(--win95-border)",
-                background: "var(--win95-bg-light, #fff)",
+                background: "var(--win95-bg-light)",
               }}
             >
               <div className="flex items-center justify-between mb-2">
@@ -976,19 +1173,19 @@ function ApprovalsTab({
               <div className="flex gap-2">
                 <button
                   onClick={() => approveAction({ sessionId, approvalId: approval._id })}
-                  className="flex items-center gap-1 px-3 py-1 border-2 text-xs bg-green-50 hover:bg-green-100"
+                  className="flex items-center gap-1 px-3 py-1 border text-xs bg-green-50 hover:bg-green-100"
                   style={{ borderColor: "var(--win95-border)" }}
                 >
                   <CheckCircle size={12} className="text-green-600" />
-                  Approve
+                  {tx("approvals.actions.approve", "Approve")}
                 </button>
                 <button
                   onClick={() => rejectAction({ sessionId, approvalId: approval._id })}
-                  className="flex items-center gap-1 px-3 py-1 border-2 text-xs bg-red-50 hover:bg-red-100"
+                  className="flex items-center gap-1 px-3 py-1 border text-xs bg-red-50 hover:bg-red-100"
                   style={{ borderColor: "var(--win95-border)" }}
                 >
                   <XCircle size={12} className="text-red-600" />
-                  Reject
+                  {tx("approvals.actions.reject", "Reject")}
                 </button>
               </div>
             </div>
@@ -1020,7 +1217,7 @@ function FormField({
 }) {
   const style = {
     borderColor: "var(--win95-border)",
-    background: "var(--win95-bg-light, #fff)",
+    background: "var(--win95-bg-light)",
     color: "var(--win95-text)",
   };
 
@@ -1035,7 +1232,7 @@ function FormField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows || 3}
-          className="w-full border-2 px-2 py-1 text-xs resize-y"
+          className="w-full border px-2 py-1 text-xs resize-y"
           style={style}
         />
       ) : (
@@ -1044,7 +1241,7 @@ function FormField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full border-2 px-2 py-1 text-xs"
+          className="w-full border px-2 py-1 text-xs"
           style={style}
         />
       )}

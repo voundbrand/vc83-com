@@ -9,7 +9,7 @@ import { MessageSquareText, Coins } from "lucide-react"
 export function ChatFooter() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { chat } = useAIChatContext()
-  const { isAIReady, settings, credits } = useAIConfig()
+  const { isAIReady, credits } = useAIConfig()
 
   // Calculate total tokens and cost from conversation messages
   const { totalTokens, estimatedCost } = useMemo(() => {
@@ -52,9 +52,6 @@ export function ChatFooter() {
     }
 
     // Check AI configuration
-    if (!settings?.enabled) {
-      return { isOnline: false, text: t("ui.ai_assistant.footer.ai_disabled") }
-    }
     if (!isAIReady) {
       return { isOnline: false, text: t("ui.ai_assistant.footer.no_models") }
     }

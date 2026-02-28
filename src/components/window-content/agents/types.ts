@@ -2,12 +2,16 @@
  * Shared types and constants for the agent management UI.
  */
 
+import { DEFAULT_AGENT_MODEL_ID } from "@/lib/ai/model-defaults";
+
 export interface AgentCustomProps {
   displayName?: string;
   personality?: string;
   language?: string;
+  voiceLanguage?: string;
   additionalLanguages?: string[];
   brandVoiceInstructions?: string;
+  elevenLabsVoiceId?: string;
   systemPrompt?: string;
   faqEntries?: Array<{ q: string; a: string }>;
   enabledTools?: string[];
@@ -29,6 +33,7 @@ export interface AgentCustomProps {
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
   totalMessages?: number;
   totalCostUsd?: number;
+  isPrimary?: boolean;
   soul?: {
     version?: number;
     name?: string;
@@ -57,12 +62,14 @@ export const CHANNELS = [
 ] as const;
 
 export const MODELS = [
-  { value: "anthropic/claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+  { value: DEFAULT_AGENT_MODEL_ID, label: "Claude Sonnet 4.5" },
   { value: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
   { value: "openai/gpt-4o", label: "GPT-4o" },
   { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
   { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5" },
 ] as const;
+
+export { DEFAULT_AGENT_MODEL_ID };
 
 export type AgentTab =
   | "trust"

@@ -4,10 +4,16 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { Wrench, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, Users, Mail, AlertTriangle, Settings, GripHorizontal, X, Minimize2, Maximize2, Clock, SlidersHorizontal } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useNotification } from "@/hooks/use-notification"
+import {
+  buildFrontlineFeatureIntakeKickoff,
+  summarizeToolBoundaryContext,
+} from "@/lib/ai/frontline-feature-intake"
 import { useQuery, useMutation } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { useWindowManager } from "@/hooks/use-window-manager"
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../../convex/_generated/api") as { api: any }
 
 interface ToolExecution {
   id: string
@@ -658,10 +664,23 @@ function ResizableDivider({ onDrag }: ResizableDividerProps) {
 
 export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selectedToolExecution, onSelectToolExecution, onOpenSettings }: ToolExecutionPanelProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { currentConversationId, organizationId } = useAIChatContext()
+  const {
+    chat,
+    currentConversationId,
+    organizationId,
+    setCurrentConversationId,
+    isSending,
+    setIsSending,
+  } = useAIChatContext()
+  const notification = useNotification()
+  const [frontlineExecutionId, setFrontlineExecutionId] = useState<string | null>(null)
+  const useMutationUntyped = useMutation as (mutation: unknown) => any
 
   // Minimize mutation
-  const minimizeExecution = useMutation(api.ai.conversations.minimizeToolExecution)
+  const minimizeExecution = useMutationUntyped(apiAny.ai.conversations.minimizeToolExecution) as (args: {
+    executionId: Id<"aiToolExecutions">;
+    isMinimized: boolean;
+  }) => Promise<unknown>
 
   const handleMinimize = async (executionId: string, isMinimized: boolean) => {
     try {
@@ -675,7 +694,9 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
   }
 
   // Cancel mutation
-  const cancelExecution = useMutation(api.ai.conversations.cancelToolExecution)
+  const cancelExecution = useMutationUntyped(apiAny.ai.conversations.cancelToolExecution) as (args: {
+    executionId: Id<"aiToolExecutions">;
+  }) => Promise<unknown>
 
   const handleCancel = async (executionId: string) => {
     try {
@@ -731,15 +752,15 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
 
   // Get tool executions for the current conversation
   const toolExecutionsData = useQuery(
-    api.ai.conversations.getToolExecutions,
+    apiAny.ai.conversations.getToolExecutions,
     currentConversationId ? { conversationId: currentConversationId, limit: 20 } : "skip"
   )
 
   // Get work items (contact syncs + email campaigns)
   const workItems = useQuery(
-    api.ai.workItems.getActiveWorkItems,
+    apiAny.ai.workItems.getActiveWorkItems,
     organizationId ? { organizationId } : "skip"
-  )
+  ) as WorkItem[] | undefined
 
   // Define a type for the raw Convex tool execution data
   interface ConvexToolExecution {
@@ -785,6 +806,51 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
       proposalMessage: exec.proposalMessage,
     };
   })
+  const latestFailedExecution = executions.find((execution) => execution.status === "error")
+
+  const handleStartFrontlineIntake = async () => {
+    if (!latestFailedExecution || isSending) {
+      return
+    }
+
+    const lastUserMessage = [...(chat.messages || [])]
+      .reverse()
+      .find((message) => message.role === "user")?.content
+    const boundaryReason =
+      summarizeToolBoundaryContext({
+        error: latestFailedExecution.error,
+        output: latestFailedExecution.output,
+      }) || "tool_execution_failed"
+    const kickoff = buildFrontlineFeatureIntakeKickoff({
+      trigger: "tool_failure",
+      failedToolName: latestFailedExecution.toolName,
+      boundaryReason,
+      lastUserMessage,
+    })
+
+    setFrontlineExecutionId(latestFailedExecution.id)
+    setIsSending(true)
+    try {
+      const result = await chat.sendMessage(kickoff, currentConversationId)
+      if (!currentConversationId && result.conversationId) {
+        setCurrentConversationId(result.conversationId)
+      }
+
+      notification.info(
+        "Let's Capture What's Missing",
+        "The assistant will ask what's missing and what you need, then prepare the feature request draft."
+      )
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to start intake."
+      notification.error(
+        "Unable to Start Intake",
+        errorMessage.length > 120 ? "Please retry in a moment." : errorMessage
+      )
+    } finally {
+      setFrontlineExecutionId(null)
+      setIsSending(false)
+    }
+  }
 
   // Define a type for action button output
   interface ActionButtonOutput {
@@ -852,6 +918,38 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
                 <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--shell-text-dim)' }} />
               </button>
             </div>
+
+            {latestFailedExecution ? (
+              <div
+                className="mb-2 rounded border p-2"
+                style={{
+                  borderColor: "var(--warning)",
+                  background: "var(--warning-bg)",
+                }}
+              >
+                <p className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+                  Looks like we hit a limit in {latestFailedExecution.toolName}
+                </p>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--shell-text-dim)" }}>
+                  Tell us what's missing and what you need, and we'll turn it into a clear feature request.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleStartFrontlineIntake()
+                  }}
+                  disabled={isSending}
+                  className="mt-2 rounded border px-2 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--shell-border-soft)",
+                    background: "var(--shell-surface)",
+                    color: "var(--shell-text)",
+                  }}
+                >
+                  {frontlineExecutionId === latestFailedExecution.id ? "Opening..." : "Tell Us What's Missing"}
+                </button>
+              </div>
+            ) : null}
 
             {executions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">

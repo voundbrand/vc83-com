@@ -7,11 +7,11 @@
 
 import { useState } from "react";
 import {
+  Crown,
   Play, Pause, Settings, Trash2, CheckCircle, XCircle,
   Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentTab, AgentCustomProps } from "./types";
 import { AgentSoulEditor } from "./agent-soul-editor";
@@ -21,6 +21,15 @@ import { AgentApprovalQueue } from "./agent-approval-queue";
 import { AgentEscalationQueue } from "./agent-escalation-queue";
 import { AgentAnalytics } from "./agent-analytics";
 import { AgentTrustCockpit } from "./agent-trust-cockpit";
+import {
+  canMakePrimaryInUi,
+  canPauseAgentInUi,
+  countActiveAgents,
+  isPrimaryAgentRecord,
+} from "./primary-agent-ui";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 
 interface AgentDetailPanelProps {
   agentId: Id<"objects">;
@@ -50,10 +59,13 @@ export function AgentDetailPanel({
   onEdit,
 }: AgentDetailPanelProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agent = useQuery(api.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
-  const activateAgent = useMutation(api.agentOntology.activateAgent);
-  const pauseAgent = useMutation(api.agentOntology.pauseAgent);
-  const deleteAgent = useMutation(api.agentOntology.deleteAgent);
+  const agent = useQuery(apiAny.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allAgents = useQuery(apiAny.agentOntology.getAgents, { sessionId, organizationId }) as any[] | undefined;
+  const activateAgent = useMutation(apiAny.agentOntology.activateAgent);
+  const pauseAgent = useMutation(apiAny.agentOntology.pauseAgent);
+  const setPrimaryAgent = useMutation(apiAny.agentOntology.setPrimaryAgent);
+  const deleteAgent = useMutation(apiAny.agentOntology.deleteAgent);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!agent) {
@@ -65,6 +77,10 @@ export function AgentDetailPanel({
   }
 
   const props = (agent.customProperties || {}) as AgentCustomProps;
+  const isPrimary = isPrimaryAgentRecord(agent);
+  const activeAgentCount = countActiveAgents(allAgents || [agent]);
+  const canPause = canPauseAgentInUi(agent, activeAgentCount);
+  const canMakePrimary = canMakePrimaryInUi(agent);
 
   return (
     <div className="flex flex-col h-full">
@@ -89,6 +105,21 @@ export function AgentDetailPanel({
             </h2>
             <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
               <span>{agent.subtype?.replace(/_/g, " ")}</span>
+              {isPrimary && (
+                <>
+                  <span>·</span>
+                  <span
+                    className="px-1 py-0.5 rounded border"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--warning)",
+                      color: "#111827",
+                    }}
+                  >
+                    primary
+                  </span>
+                </>
+              )}
               <span>·</span>
               <span>{agent.status}</span>
               <span>·</span>
@@ -101,19 +132,48 @@ export function AgentDetailPanel({
         <div className="flex items-center gap-1.5">
           {agent.status === "active" ? (
             <button
-              onClick={() => pauseAgent({ sessionId, agentId })}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              onClick={() => {
+                if (!canPause) {
+                  return;
+                }
+                void pauseAgent({ sessionId, agentId });
+              }}
+              disabled={!canPause}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              title={
+                canPause
+                  ? "Pause agent"
+                  : "Primary agent cannot be paused while it is the only active agent"
+              }
             >
               <Pause size={10} /> Pause
             </button>
           ) : (
             <button
-              onClick={() => activateAgent({ sessionId, agentId })}
+              onClick={() => {
+                void activateAgent({ sessionId, agentId });
+              }}
               className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
               style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
             >
               <Play size={10} /> Activate
+            </button>
+          )}
+          {canMakePrimary && (
+            <button
+              onClick={() => {
+                void setPrimaryAgent({
+                  sessionId,
+                  agentId,
+                  reason: "agents_window_detail_make_primary",
+                });
+              }}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              title="Make Primary"
+            >
+              <Crown size={10} /> Make Primary
             </button>
           )}
           <button

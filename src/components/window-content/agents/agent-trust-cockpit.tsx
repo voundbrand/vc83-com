@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   Bot,
   CheckCircle,
@@ -19,11 +20,20 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { AgentCustomProps } from "./types";
+import { isPlatformManagedL2Soul } from "./platform-soul-scope";
 import {
   deriveMemoryProvenanceEvidence,
   deriveRetrievalCitationEvidence,
 } from "./intervention-evidence";
+import {
+  compactUnifiedCorrelationId,
+  compareTimelineEventsDeterministically,
+  resolveUnifiedTimelineMarkerLabel,
+  resolveUnifiedTimelineMarkerType,
+  type UnifiedTimelineMarkerType,
+} from "@/lib/operator-collaboration-timeline";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const apiAny: any = require("../../../../convex/_generated/api").api;
 
@@ -114,6 +124,80 @@ interface EscalationQueueEntry {
   harnessContext?: unknown;
 }
 
+interface ReceiptAgingDiagnostic {
+  receiptId: Id<"agentInboxReceipts">;
+  agentId: Id<"objects">;
+  channel: string;
+  externalContactIdentifier: string;
+  status: string;
+  turnId?: Id<"agentTurns">;
+  idempotencyKey: string;
+  ageMs: number;
+  duplicateCount: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+}
+
+interface ReceiptDuplicateDiagnostic {
+  receiptId: Id<"agentInboxReceipts">;
+  agentId: Id<"objects">;
+  channel: string;
+  externalContactIdentifier: string;
+  status: string;
+  turnId?: Id<"agentTurns">;
+  idempotencyKey: string;
+  duplicateCount: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+}
+
+interface ReceiptStuckDiagnostic {
+  receiptId: Id<"agentInboxReceipts">;
+  agentId: Id<"objects">;
+  channel: string;
+  externalContactIdentifier: string;
+  status: string;
+  turnId?: Id<"agentTurns">;
+  idempotencyKey: string;
+  processingAgeMs: number;
+  startedAt: number;
+  duplicateCount: number;
+  lastSeenAt: number;
+}
+
+interface ReplaySafeReceiptDebug {
+  receiptId: Id<"agentInboxReceipts">;
+  agentId: Id<"objects">;
+  channel: string;
+  externalContactIdentifier: string;
+  status: string;
+  turnId?: Id<"agentTurns">;
+  idempotencyKey: string;
+  duplicateCount: number;
+  queueConcurrencyKey?: string;
+  queueOrderingKey?: string;
+  canReplay: boolean;
+  replayMetadata: {
+    replayOfReceiptId: Id<"agentInboxReceipts">;
+    debugReplay: boolean;
+    idempotencyKey: string;
+  } | null;
+}
+
+type ReliabilityDiagnosticCategory = "stuck" | "aging" | "duplicate";
+
+interface ReliabilityDiagnosticItem {
+  receiptId: Id<"agentInboxReceipts">;
+  category: ReliabilityDiagnosticCategory;
+  status: string;
+  channel: string;
+  externalContactIdentifier: string;
+  idempotencyKey: string;
+  ageLabel: string;
+  duplicateCount: number;
+  observedAt: number;
+}
+
 type HarnessContextSource = "approval" | "escalation";
 
 interface HarnessContextLayer {
@@ -202,16 +286,27 @@ type TimelineEventKind =
   | "approval"
   | "escalation"
   | "handoff"
+  | "ingress"
+  | "routing"
+  | "execution"
+  | "delivery"
+  | "proposal"
+  | "commit"
   | "tool"
   | "memory"
   | "soul"
   | "operator";
 
 type EscalationGate = "pre_llm" | "post_llm" | "tool_failure" | "not_applicable";
+type TimelinePipelineStage = "ingress" | "routing" | "execution" | "delivery";
+type TimelineVisibilityScope = "org_owner" | "super_admin";
+type TimelineThreadType = "group_thread" | "dm_thread" | "session_thread";
 
 interface ControlCenterTimelineEvent {
   eventId: string;
+  eventOrdinal: number;
   sessionId: string;
+  turnId?: string;
   threadId: string;
   kind: TimelineEventKind;
   occurredAt: number;
@@ -227,6 +322,15 @@ interface ControlCenterTimelineEvent {
   trustEventName?: string;
   trustEventId?: string;
   sourceObjectIds?: string[];
+  pipelineStage?: TimelinePipelineStage;
+  threadType?: TimelineThreadType;
+  lineageId?: string;
+  groupThreadId?: string;
+  dmThreadId?: string;
+  workflowKey?: string;
+  authorityIntentType?: string;
+  correlationId: string;
+  visibilityScope: TimelineVisibilityScope;
   metadata?: Record<string, unknown>;
 }
 
@@ -242,10 +346,107 @@ interface AgentInstanceSummary {
   displayName?: string;
 }
 
+interface ControlCenterRouteIdentity {
+  bindingId?: string;
+  providerId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: "platform" | "organization";
+  routeKey?: string;
+}
+
+interface ControlCenterThreadContext {
+  sessionId: string;
+  organizationId: string;
+  channel: string;
+  externalContactIdentifier: string;
+  route: {
+    sessionRoutingKey: string;
+    routeIdentity?: ControlCenterRouteIdentity;
+  };
+  selectedAgent: {
+    instanceAgentId: string;
+    templateAgentId: string;
+    roleLabel: string;
+    displayName?: string;
+    templateDisplayName?: string;
+  };
+  delivery: {
+    lifecycleState: AgentLifecycleState;
+    deliveryState: ThreadDeliveryState;
+  };
+  latestTurn?: {
+    turnId: string;
+    state?: string;
+    updatedAt?: number;
+    transitionPolicyVersion?: string;
+    replayInvariantStatus?: string;
+  };
+}
+
 interface ControlCenterThreadDrillDown {
   threadId: string;
+  visibilityScope: TimelineVisibilityScope;
+  context: ControlCenterThreadContext;
   timelineEvents: ControlCenterTimelineEvent[];
   lineage: AgentInstanceSummary[];
+}
+
+interface ModelFallbackAggregation {
+  windowHours: number;
+  since: number;
+  actionsScanned: number;
+  actionsWithModelResolution: number;
+  fallbackCount: number;
+  fallbackRate: number;
+  fallbackReasons: Array<{ reason: string; count: number }>;
+}
+
+interface ToolSuccessFailureAggregation {
+  windowHours: number;
+  since: number;
+  toolResultsScanned: number;
+  successCount: number;
+  failureCount: number;
+  pendingCount: number;
+  ignoredCount: number;
+  successRate: number;
+  failureRate: number;
+  statusBreakdown: Array<{ status: string; count: number }>;
+}
+
+interface RetrievalAggregation {
+  windowHours: number;
+  since: number;
+  messagesScanned: number;
+  messagesWithRetrieval: number;
+  avgDocsInjectedPerMessage: number;
+  avgCitationsPerMessage: number;
+  avgChunkCitationsPerMessage: number;
+  fallbackRate: number;
+  fallbackReasons: Array<{ reason: string; count: number }>;
+  retrievalModes: Array<{ mode: string; count: number }>;
+}
+
+interface ToolScopingAuditAggregation {
+  windowHours: number;
+  since: number;
+  totalMessages: number;
+  auditedMessages: number;
+  records: Array<{
+    performedAt: number;
+    sessionId?: string;
+    policySource?: string;
+    orgAllowListCount?: number;
+    orgDenyListCount?: number;
+    finalToolCount?: number;
+    removedByOrgAllow?: number;
+    removedByOrgDeny?: number;
+    removedByIntegration?: number;
+    finalToolNames?: string[];
+  }>;
 }
 
 interface ActionItem {
@@ -312,7 +513,18 @@ const DEFAULT_ESCALATION_TRIGGER_NAMES = [
   "tool failures",
 ];
 
+const RUNTIME_KPI_WINDOW_HOURS = 24;
+
 export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentTrustCockpitProps) {
+  const { t } = useNamespaceTranslations("ui.agents.trust_cockpit");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const unsafeUseQuery = useQuery as unknown as (
     queryRef: unknown,
     args: unknown
@@ -320,12 +532,23 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   // Avoid deep generated Convex type expansion for this query path.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agent = unsafeUseQuery(apiAny.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
+  const agentCustomProperties =
+    (agent?.customProperties as Record<string, unknown> | undefined) ?? undefined;
+  const isPlatformManagedSoul = isPlatformManagedL2Soul(agentCustomProperties);
 
-  const proposals = unsafeUseQuery(apiAny.ai.soulEvolution.getSoulProposals, {
-    sessionId,
-    organizationId,
-    agentId,
-  }) as SoulProposal[] | undefined;
+  const standardSoulProposals = unsafeUseQuery(
+    apiAny.ai.soulEvolution.getSoulProposals,
+    agent
+      ? (isPlatformManagedSoul
+          ? "skip"
+          : {
+              sessionId,
+              organizationId,
+              agentId,
+            })
+      : "skip",
+  ) as SoulProposal[] | undefined;
+  const proposals = isPlatformManagedSoul ? [] : standardSoulProposals;
 
   const approvals = unsafeUseQuery(apiAny.ai.agentApprovals.getApprovals, {
     sessionId,
@@ -367,6 +590,55 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     agentId,
     limit: 80,
   }) as ControlCenterThreadRow[] | undefined;
+  const agingReceipts = unsafeUseQuery(apiAny.ai.agentSessions.getAgingReceipts, {
+    sessionId,
+    organizationId,
+    agentId,
+    minAgeMinutes: 15,
+    limit: 12,
+  }) as ReceiptAgingDiagnostic[] | undefined;
+  const duplicateReceipts = unsafeUseQuery(apiAny.ai.agentSessions.getDuplicateReceipts, {
+    sessionId,
+    organizationId,
+    agentId,
+    minDuplicateCount: 1,
+    limit: 12,
+  }) as ReceiptDuplicateDiagnostic[] | undefined;
+  const stuckReceipts = unsafeUseQuery(apiAny.ai.agentSessions.getStuckReceipts, {
+    sessionId,
+    organizationId,
+    agentId,
+    staleMinutes: 10,
+    limit: 12,
+  }) as ReceiptStuckDiagnostic[] | undefined;
+  const modelFallbackRate = unsafeUseQuery(apiAny.ai.agentSessions.getModelFallbackRate, {
+    sessionId,
+    organizationId,
+    agentId,
+    hours: RUNTIME_KPI_WINDOW_HOURS,
+  }) as ModelFallbackAggregation | undefined;
+  const toolSuccessFailureRatio = unsafeUseQuery(
+    apiAny.ai.agentSessions.getToolSuccessFailureRatio,
+    {
+      sessionId,
+      organizationId,
+      agentId,
+      hours: RUNTIME_KPI_WINDOW_HOURS,
+    },
+  ) as ToolSuccessFailureAggregation | undefined;
+  const retrievalTelemetry = unsafeUseQuery(apiAny.ai.agentSessions.getRetrievalTelemetry, {
+    sessionId,
+    organizationId,
+    agentId,
+    hours: RUNTIME_KPI_WINDOW_HOURS,
+  }) as RetrievalAggregation | undefined;
+  const toolScopingAudit = unsafeUseQuery(apiAny.ai.agentSessions.getToolScopingAudit, {
+    sessionId,
+    organizationId,
+    agentId,
+    hours: RUNTIME_KPI_WINDOW_HOURS,
+    limit: 40,
+  }) as ToolScopingAuditAggregation | undefined;
 
   const [selectedInterventionId, setSelectedInterventionId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<InterventionTemplateId>("override_draft");
@@ -379,12 +651,16 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   const [interventionError, setInterventionError] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedLineageInstanceId, setSelectedLineageInstanceId] = useState<string | null>(null);
+  const [selectedReliabilityReceiptId, setSelectedReliabilityReceiptId] = useState<Id<"agentInboxReceipts"> | null>(null);
+  const [reliabilityActionMessage, setReliabilityActionMessage] = useState<string | null>(null);
+  const [isRequestingReplay, setIsRequestingReplay] = useState(false);
 
   const approveAction = useMutation(apiAny.ai.agentApprovals.approveAction);
   const rejectAction = useMutation(apiAny.ai.agentApprovals.rejectAction);
   const takeOverEscalation = useMutation(apiAny.ai.escalation.takeOverEscalation);
   const dismissEscalation = useMutation(apiAny.ai.escalation.dismissEscalation);
   const resolveEscalation = useMutation(apiAny.ai.escalation.resolveEscalation);
+  const requestReplaySafeReceipt = useMutation(apiAny.ai.agentSessions.requestReplaySafeReceipt);
 
   const controlCenterThreadDrillDown = useQuery(
     apiAny.ai.agentSessions.getControlCenterThreadDrillDown,
@@ -397,8 +673,24 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
       }
       : "skip",
   ) as ControlCenterThreadDrillDown | null | undefined;
+  const selectedReliabilityReceiptDebug = useQuery(
+    apiAny.ai.agentSessions.getReplaySafeReceiptDebug,
+    selectedReliabilityReceiptId
+      ? {
+        sessionId,
+        organizationId,
+        receiptId: selectedReliabilityReceiptId,
+      }
+      : "skip"
+  ) as ReplaySafeReceiptDebug | null | undefined;
 
   const props = (agent?.customProperties || {}) as AgentCustomProps;
+  const agentDisplayName = useMemo(() => {
+    const customProperties = (agent?.customProperties || {}) as Record<string, unknown>;
+    const customName = readString(customProperties.displayName);
+    const defaultName = readString((agent as { name?: unknown } | undefined)?.name);
+    return customName || defaultName || compactId(String(agentId));
+  }, [agent, agentId]);
   const sessions = [...(activeSessions || []), ...(closedSessions || []), ...(handedOffSessions || [])];
 
   const agentApprovals = (approvals || []).filter((approval) => {
@@ -431,6 +723,64 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     });
     return rows;
   }, [controlCenterThreads]);
+
+  const reliabilityDiagnostics = useMemo<ReliabilityDiagnosticItem[]>(() => {
+    const rows: ReliabilityDiagnosticItem[] = [];
+    for (const receipt of stuckReceipts || []) {
+      rows.push({
+        receiptId: receipt.receiptId,
+        category: "stuck",
+        status: receipt.status,
+        channel: receipt.channel,
+        externalContactIdentifier: receipt.externalContactIdentifier,
+        idempotencyKey: receipt.idempotencyKey,
+        ageLabel: formatDurationMs(receipt.processingAgeMs),
+        duplicateCount: receipt.duplicateCount,
+        observedAt: receipt.lastSeenAt,
+      });
+    }
+    for (const receipt of agingReceipts || []) {
+      rows.push({
+        receiptId: receipt.receiptId,
+        category: "aging",
+        status: receipt.status,
+        channel: receipt.channel,
+        externalContactIdentifier: receipt.externalContactIdentifier,
+        idempotencyKey: receipt.idempotencyKey,
+        ageLabel: formatDurationMs(receipt.ageMs),
+        duplicateCount: receipt.duplicateCount,
+        observedAt: receipt.lastSeenAt,
+      });
+    }
+    for (const receipt of duplicateReceipts || []) {
+      rows.push({
+        receiptId: receipt.receiptId,
+        category: "duplicate",
+        status: receipt.status,
+        channel: receipt.channel,
+        externalContactIdentifier: receipt.externalContactIdentifier,
+        idempotencyKey: receipt.idempotencyKey,
+        ageLabel: `x${receipt.duplicateCount}`,
+        duplicateCount: receipt.duplicateCount,
+        observedAt: receipt.lastSeenAt,
+      });
+    }
+    rows.sort((a, b) => {
+      const categoryDiff =
+        reliabilityCategoryRank(a.category) - reliabilityCategoryRank(b.category);
+      if (categoryDiff !== 0) {
+        return categoryDiff;
+      }
+      return b.observedAt - a.observedAt;
+    });
+    const uniqueByReceipt = new Map<string, ReliabilityDiagnosticItem>();
+    for (const row of rows) {
+      if (!uniqueByReceipt.has(row.receiptId)) {
+        uniqueByReceipt.set(row.receiptId, row);
+      }
+    }
+    return Array.from(uniqueByReceipt.values()).slice(0, 10);
+  }, [agingReceipts, duplicateReceipts, stuckReceipts]);
 
   const interventionQueue = useMemo(() => {
     const escalationItems: InterventionQueueItem[] = (escalationQueue || [])
@@ -557,6 +907,22 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   }, [selectedInterventionKey, selectedInterventionKind]);
 
   useEffect(() => {
+    if (reliabilityDiagnostics.length === 0) {
+      if (selectedReliabilityReceiptId !== null) {
+        setSelectedReliabilityReceiptId(null);
+      }
+      return;
+    }
+
+    if (
+      !selectedReliabilityReceiptId
+      || !reliabilityDiagnostics.some((item) => item.receiptId === selectedReliabilityReceiptId)
+    ) {
+      setSelectedReliabilityReceiptId(reliabilityDiagnostics[0].receiptId);
+    }
+  }, [reliabilityDiagnostics, selectedReliabilityReceiptId]);
+
+  useEffect(() => {
     if (sortedThreadRows.length === 0) {
       if (selectedThreadId !== null) {
         setSelectedThreadId(null);
@@ -599,6 +965,62 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   const selectedLineageInstance = threadLineage.find(
     (instance) => instance.instanceAgentId === selectedLineageInstanceId
   ) || null;
+  const toolScopingSummary = useMemo(() => {
+    const records = toolScopingAudit?.records || [];
+    if (records.length === 0) {
+      return {
+        averageFinalToolCount: 0,
+        policySource: "n/a",
+        removedByPolicy: 0,
+        removedByIntegration: 0,
+      };
+    }
+
+    let finalToolCountTotal = 0;
+    let finalToolCountSamples = 0;
+    let removedByPolicy = 0;
+    let removedByIntegration = 0;
+    const policySourceCounts = new Map<string, number>();
+
+    for (const record of records) {
+      if (typeof record.finalToolCount === "number") {
+        finalToolCountTotal += record.finalToolCount;
+        finalToolCountSamples += 1;
+      }
+      removedByPolicy += (record.removedByOrgAllow || 0) + (record.removedByOrgDeny || 0);
+      removedByIntegration += record.removedByIntegration || 0;
+      if (record.policySource) {
+        policySourceCounts.set(
+          record.policySource,
+          (policySourceCounts.get(record.policySource) || 0) + 1,
+        );
+      }
+    }
+
+    const topPolicySource = Array.from(policySourceCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+    return {
+      averageFinalToolCount:
+        finalToolCountSamples > 0
+          ? Number((finalToolCountTotal / finalToolCountSamples).toFixed(2))
+          : 0,
+      policySource: topPolicySource?.[0] || "n/a",
+      removedByPolicy,
+      removedByIntegration,
+    };
+  }, [toolScopingAudit]);
+  const runtimeWindowHours =
+    modelFallbackRate?.windowHours
+    || toolSuccessFailureRatio?.windowHours
+    || retrievalTelemetry?.windowHours
+    || toolScopingAudit?.windowHours
+    || RUNTIME_KPI_WINDOW_HOURS;
+  const runtimeSince =
+    modelFallbackRate?.since
+    || toolSuccessFailureRatio?.since
+    || retrievalTelemetry?.since
+    || toolScopingAudit?.since
+    || (Date.now() - runtimeWindowHours * 60 * 60 * 1000);
+  const runtimeScopeLabel = `Agent ${agentDisplayName} · organization scope`;
 
   const interventionMessages = useQuery(
     apiAny.ai.agentSessions.getSessionMessagesAuth,
@@ -728,6 +1150,36 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     );
   };
 
+  const handleRequestReplay = async () => {
+    if (!selectedReliabilityReceiptId) return;
+    setIsRequestingReplay(true);
+    setReliabilityActionMessage(null);
+    try {
+      const result = await requestReplaySafeReceipt({
+        sessionId,
+        organizationId,
+        receiptId: selectedReliabilityReceiptId,
+        reason: "agent_ops_receipt_reliability_panel",
+      }) as {
+        accepted: boolean;
+        reason: string;
+        replayMetadata?: { idempotencyKey?: string } | null;
+      };
+      if (result.accepted) {
+        const replayKey = result.replayMetadata?.idempotencyKey || "generated";
+        setReliabilityActionMessage(`Replay intent queued (${replayKey}).`);
+      } else {
+        setReliabilityActionMessage(`Replay not queued: ${humanizeText(result.reason)}.`);
+      }
+    } catch (error) {
+      setReliabilityActionMessage(
+        error instanceof Error ? error.message : "Replay request failed."
+      );
+    } finally {
+      setIsRequestingReplay(false);
+    }
+  };
+
   if (
     !agent
     || !proposals
@@ -738,10 +1190,13 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     || !escalationMetrics
     || !escalationQueue
     || !controlCenterThreads
+    || !agingReceipts
+    || !duplicateReceipts
+    || !stuckReceipts
   ) {
     return (
       <div className="p-4 text-xs" style={{ color: "var(--window-document-text)" }}>
-        Loading trust cockpit...
+        {tx("loading", "Loading trust cockpit...")}
       </div>
     );
   }
@@ -853,7 +1308,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   return (
     <div className="p-4 space-y-4">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card title="Trust Health">
+        <Card title={tx("cards.trust_health.title", "Trust Health")}>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold" style={{ color: trustScore >= 65 ? "#166534" : "#b91c1c" }}>
               {trustScore}
@@ -864,14 +1319,14 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
             {trustLabel}
           </p>
           <div className="mt-3 space-y-1 text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-            <MetricLine label="Pending escalations" value={String(pendingEscalations)} />
-            <MetricLine label="Threads waiting on human" value={String(waitingOnHumanThreads)} />
-            <MetricLine label="Pending approvals" value={String(pendingApprovals)} />
-            <MetricLine label="Pending soul proposals" value={String(pendingProposals)} />
+            <MetricLine label={tx("cards.trust_health.pending_escalations", "Pending escalations")} value={String(pendingEscalations)} />
+            <MetricLine label={tx("cards.trust_health.waiting_on_human_threads", "Threads waiting on human")} value={String(waitingOnHumanThreads)} />
+            <MetricLine label={tx("cards.trust_health.pending_approvals", "Pending approvals")} value={String(pendingApprovals)} />
+            <MetricLine label={tx("cards.trust_health.pending_soul_proposals", "Pending soul proposals")} value={String(pendingProposals)} />
           </div>
         </Card>
 
-        <Card title="Immediate Actions">
+        <Card title={tx("cards.immediate_actions.title", "Immediate Actions")}>
           <div className="space-y-2">
             {actionItems.map((item) => (
               <div
@@ -893,59 +1348,354 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
           </div>
         </Card>
 
-        <Card title="Guardrail Map">
+        <Card title={tx("cards.guardrail_map.title", "Guardrail Map")}>
           <div className="space-y-1.5 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-            <MetricLine label="Autonomy" value={humanizeText(props.autonomyLevel || "supervised")} />
-            <MetricLine label="Blocked topics" value={String(blockedTopics.length)} />
-            <MetricLine label="Approval-only tools" value={String(approvalScopedTools.length)} />
-            <MetricLine label="Disabled tools" value={String(disabledTools.length)} />
-            <MetricLine label="Never-do rules" value={String(neverDo.length)} />
-            <MetricLine label="Escalation triggers" value={String(enabledEscalationTriggers.length)} />
+            <MetricLine
+              label={tx("cards.guardrail_map.autonomy", "Autonomy")}
+              value={humanizeText(props.autonomyLevel || "supervised")}
+            />
+            <MetricLine label={tx("cards.guardrail_map.blocked_topics", "Blocked topics")} value={String(blockedTopics.length)} />
+            <MetricLine label={tx("cards.guardrail_map.approval_only_tools", "Approval-only tools")} value={String(approvalScopedTools.length)} />
+            <MetricLine label={tx("cards.guardrail_map.disabled_tools", "Disabled tools")} value={String(disabledTools.length)} />
+            <MetricLine label={tx("cards.guardrail_map.never_do_rules", "Never-do rules")} value={String(neverDo.length)} />
+            <MetricLine label={tx("cards.guardrail_map.escalation_triggers", "Escalation triggers")} value={String(enabledEscalationTriggers.length)} />
           </div>
           {blockedTopics.length > 0 && (
             <p className="mt-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              Blocked topics: {blockedTopics.slice(0, 3).join(", ")}
+              {tx("cards.guardrail_map.blocked_topics_prefix", "Blocked topics:")}{" "}
+              {blockedTopics.slice(0, 3).join(", ")}
               {blockedTopics.length > 3 ? "..." : ""}
             </p>
           )}
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Card title="Drift Signals">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <Card title={tx("cards.drift_signals.title", "Drift Signals")}>
           <div className="space-y-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-            <MetricLine label="Proposals with drift telemetry" value={String(driftProposals.length)} />
-            <MetricLine label="Avg overall drift" value={avgDrift.toFixed(2)} />
-            <MetricLine label="Max overall drift" value={highestDrift.toFixed(2)} />
-            <MetricLine label="High-drift proposals pending" value={String(highDriftPending)} />
-            <MetricLine label="Pending alignment proposals" value={String(pendingAlignmentProposals)} />
+            <MetricLine label={tx("cards.drift_signals.proposals_with_telemetry", "Proposals with drift telemetry")} value={String(driftProposals.length)} />
+            <MetricLine label={tx("cards.drift_signals.avg_overall_drift", "Avg overall drift")} value={avgDrift.toFixed(2)} />
+            <MetricLine label={tx("cards.drift_signals.max_overall_drift", "Max overall drift")} value={highestDrift.toFixed(2)} />
+            <MetricLine label={tx("cards.drift_signals.high_drift_pending", "High-drift proposals pending")} value={String(highDriftPending)} />
+            <MetricLine label={tx("cards.drift_signals.pending_alignment", "Pending alignment proposals")} value={String(pendingAlignmentProposals)} />
           </div>
           {latestDriftProposal && (
             <p className="mt-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              Latest drift summary ({timeAgo(latestDriftProposal.createdAt)}): {latestDriftProposal.driftSummary || "No summary provided."}
+              {tx("cards.drift_signals.latest_summary", "Latest drift summary")} ({timeAgo(latestDriftProposal.createdAt)}):{" "}
+              {latestDriftProposal.driftSummary || tx("cards.drift_signals.no_summary", "No summary provided.")}
             </p>
           )}
         </Card>
 
-        <Card title="Approval + Escalation Narrative">
+        <Card title={tx("cards.approval_escalation_narrative.title", "Approval + Escalation Narrative")}>
           <div className="space-y-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-            <MetricLine label="Active escalations" value={String(pendingEscalations + takenOverEscalations)} />
-            <MetricLine label="Takeover rate (30d)" value={`${escalationMetrics.takeoverRate}%`} />
-            <MetricLine label="Resolution rate (30d)" value={`${escalationMetrics.resolutionRate}%`} />
-            <MetricLine label="False-positive rate (30d)" value={`${escalationMetrics.falsePositiveRate}%`} />
-            <MetricLine label="Team handoffs tracked" value={String(teamHandoffs.length)} />
+            <MetricLine label={tx("cards.approval_escalation_narrative.active_escalations", "Active escalations")} value={String(pendingEscalations + takenOverEscalations)} />
+            <MetricLine label={tx("cards.approval_escalation_narrative.takeover_rate", "Takeover rate (30d)")} value={`${escalationMetrics.takeoverRate}%`} />
+            <MetricLine label={tx("cards.approval_escalation_narrative.resolution_rate", "Resolution rate (30d)")} value={`${escalationMetrics.resolutionRate}%`} />
+            <MetricLine label={tx("cards.approval_escalation_narrative.false_positive_rate", "False-positive rate (30d)")} value={`${escalationMetrics.falsePositiveRate}%`} />
+            <MetricLine label={tx("cards.approval_escalation_narrative.team_handoffs", "Team handoffs tracked")} value={String(teamHandoffs.length)} />
           </div>
           <p className="mt-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-            Last {escalationMetrics.periodDays} days: {escalationMetrics.totalEscalations} escalation
-            {escalationMetrics.totalEscalations === 1 ? "" : "s"}.
+            {tx("cards.approval_escalation_narrative.last_days_prefix", "Last")} {escalationMetrics.periodDays}{" "}
+            {tx("cards.approval_escalation_narrative.days_label", "days:")} {escalationMetrics.totalEscalations}{" "}
+            {tx("cards.approval_escalation_narrative.escalation_singular", "escalation")}
+            {escalationMetrics.totalEscalations === 1 ? "" : tx("cards.approval_escalation_narrative.plural_suffix", "s")}.
           </p>
+        </Card>
+
+        <Card title={tx("cards.receipt_reliability.title", "Receipt Reliability")}>
+          <div className="space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+            <MetricLine label={tx("cards.receipt_reliability.aging_receipts", "Aging receipts (>=15m)")} value={String(agingReceipts.length)} />
+            <MetricLine label={tx("cards.receipt_reliability.duplicate_receipts", "Duplicate receipts")} value={String(duplicateReceipts.length)} />
+            <MetricLine label={tx("cards.receipt_reliability.stuck_receipts", "Stuck receipts (>=10m)")} value={String(stuckReceipts.length)} />
+          </div>
+
+          {reliabilityDiagnostics.length === 0 ? (
+            <p className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+              {tx("cards.receipt_reliability.empty", "No receipt reliability issues detected in this org scope.")}
+            </p>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {reliabilityDiagnostics.map((item) => (
+                <button
+                  key={item.receiptId}
+                  onClick={() => {
+                    setSelectedReliabilityReceiptId(item.receiptId);
+                    setReliabilityActionMessage(null);
+                  }}
+                  className="w-full border p-2 text-left"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    borderLeft: `var(--border-thick) solid ${
+                      selectedReliabilityReceiptId === item.receiptId
+                        ? "var(--tone-info)"
+                        : item.category === "stuck"
+                          ? "var(--tone-danger)"
+                          : item.category === "aging"
+                            ? "var(--tone-warning)"
+                            : "var(--tone-success)"
+                    }`,
+                    background:
+                      selectedReliabilityReceiptId === item.receiptId
+                        ? "var(--desktop-shell-accent)"
+                        : "var(--window-document-card-bg, var(--window-document-bg))",
+                  }}
+                >
+                  <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                    {humanizeText(item.category)} · {item.channel}
+                  </div>
+                  <div className="mt-0.5 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {item.externalContactIdentifier}
+                  </div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {item.category === "duplicate"
+                      ? tx("cards.receipt_reliability.duplicates_age", "Duplicates {{ageLabel}}", {
+                        ageLabel: item.ageLabel,
+                      })
+                      : tx("cards.receipt_reliability.age", "Age {{ageLabel}}", {
+                        ageLabel: item.ageLabel,
+                      })}{" "}
+                    · {tx("cards.receipt_reliability.status", "status")} {item.status}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div
+            className="mt-2 border p-2"
+            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, var(--window-document-bg))" }}
+          >
+            {!selectedReliabilityReceiptId && (
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.receipt_reliability.select_receipt", "Select a diagnostic receipt to inspect replay-safe pointers.")}
+              </div>
+            )}
+            {selectedReliabilityReceiptId && selectedReliabilityReceiptDebug === undefined && (
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.receipt_reliability.loading_pointer", "Loading replay-safe pointer...")}
+              </div>
+            )}
+            {selectedReliabilityReceiptId && selectedReliabilityReceiptDebug === null && (
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.receipt_reliability.pointer_unavailable", "Receipt pointer is unavailable for this selection.")}
+              </div>
+            )}
+            {selectedReliabilityReceiptDebug && (
+              <div className="space-y-1">
+                <MetricLine label={tx("cards.receipt_reliability.status_label", "Status")} value={selectedReliabilityReceiptDebug.status} />
+                <MetricLine
+                  label={tx("cards.receipt_reliability.can_replay", "Can replay")}
+                  value={selectedReliabilityReceiptDebug.canReplay ? "Yes" : "No"}
+                />
+                <MetricLine
+                  label={tx("cards.receipt_reliability.idempotency", "Idempotency")}
+                  value={compactId(selectedReliabilityReceiptDebug.idempotencyKey)}
+                />
+                <MetricLine
+                  label={tx("cards.receipt_reliability.concurrency_key", "Concurrency key")}
+                  value={selectedReliabilityReceiptDebug.queueConcurrencyKey || "n/a"}
+                />
+                <MetricLine
+                  label={tx("cards.receipt_reliability.ordering_key", "Ordering key")}
+                  value={selectedReliabilityReceiptDebug.queueOrderingKey || "n/a"}
+                />
+                {selectedReliabilityReceiptDebug.canReplay && (
+                  <button
+                    onClick={() => { void handleRequestReplay(); }}
+                    disabled={isRequestingReplay}
+                    className="mt-1 border px-2 py-1 text-xs disabled:opacity-60"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                  >
+                    {isRequestingReplay
+                      ? tx("cards.receipt_reliability.queueing_replay", "Queueing replay...")
+                      : tx("cards.receipt_reliability.queue_replay_intent", "Queue Replay Intent")}
+                  </button>
+                )}
+              </div>
+            )}
+            {reliabilityActionMessage && (
+              <div className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {reliabilityActionMessage}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 
-      <Card title="Thread Queue">
+      <Card title={tx("cards.runtime_kpis.title", "Runtime KPIs")}>
+        <div className="mb-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+          {tx("cards.runtime_kpis.scope", "Scope:")} {runtimeScopeLabel}{" "}
+          · {tx("cards.runtime_kpis.period_last", "Period: last")} {runtimeWindowHours}
+          {tx("cards.runtime_kpis.hours_suffix", "h since")} {formatDateTime(runtimeSince)}
+        </div>
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <div
+            className="border p-2.5"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+              {tx("cards.runtime_kpis.model_fallback", "Model fallback")}
+            </div>
+            {!modelFallbackRate && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_fallback", "Loading fallback telemetry...")}
+              </div>
+            )}
+            {modelFallbackRate && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine label={tx("cards.runtime_kpis.fallback_rate", "Fallback rate")} value={formatRatePercent(modelFallbackRate.fallbackRate)} />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.fallback_count", "Fallback count")}
+                  value={`${modelFallbackRate.fallbackCount}/${modelFallbackRate.actionsWithModelResolution}`}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.coverage", "Coverage")}
+                  value={formatCountRatio(
+                    modelFallbackRate.actionsWithModelResolution,
+                    modelFallbackRate.actionsScanned,
+                  )}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.top_reason", "Top reason")}
+                  value={modelFallbackRate.fallbackReasons[0]
+                    ? `${humanizeText(modelFallbackRate.fallbackReasons[0].reason)} (${modelFallbackRate.fallbackReasons[0].count})`
+                    : "none"}
+                />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="border p-2.5"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+              {tx("cards.runtime_kpis.tool_success_ratio", "Tool success ratio")}
+            </div>
+            {!toolSuccessFailureRatio && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_tool_telemetry", "Loading tool telemetry...")}
+              </div>
+            )}
+            {toolSuccessFailureRatio && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine label={tx("cards.runtime_kpis.success_rate", "Success rate")} value={formatRatePercent(toolSuccessFailureRatio.successRate)} />
+                <MetricLine label={tx("cards.runtime_kpis.failure_rate", "Failure rate")} value={formatRatePercent(toolSuccessFailureRatio.failureRate)} />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.scanned_outcomes", "Scanned outcomes")}
+                  value={String(toolSuccessFailureRatio.toolResultsScanned)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.pending_outcomes", "Pending outcomes")}
+                  value={String(toolSuccessFailureRatio.pendingCount)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.top_status", "Top status")}
+                  value={toolSuccessFailureRatio.statusBreakdown[0]
+                    ? `${humanizeText(toolSuccessFailureRatio.statusBreakdown[0].status)} (${toolSuccessFailureRatio.statusBreakdown[0].count})`
+                    : "none"}
+                />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="border p-2.5"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+              {tx("cards.runtime_kpis.retrieval_quality", "Retrieval quality")}
+            </div>
+            {!retrievalTelemetry && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_retrieval_telemetry", "Loading retrieval telemetry...")}
+              </div>
+            )}
+            {retrievalTelemetry && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine label={tx("cards.runtime_kpis.retrieval_fallback_rate", "Fallback rate")} value={formatRatePercent(retrievalTelemetry.fallbackRate)} />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.avg_citations_per_message", "Avg citations/msg")}
+                  value={retrievalTelemetry.avgCitationsPerMessage.toFixed(2)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.avg_chunk_citations_per_message", "Avg chunk citations/msg")}
+                  value={retrievalTelemetry.avgChunkCitationsPerMessage.toFixed(2)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.messages_with_retrieval", "Messages with retrieval")}
+                  value={formatCountRatio(
+                    retrievalTelemetry.messagesWithRetrieval,
+                    retrievalTelemetry.messagesScanned,
+                  )}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.top_mode", "Top mode")}
+                  value={retrievalTelemetry.retrievalModes[0]
+                    ? `${humanizeText(retrievalTelemetry.retrievalModes[0].mode)} (${retrievalTelemetry.retrievalModes[0].count})`
+                    : "none"}
+                />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="border p-2.5"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+              {tx("cards.runtime_kpis.tool_scoping_audit", "Tool scoping audit")}
+            </div>
+            {!toolScopingAudit && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_scoping_audit", "Loading scoping audit...")}
+              </div>
+            )}
+            {toolScopingAudit && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine
+                  label={tx("cards.runtime_kpis.audit_coverage", "Audit coverage")}
+                  value={formatCountRatio(toolScopingAudit.auditedMessages, toolScopingAudit.totalMessages)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.avg_final_tool_count", "Avg final tool count")}
+                  value={toolScopingSummary.averageFinalToolCount.toFixed(2)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.policy_source", "Policy source")}
+                  value={humanizeText(toolScopingSummary.policySource)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.removed_by_policy", "Removed by policy")}
+                  value={String(toolScopingSummary.removedByPolicy)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.removed_by_integration", "Removed by integration")}
+                  value={String(toolScopingSummary.removedByIntegration)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card title={tx("cards.thread_queue.title", "Thread Queue")}>
         {sortedThreadRows.length === 0 && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            No active threads mapped to this agent.
+            {tx("cards.thread_queue.empty", "No active threads mapped to this agent.")}
           </div>
         )}
 
@@ -989,26 +1739,41 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
 
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <StatusPill
-                  label={`Lifecycle: ${threadRow.lifecycleState}`}
+                  label={tx("cards.thread_queue.lifecycle", "Lifecycle: {{state}}", {
+                    state: threadRow.lifecycleState,
+                  })}
                   tone={lifecycleBadgeTone(threadRow.lifecycleState)}
                 />
                 <StatusPill
-                  label={`Delivery: ${threadRow.deliveryState}`}
+                  label={tx("cards.thread_queue.delivery", "Delivery: {{state}}", {
+                    state: threadRow.deliveryState,
+                  })}
                   tone={deliveryBadgeTone(threadRow.deliveryState)}
                 />
                 {threadRow.escalationCountOpen > 0 && (
                   <StatusPill
-                    label={`Escalations: ${threadRow.escalationCountOpen}${threadRow.escalationUrgency ? ` (${humanizeText(threadRow.escalationUrgency)})` : ""}`}
+                    label={tx(
+                      "cards.thread_queue.escalations",
+                      "Escalations: {{count}}{{urgency}}",
+                      {
+                        count: threadRow.escalationCountOpen,
+                        urgency: threadRow.escalationUrgency
+                          ? ` (${humanizeText(threadRow.escalationUrgency)})`
+                          : "",
+                      }
+                    )}
                     tone={{ background: "#fef3c7", border: "#f59e0b", color: "#92400e" }}
                   />
                 )}
                 <StatusPill
-                  label={`Active instances: ${threadRow.activeInstanceCount}`}
+                  label={tx("cards.thread_queue.active_instances", "Active instances: {{count}}", {
+                    count: threadRow.activeInstanceCount,
+                  })}
                   tone={{ background: "#e2e8f0", border: "#94a3b8", color: "#334155" }}
                 />
                 {threadRow.waitingOnHuman && (
                   <StatusPill
-                    label="Waiting on human"
+                    label={tx("cards.thread_queue.waiting_on_human", "Waiting on human")}
                     tone={{ background: "#fee2e2", border: "#dc2626", color: "#991b1b" }}
                   />
                 )}
@@ -1018,22 +1783,22 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         </div>
       </Card>
 
-      <Card title="Instance Lineage Drill-Down">
+      <Card title={tx("cards.instance_lineage.title", "Instance Lineage Drill-Down")}>
         {!selectedThreadRow && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Select a thread to inspect instance lineage.
+            {tx("cards.instance_lineage.select_thread", "Select a thread to inspect instance lineage.")}
           </div>
         )}
 
         {selectedThreadRow && lineageLoading && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Loading lineage...
+            {tx("cards.instance_lineage.loading", "Loading lineage...")}
           </div>
         )}
 
         {selectedThreadRow && !lineageLoading && threadLineage.length === 0 && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            No instance lineage is available for this thread yet.
+            {tx("cards.instance_lineage.empty", "No instance lineage is available for this thread yet.")}
           </div>
         )}
 
@@ -1045,9 +1810,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                 borderColor: "var(--window-document-border)",
                 background: "var(--window-document-panel-bg, #fff)",
               }}
-            >
+              >
               <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                Instances ({threadLineage.length})
+                {tx("cards.instance_lineage.instances", "Instances")} ({threadLineage.length})
               </div>
               <div className="space-y-1.5">
                 {threadLineage.map((instance) => (
@@ -1075,7 +1840,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     </div>
                     <div className="mt-0.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
                       {instance.roleLabel}
-                      {instance.active ? " · Active" : ""}
+                      {instance.active ? ` · ${tx("cards.instance_lineage.active", "Active")}` : ""}
                     </div>
                   </button>
                 ))}
@@ -1091,7 +1856,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
             >
               {!selectedLineageInstance && (
                 <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                  Select an instance to inspect lineage metadata.
+                  {tx("cards.instance_lineage.select_instance", "Select an instance to inspect lineage metadata.")}
                 </div>
               )}
 
@@ -1100,22 +1865,22 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   <div className="font-medium">
                     {selectedLineageInstance.displayName || compactId(selectedLineageInstance.instanceAgentId)}
                   </div>
-                  <MetricLine label="Role" value={selectedLineageInstance.roleLabel} />
-                  <MetricLine label="Active" value={selectedLineageInstance.active ? "Yes" : "No"} />
-                  <MetricLine label="Spawned" value={formatDateTime(selectedLineageInstance.spawnedAt)} />
+                  <MetricLine label={tx("cards.instance_lineage.role", "Role")} value={selectedLineageInstance.roleLabel} />
+                  <MetricLine label={tx("cards.instance_lineage.active_label", "Active")} value={selectedLineageInstance.active ? "Yes" : "No"} />
+                  <MetricLine label={tx("cards.instance_lineage.spawned", "Spawned")} value={formatDateTime(selectedLineageInstance.spawnedAt)} />
                   <MetricLine
-                    label="Template"
+                    label={tx("cards.instance_lineage.template", "Template")}
                     value={compactId(selectedLineageInstance.templateAgentId)}
                   />
                   <MetricLine
-                    label="Parent"
+                    label={tx("cards.instance_lineage.parent", "Parent")}
                     value={selectedLineageInstance.parentInstanceAgentId
                       ? compactId(selectedLineageInstance.parentInstanceAgentId)
                       : "Root"}
                   />
                   {selectedLineageInstance.handoffReason && (
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                      Handoff reason: {selectedLineageInstance.handoffReason}
+                      {tx("cards.instance_lineage.handoff_reason", "Handoff reason:")} {selectedLineageInstance.handoffReason}
                     </div>
                   )}
                 </div>
@@ -1125,7 +1890,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         )}
       </Card>
 
-      <Card title="Intervention Drill-Down">
+      <Card title={tx("cards.intervention_drilldown.title", "Intervention Drill-Down")}>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px,1fr]">
           <div
             className="border p-2"
@@ -1135,11 +1900,11 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
             }}
           >
             <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-              Queue ({interventionQueue.length})
+              {tx("cards.intervention_drilldown.queue", "Queue")} ({interventionQueue.length})
             </div>
             {interventionQueue.length === 0 && (
-              <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                No active interventions. Pending items will appear here.
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.intervention_drilldown.empty", "No active interventions. Pending items will appear here.")}
               </div>
             )}
             <div className="space-y-1.5">
@@ -1174,7 +1939,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
           <div className="space-y-2">
             {!selectedIntervention && (
               <div className="border p-3 text-[11px]" style={{ borderColor: "var(--window-document-border)", color: "var(--neutral-gray)" }}>
-                Select a queue item to inspect blocker context and take action.
+                {tx("cards.intervention_drilldown.select_queue_item", "Select a queue item to inspect blocker context and take action.")}
               </div>
             )}
 
@@ -1185,7 +1950,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                 >
                   <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                    Blocker Reason
+                    {tx("cards.intervention_drilldown.blocker_reason", "Blocker Reason")}
                   </div>
                   <div className="mt-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
                     {selectedIntervention.blockerReason}
@@ -1201,15 +1966,15 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                      Harness Context
+                      {tx("cards.intervention_drilldown.harness_context", "Harness Context")}
                     </div>
                     <div className="space-y-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
                       <MetricLine
-                        label="Layer"
+                        label={tx("cards.intervention_drilldown.layer", "Layer")}
                         value={`${selectedIntervention.harnessContext.layer.name} (L${selectedIntervention.harnessContext.layer.index})`}
                       />
                       <MetricLine
-                        label="Tools used"
+                        label={tx("cards.intervention_drilldown.tools_used", "Tools used")}
                         value={
                           selectedIntervention.harnessContext.toolsUsed.length > 0
                             ? selectedIntervention.harnessContext.toolsUsed.join(", ")
@@ -1217,7 +1982,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                         }
                       />
                       <MetricLine
-                        label="Handoff edge"
+                        label={tx("cards.intervention_drilldown.handoff_edge", "Handoff edge")}
                         value={
                           selectedIntervention.harnessContext.handoffEdge
                             ? `${compactId(selectedIntervention.harnessContext.handoffEdge.fromAgentId)} -> ${compactId(selectedIntervention.harnessContext.handoffEdge.toAgentId)}`
@@ -1227,12 +1992,12 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     </div>
                     {selectedIntervention.harnessContext.handoffEdge && (
                       <div className="mt-2 space-y-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        <div>Reason: {selectedIntervention.harnessContext.handoffEdge.reason}</div>
+                        <div>{tx("cards.intervention_drilldown.reason", "Reason:")} {selectedIntervention.harnessContext.handoffEdge.reason}</div>
                         {selectedIntervention.harnessContext.handoffEdge.summary && (
-                          <div>Summary: {selectedIntervention.harnessContext.handoffEdge.summary}</div>
+                          <div>{tx("cards.intervention_drilldown.summary", "Summary:")} {selectedIntervention.harnessContext.handoffEdge.summary}</div>
                         )}
                         {selectedIntervention.harnessContext.handoffEdge.goal && (
-                          <div>Goal: {selectedIntervention.harnessContext.handoffEdge.goal}</div>
+                          <div>{tx("cards.intervention_drilldown.goal", "Goal:")} {selectedIntervention.harnessContext.handoffEdge.goal}</div>
                         )}
                         <div>{formatDateTime(selectedIntervention.harnessContext.handoffEdge.timestamp)}</div>
                       </div>
@@ -1246,49 +2011,50 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                      Memory Provenance
+                      {tx("cards.intervention_drilldown.memory_provenance", "Memory Provenance")}
                     </div>
                     {!selectedIntervention.sessionId && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        No session context attached to this escalation.
+                        {tx("cards.intervention_drilldown.no_session_context_escalation", "No session context attached to this escalation.")}
                       </div>
                     )}
                     {selectedIntervention.sessionId && selectedInterventionDrillDown === undefined && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        Loading memory provenance...
+                        {tx("cards.intervention_drilldown.loading_memory_provenance", "Loading memory provenance...")}
                       </div>
                     )}
                     {selectedIntervention.sessionId
                       && selectedInterventionDrillDown
                       && !memoryProvenanceEvidence && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        No memory consent/provenance checkpoints captured for this session.
+                        {tx("cards.intervention_drilldown.no_memory_provenance", "No memory consent/provenance checkpoints captured for this session.")}
                       </div>
                     )}
                     {memoryProvenanceEvidence && (
                       <>
                         <div className="space-y-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-                          <MetricLine label="Consent scope" value={humanizeText(memoryProvenanceEvidence.consentScope)} />
-                          <MetricLine label="Consent decision" value={humanizeText(memoryProvenanceEvidence.consentDecision)} />
-                          <MetricLine label="Candidate count" value={String(memoryProvenanceEvidence.memoryCandidateIds.length)} />
-                          <MetricLine label="Checkpoint events" value={String(memoryProvenanceEvidence.eventCount)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.consent_scope", "Consent scope")} value={humanizeText(memoryProvenanceEvidence.consentScope)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.consent_decision", "Consent decision")} value={humanizeText(memoryProvenanceEvidence.consentDecision)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.candidate_count", "Candidate count")} value={String(memoryProvenanceEvidence.memoryCandidateIds.length)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.checkpoint_events", "Checkpoint events")} value={String(memoryProvenanceEvidence.eventCount)} />
                           <MetricLine
-                            label="Blocked without consent"
+                            label={tx("cards.intervention_drilldown.blocked_without_consent", "Blocked without consent")}
                             value={memoryProvenanceEvidence.blockedNoConsent ? "Yes" : "No"}
                           />
                         </div>
                         <div className="mt-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                          Latest checkpoint: {humanizeText(memoryProvenanceEvidence.eventName)} ({formatDateTime(memoryProvenanceEvidence.occurredAt)})
+                          {tx("cards.intervention_drilldown.latest_checkpoint", "Latest checkpoint:")}{" "}
+                          {humanizeText(memoryProvenanceEvidence.eventName)} ({formatDateTime(memoryProvenanceEvidence.occurredAt)})
                         </div>
                         {memoryProvenanceEvidence.consentPromptVersion && (
                           <div className="mt-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                            Prompt version: {memoryProvenanceEvidence.consentPromptVersion}
+                            {tx("cards.intervention_drilldown.prompt_version", "Prompt version:")} {memoryProvenanceEvidence.consentPromptVersion}
                           </div>
                         )}
                         {memoryProvenanceEvidence.memoryCandidateIds.length > 0 && (
                           <div className="mt-2">
                             <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                              Candidate attribution
+                              {tx("cards.intervention_drilldown.candidate_attribution", "Candidate attribution")}
                             </div>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {memoryProvenanceEvidence.memoryCandidateIds.slice(0, 8).map((candidateId) => (
@@ -1319,46 +2085,49 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                      Retrieval Citation Provenance
+                      {tx("cards.intervention_drilldown.retrieval_citation_provenance", "Retrieval Citation Provenance")}
                     </div>
                     {!selectedIntervention.sessionId && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        No session context attached to this escalation.
+                        {tx("cards.intervention_drilldown.no_session_context_escalation", "No session context attached to this escalation.")}
                       </div>
                     )}
                     {selectedIntervention.sessionId && selectedInterventionDrillDown === undefined && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        Loading retrieval provenance...
+                        {tx("cards.intervention_drilldown.loading_retrieval_provenance", "Loading retrieval provenance...")}
                       </div>
                     )}
                     {selectedIntervention.sessionId
                       && selectedInterventionDrillDown
                       && !retrievalCitationEvidence && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                        No retrieval citation telemetry captured for this session.
+                        {tx("cards.intervention_drilldown.no_retrieval_provenance", "No retrieval citation telemetry captured for this session.")}
                       </div>
                     )}
                     {retrievalCitationEvidence && (
                       <>
                         <div className="space-y-1 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-                          <MetricLine label="Mode" value={retrievalCitationEvidence.mode || "unknown"} />
-                          <MetricLine label="Path" value={retrievalCitationEvidence.path || "unknown"} />
-                          <MetricLine label="Citations" value={String(retrievalCitationEvidence.citationCount)} />
-                          <MetricLine label="Chunk citations" value={String(retrievalCitationEvidence.chunkCitationCount)} />
-                          <MetricLine label="Bridge citations" value={String(retrievalCitationEvidence.bridgeCitationCount)} />
-                          <MetricLine label="Snapshot events" value={String(retrievalCitationEvidence.eventCount)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.mode", "Mode")} value={retrievalCitationEvidence.mode || "unknown"} />
+                          <MetricLine label={tx("cards.intervention_drilldown.path", "Path")} value={retrievalCitationEvidence.path || "unknown"} />
+                          <MetricLine label={tx("cards.intervention_drilldown.citations", "Citations")} value={String(retrievalCitationEvidence.citationCount)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.chunk_citations", "Chunk citations")} value={String(retrievalCitationEvidence.chunkCitationCount)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.bridge_citations", "Bridge citations")} value={String(retrievalCitationEvidence.bridgeCitationCount)} />
+                          <MetricLine label={tx("cards.intervention_drilldown.snapshot_events", "Snapshot events")} value={String(retrievalCitationEvidence.eventCount)} />
                         </div>
                         <div className="mt-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                          Latest snapshot: {formatDateTime(retrievalCitationEvidence.occurredAt)}
+                          {tx("cards.intervention_drilldown.latest_snapshot", "Latest snapshot:")} {formatDateTime(retrievalCitationEvidence.occurredAt)}
                         </div>
                         {retrievalCitationEvidence.fallbackUsed && (
                           <div className="mt-1 text-[10px]" style={{ color: "#92400e" }}>
-                            Fallback used: {retrievalCitationEvidence.fallbackReason || "reason not captured"}
+                            {tx("cards.intervention_drilldown.fallback_used", "Fallback used:")}{" "}
+                            {retrievalCitationEvidence.fallbackReason
+                              || tx("cards.intervention_drilldown.reason_not_captured", "reason not captured")}
                           </div>
                         )}
                         {retrievalCitationEvidence.sourceKindCounts.length > 0 && (
                           <div className="mt-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                            Source kinds: {retrievalCitationEvidence.sourceKindCounts
+                            {tx("cards.intervention_drilldown.source_kinds", "Source kinds:")}{" "}
+                            {retrievalCitationEvidence.sourceKindCounts
                               .map((entry) => `${entry.sourceKind} (${entry.count})`)
                               .join(", ")}
                           </div>
@@ -1381,7 +2150,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                                   {humanizeText(citation.provenanceType)} · {citation.sourceKind}
                                 </div>
                                 <div className="text-[10px]" style={{ color: "var(--window-document-text)" }}>
-                                  Path: {citation.sourcePath}
+                                  {tx("cards.intervention_drilldown.path_prefix", "Path:")} {citation.sourcePath}
                                 </div>
                               </div>
                             ))}
@@ -1397,21 +2166,21 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                 >
                   <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                    Session Timeline
+                    {tx("cards.intervention_drilldown.session_timeline", "Session Timeline")}
                   </div>
                   {!selectedIntervention.sessionId && (
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                      No session context attached to this queue item.
+                      {tx("cards.intervention_drilldown.no_session_context_queue", "No session context attached to this queue item.")}
                     </div>
                   )}
                   {selectedIntervention.sessionId && !interventionMessages && (
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                      Loading session timeline...
+                      {tx("cards.intervention_drilldown.loading_session_timeline", "Loading session timeline...")}
                     </div>
                   )}
                   {selectedIntervention.sessionId && interventionMessages && interventionMessages.length === 0 && (
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                      This session has no messages yet.
+                      {tx("cards.intervention_drilldown.session_empty", "This session has no messages yet.")}
                     </div>
                   )}
                   {selectedIntervention.sessionId && interventionMessages && interventionMessages.length > 0 && (
@@ -1447,7 +2216,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
                 >
                   <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                    Intervention Action Panel
+                    {tx("cards.intervention_drilldown.action_panel", "Intervention Action Panel")}
                   </div>
 
                   {shouldRenderTemplateControls && selectedTemplate && (
@@ -1456,7 +2225,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                       style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                     >
                       <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                        Action Template
+                        {tx("cards.intervention_drilldown.action_template", "Action Template")}
                       </div>
                       <select
                         value={selectedTemplateId}
@@ -1481,14 +2250,14 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           <input
                             value={templateFileName}
                             onChange={(event) => setTemplateFileName(event.target.value)}
-                            placeholder="File name (for example pricing-deck.pdf)"
+                            placeholder={tx("cards.intervention_drilldown.file_name_placeholder", "File name (for example pricing-deck.pdf)")}
                             className="border px-2 py-1 text-[10px]"
                             style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                           />
                           <input
                             value={templateFileUrl}
                             onChange={(event) => setTemplateFileUrl(event.target.value)}
-                            placeholder="File URL (optional if name is enough)"
+                            placeholder={tx("cards.intervention_drilldown.file_url_placeholder", "File URL (optional if name is enough)")}
                             className="border px-2 py-1 text-[10px]"
                             style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                           />
@@ -1497,7 +2266,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                       <textarea
                         value={templateNote}
                         onChange={(event) => setTemplateNote(event.target.value)}
-                        placeholder="Template note for audit log (optional)"
+                        placeholder={tx("cards.intervention_drilldown.template_note_placeholder", "Template note for audit log (optional)")}
                         className="h-14 w-full border px-2 py-1 text-[10px]"
                         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                       />
@@ -1509,7 +2278,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                       <textarea
                         value={rejectionReason}
                         onChange={(event) => setRejectionReason(event.target.value)}
-                        placeholder="Optional rejection reason"
+                        placeholder={tx("cards.intervention_drilldown.rejection_reason_placeholder", "Optional rejection reason")}
                         className="h-16 w-full border px-2 py-1 text-[11px]"
                         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                       />
@@ -1522,10 +2291,10 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                         >
                           <CheckCircle size={12} />
                           {isIntervening
-                            ? "Approving..."
+                            ? tx("cards.intervention_drilldown.approving", "Approving...")
                             : selectedTemplateId === "send_file"
-                              ? "Approve + Send File"
-                              : "Approve Override"}
+                              ? tx("cards.intervention_drilldown.approve_send_file", "Approve + Send File")
+                              : tx("cards.intervention_drilldown.approve_override", "Approve Override")}
                         </button>
                         <button
                           onClick={() => { void handleReject(); }}
@@ -1534,7 +2303,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           style={{ borderColor: "var(--window-document-border)" }}
                         >
                           <XCircle size={12} />
-                          {isIntervening ? "Rejecting..." : "Reject"}
+                          {isIntervening
+                            ? tx("cards.intervention_drilldown.rejecting", "Rejecting...")
+                            : tx("cards.intervention_drilldown.reject", "Reject")}
                         </button>
                       </div>
                     </div>
@@ -1551,7 +2322,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                             style={{ borderColor: "var(--window-document-border)" }}
                           >
                             <UserCheck size={12} />
-                            {isIntervening ? "Taking Over..." : "Take Over"}
+                            {isIntervening
+                              ? tx("cards.intervention_drilldown.taking_over", "Taking Over...")
+                              : tx("cards.intervention_drilldown.take_over", "Take Over")}
                           </button>
                           <button
                             onClick={() => { void handleDismiss(); }}
@@ -1560,7 +2333,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                             style={{ borderColor: "var(--window-document-border)" }}
                           >
                             <XCircle size={12} />
-                            {isIntervening ? "Dismissing..." : "Dismiss"}
+                            {isIntervening
+                              ? tx("cards.intervention_drilldown.dismissing", "Dismissing...")
+                              : tx("cards.intervention_drilldown.dismiss", "Dismiss")}
                           </button>
                         </div>
                       )}
@@ -1570,7 +2345,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           <textarea
                             value={resolutionSummary}
                             onChange={(event) => setResolutionSummary(event.target.value)}
-                            placeholder="Resolution summary (required to resume agent)"
+                            placeholder={tx("cards.intervention_drilldown.resolution_summary_placeholder", "Resolution summary (required to resume agent)")}
                             className="h-16 w-full border px-2 py-1 text-[11px]"
                             style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
                           />
@@ -1582,10 +2357,10 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           >
                             <CheckCircle size={12} />
                             {isIntervening
-                              ? "Resolving..."
+                              ? tx("cards.intervention_drilldown.resolving", "Resolving...")
                               : selectedTemplateId === "send_file"
-                                ? "Send File + Resume Agent"
-                                : "Handoff Back To Agent"}
+                                ? tx("cards.intervention_drilldown.send_file_resume", "Send File + Resume Agent")
+                                : tx("cards.intervention_drilldown.handoff_back_to_agent", "Handoff Back To Agent")}
                           </button>
                         </>
                       )}
@@ -1593,7 +2368,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                       {selectedIntervention.escalationStatus !== "pending"
                         && selectedIntervention.escalationStatus !== "taken_over" && (
                         <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                          This escalation is already {humanizeText(selectedIntervention.escalationStatus)}.
+                          {tx("cards.intervention_drilldown.already_state", "This escalation is already {{state}}.", {
+                            state: humanizeText(selectedIntervention.escalationStatus),
+                          })}
                         </div>
                       )}
                     </div>
@@ -1611,33 +2388,107 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         </div>
       </Card>
 
-      <Card title="Checkpoint Timeline">
+      <Card title={tx("cards.checkpoint_timeline.title", "Checkpoint Timeline")}>
         {!selectedThreadRow && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Select a thread to inspect checkpoint-grouped timeline events.
+            {tx("cards.checkpoint_timeline.select_thread", "Select a thread to inspect checkpoint-grouped timeline events.")}
           </div>
         )}
 
         {selectedThreadRow && timelineLoading && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Loading thread timeline...
+            {tx("cards.checkpoint_timeline.loading", "Loading thread timeline...")}
           </div>
         )}
 
         {selectedThreadRow && selectedThreadMissing && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Timeline data is unavailable for the selected thread.
+            {tx("cards.checkpoint_timeline.unavailable", "Timeline data is unavailable for the selected thread.")}
           </div>
         )}
 
         {selectedThreadRow && !timelineLoading && !selectedThreadMissing && !hasTimelineEvents && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            No checkpoint transitions recorded for this thread yet.
+            {tx("cards.checkpoint_timeline.empty", "No checkpoint transitions recorded for this thread yet.")}
           </div>
         )}
 
         {selectedThreadRow && !timelineLoading && !selectedThreadMissing && hasTimelineEvents && (
           <div className="space-y-3">
+            {controlCenterThreadDrillDown?.visibilityScope && (
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.checkpoint_timeline.trace_scope", "Trace scope:")}{" "}
+                {controlCenterThreadDrillDown.visibilityScope === "super_admin"
+                  ? tx("cards.checkpoint_timeline.super_admin", "Super admin")
+                  : tx("cards.checkpoint_timeline.org_owner_member", "Organization owner/member")}
+              </div>
+            )}
+            {controlCenterThreadDrillDown?.context && (
+              <div
+                className="border p-2.5"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-panel-bg, var(--window-document-bg))",
+                }}
+                >
+                <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                  {tx("cards.checkpoint_timeline.session_turn_context", "Session + Turn Context")}
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs md:grid-cols-2">
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.session", "Session")}
+                    value={compactId(controlCenterThreadDrillDown.context.sessionId)}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.route_key", "Route key")}
+                    value={controlCenterThreadDrillDown.context.route.sessionRoutingKey}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.channel", "Channel")}
+                    value={controlCenterThreadDrillDown.context.channel}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.contact", "Contact")}
+                    value={controlCenterThreadDrillDown.context.externalContactIdentifier}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.selected_agent", "Selected agent")}
+                    value={
+                      controlCenterThreadDrillDown.context.selectedAgent.displayName
+                      || compactId(controlCenterThreadDrillDown.context.selectedAgent.instanceAgentId)
+                    }
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.agent_role", "Agent role")}
+                    value={controlCenterThreadDrillDown.context.selectedAgent.roleLabel}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.lifecycle", "Lifecycle")}
+                    value={humanizeText(controlCenterThreadDrillDown.context.delivery.lifecycleState)}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.delivery", "Delivery")}
+                    value={humanizeText(controlCenterThreadDrillDown.context.delivery.deliveryState)}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.latest_turn", "Latest turn")}
+                    value={controlCenterThreadDrillDown.context.latestTurn
+                      ? compactId(controlCenterThreadDrillDown.context.latestTurn.turnId)
+                      : "n/a"}
+                  />
+                  <MetricLine
+                    label={tx("cards.checkpoint_timeline.route_identity", "Route identity")}
+                    value={formatRouteIdentity(controlCenterThreadDrillDown.context.route.routeIdentity)}
+                  />
+                </div>
+                <div className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {tx(
+                    "cards.checkpoint_timeline.shared_identifiers_note",
+                    "Shared identifiers (`sessionId`, `turnId`, `correlationId`, `lineageId`) match terminal timeline and trust timeline rows."
+                  )}
+                </div>
+              </div>
+            )}
             {groupedTimeline.map((group) => (
               group.events.length === 0
                 ? null
@@ -1674,6 +2525,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
         {title === "Guardrail Map" && <CheckCircle size={12} />}
         {title === "Drift Signals" && <Clock size={12} />}
         {title === "Approval + Escalation Narrative" && <MessageSquare size={12} />}
+        {title === "Receipt Reliability" && <AlertTriangle size={12} />}
+        {title === "Runtime KPIs" && <Activity size={12} />}
         {title === "Thread Queue" && <MessageSquare size={12} />}
         {title === "Instance Lineage Drill-Down" && <Bot size={12} />}
         {title === "Intervention Drill-Down" && <AlertTriangle size={12} />}
@@ -1715,10 +2568,66 @@ function StatusPill({ label, tone }: { label: string; tone: StatusPillTone }) {
   );
 }
 
+function resolveTrustTimelineMarkerTone(markerType: UnifiedTimelineMarkerType): StatusPillTone {
+  if (markerType === "handoff") {
+    return { background: "var(--color-warn-subtle)", border: "var(--color-warn)", color: "var(--color-warn)" };
+  }
+  if (markerType === "proposal") {
+    return { background: "var(--color-info-subtle)", border: "var(--color-info)", color: "var(--color-info)" };
+  }
+  if (markerType === "commit") {
+    return { background: "var(--color-success-subtle)", border: "var(--color-success)", color: "var(--color-success)" };
+  }
+  if (markerType === "dm") {
+    return { background: "var(--color-accent-subtle)", border: "var(--color-accent)", color: "var(--color-accent)" };
+  }
+  return { background: "var(--color-surface-hover)", border: "var(--color-border-hover)", color: "var(--color-text-secondary)" };
+}
+
+function resolveTimelineMarker(event: ControlCenterTimelineEvent): {
+  label: string;
+  tone: StatusPillTone;
+} | null {
+  const markerType = resolveUnifiedTimelineMarkerType(event);
+  if (!markerType) {
+    return null;
+  }
+  return {
+    label: resolveUnifiedTimelineMarkerLabel(markerType),
+    tone: resolveTrustTimelineMarkerTone(markerType),
+  };
+}
+
+function formatCorrelationLabel(correlationId: string): string {
+  const compact = compactUnifiedCorrelationId(correlationId);
+  if (compact === correlationId) {
+    return compact;
+  }
+  return `${compact} (${correlationId})`;
+}
+
 function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent }) {
+  const { t } = useNamespaceTranslations("ui.agents.trust_cockpit");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const tone = escalationGateTone(event.escalationGate);
+  const marker = resolveTimelineMarker(event);
   const actorLabel = `${humanizeText(event.actorType)}:${compactId(event.actorId)}`;
-  const checkpointLabel = event.checkpoint ? humanizeText(event.checkpoint) : "No checkpoint";
+  const checkpointLabel = event.checkpoint
+    ? humanizeText(event.checkpoint)
+    : tx("timeline.no_checkpoint", "No checkpoint");
+  const stageLabel = event.pipelineStage ? humanizeText(event.pipelineStage) : null;
+  const visibilityLabel = event.visibilityScope === "super_admin"
+    ? tx("timeline.super_admin_trace", "Super admin trace")
+    : tx("timeline.org_owner_trace", "Org-owner trace");
+  const turnPointer = event.turnId || readString(event.metadata?.turnId);
+  const correlationLabel = formatCorrelationLabel(event.correlationId);
 
   return (
     <div
@@ -1730,8 +2639,11 @@ function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent
       }}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-          {event.title}
+        <div className="flex items-center gap-1.5">
+          <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+            {event.title}
+          </div>
+          {marker && <StatusPill label={marker.label} tone={marker.tone} />}
         </div>
         <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }} title={formatDateTime(event.occurredAt)}>
           {timeAgo(event.occurredAt)}
@@ -1739,14 +2651,46 @@ function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
         <span>{humanizeText(event.kind)}</span>
+        {stageLabel && (
+          <>
+            <span>·</span>
+            <span>{stageLabel}</span>
+          </>
+        )}
         <span>·</span>
         <span>{checkpointLabel}</span>
         <span>·</span>
         <span>{actorLabel}</span>
+        <span>·</span>
+        <span>#{event.eventOrdinal}</span>
       </div>
       {(event.fromState || event.toState) && (
         <div className="mt-1 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          State: {event.fromState || "unknown"}{" -> "}{event.toState || "unknown"}
+          {tx("timeline.state", "State:")} {event.fromState || tx("timeline.unknown", "unknown")}{" -> "}
+          {event.toState || tx("timeline.unknown", "unknown")}
+        </div>
+      )}
+      <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+        {tx("timeline.session", "Session:")} {compactId(event.sessionId)}
+        {turnPointer
+          ? ` · ${tx("timeline.turn", "Turn:")} ${compactId(turnPointer)}`
+          : ""}
+      </div>
+      <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }} title={event.correlationId}>
+        {tx("timeline.correlation", "Correlation:")} {correlationLabel}
+      </div>
+      {(event.lineageId || event.threadType || event.workflowKey || event.authorityIntentType) && (
+        <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+          {event.lineageId
+            ? tx("timeline.lineage_value", "Lineage {{lineageId}}", { lineageId: event.lineageId })
+            : tx("timeline.lineage_na", "Lineage n/a")}
+          {event.threadType ? ` · ${humanizeText(event.threadType)}` : ""}
+          {event.workflowKey
+            ? ` · ${tx("timeline.workflow", "workflow")} ${event.workflowKey}`
+            : ""}
+          {event.authorityIntentType
+            ? ` · ${tx("timeline.intent", "intent")} ${event.authorityIntentType}`
+            : ""}
         </div>
       )}
       <div className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -1754,14 +2698,17 @@ function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent
       </div>
       {event.reason && (
         <div className="text-[10px] mt-1" style={{ color: "var(--window-document-text)" }}>
-          Reason: {event.reason}
+          {tx("timeline.reason", "Reason:")} {event.reason}
         </div>
       )}
       {event.trustEventName && (
         <div className="text-[10px] mt-1" style={{ color: "#1d4ed8" }}>
-          Trust event: {event.trustEventName}
+          {tx("timeline.trust_event", "Trust event:")} {event.trustEventName}
         </div>
       )}
+      <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+        {visibilityLabel}
+      </div>
     </div>
   );
 }
@@ -1769,6 +2716,12 @@ function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent
 function severityRank(severity: TimelineSeverity): number {
   if (severity === "high") return 0;
   if (severity === "medium") return 1;
+  return 2;
+}
+
+function reliabilityCategoryRank(category: ReliabilityDiagnosticCategory): number {
+  if (category === "stuck") return 0;
+  if (category === "aging") return 1;
   return 2;
 }
 
@@ -1970,7 +2923,7 @@ function buildTimelineGroups(events: ControlCenterTimelineEvent[]): Array<{
     label: timelineGateLabel(gate),
     events: events
       .filter((event) => event.escalationGate === gate)
-      .sort((a, b) => b.occurredAt - a.occurredAt),
+      .sort(compareTimelineEventsDeterministically),
   }));
   return grouped;
 }
@@ -2022,6 +2975,33 @@ function readString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function formatRatePercent(rate: number): string {
+  if (!Number.isFinite(rate)) {
+    return "0.0%";
+  }
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+function formatCountRatio(numerator: number, denominator: number): string {
+  const safeNumerator = Number.isFinite(numerator) ? numerator : 0;
+  const safeDenominator = Number.isFinite(denominator) ? denominator : 0;
+  const ratio = safeDenominator > 0 ? safeNumerator / safeDenominator : 0;
+  return `${safeNumerator}/${safeDenominator} (${formatRatePercent(ratio)})`;
+}
+
+function formatRouteIdentity(identity: ControlCenterRouteIdentity | undefined): string {
+  if (!identity) {
+    return "legacy";
+  }
+  const parts = [
+    identity.providerId,
+    identity.providerConnectionId,
+    identity.providerProfileId,
+    identity.bindingId,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return parts.length > 0 ? parts.join(" · ") : "legacy";
+}
+
 function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
 }
@@ -2035,4 +3015,18 @@ function timeAgo(timestamp: number): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function formatDurationMs(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0s";
+  }
+  const totalSeconds = Math.floor(value / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours < 24) return `${totalHours}h`;
+  const totalDays = Math.floor(totalHours / 24);
+  return `${totalDays}d`;
 }

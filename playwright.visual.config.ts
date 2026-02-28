@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const port = Number(process.env.PLAYWRIGHT_PORT || 3000);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 const isCI = Boolean(process.env.CI);
+const visualJsonReportPath = "tmp/test-results/ui-visual/results.json";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -24,8 +25,12 @@ export default defineConfig({
     ? [
         ["github"],
         ["html", { outputFolder: "tmp/playwright-report/ui-visual", open: "never" }],
+        ["json", { outputFile: visualJsonReportPath }],
       ]
-    : [["list"]],
+    : [
+        ["list"],
+        ["json", { outputFile: visualJsonReportPath }],
+      ],
   outputDir: "tmp/test-results/ui-visual",
   use: {
     baseURL,

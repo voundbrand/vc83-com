@@ -18,7 +18,9 @@ import {
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useQuery, useMutation, useAction } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../../convex/_generated/api") as { api: any }
 import { Id } from "../../../../../convex/_generated/dataModel"
 import { AIWorkItemDetail } from "./ai-work-item-detail"
 
@@ -40,6 +42,56 @@ interface WorkItemDetailProps {
   onActionComplete?: () => void;
 }
 
+interface ContactSyncRecord {
+  provider: string
+  userName: string
+  startedAt: number
+  completedAt?: number
+  totalContacts: number
+  created: number
+  updated: number
+  skipped: number
+  failed: number
+  status: string
+}
+
+interface ContactSyncItemRecord {
+  id: string
+  sourceName: string
+  sourceEmail: string
+  match: {
+    action: string
+    reason: string
+  }
+  data?: {
+    companyName?: string
+    jobTitle?: string
+    mobilePhone?: string
+  } | null
+}
+
+interface EmailCampaignRecord {
+  name: string
+  userName: string
+  createdAt: number
+  sentAt?: number
+  aiTone?: string
+  totalRecipients: number
+  sent: number
+  queued?: number
+  failed: number
+  status: string
+}
+
+interface EmailCampaignItemRecord {
+  recipientId: string
+  recipientName: string
+  recipientEmail: string
+  subject: string
+  body: string
+  personalization: Record<string, string | number | boolean | null | undefined>
+}
+
 // Action Buttons Component
 function ActionButtons({
   itemType,
@@ -52,15 +104,20 @@ function ActionButtons({
   status: string;
   onActionComplete?: () => void;
 }) {
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params)
+    return translated === key ? fallback : translated
+  }
   const [isApproving, setIsApproving] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Mutations
-  const approveContactSync = useAction(api.ai.workItemActions.approveContactSync);
-  const cancelContactSync = useMutation(api.ai.workItemActions.cancelContactSync);
-  const approveEmailCampaign = useAction(api.ai.workItemActions.approveEmailCampaign);
-  const cancelEmailCampaign = useMutation(api.ai.workItemActions.cancelEmailCampaign);
+  const approveContactSync = useAction(apiAny.ai.workItemActions.approveContactSync);
+  const cancelContactSync = useMutation(apiAny.ai.workItemActions.cancelContactSync);
+  const approveEmailCampaign = useAction(apiAny.ai.workItemActions.approveEmailCampaign);
+  const cancelEmailCampaign = useMutation(apiAny.ai.workItemActions.cancelEmailCampaign);
 
   const handleApprove = async () => {
     setIsApproving(true);
@@ -82,7 +139,7 @@ function ActionButtons({
   };
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this? This action cannot be undone.")) {
+    if (!confirm(tx("ui.ai_assistant.work_items.cancel_confirm", "Are you sure you want to cancel this? This action cannot be undone."))) {
       return;
     }
 
@@ -131,12 +188,12 @@ function ActionButtons({
           {isApproving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Approving...</span>
+              <span>{tx("ui.ai_assistant.work_items.approving", "Approving...")}</span>
             </>
           ) : (
             <>
               <Check className="w-4 h-4" />
-              <span>Approve</span>
+              <span>{tx("ui.ai_assistant.work_items.approve", "Approve")}</span>
             </>
           )}
         </button>
@@ -150,12 +207,12 @@ function ActionButtons({
           {isCancelling ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Cancelling...</span>
+              <span>{tx("ui.ai_assistant.work_items.cancelling", "Cancelling...")}</span>
             </>
           ) : (
             <>
               <X className="w-4 h-4" />
-              <span>Cancel</span>
+              <span>{tx("ui.ai_assistant.work_items.cancel", "Cancel")}</span>
             </>
           )}
         </button>
@@ -163,8 +220,8 @@ function ActionButtons({
 
       <p className="text-xs mt-2 text-center" style={{ color: 'var(--window-document-text-muted)' }}>
         {itemType === "contact_sync"
-          ? "Approve to create/update contacts in CRM"
-          : "Approve to send emails to all recipients"}
+          ? tx("ui.ai_assistant.work_items.contact_sync_approve_hint", "Approve to create/update contacts in CRM")
+          : tx("ui.ai_assistant.work_items.email_campaign_approve_hint", "Approve to send emails to all recipients")}
       </p>
     </div>
   );
@@ -178,14 +235,19 @@ function ContactSyncDetail({
   syncId: Id<"contactSyncs">;
   onActionComplete?: () => void;
 }) {
-  const sync = useQuery(api.ai.workItems.getContactSync, { syncId });
-  const items = useQuery(api.ai.workItems.getContactSyncItems, { syncId });
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params)
+    return translated === key ? fallback : translated
+  }
+  const sync = useQuery(apiAny.ai.workItems.getContactSync, { syncId }) as ContactSyncRecord | null | undefined;
+  const items = useQuery(apiAny.ai.workItems.getContactSyncItems, { syncId }) as ContactSyncItemRecord[] | undefined;
 
   if (!sync) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
-          Loading sync details...
+          {tx("ui.ai_assistant.work_items.loading_sync_details", "Loading sync details...")}
         </p>
       </div>
     );
@@ -204,13 +266,17 @@ function ContactSyncDetail({
       {/* Sync Info */}
       <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
         <p className="text-sm font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
-          {sync.provider === "microsoft" ? "Microsoft" : "Google"} Contact Sync
+          {tx("ui.ai_assistant.work_items.contact_sync_title", "{provider} Contact Sync", {
+            provider: sync.provider === "microsoft"
+              ? tx("ui.ai_assistant.work_items.provider_microsoft", "Microsoft")
+              : tx("ui.ai_assistant.work_items.provider_google", "Google"),
+          })}
         </p>
         <div className="space-y-1 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
-          <p>Initiated by: {sync.userName}</p>
-          <p>Started: {new Date(sync.startedAt).toLocaleString()}</p>
+          <p>{tx("ui.ai_assistant.work_items.initiated_by", "Initiated by:")} {sync.userName}</p>
+          <p>{tx("ui.ai_assistant.work_items.started", "Started:")} {new Date(sync.startedAt).toLocaleString()}</p>
           {sync.completedAt && (
-            <p>Completed: {new Date(sync.completedAt).toLocaleString()}</p>
+            <p>{tx("ui.ai_assistant.work_items.completed", "Completed:")} {new Date(sync.completedAt).toLocaleString()}</p>
           )}
         </div>
       </div>
@@ -218,28 +284,28 @@ function ContactSyncDetail({
       {/* Statistics */}
       <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
         <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
-          Statistics
+          {tx("ui.ai_assistant.work_items.statistics", "Statistics")}
         </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Total:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.total", "Total:")}</p>
             <p className="font-semibold" style={{ color: 'var(--window-document-text)' }}>{sync.totalContacts}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Created:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.created", "Created:")}</p>
             <p className="font-semibold" style={{ color: 'var(--success)' }}>{sync.created}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Updated:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.updated", "Updated:")}</p>
             <p className="font-semibold" style={{ color: 'var(--info)' }}>{sync.updated}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Skipped:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.skipped", "Skipped:")}</p>
             <p className="font-semibold" style={{ color: 'var(--window-document-text-muted)' }}>{sync.skipped}</p>
           </div>
           {sync.failed > 0 && (
             <div>
-              <p style={{ color: 'var(--window-document-text-muted)' }}>Failed:</p>
+              <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.failed", "Failed:")}</p>
               <p className="font-semibold" style={{ color: 'var(--error)' }}>{sync.failed}</p>
             </div>
           )}
@@ -258,15 +324,17 @@ function ContactSyncDetail({
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
           <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--window-document-text)' }}>
-            Contacts ({items?.length || 0})
+            {tx("ui.ai_assistant.work_items.contacts_count", "Contacts ({count})", {
+              count: items?.length || 0,
+            })}
           </p>
           {!items || items.length === 0 ? (
             <p className="text-xs text-center py-4" style={{ color: 'var(--window-document-text-muted)' }}>
-              No preview data available
+              {tx("ui.ai_assistant.work_items.no_preview_data", "No preview data available")}
             </p>
           ) : (
             <div className="space-y-2">
-              {items.map((contact) => {
+              {items.map((contact: ContactSyncItemRecord) => {
                 const config = actionConfig[contact.match.action];
                 const ActionIcon = config.icon;
 
@@ -351,14 +419,19 @@ function EmailCampaignDetail({
   campaignId: Id<"emailCampaigns">;
   onActionComplete?: () => void;
 }) {
-  const campaign = useQuery(api.ai.workItems.getEmailCampaign, { campaignId });
-  const items = useQuery(api.ai.workItems.getEmailCampaignItems, { campaignId });
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params)
+    return translated === key ? fallback : translated
+  }
+  const campaign = useQuery(apiAny.ai.workItems.getEmailCampaign, { campaignId }) as EmailCampaignRecord | null | undefined;
+  const items = useQuery(apiAny.ai.workItems.getEmailCampaignItems, { campaignId }) as EmailCampaignItemRecord[] | undefined;
 
   if (!campaign) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
-          Loading campaign details...
+          {tx("ui.ai_assistant.work_items.loading_campaign_details", "Loading campaign details...")}
         </p>
       </div>
     );
@@ -372,13 +445,13 @@ function EmailCampaignDetail({
           {campaign.name}
         </p>
         <div className="space-y-1 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
-          <p>Created by: {campaign.userName}</p>
-          <p>Created: {new Date(campaign.createdAt).toLocaleString()}</p>
+          <p>{tx("ui.ai_assistant.work_items.created_by", "Created by:")} {campaign.userName}</p>
+          <p>{tx("ui.ai_assistant.work_items.created_at", "Created:")} {new Date(campaign.createdAt).toLocaleString()}</p>
           {campaign.sentAt && (
-            <p>Sent: {new Date(campaign.sentAt).toLocaleString()}</p>
+            <p>{tx("ui.ai_assistant.work_items.sent", "Sent:")} {new Date(campaign.sentAt).toLocaleString()}</p>
           )}
           {campaign.aiTone && (
-            <p>Tone: {campaign.aiTone}</p>
+            <p>{tx("ui.ai_assistant.work_items.tone", "Tone:")} {campaign.aiTone}</p>
           )}
         </div>
       </div>
@@ -386,24 +459,24 @@ function EmailCampaignDetail({
       {/* Statistics */}
       <div className="p-3 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
         <p className="text-xs font-semibold mb-2" style={{ color: 'var(--window-document-text)' }}>
-          Statistics
+          {tx("ui.ai_assistant.work_items.statistics", "Statistics")}
         </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Recipients:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.recipients", "Recipients:")}</p>
             <p className="font-semibold" style={{ color: 'var(--window-document-text)' }}>{campaign.totalRecipients}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Sent:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.sent", "Sent:")}</p>
             <p className="font-semibold" style={{ color: 'var(--success)' }}>{campaign.sent}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--window-document-text-muted)' }}>Queued:</p>
+            <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.queued", "Queued:")}</p>
             <p className="font-semibold" style={{ color: 'var(--info)' }}>{campaign.queued || 0}</p>
           </div>
           {campaign.failed > 0 && (
             <div>
-              <p style={{ color: 'var(--window-document-text-muted)' }}>Failed:</p>
+              <p style={{ color: 'var(--window-document-text-muted)' }}>{tx("ui.ai_assistant.work_items.failed", "Failed:")}</p>
               <p className="font-semibold" style={{ color: 'var(--error)' }}>{campaign.failed}</p>
             </div>
           )}
@@ -422,15 +495,17 @@ function EmailCampaignDetail({
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
           <p className="text-xs font-semibold mb-2 px-1" style={{ color: 'var(--window-document-text)' }}>
-            Emails ({items?.length || 0})
+            {tx("ui.ai_assistant.work_items.emails_count", "Emails ({count})", {
+              count: items?.length || 0,
+            })}
           </p>
           {!items || items.length === 0 ? (
             <p className="text-xs text-center py-4" style={{ color: 'var(--window-document-text-muted)' }}>
-              No preview data available
+              {tx("ui.ai_assistant.work_items.no_preview_data", "No preview data available")}
             </p>
           ) : (
             <div className="space-y-2">
-              {items.map((email, index) => (
+              {items.map((email: EmailCampaignItemRecord, index: number) => (
                 <div
                   key={`${email.recipientId}-${index}`}
                   className="p-2 border rounded"
@@ -455,7 +530,7 @@ function EmailCampaignDetail({
                   {/* Subject */}
                   <div className="mb-2">
                     <p className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
-                      Subject:
+                      {tx("ui.ai_assistant.work_items.subject", "Subject:")}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
                       {email.subject}
@@ -465,7 +540,7 @@ function EmailCampaignDetail({
                   {/* Body Preview */}
                   <div>
                     <p className="text-xs font-semibold" style={{ color: 'var(--window-document-text)' }}>
-                      Preview:
+                      {tx("ui.ai_assistant.work_items.preview", "Preview:")}
                     </p>
                     <p
                       className="text-xs line-clamp-3"
@@ -479,7 +554,7 @@ function EmailCampaignDetail({
                   {Object.keys(email.personalization).length > 0 && (
                     <div className="mt-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
                       <p className="text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                        Personalization:
+                        {tx("ui.ai_assistant.work_items.personalization", "Personalization:")}
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {Object.entries(email.personalization).slice(0, 3).map(([key, value]) => (
@@ -509,7 +584,11 @@ function EmailCampaignDetail({
 
 // Main Detail Component
 export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps): ReactNode {
-  useNamespaceTranslations("ui.ai_assistant"); // Hook called for side effects
+  const { t } = useNamespaceTranslations("ui.ai_assistant")
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params)
+    return translated === key ? fallback : translated
+  }
 
   // Check if this is an AI work item (starts with "ai_")
   const isAIWorkItem = item.type.startsWith("ai_")
@@ -535,7 +614,7 @@ export function WorkItemDetail({ item, onActionComplete }: WorkItemDetailProps):
       >
         <Icon className="w-4 h-4" style={{ color: 'var(--window-document-text)' }} />
         <span className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
-          Details
+          {tx("ui.ai_assistant.work_items.details", "Details")}
         </span>
       </div>
 

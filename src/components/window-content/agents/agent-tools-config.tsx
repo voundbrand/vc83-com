@@ -8,9 +8,11 @@
 import { useState, useMemo } from "react";
 import { Save } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 
 interface AgentToolsConfigProps {
   agentId: Id<"objects">;
@@ -27,19 +29,21 @@ const TOOL_CATEGORIES: Record<string, string> = {
   transcribe_audio: "Media", analyze_image: "Media", parse_document: "Media", download_media: "Media",
   create_client_org: "Scale", list_client_orgs: "Scale", get_client_org_stats: "Scale", deploy_telegram_bot: "Scale",
   propose_soul_update: "Soul", review_own_soul: "Soul", view_pending_proposals: "Soul",
-  request_feature: "Meta", check_oauth_connection: "Meta",
+  request_feature: "Meta", check_oauth_connection: "Meta", start_slack_workspace_connect: "Meta",
   create_web_app: "Builder", deploy_web_app: "Builder", check_deploy_status: "Builder",
   detect_web_app_connections: "Builder", connect_web_app_data: "Builder",
+  run_platform_productivity_loop: "Platform", run_eval_analyst_checks: "Platform",
+  platform_soul_admin: "Soul Admin",
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function AgentToolsConfig({ agentId, sessionId, organizationId }: AgentToolsConfigProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agent = useQuery(api.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
-  const updateAgent = useMutation(api.agentOntology.updateAgent);
+  const agent = useQuery(apiAny.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
+  const updateAgent = useMutation(apiAny.agentOntology.updateAgent);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools = useQuery((api.ai.tools as any).registry.getToolList, { sessionId }) as any[] | undefined;
+  const tools = useQuery((apiAny.ai.tools as any).registry.getToolList, { sessionId }) as any[] | undefined;
 
   const props = (agent?.customProperties || {}) as AgentCustomProps;
   const [disabledTools, setDisabledTools] = useState<string[]>(props.disabledTools || []);

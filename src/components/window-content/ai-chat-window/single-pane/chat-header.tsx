@@ -1,14 +1,12 @@
 "use client"
 
-import { useLayoutMode } from "../layout-mode-context"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, LayoutGrid, Coins, Layers } from "lucide-react"
+import { Coins, Layers, Shield } from "lucide-react"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { ShellBotIcon } from "@/components/icons/shell-icons"
 import Link from "next/link"
 
 export function ChatHeader() {
-  const { mode, switchToThreePane, switchToSinglePane } = useLayoutMode()
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { openWindow } = useWindowManager()
 
@@ -21,6 +19,19 @@ export function ChatHeader() {
         <StoreWindow />,
         { x: storeX, y: 80 },
         { width: 720, height: 640 }
+      )
+    })
+  }
+
+  const handleOpenAgentCoverage = () => {
+    import("@/components/window-content/agents-window").then(({ AgentsWindow }) => {
+      const agentsX = typeof window !== "undefined" ? Math.max(120, window.innerWidth - 980) : 220
+      openWindow(
+        "agents-browser",
+        "AI Agents",
+        <AgentsWindow />,
+        { x: agentsX, y: 70 },
+        { width: 980, height: 700 }
       )
     })
   }
@@ -48,7 +59,7 @@ export function ChatHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* l4yercak3 Builder Link */}
+        {/* SevenLayers Builder Link */}
         <Link
           href="/builder"
           className="px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform rounded"
@@ -56,11 +67,20 @@ export function ChatHeader() {
             background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
             color: 'white',
           }}
-          title="Open l4yercak3 Builder"
+          title="Open SevenLayers Builder"
         >
           <Layers className="w-3 h-3" />
           Builder
         </Link>
+
+        <button
+          className="desktop-shell-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
+          onClick={handleOpenAgentCoverage}
+          title="Open agent coverage and recommendations"
+        >
+          <Shield className="w-3 h-3" />
+          Coverage
+        </button>
 
         {/* Credits / Store Button */}
         <button
@@ -72,27 +92,6 @@ export function ChatHeader() {
           Credits
         </button>
 
-        {/* Mode Switcher Buttons */}
-        {mode === "single" && (
-          <button
-            className="desktop-shell-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
-            onClick={switchToThreePane}
-            title="Switch to workflow mode"
-          >
-            <LayoutGrid className="w-3 h-3" />
-            {t("ui.ai_assistant.header.workflow_button")}
-          </button>
-        )}
-        {mode === "three-pane" && (
-          <button
-            className="desktop-shell-button px-2 py-0.5 text-xs font-pixel flex items-center gap-1 hover:scale-105 transition-transform"
-            onClick={switchToSinglePane}
-            title="Switch to simple mode"
-          >
-            <MessageSquare className="w-3 h-3" />
-            Simple
-          </button>
-        )}
       </div>
     </div>
   )

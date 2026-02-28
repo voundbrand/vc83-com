@@ -5,13 +5,19 @@
  * Shows all agents with status dots, quick actions, and stats.
  */
 
-import { Play, Pause, Sparkles } from "lucide-react";
+import { Crown, Pause, Play, Sparkles } from "lucide-react";
 import { useMutation } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 import type { AgentCustomProps } from "./types";
+import {
+  canMakePrimaryInUi,
+  canPauseAgentInUi,
+  countActiveAgents,
+  isPrimaryAgentRecord,
+} from "./primary-agent-ui";
 
 interface AgentListPanelProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,9 +45,11 @@ export function AgentListPanel({
 }: AgentListPanelProps) {
   const activateAgent = useMutation(api.agentOntology.activateAgent);
   const pauseAgent = useMutation(api.agentOntology.pauseAgent);
+  const setPrimaryAgent = useMutation(api.agentOntology.setPrimaryAgent);
 
   const getStatsForAgent = (agentId: string) =>
     stats.find((s) => s.agentId === agentId);
+  const activeAgentCount = countActiveAgents(agents);
 
   return (
     <div
@@ -66,7 +74,7 @@ export function AgentListPanel({
           }}
         >
           <Sparkles size={10} style={{ color: "var(--warning)" }} />
-          New
+          Store
         </button>
       </div>
 
@@ -84,6 +92,9 @@ export function AgentListPanel({
           const props = (agent.customProperties || {}) as AgentCustomProps;
           const isSelected = selectedAgentId === agent._id;
           const agentStats = getStatsForAgent(agent._id);
+          const isPrimary = isPrimaryAgentRecord(agent);
+          const canPause = canPauseAgentInUi(agent, activeAgentCount);
+          const canMakePrimary = canMakePrimaryInUi(agent);
 
           return (
             <div
@@ -114,6 +125,18 @@ export function AgentListPanel({
                 <span className="text-xs font-medium truncate">
                   {props.displayName || agent.name}
                 </span>
+                {isPrimary && (
+                  <span
+                    className="text-[9px] px-1 py-0.5 rounded border"
+                    style={{
+                      borderColor: "var(--win95-border)",
+                      background: "var(--warning)",
+                      color: "#111827",
+                    }}
+                  >
+                    Primary
+                  </span>
+                )}
               </div>
 
               <div
@@ -131,10 +154,18 @@ export function AgentListPanel({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      pauseAgent({ sessionId, agentId: agent._id });
+                      if (!canPause) {
+                        return;
+                      }
+                      void pauseAgent({ sessionId, agentId: agent._id });
                     }}
-                    className="p-0.5 rounded hover:bg-yellow-100 hover:bg-opacity-20"
-                    title="Pause"
+                    disabled={!canPause}
+                    className="p-0.5 rounded hover:bg-yellow-100 hover:bg-opacity-20 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={
+                      canPause
+                        ? "Pause"
+                        : "Primary agent cannot be paused while it is the only active agent"
+                    }
                   >
                     <Pause size={10} style={{ color: "#eab308" }} />
                   </button>
@@ -142,12 +173,28 @@ export function AgentListPanel({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      activateAgent({ sessionId, agentId: agent._id });
+                      void activateAgent({ sessionId, agentId: agent._id });
                     }}
                     className="p-0.5 rounded hover:bg-green-100 hover:bg-opacity-20"
                     title="Activate"
                   >
                     <Play size={10} style={{ color: "#22c55e" }} />
+                  </button>
+                )}
+                {canMakePrimary && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void setPrimaryAgent({
+                        sessionId,
+                        agentId: agent._id,
+                        reason: "agents_window_list_make_primary",
+                      });
+                    }}
+                    className="p-0.5 rounded hover:bg-amber-100 hover:bg-opacity-25"
+                    title="Make Primary"
+                  >
+                    <Crown size={10} style={{ color: "#d97706" }} />
                   </button>
                 )}
                 <span

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { MessageSquare, User, Bot, PhoneForwarded } from "lucide-react";
+import { MessageSquare, User, Bot, PhoneForwarded, Mail, PhoneCall, AlertTriangle } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { buildSessionHandoffPayload } from "./session-handoff";
@@ -39,6 +39,49 @@ interface SessionMessageItem {
   agentName?: string;
 }
 
+interface OperatorTimelineCard {
+  id: string;
+  missionId: string;
+  attemptId: string;
+  bookingId?: string;
+  channel: string;
+  attemptIndex?: number;
+  reasonCode?: string;
+  status: string;
+  result?: string;
+  requestedAt?: number;
+  completedAt?: number;
+  failureReason?: string;
+  telephonyOutcome?: string;
+  telephonyDisposition?: string;
+  voicemailDetected?: boolean;
+  transcriptSnippet?: string;
+  redacted: boolean;
+}
+
+interface ConversationTimelinePayload {
+  timelineCards: OperatorTimelineCard[];
+  total: number;
+}
+
+function humanizeToken(value?: string): string {
+  if (!value) {
+    return "n/a";
+  }
+  return value
+    .split("_")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+}
+
+function formatTimelineTimestamp(card: OperatorTimelineCard): string {
+  const timestamp = card.completedAt || card.requestedAt;
+  if (!timestamp) {
+    return "No timestamp";
+  }
+  return new Date(timestamp).toLocaleString();
+}
+
 export function AgentSessionsViewer({ agentId, sessionId, organizationId }: AgentSessionsViewerProps) {
   const [selectedSession, setSelectedSession] = useState<Id<"agentSessions"> | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("active");
@@ -57,6 +100,12 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
     generatedApi.ai.agentSessions.getSessionMessagesAuth,
     selectedSession ? { sessionId, agentSessionId: selectedSession, limit: 50 } : "skip",
   ) as SessionMessageItem[] | undefined;
+  const outreachTimeline = useQuery(
+    generatedApi.api.v1.conversationsInternal.getConversationTimelineCardsAuth,
+    selectedSession
+      ? { sessionId, organizationId, agentSessionId: selectedSession, limit: 12 }
+      : "skip",
+  ) as ConversationTimelinePayload | undefined;
 
   const handoffCandidates = useQuery(generatedApi.projectOntology.getOrganizationUsers, {
     sessionId,
@@ -233,6 +282,94 @@ export function AgentSessionsViewer({ agentId, sessionId, organizationId }: Agen
                 {handOffError}
               </div>
             )}
+
+            <div className="px-3 py-2 border-b" style={{ borderColor: "var(--win95-border)" }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold" style={{ color: "var(--win95-text)" }}>
+                  Outreach Timeline
+                </span>
+                <span className="text-[9px]" style={{ color: "var(--neutral-gray)" }}>
+                  {outreachTimeline?.total || 0} attempts
+                </span>
+              </div>
+              {outreachTimeline === undefined && (
+                <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+                  Loading outreach timeline...
+                </p>
+              )}
+              {outreachTimeline && outreachTimeline.timelineCards.length === 0 && (
+                <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+                  No outreach/call attempts captured for this conversation.
+                </p>
+              )}
+              {outreachTimeline && outreachTimeline.timelineCards.length > 0 && (
+                <div className="mt-1.5 space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {outreachTimeline.timelineCards.map((card) => {
+                    const ChannelIcon =
+                      card.channel === "phone_call"
+                        ? PhoneCall
+                        : card.channel === "email"
+                          ? Mail
+                          : MessageSquare;
+                    const hasFailure = Boolean(card.failureReason);
+                    return (
+                      <div
+                        key={card.id}
+                        className="border px-2 py-1.5 text-[10px]"
+                        style={{
+                          borderColor: "var(--win95-border)",
+                          background: "var(--win95-bg-light, #fff)",
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <ChannelIcon size={10} />
+                            <span className="font-semibold">
+                              Attempt {card.attemptIndex || "?"} · {humanizeToken(card.channel)}
+                            </span>
+                          </div>
+                          <span style={{ color: "var(--neutral-gray)" }}>
+                            {formatTimelineTimestamp(card)}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2" style={{ color: "var(--neutral-gray)" }}>
+                          <span>Reason: {humanizeToken(card.reasonCode)}</span>
+                          <span>·</span>
+                          <span>Status: {humanizeToken(card.status)}</span>
+                          {card.result && (
+                            <>
+                              <span>·</span>
+                              <span>Result: {humanizeToken(card.result)}</span>
+                            </>
+                          )}
+                        </div>
+                        {hasFailure && (
+                          <div className="mt-1 flex items-start gap-1.5" style={{ color: "#b42318" }}>
+                            <AlertTriangle size={10} className="mt-[1px] flex-shrink-0" />
+                            <span>Failure reason: {humanizeToken(card.failureReason)}</span>
+                          </div>
+                        )}
+                        {card.transcriptSnippet && (
+                          <div
+                            className="mt-1 border px-1.5 py-1 italic"
+                            style={{
+                              borderColor: "var(--win95-border)",
+                              background: "var(--win95-bg-dark, #e0e0e0)",
+                              color: "var(--win95-text-secondary)",
+                            }}
+                          >
+                            “{card.transcriptSnippet}”
+                          </div>
+                        )}
+                        <div className="mt-1 text-[9px]" style={{ color: "var(--neutral-gray)" }}>
+                          {card.redacted ? "PII redacted by default." : "Raw transcript."}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
