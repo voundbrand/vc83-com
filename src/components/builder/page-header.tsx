@@ -30,15 +30,15 @@ export function PageHeader({
 
   // Variant styles
   const variantStyles = {
-    transparent: "bg-transparent text-white",
-    white: "bg-white text-gray-900 shadow-sm",
-    dark: "bg-gray-900 text-white",
+    transparent: "bg-transparent text-[var(--color-text)]",
+    white: "bg-[var(--color-surface)] text-[var(--color-text)] border-b border-[var(--color-border)]",
+    dark: "bg-[var(--color-surface-raised)] text-[var(--color-text)] border-b border-[var(--color-border)]",
   };
 
   const linkStyles = {
-    transparent: "text-white/90 hover:text-white",
-    white: "text-gray-600 hover:text-gray-900",
-    dark: "text-gray-300 hover:text-white",
+    transparent: "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]",
+    white: "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]",
+    dark: "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]",
   };
 
   return (

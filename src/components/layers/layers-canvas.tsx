@@ -600,6 +600,13 @@ export function LayersCanvas() {
           >
             AI
           </button>
+          <Link
+            href="/builder/new?launch=event&source=layers"
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/20 transition-colors"
+            title="Open Builder launch flow"
+          >
+            Launch Flow
+          </Link>
           {/* Save */}
           <button
             onClick={() => handleSave({ manual: true })}

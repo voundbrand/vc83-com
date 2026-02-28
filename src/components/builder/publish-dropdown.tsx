@@ -170,9 +170,11 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
   // Derive deployment state from builder app
   const deployment = (builderApp?.customProperties as Record<string, unknown>)?.deployment as {
+    mode?: "managed" | "external";
     githubRepo?: string | null;
     vercelDeployUrl?: string | null;
     productionUrl?: string | null;
+    managedUrl?: string | null;
     status?: string;
     lastDeployedAt?: number | null;
     vercelProjectId?: string | null;
@@ -182,7 +184,14 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
   } | undefined;
 
   const deployStatus = deployment?.status || "not_deployed";
-  const productionUrl = deployment?.productionUrl;
+  const deploymentMode = deployment?.mode || "managed";
+  const isManagedMode = deploymentMode !== "external";
+  const managedUrl =
+    deployment?.managedUrl ||
+    ((builderApp?.customProperties as Record<string, unknown>)?.v0DemoUrl as string | undefined) ||
+    ((builderApp?.customProperties as Record<string, unknown>)?.v0WebUrl as string | undefined) ||
+    null;
+  const productionUrl = deployment?.productionUrl || (isManagedMode ? managedUrl : null);
   // Consider deployed if we have a production URL and status isn't actively failing/deploying
   // (handles case where status was incorrectly reset but URL persists)
   const isDeployed = !!productionUrl && deployStatus !== "deploying" && deployStatus !== "failed";
@@ -295,8 +304,61 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     };
   }, [deployStep, vercelProjectId, effectiveSessionId, organizationId, builderAppId, checkDeployStatus]);
 
-  // ── MAIN PUBLISH HANDLER ──
-  const handlePublish = useCallback(async () => {
+  const handleSetDeploymentMode = useCallback(
+    async (mode: "managed" | "external") => {
+      if (!effectiveSessionId || !builderAppId) return;
+      try {
+        await updateDeployment({
+          sessionId: effectiveSessionId,
+          appId: builderAppId,
+          deploymentMode: mode,
+          deploymentError: undefined,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to switch deployment mode");
+      }
+    },
+    [effectiveSessionId, builderAppId, updateDeployment]
+  );
+
+  const handlePublishManaged = useCallback(async () => {
+    if (!effectiveSessionId || !builderAppId) return;
+    setError(null);
+
+    if (fileCount === 0) {
+      setError("No files found for this app. Generate app files before publishing.");
+      return;
+    }
+
+    const fallbackManagedUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/builder/new?appId=${builderAppId}`
+        : `https://app.l4yercak3.com/builder/new?appId=${builderAppId}`;
+    const managedPublishUrl = managedUrl || fallbackManagedUrl;
+
+    try {
+      await updateDeployment({
+        sessionId: effectiveSessionId,
+        appId: builderAppId,
+        deploymentMode: "managed",
+        managedUrl: managedPublishUrl,
+        productionUrl: managedPublishUrl,
+        status: "deployed",
+        deploymentError: undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Managed publish failed");
+    }
+  }, [
+    effectiveSessionId,
+    builderAppId,
+    fileCount,
+    managedUrl,
+    updateDeployment,
+  ]);
+
+  // ── EXTERNAL PUBLISH HANDLER ──
+  const handlePublishExternal = useCallback(async () => {
     if (!effectiveSessionId || !organizationId || !builderAppId || !repoName) return;
     setError(null);
     setDeployStartTime(Date.now());
@@ -380,6 +442,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         await updateDeployment({
           sessionId: effectiveSessionId,
           appId: builderAppId,
+          deploymentMode: "external",
           status: "failed",
           deploymentError: errorMessage,
         });
@@ -437,6 +500,10 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
   // ── REDEPLOY HANDLER (re-push to GitHub, Vercel auto-deploys) ──
   const handleRedeploy = useCallback(async () => {
+    if (isManagedMode) {
+      await handlePublishManaged();
+      return;
+    }
     if (!effectiveSessionId || !organizationId || !builderAppId || !repoName) return;
     setIsRedeploying(true);
     setError(null);
@@ -482,6 +549,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       await updateDeployment({
         sessionId: effectiveSessionId,
         appId: builderAppId,
+        deploymentMode: "external",
         status: "deploying",
         deploymentError: undefined,
       });
@@ -496,6 +564,8 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
       setIsRedeploying(false);
     }
   }, [
+    isManagedMode,
+    handlePublishManaged,
     effectiveSessionId, organizationId, builderAppId, repoName,
     isPrivate, builderApp, deployment?.vercelProjectId,
     createRepo, updateDeployment, publishConfig,
@@ -706,6 +776,29 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
             {tx("ui.builder.publishDropdown.publishedApp", "Published App")}
           </p>
 
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleSetDeploymentMode("managed")}
+              className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                isManagedMode
+                  ? "bg-emerald-950/40 border border-emerald-700 text-emerald-300"
+                  : "border border-neutral-700 text-neutral-400 hover:border-neutral-600"
+              }`}
+            >
+              Managed
+            </button>
+            <button
+              onClick={() => handleSetDeploymentMode("external")}
+              className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                !isManagedMode
+                  ? "bg-amber-950/40 border border-amber-700 text-amber-300"
+                  : "border border-neutral-700 text-neutral-400 hover:border-neutral-600"
+              }`}
+            >
+              External (Advanced)
+            </button>
+          </div>
+
           {/* App preview card */}
           <div className="bg-neutral-800 rounded-lg p-3 mb-3 flex items-start gap-3">
             <div className="w-16 h-12 rounded bg-neutral-700 flex items-center justify-center flex-shrink-0">
@@ -726,18 +819,25 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
 
           {/* Action links */}
           <div className="space-y-0.5">
-            {deployment?.githubRepo && (
+            {!isManagedMode && deployment?.githubRepo && (
               <DropdownLink
                 icon={<Github className="w-4 h-4" />}
                 label={tx("ui.builder.publishDropdown.viewOnGithub", "View on GitHub")}
                 href={deployment.githubRepo}
               />
             )}
-            <DropdownLink
-              icon={<Settings2 className="w-4 h-4" />}
-              label={tx("ui.builder.publishDropdown.inspectOnVercel", "Inspect on Vercel")}
-              href="https://vercel.com/dashboard"
-            />
+            {!isManagedMode ? (
+              <DropdownLink
+                icon={<Settings2 className="w-4 h-4" />}
+                label={tx("ui.builder.publishDropdown.inspectOnVercel", "Inspect on Vercel")}
+                href="https://vercel.com/dashboard"
+              />
+            ) : (
+              <div className="flex items-center gap-2 rounded-md px-2.5 py-2 text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900/60">
+                <Globe className="w-3.5 h-3.5" />
+                Managed hosting mode active
+              </div>
+            )}
             <DropdownLink
               icon={<BarChart3 className="w-4 h-4" />}
               label={tx("ui.builder.publishDropdown.analytics", "Analytics")}
@@ -774,7 +874,9 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
             )}
             {isRedeploying
               ? tx("ui.builder.publishDropdown.deploying", "Deploying...")
-              : tx("ui.builder.publishDropdown.redeploy", "Redeploy")}
+              : isManagedMode
+                ? "Republish"
+                : tx("ui.builder.publishDropdown.redeploy", "Redeploy")}
           </button>
         </div>
       </DropdownContainer>
@@ -1063,6 +1165,29 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           {tx("ui.builder.publishDropdown.publishToWeb", "Publish to the Web")}
         </p>
 
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handleSetDeploymentMode("managed")}
+            className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+              isManagedMode
+                ? "bg-emerald-950/40 border border-emerald-700 text-emerald-300"
+                : "border border-neutral-700 text-neutral-400 hover:border-neutral-600"
+            }`}
+          >
+            Managed
+          </button>
+          <button
+            onClick={() => handleSetDeploymentMode("external")}
+            className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+              !isManagedMode
+                ? "bg-amber-950/40 border border-amber-700 text-amber-300"
+                : "border border-neutral-700 text-neutral-400 hover:border-neutral-600"
+            }`}
+          >
+            External (Advanced)
+          </button>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="bg-red-950/50 border border-red-800 rounded-lg p-2.5 mb-3 flex items-start gap-2">
@@ -1071,8 +1196,19 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
           </div>
         )}
 
+        {isManagedMode && (
+          <div className="bg-emerald-950/20 border border-emerald-900/60 rounded-lg p-3 mb-3">
+            <p className="text-xs text-emerald-300 font-medium">
+              Managed publish is active.
+            </p>
+            <p className="text-xs text-emerald-400/80 mt-0.5">
+              No GitHub, Vercel, or customer v0 key setup required for first-run publishing.
+            </p>
+          </div>
+        )}
+
         {/* Connection checks */}
-        {!githubConnection?.connected && (
+        {!isManagedMode && !githubConnection?.connected && (
           <ConnectionWarning
             icon={<Github className="w-4 h-4 text-amber-400" />}
             label={tx("ui.builder.publishDropdown.githubNotConnected", "GitHub not connected")}
@@ -1082,7 +1218,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
             onConnect={handleConnectGitHub}
           />
         )}
-        {githubConnection?.connected && !vercelConnection?.connected && (
+        {!isManagedMode && githubConnection?.connected && !vercelConnection?.connected && (
           <ConnectionWarning
             icon={<CircleDot className="w-4 h-4 text-amber-400" />}
             label={tx("ui.builder.publishDropdown.vercelNotConnected", "Vercel not connected")}
@@ -1117,7 +1253,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         )}
 
         {/* Data connection status */}
-        {bothConnected && hasConnections && (
+        {(isManagedMode || bothConnected) && hasConnections && (
           <div className="bg-emerald-950/30 border border-emerald-800/50 rounded-lg p-2.5 mb-3 flex items-center gap-2">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
             <p className="text-xs text-emerald-300">
@@ -1130,7 +1266,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         )}
 
         {/* Repo name input */}
-        {bothConnected && (
+        {!isManagedMode && bothConnected && (
           <div className="space-y-2.5 mb-3">
             <div>
               <label className="text-xs text-neutral-500 block mb-1">
@@ -1173,16 +1309,28 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         {envVars.length > 0 && (
           <EnvVarsSection
             envVars={envVars}
-            footerHint="These will be automatically injected into your Vercel project."
+            footerHint={
+              isManagedMode
+                ? "Managed runtime consumes these values when available."
+                : "These will be automatically injected into your Vercel project."
+            }
           />
         )}
       </div>
 
       {/* Footer action */}
       <div className="border-t border-neutral-800 p-3">
-        {bothConnected ? (
+        {isManagedMode ? (
           <button
-            onClick={handlePublish}
+            onClick={handlePublishManaged}
+            disabled={fileCount === 0}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-100 text-neutral-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Publish in Managed Mode
+          </button>
+        ) : bothConnected ? (
+          <button
+            onClick={handlePublishExternal}
             disabled={!repoName.trim()}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-100 text-neutral-900 text-sm font-medium rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >

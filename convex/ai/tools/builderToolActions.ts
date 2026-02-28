@@ -20,6 +20,40 @@ function getInternal(): any {
   return _internalCache;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _apiCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getApi(): any {
+  if (!_apiCache) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _apiCache = require("../../_generated/api").api;
+  }
+  return _apiCache;
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 // ============================================================================
 // ACTIONS
 // ============================================================================
@@ -36,9 +70,73 @@ export const createWebAppFromSchema = internalAction({
     description: v.optional(v.string()),
     pageSchema: v.any(),
     conversationId: v.optional(v.id("aiConversations")),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const internal = getInternal();
+    const files = convertPageSchemaToFiles(args.pageSchema, args.name);
+    const payloadDigest = hashString(
+      stableStringify({
+        name: args.name,
+        description: args.description,
+        pageSchema: args.pageSchema,
+      })
+    );
+    const idempotencyKey =
+      args.idempotencyKey?.trim() ||
+      `${args.conversationId || "no-conversation"}:${payloadDigest}`;
+    const experienceKey = `builder_webapp:${idempotencyKey}`;
+    const stepKey = "create_webapp";
+    const signature = `${experienceKey}:${stepKey}`;
+
+    const existing = await ctx.runQuery(
+      internal.ai.tools.internalToolMutations.internalFindOrchestrationArtifact,
+      {
+        organizationId: args.organizationId,
+        artifactType: "builder_app",
+        signature,
+      }
+    );
+
+    if (existing?._id) {
+      const existingApp = await ctx.runQuery(
+        internal.ai.tools.internalToolMutations.internalGetBuilderApp,
+        { appId: existing._id }
+      );
+      if (existingApp) {
+        await ctx.runMutation(
+          internal.ai.tools.internalToolMutations.internalUpsertBuilderFiles,
+          {
+            appId: existing._id,
+            files,
+            modifiedBy: "scaffold" as const,
+          }
+        );
+        await ctx.runMutation(
+          internal.ai.tools.internalToolMutations.internalStampOrchestrationMetadata,
+          {
+            organizationId: args.organizationId,
+            objectId: existing._id,
+            playbook: "builder_managed_publish",
+            experienceKey,
+            stepKey,
+            signature,
+            payloadDigest,
+            conversationId: args.conversationId,
+          }
+        );
+
+        const existingProps =
+          (existingApp.customProperties as { appCode?: string } | undefined) || {};
+        return {
+          appId: existing._id,
+          appCode: existingProps.appCode || "",
+          fileCount: files.length,
+          reused: true,
+          idempotencyKey,
+        };
+      }
+    }
 
     // 1. Create the builder app record
     const { appId, appCode } = await ctx.runMutation(
@@ -50,13 +148,11 @@ export const createWebAppFromSchema = internalAction({
         description: args.description || `Landing page for ${args.name}`,
         subtype: "custom" as const,
         conversationId: args.conversationId,
+        deploymentMode: "managed" as const,
       }
     );
 
-    // 2. Convert page schema to Next.js files
-    const files = convertPageSchemaToFiles(args.pageSchema, args.name);
-
-    // 3. Store files in builderFiles table
+    // 2. Store files in builderFiles table
     await ctx.runMutation(
       internal.ai.tools.internalToolMutations.internalUpsertBuilderFiles,
       {
@@ -66,7 +162,27 @@ export const createWebAppFromSchema = internalAction({
       }
     );
 
-    return { appId, appCode, fileCount: files.length };
+    await ctx.runMutation(
+      internal.ai.tools.internalToolMutations.internalStampOrchestrationMetadata,
+      {
+        organizationId: args.organizationId,
+        objectId: appId,
+        playbook: "builder_managed_publish",
+        experienceKey,
+        stepKey,
+        signature,
+        payloadDigest,
+        conversationId: args.conversationId,
+      }
+    );
+
+    return {
+      appId,
+      appCode,
+      fileCount: files.length,
+      reused: false,
+      idempotencyKey,
+    };
   },
 });
 
@@ -81,38 +197,163 @@ export const deployWebApp = internalAction({
     appId: v.id("objects"),
     repoName: v.string(),
     isPrivate: v.boolean(),
+    deploymentMode: v.optional(v.union(v.literal("managed"), v.literal("external"))),
+    sessionId: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const internal = getInternal();
+    const api = getApi();
+    const app = await ctx.runQuery(
+      internal.ai.tools.internalToolMutations.internalGetBuilderApp,
+      { appId: args.appId }
+    );
 
-    // 1. Push to GitHub
-    const repoResult = await ctx.runAction(
-      internal.integrations.github.createRepoFromBuilderAppInternal,
-      {
-        organizationId: args.organizationId,
-        userId: args.userId,
+    if (!app) {
+      throw new Error("Builder app not found");
+    }
+
+    const customProps = (app.customProperties || {}) as Record<string, unknown>;
+    const deployment =
+      (customProps.deployment as Record<string, unknown> | undefined) || {};
+    const deploymentMode =
+      args.deploymentMode ||
+      (deployment.mode as "managed" | "external" | undefined) ||
+      "managed";
+
+    const payloadDigest = hashString(
+      stableStringify({
         appId: args.appId,
         repoName: args.repoName,
+        isPrivate: args.isPrivate,
+        deploymentMode,
+      })
+    );
+    const idempotencyKey =
+      args.idempotencyKey?.trim() ||
+      `${args.appId}:${deploymentMode}:${payloadDigest}`;
+    const experienceKey = `builder_webapp:${idempotencyKey}`;
+    const stepKey = "deploy_webapp";
+    const signature = `${experienceKey}:${stepKey}`;
+
+    const existing = await ctx.runQuery(
+      internal.ai.tools.internalToolMutations.internalFindOrchestrationArtifact,
+      {
+        organizationId: args.organizationId,
+        artifactType: "builder_app",
+        signature,
+      }
+    );
+
+    const managedUrlFromApp =
+      (deployment.managedUrl as string | undefined) ||
+      (customProps.v0DemoUrl as string | undefined) ||
+      (customProps.v0WebUrl as string | undefined) ||
+      `${(process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com").replace(/\/+$/, "")}/builder/new?appId=${args.appId}`;
+
+    if (existing?._id && deploymentMode === "managed") {
+      return {
+        deploymentMode,
+        productionUrl:
+          (deployment.productionUrl as string | undefined) || managedUrlFromApp,
+        managedUrl: managedUrlFromApp,
+        reused: true,
+        idempotencyKey,
+      };
+    }
+
+    if (deploymentMode === "managed") {
+      await ctx.runMutation(
+        internal.ai.tools.internalToolMutations.internalUpdateBuilderDeployment,
+        {
+          appId: args.appId,
+          deploymentMode: "managed",
+          managedUrl: managedUrlFromApp,
+          productionUrl: managedUrlFromApp,
+          status: "deployed",
+        }
+      );
+      await ctx.runMutation(
+        internal.ai.tools.internalToolMutations.internalStampOrchestrationMetadata,
+        {
+          organizationId: args.organizationId,
+          objectId: args.appId,
+          playbook: "builder_managed_publish",
+          experienceKey,
+          stepKey,
+          signature,
+          payloadDigest,
+        }
+      );
+      return {
+        deploymentMode,
+        productionUrl: managedUrlFromApp,
+        managedUrl: managedUrlFromApp,
+        reused: false,
+        idempotencyKey,
+      };
+    }
+
+    if (!args.sessionId) {
+      throw new Error(
+        "External deployment requires an authenticated UI session. Use managed mode or run deploy_webapp with a session-backed context."
+      );
+    }
+
+    const repoResult = await ctx.runAction(
+      api.integrations.github.createRepoFromBuilderApp,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+        appId: args.appId,
+        repoName: args.repoName,
+        description: app.description || `Built with l4yercak3 Builder`,
         isPrivate: args.isPrivate,
       }
     );
 
-    // 2. Generate Vercel deploy URL
     const vercelResult = await ctx.runMutation(
-      internal.ai.tools.internalToolMutations.internalGenerateVercelDeployUrl,
+      api.builderAppOntology.generateBuilderAppDeployUrl,
       {
+        sessionId: args.sessionId,
         appId: args.appId,
-        userId: args.userId,
         githubRepo: repoResult.repoUrl,
       }
     );
 
+    await ctx.runMutation(
+      internal.ai.tools.internalToolMutations.internalUpdateBuilderDeployment,
+      {
+        appId: args.appId,
+        deploymentMode: "external",
+        githubRepo: repoResult.repoUrl,
+        vercelDeployUrl: vercelResult.vercelDeployUrl,
+        status: "not_deployed",
+      }
+    );
+
+    await ctx.runMutation(
+      internal.ai.tools.internalToolMutations.internalStampOrchestrationMetadata,
+      {
+        organizationId: args.organizationId,
+        objectId: args.appId,
+        playbook: "builder_managed_publish",
+        experienceKey,
+        stepKey,
+        signature,
+        payloadDigest,
+      }
+    );
+
     return {
+      deploymentMode,
       repoUrl: repoResult.repoUrl,
       cloneUrl: repoResult.cloneUrl,
       vercelDeployUrl: vercelResult.vercelDeployUrl,
       fileCount: repoResult.fileCount,
       defaultBranch: repoResult.defaultBranch,
+      reused: false,
+      idempotencyKey,
     };
   },
 });

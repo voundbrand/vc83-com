@@ -126,6 +126,11 @@ const deploymentStatusValidator = v.union(
   v.literal("failed")
 );
 
+const deploymentModeValidator = v.union(
+  v.literal("managed"),
+  v.literal("external")
+);
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -360,11 +365,13 @@ export const createBuilderApp = mutation({
       },
       // Deployment
       deployment: {
+        mode: "managed" as const,
         githubRepo: null as string | null,
         githubBranch: "main",
         vercelProjectId: null as string | null,
         vercelDeployUrl: null as string | null,
         productionUrl: null as string | null,
+        managedUrl: null as string | null,
         status: "not_deployed" as const,
         lastDeployedAt: null as number | null,
         deploymentError: null as string | null,
@@ -788,11 +795,13 @@ export const updateBuilderAppDeployment = mutation({
   args: {
     sessionId: v.string(),
     appId: v.id("objects"),
+    deploymentMode: v.optional(deploymentModeValidator),
     githubRepo: v.optional(v.string()),
     githubBranch: v.optional(v.string()),
     vercelProjectId: v.optional(v.string()),
     vercelDeployUrl: v.optional(v.string()),
     productionUrl: v.optional(v.string()),
+    managedUrl: v.optional(v.string()),
     status: v.optional(deploymentStatusValidator),
     deploymentError: v.optional(v.string()),
   },
@@ -818,15 +827,21 @@ export const updateBuilderAppDeployment = mutation({
     const currentProps = (app.customProperties || {}) as Record<string, unknown>;
     const currentDeployment = (currentProps.deployment || {}) as Record<string, unknown>;
 
-    const updatedDeployment = {
+    const updatedDeployment: Record<string, unknown> = {
       ...currentDeployment,
+      mode:
+        args.deploymentMode ??
+        (currentDeployment.mode as string | undefined) ??
+        "managed",
     };
 
+    if (args.deploymentMode !== undefined) updatedDeployment.mode = args.deploymentMode;
     if (args.githubRepo !== undefined) updatedDeployment.githubRepo = args.githubRepo;
     if (args.githubBranch !== undefined) updatedDeployment.githubBranch = args.githubBranch;
     if (args.vercelProjectId !== undefined) updatedDeployment.vercelProjectId = args.vercelProjectId;
     if (args.vercelDeployUrl !== undefined) updatedDeployment.vercelDeployUrl = args.vercelDeployUrl;
     if (args.productionUrl !== undefined) updatedDeployment.productionUrl = args.productionUrl;
+    if (args.managedUrl !== undefined) updatedDeployment.managedUrl = args.managedUrl;
     if (args.deploymentError !== undefined) updatedDeployment.deploymentError = args.deploymentError;
 
     if (args.status !== undefined) {
@@ -926,6 +941,7 @@ export const generateBuilderAppDeployUrl = mutation({
     const currentDeployment = (currentProps.deployment || {}) as Record<string, unknown>;
     const updatedDeployment = {
       ...currentDeployment,
+      mode: "external",
       githubRepo: args.githubRepo,
       vercelDeployUrl,
     };

@@ -1,6 +1,6 @@
 # Builder/Layers Orchestration Core + Event Playbook Master Plan
 
-**Date:** 2026-02-19  
+**Date:** 2026-02-24  
 **Scope:** Replace legacy event templates and manual form-injection setup with a reusable orchestration core that can launch complete experiences from one conversation. Event is playbook #1.
 
 ---
@@ -185,6 +185,62 @@ Core primitives already exist; the main missing pieces are orchestration glue, c
 
 ---
 
+## OCO-012 builder/layers/web publishing launch UX integration (completed)
+
+1. Added a dedicated launch UX in `src/components/builder/builder-chat-panel.tsx`:
+   - explicit playbook selector with default `event`,
+   - one clear conversation-to-launch kickoff action,
+   - deterministic checkpoint board (conversation, orchestration artifacts, layers linkage, payment checkpoint, publish checkpoint),
+   - explicit UI confirmation controls for payment and publish checkpoints that send approval messages into the conversation.
+2. Added direct launch-flow entry points from:
+   - `src/components/layers/layers-canvas.tsx` (top-bar `Launch Flow` shortcut),
+   - `src/components/window-content/web-publishing-window/index.tsx` (header `Launch Flow` shortcut),
+   pointing to `/builder/new?launch=event`.
+3. Kept existing design language and responsive behavior by reusing current shell/button/panel patterns and only adding orchestration-state surfaces.
+4. Verification run:
+   - `npm run typecheck` (pass),
+   - `npm run lint` (warnings only),
+   - `npm run test:unit` (pass).
+
+---
+
+## OCO-013 orchestration smoke coverage (completed)
+
+1. Added lane-G smoke coverage in `tests/unit/ai/orchestrationConversationPublish.smoke.test.ts`.
+2. Covered full deterministic conversation-to-publish path via `create_event_experience` -> `createExperience`:
+   - event artifact creation,
+   - ticket product creation,
+   - optional form creation,
+   - checkout creation,
+   - checkout publish step logging.
+3. Added required negative-path checks:
+   - duplicate event detection with `duplicateStrategy=fail_on_duplicate`,
+   - publish guardrail failure surfaced as `checkout:publish` failed step without hiding checkout artifact creation.
+4. Verification run:
+   - `npm run typecheck` (pass),
+   - `npm run lint` (warnings only),
+   - `npm run test:unit` (pass),
+   - `npx vitest run tests/unit/ai/activeAgentRouting.test.ts tests/unit/ai/trustEventTaxonomy.test.ts tests/unit/shell/webchat-deployment-snippets.test.ts` (pass).
+
+---
+
+## OCO-014 closeout synchronization + validation (completed)
+
+1. Synchronized workstream docs for lane `G` completion:
+   - `TASK_QUEUE.md`,
+   - `INDEX.md`,
+   - `MASTER_PLAN.md`.
+2. Closed lane-G closeout conditions:
+   - queue statuses updated to `DONE` for `OCO-013` and `OCO-014`,
+   - lane progress board updated to mark lane `G` complete.
+3. Final verification run:
+   - `npm run typecheck` (pass),
+   - `npm run lint` (warnings only),
+   - `npm run test:unit` (pass),
+   - `npm run docs:guard` (pass).
+
+---
+
 ## Target architecture
 
 ### 1) Orchestration core runtime (reusable)
@@ -298,4 +354,4 @@ Mitigation: make core orchestration path canonical; keep legacy paths compatibil
 
 ## Immediate next step
 
-Execute `OCO-012` (lane `F`) to wire one-conversation launch UX across builder/layers/web publishing now that lane `E` Soul v2 controls are complete.
+Lane `G` is complete. Next available backlog item is `OCO-004` (lane `B`, `P1`) if legacy page/template de-prioritization is resumed.

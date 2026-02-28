@@ -35,7 +35,9 @@ Queue-first execution layer for shipping a one-conversation launch path that:
 - Lane `C` orchestration runtime + event playbook adapter are complete (`OCO-006`, `OCO-007`).
 - Lane `D` platform specialist seeding + clone factory is complete (`OCO-008`, `OCO-009`).
 - Lane `E` Soul v2 overlays + approval-gated learning loop are complete (`OCO-010`, `OCO-011`).
-- Next promotable non-lane-`E` task: `OCO-012` (lane `F`).
+- Lane `F` builder/layers/web publishing launch UX integration is complete (`OCO-012`).
+- Lane `G` smoke coverage + closeout sync is complete (`OCO-013`, `OCO-014`).
+- Next promotable task: `OCO-004` (lane `B`, `P1` backlog).
 - Core feasibility verdict: **yes**; most work is contract alignment, orchestration wiring, and controlled agent specialization.
 
 ---
@@ -47,8 +49,8 @@ Queue-first execution layer for shipping a one-conversation launch path that:
 - [x] Lane C (`OCO-006`..`OCO-007`)
 - [x] Lane D (`OCO-008`..`OCO-009`)
 - [x] Lane E (`OCO-010`..`OCO-011`)
-- [ ] Lane F (`OCO-012`)
-- [ ] Lane G (`OCO-013`..`OCO-014`)
+- [x] Lane F (`OCO-012`)
+- [x] Lane G (`OCO-013`..`OCO-014`)
 
 ---
 

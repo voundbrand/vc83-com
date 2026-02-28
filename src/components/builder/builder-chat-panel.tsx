@@ -44,7 +44,10 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { useMutation, useQuery, useAction } from "convex/react";
-import { api } from "@/../convex/_generated/api";
+// Dynamic require avoids excessively deep Convex API type instantiation in this large module.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const apiAny: any = require("@convex/_generated/api").api;
+const api = apiAny as any;
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Id } from "@/../convex/_generated/dataModel";
@@ -99,7 +102,7 @@ function CollapsedSidebar({
       case "connect":
         return { icon: <Plug className="w-5 h-5 mb-0.5" />, label: "Connect", color: "text-emerald-400 bg-emerald-500/10" };
       case "publish":
-        return { icon: <Rocket className="w-5 h-5 mb-0.5" />, label: "Publish", color: "text-amber-400 bg-amber-500/10" };
+        return { icon: <Rocket className="w-5 h-5 mb-0.5" />, label: "Launch", color: "text-amber-400 bg-amber-500/10" };
       case "docs":
         return { icon: <FileText className="w-5 h-5 mb-0.5" />, label: "Docs", color: "text-amber-400 bg-amber-500/10" };
       case "setup":
@@ -201,8 +204,8 @@ function SidebarModeButton({
       color: "text-emerald-400 bg-emerald-500/10",
     },
     publish: {
-      label: "Publish",
-      description: "GitHub & deploy",
+      label: "Launch",
+      description: "Conversation to publish",
       color: "text-amber-400 bg-amber-500/10",
     },
     docs: {
@@ -352,6 +355,8 @@ function WelcomeMessage({ onSuggestionClick }: { onSuggestionClick: (text: strin
 // ============================================================================
 
 type BuilderUIMode = "auto" | "connect" | "publish" | "docs" | "setup";
+type LaunchPlaybook = "event";
+type LaunchCheckpointStatus = "pending" | "in_progress" | "ready" | "confirmed";
 
 const SETUP_MODE_KICKOFF_PROMPT = [
   "Start the setup interview now.",
@@ -360,8 +365,46 @@ const SETUP_MODE_KICKOFF_PROMPT = [
   "Use deterministic file fences like ```json agent-config.json and ```markdown kb/hero-profile.md.",
 ].join(" ");
 
+const ORCHESTRATION_PLAYBOOK_OPTIONS: Array<{
+  value: LaunchPlaybook;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "event",
+    label: "Event (default)",
+    description: "Launch event experience artifacts from one conversation.",
+  },
+];
+
+function getCheckpointBadgeStyles(status: LaunchCheckpointStatus): string {
+  switch (status) {
+    case "confirmed":
+      return "text-emerald-300 border-emerald-500/40 bg-emerald-500/10";
+    case "ready":
+      return "text-amber-300 border-amber-500/40 bg-amber-500/10";
+    case "in_progress":
+      return "text-blue-300 border-blue-500/40 bg-blue-500/10";
+    default:
+      return "text-neutral-400 border-neutral-700 bg-neutral-800/70";
+  }
+}
+
+function getCheckpointBadgeLabel(status: LaunchCheckpointStatus): string {
+  switch (status) {
+    case "confirmed":
+      return "Confirmed";
+    case "ready":
+      return "Ready";
+    case "in_progress":
+      return "In progress";
+    default:
+      return "Pending";
+  }
+}
+
 // ============================================================================
-// MODE SELECTOR (All 4 modes: Auto, Plan, Connect, Docs)
+// MODE SELECTOR (Build, Setup, Connect, Launch, Docs)
 // ============================================================================
 
 interface ModeSelectorProps {
@@ -405,8 +448,8 @@ function ModeSelector({
     },
     publish: {
       icon: <Rocket className="w-4 h-4" />,
-      label: "Publish",
-      description: "Push to GitHub & deploy",
+      label: "Launch",
+      description: "Conversation to publish",
       color: "text-amber-400",
       bgColor: "bg-amber-500/10",
     },
@@ -1403,19 +1446,40 @@ function CompactModelSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
+  const apiUnsafe = api as unknown as {
+    ai: {
+      settings: { getAISettings: unknown };
+      platformModels: { getEnabledModelsByProvider: unknown };
+    };
+  };
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
-  const aiSettings = useQuery(
-    api.ai.settings.getAISettings,
-    organizationId ? { organizationId } : "skip"
-  );
-  const allPlatformModels = useQuery(api.ai.platformModels.getEnabledModelsByProvider);
+  const unsafeUseQuery = useQuery as unknown as (queryRef: unknown, args?: unknown) => unknown;
+  const aiSettings = unsafeUseQuery(
+    apiUnsafe.ai.settings.getAISettings,
+    organizationId ? { organizationId } : "skip",
+  ) as
+    | {
+      llm?: {
+        enabledModels?: Array<{ modelId: string }>;
+          defaultModelId?: string;
+        };
+      }
+    | null
+    | undefined;
+  const allPlatformModels = unsafeUseQuery(
+    apiUnsafe.ai.platformModels.getEnabledModelsByProvider,
+  ) as
+    | Record<string, Array<{ modelId: string; name: string }>>
+    | null
+    | undefined;
 
   const platformModels = useMemo(() => {
-    if (!aiSettings?.llm.enabledModels || aiSettings.llm.enabledModels.length === 0) {
+    const enabledModels = aiSettings?.llm?.enabledModels;
+    if (!enabledModels || enabledModels.length === 0) {
       return allPlatformModels;
     }
     if (!allPlatformModels) return null;
-    const enabledModelIds = new Set(aiSettings.llm.enabledModels.map((m: { modelId: string }) => m.modelId));
+    const enabledModelIds = new Set(enabledModels.map((m: { modelId: string }) => m.modelId));
     const filtered: Record<string, typeof allPlatformModels[string]> = {};
     for (const [provider, models] of Object.entries(allPlatformModels)) {
       const orgModels = models.filter((m) => enabledModelIds.has(m.modelId));
@@ -1444,7 +1508,7 @@ function CompactModelSelector({
     return name;
   };
 
-  const orgDefaultModel = aiSettings?.llm.defaultModelId;
+  const orgDefaultModel = aiSettings?.llm?.defaultModelId;
   const currentModel = selectedModel || orgDefaultModel || "claude-3-5-sonnet";
   const currentDisplayName = selectedModel
     ? getModelDisplayName(currentModel)
@@ -1633,9 +1697,17 @@ export function BuilderChatPanel() {
   const [isFetchingUrls, setIsFetchingUrls] = useState(false);
   const [attachedText, setAttachedText] = useState<{ content: string; preview: string } | null>(null);
   const [showConnectionPanel, setShowConnectionPanel] = useState(false);
+  const [isLaunchMode, setIsLaunchMode] = useState(false);
+  const [launchPlaybook, setLaunchPlaybook] = useState<LaunchPlaybook>("event");
+  const [launchBrief, setLaunchBrief] = useState("");
+  const [launchStarted, setLaunchStarted] = useState(false);
+  const [paymentCheckpointApproved, setPaymentCheckpointApproved] = useState(false);
+  const [publishCheckpointApproved, setPublishCheckpointApproved] = useState(false);
+  const [launchActionInFlight, setLaunchActionInFlight] = useState<"start" | "payment" | "publish" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const setupKickoffInFlight = useRef(false);
+  const launchQueryHandled = useRef(false);
 
   // Convex action for fetching URL content
   const fetchUrlContent = useAction(api.ai.webReader.fetchUrlContent);
@@ -1651,7 +1723,7 @@ export function BuilderChatPanel() {
     effectiveSessionId && builderAppId
       ? { sessionId: effectiveSessionId, appId: builderAppId }
       : "skip"
-  );
+  ) as Array<{ path: string; content: string; language: string }> | undefined;
   const generatedFiles = useMemo(() => {
     if (!builderFilesRaw) return [];
     return builderFilesRaw.map((f) => ({
@@ -1735,16 +1807,43 @@ export function BuilderChatPanel() {
   const [isDocsMode, setIsDocsMode] = useState(false);
   // Note: isSetupMode and setIsSetupMode come from useBuilder() context
 
+  // Optional URL trigger for direct launch flow entry points (/builder/new?launch=event).
+  useEffect(() => {
+    if (launchQueryHandled.current || typeof window === "undefined") {
+      return;
+    }
+    launchQueryHandled.current = true;
+    const launchParam = new URLSearchParams(window.location.search).get("launch");
+    if (launchParam !== "event") {
+      return;
+    }
+    setIsLaunchMode(true);
+    setLaunchPlaybook("event");
+    setBuilderMode("prototype");
+    setIsDocsMode(false);
+    setShowConnectionPanel(false);
+    setIsSetupMode(false);
+    setAiProvider("built-in");
+  }, [setAiProvider, setBuilderMode, setIsSetupMode]);
+
+  useEffect(() => {
+    if (!isLaunchMode) return;
+    if (messages.some((message) => message.role === "user")) {
+      setLaunchStarted(true);
+    }
+  }, [isLaunchMode, messages]);
+
   // ============================================================================
   // UNIFIED MODE HANDLING
   // Derive currentUIMode from the separate state variables
   // ============================================================================
   const currentUIMode: BuilderUIMode = useMemo(() => {
     if (showConnectionPanel && builderMode === "connect") return "connect";
+    if (isLaunchMode) return "publish";
     if (isDocsMode) return "docs";
     if (isSetupMode) return "setup";
     return "auto";
-  }, [showConnectionPanel, builderMode, isDocsMode, isSetupMode]);
+  }, [showConnectionPanel, builderMode, isLaunchMode, isDocsMode, isSetupMode]);
 
   // Deterministic setup kickoff: avoid empty setup wizard state.
   useEffect(() => {
@@ -1769,6 +1868,7 @@ export function BuilderChatPanel() {
   // Handle unified mode change from the dropdown
   const handleUIModeChange = async (mode: BuilderUIMode) => {
     // Reset all modes first
+    setIsLaunchMode(false);
     setIsDocsMode(false);
     setShowConnectionPanel(false);
     setIsSetupMode(false);
@@ -1796,7 +1896,10 @@ export function BuilderChatPanel() {
         setShowConnectionPanel(true);
         break;
       case "publish":
-        // Publishing is now handled by the header Publish dropdown
+        // Launch mode: one conversation -> orchestration -> payment checkpoint -> publish checkpoint.
+        setBuilderMode("prototype");
+        setAiProvider("built-in");
+        setIsLaunchMode(true);
         break;
       case "docs":
         setIsDocsMode(true);
@@ -1840,6 +1943,183 @@ export function BuilderChatPanel() {
     api.ai.conversations.getPendingToolExecutions,
     conversationId ? { conversationId } : "skip"
   ) as PendingToolExecution[] | undefined;
+
+  const messageCorpus = useMemo(
+    () => messages.map((message) => message.content.toLowerCase()).join("\n"),
+    [messages],
+  );
+
+  const hasOrchestrationCheckpoint = useMemo(
+    () =>
+      /(create_event_experience|create_experience|orchestration runtime|artifact bundle|playbook)/.test(
+        messageCorpus,
+      ),
+    [messageCorpus],
+  );
+
+  const hasLayersCheckpoint = useMemo(
+    () => /(create_layers_workflow|link_objects|layers workflow|layers automation)/.test(messageCorpus),
+    [messageCorpus],
+  );
+
+  const hasPaymentCheckpointSignal = useMemo(
+    () => /(checkout|payment-ready|payment|ticket|products linked)/.test(messageCorpus),
+    [messageCorpus],
+  );
+
+  const hasPublishCheckpointSignal = useMemo(
+    () => /(publish|published|deployment|deploy|production url|web publishing)/.test(messageCorpus),
+    [messageCorpus],
+  );
+
+  const hasPendingPaymentApproval = useMemo(
+    () =>
+      (pendingExecutions ?? []).some((execution) =>
+        /(checkout|payment|ticket|product|publish_checkout)/.test(execution.toolName.toLowerCase()),
+      ),
+    [pendingExecutions],
+  );
+
+  const hasPendingPublishApproval = useMemo(
+    () =>
+      (pendingExecutions ?? []).some((execution) =>
+        /(publish|deploy|set_publishing_status|publish_page|publish_all)/.test(
+          execution.toolName.toLowerCase(),
+        ),
+      ),
+    [pendingExecutions],
+  );
+
+  const handleStartLaunchFlow = async () => {
+    const trimmedBrief = launchBrief.trim();
+    if (!trimmedBrief || isGenerating || launchActionInFlight) {
+      return;
+    }
+
+    setLaunchActionInFlight("start");
+    try {
+      const kickoffPrompt = [
+        "[ORCHESTRATION LAUNCH REQUEST]",
+        `Playbook: ${launchPlaybook}`,
+        `Goal: ${trimmedBrief}`,
+        "Use one deterministic conversation -> launch flow.",
+        "Primary runtime path: run create_event_experience first, or create_experience with playbook=event if required.",
+        "Progress checkpoints required:",
+        "1) intent and constraints captured",
+        "2) canonical artifacts created + linked",
+        "3) layers workflow and object links ready",
+        "4) payment-ready checkout prepared but NOT published",
+        "5) publish step blocked until explicit user approval",
+        "Return a concise checkpoint status summary after each major step.",
+      ].join("\n");
+      await sendMessage(kickoffPrompt);
+      setLaunchStarted(true);
+    } finally {
+      setLaunchActionInFlight(null);
+    }
+  };
+
+  const handleApprovePaymentCheckpoint = async () => {
+    if (!launchStarted || paymentCheckpointApproved || isGenerating || launchActionInFlight) {
+      return;
+    }
+    setLaunchActionInFlight("payment");
+    try {
+      await sendMessage(
+        "[CHECKPOINT APPROVAL] Payment checkpoint approved. You may finalize checkout/payment artifacts now. Do not publish yet.",
+      );
+      setPaymentCheckpointApproved(true);
+    } finally {
+      setLaunchActionInFlight(null);
+    }
+  };
+
+  const handleApprovePublishCheckpoint = async () => {
+    if (
+      !launchStarted ||
+      !paymentCheckpointApproved ||
+      publishCheckpointApproved ||
+      isGenerating ||
+      launchActionInFlight
+    ) {
+      return;
+    }
+    setLaunchActionInFlight("publish");
+    try {
+      await sendMessage(
+        "[CHECKPOINT APPROVAL] Publish checkpoint approved. You may proceed with publish/deploy controls and summarize final live URLs.",
+      );
+      setPublishCheckpointApproved(true);
+    } finally {
+      setLaunchActionInFlight(null);
+    }
+  };
+
+  const orchestrationCheckpointStatus: LaunchCheckpointStatus = hasOrchestrationCheckpoint
+    ? "confirmed"
+    : launchStarted
+      ? "in_progress"
+      : "pending";
+
+  const layersCheckpointStatus: LaunchCheckpointStatus = hasLayersCheckpoint
+    ? "confirmed"
+    : hasOrchestrationCheckpoint
+      ? "in_progress"
+      : "pending";
+
+  const paymentCheckpointStatus: LaunchCheckpointStatus = paymentCheckpointApproved
+    ? "confirmed"
+    : hasPendingPaymentApproval
+      ? "in_progress"
+      : hasPaymentCheckpointSignal
+        ? "ready"
+        : "pending";
+
+  const publishCheckpointStatus: LaunchCheckpointStatus = publishCheckpointApproved
+    ? "confirmed"
+    : hasPendingPublishApproval
+      ? "in_progress"
+      : hasPublishCheckpointSignal
+        ? "ready"
+        : "pending";
+
+  const launchCheckpoints = [
+    {
+      id: "intent",
+      title: "Conversation brief",
+      detail: launchStarted ? "Conversation kickoff sent to orchestrator." : "Awaiting launch brief.",
+      status: launchStarted ? "confirmed" : "pending",
+    },
+    {
+      id: "orchestration",
+      title: "Orchestration artifacts",
+      detail: "Experience playbook run with deterministic artifact bundle.",
+      status: orchestrationCheckpointStatus,
+    },
+    {
+      id: "layers",
+      title: "Layers linkage",
+      detail: "Workflow and object links prepared for automation handoff.",
+      status: layersCheckpointStatus,
+    },
+    {
+      id: "payment",
+      title: "Payment checkpoint",
+      detail: "Requires explicit UI approval before payment-ready checkout actions.",
+      status: paymentCheckpointStatus,
+    },
+    {
+      id: "publish",
+      title: "Publish checkpoint",
+      detail: "Requires explicit UI approval before deploy/publish actions.",
+      status: publishCheckpointStatus,
+    },
+  ] satisfies Array<{
+    id: string;
+    title: string;
+    detail: string;
+    status: LaunchCheckpointStatus;
+  }>;
 
   // Handle tool approval
   const handleApprove = async (executionId: Id<"aiToolExecutions">) => {
@@ -1958,6 +2238,13 @@ export function BuilderChatPanel() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleStartOver = () => {
+    reset();
+    setLaunchStarted(false);
+    setPaymentCheckpointApproved(false);
+    setPublishCheckpointApproved(false);
   };
 
   // URL validation
@@ -2101,8 +2388,153 @@ export function BuilderChatPanel() {
         <>
         {/* Messages - this is the ONLY scrollable area */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          {isLaunchMode && (
+            <div className="rounded-2xl border border-amber-500/40 bg-neutral-900/70 p-4 md:p-5 space-y-4">
+              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-100">
+                    Conversation to Launch
+                  </p>
+                  <p className="text-xs text-neutral-400">
+                    Run one orchestration path with explicit payment and publish confirmations.
+                  </p>
+                </div>
+                <span className="inline-flex w-fit items-center rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300">
+                  Lane F
+                </span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-xs text-neutral-400">Playbook</span>
+                  <select
+                    value={launchPlaybook}
+                    onChange={(event) => setLaunchPlaybook(event.target.value as LaunchPlaybook)}
+                    className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-amber-500"
+                  >
+                    {ORCHESTRATION_PLAYBOOK_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="block text-xs text-neutral-500">
+                    {
+                      ORCHESTRATION_PLAYBOOK_OPTIONS.find((option) => option.value === launchPlaybook)
+                        ?.description
+                    }
+                  </span>
+                </label>
+
+                <label className="space-y-1.5 md:col-span-2">
+                  <span className="text-xs text-neutral-400">Launch brief</span>
+                  <textarea
+                    value={launchBrief}
+                    onChange={(event) => setLaunchBrief(event.target.value)}
+                    rows={3}
+                    placeholder="Describe the launch goal, audience, and constraints."
+                    className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                    disabled={isGenerating}
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartLaunchFlow}
+                  disabled={!launchBrief.trim() || isGenerating || launchActionInFlight !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-neutral-950 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {launchActionInFlight === "start" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Rocket className="w-3.5 h-3.5" />
+                  )}
+                  Start Launch Conversation
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprovePaymentCheckpoint}
+                  disabled={
+                    !launchStarted ||
+                    paymentCheckpointApproved ||
+                    isGenerating ||
+                    launchActionInFlight !== null
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {launchActionInFlight === "payment" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  Confirm Payment Checkpoint
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprovePublishCheckpoint}
+                  disabled={
+                    !launchStarted ||
+                    !paymentCheckpointApproved ||
+                    publishCheckpointApproved ||
+                    isGenerating ||
+                    launchActionInFlight !== null
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-200 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {launchActionInFlight === "publish" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  Confirm Publish Checkpoint
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-3 space-y-2">
+                {launchCheckpoints.map((checkpoint, index) => (
+                  <div key={checkpoint.id} className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-neutral-200">
+                        {index + 1}. {checkpoint.title}
+                      </p>
+                      <p className="text-xs text-neutral-500">{checkpoint.detail}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${getCheckpointBadgeStyles(checkpoint.status)}`}
+                    >
+                      {getCheckpointBadgeLabel(checkpoint.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href="/layers"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-neutral-100 transition-colors"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  Open Layers
+                </a>
+                <a
+                  href="/publish"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-700 px-2.5 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-neutral-100 transition-colors"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  Open Web Publishing
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Welcome message if empty */}
-          {messages.length === 0 && (
+          {messages.length === 0 && !isLaunchMode && (
             <WelcomeMessage onSuggestionClick={setInput} />
           )}
 
@@ -2273,7 +2705,9 @@ export function BuilderChatPanel() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder={tx("ui.builder.chat.input.followUpPlaceholder", "Ask a follow-up...")}
+                placeholder={isLaunchMode
+                  ? "Ask for the next launch step..."
+                  : tx("ui.builder.chat.input.followUpPlaceholder", "Ask a follow-up...")}
                 disabled={isGenerating}
                 className="w-full px-4 py-2.5 bg-neutral-900 rounded-xl text-neutral-100 placeholder-neutral-500 resize-none overflow-hidden min-h-[44px] max-h-[120px] focus:outline-none focus:ring-1 focus:ring-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 rows={1}
@@ -2324,7 +2758,7 @@ export function BuilderChatPanel() {
               <AIProviderToggle
                 provider={aiProvider}
                 onProviderChange={setAiProvider}
-                disabled={isGenerating}
+                disabled={isGenerating || isLaunchMode}
                 hasV0Preview={!!v0DemoUrl}
               />
 
@@ -2362,7 +2796,7 @@ export function BuilderChatPanel() {
               {messages.length > 0 && (
                 <button
                   type="button"
-                  onClick={reset}
+                  onClick={handleStartOver}
                   className="p-2 text-neutral-500 hover:text-neutral-300 rounded-lg transition-colors"
                   title={tx("ui.builder.chat.actions.startOver", "Start over")}
                 >

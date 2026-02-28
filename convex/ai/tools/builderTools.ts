@@ -6,9 +6,10 @@
  *
  * Flow:
  * 1. Agent generates page schema JSON (hero, features, pricing, etc.)
- * 2. create_webapp → creates builder app + Next.js scaffold files
- * 3. deploy_webapp → pushes to GitHub, generates Vercel deploy URL
- * 4. Agent sends user the live URLs
+ * 2. create_webapp → creates builder app + Next.js scaffold files (idempotent)
+ * 3. connect_webapp_data → links placeholder content to real records (optional)
+ * 4. deploy_webapp → managed publish by default; external GitHub/Vercel is advanced mode
+ * 5. Agent sends user the live URLs
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
@@ -36,6 +37,8 @@ export const createWebAppTool: AITool = {
     "Create a deployable Next.js web application from a page schema. " +
     "Generate the page schema first with sections (hero, features, cta, testimonials, pricing, gallery, team, faq, process), " +
     "then call this tool to convert it into a real builder app with scaffold files. " +
+    "Uses managed deployment defaults (no mandatory GitHub/Vercel setup). " +
+    "Supports idempotent retries via idempotencyKey. " +
     "Returns appId for subsequent deployment with deploy_webapp.",
   status: "ready",
   windowName: "Builder",
@@ -89,12 +92,22 @@ export const createWebAppTool: AITool = {
         },
         required: ["version", "sections"],
       },
+      idempotencyKey: {
+        type: "string",
+        description:
+          "Optional stable key for retry-safe create behavior. Reusing the same key returns/reuses the same builder app.",
+      },
     },
     required: ["name", "pageSchema"],
   },
   execute: async (
     ctx: ToolExecutionContext,
-    args: { name: string; description?: string; pageSchema: Record<string, unknown> }
+    args: {
+      name: string;
+      description?: string;
+      pageSchema: Record<string, unknown>;
+      idempotencyKey?: string;
+    }
   ) => {
     const internal = getInternal();
 
@@ -125,6 +138,7 @@ export const createWebAppTool: AITool = {
           description: args.description || `Landing page for ${args.name}`,
           pageSchema: args.pageSchema,
           conversationId: ctx.conversationId,
+          idempotencyKey: args.idempotencyKey,
         }
       );
 
@@ -133,10 +147,12 @@ export const createWebAppTool: AITool = {
         message:
           `Web app "${args.name}" created (${result.appCode}). ` +
           `${result.fileCount} files generated as a deployable Next.js project. ` +
-          `Use deploy_webapp with appId to push to GitHub and get a Vercel deploy link.`,
+          `Use deploy_webapp with appId to publish in managed mode (default) or external mode.`,
         appId: result.appId,
         appCode: result.appCode,
         fileCount: result.fileCount,
+        idempotencyKey: result.idempotencyKey,
+        reused: result.reused === true,
         status: "ready",
         nextStep: "Call deploy_webapp with the appId to deploy.",
       };
@@ -156,9 +172,9 @@ export const createWebAppTool: AITool = {
 export const deployWebAppTool: AITool = {
   name: "deploy_webapp",
   description:
-    "Deploy a builder web app to GitHub and generate a Vercel deploy link. " +
-    "Requires: (1) an appId from create_webapp, (2) GitHub OAuth connected for the organization. " +
-    "Returns the GitHub repo URL and a one-click Vercel deploy URL to share with the user.",
+    "Publish a builder web app. Defaults to managed deployment (no GitHub/Vercel setup required). " +
+    "External deployment is an advanced mode that uses GitHub + Vercel. " +
+    "Supports idempotent retries via idempotencyKey.",
   status: "ready",
   windowName: "Builder",
   parameters: {
@@ -171,46 +187,64 @@ export const deployWebAppTool: AITool = {
       repoName: {
         type: "string",
         description:
-          "GitHub repository name (lowercase, hyphens only). " +
+          "Repository name used only for external deployment mode. " +
           "E.g., 'zen-yoga-studio'. Auto-generated from app name if omitted.",
       },
       isPrivate: {
         type: "boolean",
-        description: "Make the GitHub repo private (default: true)",
+        description: "Make the GitHub repo private in external mode (default: true)",
+      },
+      deploymentMode: {
+        type: "string",
+        enum: ["managed", "external"],
+        description:
+          "managed (default): platform-managed publish path. external: advanced GitHub/Vercel export path.",
+      },
+      idempotencyKey: {
+        type: "string",
+        description:
+          "Optional stable key for retry-safe publish behavior. Reusing the same key avoids duplicate publish side effects.",
       },
     },
     required: ["appId"],
   },
   execute: async (
     ctx: ToolExecutionContext,
-    args: { appId: string; repoName?: string; isPrivate?: boolean }
+    args: {
+      appId: string;
+      repoName?: string;
+      isPrivate?: boolean;
+      deploymentMode?: "managed" | "external";
+      idempotencyKey?: string;
+    }
   ) => {
     const internal = getInternal();
+    const deploymentMode = args.deploymentMode || "managed";
 
-    // 1. Check GitHub connection
-    const ghConnection = await ctx.runQuery(
-      internal.integrations.github.getGitHubConnectionInternal,
-      { organizationId: ctx.organizationId }
-    );
-
-    if (!ghConnection) {
-      return {
-        success: false,
-        error: "GITHUB_NOT_CONNECTED",
-        message:
-          "GitHub is not connected for this organization. " +
-          "The owner needs to connect GitHub before deploying.",
-        instructions: [
-          "1. Open Settings (gear icon in the taskbar)",
-          "2. Go to the Integrations tab",
-          "3. Click 'Connect GitHub'",
-          "4. Authorize the app",
-          "5. Then try deploy_webapp again",
-        ],
-      };
+    if (deploymentMode === "external") {
+      const ghConnection = await ctx.runQuery(
+        internal.integrations.github.getGitHubConnectionInternal,
+        { organizationId: ctx.organizationId }
+      );
+      if (!ghConnection) {
+        return {
+          success: false,
+          error: "GITHUB_NOT_CONNECTED",
+          message:
+            "GitHub is not connected for this organization. " +
+            "Use managed mode for zero-setup publish, or connect GitHub for external mode.",
+          instructions: [
+            "1. Open Settings (gear icon in the taskbar)",
+            "2. Go to the Integrations tab",
+            "3. Click 'Connect GitHub'",
+            "4. Authorize the app",
+            "5. Then retry deploy_webapp with deploymentMode='external'",
+          ],
+        };
+      }
     }
 
-    // 2. Fetch app to derive repo name
+    // 1. Fetch app to derive repo name
     const app = await ctx.runQuery(
       internal.ai.tools.internalToolMutations.internalGetBuilderApp,
       { appId: args.appId as Id<"objects"> }
@@ -232,7 +266,7 @@ export const deployWebAppTool: AITool = {
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "");
 
-    // 3. Deploy
+    // 2. Deploy
     try {
       const result = await ctx.runAction(
         internal.ai.tools.builderToolActions.deployWebApp,
@@ -242,20 +276,41 @@ export const deployWebAppTool: AITool = {
           appId: args.appId as Id<"objects">,
           repoName,
           isPrivate: args.isPrivate !== false,
+          deploymentMode,
+          sessionId: ctx.sessionId,
+          idempotencyKey: args.idempotencyKey,
         }
       );
+
+      if (deploymentMode === "managed") {
+        return {
+          success: true,
+          message:
+            `Published "${app.name}" in managed mode.\n\n` +
+            `Live URL: ${result.productionUrl}\n\n` +
+            `No GitHub/Vercel setup was required.`,
+          deploymentMode: "managed",
+          productionUrl: result.productionUrl,
+          managedUrl: result.managedUrl || result.productionUrl,
+          reused: result.reused === true,
+          idempotencyKey: result.idempotencyKey,
+        };
+      }
 
       return {
         success: true,
         message:
-          `Deployed "${app.name}" to GitHub!\n\n` +
+          `Prepared external deployment for "${app.name}".\n\n` +
           `GitHub: ${result.repoUrl}\n` +
           `Deploy to Vercel: ${result.vercelDeployUrl}\n\n` +
           `${result.fileCount} files committed. Share the Vercel link to deploy with one click.`,
+        deploymentMode: "external",
         repoUrl: result.repoUrl,
         vercelDeployUrl: result.vercelDeployUrl,
         fileCount: result.fileCount,
         defaultBranch: result.defaultBranch,
+        reused: result.reused === true,
+        idempotencyKey: result.idempotencyKey,
       };
     } catch (error) {
       return {
@@ -274,8 +329,8 @@ export const deployWebAppTool: AITool = {
 export const checkDeployStatusTool: AITool = {
   name: "check_deploy_status",
   description:
-    "Check deployment prerequisites (GitHub connection) and get the status of a builder app. " +
-    "Call this before deploy_webapp to verify readiness, or after to check deployment status.",
+    "Check deployment readiness and current app publish state. " +
+    "Managed mode is zero-setup. External mode requires GitHub connection.",
   status: "ready",
   readOnly: true,
   windowName: "Builder",
@@ -303,6 +358,7 @@ export const checkDeployStatusTool: AITool = {
       success: true,
       githubConnected: !!ghConnection,
       githubUsername: ghConnection?.username || null,
+      managedModeReady: true,
     };
 
     if (args.appId) {
@@ -314,14 +370,27 @@ export const checkDeployStatusTool: AITool = {
       if (app) {
         const props = app.customProperties as Record<string, unknown>;
         const deployment = (props?.deployment || {}) as Record<string, unknown>;
+        const deploymentMode = (deployment?.mode as string | undefined) || "managed";
         result.app = {
           name: app.name,
           appCode: props?.appCode,
           status: app.status,
+          deploymentMode,
           githubRepo: deployment?.githubRepo || null,
           vercelDeployUrl: deployment?.vercelDeployUrl || null,
           deploymentStatus: deployment?.status || "not_deployed",
-          productionUrl: deployment?.productionUrl || null,
+          productionUrl:
+            deployment?.productionUrl ||
+            deployment?.managedUrl ||
+            props?.v0DemoUrl ||
+            props?.v0WebUrl ||
+            null,
+          readiness:
+            deploymentMode === "managed"
+              ? "ready"
+              : ghConnection
+                ? "ready"
+                : "blocked_external_missing_github",
         };
       } else {
         result.app = null;

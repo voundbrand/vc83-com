@@ -907,10 +907,16 @@ export function BuilderProvider({
 
     // Check for pending setup mode (agent creation wizard)
     const pendingSetupMode = sessionStorage.getItem("builder_pending_setup_mode");
-    const shouldUseSetupMode = pendingSetupMode === "true";
+    const cloneFirstEnforced = sessionStorage.getItem("builder_clone_first_enforced") === "true";
+    if (cloneFirstEnforced) {
+      sessionStorage.removeItem("builder_clone_first_enforced");
+    }
+    const shouldUseSetupMode = pendingSetupMode === "true" && !cloneFirstEnforced;
     if (pendingSetupMode === "true") {
-      setIsSetupMode(true);
-      setAiProvider("built-in");
+      if (shouldUseSetupMode) {
+        setIsSetupMode(true);
+        setAiProvider("built-in");
+      }
       sessionStorage.removeItem("builder_pending_setup_mode");
     }
 

@@ -77,6 +77,7 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
   // Actions
   const createRepo = useAction(api.integrations.github.createRepoFromBuilderApp);
   const generateDeployUrl = useMutation(api.builderAppOntology.generateBuilderAppDeployUrl);
+  const updateDeployment = useMutation(api.builderAppOntology.updateBuilderAppDeployment);
 
   // Pre-fill repo name from builderAppId
   const builderApp = useQuery(
@@ -151,6 +152,36 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
       setIsGeneratingDeploy(false);
     }
   }, [effectiveSessionId, builderAppId, repoResult, generateDeployUrl]);
+
+  const handlePublishManaged = useCallback(async () => {
+    if (!effectiveSessionId || !builderAppId) return;
+    const fallbackManagedUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/builder/new?appId=${builderAppId}`
+        : `https://app.l4yercak3.com/builder/new?appId=${builderAppId}`;
+    const managedUrl =
+      ((builderApp?.customProperties as { v0DemoUrl?: string; v0WebUrl?: string } | undefined)
+        ?.v0DemoUrl) ||
+      ((builderApp?.customProperties as { v0DemoUrl?: string; v0WebUrl?: string } | undefined)
+        ?.v0WebUrl) ||
+      fallbackManagedUrl;
+
+    setError(null);
+    try {
+      await updateDeployment({
+        sessionId: effectiveSessionId,
+        appId: builderAppId,
+        deploymentMode: "managed",
+        managedUrl,
+        productionUrl: managedUrl,
+        status: "deployed",
+      });
+      setStep("done");
+      setDeployUrl(managedUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to publish in managed mode");
+    }
+  }, [effectiveSessionId, builderAppId, builderApp, updateDeployment]);
 
   // No builder app connected
   if (!builderAppId) {
@@ -230,6 +261,15 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
       {/* Step 1: Pre-check + GitHub push */}
       {(step === "precheck" || step === "github") && (
         <div className="space-y-4">
+          <div className="rounded-lg border border-emerald-800/60 bg-emerald-950/25 p-3">
+            <p className="text-xs font-medium text-emerald-300">
+              Managed mode is the default publish path.
+            </p>
+            <p className="mt-1 text-xs text-emerald-400/80">
+              Use external GitHub/Vercel deployment only when explicitly needed.
+            </p>
+          </div>
+
           {/* GitHub connection status */}
           <div className={`border rounded-lg p-3 ${
             githubConnection?.connected
@@ -249,12 +289,20 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
               )}
             </div>
             {!githubConnection?.connected && (
-              <p className="text-xs text-amber-400/70 mt-1 ml-6">
-                {tx(
-                  "ui.builder.v0Publish.githubNotConnectedDetail",
-                  "Connect GitHub in your organization's Integrations settings.",
-                )}
-              </p>
+              <div className="ml-6 mt-1 space-y-2">
+                <p className="text-xs text-amber-400/70">
+                  {tx(
+                    "ui.builder.v0Publish.githubNotConnectedDetail",
+                    "Connect GitHub in your organization's Integrations settings.",
+                  )}
+                </p>
+                <button
+                  onClick={handlePublishManaged}
+                  className="rounded border border-emerald-700 bg-emerald-950/40 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-950/60"
+                >
+                  Publish in Managed Mode
+                </button>
+              </div>
             )}
           </div>
 
