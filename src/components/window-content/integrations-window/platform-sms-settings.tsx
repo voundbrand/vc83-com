@@ -122,7 +122,7 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
   const handleDisconnect = async () => {
     if (!sessionId) return;
     const confirmed = await confirmDialog.confirm({
-      title: "Disconnect L4YERCAK3 SMS",
+      title: "Disconnect sevenlayers SMS",
       message:
         "This will remove your custom SMS sender. Outbound SMS will use the platform default sender. Continue?",
       confirmText: "Disconnect",
@@ -243,12 +243,12 @@ export function PlatformSmsSettings({ onBack }: PlatformSmsSettingsProps) {
             <MessageCircle size={24} style={{ color: "#7c3aed" }} />
             <div>
               <h2 className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                {tx("header.title", "L4YERCAK3 SMS")}
+                {tx("header.title", "sevenlayers SMS")}
               </h2>
               <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
                 🍰{" "}
                 <span style={{ fontFamily: "var(--font-brand, inherit)" }}>
-                  {tx("header.brand_wordmark", "l4yercak3")}
+                  {tx("header.brand_wordmark", "sevenlayers.io")}
                 </span>
               </p>
             </div>

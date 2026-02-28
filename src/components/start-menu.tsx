@@ -73,10 +73,10 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
         }}
       >
         <div
-          className="transform -rotate-90 whitespace-nowrap font-serif italic text-lg tracking-wider"
-          style={{ color: 'var(--shell-text)' }}
+          className="transform -rotate-90 whitespace-nowrap text-lg tracking-wider uppercase"
+          style={{ color: 'var(--shell-text)', fontFamily: 'var(--font-codec-pro), Arial, Helvetica, sans-serif' }}
         >
-          l4yercak3
+          sevenlayers
         </div>
       </div>
 

@@ -10,6 +10,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -137,12 +138,12 @@ export const seed = internalMutation({
       {
         key: "ui.desktop.program.podcast",
         values: {
-          en: "l4yercak3 Podcast",
-          de: "l4yercak3 Podcast",
-          pl: "l4yercak3 Podcast",
-          es: "l4yercak3 Podcast",
-          fr: "l4yercak3 Podcast",
-          ja: "l4yercak3 Podcast",
+          en: "sevenlayers.io Podcast",
+          de: "sevenlayers.io Podcast",
+          pl: "sevenlayers.io Podcast",
+          es: "sevenlayers.io Podcast",
+          fr: "sevenlayers.io Podcast",
+          ja: "sevenlayers.io Podcast",
         }
       },
       {
@@ -209,12 +210,12 @@ export const seed = internalMutation({
       {
         key: "ui.desktop.window_title.welcome",
         values: {
-          en: "l4yercak3.exe",
-          de: "l4yercak3.exe",
-          pl: "l4yercak3.exe",
-          es: "l4yercak3.exe",
-          fr: "l4yercak3.exe",
-          ja: "l4yercak3.exe",
+          en: "sevenlayers.io",
+          de: "sevenlayers.io",
+          pl: "sevenlayers.io",
+          es: "sevenlayers.io",
+          fr: "sevenlayers.io",
+          ja: "sevenlayers.io",
         }
       },
       {
@@ -276,54 +277,31 @@ export const seed = internalMutation({
       },
     ];
 
-    // Load ALL existing translations once (optimized!)
-    const existingTranslations = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", q =>
-        q.eq("organizationId", systemOrg._id)
-         .eq("type", "translation")
-      )
-      .collect();
-
-    // Create lookup set for fast duplicate checking
-    const existingKeys = new Set(
-      existingTranslations.map(t => `${t.name}:${t.locale}`)
-    );
-
-    // Seed translations
-    let count = 0;
+    // Seed translations (upsert: insert new, update existing)
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const lookupKey = `${trans.key}:${locale.code}`;
-
-          // Check if translation already exists using our Set
-          if (!existingKeys.has(lookupKey)) {
-            await ctx.db.insert("objects", {
-              organizationId: systemOrg._id,
-              type: "translation",
-              subtype: "ui",
-              name: trans.key,
-              value: value,
-              locale: locale.code,
-              status: "approved",
-              customProperties: {
-                category: "desktop",
-                component: "start-menu",
-              },
-              createdBy: systemUser._id,
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            });
-            count++;
-          }
+          const result = await upsertTranslation(
+            ctx.db,
+            systemOrg._id,
+            systemUser._id,
+            trans.key,
+            value,
+            locale.code,
+            "desktop",
+            "start-menu"
+          );
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} Desktop & Start Menu translations`);
-    return { success: true, count };
+    console.log(`✅ Seeded Desktop & Start Menu translations: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated };
   }
 });

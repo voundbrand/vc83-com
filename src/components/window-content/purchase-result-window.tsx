@@ -442,7 +442,7 @@ export function PurchaseResultWindow({
               Thank you for your purchase!
             </p>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-              Need help? Contact us at service@l4yercak3.com
+              Need help? Contact us at service@sevenlayers.io
             </p>
           </div>
         </div>
@@ -580,7 +580,7 @@ export function PurchaseResultWindow({
                 const deepLinkNonce = `purchase-result-store-${Date.now()}`;
                 openWindow(
                   "store",
-                  "l4yercak3 Store",
+                  "sevenlayers Store",
                   <StoreWindow key={`store-${deepLinkNonce}`} initialSection={initialSection} />,
                   { x: 150, y: 80 },
                   { width: 900, height: 650 },
@@ -608,7 +608,7 @@ export function PurchaseResultWindow({
         {/* Support */}
         <div className="text-center mt-8">
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Need help? Contact us at service@l4yercak3.com
+            Need help? Contact us at service@sevenlayers.io
           </p>
         </div>
       </div>

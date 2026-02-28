@@ -106,15 +106,15 @@ export function TutorialsDocsWindow({
       children: [
         {
           id: "tutorial-welcome",
-          label: "Welcome to l4yercak3",
+          label: "Welcome to sevenlayers.io",
           icon: <Sparkles className="h-4 w-4" />,
           type: "tutorial",
           content: {
-            title: "Welcome to l4yercak3",
+            title: "Welcome to sevenlayers.io",
             description: "Get started with your retro workflow platform",
-            body: `Welcome to l4yercak3! 
+            body: `Welcome to sevenlayers.io!
 
-Let's get you set up with l4yercak3 in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.
+Let's get you set up with sevenlayers.io in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.
 
 WHAT YOU'LL LEARN
 
@@ -206,7 +206,7 @@ Click "Start Interactive Tutorial" below to configure OAuth for your next portal
             description: "Manage contacts and client relationships",
             body: `CRM Basics Tutorial 
 
-Learn how to use the l4yercak3 CRM to manage your contacts and client relationships.
+Learn how to use the sevenlayers.io CRM to manage your contacts and client relationships.
 
 WHAT YOU'LL LEARN
 
@@ -290,11 +290,11 @@ Click "Start Interactive Tutorial" below to deploy your first portal!`
                 title: "Quick Start Guide",
                 body: `Quick Start Guide 
 
-Get up and running with l4yercak3 in 5 minutes.
+Get up and running with sevenlayers.io in 5 minutes.
 
 STEP 1: CREATE YOUR ACCOUNT
 
-Sign up for a free l4yercak3 account at app.l4yercak3.com
+Sign up for a free sevenlayers.io account at app.sevenlayers.io
 
 STEP 2: GET YOUR API KEY
 
@@ -324,7 +324,7 @@ STEP 5: INVITE YOUR CONTACT
   3. Your contact receives an email invitation
   4. They can now log in and see their projects/invoices
 
-That's it! You're ready to start using l4yercak3. `
+That's it! You're ready to start using sevenlayers.io. `
               }
             },
             {
@@ -339,7 +339,7 @@ That's it! You're ready to start using l4yercak3. `
 
 ### Browser Support
 
-l4yercak3 works best on modern browsers:
+sevenlayers.io works best on modern browsers:
 
 -  **Chrome** 90+ (recommended)
 -  **Firefox** 88+
@@ -366,7 +366,7 @@ When deploying portals (Freelancer Portal template):
 - **Netlify** free tier (alternative)
 - Any **Node.js** hosting environment
 
-No special requirements - if you can browse the web, you can use l4yercak3!
+No special requirements - if you can browse the web, you can use sevenlayers.io!
                 `.trim()
               }
             }
@@ -437,7 +437,7 @@ OAuth 2.0 is a protocol that allows users to log in using their existing Google 
 
 ### How It Works
 
-1. **You create an OAuth app** in l4yercak3
+1. **You create an OAuth app** in sevenlayers.io
 2. **You get credentials** (Client ID + Secret)
 3. **You deploy your portal** with these credentials
 4. **Your contacts click "Login with Google"** on your portal
@@ -527,7 +527,7 @@ Customize your portal:
 
 ### Data Source
 
-Portals fetch data from your l4yercak3 backend:
+Portals fetch data from your sevenlayers.io backend:
 - Real-time project updates
 - Invoice status changes
 - Contact information sync
@@ -554,7 +554,7 @@ All data is scoped to each contact - they only see their own information.
                 body: `
 ## API Keys 
 
-Authenticate API requests and connect templates to your l4yercak3 backend.
+Authenticate API requests and connect templates to your sevenlayers.io backend.
 
 ### What are API Keys?
 

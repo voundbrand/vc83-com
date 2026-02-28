@@ -228,11 +228,11 @@ export function EnterpriseContactModal({
                         <div className="flex items-center gap-2">
                           <Mail size={12} style={{ color: "var(--shell-accent)" }} />
                           <a
-                            href="mailto:sales@l4yercak3.com"
+                            href="mailto:sales@sevenlayers.io"
                             className="underline hover:opacity-80 transition-opacity"
                             style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                           >
-                            sales@l4yercak3.com
+                            sales@sevenlayers.io
                           </a>
                         </div>
                         <div className="flex items-center gap-2">
@@ -284,7 +284,7 @@ export function EnterpriseContactModal({
                       <br />
                       {t("ui.contact_modal.message_contact_simple")}{" "}
                       <a
-                        href="mailto:sales@l4yercak3.com"
+                        href="mailto:sales@sevenlayers.io"
                         className="underline font-semibold hover:opacity-80 transition-opacity"
                         style={{ color: "var(--tone-accent-strong, var(--shell-accent))" }}
                       >

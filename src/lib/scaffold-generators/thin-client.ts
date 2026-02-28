@@ -1681,7 +1681,7 @@ function generateReadme(config: PublishConfig): ScaffoldFile {
     label: "Project documentation",
     content: `# ${config.appName}
 
-${config.description || "Built with l4yercak3 and v0.dev."}
+${config.description || "Built with sevenlayers.io and v0.dev."}
 
 ## Getting Started
 
@@ -1704,7 +1704,7 @@ Open [http://localhost:3000](http://localhost:3000) to see your app.
 
 ## Platform Capabilities
 
-This app is connected to the l4yercak3 platform with:
+This app is connected to the sevenlayers.io platform with:
 
 ${categories}
 
@@ -1712,10 +1712,10 @@ ${categories}
 
 **${config.architecture === "thin-client" ? "Thin Client" : config.architecture === "full-stack" ? "Full-Stack" : "Hybrid"}** — ${
       config.architecture === "thin-client"
-        ? "All data operations go through the l4yercak3 platform API."
+        ? "All data operations go through the sevenlayers.io platform API."
         : config.architecture === "full-stack"
           ? "Standalone app with its own database, synced via webhooks."
-          : "l4yercak3 for auth/CRM, own database for domain data."
+          : "sevenlayers.io for auth/CRM, own database for domain data."
     }
 
 ## Deployment
@@ -1929,7 +1929,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: '${config.appName}',
-  description: '${config.description || "Built with l4yercak3 and v0.dev"}',
+  description: '${config.description || "Built with sevenlayers.io and v0.dev"}',
 };
 
 export default function RootLayout({

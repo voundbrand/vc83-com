@@ -1171,12 +1171,12 @@ export function ChatWidget({
             <p className="text-[10px] text-gray-400 text-center">
               Powered by{" "}
               <a
-                href="https://l4yercak3.com"
+                href="https://sevenlayers.io"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-gray-600"
               >
-                l4yercak3
+                sevenlayers.io
               </a>
             </p>
           </div>

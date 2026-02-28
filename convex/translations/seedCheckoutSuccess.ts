@@ -8,7 +8,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 // Define translation value type
 type TranslationValues = {
@@ -119,12 +119,12 @@ const translations: Array<{ key: string; values: TranslationValues }> = [
   {
     key: "ui.checkout_success.next_steps_message",
     values: {
-      en: "You can now access your purchased items from the Start Menu. Close this window to continue exploring l4yercak3!",
-      de: "Sie können jetzt über das Startmenü auf Ihre gekauften Artikel zugreifen. Schließen Sie dieses Fenster, um l4yercak3 weiter zu erkunden!",
-      pl: "Możesz teraz uzyskać dostęp do zakupionych przedmiotów z menu Start. Zamknij to okno, aby kontynuować eksplorację l4yercak3!",
-      es: "Ahora puedes acceder a tus artículos comprados desde el menú Inicio. ¡Cierra esta ventana para continuar explorando l4yercak3!",
-      fr: "Vous pouvez maintenant accéder à vos articles achetés depuis le menu Démarrer. Fermez cette fenêtre pour continuer à explorer l4yercak3!",
-      ja: "スタートメニューから購入したアイテムにアクセスできます。このウィンドウを閉じてl4yercak3の探索を続けましょう！",
+      en: "You can now access your purchased items from the Start Menu. Close this window to continue exploring sevenlayers.io!",
+      de: "Sie können jetzt über das Startmenü auf Ihre gekauften Artikel zugreifen. Schließen Sie dieses Fenster, um sevenlayers.io weiter zu erkunden!",
+      pl: "Możesz teraz uzyskać dostęp do zakupionych przedmiotów z menu Start. Zamknij to okno, aby kontynuować eksplorację sevenlayers.io!",
+      es: "Ahora puedes acceder a tus artículos comprados desde el menú Inicio. ¡Cierra esta ventana para continuar explorando sevenlayers.io!",
+      fr: "Vous pouvez maintenant accéder à vos articles achetés depuis le menu Démarrer. Fermez cette fenêtre pour continuer à explorer sevenlayers.io!",
+      ja: "スタートメニューから購入したアイテムにアクセスできます。このウィンドウを閉じてsevenlayers.ioの探索を続けましょう！",
     },
   },
 
@@ -132,12 +132,12 @@ const translations: Array<{ key: string; values: TranslationValues }> = [
   {
     key: "ui.checkout_success.footer_title",
     values: {
-      en: "Thank you for choosing l4yercak3! 🚀",
-      de: "Vielen Dank, dass Sie sich für l4yercak3 entschieden haben! 🚀",
-      pl: "Dziękujemy za wybór l4yercak3! 🚀",
-      es: "¡Gracias por elegir l4yercak3! 🚀",
-      fr: "Merci d'avoir choisi l4yercak3! 🚀",
-      ja: "l4yercak3をお選びいただきありがとうございます！🚀",
+      en: "Thank you for choosing sevenlayers.io! 🚀",
+      de: "Vielen Dank, dass Sie sich für sevenlayers.io entschieden haben! 🚀",
+      pl: "Dziękujemy za wybór sevenlayers.io! 🚀",
+      es: "¡Gracias por elegir sevenlayers.io! 🚀",
+      fr: "Merci d'avoir choisi sevenlayers.io! 🚀",
+      ja: "sevenlayers.ioをお選びいただきありがとうございます！🚀",
     },
   },
   {
@@ -184,25 +184,17 @@ export const seed = internalMutation({
       { code: "ja", name: "Japanese" },
     ];
 
-    // Get existing translations to avoid duplicates
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      translations.map(t => t.key)
-    );
-
     let insertedCount = 0;
-    let skippedCount = 0;
+    let updatedCount = 0;
 
-    // Insert all translations
+    // Upsert all translations
     for (const translation of translations) {
       for (const locale of supportedLocales) {
         const value = translation.values[locale.code as keyof TranslationValues];
         if (!value) continue;
 
-        const wasInserted = await insertTranslationIfNew(
+        const result = await upsertTranslation(
           ctx.db,
-          existingKeys,
           systemOrg._id,
           systemUser._id,
           translation.key,
@@ -212,22 +204,19 @@ export const seed = internalMutation({
           "checkout-success"
         );
 
-        if (wasInserted) {
-          insertedCount++;
-        } else {
-          skippedCount++;
-        }
+        if (result.inserted) insertedCount++;
+        if (result.updated) updatedCount++;
       }
     }
 
     console.log(
-      `✅ Seeded ${insertedCount} new Checkout Success translations (skipped ${skippedCount} existing)`
+      `✅ Seeded Checkout Success translations: ${insertedCount} inserted, ${updatedCount} updated`
     );
 
     return {
       success: true,
       insertedCount,
-      skippedCount,
+      updatedCount,
       keysCount: translations.length,
     };
   },

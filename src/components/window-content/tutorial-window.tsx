@@ -43,16 +43,16 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
   // Tutorial definitions (should match backend)
   const tutorials: Record<string, { name: string; steps: TutorialStep[] }> = {
     welcome: {
-      name: "Welcome to l4yercak3",
+      name: "Welcome to sevenlayers.io",
       steps: [
         {
           title: "Welcome",
-          description: "Let's get you set up with l4yercak3 in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.",
+          description: "Let's get you set up with sevenlayers.io in just a few minutes. This tutorial will show you the key features and help you create your first contact, project, and invoice.",
           action: null,
         },
         {
           title: "Your API Key",
-          description: "Your API key connects your templates to the l4yercak3 backend. You can find it anytime in Settings > API Keys. When you download a template, you'll add this key to your .env.local file.",
+          description: "Your API key connects your templates to the sevenlayers.io backend. You can find it anytime in Settings > API Keys. When you download a template, you'll add this key to your .env.local file.",
           action: "view_api_keys",
         },
         {
@@ -77,7 +77,7 @@ export function TutorialWindow({ tutorialId, onClose, onAction }: TutorialWindow
         },
         {
           title: "You're All Set",
-          description: "Great job! You now know the basics of l4yercak3. Explore the platform and remember - you can always access tutorials from Settings > Tutorials. Happy building!",
+          description: "Great job! You now know the basics of sevenlayers.io. Explore the platform and remember - you can always access tutorials from Settings > Tutorials. Happy building!",
           action: null,
         },
       ],

@@ -7,7 +7,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -137,12 +137,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.daily_credits.description",
         values: {
-          en: "Free users receive 5 credits every day to test and explore L4YERCAK3 features.",
-          de: "Kostenlose Nutzer erhalten jeden Tag 5 Credits, um L4YERCAK3-Funktionen zu testen und zu erkunden.",
-          pl: "Użytkownicy planu Free otrzymują codziennie 5 kredytów, aby testować i poznawać funkcje L4YERCAK3.",
-          es: "Los usuarios gratuitos reciben 5 créditos cada día para probar y explorar las funciones de L4YERCAK3.",
-          fr: "Les utilisateurs gratuits reçoivent 5 crédits chaque jour pour tester et explorer les fonctionnalités de L4YERCAK3.",
-          ja: "無料ユーザーは、L4YERCAK3 の機能を試して活用するために、毎日 5 クレジットを受け取れます。",
+          en: "Free users receive 5 credits every day to test and explore sevenlayers features.",
+          de: "Kostenlose Nutzer erhalten jeden Tag 5 Credits, um sevenlayers-Funktionen zu testen und zu erkunden.",
+          pl: "Użytkownicy planu Free otrzymują codziennie 5 kredytów, aby testować i poznawać funkcje sevenlayers.",
+          es: "Los usuarios gratuitos reciben 5 créditos cada día para probar y explorar las funciones de sevenlayers.",
+          fr: "Les utilisateurs gratuits reçoivent 5 crédits chaque jour pour tester et explorer les fonctionnalités de sevenlayers.",
+          ja: "無料ユーザーは、sevenlayers の機能を試して活用するために、毎日 5 クレジットを受け取れます。",
         }
       },
       {
@@ -182,19 +182,16 @@ export const seed = internalMutation({
       },
     ];
 
-    const existingKeys = new Set<string>();
-
     let insertedCount = 0;
-    let skippedCount = 0;
+    let updatedCount = 0;
 
-    // Insert translations for each locale
+    // Upsert translations for each locale
     for (const translation of translations) {
       for (const locale of supportedLocales) {
         const value = translation.values[locale.code as keyof typeof translation.values];
 
-        const inserted = await insertTranslationIfNew(
+        const result = await upsertTranslation(
           ctx.db,
-          existingKeys,
           systemOrg._id,
           systemUser._id,
           translation.key,
@@ -204,23 +201,20 @@ export const seed = internalMutation({
           "store"
         );
 
-        if (inserted) {
-          insertedCount++;
-        } else {
-          skippedCount++;
-        }
+        if (result.inserted) insertedCount++;
+        if (result.updated) updatedCount++;
       }
     }
 
     console.log(`✅ Store Button translations seeded successfully!`);
     console.log(`   - Inserted: ${insertedCount} new translations`);
-    console.log(`   - Skipped: ${skippedCount} existing translations`);
+    console.log(`   - Updated: ${updatedCount} existing translations`);
 
     return {
       success: true,
       totalTranslations: translations.length * supportedLocales.length,
       inserted: insertedCount,
-      skipped: skippedCount,
+      updated: updatedCount,
     };
   },
 });

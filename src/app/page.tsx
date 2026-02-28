@@ -224,7 +224,7 @@ export default function HomePage() {
   ) as ShellCreditBalanceSnapshot | undefined
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
+    openWindow("welcome", "sevenlayers.io", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
   }
 
   const openSettingsWindow = () => {
@@ -468,7 +468,7 @@ export default function HomePage() {
     const deepLinkNonce = `store-${Date.now()}`
     openWindow(
       "store",
-      "l4yercak3 Store",
+      "sevenlayers Store",
       <StoreWindow key={`store-${deepLinkNonce}`} initialSection={initialSection} />,
       { x: 150, y: 80 },
       { width: 900, height: 650 },

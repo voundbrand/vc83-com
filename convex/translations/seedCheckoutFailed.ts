@@ -8,7 +8,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 // Define translation value type
 type TranslationValues = {
@@ -219,12 +219,12 @@ const translations: Array<{ key: string; values: TranslationValues }> = [
   {
     key: "ui.checkout_failed.support_message",
     values: {
-      en: "Need help? Contact us at support@l4yercak3.com",
-      de: "Brauchen Sie Hilfe? Kontaktieren Sie uns unter support@l4yercak3.com",
-      pl: "Potrzebujesz pomocy? Skontaktuj się z nami: support@l4yercak3.com",
-      es: "¿Necesitas ayuda? Contáctanos en support@l4yercak3.com",
-      fr: "Besoin d'aide? Contactez-nous à support@l4yercak3.com",
-      ja: "サポートが必要ですか？support@l4yercak3.com までご連絡ください",
+      en: "Need help? Contact us at support@sevenlayers.io",
+      de: "Brauchen Sie Hilfe? Kontaktieren Sie uns unter support@sevenlayers.io",
+      pl: "Potrzebujesz pomocy? Skontaktuj się z nami: support@sevenlayers.io",
+      es: "¿Necesitas ayuda? Contáctanos en support@sevenlayers.io",
+      fr: "Besoin d'aide? Contactez-nous à support@sevenlayers.io",
+      ja: "サポートが必要ですか？support@sevenlayers.io までご連絡ください",
     },
   },
 ];
@@ -260,25 +260,17 @@ export const seed = internalMutation({
       { code: "ja", name: "Japanese" },
     ];
 
-    // Get existing translations to avoid duplicates
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      translations.map(t => t.key)
-    );
-
     let insertedCount = 0;
-    let skippedCount = 0;
+    let updatedCount = 0;
 
-    // Insert all translations
+    // Upsert all translations
     for (const translation of translations) {
       for (const locale of supportedLocales) {
         const value = translation.values[locale.code as keyof TranslationValues];
         if (!value) continue;
 
-        const wasInserted = await insertTranslationIfNew(
+        const result = await upsertTranslation(
           ctx.db,
-          existingKeys,
           systemOrg._id,
           systemUser._id,
           translation.key,
@@ -288,22 +280,19 @@ export const seed = internalMutation({
           "checkout-failed"
         );
 
-        if (wasInserted) {
-          insertedCount++;
-        } else {
-          skippedCount++;
-        }
+        if (result.inserted) insertedCount++;
+        if (result.updated) updatedCount++;
       }
     }
 
     console.log(
-      `✅ Seeded ${insertedCount} new Checkout Failed translations (skipped ${skippedCount} existing)`
+      `✅ Seeded Checkout Failed translations: ${insertedCount} inserted, ${updatedCount} updated`
     );
 
     return {
       success: true,
       insertedCount,
-      skippedCount,
+      updatedCount,
       keysCount: translations.length,
     };
   },

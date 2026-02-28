@@ -598,7 +598,7 @@ export function CreatePageTab({ editMode }: { editMode?: EditMode | null }) {
             </div>
           </label>
           <p className="text-xs mt-2 ml-6" style={{ color: 'var(--neutral-gray)' }}>
-            Check this if the page will be hosted on your external website. This prevents creating a dead page on app.l4yercak3.com
+            Check this if the page will be hosted on your external website. This prevents creating a dead page on app.sevenlayers.io
           </p>
         </div>
 

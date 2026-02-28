@@ -16,7 +16,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "l4yercak3 Builder",
+  title: "sevenlayers.io Builder",
   description: "AI-powered design builder for pages, emails, and PDFs",
 };
 

@@ -322,7 +322,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
                 className="font-semibold"
                 style={{ color: theme?.colors.primary || "#6B46C1" }}
               >
-                l4yercak3
+                sevenlayers.io
               </span>
             </p>
           </div>

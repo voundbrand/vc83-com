@@ -146,7 +146,7 @@ export function BuilderAppsTab({ onSelectApp, onDeployApp }: BuilderAppsTabProps
         organizationId: currentOrg.id as Id<"organizations">,
         appId: app._id,
         repoName,
-        description: app.description || `${app.name} - Built with l4yercak3 and v0`,
+        description: app.description || `${app.name} - Built with sevenlayers.io and v0`,
         isPrivate: true,
       });
 

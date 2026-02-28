@@ -5,8 +5,9 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 /**
  * Welcome Window - First impression for visitors
  *
- * Business-owner-focused landing experience explaining the AI employee platform.
- * Uses Playfair Display italic for the l4yercak3 brand name.
+ * Speaks directly to the €1M–€50M business owner ICP.
+ * Voice: Ogilvy precision, Hormozi arithmetic, Fisher respect.
+ * Uses Codec Pro all-caps for the sevenlayers.io brand name.
  */
 export function WelcomeWindow() {
   const { tWithFallback } = useNamespaceTranslations("ui.welcome");
@@ -16,15 +17,15 @@ export function WelcomeWindow() {
       {/* Hero */}
       <div className="text-center mb-2">
         <h1
-          className="text-4xl md:text-5xl italic font-bold mb-3"
-          style={{ color: 'var(--win95-text)', fontFamily: 'var(--font-playfair), Georgia, serif' }}
+          className="text-4xl md:text-5xl font-bold mb-3 uppercase tracking-wide"
+          style={{ color: 'var(--win95-text)', fontFamily: 'var(--font-codec-pro), Arial, Helvetica, sans-serif' }}
         >
-          l4yercak3
+          sevenlayers.io
         </h1>
-        <p className="text-base font-semibold leading-relaxed" style={{ color: 'var(--win95-text)' }}>
+        <p className="text-lg font-semibold leading-snug tracking-wide" style={{ color: 'var(--win95-text)' }}>
           {tWithFallback(
             "ui.welcome.v2.tagline",
-            "Voice-first agent setup with deploy handoff in about 15 minutes.",
+            "Private AI. You can Trust.",
           )}
         </p>
       </div>
@@ -38,32 +39,32 @@ export function WelcomeWindow() {
         <p>
           {tWithFallback(
             "ui.welcome.v2.description_para1",
-            "Start in Talk mode for voice-first setup, or switch to Type mode at any step. The first-run flow keeps both paths in sync.",
+            "You already know you are the bottleneck. Not because you manage poorly \u2014 because the work that matters most still lives in your head. Context, judgment, the decisions no hire has ever fully absorbed.",
           )}
         </p>
         <p>
           {tWithFallback(
             "ui.welcome.v2.description_para2",
-            "Capture your agent mission, trust checkpoints, and channel guardrails in one guided pass without opening separate configuration tools.",
+            "One operator. Yours alone. Built on your business, your clients, and your way of working. It starts with a single briefing conversation and goes live within seven days.",
           )}
         </p>
         <p>
           {tWithFallback(
             "ui.welcome.v2.description_para3",
-            "After calibration, deployment handoff appears immediately with choices for Webchat, Telegram, or Both so launch momentum is not lost.",
+            "Monthly. No lock-in. If it does not earn its seat, cancel. C-suite leverage at a fraction of the payroll.",
           )}
         </p>
         <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
           {tWithFallback(
             "ui.welcome.first_run_path",
-            "First-run path: Talk or Type -> Soul-binding completion -> Deploy to Webchat / Telegram / Both.",
+            "The first hire that actually compounds.",
           )}
         </p>
         <p className="text-center font-semibold pt-2 border-t" style={{
           color: 'var(--win95-text)',
           borderColor: 'var(--win95-border)'
         }}>
-          {tWithFallback("ui.welcome.v2.cta", "Create my agent now")}
+          {tWithFallback("ui.welcome.v2.cta", "Start the briefing")}
         </p>
       </div>
 
@@ -72,11 +73,11 @@ export function WelcomeWindow() {
         color: 'var(--neutral-gray)',
         borderColor: 'var(--win95-border)'
       }}>
-        <div>{tWithFallback("ui.welcome.footer", "Built for business. Voice-first onboarding with explicit deployment handoff.")}</div>
+        <div>{tWithFallback("ui.welcome.footer", "Built for owners running \u20AC1M\u2013\u20AC50M companies.")}</div>
         <div>
-          {tWithFallback("ui.welcome.footer_startup", "l4yercak3 is a vc83-W26 startup").split(/(l4yercak3)/i).map((part, index) =>
-            /l4yercak3/i.test(part) ? (
-              <span key={index} className="italic" style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}>{part}</span>
+          {tWithFallback("ui.welcome.footer_startup", "sevenlayers.io is a vc83-W26 startup").split(/(sevenlayers\.io)/i).map((part, index) =>
+            /sevenlayers\.io/i.test(part) ? (
+              <span key={index} className="uppercase tracking-wide" style={{ fontFamily: 'var(--font-codec-pro), Arial, Helvetica, sans-serif' }}>{part}</span>
             ) : (
               <span key={index}>{part}</span>
             )

@@ -63,7 +63,7 @@ export function BuilderLayout({ hideHeader }: BuilderLayoutProps = {}) {
       {/* Mobile Header - shows toggle between chat and preview */}
       <div className="flex-shrink-0 md:hidden flex items-center justify-between px-4 py-2 border-b border-neutral-700 bg-neutral-800">
         <h1 className="text-lg font-semibold text-neutral-100">
-          {tx("ui.builder.chrome.brand", "l4yercak3")}
+          {tx("ui.builder.chrome.brand", "sevenlayers.io")}
         </h1>
         <button
           onClick={() => setIsMobilePreviewOpen(!isMobilePreviewOpen)}

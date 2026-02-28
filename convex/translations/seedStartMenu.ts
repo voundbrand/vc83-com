@@ -559,12 +559,12 @@ export const seed = internalMutation({
       {
         key: "ui.app.l4yercak3_exe",
         values: {
-          en: "l4yercak3.exe",
-          de: "l4yercak3.exe",
-          pl: "l4yercak3.exe",
-          es: "l4yercak3.exe",
-          fr: "l4yercak3.exe",
-          ja: "l4yercak3.exe",
+          en: "sevenlayers.io",
+          de: "sevenlayers.io",
+          pl: "sevenlayers.io",
+          es: "sevenlayers.io",
+          fr: "sevenlayers.io",
+          ja: "sevenlayers.io",
         }
       },
 

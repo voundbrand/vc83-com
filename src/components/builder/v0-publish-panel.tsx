@@ -114,7 +114,7 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
         organizationId,
         appId: builderAppId,
         repoName: repoName.trim(),
-        description: builderApp?.description || `Built with l4yercak3 Builder`,
+        description: builderApp?.description || `Built with sevenlayers.io Builder`,
         isPrivate,
       });
 
@@ -158,7 +158,7 @@ export function V0PublishPanel({ onClose }: V0PublishPanelProps) {
     const fallbackManagedUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/builder/new?appId=${builderAppId}`
-        : `https://app.l4yercak3.com/builder/new?appId=${builderAppId}`;
+        : `https://app.sevenlayers.io/builder/new?appId=${builderAppId}`;
     const managedUrl =
       ((builderApp?.customProperties as { v0DemoUrl?: string; v0WebUrl?: string } | undefined)
         ?.v0DemoUrl) ||

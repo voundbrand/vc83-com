@@ -138,7 +138,7 @@ export function ControlPanelWindow() {
       icon: <ShellDocsIcon size={20} />,
       label: "Tutorials & Docs",
       onClick: openTutorialsWindow,
-      description: "Step-by-step guides and documentation to help you master l4yercak3",
+      description: "Step-by-step guides and documentation to help you master sevenlayers.io",
     },
   ];
 

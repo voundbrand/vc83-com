@@ -530,11 +530,11 @@ export function createMockTicketData(_templateCode: string): TemplateData {
   void _templateCode; // Preserved for future template-specific mock data
   const baseData = {
     // Organization (seller/organizer)
-    organization_name: "l4yercak3 Events",
+    organization_name: "sevenlayers.io Events",
     organization_address: "123 Event Plaza, New York, NY 10001",
     organization_phone: "(555) 123-4567",
-    organization_email: "tickets@l4yercak3.com",
-    organization_website: "https://l4yercak3.com",
+    organization_email: "tickets@sevenlayers.io",
+    organization_website: "https://sevenlayers.io",
     logo_url: undefined, // No logo for mock preview
     highlight_color: "#d4af37", // Gold
 
@@ -559,7 +559,7 @@ export function createMockTicketData(_templateCode: string): TemplateData {
     guest_count: 2,
 
     // QR Code data (URL-encoded verification URL)
-    qr_code_data: encodeURIComponent("https://l4yercak3.com/verify/TKT-2025-001234"),
+    qr_code_data: encodeURIComponent("https://sevenlayers.io/verify/TKT-2025-001234"),
 
     // Additional metadata
     order_id: "ORD-2025-5678",

@@ -44,7 +44,7 @@ export function CookieConsentBanner() {
       <div className="max-w-xl mx-auto bg-slate-900 border border-slate-700 rounded-lg p-4 flex flex-col sm:flex-row items-center gap-3 shadow-2xl">
         <p className="text-sm text-slate-300 flex-1">
           We use cookies for analytics to improve the platform.{" "}
-          <a href="https://www.l4yercak3.com/privacy" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">
+          <a href="https://www.sevenlayers.io/privacy" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">
             Privacy Policy
           </a>
         </p>

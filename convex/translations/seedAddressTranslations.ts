@@ -6,7 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -45,9 +45,9 @@ export const seed = internalMutation({
       {
         key: "org.address.headquarters.name",
         values: {
-          en: "l4yercak3 Headquarters",
-          de: "l4yercak3 Hauptsitz",
-          pl: "l4yercak3 Siedziba główna",
+          en: "sevenlayers.io Headquarters",
+          de: "sevenlayers.io Hauptsitz",
+          pl: "sevenlayers.io Siedziba główna",
         }
       },
       {
@@ -71,9 +71,9 @@ export const seed = internalMutation({
       {
         key: "org.address.billing.name",
         values: {
-          en: "l4yercak3 Billing Address",
-          de: "l4yercak3 Rechnungsadresse",
-          pl: "l4yercak3 Adres rozliczeniowy",
+          en: "sevenlayers.io Billing Address",
+          de: "sevenlayers.io Rechnungsadresse",
+          pl: "sevenlayers.io Adres rozliczeniowy",
         }
       },
       {
@@ -94,26 +94,16 @@ export const seed = internalMutation({
       },
     ];
 
-    // Get all unique translation keys
-    const allKeys = translations.map(t => t.key);
-
-    // Efficiently check which translations already exist
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
-
-    // Seed translations for each locale
-    let count = 0;
+    // Seed translations for each locale (upsert: insert new, update existing)
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -121,15 +111,13 @@ export const seed = internalMutation({
             locale.code,
             "address"
           );
-
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} Address translations`);
-    return { success: true, count };
+    console.log(`✅ Seeded Address translations: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated };
   }
 });

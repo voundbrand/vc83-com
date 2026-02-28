@@ -1110,7 +1110,7 @@ export function CreateCheckoutTab({
                 "Email address to receive sales notifications. Select from your organization emails or enter a custom address."
               )}
               required={false}
-              defaultEmail="support@l4yercak3.com"
+              defaultEmail="support@sevenlayers.io"
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--shell-accent)' }}>
@@ -1157,7 +1157,7 @@ export function CreateCheckoutTab({
                   </strong>
                   {tx(
                     "ui.checkout_window.create.email_configuration_recipient_email_description",
-                    ": Defaults to support@l4yercak3.com if not configured"
+                    ": Defaults to support@sevenlayers.io if not configured"
                   )}
                 </li>
               </ul>

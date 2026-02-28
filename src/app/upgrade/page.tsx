@@ -29,7 +29,7 @@ function UpgradeContent() {
     async function validateAndRedirect() {
       if (!token) {
         setStatus('error');
-        setErrorMessage('Missing authentication token. Please run "l4yercak3 login" first.');
+        setErrorMessage('Missing authentication token. Please run "sevenlayers login" first.');
         return;
       }
 
@@ -44,7 +44,7 @@ function UpgradeContent() {
         if (!response.ok) {
           const data = await response.json();
           setStatus('error');
-          setErrorMessage(data.error || 'Session validation failed. Please run "l4yercak3 login" again.');
+          setErrorMessage(data.error || 'Session validation failed. Please run "sevenlayers login" again.');
           return;
         }
 
@@ -60,7 +60,7 @@ function UpgradeContent() {
           }, 2000);
         } else {
           setStatus('error');
-          setErrorMessage('Invalid session. Please run "l4yercak3 login" again.');
+          setErrorMessage('Invalid session. Please run "sevenlayers login" again.');
         }
       } catch (error) {
         console.error('Validation error:', error);
@@ -95,7 +95,7 @@ function UpgradeContent() {
           }}
         >
           <ShoppingBag size={14} />
-          <span className="text-sm font-bold">L4YERCAK3 - Upgrade Your Plan</span>
+          <span className="text-sm font-bold">SEVENLAYERS - Upgrade Your Plan</span>
         </div>
 
         {/* Content */}
@@ -167,7 +167,7 @@ function UpgradeContent() {
                 <p className="font-bold mb-1">To fix this:</p>
                 <ol className="list-decimal list-inside space-y-1" style={{ color: '#404040' }}>
                   <li>Open your terminal</li>
-                  <li>Run <code className="bg-white px-1 border">l4yercak3 login</code></li>
+                  <li>Run <code className="bg-white px-1 border">sevenlayers login</code></li>
                   <li>Complete the login process</li>
                   <li>Try the upgrade command again</li>
                 </ol>

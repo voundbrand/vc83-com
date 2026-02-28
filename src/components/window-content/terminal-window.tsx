@@ -264,7 +264,7 @@ export function TerminalWindow({
       {/* Banner */}
       <div className="px-3 py-2 text-cyan-600 border-b border-neutral-900">
         <pre className="leading-4">{`╔═══════════════════════════════════════╗
-║  l4yercak3 — Activity Terminal        ║
+║  sevenlayers — Activity Terminal       ║
 ╚═══════════════════════════════════════╝`}</pre>
       </div>
 

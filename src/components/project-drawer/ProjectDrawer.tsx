@@ -142,7 +142,7 @@ export function ProjectDrawer() {
             opacity: 0.7,
           }}
         >
-          Powered by l4yercak3
+          Powered by sevenlayers.io
         </div>
       </div>
     </>

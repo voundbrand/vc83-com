@@ -102,7 +102,7 @@ export const updateShopName = internalMutation({
 });
 
 /**
- * Update specific translation: "L4YERCAK3.exe" -> "l4yercak3.exe"
+ * Update specific translation: "sevenlayers.io" -> "sevenlayers.io"
  */
 export const updateWelcomeTitle = internalMutation({
   handler: async (ctx) => {
@@ -130,9 +130,9 @@ export const updateWelcomeTitle = internalMutation({
     let updateCount = 0;
 
     for (const trans of translations) {
-      if (trans.value === "L4YERCAK3.exe") {
+      if (trans.value === "sevenlayers.io") {
         await ctx.db.patch(trans._id, {
-          value: "l4yercak3.exe",
+          value: "sevenlayers.io",
           updatedAt: Date.now(),
         });
         updateCount++;

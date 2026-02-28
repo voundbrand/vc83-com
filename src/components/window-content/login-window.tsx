@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Eye, EyeOff, Smartphone, Hourglass, PartyPopper, Clipboard, Download, UserRound, Lock, Cake, X } from "lucide-react";
+import { Eye, EyeOff, Smartphone, Hourglass, PartyPopper, Clipboard, Download, UserRound, Lock, Layers, X } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { PasskeyEncouragementBanner } from "@/components/passkey-encouragement-banner";
@@ -505,7 +505,7 @@ export function LoginWindow() {
           <h2 className="font-pixel text-xl desktop-shell-text mb-2">
             {pendingApproval
               ? tx("ui.login.signup_success.beta_access_requested", "Beta Access Requested")
-              : tx("ui.login.signup_success.welcome", "Welcome to l4yercak3!")}
+              : tx("ui.login.signup_success.welcome", "Welcome to sevenlayers.io!")}
           </h2>
           <p className="text-sm desktop-shell-text-muted">
             {pendingApproval
@@ -540,7 +540,7 @@ export function LoginWindow() {
             <strong>{tx("ui.login.signup_success.api_key_purpose_title", "What's this for?")}</strong>{" "}
             {tx(
               "ui.login.signup_success.api_key_purpose_body",
-              "Use this API key to connect your apps, scripts, or integrations to l4yercak3. It authenticates your requests to our API.",
+              "Use this API key to connect your apps, scripts, or integrations to sevenlayers.io. It authenticates your requests to our API.",
             )}
           </div>
         )}
@@ -897,12 +897,12 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="text-center mb-6">
                 <div className="mb-2 flex justify-center">
-                  <Cake className="w-10 h-10" />
+                  <Layers className="w-10 h-10" />
                 </div>
                 <h2 className="font-pixel text-lg desktop-shell-text">
                   {betaGateEnabled
                     ? tx("ui.login.signup.title_beta_access", "Apply for Beta Access")
-                    : tx("ui.login.signup.title_start_building", "Start Building with l4yercak3")}
+                    : tx("ui.login.signup.title_start_building", "Start Building with sevenlayers.io")}
                 </h2>
                 <p className="text-xs mt-2 desktop-shell-text-muted">
                   {betaGateEnabled
@@ -1223,7 +1223,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
             <form onSubmit={handleSetupPassword} className="space-y-4">
               <div className="text-center mb-6">
                 <div className="mb-2 flex justify-center">
-                  <Cake className="w-10 h-10" />
+                  <Layers className="w-10 h-10" />
                 </div>
                 <h2 className="font-pixel text-lg desktop-shell-text">
                   {t('ui.login.title_welcome')}

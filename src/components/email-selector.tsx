@@ -15,7 +15,7 @@ interface EmailSelectorProps {
   description?: string;
   required?: boolean;
   disabled?: boolean;
-  defaultEmail?: string; // System default (e.g., "support@l4yercak3.com")
+  defaultEmail?: string; // System default (e.g., "support@sevenlayers.io")
 }
 
 /**
@@ -39,7 +39,7 @@ export function EmailSelector({
   description,
   required = false,
   disabled = false,
-  defaultEmail = "support@l4yercak3.com",
+  defaultEmail = "support@sevenlayers.io",
 }: EmailSelectorProps) {
   const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [customEmail, setCustomEmail] = useState("");

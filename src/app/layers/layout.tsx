@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Layers - Visual Automation Canvas | l4yercak3",
+  title: "Layers - Visual Automation Canvas | sevenlayers.io",
   description: "Map your marketing tech stack, connect integrations visually, and automate your agency operations with Layers.",
 };
 

@@ -225,7 +225,7 @@ export function CheckoutFailedWindow({ reason = "cancel" }: CheckoutFailedWindow
             className="text-xs"
             style={{ color: "var(--neutral-gray)" }}
           >
-            {t("ui.checkout_failed.support_message") || "Need help? Contact us at support@l4yercak3.com"}
+            {t("ui.checkout_failed.support_message") || "Need help? Contact us at support@sevenlayers.io"}
           </p>
         </div>
       </div>

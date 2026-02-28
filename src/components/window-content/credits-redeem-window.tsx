@@ -198,7 +198,7 @@ export function CreditsRedeemWindow() {
     const deepLinkNonce = `redeem-store-${Date.now()}`;
     openWindow(
       "store",
-      "l4yercak3 Store",
+      "sevenlayers Store",
       <StoreWindow initialSection="credits" />,
       { x: 150, y: 80 },
       { width: 900, height: 650 },

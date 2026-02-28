@@ -6,7 +6,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -58,36 +58,26 @@ export const seed = internalMutation({
       {
         key: "org.profile.system.description",
         values: {
-          en: "Core platform organization managing l4yercak3 infrastructure",
-          de: "Kernplattformorganisation zur Verwaltung der l4yercak3-Infrastruktur",
-          pl: "Główna organizacja platformy zarządzająca infrastrukturą l4yercak3",
-          es: "Organización central de la plataforma que gestiona la infraestructura de l4yercak3",
-          fr: "Organisation principale de la plateforme gérant l'infrastructure l4yercak3",
-          ja: "l4yercak3インフラストラクチャを管理するコアプラットフォーム組織",
+          en: "Core platform organization managing sevenlayers.io infrastructure",
+          de: "Kernplattformorganisation zur Verwaltung der sevenlayers.io-Infrastruktur",
+          pl: "Główna organizacja platformy zarządzająca infrastrukturą sevenlayers.io",
+          es: "Organización central de la plataforma que gestiona la infraestructura de sevenlayers.io",
+          fr: "Organisation principale de la plateforme gérant l'infrastructure sevenlayers.io",
+          ja: "sevenlayers.ioインフラストラクチャを管理するコアプラットフォーム組織",
         }
       },
     ];
 
-    // Get all unique translation keys
-    const allKeys = translations.map(t => t.key);
-
-    // Efficiently check which translations already exist
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
-
-    // Seed translations for each locale
-    let count = 0;
+    // Seed translations for each locale (upsert: insert new, update existing)
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -95,15 +85,13 @@ export const seed = internalMutation({
             locale.code,
             "profile"
           );
-
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} Profile translations`);
-    return { success: true, count };
+    console.log(`✅ Seeded Profile translations: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated };
   }
 });

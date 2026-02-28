@@ -695,7 +695,7 @@ export function ManageWindow({
                 size="lg"
                 onClick={() => {
                   // TODO: Open upgrade modal or redirect to billing
-                  alert('Contact sales@l4yercak3.com to upgrade your plan');
+                  alert('Contact sales@sevenlayers.io to upgrade your plan');
                 }}
               >
                 Upgrade to Scale

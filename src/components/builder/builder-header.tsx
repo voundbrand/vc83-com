@@ -71,7 +71,7 @@ export function BuilderHeader({
             >
               <Image
                 src="/android-chrome-512x512.png"
-                alt={tx("ui.builder.chrome.brand", "l4yercak3")}
+                alt={tx("ui.builder.chrome.brand", "sevenlayers.io")}
                 width={28}
                 height={28}
                 className="rounded"

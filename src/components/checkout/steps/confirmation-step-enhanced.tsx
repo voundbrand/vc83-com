@@ -265,10 +265,10 @@ export function ConfirmationStepEnhanced({
         <p>
           Need help? Contact us at{" "}
           <a
-            href="mailto:support@l4yercak3.com"
+            href="mailto:support@sevenlayers.io"
             className="text-violet-600 hover:text-violet-700 font-semibold underline"
           >
-            support@l4yercak3.com
+            support@sevenlayers.io
           </a>
         </p>
       </div>

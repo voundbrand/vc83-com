@@ -7,7 +7,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -58,12 +58,12 @@ export const seed = internalMutation({
       {
         key: "ui.contact_modal.founder_title",
         values: {
-          en: "Founder & CEO, l4yercak3",
-          de: "Gründer & CEO, l4yercak3",
-          pl: "Założyciel i CEO, l4yercak3",
-          es: "Fundador y CEO, l4yercak3",
-          fr: "Fondateur et PDG, l4yercak3",
-          ja: "創業者兼CEO、l4yercak3",
+          en: "Founder & CEO, sevenlayers.io",
+          de: "Gründer & CEO, sevenlayers.io",
+          pl: "Założyciel i CEO, sevenlayers.io",
+          es: "Fundador y CEO, sevenlayers.io",
+          fr: "Fondateur et PDG, sevenlayers.io",
+          ja: "創業者兼CEO、sevenlayers.io",
         }
       },
       {
@@ -428,46 +428,39 @@ export const seed = internalMutation({
       },
     ];
 
-    // Get existing keys first (returns empty set but kept for compatibility)
-    const existingKeys = new Set<string>();
-
     let insertedCount = 0;
-    let skippedCount = 0;
+    let updatedCount = 0;
 
-    // Insert translations for each locale
+    // Upsert translations for each locale
     for (const translation of translations) {
       for (const locale of supportedLocales) {
         const value = translation.values[locale.code as keyof typeof translation.values];
 
-        const inserted = await insertTranslationIfNew(
+        const result = await upsertTranslation(
           ctx.db,
-          existingKeys,
           systemOrg._id,
           systemUser._id,
           translation.key,
           value,
           locale.code,
-          "ui", // category
-          "contact_modal" // component
+          "ui",
+          "contact_modal"
         );
 
-        if (inserted) {
-          insertedCount++;
-        } else {
-          skippedCount++;
-        }
+        if (result.inserted) insertedCount++;
+        if (result.updated) updatedCount++;
       }
     }
 
     console.log(`✅ Contact Modal translations seeded successfully!`);
     console.log(`   - Inserted: ${insertedCount} new translations`);
-    console.log(`   - Skipped: ${skippedCount} existing translations`);
+    console.log(`   - Updated: ${updatedCount} existing translations`);
 
     return {
       success: true,
       totalTranslations: translations.length * supportedLocales.length,
       inserted: insertedCount,
-      skipped: skippedCount,
+      updated: updatedCount,
     };
   },
 });

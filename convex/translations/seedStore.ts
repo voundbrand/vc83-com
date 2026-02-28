@@ -7,7 +7,7 @@
  */
 
 import { internalMutation } from "../_generated/server";
-import { getExistingTranslationKeys, insertTranslationIfNew } from "./_translationHelpers";
+import { upsertTranslation } from "./_translationHelpers";
 
 export const seed = internalMutation({
   handler: async (ctx) => {
@@ -45,12 +45,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.title",
         values: {
-          en: "l4yercak3 Store",
-          de: "l4yercak3 Shop",
-          pl: "Sklep l4yercak3",
-          es: "Tienda l4yercak3",
-          fr: "Boutique l4yercak3",
-          ja: "l4yercak3 ストア",
+          en: "sevenlayers.io Store",
+          de: "sevenlayers.io Shop",
+          pl: "Sklep sevenlayers.io",
+          es: "Tienda sevenlayers.io",
+          fr: "Boutique sevenlayers.io",
+          ja: "sevenlayers.io ストア",
         }
       },
       {
@@ -655,12 +655,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.description",
         values: {
-          en: "Get a fully custom web application built specifically for your needs, connected to the l4yercak3 backend via API. Perfect for unique business requirements.",
-          de: "Erhalten Sie eine vollständig maßgeschneiderte Webanwendung für Ihre spezifischen Anforderungen, verbunden mit dem l4yercak3-Backend über die API. Perfekt für einzigartige Geschäftsanforderungen.",
-          pl: "Otrzymaj w pełni niestandardową aplikację internetową dostosowaną do Twoich potrzeb, połączoną z backendem l4yercak3 przez API. Idealne dla unikalnych wymagań biznesowych.",
-          es: "Obtenga una aplicación web totalmente personalizada creada específicamente para sus necesidades, conectada al backend de l4yercak3 a través de API. Perfecta para requisitos comerciales únicos.",
-          fr: "Obtenez une application web entièrement personnalisée conçue spécifiquement pour vos besoins, connectée au backend l4yercak3 via API. Parfait pour des exigences commerciales uniques.",
-          ja: "l4yercak3バックエンドにAPI経由で接続された、あなたのニーズに特化した完全なカスタムWebアプリケーションを入手しましょう。独自のビジネス要件に最適です。",
+          en: "Get a fully custom web application built specifically for your needs, connected to the sevenlayers.io backend via API. Perfect for unique business requirements.",
+          de: "Erhalten Sie eine vollständig maßgeschneiderte Webanwendung für Ihre spezifischen Anforderungen, verbunden mit dem sevenlayers.io-Backend über die API. Perfekt für einzigartige Geschäftsanforderungen.",
+          pl: "Otrzymaj w pełni niestandardową aplikację internetową dostosowaną do Twoich potrzeb, połączoną z backendem sevenlayers.io przez API. Idealne dla unikalnych wymagań biznesowych.",
+          es: "Obtenga una aplicación web totalmente personalizada creada específicamente para sus necesidades, conectada al backend de sevenlayers.io a través de API. Perfecta para requisitos comerciales únicos.",
+          fr: "Obtenez une application web entièrement personnalisée conçue spécifiquement pour vos besoins, connectée au backend sevenlayers.io via API. Parfait pour des exigences commerciales uniques.",
+          ja: "sevenlayers.ioバックエンドにAPI経由で接続された、あなたのニーズに特化した完全なカスタムWebアプリケーションを入手しましょう。独自のビジネス要件に最適です。",
         }
       },
       {
@@ -699,12 +699,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.feature2_desc",
         values: {
-          en: "Seamless connection to l4yercak3 backend",
-          de: "Nahtlose Verbindung zum l4yercak3-Backend",
-          pl: "Bezproblemowe połączenie z backendem l4yercak3",
-          es: "Conexión perfecta con el backend de l4yercak3",
-          fr: "Connexion transparente au backend l4yercak3",
-          ja: "l4yercak3バックエンドへのシームレスな接続",
+          en: "Seamless connection to sevenlayers.io backend",
+          de: "Nahtlose Verbindung zum sevenlayers.io-Backend",
+          pl: "Bezproblemowe połączenie z backendem sevenlayers.io",
+          es: "Conexión perfecta con el backend de sevenlayers.io",
+          fr: "Connexion transparente au backend sevenlayers.io",
+          ja: "sevenlayers.ioバックエンドへのシームレスな接続",
         }
       },
       {
@@ -786,22 +786,15 @@ export const seed = internalMutation({
       },
     ];
 
-    const allKeys = translations.map(t => t.key);
-    const existingKeys = await getExistingTranslationKeys(
-      ctx.db,
-      systemOrg._id,
-      allKeys
-    );
-
-    let count = 0;
+    let inserted = 0;
+    let updated = 0;
     for (const trans of translations) {
       for (const locale of supportedLocales) {
         const value = trans.values[locale.code as keyof typeof trans.values];
 
         if (value) {
-          const inserted = await insertTranslationIfNew(
+          const result = await upsertTranslation(
             ctx.db,
-            existingKeys,
             systemOrg._id,
             systemUser._id,
             trans.key,
@@ -810,15 +803,13 @@ export const seed = internalMutation({
             "ui",
             "store"
           );
-
-          if (inserted) {
-            count++;
-          }
+          if (result.inserted) inserted++;
+          if (result.updated) updated++;
         }
       }
     }
 
-    console.log(`✅ Seeded ${count} store translations`);
-    return { success: true, count, totalKeys: translations.length };
+    console.log(`✅ Seeded store translations: ${inserted} inserted, ${updated} updated`);
+    return { success: true, inserted, updated, totalKeys: translations.length };
   }
 });

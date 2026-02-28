@@ -18,7 +18,7 @@ export function AboutWindow() {
       <div className="text-center mb-6 pb-4 border-b-2" style={{ borderColor: 'var(--win95-border)' }}>
         <h2 className="text-2xl font-bold mb-1 flex items-center justify-center gap-2" style={{ color: 'var(--win95-text)' }}>
           <Info className="h-6 w-6" />
-          About l4yercak3
+          About sevenlayers.io
         </h2>
         <p className="text-sm" style={{ color: 'var(--neutral-gray)' }}>Stack Your Startup Tools Like a Pro</p>
       </div>
@@ -27,15 +27,15 @@ export function AboutWindow() {
       <div className="flex-1 space-y-4">
         {/* What is Layer Cake */}
         <div className="space-y-2">
-          <h3 className="font-semibold" style={{ color: 'var(--win95-text)' }}>What is Layer Cake?</h3>
+          <h3 className="font-semibold" style={{ color: 'var(--win95-text)' }}>What is sevenlayers.io?</h3>
           <p className="text-sm leading-relaxed border-2 p-3 rounded" style={{
             color: 'var(--win95-text)',
             background: 'var(--win95-bg-light)',
             borderColor: 'var(--win95-border)'
           }}>
-            Layer Cake is a retro-styled app platform that lets you stack essential business tools
-            in one cohesive workspace. Think of it as your personal toolkit, where you can layer on
-            invoicing, analytics, scheduling, and more—all accessible through a nostalgic 1983 desktop interface.
+            sevenlayers.io is a private AI operator platform for business owners running
+            companies between &euro;1M and &euro;50M. One operator, yours alone, built on your business,
+            your clients, and your way of working. C-suite leverage at a fraction of the payroll.
           </p>
         </div>
 
@@ -47,9 +47,10 @@ export function AboutWindow() {
             background: 'var(--win95-bg-light)',
             borderColor: 'var(--win95-border)'
           }}>
-            Inspired by the movie &quot;Layer Cake,&quot; we believe in the power of stacking the right tools
-            at the right time. No more juggling 15 browser tabs. No more context switching. Just you,
-            your workspace, and the tools you need to grow your business.
+            Every successful business owner hits a ceiling &mdash; not because they can&apos;t grow,
+            but because nothing they&apos;ve hired or bought can hold what they carry in their head.
+            sevenlayers.io builds one AI operator around you. Private, sovereign, built specifically
+            on your business, your clients, and your judgment.
           </p>
         </div>
 
@@ -101,9 +102,9 @@ export function AboutWindow() {
             background: 'var(--win95-bg-light)',
             borderColor: 'var(--win95-border)'
           }}>
-            Layer Cake is built for startup founders, content creators, and small business owners
-            who want powerful tools without the complexity. Whether you&apos;re launching a podcast,
-            running a SaaS startup, or building a creative agency, Layer Cake adapts to your workflow.
+            Business owners running &euro;1M&ndash;&euro;50M companies who already know they are the
+            integration layer between every system. The work that matters most still lives in their
+            head. sevenlayers.io is the first hire that actually compounds.
           </p>
         </div>
 
@@ -130,16 +131,16 @@ export function AboutWindow() {
           borderColor: 'var(--win95-border)'
         }}>
           <a
-            href="https://twitter.com/l4yercak3pod"
+            href="https://twitter.com/sevenlayers_io"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
             style={{ color: 'var(--win95-highlight)' }}
           >
-            @l4yercak3pod (Twitter)
+            @sevenlayers_io (Twitter)
           </a>
           <a
-            href="https://www.linkedin.com/company/l4yercak3"
+            href="https://www.linkedin.com/company/sevenlayers"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
@@ -148,7 +149,7 @@ export function AboutWindow() {
             LinkedIn
           </a>
           <a
-            href="https://open.spotify.com/show/l4yercak3"
+            href="https://open.spotify.com/show/sevenlayers"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold underline"
@@ -164,7 +165,7 @@ export function AboutWindow() {
         color: 'var(--neutral-gray)',
         borderColor: 'var(--win95-border)'
       }}>
-        Built for startups • Inspired by the &apos;90s • Powered by l4yercak3
+        Private AI. You can Trust. • Powered by sevenlayers.io
       </div>
     </div>
   );

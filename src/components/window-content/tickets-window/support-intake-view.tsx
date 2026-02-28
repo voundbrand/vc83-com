@@ -18,7 +18,7 @@ interface SupportIntakeViewProps {
   initialContext?: string;
 }
 
-const SALES_EMAIL = "sales@l4yercak3.com";
+const SALES_EMAIL = "sales@sevenlayers.io";
 
 const PRODUCT_OPTIONS = [
   { id: "ai-assistant", labelKey: "ui.tickets.support_intake.product.ai_assistant", fallback: "AI Assistant" },

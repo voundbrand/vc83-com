@@ -309,7 +309,7 @@ export function EmailSendModal({
             }}
           >
             <option value="">
-              {translations.systemDefaultsLabel || "System Defaults (tickets@mail.l4yercak3.com)"}
+              {translations.systemDefaultsLabel || "System Defaults (tickets@mail.sevenlayers.io)"}
             </option>
             {domainConfigs && domainConfigs.length > 0 && (
               <>

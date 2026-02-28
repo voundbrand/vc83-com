@@ -222,7 +222,7 @@ function ArchitectureStep() {
     {
       value: "thin-client" as const,
       label: "Thin Client",
-      description: "Frontend app calling l4yercak3 APIs. Simplest to deploy.",
+      description: "Frontend app calling sevenlayers APIs. Simplest to deploy.",
       available: true,
     },
     {
@@ -234,7 +234,7 @@ function ArchitectureStep() {
     {
       value: "hybrid" as const,
       label: "Hybrid",
-      description: "l4yercak3 auth + own DB. Coming in Phase 3.",
+      description: "sevenlayers auth + own DB. Coming in Phase 3.",
       available: false,
     },
   ];
@@ -284,8 +284,8 @@ function AuthStep() {
     },
     {
       value: "l4yercak3-oauth" as const,
-      label: "l4yercak3 OAuth",
-      description: "Users log in with l4yercak3 accounts. Phase 3.",
+      label: "sevenlayers OAuth",
+      description: "Users log in with sevenlayers accounts. Phase 3.",
       icon: Lock,
       disabled: true,
     },
@@ -383,7 +383,7 @@ function PaymentsStep() {
         >
           <Receipt className="h-4 w-4 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-medium">l4yercak3 Invoicing</p>
+            <p className="text-sm font-medium">sevenlayers Invoicing</p>
             <p className="text-xs text-neutral-500">B2B invoicing through the platform.</p>
           </div>
           {config.payments.l4yercak3Invoicing && <Check className="h-4 w-4 text-amber-400 flex-shrink-0" />}
@@ -479,7 +479,7 @@ function ReviewStep() {
         <ReviewRow
           label="Payments"
           value={
-            [config.payments.stripe && "Stripe", config.payments.l4yercak3Invoicing && "l4yercak3"]
+            [config.payments.stripe && "Stripe", config.payments.l4yercak3Invoicing && "sevenlayers"]
               .filter(Boolean)
               .join(", ") || "None"
           }
@@ -652,7 +652,7 @@ export function PublishConfigWizard({ onClose, onSwitchToConnect }: PublishConfi
         organizationId,
         appId: builderAppId,
         repoName: config.repoName.trim(),
-        description: config.description || `${config.appName} - Built with l4yercak3`,
+        description: config.description || `${config.appName} - Built with sevenlayers.io`,
         isPrivate: config.isPrivate,
         scaffoldFiles: scaffoldFiles.map((f) => ({
           path: f.path,

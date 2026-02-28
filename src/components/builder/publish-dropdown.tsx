@@ -333,7 +333,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
     const fallbackManagedUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/builder/new?appId=${builderAppId}`
-        : `https://app.l4yercak3.com/builder/new?appId=${builderAppId}`;
+        : `https://app.sevenlayers.io/builder/new?appId=${builderAppId}`;
     const managedPublishUrl = managedUrl || fallbackManagedUrl;
 
     try {
@@ -399,7 +399,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         organizationId,
         appId: builderAppId,
         repoName: repoName.trim(),
-        description: builderApp?.description || "Built with l4yercak3 Builder",
+        description: builderApp?.description || "Built with sevenlayers.io Builder",
         isPrivate,
         scaffoldFiles: scaffoldForPublish,
       });
@@ -540,7 +540,7 @@ export function PublishDropdown({ onSwitchToChat }: { onSwitchToChat?: () => voi
         organizationId,
         appId: builderAppId,
         repoName: repoName.trim(),
-        description: builderApp?.description || "Built with l4yercak3 Builder",
+        description: builderApp?.description || "Built with sevenlayers.io Builder",
         isPrivate,
         scaffoldFiles: scaffoldOverrides,
       });

@@ -231,7 +231,7 @@ export function generateWebchatDeploymentSnippets(
   scriptLines.push("></script>");
 
   const reactLines = [
-    'import { ChatWidget } from "@l4yercak3/webchat";',
+    'import { ChatWidget } from "@sevenlayers/webchat";',
     "",
     "<ChatWidget",
     `  agentId=\"${escapeReactString(contract.agentId)}\"`,

@@ -195,7 +195,7 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
             <div className="text-xs" style={{ color: 'var(--window-document-text)' }}>
               <p className="font-bold mb-1">2. Grant Repository Permissions</p>
               <p className="ml-4" style={{ color: 'var(--neutral-gray)' }}>
-                Allow l4yercak3 to create and manage deployment repositories
+                Allow sevenlayers.io to create and manage deployment repositories
               </p>
             </div>
             <div className="text-xs" style={{ color: 'var(--window-document-text)' }}>

@@ -657,12 +657,12 @@ const translations: Array<{ key: string; values: Record<SupportedLocale, string>
   {
     key: "ui.builder.chrome.brand",
     values: {
-      en: "l4yercak3",
-      de: "l4yercak3",
-      pl: "l4yercak3",
-      es: "l4yercak3",
-      fr: "l4yercak3",
-      ja: "l4yercak3",
+      en: "sevenlayers.io",
+      de: "sevenlayers.io",
+      pl: "sevenlayers.io",
+      es: "sevenlayers.io",
+      fr: "sevenlayers.io",
+      ja: "sevenlayers.io",
     },
   },
   {

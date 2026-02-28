@@ -46,7 +46,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "Beta Access Request Declined",
     rejected_subtitle: "Unfortunately, your beta access request was not approved at this time.",
     rejected_reason_label: "Reason",
-    rejected_followup: "We appreciate your interest in l4yercak3. Stay connected for updates on when we open more beta access.",
+    rejected_followup: "We appreciate your interest in sevenlayers.io. Stay connected for updates on when we open more beta access.",
     rejected_support_intro: "Have questions? Contact us at",
     none_title: "Thanks for signing up!",
     none_subtitle: "We're currently in private beta.",
@@ -65,7 +65,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "Beta-Zugangsanforderung abgelehnt",
     rejected_subtitle: "Leider wurde deine Beta-Zugangsanforderung derzeit nicht genehmigt.",
     rejected_reason_label: "Grund",
-    rejected_followup: "Danke für dein Interesse an l4yercak3. Folge unseren Updates, wenn wir mehr Beta-Zugänge freigeben.",
+    rejected_followup: "Danke für dein Interesse an sevenlayers.io. Folge unseren Updates, wenn wir mehr Beta-Zugänge freigeben.",
     rejected_support_intro: "Fragen? Kontaktiere uns unter",
     none_title: "Danke für deine Anmeldung!",
     none_subtitle: "Wir befinden uns derzeit in der privaten Beta.",
@@ -84,7 +84,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "Wniosek o dostęp beta odrzucony",
     rejected_subtitle: "Niestety Twój wniosek o dostęp beta nie został teraz zatwierdzony.",
     rejected_reason_label: "Powód",
-    rejected_followup: "Dziękujemy za zainteresowanie l4yercak3. Śledź aktualizacje, gdy otworzymy więcej miejsc beta.",
+    rejected_followup: "Dziękujemy za zainteresowanie sevenlayers.io. Śledź aktualizacje, gdy otworzymy więcej miejsc beta.",
     rejected_support_intro: "Masz pytania? Napisz do nas:",
     none_title: "Dziękujemy za rejestrację!",
     none_subtitle: "Obecnie jesteśmy w prywatnej becie.",
@@ -103,7 +103,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "Solicitud de acceso beta rechazada",
     rejected_subtitle: "Lamentablemente, tu solicitud de acceso beta no fue aprobada en este momento.",
     rejected_reason_label: "Motivo",
-    rejected_followup: "Agradecemos tu interés en l4yercak3. Sigue nuestras novedades cuando abramos más acceso beta.",
+    rejected_followup: "Agradecemos tu interés en sevenlayers.io. Sigue nuestras novedades cuando abramos más acceso beta.",
     rejected_support_intro: "¿Tienes preguntas? Contáctanos en",
     none_title: "¡Gracias por registrarte!",
     none_subtitle: "Actualmente estamos en beta privada.",
@@ -122,7 +122,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "Demande d'accès bêta refusée",
     rejected_subtitle: "Malheureusement, votre demande d'accès bêta n'a pas été approuvée pour le moment.",
     rejected_reason_label: "Raison",
-    rejected_followup: "Merci pour votre intérêt pour l4yercak3. Restez informé de nos ouvertures bêta.",
+    rejected_followup: "Merci pour votre intérêt pour sevenlayers.io. Restez informé de nos ouvertures bêta.",
     rejected_support_intro: "Des questions? Contactez-nous à",
     none_title: "Merci pour votre inscription!",
     none_subtitle: "Nous sommes actuellement en bêta privée.",
@@ -141,7 +141,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
     rejected_title: "ベータアクセス申請は却下されました",
     rejected_subtitle: "申し訳ありませんが、今回ベータアクセス申請は承認されませんでした。",
     rejected_reason_label: "理由",
-    rejected_followup: "l4yercak3 にご関心をお寄せいただきありがとうございます。今後のベータ公開情報をご確認ください。",
+    rejected_followup: "sevenlayers.io にご関心をお寄せいただきありがとうございます。今後のベータ公開情報をご確認ください。",
     rejected_support_intro: "ご質問は",
     none_title: "ご登録ありがとうございます！",
     none_subtitle: "現在プライベートベータ期間中です。",
@@ -151,7 +151,7 @@ const FALLBACK_COPY: Record<SupportedLocale, Record<CopyKey, string>> = {
   },
 };
 
-const SUPPORT_EMAIL = "support@l4yercak3.com";
+const SUPPORT_EMAIL = "support@sevenlayers.io";
 
 function isSupportedLocale(locale: string): locale is SupportedLocale {
   return locale in FALLBACK_COPY;

@@ -544,7 +544,7 @@ function BuilderLandingPageInner() {
             <button className="flex items-center p-2 rounded-lg hover:bg-neutral-800 transition-colors">
               <Image
                 src="/android-chrome-512x512.png"
-                alt="l4yercak3"
+                alt="sevenlayers.io"
                 width={28}
                 height={28}
                 className="rounded"
@@ -561,7 +561,7 @@ function BuilderLandingPageInner() {
           <Link href="/builder" className="flex items-center p-2">
             <Image
               src="/android-chrome-512x512.png"
-              alt="l4yercak3"
+              alt="sevenlayers.io"
               width={28}
               height={28}
               className="rounded"
@@ -807,7 +807,7 @@ function BuilderLandingPageInner() {
                   ? "Describe your document..."
                   : isPlanningMode
                   ? "Describe what you want to plan..."
-                  : "Ask l4yercak3 to build..."
+                  : "Ask sevenlayers to build..."
               }
               className="w-full min-h-[100px] max-h-[300px] px-4 pt-4 pb-14 bg-transparent text-neutral-100 placeholder-neutral-500 focus:outline-none resize-none overflow-y-auto"
               onKeyDown={(e) => {
@@ -836,7 +836,7 @@ function BuilderLandingPageInner() {
                       className="rounded"
                     />
                     <span className="max-w-[80px] truncate">
-                      {selectedModel ? getModelDisplayName(selectedModel) : "l4yercak3"}
+                      {selectedModel ? getModelDisplayName(selectedModel) : "sevenlayers"}
                     </span>
                     <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -1135,7 +1135,7 @@ function BuilderLandingPageInner() {
       {/* Footer */}
       <footer className="border-t border-neutral-900 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-neutral-600">
-          <p>Built with l4yercak3</p>
+          <p>Built with sevenlayers.io</p>
         </div>
       </footer>
     </div>

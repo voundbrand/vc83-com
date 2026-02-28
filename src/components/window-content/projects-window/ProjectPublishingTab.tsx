@@ -146,7 +146,7 @@ export function ProjectPublishingTab({
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-xs px-2 py-2 border-2" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)", color: "var(--neutral-gray)" }}>
-                  l4yercak3.com/project/
+                  sevenlayers.io/project/
                 </span>
                 <input
                   type="text"
@@ -182,7 +182,7 @@ export function ProjectPublishingTab({
                 style={{ color: "var(--tone-accent)" }}
               >
                 <ExternalLink size={12} />
-                Preview: l4yercak3.com/project/{publicPage.slug}
+                Preview: sevenlayers.io/project/{publicPage.slug}
               </a>
             )}
           </div>

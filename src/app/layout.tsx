@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import localFont from "next/font/local";
 import { Geist, Geist_Mono, Instrument_Serif, Playfair_Display, Press_Start_2P } from "next/font/google";
 import { Providers } from "./providers";
 import { NotificationContainer } from "@/components/ui/notification-container";
@@ -67,25 +68,35 @@ const pressStart2P = Press_Start_2P({
   subsets: ["latin"],
 });
 
+const codecPro = localFont({
+  src: [
+    { path: "../../public/fonts/CodecPro-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/CodecPro-Bold.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-codec-pro",
+  display: "swap",
+  fallback: ["Arial", "Helvetica", "sans-serif"],
+});
+
 export const metadata: Metadata = {
-  title: "l4yercak3 - Where Creativity Meets Technology",
-  description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible. Modern web solutions combining design creativity with cutting-edge innovation.",
-  keywords: ["web development", "creative technology", "innovation", "modern web solutions", "l4yercak3"],
-  authors: [{ name: "l4yercak3" }],
-  creator: "l4yercak3",
-  publisher: "l4yercak3",
+  title: "sevenlayers.io — Private AI. You can Trust.",
+  description: "One operator. Yours alone. Built on your business, your clients, and your way of working. C-suite leverage at a fraction of the payroll.",
+  keywords: ["private AI", "AI operator", "business automation", "sevenlayers", "sevenlayers.io"],
+  authors: [{ name: "sevenlayers.io" }],
+  creator: "sevenlayers.io",
+  publisher: "sevenlayers.io",
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://l4yercak3.com",
-    siteName: "l4yercak3",
-    title: "l4yercak3 - Where Creativity Meets Technology",
-    description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible.",
+    url: "https://sevenlayers.io",
+    siteName: "sevenlayers.io",
+    title: "sevenlayers.io — Private AI. You can Trust.",
+    description: "One operator. Yours alone. Built on your business, your clients, and your way of working. C-suite leverage at a fraction of the payroll.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "l4yercak3 - Where Creativity Meets Technology",
-    description: "We stand at the forefront of a new era, where creativity meets technology to redefine what's possible.",
+    title: "sevenlayers.io — Private AI. You can Trust.",
+    description: "One operator. Yours alone. Built on your business, your clients, and your way of working. C-suite leverage at a fraction of the payroll.",
   },
   icons: {
     icon: [
@@ -133,7 +144,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${playfairDisplay.variable} ${pressStart2P.variable} font-sans antialiased crt-scanlines`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${playfairDisplay.variable} ${pressStart2P.variable} ${codecPro.variable} font-sans antialiased crt-scanlines`}
         style={{ fontSynthesis: "none" }}
       >
         <SessionExpiredBoundary>

@@ -626,7 +626,7 @@ export function BuilderPreviewPanel() {
                 <div className="absolute inset-0 rounded-2xl bg-amber-500/20 blur-xl animate-pulse" />
                 <img
                   src="/android-chrome-512x512.png"
-                  alt="l4yercak3"
+                  alt="sevenlayers.io"
                   className="w-20 h-20 rounded-2xl relative z-10"
                 />
               </div>

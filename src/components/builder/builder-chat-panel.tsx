@@ -93,7 +93,7 @@ function CollapsedSidebar({
   ];
 
   const handleContactSupport = () => {
-    window.location.href = "mailto:support@l4yercak3.com";
+    window.location.href = "mailto:support@sevenlayers.io";
   };
 
   // Get mode icon and color for the sidebar button

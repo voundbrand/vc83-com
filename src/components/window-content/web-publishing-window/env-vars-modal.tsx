@@ -239,7 +239,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                       type="text"
                       value={envVar.defaultValue || ""}
                       onChange={(e) => handleUpdateEnvVar(index, 'defaultValue', e.target.value)}
-                      placeholder="https://app.l4yercak3.com/api/v1"
+                      placeholder="https://app.sevenlayers.io/api/v1"
                       className="w-full px-3 py-2 text-sm border-2 font-mono"
                       style={{
                         borderColor: 'var(--window-document-border)',
@@ -258,7 +258,7 @@ export function EnvVarsModal({ page, onClose, onSaved }: EnvVarsModalProps) {
                   <textarea
                     value={envVar.description}
                     onChange={(e) => handleUpdateEnvVar(index, 'description', e.target.value)}
-                    placeholder="Your l4yercak3 API URL for making requests to the platform..."
+                    placeholder="Your sevenlayers API URL for making requests to the platform..."
                     rows={2}
                     className="w-full px-3 py-2 text-sm border-2"
                     style={{

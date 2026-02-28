@@ -217,7 +217,7 @@ export function ModernReceiptPDF({ receiptData }: { receiptData: ReceiptData }) 
         {/* Footer */}
         <div className="bg-gray-50 px-8 py-4 border-t border-gray-200">
           <p className="text-xs text-gray-500 text-center">
-            Thank you for your purchase! For questions, contact support@l4yercak3.com
+            Thank you for your purchase! For questions, contact support@sevenlayers.io
           </p>
         </div>
       </div>

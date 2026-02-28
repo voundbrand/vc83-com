@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AI Agents - Agent Management | l4yercak3",
+  title: "AI Agents - Agent Management | sevenlayers.io",
   description: "Manage your AI agents, view analytics, monitor sessions, and configure agent behavior.",
 };
 

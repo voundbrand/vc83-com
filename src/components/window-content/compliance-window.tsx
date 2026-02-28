@@ -236,7 +236,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
 
 ---
 
-**Generated with l4yercak3 Compliance App**`);
+**Generated with sevenlayers.io Compliance App**`);
   };
 
   // Data Export handlers
@@ -271,7 +271,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `l4yercak3-data-export-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `sevenlayers-data-export-${new Date().toISOString().split("T")[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1012,7 +1012,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                   )}
                 </p>
                 <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                  {tx("ui.compliance.deletion.deleted_footer", "Thank you for using l4yercak3. We wish you all the best.")}
+                  {tx("ui.compliance.deletion.deleted_footer", "Thank you for using sevenlayers.io. We wish you all the best.")}
                 </p>
               </div>
             )}
