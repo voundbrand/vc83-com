@@ -9,11 +9,12 @@ export interface ShellUrlState {
 
 export type StorePanelSection =
   | "plans"
+  | "credits"
   | "limits"
   | "addons"
   | "billing"
   | "trial"
-  | "credits"
+  | "transparency"
   | "calculator"
   | "faq"
 export type StoreCheckoutTier = "pro" | "scale"
@@ -39,11 +40,12 @@ export const SHELL_UPGRADE_QUERY_KEYS = Object.freeze(["upgradeReason", "upgrade
 
 const STORE_PANEL_SECTIONS = new Set<StorePanelSection>([
   "plans",
+  "credits",
   "limits",
   "addons",
   "billing",
   "trial",
-  "credits",
+  "transparency",
   "calculator",
   "faq",
 ])

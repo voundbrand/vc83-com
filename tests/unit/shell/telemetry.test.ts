@@ -52,4 +52,27 @@ describe("shell telemetry payload guardrails", () => {
       viewportMode: "desktop",
     })
   })
+
+  it("sanitizes deep-link cleanup payload keys for cleanup diagnostics", () => {
+    const payload = buildShellTelemetryPayload("shell_deeplink_cleanup", {
+      windowId: "does-not-exist",
+      reason: "unknown_app_preflight",
+      isRestored: true,
+      authLoading: false,
+      isSignedIn: false,
+      guestAllowed: false,
+      isRegistered: false,
+      ignored: "not-allowed",
+    })
+
+    expect(payload).toEqual({
+      windowId: "does-not-exist",
+      reason: "unknown_app_preflight",
+      isRestored: true,
+      authLoading: false,
+      isSignedIn: false,
+      guestAllowed: false,
+      isRegistered: false,
+    })
+  })
 })

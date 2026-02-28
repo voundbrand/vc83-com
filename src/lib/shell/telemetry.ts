@@ -6,6 +6,7 @@ export type ShellTelemetryEventName =
   | "shell_window_minimized"
   | "shell_window_closed"
   | "shell_deeplink_entry"
+  | "shell_deeplink_cleanup"
   | "shell_nav_select"
 
 const SHELL_TELEMETRY_SCHEMA: Record<ShellTelemetryEventName, readonly string[]> = {
@@ -14,6 +15,15 @@ const SHELL_TELEMETRY_SCHEMA: Record<ShellTelemetryEventName, readonly string[]>
   shell_window_minimized: ["windowId", "viewportMode", "activeWindowCount"],
   shell_window_closed: ["windowId", "viewportMode", "activeWindowCount"],
   shell_deeplink_entry: ["windowId", "context", "panel", "entity", "viewportMode"],
+  shell_deeplink_cleanup: [
+    "windowId",
+    "reason",
+    "isRestored",
+    "authLoading",
+    "isSignedIn",
+    "guestAllowed",
+    "isRegistered",
+  ],
   shell_nav_select: ["menuLabel", "itemId", "itemLabel", "hasHref", "interactionType"],
 }
 

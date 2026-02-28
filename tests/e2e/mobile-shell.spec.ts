@@ -1,10 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  createShellNavigationRetryTracker,
+  finalizeShellNavigationRetries,
+  gotoShellWithRetry,
+} from "./utils/shell-navigation";
 
 const DEEP_LINK_CONTEXT = "mobile_fallback_e2e";
-
-async function gotoShell(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "commit" });
-}
 
 async function waitForAppParamToBecome(page: Page, expectedValue: string, timeout = 20_000) {
   await expect
@@ -90,27 +91,32 @@ async function openStoreFromAppsMenu(page: Page) {
 }
 
 test.describe("Mobile Shell", () => {
-  test("login deep-link opens and closes cleanly", async ({ page }) => {
-    await gotoShell(page, `/?app=login&context=${DEEP_LINK_CONTEXT}`);
+  test("login deep-link opens and closes cleanly", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(page, `/?app=login&context=${DEEP_LINK_CONTEXT}`, navigationTracker);
     await waitForAppParamToBecome(page, "login");
 
     const closeButton = page.getByRole("button", { name: /close window/i }).first();
     await expect(closeButton).toBeVisible();
     await safeClick(closeButton);
     await waitForAppParamToClear(page);
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 
-  test("apps menu exposes launcher entries and opens store", async ({ page }) => {
-    await gotoShell(page, "/");
+  test("apps menu exposes launcher entries and opens store", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(page, "/", navigationTracker);
     await openStoreFromAppsMenu(page);
 
     await expect(page.getByRole("button", { name: /close window/i })).toHaveCount(1);
     await openAppsMenu(page);
     await expect(page.getByTestId("windows-menu-window-store")).toHaveCount(1);
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 
-  test("switching apps keeps a single active mobile panel", async ({ page }) => {
-    await gotoShell(page, "/");
+  test("switching apps keeps a single active mobile panel", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(page, "/", navigationTracker);
     await openStoreFromAppsMenu(page);
 
     await openAppsMenu(page);
@@ -127,15 +133,19 @@ test.describe("Mobile Shell", () => {
 
     await expect(page.getByRole("button", { name: /close window/i })).toHaveCount(1);
     await expect(page.locator("h2", { hasText: /store/i })).toHaveCount(0, { timeout: 20_000 });
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 
-  test("store deep-link clears app param", async ({ page }) => {
-    await gotoShell(page, `/?app=store&context=${DEEP_LINK_CONTEXT}`);
+  test("store deep-link clears app param", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(page, `/?app=store&context=${DEEP_LINK_CONTEXT}`, navigationTracker);
     await waitForAppParamToClear(page, 30_000);
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 
-  test("public /store full-screen keeps section deep-link parity on mobile layouts", async ({ page }) => {
-    await gotoShell(page, "/store?section=credits");
+  test("public /store full-screen keeps section deep-link parity on mobile layouts", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(page, "/store?section=credits", navigationTracker);
     await expect(page.getByRole("button", { name: /jump to/i })).toBeVisible();
     await expect
       .poll(() => new URL(page.url()).searchParams.get("panel"), { timeout: 30_000 })
@@ -143,11 +153,18 @@ test.describe("Mobile Shell", () => {
     await expect
       .poll(() => new URL(page.url()).searchParams.get("section"), { timeout: 30_000 })
       .toBe("credits");
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 
-  test("unknown deep-link app is cleaned from URL", async ({ page }) => {
-    await gotoShell(page, `/?app=does-not-exist&context=${DEEP_LINK_CONTEXT}`);
+  test("unknown deep-link app is cleaned from URL", async ({ page }, testInfo) => {
+    const navigationTracker = createShellNavigationRetryTracker({ abortRetryBudget: 1 });
+    await gotoShellWithRetry(
+      page,
+      `/?app=does-not-exist&context=${DEEP_LINK_CONTEXT}`,
+      navigationTracker
+    );
     await waitForAppParamToClear(page, 30_000);
     await expect(page).not.toHaveURL(/[\?&]app=/);
+    finalizeShellNavigationRetries(navigationTracker, testInfo);
   });
 });
