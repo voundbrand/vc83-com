@@ -95,11 +95,8 @@ jobs:
           tail -n 200 /tmp/next-mobile-shell.log || true
           exit 1
 
-      - name: Run mobile shell QA
-        run: npm run test:e2e:mobile
-
-      - name: Run desktop shell QA
-        run: npm run test:e2e:desktop
+      - name: Run shell parity release gate
+        run: npm run test:e2e:shell-parity
 
       - name: Run authenticated mobile shell QA
         run: npm run test:e2e:mobile:auth

@@ -1,0 +1,44 @@
+name: operator-mobile-ios-preflight
+
+on:
+  pull_request:
+    paths:
+      - "apps/operator-mobile/**"
+      - ".github/workflows/operator-mobile-ios-preflight.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "apps/operator-mobile/**"
+      - ".github/workflows/operator-mobile-ios-preflight.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: operator-mobile-ios-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/operator-mobile/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/operator-mobile/package-lock.json
+
+      - name: Install operator-mobile dependencies
+        working-directory: apps/operator-mobile
+        run: npm ci
+
+      - name: Run iOS preflight checks
+        working-directory: apps/operator-mobile
+        run: npm run ci:ios:preflight

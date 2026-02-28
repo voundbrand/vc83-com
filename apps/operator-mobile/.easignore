@@ -1,0 +1,9 @@
+node_modules
+.expo
+.DS_Store
+ios/build
+android/.gradle
+android/build
+npm-debug.*
+yarn-debug.*
+yarn-error.*

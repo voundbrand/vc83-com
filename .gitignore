@@ -63,3 +63,16 @@ docs/reference_projects/*
 # openclaw idea notes are archived/integrated; keep only folder README
 docs/openclaw_idea/*.md
 !docs/openclaw_idea/README.md
+
+# Expo operator mobile local artifacts (keep ios/android source in VCS; ignore only generated/local outputs)
+apps/operator-mobile/node_modules/
+apps/operator-mobile/.expo/
+apps/operator-mobile/.expo-shared/
+apps/operator-mobile/*.log
+apps/operator-mobile/npm-debug.log*
+apps/operator-mobile/yarn-debug.log*
+apps/operator-mobile/pnpm-debug.log*
+apps/operator-mobile/android/.gradle/
+apps/operator-mobile/android/app/build/
+apps/operator-mobile/ios/build/
+apps/operator-mobile/ios/Pods/

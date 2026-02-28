@@ -19,13 +19,38 @@ import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internal = require("../../_generated/api").internal;
 
+// Keep in sync with apps/operator-mobile/src/config/env.ts and apps/operator-mobile/app.json.
+const GOOGLE_MOBILE_IOS_CLIENT_ID_FALLBACK =
+  "19450024372-6c594u7djuj6kb0no2bfac9ibmbd0s9a.apps.googleusercontent.com";
+
+function splitCsvEnv(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function getExpectedGoogleAudienceClientIds(): string[] {
+  const clientIds = [
+    GOOGLE_MOBILE_IOS_CLIENT_ID_FALLBACK,
+    process.env.GOOGLE_IOS_CLIENT_ID,
+    process.env.GOOGLE_MOBILE_IOS_CLIENT_ID,
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    process.env.GOOGLE_OAUTH_CLIENT_ID,
+    ...splitCsvEnv(process.env.GOOGLE_MOBILE_ALLOWED_CLIENT_IDS),
+  ]
+    .map((clientId) => clientId?.trim())
+    .filter((clientId): clientId is string => Boolean(clientId));
+
+  return Array.from(new Set(clientIds));
+}
+
 /**
  * Verify Google ID Token
  *
  * Verifies the ID token with Google's tokeninfo endpoint.
- * In production, you should also verify:
- * - The token's audience matches your app's client ID
- * - The token hasn't expired
+ * Also verifies the token audience against known Google client IDs for this app.
  *
  * @see https://developers.google.com/identity/sign-in/ios/backend-auth
  */
@@ -49,11 +74,20 @@ async function verifyGoogleIdToken(
       return { valid: false, error: "Token email does not match provided email" };
     }
 
-    // Optionally verify audience (client ID) - you should configure this
-    // const expectedClientId = process.env.GOOGLE_IOS_CLIENT_ID;
-    // if (tokenInfo.aud !== expectedClientId) {
-    //   return { valid: false, error: "Invalid token audience" };
-    // }
+    const expectedAudienceClientIds = getExpectedGoogleAudienceClientIds();
+    const tokenAudience = typeof tokenInfo.aud === "string" ? tokenInfo.aud.trim() : "";
+
+    if (!tokenAudience) {
+      return { valid: false, error: "Google token is missing audience claim" };
+    }
+
+    if (!expectedAudienceClientIds.includes(tokenAudience)) {
+      console.warn("[verifyGoogleIdToken] Audience mismatch", {
+        tokenAudience,
+        expectedAudienceClientIds,
+      });
+      return { valid: false, error: "Invalid token audience" };
+    }
 
     return { valid: true };
   } catch (error) {
@@ -134,7 +168,15 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
   try {
     // Parse request body
     const body = await request.json();
-    const { provider, email, name, providerUserId, idToken } = body;
+    const {
+      provider,
+      email,
+      name,
+      providerUserId,
+      idToken,
+      organizationName,
+      betaCode,
+    } = body;
 
     console.log("[Mobile OAuth] Request received:", {
       provider,
@@ -142,6 +184,8 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
       hasName: !!name,
       hasProviderUserId: !!providerUserId,
       hasIdToken: !!idToken,
+      hasOrganizationName: typeof organizationName === "string" && organizationName.trim().length > 0,
+      hasBetaCode: typeof betaCode === "string" && betaCode.trim().length > 0,
     });
 
     // Validate required fields
@@ -335,6 +379,17 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
           email: normalizedEmail,
           firstName,
           lastName,
+          organizationName:
+            typeof organizationName === "string" && organizationName.trim().length > 0
+              ? organizationName.trim()
+              : undefined,
+          betaCode:
+            typeof betaCode === "string" && betaCode.trim().length > 0
+              ? betaCode.trim()
+              : undefined,
+          redemptionChannel: "mobile_oauth_signup",
+          redemptionSource: `mobile_oauth_signup_${provider}`,
+          redemptionDeviceType: "mobile",
         }
       );
 
@@ -358,27 +413,45 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
         );
         const orgName = org?.name || `${firstName}'s Organization`;
 
-        // Send welcome email (async)
-        await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
-          email: normalizedEmail,
-          firstName,
-          organizationName: orgName,
-          apiKeyPrefix: "n/a", // Mobile OAuth users don't get API key on signup
-        });
-
-        // Send sales notification (async)
-        await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
-          eventType: "free_signup",
-          user: {
+        if (createResult.betaAccessStatus === "pending") {
+          await Promise.all([
+            ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+              userId: createResult.userId,
+              email: normalizedEmail,
+              firstName,
+              lastName,
+              requestReason: "New signup during beta period",
+              useCase: undefined,
+              referralSource: "Mobile OAuth signup",
+            }),
+            ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+              email: normalizedEmail,
+              firstName,
+            }),
+          ]);
+        } else {
+          // Send welcome email (async)
+          await ctx.scheduler.runAfter(0, internal.actions.welcomeEmail.sendWelcomeEmail, {
             email: normalizedEmail,
             firstName,
-            lastName,
-          },
-          organization: {
-            name: orgName,
-            planTier: "free",
-          },
-        });
+            organizationName: orgName,
+            apiKeyPrefix: "n/a", // Mobile OAuth users don't get API key on signup
+          });
+
+          // Send sales notification (async)
+          await ctx.scheduler.runAfter(0, internal.actions.salesNotificationEmail.sendSalesNotification, {
+            eventType: "free_signup",
+            user: {
+              email: normalizedEmail,
+              firstName,
+              lastName,
+            },
+            organization: {
+              name: orgName,
+              planTier: "free",
+            },
+          });
+        }
 
         // Create Stripe customer (async) - enables upgrade path
         await ctx.scheduler.runAfter(0, internal.onboarding.createStripeCustomerForFreeUser, {
@@ -398,6 +471,20 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
       organizationId: userResult.organizationId,
       isNewUser: userResult.isNewUser,
     });
+
+    await ctx.runMutation(
+      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: userResult.organizationId,
+      }
+    );
+    await ctx.runMutation(
+      internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: userResult.organizationId,
+        channel: "desktop",
+      }
+    );
 
     // Create platform session (same as web OAuth)
     const sessionId: Id<"sessions"> = await ctx.runMutation(
@@ -449,6 +536,10 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
           firstName,
           lastName,
           isPasswordSet: false,
+          betaAccessStatus:
+            userResult.isNewUser && "betaAccessStatus" in userResult
+              ? (userResult as any).betaAccessStatus
+              : "none",
           organizations: organization ? [{
             id: organization._id,
             name: organization.name,

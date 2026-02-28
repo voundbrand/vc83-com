@@ -61,6 +61,7 @@ export const getUserProfileForMobile = internalQuery({
       firstName: user.firstName,
       lastName: user.lastName,
       isPasswordSet: user.isPasswordSet || false,
+      betaAccessStatus: user.betaAccessStatus || "none",
       organizations: validOrganizations,
       currentOrganization: currentOrg
         ? {

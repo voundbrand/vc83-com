@@ -115,6 +115,20 @@ export const confirmLinking = httpAction(async (ctx, request) => {
       );
     }
 
+    await ctx.runMutation(
+      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      {
+        organizationId: defaultOrganizationId,
+      }
+    );
+    await ctx.runMutation(
+      internal.agentOntology.ensureActiveAgentForOrgInternal,
+      {
+        organizationId: defaultOrganizationId,
+        channel: "desktop",
+      }
+    );
+
     // Create a session for the user
     const sessionId: Id<"sessions"> = await ctx.runMutation(
       internal.api.v1.oauthSignup.createPlatformSession,
