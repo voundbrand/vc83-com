@@ -16,12 +16,18 @@
 
 import { QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import {
+  type TemplateCapability,
+  getTemplateTypePriorityForCapability,
+  normalizeTemplateCapability,
+} from "../src/templates/template-types";
 
 export interface ResolvedTemplateSet {
   setId: Id<"objects">;
   setName: string;
   version: string; // "1.0" or "2.0"
-  templates: Map<string, Id<"objects">>; // templateType -> templateId
+  templates: Map<string, Id<"objects">>; // templateType/capability -> templateId
+  capabilities: Map<TemplateCapability, Id<"objects">>; // canonical capability -> templateId
   source: "manual" | "product" | "checkout" | "domain" | "organization" | "system";
 
   // v1.0 backward compatibility (deprecated but maintained)
@@ -188,6 +194,8 @@ function buildResult(
       templates.set(t.templateType, t.templateId as Id<"objects">);
     }
 
+    const capabilities = buildCapabilityMap(templates);
+
     // Extract legacy fields for backward compatibility with smart fallback
     // v2.0 uses granular types ("event", "invoice_email", "receipt", "newsletter")
     // But checkout/UI expects v1.0 types ("ticket", "email", "invoice")
@@ -196,15 +204,22 @@ function buildResult(
     // - ticketTemplateId: "ticket" (v1.0) OR "event" (v2.0 - event confirmations act as tickets)
     // - emailTemplateId: "email" (v1.0) OR "invoice_email" (v2.0) OR "event" (v2.0 fallback)
     // - invoiceTemplateId: "invoice" (same in both versions)
-    const ticketTemplateId = templates.get("ticket") || templates.get("event");
-    const invoiceTemplateId = templates.get("invoice");
-    const emailTemplateId = templates.get("email") || templates.get("invoice_email") || templates.get("event");
+    const ticketTemplateId =
+      capabilities.get("document_ticket") || templates.get("ticket") || templates.get("event");
+    const invoiceTemplateId =
+      capabilities.get("document_invoice") || templates.get("invoice");
+    const emailTemplateId =
+      capabilities.get("transactional_email") ||
+      templates.get("email") ||
+      templates.get("invoice_email") ||
+      templates.get("event");
 
     return {
       setId: set._id,
       setName: set.name,
       version,
       templates,
+      capabilities,
       source,
       // Backward compatibility
       ticketTemplateId,
@@ -228,12 +243,14 @@ function buildResult(
     templates.set("ticket", ticketTemplateId);
     templates.set("invoice", invoiceTemplateId);
     templates.set("email", emailTemplateId);
+    const capabilities = buildCapabilityMap(templates);
 
     return {
       setId: set._id,
       setName: set.name,
       version: "1.0",
       templates,
+      capabilities,
       source,
       // Backward compatibility
       ticketTemplateId,
@@ -241,6 +258,33 @@ function buildResult(
       emailTemplateId,
     };
   }
+}
+
+function buildCapabilityMap(
+  templates: Map<string, Id<"objects">>
+): Map<TemplateCapability, Id<"objects">> {
+  const capabilities = new Map<TemplateCapability, Id<"objects">>();
+
+  const capabilityOrder: TemplateCapability[] = [
+    "document_invoice",
+    "document_ticket",
+    "transactional_email",
+    "web_event_page",
+    "checkout_surface",
+  ];
+
+  for (const capability of capabilityOrder) {
+    const candidateTemplateTypes = getTemplateTypePriorityForCapability(capability);
+    for (const templateType of candidateTemplateTypes) {
+      const templateId = templates.get(templateType);
+      if (templateId) {
+        capabilities.set(capability, templateId);
+        break;
+      }
+    }
+  }
+
+  return capabilities;
 }
 
 /**
@@ -279,39 +323,66 @@ export async function resolveTemplateSetForCheckout(
 }
 
 /**
- * Resolve Individual Template by Type (v2.0 - Flexible)
+ * Resolve Individual Template by Selector (v2.0 - Flexible)
  *
- * Resolves a single template type from the set.
- * Works with any template type (not just ticket/invoice/email).
+ * Resolves a single template by canonical capability or legacy template type.
  *
  * @param ctx - Query context
  * @param organizationId - Organization ID
- * @param templateType - Template type (e.g., "ticket", "invoice", "email", "badge", "receipt", etc.)
+ * @param templateSelector - Capability/type selector (e.g., "document_ticket", "ticket", "email")
  * @param context - Optional context for overrides
  * @returns Template ID or null if not found in set
  */
 export async function resolveIndividualTemplate(
   ctx: QueryCtx,
   organizationId: Id<"organizations">,
-  templateType: string,
+  templateSelector: string,
   context?: Parameters<typeof resolveTemplateSet>[2]
 ): Promise<Id<"objects"> | null> {
   const resolved = await resolveTemplateSet(ctx, organizationId, context);
 
-  // Try to get from flexible map
-  const templateId = resolved.templates.get(templateType);
-  if (templateId) {
-    return templateId;
+  // Direct key lookup first (supports both canonical capability keys and legacy type keys).
+  const directTemplateId = resolved.templates.get(templateSelector);
+  if (directTemplateId) {
+    return directTemplateId;
+  }
+
+  const capability = normalizeTemplateCapability(templateSelector);
+  if (capability) {
+    // Canonical capability lookup.
+    const capabilityTemplateId = resolved.capabilities.get(capability);
+    if (capabilityTemplateId) {
+      return capabilityTemplateId;
+    }
+
+    // Compatibility lookup through prioritized legacy keys.
+    for (const legacyType of getTemplateTypePriorityForCapability(capability)) {
+      const legacyTemplateId = resolved.templates.get(legacyType);
+      if (legacyTemplateId) {
+        return legacyTemplateId;
+      }
+    }
+
+    // Backward compatibility via v1 compatibility fields.
+    if (capability === "document_ticket" && resolved.ticketTemplateId) {
+      return resolved.ticketTemplateId;
+    }
+    if (capability === "document_invoice" && resolved.invoiceTemplateId) {
+      return resolved.invoiceTemplateId;
+    }
+    if (capability === "transactional_email" && resolved.emailTemplateId) {
+      return resolved.emailTemplateId;
+    }
   }
 
   // Backward compatibility: check legacy fields
-  if (templateType === "ticket" && resolved.ticketTemplateId) {
+  if (templateSelector === "ticket" && resolved.ticketTemplateId) {
     return resolved.ticketTemplateId;
   }
-  if (templateType === "invoice" && resolved.invoiceTemplateId) {
+  if (templateSelector === "invoice" && resolved.invoiceTemplateId) {
     return resolved.invoiceTemplateId;
   }
-  if (templateType === "email" && resolved.emailTemplateId) {
+  if (templateSelector === "email" && resolved.emailTemplateId) {
     return resolved.emailTemplateId;
   }
 

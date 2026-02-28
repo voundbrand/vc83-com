@@ -16,6 +16,388 @@ import { generateICSFile, icsToBase64 } from "./icsGeneration";
 import { getEmailTemplate } from "../src/templates/emails/registry";
 import type { EmailLanguage } from "../src/templates/emails/types";
 
+async function logTemplateResolutionCheckpoint(
+  ctx: any,
+  payload: {
+    organizationId: Id<"organizations">;
+    resolverSource: "template_set" | "direct_override" | "fallback";
+    templateCapability: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+    surface: string;
+    templateId?: Id<"objects">;
+    templateCode?: string;
+    checkoutSessionId?: Id<"objects">;
+    ticketId?: Id<"objects">;
+    context?: Record<string, unknown>;
+  }
+) {
+  try {
+    await ctx.runMutation(
+      (generatedApi as any).internal.templateResolutionTelemetry.logTemplateResolutionCheckpoint,
+      payload
+    );
+  } catch (error) {
+    console.warn("⚠️ [Template Telemetry] Failed to record ticket email checkpoint:", error);
+  }
+}
+
+type TicketTemplateSetContext = {
+  productId?: Id<"objects">;
+  checkoutInstanceId?: Id<"objects">;
+  domainConfigId?: Id<"objects">;
+};
+
+type TicketTemplateResolution = {
+  templateId: Id<"objects">;
+  templateCode: string;
+  templateName: string;
+  resolverSource: "template_set" | "direct_override" | "fallback";
+  fallbackReason: "none" | "custom_template_resolution_failed";
+  defaultTemplateCode: string;
+  context: TicketTemplateSetContext;
+};
+
+const TICKET_EMAIL_RENDER_FALLBACK_TEMPLATE_CODE = "event-confirmation-v2";
+
+type TicketEmailRenderResult = {
+  html: string;
+  subject: string;
+  renderedTemplateCode: string;
+  fallbackFromTemplateCode?: string;
+  fallbackErrorMessage?: string;
+};
+
+function renderTicketEmailTemplateWithFallback(params: {
+  templateCode: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  templateData: any;
+}): TicketEmailRenderResult {
+  const renderTemplate = (templateCode: string) => {
+    const templateFn = getEmailTemplate(templateCode);
+    return templateFn(params.templateData);
+  };
+
+  try {
+    const { html, subject } = renderTemplate(params.templateCode);
+    return {
+      html,
+      subject,
+      renderedTemplateCode: params.templateCode,
+    };
+  } catch (error) {
+    const fallbackErrorMessage = error instanceof Error ? error.message : String(error);
+    const alreadyOnFallbackTemplate =
+      params.templateCode === TICKET_EMAIL_RENDER_FALLBACK_TEMPLATE_CODE;
+
+    if (alreadyOnFallbackTemplate) {
+      throw error;
+    }
+
+    console.warn(
+      `⚠️ [Ticket Email] Failed to render template "${params.templateCode}", falling back to "${TICKET_EMAIL_RENDER_FALLBACK_TEMPLATE_CODE}":`,
+      error
+    );
+
+    const { html, subject } = renderTemplate(TICKET_EMAIL_RENDER_FALLBACK_TEMPLATE_CODE);
+    return {
+      html,
+      subject,
+      renderedTemplateCode: TICKET_EMAIL_RENDER_FALLBACK_TEMPLATE_CODE,
+      fallbackFromTemplateCode: params.templateCode,
+      fallbackErrorMessage,
+    };
+  }
+}
+
+async function buildTicketTemplateSetContext(
+  ctx: any,
+  params: {
+    ticketProps: Record<string, unknown>;
+    domainConfigId?: Id<"objects">;
+  }
+): Promise<TicketTemplateSetContext> {
+  const context: TicketTemplateSetContext = {
+    domainConfigId: params.domainConfigId,
+    productId: params.ticketProps.productId as Id<"objects"> | undefined,
+  };
+
+  const checkoutSessionId = params.ticketProps.checkoutSessionId as Id<"objects"> | undefined;
+  if (!checkoutSessionId) {
+    return context;
+  }
+
+  const checkoutSession = await (ctx as any).runQuery(
+    generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    { checkoutSessionId }
+  );
+
+  const checkoutProps = checkoutSession?.customProperties || {};
+  const checkoutInstanceId = checkoutProps.checkoutInstanceId as Id<"objects"> | undefined;
+  if (checkoutInstanceId) {
+    context.checkoutInstanceId = checkoutInstanceId;
+  }
+
+  if (!context.domainConfigId) {
+    const sessionDomainConfigId = checkoutProps.domainConfigId as Id<"objects"> | undefined;
+    if (sessionDomainConfigId) {
+      context.domainConfigId = sessionDomainConfigId;
+    }
+  }
+
+  if (!context.productId) {
+    const selectedProducts = checkoutProps.selectedProducts as Array<{ productId: string }> | undefined;
+    if (selectedProducts?.length) {
+      context.productId = selectedProducts[0].productId as Id<"objects">;
+    }
+  }
+
+  return context;
+}
+
+async function resolveTransactionalEmailTemplateForTicket(
+  ctx: any,
+  params: {
+    organizationId: Id<"organizations">;
+    ticketProps: Record<string, unknown>;
+    domainConfigId?: Id<"objects">;
+    explicitTemplateId?: Id<"objects">;
+  }
+): Promise<TicketTemplateResolution> {
+  const templateSetContext = await buildTicketTemplateSetContext(ctx, {
+    ticketProps: params.ticketProps,
+    domainConfigId: params.domainConfigId,
+  });
+
+  const defaultTemplateId = await (ctx as any).runQuery(
+    generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal,
+    {
+      organizationId: params.organizationId,
+      templateCapability: "transactional_email",
+      context: templateSetContext,
+    }
+  );
+
+  if (!defaultTemplateId) {
+    throw new Error(
+      `No transactional email template found for organization ${params.organizationId}. Please configure a default template set.`
+    );
+  }
+
+  const defaultTemplate = await (ctx as any).runQuery(
+    generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal,
+    {
+      templateId: defaultTemplateId,
+      templateCapability: "transactional_email",
+    }
+  );
+
+  if (params.explicitTemplateId) {
+    try {
+      const explicitTemplate = await (ctx as any).runQuery(
+        generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal,
+        {
+          templateId: params.explicitTemplateId,
+          templateCapability: "transactional_email",
+        }
+      );
+
+      return {
+        templateId: params.explicitTemplateId,
+        templateCode: explicitTemplate.templateCode,
+        templateName: explicitTemplate.name,
+        resolverSource: "direct_override",
+        fallbackReason: "none",
+        defaultTemplateCode: defaultTemplate.templateCode,
+        context: templateSetContext,
+      };
+    } catch (error) {
+      console.error(
+        `📧 Failed to resolve explicit email template ${params.explicitTemplateId}, falling back to template-set resolution:`,
+        error
+      );
+      return {
+        templateId: defaultTemplateId,
+        templateCode: defaultTemplate.templateCode,
+        templateName: defaultTemplate.name,
+        resolverSource: "fallback",
+        fallbackReason: "custom_template_resolution_failed",
+        defaultTemplateCode: defaultTemplate.templateCode,
+        context: templateSetContext,
+      };
+    }
+  }
+
+  return {
+    templateId: defaultTemplateId,
+    templateCode: defaultTemplate.templateCode,
+    templateName: defaultTemplate.name,
+    resolverSource: "template_set",
+    fallbackReason: "none",
+    defaultTemplateCode: defaultTemplate.templateCode,
+    context: templateSetContext,
+  };
+}
+
+type TicketPdfTemplateResolution = {
+  templateId?: Id<"objects">;
+  templateCode: string;
+  templateName: string;
+  resolverSource: "template_set" | "direct_override" | "fallback";
+  fallbackReason:
+    | "none"
+    | "custom_template_resolution_failed"
+    | "legacy_ticket_template_id"
+    | "legacy_ticket_template_code"
+    | "system_default";
+  defaultTemplateCode: string;
+  context: TicketTemplateSetContext;
+};
+
+async function resolveTicketPdfTemplateForTicket(
+  ctx: any,
+  params: {
+    organizationId: Id<"organizations">;
+    ticketProps: Record<string, unknown>;
+    domainConfigId?: Id<"objects">;
+    explicitTemplateId?: Id<"objects">;
+  }
+): Promise<TicketPdfTemplateResolution> {
+  const templateSetContext = await buildTicketTemplateSetContext(ctx, {
+    ticketProps: params.ticketProps,
+    domainConfigId: params.domainConfigId,
+  });
+
+  let defaultTemplateId: Id<"objects"> | null = null;
+  let defaultTemplate:
+    | {
+        templateCode: string;
+        name: string;
+      }
+    | null = null;
+
+  try {
+    defaultTemplateId = await (ctx as any).runQuery(
+      generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal,
+      {
+        organizationId: params.organizationId,
+        templateCapability: "document_ticket",
+        context: templateSetContext,
+      }
+    );
+    if (defaultTemplateId) {
+      defaultTemplate = await (ctx as any).runQuery(
+        generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal,
+        {
+          templateId: defaultTemplateId,
+        }
+      );
+    }
+  } catch (error) {
+    console.error(
+      `🎫 Failed canonical ticket PDF template resolution for organization ${params.organizationId}:`,
+      error
+    );
+  }
+
+  const systemDefaultTemplateCode = "ticket_professional_v1";
+  const defaultTemplateCode = defaultTemplate?.templateCode || systemDefaultTemplateCode;
+
+  if (params.explicitTemplateId) {
+    try {
+      const explicitTemplate = await (ctx as any).runQuery(
+        generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal,
+        {
+          templateId: params.explicitTemplateId,
+        }
+      );
+
+      return {
+        templateId: params.explicitTemplateId,
+        templateCode: explicitTemplate.templateCode,
+        templateName: explicitTemplate.name,
+        resolverSource: "direct_override",
+        fallbackReason: "none",
+        defaultTemplateCode,
+        context: templateSetContext,
+      };
+    } catch (error) {
+      console.error(
+        `🎫 Failed to resolve explicit ticket PDF template ${params.explicitTemplateId}, falling back:`,
+        error
+      );
+      if (defaultTemplateId && defaultTemplate) {
+        return {
+          templateId: defaultTemplateId,
+          templateCode: defaultTemplate.templateCode,
+          templateName: defaultTemplate.name,
+          resolverSource: "fallback",
+          fallbackReason: "custom_template_resolution_failed",
+          defaultTemplateCode,
+          context: templateSetContext,
+        };
+      }
+    }
+  }
+
+  if (defaultTemplateId && defaultTemplate) {
+    return {
+      templateId: defaultTemplateId,
+      templateCode: defaultTemplate.templateCode,
+      templateName: defaultTemplate.name,
+      resolverSource: "template_set",
+      fallbackReason: "none",
+      defaultTemplateCode,
+      context: templateSetContext,
+    };
+  }
+
+  const legacyTemplateId = params.ticketProps.pdfTemplateId as Id<"objects"> | undefined;
+  if (legacyTemplateId) {
+    try {
+      const legacyTemplate = await (ctx as any).runQuery(
+        generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal,
+        {
+          templateId: legacyTemplateId,
+        }
+      );
+      return {
+        templateId: legacyTemplateId,
+        templateCode: legacyTemplate.templateCode,
+        templateName: legacyTemplate.name,
+        resolverSource: "fallback",
+        fallbackReason: "legacy_ticket_template_id",
+        defaultTemplateCode,
+        context: templateSetContext,
+      };
+    } catch (error) {
+      console.error(
+        `🎫 Failed to resolve legacy ticket-level pdfTemplateId ${legacyTemplateId}, trying next fallback:`,
+        error
+      );
+    }
+  }
+
+  const legacyTemplateCode = params.ticketProps.pdfTemplateCode as string | undefined;
+  if (legacyTemplateCode) {
+    return {
+      templateCode: legacyTemplateCode,
+      templateName: `Legacy ticket template code (${legacyTemplateCode})`,
+      resolverSource: "fallback",
+      fallbackReason: "legacy_ticket_template_code",
+      defaultTemplateCode,
+      context: templateSetContext,
+    };
+  }
+
+  return {
+    templateCode: systemDefaultTemplateCode,
+    templateName: "System default ticket template",
+    resolverSource: "fallback",
+    fallbackReason: "system_default",
+    defaultTemplateCode,
+    context: templateSetContext,
+  };
+}
+
 /**
  * Send ticket confirmation email (manual trigger from UI)
  */
@@ -86,7 +468,7 @@ export const sendTicketConfirmationEmail = action({
       emailSettings = {
         senderEmail: "tickets@mail.l4yercak3.com",
         replyToEmail: "support@l4yercak3.com",
-        defaultTemplateCode: "modern-minimal",
+        defaultTemplateCode: "event-confirmation-v2",
       };
     }
 
@@ -147,31 +529,44 @@ export const sendTicketConfirmationEmail = action({
       language,
     });
 
-    // Determine which template code to use (custom template or default)
-    let templateCode = templateData.templateCode;
+    const templateResolution = await resolveTransactionalEmailTemplateForTicket(ctx, {
+      organizationId: ticket.organizationId,
+      ticketProps,
+      domainConfigId: args.domainConfigId,
+      explicitTemplateId: args.emailTemplateId,
+    });
 
-    if (args.emailTemplateId) {
-      // If custom email template provided, get its template code from database
-      try {
-        const customTemplate = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
-          templateId: args.emailTemplateId,
-        });
+    const templateCode = templateResolution.templateCode;
+    const resolverSource = templateResolution.resolverSource;
+    const fallbackReason = templateResolution.fallbackReason;
+    console.log(`📧 Using resolved template: ${templateResolution.templateName} (${templateCode})`);
 
-        if (customTemplate && customTemplate.customProperties?.code) {
-          templateCode = customTemplate.customProperties.code as string;
-          console.log(`📧 ✅ Using custom email template: ${customTemplate.name} (${templateCode})`);
-        } else {
-          console.log(`📧 ⚠️ Custom template ${args.emailTemplateId} has no code, using default: ${templateCode}`);
-        }
-      } catch (error) {
-        console.error(`📧 ❌ Error loading custom template ${args.emailTemplateId}:`, error);
-        console.log(`📧 Falling back to default template: ${templateCode}`);
-      }
-    }
+    const emailRender = renderTicketEmailTemplateWithFallback({
+      templateCode,
+      templateData,
+    });
+    const emailHtml = emailRender.html;
+    const templateSubject = emailRender.subject;
 
-    // Get the template function and generate HTML
-    const templateFn = getEmailTemplate(templateCode);
-    const { html: emailHtml, subject: templateSubject } = templateFn(templateData);
+    await logTemplateResolutionCheckpoint(ctx, {
+      organizationId: ticket.organizationId,
+      resolverSource,
+      templateCapability: "transactional_email",
+      surface: "ticket_email.sendTicketConfirmationEmail",
+      templateId: templateResolution.templateId,
+      templateCode: emailRender.renderedTemplateCode,
+      ticketId: args.ticketId,
+      checkoutSessionId: ticketProps.checkoutSessionId as Id<"objects"> | undefined,
+      context: {
+        defaultTemplateCode: templateResolution.defaultTemplateCode,
+        resolvedTemplateCode: templateCode,
+        explicitTemplateIdProvided: !!args.emailTemplateId,
+        fallbackReason,
+        renderFallbackFromTemplateCode: emailRender.fallbackFromTemplateCode,
+        renderFallbackErrorMessage: emailRender.fallbackErrorMessage,
+        templateSetContext: templateResolution.context,
+      },
+    });
 
     // 7. Generate attachments
     const attachments: Array<{ filename: string; content: string; contentType: string }> = [];
@@ -213,17 +608,33 @@ export const sendTicketConfirmationEmail = action({
         // No PDF URL - try to generate one
         console.log(`📄 No existing PDF found, generating new PDF for ticket ${args.ticketId}...`);
         try {
-          // Determine template code if custom template provided
-          let templateCode: string | undefined = undefined;
-          if (args.ticketPdfTemplateId) {
-            const pdfTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateInternal, {
-              templateId: args.ticketPdfTemplateId,
-            });
-            if (pdfTemplate?.templateCode) {
-              templateCode = pdfTemplate.templateCode;
-              console.log(`🎫 Using custom PDF template: ${pdfTemplate.name} (${templateCode})`);
-            }
-          }
+          const pdfTemplateResolution = await resolveTicketPdfTemplateForTicket(ctx, {
+            organizationId: ticket.organizationId,
+            ticketProps,
+            domainConfigId: args.domainConfigId,
+            explicitTemplateId: args.ticketPdfTemplateId,
+          });
+          const templateCode = pdfTemplateResolution.templateCode;
+          console.log(
+            `🎫 Using resolved ticket PDF template: ${pdfTemplateResolution.templateName} (${templateCode})`
+          );
+
+          await logTemplateResolutionCheckpoint(ctx, {
+            organizationId: ticket.organizationId,
+            resolverSource: pdfTemplateResolution.resolverSource,
+            templateCapability: "document_ticket",
+            surface: "ticket_email.sendTicketConfirmationEmail.pdfAttachment",
+            templateId: pdfTemplateResolution.templateId,
+            templateCode,
+            ticketId: args.ticketId,
+            checkoutSessionId: ticketProps.checkoutSessionId as Id<"objects"> | undefined,
+            context: {
+              defaultTemplateCode: pdfTemplateResolution.defaultTemplateCode,
+              explicitTemplateIdProvided: !!args.ticketPdfTemplateId,
+              fallbackReason: pdfTemplateResolution.fallbackReason,
+              templateSetContext: pdfTemplateResolution.context,
+            },
+          });
 
           // Use new generateTicketPDFFromTicket (works without checkout)
           const generatedPdfUrl = await (ctx as any).runAction(generatedApi.api.pdfGeneration.generateTicketPDFFromTicket, {
@@ -469,30 +880,47 @@ export const previewTicketEmail = action({
       language,
     });
 
-    // Determine which template code to use (custom template or default)
-    let templateCode = templateData.templateCode;
+    const templateResolution = await resolveTransactionalEmailTemplateForTicket(ctx, {
+      organizationId: ticket.organizationId,
+      ticketProps,
+      domainConfigId: args.domainConfigId,
+      explicitTemplateId: args.emailTemplateId,
+    });
 
-    if (args.emailTemplateId) {
-      // If custom email template provided, get its template code from database
-      try {
-        const customTemplate = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
-          templateId: args.emailTemplateId,
-        });
+    const templateCode = templateResolution.templateCode;
+    const resolverSource = templateResolution.resolverSource;
+    const fallbackReason = templateResolution.fallbackReason;
+    console.log(`📧 [PREVIEW] Using resolved template: ${templateResolution.templateName} (${templateCode})`);
 
-        if (customTemplate && customTemplate.customProperties?.code) {
-          templateCode = customTemplate.customProperties.code as string;
-          console.log(`📧 [PREVIEW] ✅ Using custom email template: ${customTemplate.name} (${templateCode})`);
-        } else {
-          console.log(`📧 [PREVIEW] ⚠️ Custom template ${args.emailTemplateId} has no code, using default: ${templateCode}`);
-        }
-      } catch (error) {
-        console.error(`📧 [PREVIEW] ❌ Error loading custom template ${args.emailTemplateId}:`, error);
-        console.log(`📧 [PREVIEW] Falling back to default template: ${templateCode}`);
-      }
-    }
+    const emailRender = renderTicketEmailTemplateWithFallback({
+      templateCode,
+      templateData,
+    });
+    const emailHtml = emailRender.html;
+    const subject = emailRender.subject;
+
+    await logTemplateResolutionCheckpoint(ctx, {
+      organizationId: ticket.organizationId,
+      resolverSource,
+      templateCapability: "transactional_email",
+      surface: "ticket_email.previewTicketEmail",
+      templateId: templateResolution.templateId,
+      templateCode: emailRender.renderedTemplateCode,
+      ticketId: args.ticketId,
+      checkoutSessionId: ticketProps.checkoutSessionId as Id<"objects"> | undefined,
+      context: {
+        defaultTemplateCode: templateResolution.defaultTemplateCode,
+        resolvedTemplateCode: templateCode,
+        explicitTemplateIdProvided: !!args.emailTemplateId,
+        fallbackReason,
+        renderFallbackFromTemplateCode: emailRender.fallbackFromTemplateCode,
+        renderFallbackErrorMessage: emailRender.fallbackErrorMessage,
+        templateSetContext: templateResolution.context,
+      },
+    });
 
     // Get the template function and generate HTML
-    console.log(`📧 [PREVIEW] 🎯 Final template code: ${templateCode}`);
+    console.log(`📧 [PREVIEW] 🎯 Final template code: ${emailRender.renderedTemplateCode}`);
     console.log(`📧 [PREVIEW] 🌍 Language passed to template: ${language}`);
     console.log(`📧 [PREVIEW] 📋 Template data keys:`, Object.keys(templateData));
     console.log(`📧 [PREVIEW] 👤 Attendee data being used:`, {
@@ -501,9 +929,6 @@ export const previewTicketEmail = action({
       email: templateData.attendee.email,
       fullName: `${templateData.attendee.firstName} ${templateData.attendee.lastName}`.trim()
     });
-
-    const templateFn = getEmailTemplate(templateCode);
-    const { html: emailHtml, subject } = templateFn(templateData);
 
     return {
       html: emailHtml,

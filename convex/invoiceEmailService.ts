@@ -12,11 +12,34 @@ const generatedApi: any = require("./_generated/api");
 import { Id } from "./_generated/dataModel";
 import type { EmailLanguage } from "../src/templates/emails/types";
 
-// Import schema-based email template
-import { InvoiceB2BEmailTemplate } from "../src/templates/emails/invoice-b2b/index";
+import { getEmailTemplateRenderer } from "../src/templates/emails/registry";
 
 // Import smart data resolver
 import { resolveInvoiceEmailData } from "./invoiceDataResolver";
+
+async function logTemplateResolutionCheckpoint(
+  ctx: any,
+  payload: {
+    organizationId: Id<"organizations">;
+    resolverSource: "template_set" | "direct_override" | "fallback";
+    templateCapability: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+    surface: string;
+    templateId?: Id<"objects">;
+    templateCode?: string;
+    checkoutSessionId?: Id<"objects">;
+    invoiceId?: Id<"objects">;
+    context?: Record<string, unknown>;
+  }
+) {
+  try {
+    await ctx.runMutation(
+      (generatedApi as any).internal.templateResolutionTelemetry.logTemplateResolutionCheckpoint,
+      payload
+    );
+  } catch (error) {
+    console.warn("⚠️ [Template Telemetry] Failed to record invoice email checkpoint:", error);
+  }
+}
 
 /**
  * Preview invoice email (manual trigger from UI)
@@ -80,7 +103,8 @@ export const previewInvoiceEmail = action({
       console.log(`📧 [PREVIEW] Resolving from organization's template set...`);
       const resolvedId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: invoice.organizationId,
-        templateType: "email",
+        templateType: "invoice_email",
+        templateCapability: "transactional_email",
         context: {
           domainConfigId: args.domainConfigId,
         },
@@ -96,11 +120,25 @@ export const previewInvoiceEmail = action({
     // Step 2: Resolve the template ID to get full template metadata
     const resolvedTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
       templateId: emailTemplateId,
-      fallbackCategory: "transactional",
+      templateCapability: "transactional_email",
     });
 
     const templateCode = resolvedTemplate.templateCode;
     console.log(`📧 [PREVIEW] Resolved template: ${resolvedTemplate.name} (${templateCode})`);
+
+    await logTemplateResolutionCheckpoint(ctx, {
+      organizationId: invoice.organizationId,
+      resolverSource: args.emailTemplateId ? "direct_override" : "template_set",
+      templateCapability: "transactional_email",
+      surface: "invoice_email.previewInvoiceEmail",
+      templateId: emailTemplateId,
+      templateCode,
+      invoiceId: args.invoiceId,
+      context: {
+        domainConfigId: args.domainConfigId,
+        explicitTemplateIdProvided: !!args.emailTemplateId,
+      },
+    });
 
     // 5. Use Smart Data Resolver to prepare fully formatted invoice data
     console.log(`📧 [PREVIEW] Using Smart Data Resolver...`);
@@ -165,8 +203,9 @@ export const previewInvoiceEmail = action({
 
     console.log(`📧 [PREVIEW] Using schema-based template: ${template.name}`);
 
-    // Render using the actual InvoiceB2BEmailTemplate component
-    const templateResult = InvoiceB2BEmailTemplate(templateData);
+    // Render from resolved template metadata instead of a hardcoded component.
+    const templateRenderer = getEmailTemplateRenderer(templateCode);
+    const templateResult = templateRenderer(templateData);
 
     return {
       html: templateResult.html,
@@ -256,7 +295,8 @@ export const sendInvoiceEmail = action({
       console.log(`📧 [SEND] Resolving from organization's template set...`);
       const resolvedId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: invoice.organizationId,
-        templateType: "email",
+        templateType: "invoice_email",
+        templateCapability: "transactional_email",
         context: {
           domainConfigId: args.domainConfigId,
         },
@@ -272,11 +312,25 @@ export const sendInvoiceEmail = action({
     // Step 2: Resolve the template ID to get full template metadata
     const resolvedTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
       templateId: emailTemplateId,
-      fallbackCategory: "transactional",
+      templateCapability: "transactional_email",
     });
 
     const templateCode = resolvedTemplate.templateCode;
     console.log(`📧 [SEND] Resolved template: ${resolvedTemplate.name} (${templateCode})`);
+
+    await logTemplateResolutionCheckpoint(ctx, {
+      organizationId: invoice.organizationId,
+      resolverSource: args.emailTemplateId ? "direct_override" : "template_set",
+      templateCapability: "transactional_email",
+      surface: "invoice_email.sendInvoiceEmail",
+      templateId: emailTemplateId,
+      templateCode,
+      invoiceId: args.invoiceId,
+      context: {
+        domainConfigId: args.domainConfigId,
+        explicitTemplateIdProvided: !!args.emailTemplateId,
+      },
+    });
 
     // 6. Use Smart Data Resolver to prepare fully formatted invoice data
     console.log(`📧 [SEND] Using Smart Data Resolver...`);
@@ -344,8 +398,9 @@ export const sendInvoiceEmail = action({
 
     console.log(`📧 [SEND] Using schema-based template: ${sendTemplate.name}`);
 
-    // Render using the actual InvoiceB2BEmailTemplate component
-    const sendTemplateResult = InvoiceB2BEmailTemplate(templateData);
+    // Render from resolved template metadata instead of a hardcoded component.
+    const sendTemplateRenderer = getEmailTemplateRenderer(templateCode);
+    const sendTemplateResult = sendTemplateRenderer(templateData);
     const emailHtml = sendTemplateResult.html;
     const templateSubject = sendTemplateResult.subject;
 

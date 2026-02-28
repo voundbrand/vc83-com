@@ -27,7 +27,7 @@ export const enablePdfTemplate = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can enable templates
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -43,123 +43,23 @@ export const enablePdfTemplate = mutation({
       throw new Error("Permission denied: Only super admins can enable PDF templates");
     }
 
-    // Verify organization exists
+    // Keep validation behavior for compatibility callers.
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Verify PDF template exists
-    const systemOrg = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", "system"))
-      .first();
-
-    if (!systemOrg) throw new Error("System organization not found");
-
-    const allTemplates = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "template")
-      )
-      .collect();
-
-    // Filter to PDF templates only (exclude email and page templates)
-    const pdfTemplates = allTemplates.filter((t) => {
-      const subtype = t.subtype;
-      if (!subtype) return false; // Skip templates without subtype
-      // Exclude email templates and page templates
-      if (subtype === "email" || subtype === "page") return false;
-      // Exclude all email template types
-      const emailTypes = ["transactional", "event_confirmation", "event_reminder", "event_followup",
-                         "newsletter", "marketing", "promotional", "receipt", "shipping",
-                         "support", "account", "notification", "welcome"];
-      if (emailTypes.includes(subtype)) return false;
-      // Include everything else (legacy "pdf", "pdf_ticket", and modern PDF types)
-      return true;
-    });
-
-    const template = pdfTemplates.find(
-      (t) => t.customProperties?.code === args.templateCode
+    console.warn(
+      `⚠️ [Template Availability] enablePdfTemplate is deprecated. No write performed for ${args.templateCode}.`
     );
-
-    if (!template) {
-      throw new Error(`PDF template with code "${args.templateCode}" not found`);
-    }
-
-    // Check if availability already exists
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
-      )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
-      .collect();
-
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateCode === args.templateCode
-    );
-
-    if (existing) {
-      // Update existing availability
-      await ctx.db.patch(existing._id, {
-        customProperties: {
-          ...existing.customProperties,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-          customSettings: args.customSettings || existing.customProperties?.customSettings || {},
-        },
-        updatedAt: Date.now(),
-      });
-
-      // Audit log
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: existing._id,
-        actionType: "pdf_template_enabled",
-        actionData: {
-          templateCode: args.templateCode,
-          templateName: template.name,
-        },
-        performedBy: userId,
-        performedAt: Date.now(),
-      });
-
-      return { availabilityId: existing._id, updated: true };
-    } else {
-      // Create new availability
-      const availabilityId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "template_availability",
-        subtype: "pdf",
-        name: `${template.name} - PDF Availability`,
-        status: "published",
-        customProperties: {
-          templateCode: args.templateCode,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-          customSettings: args.customSettings || {},
-        },
-        createdBy: userId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-
-      // Audit log
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: availabilityId,
-        actionType: "pdf_template_enabled",
-        actionData: {
-          templateCode: args.templateCode,
-          templateName: template.name,
-        },
-        performedBy: userId,
-        performedAt: Date.now(),
-      });
-
-      return { availabilityId, updated: false };
-    }
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "enable",
+      organizationId: args.organizationId,
+      templateCode: args.templateCode,
+      message:
+        "PDF template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 
@@ -177,7 +77,7 @@ export const disablePdfTemplate = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can disable templates
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -193,47 +93,22 @@ export const disablePdfTemplate = mutation({
       throw new Error("Permission denied: Only super admins can disable PDF templates");
     }
 
-    // Find existing availability
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
-      )
-      .filter((q) => q.eq(q.field("subtype"), "pdf"))
-      .collect();
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
 
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateCode === args.templateCode
+    console.warn(
+      `⚠️ [Template Availability] disablePdfTemplate is deprecated. No write performed for ${args.templateCode}.`
     );
-
-    if (!existing) {
-      return { success: true, message: "PDF template was not enabled for this organization" };
-    }
-
-    // Update to disabled
-    await ctx.db.patch(existing._id, {
-      customProperties: {
-        ...existing.customProperties,
-        available: false,
-        disabledBy: userId,
-        disabledAt: Date.now(),
-      },
-      updatedAt: Date.now(),
-    });
-
-    // Audit log
-    await ctx.db.insert("objectActions", {
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "disable",
       organizationId: args.organizationId,
-      objectId: existing._id,
-      actionType: "pdf_template_disabled",
-      actionData: {
-        templateCode: args.templateCode,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { success: true };
+      templateCode: args.templateCode,
+      message:
+        "PDF template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 

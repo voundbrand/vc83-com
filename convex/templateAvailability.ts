@@ -31,7 +31,7 @@ export const enableTemplateForOrg = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can enable templates
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -47,107 +47,23 @@ export const enableTemplateForOrg = mutation({
       throw new Error("Permission denied: Only super admins can enable templates for organizations");
     }
 
-    // Verify organization exists
+    // Keep validation behavior for compatibility callers.
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Verify template exists
-    const systemOrg = await ctx.db
-      .query("organizations")
-      .withIndex("by_slug", (q) => q.eq("slug", "system"))
-      .first();
-
-    if (!systemOrg) throw new Error("System organization not found");
-
-    const allTemplates = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", systemOrg._id).eq("type", "template")
-      )
-      .collect();
-
-    const template = allTemplates.find(
-      (t) => t.customProperties?.code === args.templateCode
+    console.warn(
+      `⚠️ [Template Availability] enableTemplateForOrg is deprecated. No write performed for ${args.templateCode}.`
     );
-
-    if (!template) {
-      throw new Error(`Template with code "${args.templateCode}" not found`);
-    }
-
-    // Check if availability already exists
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
-      )
-      .collect();
-
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateCode === args.templateCode
-    );
-
-    if (existing) {
-      // Update existing availability
-      await ctx.db.patch(existing._id, {
-        customProperties: {
-          ...existing.customProperties,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-          customSettings: args.customSettings || existing.customProperties?.customSettings || {},
-        },
-        updatedAt: Date.now(),
-      });
-
-      // Audit log
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: existing._id,
-        actionType: "template_enabled",
-        actionData: {
-          templateCode: args.templateCode,
-          templateName: template.name,
-        },
-        performedBy: userId,
-        performedAt: Date.now(),
-      });
-
-      return { availabilityId: existing._id, updated: true };
-    } else {
-      // Create new availability
-      const availabilityId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "template_availability",
-        subtype: "page",
-        name: `${template.name} - Availability`,
-        status: "published",
-        customProperties: {
-          templateCode: args.templateCode,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-          customSettings: args.customSettings || {},
-        },
-        createdBy: userId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-
-      // Audit log
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: availabilityId,
-        actionType: "template_enabled",
-        actionData: {
-          templateCode: args.templateCode,
-          templateName: template.name,
-        },
-        performedBy: userId,
-        performedAt: Date.now(),
-      });
-
-      return { availabilityId, updated: false };
-    }
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "enable",
+      organizationId: args.organizationId,
+      templateCode: args.templateCode,
+      message:
+        "Template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 
@@ -165,7 +81,7 @@ export const disableTemplateForOrg = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can disable templates
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -181,48 +97,22 @@ export const disableTemplateForOrg = mutation({
       throw new Error("Permission denied: Only super admins can disable templates for organizations");
     }
 
-    // Find existing availability
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_availability")
-      )
-      .collect();
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
 
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateCode === args.templateCode
+    console.warn(
+      `⚠️ [Template Availability] disableTemplateForOrg is deprecated. No write performed for ${args.templateCode}.`
     );
-
-    if (!existing) {
-      // No availability record exists - template was never enabled, so nothing to disable
-      // This is not an error - just return success
-      return { success: true, message: "Template was not enabled for this organization" };
-    }
-
-    // Update to disabled
-    await ctx.db.patch(existing._id, {
-      customProperties: {
-        ...existing.customProperties,
-        available: false,
-        disabledBy: userId,
-        disabledAt: Date.now(),
-      },
-      updatedAt: Date.now(),
-    });
-
-    // Audit log
-    await ctx.db.insert("objectActions", {
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "disable",
       organizationId: args.organizationId,
-      objectId: existing._id,
-      actionType: "template_disabled",
-      actionData: {
-        templateCode: args.templateCode,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { success: true };
+      templateCode: args.templateCode,
+      message:
+        "Template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 

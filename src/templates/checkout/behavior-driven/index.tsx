@@ -633,10 +633,14 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
   };
 
   return (
-    <div className="behavior-driven-checkout w-full max-w-full overflow-x-hidden">
+    <div
+      className="behavior-driven-checkout w-full max-w-full overflow-x-hidden"
+      data-testid="bdc-root"
+      data-current-step={currentStep}
+    >
       {/* Progress Bar */}
       {config.showProgressBar && currentStep !== "confirmation" && (
-        <div className="checkout-progress mb-8">
+        <div className="checkout-progress mb-8" data-testid="bdc-progress">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-gray-700">
               {t('ui.checkout_template.behavior_driven.progress.step_of', { current: getStepNumber(currentStep), total: 6 })}
@@ -677,7 +681,7 @@ export function BehaviorDrivenCheckout(props: BehaviorDrivenCheckoutConfig) {
       )}
 
       {/* Current Step */}
-      <div className="checkout-step">{renderStep()}</div>
+      <div className="checkout-step" data-testid="bdc-step-container">{renderStep()}</div>
 
       {/* Debug Panel */}
       {config.debugMode && (

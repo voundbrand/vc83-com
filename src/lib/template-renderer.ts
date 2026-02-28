@@ -48,6 +48,12 @@ export interface TemplateData {
   [key: string]: string | number | boolean | object | Array<unknown> | undefined;
 }
 
+export interface PdfPreviewDocument {
+  html: string;
+  css: string;
+  documentHtml: string;
+}
+
 /**
  * Render a template string with data
  */
@@ -64,6 +70,33 @@ export function renderTemplate(template: string, data: TemplateData): string {
   rendered = renderVariables(rendered, data);
 
   return rendered;
+}
+
+/**
+ * Build a full HTML document for PDF template previews.
+ * Used by preview modal + thumbnails to keep a single safe render path.
+ */
+export function renderPdfPreviewDocument(args: {
+  htmlTemplate: string;
+  cssTemplate: string;
+  data: TemplateData;
+}): PdfPreviewDocument {
+  const html = renderTemplate(args.htmlTemplate, args.data);
+  const css = renderTemplate(args.cssTemplate, args.data);
+
+  return {
+    html,
+    css,
+    documentHtml: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>${css}</style>
+        </head>
+        <body>${html}</body>
+      </html>
+    `,
+  };
 }
 
 /**
@@ -158,33 +191,203 @@ function getNestedValue(obj: TemplateData, path: string): unknown {
 
 /**
  * Evaluate simple expressions like "value / 100" or "value * quantity"
+ * without using eval.
  */
 function evaluateExpression(expression: string, data: TemplateData): number {
-  // Replace variable references with their values
-  let evaluated = expression;
-
-  // Find all variable references (words that aren't operators)
-  const variables = expression.match(/[a-zA-Z_][a-zA-Z0-9_.]*/g) || [];
-
-  variables.forEach((variable) => {
-    const value = getNestedValue(data, variable);
-    if (typeof value === "number") {
-      evaluated = evaluated.replace(new RegExp(variable, "g"), String(value));
-    }
-  });
-
-  // Safely evaluate the mathematical expression
   try {
-    // Only allow basic math operations for security
-    if (!/^[\d\s+*/().\-]+$/.test(evaluated)) {
-      throw new Error("Invalid expression");
-    }
-     
-    return eval(evaluated);
+    const parser = new ArithmeticExpressionParser(expression, data);
+    return parser.parse();
   } catch (error) {
-    console.error("Error evaluating expression:", evaluated, error);
+    console.error("Error evaluating expression:", expression, error);
     return 0;
   }
+}
+
+type ExpressionToken =
+  | { type: "number"; value: number }
+  | { type: "identifier"; value: string }
+  | { type: "operator"; value: "+" | "-" | "*" | "/" }
+  | { type: "leftParen" }
+  | { type: "rightParen" };
+
+class ArithmeticExpressionParser {
+  private readonly tokens: ExpressionToken[];
+  private position = 0;
+
+  constructor(expression: string, private readonly data: TemplateData) {
+    this.tokens = tokenizeExpression(expression);
+  }
+
+  parse(): number {
+    if (this.tokens.length === 0) {
+      return 0;
+    }
+    const value = this.parseExpression();
+    if (!this.isAtEnd()) {
+      throw new Error("Unexpected token at end of expression");
+    }
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  private parseExpression(): number {
+    let value = this.parseTerm();
+    while (this.matchOperator("+") || this.matchOperator("-")) {
+      const operator = this.previousOperator();
+      const right = this.parseTerm();
+      value = operator === "+" ? value + right : value - right;
+    }
+    return value;
+  }
+
+  private parseTerm(): number {
+    let value = this.parseFactor();
+    while (this.matchOperator("*") || this.matchOperator("/")) {
+      const operator = this.previousOperator();
+      const right = this.parseFactor();
+      value = operator === "*" ? value * right : value / right;
+    }
+    return value;
+  }
+
+  private parseFactor(): number {
+    if (this.matchOperator("+")) {
+      return this.parseFactor();
+    }
+    if (this.matchOperator("-")) {
+      return -this.parseFactor();
+    }
+    if (this.matchToken("leftParen")) {
+      const value = this.parseExpression();
+      this.consumeRightParen();
+      return value;
+    }
+
+    const token = this.advance();
+    if (!token) {
+      throw new Error("Unexpected end of expression");
+    }
+    if (token.type === "number") {
+      return token.value;
+    }
+    if (token.type === "identifier") {
+      const resolved = getNestedValue(this.data, token.value);
+      return typeof resolved === "number" ? resolved : 0;
+    }
+    throw new Error("Unexpected token in expression");
+  }
+
+  private matchOperator(op: "+" | "-" | "*" | "/"): boolean {
+    const token = this.peek();
+    if (!token || token.type !== "operator") {
+      return false;
+    }
+    if (token.value !== op) {
+      return false;
+    }
+    this.position += 1;
+    return true;
+  }
+
+  private matchToken(type: "leftParen" | "rightParen"): boolean {
+    if (this.peek()?.type !== type) {
+      return false;
+    }
+    this.position += 1;
+    return true;
+  }
+
+  private consumeRightParen() {
+    if (!this.matchToken("rightParen")) {
+      throw new Error("Missing closing parenthesis");
+    }
+  }
+
+  private advance(): ExpressionToken | undefined {
+    if (this.isAtEnd()) {
+      return undefined;
+    }
+    const token = this.tokens[this.position];
+    this.position += 1;
+    return token;
+  }
+
+  private previousOperator(): "+" | "-" | "*" | "/" {
+    const token = this.tokens[this.position - 1];
+    if (!token || token.type !== "operator") {
+      throw new Error("Expected operator");
+    }
+    return token.value;
+  }
+
+  private peek(): ExpressionToken | undefined {
+    return this.tokens[this.position];
+  }
+
+  private isAtEnd(): boolean {
+    return this.position >= this.tokens.length;
+  }
+}
+
+function tokenizeExpression(expression: string): ExpressionToken[] {
+  const tokens: ExpressionToken[] = [];
+  let cursor = 0;
+
+  while (cursor < expression.length) {
+    const char = expression[cursor];
+
+    if (/\s/.test(char)) {
+      cursor += 1;
+      continue;
+    }
+
+    if (char === "+" || char === "-" || char === "*" || char === "/") {
+      tokens.push({ type: "operator", value: char as "+" | "-" | "*" | "/" });
+      cursor += 1;
+      continue;
+    }
+
+    if (char === "(") {
+      tokens.push({ type: "leftParen" });
+      cursor += 1;
+      continue;
+    }
+    if (char === ")") {
+      tokens.push({ type: "rightParen" });
+      cursor += 1;
+      continue;
+    }
+
+    if (/\d/.test(char) || (char === "." && /\d/.test(expression[cursor + 1] || ""))) {
+      const start = cursor;
+      cursor += 1;
+      while (cursor < expression.length && /[\d.]/.test(expression[cursor])) {
+        cursor += 1;
+      }
+      const value = Number.parseFloat(expression.slice(start, cursor));
+      if (!Number.isFinite(value)) {
+        throw new Error("Invalid number token");
+      }
+      tokens.push({ type: "number", value });
+      continue;
+    }
+
+    if (/[a-zA-Z_]/.test(char)) {
+      const start = cursor;
+      cursor += 1;
+      while (cursor < expression.length && /[a-zA-Z0-9_.]/.test(expression[cursor])) {
+        cursor += 1;
+      }
+      tokens.push({
+        type: "identifier",
+        value: expression.slice(start, cursor),
+      });
+      continue;
+    }
+
+    throw new Error(`Invalid token in expression: ${char}`);
+  }
+
+  return tokens;
 }
 
 /**

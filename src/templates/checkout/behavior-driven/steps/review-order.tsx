@@ -61,7 +61,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
   const total = taxCalculation?.total || 0;
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-testid="bdc-step-review-order">
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2">{t('ui.checkout_template.behavior_driven.review_order.headers.title')}</h2>
@@ -232,6 +232,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
             type="button"
             onClick={onBack}
             className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2"
+            data-testid="bdc-review-back"
           >
             <ArrowLeft size={20} />
             {t('ui.checkout_template.behavior_driven.review_order.buttons.back')}
@@ -242,6 +243,7 @@ export function ReviewOrderStep({ checkoutData, products, onComplete, onBack }: 
           type="button"
           onClick={() => onComplete({})}
           className="flex-1 px-6 py-3 text-lg font-bold border-2 border-green-600 bg-green-600 text-white hover:bg-green-700 rounded transition-colors flex items-center justify-center gap-2"
+          data-testid="bdc-review-continue"
         >
           {isInvoiceCheckout ? (
             <>

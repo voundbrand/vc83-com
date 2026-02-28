@@ -31,6 +31,7 @@ export interface PdfGenerationOptions {
   apiKey: string;
   templateCode: string;
   data: Record<string, unknown>;
+  filename?: string; // Optional output filename (without extension)
   paperSize?: "A4" | "Letter" | "Legal";
   orientation?: "portrait" | "landscape";
   marginTop?: string;
@@ -92,6 +93,7 @@ export async function generatePdfFromTemplate(
       margin_bottom: options.marginBottom || "20mm",
       margin_left: options.marginLeft || "20mm",
       margin_right: options.marginRight || "20mm",
+      output_file: options.filename,
     },
   };
 

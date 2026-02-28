@@ -290,6 +290,87 @@ export const createTicketInternal = internalMutation({
 });
 
 /**
+ * INTERNAL: Create support escalation ticket (no auth)
+ * Deterministic case path for AI-support escalation workflows.
+ */
+export const createSupportEscalationTicketInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionId: v.id("agentSessions"),
+    agentId: v.id("objects"),
+    reason: v.string(),
+    urgency: v.union(v.literal("low"), v.literal("normal"), v.literal("high")),
+    triggerType: v.string(),
+    transcriptSummary: v.optional(v.string()),
+    contactIdentifier: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const existingSupportTickets = (await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "ticket")
+      )
+      .collect()).filter((ticket) => ticket.subtype === "support");
+
+    const ticketNumber = `SUP-${String(existingSupportTickets.length + 1).padStart(5, "0")}`;
+    const now = Date.now();
+    const subject = `[Support] ${args.reason.trim().slice(0, 120) || "Escalated support case"}`;
+    const description = [
+      `Escalation reason: ${args.reason}`,
+      `Urgency: ${args.urgency}`,
+      `Trigger type: ${args.triggerType}`,
+      args.transcriptSummary ? `Summary: ${args.transcriptSummary}` : undefined,
+      args.contactIdentifier ? `Contact: ${args.contactIdentifier}` : undefined,
+    ]
+      .filter((line): line is string => Boolean(line))
+      .join("\n");
+
+    const ticketId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "ticket",
+      subtype: "support",
+      name: subject,
+      description,
+      status: "open",
+      customProperties: {
+        ticketNumber,
+        escalationSessionId: args.sessionId,
+        escalationAgentId: args.agentId,
+        escalationTriggerType: args.triggerType,
+        escalationUrgency: args.urgency,
+        transcriptSummary: args.transcriptSummary,
+        contactIdentifier: args.contactIdentifier,
+        source: "ai_support_escalation",
+      },
+      createdBy: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: ticketId,
+      actionType: "support_ticket_created_via_escalation",
+      actionData: {
+        ticketNumber,
+        sessionId: args.sessionId,
+        agentId: args.agentId,
+        triggerType: args.triggerType,
+        urgency: args.urgency,
+      },
+      performedBy: args.userId,
+      performedAt: now,
+    });
+
+    return {
+      ticketId,
+      ticketNumber,
+    };
+  },
+});
+
+/**
  * UPDATE TICKET (INTERNAL - No Auth Required)
  * Internal mutation for updating ticket data by backend actions
  */

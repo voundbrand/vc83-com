@@ -9,7 +9,9 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
+// Dynamic require prevents TS2589 deep type instantiation from generated Convex API types in this template step.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { StepProps } from "../types";
 import { ShoppingCart } from "lucide-react";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -18,11 +20,18 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function ProductSelectionStep({ organizationId, products, checkoutData, onComplete }: StepProps) {
   const { t } = useNamespaceTranslations("ui.checkout_template.behavior_driven");
+  const unsafeUseQuery = useQuery as unknown as (queryRef: unknown, args: unknown) => unknown;
 
   // Fetch organization tax settings
-  const taxSettings = useQuery(api.organizationTaxSettings.getPublicTaxSettings, {
+  const taxSettings = unsafeUseQuery(api.organizationTaxSettings.getPublicTaxSettings, {
     organizationId,
-  });
+  }) as {
+    taxEnabled?: boolean;
+    customRates?: Array<{ active: boolean; jurisdiction: string; rate: number }>;
+    originAddress: { country: string; state?: string };
+    defaultTaxCode?: string;
+    defaultTaxBehavior?: "exclusive" | "inclusive";
+  } | null | undefined;
   // Initialize quantities from checkoutData or default to 0
   const [quantities, setQuantities] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
@@ -143,7 +152,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
   };
 
   return (
-    <div className="w-full sm:max-w-4xl mx-auto p-4 sm:p-6 box-border">
+    <div className="w-full sm:max-w-4xl mx-auto p-4 sm:p-6 box-border" data-testid="bdc-step-product-selection">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h2 className="text-xl sm:text-3xl font-bold mb-2 flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -184,6 +193,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
                         onClick={() => setQuantities({ ...quantities, [product._id]: Math.max(0, quantity - 1) })}
                         disabled={quantity === 0}
                         className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed min-w-[40px]"
+                        data-testid={`bdc-product-${product._id}-decrease`}
                       >
                         −
                       </button>
@@ -192,6 +202,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
                         onClick={() => setQuantities({ ...quantities, [product._id]: Math.min(maxQty, quantity + 1) })}
                         disabled={quantity >= maxQty}
                         className="px-3 py-1 border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed min-w-[40px]"
+                        data-testid={`bdc-product-${product._id}-increase`}
                       >
                         +
                       </button>
@@ -299,6 +310,7 @@ export function ProductSelectionStep({ organizationId, products, checkoutData, o
           onClick={handleContinue}
           disabled={selectedProducts.length === 0}
           className="flex-1 px-4 sm:px-6 py-3 text-base sm:text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors break-words"
+          data-testid="bdc-product-selection-continue"
         >
           {t("ui.checkout_template.behavior_driven.product_selection.buttons.continue")}
         </button>

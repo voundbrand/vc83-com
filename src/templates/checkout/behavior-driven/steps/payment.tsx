@@ -365,7 +365,7 @@ export function PaymentStep({
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-2xl mx-auto p-6" data-testid="bdc-step-payment">
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
@@ -391,6 +391,7 @@ export function PaymentStep({
               onClick={() => handlePayment("invoice")}
               disabled={isProcessing}
               className="w-full p-6 bg-blue-50 border-2 border-blue-400 rounded-lg hover:bg-blue-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="bdc-payment-option-invoice"
             >
               <div className="flex items-center gap-4">
                 {isProcessing ? (
@@ -429,6 +430,7 @@ export function PaymentStep({
               onClick={() => handlePayment("stripe")}
               disabled={isProcessing}
               className="w-full p-6 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="bdc-payment-option-stripe"
             >
               <div className="flex items-center gap-4">
                 <CreditCard size={32} className="text-purple-600" />
@@ -500,6 +502,7 @@ export function PaymentStep({
             }}
             disabled={isProcessing}
             className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="bdc-payment-back"
           >
             <ArrowLeft size={20} />
             {t('ui.checkout_template.behavior_driven.payment.buttons.back')}
@@ -513,6 +516,7 @@ export function PaymentStep({
             onClick={handleStripePayment}
             disabled={isProcessing || !stripe || !isCardComplete}
             className="flex-1 px-6 py-3 text-lg font-bold border-2 border-green-600 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors flex items-center justify-center gap-2"
+            data-testid="bdc-payment-stripe-submit"
           >
             {isProcessing ? (
               <>

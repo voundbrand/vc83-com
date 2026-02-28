@@ -1,5 +1,8 @@
 import { mutation } from "./_generated/server";
-import { getAllEmailTemplateMetadata } from "../src/templates/emails/registry";
+import {
+  getAllEmailTemplateMetadata,
+  isCompatibilityArchivedEmailTemplateCode,
+} from "../src/templates/emails/registry";
 
 /**
  * SEED EMAIL TEMPLATES
@@ -35,10 +38,14 @@ export const seedEmailTemplates = mutation({
     const updated: string[] = [];
 
     // Get all email templates from registry
-    const emailTemplates = getAllEmailTemplateMetadata();
+    const emailTemplates = getAllEmailTemplateMetadata({ includeCompatibility: true });
 
     // Seed each template from registry
     for (const template of emailTemplates) {
+      const catalogPolicy = isCompatibilityArchivedEmailTemplateCode(template.code)
+        ? "compatibility"
+        : "core";
+
       // Check if template already exists
       const existing = await ctx.db
         .query("objects")
@@ -68,6 +75,7 @@ export const seedEmailTemplates = mutation({
             version: template.version,
             previewImageUrl: template.previewImageUrl,
             isDefault: false, // Can be set to true for default templates
+            catalogPolicy,
           },
           createdBy: firstUser._id,
           createdAt: Date.now(),
@@ -80,8 +88,10 @@ export const seedEmailTemplates = mutation({
         // Check if template needs updating (version changed OR missing templateCode)
         const existingVersion = existing.customProperties?.version;
         const missingTemplateCode = !existing.customProperties?.templateCode;
+        const existingCatalogPolicy = existing.customProperties?.catalogPolicy as string | undefined;
+        const missingCatalogPolicy = existingCatalogPolicy !== catalogPolicy;
 
-        if (existingVersion !== template.version || missingTemplateCode) {
+        if (existingVersion !== template.version || missingTemplateCode || missingCatalogPolicy) {
           // Update template
           await ctx.db.patch(existing._id, {
             name: template.name,
@@ -96,12 +106,15 @@ export const seedEmailTemplates = mutation({
               version: template.version,
               previewImageUrl: template.previewImageUrl,
               isDefault: existing.customProperties?.isDefault || false,
+              catalogPolicy,
             },
             updatedAt: Date.now(),
           });
           updated.push(template.code);
-          if (missingTemplateCode) {
-            console.log(`🔄 Updated email template (added templateCode): ${template.name} (${template.code})`);
+          if (missingTemplateCode || missingCatalogPolicy) {
+            console.log(
+              `🔄 Updated email template metadata: ${template.name} (${template.code})`
+            );
           } else {
             console.log(
               `🔄 Updated email template: ${template.name} (${template.code}) - v${existingVersion} → v${template.version}`

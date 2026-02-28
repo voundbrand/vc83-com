@@ -18,6 +18,71 @@ export interface TemplateTypeDefinition {
 }
 
 /**
+ * CANONICAL TEMPLATE CAPABILITIES
+ *
+ * These capabilities are the canonical runtime contract used by template-set
+ * resolution. Legacy template types are still supported via compatibility maps.
+ */
+export const TEMPLATE_CAPABILITIES = [
+  "document_invoice",
+  "document_ticket",
+  "transactional_email",
+  "web_event_page",
+  "checkout_surface",
+] as const;
+
+export type TemplateCapability = (typeof TEMPLATE_CAPABILITIES)[number];
+
+/**
+ * Capability -> preferred template-type lookup order.
+ *
+ * Ordering is important and preserves existing runtime precedence for legacy
+ * template-set keys while allowing canonical capability naming to converge.
+ */
+export const TEMPLATE_CAPABILITY_TEMPLATE_TYPES: Record<TemplateCapability, readonly string[]> = {
+  document_invoice: ["document_invoice", "invoice"],
+  document_ticket: ["document_ticket", "ticket", "event"],
+  transactional_email: [
+    "transactional_email",
+    "email",
+    "invoice_email",
+    "event",
+    "receipt",
+    "sales_notification",
+    "newsletter",
+  ],
+  web_event_page: ["web_event_page", "event_page", "web", "landing_page"],
+  checkout_surface: ["checkout_surface", "checkout", "checkout_page"],
+};
+
+export function isTemplateCapability(value: string): value is TemplateCapability {
+  return TEMPLATE_CAPABILITIES.includes(value as TemplateCapability);
+}
+
+/**
+ * Normalize legacy template type names into canonical capabilities.
+ */
+export function normalizeTemplateCapability(value: string): TemplateCapability | null {
+  if (isTemplateCapability(value)) {
+    return value;
+  }
+
+  for (const capability of TEMPLATE_CAPABILITIES) {
+    if (TEMPLATE_CAPABILITY_TEMPLATE_TYPES[capability].includes(value)) {
+      return capability;
+    }
+  }
+
+  return null;
+}
+
+export function getTemplateTypePriorityForCapability(
+  capability: TemplateCapability
+): readonly string[] {
+  return TEMPLATE_CAPABILITY_TEMPLATE_TYPES[capability];
+}
+
+/**
  * EMAIL TEMPLATE SUBTYPES
  *
  * All supported email template subtypes with icons and translation keys

@@ -10,7 +10,6 @@
 
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser, checkPermission } from "./rbacHelpers";
 
 /**
@@ -92,68 +91,22 @@ export const enableCheckoutTemplate = mutation({
       );
     }
 
-    // Check if availability rule already exists
-    const existing = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "checkout_template_availability")
-      )
-      .filter((q) =>
-        q.eq(
-          q.field("customProperties.templateCode"),
-          args.templateCode
-        )
-      )
-      .first();
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
 
-    let availabilityRuleId: Id<"objects">;
-
-    if (existing) {
-      // Update existing rule
-      await ctx.db.patch(existing._id, {
-        customProperties: {
-          ...existing.customProperties,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-        },
-        updatedAt: Date.now(),
-      });
-      availabilityRuleId = existing._id;
-    } else {
-      // Create new availability rule
-      availabilityRuleId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "checkout_template_availability",
-        name: `Checkout Template Availability: ${args.templateCode}`,
-        status: "active",
-        customProperties: {
-          templateCode: args.templateCode,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-        },
-        createdBy: userId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
-
-    // Log the action
-    await ctx.db.insert("objectActions", {
+    console.warn(
+      `⚠️ [Template Availability] enableCheckoutTemplate is deprecated. No write performed for ${args.templateCode}.`
+    );
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "enable",
       organizationId: args.organizationId,
-      objectId: availabilityRuleId,
-      actionType: "checkout_template_enabled",
-      actionData: {
-        templateCode: args.templateCode,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { success: true };
+      templateCode: args.templateCode,
+      message:
+        "Checkout template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 
@@ -185,68 +138,22 @@ export const disableCheckoutTemplate = mutation({
       );
     }
 
-    // Find availability rule
-    const existing = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "checkout_template_availability")
-      )
-      .filter((q) =>
-        q.eq(
-          q.field("customProperties.templateCode"),
-          args.templateCode
-        )
-      )
-      .first();
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
 
-    let availabilityRuleId: Id<"objects">;
-
-    if (existing) {
-      // Update to disabled
-      await ctx.db.patch(existing._id, {
-        customProperties: {
-          ...existing.customProperties,
-          available: false,
-          disabledBy: userId,
-          disabledAt: Date.now(),
-        },
-        updatedAt: Date.now(),
-      });
-      availabilityRuleId = existing._id;
-    } else {
-      // Create disabled rule
-      availabilityRuleId = await ctx.db.insert("objects", {
-        organizationId: args.organizationId,
-        type: "checkout_template_availability",
-        name: `Checkout Template Availability: ${args.templateCode}`,
-        status: "active",
-        customProperties: {
-          templateCode: args.templateCode,
-          available: false,
-          disabledBy: userId,
-          disabledAt: Date.now(),
-        },
-        createdBy: userId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
-
-    // Log the action
-    await ctx.db.insert("objectActions", {
+    console.warn(
+      `⚠️ [Template Availability] disableCheckoutTemplate is deprecated. No write performed for ${args.templateCode}.`
+    );
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "disable",
       organizationId: args.organizationId,
-      objectId: availabilityRuleId,
-      actionType: "checkout_template_disabled",
-      actionData: {
-        templateCode: args.templateCode,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { success: true };
+      templateCode: args.templateCode,
+      message:
+        "Checkout template availability writes are deprecated. Published templates are globally available by policy.",
+    };
   },
 });
 

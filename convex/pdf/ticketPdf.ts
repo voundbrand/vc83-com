@@ -4,6 +4,30 @@ import type { Id, Doc } from "../_generated/dataModel";
 
 const generatedApi: any = require("../_generated/api");
 
+async function logTemplateResolutionCheckpoint(
+    ctx: any,
+    payload: {
+        organizationId: Id<"organizations">;
+        resolverSource: "template_set" | "direct_override" | "fallback";
+        templateCapability: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+        surface: string;
+        templateId?: Id<"objects">;
+        templateCode?: string;
+        checkoutSessionId?: Id<"objects">;
+        ticketId?: Id<"objects">;
+        context?: Record<string, unknown>;
+    }
+) {
+    try {
+        await ctx.runMutation(
+            (generatedApi as any).internal.templateResolutionTelemetry.logTemplateResolutionCheckpoint,
+            payload
+        );
+    } catch (error) {
+        console.warn("⚠️ [Template Telemetry] Failed to record ticket checkpoint:", error);
+    }
+}
+
 export type PDFAttachment = {
     filename: string;
     content: string; // base64
@@ -470,6 +494,23 @@ export const generateTicketPDF = action({
             const templateCode = template.templateCode;
             console.log("🎫 [Ticket Template Resolution] Using template code:", templateCode, "from template:", template.name);
 
+            await logTemplateResolutionCheckpoint(ctx, {
+                organizationId,
+                resolverSource: "template_set",
+                templateCapability: "document_ticket",
+                surface: "ticket_pdf.generateTicketPDF",
+                templateId: ticketTemplateId,
+                templateCode,
+                checkoutSessionId: args.checkoutSessionId,
+                ticketId: args.ticketId,
+                context: {
+                    productId: templateContext.productId,
+                    checkoutInstanceId: templateContext.checkoutInstanceId,
+                    domainConfigId: templateContext.domainConfigId,
+                    argsTemplateCodeProvided: !!args.templateCode,
+                },
+            });
+
             // 12. Call API Template.io generator with resolved template
             const { generateTicketPdfFromTemplate } = await import("../lib/generateTicketPdf");
 
@@ -906,6 +947,11 @@ export const generateTicketPDFFromTicket = action({
             // 3. Organization default template
             // 4. System default
             let templateCode = args.templateCode;
+            const resolverSource: "direct_override" | "fallback" = args.templateCode
+                ? "direct_override"
+                : "fallback";
+            let fallbackReason: "previous_template" | "organization_default" | "system_default" | "explicit_override" =
+                args.templateCode ? "explicit_override" : "system_default";
 
             if (!templateCode) {
                 // Try previously used template
@@ -913,6 +959,7 @@ export const generateTicketPDFFromTicket = action({
                 if (previousTemplate) {
                     console.log("🎫 [Template] Using previously used template:", previousTemplate);
                     templateCode = previousTemplate;
+                    fallbackReason = "previous_template";
                 }
             }
 
@@ -928,6 +975,7 @@ export const generateTicketPDFFromTicket = action({
                 if (orgDefaultTemplate) {
                     console.log("🎫 [Template] Using organization default template:", orgDefaultTemplate);
                     templateCode = orgDefaultTemplate;
+                    fallbackReason = "organization_default";
                 }
             }
 
@@ -935,9 +983,22 @@ export const generateTicketPDFFromTicket = action({
                 // Final fallback to system default - Professional template
                 templateCode = "ticket_professional_v1";
                 console.log("🎫 [Template] Using system default template:", templateCode);
+                fallbackReason = "system_default";
             }
 
             console.log("🎫 [generateTicketPDFFromTicket] Final template:", templateCode);
+
+            await logTemplateResolutionCheckpoint(ctx, {
+                organizationId,
+                resolverSource,
+                templateCapability: "document_ticket",
+                surface: "ticket_pdf.generateTicketPDFFromTicket",
+                templateCode,
+                ticketId: args.ticketId,
+                context: {
+                    fallbackReason,
+                },
+            });
 
             // 9. Generate PDF
             const { generateTicketPdfFromTemplate } = await import("../lib/generateTicketPdf");

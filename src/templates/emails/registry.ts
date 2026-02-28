@@ -7,7 +7,7 @@
  * Version: 1.0.0 - Professional System Default
  */
 
-import type { EmailTemplateComponent } from "./types";
+import type { EmailTemplateComponent, EmailTemplateOutput } from "./types";
 import type { GenericEmailMetadata } from "./generic-types";
 
 // Import all template components
@@ -37,14 +37,24 @@ export interface EmailTemplateRegistryEntry {
   code: string;
   component: EmailTemplateComponent;
   metadata: GenericEmailMetadata;
+  catalogPolicy: EmailTemplateCatalogPolicy;
 }
+
+export type EmailTemplateCatalogPolicy = "core" | "compatibility";
+
+const COMPATIBILITY_ARCHIVED_EMAIL_TEMPLATE_CODES = new Set([
+  "email_newsletter",
+  "email_lead_magnet_delivery",
+  "email_support_response",
+  "email_status_update",
+]);
 
 /**
  * Email Template Registry
  *
  * All 14 email templates indexed by code for dynamic lookup.
  */
-export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry> = {
+const EMAIL_TEMPLATE_REGISTRY_RAW: Record<string, Omit<EmailTemplateRegistryEntry, "catalogPolicy">> = {
   // Transactional (6)
   email_transaction_generic: {
     code: "email_transaction_generic",
@@ -65,6 +75,26 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry>
     code: "email_invoice_b2b",
     component: InvoiceB2BEmailTemplate as unknown as EmailTemplateComponent,
     metadata: INVOICE_B2B_EMAIL_METADATA,
+  },
+  "invoice-email-v2": {
+    code: "invoice-email-v2",
+    component: InvoiceB2BEmailTemplate as unknown as EmailTemplateComponent,
+    metadata: {
+      ...INVOICE_B2B_EMAIL_METADATA,
+      code: "invoice-email-v2",
+      name: "Invoice Email v2",
+      description: "Schema-based compatibility alias for invoice transactional email rendering",
+    },
+  },
+  email_invoice_send: {
+    code: "email_invoice_send",
+    component: InvoiceB2BEmailTemplate as unknown as EmailTemplateComponent,
+    metadata: {
+      ...INVOICE_B2B_EMAIL_METADATA,
+      code: "email_invoice_send",
+      name: "Invoice Email Send",
+      description: "Legacy compatibility alias for invoice transactional email rendering",
+    },
   },
   email_invoice_b2c: {
     code: "email_invoice_b2c",
@@ -99,6 +129,16 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry>
     code: "email_event_confirmation",
     component: EventConfirmationEmailTemplate,
     metadata: EVENT_CONFIRMATION_EMAIL_METADATA,
+  },
+  "event-confirmation-v2": {
+    code: "event-confirmation-v2",
+    component: EventConfirmationEmailTemplate,
+    metadata: {
+      ...EVENT_CONFIRMATION_EMAIL_METADATA,
+      code: "event-confirmation-v2",
+      name: "Event Confirmation v2",
+      description: "Schema-based compatibility alias for event confirmation rendering",
+    },
   },
   email_event_reminder: {
     code: "email_event_reminder",
@@ -178,9 +218,28 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry>
   },
 };
 
+export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRegistryEntry> = Object.fromEntries(
+  Object.entries(EMAIL_TEMPLATE_REGISTRY_RAW).map(([code, entry]) => [
+    code,
+    {
+      ...entry,
+      catalogPolicy: COMPATIBILITY_ARCHIVED_EMAIL_TEMPLATE_CODES.has(code) ? "compatibility" : "core",
+    },
+  ])
+) as Record<string, EmailTemplateRegistryEntry>;
+
 /**
  * Helper Functions
  */
+
+function isCatalogPolicyMatch(
+  entry: EmailTemplateRegistryEntry,
+  options?: {
+    includeCompatibility?: boolean;
+  }
+): boolean {
+  return options?.includeCompatibility === true || entry.catalogPolicy === "core";
+}
 
 /**
  * Get email template by code
@@ -189,29 +248,45 @@ export function getEmailTemplateByCode(code: string): EmailTemplateRegistryEntry
   return EMAIL_TEMPLATE_REGISTRY[code];
 }
 
+export function getEmailTemplateCatalogPolicy(code: string): EmailTemplateCatalogPolicy | null {
+  const entry = getEmailTemplateByCode(code);
+  return entry ? entry.catalogPolicy : null;
+}
+
+export function isCompatibilityArchivedEmailTemplateCode(code: string): boolean {
+  return getEmailTemplateCatalogPolicy(code) === "compatibility";
+}
+
 /**
  * Get all email templates by category
  */
 export function getEmailTemplatesByCategory(
-  category: "transactional" | "marketing" | "event" | "support" | "system" | "newsletter"
+  category: "transactional" | "marketing" | "event" | "support" | "system" | "newsletter",
+  options?: {
+    includeCompatibility?: boolean;
+  }
 ): EmailTemplateRegistryEntry[] {
   return Object.values(EMAIL_TEMPLATE_REGISTRY).filter(
-    (entry) => entry.metadata.category === category
+    (entry) => entry.metadata.category === category && isCatalogPolicyMatch(entry, options)
   );
 }
 
 /**
  * Get all email template codes
  */
-export function getAllEmailTemplateCodes(): string[] {
-  return Object.keys(EMAIL_TEMPLATE_REGISTRY);
+export function getAllEmailTemplateCodes(options?: {
+  includeCompatibility?: boolean;
+}): string[] {
+  return getAllEmailTemplates(options).map((entry) => entry.code);
 }
 
 /**
  * Get all email templates
  */
-export function getAllEmailTemplates(): EmailTemplateRegistryEntry[] {
-  return Object.values(EMAIL_TEMPLATE_REGISTRY);
+export function getAllEmailTemplates(options?: {
+  includeCompatibility?: boolean;
+}): EmailTemplateRegistryEntry[] {
+  return Object.values(EMAIL_TEMPLATE_REGISTRY).filter((entry) => isCatalogPolicyMatch(entry, options));
 }
 
 /**
@@ -244,7 +319,7 @@ export const MARKETING_EMAIL_TEMPLATES = [
   EMAIL_TEMPLATE_REGISTRY.email_newsletter,
   EMAIL_TEMPLATE_REGISTRY.email_lead_magnet_delivery,
   EMAIL_TEMPLATE_REGISTRY.email_event_invitation,
-];
+].filter((entry) => entry.catalogPolicy === "core");
 
 /**
  * Event Email Templates
@@ -261,7 +336,7 @@ export const EVENT_EMAIL_TEMPLATES = [
 export const SUPPORT_EMAIL_TEMPLATES = [
   EMAIL_TEMPLATE_REGISTRY.email_support_response,
   EMAIL_TEMPLATE_REGISTRY.email_status_update,
-];
+].filter((entry) => entry.catalogPolicy === "core");
 
 /**
  * System/Internal Email Templates
@@ -269,6 +344,10 @@ export const SUPPORT_EMAIL_TEMPLATES = [
 export const SYSTEM_EMAIL_TEMPLATES = [
   EMAIL_TEMPLATE_REGISTRY.email_sales_notification,
 ];
+
+export const COMPATIBILITY_ARCHIVED_EMAIL_TEMPLATES = Object.values(EMAIL_TEMPLATE_REGISTRY).filter(
+  (entry) => entry.catalogPolicy === "compatibility"
+);
 
 /**
  * Get suggested sections for a template
@@ -288,8 +367,14 @@ export function getSuggestedSectionsForTemplate(code: string): string[] {
  * AI helper function to find appropriate template based on use case description.
  * Returns most relevant template codes.
  */
-export function findTemplatesByUseCase(useCase: string): string[] {
+export function findTemplatesByUseCase(
+  useCase: string,
+  options?: {
+    includeCompatibility?: boolean;
+  }
+): string[] {
   const lowerUseCase = useCase.toLowerCase();
+  const includeCompatibility = options?.includeCompatibility === true;
 
   // Invoice-related
   if (
@@ -354,7 +439,7 @@ export function findTemplatesByUseCase(useCase: string): string[] {
     lowerUseCase.includes("update") ||
     lowerUseCase.includes("digest")
   ) {
-    return ["email_newsletter"];
+    return includeCompatibility ? ["email_newsletter"] : ["email_transaction_generic"];
   }
 
   // Lead magnet
@@ -366,7 +451,7 @@ export function findTemplatesByUseCase(useCase: string): string[] {
     lowerUseCase.includes("checklist") ||
     lowerUseCase.includes("resource")
   ) {
-    return ["email_lead_magnet_delivery"];
+    return includeCompatibility ? ["email_lead_magnet_delivery"] : ["email_transaction_generic"];
   }
 
   // Event invitation
@@ -417,7 +502,7 @@ export function findTemplatesByUseCase(useCase: string): string[] {
     lowerUseCase.includes("help") ||
     lowerUseCase.includes("customer service")
   ) {
-    return ["email_support_response"];
+    return includeCompatibility ? ["email_support_response"] : ["email_transaction_generic"];
   }
 
   // Status update
@@ -426,7 +511,7 @@ export function findTemplatesByUseCase(useCase: string): string[] {
     lowerUseCase.includes("progress") ||
     lowerUseCase.includes("update")
   ) {
-    return ["email_status_update"];
+    return includeCompatibility ? ["email_status_update"] : ["email_transaction_generic"];
   }
 
   // Sales/Internal notification
@@ -449,6 +534,8 @@ export function findTemplatesByUseCase(useCase: string): string[] {
  */
 export const EMAIL_TEMPLATE_STATS = {
   total: Object.keys(EMAIL_TEMPLATE_REGISTRY).length,
+  active: getAllEmailTemplates().length,
+  compatibilityArchived: COMPATIBILITY_ARCHIVED_EMAIL_TEMPLATES.length,
   byCategory: {
     transactional: TRANSACTIONAL_EMAIL_TEMPLATES.length,
     marketing: MARKETING_EMAIL_TEMPLATES.length,
@@ -486,6 +573,18 @@ export function getEmailTemplate(templateCode: string): EmailTemplateComponent {
   return entry.component;
 }
 
+export type AnyEmailTemplateRenderer = (props: unknown) => EmailTemplateOutput;
+
+/**
+ * Get Email Template Renderer by Code (untyped props compatibility).
+ *
+ * Some runtime paths use invoice-specific payloads while others use event payloads.
+ * This helper preserves dynamic template lookup while allowing those payload shapes.
+ */
+export function getEmailTemplateRenderer(templateCode: string): AnyEmailTemplateRenderer {
+  return getEmailTemplate(templateCode) as unknown as AnyEmailTemplateRenderer;
+}
+
 /**
  * Get Email Template Metadata (Legacy)
  *
@@ -503,6 +602,8 @@ export function getEmailTemplateMetadata(templateCode: string): GenericEmailMeta
  * Returns metadata for all templates.
  * Maintains backward compatibility.
  */
-export function getAllEmailTemplateMetadata(): GenericEmailMetadata[] {
-  return Object.values(EMAIL_TEMPLATE_REGISTRY).map(entry => entry.metadata);
+export function getAllEmailTemplateMetadata(options?: {
+  includeCompatibility?: boolean;
+}): GenericEmailMetadata[] {
+  return getAllEmailTemplates(options).map((entry) => entry.metadata);
 }

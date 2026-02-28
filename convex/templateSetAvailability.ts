@@ -28,7 +28,7 @@ export const enableTemplateSet = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can enable template sets
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -44,91 +44,29 @@ export const enableTemplateSet = mutation({
       throw new Error("Permission denied: Only super admins can enable template sets");
     }
 
-    // Verify organization exists
+    // Keep validation behavior for compatibility callers.
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Verify template set exists
+    // Keep template set existence validation for better operator feedback.
     const templateSet = await ctx.db.get(args.templateSetId);
     if (!templateSet || templateSet.type !== "template_set") {
       throw new Error("Template set not found");
     }
 
-    // Check if availability already exists
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_set_availability")
-      )
-      .collect();
-
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateSetId === args.templateSetId
+    console.warn(
+      `⚠️ [Template Availability] enableTemplateSet is deprecated. No write performed for template set ${args.templateSetId}.`
     );
-
-    if (existing) {
-      // Update existing availability
-      await ctx.db.patch(existing._id, {
-        customProperties: {
-          ...existing.customProperties,
-          available: true,
-          enabledBy: userId,
-          enabledAt: Date.now(),
-          customSettings: args.customSettings || existing.customProperties?.customSettings || {},
-        },
-        updatedAt: Date.now(),
-      });
-
-      // Audit log
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: existing._id,
-        actionType: "template_set_enabled",
-        actionData: {
-          templateSetId: args.templateSetId,
-          templateSetName: templateSet.name,
-        },
-        performedBy: userId,
-        performedAt: Date.now(),
-      });
-
-      return { availabilityId: existing._id, updated: true };
-    }
-
-    // Create new availability
-    const availabilityId = await ctx.db.insert("objects", {
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "enable",
       organizationId: args.organizationId,
-      type: "template_set_availability",
-      name: `${templateSet.name} - Availability`,
-      description: `Availability for template set: ${templateSet.name}`,
-      status: "active",
-      customProperties: {
-        templateSetId: args.templateSetId,
-        templateSetName: templateSet.name,
-        available: true,
-        enabledBy: userId,
-        enabledAt: Date.now(),
-        customSettings: args.customSettings || {},
-      },
-      createdBy: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Audit log
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: availabilityId,
-      actionType: "template_set_enabled",
-      actionData: {
-        templateSetId: args.templateSetId,
-        templateSetName: templateSet.name,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { availabilityId, updated: false };
+      templateSetId: args.templateSetId,
+      message:
+        "Template set availability writes are deprecated. System template sets are globally available by policy.",
+    };
   },
 });
 
@@ -146,7 +84,7 @@ export const disableTemplateSet = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
 
-    // Only super admins can disable template sets
+    // Only super admins can call compatibility mutations.
     const user = await ctx.db.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -162,46 +100,27 @@ export const disableTemplateSet = mutation({
       throw new Error("Permission denied: Only super admins can disable template sets");
     }
 
-    // Find existing availability
-    const existingAvailabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_set_availability")
-      )
-      .collect();
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) throw new Error("Organization not found");
 
-    const existing = existingAvailabilities.find(
-      (a) => a.customProperties?.templateSetId === args.templateSetId
-    );
-
-    if (!existing) {
-      return { success: true, message: "Template set was not enabled for this organization" };
+    const templateSet = await ctx.db.get(args.templateSetId);
+    if (!templateSet || templateSet.type !== "template_set") {
+      throw new Error("Template set not found");
     }
 
-    // Update to disabled
-    await ctx.db.patch(existing._id, {
-      customProperties: {
-        ...existing.customProperties,
-        available: false,
-        disabledBy: userId,
-        disabledAt: Date.now(),
-      },
-      updatedAt: Date.now(),
-    });
-
-    // Audit log
-    await ctx.db.insert("objectActions", {
+    console.warn(
+      `⚠️ [Template Availability] disableTemplateSet is deprecated. No write performed for template set ${args.templateSetId}.`
+    );
+    return {
+      success: true,
+      deprecated: true,
+      noop: true,
+      action: "disable",
       organizationId: args.organizationId,
-      objectId: existing._id,
-      actionType: "template_set_disabled",
-      actionData: {
-        templateSetId: args.templateSetId,
-      },
-      performedBy: userId,
-      performedAt: Date.now(),
-    });
-
-    return { success: true };
+      templateSetId: args.templateSetId,
+      message:
+        "Template set availability writes are deprecated. System template sets are globally available by policy.",
+    };
   },
 });
 
@@ -312,22 +231,6 @@ export const listTemplateSetsWithAvailability = query({
     const org = await ctx.db.get(args.organizationId);
     if (!org) throw new Error("Organization not found");
 
-    // Get all availabilities for this org
-    const availabilities = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "template_set_availability")
-      )
-      .collect();
-
-    // Create a map of templateSetId -> availability status
-    const availabilityMap = new Map(
-      availabilities.map((a) => [
-        a.customProperties?.templateSetId as string,
-        a.customProperties?.available as boolean || false
-      ])
-    );
-
     // Get system organization
     const systemOrg = await ctx.db
       .query("organizations")
@@ -360,8 +263,8 @@ export const listTemplateSetsWithAvailability = query({
         ticketTemplateId: props.ticketTemplateId as string,
         invoiceTemplateId: props.invoiceTemplateId as string,
         emailTemplateId: props.emailTemplateId as string,
-        // Availability status for this specific organization
-        availableForOrg: availabilityMap.get(set._id) || false,
+        // Read-only policy: template sets are universally available.
+        availableForOrg: true,
       };
     });
   },

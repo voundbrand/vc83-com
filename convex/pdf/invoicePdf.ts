@@ -5,6 +5,30 @@ import { formatCurrency, getCurrencySymbol } from "../lib/currencyFormatter";
 
 const generatedApi: any = require("../_generated/api");
 
+async function logTemplateResolutionCheckpoint(
+    ctx: any,
+    payload: {
+        organizationId: Id<"organizations">;
+        resolverSource: "template_set" | "direct_override" | "fallback";
+        templateCapability: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+        surface: string;
+        templateId?: Id<"objects">;
+        templateCode?: string;
+        checkoutSessionId?: Id<"objects">;
+        invoiceId?: Id<"objects">;
+        context?: Record<string, unknown>;
+    }
+) {
+    try {
+        await ctx.runMutation(
+            (generatedApi as any).internal.templateResolutionTelemetry.logTemplateResolutionCheckpoint,
+            payload
+        );
+    } catch (error) {
+        console.warn("⚠️ [Template Telemetry] Failed to record invoice checkpoint:", error);
+    }
+}
+
 export type PDFAttachment = {
     filename: string;
     content: string; // base64
@@ -1055,6 +1079,22 @@ export const generateInvoicePDF = action({
 
             const templateCode = invoiceTemplate.templateCode;
             console.log("📄 [Invoice Template Resolution] Using template code:", templateCode, "from template:", invoiceTemplate.name);
+
+            await logTemplateResolutionCheckpoint(ctx, {
+                organizationId,
+                resolverSource: "template_set",
+                templateCapability: "document_invoice",
+                surface: "invoice_pdf.generateInvoicePDF",
+                templateId: invoiceTemplateId,
+                templateCode,
+                checkoutSessionId: args.checkoutSessionId,
+                invoiceId: invoice?._id,
+                context: {
+                    checkoutInstanceId: invoiceTemplateContext.checkoutInstanceId,
+                    domainConfigId: invoiceTemplateContext.domainConfigId,
+                    argsTemplateCodeProvided: !!args.templateCode,
+                },
+            });
 
             // 12. Call API Template.io generator with resolved template
             const { generateInvoicePdfFromTemplate } = await import("../lib/generateInvoicePdf");

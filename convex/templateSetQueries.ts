@@ -10,6 +10,26 @@ import { v } from "convex/values";
 import { Id, Doc } from "./_generated/dataModel";
 import { resolveTemplateSet, resolveIndividualTemplate } from "./templateSetResolver";
 
+const templateCapabilityValidator = v.union(
+  v.literal("document_invoice"),
+  v.literal("document_ticket"),
+  v.literal("transactional_email"),
+  v.literal("web_event_page"),
+  v.literal("checkout_surface")
+);
+
+function resolveTemplateSelector(args: {
+  templateType?: string;
+  templateCapability?: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+}) {
+  // If both are provided, honor templateType first as an explicit compatibility hint.
+  const selector = args.templateType ?? args.templateCapability;
+  if (!selector) {
+    throw new Error("Either templateCapability or templateType must be provided.");
+  }
+  return selector;
+}
+
 /**
  * Get Available Template Sets
  *
@@ -167,7 +187,8 @@ export const resolveTemplateSetForEntity = query({
 export const resolveIndividualTemplatePublic = query({
   args: {
     organizationId: v.id("organizations"),
-    templateType: v.string(),
+    templateType: v.optional(v.string()), // legacy selector compatibility
+    templateCapability: v.optional(templateCapabilityValidator), // canonical selector
     context: v.optional(v.object({
       manualSetId: v.optional(v.id("objects")),
       productId: v.optional(v.id("objects")),
@@ -179,7 +200,7 @@ export const resolveIndividualTemplatePublic = query({
     return await resolveIndividualTemplate(
       ctx,
       args.organizationId,
-      args.templateType,
+      resolveTemplateSelector(args),
       args.context
     );
   },
@@ -194,7 +215,8 @@ export const resolveIndividualTemplatePublic = query({
 export const resolveIndividualTemplateInternal = internalQuery({
   args: {
     organizationId: v.id("organizations"),
-    templateType: v.string(),
+    templateType: v.optional(v.string()), // legacy selector compatibility
+    templateCapability: v.optional(templateCapabilityValidator), // canonical selector
     context: v.optional(v.object({
       manualSetId: v.optional(v.id("objects")),
       productId: v.optional(v.id("objects")),
@@ -206,7 +228,7 @@ export const resolveIndividualTemplateInternal = internalQuery({
     return await resolveIndividualTemplate(
       ctx,
       args.organizationId,
-      args.templateType,
+      resolveTemplateSelector(args),
       args.context
     );
   },

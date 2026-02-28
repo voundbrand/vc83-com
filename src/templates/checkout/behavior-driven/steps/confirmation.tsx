@@ -150,7 +150,7 @@ export function ConfirmationStep({ checkoutData, products, organizationId }: Ste
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-testid="bdc-step-confirmation">
       {/* Success Header */}
       <div className="text-center mb-12">
         <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-6">
@@ -279,6 +279,7 @@ export function ConfirmationStep({ checkoutData, products, organizationId }: Ste
           onClick={handleDownloadTickets}
           disabled={isDownloadingTickets}
           className="px-6 py-3 border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          data-testid="bdc-confirmation-download-tickets"
         >
           {isDownloadingTickets ? (
             <>
@@ -299,6 +300,7 @@ export function ConfirmationStep({ checkoutData, products, organizationId }: Ste
             onClick={handleDownloadReceipt}
             disabled={isDownloadingReceipt}
             className="px-6 py-3 border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="bdc-confirmation-download-receipt"
           >
             {isDownloadingReceipt ? (
               <>

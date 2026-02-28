@@ -41,6 +41,10 @@ import {
   CHECKLIST_ONEPAGER_TEMPLATE_CSS,
 } from "./lib/pdf_templates/checklist_onepager";
 import {
+  AUDIT_WORKFLOW_REPORT_TEMPLATE_HTML,
+  AUDIT_WORKFLOW_REPORT_TEMPLATE_CSS,
+} from "./lib/pdf_templates/audit_workflow_report";
+import {
   QUOTE_ESTIMATE_TEMPLATE_HTML,
   QUOTE_ESTIMATE_TEMPLATE_CSS,
 } from "./lib/pdf_templates/quote_estimate";
@@ -954,6 +958,153 @@ export const LEADMAGNET_CHECKLIST_ONEPAGER_V1: PdfTemplateDefinition = {
   version: "1.0.0",
 };
 
+export const LEADMAGNET_AUDIT_WORKFLOW_REPORT_V1: PdfTemplateDefinition = {
+  code: "leadmagnet_audit_workflow_report_v1",
+  name: "Audit Workflow Report Lead Magnet",
+  description: "Single-page workflow brief generated from the five-question audit with action plan, guardrails, and implementation guidance",
+  category: "leadmagnet",
+  template: {
+    html: AUDIT_WORKFLOW_REPORT_TEMPLATE_HTML,
+    css: AUDIT_WORKFLOW_REPORT_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "title",
+      type: "string",
+      required: true,
+      description: "Report title",
+      example: "Your One Workflow Report",
+    },
+    {
+      name: "generatedDate",
+      type: "string",
+      required: true,
+      description: "Human-readable report generation date",
+      example: "February 27, 2026",
+    },
+    {
+      name: "author",
+      type: "string",
+      required: true,
+      description: "Operator or brand delivering the report",
+      example: "One of One Operator",
+    },
+    {
+      name: "clientName",
+      type: "string",
+      required: true,
+      description: "Prospect or client name",
+      example: "Avery Morgan",
+    },
+    {
+      name: "businessType",
+      type: "string",
+      required: true,
+      description: "Business type or industry summary",
+      example: "Boutique consulting firm",
+    },
+    {
+      name: "revenueRange",
+      type: "string",
+      required: true,
+      description: "Current revenue range provided in audit",
+      example: "$1M-$3M ARR",
+    },
+    {
+      name: "teamSize",
+      type: "string",
+      required: true,
+      description: "Team size snapshot",
+      example: "6 people",
+    },
+    {
+      name: "workflowName",
+      type: "string",
+      required: true,
+      description: "Name of the recommended workflow",
+      example: "Lead qualification and follow-up orchestration",
+    },
+    {
+      name: "workflowSummary",
+      type: "string",
+      required: true,
+      description: "Narrative explaining why this workflow is the highest leverage priority",
+      example: "Your Monday bottleneck is manual lead triage. Automating the first 24 hours recovers focus and preserves quality.",
+    },
+    {
+      name: "workflowOutcome",
+      type: "string",
+      required: true,
+      description: "Expected near-term business outcome",
+      example: "Faster lead response without sacrificing your quality bar.",
+    },
+    {
+      name: "weeklyHoursRecovered",
+      type: "number",
+      required: true,
+      description: "Estimated hours saved per week",
+      example: 10,
+    },
+    {
+      name: "actionPlan",
+      type: "array",
+      required: true,
+      description: "Ordered implementation steps for the next 7 days",
+      example: [
+        { step: "Define qualification criteria and red flags.", owner: "Founder", timing: "Day 1" },
+        { step: "Map inbound sources and response SLA by channel.", owner: "Operator", timing: "Day 2" },
+        { step: "Launch assisted follow-up drafts with approval mode.", owner: "Operator", timing: "Day 3-4" },
+      ],
+    },
+    {
+      name: "guardrails",
+      type: "array",
+      required: true,
+      description: "Safety and quality constraints for execution",
+      example: [
+        "Escalate high-value deals to manual review before send.",
+        "Log every outbound message for auditability and rollback.",
+      ],
+    },
+    {
+      name: "toolingRecommendations",
+      type: "array",
+      required: false,
+      description: "Optional tooling stack or channel recommendations",
+      example: [
+        "Use CRM webhook trigger for inbound lead capture.",
+        "Use SMS fallback only after email open without reply.",
+      ],
+    },
+    {
+      name: "brandColor",
+      type: "string",
+      required: false,
+      description: "Primary brand color hex code",
+      example: "#1D4ED8",
+    },
+    {
+      name: "footerText",
+      type: "string",
+      required: false,
+      description: "Optional legal or brand footer text",
+      example: "One of One - Audit deliverable generated from live intake conversation.",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#1D4ED8",
+    secondaryColor: "#334155",
+    fontSize: "10.5pt",
+    fontFamily: "-apple-system, sans-serif",
+  },
+  previewImageUrl: "https://cdn.vc83.com/templates/leadmagnet-audit-workflow-report-preview.png",
+  version: "1.0.0",
+};
+
 /**
  * QUOTE/ESTIMATE TEMPLATES
  */
@@ -1335,6 +1486,7 @@ export const PDF_TEMPLATE_REGISTRY: Record<string, PdfTemplateDefinition> = {
   // Lead Magnets
   leadmagnet_ebook_guide_v1: LEADMAGNET_EBOOK_GUIDE_V1,
   leadmagnet_checklist_onepager_v1: LEADMAGNET_CHECKLIST_ONEPAGER_V1,
+  leadmagnet_audit_workflow_report_v1: LEADMAGNET_AUDIT_WORKFLOW_REPORT_V1,
 
   // Quotes & Estimates
   quote_estimate_v1: QUOTE_ESTIMATE_V1,

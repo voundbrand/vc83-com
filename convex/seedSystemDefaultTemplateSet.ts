@@ -5,14 +5,16 @@
  * This set is stored in the system organization and serves as the ultimate fallback.
  *
  * v2.0 Features:
- * - ONLY schema-driven templates (7 templates: 5 email + 2 PDF)
+ * - Starter transacting bundle (9 templates: 5 email + 2 PDF + 1 page + 1 checkout)
  * - Event Confirmation Email (REQUIRED)
  * - Transaction Receipt Email (Optional)
  * - Newsletter Email (Optional)
  * - Invoice Email (Optional)
  * - Sales Notification Email (Optional) - Internal team notification
- * - B2B Invoice PDF (Optional)
- * - Ticket PDF (Optional)
+ * - B2B Invoice PDF (REQUIRED starter doc)
+ * - Ticket PDF (REQUIRED starter doc)
+ * - Event Landing Page (REQUIRED starter web surface)
+ * - Behavior-Driven Checkout (REQUIRED starter checkout surface)
  * - AI-ready with full schema support
  * - Clean, future-proof architecture
  *
@@ -79,7 +81,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
 
     console.log(`📦 Found ${systemTemplates.length} system templates`);
 
-    // Find our 6 schema-driven templates by code
+    // Find starter bundle templates by code
     const eventConfirmationTemplate = systemTemplates.find((t) =>
       t.customProperties?.code === "event-confirmation-v2"
     );
@@ -103,6 +105,15 @@ export const seedSystemDefaultTemplateSet = internalMutation({
     );
     const salesNotificationTemplate = systemTemplates.find((t) =>
       t.customProperties?.code === "email_sales_notification"
+    );
+    const eventLandingTemplate = systemTemplates.find((t) =>
+      (t.customProperties?.code === "event-landing" || t.customProperties?.code === "landing-page") &&
+      t.subtype === "page"
+    );
+    const checkoutSurfaceTemplate = systemTemplates.find((t) =>
+      (t.customProperties?.code === "behavior-driven-checkout" ||
+        t.customProperties?.code === "ticket-checkout") &&
+      t.subtype === "checkout"
     );
 
     // Verify we have the required templates
@@ -141,10 +152,20 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         "Sales Notification template not found. Run: npx convex run seedSalesNotificationTemplate:seedSalesNotificationTemplate"
       );
     }
+    if (!eventLandingTemplate) {
+      throw new Error(
+        "Event landing page template not found. Run: npx convex run seedTemplates:seedSystemTemplates"
+      );
+    }
+    if (!checkoutSurfaceTemplate) {
+      throw new Error(
+        "Checkout surface template not found. Run: npx convex run seedCheckoutTemplates:seedCheckoutTemplates"
+      );
+    }
 
-    console.log(`✅ Found all 7 schema-driven templates`);
+    console.log(`✅ Found all starter transacting templates`);
 
-    // Build clean template array with only schema-driven templates (v2.0)
+    // Build starter template array with transacting defaults (v2.0)
     const templatesList: Array<{
       templateId: string;
       templateType: string;
@@ -183,14 +204,14 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       {
         templateId: invoiceB2BPdfTemplate._id,
         templateType: "invoice",
-        isRequired: false,
+        isRequired: true,
         displayOrder: 5,
       },
-      // Ticket PDF - Optional (but critical for events)
+      // Ticket PDF - REQUIRED starter document
       {
         templateId: ticketPdfTemplate._id,
         templateType: "ticket",
-        isRequired: false,
+        isRequired: true,
         displayOrder: 6,
       },
       // Sales Notification Email - Optional (internal team notification)
@@ -200,9 +221,23 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         isRequired: false,
         displayOrder: 7,
       },
+      // Event Landing Page - REQUIRED starter web surface
+      {
+        templateId: eventLandingTemplate._id,
+        templateType: "web_event_page",
+        isRequired: true,
+        displayOrder: 8,
+      },
+      // Checkout Surface - REQUIRED starter checkout surface
+      {
+        templateId: checkoutSurfaceTemplate._id,
+        templateType: "checkout_surface",
+        isRequired: true,
+        displayOrder: 9,
+      },
     ];
 
-    console.log(`✅ Built template set with ${templatesList.length} schema-driven templates`);
+    console.log(`✅ Built starter transacting bundle with ${templatesList.length} templates`);
 
     // Build customProperties for v2.0 format (schema-driven only)
     const customProps = {
@@ -210,10 +245,13 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       templates: templatesList,
       isDefault: true,
       isSystemDefault: true,
-      tags: ["system", "default", "schema-driven", "v2.0", "ai-ready"],
+      tags: ["system", "default", "starter-transacting", "schema-driven", "v2.0", "ai-ready"],
       previewImageUrl: "",
       totalEmailTemplates: 5, // event, receipt, newsletter, invoice email, sales notification
       totalPdfTemplates: 2, // b2b invoice, ticket
+      totalPageTemplates: 1, // event landing page
+      totalCheckoutTemplates: 1, // behavior-driven checkout
+      starterBundleVersion: "starter-transacting-v1",
 
       // Core template IDs
       eventTemplateId: eventConfirmationTemplate._id,
@@ -223,6 +261,8 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       invoiceTemplateId: invoiceB2BPdfTemplate._id,
       ticketTemplateId: ticketPdfTemplate._id,
       salesNotificationTemplateId: salesNotificationTemplate._id,
+      eventPageTemplateId: eventLandingTemplate._id,
+      checkoutSurfaceTemplateId: checkoutSurfaceTemplate._id,
     };
 
     let setId: any;
@@ -232,7 +272,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
       // Update existing set
       await ctx.db.patch(existingSystemDefault._id, {
         name: "System Default Template Set (v2.0 - Schema-Driven)",
-        description: `Clean, schema-driven template system with 7 AI-ready templates (5 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, Sales Notification (internal), B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
+        description: `Starter transacting template system with 9 AI-ready defaults (5 email + 2 PDF + 1 web page + 1 checkout surface). Includes Event Confirmation, Transaction Receipt, Newsletter, Invoice Email, Sales Notification, B2B Invoice PDF, Ticket PDF, Event Landing Page, and Behavior-Driven Checkout. All templates use schema architecture for AI editing and first-run transaction readiness.`,
         status: "active",
         customProperties: customProps,
         updatedAt: Date.now(),
@@ -246,7 +286,7 @@ export const seedSystemDefaultTemplateSet = internalMutation({
         organizationId: systemOrg._id,
         type: "template_set",
         name: "System Default Template Set (v2.0 - Schema-Driven)",
-        description: `Clean, schema-driven template system with 7 AI-ready templates (5 email + 2 PDF). Includes Event Confirmation (required), Transaction Receipt, Newsletter, Invoice Email, Sales Notification (internal), B2B Invoice PDF, and Ticket PDF. All templates use schema architecture for AI editing and maximum flexibility. Supports 4+ languages (EN, DE, ES, FR). Ultimate fallback for all organizations.`,
+        description: `Starter transacting template system with 9 AI-ready defaults (5 email + 2 PDF + 1 web page + 1 checkout surface). Includes Event Confirmation, Transaction Receipt, Newsletter, Invoice Email, Sales Notification, B2B Invoice PDF, Ticket PDF, Event Landing Page, and Behavior-Driven Checkout. All templates use schema architecture for AI editing and first-run transaction readiness.`,
         status: "active",
         customProperties: customProps,
         createdBy: firstUser._id,
@@ -301,22 +341,26 @@ export const seedSystemDefaultTemplateSet = internalMutation({
     console.log(`      🔔 Sales Notification: ${salesNotificationTemplate.name}`);
     console.log(`      💰 B2B Invoice PDF: ${invoiceB2BPdfTemplate.name}`);
     console.log(`      🎫 Ticket PDF: ${ticketPdfTemplate.name}`);
+    console.log(`      🌐 Event Landing Page: ${eventLandingTemplate.name}`);
+    console.log(`      🛒 Checkout Surface: ${checkoutSurfaceTemplate.name}`);
 
     console.log("\n✅ System default template set seeding complete!");
     console.log("   All organizations will now fall back to this schema-driven set.");
-    console.log("   🚀 All 7 templates are AI-ready with full schema support!");
+    console.log("   🚀 All starter templates are AI-ready with full schema support!");
 
     return {
-      message: `System default template set ${action} successfully (Schema-Driven v2.0)`,
+      message: `System default template set ${action} successfully (Starter Transacting v2.0)`,
       setId,
       action,
       version: "2.0",
       templateCount: templatesList.length,
       breakdown: {
-        requiredTemplates: 1, // event confirmation
-        optionalTemplates: 6, // receipt, newsletter, invoice email, sales notification, invoice PDF, ticket PDF
+        requiredTemplates: 5, // event email, invoice PDF, ticket PDF, event page, checkout surface
+        optionalTemplates: 4, // receipt, newsletter, invoice email, sales notification
         emailTemplates: 5, // event, receipt, newsletter, invoice, sales notification
         pdfTemplates: 2, // invoice + ticket
+        pageTemplates: 1,
+        checkoutTemplates: 1,
         allSchemaDriven: true,
       },
     };

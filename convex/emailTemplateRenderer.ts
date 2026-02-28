@@ -2,8 +2,7 @@
  * EMAIL TEMPLATE RENDERER
  *
  * Backend service that resolves and renders email templates.
- * Follows the template resolution chain:
- * Ticket → Product → Event → Domain → Organization → System
+ * Uses canonical template-set resolution for transactional email.
  */
 
 import { action } from "./_generated/server";
@@ -17,6 +16,7 @@ interface TicketCustomProperties {
   emailTemplateId?: Id<"objects">;
   productId?: Id<"objects">;
   eventId?: Id<"objects">;
+  checkoutSessionId?: Id<"objects">;
   contactId?: Id<"objects">;
   attendeeFirstName?: string;
   attendeeLastName?: string;
@@ -25,16 +25,6 @@ interface TicketCustomProperties {
   holderEmail?: string;
   guestCount?: number;
   ticketNumber?: string;
-  [key: string]: unknown;
-}
-
-interface ProductCustomProperties {
-  emailTemplateId?: Id<"objects">;
-  [key: string]: unknown;
-}
-
-interface EventCustomProperties {
-  emailTemplateId?: Id<"objects">;
   [key: string]: unknown;
 }
 
@@ -61,15 +51,101 @@ interface DomainCustomProperties {
   [key: string]: unknown;
 }
 
-// Import email template registry (runtime import)
-// Note: In production, this would be a dynamic import or server-side rendering
-// For now, we'll use the template code and generate on the frontend, then call from backend
+type TemplateSetContext = {
+  productId?: Id<"objects">;
+  checkoutInstanceId?: Id<"objects">;
+  domainConfigId?: Id<"objects">;
+};
+
+type CanonicalEmailTemplateResolution = {
+  templateId: Id<"objects">;
+  templateCode: string;
+  templateName: string;
+  context: TemplateSetContext;
+};
+
+async function buildTemplateSetContext(
+  ctx: any,
+  ticketProps: TicketCustomProperties
+): Promise<TemplateSetContext> {
+  const context: TemplateSetContext = {
+    productId: ticketProps.productId,
+  };
+
+  const checkoutSessionId = ticketProps.checkoutSessionId;
+  if (!checkoutSessionId) {
+    return context;
+  }
+
+  const checkoutSession = await (ctx as any).runQuery(
+    generatedApi.internal.checkoutSessionOntology.getCheckoutSessionInternal,
+    { checkoutSessionId }
+  );
+
+  const checkoutProps = checkoutSession?.customProperties || {};
+  const checkoutInstanceId = checkoutProps.checkoutInstanceId as Id<"objects"> | undefined;
+  if (checkoutInstanceId) {
+    context.checkoutInstanceId = checkoutInstanceId;
+  }
+
+  const domainConfigId = checkoutProps.domainConfigId as Id<"objects"> | undefined;
+  if (domainConfigId) {
+    context.domainConfigId = domainConfigId;
+  }
+
+  if (!context.productId) {
+    const selectedProducts = checkoutProps.selectedProducts as Array<{ productId: string }> | undefined;
+    if (selectedProducts?.length) {
+      context.productId = selectedProducts[0].productId as Id<"objects">;
+    }
+  }
+
+  return context;
+}
+
+async function resolveCanonicalEmailTemplateCode(
+  ctx: any,
+  params: {
+    organizationId: Id<"organizations">;
+    ticketProps: TicketCustomProperties;
+  }
+): Promise<CanonicalEmailTemplateResolution> {
+  const context = await buildTemplateSetContext(ctx, params.ticketProps);
+  const templateId = await (ctx as any).runQuery(
+    generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal,
+    {
+      organizationId: params.organizationId,
+      templateCapability: "transactional_email",
+      context,
+    }
+  );
+
+  if (!templateId) {
+    throw new Error(
+      `No transactional email template found for organization ${params.organizationId}.`
+    );
+  }
+
+  const template = await (ctx as any).runQuery(
+    generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal,
+    {
+      templateId,
+      templateCapability: "transactional_email",
+    }
+  );
+
+  return {
+    templateId,
+    templateCode: template.templateCode,
+    templateName: template.name,
+    context,
+  };
+}
 
 /**
  * Resolve Email Template Code
  *
- * Walks the resolution chain to find which template to use.
- * Ticket → Product → Event → Domain → Organization → System
+ * Canonical path: template-set resolver (`transactional_email` capability).
  */
 export const resolveEmailTemplateCode = action({
   args: {
@@ -77,71 +153,32 @@ export const resolveEmailTemplateCode = action({
     ticketId: v.id("objects"),
   },
   handler: async (ctx, args): Promise<string> => {
-    // 1. Get ticket
     const ticket = await (ctx as any).runQuery(generatedApi.api.ticketOntology.getTicket, {
       sessionId: args.sessionId,
       ticketId: args.ticketId,
     });
 
-    // Check ticket-level template (for manual testing/overrides)
-    const ticketProps = ticket.customProperties as TicketCustomProperties | undefined;
-    if (ticketProps?.emailTemplateId) {
-      const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
-        templateId: ticketProps.emailTemplateId as Id<"objects">,
+    const ticketProps = (ticket?.customProperties || {}) as TicketCustomProperties;
+    try {
+      const canonicalResolution = await resolveCanonicalEmailTemplateCode(ctx, {
+        organizationId: ticket.organizationId,
+        ticketProps,
       });
-      if (template?.customProperties?.code) {
-        console.log(`✅ Using ticket-level email template: ${template.customProperties.code}`);
-        return template.customProperties.code;
-      }
+      console.log(
+        `✅ [Template Resolver] Using canonical transactional email template: ${canonicalResolution.templateName} (${canonicalResolution.templateCode})`
+      );
+      return canonicalResolution.templateCode;
+    } catch (error) {
+      console.warn(
+        `⚠️ [Template Resolver] Canonical transactional template resolution failed for ticket ${args.ticketId}.`,
+        error
+      );
     }
 
-    // 2. Check product-level template
-    const productId = ticketProps?.productId;
-    if (productId) {
-      const product = await (ctx as any).runQuery(generatedApi.api.productOntology.getProduct, {
-        sessionId: args.sessionId,
-        productId: productId as Id<"objects">,
-      });
-
-      const productProps = product.customProperties as ProductCustomProperties | undefined;
-      if (productProps?.emailTemplateId) {
-        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
-          templateId: productProps.emailTemplateId as Id<"objects">,
-        });
-        if (template?.customProperties?.code) {
-          console.log(`✅ Using product-level email template: ${template.customProperties.code}`);
-          return template.customProperties.code;
-        }
-      }
-    }
-
-    // 3. Check event-level template
-    const eventId = ticketProps?.eventId;
-    if (eventId) {
-      const event = await (ctx as any).runQuery(generatedApi.api.eventOntology.getEvent, {
-        sessionId: args.sessionId,
-        eventId: eventId as Id<"objects">,
-      });
-
-      const eventProps = event.customProperties as EventCustomProperties | undefined;
-      if (eventProps?.emailTemplateId) {
-        const template = await (ctx as any).runQuery(generatedApi.api.templateOntology.getEmailTemplateById, {
-          templateId: eventProps.emailTemplateId as Id<"objects">,
-        });
-        if (template?.customProperties?.code) {
-          console.log(`✅ Using event-level email template: ${template.customProperties.code}`);
-          return template.customProperties.code;
-        }
-      }
-    }
-
-    // 4. Check domain-level template (from domain config)
-    // For now, default to modern-minimal
-    // TODO: Add domain config template resolution
-
-    // 5. Default fallback
-    console.log(`✅ Using fallback email template: modern-minimal`);
-    return "modern-minimal";
+    console.warn(
+      `⚠️ [Template Resolver] Falling back to system transactional email template (event-confirmation-v2).`
+    );
+    return "event-confirmation-v2";
   },
 });
 
@@ -170,7 +207,7 @@ export const getEmailTemplateData = action({
     event: {
       _id: Id<"objects">;
       name: string;
-      customProperties?: EventCustomProperties;
+      customProperties?: Record<string, unknown>;
     };
     attendee: {
       firstName: string;

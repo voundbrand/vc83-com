@@ -148,7 +148,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-2xl mx-auto p-6" data-testid="bdc-step-customer-info">
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
@@ -177,6 +177,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
             className={`w-full px-4 py-3 border-2 rounded focus:border-purple-500 focus:outline-none text-lg ${
               errors.email ? "border-red-500" : "border-gray-300"
             }`}
+            data-testid="bdc-customer-email"
           />
           {errors.email && (
             <p className="text-sm text-red-600 mt-1">{errors.email}</p>
@@ -204,6 +205,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
             className={`w-full px-4 py-3 border-2 rounded focus:border-purple-500 focus:outline-none text-lg ${
               errors.name ? "border-red-500" : "border-gray-300"
             }`}
+            data-testid="bdc-customer-name"
           />
           {errors.name && (
             <p className="text-sm text-red-600 mt-1">{errors.name}</p>
@@ -222,6 +224,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
             onChange={(e) => setPhone(e.target.value)}
             placeholder={t("ui.checkout_template.behavior_driven.customer_info.fields.phone.placeholder")}
             className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none text-lg"
+            data-testid="bdc-customer-phone"
           />
         </div>
 
@@ -240,6 +243,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
                 checked={transactionType === "B2C"}
                 onChange={(e) => setTransactionType(e.target.value as "B2C")}
                 className="w-4 h-4 text-purple-600 cursor-pointer"
+                data-testid="bdc-customer-transaction-b2c"
               />
               <span className="text-base">{t("ui.checkout_template.behavior_driven.customer_info.fields.purchase_type.b2c")}</span>
             </label>
@@ -251,6 +255,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
                 checked={transactionType === "B2B"}
                 onChange={(e) => setTransactionType(e.target.value as "B2B")}
                 className="w-4 h-4 text-purple-600 cursor-pointer"
+                data-testid="bdc-customer-transaction-b2b"
               />
               <span className="text-base">{t("ui.checkout_template.behavior_driven.customer_info.fields.purchase_type.b2b")}</span>
             </label>
@@ -465,6 +470,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
               type="button"
               onClick={onBack}
               className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2"
+              data-testid="bdc-customer-back"
             >
               <ArrowLeft size={20} />
               {t("ui.checkout_template.behavior_driven.customer_info.buttons.back")}
@@ -475,6 +481,7 @@ export function CustomerInfoStep({ checkoutData, onComplete, onBack }: StepProps
             type="submit"
             disabled={!isValid()}
             className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+            data-testid="bdc-customer-continue"
           >
             {t("ui.checkout_template.behavior_driven.customer_info.buttons.continue")}
           </button>

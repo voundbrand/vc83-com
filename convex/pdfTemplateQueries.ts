@@ -10,6 +10,60 @@ import { v } from "convex/values";
 import { resolvePdfTemplate } from "./pdfTemplateResolver";
 import { resolveEmailTemplateWithFallback } from "./emailTemplateResolver";
 
+type EmailTemplateFallbackCategory =
+  | "luxury"
+  | "minimal"
+  | "internal"
+  | "transactional"
+  | "marketing"
+  | "event"
+  | "support"
+  | "newsletter";
+
+const emailTemplateFallbackCategoryValidator = v.union(
+  v.literal("luxury"),
+  v.literal("minimal"),
+  v.literal("internal"),
+  v.literal("transactional"),
+  v.literal("marketing"),
+  v.literal("event"),
+  v.literal("support"),
+  v.literal("newsletter")
+);
+
+const emailTemplateCapabilityValidator = v.union(
+  v.literal("transactional_email")
+);
+
+function resolveEmailFallbackCategory(args: {
+  fallbackCategory?: EmailTemplateFallbackCategory;
+  templateCapability?: "transactional_email";
+}): EmailTemplateFallbackCategory {
+  if (args.fallbackCategory) {
+    return args.fallbackCategory;
+  }
+  if (args.templateCapability === "transactional_email") {
+    return "transactional";
+  }
+  return "transactional";
+}
+
+const COMPATIBILITY_ARCHIVED_EMAIL_CATEGORIES = new Set([
+  "marketing",
+  "support",
+  "newsletter",
+]);
+
+function isCompatibilityArchivedEmailTemplate(props: Record<string, unknown>): boolean {
+  const catalogPolicy = props.catalogPolicy;
+  if (catalogPolicy === "compatibility") {
+    return true;
+  }
+
+  const category = props.category;
+  return typeof category === "string" && COMPATIBILITY_ARCHIVED_EMAIL_CATEGORIES.has(category);
+}
+
 /**
  * Get Available PDF Templates by Category
  *
@@ -312,6 +366,79 @@ export const resolvePdfTemplateInternal = internalQuery({
 });
 
 /**
+ * Resolve PDF Template by Template Code (Internal)
+ *
+ * Internal query for actions that resolve by templateCode rather than template ID.
+ * Resolution order:
+ * 1. Organization template (if organizationId provided)
+ * 2. System template fallback
+ */
+export const resolvePdfTemplateByCodeInternal = internalQuery({
+  args: {
+    templateCode: v.string(),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    const systemOrg = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", "system"))
+      .first();
+
+    if (!systemOrg) {
+      return null;
+    }
+
+    const orgLookupOrder = [
+      ...(args.organizationId && String(args.organizationId) !== String(systemOrg._id)
+        ? [args.organizationId]
+        : []),
+      systemOrg._id,
+    ];
+
+    for (const organizationId of orgLookupOrder) {
+      const templates = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", organizationId).eq("type", "template")
+        )
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("subtype"), "pdf"),
+            q.eq(q.field("subtype"), "invoice"),
+            q.eq(q.field("subtype"), "ticket"),
+            q.eq(q.field("subtype"), "certificate"),
+            q.eq(q.field("subtype"), "receipt"),
+            q.eq(q.field("subtype"), "badge"),
+            q.eq(q.field("subtype"), "leadmagnet"),
+            q.eq(q.field("subtype"), "quote"),
+            q.eq(q.field("subtype"), "eventdoc")
+          )
+        )
+        .filter((q) => q.eq(q.field("status"), "published"))
+        .collect();
+
+      const match = templates.find((template) =>
+        template.customProperties?.templateCode === args.templateCode
+      );
+
+      if (match) {
+        const props = match.customProperties || {};
+        return {
+          _id: match._id,
+          name: match.name,
+          templateCode: props.templateCode as string,
+          category: props.category as string | undefined,
+          version: (props.version as string) || "1.0",
+          isSystemTemplate: String(match.organizationId) === String(systemOrg._id),
+        };
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
  * Get Available Email Templates by Category
  *
  * Returns all published email templates for a specific category.
@@ -330,6 +457,7 @@ export const getEmailTemplatesByCategory = query({
       v.literal("newsletter")
     ),
     organizationId: v.optional(v.id("organizations")),
+    includeCompatibilityArchived: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Get system organization
@@ -352,10 +480,16 @@ export const getEmailTemplatesByCategory = query({
       .filter((q) => q.eq(q.field("status"), "published"))
       .collect();
 
+    const includeCompatibilityArchived = args.includeCompatibilityArchived === true;
+
     // Filter by category
     const filteredSystemTemplates = systemTemplates.filter((t) => {
       const props = t.customProperties || {};
-      return props.category === args.category;
+      if (props.category !== args.category) {
+        return false;
+      }
+
+      return includeCompatibilityArchived || !isCompatibilityArchivedEmailTemplate(props);
     });
 
     // Get org-specific templates if organization provided
@@ -372,7 +506,11 @@ export const getEmailTemplatesByCategory = query({
 
       orgTemplates = allOrgTemplates.filter((t) => {
         const props = t.customProperties || {};
-        return props.category === args.category;
+        if (props.category !== args.category) {
+          return false;
+        }
+
+        return includeCompatibilityArchived || !isCompatibilityArchivedEmailTemplate(props);
       });
     }
 
@@ -406,6 +544,7 @@ export const getEmailTemplatesByCategory = query({
 export const getAllEmailTemplates = query({
   args: {
     organizationId: v.optional(v.id("organizations")),
+    includeCompatibilityArchived: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Get system organization
@@ -441,8 +580,13 @@ export const getAllEmailTemplates = query({
         .collect();
     }
 
+    const includeCompatibilityArchived = args.includeCompatibilityArchived === true;
+
     // Combine and format results
-    const allTemplates = [...systemTemplates, ...orgTemplates];
+    const allTemplates = [...systemTemplates, ...orgTemplates].filter((t) => {
+      const props = (t.customProperties || {}) as Record<string, unknown>;
+      return includeCompatibilityArchived || !isCompatibilityArchivedEmailTemplate(props);
+    });
 
     return allTemplates.map((t) => {
       const props = t.customProperties || {};
@@ -505,22 +649,15 @@ export const getEmailTemplateByCode = query({
 export const resolveEmailTemplateInternal = internalQuery({
   args: {
     templateId: v.optional(v.id("objects")),
-    fallbackCategory: v.union(
-      v.literal("luxury"),
-      v.literal("minimal"),
-      v.literal("internal"),
-      v.literal("transactional"),
-      v.literal("marketing"),
-      v.literal("event"),
-      v.literal("support"),
-      v.literal("newsletter")
-    ),
+    fallbackCategory: v.optional(emailTemplateFallbackCategoryValidator), // legacy resolver hint
+    templateCapability: v.optional(emailTemplateCapabilityValidator), // canonical resolver hint
   },
   handler: async (ctx, args) => {
+    const fallbackCategory = resolveEmailFallbackCategory(args);
     const resolved = await resolveEmailTemplateWithFallback(
       ctx,
       args.templateId,
-      args.fallbackCategory
+      fallbackCategory
     );
     return resolved;
   },

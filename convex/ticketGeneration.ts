@@ -100,6 +100,32 @@ import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 const generatedApi: any = require("./_generated/api");
 import type { Id, Doc } from "./_generated/dataModel";
+import { getEmailTemplate } from "../src/templates/emails/registry";
+import type { EmailLanguage, EmailTemplateProps } from "../src/templates/emails/types";
+
+async function logTemplateResolutionCheckpoint(
+  ctx: any,
+  payload: {
+    organizationId: Id<"organizations">;
+    resolverSource: "template_set" | "direct_override" | "fallback";
+    templateCapability: "document_invoice" | "document_ticket" | "transactional_email" | "web_event_page" | "checkout_surface";
+    surface: string;
+    templateId?: Id<"objects">;
+    templateCode?: string;
+    checkoutSessionId?: Id<"objects">;
+    ticketId?: Id<"objects">;
+    context?: Record<string, unknown>;
+  }
+) {
+  try {
+    await ctx.runMutation(
+      (generatedApi as any).internal.templateResolutionTelemetry.logTemplateResolutionCheckpoint,
+      payload
+    );
+  } catch (error) {
+    console.warn("⚠️ [Template Telemetry] Failed to record ticket generation checkpoint:", error);
+  }
+}
 
 /**
  * GENERATE TICKET QR CODE
@@ -536,7 +562,6 @@ export const sendOrderConfirmationEmail = internalAction({
         hasSponsors: !!eventSponsors,
         sponsorCount: eventSponsors?.length || 0,
       });
-      const orderNumber = session._id.substring(0, 12);
       const ticketCount = allTickets.length;
 
       // 🔥 CRITICAL: Get totals from TRANSACTIONS (accurate pricing with tax)
@@ -612,50 +637,11 @@ export const sendOrderConfirmationEmail = internalAction({
 
       // 4.5. GET EMAIL LANGUAGE from checkout instance
       const defaultLanguage = checkoutInstance?.customProperties?.defaultLanguage as string | undefined;
-      const emailLanguage = defaultLanguage ? defaultLanguage.toLowerCase().split("-")[0] : "en";
+      const normalizedLanguage = defaultLanguage ? defaultLanguage.toLowerCase().split("-")[0] : "en";
+      const emailLanguage: EmailLanguage = (["de", "en", "es", "fr"].includes(normalizedLanguage)
+        ? normalizedLanguage
+        : "en") as EmailLanguage;
       console.log(`📧 Using email language from checkout instance: ${emailLanguage}`);
-
-      // 4.6. FETCH EMAIL TRANSLATIONS from database
-      const { getBackendTranslations } = await import("./helpers/backendTranslationHelper");
-      const emailTranslationKeys = [
-        "email.order.subject",
-        "email.order.header",
-        "email.order.greeting",
-        "email.order.confirmed",
-        "email.order.eventName",
-        "email.order.presentedBy",
-        "email.order.ticketCount",
-        "email.order.date",
-        "email.order.location",
-        "email.order.orderNumber",
-        "email.order.orderDate",
-        "email.order.documentsHeader",
-        "email.order.documentsBody",
-        "email.order.supportText",
-        "email.order.copyright",
-      ];
-
-      const emailTranslationsRaw = await getBackendTranslations(ctx, emailLanguage, emailTranslationKeys);
-
-      // Build translations object for email renderer
-      const emailTranslations = {
-        header: emailTranslationsRaw["email.order.header"],
-        greeting: emailTranslationsRaw["email.order.greeting"],
-        confirmed: emailTranslationsRaw["email.order.confirmed"],
-        eventName: emailTranslationsRaw["email.order.eventName"],
-        presentedBy: emailTranslationsRaw["email.order.presentedBy"],
-        ticketCount: emailTranslationsRaw["email.order.ticketCount"],
-        date: emailTranslationsRaw["email.order.date"],
-        location: emailTranslationsRaw["email.order.location"],
-        orderNumber: emailTranslationsRaw["email.order.orderNumber"],
-        orderDate: emailTranslationsRaw["email.order.orderDate"],
-        documentsHeader: emailTranslationsRaw["email.order.documentsHeader"],
-        documentsBody: emailTranslationsRaw["email.order.documentsBody"],
-        supportText: emailTranslationsRaw["email.order.supportText"],
-        copyright: emailTranslationsRaw["email.order.copyright"],
-      };
-
-      const subjectTemplate = emailTranslationsRaw["email.order.subject"];
 
       // 5. RESOLVE EMAIL TEMPLATE FROM TEMPLATE SET (New unified resolver)
       // Uses Template Set system with 3-level precedence:
@@ -679,7 +665,8 @@ export const sendOrderConfirmationEmail = internalAction({
       // Resolve email template using new Template Set resolver
       const emailTemplateId = await (ctx as any).runQuery(generatedApi.internal.templateSetQueries.resolveIndividualTemplateInternal, {
         organizationId: session.organizationId,
-        templateType: "email",
+        templateType: "event",
+        templateCapability: "transactional_email",
         context: emailTemplateContext,
       });
 
@@ -695,11 +682,26 @@ export const sendOrderConfirmationEmail = internalAction({
       // Get template details (templateCode, etc.)
       const emailTemplate = await (ctx as any).runQuery(generatedApi.internal.pdfTemplateQueries.resolveEmailTemplateInternal, {
         templateId: emailTemplateId,
-        fallbackCategory: "luxury",
+        templateCapability: "transactional_email",
       });
 
       const templateCode = emailTemplate.templateCode;
       console.log("📧 [Email Template Resolution] Using template code:", templateCode, "from template:", emailTemplate.name);
+
+      await logTemplateResolutionCheckpoint(ctx, {
+        organizationId: session.organizationId,
+        resolverSource: "template_set",
+        templateCapability: "transactional_email",
+        surface: "ticket_generation.sendOrderConfirmationEmail",
+        templateId: emailTemplateId,
+        templateCode,
+        checkoutSessionId: args.checkoutSessionId,
+        ticketId: allTickets[0]?._id,
+        context: {
+          checkoutInstanceId: emailTemplateContext.checkoutInstanceId,
+          domainConfigId: emailTemplateContext.domainConfigId,
+        },
+      });
 
       // 5.5. GET ORGANIZATION BRANDING for email styling
       // Resolution: Organization branding settings → Domain config override → Defaults
@@ -738,34 +740,56 @@ export const sendOrderConfirmationEmail = internalAction({
 
       console.log("🎨 [Email Branding] Using:", { primaryColor: brandPrimaryColor, hasLogo: !!brandLogoUrl, organizationName });
 
-      // 6. Generate email HTML using template-driven renderer with translations
-      const { generateOrderConfirmationHtml, generateOrderConfirmationSubject } = await import("./helpers/orderEmailRenderer");
-
-      // Use transaction branding if available, otherwise fall back to org/domain branding
+      // 6. Generate email HTML from resolved template metadata.
       const finalPrimaryColor = transactionBranding?.primaryColor || brandPrimaryColor;
       const finalLogoUrl = transactionBranding?.logoUrl || brandLogoUrl;
+      const [recipientFirstName, ...recipientLastNameParts] = args.recipientName.trim().split(/\s+/);
 
-      const emailHtml = generateOrderConfirmationHtml(
-        {
-          recipientName: args.recipientName,
-          eventName,
-          eventSponsors,
-          eventLocation,
-          eventFormattedAddress,
-          eventGoogleMapsUrl,
-          eventAppleMapsUrl,
-          formattedDate,
-          ticketCount,
-          orderNumber,
-          orderDate: new Date(session.createdAt).toLocaleDateString(),
-          primaryColor: finalPrimaryColor,
-          logoUrl: finalLogoUrl,
-          organizationName,
+      const templateProps: EmailTemplateProps = {
+        ticket: {
+          _id: allTickets[0]?._id ?? args.checkoutSessionId,
+          name: firstProduct?.name || "Ticket",
+          status: allTickets[0]?.status || "active",
+          customProperties: {
+            guestCount: Math.max(ticketCount - 1, 0),
+          },
         },
-        emailTranslations // ✅ Pass translations from database
-      );
+        event: {
+          _id: firstProduct?._id ?? args.checkoutSessionId,
+          name: eventName,
+          customProperties: {
+            startDate: eventDate ? new Date(eventDate).toLocaleDateString() : formattedDate,
+            startTime: eventDate
+              ? new Date(eventDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : undefined,
+            location: eventFormattedAddress || eventLocation || "TBD",
+            eventSponsors,
+          },
+        },
+        attendee: {
+          firstName: recipientFirstName || "Guest",
+          lastName: recipientLastNameParts.join(" "),
+          email: args.recipientEmail,
+          guestCount: Math.max(ticketCount - 1, 0),
+        },
+        domain: {
+          domainName: organizationName,
+          displayName: organizationName,
+          siteUrl: eventGoogleMapsUrl || eventAppleMapsUrl || "https://l4yercak3.com",
+          mapsUrl: eventGoogleMapsUrl || eventAppleMapsUrl,
+        },
+        branding: {
+          primaryColor: finalPrimaryColor,
+          secondaryColor: "#553C9A",
+          logoUrl: finalLogoUrl,
+        },
+        language: emailLanguage,
+      };
 
-      const emailSubject = generateOrderConfirmationSubject(eventName, subjectTemplate); // ✅ Pass subject template
+      const templateRenderer = getEmailTemplate(templateCode);
+      const renderedTemplate = templateRenderer(templateProps);
+      const emailHtml = renderedTemplate.html;
+      const emailSubject = renderedTemplate.subject;
 
       console.log("📧 [sendOrderConfirmationEmail] Generated email:", {
         subject: emailSubject,

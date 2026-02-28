@@ -403,6 +403,7 @@ export function RegistrationFormStep({
    */
   const renderField = (field: FormField, ticketNum: number) => {
     const value = responses[ticketNum]?.[field.id] || "";
+    const fieldTestId = `bdc-registration-ticket-${ticketNum}-field-${field.id}`;
 
     return (
       <div key={field.id} className="mb-4">
@@ -422,6 +423,7 @@ export function RegistrationFormStep({
             placeholder={field.placeholder}
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           />
         )}
 
@@ -434,6 +436,7 @@ export function RegistrationFormStep({
             placeholder={field.placeholder}
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           />
         )}
 
@@ -446,6 +449,7 @@ export function RegistrationFormStep({
             placeholder={field.placeholder}
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           />
         )}
 
@@ -457,6 +461,7 @@ export function RegistrationFormStep({
             onChange={(e) => updateResponse(ticketNum, field.id, e.target.value)}
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           />
         )}
 
@@ -469,6 +474,7 @@ export function RegistrationFormStep({
             required={field.required}
             rows={4}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           />
         )}
 
@@ -479,6 +485,7 @@ export function RegistrationFormStep({
             onChange={(e) => updateResponse(ticketNum, field.id, e.target.value)}
             required={field.required}
             className="w-full px-4 py-2 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none"
+            data-testid={fieldTestId}
           >
             <option value="">{t("ui.checkout_template.behavior_driven.registration_form.controls.select_placeholder")}</option>
             {field.options.map((option) => (
@@ -502,6 +509,7 @@ export function RegistrationFormStep({
                   onChange={(e) => updateResponse(ticketNum, field.id, e.target.value)}
                   required={field.required}
                   className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                  data-testid={`${fieldTestId}-${option.value}`}
                 />
                 <span className="text-sm">{option.label}</span>
               </label>
@@ -531,6 +539,7 @@ export function RegistrationFormStep({
                     }
                   }}
                   className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
+                  data-testid={`${fieldTestId}-${option.value}`}
                 />
                 <span className="text-sm">{option.label}</span>
               </label>
@@ -547,6 +556,7 @@ export function RegistrationFormStep({
               onChange={(e) => updateResponse(ticketNum, field.id, e.target.checked)}
               required={field.required}
               className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded"
+              data-testid={fieldTestId}
             />
             <span className="text-sm">{field.placeholder}</span>
           </label>
@@ -556,7 +566,7 @@ export function RegistrationFormStep({
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-testid="bdc-step-registration-form">
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
@@ -607,6 +617,7 @@ export function RegistrationFormStep({
                       placeholder={t("ui.checkout_template.behavior_driven.registration_form.fields.first_name.placeholder") || "First name"}
                       required
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none text-lg"
+                      data-testid={`bdc-registration-ticket-${ticketNum}-first-name`}
                     />
                   </div>
                   <div>
@@ -621,6 +632,7 @@ export function RegistrationFormStep({
                       placeholder={t("ui.checkout_template.behavior_driven.registration_form.fields.last_name.placeholder") || "Last name"}
                       required
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-purple-500 focus:outline-none text-lg"
+                      data-testid={`bdc-registration-ticket-${ticketNum}-last-name`}
                     />
                   </div>
                 </div>
@@ -669,6 +681,7 @@ export function RegistrationFormStep({
               type="button"
               onClick={onBack}
               className="px-6 py-3 text-lg font-bold border-2 border-gray-400 bg-white text-gray-700 hover:bg-gray-50 rounded transition-colors flex items-center gap-2"
+              data-testid="bdc-registration-back"
             >
               <ArrowLeft size={20} />
               {t("ui.checkout_template.behavior_driven.registration_form.buttons.back")}
@@ -678,6 +691,7 @@ export function RegistrationFormStep({
           <button
             type="submit"
             className="flex-1 px-6 py-3 text-lg font-bold border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 rounded transition-colors"
+            data-testid="bdc-registration-continue"
           >
             {t("ui.checkout_template.behavior_driven.buttons.next")}
           </button>
