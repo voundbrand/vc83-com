@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- sevenlayers.launchagent.managed.v1 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.vc83.sevenlayers.macos.companion</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/SevenLayers.app/Contents/MacOS/SevenLayers</string>
+    <string>--background-reconnect</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+    <key>NetworkState</key>
+    <true/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>15</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LimitLoadToSessionType</key>
+  <array>
+    <string>Aqua</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SEVENLAYERS_BACKGROUND_RECONNECT</key>
+    <string>1</string>
+  </dict>
+</dict>
+</plist>

@@ -1,0 +1,10 @@
+{
+  "schema": "vc83_macos_release_dmg_contract_v1",
+  "mode": "report",
+  "status": "ok",
+  "appBundlePath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/dist/SevenLayers.app",
+  "dmgPath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/dist/release/SevenLayers-0.1.0.dmg",
+  "dmgGenerated": false,
+  "missingRequirements": [],
+  "notes": "Strict mode creates DMG; report mode validates contract without writing DMG."
+}

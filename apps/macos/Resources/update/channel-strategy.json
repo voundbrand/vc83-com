@@ -1,0 +1,38 @@
+{
+  "schema": "vc83_macos_update_channel_strategy_v1",
+  "defaultChannel": "stable",
+  "stagedRollout": {
+    "enabled": true,
+    "promotionOrder": [
+      "internal",
+      "canary",
+      "stable"
+    ],
+    "minObservationHours": 24,
+    "requiresRollbackPlan": true
+  },
+  "channels": [
+    {
+      "id": "internal",
+      "rolloutPercent": 100,
+      "autoUpdateEnabled": true,
+      "rollbackChannel": "internal",
+      "audience": "operator_team"
+    },
+    {
+      "id": "canary",
+      "rolloutPercent": 20,
+      "autoUpdateEnabled": true,
+      "rollbackChannel": "internal",
+      "audience": "early_access"
+    },
+    {
+      "id": "stable",
+      "rolloutPercent": 5,
+      "autoUpdateEnabled": true,
+      "rollbackChannel": "canary",
+      "audience": "general"
+    }
+  ],
+  "notes": "Default channel remains conservative: stable starts at 5 percent unless explicitly widened."
+}

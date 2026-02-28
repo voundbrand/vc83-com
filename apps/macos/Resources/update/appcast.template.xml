@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"
+     xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>SevenLayers Mac (__CHANNEL__)</title>
+    <link>https://example.invalid/sevenlayers/macos/__CHANNEL__/appcast.xml</link>
+    <description>SevenLayers macOS staged update channel: __CHANNEL__</description>
+    <language>en</language>
+    <item>
+      <title>SevenLayers Mac __VERSION__</title>
+      <pubDate>__PUB_DATE_RFC2822__</pubDate>
+      <enclosure
+        url="__ZIP_URL__"
+        sparkle:version="__BUILD_NUMBER__"
+        sparkle:shortVersionString="__VERSION__"
+        sparkle:edSignature="__SPARKLE_ED_SIGNATURE__"
+        length="0"
+        type="application/octet-stream" />
+      <sparkle:minimumSystemVersion>__MIN_OS_VERSION__</sparkle:minimumSystemVersion>
+      <sparkle:channel>__CHANNEL__</sparkle:channel>
+      <sparkle:phasedRolloutInterval>__ROLLOUT_INTERVAL_SECONDS__</sparkle:phasedRolloutInterval>
+      <sparkle:releaseNotesLink>__RELEASE_NOTES_URL__</sparkle:releaseNotesLink>
+      <description>Rollout percent: __ROLLOUT_PERCENT__</description>
+    </item>
+  </channel>
+</rss>

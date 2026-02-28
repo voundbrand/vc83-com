@@ -1,0 +1,19 @@
+{
+  "schema": "vc83_macos_release_update_contract_v1",
+  "mode": "report",
+  "status": "blocked",
+  "version": "0.1.0",
+  "buildNumber": "1771518584",
+  "channel": "stable",
+  "rolloutPercent": 5,
+  "rolloutIntervalSeconds": 43200,
+  "rollbackChannel": "canary",
+  "zipArtifactPath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/dist/release/SevenLayers-0.1.0.zip",
+  "zipArtifactUrl": "https://example.invalid/sevenlayers/macos/stable/SevenLayers-0.1.0.zip",
+  "appcastPath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/dist/release/updates/stable/appcast.xml",
+  "appcastUrl": "https://example.invalid/sevenlayers/macos/stable/appcast.xml",
+  "releaseNotesUrl": "https://example.invalid/sevenlayers/releases/0.1.0.html",
+  "channelStrategyPath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/Resources/update/channel-strategy.json",
+  "rollbackPolicyPath": "/Users/foundbrand_001/Development/vc83-com/apps/macos/Resources/update/rollback-policy.json",
+  "missingRequirements": ["download_url_prefix:invalid_public_https", "release_notes_url_base:invalid_public_https"]
+}

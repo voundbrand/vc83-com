@@ -1,0 +1,22 @@
+{
+  "schema": "vc83_macos_update_rollback_policy_v1",
+  "automaticHoldTriggers": [
+    "update_install_failure_rate_gt_2_percent",
+    "launch_crash_rate_gt_1_percent",
+    "critical_trust_event_regression",
+    "signing_or_notarization_mismatch"
+  ],
+  "requiredRollbackActions": [
+    "freeze_current_channel_promotion",
+    "pin_feed_to_previous_good_build",
+    "publish_failure_reason_with_correlation_id",
+    "retain_prior_appcast_entries_for_rollback_window"
+  ],
+  "rollbackWindowHours": 72,
+  "fallbackChannel": "canary",
+  "shipGate": {
+    "requiresHumanApproval": true,
+    "requiresFreshEvidenceWindowHours": 24
+  },
+  "notes": "Rollback policy is fail-closed: no rollout widening without explicit release approval and telemetry evidence."
+}
