@@ -9,6 +9,8 @@
  */
 
 import type { AITool, ToolExecutionContext } from "./registry";
+import { transcribeMediaAudio } from "./shared/transcribeMediaAudio";
+import { saveTranscriptToUserFiles } from "./shared/saveTranscriptToUserFiles";
 
 // ============================================================================
 // AUDIO TRANSCRIPTION
@@ -36,70 +38,86 @@ Returns the transcribed text and detected language.`,
         type: "string",
         description: "Expected language (ISO 639-1 code, e.g., 'en', 'de', 'es'). Optional — auto-detected if omitted.",
       },
+      saveToUserFiles: {
+        type: "boolean",
+        description: "When true, save transcript into the user's files as a markdown note.",
+      },
+      saveParentPath: {
+        type: "string",
+        description: "Optional destination folder path in user files (default '/').",
+      },
+      saveFileName: {
+        type: "string",
+        description: "Optional transcript filename (e.g., 'call-transcript.md').",
+      },
     },
     required: ["audioUrl"],
   },
-  execute: async (_ctx: ToolExecutionContext, args: Record<string, string>) => {
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) {
-      return { error: "Audio transcription not configured (no OpenAI API key). Tell the user you can't process audio yet." };
-    }
-
+  execute: async (
+    ctx: ToolExecutionContext,
+    args: Record<string, string | boolean | undefined>
+  ) => {
     try {
-      // 1. Download the audio file
-      const audioResponse = await fetch(args.audioUrl);
-      if (!audioResponse.ok) {
-        return { error: `Failed to download audio: ${audioResponse.status}` };
-      }
-
-      const audioBuffer = await audioResponse.arrayBuffer();
-      const contentType = audioResponse.headers.get("content-type") || "audio/ogg";
-
-      // Determine file extension from content type
-      const extMap: Record<string, string> = {
-        "audio/ogg": "ogg",
-        "audio/opus": "ogg",
-        "audio/mpeg": "mp3",
-        "audio/mp3": "mp3",
-        "audio/wav": "wav",
-        "audio/x-wav": "wav",
-        "audio/mp4": "m4a",
-        "audio/m4a": "m4a",
-        "audio/webm": "webm",
-      };
-      const ext = extMap[contentType] || "ogg";
-
-      // 2. Call OpenAI Whisper API
-      const formData = new FormData();
-      formData.append("file", new Blob([audioBuffer], { type: contentType }), `audio.${ext}`);
-      formData.append("model", "whisper-1");
-      if (args.language) {
-        formData.append("language", args.language);
-      }
-      formData.append("response_format", "verbose_json");
-
-      const transcriptionResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiKey}`,
-        },
-        body: formData,
+      const transcription = await transcribeMediaAudio({
+        audioUrl: String(args.audioUrl || ""),
+        language: typeof args.language === "string" ? args.language : undefined,
+        timestamps: "segment",
+        filenameBase: "audio",
       });
 
-      if (!transcriptionResponse.ok) {
-        const errorText = await transcriptionResponse.text();
-        return { error: `Transcription failed: ${errorText}` };
+      if (!transcription.success) {
+        return {
+          success: false,
+          error: transcription.code,
+          message: transcription.userMessage,
+          details: transcription.message,
+        };
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await transcriptionResponse.json() as any;
+      let transcriptFile:
+        | {
+            saved: boolean;
+            fileId?: string;
+            path?: string;
+            name?: string;
+            error?: string;
+          }
+        | undefined;
+      if (args.saveToUserFiles === true) {
+        const fileSave = await saveTranscriptToUserFiles(ctx, {
+          transcript: transcription.text,
+          source: "audio",
+          language: transcription.detectedLanguage || null,
+          parentPath:
+            typeof args.saveParentPath === "string" ? args.saveParentPath : undefined,
+          fileName:
+            typeof args.saveFileName === "string" ? args.saveFileName : undefined,
+          metadata: {
+            model: transcription.model,
+            audioContentType: transcription.audioContentType,
+            audioBytes: transcription.audioBytes,
+          },
+        });
+
+        transcriptFile = {
+          saved: fileSave.saved,
+          fileId: fileSave.fileId,
+          path: fileSave.path,
+          name: fileSave.name,
+          error: fileSave.error,
+        };
+      }
 
       return {
         success: true,
-        text: result.text,
-        language: result.language,
-        duration: result.duration,
-        segments: result.segments?.length || 0,
+        text: transcription.text,
+        language: transcription.detectedLanguage,
+        duration: transcription.durationSeconds,
+        segments: transcription.segments.length,
+        audioBytes: transcription.audioBytes,
+        audioContentType: transcription.audioContentType,
+        model: transcription.model,
+        transcriptFile,
       };
     } catch (error: unknown) {
       return { error: `Transcription error: ${error instanceof Error ? error.message : String(error)}` };
