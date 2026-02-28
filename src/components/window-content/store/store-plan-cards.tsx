@@ -17,6 +17,7 @@ import {
   Gift,
 } from "lucide-react";
 import { useState } from "react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 const TIER_ORDER: Record<string, number> = {
   free: 0,
@@ -47,78 +48,93 @@ interface Plan {
   isEnterprise?: boolean;
 }
 
-const PLANS: Plan[] = [
+type TranslateWithFallback = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
+
+const buildPlans = (tx: TranslateWithFallback, trialEligible: boolean): Plan[] => [
   {
     id: "free",
-    name: "Free",
+    name: tx("ui.store.plan_cards.plans.free.name", "Free"),
     monthlyPrice: 0,
     annualPrice: 0,
-    description: "Perfect for getting started",
+    description: tx("ui.store.plan_cards.plans.free.description", "Perfect for getting started"),
     icon: <Gift className="w-5 h-5" />,
     features: [
-      "1 user",
-      "100 contacts",
-      "3 projects",
-      "Basic templates",
-      "5 daily credits",
-      "Community docs",
+      tx("ui.store.plan_cards.plans.free.features.0", "1 user"),
+      tx("ui.store.plan_cards.plans.free.features.1", "100 contacts"),
+      tx("ui.store.plan_cards.plans.free.features.2", "3 projects"),
+      tx("ui.store.plan_cards.plans.free.features.3", "Basic templates"),
+      tx("ui.store.plan_cards.plans.free.features.4", "5 daily credits"),
+      tx("ui.store.plan_cards.plans.free.features.5", "Community docs"),
     ],
-    cta: "Get Started",
+    cta: tx("ui.store.plan_cards.plans.free.cta", "Get Started"),
   },
   {
     id: "pro",
-    name: "Pro",
+    name: tx("ui.store.plan_cards.plans.pro.name", "Pro"),
     monthlyPrice: 2900,
     annualPrice: 29000,
-    description: "Freelancers & small businesses",
+    description: tx("ui.store.plan_cards.plans.pro.description", "Freelancers & small businesses"),
     icon: <Rocket className="w-5 h-5" />,
     features: [
-      "3 users",
-      "2,000 contacts",
-      "20 projects",
-      "200 credits/month",
-      "500 emails/month",
-      "Email support (48h)",
+      tx("ui.store.plan_cards.plans.pro.features.0", "3 users"),
+      tx("ui.store.plan_cards.plans.pro.features.1", "2,000 contacts"),
+      tx("ui.store.plan_cards.plans.pro.features.2", "20 projects"),
+      tx("ui.store.plan_cards.plans.pro.features.3", "200 credits/month"),
+      tx("ui.store.plan_cards.plans.pro.features.4", "500 emails/month"),
+      tx("ui.store.plan_cards.plans.pro.features.5", "Email support (48h)"),
     ],
-    cta: "Subscribe",
+    cta: trialEligible
+      ? tx("ui.store.plan_cards.actions.start_trial", "Start 14-Day Trial")
+      : tx("ui.store.plan_cards.actions.subscribe", "Subscribe"),
+    trialBadge: trialEligible
+      ? tx("ui.store.plan_cards.badges.trial", "14-DAY FREE TRIAL")
+      : undefined,
     highlight: true,
-    badge: "Most Popular",
+    badge: tx("ui.store.plan_cards.badges.most_popular", "Most Popular"),
   },
   {
     id: "agency",
-    name: "Scale",
+    name: tx("ui.store.plan_cards.plans.agency.name", "Scale"),
     monthlyPrice: 29900,
     annualPrice: 299000,
-    description: "Multi-client operators",
+    description: tx("ui.store.plan_cards.plans.agency.description", "Multi-client operators"),
     icon: <Users className="w-5 h-5" />,
     features: [
-      "15 users",
-      "10,000 contacts",
-      "Sub-organizations",
-      "2,000 credits/month",
-      "10,000 emails/month",
-      "Priority support (12h)",
+      tx("ui.store.plan_cards.plans.agency.features.0", "15 users"),
+      tx("ui.store.plan_cards.plans.agency.features.1", "10,000 contacts"),
+      tx("ui.store.plan_cards.plans.agency.features.2", "Sub-organizations"),
+      tx("ui.store.plan_cards.plans.agency.features.3", "2,000 credits/month"),
+      tx("ui.store.plan_cards.plans.agency.features.4", "10,000 emails/month"),
+      tx("ui.store.plan_cards.plans.agency.features.5", "Priority support (12h)"),
     ],
-    cta: "Start 14-Day Trial",
-    trialBadge: "14-DAY FREE TRIAL",
-    subtext: "+ \u20AC79/sub-org",
+    cta: trialEligible
+      ? tx("ui.store.plan_cards.actions.start_trial", "Start 14-Day Trial")
+      : tx("ui.store.plan_cards.actions.subscribe", "Subscribe"),
+    trialBadge: trialEligible
+      ? tx("ui.store.plan_cards.badges.trial", "14-DAY FREE TRIAL")
+      : undefined,
+    subtext: tx("ui.store.plan_cards.plans.agency.subtext", "+ \u20AC79/sub-org"),
   },
   {
     id: "enterprise",
-    name: "Enterprise",
+    name: tx("ui.store.plan_cards.plans.enterprise.name", "Enterprise"),
     monthlyPrice: -1,
     annualPrice: -1,
-    description: "Large organizations",
+    description: tx("ui.store.plan_cards.plans.enterprise.description", "Large organizations"),
     icon: <Building2 className="w-5 h-5" />,
     features: [
-      "Unlimited users",
-      "Unlimited contacts",
-      "Unlimited API keys",
-      "Custom SLA",
-      "SSO/SAML",
-      "Dedicated support",
+      tx("ui.store.plan_cards.plans.enterprise.features.0", "Unlimited users"),
+      tx("ui.store.plan_cards.plans.enterprise.features.1", "Unlimited contacts"),
+      tx("ui.store.plan_cards.plans.enterprise.features.2", "Unlimited API keys"),
+      tx("ui.store.plan_cards.plans.enterprise.features.3", "Custom SLA"),
+      tx("ui.store.plan_cards.plans.enterprise.features.4", "SSO/SAML"),
+      tx("ui.store.plan_cards.plans.enterprise.features.5", "Dedicated support"),
     ],
-    cta: "Contact Sales",
+    cta: tx("ui.store.plan_cards.actions.contact_sales", "Contact Sales"),
     isEnterprise: true,
   },
 ];
@@ -138,7 +154,7 @@ interface SubscriptionStatus {
 interface StorePlanCardsProps {
   currentPlan: string;
   hasActiveSubscription: boolean;
-  scaleTrialEligible: boolean;
+  trialEligible: boolean;
   onCheckout: (tier: "pro" | "scale", billingPeriod: "monthly" | "annual") => void;
   onSubscriptionChange: (tier: string, billingPeriod: "monthly" | "annual") => Promise<void>;
   onContactSales: () => void;
@@ -152,7 +168,7 @@ interface StorePlanCardsProps {
 export function StorePlanCards({
   currentPlan,
   hasActiveSubscription,
-  scaleTrialEligible,
+  trialEligible,
   onCheckout,
   onSubscriptionChange,
   onContactSales,
@@ -162,16 +178,13 @@ export function StorePlanCards({
   onCancelPendingChange,
   isCancelingPending,
 }: StorePlanCardsProps) {
+  const { t } = useNamespaceTranslations("ui.store");
+  const tx: TranslateWithFallback = (key, fallback, params) => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isAnnual, setIsAnnual] = useState(true);
-  const plans = PLANS.map((plan) =>
-    plan.id === "agency"
-      ? {
-          ...plan,
-          cta: scaleTrialEligible ? "Start 14-Day Trial" : "Subscribe",
-          trialBadge: scaleTrialEligible ? "14-DAY FREE TRIAL" : undefined,
-        }
-      : plan
-  );
+  const plans = buildPlans(tx, trialEligible);
 
   const getDisplayPrice = (plan: Plan) => {
     if (plan.monthlyPrice <= 0) return plan.monthlyPrice;
@@ -181,7 +194,7 @@ export function StorePlanCards({
 
   const formatPrice = (cents: number) => {
     if (cents === 0) return "\u20AC0";
-    if (cents === -1) return "Custom";
+    if (cents === -1) return tx("ui.store.plan_cards.pricing.custom", "Custom");
     return `\u20AC${(cents / 100).toFixed(0)}`;
   };
 
@@ -190,10 +203,10 @@ export function StorePlanCards({
       {/* Header */}
       <div className="text-center mb-6">
         <h3 className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
-          Choose Your Plan
+          {tx("ui.store.plan_cards.header.title", "Choose Your Plan")}
         </h3>
         <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-          Scale your business with the right tools
+          {tx("ui.store.plan_cards.header.subtitle", "Scale your business with the right tools")}
         </p>
 
         {/* Billing Toggle */}
@@ -205,13 +218,21 @@ export function StorePlanCards({
             onClick={() => setIsAnnual(false)}
             aria-pressed={!isAnnual}
           >
-            Monthly
+            {tx("ui.store.plan_cards.billing.monthly", "Monthly")}
           </button>
           <button
             type="button"
             onClick={() => setIsAnnual(!isAnnual)}
             className="relative w-12 h-6 rounded-full transition-colors focus:outline-none"
-            aria-label={`Switch billing cycle. Currently ${isAnnual ? "annual" : "monthly"}.`}
+            aria-label={tx(
+              "ui.store.plan_cards.billing.switch_aria_label",
+              "Switch billing cycle. Currently {cycle}.",
+              {
+                cycle: isAnnual
+                  ? tx("ui.store.plan_cards.billing.cycle_annual", "annual")
+                  : tx("ui.store.plan_cards.billing.cycle_monthly", "monthly"),
+              }
+            )}
             aria-pressed={isAnnual}
             style={{
               background: isAnnual ? ACCENT_BACKGROUND : "var(--window-document-border)",
@@ -233,12 +254,12 @@ export function StorePlanCards({
             onClick={() => setIsAnnual(true)}
             aria-pressed={isAnnual}
           >
-            Annual
+            {tx("ui.store.plan_cards.billing.annual", "Annual")}
             <span
               className="px-1.5 py-0.5 text-[10px] font-bold rounded"
               style={{ background: "var(--success-bg)", color: "var(--success)" }}
             >
-              Save ~17%
+              {tx("ui.store.plan_cards.billing.save_badge", "Save ~17%")}
             </span>
           </button>
         </div>
@@ -251,6 +272,7 @@ export function StorePlanCards({
           isLoadingStatus={isLoadingStatus}
           onCancelPendingChange={onCancelPendingChange}
           isCancelingPending={isCancelingPending}
+          tx={tx}
         />
       )}
 
@@ -266,21 +288,28 @@ export function StorePlanCards({
             displayPrice={formatPrice(getDisplayPrice(plan))}
             savingsText={
               plan.monthlyPrice > 0 && isAnnual
-                ? `Save ${Math.round((1 - plan.annualPrice / (plan.monthlyPrice * 12)) * 100)}% \u2022 Billed ${formatPrice(plan.annualPrice)}/yr`
+                ? tx("ui.store.plan_cards.pricing.save_percent_billed_yearly", "Save {percent}% • Billed {price}/yr", {
+                    percent: Math.round((1 - plan.annualPrice / (plan.monthlyPrice * 12)) * 100),
+                    price: formatPrice(plan.annualPrice),
+                  })
                 : plan.monthlyPrice > 0
-                  ? "Billed monthly"
+                  ? tx("ui.store.plan_cards.pricing.billed_monthly", "Billed monthly")
                   : undefined
             }
             isManagingSubscription={isManagingSubscription}
             onCheckout={() => onCheckout(plan.id === "agency" ? "scale" : "pro", isAnnual ? "annual" : "monthly")}
             onSubscriptionChange={(tier) => onSubscriptionChange(tier, isAnnual ? "annual" : "monthly")}
             onContactSales={onContactSales}
+            tx={tx}
           />
         ))}
       </div>
 
       <p className="text-center text-[10px] mt-6" style={{ color: "var(--desktop-menu-text-muted)" }}>
-        Store plan pricing is VAT-inclusive in EUR estimates. Final invoice tax is calculated at checkout. Sources: convex/stripe/stripePrices.ts, convex/licensing/tierConfigs.ts.
+        {tx(
+          "ui.store.plan_cards.footer.vat_note",
+          "Store plan pricing is VAT-inclusive in EUR estimates. Final invoice tax is calculated at checkout."
+        )}
       </p>
     </div>
   );
@@ -297,6 +326,7 @@ function PlanCard({
   onCheckout,
   onSubscriptionChange,
   onContactSales,
+  tx,
 }: {
   plan: Plan;
   currentPlan: string;
@@ -308,6 +338,7 @@ function PlanCard({
   onCheckout: () => void;
   onSubscriptionChange: (tier: string) => void;
   onContactSales: () => void;
+  tx: TranslateWithFallback;
 }) {
   const isCurrentPlan = plan.id === currentPlan || (
     (currentPlan === "starter" || currentPlan === "professional" || currentPlan === "community") && plan.id === "pro"
@@ -331,7 +362,7 @@ function PlanCard({
           className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold text-white rounded-br"
           style={{ background: "var(--success)" }}
         >
-          Current Plan
+          {tx("ui.store.plan_cards.labels.current_plan", "Current Plan")}
         </div>
       )}
 
@@ -387,8 +418,10 @@ function PlanCard({
             <span className="font-pixel text-2xl" style={{ color: "var(--window-document-text)" }}>
               {displayPrice}
             </span>
-            {displayPrice !== "\u20AC0" && displayPrice !== "Custom" && (
-              <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>/mo</span>
+            {plan.monthlyPrice > 0 && (
+              <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                {tx("ui.store.plan_cards.pricing.per_month", "/mo")}
+              </span>
             )}
           </div>
           {savingsText && (
@@ -427,6 +460,7 @@ function PlanCard({
           onCheckout={onCheckout}
           onSubscriptionChange={onSubscriptionChange}
           onContactSales={onContactSales}
+          tx={tx}
         />
       </div>
     </div>
@@ -443,6 +477,7 @@ function PlanCTAButton({
   onCheckout,
   onSubscriptionChange,
   onContactSales,
+  tx,
 }: {
   plan: Plan;
   isCurrentPlan: boolean;
@@ -453,6 +488,7 @@ function PlanCTAButton({
   onCheckout: () => void;
   onSubscriptionChange: (tier: string) => void;
   onContactSales: () => void;
+  tx: TranslateWithFallback;
 }) {
   if (isCurrentPlan) {
     return (
@@ -467,7 +503,7 @@ function PlanCTAButton({
         }}
       >
         <Check className="w-3.5 h-3.5" />
-        Current Plan
+        {tx("ui.store.plan_cards.labels.current_plan", "Current Plan")}
       </button>
     );
   }
@@ -485,7 +521,7 @@ function PlanCTAButton({
         }}
       >
         <Phone className="w-3.5 h-3.5" />
-        Contact Sales
+        {tx("ui.store.plan_cards.actions.contact_sales", "Contact Sales")}
       </button>
     );
   }
@@ -509,7 +545,9 @@ function PlanCTAButton({
         ) : (
           <ArrowDown className="w-3.5 h-3.5" />
         )}
-        {isManagingSubscription ? "Processing..." : "Cancel Subscription"}
+        {isManagingSubscription
+          ? tx("ui.store.plan_cards.actions.processing", "Processing...")
+          : tx("ui.store.plan_cards.actions.cancel_subscription", "Cancel Subscription")}
       </button>
     );
   }
@@ -537,7 +575,11 @@ function PlanCTAButton({
         ) : (
           <ArrowRight className="w-3.5 h-3.5" />
         )}
-        {isManagingSubscription ? "Processing..." : isUpgrade ? "Upgrade" : "Downgrade"}
+        {isManagingSubscription
+          ? tx("ui.store.plan_cards.actions.processing", "Processing...")
+          : isUpgrade
+            ? tx("ui.store.plan_cards.actions.upgrade", "Upgrade")
+            : tx("ui.store.plan_cards.actions.downgrade", "Downgrade")}
       </button>
     );
   }
@@ -567,11 +609,13 @@ function SubscriptionStatusBanner({
   isLoadingStatus,
   onCancelPendingChange,
   isCancelingPending,
+  tx,
 }: {
   subscriptionStatus: SubscriptionStatus;
   isLoadingStatus: boolean;
   onCancelPendingChange: () => Promise<void>;
   isCancelingPending: boolean;
+  tx: TranslateWithFallback;
 }) {
   if (isLoadingStatus) {
     return (
@@ -583,7 +627,7 @@ function SubscriptionStatusBanner({
       >
         <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
         <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-          Loading subscription status...
+          {tx("ui.store.plan_cards.status.loading", "Loading subscription status...")}
         </span>
       </div>
     );
@@ -593,7 +637,7 @@ function SubscriptionStatusBanner({
     new Date(timestamp).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   const tierLabel = (tier: string) => {
-    if (tier === "agency") return "Scale";
+    if (tier === "agency") return tx("ui.store.plan_cards.plans.agency.name", "Scale");
     return tier.charAt(0).toUpperCase() + tier.slice(1);
   };
 
@@ -605,10 +649,12 @@ function SubscriptionStatusBanner({
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--error, #dc2626)" }} />
           <div className="flex-1">
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--error, #dc2626)" }}>
-              Subscription Canceling
+              {tx("ui.store.plan_cards.status.canceling_title", "Subscription Canceling")}
             </h4>
             <p className="text-xs leading-relaxed" style={{ color: "var(--window-document-text)" }}>
-              Your {tierLabel(subscriptionStatus.currentTier)} subscription will be canceled on{" "}
+              {tx("ui.store.plan_cards.status.canceling.prefix", "Your")}{" "}
+              {tierLabel(subscriptionStatus.currentTier)}{" "}
+              {tx("ui.store.plan_cards.status.canceling.suffix", "subscription will be canceled on")}{" "}
               <strong>{formatDate(subscriptionStatus.currentPeriodEnd)}</strong>.
             </p>
             <button
@@ -619,7 +665,9 @@ function SubscriptionStatusBanner({
               style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)", border: "1px solid var(--window-document-border)" }}
             >
               {isCancelingPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              {isCancelingPending ? "Processing..." : "Keep My Subscription"}
+              {isCancelingPending
+                ? tx("ui.store.plan_cards.actions.processing", "Processing...")
+                : tx("ui.store.plan_cards.actions.keep_subscription", "Keep My Subscription")}
             </button>
           </div>
         </div>
@@ -635,11 +683,14 @@ function SubscriptionStatusBanner({
           <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--warning, #eab308)" }} />
           <div className="flex-1">
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--warning, #ca8a04)" }}>
-              Plan Change Scheduled
+              {tx("ui.store.plan_cards.status.plan_change_scheduled", "Plan Change Scheduled")}
             </h4>
             <p className="text-xs leading-relaxed" style={{ color: "var(--window-document-text)" }}>
-              Changing from <strong>{tierLabel(subscriptionStatus.currentTier)}</strong> to{" "}
-              <strong>{tierLabel(subscriptionStatus.pendingDowngrade.newTier)}</strong> on{" "}
+              {tx("ui.store.plan_cards.status.plan_change.from", "Changing from")}{" "}
+              <strong>{tierLabel(subscriptionStatus.currentTier)}</strong>{" "}
+              {tx("ui.store.plan_cards.status.plan_change.to", "to")}{" "}
+              <strong>{tierLabel(subscriptionStatus.pendingDowngrade.newTier)}</strong>{" "}
+              {tx("ui.store.plan_cards.status.plan_change.on", "on")}{" "}
               <strong>{formatDate(subscriptionStatus.pendingDowngrade.effectiveDate)}</strong>.
             </p>
             <button
@@ -650,7 +701,9 @@ function SubscriptionStatusBanner({
               style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)", border: "1px solid var(--window-document-border)" }}
             >
               {isCancelingPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-              {isCancelingPending ? "Processing..." : "Cancel Scheduled Change"}
+              {isCancelingPending
+                ? tx("ui.store.plan_cards.actions.processing", "Processing...")
+                : tx("ui.store.plan_cards.actions.cancel_scheduled_change", "Cancel Scheduled Change")}
             </button>
           </div>
         </div>
@@ -666,16 +719,26 @@ function SubscriptionStatusBanner({
           <Crown className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: "var(--success, #22c55e)" }} />
           <div className="flex-1">
             <h4 className="font-pixel text-xs mb-1" style={{ color: "var(--success, #16a34a)" }}>
-              Active Subscription
+              {tx("ui.store.plan_cards.status.active_subscription", "Active Subscription")}
             </h4>
             <p className="text-xs" style={{ color: "var(--window-document-text)" }}>
-              <strong>{tierLabel(subscriptionStatus.currentTier)}</strong> plan
+              <strong>{tierLabel(subscriptionStatus.currentTier)}</strong>{" "}
+              {tx("ui.store.plan_cards.status.plan", "plan")}
               {subscriptionStatus.billingPeriod && (
-                <> &bull; Billed {subscriptionStatus.billingPeriod === "annual" ? "annually" : "monthly"}</>
+                <>
+                  {" "}
+                  {tx("ui.store.plan_cards.status.separator", "•")}{" "}
+                  {tx("ui.store.plan_cards.status.billed", "Billed")}{" "}
+                  {subscriptionStatus.billingPeriod === "annual"
+                    ? tx("ui.store.plan_cards.status.billing_period.annually", "annually")
+                    : tx("ui.store.plan_cards.status.billing_period.monthly", "monthly")}
+                </>
               )}
             </p>
             <p className="text-[10px] mt-1" style={{ color: "var(--desktop-menu-text-muted)" }}>
-              Next billing date: {formatDate(subscriptionStatus.currentPeriodEnd)}
+              {tx("ui.store.plan_cards.status.next_billing_date", "Next billing date: {date}", {
+                date: formatDate(subscriptionStatus.currentPeriodEnd),
+              })}
             </p>
           </div>
         </div>

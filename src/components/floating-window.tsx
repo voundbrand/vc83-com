@@ -115,7 +115,7 @@ export function FloatingWindow({
         const actualWidth = windowRef.current?.offsetWidth || windowState?.size?.width || 800
         const actualHeight = windowRef.current?.offsetHeight || windowState?.size?.height || 500
         const titleBarHeight =
-          windowRef.current?.querySelector<HTMLElement>(".desktop-window-titlebar")?.offsetHeight || 34
+          windowRef.current?.querySelector<HTMLElement>(".desktop-window-titlebar")?.offsetHeight || 36
 
         const minY = isMobile ? 0 : taskbarHeight
         const bottomReserved = isMobile ? taskbarHeight : 0
@@ -173,6 +173,7 @@ export function FloatingWindow({
   }
 
   const enableShellMotion = !prefersReducedMotion && !isDragging && !isResizing
+  const allowOutwardPanels = id === "ai-assistant"
   const shellOpacity = isDragging || isResizing
     ? 0.95
     : enableShellMotion
@@ -223,6 +224,7 @@ export function FloatingWindow({
           : isResizing
             ? "width, height, opacity"
             : "opacity, transform",
+        overflow: allowOutwardPanels ? "visible" : "hidden",
         display: windowState?.isMinimized ? 'none' : 'flex',
         pointerEvents: isClosing ? "none" : "auto",
       }}
@@ -233,7 +235,10 @@ export function FloatingWindow({
         className={`desktop-shell-titlebar desktop-window-titlebar window-titlebar-corners flex items-center justify-between ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} select-none`}
         onMouseDown={handleMouseDown}
       >
-        <span className="font-semibold text-sm select-none truncate pr-2" style={{ color: 'var(--shell-titlebar-text)' }}>
+        <span
+          className="select-none truncate pr-2 text-xs font-medium"
+          style={{ color: "var(--titlebar-text)" }}
+        >
           {displayTitle}
         </span>
         <div className="flex gap-1">
@@ -282,18 +287,24 @@ export function FloatingWindow({
         </div>
       </div>
 
-      {/* Content - Use a consistent light document surface across desktop modes */}
-      <div className="flex-1 overflow-hidden flex flex-col retro-scrollbar desktop-document-surface">
-        <div className="flex-1 overflow-auto">{children}</div>
+      {/* Content surface follows canonical mode tokens (Midnight/Daylight). */}
+      <div
+        className={`flex-1 flex flex-col retro-scrollbar desktop-document-surface ${
+          allowOutwardPanels ? "overflow-visible" : "overflow-hidden"
+        }`}
+      >
+        <div className={`flex-1 ${allowOutwardPanels ? "overflow-visible" : "overflow-auto"}`}>
+          {children}
+        </div>
       </div>
 
       {/* Resize Handle - Win95 style grip */}
       {!windowState?.isMaximized && (
         <div
-          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+          className="absolute bottom-0 right-0 z-40 w-4 h-4 cursor-se-resize"
           onMouseDown={handleResizeMouseDown}
           style={{
-            background: 'var(--window-resize-grip, repeating-linear-gradient(45deg, #808080 0px, #808080 2px, transparent 2px, transparent 4px))',
+            background: "var(--window-resize-grip)",
           }}
         />
       )}

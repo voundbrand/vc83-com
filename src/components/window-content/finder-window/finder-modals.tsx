@@ -50,6 +50,8 @@ export function CreateFolderModal({
   onClose,
   onSuccess,
 }: CreateFolderModalProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -89,28 +91,33 @@ export function CreateFolderModal({
       <div className="flex items-center gap-2 mb-4">
         <FolderPlus size={18} style={{ color: "var(--primary)" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          New Folder
+          {tx("ui.finder.create_folder.title", "New Folder")}
         </h3>
       </div>
 
       <div className="space-y-3">
         <div>
           <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            Folder Name
+            {tx("ui.finder.create_folder.folder_name", "Folder Name")}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="My Folder"
+            placeholder={tx("ui.finder.create_folder.folder_placeholder", "My Folder")}
             autoFocus
             className="desktop-interior-input w-full text-xs"
           />
         </div>
 
         <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          Location: {parentPath === "/" ? (projectId ? "Project Root" : "Organization Root") : parentPath}
+          {tx("ui.finder.create_folder.location", "Location:")}{" "}
+          {parentPath === "/"
+            ? (projectId
+              ? tx("ui.finder.create_folder.project_root", "Project Root")
+              : tx("ui.finder.create_folder.organization_root", "Organization Root"))
+            : parentPath}
         </p>
 
         {error && (
@@ -124,7 +131,7 @@ export function CreateFolderModal({
             onClick={onClose}
             className="desktop-interior-button px-4 py-2 text-xs"
           >
-            Cancel
+            {tx("ui.finder.actions.cancel", "Cancel")}
           </button>
           <button
             onClick={handleCreate}
@@ -134,7 +141,9 @@ export function CreateFolderModal({
               opacity: isCreating || !name.trim() ? 0.5 : 1,
             }}
           >
-            {isCreating ? "Creating..." : "Create"}
+            {isCreating
+              ? tx("ui.finder.actions.creating", "Creating...")
+              : tx("ui.finder.actions.create", "Create")}
           </button>
         </div>
       </div>
@@ -163,6 +172,8 @@ export function CreateFileModal({
   onClose,
   onSuccess,
 }: CreateFileModalProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
   const [name, setName] = useState("");
   const [includeStarterContent, setIncludeStarterContent] = useState(false);
   const [starterContent, setStarterContent] = useState("");
@@ -227,14 +238,14 @@ export function CreateFileModal({
       <div className="flex items-center gap-2 mb-4">
         <FileText size={18} style={{ color: "var(--accent-color)" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          New File
+          {tx("ui.finder.create_file.title", "New File")}
         </h3>
       </div>
 
       <div className="space-y-3">
         <div>
           <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            File Name
+            {tx("ui.finder.create_file.file_name", "File Name")}
           </label>
           <input
             type="text"
@@ -249,7 +260,7 @@ export function CreateFileModal({
 
         <div>
           <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
-            Quick extension suggestions
+            {tx("ui.finder.create_file.quick_extension_suggestions", "Quick extension suggestions")}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {FILE_EXTENSION_SUGGESTIONS.map((suggestion) => (
@@ -267,8 +278,18 @@ export function CreateFileModal({
 
         <p className="text-[10px] px-2 py-2 rounded border" style={{ color: "var(--neutral-gray)", borderColor: "var(--window-document-border)" }}>
           {extension
-            ? `Detected .${inferredType.extension} -> ${inferredType.language} (${inferredType.mimeType})${inferredType.source === "fallback" ? " [fallback]" : ""}`
-            : "No extension provided. Defaults to plain text metadata until you add one."}
+            ? tx(
+              "ui.finder.create_file.detected_extension",
+              "Detected .{extension} -> {language} ({mimeType}){fallback}",
+            )
+              .replace("{extension}", inferredType.extension)
+              .replace("{language}", inferredType.language)
+              .replace("{mimeType}", inferredType.mimeType)
+              .replace("{fallback}", inferredType.source === "fallback" ? " [fallback]" : "")
+            : tx(
+              "ui.finder.create_file.no_extension",
+              "No extension provided. Defaults to plain text metadata until you add one."
+            )}
         </p>
 
         <label className="flex items-center gap-2 text-xs" style={{ color: "var(--win95-text)" }}>
@@ -277,27 +298,27 @@ export function CreateFileModal({
             checked={includeStarterContent}
             onChange={(e) => handleStarterContentToggle(e.target.checked)}
           />
-          Include starter content
+          {tx("ui.finder.create_file.include_starter_content", "Include starter content")}
         </label>
 
         {includeStarterContent && (
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
-                Starter Content
+                {tx("ui.finder.create_file.starter_content", "Starter Content")}
               </label>
               <button
                 type="button"
                 onClick={() => setStarterContent(suggestedStarterContent)}
                 className="desktop-interior-button px-2 py-1 text-[10px]"
               >
-                Use Suggested
+                {tx("ui.finder.create_file.use_suggested", "Use Suggested")}
               </button>
             </div>
             <textarea
               value={starterContent}
               onChange={(e) => setStarterContent(e.target.value)}
-              placeholder={suggestedStarterContent || "Optional starter content"}
+              placeholder={suggestedStarterContent || tx("ui.finder.create_file.optional_starter_content", "Optional starter content")}
               rows={6}
               className="desktop-interior-textarea w-full text-xs resize-none font-mono min-h-[9rem]"
             />
@@ -305,7 +326,12 @@ export function CreateFileModal({
         )}
 
         <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-          Location: {parentPath === "/" ? (projectId ? "Project Root" : "Organization Root") : parentPath}
+          {tx("ui.finder.create_file.location", "Location:")}{" "}
+          {parentPath === "/"
+            ? (projectId
+              ? tx("ui.finder.create_file.project_root", "Project Root")
+              : tx("ui.finder.create_file.organization_root", "Organization Root"))
+            : parentPath}
         </p>
 
         {error && (
@@ -319,7 +345,7 @@ export function CreateFileModal({
             onClick={onClose}
             className="desktop-interior-button px-4 py-2 text-xs"
           >
-            Cancel
+            {tx("ui.finder.actions.cancel", "Cancel")}
           </button>
           <button
             onClick={handleCreate}
@@ -329,7 +355,9 @@ export function CreateFileModal({
               opacity: isCreating || !trimmedName ? 0.5 : 1,
             }}
           >
-            {isCreating ? "Creating..." : "Create"}
+            {isCreating
+              ? tx("ui.finder.actions.creating", "Creating...")
+              : tx("ui.finder.actions.create", "Create")}
           </button>
         </div>
       </div>
@@ -430,7 +458,7 @@ export function SaveAsModal({
       <div className="space-y-3">
         <div>
           <label className="text-xs font-bold block mb-1" style={{ color: "var(--win95-text)" }}>
-            File Name
+            {tx("ui.finder.save_as.file_name_label", "File Name")}
           </label>
           <input
             type="text"
@@ -472,7 +500,11 @@ export function SaveAsModal({
           }}
         >
           {extension
-            ? `Detected .${inferredType.extension} -> ${inferredType.language} (${inferredType.mimeType})${inferredType.source === "fallback" ? " [fallback]" : ""}`
+            ? tx("ui.finder.save_as.detected_extension", "Detected .{extension} -> {language} ({mimeType}){fallback}")
+              .replace("{extension}", inferredType.extension)
+              .replace("{language}", inferredType.language)
+              .replace("{mimeType}", inferredType.mimeType)
+              .replace("{fallback}", inferredType.source === "fallback" ? " [fallback]" : "")
             : `${tx("ui.finder.save_as.no_extension_prefix", "No extension provided. Using")} ${effectiveLanguage} (${effectiveMimeType}).`}
         </p>
 
@@ -495,7 +527,7 @@ export function SaveAsModal({
             onClick={onClose}
             className="desktop-interior-button px-4 py-2 text-xs"
           >
-            Cancel
+            {tx("ui.finder.actions.cancel", "Cancel")}
           </button>
           <button
             type="button"
@@ -531,6 +563,8 @@ export function DeleteConfirmationModal({
   onClose,
   isDeleting,
 }: DeleteConfirmationModalProps) {
+  const { translationsMap } = useNamespaceTranslations("ui.finder");
+  const tx = (key: string, fallback: string): string => translationsMap?.[key] ?? fallback;
   const folderCount = files.filter((f) => f.fileKind === "folder").length;
 
   return (
@@ -538,22 +572,24 @@ export function DeleteConfirmationModal({
       <div className="flex items-center gap-2 mb-4">
         <Trash2 size={18} style={{ color: "var(--warning-amber)" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
-          Move to Trash
+          {tx("ui.finder.delete.title", "Move to Trash")}
         </h3>
       </div>
 
       <div className="space-y-3">
         <p className="text-xs" style={{ color: "var(--win95-text)" }}>
-          Are you sure you want to move{" "}
+          {tx("ui.finder.delete.confirm_prefix", "Are you sure you want to move")}{" "}
           {files.length === 1 ? (
             <strong>{files[0].name}</strong>
           ) : (
             <>
-              <strong>{files.length} items</strong>
-              {folderCount > 0 && ` (${folderCount} folder${folderCount > 1 ? "s" : ""})`}
+              <strong>{tx("ui.finder.delete.items_count", "{count} items").replace("{count}", String(files.length))}</strong>
+              {folderCount > 0 && ` (${tx("ui.finder.delete.folder_count", "{count} folder{suffix}")
+                .replace("{count}", String(folderCount))
+                .replace("{suffix}", folderCount > 1 ? "s" : "")})`}
             </>
           )}
-          {" "}to the Trash?
+          {" "}{tx("ui.finder.delete.confirm_suffix", "to the Trash?")}
         </p>
 
         <p
@@ -564,7 +600,10 @@ export function DeleteConfirmationModal({
             background: "var(--win95-bg-light)",
           }}
         >
-          Items in Trash are automatically deleted after 30 days. You can restore them from the Trash at any time before then.
+          {tx(
+            "ui.finder.delete.trash_retention_notice",
+            "Items in Trash are automatically deleted after 30 days. You can restore them from the Trash at any time before then."
+          )}
         </p>
 
         {folderCount > 0 && (
@@ -573,10 +612,10 @@ export function DeleteConfirmationModal({
             style={{
               color: "var(--warning-amber)",
               borderColor: "var(--warning-amber)",
-              background: "rgba(255, 193, 7, 0.08)",
+              background: "var(--color-warn-subtle)",
             }}
           >
-            Folders and all their contents will be moved to Trash.
+            {tx("ui.finder.delete.folder_notice", "Folders and all their contents will be moved to Trash.")}
           </p>
         )}
 
@@ -584,7 +623,7 @@ export function DeleteConfirmationModal({
           <ul className="text-xs space-y-1 pl-4" style={{ color: "var(--neutral-gray)" }}>
             {files.map((f) => (
               <li key={f._id} className="list-disc">
-                {f.name} {f.fileKind === "folder" ? "(folder)" : ""}
+                {f.name} {f.fileKind === "folder" ? tx("ui.finder.delete.folder_suffix", "(folder)") : ""}
               </li>
             ))}
           </ul>
@@ -595,7 +634,7 @@ export function DeleteConfirmationModal({
             onClick={onClose}
             className="desktop-interior-button px-4 py-2 text-xs"
           >
-            Cancel
+            {tx("ui.finder.actions.cancel", "Cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -608,7 +647,9 @@ export function DeleteConfirmationModal({
               opacity: isDeleting ? 0.5 : 1,
             }}
           >
-            {isDeleting ? "Moving..." : "Move to Trash"}
+            {isDeleting
+              ? tx("ui.finder.delete.moving", "Moving...")
+              : tx("ui.finder.delete.title", "Move to Trash")}
           </button>
         </div>
       </div>
@@ -629,9 +670,9 @@ function ModalOverlay({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[var(--modal-overlay-bg)]" onClick={onClose} />
       <div
-        className="relative w-full max-w-md p-6 border rounded-2xl shadow-lg"
+        className="relative w-full max-w-md p-6 border rounded-2xl"
         style={{
           background: "var(--window-document-bg-elevated)",
           borderColor: "var(--window-document-border)",

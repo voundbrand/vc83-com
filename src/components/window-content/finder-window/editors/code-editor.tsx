@@ -405,7 +405,7 @@ export function CodeEditor({
             fontFamily: "'SF Mono', Monaco, 'Cascadia Code', monospace",
             fontSize: 11,
             lineHeight: 1.6,
-            background: "var(--win95-bg-light, #fff)",
+            background: "var(--win95-bg-light)",
             color: "var(--win95-text)",
             tabSize: 2,
             whiteSpace: wordWrap ? "pre-wrap" : "pre",

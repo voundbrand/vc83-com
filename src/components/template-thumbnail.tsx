@@ -317,7 +317,7 @@ export function TemplateThumbnail({
     try {
       // Dynamically import PDF template registry
       const { getTemplateByCode } = await import("../../convex/pdfTemplateRegistry");
-      const { renderTemplate, createMockInvoiceData } = await import("@/lib/template-renderer");
+      const { createMockInvoiceData, renderPdfPreviewDocument } = await import("@/lib/template-renderer");
 
       const template = getTemplateByCode(templateCode);
 
@@ -330,25 +330,16 @@ export function TemplateThumbnail({
       // Get mock data for this template type
       const mockData = createMockInvoiceData(templateCode);
 
-      // Render HTML and CSS with mock data
-      const renderedHtml = renderTemplate(template.template.html, mockData);
-      const renderedCss = renderTemplate(template.template.css, mockData);
-
-      // Combine into full HTML document
-      const fullHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <style>${renderedCss}</style>
-          </head>
-          <body>${renderedHtml}</body>
-        </html>
-      `;
+      const previewDocument = renderPdfPreviewDocument({
+        htmlTemplate: template.template.html,
+        cssTemplate: template.template.css,
+        data: mockData,
+      });
 
       // Render in iframe (like email templates)
       setPreviewContent(
         <iframe
-          srcDoc={fullHtml}
+          srcDoc={previewDocument.documentHtml}
           title="PDF Invoice preview"
           style={{
             width: "100%",

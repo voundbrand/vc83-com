@@ -52,7 +52,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
     <div
       ref={menuRef}
       className={cn(
-        "absolute bottom-full left-0 mb-1 retro-window start-menu-container window-corners dark:retro-window-dark shadow-lg flex",
+        "absolute bottom-full left-0 mb-1 desktop-shell-window start-menu-container window-corners flex",
         isMobile ? "w-[180px] max-w-[90vw]" : "min-w-[200px]",
         className
       )}
@@ -118,7 +118,7 @@ export function StartMenu({ items, isOpen, onClose, className }: StartMenuProps)
                 {/* Submenu - Two Column Grid with Separator */}
                 {item.submenu && openSubmenu === index && (
                   <div
-                    className="absolute left-full bottom-0 ml-1 retro-window window-corners dark:retro-window-dark shadow-lg"
+                    className="absolute left-full bottom-0 ml-1 desktop-shell-window window-corners"
                     style={{
                       zIndex: 50001,
                       background: 'var(--shell-surface)',

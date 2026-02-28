@@ -180,7 +180,7 @@ export function SequenceCard({ sequence, sessionId, onEdit, onViewEnrollments }:
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="retro-button p-1 opacity-0 group-hover:opacity-100"
+            className="desktop-interior-button p-1 opacity-0 group-hover:opacity-100"
           >
             <MoreVertical className="h-3 w-3" />
           </button>
@@ -189,7 +189,7 @@ export function SequenceCard({ sequence, sessionId, onEdit, onViewEnrollments }:
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div
-                className="absolute right-0 top-8 z-20 w-40 border-2 py-1 shadow-lg"
+                className="absolute right-0 top-8 z-20 w-40 border py-1"
                 style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
               >
                 <button

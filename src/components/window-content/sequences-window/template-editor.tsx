@@ -190,7 +190,7 @@ export function TemplateEditor({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={onBack} className="retro-button p-1" title="Back">
+            <button onClick={onBack} className="desktop-interior-button p-1" title="Back">
               <ArrowLeft className="h-4 w-4" />
             </button>
             <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
@@ -201,7 +201,7 @@ export function TemplateEditor({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className={`retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold ${
+              className={`desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold ${
                 showPreview ? "ring-2" : ""
               }`}
             >
@@ -211,7 +211,7 @@ export function TemplateEditor({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
+              className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
             >
               {isSaving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -242,7 +242,7 @@ export function TemplateEditor({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Booking Confirmation Email"
-                className="retro-input w-full py-1 px-2 text-sm"
+                className="desktop-interior-input w-full py-1 px-2 text-sm"
               />
             </div>
 
@@ -260,7 +260,7 @@ export function TemplateEditor({
                     <button
                       key={ch}
                       onClick={() => setChannel(ch)}
-                      className={`retro-button flex items-center gap-1 px-3 py-1 text-xs ${
+                      className={`desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs ${
                         channel === ch ? "ring-2" : ""
                       }`}
                     >
@@ -286,7 +286,7 @@ export function TemplateEditor({
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="retro-input w-full py-1 pl-2 pr-6 text-xs"
+                  className="desktop-interior-input w-full py-1 pl-2 pr-6 text-xs"
                 >
                   <option value="reminder">Reminder</option>
                   <option value="confirmation">Confirmation</option>
@@ -308,7 +308,7 @@ export function TemplateEditor({
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="retro-input w-full py-1 pl-2 pr-6 text-xs"
+                  className="desktop-interior-input w-full py-1 pl-2 pr-6 text-xs"
                 >
                   <option value="de">German (de)</option>
                   <option value="en">English (en)</option>
@@ -330,7 +330,7 @@ export function TemplateEditor({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="e.g., Deine Buchung bei {{companyName}}"
-                  className="retro-input w-full py-1 px-2 text-sm"
+                  className="desktop-interior-input w-full py-1 px-2 text-sm"
                 />
               </div>
             )}
@@ -346,7 +346,7 @@ export function TemplateEditor({
                   <button
                     key={v.name}
                     onClick={() => insertVariable(v.name)}
-                    className="retro-button px-2 py-0.5 text-[10px]"
+                    className="desktop-interior-button px-2 py-0.5 text-xs"
                     title={`Insert {{${v.name}}}`}
                   >
                     {v.label}
@@ -365,7 +365,7 @@ export function TemplateEditor({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder={`Enter your ${channel} message here...\n\nUse {{variableName}} for dynamic content.`}
-                className="retro-input w-full py-2 px-2 text-sm font-mono"
+                className="desktop-interior-input w-full py-2 px-2 text-sm font-mono"
                 rows={channel === "sms" ? 4 : 10}
                 maxLength={channel === "sms" ? 160 : undefined}
               />
@@ -389,7 +389,7 @@ export function TemplateEditor({
                   value={bodyHtml}
                   onChange={(e) => setBodyHtml(e.target.value)}
                   placeholder="Enter HTML version for rich email..."
-                  className="retro-input w-full py-2 px-2 text-xs font-mono"
+                  className="desktop-interior-input w-full py-2 px-2 text-xs font-mono"
                   rows={6}
                 />
               </div>

@@ -69,7 +69,7 @@ export function SequencesList({
           </p>
           <button
             onClick={onCreateNew}
-            className="retro-button mt-6 inline-flex items-center gap-2 px-3 py-2 text-xs font-bold"
+            className="desktop-interior-button mt-6 inline-flex items-center gap-2 px-3 py-2 text-xs font-bold"
           >
             <Mail className="h-3 w-3" />
             Create First Sequence
@@ -96,7 +96,7 @@ export function SequencesList({
               placeholder="Search sequences..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="retro-input w-full py-1 pl-7 pr-2 text-xs"
+              className="desktop-interior-input w-full py-1 pl-7 pr-2 text-xs"
             />
           </div>
 
@@ -105,7 +105,7 @@ export function SequencesList({
             <select
               value={statusFilter || "all"}
               onChange={(e) => setStatusFilter(e.target.value === "all" ? undefined : e.target.value)}
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -118,7 +118,7 @@ export function SequencesList({
           <select
             value={triggerFilter || "all"}
             onChange={(e) => setTriggerFilter(e.target.value === "all" ? undefined : e.target.value)}
-            className="retro-input py-1 pl-2 pr-6 text-xs"
+            className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
           >
             <option value="all">All Triggers</option>
             <option value="booking_confirmed">Booking Confirmed</option>

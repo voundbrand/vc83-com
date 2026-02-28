@@ -2,9 +2,12 @@
 
 import { useState, type ReactElement } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { AlertCircle, Check, CheckCircle, CircleDollarSign, ClipboardList, Copy, CreditCard, Edit, FileText, Loader2, Mail, MessageSquare, Package, Plus, ScrollText, Star, Tag, Ticket, Trash2, X } from "lucide-react";
 
 const getTemplateTypeIcon = (type: string, size = 12) => {
@@ -66,13 +69,18 @@ export function TemplateSetsTab() {
   const currentOrg = useCurrentOrganization();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCopySystemModal, setShowCopySystemModal] = useState(false);
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const organizationId = currentOrg?.id as Id<"organizations"> | undefined;
 
   // Fetch ONLY organization template sets (NOT system defaults!)
   // Organization owners should NOT see or edit system-level template sets
   const templateSets = useQuery(
-    api.templateSetOntology.getTemplateSets,
+    apiAny.templateSetOntology.getTemplateSets,
     sessionId && organizationId
       ? { sessionId, organizationId, includeSystem: false } // Security: no system sets
       : "skip"
@@ -80,13 +88,13 @@ export function TemplateSetsTab() {
 
   // Fetch ALL schema-driven templates using audit system (system templates)
   const auditData = useQuery(
-    api.auditTemplates.auditAllTemplates,
+    apiAny.auditTemplates.auditAllTemplates,
     sessionId ? {} : "skip"
   );
 
   // Fetch organization-specific templates (including copies from system)
   const orgTemplates = useQuery(
-    api.templateOntology.getTemplatesForOrg,
+    apiAny.templateOntology.getTemplatesForOrg,
     sessionId && organizationId
       ? { sessionId, organizationId }
       : "skip"
@@ -131,11 +139,13 @@ export function TemplateSetsTab() {
             <CheckCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "#3b82f6" }} />
             <div>
               <h4 className="font-bold text-sm" style={{ color: "#1e40af" }}>
-                Using System Default Template Set
+                {tx("ui.templates.template_sets.starter_bundle_title", "Starter Template Bundle Active")}
               </h4>
               <p className="text-xs mt-1" style={{ color: "#1e3a8a" }}>
-                Your organization is currently using the platform's default template set with all schema-driven templates.
-                You can create your own custom template set to use different branding or template combinations.
+                {tx(
+                  "ui.templates.template_sets.starter_bundle_description",
+                  "Your organization is using the platform starter set: invoice PDF, ticket PDF, transactional emails, event landing page, and checkout surface defaults. You can still create your own template set for branding.",
+                )}
               </p>
             </div>
           </div>
@@ -155,7 +165,7 @@ export function TemplateSetsTab() {
             }}
           >
             <Copy size={14} />
-            Copy System Default &amp; Customize
+            {tx("ui.templates.template_sets.copy_system_default", "Copy System Default & Customize")}
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -169,7 +179,7 @@ export function TemplateSetsTab() {
             }}
           >
             <Plus size={14} />
-            Create From Scratch
+            {tx("ui.templates.template_sets.create_from_scratch", "Create From Scratch")}
           </button>
         </div>
 
@@ -200,10 +210,13 @@ export function TemplateSetsTab() {
         <div>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Package size={16} />
-            Template Set Configuration (v2.0)
+            {tx("ui.templates.template_sets.configuration_title", "Template Set Configuration (v2.0)")}
           </h3>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Bundle ANY schema-driven templates together for consistent branding. No limitations!
+            {tx(
+              "ui.templates.template_sets.configuration_description",
+              "Bundle schema-driven templates for consistent branding while keeping starter transacting defaults intact.",
+            )}
           </p>
         </div>
         <button
@@ -218,13 +231,13 @@ export function TemplateSetsTab() {
           }}
         >
           <Plus size={14} />
-          Create New Set
+          {tx("ui.templates.template_sets.create_new_set", "Create New Set")}
         </button>
       </div>
 
       {/* Template Sets Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {templateSets.map((set) => (
+        {templateSets.map((set: TemplateSet) => (
           <TemplateSetCard
             key={set._id}
             templateSet={set}
@@ -275,9 +288,14 @@ function TemplateSetCard({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
-  const deleteTemplateSet = useMutation(api.templateSetOntology.deleteTemplateSet);
-  const setDefaultTemplateSet = useMutation(api.templateSetOntology.setDefaultTemplateSet);
+  const deleteTemplateSet = useMutation(apiAny.templateSetOntology.deleteTemplateSet);
+  const setDefaultTemplateSet = useMutation(apiAny.templateSetOntology.setDefaultTemplateSet);
 
   const handleSetAsDefault = async () => {
     try {
@@ -345,7 +363,7 @@ function TemplateSetCard({
                 borderColor: "#fde68a",
               }}
             >
-              Default
+              {tx("ui.templates.template_sets.card.default", "Default")}
             </span>
           )}
           <span
@@ -358,7 +376,8 @@ function TemplateSetCard({
               borderColor: version === "2.0" ? "#86efac" : "var(--window-document-border)",
             }}
           >
-            v{version}
+            {tx("ui.templates.template_sets.card.version_prefix", "v")}
+            {version}
           </span>
         </div>
       </div>
@@ -410,11 +429,13 @@ function TemplateSetCard({
       {/* Templates List (v2.0) */}
       <div className="space-y-2 mb-4">
         <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-          Templates in Set ({templatesList.length}):
+          {tx("ui.templates.template_sets.card.templates_in_set", "Templates in Set ({count}):", {
+            count: templatesList.length,
+          })}
         </div>
         {templatesList.length === 0 ? (
           <p className="text-xs italic" style={{ color: "var(--neutral-gray)" }}>
-            No templates added yet
+            {tx("ui.templates.template_sets.card.no_templates", "No templates added yet")}
           </p>
         ) : (
           <div className="space-y-1">
@@ -443,7 +464,7 @@ function TemplateSetCard({
                       className="text-xs px-1 rounded"
                       style={{ backgroundColor: "#fef2f2", color: "#991b1b" }}
                     >
-                      Required
+                      {tx("ui.templates.template_sets.card.required", "Required")}
                     </span>
                   )}
                 </div>
@@ -468,7 +489,7 @@ function TemplateSetCard({
             }}
           >
             <Edit size={12} />
-            Edit Templates
+            {tx("ui.templates.template_sets.card.edit_templates", "Edit Templates")}
           </button>
 
           {!isDefault && (
@@ -487,12 +508,12 @@ function TemplateSetCard({
               {isSettingDefault ? (
                 <>
                   <Loader2 size={12} className="animate-spin" />
-                  Setting...
+                  {tx("ui.templates.template_sets.card.setting", "Setting...")}
                 </>
               ) : (
                 <>
                   <Star size={12} />
-                  Set as Default
+                  {tx("ui.templates.template_sets.card.set_as_default", "Set as Default")}
                 </>
               )}
             </button>
@@ -510,7 +531,7 @@ function TemplateSetCard({
             }}
           >
             <Trash2 size={12} />
-            Delete
+            {tx("ui.templates.shared.delete", "Delete")}
           </button>
         </div>
       </div>
@@ -566,6 +587,11 @@ function CreateTemplateSetModal({
   organizationId: Id<"organizations">;
   allTemplates: AuditTemplate[];
 }) {
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -576,7 +602,7 @@ function CreateTemplateSetModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createTemplateSet = useMutation(api.templateSetOntology.createTemplateSet);
+  const createTemplateSet = useMutation(apiAny.templateSetOntology.createTemplateSet);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -649,7 +675,7 @@ function CreateTemplateSetModal({
         <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Plus size={16} />
-            Create New Template Set (v2.0)
+            {tx("ui.templates.template_sets.create_modal.title", "Create New Template Set (v2.0)")}
           </h3>
           <button onClick={onClose} disabled={isSubmitting}>
             <X size={20} style={{ color: "var(--neutral-gray)" }} />
@@ -676,13 +702,13 @@ function CreateTemplateSetModal({
           {/* Name */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Name <span style={{ color: "var(--error)" }}>*</span>
+              {tx("ui.templates.shared.name", "Name")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., VIP Premium Set"
+              placeholder={tx("ui.templates.template_sets.create_modal.name_placeholder", "e.g., VIP Premium Set")}
               disabled={isSubmitting}
               className="w-full text-xs px-3 py-2 rounded disabled:opacity-50"
               style={{
@@ -698,12 +724,12 @@ function CreateTemplateSetModal({
           {/* Description */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Description
+              {tx("ui.templates.shared.description", "Description")}
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe this template set..."
+              placeholder={tx("ui.templates.template_sets.create_modal.description_placeholder", "Describe this template set...")}
               rows={2}
               disabled={isSubmitting}
               className="w-full text-xs px-3 py-2 rounded disabled:opacity-50"
@@ -720,7 +746,12 @@ function CreateTemplateSetModal({
           {/* Templates Selection */}
           <div>
             <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-              Select Templates <span style={{ color: "var(--error)" }}>*</span> ({selectedTemplates.length} selected)
+              {tx(
+                "ui.templates.template_sets.create_modal.select_templates",
+                "Select Templates ({count} selected)",
+                { count: selectedTemplates.length },
+              )}{" "}
+              <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <div
               className="border-2 rounded max-h-64 overflow-y-auto"
@@ -728,7 +759,7 @@ function CreateTemplateSetModal({
             >
               {allTemplates.length === 0 ? (
                 <p className="text-xs p-4 text-center" style={{ color: "var(--neutral-gray)" }}>
-                  No schema-driven templates found
+                  {tx("ui.templates.template_sets.create_modal.no_templates", "No schema-driven templates found")}
                 </p>
               ) : (
                 <div className="divide-y" style={{ borderColor: "var(--desktop-shell-border)" }}>
@@ -776,13 +807,13 @@ function CreateTemplateSetModal({
           {/* Tags */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Tags
+              {tx("ui.templates.shared.tags", "Tags")}
             </label>
             <input
               type="text"
               value={formData.tags}
               onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              placeholder="vip, premium, luxury (comma-separated)"
+              placeholder={tx("ui.templates.template_sets.create_modal.tags_placeholder", "vip, premium, luxury (comma-separated)")}
               disabled={isSubmitting}
               className="w-full text-xs px-3 py-2 rounded disabled:opacity-50"
               style={{
@@ -806,7 +837,7 @@ function CreateTemplateSetModal({
               className="w-4 h-4"
             />
             <label htmlFor="isDefault" className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-              Set as organization default
+              {tx("ui.templates.template_sets.create_modal.set_as_default", "Set as organization default")}
             </label>
           </div>
 
@@ -827,12 +858,12 @@ function CreateTemplateSetModal({
               {isSubmitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Creating...
+                  {tx("ui.templates.shared.creating", "Creating...")}
                 </>
               ) : (
                 <>
                   <CheckCircle size={14} />
-                  Create Template Set
+                  {tx("ui.templates.template_sets.create_modal.submit", "Create Template Set")}
                 </>
               )}
             </button>
@@ -849,7 +880,7 @@ function CreateTemplateSetModal({
                 borderColor: "var(--window-document-border)",
               }}
             >
-              Cancel
+              {tx("ui.templates.shared.cancel", "Cancel")}
             </button>
           </div>
         </form>
@@ -877,6 +908,11 @@ function EditTemplateSetModal({
   void organizationId; // Preserved for future org-scoped template management
   const props = templateSet.customProperties || {};
   const existingTemplates = props.templates || [];
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>(
     existingTemplates.map((t: TemplateSetItem) => t.templateId)
@@ -884,7 +920,7 @@ function EditTemplateSetModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateTemplateSet = useMutation(api.templateSetOntology.updateTemplateSet);
+  const updateTemplateSet = useMutation(apiAny.templateSetOntology.updateTemplateSet);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -943,7 +979,9 @@ function EditTemplateSetModal({
         <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Edit size={16} />
-            Edit Templates - {templateSet.name}
+            {tx("ui.templates.template_sets.edit_modal.title", "Edit Templates - {name}", {
+              name: templateSet.name,
+            })}
           </h3>
           <button onClick={onClose} disabled={isSubmitting}>
             <X size={20} style={{ color: "var(--neutral-gray)" }} />
@@ -970,7 +1008,9 @@ function EditTemplateSetModal({
           {/* Templates Selection */}
           <div>
             <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-              Select Templates ({selectedTemplates.length} selected)
+              {tx("ui.templates.template_sets.edit_modal.select_templates", "Select Templates ({count} selected)", {
+                count: selectedTemplates.length,
+              })}
             </label>
             <div
               className="border-2 rounded max-h-96 overflow-y-auto"
@@ -1034,12 +1074,12 @@ function EditTemplateSetModal({
               {isSubmitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Saving...
+                  {tx("ui.templates.shared.saving", "Saving...")}
                 </>
               ) : (
                 <>
                   <CheckCircle size={14} />
-                  Save Changes
+                  {tx("ui.templates.shared.save_changes", "Save Changes")}
                 </>
               )}
             </button>
@@ -1056,7 +1096,7 @@ function EditTemplateSetModal({
                 borderColor: "var(--window-document-border)",
               }}
             >
-              Cancel
+              {tx("ui.templates.shared.cancel", "Cancel")}
             </button>
           </div>
         </form>
@@ -1080,6 +1120,11 @@ function DeleteConfirmModal({
   onCancel: () => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const handleConfirm = async () => {
     setIsDeleting(true);
@@ -1109,7 +1154,7 @@ function DeleteConfirmModal({
         >
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "color-mix(in srgb, var(--error) 80%, black)" }}>
             <AlertCircle size={16} />
-            Confirm Deletion
+            {tx("ui.templates.template_sets.delete_modal.confirm_deletion", "Confirm Deletion")}
           </h3>
           <button onClick={onCancel} disabled={isDeleting}>
             <X size={20} style={{ color: "var(--neutral-gray)" }} />
@@ -1119,7 +1164,7 @@ function DeleteConfirmModal({
         {/* Body */}
         <div className="p-4 space-y-4">
           <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
-            Are you sure you want to delete the template set:
+            {tx("ui.templates.template_sets.delete_modal.confirm_prompt", "Are you sure you want to delete the template set:")}
           </p>
           <div
             className="p-3 rounded"
@@ -1141,10 +1186,13 @@ function DeleteConfirmModal({
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
                 <div>
                   <p className="text-xs font-bold" style={{ color: "#78350f" }}>
-                    Warning: Default Template Set
+                    {tx("ui.templates.template_sets.delete_modal.default_warning_title", "Warning: Default Template Set")}
                   </p>
                   <p className="text-xs mt-1" style={{ color: "#92400e" }}>
-                    This is the default template set. Deleting it may affect organizations.
+                    {tx(
+                      "ui.templates.template_sets.delete_modal.default_warning_description",
+                      "This is the default template set. Deleting it may affect organizations.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -1152,7 +1200,10 @@ function DeleteConfirmModal({
           )}
 
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            This action cannot be undone. The template set will be soft-deleted.
+            {tx(
+              "ui.templates.template_sets.delete_modal.soft_delete_notice",
+              "This action cannot be undone. The template set will be soft-deleted.",
+            )}
           </p>
         </div>
 
@@ -1173,12 +1224,12 @@ function DeleteConfirmModal({
             {isDeleting ? (
               <>
                 <Loader2 size={14} className="animate-spin" />
-                Deleting...
+                {tx("ui.templates.shared.deleting", "Deleting...")}
               </>
             ) : (
               <>
                 <Trash2 size={14} />
-                Yes, Delete
+                {tx("ui.templates.template_sets.delete_modal.confirm_delete", "Yes, Delete")}
               </>
             )}
           </button>
@@ -1194,7 +1245,7 @@ function DeleteConfirmModal({
               borderColor: "var(--window-document-border)",
             }}
           >
-            Cancel
+            {tx("ui.templates.shared.cancel", "Cancel")}
           </button>
         </div>
       </div>
@@ -1217,6 +1268,11 @@ function CopySystemDefaultModal({
   sessionId: string;
   organizationId: Id<"organizations">;
 }) {
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [formData, setFormData] = useState({
     name: "My Custom Template Set",
     setAsDefault: true,
@@ -1224,11 +1280,11 @@ function CopySystemDefaultModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const copyTemplateSet = useMutation(api.templateSetOntology.copyTemplateSet);
+  const copyTemplateSet = useMutation(apiAny.templateSetOntology.copyTemplateSet);
 
   // Query to find the System Default template set
   const systemDefaultSet = useQuery(
-    api.templateSetOntology.getSystemDefaultTemplateSet,
+    apiAny.templateSetOntology.getSystemDefaultTemplateSet,
     sessionId ? { sessionId } : "skip"
   );
 
@@ -1289,11 +1345,14 @@ function CopySystemDefaultModal({
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle size={20} style={{ color: "var(--error)" }} />
             <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-              System Default Not Found
+              {tx("ui.templates.template_sets.copy_modal.system_default_not_found", "System Default Not Found")}
             </h3>
           </div>
           <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-            The system default template set could not be found. Please contact support.
+            {tx(
+              "ui.templates.template_sets.copy_modal.system_default_not_found_description",
+              "The system default template set could not be found. Please contact support.",
+            )}
           </p>
           <button
             onClick={onClose}
@@ -1306,7 +1365,7 @@ function CopySystemDefaultModal({
               borderColor: "var(--window-document-border)",
             }}
           >
-            Close
+            {tx("ui.templates.shared.close", "Close")}
           </button>
         </div>
       </div>
@@ -1328,7 +1387,7 @@ function CopySystemDefaultModal({
         <div className="flex items-center justify-between p-4 border-b-2" style={{ borderColor: "var(--window-document-border)" }}>
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Copy size={16} />
-            Copy System Default Template Set
+            {tx("ui.templates.template_sets.copy_modal.title", "Copy System Default Template Set")}
           </h3>
           <button onClick={onClose} disabled={isSubmitting}>
             <X size={20} style={{ color: "var(--neutral-gray)" }} />
@@ -1350,7 +1409,11 @@ function CopySystemDefaultModal({
                     {systemDefaultSet.description}
                   </p>
                   <p className="text-xs mt-2 font-bold" style={{ color: "#1e40af" }}>
-                    Includes {templateCount} schema-driven templates
+                    {tx(
+                      "ui.templates.template_sets.copy_modal.includes_count",
+                      "Includes {count} schema-driven templates",
+                      { count: templateCount },
+                    )}
                   </p>
                 </div>
               </div>
@@ -1359,7 +1422,7 @@ function CopySystemDefaultModal({
             {/* Name Input */}
             <div>
               <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                Custom Name for Your Copy
+                {tx("ui.templates.template_sets.copy_modal.custom_name_label", "Custom Name for Your Copy")}
               </label>
               <input
                 type="text"
@@ -1371,7 +1434,7 @@ function CopySystemDefaultModal({
                   borderColor: "var(--window-document-border)",
                   color: "var(--window-document-text)",
                 }}
-                placeholder="My Custom Template Set"
+                placeholder={tx("ui.templates.template_sets.copy_modal.custom_name_placeholder", "My Custom Template Set")}
                 disabled={isSubmitting}
               />
             </div>
@@ -1386,10 +1449,15 @@ function CopySystemDefaultModal({
                 disabled={isSubmitting}
               />
               <label htmlFor="setAsDefault" className="text-xs" style={{ color: "var(--window-document-text)" }}>
-                <span className="font-bold">Set as organization default</span>
+                <span className="font-bold">
+                  {tx("ui.templates.template_sets.copy_modal.set_as_default", "Set as organization default")}
+                </span>
                 <br />
                 <span style={{ color: "var(--neutral-gray)" }}>
-                  Use this template set for all new products and checkouts
+                  {tx(
+                    "ui.templates.template_sets.copy_modal.set_as_default_help",
+                    "Use this template set for all new products and checkouts",
+                  )}
                 </span>
               </label>
             </div>
@@ -1412,13 +1480,34 @@ function CopySystemDefaultModal({
                 <CheckCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
                 <div>
                   <p className="text-xs font-bold" style={{ color: "#78350f" }}>
-                    What happens next:
+                    {tx("ui.templates.template_sets.copy_modal.next_steps_title", "What happens next:")}
                   </p>
                   <ul className="text-xs mt-1 space-y-1" style={{ color: "#92400e" }}>
-                    <li>• All {templateCount} templates will be copied to your organization</li>
-                    <li>• You can customize branding, colors, and content</li>
-                    <li>• System default remains unchanged</li>
-                    <li>• Your copy will be used for all future emails and PDFs</li>
+                    <li>
+                      {tx(
+                        "ui.templates.template_sets.copy_modal.next_steps_copy_templates",
+                        "All {count} templates will be copied to your organization",
+                        { count: templateCount },
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.templates.template_sets.copy_modal.next_steps_customize",
+                        "You can customize branding, colors, and content",
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.templates.template_sets.copy_modal.next_steps_system_unchanged",
+                        "System default remains unchanged",
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.templates.template_sets.copy_modal.next_steps_future_use",
+                        "Your copy will be used for all future emails and PDFs",
+                      )}
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -1442,12 +1531,12 @@ function CopySystemDefaultModal({
               {isSubmitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  Copying Templates...
+                  {tx("ui.templates.template_sets.copy_modal.copying_templates", "Copying Templates...")}
                 </>
               ) : (
                 <>
                   <Copy size={14} />
-                  Copy & Customize
+                  {tx("ui.templates.template_sets.copy_modal.copy_customize", "Copy & Customize")}
                 </>
               )}
             </button>
@@ -1464,7 +1553,7 @@ function CopySystemDefaultModal({
                 borderColor: "var(--window-document-border)",
               }}
             >
-              Cancel
+              {tx("ui.templates.shared.cancel", "Cancel")}
             </button>
           </div>
         </form>

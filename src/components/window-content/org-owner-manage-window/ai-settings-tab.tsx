@@ -22,14 +22,123 @@ import { PrivacyBadge } from "@/components/ai-billing/privacy-badge";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { StoreWindow } from "../store-window";
 import { EnterpriseContactModal } from "@/components/ai-billing/enterprise-contact-modal";
+import { DEFAULT_AGENT_MODEL_ID } from "@/lib/ai/model-defaults";
 
 // Dynamic require avoids deep generated API type instantiation in large settings forms.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 
+type ChannelBindingDraft = {
+  channel: string;
+  enabled: boolean;
+};
+
+type OperatorCollaborationDefaultsDraft = {
+  defaultSurface: "group" | "dm";
+  allowSpecialistDmRouting: boolean;
+  proposalOnlyDmActions: boolean;
+};
+
+type AgentRoutingDefaultsDraft = {
+  channelBindings: ChannelBindingDraft[];
+  collaborationDefaults: OperatorCollaborationDefaultsDraft;
+};
+
+const PLATFORM_MANAGED_OPERATOR_CHANNELS = ["desktop", "slack"] as const;
+const DEFAULT_COLLABORATION_DEFAULTS: OperatorCollaborationDefaultsDraft = {
+  defaultSurface: "group",
+  allowSpecialistDmRouting: true,
+  proposalOnlyDmActions: true,
+};
+
+function normalizeChannelBindings(
+  value: Array<{ channel: string; enabled: boolean }> | undefined
+): ChannelBindingDraft[] {
+  const map = new Map<string, boolean>();
+  if (Array.isArray(value)) {
+    for (const binding of value) {
+      if (!binding || typeof binding.channel !== "string") {
+        continue;
+      }
+      const channel = binding.channel.trim().toLowerCase();
+      if (!channel) {
+        continue;
+      }
+      map.set(channel, binding.enabled === true);
+    }
+  }
+
+  for (const channel of PLATFORM_MANAGED_OPERATOR_CHANNELS) {
+    if (!map.has(channel)) {
+      map.set(channel, false);
+    }
+  }
+
+  return Array.from(map.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([channel, enabled]) => ({ channel, enabled }));
+}
+
+function normalizeCollaborationDefaults(
+  value:
+    | {
+        defaultSurface?: "group" | "dm";
+        allowSpecialistDmRouting?: boolean;
+        proposalOnlyDmActions?: boolean;
+      }
+    | undefined
+): OperatorCollaborationDefaultsDraft {
+  return {
+    defaultSurface: value?.defaultSurface === "dm" ? "dm" : "group",
+    allowSpecialistDmRouting:
+      value?.allowSpecialistDmRouting ?? DEFAULT_COLLABORATION_DEFAULTS.allowSpecialistDmRouting,
+    proposalOnlyDmActions:
+      value?.proposalOnlyDmActions ?? DEFAULT_COLLABORATION_DEFAULTS.proposalOnlyDmActions,
+  };
+}
+
+function areChannelBindingsEqual(
+  left: ChannelBindingDraft[],
+  right: ChannelBindingDraft[]
+): boolean {
+  const normalizedLeft = normalizeChannelBindings(left);
+  const normalizedRight = normalizeChannelBindings(right);
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return false;
+  }
+  for (let index = 0; index < normalizedLeft.length; index += 1) {
+    if (
+      normalizedLeft[index].channel !== normalizedRight[index].channel ||
+      normalizedLeft[index].enabled !== normalizedRight[index].enabled
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areCollaborationDefaultsEqual(
+  left: OperatorCollaborationDefaultsDraft,
+  right: OperatorCollaborationDefaultsDraft
+): boolean {
+  return (
+    left.defaultSurface === right.defaultSurface &&
+    left.allowSpecialistDmRouting === right.allowSpecialistDmRouting &&
+    left.proposalOnlyDmActions === right.proposalOnlyDmActions
+  );
+}
+
 export function AISettingsTab() {
   const { user, sessionId } = useAuth();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.manage.ai");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const { openWindow } = useWindowManager();
   const organizationId = user?.defaultOrgId as Id<"organizations"> | undefined;
 
@@ -69,6 +178,14 @@ export function AISettingsTab() {
     }>;
   };
 
+  type ElevenLabsVoiceCatalogEntry = {
+    voiceId: string;
+    name: string;
+    category?: string;
+    language?: string;
+    labels?: Record<string, string>;
+  };
+
   type AgentRecord = {
     _id: Id<"objects">;
     subtype?: string;
@@ -78,6 +195,12 @@ export function AISettingsTab() {
       displayName?: string;
       modelProvider?: string;
       modelId?: string;
+      channelBindings?: Array<{ channel: string; enabled: boolean }>;
+      operatorCollaborationDefaults?: {
+        defaultSurface?: "group" | "dm";
+        allowSpecialistDmRouting?: boolean;
+        proposalOnlyDmActions?: boolean;
+      };
     };
   };
 
@@ -133,25 +256,28 @@ export function AISettingsTab() {
         }
       : "skip"
   ) as AgentRecord[] | undefined;
+  const platformManagedOverrideAuth = useQuery(
+    apiAny.ai.platformSoulAdmin.getPlatformManagedChannelBindingOverrideAuth,
+    sessionId ? { sessionId } : "skip"
+  ) as { allowed: boolean; reason: string | null; roleName: string | null } | undefined;
   const elevenLabsSettings = useQuery(
     apiAny.integrations.elevenlabs.getElevenLabsSettings,
     sessionId && organizationId ? { sessionId, organizationId } : "skip",
   );
 
   const upsertSettings = useMutation(apiAny.ai.settings.upsertAISettings);
-  const saveElevenLabsSettings = useMutation(
-    apiAny.integrations.elevenlabs.saveElevenLabsSettings,
-  );
   const saveAIConnection = useMutation(
     apiAny.integrations.aiConnections.saveAIConnection,
   );
   const probeElevenLabsHealth = useAction(
     apiAny.integrations.elevenlabs.probeElevenLabsHealth,
   );
+  const listElevenLabsVoices = useAction(
+    apiAny.integrations.elevenlabs.listElevenLabsVoices,
+  );
   const updateAgent = useMutation(apiAny.agentOntology.updateAgent);
 
   // Form state
-  const [enabled, setEnabled] = useState(false);
   const [tier, setTier] = useState<"standard" | "privacy-enhanced" | "private-llm">("standard");
 
   // Multi-select model configuration
@@ -171,6 +297,14 @@ export function AISettingsTab() {
   const [elevenLabsBaseUrl, setElevenLabsBaseUrl] = useState("https://api.elevenlabs.io/v1");
   const [elevenLabsDefaultVoiceId, setElevenLabsDefaultVoiceId] = useState("");
   const [elevenLabsHasSavedApiKey, setElevenLabsHasSavedApiKey] = useState(false);
+  const [elevenLabsVoiceCatalog, setElevenLabsVoiceCatalog] = useState<
+    ElevenLabsVoiceCatalogEntry[]
+  >([]);
+  const [elevenLabsVoiceSearch, setElevenLabsVoiceSearch] = useState("");
+  const [isLoadingElevenLabsVoices, setIsLoadingElevenLabsVoices] =
+    useState(false);
+  const [elevenLabsVoiceCatalogError, setElevenLabsVoiceCatalogError] =
+    useState<string | null>(null);
   const [isProbingElevenLabs, setIsProbingElevenLabs] = useState(false);
   const [elevenLabsProbeResult, setElevenLabsProbeResult] = useState<{
     status: "healthy" | "degraded" | "offline";
@@ -197,6 +331,10 @@ export function AISettingsTab() {
     modelProvider: string;
     modelId: string;
   }>>({});
+  const [agentRoutingDefaults, setAgentRoutingDefaults] = useState<Record<string, AgentRoutingDefaultsDraft>>({});
+
+  const canOverridePlatformManagedBindings =
+    platformManagedOverrideAuth?.allowed === true;
 
   const aiFeatureEnabled = useMemo(
     () => license?.features?.aiEnabled === true,
@@ -230,6 +368,25 @@ export function AISettingsTab() {
         label: provider.providerLabel,
       }));
   }, [aiConnectionsCatalog]);
+  const filteredElevenLabsVoiceCatalog = useMemo(() => {
+    const query = elevenLabsVoiceSearch.trim().toLowerCase();
+    if (!query) {
+      return elevenLabsVoiceCatalog;
+    }
+    return elevenLabsVoiceCatalog.filter((voice) => {
+      const labelValues = voice.labels ? Object.values(voice.labels) : [];
+      const haystack = [
+        voice.name,
+        voice.voiceId,
+        voice.language || "",
+        voice.category || "",
+        ...labelValues,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [elevenLabsVoiceCatalog, elevenLabsVoiceSearch]);
 
   // Model type definition (moved before useEffects)
   type ModelOption = {
@@ -273,13 +430,36 @@ export function AISettingsTab() {
     return models;
   }, [platformModels]);
 
+  const getOnboardingSeedModels = useCallback((models: ModelOption[]): ModelOption[] => {
+    if (models.length === 0) {
+      return [];
+    }
+
+    const onboardingDefault = models.find(
+      (model) => model.id === DEFAULT_AGENT_MODEL_ID
+    );
+    const systemDefaults = models.filter(
+      (model) =>
+        model.recommended && model.id !== DEFAULT_AGENT_MODEL_ID
+    );
+
+    if (onboardingDefault) {
+      return [onboardingDefault, ...systemDefaults];
+    }
+
+    if (systemDefaults.length > 0) {
+      return systemDefaults;
+    }
+
+    return [models[0]];
+  }, []);
+
   // Helper function for model management (moved before useEffects)
   const isModelEnabled = useCallback((modelId: string) => enabledModels.some(m => m.modelId === modelId), [enabledModels]);
 
   // Initialize form from settings
   useEffect(() => {
     if (settings) {
-      setEnabled(settings.enabled);
       if (settings.tier) {
         setTier(settings.tier);
       }
@@ -295,10 +475,10 @@ export function AISettingsTab() {
             "",
         );
       } else {
-        // If no models saved, auto-select system defaults only
+        // If no models saved, seed a deterministic onboarding default.
         const models = getAllModelsForTier(settings.tier || "standard");
-        const systemDefaultModels = models.filter(m => m.recommended);
-        const enabledModels = systemDefaultModels.map((m, index) => ({
+        const seedModels = getOnboardingSeedModels(models);
+        const enabledModels = seedModels.map((m, index) => ({
           modelId: m.id,
           isDefault: index === 0, // First system default is the default
           enabledAt: Date.now()
@@ -332,25 +512,25 @@ export function AISettingsTab() {
         setFallbackProviderOrder(connectedProviderOptions.map((provider) => provider.id));
       }
     } else if (platformModels && enabledModels.length === 0) {
-      // NEW: No settings exist yet, auto-select system defaults
+      // NEW: No settings exist yet, auto-seed onboarding defaults.
       // This happens when a new organization first opens AI Settings
-      const systemDefaults = platformModels.filter((m) => m.isSystemDefault);
-      if (systemDefaults.length > 0) {
-        const newModels = systemDefaults.map((m, index: number) => ({
+      const models = getAllModelsForTier("standard");
+      const seedModels = getOnboardingSeedModels(models);
+      if (seedModels.length > 0) {
+        const newModels = seedModels.map((m, index: number) => ({
           modelId: m.id,
           isDefault: index === 0, // First system default is the default
           enabledAt: Date.now()
         }));
         setEnabledModels(newModels);
         setDefaultModelId(newModels[0].modelId);
-        setEnabled(true); // Auto-enable AI features
       }
     }
     if (!canUseByok) {
       setUseBYOK(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on initial load, not when user modifies local state
-  }, [settings, platformModels, canUseByok, connectedProviderOptions]);
+  }, [settings, platformModels, canUseByok, connectedProviderOptions, getAllModelsForTier, getOnboardingSeedModels]);
 
   useEffect(() => {
     const openRouterConnection = aiConnectionsCatalog?.providers?.find(
@@ -400,6 +580,35 @@ export function AISettingsTab() {
   }, [agents, defaultProviderId, defaultModelId, enabledModels]);
 
   useEffect(() => {
+    if (!agents) {
+      return;
+    }
+
+    setAgentRoutingDefaults((current) => {
+      const nextDefaults: Record<string, AgentRoutingDefaultsDraft> = {
+        ...current,
+      };
+
+      for (const agent of agents) {
+        if (nextDefaults[agent._id]) {
+          continue;
+        }
+
+        nextDefaults[agent._id] = {
+          channelBindings: normalizeChannelBindings(
+            agent.customProperties?.channelBindings
+          ),
+          collaborationDefaults: normalizeCollaborationDefaults(
+            agent.customProperties?.operatorCollaborationDefaults
+          ),
+        };
+      }
+
+      return nextDefaults;
+    });
+  }, [agents]);
+
+  useEffect(() => {
     if (!elevenLabsSettings) {
       return;
     }
@@ -438,11 +647,9 @@ export function AISettingsTab() {
         currentModels.some(m => !allModelIds.includes(m.modelId));
 
       if (hasIncompatibleModels) {
-        // Get system defaults (models marked as recommended by super admin)
-        const systemDefaultModels = allModels.filter(m => m.recommended);
-
-        // Auto-select system defaults
-        const newModels = systemDefaultModels.map((m, index) => ({
+        // Re-seed onboarding defaults when tier filters out the current selection.
+        const seedModels = getOnboardingSeedModels(allModels);
+        const newModels = seedModels.map((m, index) => ({
           modelId: m.id,
           isDefault: index === 0, // First system default is the default
           enabledAt: Date.now()
@@ -461,7 +668,7 @@ export function AISettingsTab() {
       return currentModels;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when tier changes, not on platformModels updates
-  }, [tier]);
+  }, [tier, getOnboardingSeedModels]);
 
   // Get all available models based on tier
   const allAvailableModels = getAllModelsForTier(tier);
@@ -619,6 +826,59 @@ export function AISettingsTab() {
     }));
   };
 
+  const updateAgentChannelBinding = (
+    agentId: string,
+    channel: string,
+    enabled: boolean
+  ) => {
+    setAgentRoutingDefaults((current) => {
+      const existing = current[agentId];
+      const nextBindings = normalizeChannelBindings(existing?.channelBindings);
+      const targetChannel = channel.trim().toLowerCase();
+      const targetIndex = nextBindings.findIndex(
+        (binding) => binding.channel === targetChannel
+      );
+
+      if (targetIndex >= 0) {
+        nextBindings[targetIndex] = {
+          ...nextBindings[targetIndex],
+          enabled,
+        };
+      } else {
+        nextBindings.push({ channel: targetChannel, enabled });
+      }
+
+      return {
+        ...current,
+        [agentId]: {
+          channelBindings: normalizeChannelBindings(nextBindings),
+          collaborationDefaults:
+            existing?.collaborationDefaults ||
+            DEFAULT_COLLABORATION_DEFAULTS,
+        },
+      };
+    });
+  };
+
+  const updateAgentCollaborationDefaults = (
+    agentId: string,
+    updates: Partial<OperatorCollaborationDefaultsDraft>
+  ) => {
+    setAgentRoutingDefaults((current) => {
+      const existing = current[agentId];
+      return {
+        ...current,
+        [agentId]: {
+          channelBindings: normalizeChannelBindings(existing?.channelBindings),
+          collaborationDefaults: {
+            ...normalizeCollaborationDefaults(existing?.collaborationDefaults),
+            ...updates,
+          },
+        },
+      };
+    });
+  };
+
   const handleProbeElevenLabs = async () => {
     if (!sessionId || !organizationId) {
       return;
@@ -655,28 +915,82 @@ export function AISettingsTab() {
     }
   };
 
+  const handleLoadElevenLabsVoices = async () => {
+    if (!sessionId || !organizationId) {
+      return;
+    }
+
+    setIsLoadingElevenLabsVoices(true);
+    setElevenLabsVoiceCatalogError(null);
+    try {
+      const result = (await listElevenLabsVoices({
+        sessionId,
+        organizationId,
+        apiKey: elevenLabsApiKey.trim() || undefined,
+        baseUrl: elevenLabsBaseUrl.trim() || undefined,
+        pageSize: 100,
+      })) as {
+        success: boolean;
+        voices?: ElevenLabsVoiceCatalogEntry[];
+        reason?: string;
+      };
+
+      if (!result.success) {
+        setElevenLabsVoiceCatalog([]);
+        setElevenLabsVoiceCatalogError(
+          result.reason ||
+            "Unable to load ElevenLabs voices. Configure provider credentials first.",
+        );
+      } else {
+        setElevenLabsVoiceCatalog(
+          Array.isArray(result.voices) ? result.voices : [],
+        );
+      }
+    } catch (error) {
+      setElevenLabsVoiceCatalog([]);
+      setElevenLabsVoiceCatalogError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load ElevenLabs voices.",
+      );
+    } finally {
+      setIsLoadingElevenLabsVoices(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!organizationId) return;
 
     // Validate that at least one model is enabled
     if (enabledModels.length === 0) {
-      alert("Please enable at least one model before saving.");
+      alert(tx("ui.manage.ai.validation.enable_model", "Please enable at least one model before saving."));
       return;
     }
 
     // Validate that a default model is selected
     if (!defaultModelId) {
-      alert("Please select a default model.");
+      alert(tx("ui.manage.ai.validation.select_default_model", "Please select a default model."));
       return;
     }
 
     if (useBYOK && !canUseByok) {
-      alert(`BYOK connections require ${byokRequiredTier} or higher.`);
+      alert(
+        tx(
+          "ui.manage.ai.validation.byok_tier_requirement",
+          "BYOK connections require {{tier}} or higher.",
+          { tier: byokRequiredTier }
+        )
+      );
       return;
     }
 
     if (useBYOK && !openrouterHasSavedApiKey && !openrouterApiKey.trim()) {
-      alert("Enter an OpenRouter key (or connect one in Integrations) before enabling BYOK.");
+      alert(
+        tx(
+          "ui.manage.ai.validation.openrouter_key_required",
+          "Enter an OpenRouter key (or connect one in Integrations) before enabling BYOK."
+        )
+      );
       return;
     }
 
@@ -709,7 +1023,7 @@ export function AISettingsTab() {
 
       await upsertSettings({
         organizationId,
-        enabled,
+        enabled: true,
         billingMode: useBYOK && canUseByok ? "byok" : "platform",
         tier,
         llm: {
@@ -746,43 +1060,78 @@ export function AISettingsTab() {
           setOpenrouterApiKey("");
         }
 
-        await saveElevenLabsSettings({
-          sessionId,
-          organizationId,
-          enabled: elevenLabsEnabled,
-          apiKey: elevenLabsApiKey.trim() || undefined,
-          baseUrl: elevenLabsBaseUrl.trim() || undefined,
-          defaultVoiceId: elevenLabsDefaultVoiceId.trim() || undefined,
-        });
-        setElevenLabsHasSavedApiKey(
-          Boolean(elevenLabsApiKey.trim()) || elevenLabsHasSavedApiKey,
-        );
-
         if (agents && agents.length > 0) {
           for (const agent of agents) {
             const desired = agentModelDefaults[agent._id];
-            if (!desired) {
-              continue;
-            }
+            const desiredRouting = agentRoutingDefaults[agent._id];
             const currentProvider =
               agent.customProperties?.modelProvider || "openrouter";
             const currentModel = agent.customProperties?.modelId || "";
-            const nextModelId =
-              desired.modelId || defaultModelId || currentModel;
+            const nextModelId = desired
+              ? desired.modelId || defaultModelId || currentModel
+              : currentModel;
+
+            const currentChannelBindings = normalizeChannelBindings(
+              agent.customProperties?.channelBindings
+            );
+            const nextChannelBindings = normalizeChannelBindings(
+              desiredRouting?.channelBindings || currentChannelBindings
+            );
+            const currentCollaborationDefaults =
+              normalizeCollaborationDefaults(
+                agent.customProperties?.operatorCollaborationDefaults
+              );
+            const nextCollaborationDefaults =
+              normalizeCollaborationDefaults(
+                desiredRouting?.collaborationDefaults ||
+                  currentCollaborationDefaults
+              );
+
+            const modelChanged = Boolean(
+              desired &&
+                (desired.modelProvider !== currentProvider ||
+                  nextModelId !== currentModel)
+            );
+            const channelBindingsChanged = !areChannelBindingsEqual(
+              currentChannelBindings,
+              nextChannelBindings
+            );
+            const collaborationDefaultsChanged = !areCollaborationDefaultsEqual(
+              currentCollaborationDefaults,
+              nextCollaborationDefaults
+            );
+
             if (
-              desired.modelProvider === currentProvider &&
-              nextModelId === currentModel
+              !modelChanged &&
+              !channelBindingsChanged &&
+              !collaborationDefaultsChanged
             ) {
               continue;
+            }
+
+            if (channelBindingsChanged && !canOverridePlatformManagedBindings) {
+              const reason =
+                platformManagedOverrideAuth?.reason ||
+                "Platform-managed channel binding overrides require super_admin role.";
+              throw new Error(reason);
+            }
+
+            const updates: Record<string, unknown> = {};
+            if (modelChanged && desired) {
+              updates.modelProvider = desired.modelProvider;
+              updates.modelId = nextModelId;
+            }
+            if (channelBindingsChanged) {
+              updates.channelBindings = nextChannelBindings;
+            }
+            if (collaborationDefaultsChanged) {
+              updates.operatorCollaborationDefaults = nextCollaborationDefaults;
             }
 
             await updateAgent({
               sessionId,
               agentId: agent._id,
-              updates: {
-                modelProvider: desired.modelProvider,
-                modelId: nextModelId,
-              },
+              updates,
             });
           }
         }
@@ -792,7 +1141,13 @@ export function AISettingsTab() {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save AI settings:", error);
-      alert(`Failed to save AI settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(
+        tx(
+          "ui.manage.ai.validation.failed_to_save",
+          "Failed to save AI settings: {{error}}",
+          { error: error instanceof Error ? error.message : "Unknown error" }
+        )
+      );
     } finally {
       setIsSaving(false);
     }
@@ -801,7 +1156,7 @@ export function AISettingsTab() {
   if (translationsLoading) {
     return (
       <div className="p-4 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-        Loading...
+        {tx("ui.manage.ai.loading", "Loading...")}
       </div>
     );
   }
@@ -876,7 +1231,6 @@ export function AISettingsTab() {
       : elevenLabsHealthStatus === "offline"
         ? "var(--error)"
         : "var(--warning)";
-
   return (
     <div className="space-y-6">
       {/* Subscription Status Banner */}
@@ -957,37 +1311,10 @@ export function AISettingsTab() {
         </div>
       </div>
 
-      {/* Enable/Disable Toggle */}
-      <div
-        className="p-4 border-2"
-        style={{
-          backgroundColor: 'var(--window-document-bg-elevated)',
-          borderColor: 'var(--window-document-border)',
-        }}
-      >
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <div>
-            <span className="font-bold text-sm" style={{ color: 'var(--window-document-text)' }}>
-              {t("ui.manage.ai.enable_features")}
-            </span>
-            <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              {t("ui.manage.ai.enable_features_description")}
-            </p>
-          </div>
-        </label>
-      </div>
-
-      {enabled && (
-        <>
+      <>
           {/* Privacy Tier Selection */}
           <div
-            className="p-4 border-2"
+            className="p-4 border"
             style={{
               backgroundColor: 'var(--window-document-bg-elevated)',
               borderColor: 'var(--window-document-border)',
@@ -1178,15 +1505,25 @@ export function AISettingsTab() {
                 <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--window-document-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Dedicated GPU infrastructure</span>
+                    <span>
+                      {tx(
+                        "ui.manage.ai.private_llm.feature.dedicated_gpu",
+                        "Dedicated GPU infrastructure"
+                      )}
+                    </span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>~200K requests/month</span>
+                    <span>
+                      {tx(
+                        "ui.manage.ai.private_llm.feature.requests_200k",
+                        "~200K requests/month"
+                      )}
+                    </span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>99.5% SLA</span>
+                    <span>{tx("ui.manage.ai.private_llm.feature.sla_995", "99.5% SLA")}</span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
@@ -1231,7 +1568,12 @@ export function AISettingsTab() {
                 <ul className="text-xs space-y-1 mb-3" style={{ color: 'var(--window-document-text)' }}>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Custom infrastructure</span>
+                    <span>
+                      {tx(
+                        "ui.manage.ai.private_llm.feature.custom_infrastructure",
+                        "Custom infrastructure"
+                      )}
+                    </span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
@@ -1239,7 +1581,12 @@ export function AISettingsTab() {
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-                    <span>Dedicated support team</span>
+                    <span>
+                      {tx(
+                        "ui.manage.ai.private_llm.feature.dedicated_support",
+                        "Dedicated support team"
+                      )}
+                    </span>
                   </li>
                   <li className="flex items-start gap-1">
                     <Check size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
@@ -1286,7 +1633,7 @@ export function AISettingsTab() {
 
           {/* Model Selection */}
           <div
-            className="p-4 border-2"
+            className="p-4 border"
             style={{
               backgroundColor: 'var(--window-document-bg-elevated)',
               borderColor: 'var(--window-document-border)',
@@ -1304,19 +1651,19 @@ export function AISettingsTab() {
             {/* Filters */}
             <div className="mb-4 p-3 border-2" style={{ borderColor: 'var(--window-document-border)', backgroundColor: 'var(--window-document-bg)' }}>
               <div className="mb-2 text-xs" style={{ color: 'var(--window-document-text-muted)' }}>
-                Showing {availableModels.length} of {allAvailableModels.length} models
+                {tx("ui.manage.ai.filters.showing", "Showing")} {availableModels.length} {tx("ui.manage.ai.filters.of", "of")} {allAvailableModels.length} {tx("ui.manage.ai.filters.models", "models")}
               </div>
               <div className="grid grid-cols-5 gap-3">
                 {/* Search */}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Search
+                    {tx("ui.manage.ai.filters.search", "Search")}
                   </label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Model name..."
+                    placeholder={tx("ui.manage.ai.filters.model_name_placeholder", "Model name...")}
                     className="w-full px-2 py-1 text-xs"
                     style={{
                       backgroundColor: 'var(--window-document-bg)',
@@ -1330,7 +1677,7 @@ export function AISettingsTab() {
                 {/* Provider Filter */}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Provider
+                    {tx("ui.manage.ai.filters.provider", "Provider")}
                   </label>
                   <select
                     value={filterProvider}
@@ -1343,7 +1690,7 @@ export function AISettingsTab() {
                       borderColor: 'var(--window-document-border)',
                     }}
                   >
-                    <option value="all">All Providers</option>
+                    <option value="all">{tx("ui.manage.ai.filters.all_providers", "All Providers")}</option>
                     {providers.map((provider) => (
                       <option key={provider} value={provider}>
                         {provider.toUpperCase()}
@@ -1355,7 +1702,7 @@ export function AISettingsTab() {
                 {/* Capability Filter */}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Capability
+                    {tx("ui.manage.ai.filters.capability", "Capability")}
                   </label>
                   <select
                     value={filterCapability}
@@ -1368,17 +1715,17 @@ export function AISettingsTab() {
                       borderColor: 'var(--window-document-border)',
                     }}
                   >
-                    <option value="all">All Capabilities</option>
-                    <option value="tool_calling">Tool Calling</option>
-                    <option value="multimodal">Multimodal</option>
-                    <option value="vision">Vision</option>
+                    <option value="all">{tx("ui.manage.ai.filters.all_capabilities", "All Capabilities")}</option>
+                    <option value="tool_calling">{tx("ui.manage.ai.filters.tool_calling", "Tool Calling")}</option>
+                    <option value="multimodal">{tx("ui.manage.ai.filters.multimodal", "Multimodal")}</option>
+                    <option value="vision">{tx("ui.manage.ai.filters.vision", "Vision")}</option>
                   </select>
                 </div>
 
                 {/* Recommended Filter */}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Recommended
+                    {tx("ui.manage.ai.filters.recommended", "Recommended")}
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1387,14 +1734,16 @@ export function AISettingsTab() {
                       onChange={(e) => setShowOnlyRecommended(e.target.checked)}
                       className="w-4 h-4"
                     />
-                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>Only show</span>
+                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
+                      {tx("ui.manage.ai.filters.only_show", "Only show")}
+                    </span>
                   </label>
                 </div>
 
                 {/* Enabled Filter */}
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                    Enabled
+                    {tx("ui.manage.ai.filters.enabled", "Enabled")}
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1403,7 +1752,9 @@ export function AISettingsTab() {
                       onChange={(e) => setShowOnlyEnabled(e.target.checked)}
                       className="w-4 h-4"
                     />
-                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>Only show</span>
+                    <span className="text-xs" style={{ color: 'var(--window-document-text)' }}>
+                      {tx("ui.manage.ai.filters.only_show", "Only show")}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -1454,7 +1805,7 @@ export function AISettingsTab() {
                                 color: 'white',
                               }}
                             >
-                              RECOMMENDED
+                              {tx("ui.manage.ai.model_status.recommended", "RECOMMENDED")}
                             </span>
                           )}
                           {isDefault && (
@@ -1465,7 +1816,7 @@ export function AISettingsTab() {
                                 color: 'white',
                               }}
                             >
-                              DEFAULT
+                              {tx("ui.manage.ai.model_status.default", "DEFAULT")}
                             </span>
                           )}
                         </div>
@@ -1480,7 +1831,7 @@ export function AISettingsTab() {
                             onClick={() => setAsDefaultModel(model.id)}
                             className="desktop-interior-button py-1.5 px-3 text-xs font-pixel"
                           >
-                            Set as Default
+                            {tx("ui.manage.ai.actions.set_as_default", "Set as Default")}
                           </button>
                         )}
                       </div>
@@ -1497,9 +1848,11 @@ export function AISettingsTab() {
               color: 'var(--neutral-gray)'
             }}>
               <p style={{ color: 'var(--window-document-text)' }}>
-                <span className="font-bold">{enabledModels.length} models enabled</span>
+                <span className="font-bold">
+                  {enabledModels.length} {tx("ui.manage.ai.summary.models_enabled", "models enabled")}
+                </span>
                 {defaultModelId && (
-                  <span> • Default: {availableModels.find(m => m.id === defaultModelId)?.name}</span>
+                  <span> • {tx("ui.manage.ai.summary.default", "Default:")} {availableModels.find(m => m.id === defaultModelId)?.name}</span>
                 )}
               </p>
             </div>
@@ -1543,7 +1896,7 @@ export function AISettingsTab() {
 
           {/* Provider Defaults + Fallback Editor */}
           <div
-            className="p-4 border-2"
+            className="p-4 border"
             style={{
               backgroundColor: "var(--window-document-bg-elevated)",
               borderColor: "var(--window-document-border)",
@@ -1552,17 +1905,20 @@ export function AISettingsTab() {
             <div className="mb-3">
               <h3 className="font-bold text-sm mb-1 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
                 <Brain size={16} />
-                Provider Defaults & Fallback
+                {tx("ui.manage.ai.provider_defaults.title", "Provider Defaults & Fallback")}
               </h3>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Set the default runtime provider and fallback order used when a provider is unavailable.
+                {tx(
+                  "ui.manage.ai.provider_defaults.description",
+                  "Set the default runtime provider and fallback order used when a provider is unavailable."
+                )}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Default provider
+                  {tx("ui.manage.ai.provider_defaults.default_provider", "Default provider")}
                 </label>
                 <select
                   value={defaultProviderId}
@@ -1575,7 +1931,7 @@ export function AISettingsTab() {
                   }}
                 >
                   {connectedProviderOptions.length === 0 && (
-                    <option value="openrouter">openrouter</option>
+                    <option value="openrouter">{tx("ui.manage.ai.provider_defaults.openrouter", "openrouter")}</option>
                   )}
                   {connectedProviderOptions.map((provider) => (
                     <option key={provider.id} value={provider.id}>
@@ -1588,11 +1944,14 @@ export function AISettingsTab() {
 
             <div className="mt-3">
               <p className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-                Fallback chain order
+                {tx("ui.manage.ai.provider_defaults.fallback_chain_order", "Fallback chain order")}
               </p>
               {fallbackProviderOrder.length === 0 ? (
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  No connected providers yet. Configure AI Connections in Integrations first.
+                  {tx(
+                    "ui.manage.ai.provider_defaults.no_connected_providers",
+                    "No connected providers yet. Configure AI Connections in Integrations first."
+                  )}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1615,7 +1974,7 @@ export function AISettingsTab() {
                             {index + 1}. {providerLabel}
                           </p>
                           <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-                            Provider ID: {providerId}
+                            {tx("ui.manage.ai.provider_defaults.provider_id", "Provider ID:")} {providerId}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1624,14 +1983,14 @@ export function AISettingsTab() {
                             className="desktop-interior-button py-1 px-2 text-[11px]"
                             disabled={index === 0}
                           >
-                            Up
+                            {tx("ui.manage.ai.provider_defaults.up", "Up")}
                           </button>
                           <button
                             onClick={() => moveFallbackProvider(providerId, "down")}
                             className="desktop-interior-button py-1 px-2 text-[11px]"
                             disabled={index === fallbackProviderOrder.length - 1}
                           >
-                            Down
+                            {tx("ui.manage.ai.provider_defaults.down", "Down")}
                           </button>
                         </div>
                       </div>
@@ -1644,7 +2003,7 @@ export function AISettingsTab() {
 
           {/* Per-Agent Provider/Model Defaults */}
           <div
-            className="p-4 border-2"
+            className="p-4 border"
             style={{
               backgroundColor: "var(--window-document-bg-elevated)",
               borderColor: "var(--window-document-border)",
@@ -1652,16 +2011,19 @@ export function AISettingsTab() {
           >
             <div className="mb-3">
               <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
-                Per-Agent Provider & Model Defaults
+                {tx("ui.manage.ai.per_agent_defaults.title", "Per-Agent Provider & Model Defaults")}
               </h3>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Each agent can override the global defaults. Changes are saved with AI settings.
+                {tx(
+                  "ui.manage.ai.per_agent_defaults.description",
+                  "Each agent can override the global defaults. Changes are saved with AI settings."
+                )}
               </p>
             </div>
 
             {!agents || agents.length === 0 ? (
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                No agents found for this organization.
+                {tx("ui.manage.ai.per_agent_defaults.no_agents", "No agents found for this organization.")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -1679,10 +2041,10 @@ export function AISettingsTab() {
                     >
                       <div className="md:col-span-2">
                         <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                          {agent.customProperties?.displayName || agent.name || "Agent"}
+                          {agent.customProperties?.displayName || agent.name || tx("ui.manage.ai.per_agent_defaults.agent_fallback", "Agent")}
                         </p>
                         <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-                          {agent.subtype || "general"} • {agent.status || "draft"}
+                          {agent.subtype || tx("ui.manage.ai.per_agent_defaults.general", "general")} • {agent.status || tx("ui.manage.ai.per_agent_defaults.draft", "draft")}
                         </p>
                       </div>
 
@@ -1700,7 +2062,7 @@ export function AISettingsTab() {
                       >
                         {connectedProviderOptions.length === 0 && (
                           <option value={defaultProviderId || "openrouter"}>
-                            {defaultProviderId || "openrouter"}
+                            {defaultProviderId || tx("ui.manage.ai.provider_defaults.openrouter", "openrouter")}
                           </option>
                         )}
                         {connectedProviderOptions.map((provider) => (
@@ -1735,9 +2097,212 @@ export function AISettingsTab() {
             )}
           </div>
 
+          {/* Operator Collaboration Routing Defaults */}
+          <div
+            className="p-4 border"
+            style={{
+              backgroundColor: "var(--window-document-bg-elevated)",
+              borderColor: "var(--window-document-border)",
+            }}
+          >
+            <div className="mb-3">
+              <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
+                {tx(
+                  "ui.manage.ai.collaboration_defaults.title",
+                  "Operator Collaboration Routing Defaults"
+                )}
+              </h3>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx(
+                  "ui.manage.ai.collaboration_defaults.description",
+                  "Configure platform-managed channel bindings (`desktop`, `slack`) and the default collaboration posture for each agent."
+                )}
+              </p>
+            </div>
+
+            {!canOverridePlatformManagedBindings && (
+              <div
+                className="mb-3 p-3 border text-xs"
+                style={{
+                  borderColor: "var(--warning)",
+                  backgroundColor: "var(--window-document-bg)",
+                  color: "var(--window-document-text)",
+                }}
+              >
+                <p className="font-bold mb-1">{tx("ui.manage.ai.collaboration_defaults.read_only_mode", "Read-only mode")}</p>
+                <p>
+                  {platformManagedOverrideAuth?.reason ||
+                    tx(
+                      "ui.manage.ai.collaboration_defaults.super_admin_required",
+                      "Platform-managed channel binding overrides are restricted to super admins."
+                    )}
+                </p>
+              </div>
+            )}
+
+            {!agents || agents.length === 0 ? (
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("ui.manage.ai.collaboration_defaults.no_agents", "No agents found for this organization.")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {agents.map((agent) => {
+                  const routingDefaults = agentRoutingDefaults[agent._id] || {
+                    channelBindings: normalizeChannelBindings(agent.customProperties?.channelBindings),
+                    collaborationDefaults: normalizeCollaborationDefaults(
+                      agent.customProperties?.operatorCollaborationDefaults
+                    ),
+                  };
+
+                  const readChannelEnabled = (channel: string): boolean =>
+                    routingDefaults.channelBindings.find((binding) => binding.channel === channel)
+                      ?.enabled === true;
+
+                  return (
+                    <div
+                      key={`routing-${agent._id}`}
+                      className="p-3 border space-y-2"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        backgroundColor: "var(--window-document-bg)",
+                      }}
+                    >
+                      <div>
+                        <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                          {agent.customProperties?.displayName || agent.name || tx("ui.manage.ai.collaboration_defaults.agent_fallback", "Agent")}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          {agent.subtype || tx("ui.manage.ai.collaboration_defaults.general", "general")} • {agent.status || tx("ui.manage.ai.collaboration_defaults.draft", "draft")}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {PLATFORM_MANAGED_OPERATOR_CHANNELS.map((channel) => (
+                          <label
+                            key={`${agent._id}:${channel}`}
+                            className="flex items-center gap-2 text-xs"
+                            style={{ color: "var(--window-document-text)" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={readChannelEnabled(channel)}
+                              disabled={!canOverridePlatformManagedBindings}
+                              onChange={(event) =>
+                                updateAgentChannelBinding(
+                                  agent._id,
+                                  channel,
+                                  event.target.checked
+                                )
+                              }
+                              className="w-4 h-4"
+                            />
+                            <span>
+                              {tx(
+                                "ui.manage.ai.collaboration_defaults.enable_channel_routing",
+                                "Enable {{channel}} operator routing for this agent",
+                                { channel }
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <label
+                            className="block text-xs font-bold mb-1"
+                            style={{ color: "var(--window-document-text)" }}
+                          >
+                            {tx(
+                              "ui.manage.ai.collaboration_defaults.default_surface",
+                              "Default collaboration surface"
+                            )}
+                          </label>
+                          <select
+                            value={routingDefaults.collaborationDefaults.defaultSurface}
+                            disabled={!canOverridePlatformManagedBindings}
+                            onChange={(event) =>
+                              updateAgentCollaborationDefaults(agent._id, {
+                                defaultSurface: event.target.value === "dm" ? "dm" : "group",
+                              })
+                            }
+                            className="w-full p-2 text-xs border"
+                            style={{
+                              borderColor: "var(--window-document-border)",
+                              backgroundColor: "var(--window-document-bg-elevated)",
+                              color: "var(--window-document-text)",
+                            }}
+                          >
+                            <option value="group">
+                              {tx(
+                                "ui.manage.ai.collaboration_defaults.group_thread",
+                                "Group thread (orchestrator)"
+                              )}
+                            </option>
+                            <option value="dm">{tx("ui.manage.ai.collaboration_defaults.specialist_dm", "Specialist DM")}</option>
+                          </select>
+                        </div>
+
+                        <label
+                          className="flex items-center gap-2 text-xs"
+                          style={{ color: "var(--window-document-text)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              routingDefaults.collaborationDefaults.allowSpecialistDmRouting
+                            }
+                            disabled={!canOverridePlatformManagedBindings}
+                            onChange={(event) =>
+                              updateAgentCollaborationDefaults(agent._id, {
+                                allowSpecialistDmRouting: event.target.checked,
+                              })
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span>
+                            {tx(
+                              "ui.manage.ai.collaboration_defaults.allow_specialist_dm_routing",
+                              "Allow specialist DM routing"
+                            )}
+                          </span>
+                        </label>
+
+                        <label
+                          className="flex items-center gap-2 text-xs"
+                          style={{ color: "var(--window-document-text)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              routingDefaults.collaborationDefaults.proposalOnlyDmActions
+                            }
+                            disabled={!canOverridePlatformManagedBindings}
+                            onChange={(event) =>
+                              updateAgentCollaborationDefaults(agent._id, {
+                                proposalOnlyDmActions: event.target.checked,
+                              })
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span>
+                            {tx(
+                              "ui.manage.ai.collaboration_defaults.enforce_proposal_only_dm_actions",
+                              "Enforce proposal-only DM actions"
+                            )}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Voice Runtime Provider Settings */}
           <div
-            className="p-4 border-2"
+            className="p-4 border"
             style={{
               backgroundColor: "var(--window-document-bg-elevated)",
               borderColor: "var(--window-document-border)",
@@ -1749,103 +2314,14 @@ export function AISettingsTab() {
                 style={{ color: "var(--window-document-text)" }}
               >
                 <Mic size={16} />
-                Voice Runtime (ElevenLabs)
+                {tx("ui.manage.ai.voice_runtime.title", "Voice Runtime (ElevenLabs)")}
               </h3>
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                Configure your org-level voice runtime provider. If provider health is degraded or offline, runtime falls back to browser voice handling.
+                {tx(
+                  "ui.manage.ai.voice_runtime.description",
+                  "ElevenLabs controls moved to Integrations → ElevenLabs. Configure key source (platform vs BYOK), probe health, and voice catalog there."
+                )}
               </p>
-            </div>
-
-            <label className="flex items-center gap-3 cursor-pointer mb-3">
-              <input
-                type="checkbox"
-                checked={elevenLabsEnabled}
-                onChange={(event) => setElevenLabsEnabled(event.target.checked)}
-                className="w-4 h-4"
-              />
-              <div>
-                <span
-                  className="font-bold text-sm"
-                  style={{ color: "var(--window-document-text)" }}
-                >
-                  Enable ElevenLabs voice provider
-                </span>
-                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Keep disabled to force deterministic browser fallback for all sessions.
-                </p>
-              </div>
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label
-                  className="block text-xs font-bold mb-1"
-                  style={{ color: "var(--window-document-text)" }}
-                >
-                  ElevenLabs API Key
-                </label>
-                <input
-                  type="password"
-                  value={elevenLabsApiKey}
-                  onChange={(event) => setElevenLabsApiKey(event.target.value)}
-                  placeholder={
-                    elevenLabsHasSavedApiKey
-                      ? "Stored key present. Enter a new key to rotate."
-                      : "xi-api-key..."
-                  }
-                  className="w-full p-2 text-xs border-2 font-mono"
-                  style={{
-                    borderColor: "var(--window-document-border)",
-                    backgroundColor: "var(--window-document-bg)",
-                    color: "var(--window-document-text)",
-                  }}
-                />
-                <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  Existing keys are never returned to the client. Enter a value only when setting or rotating the key.
-                </p>
-              </div>
-
-              <div>
-                <label
-                  className="block text-xs font-bold mb-1"
-                  style={{ color: "var(--window-document-text)" }}
-                >
-                  Base URL
-                </label>
-                <input
-                  type="text"
-                  value={elevenLabsBaseUrl}
-                  onChange={(event) => setElevenLabsBaseUrl(event.target.value)}
-                  placeholder="https://api.elevenlabs.io/v1"
-                  className="w-full p-2 text-xs border-2 font-mono"
-                  style={{
-                    borderColor: "var(--window-document-border)",
-                    backgroundColor: "var(--window-document-bg)",
-                    color: "var(--window-document-text)",
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <label
-                className="block text-xs font-bold mb-1"
-                style={{ color: "var(--window-document-text)" }}
-              >
-                Default Voice ID (optional)
-              </label>
-              <input
-                type="text"
-                value={elevenLabsDefaultVoiceId}
-                onChange={(event) => setElevenLabsDefaultVoiceId(event.target.value)}
-                placeholder="voice_xxxxx"
-                className="w-full p-2 text-xs border-2 font-mono"
-                style={{
-                  borderColor: "var(--window-document-border)",
-                  backgroundColor: "var(--window-document-bg)",
-                  color: "var(--window-document-text)",
-                }}
-              />
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1856,38 +2332,21 @@ export function AISettingsTab() {
                   color: "white",
                 }}
               >
-                Provider health: {elevenLabsHealthLabel}
+                {tx("ui.manage.ai.voice_runtime.provider_health", "Provider health:")} {elevenLabsHealthLabel}
               </span>
               {elevenLabsHealthReason ? (
-                <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Reason: {elevenLabsHealthReason}
-                </span>
-              ) : null}
+                  <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {tx("ui.manage.ai.voice_runtime.reason", "Reason:")} {elevenLabsHealthReason}
+                  </span>
+                ) : null}
             </div>
-
-            <div
-              className="mt-3 p-3 border-2 text-xs"
-              style={{
-                borderColor: "var(--window-document-border)",
-                backgroundColor: "var(--window-document-bg)",
-                color: "var(--window-document-text)",
-              }}
-            >
-              <p className="font-bold mb-1">Fallback behavior</p>
-              <p>
-                When ElevenLabs is missing credentials, degraded, or offline, the voice runtime falls back to the browser adapter for local speech behavior. This preserves trust boundaries and prevents provider-side audio calls during degraded health.
-              </p>
-            </div>
-
             <div className="mt-3">
-              <button
-                onClick={handleProbeElevenLabs}
-                disabled={isProbingElevenLabs || !organizationId || !sessionId}
-                className="desktop-interior-button py-2 px-4 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isProbingElevenLabs ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                {isProbingElevenLabs ? "Testing provider..." : "Test provider health"}
-              </button>
+              <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx(
+                  "ui.manage.ai.voice_runtime.fallback_description",
+                  "Runtime fallback remains unchanged: inbound override → agent defaults → org default voice; degraded provider state falls back to browser voice handling."
+                )}
+              </p>
             </div>
           </div>
 
@@ -1901,7 +2360,7 @@ export function AISettingsTab() {
           >
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               {canUseByok ? <KeyRound size={16} /> : <Lock size={16} />}
-              Bring Your Own Key (OpenRouter)
+              {tx("ui.manage.ai.byok.title", "Bring Your Own Key (OpenRouter)")}
             </h3>
 
             {canUseByok ? (
@@ -1915,10 +2374,13 @@ export function AISettingsTab() {
                   />
                   <div>
                     <span className="font-bold text-sm" style={{ color: "var(--window-document-text)" }}>
-                      Route LLM usage through my OpenRouter key
+                      {tx("ui.manage.ai.byok.route_usage", "Route LLM usage through my OpenRouter key")}
                     </span>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                      Billing mode switches to BYOK and uses your provider credential for token spend.
+                      {tx(
+                        "ui.manage.ai.byok.billing_mode_description",
+                        "Billing mode switches to BYOK and uses your provider credential for token spend."
+                      )}
                     </p>
                   </div>
                 </label>
@@ -1926,7 +2388,7 @@ export function AISettingsTab() {
                 {useBYOK && (
                   <div>
                     <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      OpenRouter API Key
+                      {tx("ui.manage.ai.byok.api_key_label", "OpenRouter API Key")}
                     </label>
                     <input
                       type="password"
@@ -1934,7 +2396,10 @@ export function AISettingsTab() {
                       onChange={(event) => setOpenrouterApiKey(event.target.value)}
                       placeholder={
                         openrouterHasSavedApiKey
-                          ? "Stored key present. Enter a new key to rotate."
+                          ? tx(
+                            "ui.manage.ai.byok.stored_key_placeholder",
+                            "Stored key present. Enter a new key to rotate."
+                          )
                           : "sk-or-v1-..."
                       }
                       className="w-full p-2 text-xs border-2 font-mono"
@@ -1945,7 +2410,10 @@ export function AISettingsTab() {
                       }}
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                      Keys stay redacted in UI/logs. Provide a value only when setting or rotating.
+                      {tx(
+                        "ui.manage.ai.byok.redaction_note",
+                        "Keys stay redacted in UI/logs. Provide a value only when setting or rotating."
+                      )}
                     </p>
                   </div>
                 )}
@@ -1953,23 +2421,25 @@ export function AISettingsTab() {
             ) : (
               <div className="space-y-2">
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  BYOK routing is locked on the current tier. Platform-managed billing remains active as fallback.
+                  {tx(
+                    "ui.manage.ai.byok.locked_description",
+                    "BYOK routing is locked on the current tier. Platform-managed billing remains active as fallback."
+                  )}
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Required tier: {byokRequiredTier}
+                  {tx("ui.manage.ai.byok.required_tier", "Required tier:")} {byokRequiredTier}
                 </p>
                 <button
                   onClick={handleOpenStore}
                   className="desktop-interior-button py-2 px-3 text-xs font-pixel flex items-center gap-2"
                 >
                   <ShoppingCart size={14} />
-                  View plans
+                  {tx("ui.manage.ai.byok.view_plans", "View plans")}
                 </button>
               </div>
             )}
           </div>
         </>
-      )}
 
       {/* Save Button */}
       <div className="flex items-center gap-4 justify-end">
@@ -1981,7 +2451,7 @@ export function AISettingsTab() {
               color: 'white'
             }}
           >
-             Settings saved successfully
+             {tx("ui.manage.ai.save_success", "Settings saved successfully")}
           </div>
         )}
         <button
@@ -1998,7 +2468,11 @@ export function AISettingsTab() {
       <EnterpriseContactModal
         isOpen={showEnterpriseModal}
         onClose={() => setShowEnterpriseModal(false)}
-        title={`Private LLM - ${enterpriseTier.charAt(0).toUpperCase() + enterpriseTier.slice(1)}`}
+        title={tx(
+          "ui.manage.ai.enterprise_contact.title",
+          "Private LLM - {{tier}}",
+          { tier: enterpriseTier.charAt(0).toUpperCase() + enterpriseTier.slice(1) }
+        )}
       />
     </div>
   );

@@ -154,7 +154,7 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
             {trashedFiles.map((file: any) => (
               <tr
                 key={file._id}
-                className="border-b hover:bg-black/5 transition-colors"
+                className="border-b hover:bg-[var(--color-surface-hover)] transition-colors"
                 style={{ borderColor: "var(--window-document-border)" }}
               >
                 <td className="px-4 py-2">
@@ -215,9 +215,9 @@ export function FinderTrashView({ sessionId, organizationId }: FinderTrashViewPr
       {/* Empty Trash Confirmation */}
       {confirmEmptyTrash && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmEmptyTrash(false)} />
+          <div className="absolute inset-0 bg-[var(--modal-overlay-bg)]" onClick={() => setConfirmEmptyTrash(false)} />
           <div
-            className="relative w-full max-w-sm p-6 border rounded-2xl shadow-lg"
+            className="relative w-full max-w-sm p-6 border rounded-2xl"
             style={{
               background: "var(--window-document-bg-elevated)",
               borderColor: "var(--window-document-border)",

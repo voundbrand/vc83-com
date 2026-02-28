@@ -19,6 +19,7 @@ import {
   PRODUCT_OS_CATALOG_BY_CODE,
   PRODUCT_OS_CATEGORIES,
   PRODUCT_OS_CATEGORY_ICON_ID,
+  PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES,
   PRODUCT_OS_NEW_CODES,
   PRODUCT_OS_POPULAR_CODES,
   getProductOSBadgeTranslationKey,
@@ -117,6 +118,7 @@ const CATEGORY_DEFINITIONS: CategoryDefinition[] = PRODUCT_OS_CATEGORIES.map((ca
 
 const POPULAR_PRODUCT_CODE_SET = new Set<string>(PRODUCT_OS_POPULAR_CODES);
 const NEW_PRODUCT_CODE_SET = new Set<string>(PRODUCT_OS_NEW_CODES);
+const PRIMARY_DISCOVERY_EXCLUDED_CODE_SET = new Set<string>(PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES);
 
 const LEGACY_CATEGORY_TO_PRODUCT_OS: Partial<Record<string, ProductOSCategory>> = {
   content: "Content & Publishing",
@@ -320,14 +322,18 @@ export function AllAppsWindow({ initialView = "browse" }: AllAppsWindowProps = {
     const availableByCode = new Map<string, AvailableApp>();
 
     typedAvailableApps.forEach((app) => {
-      if (app?.code) {
+      if (app?.code && !PRIMARY_DISCOVERY_EXCLUDED_CODE_SET.has(app.code)) {
         availableByCode.set(app.code, app);
       }
     });
 
-    const discoverableCodes = new Set<string>(PRODUCT_OS_CATALOG.map((entry) => entry.code));
+    const discoverableCodes = new Set<string>(
+      PRODUCT_OS_CATALOG
+        .map((entry) => entry.code)
+        .filter((code) => !PRIMARY_DISCOVERY_EXCLUDED_CODE_SET.has(code)),
+    );
     typedAvailableApps.forEach((app) => {
-      if (app?.code) {
+      if (app?.code && !PRIMARY_DISCOVERY_EXCLUDED_CODE_SET.has(app.code)) {
         discoverableCodes.add(app.code);
       }
     });

@@ -104,7 +104,7 @@ export function SequencesWindow() {
           </div>
           <button
             onClick={handleCreateNew}
-            className="retro-button flex items-center gap-2 px-3 py-2 text-xs font-bold"
+            className="desktop-interior-button flex items-center gap-2 px-3 py-2 text-xs font-bold"
           >
             <Plus className="h-3 w-3" />
             New Sequence

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck, Ticket, BarChart3, Database, DollarSign } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
@@ -10,6 +10,10 @@ import { TemplateSetsTab } from "./template-sets-tab";
 import { PlatformAiModelsTab } from "./platform-ai-models-tab";
 import { BetaAccessTab } from "./beta-access-tab";
 import { PlatformAgentTrustTrainingTab } from "./platform-agent-trust-training-tab";
+import { CreditRedemptionCodesTab } from "./credit-redemption-codes-tab";
+import { SupportAgentQualityTab } from "./support-agent-quality-tab";
+import { AgentControlCenterTab } from "./agent-control-center-tab";
+import { PlatformEconomicsTab } from "./platform-economics-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -32,11 +36,53 @@ type TabType =
   | "templates"
   | "platform-ai-models"
   | "beta-access"
-  | "platform-agent-trust";
+  | "platform-agent-trust"
+  | "credit-redemption-codes"
+  | "platform-economics"
+  | "support-agent-quality"
+  | "agent-control-center";
 
-export function OrganizationsWindow() {
+interface OrganizationsWindowProps {
+  initialTab?: string;
+  initialPanel?: string;
+}
+
+const ORGANIZATIONS_WINDOW_TABS: TabType[] = [
+  "list",
+  "create",
+  "template-sets",
+  "app-availability",
+  "templates",
+  "platform-ai-models",
+  "beta-access",
+  "platform-agent-trust",
+  "credit-redemption-codes",
+  "platform-economics",
+  "support-agent-quality",
+  "agent-control-center",
+];
+
+function resolveOrganizationsWindowTab(tabOrPanel?: string): TabType {
+  if (!tabOrPanel) {
+    return "list";
+  }
+
+  if ((ORGANIZATIONS_WINDOW_TABS as string[]).includes(tabOrPanel)) {
+    return tabOrPanel as TabType;
+  }
+
+  return "list";
+}
+
+export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsWindowProps = {}) {
   const { t } = useNamespaceTranslations("ui.organizations");
-  const [activeTab, setActiveTab] = useState<TabType>("list");
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    resolveOrganizationsWindowTab(initialTab || initialPanel)
+  );
+
+  useEffect(() => {
+    setActiveTab(resolveOrganizationsWindowTab(initialTab || initialPanel));
+  }, [initialPanel, initialTab]);
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
@@ -152,6 +198,54 @@ export function OrganizationsWindow() {
           <ShieldCheck size={14} />
           Platform Agent Trust
         </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "credit-redemption-codes" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "credit-redemption-codes" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("credit-redemption-codes")}
+        >
+          <Ticket size={14} />
+          Credit Codes
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "platform-economics" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "platform-economics" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("platform-economics")}
+        >
+          <DollarSign size={14} />
+          AI Economics
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "support-agent-quality" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "support-agent-quality" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("support-agent-quality")}
+        >
+          <BarChart3 size={14} />
+          Support Quality
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "agent-control-center" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "agent-control-center" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("agent-control-center")}
+        >
+          <Database size={14} />
+          Agent Control
+        </button>
         </div>
       </div>
 
@@ -165,6 +259,10 @@ export function OrganizationsWindow() {
         {activeTab === "platform-ai-models" && <PlatformAiModelsTab />}
         {activeTab === "beta-access" && <BetaAccessTab />}
         {activeTab === "platform-agent-trust" && <PlatformAgentTrustTrainingTab />}
+        {activeTab === "credit-redemption-codes" && <CreditRedemptionCodesTab />}
+        {activeTab === "platform-economics" && <PlatformEconomicsTab />}
+        {activeTab === "support-agent-quality" && <SupportAgentQualityTab />}
+        {activeTab === "agent-control-center" && <AgentControlCenterTab />}
       </div>
     </div>
   );

@@ -22,7 +22,9 @@ import {
 import Link from "next/link";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../convex/_generated/api") as { api: any };
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import MediaLibraryWindow from "./media-library-window";
@@ -74,11 +76,15 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
   const { t } = useNamespaceTranslations("ui.compliance");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const { openWindow } = useWindowManager();
 
-  const convertToPdf = useAction(api.compliance.convertMarkdownToPdf);
-  const exportUserData = useAction(api.compliance.exportUserData);
-  const permanentlyDeleteAccount = useAction(api.compliance.permanentlyDeleteAccountImmediate);
+  const convertToPdf = useAction(apiAny.compliance.convertMarkdownToPdf);
+  const exportUserData = useAction(apiAny.compliance.exportUserData);
+  const permanentlyDeleteAccount = useAction(apiAny.compliance.permanentlyDeleteAccountImmediate);
 
   // NOTE: We do NOT use useAppAvailabilityGuard here because Account Deletion
   // MUST always be accessible per GDPR requirements. Instead, we conditionally
@@ -91,7 +97,7 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: "var(--win95-highlight)" }} />
-            <p style={{ color: "var(--win95-text)" }}>Loading...</p>
+            <p style={{ color: "var(--win95-text)" }}>{tx("ui.compliance.state.loading", "Loading...")}</p>
           </div>
         </div>
       </div>
@@ -104,7 +110,9 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <AlertCircle size={48} style={{ color: "var(--error)" }} className="mx-auto mb-4" />
-            <p style={{ color: "var(--win95-text)" }}>Please log in to use the Compliance app</p>
+            <p style={{ color: "var(--win95-text)" }}>
+              {tx("ui.compliance.state.login_required", "Please log in to use the Compliance app")}
+            </p>
           </div>
         </div>
       </div>
@@ -118,10 +126,13 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
           <div className="text-center">
             <Building2 size={48} style={{ color: "var(--win95-highlight)" }} className="mx-auto mb-4" />
             <p style={{ color: "var(--win95-text)" }} className="font-semibold">
-              No Organization Selected
+              {tx("ui.compliance.state.no_organization_title", "No Organization Selected")}
             </p>
             <p style={{ color: "var(--neutral-gray)" }} className="text-sm mt-2">
-              Please select an organization to use the Compliance app
+              {tx(
+                "ui.compliance.state.no_organization_subtitle",
+                "Please select an organization to use the Compliance app",
+              )}
             </p>
           </div>
         </div>
@@ -353,13 +364,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
             {fullScreen && (
               <Link
                 href="/"
-                className="p-2 border-2 rounded transition-colors"
+                className="p-2 border rounded transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",
                   color: "var(--win95-text)",
                 }}
-                title="Back to Desktop"
+                title={tx("ui.compliance.header.back_to_desktop", "Back to Desktop")}
               >
                 <ArrowLeft size={20} />
               </Link>
@@ -367,10 +378,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
             <Shield size={32} style={{ color: "var(--win95-highlight)" }} />
             <div>
               <h1 className="text-xl font-bold" style={{ color: "var(--win95-text)" }}>
-                Compliance Center
+                {tx("ui.compliance.header.title", "Compliance Center")}
               </h1>
               <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                GDPR tools: export your data, manage documents, control your account
+                {tx(
+                  "ui.compliance.header.subtitle",
+                  "GDPR tools: export your data, manage documents, control your account",
+                )}
               </p>
             </div>
           </div>
@@ -379,13 +393,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           {!fullScreen && (
             <Link
               href="/compliance"
-              className="p-2 border-2 rounded transition-colors"
+              className="p-2 border rounded transition-colors"
               style={{
                 borderColor: "var(--win95-border)",
                 background: "var(--win95-button-face)",
                 color: "var(--win95-text)",
               }}
-              title="Open Full Screen"
+              title={tx("ui.compliance.header.open_full_screen", "Open Full Screen")}
             >
               <Maximize2 size={20} />
             </Link>
@@ -404,13 +418,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           const accessible = isTabAccessible(tab);
           return (
             <button
-              key={tab.id}
-              onClick={() => accessible && setActiveTab(tab.id)}
-              disabled={!accessible}
-              title={!accessible ? "Upgrade to access this feature" : undefined}
-              className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all disabled:cursor-not-allowed"
-              style={{
-                background: isActive ? "var(--win95-bg)" : "var(--win95-surface)",
+                  key={tab.id}
+                  onClick={() => accessible && setActiveTab(tab.id)}
+                  disabled={!accessible}
+                  title={!accessible ? tx("ui.compliance.tabs.upgrade_tooltip", "Upgrade to access this feature") : undefined}
+                  className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  style={{
+                    background: isActive ? "var(--win95-bg)" : "var(--win95-surface)",
                 color: !accessible
                   ? "var(--neutral-gray)"
                   : isActive
@@ -433,20 +447,23 @@ Either party may terminate this Agreement with thirty (30) days written notice.
         {/* License Notice Banner - shown when Compliance isn't fully licensed */}
         {!complianceAvailable && !licenseLoading && (
           <div
-            className="mb-4 p-3 border-2 rounded"
+            className="mb-4 p-3 border rounded"
             style={{
               borderColor: "var(--win95-highlight)",
-              background: "rgba(107, 70, 193, 0.1)",
+              background: "var(--color-accent-subtle)",
             }}
           >
             <div className="flex items-start gap-3">
               <Shield size={20} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold" style={{ color: "var(--win95-text)" }}>
-                  Limited Access Mode
+                  {tx("ui.compliance.banner.limited_access_title", "Limited Access Mode")}
                 </p>
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Account Deletion is always available (GDPR). Upgrade to access Document Conversion and Data Export features.
+                  {tx(
+                    "ui.compliance.banner.limited_access_body",
+                    "Account Deletion is always available (GDPR). Upgrade to access Document Conversion and Data Export features.",
+                  )}
                 </p>
               </div>
             </div>
@@ -464,15 +481,15 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                     className="block text-sm font-medium mb-2"
                     style={{ color: "var(--win95-text)" }}
                   >
-                    Document Title
+                    {tx("ui.compliance.documents.document_title", "Document Title")}
                   </label>
                   <input
                     id="documentTitle"
                     type="text"
                     value={documentTitle}
                     onChange={(e) => setDocumentTitle(e.target.value)}
-                    placeholder="e.g., Software License Agreement"
-                    className="w-full px-4 py-2 border-2 rounded"
+                    placeholder={tx("ui.compliance.documents.document_title_placeholder", "e.g., Software License Agreement")}
+                    className="w-full px-4 py-2 border rounded"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-surface)",
@@ -487,14 +504,14 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                     className="block text-sm font-medium mb-2"
                     style={{ color: "var(--win95-text)" }}
                   >
-                    Markdown Content
+                    {tx("ui.compliance.documents.markdown_content", "Markdown Content")}
                   </label>
                   <textarea
                     id="markdownContent"
                     value={markdownContent}
                     onChange={(e) => setMarkdownContent(e.target.value)}
-                    placeholder="Paste your markdown content here..."
-                    className="w-full h-96 px-4 py-3 border-2 rounded font-mono text-sm"
+                    placeholder={tx("ui.compliance.documents.markdown_placeholder", "Paste your markdown content here...")}
+                    className="w-full h-96 px-4 py-3 border rounded font-mono text-sm"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-surface)",
@@ -503,7 +520,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                     }}
                   />
                   <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-                    Supports headers, bold, italic, lists, and tables
+                    {tx("ui.compliance.documents.markdown_help", "Supports headers, bold, italic, lists, and tables")}
                   </p>
                 </div>
 
@@ -511,26 +528,26 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                   <button
                     onClick={handleConvert}
                     disabled={!markdownContent.trim() || !documentTitle.trim()}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       background: "var(--win95-highlight)",
                       color: "white",
                     }}
                   >
                     <FileText size={18} />
-                    Generate PDF
+                    {tx("ui.compliance.documents.generate_pdf", "Generate PDF")}
                   </button>
 
                   <button
                     onClick={handleLoadExample}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all border-2"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors border"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-surface)",
                       color: "var(--win95-text)",
                     }}
                   >
-                    Load Example
+                    {tx("ui.compliance.documents.load_example", "Load Example")}
                   </button>
                 </div>
               </div>
@@ -540,10 +557,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="max-w-2xl mx-auto text-center py-12">
                 <Loader2 size={64} className="animate-spin mx-auto mb-6" style={{ color: "var(--win95-highlight)" }} />
                 <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Generating PDF...
+                  {tx("ui.compliance.documents.generating_title", "Generating PDF...")}
                 </h2>
                 <p style={{ color: "var(--neutral-gray)" }}>
-                  Converting your markdown document to a professional PDF
+                  {tx(
+                    "ui.compliance.documents.generating_body",
+                    "Converting your markdown document to a professional PDF",
+                  )}
                 </p>
               </div>
             )}
@@ -564,7 +584,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                       href={pdfUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all"
+                      className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors"
                       style={{
                         background: "var(--win95-highlight)",
                         color: "white",
@@ -576,7 +596,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
 
                     <button
                       onClick={handleReset}
-                      className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all border-2"
+                      className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors border"
                       style={{
                         borderColor: "var(--win95-border)",
                         background: "var(--win95-surface)",
@@ -588,7 +608,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                   </div>
 
                   <div
-                    className="mt-4 p-4 border-2 rounded max-w-md"
+                    className="mt-4 p-4 border rounded max-w-md"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-bg-light)",
@@ -599,7 +619,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                     </p>
                     <button
                       onClick={handleOpenMediaLibrary}
-                      className="flex items-center gap-2 px-4 py-2 rounded font-semibold transition-all border-2 mx-auto"
+                      className="flex items-center gap-2 px-4 py-2 rounded font-semibold transition-colors border mx-auto"
                       style={{
                         borderColor: "var(--win95-border)",
                         background: "var(--win95-surface)",
@@ -618,7 +638,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="max-w-2xl mx-auto text-center py-12">
                 <AlertCircle size={64} className="mx-auto mb-6" style={{ color: "var(--error)" }} />
                 <h2 className="text-2xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Error Generating PDF
+                  {tx("ui.compliance.documents.error_title", "Error Generating PDF")}
                 </h2>
                 <p className="mb-6" style={{ color: "var(--error)" }}>
                   {errorMessage}
@@ -626,13 +646,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
 
                 <button
                   onClick={handleReset}
-                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all mx-auto"
+                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors mx-auto"
                   style={{
                     background: "var(--win95-highlight)",
                     color: "white",
                   }}
                 >
-                  Try Again
+                  {tx("ui.compliance.shared.try_again", "Try Again")}
                 </button>
               </div>
             )}
@@ -643,7 +663,7 @@ Either party may terminate this Agreement with thirty (30) days written notice.
         {activeTab === "data-export" && complianceAvailable && (
           <div className="max-w-3xl mx-auto space-y-6">
             <div
-              className="p-4 border-2 rounded"
+              className="p-4 border rounded"
               style={{
                 borderColor: "var(--win95-highlight)",
                 background: "var(--win95-bg-light)",
@@ -653,11 +673,13 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                 <Database size={24} style={{ color: "var(--win95-highlight)" }} className="flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    Export Your Data (GDPR)
+                    {tx("ui.compliance.export.title", "Export Your Data (GDPR)")}
                   </h3>
                   <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                    Under GDPR Article 20, you have the right to receive your personal data in a structured,
-                    commonly used, and machine-readable format. Click the button below to download all your data.
+                    {tx(
+                      "ui.compliance.export.description",
+                      "Under GDPR Article 20, you have the right to receive your personal data in a structured, commonly used, and machine-readable format. Click the button below to download all your data.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -666,28 +688,28 @@ Either party may terminate this Agreement with thirty (30) days written notice.
             {exportState === "idle" && (
               <div className="text-center py-8">
                 <p className="text-sm mb-4" style={{ color: "var(--win95-text)" }}>
-                  Your export will include:
+                  {tx("ui.compliance.export.includes_title", "Your export will include:")}
                 </p>
                 <ul className="text-sm mb-6 space-y-1" style={{ color: "var(--neutral-gray)" }}>
-                  <li>• Profile information</li>
-                  <li>• Organization memberships</li>
-                  <li>• CRM contacts and organizations</li>
-                  <li>• Invoices and transactions</li>
-                  <li>• Media files metadata</li>
-                  <li>• Workflows and projects</li>
-                  <li>• Templates and events</li>
-                  <li>• Audit logs</li>
+                  <li>{tx("ui.compliance.export.item_profile", "• Profile information")}</li>
+                  <li>{tx("ui.compliance.export.item_memberships", "• Organization memberships")}</li>
+                  <li>{tx("ui.compliance.export.item_crm", "• CRM contacts and organizations")}</li>
+                  <li>{tx("ui.compliance.export.item_invoices", "• Invoices and transactions")}</li>
+                  <li>{tx("ui.compliance.export.item_media", "• Media files metadata")}</li>
+                  <li>{tx("ui.compliance.export.item_workflows", "• Workflows and projects")}</li>
+                  <li>{tx("ui.compliance.export.item_templates", "• Templates and events")}</li>
+                  <li>{tx("ui.compliance.export.item_audit", "• Audit logs")}</li>
                 </ul>
                 <button
                   onClick={handleExportData}
-                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all mx-auto"
+                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors mx-auto"
                   style={{
                     background: "var(--win95-highlight)",
                     color: "white",
                   }}
                 >
                   <Download size={18} />
-                  Export All My Data
+                  {tx("ui.compliance.export.cta", "Export All My Data")}
                 </button>
               </div>
             )}
@@ -696,10 +718,10 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="text-center py-12">
                 <Loader2 size={64} className="animate-spin mx-auto mb-6" style={{ color: "var(--win95-highlight)" }} />
                 <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Exporting Your Data...
+                  {tx("ui.compliance.export.exporting_title", "Exporting Your Data...")}
                 </h2>
                 <p style={{ color: "var(--neutral-gray)" }}>
-                  This may take a moment depending on how much data you have.
+                  {tx("ui.compliance.export.exporting_body", "This may take a moment depending on how much data you have.")}
                 </p>
               </div>
             )}
@@ -709,15 +731,15 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                 <div className="text-center">
                   <CheckCircle size={48} className="mx-auto mb-4" style={{ color: "var(--success)" }} />
                   <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                    Data Export Ready
+                    {tx("ui.compliance.export.ready_title", "Data Export Ready")}
                   </h2>
                   <p className="mb-4" style={{ color: "var(--neutral-gray)" }}>
-                    Your data has been compiled and is ready for download.
+                    {tx("ui.compliance.export.ready_body", "Your data has been compiled and is ready for download.")}
                   </p>
                 </div>
 
                 <div
-                  className="p-4 border-2 rounded max-h-64 overflow-auto font-mono text-xs"
+                  className="p-4 border rounded max-h-64 overflow-auto font-mono text-xs"
                   style={{
                     borderColor: "var(--win95-border)",
                     background: "var(--win95-surface)",
@@ -730,26 +752,26 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                 <div className="flex gap-3 justify-center">
                   <button
                     onClick={handleDownloadExport}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors"
                     style={{
                       background: "var(--win95-highlight)",
                       color: "white",
                     }}
                   >
                     <Download size={18} />
-                    Download JSON File
+                    {tx("ui.compliance.export.download_json", "Download JSON File")}
                   </button>
 
                   <button
                     onClick={handleResetExport}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all border-2"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors border"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-surface)",
                       color: "var(--win95-text)",
                     }}
                   >
-                    Done
+                    {tx("ui.compliance.shared.done", "Done")}
                   </button>
                 </div>
               </div>
@@ -759,20 +781,20 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="text-center py-12">
                 <AlertCircle size={64} className="mx-auto mb-6" style={{ color: "var(--error)" }} />
                 <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Export Failed
+                  {tx("ui.compliance.export.error_title", "Export Failed")}
                 </h2>
                 <p className="mb-6" style={{ color: "var(--error)" }}>
                   {exportError}
                 </p>
                 <button
                   onClick={handleResetExport}
-                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all mx-auto"
+                  className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors mx-auto"
                   style={{
                     background: "var(--win95-highlight)",
                     color: "white",
                   }}
                 >
-                  Try Again
+                  {tx("ui.compliance.shared.try_again", "Try Again")}
                 </button>
               </div>
             )}
@@ -784,21 +806,28 @@ Either party may terminate this Agreement with thirty (30) days written notice.
           <div className="max-w-3xl mx-auto space-y-6">
             {/* Warning Banner */}
             <div
-              className="p-4 border-2 rounded"
+              className="p-4 border rounded"
               style={{
                 borderColor: "var(--error)",
-                background: "rgba(220, 38, 38, 0.1)",
+                background: "var(--color-error-subtle)",
               }}
             >
               <div className="flex items-start gap-3">
                 <AlertTriangle size={24} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="font-bold mb-2" style={{ color: "var(--error)" }}>
-                    Permanent Account Deletion
+                    {tx("ui.compliance.deletion.title", "Permanent Account Deletion")}
                   </h3>
                   <p className="text-sm" style={{ color: "var(--win95-text)" }}>
-                    This action will permanently delete your account and all associated data <strong>immediately</strong>.
-                    Unlike the standard account deletion (which has a 2-week grace period), this action cannot be undone.
+                    {tx(
+                      "ui.compliance.deletion.warning_prefix",
+                      "This action will permanently delete your account and all associated data ",
+                    )}
+                    <strong>{tx("ui.compliance.deletion.warning_immediately", "immediately")}</strong>
+                    {tx(
+                      "ui.compliance.deletion.warning_suffix",
+                      ". Unlike the standard account deletion (which has a 2-week grace period), this action cannot be undone.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -807,34 +836,64 @@ Either party may terminate this Agreement with thirty (30) days written notice.
             {deletionState === "idle" && (
               <div className="space-y-6">
                 <div
-                  className="p-4 border-2 rounded"
+                  className="p-4 border rounded"
                   style={{
                     borderColor: "var(--win95-border)",
                     background: "var(--win95-bg-light)",
                   }}
                 >
                   <h4 className="font-semibold mb-3" style={{ color: "var(--win95-text)" }}>
-                    Before you proceed:
+                    {tx("ui.compliance.deletion.before_title", "Before you proceed:")}
                   </h4>
                   <ul className="text-sm space-y-2" style={{ color: "var(--neutral-gray)" }}>
-                    <li>• <strong>Export your data first</strong> — Use the Data Export tab to download all your information</li>
-                    <li>• <strong>This is irreversible</strong> — Your account, organizations, and all data will be permanently removed</li>
-                    <li>• <strong>No grace period</strong> — Unlike standard deletion, you cannot restore your account after this</li>
-                    <li>• <strong>Owned organizations will be archived</strong> — Other members will lose access</li>
+                    <li>
+                      • <strong>{tx("ui.compliance.deletion.checklist.export_title", "Export your data first")}</strong>{" "}
+                      {tx(
+                        "ui.compliance.deletion.checklist.export_body",
+                        "— Use the Data Export tab to download all your information",
+                      )}
+                    </li>
+                    <li>
+                      • <strong>{tx("ui.compliance.deletion.checklist.irreversible_title", "This is irreversible")}</strong>{" "}
+                      {tx(
+                        "ui.compliance.deletion.checklist.irreversible_body",
+                        "— Your account, organizations, and all data will be permanently removed",
+                      )}
+                    </li>
+                    <li>
+                      • <strong>{tx("ui.compliance.deletion.checklist.grace_title", "No grace period")}</strong>{" "}
+                      {tx(
+                        "ui.compliance.deletion.checklist.grace_body",
+                        "— Unlike standard deletion, you cannot restore your account after this",
+                      )}
+                    </li>
+                    <li>
+                      •{" "}
+                      <strong>
+                        {tx("ui.compliance.deletion.checklist.archived_title", "Owned organizations will be archived")}
+                      </strong>{" "}
+                      {tx(
+                        "ui.compliance.deletion.checklist.archived_body",
+                        "— Other members will lose access",
+                      )}
+                    </li>
                   </ul>
                 </div>
 
                 <div className="text-center">
                   <button
                     onClick={handleStartDeletion}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all mx-auto"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors mx-auto"
                     style={{
                       background: "var(--error)",
                       color: "white",
                     }}
                   >
                     <Trash2 size={18} />
-                    I Want to Permanently Delete My Account
+                    {tx(
+                      "ui.compliance.deletion.start_button",
+                      "I Want to Permanently Delete My Account",
+                    )}
                   </button>
                 </div>
               </div>
@@ -843,14 +902,14 @@ Either party may terminate this Agreement with thirty (30) days written notice.
             {deletionState === "confirming" && (
               <div className="space-y-6">
                 <div
-                  className="p-4 border-2 rounded"
+                  className="p-4 border rounded"
                   style={{
                     borderColor: "var(--error)",
-                    background: "rgba(220, 38, 38, 0.1)",
+                    background: "var(--color-error-subtle)",
                   }}
                 >
                   <h4 className="font-bold mb-4" style={{ color: "var(--error)" }}>
-                    Final Confirmation Required
+                    {tx("ui.compliance.deletion.confirmation_title", "Final Confirmation Required")}
                   </h4>
 
                   {/* Checkbox */}
@@ -862,22 +921,28 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                       className="mt-1"
                     />
                     <span className="text-sm" style={{ color: "var(--win95-text)" }}>
-                      I confirm that I have exported my data (or I don&apos;t need it) and I understand
-                      that this action is permanent and cannot be undone.
+                      {tx(
+                        "ui.compliance.deletion.confirmation_checkbox",
+                        "I confirm that I have exported my data (or I don't need it) and I understand that this action is permanent and cannot be undone.",
+                      )}
                     </span>
                   </label>
 
                   {/* Confirmation Text */}
                   <div className="mb-4">
                     <label className="block text-sm font-semibold mb-2" style={{ color: "var(--win95-text)" }}>
-                      Type <code className="px-1 py-0.5 rounded" style={{ background: "var(--win95-surface)" }}>PERMANENTLY DELETE</code> to confirm:
+                      {tx("ui.compliance.deletion.type_prompt_prefix", "Type")}{" "}
+                      <code className="px-1 py-0.5 rounded" style={{ background: "var(--win95-surface)" }}>
+                        {tx("ui.compliance.deletion.confirmation_phrase", "PERMANENTLY DELETE")}
+                      </code>{" "}
+                      {tx("ui.compliance.deletion.type_prompt_suffix", "to confirm:")}
                     </label>
                     <input
                       type="text"
                       value={deletionConfirmText}
                       onChange={(e) => setDeletionConfirmText(e.target.value)}
-                      placeholder="PERMANENTLY DELETE"
-                      className="w-full px-4 py-2 border-2 rounded font-mono"
+                      placeholder={tx("ui.compliance.deletion.confirmation_phrase", "PERMANENTLY DELETE")}
+                      className="w-full px-4 py-2 border rounded font-mono"
                       style={{
                         borderColor: "var(--win95-border)",
                         background: "var(--win95-surface)",
@@ -896,27 +961,27 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                 <div className="flex gap-3 justify-center">
                   <button
                     onClick={handleCancelDeletion}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all border-2"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors border"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-surface)",
                       color: "var(--win95-text)",
                     }}
                   >
-                    Cancel
+                    {tx("ui.compliance.shared.cancel", "Cancel")}
                   </button>
 
                   <button
                     onClick={handlePermanentDelete}
                     disabled={!dataExportConfirmed || deletionConfirmText !== "PERMANENTLY DELETE"}
-                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-3 rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       background: "var(--error)",
                       color: "white",
                     }}
                   >
                     <Trash2 size={18} />
-                    Delete My Account Forever
+                    {tx("ui.compliance.deletion.delete_forever", "Delete My Account Forever")}
                   </button>
                 </div>
               </div>
@@ -926,10 +991,10 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="text-center py-12">
                 <Loader2 size={64} className="animate-spin mx-auto mb-6" style={{ color: "var(--error)" }} />
                 <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Deleting Your Account...
+                  {tx("ui.compliance.deletion.deleting_title", "Deleting Your Account...")}
                 </h2>
                 <p style={{ color: "var(--neutral-gray)" }}>
-                  Please wait while we permanently remove all your data.
+                  {tx("ui.compliance.deletion.deleting_body", "Please wait while we permanently remove all your data.")}
                 </p>
               </div>
             )}
@@ -938,13 +1003,16 @@ Either party may terminate this Agreement with thirty (30) days written notice.
               <div className="text-center py-12">
                 <CheckCircle size={64} className="mx-auto mb-6" style={{ color: "var(--success)" }} />
                 <h2 className="text-xl font-bold mb-2" style={{ color: "var(--win95-text)" }}>
-                  Account Deleted
+                  {tx("ui.compliance.deletion.deleted_title", "Account Deleted")}
                 </h2>
                 <p className="mb-4" style={{ color: "var(--neutral-gray)" }}>
-                  Your account has been permanently deleted. You will be logged out shortly.
+                  {tx(
+                    "ui.compliance.deletion.deleted_body",
+                    "Your account has been permanently deleted. You will be logged out shortly.",
+                  )}
                 </p>
                 <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>
-                  Thank you for using l4yercak3. We wish you all the best.
+                  {tx("ui.compliance.deletion.deleted_footer", "Thank you for using l4yercak3. We wish you all the best.")}
                 </p>
               </div>
             )}

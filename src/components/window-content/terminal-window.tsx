@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../convex/_generated/api") as { api: any };
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -25,6 +25,11 @@ interface LayerBreakdown {
 }
 
 type Scope = "org" | "layer";
+
+interface TerminalWindowProps {
+  initialScope?: Scope;
+  scopeOrganizationId?: Id<"organizations">;
+}
 
 const SEVERITY_COLORS: Record<string, string> = {
   info: "#3b82f6",
@@ -70,6 +75,12 @@ function LogLine({ entry, showLayer }: { entry: TerminalLogEntry; showLayer: boo
   const color = SEVERITY_COLORS[entry.severity] || "#6b7280";
   const prefix = TYPE_PREFIXES[entry.type] || "--";
   const meta = entry.metadata;
+  const webhookDetail =
+    entry.type === "webhook"
+      ? [meta?.webhookOutcome, meta?.webhookEventName]
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+          .join(" | ")
+      : "";
 
   return (
     <div className="flex gap-2 py-px leading-5 hover:bg-white/5">
@@ -85,6 +96,11 @@ function LogLine({ entry, showLayer }: { entry: TerminalLogEntry; showLayer: boo
       <span style={{ color }} className="break-all">
         {entry.message}
       </span>
+      {webhookDetail && (
+        <span className="flex-shrink-0 text-neutral-500">
+          [{webhookDetail}]
+        </span>
+      )}
       {meta?.costUsd != null && (
         <span className="flex-shrink-0 text-neutral-600 ml-auto">
           ${(meta.costUsd as number).toFixed(4)}
@@ -94,32 +110,50 @@ function LogLine({ entry, showLayer }: { entry: TerminalLogEntry; showLayer: boo
   );
 }
 
-export function TerminalWindow() {
-  const { sessionId } = useAuth();
+export function TerminalWindow({
+  initialScope = "org",
+  scopeOrganizationId,
+}: TerminalWindowProps) {
+  const { sessionId, isSuperAdmin } = useAuth();
   const currentOrg = useCurrentOrganization();
   const [autoScroll, setAutoScroll] = useState(true);
-  const [scope, setScope] = useState<Scope>("org");
+  const [scope, setScope] = useState<Scope>(initialScope);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
+  const resolvedScopeOrganizationId = scopeOrganizationId
+    ?? (currentOrg?.id as Id<"organizations"> | undefined);
 
   // Check if layer scope is available (org has sub-orgs)
   const layerCheck = useQuery(
     api.terminal.terminalFeed.checkLayerScopeAvailable,
-    currentOrg?.id && sessionId
-      ? { sessionId, organizationId: currentOrg.id as Id<"organizations"> }
+    currentOrg?.id && sessionId && resolvedScopeOrganizationId
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+          scopeOrganizationId: resolvedScopeOrganizationId,
+        }
       : "skip"
-  ) as { available: boolean } | undefined;
+  ) as {
+    available: boolean;
+    visibilityScope: "org_owner" | "super_admin";
+    scopeOrganizationId: string;
+  } | undefined;
 
   const hasSubOrgs = layerCheck?.available ?? false;
+  const canUseLayerScope =
+    isSuperAdmin
+    && layerCheck?.visibilityScope === "super_admin"
+    && hasSubOrgs;
 
   const feedResult = useQuery(
     api.terminal.terminalFeed.getTerminalFeed,
-    currentOrg?.id && sessionId
+    currentOrg?.id && sessionId && resolvedScopeOrganizationId
       ? {
           sessionId,
           organizationId: currentOrg.id as Id<"organizations">,
           limit: 200,
           scope,
+          scopeOrganizationId: resolvedScopeOrganizationId,
         }
       : "skip"
   ) as {
@@ -143,6 +177,12 @@ export function TerminalWindow() {
     prevCountRef.current = entries.length;
   }, [entries.length, autoScroll]);
 
+  useEffect(() => {
+    if (scope === "layer" && !canUseLayerScope) {
+      setScope("org");
+    }
+  }, [scope, canUseLayerScope]);
+
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
@@ -159,7 +199,7 @@ export function TerminalWindow() {
     );
   }
 
-  const isLayerMode = scope === "layer" && hasSubOrgs;
+  const isLayerMode = scope === "layer" && canUseLayerScope;
   const isLive = feedResult !== undefined;
 
   return (
@@ -185,7 +225,7 @@ export function TerminalWindow() {
             </span>
           </span>
           {/* Scope toggle — only visible when sub-orgs exist */}
-          {hasSubOrgs && (
+          {canUseLayerScope && (
             <div className="flex items-center gap-0.5 ml-2">
               <button
                 onClick={() => setScope("org")}

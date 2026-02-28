@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Gift, DollarSign, ClipboardList, Heart, ArrowLeft, Maximize2 } from "lucide-react"
+import { Gift, DollarSign, ClipboardList, Heart, ArrowLeft, Maximize2, Users } from "lucide-react"
 import Link from "next/link"
 import { BenefitsList } from "./benefits-window/benefits-list"
 import { BenefitDetail } from "./benefits-window/benefit-detail"
@@ -9,22 +9,26 @@ import { CommissionsList } from "./benefits-window/commissions-list"
 import { CommissionDetail } from "./benefits-window/commission-detail"
 import { MyClaimsTab } from "./benefits-window/my-claims-tab"
 import { MyEarningsTab } from "./benefits-window/my-earnings-tab"
+import { ReferralProgramTab } from "./benefits-window/referral-program-tab"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import type { Id } from "../../../convex/_generated/dataModel"
 
-type ViewType = "benefits" | "commissions" | "my-claims" | "my-earnings"
+export type BenefitsViewType = "benefits" | "commissions" | "my-claims" | "my-earnings" | "referrals"
 
 interface BenefitsWindowProps {
   /** When true, shows back-to-desktop navigation (for /benefits route) */
   fullScreen?: boolean;
+  initialView?: BenefitsViewType;
 }
 
-export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {}) {
-  const [activeView, setActiveView] = useState<ViewType>("benefits")
+export function BenefitsWindow({ fullScreen = false, initialView = "benefits" }: BenefitsWindowProps = {}) {
+  const { tWithFallback } = useNamespaceTranslations("ui.benefits")
+  const [activeView, setActiveView] = useState<BenefitsViewType>(initialView)
   const [selectedBenefitId, setSelectedBenefitId] = useState<Id<"objects"> | null>(null)
   const [selectedCommissionId, setSelectedCommissionId] = useState<Id<"objects"> | null>(null)
 
   // Reset selection when switching views
-  const handleViewSwitch = (view: ViewType) => {
+  const handleViewSwitch = (view: BenefitsViewType) => {
     setActiveView(view)
     setSelectedBenefitId(null)
     setSelectedCommissionId(null)
@@ -45,62 +49,65 @@ export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {})
           <Link
             href="/"
             className="retro-button px-3 py-2 flex items-center gap-2"
-            title="Back to Desktop"
+            title={tWithFallback("ui.benefits.nav.back_to_desktop", "Back to Desktop")}
           >
             <ArrowLeft size={16} />
           </Link>
         )}
         <button
           onClick={() => handleViewSwitch("benefits")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "benefits" ? "shadow-inner" : ""
-          }`}
+          className="retro-button flex items-center gap-2 px-4 py-2"
           style={{
             background: activeView === "benefits" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
             color: activeView === "benefits" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
           }}
         >
           <Gift size={16} />
-          <span className="font-pixel text-xs">Benefits</span>
+          <span className="font-pixel text-xs">{tWithFallback("ui.benefits.tabs.benefits", "Benefits")}</span>
         </button>
         <button
           onClick={() => handleViewSwitch("commissions")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "commissions" ? "shadow-inner" : ""
-          }`}
+          className="retro-button flex items-center gap-2 px-4 py-2"
           style={{
             background: activeView === "commissions" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
             color: activeView === "commissions" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
           }}
         >
           <DollarSign size={16} />
-          <span className="font-pixel text-xs">Commissions</span>
+          <span className="font-pixel text-xs">{tWithFallback("ui.benefits.tabs.commissions", "Commissions")}</span>
         </button>
         <button
           onClick={() => handleViewSwitch("my-claims")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "my-claims" ? "shadow-inner" : ""
-          }`}
+          className="retro-button flex items-center gap-2 px-4 py-2"
           style={{
             background: activeView === "my-claims" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
             color: activeView === "my-claims" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
           }}
         >
           <ClipboardList size={16} />
-          <span className="font-pixel text-xs">My Claims</span>
+          <span className="font-pixel text-xs">{tWithFallback("ui.benefits.tabs.my_claims", "My Claims")}</span>
         </button>
         <button
           onClick={() => handleViewSwitch("my-earnings")}
-          className={`retro-button px-4 py-2 flex items-center gap-2 ${
-            activeView === "my-earnings" ? "shadow-inner" : ""
-          }`}
+          className="retro-button flex items-center gap-2 px-4 py-2"
           style={{
             background: activeView === "my-earnings" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
             color: activeView === "my-earnings" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
           }}
         >
           <Heart size={16} />
-          <span className="font-pixel text-xs">My Earnings</span>
+          <span className="font-pixel text-xs">{tWithFallback("ui.benefits.tabs.my_earnings", "My Earnings")}</span>
+        </button>
+        <button
+          onClick={() => handleViewSwitch("referrals")}
+          className="retro-button flex items-center gap-2 px-4 py-2"
+          style={{
+            background: activeView === "referrals" ? 'var(--win95-selected-bg)' : 'var(--win95-button-face)',
+            color: activeView === "referrals" ? 'var(--win95-selected-text)' : 'var(--win95-text)',
+          }}
+        >
+          <Users size={16} />
+          <span className="font-pixel text-xs">{tWithFallback("ui.benefits.tabs.referrals", "Referrals")}</span>
         </button>
 
         {/* Spacer */}
@@ -111,7 +118,7 @@ export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {})
           <Link
             href="/benefits"
             className="retro-button px-3 py-2 flex items-center gap-2"
-            title="Open Full Screen"
+            title={tWithFallback("ui.benefits.nav.open_full_screen", "Open Full Screen")}
           >
             <Maximize2 size={16} />
           </Link>
@@ -126,6 +133,10 @@ export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {})
       ) : activeView === "my-earnings" ? (
         <div className="flex-1 overflow-hidden">
           <MyEarningsTab />
+        </div>
+      ) : activeView === "referrals" ? (
+        <div className="flex-1 overflow-hidden">
+          <ReferralProgramTab />
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
@@ -161,8 +172,8 @@ export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {})
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center" style={{ color: 'var(--neutral-gray)' }}>
                   <Gift size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">Select a benefit</p>
-                  <p className="text-xs mt-2">Click on a benefit to view details</p>
+                  <p className="font-pixel text-sm">{tWithFallback("ui.benefits.detail.select_benefit", "Select a benefit")}</p>
+                  <p className="text-xs mt-2">{tWithFallback("ui.benefits.detail.select_benefit_hint", "Click on a benefit to view details")}</p>
                 </div>
               )
             ) : (
@@ -171,8 +182,8 @@ export function BenefitsWindow({ fullScreen = false }: BenefitsWindowProps = {})
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center" style={{ color: 'var(--neutral-gray)' }}>
                   <DollarSign size={48} className="mb-4 opacity-30" />
-                  <p className="font-pixel text-sm">Select a commission</p>
-                  <p className="text-xs mt-2">Click on a commission to view details</p>
+                  <p className="font-pixel text-sm">{tWithFallback("ui.benefits.commission_detail.select", "Select a commission")}</p>
+                  <p className="text-xs mt-2">{tWithFallback("ui.benefits.commission_detail.select_hint", "Click on a commission to view details")}</p>
                 </div>
               )
             )}

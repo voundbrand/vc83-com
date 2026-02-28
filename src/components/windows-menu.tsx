@@ -2,7 +2,6 @@
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { getWindowIconById, ShellWindowIcon } from "@/components/icons/shell-icons";
-import { InteriorButton, InteriorPanel } from "@/components/window-content/shared/interior-primitives";
 
 interface Window {
   id: string;
@@ -59,25 +58,25 @@ export function WindowsMenu({
 
   return (
     <div className="relative" ref={menuRef}>
-      <InteriorButton
-        className="gap-2"
-        size="md"
+      <button
+        type="button"
+        className="desktop-taskbar-action inline-flex h-8 items-center gap-2 px-2"
         onClick={() => setIsOpen((open) => !open)}
         data-testid="windows-menu-trigger"
       >
         <ShellWindowIcon size={16} tone="active" />
         <span>{buttonLabel}</span>
         {windows.length > 0 ? (
-          <span className="rounded-sm border px-1 py-0 text-[10px] leading-tight">
+          <span className="desktop-taskbar-menu-count">
             {windows.length}
           </span>
         ) : null}
-      </InteriorButton>
+      </button>
 
       {isOpen && (
-        <InteriorPanel
-          className="absolute bottom-full left-0 mb-1 min-w-[220px] max-w-[92vw] p-1"
-          style={{ zIndex: 60000, boxShadow: "var(--desktop-menu-shadow)" }}
+        <div
+          className="desktop-taskbar-menu desktop-taskbar-menu-panel absolute bottom-full left-0 mb-1 min-w-56 max-w-[92vw] p-1"
+          style={{ zIndex: 60000 }}
           data-testid="windows-menu-panel"
         >
           {launcherItems.length > 0 && (
@@ -86,11 +85,10 @@ export function WindowsMenu({
                 item.divider ? (
                   <div key={item.id} className="desktop-taskbar-menu-divider my-1" />
                 ) : (
-                  <InteriorButton
+                  <button
                     key={item.id}
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start rounded-md px-2"
+                    type="button"
+                    className="desktop-taskbar-menu-item inline-flex w-full items-center gap-2 justify-start rounded-md px-2 py-1 text-left text-xs"
                     onClick={() => {
                       item.onSelect();
                       setIsOpen(false);
@@ -99,7 +97,7 @@ export function WindowsMenu({
                   >
                     {item.icon ? <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
                     <span className="truncate text-xs">{item.label}</span>
-                  </InteriorButton>
+                  </button>
                 )
               ))}
             </div>
@@ -111,11 +109,10 @@ export function WindowsMenu({
 
           <div className="max-h-[40vh] overflow-y-auto py-1 pr-1" data-testid="windows-menu-window-list">
             {windows.map((window) => (
-              <InteriorButton
+              <button
                 key={window.id}
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start rounded-md px-2"
+                type="button"
+                className="desktop-taskbar-menu-item inline-flex w-full items-center gap-2 justify-start rounded-md px-2 py-1 text-left text-xs"
                 onClick={() => {
                   onWindowClick(window.id);
                   setIsOpen(false);
@@ -124,13 +121,13 @@ export function WindowsMenu({
               >
                 <span className="flex h-4 w-4 items-center justify-center">{getWindowIconById(window.id, window.icon, 16)}</span>
                 <span className="truncate text-xs">{window.title}</span>
-              </InteriorButton>
+              </button>
             ))}
             {launcherItems.length === 0 && windows.length === 0 && (
               <p className="px-2 py-1 text-xs opacity-70">No windows open.</p>
             )}
           </div>
-        </InteriorPanel>
+        </div>
       )}
     </div>
   );

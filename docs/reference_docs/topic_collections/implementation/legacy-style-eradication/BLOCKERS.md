@@ -1,7 +1,7 @@
 # Legacy Style Eradication Blockers
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/legacy-style-eradication`  
-**Last updated:** 2026-02-19
+**Last updated:** 2026-02-24
 
 ---
 
@@ -9,7 +9,7 @@
 
 | ID | Severity | Status | Owner lane | Blocker | Evidence | Next action |
 |---|---|---|---|---|---|---|
-| `BLK-LSE-013` | `High` | `OPEN` | `G` | Lane `G` cannot close because baseline `V-LEGACY` still fails on broad scoped debt and current workspace `V-TYPE` fails (`TS2589`). | `TASK_QUEUE.md` (`LSE-012` `DONE`, `LSE-013` `READY`, `LSE-014` `BLOCKED`); refreshed residual report `/Users/foundbrand_001/Development/vc83-com/tmp/reports/legacy-style-lse012-lanef-residual.txt` (`1523` scoped matches, shared non-window `src/components`=`0`, `convex`=`0`); latest verify rerun on 2026-02-19 shows `npm run typecheck` fail at `src/components/interview/template-designer.tsx:57` and `npm run ui:legacy:guard -- "$EMPTY_TREE" HEAD` fail on broad baseline debt. | Execute `LSE-013` full checkpoint reruns (baseline guard + full-project scan), resolve `V-TYPE` blocker, and promote `LSE-014` only when verify outputs and queue docs are synchronized. |
+| _None_ | - | - | - | - | - | - |
 
 ---
 
@@ -17,6 +17,9 @@
 
 | ID | Cleared on | Resolution |
 |---|---|---|
+| `BLK-LSE-017` | 2026-02-24 | Cleared after fixing out-of-scope `ui:design:guard` drift in `src/components/window-content/agents-window.tsx` and the residual `border-2` drift line in `src/components/window-content/org-owner-manage-window/ai-settings-tab.tsx`. Follow-up promotion rerun on 2026-02-24 also cleared an out-of-scope modal drift line in `src/components/processing-modal.tsx` (`bg-black/60` -> `var(--modal-overlay-bg)`), then reran the full verify stack used by `LSE-017`/`LSE-018`: `typecheck` pass; `lint` pass with warnings (`3128`, `0` errors); `test:unit` pass (`109` files, `570` tests); `ui:design:guard` pass; `docs:guard` pass. |
+| `BLK-LSE-016` | 2026-02-24 | Cleared after lane-safe cleanup of newly introduced `ui:design:guard` drift lines in changed `src/components` files (`builder-chat-panel.tsx`, `agents-window.tsx`, `agent-trust-cockpit.tsx`, `agent-create-form.tsx`) and rerunning the full `LSE-016` verify stack: `typecheck` pass; `lint` pass with warnings (`3114`, `0` errors); `test:unit` pass (`108` files, `558` tests); `ui:design:guard` pass; `docs:guard` pass. |
+| `BLK-LSE-013` | 2026-02-19 | Cleared after rerunning `npm run test:unit` unrestricted and completing full Lane `G` verify stacks: `LSE-013` baseline/scan rerun remained at `2117` matches across `163` files with expected `V-LEGACY` failure, while non-legacy verifies passed (`typecheck`, `lint` warnings only, `test:unit` pass `92` files/`473` tests, `docs:guard` pass). `LSE-014` then completed docs synchronization and matching verify rerun, and both rows are now `DONE`. |
 | `BLK-LSE-012` | 2026-02-19 | Cleared after Lane `F` completion: `LSE-012` is now `DONE` with shared/tail queue-pattern scan at `0` for non-window `src/components` and `convex` (scripts hits reduced to intentional guard literals). Lane `G` dependency gate is now satisfied and `LSE-013` is promoted to `READY`. |
 | `BLK-LSE-001` | 2026-02-18 | `LSE-001` replaced dynamic `awk` regex matching with BSD/macOS-safe matching logic; baseline guard now runs without parser errors and reports true legacy violations. |
 | `BLK-LSE-002` | 2026-02-19 | Cleared after restoring workspace `typecheck` and rerunning the full `LSE-002` verify stack: `typecheck` pass, `lint` pass with warnings, `test:unit` pass, `docs:guard` pass, `ui:legacy:guard -- "$EMPTY_TREE" HEAD` fail on known baseline debt. |

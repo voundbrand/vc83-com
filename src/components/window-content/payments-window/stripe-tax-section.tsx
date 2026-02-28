@@ -9,8 +9,11 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import {
   CheckCircle2,
@@ -28,12 +31,17 @@ interface StripeTaxSectionProps {
 
 export function StripeTaxSection({ organizationId, organization }: StripeTaxSectionProps) {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.payments");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Get organization tax settings
   const taxSettings = useQuery(
-    api.organizationTaxSettings.getTaxSettings,
+    apiAny.organizationTaxSettings.getTaxSettings,
     sessionId && organizationId
       ? { sessionId, organizationId }
       : "skip"
@@ -70,10 +78,10 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
 
       setLastSyncTime(new Date());
-      alert("Tax settings synced with Stripe successfully!");
+      alert(tx("ui.payments.stripe_tax.sync_success", "Tax settings synced with Stripe successfully!"));
     } catch (error) {
       console.error("Failed to sync tax settings:", error);
-      alert("Failed to sync tax settings with Stripe. Please try again.");
+      alert(tx("ui.payments.stripe_tax.sync_failed", "Failed to sync tax settings with Stripe. Please try again."));
     } finally {
       setIsSyncing(false);
     }
@@ -93,11 +101,13 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
           <Info size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--info)" }} />
           <div>
             <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
-              Stripe Connection Required
+              {tx("ui.payments.stripe_tax.connection_required", "Stripe Connection Required")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Connect your Stripe account first to enable Stripe Tax integration.
-              Go to the &quot;Stripe Connect&quot; tab to get started.
+              {tx(
+                "ui.payments.stripe_tax.connection_required_help",
+                "Connect your Stripe account first to enable Stripe Tax integration. Go to the \"Stripe Connect\" tab to get started.",
+              )}
             </p>
           </div>
         </div>
@@ -119,16 +129,18 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warning)" }} />
           <div>
             <p className="font-semibold text-sm" style={{ color: "var(--window-document-text)" }}>
-              Tax Collection Disabled
+              {tx("ui.payments.stripe_tax.tax_collection_disabled", "Tax Collection Disabled")}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Tax collection is currently disabled for your organization.
-              Enable tax settings to use Stripe Tax integration.
+              {tx(
+                "ui.payments.stripe_tax.tax_collection_disabled_help",
+                "Tax collection is currently disabled for your organization. Enable tax settings to use Stripe Tax integration.",
+              )}
             </p>
             <button
               onClick={() => {
                 // TODO: Open tax settings window or navigate to it
-                alert("Navigate to Organization Settings > Tax to enable tax collection");
+                alert(tx("ui.payments.stripe_tax.navigate_tax_settings", "Navigate to Organization Settings > Tax to enable tax collection"));
               }}
               className="beveled-button mt-3 px-3 py-1.5 text-xs font-semibold"
               style={{
@@ -136,7 +148,7 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
                 color: "var(--button-primary-text, #0f0f0f)",
               }}
             >
-              Enable Tax Collection
+              {tx("ui.payments.stripe_tax.enable_tax_collection", "Enable Tax Collection")}
             </button>
           </div>
         </div>
@@ -163,12 +175,15 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
           )}
           <div className="flex-1">
             <h3 className="font-bold text-sm mb-1" style={{ color: "var(--window-document-text)" }}>
-              Stripe Tax: {stripeTaxEnabled ? "Enabled" : "Not Configured"}
+              {tx("ui.payments.stripe_tax.status_label", "Stripe Tax:")}{" "}
+              {stripeTaxEnabled
+                ? tx("ui.payments.shared.enabled", "Enabled")
+                : tx("ui.payments.shared.not_configured", "Not Configured")}
             </h3>
             <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
               {stripeTaxEnabled
-                ? "Stripe Tax is actively calculating taxes for your transactions"
-                : "Configure Stripe Tax to automatically calculate and collect taxes"}
+                ? tx("ui.payments.stripe_tax.status_enabled_help", "Stripe Tax is actively calculating taxes for your transactions")
+                : tx("ui.payments.stripe_tax.status_not_configured_help", "Configure Stripe Tax to automatically calculate and collect taxes")}
             </p>
           </div>
         </div>
@@ -180,37 +195,37 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
-          Tax Configuration
+          {tx("ui.payments.stripe_tax.configuration_title", "Tax Configuration")}
         </h3>
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Tax Collection:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.stripe_tax.tax_collection_label", "Tax Collection:")}</span>
             <span className="font-semibold" style={{ color: taxEnabled ? "var(--success)" : "var(--error)" }}>
-              {taxEnabled ? "Enabled" : "Disabled"}
+              {taxEnabled ? tx("ui.payments.shared.enabled", "Enabled") : tx("ui.payments.shared.disabled", "Disabled")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Default Behavior:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.stripe_tax.default_behavior_label", "Default Behavior:")}</span>
             <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
-              {taxSettings?.customProperties?.defaultTaxBehavior || "exclusive"}
+              {taxSettings?.customProperties?.defaultTaxBehavior || tx("ui.payments.stripe_tax.default_behavior_exclusive", "exclusive")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Default Tax Code:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.stripe_tax.default_tax_code_label", "Default Tax Code:")}</span>
             <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
-              {taxSettings?.customProperties?.defaultTaxCode || "txcd_10000000"}
+              {taxSettings?.customProperties?.defaultTaxCode || tx("ui.payments.stripe_tax.default_tax_code_value", "txcd_10000000")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Origin Country:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.stripe_tax.origin_country_label", "Origin Country:")}</span>
             <span className="font-mono" style={{ color: "var(--window-document-text)" }}>
-              {taxSettings?.customProperties?.originAddress?.country || "Not set"}
+              {taxSettings?.customProperties?.originAddress?.country || tx("ui.payments.shared.not_set", "Not set")}
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{ color: "var(--neutral-gray)" }}>Stripe Account Mode:</span>
+            <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.stripe_tax.stripe_account_mode_label", "Stripe Account Mode:")}</span>
             <span className="font-semibold" style={{ color: isTestMode ? "var(--warning)" : "var(--success)" }}>
-              {isTestMode ? "Test Mode" : "Live Mode"}
+              {isTestMode ? tx("ui.payments.shared.test_mode", "Test Mode") : tx("ui.payments.shared.live_mode", "Live Mode")}
             </span>
           </div>
         </div>
@@ -222,28 +237,28 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
-          What Stripe Tax Does
+          {tx("ui.payments.stripe_tax.what_it_does_title", "What Stripe Tax Does")}
         </h3>
         <ul className="space-y-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Automatic tax calculation for 135+ countries</span>
+            <span>{tx("ui.payments.stripe_tax.features.automatic_calculation", "Automatic tax calculation for 135+ countries")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Real-time tax rate updates and compliance</span>
+            <span>{tx("ui.payments.stripe_tax.features.realtime_updates", "Real-time tax rate updates and compliance")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>VAT, GST, and sales tax support</span>
+            <span>{tx("ui.payments.stripe_tax.features.vat_gst_sales", "VAT, GST, and sales tax support")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>B2B reverse charge for EU transactions</span>
+            <span>{tx("ui.payments.stripe_tax.features.b2b_reverse_charge", "B2B reverse charge for EU transactions")}</span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
-            <span>Tax reporting and filing support</span>
+            <span>{tx("ui.payments.stripe_tax.features.reporting_support", "Tax reporting and filing support")}</span>
           </li>
         </ul>
       </div>
@@ -254,15 +269,18 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="font-bold text-sm mb-3" style={{ color: "var(--window-document-text)" }}>
-          Stripe Tax Sync
+          {tx("ui.payments.stripe_tax.sync_title", "Stripe Tax Sync")}
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-          Sync your organization&apos;s tax settings with Stripe Tax to enable automatic tax calculation.
+          {tx(
+            "ui.payments.stripe_tax.sync_description",
+            "Sync your organization's tax settings with Stripe Tax to enable automatic tax calculation.",
+          )}
         </p>
 
         {lastSyncTime && (
           <div className="mb-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Last synced: {lastSyncTime.toLocaleString()}
+            {tx("ui.payments.stripe_tax.last_synced_label", "Last synced:")} {lastSyncTime.toLocaleString()}
           </div>
         )}
 
@@ -281,12 +299,12 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             {isSyncing ? (
               <>
                 <Loader2 size={14} className="animate-spin" />
-                Syncing...
+                {tx("ui.payments.shared.syncing", "Syncing...")}
               </>
             ) : (
               <>
                 <RefreshCw size={14} />
-                Sync with Stripe Tax
+                {tx("ui.payments.stripe_tax.sync_cta", "Sync with Stripe Tax")}
               </>
             )}
           </button>
@@ -302,7 +320,7 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
             }}
           >
             <ExternalLink size={14} />
-            Stripe Dashboard
+            {tx("ui.payments.stripe_tax.stripe_dashboard", "Stripe Dashboard")}
           </a>
         </div>
       </div>
@@ -318,13 +336,13 @@ export function StripeTaxSection({ organizationId, organization }: StripeTaxSect
       >
         <p className="font-semibold mb-2 flex items-center gap-2">
           <Info size={14} />
-          Important Notes
+          {tx("ui.payments.shared.important_notes", "Important Notes")}
         </p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Stripe Tax requires tax registrations to be configured in your Stripe dashboard</li>
-          <li>Tax calculations are performed in real-time during checkout</li>
-          <li>B2B transactions with valid VAT numbers use reverse charge mechanism</li>
-          <li>Origin address must be set in Organization Tax Settings</li>
+          <li>{tx("ui.payments.stripe_tax.notes.registrations", "Stripe Tax requires tax registrations to be configured in your Stripe dashboard")}</li>
+          <li>{tx("ui.payments.stripe_tax.notes.realtime_checkout", "Tax calculations are performed in real-time during checkout")}</li>
+          <li>{tx("ui.payments.stripe_tax.notes.b2b_reverse_charge", "B2B transactions with valid VAT numbers use reverse charge mechanism")}</li>
+          <li>{tx("ui.payments.stripe_tax.notes.origin_address", "Origin address must be set in Organization Tax Settings")}</li>
         </ul>
       </div>
     </div>

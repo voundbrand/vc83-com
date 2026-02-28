@@ -305,7 +305,7 @@ export function MarkdownEditor({
               style={{
                 fontFamily: "'SF Mono', Monaco, 'Cascadia Code', monospace",
                 lineHeight: 1.6,
-                background: "var(--win95-bg-light, #fff)",
+                background: "var(--win95-bg-light)",
                 color: "var(--win95-text)",
                 tabSize: 2,
               }}
@@ -318,7 +318,7 @@ export function MarkdownEditor({
         {viewState !== "edit" && (
           <div
             className="flex-1 min-w-0 overflow-y-auto p-4"
-            style={{ background: "var(--win95-bg-light, #fff)" }}
+            style={{ background: "var(--win95-bg-light)" }}
           >
             <div
               className="prose prose-sm max-w-none text-xs"

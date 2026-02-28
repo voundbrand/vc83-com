@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require avoids TS2589 deep type instantiation from generated API type expansion.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Loader2, Save, X, ChevronDown, CalendarDays } from "lucide-react";
 import { useAppAvailability } from "@/hooks/use-app-availability";
@@ -132,7 +134,16 @@ export function ProductForm({
   onCancel,
 }: ProductFormProps) {
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.products");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const posthog = usePostHog();
+  const apiAny = api as any;
   const [formData, setFormData] = useState({
     subtype: "ticket",
     categoryLabel: "", // Derived from subtype, but can be customized
@@ -203,17 +214,17 @@ export function ProductForm({
 
   // Get existing product if editing
   const existingProduct = useQuery(
-    api.productOntology.getProduct,
+    apiAny.productOntology.getProduct,
     productId ? { sessionId, productId } : "skip"
   );
 
-  const createProduct = useMutation(api.productOntology.createProduct);
-  const updateProduct = useMutation(api.productOntology.updateProduct);
-  const unlinkFormFromProduct = useMutation(api.productOntology.unlinkFormFromProduct);
+  const createProduct = useMutation(apiAny.productOntology.createProduct);
+  const updateProduct = useMutation(apiAny.productOntology.updateProduct);
+  const unlinkFormFromProduct = useMutation(apiAny.productOntology.unlinkFormFromProduct);
 
   // Get events for dropdown (only if Events app is available)
   const events = useQuery(
-    api.eventOntology.getEvents,
+    apiAny.eventOntology.getEvents,
     isEventsAppAvailable && sessionId
       ? { sessionId, organizationId }
       : "skip"
@@ -221,13 +232,13 @@ export function ProductForm({
 
   // Get organization tax settings to determine available tax codes
   const orgTaxSettings = useQuery(
-    api.organizationTaxSettings.getPublicTaxSettings,
+    apiAny.organizationTaxSettings.getPublicTaxSettings,
     { organizationId }
   );
 
   // Get published forms for dropdown
   const forms = useQuery(
-    api.formsOntology.getForms,
+    apiAny.formsOntology.getForms,
     sessionId
       ? { sessionId, organizationId, status: "published" }
       : "skip"
@@ -235,7 +246,7 @@ export function ProductForm({
 
   // Get selected form template to extract field IDs for addon mapping and invoicing config
   const selectedFormTemplate = useQuery(
-    api.formsOntology.getPublicForm,
+    apiAny.formsOntology.getPublicForm,
     formData.formId && formData.formId.length >= 28 // Validate it's a Convex ID
       ? { formId: formData.formId as Id<"objects"> }
       : "skip"
@@ -550,7 +561,12 @@ export function ProductForm({
       onSuccess();
     } catch (error) {
       console.error("Failed to save product:", error);
-      alert("Failed to save product. Please try again.");
+      alert(
+        tx(
+          "ui.products.form.save_error",
+          "Failed to save product. Please try again."
+        )
+      );
 
       posthog?.capture("$exception", {
         error_type: productId ? "product_update_failed" : "product_creation_failed",
@@ -591,7 +607,7 @@ export function ProductForm({
             borderColor: "var(--shell-border)",
             color: "var(--neutral-gray)",
           }}
-          title="Product ID"
+          title={tx("ui.products.form.product_id_title", "Product ID")}
         >
           <code>{productId}</code>
         </div>
@@ -628,23 +644,59 @@ export function ProductForm({
           }}
           required
         >
-          <optgroup label="Standard Products">
+          <optgroup
+            label={tx(
+              "ui.products.form.type.group.standard",
+              "Standard Products"
+            )}
+          >
             <option value="ticket">{t("ui.products.form.type.ticket")}</option>
             <option value="physical">{t("ui.products.form.type.physical")}</option>
             <option value="digital">{t("ui.products.form.type.digital")}</option>
           </optgroup>
-          <optgroup label="Bookable Resources">
-            <option value="room">Room / Meeting Space</option>
-            <option value="staff">Staff / Service Provider</option>
-            <option value="equipment">Equipment</option>
-            <option value="space">Workspace / Desk</option>
-            <option value="vehicle">Vehicle</option>
-            <option value="accommodation">Accommodation</option>
+          <optgroup
+            label={tx(
+              "ui.products.form.type.group.bookable_resources",
+              "Bookable Resources"
+            )}
+          >
+            <option value="room">
+              {tx("ui.products.form.type.room", "Room / Meeting Space")}
+            </option>
+            <option value="staff">
+              {tx("ui.products.form.type.staff", "Staff / Service Provider")}
+            </option>
+            <option value="equipment">
+              {tx("ui.products.form.type.equipment", "Equipment")}
+            </option>
+            <option value="space">
+              {tx("ui.products.form.type.space", "Workspace / Desk")}
+            </option>
+            <option value="vehicle">
+              {tx("ui.products.form.type.vehicle", "Vehicle")}
+            </option>
+            <option value="accommodation">
+              {tx("ui.products.form.type.accommodation", "Accommodation")}
+            </option>
           </optgroup>
-          <optgroup label="Bookable Services">
-            <option value="appointment">Appointment Service</option>
-            <option value="class">Class / Group Session</option>
-            <option value="treatment">Treatment / Spa Service</option>
+          <optgroup
+            label={tx(
+              "ui.products.form.type.group.bookable_services",
+              "Bookable Services"
+            )}
+          >
+            <option value="appointment">
+              {tx("ui.products.form.type.appointment", "Appointment Service")}
+            </option>
+            <option value="class">
+              {tx("ui.products.form.type.class", "Class / Group Session")}
+            </option>
+            <option value="treatment">
+              {tx(
+                "ui.products.form.type.treatment",
+                "Treatment / Spa Service"
+              )}
+            </option>
           </optgroup>
         </select>
         {productId && (
@@ -657,7 +709,7 @@ export function ProductForm({
       {/* Category Label */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-          Category Label
+          {tx("ui.products.form.category_label.label", "Category Label")}
         </label>
         <input
           type="text"
@@ -672,7 +724,10 @@ export function ProductForm({
           }}
         />
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Tip: Human-readable category name for external APIs. Auto-derived from product type, but can be customized.
+          {tx(
+            "ui.products.form.category_label.help",
+            "Tip: Human-readable category name for external APIs. Auto-derived from product type, but can be customized."
+          )}
         </p>
       </div>
 
@@ -731,10 +786,13 @@ export function ProductForm({
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               placeholder={
                 formData.subtype === "ticket" && formData.ticketType === "free"
-                  ? "0.00 (Free)"
+                  ? tx("ui.products.form.price.placeholder.free", "0.00 (Free)")
                   : formData.subtype === "ticket" && formData.ticketType === "donation"
-                  ? "Optional (Pay what you want)"
-                  : "49.99"
+                  ? tx(
+                      "ui.products.form.price.placeholder.donation",
+                      "Optional (Pay what you want)"
+                    )
+                  : tx("ui.products.form.price.placeholder.default", "49.99")
               }
               disabled={formData.subtype === "ticket" && formData.ticketType === "free"}
               className="w-full px-3 py-2 text-sm border-2"
@@ -757,10 +815,10 @@ export function ProductForm({
             }}
             disabled={formData.subtype === "ticket" && formData.ticketType === "free"}
           >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-            <option value="CAD">CAD</option>
+            <option value="USD">{tx("ui.products.form.currency.usd", "USD")}</option>
+            <option value="EUR">{tx("ui.products.form.currency.eur", "EUR")}</option>
+            <option value="GBP">{tx("ui.products.form.currency.gbp", "GBP")}</option>
+            <option value="CAD">{tx("ui.products.form.currency.cad", "CAD")}</option>
           </select>
         </div>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
@@ -844,8 +902,15 @@ export function ProductForm({
               >
                 <option value="">
                   {orgDefaultTaxCode
-                    ? `-- Use Organization Default (${defaultTaxCodeLabel}) --`
-                    : `-- No Organization Default Set --`
+                    ? tx(
+                        "ui.products.form.tax.organization_default",
+                        `-- Use Organization Default (${defaultTaxCodeLabel}) --`,
+                        { defaultTaxCodeLabel }
+                      )
+                    : tx(
+                        "ui.products.form.tax.no_organization_default",
+                        "-- No Organization Default Set --"
+                      )
                   }
                 </option>
 
@@ -860,14 +925,30 @@ export function ProductForm({
                 )}
 
                 {!availableTaxCodes && (
-                  <option disabled>No tax codes available for {originCountry}</option>
+                  <option disabled>
+                    {tx(
+                      "ui.products.form.tax.no_tax_codes_for_country",
+                      "No tax codes available for"
+                    )}{" "}
+                    {originCountry}
+                  </option>
                 )}
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Tip: Showing tax codes for {originCountry}.
+                {tx(
+                  "ui.products.form.tax.tip_showing_codes_for",
+                  "Tip: Showing tax codes for"
+                )}{" "}
+                {originCountry}.
                 {orgDefaultTaxCode
-                  ? ` Org default: ${defaultTaxCodeLabel}`
-                  : ` No org default - configure in tax settings.`
+                  ? ` ${tx(
+                      "ui.products.form.tax.organization_default_prefix",
+                      "Org default:"
+                    )} ${defaultTaxCodeLabel}`
+                  : ` ${tx(
+                      "ui.products.form.tax.no_organization_default_help",
+                      "No org default - configure in tax settings."
+                    )}`
                 }
               </p>
             </div>
@@ -926,14 +1007,17 @@ export function ProductForm({
             }}
           >
             <option value="">{t("ui.products.form.formLink.none")}</option>
-            {forms?.map((form) => (
+            {forms?.map((form: { _id: string; name: string; subtype?: string }) => (
               <option key={form._id} value={form._id}>
                 {form.name} ({form.subtype})
               </option>
             ))}
           </select>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Tip: Forms must be published to appear here. Create forms in the Forms app.
+            {tx(
+              "ui.products.form.formLink.tip_published_forms",
+              "Tip: Forms must be published to appear here. Create forms in the Forms app."
+            )}
           </p>
         </div>
 
@@ -1024,14 +1108,17 @@ export function ProductForm({
       {formData.subtype === "ticket" && (
         <div className="space-y-4 p-4 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}>
           <h3 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-            Ticket Settings
+            {tx("ui.products.form.ticket_settings.title", "Ticket Settings")}
           </h3>
 
           {/* Event Association - Only if Events app is available */}
           {isEventsAppAvailable ? (
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                Associated Event (Optional)
+                {tx(
+                  "ui.products.form.ticket_settings.associated_event",
+                  "Associated Event (Optional)"
+                )}
               </label>
               <select
                 value={formData.eventId}
@@ -1043,15 +1130,23 @@ export function ProductForm({
                   color: "var(--shell-input-text)",
                 }}
               >
-                <option value="">-- No Event (Standalone Ticket) --</option>
-                {events?.map((event) => (
+                <option value="">
+                  {tx(
+                    "ui.products.form.ticket_settings.no_event",
+                    "-- No Event (Standalone Ticket) --"
+                  )}
+                </option>
+                {events?.map((event: { _id: string; name: string; customProperties?: Record<string, unknown> }) => (
                   <option key={event._id} value={event._id}>
                     {event.name} ({new Date((event.customProperties as {startDate?: number})?.startDate || 0).toLocaleDateString()})
                   </option>
                 ))}
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Link this ticket to an event to include event details, agenda, and sponsors in the attendee experience
+                {tx(
+                  "ui.products.form.ticket_settings.associated_event_help",
+                  "Link this ticket to an event to include event details, agenda, and sponsors in the attendee experience"
+                )}
               </p>
             </div>
           ) : (
@@ -1060,7 +1155,10 @@ export function ProductForm({
                 <CalendarDays className="h-6 w-6 mt-0.5" style={{ color: "var(--shell-accent)" }} />
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                    Event Linking Unavailable
+                    {tx(
+                      "ui.products.form.ticket_settings.event_linking_unavailable",
+                      "Event Linking Unavailable"
+                    )}
                   </p>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                     <AppUnavailableInline
@@ -1069,7 +1167,10 @@ export function ProductForm({
                     />
                   </p>
                   <p className="text-xs mt-2" style={{ color: "var(--neutral-gray)" }}>
-                    Enable Events to link tickets to specific events with agendas and sponsors
+                    {tx(
+                      "ui.products.form.ticket_settings.enable_events_help",
+                      "Enable Events to link tickets to specific events with agendas and sponsors"
+                    )}
                   </p>
                 </div>
               </div>
@@ -1079,26 +1180,79 @@ export function ProductForm({
           {/* Template Set Selector (NEW - Unified Branding) */}
           <div className="mb-4 border-t-2 pt-4" style={{ borderColor: 'var(--shell-border)' }}>
             <h4 className="text-xs font-bold mb-3" style={{ color: 'var(--shell-text)' }}>
-              Branding Templates (Optional Override)
+              {tx(
+                "ui.products.form.ticket_settings.branding_templates_override",
+                "Branding Templates (Optional Override)"
+              )}
             </h4>
             <TemplateSetSelector
               organizationId={organizationId}
               value={formData.templateSetId ? (formData.templateSetId as Id<"objects">) : null}
               onChange={(templateSetId) => setFormData({ ...formData, templateSetId: templateSetId || "" })}
-              label="Template Set Override"
-              description="Override checkout-level templates for this product. Provides consistent branding across tickets, invoices, and emails."
+              label={tx(
+                "ui.products.form.ticket_settings.template_set_override_label",
+                "Template Set Override"
+              )}
+              description={tx(
+                "ui.products.form.ticket_settings.template_set_override_description",
+                "Override checkout-level templates for this product. Provides consistent branding across tickets, invoices, and emails."
+              )}
               required={false}
               allowNull={true}
-              nullLabel="Use checkout-level templates"
+              nullLabel={tx(
+                "ui.products.form.ticket_settings.template_set_override_null",
+                "Use checkout-level templates"
+              )}
               showDetails={true}
             />
 
             <div className="mt-3 p-3 rounded text-xs" style={{ backgroundColor: 'rgba(107, 70, 193, 0.1)', color: 'var(--shell-accent)' }}>
-              <div className="font-bold mb-1">Template Precedence:</div>
+              <div className="font-bold mb-1">
+                {tx(
+                  "ui.products.form.ticket_settings.template_precedence",
+                  "Template Precedence:"
+                )}
+              </div>
               <ul className="space-y-1 ml-4">
-                <li>• <strong>Product Template Set</strong>: Highest priority (if set)</li>
-                <li>• <strong>Checkout Template Set</strong>: Mid priority (fallback)</li>
-                <li>• <strong>Organization Default</strong>: Lowest priority (ultimate fallback)</li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.products.form.ticket_settings.precedence_product_template_set",
+                      "Product Template Set"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.products.form.ticket_settings.precedence_product_template_set_desc",
+                    ": Highest priority (if set)"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.products.form.ticket_settings.precedence_checkout_template_set",
+                      "Checkout Template Set"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.products.form.ticket_settings.precedence_checkout_template_set_desc",
+                    ": Mid priority (fallback)"
+                  )}
+                </li>
+                <li>
+                  •{" "}
+                  <strong>
+                    {tx(
+                      "ui.products.form.ticket_settings.precedence_org_default",
+                      "Organization Default"
+                    )}
+                  </strong>
+                  {tx(
+                    "ui.products.form.ticket_settings.precedence_org_default_desc",
+                    ": Lowest priority (ultimate fallback)"
+                  )}
+                </li>
               </ul>
             </div>
           </div>
@@ -1106,22 +1260,37 @@ export function ProductForm({
           {/* Legacy: Individual Ticket Template Selector */}
           <details className="mb-4">
             <summary className="cursor-pointer text-xs font-bold p-2 rounded" style={{ backgroundColor: 'rgba(107, 70, 193, 0.05)', color: 'var(--shell-text)' }}>
-              Advanced: Override Ticket Template Only
+              {tx(
+                "ui.products.form.ticket_settings.advanced_override_ticket_template",
+                "Advanced: Override Ticket Template Only"
+              )}
             </summary>
             <div className="mt-2 p-3 border-2 rounded" style={{ borderColor: 'var(--shell-border)' }}>
               <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
-                Override ONLY the ticket template (not recommended - use Template Set for consistent branding).
+                {tx(
+                  "ui.products.form.ticket_settings.advanced_override_ticket_template_help",
+                  "Override ONLY the ticket template (not recommended - use Template Set for consistent branding)."
+                )}
               </p>
               <TemplateSelector
                 category="ticket"
                 value={formData.ticketTemplateId ? (formData.ticketTemplateId as Id<"objects">) : null}
                 onChange={(templateId) => setFormData({ ...formData, ticketTemplateId: templateId || "" })}
-                label="Ticket Template Override"
-                description="Overrides the ticket template from the template set."
+                label={tx(
+                  "ui.products.form.ticket_settings.ticket_template_override_label",
+                  "Ticket Template Override"
+                )}
+                description={tx(
+                  "ui.products.form.ticket_settings.ticket_template_override_description",
+                  "Overrides the ticket template from the template set."
+                )}
                 organizationId={organizationId}
                 required={false}
                 allowNull={true}
-                nullLabel="Use template from template set"
+                nullLabel={tx(
+                  "ui.products.form.ticket_settings.ticket_template_override_null",
+                  "Use template from template set"
+                )}
               />
             </div>
           </details>
@@ -1130,10 +1299,18 @@ export function ProductForm({
           <div className="flex items-center justify-between p-3 border-2 rounded" style={{ borderColor: "var(--shell-border)", background: "var(--shell-input-surface)" }}>
             <div className="flex-1">
               <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
-                Ticket Status
+                {tx("ui.products.form.ticket_settings.status_label", "Ticket Status")}
               </label>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                {formData.isActive ? "Active - Ticket sales are enabled" : "Paused - Ticket sales are temporarily suspended"}
+                {formData.isActive
+                  ? tx(
+                      "ui.products.form.ticket_settings.status_active_description",
+                      "Active - Ticket sales are enabled"
+                    )
+                  : tx(
+                      "ui.products.form.ticket_settings.status_paused_description",
+                      "Paused - Ticket sales are temporarily suspended"
+                    )}
               </p>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1144,7 +1321,9 @@ export function ProductForm({
                 className="w-5 h-5"
               />
               <span className="text-sm font-bold" style={{ color: formData.isActive ? "var(--success)" : "var(--neutral-gray)" }}>
-                {formData.isActive ? "Active" : "Paused"}
+                {formData.isActive
+                  ? tx("ui.products.form.ticket_settings.status_active", "Active")
+                  : tx("ui.products.form.ticket_settings.status_paused", "Paused")}
               </span>
             </label>
           </div>
@@ -1152,7 +1331,7 @@ export function ProductForm({
           {/* Ticket Type */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-              Ticket Type
+              {tx("ui.products.form.ticket_settings.type_label", "Ticket Type")}
             </label>
             <select
               value={formData.ticketType}
@@ -1172,9 +1351,24 @@ export function ProductForm({
                 color: "var(--shell-input-text)",
               }}
             >
-              <option value="paid">Paid - Standard ticket with price</option>
-              <option value="free">Free - No charge required</option>
-              <option value="donation">Donation - Pay what you want</option>
+              <option value="paid">
+                {tx(
+                  "ui.products.form.ticket_settings.type_paid",
+                  "Paid - Standard ticket with price"
+                )}
+              </option>
+              <option value="free">
+                {tx(
+                  "ui.products.form.ticket_settings.type_free",
+                  "Free - No charge required"
+                )}
+              </option>
+              <option value="donation">
+                {tx(
+                  "ui.products.form.ticket_settings.type_donation",
+                  "Donation - Pay what you want"
+                )}
+              </option>
             </select>
           </div>
 
@@ -1182,7 +1376,7 @@ export function ProductForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                Sales Start
+                {tx("ui.products.form.ticket_settings.sales_start", "Sales Start")}
               </label>
               <input
                 type="datetime-local"
@@ -1198,7 +1392,7 @@ export function ProductForm({
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                Sales End
+                {tx("ui.products.form.ticket_settings.sales_end", "Sales End")}
               </label>
               <input
                 type="datetime-local"
@@ -1218,7 +1412,7 @@ export function ProductForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                Min Per Order
+                {tx("ui.products.form.ticket_settings.min_per_order", "Min Per Order")}
               </label>
               <input
                 type="number"
@@ -1235,7 +1429,7 @@ export function ProductForm({
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                Max Per Order
+                {tx("ui.products.form.ticket_settings.max_per_order", "Max Per Order")}
               </label>
               <input
                 type="number"
@@ -1253,7 +1447,10 @@ export function ProductForm({
           </div>
 
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Tip: Sales schedule and order limits help manage ticket availability and prevent bulk purchases.
+            {tx(
+              "ui.products.form.ticket_settings.sales_schedule_tip",
+              "Tip: Sales schedule and order limits help manage ticket availability and prevent bulk purchases."
+            )}
           </p>
 
           {/* Advanced Settings - Collapsible Section */}
@@ -1264,7 +1461,10 @@ export function ProductForm({
               className="flex items-center justify-between w-full text-left mb-3"
             >
               <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-                Advanced Settings
+                {tx(
+                  "ui.products.form.ticket_settings.advanced_settings",
+                  "Advanced Settings"
+                )}
               </h4>
               <ChevronDown
                 size={16}
@@ -1281,7 +1481,7 @@ export function ProductForm({
                 {/* Visibility Settings */}
                 <div>
                   <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                    Visibility
+                    {tx("ui.products.form.ticket_settings.visibility", "Visibility")}
                   </label>
                   <select
                     value={formData.visibility}
@@ -1293,13 +1493,36 @@ export function ProductForm({
                       color: "var(--shell-input-text)",
                     }}
                   >
-                    <option value="visible">Visible - Show on event page</option>
-                    <option value="invisible">Invisible - Hidden, direct link only</option>
-                    <option value="invisibleNotForSale">Invisible & Not For Sale</option>
-                    <option value="customSchedule">Custom Schedule - Show/hide by date</option>
+                    <option value="visible">
+                      {tx(
+                        "ui.products.form.ticket_settings.visibility_visible",
+                        "Visible - Show on event page"
+                      )}
+                    </option>
+                    <option value="invisible">
+                      {tx(
+                        "ui.products.form.ticket_settings.visibility_invisible",
+                        "Invisible - Hidden, direct link only"
+                      )}
+                    </option>
+                    <option value="invisibleNotForSale">
+                      {tx(
+                        "ui.products.form.ticket_settings.visibility_invisible_not_for_sale",
+                        "Invisible & Not For Sale"
+                      )}
+                    </option>
+                    <option value="customSchedule">
+                      {tx(
+                        "ui.products.form.ticket_settings.visibility_custom_schedule",
+                        "Custom Schedule - Show/hide by date"
+                      )}
+                    </option>
                   </select>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    Control when and how this ticket appears to buyers
+                    {tx(
+                      "ui.products.form.ticket_settings.visibility_help",
+                      "Control when and how this ticket appears to buyers"
+                    )}
                   </p>
                 </div>
 
@@ -1309,7 +1532,7 @@ export function ProductForm({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                          Show From
+                          {tx("ui.products.form.ticket_settings.show_from", "Show From")}
                         </label>
                         <input
                           type="datetime-local"
@@ -1325,7 +1548,7 @@ export function ProductForm({
                       </div>
                       <div>
                         <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                          Hide After
+                          {tx("ui.products.form.ticket_settings.hide_after", "Hide After")}
                         </label>
                         <input
                           type="datetime-local"
@@ -1346,7 +1569,10 @@ export function ProductForm({
                 {/* Distribution Channel */}
                 <div>
                   <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                    Distribution Channel
+                    {tx(
+                      "ui.products.form.ticket_settings.distribution_channel",
+                      "Distribution Channel"
+                    )}
                   </label>
                   <select
                     value={formData.distributionChannel}
@@ -1359,19 +1585,42 @@ export function ProductForm({
                     }}
                     disabled={formData.ticketType === "donation"}
                   >
-                    <option value="onlineOnly">Online Only</option>
-                    <option value="atVenueOnly">At Venue Only</option>
-                    <option value="onlineAndVenue">Online & Venue</option>
+                    <option value="onlineOnly">
+                      {tx(
+                        "ui.products.form.ticket_settings.distribution_online_only",
+                        "Online Only"
+                      )}
+                    </option>
+                    <option value="atVenueOnly">
+                      {tx(
+                        "ui.products.form.ticket_settings.distribution_at_venue_only",
+                        "At Venue Only"
+                      )}
+                    </option>
+                    <option value="onlineAndVenue">
+                      {tx(
+                        "ui.products.form.ticket_settings.distribution_online_and_venue",
+                        "Online & Venue"
+                      )}
+                    </option>
                   </select>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    {formData.ticketType === "donation" ? "Donations are online only" : "Where tickets can be purchased"}
+                    {formData.ticketType === "donation"
+                      ? tx(
+                          "ui.products.form.ticket_settings.distribution_donation_help",
+                          "Donations are online only"
+                        )
+                      : tx(
+                          "ui.products.form.ticket_settings.distribution_help",
+                          "Where tickets can be purchased"
+                        )}
                   </p>
                 </div>
 
                 {/* Delivery Methods */}
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                    Delivery Methods
+                    {tx("ui.products.form.ticket_settings.delivery_methods", "Delivery Methods")}
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1382,7 +1631,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      E-Ticket (Email/Mobile)
+                      {tx(
+                        "ui.products.form.ticket_settings.delivery_eticket",
+                        "E-Ticket (Email/Mobile)"
+                      )}
                     </span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1394,7 +1646,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Will Call Pickup (At Venue)
+                      {tx(
+                        "ui.products.form.ticket_settings.delivery_pickup",
+                        "Will Call Pickup (At Venue)"
+                      )}
                     </span>
                   </label>
                 </div>
@@ -1402,7 +1657,7 @@ export function ProductForm({
                 {/* Display Options */}
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-                    Display Options
+                    {tx("ui.products.form.ticket_settings.display_options", "Display Options")}
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -1412,7 +1667,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Show &quot;Sales end in X hours&quot; countdown
+                      {tx(
+                        "ui.products.form.ticket_settings.display_sales_countdown",
+                        "Show \"Sales end in X hours\" countdown"
+                      )}
                     </span>
                   </label>
                   {formData.ticketType === "donation" && (
@@ -1424,7 +1682,10 @@ export function ProductForm({
                         className="w-4 h-4"
                       />
                       <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                        Deduct fees from donation amount
+                        {tx(
+                          "ui.products.form.ticket_settings.display_deduct_fees",
+                          "Deduct fees from donation amount"
+                        )}
                       </span>
                     </label>
                   )}
@@ -1433,7 +1694,7 @@ export function ProductForm({
                 {/* NEW: Logistics Settings */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-                    Event Logistics
+                    {tx("ui.products.form.ticket_settings.event_logistics", "Event Logistics")}
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1444,7 +1705,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Accommodation Required
+                      {tx(
+                        "ui.products.form.ticket_settings.accommodation_required",
+                        "Accommodation Required"
+                      )}
                     </span>
                   </label>
 
@@ -1456,7 +1720,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Collect Accommodation Notes/Requests
+                      {tx(
+                        "ui.products.form.ticket_settings.collect_accommodation_notes",
+                        "Collect Accommodation Notes/Requests"
+                      )}
                     </span>
                   </label>
 
@@ -1468,7 +1735,7 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Meal Included
+                      {tx("ui.products.form.ticket_settings.meal_included", "Meal Included")}
                     </span>
                   </label>
 
@@ -1480,7 +1747,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Collect Dietary Requirements/Allergies
+                      {tx(
+                        "ui.products.form.ticket_settings.collect_dietary_requirements",
+                        "Collect Dietary Requirements/Allergies"
+                      )}
                     </span>
                   </label>
 
@@ -1492,7 +1762,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Collect Planned Arrival Time
+                      {tx(
+                        "ui.products.form.ticket_settings.collect_arrival_time",
+                        "Collect Planned Arrival Time"
+                      )}
                     </span>
                   </label>
                 </div>
@@ -1500,7 +1773,10 @@ export function ProductForm({
                 {/* NEW: Companion/Guest Settings */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-                    Companion/Guest Settings
+                    {tx(
+                      "ui.products.form.ticket_settings.companion_settings",
+                      "Companion/Guest Settings"
+                    )}
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1511,7 +1787,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Allow Companions/Guests
+                      {tx(
+                        "ui.products.form.ticket_settings.allow_companions",
+                        "Allow Companions/Guests"
+                      )}
                     </span>
                   </label>
 
@@ -1520,7 +1799,10 @@ export function ProductForm({
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                            Max Companions
+                            {tx(
+                              "ui.products.form.ticket_settings.max_companions",
+                              "Max Companions"
+                            )}
                           </label>
                           <input
                             type="number"
@@ -1538,7 +1820,10 @@ export function ProductForm({
                         </div>
                         <div>
                           <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                            Cost Per Companion
+                            {tx(
+                              "ui.products.form.ticket_settings.cost_per_companion",
+                              "Cost Per Companion"
+                            )}
                           </label>
                           <input
                             type="number"
@@ -1546,7 +1831,10 @@ export function ProductForm({
                             min="0"
                             value={formData.companionCost}
                             onChange={(e) => setFormData({ ...formData, companionCost: e.target.value })}
-                            placeholder="Optional"
+                            placeholder={tx(
+                              "ui.products.form.ticket_settings.companion_cost_placeholder",
+                              "Optional"
+                            )}
                             className="w-full px-2 py-1 text-sm border-2"
                             style={{
                               borderColor: "var(--shell-border)",
@@ -1557,7 +1845,10 @@ export function ProductForm({
                         </div>
                       </div>
                       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                        Tip: Additional cost per companion (e.g., 30.00 for boat excursion)
+                        {tx(
+                          "ui.products.form.ticket_settings.companion_cost_tip",
+                          "Tip: Additional cost per companion (e.g., 30.00 for boat excursion)"
+                        )}
                       </p>
                     </div>
                   )}
@@ -1566,7 +1857,10 @@ export function ProductForm({
                 {/* NEW: Activity/Workshop Selection */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-                    Activity/Workshop Selection
+                    {tx(
+                      "ui.products.form.ticket_settings.activity_selection",
+                      "Activity/Workshop Selection"
+                    )}
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1577,7 +1871,10 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Include Activity/Workshop Selection
+                      {tx(
+                        "ui.products.form.ticket_settings.include_activity_selection",
+                        "Include Activity/Workshop Selection"
+                      )}
                     </span>
                   </label>
 
@@ -1585,12 +1882,18 @@ export function ProductForm({
                     <div className="pl-6 space-y-3">
                       <div>
                         <label className="block text-xs font-semibold mb-1" style={{ color: "var(--shell-text)" }}>
-                          Activity Options (one per line)
+                          {tx(
+                            "ui.products.form.ticket_settings.activity_options",
+                            "Activity Options (one per line)"
+                          )}
                         </label>
                         <textarea
                           value={formData.activityOptions.join("\n")}
                           onChange={(e) => setFormData({ ...formData, activityOptions: e.target.value.split("\n").filter(o => o.trim()) })}
-                          placeholder="Workshop A&#10;Workshop B&#10;Excursion&#10;Boat Tour"
+                          placeholder={tx(
+                            "ui.products.form.ticket_settings.activity_options_placeholder",
+                            "Workshop A\nWorkshop B\nExcursion\nBoat Tour"
+                          )}
                           rows={4}
                           className="w-full px-2 py-1 text-xs border-2"
                           style={{
@@ -1608,7 +1911,10 @@ export function ProductForm({
                           className="w-4 h-4"
                         />
                         <span className="text-xs" style={{ color: "var(--shell-text)" }}>
-                          Activity selection required
+                          {tx(
+                            "ui.products.form.ticket_settings.activity_required",
+                            "Activity selection required"
+                          )}
                         </span>
                       </label>
                     </div>
@@ -1618,7 +1924,10 @@ export function ProductForm({
                 {/* NEW: Billing Address */}
                 <div className="pt-3 border-t-2 space-y-3" style={{ borderColor: "var(--shell-border)" }}>
                   <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-                    Billing and Invoicing
+                    {tx(
+                      "ui.products.form.ticket_settings.billing_invoicing",
+                      "Billing and Invoicing"
+                    )}
                   </h4>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1629,11 +1938,17 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Require Full Billing Address
+                      {tx(
+                        "ui.products.form.ticket_settings.require_billing_address",
+                        "Require Full Billing Address"
+                      )}
                     </span>
                   </label>
                   <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    Tip: Useful for invoice generation and tax compliance
+                    {tx(
+                      "ui.products.form.ticket_settings.billing_address_tip",
+                      "Tip: Useful for invoice generation and tax compliance"
+                    )}
                   </p>
                 </div>
               </div>
@@ -1646,7 +1961,10 @@ export function ProductForm({
       {!productId && (
         <div>
           <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-            Associate with Event (Optional)
+            {tx(
+              "ui.products.form.associate_event.label",
+              "Associate with Event (Optional)"
+            )}
           </label>
           {isEventsAppAvailable ? (
             <>
@@ -1658,7 +1976,10 @@ export function ProductForm({
 
                   // If event selected and takeOverEventDates is true, populate dates
                   if (selectedEventId && formData.takeOverEventDates) {
-                    const selectedEvent = events?.find(ev => ev._id === selectedEventId);
+                    const selectedEvent = events?.find(
+                      (ev: { _id: string; customProperties?: Record<string, unknown> }) =>
+                        ev._id === selectedEventId
+                    );
                     if (selectedEvent && selectedEvent.customProperties) {
                       const props = selectedEvent.customProperties;
                       const updatedFormData = { ...formData, eventId: selectedEventId };
@@ -1682,8 +2003,10 @@ export function ProductForm({
                   color: "var(--shell-input-text)",
                 }}
               >
-                <option value="">-- No Event --</option>
-                {events?.map((event) => (
+                <option value="">
+                  {tx("ui.products.form.associate_event.none", "-- No Event --")}
+                </option>
+                {events?.map((event: { _id: string; name: string; subtype?: string }) => (
                   <option key={event._id} value={event._id}>
                     {event.name} ({event.subtype})
                   </option>
@@ -1703,7 +2026,10 @@ export function ProductForm({
 
                         // If enabling takeover, populate dates from selected event
                         if (shouldTakeOver && formData.eventId) {
-                          const selectedEvent = events?.find(ev => ev._id === formData.eventId);
+                          const selectedEvent = events?.find(
+                            (ev: { _id: string; customProperties?: Record<string, unknown> }) =>
+                              ev._id === formData.eventId
+                          );
                           if (selectedEvent && selectedEvent.customProperties) {
                             const props = selectedEvent.customProperties;
                             const updatedFormData = { ...formData, takeOverEventDates: shouldTakeOver };
@@ -1722,17 +2048,26 @@ export function ProductForm({
                       className="w-4 h-4"
                     />
                     <span className="text-sm" style={{ color: "var(--shell-text)" }}>
-                      Use event dates for ticket sales schedule
+                      {tx(
+                        "ui.products.form.associate_event.use_event_dates",
+                        "Use event dates for ticket sales schedule"
+                      )}
                     </span>
                   </label>
                   <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                    Automatically set ticket sales start/end based on event dates
+                    {tx(
+                      "ui.products.form.associate_event.use_event_dates_help",
+                      "Automatically set ticket sales start/end based on event dates"
+                    )}
                   </p>
                 </div>
               )}
 
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Link this product to an event. The event will &quot;offer&quot; this product.
+                {tx(
+                  "ui.products.form.associate_event.help",
+                  "Link this product to an event. The event will \"offer\" this product."
+                )}
               </p>
             </>
           ) : (
@@ -1753,7 +2088,10 @@ export function ProductForm({
         }}
       >
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Tip: Products start in &ldquo;Draft&rdquo; status. Click &ldquo;Publish&rdquo; to make them available for sale.
+          {tx(
+            "ui.products.form.info_box.tip",
+            "Tip: Products start in \"Draft\" status. Click \"Publish\" to make them available for sale."
+          )}
         </p>
       </div>
 
@@ -1791,7 +2129,10 @@ export function ProductForm({
           ) : (
             <>
               <Save size={14} />
-              {productId ? t("ui.products.button.update") : t("ui.products.button.create")} Product
+              {productId
+                ? t("ui.products.button.update")
+                : t("ui.products.button.create")}{" "}
+              {tx("ui.products.button.product_suffix", "Product")}
             </>
           )}
         </button>

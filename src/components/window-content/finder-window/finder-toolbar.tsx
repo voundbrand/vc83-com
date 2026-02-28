@@ -279,7 +279,7 @@ function NewMenu({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="absolute top-full left-0 mt-1 w-56 border rounded-xl shadow-lg z-50"
+        className="absolute top-full left-0 mt-1 w-56 border rounded-xl z-50"
         style={{
           background: "var(--window-document-bg-elevated)",
           borderColor: "var(--window-document-border)",

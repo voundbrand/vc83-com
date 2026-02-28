@@ -2,9 +2,20 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
 import { Key, Plus, Trash2, Copy, Loader2, AlertCircle, Shield, Crown } from "lucide-react";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../../convex/_generated/api") as { api: any };
+// Cast Convex hooks to `any` to avoid deep recursive inference with the generated API surface.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const useQueryAny = useQuery as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const useMutationAny = useMutation as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const useActionAny = useAction as any;
 
 interface AdminSecurityTabProps {
   organizationId: Id<"organizations">;
@@ -12,22 +23,32 @@ interface AdminSecurityTabProps {
 }
 
 export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTabProps) {
+  const { t } = useNamespaceTranslations("ui.super_admin.manage_org.admin_security");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const fullKey = `ui.super_admin.manage_org.admin_security.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Check if API keys are enabled for this organization
-  const apiSettings = useQuery(
+  const apiSettings = useQueryAny(
     api.organizationApiSettings.getApiSettings,
     organizationId && sessionId ? { sessionId, organizationId } : "skip"
   );
 
   // Fetch API keys for this organization
-  const apiKeys = useQuery(
+  const apiKeys = useQueryAny(
     api.api.auth.listApiKeys,
     organizationId && sessionId ? { sessionId, organizationId } : "skip"
   );
 
   // Get organization details
-  const organization = useQuery(
+  const organization = useQueryAny(
     api.organizations.getById,
     organizationId && sessionId ? { organizationId, sessionId } : "skip"
   );
@@ -47,9 +68,13 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
       >
         <Crown size={16} className="mt-0.5 flex-shrink-0" />
         <div className="text-sm">
-          <p className="font-semibold">Super Admin Mode</p>
+          <p className="font-semibold">{tx("banner.super_admin_mode", "Super Admin Mode")}</p>
           <p className="text-xs mt-1">
-            You are managing API keys for {organization?.name}. You have full access to generate, view, and revoke API keys.
+            {tx("banner.managing_prefix", "You are managing API keys for")} {organization?.name}
+            {tx(
+              "banner.managing_suffix",
+              ". You have full access to generate, view, and revoke API keys."
+            )}
           </p>
         </div>
       </div>
@@ -66,9 +91,12 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
         >
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold">API Keys Disabled</p>
+            <p className="font-semibold">{tx("status.disabled_title", "API Keys Disabled")}</p>
             <p className="text-xs mt-1">
-              API keys are currently disabled for this organization. Enable them in the App Availability tab → Security & API Management section.
+              {tx(
+                "status.disabled_body",
+                "API keys are currently disabled for this organization. Enable them in the App Availability tab → Security & API Management section."
+              )}
             </p>
           </div>
         </div>
@@ -83,9 +111,12 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
         >
           <Shield size={16} className="mt-0.5 flex-shrink-0" />
           <div className="text-sm">
-            <p className="font-semibold">API Keys Enabled</p>
+            <p className="font-semibold">{tx("status.enabled_title", "API Keys Enabled")}</p>
             <p className="text-xs mt-1">
-              This organization can generate and manage API keys for external integrations.
+              {tx(
+                "status.enabled_body",
+                "This organization can generate and manage API keys for external integrations."
+              )}
             </p>
           </div>
         </div>
@@ -95,10 +126,11 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
       <div>
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
           <Key size={16} />
-          API Keys Management
+          {tx("header.title", "API Keys Management")}
         </h3>
         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-          Generate and manage API keys for {organization?.name} to enable external integrations.
+          {tx("header.subtitle_prefix", "Generate and manage API keys for")} {organization?.name}{" "}
+          {tx("header.subtitle_suffix", "to enable external integrations.")}
         </p>
       </div>
 
@@ -113,13 +145,15 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
         <div className="flex items-start gap-2">
           <Shield size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
           <div>
-            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Security Best Practices</p>
+            <p className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
+              {tx("best_practices.title", "Security Best Practices")}
+            </p>
             <ul className="text-xs mt-2 space-y-1" style={{ color: 'var(--neutral-gray)' }}>
-              <li>• Store API keys securely - never commit them to version control</li>
-              <li>• Rotate keys regularly, especially after team member departures</li>
-              <li>• Revoke unused or compromised keys immediately</li>
-              <li>• Use descriptive names to track where each key is used</li>
-              <li>• Monitor request counts for unusual activity</li>
+              <li>{tx("best_practices.item_1", "• Store API keys securely - never commit them to version control")}</li>
+              <li>{tx("best_practices.item_2", "• Rotate keys regularly, especially after team member departures")}</li>
+              <li>{tx("best_practices.item_3", "• Revoke unused or compromised keys immediately")}</li>
+              <li>{tx("best_practices.item_4", "• Use descriptive names to track where each key is used")}</li>
+              <li>{tx("best_practices.item_5", "• Monitor request counts for unusual activity")}</li>
             </ul>
           </div>
         </div>
@@ -136,7 +170,7 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           }}
         >
           <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
-            Active API Keys
+            {tx("list.title", "Active API Keys")}
           </span>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -146,10 +180,14 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
               backgroundColor: 'var(--success)',
               color: 'white',
             }}
-            title={!isApiKeysEnabled ? "Enable API keys first in App Availability tab" : "Generate a new API key"}
+            title={
+              !isApiKeysEnabled
+                ? tx("list.generate_button_disabled_title", "Enable API keys first in App Availability tab")
+                : tx("list.generate_button_title", "Generate a new API key")
+            }
           >
             <Plus size={12} />
-            Generate Key
+            {tx("list.generate_button", "Generate Key")}
           </button>
         </div>
 
@@ -163,11 +201,14 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
             <div className="text-center py-8">
               <Key size={32} className="mx-auto mb-2 opacity-50" style={{ color: 'var(--neutral-gray)' }} />
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                No API keys generated yet.
+                {tx("list.empty_title", "No API keys generated yet.")}
               </p>
               {isApiKeysEnabled && (
                 <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                  Click &quot;Generate Key&quot; to create the first API key for this organization.
+                  {tx(
+                    "list.empty_hint",
+                    'Click "Generate Key" to create the first API key for this organization.'
+                  )}
                 </p>
               )}
             </div>
@@ -175,16 +216,28 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b" style={{ borderColor: 'var(--window-document-border)' }}>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Name</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Key Preview</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Status</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Requests</th>
-                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Created</th>
-                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>Actions</th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.name", "Name")}
+                  </th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.key_preview", "Key Preview")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.status", "Status")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.requests", "Requests")}
+                  </th>
+                  <th className="text-left pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.created", "Created")}
+                  </th>
+                  <th className="text-center pb-2 font-bold" style={{ color: 'var(--window-document-text)' }}>
+                    {tx("table.actions", "Actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {apiKeys.map((key) => (
+                {apiKeys.map((key: any) => (
                   <ApiKeyRow
                     key={key.id}
                     apiKey={key}
@@ -224,11 +277,30 @@ function ApiKeyRow({
   organizationId: Id<"organizations">;
   sessionId: string;
 }) {
+  const { t } = useNamespaceTranslations("ui.super_admin.manage_org.admin_security");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const fullKey = `ui.super_admin.manage_org.admin_security.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const [isRevoking, setIsRevoking] = useState(false);
-  const revokeApiKey = useMutation(api.api.auth.revokeApiKey);
+  const revokeApiKey = useMutationAny(api.api.auth.revokeApiKey);
 
   const handleRevoke = async () => {
-    if (!confirm(`Are you sure you want to revoke the API key "${apiKey.name}"?\n\nThis action cannot be undone and will immediately stop all requests using this key.`)) {
+    if (
+      !confirm(
+        `${tx("row.revoke_confirm_prefix", "Are you sure you want to revoke the API key")} "${
+          apiKey.name
+        }"?\n\n${tx(
+          "row.revoke_confirm_suffix",
+          "This action cannot be undone and will immediately stop all requests using this key."
+        )}`
+      )
+    ) {
       return;
     }
 
@@ -242,7 +314,11 @@ function ApiKeyRow({
       });
     } catch (error) {
       console.error("Failed to revoke API key:", error);
-      alert(`Failed to revoke: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `${tx("row.revoke_failed", "Failed to revoke:")} ${
+          error instanceof Error ? error.message : tx("row.unknown_error", "Unknown error")
+        }`
+      );
     } finally {
       setIsRevoking(false);
     }
@@ -250,7 +326,7 @@ function ApiKeyRow({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(apiKey.keyPreview);
-    alert("API key preview copied to clipboard");
+    alert(tx("row.copy_preview_success", "API key preview copied to clipboard"));
   };
 
   return (
@@ -261,7 +337,7 @@ function ApiKeyRow({
           onClick={handleCopy}
           className="flex items-center gap-1"
           style={{ color: 'var(--window-document-text)' }}
-          title="Copy to clipboard"
+          title={tx("row.copy_title", "Copy to clipboard")}
         >
           {apiKey.keyPreview}
           <Copy size={10} />
@@ -299,7 +375,7 @@ function ApiKeyRow({
             ) : (
               <Trash2 size={10} />
             )}
-            Revoke
+            {tx("row.revoke_button", "Revoke")}
           </button>
         )}
       </td>
@@ -321,14 +397,24 @@ function CreateApiKeyModal({
   sessionId: string;
   onClose: () => void;
 }) {
+  const { t } = useNamespaceTranslations("ui.super_admin.manage_org.admin_security");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const fullKey = `ui.super_admin.manage_org.admin_security.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const [keyName, setKeyName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
-  const generateApiKey = useAction(api.actions.apiKeys.generateApiKey);
+  const generateApiKey = useActionAny(api.actions.apiKeys.generateApiKey);
 
   const handleGenerate = async () => {
     if (!keyName.trim()) {
-      alert("Please enter a name for the API key");
+      alert(tx("modal.name_required", "Please enter a name for the API key"));
       return;
     }
 
@@ -342,7 +428,11 @@ function CreateApiKeyModal({
       setGeneratedKey(result.key);
     } catch (error) {
       console.error("Failed to generate API key:", error);
-      alert(`Failed to generate: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `${tx("modal.generate_failed", "Failed to generate:")} ${
+          error instanceof Error ? error.message : tx("row.unknown_error", "Unknown error")
+        }`
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -351,7 +441,12 @@ function CreateApiKeyModal({
   const handleCopyAndClose = () => {
     if (generatedKey) {
       navigator.clipboard.writeText(generatedKey);
-      alert("API key copied to clipboard!\n\nStore it securely - you won't be able to see the full key again.");
+      alert(
+        `${tx("modal.copy_success_title", "API key copied to clipboard!")}\n\n${tx(
+          "modal.copy_success_body",
+          "Store it securely - you won't be able to see the full key again."
+        )}`
+      );
       onClose();
     }
   };
@@ -369,7 +464,9 @@ function CreateApiKeyModal({
         >
           <div className="flex items-center gap-2">
             <Crown size={14} />
-            <span className="text-sm font-bold">Generate API Key (Super Admin)</span>
+            <span className="text-sm font-bold">
+              {tx("modal.title", "Generate API Key (Super Admin)")}
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -385,18 +482,23 @@ function CreateApiKeyModal({
           {!generatedKey ? (
             <>
               <p className="text-xs mb-4" style={{ color: 'var(--window-document-text)' }}>
-                Generate a new API key for <strong>{organizationName}</strong>. Give it a descriptive name to help track where it&apos;s used.
+                {tx("modal.description_prefix", "Generate a new API key for")}{" "}
+                <strong>{organizationName}</strong>
+                {tx(
+                  "modal.description_suffix",
+                  ". Give it a descriptive name to help track where it's used."
+                )}
               </p>
 
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  API Key Name:
+                  {tx("modal.name_label", "API Key Name:")}
                 </label>
                 <input
                   type="text"
                   value={keyName}
                   onChange={(e) => setKeyName(e.target.value)}
-                  placeholder="e.g., Production Integration"
+                  placeholder={tx("modal.name_placeholder", "e.g., Production Integration")}
                   className="w-full px-3 py-2 text-sm border-2"
                   style={{
                     borderColor: 'var(--window-document-border)',
@@ -417,7 +519,7 @@ function CreateApiKeyModal({
                   }}
                   disabled={isGenerating}
                 >
-                  Cancel
+                  {tx("modal.cancel", "Cancel")}
                 </button>
                 <button
                   onClick={handleGenerate}
@@ -428,7 +530,7 @@ function CreateApiKeyModal({
                   }}
                 >
                   {isGenerating && <Loader2 size={12} className="animate-spin" />}
-                  Generate
+                  {tx("modal.generate", "Generate")}
                 </button>
               </div>
             </>
@@ -436,16 +538,19 @@ function CreateApiKeyModal({
             <>
               <div className="mb-4 p-3 border-2" style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--window-document-border)' }}>
                 <p className="text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                   Important: Copy this key now!
+                  {tx("modal.important_title", "Important: Copy this key now!")}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--window-document-text)' }}>
-                  This is the only time you&apos;ll be able to see the full API key. Store it securely in your application or environment variables.
+                  {tx(
+                    "modal.important_body",
+                    "This is the only time you'll be able to see the full API key. Store it securely in your application or environment variables."
+                  )}
                 </p>
               </div>
 
               <div className="mb-4">
                 <label className="block text-xs font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-                  Your API Key:
+                  {tx("modal.generated_key_label", "Your API Key:")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -479,7 +584,7 @@ function CreateApiKeyModal({
                   backgroundColor: 'var(--primary)',
                 }}
               >
-                Copy & Close
+                {tx("modal.copy_and_close", "Copy & Close")}
               </button>
             </>
           )}

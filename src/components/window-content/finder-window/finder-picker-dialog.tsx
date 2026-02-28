@@ -193,9 +193,9 @@ export function FinderPickerDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-[var(--modal-overlay-bg)]" onClick={onClose} />
       <div
-        className="relative w-full max-w-3xl h-[500px] flex flex-col border rounded-2xl shadow-lg"
+        className="relative w-full max-w-3xl h-[31.25rem] flex flex-col border rounded-2xl"
         style={{
           background: "var(--window-document-bg-elevated)",
           borderColor: "var(--window-document-border)",

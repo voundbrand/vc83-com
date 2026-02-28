@@ -45,6 +45,11 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
   const tags = Array.isArray(props.tags) ? props.tags : []
   const notes = props.notes?.toString()
   const createdAt = typeof organization.createdAt === "number" ? organization.createdAt : Date.now()
+  const organizationContacts = (contacts ?? []) as Array<{
+    linkId: string
+    customProperties?: Record<string, unknown>
+    relationship?: Record<string, unknown>
+  }>
 
   return (
     <div className="space-y-4">
@@ -121,30 +126,37 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Users size={16} style={{ color: 'var(--window-document-text)' }} />
-          <span className="text-xs font-pixel" style={{ color: 'var(--window-document-text)' }}>{t("ui.crm.organization_detail.contacts_label", { count: contacts?.length || 0 })}</span>
+          <span className="text-xs font-pixel" style={{ color: 'var(--window-document-text)' }}>{t("ui.crm.organization_detail.contacts_label", { count: organizationContacts.length })}</span>
         </div>
-        {contacts && contacts.length > 0 ? (
+        {organizationContacts.length > 0 ? (
           <div className="space-y-2">
-            {contacts.map((contact) => {
+            {organizationContacts.map((contact) => {
               const contactProps = contact.customProperties || {}
               const relationship = contact.relationship || {}
-              const fullName = contactProps.fullName || `${contactProps.firstName || ""} ${contactProps.lastName || ""}`.trim() || "Unnamed Contact"
-              const email = contactProps.email?.toString() || ""
+              const firstName = typeof contactProps.firstName === "string" ? contactProps.firstName : ""
+              const lastName = typeof contactProps.lastName === "string" ? contactProps.lastName : ""
+              const fullName = typeof contactProps.fullName === "string" && contactProps.fullName.trim().length > 0
+                ? contactProps.fullName
+                : `${firstName} ${lastName}`.trim() || "Unnamed Contact"
+              const email = typeof contactProps.email === "string" ? contactProps.email : ""
+              const jobTitle = typeof relationship.jobTitle === "string" ? relationship.jobTitle : ""
+              const department = typeof relationship.department === "string" ? relationship.department : ""
+              const isPrimaryContact = relationship.isPrimaryContact === true
 
               return (
-                <div key={contact._id} className="p-3 border" style={{ background: 'var(--window-document-bg)', borderColor: 'var(--window-document-border)' }}>
+                <div key={String(contact.linkId)} className="p-3 border" style={{ background: 'var(--window-document-bg)', borderColor: 'var(--window-document-border)' }}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="font-semibold text-sm" style={{ color: 'var(--window-document-text)' }}>{fullName}</div>
                       <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{email}</div>
-                      {relationship.jobTitle && (
-                        <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{relationship.jobTitle}</div>
+                      {jobTitle && (
+                        <div className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>{jobTitle}</div>
                       )}
-                      {relationship.department && (
-                        <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{relationship.department}</div>
+                      {department && (
+                        <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>{department}</div>
                       )}
                     </div>
-                    {relationship.isPrimaryContact && (
+                    {isPrimaryContact && (
                       <span className="px-2 py-0.5 text-[10px] font-pixel border" style={{ background: 'var(--desktop-shell-accent)', borderColor: 'var(--tone-accent-strong)', color: 'var(--tone-accent-strong)' }}>
                         {t("ui.crm.organization_detail.primary_tag")}
                       </span>

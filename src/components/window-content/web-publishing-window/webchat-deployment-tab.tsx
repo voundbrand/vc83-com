@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { InteriorButton } from "@/components/ui/interior-button";
 import {
   InteriorHelperText,
@@ -235,6 +236,15 @@ function SnippetCard({
 export function WebchatDeploymentTab() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const { t } = useNamespaceTranslations("ui.web_publishing.webchat");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>,
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const [selectedChannel, setSelectedChannel] = useState<PublicInboundChannel>("webchat");
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
@@ -587,7 +597,10 @@ export function WebchatDeploymentTab() {
   if (!sessionId || !currentOrg?.id) {
     return (
       <div className="p-4 text-xs desktop-interior-subtitle">
-        Sign in and select an organization to configure webchat deployment.
+        {tx(
+          "ui.web_publishing.webchat.empty.sign_in_required",
+          "Sign in and select an organization to configure webchat deployment.",
+        )}
       </div>
     );
   }
@@ -596,7 +609,7 @@ export function WebchatDeploymentTab() {
     return (
       <div className="p-4 text-xs flex items-center gap-2 desktop-interior-subtitle">
         <Loader2 size={14} className="animate-spin" />
-        Loading deployment agents...
+        {tx("ui.web_publishing.webchat.loading_agents", "Loading deployment agents...")}
       </div>
     );
   }
@@ -604,7 +617,10 @@ export function WebchatDeploymentTab() {
   if (agents.length === 0) {
     return (
       <div className="p-4 text-xs desktop-interior-subtitle">
-        No agents found. Create an agent and enable the webchat channel to generate deployment snippets.
+        {tx(
+          "ui.web_publishing.webchat.empty.no_agents",
+          "No agents found. Create an agent and enable the webchat channel to generate deployment snippets.",
+        )}
       </div>
     );
   }
@@ -630,10 +646,13 @@ export function WebchatDeploymentTab() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="desktop-interior-title text-sm">
-            Webchat Deployment
+            {tx("ui.web_publishing.webchat.title", "Webchat Deployment")}
           </h3>
           <p className="desktop-interior-subtitle text-xs mt-1">
-            Configure one agent channel, generate embed snippets, and validate deployment before publishing.
+            {tx(
+              "ui.web_publishing.webchat.subtitle",
+              "Configure one agent channel, generate embed snippets, and validate deployment before publishing.",
+            )}
           </p>
         </div>
         <InteriorButton
@@ -644,20 +663,20 @@ export function WebchatDeploymentTab() {
           disabled={isBootstrapLoading}
         >
           <RefreshCw size={14} className={isBootstrapLoading ? "animate-spin" : ""} />
-          Refresh Contract
+          {tx("ui.web_publishing.webchat.refresh_contract", "Refresh Contract")}
         </InteriorButton>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
           <InteriorSectionHeader className="text-xs">
-            Setup
+            {tx("ui.web_publishing.webchat.setup.title", "Setup")}
           </InteriorSectionHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold block mb-1">
-                Agent
+                {tx("ui.web_publishing.webchat.setup.agent_label", "Agent")}
               </label>
               <InteriorSelect
                 value={selectedAgentId}
@@ -666,22 +685,24 @@ export function WebchatDeploymentTab() {
               >
                 {agents.map((agent) => (
                   <option key={agent._id} value={agent._id}>
-                    {resolveAgentLabel(agent)} ({agent.status || "draft"})
+                    {resolveAgentLabel(agent)} ({agent.status || tx("ui.web_publishing.webchat.status_draft", "draft")})
                   </option>
                 ))}
               </InteriorSelect>
             </div>
             <div>
               <label className="text-xs font-bold block mb-1">
-                Channel
+                {tx("ui.web_publishing.webchat.setup.channel_label", "Channel")}
               </label>
               <InteriorSelect
                 value={selectedChannel}
                 onChange={(event) => setSelectedChannel(event.target.value as PublicInboundChannel)}
                 className="text-xs"
               >
-                <option value="webchat">Webchat</option>
-                <option value="native_guest">Native Guest</option>
+                <option value="webchat">{tx("ui.web_publishing.webchat.channel.webchat", "Webchat")}</option>
+                <option value="native_guest">
+                  {tx("ui.web_publishing.webchat.channel.native_guest", "Native Guest")}
+                </option>
               </InteriorSelect>
             </div>
           </div>
@@ -689,30 +710,36 @@ export function WebchatDeploymentTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold block mb-1">
-                App Base URL
+                {tx("ui.web_publishing.webchat.setup.app_base_url_label", "App Base URL")}
               </label>
               <InteriorInput
                 value={appBaseUrl}
                 onChange={(event) => setAppBaseUrl(event.target.value)}
                 className="text-xs"
-                placeholder="https://app.example.com"
+                placeholder={tx("ui.web_publishing.webchat.setup.app_base_url_placeholder", "https://app.example.com")}
               />
               <InteriorHelperText className="text-[11px] mt-1">
-                Used in script/iframe snippet URLs. Keep this production origin-specific.
+                {tx(
+                  "ui.web_publishing.webchat.setup.app_base_url_help",
+                  "Used in script/iframe snippet URLs. Keep this production origin-specific.",
+                )}
               </InteriorHelperText>
             </div>
             <div>
               <label className="text-xs font-bold block mb-1">
-                API Base URL
+                {tx("ui.web_publishing.webchat.setup.api_base_url_label", "API Base URL")}
               </label>
               <InteriorInput
                 value={apiBaseUrl}
                 onChange={(event) => setApiBaseUrl(event.target.value)}
                 className="text-xs"
-                placeholder="/api/v1"
+                placeholder={tx("ui.web_publishing.webchat.setup.api_base_url_placeholder", "/api/v1")}
               />
               <InteriorHelperText className="text-[11px] mt-1">
-                Relative `/api/v1` works on same origin; use full URL for external API hosts.
+                {tx(
+                  "ui.web_publishing.webchat.setup.api_base_url_help",
+                  "Relative `/api/v1` works on same origin; use full URL for external API hosts.",
+                )}
               </InteriorHelperText>
             </div>
           </div>
@@ -721,19 +748,28 @@ export function WebchatDeploymentTab() {
             {!appBaseUrlIsValid && (
               <p className="flex items-center gap-1.5" style={{ color: "var(--error)" }}>
                 <TriangleAlert size={12} />
-                App base URL must be absolute (for example `https://app.example.com`).
+                {tx(
+                  "ui.web_publishing.webchat.validation.app_base_url_absolute",
+                  "App base URL must be absolute (for example `https://app.example.com`).",
+                )}
               </p>
             )}
             {!apiBaseUrlIsValid && (
               <p className="flex items-center gap-1.5" style={{ color: "var(--error)" }}>
                 <TriangleAlert size={12} />
-                API base URL must start with `/` or `https://`.
+                {tx(
+                  "ui.web_publishing.webchat.validation.api_base_url_format",
+                  "API base URL must start with `/` or `https://`.",
+                )}
               </p>
             )}
             {!channelEnabled && (
               <p className="flex items-center gap-1.5" style={{ color: "var(--warning)" }}>
                 <TriangleAlert size={12} />
-                Selected channel is disabled. Enable it before production rollout.
+                {tx(
+                  "ui.web_publishing.webchat.validation.channel_disabled",
+                  "Selected channel is disabled. Enable it before production rollout.",
+                )}
               </p>
             )}
             {bootstrapError && (
@@ -747,12 +783,12 @@ export function WebchatDeploymentTab() {
 
         <InteriorPanel className="web-publishing-modern-panel p-4 space-y-3">
           <InteriorSectionHeader className="text-xs">
-            Config And Preview
+            {tx("ui.web_publishing.webchat.preview.title", "Config And Preview")}
           </InteriorSectionHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="text-xs font-bold block">
-              Bubble Label
+              {tx("ui.web_publishing.webchat.preview.bubble_label", "Bubble Label")}
               <InteriorInput
                 value={draftConfig.bubbleText}
                 onChange={(event) => {
@@ -764,7 +800,7 @@ export function WebchatDeploymentTab() {
             </label>
 
             <label className="text-xs font-bold block">
-              Brand Color
+              {tx("ui.web_publishing.webchat.preview.brand_color", "Brand Color")}
               <div className="mt-1 flex gap-2">
                 <InteriorInput
                   value={draftConfig.brandColor}
@@ -794,7 +830,7 @@ export function WebchatDeploymentTab() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="text-xs font-bold block">
-              Position
+              {tx("ui.web_publishing.webchat.preview.position", "Position")}
               <InteriorSelect
                 value={draftConfig.position}
                 onChange={(event) => {
@@ -806,12 +842,16 @@ export function WebchatDeploymentTab() {
                 }}
                 className="mt-1 text-xs"
               >
-                <option value="bottom-right">Bottom Right</option>
-                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">
+                  {tx("ui.web_publishing.webchat.preview.position_bottom_right", "Bottom Right")}
+                </option>
+                <option value="bottom-left">
+                  {tx("ui.web_publishing.webchat.preview.position_bottom_left", "Bottom Left")}
+                </option>
               </InteriorSelect>
             </label>
             <label className="text-xs font-bold block">
-              Language
+              {tx("ui.web_publishing.webchat.preview.language", "Language")}
               <InteriorInput
                 value={draftConfig.language}
                 onChange={(event) => {
@@ -819,13 +859,13 @@ export function WebchatDeploymentTab() {
                   setHasDirtyDraft(true);
                 }}
                 className="mt-1 text-xs"
-                placeholder="en"
+                placeholder={tx("ui.web_publishing.webchat.preview.language_placeholder", "en")}
               />
             </label>
           </div>
 
           <label className="text-xs font-bold block">
-            Welcome Message
+            {tx("ui.web_publishing.webchat.preview.welcome_message", "Welcome Message")}
             <InteriorTextarea
               value={draftConfig.welcomeMessage}
               onChange={(event) => {
@@ -838,7 +878,7 @@ export function WebchatDeploymentTab() {
           </label>
 
           <label className="text-xs font-bold block">
-            Offline Message
+            {tx("ui.web_publishing.webchat.preview.offline_message", "Offline Message")}
             <InteriorTextarea
               value={draftConfig.offlineMessage}
               onChange={(event) => {
@@ -860,7 +900,7 @@ export function WebchatDeploymentTab() {
                   setHasDirtyDraft(true);
                 }}
               />
-              Channel enabled
+              {tx("ui.web_publishing.webchat.preview.channel_enabled", "Channel enabled")}
             </label>
             <label className="flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <input
@@ -871,24 +911,48 @@ export function WebchatDeploymentTab() {
                   setHasDirtyDraft(true);
                 }}
               />
-              Collect contact info
+              {tx("ui.web_publishing.webchat.preview.collect_contact_info", "Collect contact info")}
             </label>
           </div>
 
           <div className="space-y-1 text-[11px]">
             {!brandColorLooksValid && (
               <p style={{ color: "var(--warning)" }}>
-                Brand color hint: use `#RGB` or `#RRGGBB`; invalid values fall back to default on save.
+                {tx(
+                  "ui.web_publishing.webchat.preview.hint_brand_color",
+                  "Brand color hint: use `#RGB` or `#RRGGBB`; invalid values fall back to default on save.",
+                )}
               </p>
             )}
             {!languageLooksValid && (
               <p style={{ color: "var(--warning)" }}>
-                Language hint: prefer locale format like `en`, `de`, or `en-US`.
+                {tx(
+                  "ui.web_publishing.webchat.preview.hint_language",
+                  "Language hint: prefer locale format like `en`, `de`, or `en-US`.",
+                )}
               </p>
             )}
-            {welcomeTooLong && <p style={{ color: "var(--warning)" }}>Welcome message hint: keep to 500 characters.</p>}
-            {bubbleTooLong && <p style={{ color: "var(--warning)" }}>Bubble label hint: keep to 80 characters.</p>}
-            {offlineTooLong && <p style={{ color: "var(--warning)" }}>Offline message hint: keep to 500 characters.</p>}
+            {welcomeTooLong && (
+              <p style={{ color: "var(--warning)" }}>
+                {tx(
+                  "ui.web_publishing.webchat.preview.hint_welcome_length",
+                  "Welcome message hint: keep to 500 characters.",
+                )}
+              </p>
+            )}
+            {bubbleTooLong && (
+              <p style={{ color: "var(--warning)" }}>
+                {tx("ui.web_publishing.webchat.preview.hint_bubble_length", "Bubble label hint: keep to 80 characters.")}
+              </p>
+            )}
+            {offlineTooLong && (
+              <p style={{ color: "var(--warning)" }}>
+                {tx(
+                  "ui.web_publishing.webchat.preview.hint_offline_length",
+                  "Offline message hint: keep to 500 characters.",
+                )}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -900,20 +964,29 @@ export function WebchatDeploymentTab() {
               disabled={saveState === "saving" || !selectedAgent}
             >
               {saveState === "saving" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {saveState === "saving" ? "Saving..." : "Save Config"}
+              {saveState === "saving"
+                ? tx("ui.web_publishing.webchat.preview.button_saving", "Saving...")
+                : tx("ui.web_publishing.webchat.preview.button_save", "Save Config")}
             </InteriorButton>
             <div className="text-[11px]" style={{ color: saveState === "error" ? "var(--error)" : "var(--neutral-gray)" }}>
               {saveState === "saved" && lastSavedAt
-                ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                ? tx(
+                    "ui.web_publishing.webchat.preview.saved_at",
+                    `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`,
+                    { time: new Date(lastSavedAt).toLocaleTimeString() },
+                  )
                 : saveState === "error" && saveError
                   ? saveError
-                  : "Changes persist to the agent channel binding contract."}
+                  : tx(
+                      "ui.web_publishing.webchat.preview.saved_help",
+                      "Changes persist to the agent channel binding contract.",
+                    )}
             </div>
           </div>
 
           <div className="web-publishing-modern-code p-3">
             <p className="text-[11px] font-bold mb-2 desktop-interior-title">
-              Live Preview
+              {tx("ui.web_publishing.webchat.preview.live_preview", "Live Preview")}
             </p>
             <div
               className="relative h-28 rounded-md"
@@ -927,7 +1000,12 @@ export function WebchatDeploymentTab() {
               </div>
             </div>
             <p className="text-[11px] mt-2" style={{ color: "var(--window-document-text)" }}>
-              <span className="font-bold">{selectedAgent ? resolveAgentLabel(selectedAgent) : "Agent"}:</span>{" "}
+              <span className="font-bold">
+                {selectedAgent
+                  ? resolveAgentLabel(selectedAgent)
+                  : tx("ui.web_publishing.webchat.preview.agent_fallback", "Agent")}
+                :
+              </span>{" "}
               {channelEnabled ? normalizedDraftConfig.welcomeMessage : normalizedDraftConfig.offlineMessage}
             </p>
           </div>
@@ -938,10 +1016,13 @@ export function WebchatDeploymentTab() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wide desktop-interior-title">
-              Deploy Snippets
+              {tx("ui.web_publishing.webchat.snippets.title", "Deploy Snippets")}
             </h4>
             <p className="text-[11px] mt-1 desktop-interior-subtitle">
-              Copy script, React, or iframe embeds with the latest channel configuration.
+              {tx(
+                "ui.web_publishing.webchat.snippets.subtitle",
+                "Copy script, React, or iframe embeds with the latest channel configuration.",
+              )}
             </p>
           </div>
         </div>
@@ -956,24 +1037,27 @@ export function WebchatDeploymentTab() {
         {snippetBuild.snippets ? (
           <div className="grid grid-cols-1 2xl:grid-cols-3 gap-3">
             <SnippetCard
-              title="Script Embed"
-              summary="Drop into any HTML page."
+              title={tx("ui.web_publishing.webchat.snippets.script_title", "Script Embed")}
+              summary={tx("ui.web_publishing.webchat.snippets.script_summary", "Drop into any HTML page.")}
               snippet={snippetBuild.snippets.script}
               copyState={copyState.script}
               onCopy={() => handleCopySnippet("script", snippetBuild.snippets.script)}
               disabled={!snippetBuild.snippets}
             />
             <SnippetCard
-              title="React Embed"
-              summary="Use directly in a React component."
+              title={tx("ui.web_publishing.webchat.snippets.react_title", "React Embed")}
+              summary={tx("ui.web_publishing.webchat.snippets.react_summary", "Use directly in a React component.")}
               snippet={snippetBuild.snippets.react}
               copyState={copyState.react}
               onCopy={() => handleCopySnippet("react", snippetBuild.snippets.react)}
               disabled={!snippetBuild.snippets}
             />
             <SnippetCard
-              title="Iframe Embed"
-              summary="Pinned launcher with isolated runtime."
+              title={tx("ui.web_publishing.webchat.snippets.iframe_title", "Iframe Embed")}
+              summary={tx(
+                "ui.web_publishing.webchat.snippets.iframe_summary",
+                "Pinned launcher with isolated runtime.",
+              )}
               snippet={snippetBuild.snippets.iframe}
               copyState={copyState.iframe}
               onCopy={() => handleCopySnippet("iframe", snippetBuild.snippets.iframe)}
@@ -982,7 +1066,10 @@ export function WebchatDeploymentTab() {
           </div>
         ) : (
           <div className="web-publishing-modern-code p-4 text-xs desktop-interior-subtitle">
-            Bootstrap contract and a valid app base URL are required before snippets can be generated.
+            {tx(
+              "ui.web_publishing.webchat.snippets.missing_prereq",
+              "Bootstrap contract and a valid app base URL are required before snippets can be generated.",
+            )}
           </div>
         )}
       </InteriorPanel>
@@ -991,10 +1078,13 @@ export function WebchatDeploymentTab() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wide desktop-interior-title">
-              Quick Checks
+              {tx("ui.web_publishing.webchat.checks.title", "Quick Checks")}
             </h4>
             <p className="text-[11px] mt-1 desktop-interior-subtitle">
-              Validate contract readiness before handing snippets to engineering or embedding on production pages.
+              {tx(
+                "ui.web_publishing.webchat.checks.subtitle",
+                "Validate contract readiness before handing snippets to engineering or embedding on production pages.",
+              )}
             </p>
           </div>
           <InteriorButton
@@ -1005,34 +1095,61 @@ export function WebchatDeploymentTab() {
             disabled={configEndpointStatus === "running"}
           >
             {configEndpointStatus === "running" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Run Quick Checks
+            {tx("ui.web_publishing.webchat.checks.run_button", "Run Quick Checks")}
           </InteriorButton>
         </div>
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2">
             <StatusDot status={bootstrapStatus} />
-            <span style={{ color: "var(--window-document-text)" }}>Bootstrap contract resolved for selected agent/channel</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx(
+                "ui.web_publishing.webchat.checks.bootstrap_contract",
+                "Bootstrap contract resolved for selected agent/channel",
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <StatusDot status={snippetStatus} />
-            <span style={{ color: "var(--window-document-text)" }}>Snippets generated from deterministic contract</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx(
+                "ui.web_publishing.webchat.checks.snippets_generated",
+                "Snippets generated from deterministic contract",
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <StatusDot status={copyStatus} />
-            <span style={{ color: "var(--window-document-text)" }}>At least one snippet copied via one-click action</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx(
+                "ui.web_publishing.webchat.checks.snippet_copied",
+                "At least one snippet copied via one-click action",
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <StatusDot status={channelEnabledForChecks} />
-            <span style={{ color: "var(--window-document-text)" }}>Channel enabled in webchat binding</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx("ui.web_publishing.webchat.checks.channel_enabled", "Channel enabled in webchat binding")}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <StatusDot status={saveStatusForChecks} />
-            <span style={{ color: "var(--window-document-text)" }}>Configuration persisted to backend channel contract</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx(
+                "ui.web_publishing.webchat.checks.config_persisted",
+                "Configuration persisted to backend channel contract",
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <StatusDot status={configEndpointStatus} />
-            <span style={{ color: "var(--window-document-text)" }}>`GET /webchat/config/:agentId` returns active payload</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx(
+                "ui.web_publishing.webchat.checks.endpoint_payload",
+                "`GET /webchat/config/:agentId` returns active payload",
+              )}
+            </span>
           </div>
         </div>
 
@@ -1044,8 +1161,18 @@ export function WebchatDeploymentTab() {
         )}
 
         <div className="text-[11px] space-y-1 desktop-interior-subtitle">
-          <p>Required env hints: `NEXT_PUBLIC_APP_URL` for absolute snippet links and `NEXT_PUBLIC_API_ENDPOINT_URL` when API host differs from app host.</p>
-          <p>Production spot check: paste the snippet into a sandbox page, confirm launcher label/color, then send one message to verify response + session continuity.</p>
+          <p>
+            {tx(
+              "ui.web_publishing.webchat.checks.env_hints",
+              "Required env hints: `NEXT_PUBLIC_APP_URL` for absolute snippet links and `NEXT_PUBLIC_API_ENDPOINT_URL` when API host differs from app host.",
+            )}
+          </p>
+          <p>
+            {tx(
+              "ui.web_publishing.webchat.checks.production_spot_check",
+              "Production spot check: paste the snippet into a sandbox page, confirm launcher label/color, then send one message to verify response + session continuity.",
+            )}
+          </p>
         </div>
       </InteriorPanel>
     </div>

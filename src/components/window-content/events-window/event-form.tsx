@@ -72,7 +72,7 @@ export function EventForm({
 
   // Track if user is actively editing description to prevent loops
   const isEditingDescription = useRef(false);
-  const descriptionDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const descriptionDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Video state
   const [eventVideos, setEventVideos] = useState<Array<{

@@ -15,8 +15,11 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   X,
   FileText,
@@ -55,6 +58,11 @@ export function TemplateDetailPanel({
   onClose,
 }: TemplateDetailPanelProps) {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basicInfo: true,
     usage: true,
@@ -65,13 +73,13 @@ export function TemplateDetailPanel({
 
   // Fetch template details
   const template = useQuery(
-    api.templateOntology.getTemplateById,
+    apiAny.templateOntology.getTemplateById,
     sessionId ? { sessionId, templateId } : "skip"
   );
 
   // Fetch template usage data
   const usageData = useQuery(
-    api.templateSetOntology.getTemplateUsage,
+    apiAny.templateSetOntology.getTemplateUsage,
     sessionId ? { sessionId, templateId } : "skip"
   );
 
@@ -99,7 +107,7 @@ export function TemplateDetailPanel({
           <div className="flex items-center justify-center p-8">
             <Loader2 className="animate-spin" size={32} style={{ color: "var(--desktop-menu-text-muted)" }} />
             <span className="ml-3 text-sm" style={{ color: "var(--window-document-text)" }}>
-              Loading template details...
+              {tx("ui.templates.detail.loading", "Loading template details...")}
             </span>
           </div>
         </div>
@@ -218,20 +226,20 @@ export function TemplateDetailPanel({
             <button
               className="desktop-interior-button h-8 px-3 text-xs shrink-0"
               onClick={onClose}
-              title="Back to list"
+              title={tx("ui.templates.detail.back_to_list", "Back to list")}
             >
               <ArrowLeft size={14} />
-              <span>Back to list</span>
+              <span>{tx("ui.templates.detail.back_to_list", "Back to list")}</span>
             </button>
             <span style={{ color: "var(--tone-accent-strong)" }}>{getTemplateIcon()}</span>
             <span className="font-bold text-sm truncate" style={{ color: "var(--window-document-text)" }}>
-              {template.name} - Template Details
+              {template.name} {tx("ui.templates.detail.title_suffix", "- Template Details")}
             </span>
           </div>
           <button
             className="desktop-interior-button h-9 w-9 p-0"
             onClick={onClose}
-            title="Close"
+            title={tx("ui.templates.shared.close", "Close")}
           >
             <X size={16} style={{ color: "var(--window-document-text)" }} />
           </button>
@@ -240,21 +248,25 @@ export function TemplateDetailPanel({
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(92vh-116px)] p-4 retro-scrollbar">
           {/* BASIC INFO */}
-          <Section id="basicInfo" title="Basic Information" icon={FileText}>
-            <InfoRow label="Name" value={template.name} />
-            {code && <InfoRow label="Code" value={<code className="font-mono">{code}</code>} />}
-            {version && <InfoRow label="Version" value={`v${version}`} />}
+          <Section id="basicInfo" title={tx("ui.templates.detail.section.basic_information", "Basic Information")} icon={FileText}>
+            <InfoRow label={tx("ui.templates.detail.name", "Name")} value={template.name} />
+            {code && <InfoRow label={tx("ui.templates.detail.code", "Code")} value={<code className="font-mono">{code}</code>} />}
+            {version && <InfoRow label={tx("ui.templates.detail.version", "Version")} value={`v${version}`} />}
             <InfoRow
-              label="Type"
+              label={tx("ui.templates.detail.type", "Type")}
               value={
                 <span className="capitalize">
-                  {template.subtype === "email" ? "Email" : template.subtype === "pdf" || template.subtype === "pdf_ticket" ? "PDF" : template.subtype}
+                  {template.subtype === "email"
+                    ? tx("ui.templates.detail.type_email", "Email")
+                    : template.subtype === "pdf" || template.subtype === "pdf_ticket"
+                      ? tx("ui.templates.detail.type_pdf", "PDF")
+                      : template.subtype}
                 </span>
               }
             />
             {category && (
               <InfoRow
-                label="Category"
+                label={tx("ui.templates.detail.category", "Category")}
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold capitalize"
@@ -266,7 +278,7 @@ export function TemplateDetailPanel({
               />
             )}
             <InfoRow
-              label="Status"
+              label={tx("ui.templates.detail.status", "Status")}
               value={
                 <span
                   className="px-2 py-0.5 text-xs font-bold"
@@ -276,91 +288,123 @@ export function TemplateDetailPanel({
                     border: `1px solid ${isActive ? "#10B981" : "#6B7280"}`,
                   }}
                 >
-                  {isActive ? "ACTIVE" : "INACTIVE"}
+                  {isActive
+                    ? tx("ui.templates.detail.status_active", "ACTIVE")
+                    : tx("ui.templates.detail.status_inactive", "INACTIVE")}
                 </span>
               }
             />
             {isDefault && (
               <InfoRow
-                label="Default Template"
+                label={tx("ui.templates.detail.default_template", "Default Template")}
                 value={
                   <span
                     className="px-2 py-0.5 text-xs font-bold flex items-center gap-1 inline-flex"
                     style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                   >
                     <Star size={10} fill="currentColor" />
-                    Default for "{category}" category
+                    {tx("ui.templates.detail.default_for_category", 'Default for "{category}" category', {
+                      category: String(category ?? ""),
+                    })}
                   </span>
                 }
               />
             )}
-            {template.description && <InfoRow label="Description" value={template.description} />}
+            {template.description && <InfoRow label={tx("ui.templates.detail.description", "Description")} value={template.description} />}
           </Section>
 
           {/* USAGE ANALYSIS */}
-          <Section id="usage" title="Usage Analysis" icon={Activity}>
+          <Section id="usage" title={tx("ui.templates.detail.section.usage_analysis", "Usage Analysis")} icon={Activity}>
             <InfoRow
-              label="Template Sets"
+              label={tx("ui.templates.detail.template_sets", "Template Sets")}
               value={
                 usage.templateSets.length > 0 ? (
                   <span className="font-bold" style={{ color: "var(--success)" }}>
-                    Used in {usage.templateSets.length} set{usage.templateSets.length !== 1 ? "s" : ""}
+                    {tx("ui.templates.detail.used_in_template_sets", "Used in {count} set{suffix}", {
+                      count: usage.templateSets.length,
+                      suffix: usage.templateSets.length !== 1
+                        ? tx("ui.templates.shared.plural_suffix", "s")
+                        : "",
+                    })}
                   </span>
                 ) : (
                   <span className="font-bold inline-flex items-center gap-1" style={{ color: "var(--error)" }}>
                     <AlertTriangle size={12} />
-                    Not used in any template sets
+                    {tx("ui.templates.detail.not_used_in_template_sets", "Not used in any template sets")}
                   </span>
                 )
               }
             />
             <InfoRow
-              label="Products"
+              label={tx("ui.templates.detail.products", "Products")}
               value={
                 usage.products.length > 0 ? (
                   <span>
-                    {usage.products.length} product{usage.products.length !== 1 ? "s" : ""} reference this template
+                    {tx("ui.templates.detail.products_reference_template", "{count} product{suffix} reference this template", {
+                      count: usage.products.length,
+                      suffix: usage.products.length !== 1
+                        ? tx("ui.templates.shared.plural_suffix", "s")
+                        : "",
+                    })}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No products using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    {tx("ui.templates.detail.no_products_using_template", "No products using this template")}
+                  </span>
                 )
               }
             />
             <InfoRow
-              label="Checkouts"
+              label={tx("ui.templates.detail.checkouts", "Checkouts")}
               value={
                 usage.checkouts.length > 0 ? (
                   <span>
-                    {usage.checkouts.length} checkout{usage.checkouts.length !== 1 ? "s" : ""} use this template
+                    {tx("ui.templates.detail.checkouts_use_template", "{count} checkout{suffix} use this template", {
+                      count: usage.checkouts.length,
+                      suffix: usage.checkouts.length !== 1
+                        ? tx("ui.templates.shared.plural_suffix", "s")
+                        : "",
+                    })}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No checkouts using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    {tx("ui.templates.detail.no_checkouts_using_template", "No checkouts using this template")}
+                  </span>
                 )
               }
             />
             <InfoRow
-              label="Domains"
+              label={tx("ui.templates.detail.domains", "Domains")}
               value={
                 usage.domains.length > 0 ? (
                   <span>
-                    {usage.domains.length} domain{usage.domains.length !== 1 ? "s" : ""} use this template
+                    {tx("ui.templates.detail.domains_use_template", "{count} domain{suffix} use this template", {
+                      count: usage.domains.length,
+                      suffix: usage.domains.length !== 1
+                        ? tx("ui.templates.shared.plural_suffix", "s")
+                        : "",
+                    })}
                   </span>
                 ) : (
-                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>No domains using this template</span>
+                  <span style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    {tx("ui.templates.detail.no_domains_using_template", "No domains using this template")}
+                  </span>
                 )
               }
             />
           </Section>
 
           {/* WHERE USED */}
-          <Section id="whereUsed" title="Where Used" icon={Layers}>
+          <Section id="whereUsed" title={tx("ui.templates.detail.section.where_used", "Where Used")} icon={Layers}>
             {/* Template Sets */}
             {usage.templateSets.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Package size={14} style={{ color: "var(--tone-accent-strong)" }} />
                   <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
-                    Template Sets ({usage.templateSets.length})
+                    {tx("ui.templates.detail.template_sets_count", "Template Sets ({count})", {
+                      count: usage.templateSets.length,
+                    })}
                   </span>
                 </div>
                 <div className="pl-6 space-y-1">
@@ -377,7 +421,7 @@ export function TemplateDetailPanel({
                           className="px-1 py-0.5 text-[10px] font-bold"
                           style={{ backgroundColor: "var(--tone-accent-strong)", color: "var(--window-document-text)" }}
                         >
-                          DEFAULT
+                          {tx("ui.templates.detail.default_badge", "DEFAULT")}
                         </span>
                       )}
                     </div>
@@ -392,7 +436,9 @@ export function TemplateDetailPanel({
                 <div className="flex items-center gap-2 mb-2">
                   <ShoppingCart size={14} style={{ color: "var(--tone-accent-strong)" }} />
                   <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
-                    Products ({usage.products.length})
+                    {tx("ui.templates.detail.products_count", "Products ({count})", {
+                      count: usage.products.length,
+                    })}
                   </span>
                 </div>
                 <div className="pl-6 space-y-1">
@@ -405,13 +451,17 @@ export function TemplateDetailPanel({
                       <span>•</span>
                       <span>{product.productName}</span>
                       <span style={{ color: "var(--desktop-menu-text-muted)" }}>
-                        (via {product.templateSetName})
+                        {tx("ui.templates.detail.via_template_set", "(via {templateSetName})", {
+                          templateSetName: product.templateSetName,
+                        })}
                       </span>
                     </div>
                   ))}
                   {usage.products.length > 5 && (
                     <div className="text-xs pl-3" style={{ color: "var(--desktop-menu-text-muted)" }}>
-                      ... and {usage.products.length - 5} more
+                      {tx("ui.templates.detail.and_more", "... and {count} more", {
+                        count: usage.products.length - 5,
+                      })}
                     </div>
                   )}
                 </div>
@@ -424,7 +474,9 @@ export function TemplateDetailPanel({
                 <div className="flex items-center gap-2 mb-2">
                   <ShoppingCart size={14} style={{ color: "var(--tone-accent-strong)" }} />
                   <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
-                    Checkouts ({usage.checkouts.length})
+                    {tx("ui.templates.detail.checkouts_count", "Checkouts ({count})", {
+                      count: usage.checkouts.length,
+                    })}
                   </span>
                 </div>
                 <div className="pl-6 space-y-1">
@@ -437,7 +489,9 @@ export function TemplateDetailPanel({
                       <span>•</span>
                       <span>{checkout.checkoutName}</span>
                       <span style={{ color: "var(--desktop-menu-text-muted)" }}>
-                        (via {checkout.templateSetName})
+                        {tx("ui.templates.detail.via_template_set", "(via {templateSetName})", {
+                          templateSetName: checkout.templateSetName,
+                        })}
                       </span>
                     </div>
                   ))}
@@ -451,7 +505,9 @@ export function TemplateDetailPanel({
                 <div className="flex items-center gap-2 mb-2">
                   <Globe size={14} style={{ color: "var(--tone-accent-strong)" }} />
                   <span className="font-bold text-xs" style={{ color: "var(--window-document-text)" }}>
-                    Domains ({usage.domains.length})
+                    {tx("ui.templates.detail.domains_count", "Domains ({count})", {
+                      count: usage.domains.length,
+                    })}
                   </span>
                 </div>
                 <div className="pl-6 space-y-1">
@@ -464,7 +520,9 @@ export function TemplateDetailPanel({
                       <span>•</span>
                       <span>{domain.domainName}</span>
                       <span style={{ color: "var(--desktop-menu-text-muted)" }}>
-                        (via {domain.templateSetName})
+                        {tx("ui.templates.detail.via_template_set", "(via {templateSetName})", {
+                          templateSetName: domain.templateSetName,
+                        })}
                       </span>
                     </div>
                   ))}
@@ -487,18 +545,18 @@ export function TemplateDetailPanel({
               >
                   <span className="inline-flex items-center gap-1">
                     <AlertTriangle size={12} />
-                    This template is not currently being used anywhere.
+                    {tx("ui.templates.detail.not_used_anywhere", "This template is not currently being used anywhere.")}
                   </span>
                   <br />
                   <span className="text-[10px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
-                    Consider adding it to a template set or archiving it.
+                    {tx("ui.templates.detail.not_used_anywhere_hint", "Consider adding it to a template set or archiving it.")}
                   </span>
                 </div>
               )}
           </Section>
 
           {/* SCHEMA INFO */}
-          <Section id="schema" title="Schema Information" icon={Code}>
+          <Section id="schema" title={tx("ui.templates.detail.section.schema_information", "Schema Information")} icon={Code}>
             {hasSchema ? (
               <>
                 <div className="mb-3">
@@ -512,7 +570,7 @@ export function TemplateDetailPanel({
                   >
                     <span className="inline-flex items-center gap-1">
                       <CheckCircle2 size={12} />
-                      This template has a defined schema for data validation
+                      {tx("ui.templates.detail.schema_defined", "This template has a defined schema for data validation")}
                     </span>
                   </div>
                 </div>
@@ -531,7 +589,7 @@ export function TemplateDetailPanel({
                   }}
                 >
                   <Code size={12} className="inline mr-1" />
-                  Download Schema JSON
+                  {tx("ui.templates.detail.download_schema_json", "Download Schema JSON")}
                 </button>
               </>
             ) : (
@@ -543,15 +601,15 @@ export function TemplateDetailPanel({
                   color: "var(--desktop-menu-text-muted)",
                 }}
               >
-                No schema defined for this template
+                {tx("ui.templates.detail.no_schema", "No schema defined for this template")}
               </div>
             )}
           </Section>
 
           {/* CHANGE HISTORY */}
-          <Section id="history" title="Change History" icon={Calendar}>
+          <Section id="history" title={tx("ui.templates.detail.section.change_history", "Change History")} icon={Calendar}>
             <InfoRow
-              label="Created"
+              label={tx("ui.templates.detail.created", "Created")}
               value={
                 template._creationTime
                   ? new Date(template._creationTime).toLocaleString("en-US", {
@@ -561,11 +619,11 @@ export function TemplateDetailPanel({
                       hour: "2-digit",
                       minute: "2-digit",
                     })
-                  : "Unknown"
+                  : tx("ui.templates.detail.unknown", "Unknown")
               }
             />
             <InfoRow
-              label="Last Modified"
+              label={tx("ui.templates.detail.last_modified", "Last Modified")}
               value={
                 template._creationTime
                   ? new Date(template._creationTime).toLocaleString("en-US", {
@@ -575,15 +633,15 @@ export function TemplateDetailPanel({
                       hour: "2-digit",
                       minute: "2-digit",
                     })
-                  : "Unknown"
+                  : tx("ui.templates.detail.unknown", "Unknown")
               }
             />
             {isActive && (
               <InfoRow
-                label="Status"
+                label={tx("ui.templates.detail.status", "Status")}
                 value={
                   <span style={{ color: "var(--success)" }}>
-                    Published and active
+                    {tx("ui.templates.detail.published_active", "Published and active")}
                   </span>
                 }
               />
@@ -600,7 +658,7 @@ export function TemplateDetailPanel({
           }}
         >
           <button className="desktop-interior-button text-xs" onClick={onClose}>
-            Close
+            {tx("ui.templates.shared.close", "Close")}
           </button>
         </div>
       </div>

@@ -52,6 +52,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.forms");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
@@ -78,8 +82,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
   // Form Settings State
   const [displayMode, setDisplayMode] = useState<"all" | "single-question" | "section-by-section" | "paginated">("all");
   const [showProgressBar, setShowProgressBar] = useState(true);
-  const [submitButtonText, setSubmitButtonText] = useState("Submit");
-  const [formSuccessMessage, setFormSuccessMessage] = useState("Thank you for your submission!");
+  const [submitButtonText, setSubmitButtonText] = useState(tx("ui.forms.form_settings.submit_button_default", "Submit"));
+  const [formSuccessMessage, setFormSuccessMessage] = useState(
+    tx("ui.forms.form_settings.success_message_default", "Thank you for your submission!"),
+  );
   const [allowMultipleSubmissions, setAllowMultipleSubmissions] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState("");
 
@@ -178,8 +184,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         const settings = formSchema.settings;
         setDisplayMode(settings.displayMode || "all");
         setShowProgressBar(settings.showProgressBar !== false);
-        setSubmitButtonText(settings.submitButtonText || "Submit");
-        setFormSuccessMessage(settings.successMessage || "Thank you for your submission!");
+        setSubmitButtonText(settings.submitButtonText || tx("ui.forms.form_settings.submit_button_default", "Submit"));
+        setFormSuccessMessage(
+          settings.successMessage || tx("ui.forms.form_settings.success_message_default", "Thank you for your submission!"),
+        );
         setAllowMultipleSubmissions(settings.allowMultipleSubmissions || false);
         setRedirectUrl(settings.redirectUrl || "");
       }
@@ -276,26 +284,26 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
 
     // Validation based on hosting mode
     if (!formName) {
-      alert("Please enter a form name");
+      alert(tx("ui.forms.validation.enter_form_name", "Please enter a form name"));
       return;
     }
 
     // At least one hosting mode must be enabled
     if (!enableInternalHosting && !enableExternalHosting) {
-      alert("Please enable at least one hosting mode (Internal or External)");
+      alert(tx("ui.forms.validation.enable_one_hosting_mode", "Please enable at least one hosting mode (Internal or External)"));
       return;
     }
 
     // Theme is only required for internal hosting on NEW forms
     // Existing forms can be updated without requiring theme (schema-only forms are valid)
     if (enableInternalHosting && !selectedThemeId && !formId) {
-      alert(t("ui.forms.select_template_theme_required") || "Internal hosting requires theme selection");
+      alert(tx("ui.forms.select_template_theme_required", "Internal hosting requires theme selection"));
       return;
     }
 
     // External hosting requires published page
     if (enableExternalHosting && !selectedPublishedPageId) {
-      alert(t("ui.forms.select_published_page_required") || "External hosting requires a published page selection");
+      alert(tx("ui.forms.select_published_page_required", "External hosting requires a published page selection"));
       return;
     }
 
@@ -454,10 +462,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
       }
     } catch (error) {
       console.error(`Failed to ${formId ? "update" : "create"} form:`, error);
+      const action = formId
+        ? tx("ui.forms.actions.update", "update")
+        : tx("ui.forms.actions.create", "create");
+      const message = error instanceof Error ? error.message : tx("ui.forms.errors.unknown", "Unknown error");
       alert(
-        `Failed to ${formId ? "update" : "create"} form: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+        tx("ui.forms.errors.failed_form_action", "Failed to {action} form: {message}", {
+          action,
+          message,
+        })
       );
     } finally {
       setIsSaving(false);
@@ -468,12 +481,12 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
     e.preventDefault();
 
     if (!sessionId || !formId) {
-      alert("Can only save existing forms as templates");
+      alert(tx("ui.forms.template_modal.save_existing_only", "Can only save existing forms as templates"));
       return;
     }
 
     if (!newTemplateName || !newTemplateCode) {
-      alert("Template name and code are required");
+      alert(tx("ui.forms.template_modal.name_code_required", "Template name and code are required"));
       return;
     }
 
@@ -487,7 +500,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
         templateCode: newTemplateCode.toLowerCase().replace(/\s+/g, "_"),
       });
 
-      setSuccessMessage(`Template "${newTemplateName}" created successfully! It's now available in your Templates tab.`);
+      setSuccessMessage(
+        tx(
+          "ui.forms.template_modal.template_created_success",
+          "Template \"{name}\" created successfully! It's now available in your Templates tab.",
+          { name: newTemplateName },
+        ),
+      );
       setShowTemplateModal(false);
       setNewTemplateName("");
       setNewTemplateDescription("");
@@ -496,8 +515,11 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
       console.error("Failed to save template:", error);
+      const message = error instanceof Error ? error.message : tx("ui.forms.errors.unknown", "Unknown error");
       alert(
-        `Failed to save template: ${error instanceof Error ? error.message : "Unknown error"}`
+        tx("ui.forms.errors.failed_to_save_template", "Failed to save template: {message}", {
+          message,
+        })
       );
     } finally {
       setIsSavingTemplate(false);
@@ -552,10 +574,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 background: "var(--window-document-bg-elevated)",
                 color: "var(--tone-accent)",
               }}
-              title="Edit form schema (JSON)"
+              title={tx("ui.forms.schema.edit_schema_json", "Edit form schema (JSON)")}
             >
               <Code size={12} />
-              Edit Schema
+              {tx("ui.forms.schema.edit_schema", "Edit Schema")}
             </button>
           )}
         </div>
@@ -578,7 +600,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           {/* Hosting Mode Selection - AT THE TOP */}
           <div className="border-2 p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
             <h4 className="text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-              {t("ui.forms.hosting_mode_title") || "Hosting Mode"}
+              {tx("ui.forms.hosting_mode_title", "Hosting Mode")}
             </h4>
 
             {/* Internal Hosting Checkbox */}
@@ -592,12 +614,12 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               <div className="flex items-center gap-2">
                 <Database size={16} style={{ color: "var(--tone-accent)" }} />
                 <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                  {t("ui.forms.internal_hosting_label") || "Internal Hosting"}
+                  {tx("ui.forms.internal_hosting_label", "Internal Hosting")}
                 </span>
               </div>
             </label>
             <p className="text-xs ml-6 mb-3" style={{ color: "var(--neutral-gray)" }}>
-              {t("ui.forms.internal_hosting_description") || "Host form on your main application (requires template + theme)"}
+              {tx("ui.forms.internal_hosting_description", "Host form on your main application (requires template + theme)")}
             </p>
 
             {/* External Hosting Checkbox */}
@@ -844,7 +866,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                             {event.description && (
                               <p className="text-xs mb-1" style={{ color: "var(--neutral-gray)" }}>{event.description}</p>
                             )}
-                            <code className="text-xs px-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>ID: {event._id}</code>
+                            <code className="text-xs px-1" style={{ background: "var(--window-document-bg)", color: "var(--window-document-text)" }}>
+                              {tx("ui.forms.event_id_label", "ID:")} {event._id}
+                            </code>
                           </div>
                           {selectedEventId === event._id && (
                             <Check size={20} style={{ color: "var(--tone-accent)" }} className="flex-shrink-0" />
@@ -923,7 +947,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                         <div className="flex items-center gap-2">
                           <Globe size={14} style={{ color: "var(--tone-accent)" }} />
                           <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                            External URL:
+                            {tx("ui.forms.external_url_label", "External URL:")}
                           </span>
                         </div>
                         <a
@@ -1017,13 +1041,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
           <div className="border-2 p-4 space-y-4" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
             <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
               <Database size={16} />
-              Form Settings
+              {tx("ui.forms.form_settings.title", "Form Settings")}
             </h4>
 
             {/* Display Mode */}
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                Display Mode
+                {tx("ui.forms.form_settings.display_mode", "Display Mode")}
               </label>
               <select
                 value={displayMode}
@@ -1035,13 +1059,13 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   color: "var(--window-document-text)"
                 }}
               >
-                <option value="all">All Questions (Traditional)</option>
-                <option value="single-question">One Question at a Time (Wizard)</option>
-                <option value="section-by-section">Section by Section</option>
-                <option value="paginated">Paginated (Custom)</option>
+                <option value="all">{tx("ui.forms.form_settings.display_mode_options.all", "All Questions (Traditional)")}</option>
+                <option value="single-question">{tx("ui.forms.form_settings.display_mode_options.single_question", "One Question at a Time (Wizard)")}</option>
+                <option value="section-by-section">{tx("ui.forms.form_settings.display_mode_options.section_by_section", "Section by Section")}</option>
+                <option value="paginated">{tx("ui.forms.form_settings.display_mode_options.paginated", "Paginated (Custom)")}</option>
               </select>
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                How the form is displayed to users
+                {tx("ui.forms.form_settings.display_mode_help", "How the form is displayed to users")}
               </p>
             </div>
 
@@ -1055,11 +1079,11 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   className="w-4 h-4"
                 />
                 <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                  Show Progress Bar
+                  {tx("ui.forms.form_settings.show_progress_bar", "Show Progress Bar")}
                 </span>
               </label>
               <p className="text-xs mt-1 ml-6" style={{ color: "var(--neutral-gray)" }}>
-                Display progress indicator during form completion
+                {tx("ui.forms.form_settings.show_progress_bar_help", "Display progress indicator during form completion")}
               </p>
             </div>
 
@@ -1073,18 +1097,18 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   className="w-4 h-4"
                 />
                 <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                  Allow Multiple Submissions
+                  {tx("ui.forms.form_settings.allow_multiple_submissions", "Allow Multiple Submissions")}
                 </span>
               </label>
               <p className="text-xs mt-1 ml-6" style={{ color: "var(--neutral-gray)" }}>
-                Users can submit the form multiple times
+                {tx("ui.forms.form_settings.allow_multiple_submissions_help", "Users can submit the form multiple times")}
               </p>
             </div>
 
             {/* Submit Button Text */}
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                Submit Button Text
+                {tx("ui.forms.form_settings.submit_button_text", "Submit Button Text")}
               </label>
               <input
                 type="text"
@@ -1096,14 +1120,14 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   background: "var(--window-document-bg-elevated)",
                   color: "var(--window-document-text)"
                 }}
-                placeholder="Submit"
+                placeholder={tx("ui.forms.form_settings.submit_button_default", "Submit")}
               />
             </div>
 
             {/* Success Message */}
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                Success Message
+                {tx("ui.forms.form_settings.success_message", "Success Message")}
               </label>
               <textarea
                 value={formSuccessMessage}
@@ -1114,19 +1138,19 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   background: "var(--window-document-bg-elevated)",
                   color: "var(--window-document-text)"
                 }}
-                placeholder="Thank you for your submission!"
+                placeholder={tx("ui.forms.form_settings.success_message_default", "Thank you for your submission!")}
                 rows={2}
                 maxLength={200}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                {formSuccessMessage.length}/200 characters
+                {tx("ui.forms.form_settings.char_count", "{count}/200 characters", { count: formSuccessMessage.length })}
               </p>
             </div>
 
             {/* Redirect URL */}
             <div>
               <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                Redirect URL (Optional)
+                {tx("ui.forms.form_settings.redirect_url_optional", "Redirect URL (Optional)")}
               </label>
               <input
                 type="url"
@@ -1138,10 +1162,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   background: "var(--window-document-bg-elevated)",
                   color: "var(--window-document-text)"
                 }}
-                placeholder="https://example.com/thank-you"
+                placeholder={tx("ui.forms.form_settings.redirect_url_placeholder", "https://example.com/thank-you")}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Redirect users after successful submission
+                {tx("ui.forms.form_settings.redirect_url_help", "Redirect users after successful submission")}
               </p>
             </div>
           </div>
@@ -1154,14 +1178,16 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                 <div className="flex items-start gap-2">
                   <AlertCircle size={16} style={{ color: "var(--info)" }} className="flex-shrink-0 mt-0.5" />
                   <div className="text-xs" style={{ color: "var(--info)" }}>
-                    <p className="font-bold mb-1">Form kann nicht gespeichert werden:</p>
+                    <p className="font-bold mb-1">
+                      {tx("ui.forms.validation.form_cannot_be_saved", "Form cannot be saved:")}
+                    </p>
                     <ul className="list-disc list-inside space-y-1">
-                      {!formName && <li>Bitte geben Sie einen Formularnamen ein</li>}
+                      {!formName && <li>{tx("ui.forms.validation.enter_form_name", "Please enter a form name")}</li>}
                       {(!enableInternalHosting && !enableExternalHosting) && (
-                        <li>Bitte wählen Sie mindestens eine Hosting-Methode (Intern oder Extern)</li>
+                        <li>{tx("ui.forms.validation.enable_one_hosting_mode", "Please enable at least one hosting mode (Internal or External)")}</li>
                       )}
                       {enableExternalHosting && !selectedPublishedPageId && (
-                        <li>Bitte wählen Sie eine veröffentlichte Seite für externes Hosting</li>
+                        <li>{tx("ui.forms.validation.select_external_page", "Please select a published page for external hosting")}</li>
                       )}
                     </ul>
                   </div>
@@ -1227,7 +1253,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   }}
                 >
                   <Save size={12} />
-                  Save as Template
+                  {tx("ui.forms.template_modal.save_as_template", "Save as Template")}
                 </button>
               </div>
             )}
@@ -1354,7 +1380,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     src={previewUrl}
                     className="w-full"
                     style={{ height: "600px", border: "none" }}
-                    title="External Form Preview"
+                    title={tx("ui.forms.external_form_preview_title", "External Form Preview")}
                     sandbox="allow-same-origin allow-scripts"
                   />
                   <div className="px-3 py-2 border-t-2 text-xs" style={{ borderColor: "var(--window-document-border)", color: "var(--neutral-gray)" }}>
@@ -1413,7 +1439,9 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                           fontFamily: 'system-ui, -apple-system, sans-serif',
                           fontSize: '0.75rem'
                         }}>
-                          <p>Form template not found: {templateCode}</p>
+                          <p>
+                            {tx("ui.forms.preview.form_template_not_found", "Form template not found:")} {templateCode}
+                          </p>
                         </div>
                       );
                     }
@@ -1427,7 +1455,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                           fontFamily: 'system-ui, -apple-system, sans-serif',
                           fontSize: '0.75rem'
                         }}>
-                          <p>Theme not found: {themeCode}</p>
+                          <p>{tx("ui.forms.preview.theme_not_found", "Theme not found:")} {themeCode}</p>
                         </div>
                       );
                     }
@@ -1462,7 +1490,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                           customSchema={templateSchema}
                           onSubmit={async (data) => {
                             console.log("Preview submission:", data);
-                            alert("This is a preview - form not actually submitted");
+                            alert(tx("ui.forms.preview.preview_not_submitted", "This is a preview - form not actually submitted"));
                           }}
                           initialData={{}}
                           mode="standalone"
@@ -1479,7 +1507,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                       fontFamily: 'system-ui, -apple-system, sans-serif',
                       fontSize: '0.75rem'
                     }}>
-                      <p>Form preview loading...</p>
+                      <p>{tx("ui.forms.preview.loading", "Form preview loading...")}</p>
                     </div>
                   );
                 })()}
@@ -1514,12 +1542,15 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   }}>
                     <FileText size={14} style={{ color: "var(--tone-accent)" }} />
                     <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                      Schema Preview (No Template)
+                      {tx("ui.forms.preview.schema_preview_no_template", "Schema Preview (No Template)")}
                     </p>
                   </div>
                   <div className="p-4 space-y-4" style={{ background: "var(--window-document-bg-elevated)" }}>
                     <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-                      This form was created without a template. Select a template and theme above to see a styled preview, or view the form fields below:
+                      {tx(
+                        "ui.forms.preview.schema_preview_description",
+                        "This form was created without a template. Select a template and theme above to see a styled preview, or view the form fields below:",
+                      )}
                     </p>
                     {formSchema.sections.map((section, sectionIdx) => (
                       <div key={section.id || sectionIdx} className="border-2 p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}>
@@ -1557,7 +1588,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                                 )}
                                 {field.options && (
                                   <div className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                                    Options: {field.options.map(o => o.label).join(", ")}
+                                    {tx("ui.forms.preview.options_label", "Options:")} {field.options.map(o => o.label).join(", ")}
                                   </div>
                                 )}
                               </div>
@@ -1688,7 +1719,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               <div className="flex items-center gap-2">
                 <Code size={20} style={{ color: "var(--tone-accent)" }} />
                 <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-                  Edit Schema - {existingForm?.name}
+                  {tx("ui.forms.schema.edit_schema_prefix", "Edit Schema -")} {existingForm?.name}
                 </h3>
               </div>
               <button
@@ -1725,7 +1756,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               <div className="flex items-center gap-2">
                 <Save size={20} style={{ color: "#8b5cf6" }} />
                 <h3 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-                  Save as Template
+                  {tx("ui.forms.template_modal.save_as_template", "Save as Template")}
                 </h3>
               </div>
               <button
@@ -1741,7 +1772,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               {/* Template Name */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Template Name <span style={{ color: "var(--error)" }}>*</span>
+                  {tx("ui.forms.template_modal.template_name", "Template Name")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -1753,7 +1784,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     background: "var(--window-document-bg-elevated)",
                     color: "var(--window-document-text)",
                   }}
-                  placeholder="e.g., Registration Form"
+                  placeholder={tx("ui.forms.template_modal.template_name_placeholder", "e.g., Registration Form")}
                   required
                 />
               </div>
@@ -1761,7 +1792,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
               {/* Template Code */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Template Code <span style={{ color: "var(--error)" }}>*</span>
+                  {tx("ui.forms.template_modal.template_code", "Template Code")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <input
                   type="text"
@@ -1773,19 +1804,19 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     background: "var(--window-document-bg-elevated)",
                     color: "var(--window-document-text)",
                   }}
-                  placeholder="e.g., registration_form"
+                  placeholder={tx("ui.forms.template_modal.template_code_placeholder", "e.g., registration_form")}
                   pattern="[a-z0-9_]+"
                   required
                 />
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  Lowercase letters, numbers, and underscores only
+                  {tx("ui.forms.template_modal.template_code_hint", "Lowercase letters, numbers, and underscores only")}
                 </p>
               </div>
 
               {/* Template Description */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Description
+                  {tx("ui.forms.template_modal.description", "Description")}
                 </label>
                 <textarea
                   value={newTemplateDescription}
@@ -1796,7 +1827,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     background: "var(--window-document-bg-elevated)",
                     color: "var(--window-document-text)",
                   }}
-                  placeholder="Brief description of this template"
+                  placeholder={tx("ui.forms.template_modal.description_placeholder", "Brief description of this template")}
                   rows={3}
                   maxLength={500}
                 />
@@ -1814,7 +1845,7 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                     color: "var(--window-document-text)",
                   }}
                 >
-                  Cancel
+                  {tx("ui.forms.common.cancel", "Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1829,10 +1860,10 @@ export function FormBuilder({ formId, templateCode, onBack, openSchemaModal }: F
                   {isSavingTemplate ? (
                     <span className="flex items-center gap-2">
                       <Loader2 size={14} className="animate-spin" />
-                      Saving...
+                      {tx("ui.forms.common.saving", "Saving...")}
                     </span>
                   ) : (
-                    "Save Template"
+                    tx("ui.forms.template_modal.save_template", "Save Template")
                   )}
                 </button>
               </div>

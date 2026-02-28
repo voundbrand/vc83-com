@@ -229,7 +229,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
         <select
           value={filter.eventId || ""}
           onChange={(e) => setFilter({ ...filter, eventId: (e.target.value as Id<"objects">) || undefined })}
-          className="px-3 py-1.5 text-xs border-2"
+          className="px-3 py-1.5 text-xs border"
           style={{
             borderColor: "var(--win95-border)",
             background: "var(--win95-bg-light)",
@@ -248,7 +248,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
         <select
           value={filter.ticketType || ""}
           onChange={(e) => setFilter({ ...filter, ticketType: e.target.value || undefined })}
-          className="px-3 py-1.5 text-xs border-2"
+          className="px-3 py-1.5 text-xs border"
           style={{
             borderColor: "var(--win95-border)",
             background: "var(--win95-bg-light)",
@@ -266,7 +266,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
         <select
           value={filter.status || ""}
           onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
-          className="px-3 py-1.5 text-xs border-2"
+          className="px-3 py-1.5 text-xs border"
           style={{
             borderColor: "var(--win95-border)",
             background: "var(--win95-bg-light)",
@@ -287,7 +287,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
           <span className="text-xs" style={{ color: "var(--win95-text)" }}>{t("ui.tickets.list.sort.label")}</span>
           <button
             onClick={() => handleSort("createdAt")}
-            className="px-2 py-1 text-xs border-2 flex items-center gap-1"
+            className="px-2 py-1 text-xs border flex items-center gap-1"
             style={{
               borderColor: sortField === "createdAt" ? "var(--win95-highlight)" : "var(--win95-border)",
               background: sortField === "createdAt" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
@@ -299,7 +299,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
           </button>
           <button
             onClick={() => handleSort("name")}
-            className="px-2 py-1 text-xs border-2 flex items-center gap-1"
+            className="px-2 py-1 text-xs border flex items-center gap-1"
             style={{
               borderColor: sortField === "name" ? "var(--win95-highlight)" : "var(--win95-border)",
               background: sortField === "name" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
@@ -311,7 +311,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
           </button>
           <button
             onClick={() => handleSort("status")}
-            className="px-2 py-1 text-xs border-2 flex items-center gap-1"
+            className="px-2 py-1 text-xs border flex items-center gap-1"
             style={{
               borderColor: sortField === "status" ? "var(--win95-highlight)" : "var(--win95-border)",
               background: sortField === "status" ? "var(--win95-hover-light)" : "var(--win95-bg-light)",
@@ -340,7 +340,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
           {sortedTickets.map((ticket) => (
           <div
             key={ticket._id}
-            className="border-2 p-4 cursor-pointer hover:shadow-lg transition-shadow"
+            className="border p-4 cursor-pointer transition-colors"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-bg-light)",
@@ -409,7 +409,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
                   e.stopPropagation();
                   onEdit(ticket._id);
                 }}
-                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",
@@ -427,7 +427,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
                       e.stopPropagation();
                       openConfirmModal("redeem", ticket._id, ticket.name);
                     }}
-                    className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border-2 transition-colors"
+                    className="flex-1 px-2 py-1.5 text-xs font-bold flex items-center justify-center gap-1 border transition-colors"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-button-face)",
@@ -443,7 +443,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
                       e.stopPropagation();
                       openConfirmModal("cancel", ticket._id, ticket.name);
                     }}
-                    className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                    className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border transition-colors"
                     style={{
                       borderColor: "var(--win95-border)",
                       background: "var(--win95-button-face)",
@@ -461,7 +461,7 @@ export function TicketsList({ sessionId, organizationId, onEdit, initialEventId,
                   e.stopPropagation();
                   openConfirmModal("delete", ticket._id, ticket.name);
                 }}
-                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border-2 transition-colors"
+                className="px-2 py-1.5 text-xs font-bold flex items-center justify-center border transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",

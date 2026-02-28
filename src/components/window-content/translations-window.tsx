@@ -5,7 +5,9 @@ import { Globe, Save, X, Download, Upload, Settings, KeyRound, CheckCircle2, Sea
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useTranslation } from "@/contexts/translation-context";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require avoids deep generated API type expansion in window components.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
 import { useAuth } from "@/hooks/use-auth";
 import { PermissionButton } from "@/components/permission/permission-button";
 
@@ -21,10 +23,23 @@ import { PermissionButton } from "@/components/permission/permission-button";
  */
 
 type TabType = "browse" | "edit" | "import-export" | "settings";
+type TxFn = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
 
 export function TranslationsWindow() {
   const { sessionId } = useAuth();
-  const { isLoading } = useNamespaceTranslations("ui.translations");
+  const { t, isLoading } = useNamespaceTranslations("ui.translations");
+  const tx: TxFn = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>("browse");
 
@@ -45,7 +60,7 @@ export function TranslationsWindow() {
         <div className="flex items-center gap-2">
           <Globe className="w-6 h-6" />
           <h2 className="text-lg font-bold" style={{ fontFamily: 'Press Start 2P' }}>
-            TRANSLATIONS
+            {tx("window.title", "TRANSLATIONS")}
           </h2>
         </div>
       </div>
@@ -63,44 +78,44 @@ export function TranslationsWindow() {
           onClick={() => setActiveTab("browse")}
           icon={<Globe className="w-4 h-4" />}
         >
-          Browse
+          {tx("tabs.browse", "Browse")}
         </TabButton>
         <TabButton
           active={activeTab === "edit"}
           onClick={() => setActiveTab("edit")}
           icon={<Save className="w-4 h-4" />}
         >
-          Edit
+          {tx("tabs.edit", "Edit")}
         </TabButton>
         <TabButton
           active={activeTab === "import-export"}
           onClick={() => setActiveTab("import-export")}
           icon={<Download className="w-4 h-4" />}
         >
-          Import/Export
+          {tx("tabs.import_export", "Import/Export")}
         </TabButton>
         <TabButton
           active={activeTab === "settings"}
           onClick={() => setActiveTab("settings")}
           icon={<Settings className="w-4 h-4" />}
         >
-          Settings
+          {tx("tabs.settings", "Settings")}
         </TabButton>
       </div>
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-4">
         {activeTab === "browse" && (
-          <BrowseTab sessionId={sessionId} />
+          <BrowseTranslationsTab sessionId={sessionId} tx={tx} />
         )}
         {activeTab === "edit" && (
-          <EditTab />
+          <EditTranslationsTab tx={tx} />
         )}
         {activeTab === "import-export" && (
-          <ImportExportTab />
+          <ImportExportTranslationsTab tx={tx} />
         )}
         {activeTab === "settings" && (
-          <SettingsTab />
+          <TranslationSettingsTab tx={tx} />
         )}
       </div>
 
@@ -117,7 +132,7 @@ export function TranslationsWindow() {
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
               <Globe className="w-3.5 h-3.5" />
-              Translation Management System
+              {tx("footer.label", "Translation Management System")}
             </span>
           </div>
           {isLoading && (
@@ -125,7 +140,7 @@ export function TranslationsWindow() {
               className="font-bold"
               style={{ color: 'var(--win95-highlight)' }}
             >
-              Loading...
+              {tx("footer.loading", "Loading...")}
             </span>
           )}
         </div>
@@ -146,7 +161,7 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="px-4 py-3 flex items-center gap-2 border-r-2 text-sm font-bold retro-button"
+      className="px-4 py-3 flex items-center gap-2 border-r-2 text-sm font-bold desktop-interior-button"
       style={{
         background: active ? 'var(--win95-bg)' : 'var(--win95-bg-light)',
         color: active ? 'var(--win95-highlight)' : 'var(--win95-text)',
@@ -159,8 +174,13 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
   );
 }
 
+interface BrowseTranslationsTabProps {
+  sessionId: string | null;
+  tx: TxFn;
+}
+
 // Browse Tab - Translation List (Grouped by Key)
-function BrowseTab({ sessionId }: { sessionId: string | null }) {
+function BrowseTranslationsTab({ sessionId, tx }: BrowseTranslationsTabProps) {
   const { availableLocales } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -168,16 +188,6 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
   const [localeFilter, setLocaleFilter] = useState("all"); // Default to "all" locales
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
-  // Query ALL translations (not filtered by locale anymore)
-  const translations = useQuery(
-    api.ontologyTranslations.getAllTranslationObjects,
-    sessionId ? {
-      sessionId,
-      type: typeFilter === "all" ? undefined : typeFilter,
-      status: statusFilter === "all" ? undefined : statusFilter,
-    } : "skip"
-  );
 
   interface Translation {
     _id: string;
@@ -187,6 +197,16 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
     status?: string;
     updatedAt?: number;
   }
+
+  // Query ALL translations (not filtered by locale anymore)
+  const translations = useQuery(
+    (api as any).ontologyTranslations.getAllTranslationObjects,
+    sessionId ? {
+      sessionId,
+      type: typeFilter === "all" ? undefined : typeFilter,
+      status: statusFilter === "all" ? undefined : statusFilter,
+    } : "skip"
+  ) as Translation[] | undefined;
 
   // Group translations by key
   const groupedByKey = (translations || []).reduce((acc: Record<string, Translation[]>, t: Translation) => {
@@ -222,7 +242,7 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
             className="font-bold mb-3 text-sm"
             style={{ color: 'var(--win95-highlight)' }}
           >
-            FILTERS
+            {tx("browse.filters.title", "FILTERS")}
           </h3>
 
           <div className="space-y-4">
@@ -232,14 +252,14 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Search Keys
+                {tx("browse.filters.search_label", "Search Keys")}
               </label>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to search..."
-                className="retro-input w-full px-3 py-2 text-sm"
+                placeholder={tx("browse.filters.search_placeholder", "Type to search...")}
+                className="desktop-interior-input w-full px-3 py-2 text-sm"
               />
             </div>
 
@@ -249,14 +269,14 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Locale
+                {tx("browse.filters.locale_label", "Locale")}
               </label>
               <select
                 value={localeFilter}
                 onChange={(e) => setLocaleFilter(e.target.value)}
-                className="retro-input w-full px-3 py-2 text-sm"
+                className="desktop-interior-input w-full px-3 py-2 text-sm"
               >
-                <option value="all">All Locales</option>
+                <option value="all">{tx("browse.filters.locale_all", "All Locales")}</option>
                 {availableLocales.map(loc => (
                   <option key={loc} value={loc}>
                     {loc.toUpperCase()}
@@ -271,17 +291,17 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Type
+                {tx("browse.filters.type_label", "Type")}
               </label>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="retro-input w-full px-3 py-2 text-sm"
+                className="desktop-interior-input w-full px-3 py-2 text-sm"
               >
-                <option value="all">All Types</option>
-                <option value="system">System</option>
-                <option value="app">App</option>
-                <option value="content">Content</option>
+                <option value="all">{tx("browse.filters.type_all", "All Types")}</option>
+                <option value="system">{tx("browse.filters.type_system", "System")}</option>
+                <option value="app">{tx("browse.filters.type_app", "App")}</option>
+                <option value="content">{tx("browse.filters.type_content", "Content")}</option>
               </select>
             </div>
 
@@ -291,17 +311,17 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Status
+                {tx("browse.filters.status_label", "Status")}
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="retro-input w-full px-3 py-2 text-sm"
+                className="desktop-interior-input w-full px-3 py-2 text-sm"
               >
-                <option value="all">All Status</option>
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="needs_review">Needs Review</option>
+                <option value="all">{tx("browse.filters.status_all", "All Status")}</option>
+                <option value="approved">{tx("browse.filters.status_approved", "Approved")}</option>
+                <option value="pending">{tx("browse.filters.status_pending", "Pending")}</option>
+                <option value="needs_review">{tx("browse.filters.status_needs_review", "Needs Review")}</option>
               </select>
             </div>
           </div>
@@ -316,11 +336,11 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
             >
               <div className="flex items-center gap-1">
                 <KeyRound className="w-3.5 h-3.5" />
-                Keys: <strong>{totalKeys}</strong>
+                {tx("browse.stats.keys", "Keys:")} <strong>{totalKeys}</strong>
               </div>
               <div className="flex items-center gap-1">
                 <Globe className="w-3.5 h-3.5" />
-                Translations: <strong>{totalTranslations}</strong>
+                {tx("browse.stats.translations", "Translations:")} <strong>{totalTranslations}</strong>
               </div>
             </div>
           </div>
@@ -343,10 +363,10 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
               }}
             >
               <tr>
-                <th className="p-3 text-left font-bold w-1/3">Key</th>
-                <th className="p-3 text-left font-bold w-1/3">Locales</th>
-                <th className="p-3 text-left font-bold w-1/6">Last Modified</th>
-                <th className="p-3 text-left font-bold w-1/6">Actions</th>
+                <th className="p-3 text-left font-bold w-1/3">{tx("browse.table.key", "Key")}</th>
+                <th className="p-3 text-left font-bold w-1/3">{tx("browse.table.locales", "Locales")}</th>
+                <th className="p-3 text-left font-bold w-1/6">{tx("browse.table.last_modified", "Last Modified")}</th>
+                <th className="p-3 text-left font-bold w-1/6">{tx("browse.table.actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -361,7 +381,7 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                       className="w-12 h-12 mx-auto mb-3"
                       style={{ color: 'var(--win95-border)' }}
                     />
-                    <div className="text-sm">Loading translations...</div>
+                    <div className="text-sm">{tx("browse.table.loading", "Loading translations...")}</div>
                   </td>
                 </tr>
               ) : filteredKeys.length === 0 ? (
@@ -375,7 +395,7 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                       className="w-12 h-12 mx-auto mb-3"
                       style={{ color: 'var(--win95-border)' }}
                     />
-                    <div className="text-sm">No translation keys found</div>
+                    <div className="text-sm">{tx("browse.table.empty", "No translation keys found")}</div>
                   </td>
                 </tr>
               ) : (
@@ -418,7 +438,7 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                         className="p-3 text-xs"
                         style={{ color: 'var(--win95-text-secondary)' }}
                       >
-                        {latestUpdate ? new Date(latestUpdate).toLocaleDateString() : 'N/A'}
+                        {latestUpdate ? new Date(latestUpdate).toLocaleDateString() : tx("browse.table.na", "N/A")}
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1">
@@ -428,9 +448,9 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
                               setSelectedKey(key);
                               setEditModalOpen(true);
                             }}
-                            className="retro-button text-xs px-2 py-1"
+                            className="desktop-interior-button text-xs px-2 py-1"
                           >
-                            Edit
+                            {tx("browse.table.edit", "Edit")}
                           </PermissionButton>
                         </div>
                       </td>
@@ -449,6 +469,7 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
           translationKey={selectedKey}
           translations={groupedByKey[selectedKey]}
           sessionId={sessionId}
+          tx={tx}
           onClose={() => {
             setEditModalOpen(false);
             setSelectedKey(null);
@@ -459,8 +480,12 @@ function BrowseTab({ sessionId }: { sessionId: string | null }) {
   );
 }
 
+interface TranslationTabProps {
+  tx: TxFn;
+}
+
 // Edit Tab - Single Translation Editor
-function EditTab() {
+function EditTranslationsTab({ tx }: TranslationTabProps) {
   return (
     <div className="max-w-4xl mx-auto">
       <div
@@ -474,7 +499,7 @@ function EditTab() {
           className="font-bold mb-6"
           style={{ color: 'var(--win95-highlight)' }}
         >
-          EDIT TRANSLATION
+          {tx("edit.title", "EDIT TRANSLATION")}
         </h3>
 
         <div className="space-y-4">
@@ -484,12 +509,12 @@ function EditTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Type
+                {tx("edit.type_label", "Type")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="system">System</option>
-                <option value="app">App</option>
-                <option value="content">Content</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="system">{tx("edit.type_system", "System")}</option>
+                <option value="app">{tx("edit.type_app", "App")}</option>
+                <option value="content">{tx("edit.type_content", "Content")}</option>
               </select>
             </div>
             <div>
@@ -497,12 +522,12 @@ function EditTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Namespace
+                {tx("edit.namespace_label", "Namespace")}
               </label>
               <input
                 type="text"
-                placeholder="e.g., desktop, windows, buttons"
-                className="retro-input w-full px-3 py-2 text-sm"
+                placeholder={tx("edit.namespace_placeholder", "e.g., desktop, windows, buttons")}
+                className="desktop-interior-input w-full px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -512,12 +537,12 @@ function EditTab() {
               className="block text-xs font-bold mb-2"
               style={{ color: 'var(--win95-text)' }}
             >
-              Key
+              {tx("edit.key_label", "Key")}
             </label>
             <input
               type="text"
-              placeholder="e.g., welcome-icon"
-              className="retro-input w-full px-3 py-2 text-sm font-mono"
+              placeholder={tx("edit.key_placeholder", "e.g., welcome-icon")}
+              className="desktop-interior-input w-full px-3 py-2 text-sm font-mono"
             />
           </div>
 
@@ -526,12 +551,12 @@ function EditTab() {
               className="block text-xs font-bold mb-2"
               style={{ color: 'var(--win95-text)' }}
             >
-              Value
+              {tx("edit.value_label", "Value")}
             </label>
             <textarea
               rows={4}
-              placeholder="Enter translation value..."
-              className="retro-input w-full px-3 py-2 text-sm"
+              placeholder={tx("edit.value_placeholder", "Enter translation value...")}
+              className="desktop-interior-input w-full px-3 py-2 text-sm"
             />
           </div>
 
@@ -541,12 +566,12 @@ function EditTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Locale
+                {tx("edit.locale_label", "Locale")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="en">EN - English</option>
-                <option value="de">DE - German</option>
-                <option value="pl">PL - Polish</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="en">{tx("edit.locale_en", "EN - English")}</option>
+                <option value="de">{tx("edit.locale_de", "DE - German")}</option>
+                <option value="pl">{tx("edit.locale_pl", "PL - Polish")}</option>
               </select>
             </div>
             <div>
@@ -554,23 +579,23 @@ function EditTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Status
+                {tx("edit.status_label", "Status")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="needs_review">Needs Review</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="approved">{tx("edit.status_approved", "Approved")}</option>
+                <option value="pending">{tx("edit.status_pending", "Pending")}</option>
+                <option value="needs_review">{tx("edit.status_needs_review", "Needs Review")}</option>
               </select>
             </div>
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button className="retro-button-primary px-6 py-3 font-bold flex items-center gap-2">
+            <button className="desktop-interior-button desktop-interior-button-primary px-6 py-3 font-bold flex items-center gap-2">
               <Save className="w-4 h-4" />
-              Save Translation
+              {tx("edit.save_translation", "Save Translation")}
             </button>
-            <button className="retro-button px-6 py-3 font-bold">
-              Cancel
+            <button className="desktop-interior-button px-6 py-3 font-bold">
+              {tx("edit.cancel", "Cancel")}
             </button>
           </div>
         </div>
@@ -580,7 +605,7 @@ function EditTab() {
 }
 
 // Import/Export Tab
-function ImportExportTab() {
+function ImportExportTranslationsTab({ tx }: TranslationTabProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Export Section */}
@@ -596,7 +621,7 @@ function ImportExportTab() {
           style={{ color: 'var(--win95-highlight)' }}
         >
           <Download className="w-5 h-5" />
-          EXPORT TRANSLATIONS
+          {tx("import_export.export.title", "EXPORT TRANSLATIONS")}
         </h3>
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
@@ -605,11 +630,11 @@ function ImportExportTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Type
+                {tx("import_export.export.type_label", "Type")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="all">All</option>
-                <option value="system">System</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="all">{tx("import_export.export.type_all", "All")}</option>
+                <option value="system">{tx("import_export.export.type_system", "System")}</option>
               </select>
             </div>
             <div>
@@ -617,11 +642,11 @@ function ImportExportTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Locale
+                {tx("import_export.export.locale_label", "Locale")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="all">All Locales</option>
-                <option value="en">English</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="all">{tx("import_export.export.locale_all", "All Locales")}</option>
+                <option value="en">{tx("import_export.export.locale_english", "English")}</option>
               </select>
             </div>
             <div>
@@ -629,17 +654,17 @@ function ImportExportTab() {
                 className="block text-xs font-bold mb-2"
                 style={{ color: 'var(--win95-text)' }}
               >
-                Format
+                {tx("import_export.export.format_label", "Format")}
               </label>
-              <select className="retro-input w-full px-3 py-2 text-sm">
-                <option value="json">JSON</option>
-                <option value="csv">CSV</option>
+              <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+                <option value="json">{tx("import_export.export.format_json", "JSON")}</option>
+                <option value="csv">{tx("import_export.export.format_csv", "CSV")}</option>
               </select>
             </div>
           </div>
-          <button className="retro-button-primary px-6 py-3 font-bold flex items-center gap-2">
+          <button className="desktop-interior-button desktop-interior-button-primary px-6 py-3 font-bold flex items-center gap-2">
             <Download className="w-4 h-4" />
-            Download Translations
+            {tx("import_export.export.download", "Download Translations")}
           </button>
         </div>
       </div>
@@ -657,7 +682,7 @@ function ImportExportTab() {
           style={{ color: 'var(--win95-highlight)' }}
         >
           <Upload className="w-5 h-5" />
-          IMPORT TRANSLATIONS
+          {tx("import_export.import.title", "IMPORT TRANSLATIONS")}
         </h3>
         <div className="space-y-4">
           <div
@@ -672,10 +697,10 @@ function ImportExportTab() {
               className="text-sm mb-3"
               style={{ color: 'var(--win95-text)' }}
             >
-              Drop JSON or CSV file here, or click to browse
+              {tx("import_export.import.dropzone_text", "Drop JSON or CSV file here, or click to browse")}
             </div>
-            <button className="retro-button-primary px-6 py-3 font-bold">
-              Choose File
+            <button className="desktop-interior-button desktop-interior-button-primary px-6 py-3 font-bold">
+              {tx("import_export.import.choose_file", "Choose File")}
             </button>
           </div>
         </div>
@@ -685,7 +710,7 @@ function ImportExportTab() {
 }
 
 // Settings Tab
-function SettingsTab() {
+function TranslationSettingsTab({ tx }: TranslationTabProps) {
   return (
     <div className="max-w-4xl mx-auto">
       <div
@@ -699,7 +724,7 @@ function SettingsTab() {
           className="font-bold mb-6"
           style={{ color: 'var(--win95-highlight)' }}
         >
-          TRANSLATION SETTINGS
+          {tx("settings.title", "TRANSLATION SETTINGS")}
         </h3>
 
         <div className="space-y-6">
@@ -708,18 +733,18 @@ function SettingsTab() {
               className="block text-xs font-bold mb-2"
               style={{ color: 'var(--win95-text)' }}
             >
-              Default Locale
+              {tx("settings.default_locale_label", "Default Locale")}
             </label>
-            <select className="retro-input w-full px-3 py-2 text-sm">
-              <option value="en">EN - English</option>
-              <option value="de">DE - German</option>
-              <option value="pl">PL - Polish</option>
+            <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+              <option value="en">{tx("settings.locale_en", "EN - English")}</option>
+              <option value="de">{tx("settings.locale_de", "DE - German")}</option>
+              <option value="pl">{tx("settings.locale_pl", "PL - Polish")}</option>
             </select>
             <p
               className="text-xs mt-1"
               style={{ color: 'var(--win95-text-secondary)' }}
             >
-              Default language for new users
+              {tx("settings.default_locale_help", "Default language for new users")}
             </p>
           </div>
 
@@ -728,16 +753,16 @@ function SettingsTab() {
               className="block text-xs font-bold mb-2"
               style={{ color: 'var(--win95-text)' }}
             >
-              Fallback Locale
+              {tx("settings.fallback_locale_label", "Fallback Locale")}
             </label>
-            <select className="retro-input w-full px-3 py-2 text-sm">
-              <option value="en">EN - English</option>
+            <select className="desktop-interior-input w-full px-3 py-2 text-sm">
+              <option value="en">{tx("settings.locale_en", "EN - English")}</option>
             </select>
             <p
               className="text-xs mt-1"
               style={{ color: 'var(--win95-text-secondary)' }}
             >
-              Used when translation is missing
+              {tx("settings.fallback_locale_help", "Used when translation is missing")}
             </p>
           </div>
 
@@ -754,14 +779,14 @@ function SettingsTab() {
               className="text-sm font-bold"
               style={{ color: 'var(--win95-text)' }}
             >
-              Auto-approve new translations
+              {tx("settings.auto_approve", "Auto-approve new translations")}
             </label>
           </div>
 
           <div className="pt-4">
-            <button className="retro-button-primary px-6 py-3 font-bold flex items-center gap-2">
+            <button className="desktop-interior-button desktop-interior-button-primary px-6 py-3 font-bold flex items-center gap-2">
               <Save className="w-4 h-4" />
-              Save Settings
+              {tx("settings.save", "Save Settings")}
             </button>
           </div>
         </div>
@@ -781,10 +806,11 @@ interface EditTranslationModalProps {
     status?: string;
   }>;
   sessionId: string | null;
+  tx: TxFn;
   onClose: () => void;
 }
 
-function EditTranslationModal({ translationKey, translations, sessionId, onClose }: EditTranslationModalProps) {
+function EditTranslationModal({ translationKey, translations, sessionId, tx, onClose }: EditTranslationModalProps) {
   const { availableLocales } = useTranslation();
   const [translationValues, setTranslationValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -816,11 +842,11 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+      style={{ background: "var(--modal-overlay-bg)" }}
       onClick={onClose}
     >
       <div
-        className="border-4 rounded-lg shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-auto m-4"
+        className="border-4 rounded-lg  max-w-3xl w-full max-h-[80vh] overflow-auto m-4"
         style={{
           background: 'var(--win95-bg)',
           borderColor: 'var(--win95-border)'
@@ -838,12 +864,12 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
         >
           <h3 className="font-bold text-lg flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            EDIT TRANSLATIONS: {translationKey}
+            {tx("modal.title_prefix", "EDIT TRANSLATIONS:")} {translationKey}
           </h3>
           <button
             onClick={onClose}
-            className="retro-button p-2"
-            title="Close"
+            className="desktop-interior-button p-2"
+            title={tx("modal.close_title", "Close")}
           >
             <X className="w-5 h-5" />
           </button>
@@ -859,7 +885,7 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
               color: 'var(--win95-text)'
             }}
           >
-            Tip: Edit translations for all languages below. Empty fields will be skipped.
+            {tx("modal.tip", "Tip: Edit translations for all languages below. Empty fields will be skipped.")}
           </div>
 
           {availableLocales.map((locale) => {
@@ -881,25 +907,25 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
                           : translation.status === "pending"
                           ? 'var(--warning)'
                           : 'var(--neutral-gray)',
-                        color: '#ffffff',
+                        color: "var(--btn-accent-text)",
                       }}
                     >
                       {translation.status === "approved" && (
                         <span className="inline-flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
-                          Approved
+                          {tx("modal.status.approved", "Approved")}
                         </span>
                       )}
                       {translation.status === "pending" && (
                         <span className="inline-flex items-center gap-1">
                           <Hourglass className="w-3 h-3" />
-                          Pending
+                          {tx("modal.status.pending", "Pending")}
                         </span>
                       )}
                       {translation.status === "needs_review" && (
                         <span className="inline-flex items-center gap-1">
                           <Search className="w-3 h-3" />
-                          Review
+                          {tx("modal.status.review", "Review")}
                         </span>
                       )}
                     </span>
@@ -912,8 +938,12 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
                     [locale]: e.target.value
                   })}
                   rows={3}
-                  placeholder={`Enter ${getLanguageName(locale)} translation...`}
-                  className="retro-input w-full px-3 py-2 text-sm"
+                  placeholder={tx(
+                    "modal.translation_placeholder",
+                    "Enter {{language}} translation...",
+                    { language: getLanguageName(locale) }
+                  )}
+                  className="desktop-interior-input w-full px-3 py-2 text-sm"
                 />
               </div>
             );
@@ -930,18 +960,20 @@ function EditTranslationModal({ translationKey, translations, sessionId, onClose
         >
           <button
             onClick={onClose}
-            className="retro-button px-6 py-3 font-bold"
+            className="desktop-interior-button px-6 py-3 font-bold"
             disabled={saving}
           >
-            Cancel
+            {tx("modal.cancel", "Cancel")}
           </button>
           <button
             onClick={handleSave}
-            className="retro-button-primary px-6 py-3 font-bold flex items-center gap-2"
+            className="desktop-interior-button desktop-interior-button-primary px-6 py-3 font-bold flex items-center gap-2"
             disabled={saving}
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save All Translations'}
+            {saving
+              ? tx("modal.saving", "Saving...")
+              : tx("modal.save_all", "Save All Translations")}
           </button>
         </div>
       </div>

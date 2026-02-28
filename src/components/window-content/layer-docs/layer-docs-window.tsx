@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { Plus, FileText, Folder, Palette, NotebookText, X } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 export function LayerDocsWindow() {
+  const { t } = useNamespaceTranslations("ui.layer_docs");
+  const tx = (key: string, fallback: string): string => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
   const [showComingSoon, setShowComingSoon] = useState(true);
 
   return (
@@ -26,7 +32,7 @@ export function LayerDocsWindow() {
             }}
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>New</span>
+            <span>{tx("sidebar.new_button", "New")}</span>
           </button>
         </div>
 
@@ -36,23 +42,23 @@ export function LayerDocsWindow() {
             {/* Mock document items */}
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
               <FileText className="h-3.5 w-3.5" />
-              <span className="font-pixel">Welcome</span>
+              <span className="font-pixel">{tx("sidebar.docs.welcome", "Welcome")}</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
               <Folder className="h-3.5 w-3.5" />
-              <span className="font-pixel">Guides</span>
+              <span className="font-pixel">{tx("sidebar.docs.guides", "Guides")}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
               <FileText className="h-3.5 w-3.5" />
-              <span className="font-pixel">Setup</span>
+              <span className="font-pixel">{tx("sidebar.docs.setup", "Setup")}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
               <FileText className="h-3.5 w-3.5" />
-              <span className="font-pixel">Usage</span>
+              <span className="font-pixel">{tx("sidebar.docs.usage", "Usage")}</span>
             </div>
             <div className="flex items-center gap-2 px-2 py-1 text-xs" style={{ color: 'var(--win95-text)' }}>
               <FileText className="h-3.5 w-3.5" />
-              <span className="font-pixel">Notes</span>
+              <span className="font-pixel">{tx("sidebar.docs.notes", "Notes")}</span>
             </div>
           </div>
         </div>
@@ -68,20 +74,20 @@ export function LayerDocsWindow() {
             background: 'var(--win95-bg-light)'
           }}
         >
-          <button className="retro-button px-2 py-1 text-xs font-pixel" title="Bold">
-            <span style={{ color: 'var(--win95-text)' }}>B</span>
+          <button className="retro-button px-2 py-1 text-xs font-pixel" title={tx("editor.toolbar.bold_title", "Bold")}>
+            <span style={{ color: 'var(--win95-text)' }}>{tx("editor.toolbar.bold_label", "B")}</span>
           </button>
-          <button className="retro-button px-2 py-1 text-xs font-pixel" title="Italic">
-            <span style={{ color: 'var(--win95-text)' }}>I</span>
+          <button className="retro-button px-2 py-1 text-xs font-pixel" title={tx("editor.toolbar.italic_title", "Italic")}>
+            <span style={{ color: 'var(--win95-text)' }}>{tx("editor.toolbar.italic_label", "I")}</span>
           </button>
-          <button className="retro-button px-2 py-1 text-xs font-pixel" title="Underline">
-            <span style={{ color: 'var(--win95-text)' }}>U</span>
+          <button className="retro-button px-2 py-1 text-xs font-pixel" title={tx("editor.toolbar.underline_title", "Underline")}>
+            <span style={{ color: 'var(--win95-text)' }}>{tx("editor.toolbar.underline_label", "U")}</span>
           </button>
           <div className="w-px h-4 mx-1" style={{ background: 'var(--win95-border)' }}></div>
-          <button className="retro-button px-2 py-1 text-xs font-pixel" title="Heading">
-            <span style={{ color: 'var(--win95-text)' }}>H1</span>
+          <button className="retro-button px-2 py-1 text-xs font-pixel" title={tx("editor.toolbar.heading_title", "Heading")}>
+            <span style={{ color: 'var(--win95-text)' }}>{tx("editor.toolbar.heading_label", "H1")}</span>
           </button>
-          <button className="retro-button px-2 py-1 text-xs font-pixel" title="List">
+          <button className="retro-button px-2 py-1 text-xs font-pixel" title={tx("editor.toolbar.list_title", "List")}>
             <span style={{ color: 'var(--win95-text)' }}>•</span>
           </button>
         </div>
@@ -92,34 +98,40 @@ export function LayerDocsWindow() {
             <div className="mb-6">
               <h1 className="text-3xl font-pixel mb-4 flex items-center gap-2" style={{ color: 'var(--win95-highlight)' }}>
                 <Palette className="h-8 w-8" />
-                Welcome to L4YER.docs
+                {tx("editor.heading", "Welcome to L4YER.docs")}
               </h1>
             </div>
 
             <div className="space-y-4 leading-relaxed" style={{ color: 'var(--win95-text)' }}>
               <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: 'var(--win95-text)' }}>
-                # Getting Started
+                {tx("editor.getting_started_heading", "# Getting Started")}
               </h2>
 
               <p>
-                This is your team&apos;s knowledge base. Create documents, organize them in folders,
-                and collaborate with your team.
+                {tx(
+                  "editor.getting_started_body",
+                  "This is your team's knowledge base. Create documents, organize them in folders, and collaborate with your team."
+                )}
               </p>
 
               <h2 className="text-xl font-pixel mt-6 mb-3" style={{ color: 'var(--win95-text)' }}>
-                ## Features
+                {tx("editor.features_heading", "## Features")}
               </h2>
 
               <ul className="list-disc list-inside space-y-2">
-                <li>Rich text editing with block-based editor</li>
-                <li>File uploads (images, PDFs, documents)</li>
-                <li>Team collaboration with permissions</li>
-                <li>Full-text search across all documents</li>
-                <li>Organization-scoped content</li>
+                <li>{tx("editor.features.rich_text", "Rich text editing with block-based editor")}</li>
+                <li>{tx("editor.features.file_uploads", "File uploads (images, PDFs, documents)")}</li>
+                <li>{tx("editor.features.collaboration", "Team collaboration with permissions")}</li>
+                <li>{tx("editor.features.full_text_search", "Full-text search across all documents")}</li>
+                <li>{tx("editor.features.org_scoped", "Organization-scoped content")}</li>
               </ul>
 
               <div className="mt-8 p-4 border-2 border-dashed rounded text-center" style={{ borderColor: 'var(--win95-border)', color: 'var(--win95-text-secondary)' }}>
-                <p className="text-sm">Type <code className="px-2 py-1 rounded" style={{ background: 'var(--win95-bg-light)' }}>/</code> for commands</p>
+                <p className="text-sm">
+                  {tx("editor.command_hint_prefix", "Type")}{" "}
+                  <code className="px-2 py-1 rounded" style={{ background: 'var(--win95-bg-light)' }}>/</code>{" "}
+                  {tx("editor.command_hint_suffix", "for commands")}
+                </p>
               </div>
             </div>
           </div>
@@ -153,12 +165,12 @@ export function LayerDocsWindow() {
                 color: 'white'
               }}
             >
-              <span className="font-pixel text-xs">L4YER.docs</span>
+              <span className="font-pixel text-xs">{tx("overlay.title_bar_label", "L4YER.docs")}</span>
               <div className="ml-auto flex gap-1">
                 <button
                   className="retro-control-button"
                   onClick={() => setShowComingSoon(false)}
-                  title="Close"
+                  title={tx("overlay.close_title", "Close")}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -170,12 +182,14 @@ export function LayerDocsWindow() {
             <NotebookText className="h-14 w-14 mx-auto" />
 
             <h2 className="text-2xl font-pixel mb-4" style={{ color: 'var(--win95-highlight)' }}>
-              Coming Soon
+              {tx("overlay.heading", "Coming Soon")}
             </h2>
 
             <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--win95-text)' }}>
-              L4YER.docs is your organization&apos;s knowledge base with Notion-style
-              editing, file uploads, and team collaboration.
+              {tx(
+                "overlay.description",
+                "L4YER.docs is your organization's knowledge base with Notion-style editing, file uploads, and team collaboration."
+              )}
             </p>
 
             <div
@@ -186,22 +200,24 @@ export function LayerDocsWindow() {
               }}
             >
               <p className="text-xs font-pixel mb-2" style={{ color: 'var(--win95-highlight)' }}>
-                Planned Features:
+                {tx("overlay.planned_features_heading", "Planned Features:")}
               </p>
               <ul className="text-xs space-y-1" style={{ color: 'var(--win95-text)' }}>
-                <li>Rich text block editor</li>
-                <li>Hierarchical document tree</li>
-                <li>Image and file uploads</li>
-                <li>Full-text search (Cmd+K)</li>
-                <li>Organization permissions</li>
-                <li>Real-time collaboration</li>
+                <li>{tx("overlay.features.rich_text_block", "Rich text block editor")}</li>
+                <li>{tx("overlay.features.hierarchical_tree", "Hierarchical document tree")}</li>
+                <li>{tx("overlay.features.image_uploads", "Image and file uploads")}</li>
+                <li>{tx("overlay.features.full_text_search", "Full-text search (Cmd+K)")}</li>
+                <li>{tx("overlay.features.org_permissions", "Organization permissions")}</li>
+                <li>{tx("overlay.features.realtime_collab", "Real-time collaboration")}</li>
               </ul>
             </div>
 
             <p className="text-xs mt-6" style={{ color: 'var(--win95-text)' }}>
-              See <code className="px-2 py-1 text-[10px]" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
-                .kiro/notion_ui_wiki/000_prd.md
-              </code> for details
+              {tx("overlay.details_prefix", "See")}{" "}
+              <code className="px-2 py-1 text-[10px]" style={{ background: 'var(--win95-bg)', color: 'var(--win95-text)' }}>
+                {tx("overlay.details_path", ".kiro/notion_ui_wiki/000_prd.md")}
+              </code>{" "}
+              {tx("overlay.details_suffix", "for details")}
             </p>
 
             <button
@@ -212,11 +228,11 @@ export function LayerDocsWindow() {
                 color: 'var(--win95-text)'
               }}
             >
-              Preview UI
+              {tx("overlay.preview_cta", "Preview UI")}
             </button>
 
             <p className="text-[10px] mt-2" style={{ color: 'var(--win95-text)' }}>
-              (Click outside or press X to close)
+              {tx("overlay.dismiss_hint", "(Click outside or press X to close)")}
             </p>
           </div>
         </div>

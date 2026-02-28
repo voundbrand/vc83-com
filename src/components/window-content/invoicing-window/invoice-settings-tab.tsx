@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useNotification } from "@/hooks/use-notification";
@@ -24,6 +23,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
+// Dynamic require avoids TS2589 deep type instantiation from generated API type expansion.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 
 /**
  * Invoice Settings Tab
@@ -38,7 +40,15 @@ import { Id } from "../../../../convex/_generated/dataModel";
 export function InvoiceSettingsTab() {
   const { sessionId } = useAuth();
   const currentOrg = useCurrentOrganization();
-  const { isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
+  const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.invoicing_window");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const notification = useNotification();
   const { openWindow } = useWindowManager();
 
@@ -72,19 +82,19 @@ export function InvoiceSettingsTab() {
 
   // Get organization contact info (phone, email, website) - SAME as Manage Org
   const contactInfo = useQuery(
-    api.organizationOntology.getOrganizationContact,
+    apiAny.organizationOntology.getOrganizationContact,
     currentOrg ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   // Get organization legal info (VAT, tax ID) - SAME as Manage Org
   const legalInfo = useQuery(
-    api.organizationOntology.getOrganizationLegal,
+    apiAny.organizationOntology.getOrganizationLegal,
     currentOrg ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   // Get organization branding (logo) - SAME as Manage Org
   const brandingSettings = useQuery(
-    api.organizationOntology.getOrganizationSettings,
+    apiAny.organizationOntology.getOrganizationSettings,
     currentOrg
       ? {
           organizationId: currentOrg.id as Id<"organizations">,
@@ -95,7 +105,7 @@ export function InvoiceSettingsTab() {
 
   // Get organization invoicing settings (prefix, next number, terms)
   const invoicingSettings = useQuery(
-    api.organizationOntology.getOrganizationSettings,
+    apiAny.organizationOntology.getOrganizationSettings,
     currentOrg
       ? {
           organizationId: currentOrg.id as Id<"organizations">,
@@ -106,26 +116,27 @@ export function InvoiceSettingsTab() {
 
   // Get the ACTUAL current invoice counter (what will be used for next invoice)
   const currentCounter = useQuery(
-    api.organizationOntology.getCurrentInvoiceCounter,
+    apiAny.organizationOntology.getCurrentInvoiceCounter,
     currentOrg ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   // Get organization addresses to find tax origin address
   const addresses = useQuery(
-    api.organizationOntology.getOrganizationAddresses,
+    apiAny.organizationOntology.getOrganizationAddresses,
     currentOrg ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip"
   );
 
   // Find the tax origin address
   const taxOriginAddress = addresses?.find(
-    (addr) => (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
+    (addr: { customProperties?: { isTaxOrigin?: boolean } }) =>
+      (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
   );
 
   // ============================================================================
   // MUTATIONS - Only for invoice-specific settings
   // ============================================================================
 
-  const updateSettings = useMutation(api.organizationOntology.updateOrganizationSettings);
+  const updateSettings = useMutation(apiAny.organizationOntology.updateOrganizationSettings);
 
   // ============================================================================
   // POPULATE FORM FROM EXISTING DATA
@@ -246,14 +257,22 @@ export function InvoiceSettingsTab() {
       });
 
       notification.success(
-        "Invoice Settings Saved",
-        "Invoice numbering and payment terms updated successfully."
+        tx("ui.invoicing_window.invoice_settings.notifications.save_success_title", "Invoice Settings Saved"),
+        tx(
+          "ui.invoicing_window.invoice_settings.notifications.save_success_message",
+          "Invoice numbering and payment terms updated successfully.",
+        )
       );
     } catch (error) {
       console.error("Failed to save invoice settings:", error);
       notification.error(
-        "Save Failed",
-        error instanceof Error ? error.message : "Failed to save settings"
+        tx("ui.invoicing_window.invoice_settings.notifications.save_failed_title", "Save Failed"),
+        error instanceof Error
+          ? error.message
+          : tx(
+              "ui.invoicing_window.invoice_settings.notifications.save_failed_message",
+              "Failed to save settings",
+            )
       );
     } finally {
       setIsSaving(false);
@@ -274,10 +293,13 @@ export function InvoiceSettingsTab() {
       <div>
         <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Settings size={16} />
-          Invoice Settings
+          {tx("ui.invoicing_window.invoice_settings.header.title", "Invoice Settings")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Configure business profile and default settings for all invoices. These settings appear on your invoice PDFs and emails.
+          {tx(
+            "ui.invoicing_window.invoice_settings.header.subtitle",
+            "Configure business profile and default settings for all invoices. These settings appear on your invoice PDFs and emails.",
+          )}
         </p>
       </div>
 
@@ -292,23 +314,27 @@ export function InvoiceSettingsTab() {
         <Receipt size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
         <div>
           <h5 className="text-xs font-bold mb-1" style={{ color: "var(--tone-accent)" }}>
-            What Appears on Your Invoices
+            {tx("ui.invoicing_window.invoice_settings.appears_on_invoice.title", "What Appears on Your Invoices")}
           </h5>
           <div className="grid grid-cols-2 gap-x-4 text-[11px]" style={{ color: "var(--neutral-gray)" }}>
             <div>
-              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>Header:</p>
+              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.invoicing_window.invoice_settings.appears_on_invoice.header", "Header:")}
+              </p>
               <ul className="space-y-0.5 ml-2">
-                <li>• Company logo</li>
-                <li>• Company name</li>
-                <li>• Business address</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.header_logo", "• Company logo")}</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.header_name", "• Company name")}</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.header_address", "• Business address")}</li>
               </ul>
             </div>
             <div>
-              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>Footer:</p>
+              <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.invoicing_window.invoice_settings.appears_on_invoice.footer", "Footer:")}
+              </p>
               <ul className="space-y-0.5 ml-2">
-                <li>• Phone & email</li>
-                <li>• VAT/Tax ID</li>
-                <li>• Payment terms</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.footer_phone", "• Phone & email")}</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.footer_tax_id", "• VAT/Tax ID")}</li>
+                <li>{tx("ui.invoicing_window.invoice_settings.appears_on_invoice.footer_terms", "• Payment terms")}</li>
               </ul>
             </div>
           </div>
@@ -326,10 +352,15 @@ export function InvoiceSettingsTab() {
         <Info size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--warning)" }} />
         <div>
           <h5 className="text-xs font-bold mb-1" style={{ color: "var(--warning)" }}>
-            Shared with Manage Organization
+            {tx("ui.invoicing_window.invoice_settings.shared.title", "Shared with Manage Organization")}
           </h5>
           <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-            These settings are the same as in <strong>Manage Organization</strong>. Changes made here will be reflected there too, and vice versa.
+            {tx("ui.invoicing_window.invoice_settings.shared.text_prefix", "These settings are the same as in")}{" "}
+            <strong>{tx("ui.invoicing_window.invoice_settings.shared.manage_org", "Manage Organization")}</strong>
+            {tx(
+              "ui.invoicing_window.invoice_settings.shared.text_suffix",
+              ". Changes made here will be reflected there too, and vice versa.",
+            )}
           </p>
         </div>
       </div>
@@ -346,11 +377,11 @@ export function InvoiceSettingsTab() {
           <div className="flex items-center gap-2">
             <Building2 size={16} style={{ color: "var(--tone-accent)" }} />
             <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-              Business Profile Preview
+              {tx("ui.invoicing_window.invoice_settings.business_profile.title", "Business Profile Preview")}
             </h4>
           </div>
           <span className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--tone-accent)", color: "white" }}>
-            Read-only
+            {tx("ui.invoicing_window.invoice_settings.business_profile.read_only", "Read-only")}
           </span>
         </div>
 
@@ -360,14 +391,14 @@ export function InvoiceSettingsTab() {
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Image size={12} />
-                Company Logo
+                {tx("ui.invoicing_window.invoice_settings.business_profile.company_logo", "Company Logo")}
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "branding" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--tone-accent)", color: "white" }}
               >
-                Edit in Manage Org
+                {tx("ui.invoicing_window.invoice_settings.business_profile.edit_manage_org", "Edit in Manage Org")}
               </button>
             </div>
             <div className="flex items-center gap-4">
@@ -380,11 +411,17 @@ export function InvoiceSettingsTab() {
               >
                 {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="Company Logo" className="max-w-full max-h-full object-contain" />
+                  <img
+                    src={logoUrl}
+                    alt={tx("ui.invoicing_window.invoice_settings.business_profile.company_logo", "Company Logo")}
+                    className="max-w-full max-h-full object-contain"
+                  />
                 ) : (
                   <div className="text-center">
                     <Image size={32} className="mx-auto mb-1" style={{ color: "var(--neutral-gray)" }} />
-                    <p className="text-[9px]" style={{ color: "var(--neutral-gray)" }}>No logo set</p>
+                    <p className="text-[9px]" style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.no_logo", "No logo set")}
+                    </p>
                   </div>
                 )}
               </div>
@@ -402,10 +439,14 @@ export function InvoiceSettingsTab() {
           <div>
             <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               <Building2 size={12} />
-              Company Name
+              {tx("ui.invoicing_window.invoice_settings.business_profile.company_name", "Company Name")}
             </label>
             <p className="text-sm px-3 py-2 rounded border-2" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
-              {companyName || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
+              {companyName || (
+                <span style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                </span>
+              )}
             </p>
           </div>
 
@@ -414,25 +455,35 @@ export function InvoiceSettingsTab() {
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <CreditCard size={12} />
-                VAT & Tax ID
+                {tx("ui.invoicing_window.invoice_settings.business_profile.vat_tax_id", "VAT & Tax ID")}
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "legal_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--tone-accent)", color: "white" }}
               >
-                Edit in Manage Org
+                {tx("ui.invoicing_window.invoice_settings.business_profile.edit_manage_org", "Edit in Manage Org")}
               </button>
             </div>
             <p className="text-sm px-3 py-2 rounded border-2 font-mono" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)", minHeight: "38px", display: "flex", alignItems: "center" }}>
               {vatNumber || taxId ? (
                 <>
-                  {vatNumber && <span>VAT: {vatNumber}</span>}
+                  {vatNumber && (
+                    <span>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.vat_prefix", "VAT:")} {vatNumber}
+                    </span>
+                  )}
                   {vatNumber && taxId && <span className="mx-2">|</span>}
-                  {taxId && <span>Tax: {taxId}</span>}
+                  {taxId && (
+                    <span>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.tax_prefix", "Tax:")} {taxId}
+                    </span>
+                  )}
                 </>
               ) : (
-                <span style={{ color: "var(--neutral-gray)" }}>Not set</span>
+                <span style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                </span>
               )}
             </p>
           </div>
@@ -442,39 +493,63 @@ export function InvoiceSettingsTab() {
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Mail size={12} />
-                Contact Information
+                {tx("ui.invoicing_window.invoice_settings.business_profile.contact_information", "Contact Information")}
               </label>
               <button
                 onClick={() => openWindow("manage", "Manage", undefined, undefined, undefined, "ui.windows.manage.title", undefined, { activeTab: "contact_info" })}
                 className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                 style={{ background: "var(--tone-accent)", color: "white" }}
               >
-                Edit in Manage Org
+                {tx("ui.invoicing_window.invoice_settings.business_profile.edit_manage_org", "Edit in Manage Org")}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Contact Email:</p>
+                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.contact_email", "Contact Email:")}
+                </p>
                 <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
-                  {email || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
+                  {email || (
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                    </span>
+                  )}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Billing Email:</p>
+                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.billing_email", "Billing Email:")}
+                </p>
                 <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
-                  {billingEmail || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
+                  {billingEmail || (
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                    </span>
+                  )}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Phone:</p>
+                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.phone", "Phone:")}
+                </p>
                 <p className="text-xs px-2 py-1 rounded border" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
-                  {phone || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
+                  {phone || (
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                    </span>
+                  )}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>Website:</p>
+                <p className="text-[10px] mb-1" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.invoicing_window.invoice_settings.business_profile.website", "Website:")}
+                </p>
                 <p className="text-xs px-2 py-1 rounded border truncate" style={{ background: "var(--window-document-bg)", borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}>
-                  {website || <span style={{ color: "var(--neutral-gray)" }}>Not set</span>}
+                  {website || (
+                    <span style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.invoicing_window.invoice_settings.business_profile.not_set", "Not set")}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -494,7 +569,7 @@ export function InvoiceSettingsTab() {
           <div className="flex items-center gap-2">
             <MapPin size={16} style={{ color: "var(--tone-accent)" }} />
             <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-              Business Address
+              {tx("ui.invoicing_window.invoice_settings.business_address.title", "Business Address")}
             </h4>
           </div>
           {!taxOriginAddress && (
@@ -503,7 +578,7 @@ export function InvoiceSettingsTab() {
               style={{ background: "var(--warning)", color: "white" }}
             >
               <AlertTriangle size={10} />
-              No tax origin set
+              {tx("ui.invoicing_window.invoice_settings.business_address.no_tax_origin_set", "No tax origin set")}
             </span>
           )}
         </div>
@@ -527,7 +602,9 @@ export function InvoiceSettingsTab() {
               </p>
             </div>
             <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              This is your <strong>Tax Origin Address</strong>. To change it,{" "}
+              {tx("ui.invoicing_window.invoice_settings.business_address.tax_origin_intro", "This is your")}{" "}
+              <strong>{tx("ui.invoicing_window.invoice_settings.business_address.tax_origin_label", "Tax Origin Address")}</strong>
+              {tx("ui.invoicing_window.invoice_settings.business_address.tax_origin_change", ". To change it,")}{" "}
               <button
                 onClick={() => {
                   openWindow(
@@ -544,9 +621,9 @@ export function InvoiceSettingsTab() {
                 className="font-bold hover:underline"
                 style={{ color: "var(--tone-accent)" }}
               >
-                open Manage Organization → Addresses
+                {tx("ui.invoicing_window.invoice_settings.business_address.open_manage_addresses", "open Manage Organization → Addresses")}
               </button>{" "}
-              and mark a different address as tax origin.
+              {tx("ui.invoicing_window.invoice_settings.business_address.mark_different", "and mark a different address as tax origin.")}
             </p>
           </div>
         ) : (
@@ -559,10 +636,13 @@ export function InvoiceSettingsTab() {
           >
             <AlertTriangle size={24} className="mx-auto mb-2" style={{ color: "var(--warning)" }} />
             <p className="text-xs font-semibold mb-1" style={{ color: "var(--warning)" }}>
-              No Tax Origin Address Set
+              {tx("ui.invoicing_window.invoice_settings.business_address.no_tax_origin_title", "No Tax Origin Address Set")}
             </p>
             <p className="text-[11px] mb-3" style={{ color: "var(--neutral-gray)" }}>
-              Your business address will not appear on invoices until you set a tax origin address.
+              {tx(
+                "ui.invoicing_window.invoice_settings.business_address.no_tax_origin_message",
+                "Your business address will not appear on invoices until you set a tax origin address.",
+              )}
             </p>
             <button
               onClick={() => {
@@ -584,7 +664,7 @@ export function InvoiceSettingsTab() {
                 border: "2px solid var(--window-document-border)",
               }}
             >
-              Set Tax Origin Address
+              {tx("ui.invoicing_window.invoice_settings.business_address.set_tax_origin_button", "Set Tax Origin Address")}
             </button>
           </div>
         )}
@@ -602,7 +682,7 @@ export function InvoiceSettingsTab() {
           <div className="flex items-center gap-2">
             <Hash size={16} style={{ color: "var(--tone-accent)" }} />
             <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-              Invoice Numbering
+              {tx("ui.invoicing_window.invoice_settings.numbering.title", "Invoice Numbering")}
             </h4>
           </div>
         </div>
@@ -618,11 +698,18 @@ export function InvoiceSettingsTab() {
           <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
           <div>
             <h5 className="text-xs font-bold mb-1" style={{ color: "var(--tone-accent)" }}>
-              Sequential Numbering (Stripe Compatible)
+              {tx("ui.invoicing_window.invoice_settings.numbering.sequential_title", "Sequential Numbering (Stripe Compatible)")}
             </h5>
             <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              Invoices are numbered sequentially (e.g., {invoicePrefix || "INV"}-{String(nextInvoiceNumber).padStart(4, '0')}, {invoicePrefix || "INV"}-{String(nextInvoiceNumber + 1).padStart(4, '0')}, {invoicePrefix || "INV"}-{String(nextInvoiceNumber + 2).padStart(4, '0')}...).
-              This ensures gap-free numbering required for legal compliance and Stripe invoicing integration.
+              {tx(
+                "ui.invoicing_window.invoice_settings.numbering.sequential_description",
+                "Invoices are numbered sequentially (e.g., {{current}}, {{next}}, {{next2}}...). This ensures gap-free numbering required for legal compliance and Stripe invoicing integration.",
+                {
+                  current: `${invoicePrefix || "INV"}-${String(nextInvoiceNumber).padStart(4, "0")}`,
+                  next: `${invoicePrefix || "INV"}-${String(nextInvoiceNumber + 1).padStart(4, "0")}`,
+                  next2: `${invoicePrefix || "INV"}-${String(nextInvoiceNumber + 2).padStart(4, "0")}`,
+                },
+              )}
             </p>
           </div>
         </div>
@@ -632,13 +719,13 @@ export function InvoiceSettingsTab() {
           <div>
             <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
               <FileText size={12} />
-              Invoice Prefix
+              {tx("ui.invoicing_window.invoice_settings.numbering.invoice_prefix", "Invoice Prefix")}
             </label>
             <input
               type="text"
               value={invoicePrefix}
               onChange={(e) => setInvoicePrefix(e.target.value)}
-              placeholder="INV"
+              placeholder={tx("ui.invoicing_window.invoice_settings.numbering.prefix_placeholder", "INV")}
               className="w-full px-3 py-2 text-sm font-mono rounded border-2"
               style={{
                 background: "var(--window-document-bg)",
@@ -647,7 +734,10 @@ export function InvoiceSettingsTab() {
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Prefix for all invoices (e.g., INV, INVOICE, INV-2025 to include year).
+              {tx(
+                "ui.invoicing_window.invoice_settings.numbering.prefix_help",
+                "Prefix for all invoices (e.g., INV, INVOICE, INV-2025 to include year).",
+              )}
             </p>
           </div>
 
@@ -656,7 +746,7 @@ export function InvoiceSettingsTab() {
             <div className="flex items-center justify-between mb-2">
               <label className="flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
                 <Hash size={12} />
-                Next Invoice Number
+                {tx("ui.invoicing_window.invoice_settings.numbering.next_invoice_number", "Next Invoice Number")}
               </label>
               {!isEditingInvoiceNumber ? (
                 <button
@@ -664,7 +754,7 @@ export function InvoiceSettingsTab() {
                   className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                   style={{ background: "var(--warning)", color: "white" }}
                 >
-                  Edit Number
+                  {tx("ui.invoicing_window.invoice_settings.numbering.edit_number", "Edit Number")}
                 </button>
               ) : (
                 <button
@@ -672,7 +762,7 @@ export function InvoiceSettingsTab() {
                   className="text-[10px] px-2 py-1 rounded hover:opacity-80"
                   style={{ background: "var(--window-document-border)", color: "var(--window-document-text)" }}
                 >
-                  Cancel Edit
+                  {tx("ui.invoicing_window.invoice_settings.numbering.cancel_edit", "Cancel Edit")}
                 </button>
               )}
             </div>
@@ -687,7 +777,11 @@ export function InvoiceSettingsTab() {
               >
                 <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" style={{ color: "var(--warning)" }} />
                 <p className="text-[9px]" style={{ color: "var(--warning)" }}>
-                  <strong>Warning:</strong> Changing this number can create duplicate invoice numbers or gaps in your sequence. Only change if you're migrating from another system or correcting an error.
+                  <strong>{tx("ui.invoicing_window.invoice_settings.numbering.warning_label", "Warning:")}</strong>{" "}
+                  {tx(
+                    "ui.invoicing_window.invoice_settings.numbering.warning_message",
+                    "Changing this number can create duplicate invoice numbers or gaps in your sequence. Only change if you're migrating from another system or correcting an error.",
+                  )}
                 </p>
               </div>
             )}
@@ -707,10 +801,21 @@ export function InvoiceSettingsTab() {
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Next invoice: <strong className="font-mono">{invoicePrefix}-{String(nextInvoiceNumber).padStart(4, '0')}</strong>
+              {tx("ui.invoicing_window.invoice_settings.numbering.next_invoice_label", "Next invoice:")}{" "}
+              <strong className="font-mono">{invoicePrefix}-{String(nextInvoiceNumber).padStart(4, "0")}</strong>
               {currentCounter && currentCounter.nextNumber > 1 && (
                 <span className="ml-2 text-[9px]" style={{ color: "var(--tone-accent)" }}>
-                  (based on {currentCounter.nextNumber - 1} existing {currentCounter.nextNumber - 1 === 1 ? 'invoice' : 'invoices'})
+                  {tx(
+                    "ui.invoicing_window.invoice_settings.numbering.existing_count",
+                    "(based on {{count}} existing {{label}})",
+                    {
+                      count: currentCounter.nextNumber - 1,
+                      label:
+                        currentCounter.nextNumber - 1 === 1
+                          ? tx("ui.invoicing_window.invoice_settings.numbering.invoice_singular", "invoice")
+                          : tx("ui.invoicing_window.invoice_settings.numbering.invoice_plural", "invoices"),
+                    },
+                  )}
                 </span>
               )}
             </p>
@@ -729,13 +834,13 @@ export function InvoiceSettingsTab() {
         <div className="flex items-center gap-2 mb-4">
           <Calendar size={16} style={{ color: "var(--tone-accent)" }} />
           <h4 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-            Payment Terms
+            {tx("ui.invoicing_window.invoice_settings.payment_terms.title", "Payment Terms")}
           </h4>
         </div>
 
         <div>
           <label className="flex items-center gap-1 text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
-            Default Payment Terms
+            {tx("ui.invoicing_window.invoice_settings.payment_terms.default_label", "Default Payment Terms")}
           </label>
           <select
             value={defaultPaymentTerms}
@@ -747,15 +852,30 @@ export function InvoiceSettingsTab() {
               color: "var(--window-document-text)",
             }}
           >
-            <option value="due_on_receipt">Due on Receipt</option>
-            <option value="net_7">Net 7 (7 days)</option>
-            <option value="net_15">Net 15 (15 days)</option>
-            <option value="net_30">Net 30 (30 days)</option>
-            <option value="net_60">Net 60 (60 days)</option>
-            <option value="net_90">Net 90 (90 days)</option>
+            <option value="due_on_receipt">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.due_on_receipt", "Due on Receipt")}
+            </option>
+            <option value="net_7">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.net_7", "Net 7 (7 days)")}
+            </option>
+            <option value="net_15">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.net_15", "Net 15 (15 days)")}
+            </option>
+            <option value="net_30">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.net_30", "Net 30 (30 days)")}
+            </option>
+            <option value="net_60">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.net_60", "Net 60 (60 days)")}
+            </option>
+            <option value="net_90">
+              {tx("ui.invoicing_window.invoice_settings.payment_terms.net_90", "Net 90 (90 days)")}
+            </option>
           </select>
           <p className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Default payment terms applied to new invoices. Can be overridden when creating individual invoices.
+            {tx(
+              "ui.invoicing_window.invoice_settings.payment_terms.help",
+              "Default payment terms applied to new invoices. Can be overridden when creating individual invoices.",
+            )}
           </p>
         </div>
       </div>
@@ -771,16 +891,19 @@ export function InvoiceSettingsTab() {
         <Info size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
         <div>
           <h5 className="text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Single Source of Truth
+            {tx("ui.invoicing_window.invoice_settings.source_of_truth.title", "Single Source of Truth")}
           </h5>
           <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-            These settings are used as defaults for all invoice creation flows:
+            {tx(
+              "ui.invoicing_window.invoice_settings.source_of_truth.description",
+              "These settings are used as defaults for all invoice creation flows:",
+            )}
           </p>
           <ul className="text-[11px] mt-1 space-y-0.5" style={{ color: "var(--neutral-gray)" }}>
-            <li>• Checkout payments (invoice payment method)</li>
-            <li>• Manual invoice creation</li>
-            <li>• B2B consolidated invoices</li>
-            <li>• Draft invoices from transactions</li>
+            <li>{tx("ui.invoicing_window.invoice_settings.source_of_truth.checkout", "• Checkout payments (invoice payment method)")}</li>
+            <li>{tx("ui.invoicing_window.invoice_settings.source_of_truth.manual", "• Manual invoice creation")}</li>
+            <li>{tx("ui.invoicing_window.invoice_settings.source_of_truth.b2b", "• B2B consolidated invoices")}</li>
+            <li>{tx("ui.invoicing_window.invoice_settings.source_of_truth.draft", "• Draft invoices from transactions")}</li>
           </ul>
         </div>
       </div>
@@ -803,7 +926,9 @@ export function InvoiceSettingsTab() {
           ) : (
             <Save size={14} />
           )}
-          {isSaving ? "Saving..." : "Save Settings"}
+          {isSaving
+            ? tx("ui.invoicing_window.invoice_settings.save.saving", "Saving...")
+            : tx("ui.invoicing_window.invoice_settings.save.button", "Save Settings")}
         </button>
       </div>
     </div>

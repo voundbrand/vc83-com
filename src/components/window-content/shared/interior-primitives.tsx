@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 
 type InteriorButtonVariant = "neutral" | "primary" | "subtle" | "danger" | "ghost";
 type InteriorButtonSize = "sm" | "md" | "lg";
+type InteriorBadgeTone = "default" | "success" | "warn" | "error" | "info";
+type InteriorModalSize = "sm" | "md" | "lg";
 
 const INTERIOR_BUTTON_VARIANT_CLASS: Record<InteriorButtonVariant, string> = {
   neutral: "",
@@ -15,9 +17,15 @@ const INTERIOR_BUTTON_VARIANT_CLASS: Record<InteriorButtonVariant, string> = {
 };
 
 const INTERIOR_BUTTON_SIZE_CLASS: Record<InteriorButtonSize, string> = {
-  sm: "h-8 px-2.5 text-[11px]",
-  md: "h-9 px-3 text-xs",
-  lg: "h-10 px-4 text-sm",
+  sm: "h-7 px-2.5 text-xs font-medium",
+  md: "h-8 px-3 text-xs font-medium",
+  lg: "h-9 px-4 text-sm font-medium",
+};
+
+const INTERIOR_MODAL_SIZE_CLASS: Record<InteriorModalSize, string> = {
+  sm: "desktop-interior-modal-size-sm",
+  md: "desktop-interior-modal-size-md",
+  lg: "desktop-interior-modal-size-lg",
 };
 
 export function InteriorRoot({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -38,6 +46,10 @@ export function InteriorSubtitle({ className, ...props }: React.HTMLAttributes<H
 
 export function InteriorPanel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("desktop-interior-panel", className)} {...props} />;
+}
+
+export function InteriorCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("desktop-interior-card", className)} {...props} />;
 }
 
 export function InteriorSectionHeader({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
@@ -116,10 +128,80 @@ export const InteriorSelect = React.forwardRef<HTMLSelectElement, React.SelectHT
 );
 InteriorSelect.displayName = "InteriorSelect";
 
+export const InteriorCheckbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, type = "checkbox", ...props }, ref) => {
+    return <input ref={ref} type={type} className={cn("desktop-interior-checkbox", className)} {...props} />;
+  },
+);
+InteriorCheckbox.displayName = "InteriorCheckbox";
+
+interface InteriorBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  tone?: InteriorBadgeTone;
+}
+
+export const InteriorBadge = React.forwardRef<HTMLSpanElement, InteriorBadgeProps>(
+  ({ className, tone = "default", ...props }, ref) => {
+    return <span ref={ref} data-tone={tone} className={cn("desktop-interior-badge", className)} {...props} />;
+  },
+);
+InteriorBadge.displayName = "InteriorBadge";
+
+export const InteriorTable = React.forwardRef<HTMLTableElement, React.TableHTMLAttributes<HTMLTableElement>>(
+  ({ className, ...props }, ref) => {
+    return <table ref={ref} className={cn("desktop-interior-table", className)} {...props} />;
+  },
+);
+InteriorTable.displayName = "InteriorTable";
+
+export const InteriorModalOverlay = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    return <div ref={ref} className={cn("desktop-interior-modal-overlay", className)} {...props} />;
+  },
+);
+InteriorModalOverlay.displayName = "InteriorModalOverlay";
+
+interface InteriorModalProps extends React.HTMLAttributes<HTMLDivElement> {
+  size?: InteriorModalSize;
+}
+
+export const InteriorModal = React.forwardRef<HTMLDivElement, InteriorModalProps>(
+  ({ className, size = "md", ...props }, ref) => {
+    return <div ref={ref} className={cn("desktop-interior-modal", INTERIOR_MODAL_SIZE_CLASS[size], className)} {...props} />;
+  },
+);
+InteriorModal.displayName = "InteriorModal";
+
+export const InteriorModalHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    return <div ref={ref} className={cn("desktop-interior-modal-header", className)} {...props} />;
+  },
+);
+InteriorModalHeader.displayName = "InteriorModalHeader";
+
+export const InteriorModalBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    return <div ref={ref} className={cn("desktop-interior-modal-body", className)} {...props} />;
+  },
+);
+InteriorModalBody.displayName = "InteriorModalBody";
+
+export const InteriorModalActions = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
+    return <div ref={ref} className={cn("desktop-interior-modal-actions", className)} {...props} />;
+  },
+);
+InteriorModalActions.displayName = "InteriorModalActions";
+
+export const InteriorModalClose = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+  ({ className, type = "button", ...props }, ref) => {
+    return <button ref={ref} type={type} className={cn("desktop-interior-modal-close", className)} {...props} />;
+  },
+);
+InteriorModalClose.displayName = "InteriorModalClose";
+
 export const InteriorTileButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
   ({ className, type = "button", ...props }, ref) => {
     return <button ref={ref} type={type} className={cn("desktop-interior-tile", className)} {...props} />;
   },
 );
 InteriorTileButton.displayName = "InteriorTileButton";
-

@@ -28,6 +28,7 @@ import { InvoicingWindow } from "@/components/window-content/invoicing-window"
 import { WorkflowsWindow } from "@/components/window-content/workflows-window"
 import { TemplatesWindow } from "@/components/window-content/templates-window"
 import { AIChatWindow } from "@/components/window-content/ai-chat-window"
+import { type LayoutMode } from "@/components/window-content/ai-chat-window/layout-mode-context"
 import { BrainWindow } from "@/components/window-content/brain-window"
 import {
   getVoiceAssistantWindowContract,
@@ -42,7 +43,7 @@ import { TutorialsDocsWindow } from "@/components/window-content/tutorials-docs-
 import { IntegrationsWindow } from "@/components/window-content/integrations-window"
 import { ComplianceWindow } from "@/components/window-content/compliance-window"
 import { OrganizationSwitcherWindow } from "@/components/window-content/organization-switcher-window"
-import { BenefitsWindow } from "@/components/window-content/benefits-window"
+import { BenefitsWindow, type BenefitsViewType } from "@/components/window-content/benefits-window"
 import { BookingWindow } from "@/components/window-content/booking-window"
 import { BuilderBrowserWindow } from "@/components/window-content/builder-browser-window"
 import { AgentsWindow } from "@/components/window-content/agents-window"
@@ -50,13 +51,15 @@ import { LayersBrowserWindow } from "@/components/window-content/layers-browser-
 import { FinderWindow } from "@/components/window-content/finder-window"
 import { TerminalWindow } from "@/components/window-content/terminal-window"
 import { TextEditorWindow } from "@/components/window-content/text-editor-window"
+import { CreditsRedeemWindow } from "@/components/window-content/credits-redeem-window"
+import { FeedbackWindow } from "@/components/window-content/feedback-window"
 import {
   dispatchTextEditorCommand,
   TEXT_EDITOR_OPEN_REQUEST_EVENT,
   type TextEditorOpenRequestDetail,
 } from "@/components/window-content/text-editor-window/bridge"
 import { WaitingForApprovalScreen } from "@/components/waiting-for-approval-screen"
-import { useIsDesktopShellFallback } from "@/hooks/use-media-query"
+import { useIsDesktopShellFallback, useMediaQuery } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
@@ -70,6 +73,8 @@ import {
   serializeShellUrlState,
   stripShellQueryParams,
 } from "@/lib/shell/url-state"
+import { resolveOperatorCollaborationShellResolution } from "@/lib/operator-collaboration-cutover"
+import { isWindowRegistered, WINDOW_REGISTRY } from "@/hooks/window-registry"
 import {
   getProductAppIconByCode,
   getWindowIconById,
@@ -94,6 +99,7 @@ import {
   PRODUCT_OS_CATALOG_BY_CODE,
   PRODUCT_OS_CATEGORIES,
   PRODUCT_OS_CATEGORY_ICON_ID,
+  PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES,
   PRODUCT_OS_NEW_CODES,
   PRODUCT_OS_POPULAR_CODES,
   getProductOSBadgeTranslationKey,
@@ -102,14 +108,38 @@ import {
   normalizeProductOSReleaseStage,
 } from "@/lib/product-os/catalog"
 import { useQuery } from "convex/react"
+import { LifeBuoy, MessageSquare, TicketPercent } from "lucide-react"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
+import { captureShellTelemetry } from "@/components/providers/posthog-provider"
 
-const GUEST_DEEPLINK_ALLOWED_APPS = new Set(["ai-assistant", "store", "login"])
+const GUEST_DEEPLINK_ALLOWED_APPS = new Set(["store", "login"])
+const PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODE_SET = new Set<string>(PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES)
+
+type ShellCreditBalanceSnapshot = {
+  exists: boolean;
+  giftedCredits: number;
+  dailyCredits: number;
+  monthlyCredits: number;
+  monthlyCreditsTotal: number;
+  purchasedCredits: number;
+  totalCredits: number;
+};
+
+type StoreWindowSection =
+  | "plans"
+  | "credits"
+  | "limits"
+  | "addons"
+  | "billing"
+  | "trial"
+  | "transparency"
+  | "calculator"
+  | "faq";
 
 export default function HomePage() {
   // Load translations for start menu and app names
-  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows", "ui.product_os"])
+  const { t } = useMultipleNamespaces(["ui.start_menu", "ui.app", "ui.windows", "ui.product_os", "ui.credits"])
   const tx = useCallback(
     (key: string, fallback: string, params?: Record<string, string | number>) => {
       const translated = t(key, params)
@@ -156,11 +186,24 @@ export default function HomePage() {
     : undefined
 
   // Resolve default desktop background from env var storage ID
-  const defaultBgStorageId = process.env.NEXT_PUBLIC_DESKTOP_BG_STORAGE_ID;
+  // Select variant based on appearance mode (dark/sepia) and viewport (desktop/tall mobile)
+  const isTallViewport = useMediaQuery("(orientation: portrait)");
+  const defaultBgStorageId = (() => {
+    if (mode === "sepia") {
+      return isTallViewport
+        ? process.env.NEXT_PUBLIC_BG_SEPIA_TALL
+        : process.env.NEXT_PUBLIC_BG_SEPIA;
+    }
+    // dark mode (default)
+    return isTallViewport
+      ? process.env.NEXT_PUBLIC_BG_DARK_TALL
+      : process.env.NEXT_PUBLIC_BG_DARK;
+  })();
   const defaultBgUrl = useQuery(
     api.files.getFileUrl,
     defaultBgStorageId ? { storageId: defaultBgStorageId as Id<"_storage"> } : "skip"
   );
+
   const desktopBackground = orgDesktopBackground || defaultBgUrl || undefined;
 
   // Check if user has seen the welcome tutorial
@@ -175,6 +218,10 @@ export default function HomePage() {
     api.betaAccess.checkBetaAccessStatus,
     { sessionId: sessionId || undefined }
   )
+  const creditsBalance = useQuery(
+    api.credits.index.getCreditBalance,
+    isSignedIn && currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip",
+  ) as ShellCreditBalanceSnapshot | undefined
 
   const openWelcomeWindow = () => {
     openWindow("welcome", "l4yercak3.exe", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
@@ -222,8 +269,28 @@ export default function HomePage() {
     openWindow("products", "Products", <ProductsWindow />, { x: 130, y: 50 }, { width: 950, height: 650 }, 'ui.app.products')
   }
 
-  const openTicketsWindow = () => {
-    openWindow("tickets", "Tickets", <TicketsWindow />, { x: 140, y: 55 }, { width: 950, height: 650 }, 'ui.app.tickets')
+  const openTicketsWindow = (initialPanel?: "support-intake") => {
+    const deepLinkNonce = initialPanel ? `tickets-${initialPanel}-${Date.now()}` : undefined
+    openWindow(
+      "tickets",
+      "Tickets",
+      <TicketsWindow initialPanel={initialPanel} context={initialPanel ? "support_intake_entry" : undefined} />,
+      { x: 140, y: 55 },
+      { width: 950, height: 650 },
+      'ui.app.tickets',
+      undefined,
+      initialPanel
+        ? {
+            initialPanel,
+            deepLinkNonce,
+            openContext: "support_intake_entry",
+          }
+        : undefined,
+    )
+  }
+
+  const openSupportIntakeWindow = () => {
+    openTicketsWindow("support-intake")
   }
 
   const openCertificatesWindow = () => {
@@ -315,9 +382,37 @@ export default function HomePage() {
     openWindow("templates", "Templates", <TemplatesWindow />, { x: 220, y: 65 }, { width: 1100, height: 700 }, 'ui.app.templates')
   }
 
-  const openVoiceAssistantWindow = (windowId: VoiceAssistantWindowId) => {
+  type AIAssistantWindowOpenOptions = {
+    initialLayoutMode?: LayoutMode
+    initialPanel?: string
+    openContext?: string
+    sourceSessionId?: string
+    sourceOrganizationId?: string
+  }
+
+  const openVoiceAssistantWindow = (
+    windowId: VoiceAssistantWindowId,
+    options?: AIAssistantWindowOpenOptions,
+  ) => {
     const windowContract = getVoiceAssistantWindowContract(windowId)
-    const component = windowId === "brain-voice" ? <BrainWindow initialMode="learn" /> : <AIChatWindow />
+    const isAIAssistantWindow = windowId === "ai-assistant"
+    const layoutResolution = resolveOperatorCollaborationShellResolution({
+      organizationId:
+        options?.sourceOrganizationId || (currentOrg?.id ? String(currentOrg.id) : undefined),
+      requestedLayoutMode: options?.initialLayoutMode || "slick",
+    })
+    const resolvedLayoutMode = layoutResolution.resolvedLayoutMode
+    const component = windowId === "brain-voice"
+      ? <BrainWindow initialMode="learn" />
+      : (
+          <AIChatWindow
+            initialLayoutMode={resolvedLayoutMode}
+            initialPanel={options?.initialPanel}
+            openContext={options?.openContext}
+            sourceSessionId={options?.sourceSessionId}
+            sourceOrganizationId={options?.sourceOrganizationId}
+          />
+        )
 
     openWindow(
       windowContract.windowId,
@@ -327,19 +422,63 @@ export default function HomePage() {
       windowContract.size,
       windowContract.titleKey,
       windowContract.iconId,
+      isAIAssistantWindow
+        ? {
+            initialLayoutMode: resolvedLayoutMode,
+            operatorCollaborationShellEnabled:
+              layoutResolution.collaborationShellEnabled,
+            operatorCollaborationCutoverReason: layoutResolution.reason,
+            operatorCollaborationCohortBucket: layoutResolution.cohortBucket,
+            ...(options?.initialPanel ? { initialPanel: options.initialPanel } : {}),
+            ...(options?.openContext ? { openContext: options.openContext } : {}),
+            ...(options?.sourceSessionId ? { sourceSessionId: options.sourceSessionId } : {}),
+            ...(options?.sourceOrganizationId
+              ? { sourceOrganizationId: options.sourceOrganizationId }
+              : {}),
+          }
+        : undefined,
     )
   }
 
+  const openAIAssistantWindowWithOptions = (options?: AIAssistantWindowOpenOptions) => {
+    openVoiceAssistantWindow("ai-assistant", {
+      initialLayoutMode: options?.initialLayoutMode || "slick",
+      ...(options?.initialPanel ? { initialPanel: options.initialPanel } : {}),
+      ...(options?.openContext ? { openContext: options.openContext } : {}),
+      ...(options?.sourceSessionId ? { sourceSessionId: options.sourceSessionId } : {}),
+      ...(options?.sourceOrganizationId
+        ? { sourceOrganizationId: options.sourceOrganizationId }
+        : {}),
+    })
+  }
+
   const openAIAssistantWindow = () => {
-    openVoiceAssistantWindow("ai-assistant")
+    if (!isSignedIn) {
+      openLoginWindow()
+      return
+    }
+    openAIAssistantWindowWithOptions({ initialLayoutMode: "slick" })
   }
 
   const openBrainVoiceWindow = () => {
     openVoiceAssistantWindow("brain-voice")
   }
 
-  const openStoreWindow = () => {
-    openWindow("store", "l4yercak3 Store", <StoreWindow />, { x: 150, y: 80 }, { width: 900, height: 650 }, 'ui.start_menu.store')
+  const openStoreWindow = (initialSection: StoreWindowSection = "plans") => {
+    const deepLinkNonce = `store-${Date.now()}`
+    openWindow(
+      "store",
+      "l4yercak3 Store",
+      <StoreWindow key={`store-${deepLinkNonce}`} initialSection={initialSection} />,
+      { x: 150, y: 80 },
+      { width: 900, height: 650 },
+      "ui.start_menu.store",
+      undefined,
+      {
+        initialSection,
+        deepLinkNonce,
+      },
+    )
   }
 
   const openProjectsWindow = () => {
@@ -350,8 +489,48 @@ export default function HomePage() {
     openWindow("compliance", "Compliance", <ComplianceWindow />, { x: 150, y: 100 }, { width: 900, height: 600 }, 'ui.app.compliance')
   }
 
-  const openBenefitsWindow = () => {
-    openWindow("benefits", "Benefits", <BenefitsWindow />, { x: 150, y: 100 }, { width: 1100, height: 700 }, 'ui.app.benefits')
+  const openBenefitsWindow = (initialView: BenefitsViewType = "benefits") => {
+    const deepLinkNonce = `benefits-${Date.now()}`
+    openWindow(
+      "benefits",
+      "Benefits",
+      <BenefitsWindow key={`benefits-${deepLinkNonce}`} initialView={initialView} />,
+      { x: 150, y: 100 },
+      { width: 1100, height: 700 },
+      "ui.app.benefits",
+      undefined,
+      {
+        initialView,
+        deepLinkNonce,
+      },
+    )
+  }
+
+  const openCreditsRedeemWindow = () => {
+    const deepLinkNonce = `credits-redeem-${Date.now()}`
+    openWindow(
+      "credits-redeem",
+      tx("ui.credits.redeem.title", "Redeem Credits"),
+      <CreditsRedeemWindow key={deepLinkNonce} />,
+      { x: 220, y: 120 },
+      { width: 560, height: 560 },
+      undefined,
+      "credits-redeem",
+      {
+        deepLinkNonce,
+        openContext: "credits_menu_redeem",
+      },
+    )
+  }
+
+  const openFeedbackWindow = () => {
+    openWindow(
+      "feedback",
+      tx("ui.start_menu.feedback", "Feedback"),
+      <FeedbackWindow />,
+      { x: 250, y: 100 },
+      { width: 560, height: 620 },
+    )
   }
 
   const openBookingWindow = () => {
@@ -397,7 +576,7 @@ export default function HomePage() {
     openWindow("organization-switcher", "Switch Organization", <OrganizationSwitcherWindow />, { x: centerX, y: centerY }, { width: 400, height: 400 }, 'ui.start_menu.organizations')
   }
 
-  const openIntegrationsWindow = (initialPanel?: "api-keys" | "microsoft") => {
+  const openIntegrationsWindow = (initialPanel?: "api-keys" | "microsoft" | "telegram") => {
     console.log('[HomePage] Opening Integrations window with panel:', initialPanel);
     openWindow(
       "integrations",
@@ -478,13 +657,49 @@ export default function HomePage() {
   const [hasOpenedInitialWindow, setHasOpenedInitialWindow] = useState(false);
 
   const replaceUrlWithParams = (params: URLSearchParams) => {
-    const url = window.location.pathname + (params.toString() ? `?${params.toString()}` : "")
+    const currentSearch = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search
+    const nextSearch = params.toString()
+    if (currentSearch === nextSearch) {
+      return false
+    }
+    const url = window.location.pathname + (nextSearch ? `?${nextSearch}` : "")
     window.history.replaceState({}, "", url)
+    return true
   }
 
-  const removeShellStateFromCurrentUrl = (includeUpgradeKeys: boolean = true) => {
+  const removeShellStateFromCurrentUrl = (
+    options: {
+      includeUpgradeKeys?: boolean;
+      cleanupReason?: string;
+      windowId?: string;
+      guestAllowed?: boolean;
+      isRegistered?: boolean;
+    } = {}
+  ) => {
+    const {
+      includeUpgradeKeys = true,
+      cleanupReason,
+      windowId,
+      guestAllowed,
+      isRegistered,
+    } = options
     const nextParams = stripShellQueryParams(new URLSearchParams(window.location.search), { includeUpgradeKeys })
-    replaceUrlWithParams(nextParams)
+    const didUpdateUrl = replaceUrlWithParams(nextParams)
+    if (!didUpdateUrl || !cleanupReason || !windowId) {
+      return
+    }
+
+    captureShellTelemetry("shell_deeplink_cleanup", {
+      windowId,
+      reason: cleanupReason,
+      isRestored,
+      authLoading,
+      isSignedIn,
+      guestAllowed: Boolean(guestAllowed),
+      isRegistered: Boolean(isRegistered),
+    })
   }
 
   useEffect(() => {
@@ -504,14 +719,19 @@ export default function HomePage() {
       return current
     }, undefined as (typeof openMobileWindows)[number] | undefined)
 
+    const keepWelcomeBehindAssistant = activeWindow?.id === "ai-assistant"
+
     openMobileWindows.forEach((window) => {
       if (window.id !== activeWindow?.id) {
+        if (keepWelcomeBehindAssistant && window.id === "welcome") {
+          return
+        }
         closeWindow(window.id)
       }
     })
   }, [closeWindow, isMobileShellFallback, windows])
 
-  // Open welcome/login window or tutorial on mount based on auth status
+  // Open initial window on mount based on auth status
   useEffect(() => {
     // Wait for window manager to finish restoring from sessionStorage
     if (!isRestored) {
@@ -519,26 +739,41 @@ export default function HomePage() {
     }
 
     // Only run once
-    if (hasOpenedInitialWindow || isMobileShellFallback) {
+    if (hasOpenedInitialWindow) {
       return;
     }
 
-    // Not signed in: Show login window
+    // Not signed in: prompt sign-in unless an explicit guest-allowed deep-link is requested
     if (!isSignedIn) {
       const params = new URLSearchParams(window.location.search);
       const openLogin = params.get('openLogin');
       const shellDeepLink = parseShellUrlState(params);
 
+      if (openLogin) {
+        const cleanedParams = new URLSearchParams(params);
+        cleanedParams.delete("openLogin");
+        replaceUrlWithParams(cleanedParams);
+        openLoginWindow();
+        setHasOpenedInitialWindow(true);
+        return;
+      }
+
+      if (shellDeepLink.app === "login") {
+        openLoginWindow();
+        setHasOpenedInitialWindow(true);
+        return;
+      }
+
       if (shellDeepLink.app === "ai-assistant") {
-        openAIAssistantWindow();
+        openLoginWindow();
         setHasOpenedInitialWindow(true);
         replaceUrlWithParams(stripShellQueryParams(params));
         return;
       }
 
-      if (openLogin === 'builder') {
-        // Clean up the URL
-        window.history.replaceState({}, '', window.location.pathname);
+      // Let explicit guest-allowed deep-link handling open non-auth windows (e.g. store).
+      if (shellDeepLink.app && GUEST_DEEPLINK_ALLOWED_APPS.has(shellDeepLink.app)) {
+        return;
       }
 
       openLoginWindow();
@@ -558,8 +793,12 @@ export default function HomePage() {
     }
 
     // Now we know: isSignedIn=true, currentOrg exists, tutorialProgress loaded
-    // Show welcome window for all signed-in users
+    // Show welcome + AI Assistant launch surface for signed-in users.
     openWelcomeWindow();
+    openAIAssistantWindowWithOptions({
+      initialLayoutMode: "slick",
+      openContext: isMobileShellFallback ? "mobile_first_run" : "desktop_first_run",
+    });
     setHasOpenedInitialWindow(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileShellFallback, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
@@ -591,11 +830,34 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
+  // Preflight deep-link cleanup for unknown app IDs even before restore/auth effects settle.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shellDeepLink = parseShellUrlState(params);
+    const openWindowParam = shellDeepLink.app;
+
+    if (!openWindowParam || isWindowRegistered(openWindowParam)) {
+      return;
+    }
+
+    removeShellStateFromCurrentUrl({
+      cleanupReason: "unknown_app_preflight",
+      windowId: openWindowParam,
+      guestAllowed: GUEST_DEEPLINK_ALLOWED_APPS.has(openWindowParam),
+      isRegistered: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRestored, authLoading, isSignedIn]);
+
   // Handle generic window opening via URL parameters
   // Canonical: ?app=<window-id>&panel=<panel-id>&entity=<id>&context=<source>
   // Legacy aliases remain supported: ?openWindow=... and ?window=...&tab=...
   // This enables deep linking to any registered window from CLI or external links
   useEffect(() => {
+    if (!isRestored) {
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const shellDeepLink = parseShellUrlState(params);
     const openWindowParam = shellDeepLink.app;
@@ -613,22 +875,29 @@ export default function HomePage() {
 
     // Avoid dropping auth-required deep links while auth session hydration is still in flight.
     if (!guestAllowed && authLoading) {
-      // Unknown window ids should still be cleaned promptly, even while auth hydration is pending.
-      import('@/hooks/window-registry')
-        .then(({ WINDOW_REGISTRY }) => {
-          if (!WINDOW_REGISTRY[openWindowParam]) {
-            console.warn('[HomePage] Unknown window ID in URL param during auth loading:', openWindowParam);
-            removeShellStateFromCurrentUrl();
-          }
-        })
-        .catch(() => {
-          removeShellStateFromCurrentUrl();
+      // Unknown window IDs should still be cleaned promptly during auth hydration.
+      if (!isWindowRegistered(openWindowParam)) {
+        console.warn('[HomePage] Unknown window ID in URL param during auth loading:', openWindowParam);
+        removeShellStateFromCurrentUrl({
+          cleanupReason: "unknown_app_auth_loading",
+          windowId: openWindowParam,
+          guestAllowed,
+          isRegistered: false,
         });
+      }
       return;
     }
 
     if (!isSignedIn && !guestAllowed) {
-      removeShellStateFromCurrentUrl();
+      if (openWindowParam === "ai-assistant") {
+        openLoginWindow()
+      }
+      removeShellStateFromCurrentUrl({
+        cleanupReason: "auth_required_deeplink",
+        windowId: openWindowParam,
+        guestAllowed,
+        isRegistered: true,
+      });
       return;
     }
 
@@ -640,63 +909,58 @@ export default function HomePage() {
     // Clear shell params immediately to avoid stale deep-link state during lazy imports.
     removeShellStateFromCurrentUrl();
 
-    // Import window registry to check if window exists.
-    import('@/hooks/window-registry').then(({ WINDOW_REGISTRY }) => {
-      const windowConfig = WINDOW_REGISTRY[resolvedWindowId];
+    const windowConfig = WINDOW_REGISTRY[resolvedWindowId];
 
-      if (windowConfig) {
-        const shellProps = buildShellWindowProps(resolvedDeepLink);
-        const props = shellProps
-          ? {
-              ...shellProps,
-              // Force remount for repeated deep-link opens against an already-open window.
-              deepLinkNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-            }
-          : undefined;
-        const panelParam = resolvedDeepLink.panel;
+    if (windowConfig) {
+      const shellProps = buildShellWindowProps(resolvedDeepLink);
+      const props = shellProps
+        ? {
+            ...shellProps,
+            // Force remount for repeated deep-link opens against an already-open window.
+            deepLinkNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          }
+        : undefined;
+      const panelParam = resolvedDeepLink.panel;
 
-        // Log for debugging
-        console.log('[HomePage] Opening window via URL param:', {
-          windowId: resolvedWindowId,
-          panel: panelParam,
-          entity: resolvedDeepLink.entity,
-          context: resolvedDeepLink.context,
-          props
-        });
+      // Log for debugging
+      console.log('[HomePage] Opening window via URL param:', {
+        windowId: resolvedWindowId,
+        panel: panelParam,
+        entity: resolvedDeepLink.entity,
+        context: resolvedDeepLink.context,
+        props
+      });
 
-        // Get default config from registry
-        const { defaultConfig } = windowConfig;
+      // Get default config from registry
+      const { defaultConfig } = windowConfig;
 
-        // Create the component with props
-        const component = windowConfig.createComponent(props);
+      // Create the component with props
+      const component = windowConfig.createComponent(props);
 
-        // Open the window
-        openWindow(
-          resolvedWindowId,
-          defaultConfig.title,
-          component,
-          defaultConfig.position,
-          defaultConfig.size,
-          defaultConfig.titleKey,
-          defaultConfig.icon,
-          props
-        );
+      // Open the window
+      openWindow(
+        resolvedWindowId,
+        defaultConfig.title,
+        component,
+        defaultConfig.position,
+        defaultConfig.size,
+        defaultConfig.titleKey,
+        defaultConfig.icon,
+        props
+      );
 
-        // Prevent initial window effect from opening another window
-        setHasOpenedInitialWindow(true);
+      // Prevent initial window effect from opening another window
+      setHasOpenedInitialWindow(true);
 
-        // Log upgrade context for analytics (if present)
-        if (resolvedUpgradeReason || resolvedUpgradeResource) {
-          console.log('[HomePage] CLI upgrade redirect:', { upgradeReason: resolvedUpgradeReason, upgradeResource: resolvedUpgradeResource });
-        }
-      } else {
-        console.warn('[HomePage] Unknown window ID in URL param:', resolvedWindowId);
+      // Log upgrade context for analytics (if present)
+      if (resolvedUpgradeReason || resolvedUpgradeResource) {
+        console.log('[HomePage] CLI upgrade redirect:', { upgradeReason: resolvedUpgradeReason, upgradeResource: resolvedUpgradeResource });
       }
-    }).catch((error) => {
-      console.error('[HomePage] Failed to resolve window registry for URL deep-link:', error);
-    });
+    } else {
+      console.warn('[HomePage] Unknown window ID in URL param:', resolvedWindowId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, authLoading])
+  }, [isSignedIn, authLoading, isRestored])
 
   // Handle OAuth callback and checkout success/failure redirect
   useEffect(() => {
@@ -935,7 +1199,14 @@ export default function HomePage() {
     "category-utilities-tools:text-editor": "utilities-text-editor",
   };
 
+  const isPrimaryDiscoveryCode = (code: string) =>
+    Boolean(productAppActions[code]) && !PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODE_SET.has(code);
+
   const buildProductMenuItem = (code: string, prefix: string): TopNavMenuItem | null => {
+    if (PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODE_SET.has(code)) {
+      return null;
+    }
+
     const onSelect = productAppActions[code];
     if (!onSelect) {
       return null;
@@ -964,7 +1235,7 @@ export default function HomePage() {
 
   const discoverableCodes = PRODUCT_OS_CATALOG
     .map((entry) => entry.code)
-    .filter((code) => Boolean(productAppActions[code]));
+    .filter((code) => isPrimaryDiscoveryCode(code));
 
   const popularChildren = PRODUCT_OS_POPULAR_CODES
     .map((code) => buildProductMenuItem(code, "popular"))
@@ -980,7 +1251,7 @@ export default function HomePage() {
       const categoryCodes = PRODUCT_OS_CATALOG
         .filter((entry) => entry.category === category)
         .map((entry) => entry.code)
-        .filter((code) => Boolean(productAppActions[code]));
+        .filter((code) => isPrimaryDiscoveryCode(code));
 
       if (categoryCodes.length === 0) {
         return null;
@@ -1094,6 +1365,40 @@ export default function HomePage() {
       icon: <ShellStoreIcon size={16} tone="muted" />,
     },
     {
+      id: "mobile-feedback",
+      label: tx("ui.start_menu.feedback", "Feedback"),
+      onSelect: wrapMobileLauncherAction(requireAuth(openFeedbackWindow)),
+      icon: <MessageSquare size={16} />,
+    },
+    {
+      id: "mobile-support-intake",
+      label: tx("ui.start_menu.support_intake", "Support Intake"),
+      onSelect: wrapMobileLauncherAction(requireAuth(openSupportIntakeWindow)),
+      icon: <LifeBuoy size={16} />,
+    },
+    ...(isSignedIn
+      ? [
+          {
+            id: "mobile-buy-credits",
+            label: tx("ui.start_menu.buy_credits", "Buy Credits"),
+            onSelect: wrapMobileLauncherAction(() => openStoreWindow("credits")),
+            icon: <ShellStoreIcon size={16} tone="muted" />,
+          },
+          {
+            id: "mobile-redeem-code",
+            label: tx("ui.start_menu.redeem_code", "Redeem Code"),
+            onSelect: wrapMobileLauncherAction(openCreditsRedeemWindow),
+            icon: <TicketPercent size={16} />,
+          },
+          {
+            id: "mobile-refer",
+            label: tx("ui.start_menu.refer", "Refer"),
+            onSelect: wrapMobileLauncherAction(() => openBenefitsWindow("referrals")),
+            icon: <ShellPeopleIcon size={16} tone="muted" />,
+          },
+        ]
+      : []),
+    {
       id: "mobile-auth",
       label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
       onSelect: wrapMobileLauncherAction(isSignedIn ? handleLogout : openLoginWindow),
@@ -1112,6 +1417,95 @@ export default function HomePage() {
       : []),
     ...mobileProductLauncherItems,
   ];
+
+  const isCreditsLoading = isSignedIn && Boolean(currentOrg?.id) && creditsBalance === undefined;
+  const giftedCredits = Math.max(0, (creditsBalance?.giftedCredits ?? 0) + (creditsBalance?.dailyCredits ?? 0));
+  const monthlyCredits = creditsBalance?.monthlyCredits === -1
+    ? -1
+    : Math.max(0, creditsBalance?.monthlyCredits ?? 0);
+  const purchasedCredits = Math.max(0, creditsBalance?.purchasedCredits ?? 0);
+  const totalCredits = monthlyCredits === -1
+    ? -1
+    : Math.max(0, creditsBalance?.totalCredits ?? giftedCredits + monthlyCredits + purchasedCredits);
+  const creditsCounterText = !isSignedIn
+    ? "-"
+    : isCreditsLoading
+      ? "..."
+      : totalCredits === -1
+        ? "\u221e"
+        : totalCredits.toLocaleString();
+  const creditsMenuLabel = tx("ui.start_menu.credits", "Credits");
+  const creditsMenuItems: TopNavMenuItem[] = isCreditsLoading
+    ? [
+        { id: "credits-loading-state", label: tx("ui.credits.menu.loading_balance", "Loading credit balance..."), disabled: true },
+        { id: "credits-divider-breakdown", divider: true },
+        { id: "credits-loading-gifted", label: tx("ui.credits.menu.bucket.gifted", "Gifted"), shortcut: "--", disabled: true },
+        { id: "credits-loading-monthly", label: tx("ui.credits.menu.bucket.monthly", "Monthly"), shortcut: "--", disabled: true },
+        { id: "credits-loading-purchased", label: tx("ui.credits.menu.bucket.purchased", "Purchased"), shortcut: "--", disabled: true },
+        { id: "credits-loading-total", label: tx("ui.credits.menu.bucket.total", "Total"), shortcut: "--", disabled: true },
+        { id: "credits-divider-actions-loading", divider: true },
+        {
+          id: "credits-action-redeem-loading",
+          label: tx("ui.credits.menu.action.redeem_code", "Redeem Code"),
+          onSelect: openCreditsRedeemWindow,
+          icon: <TicketPercent size={14} />,
+        },
+        {
+          id: "credits-action-buy-loading",
+          label: tx("ui.credits.menu.action.buy_credits", "Buy Credits"),
+          onSelect: () => openStoreWindow("credits"),
+          icon: <ShellStoreIcon size={14} tone="muted" />,
+        },
+        {
+          id: "credits-action-refer-loading",
+          label: tx("ui.credits.menu.action.refer", "Refer"),
+          onSelect: () => openBenefitsWindow("referrals"),
+          icon: <ShellPeopleIcon size={14} tone="muted" />,
+        },
+      ]
+    : [
+        {
+          id: "credits-summary",
+          label: creditsBalance?.exists
+            ? tx("ui.credits.menu.current_buckets", "Current credit buckets")
+            : tx("ui.credits.menu.no_credits_allocated", "No credits allocated yet"),
+          disabled: true,
+        },
+        { id: "credits-divider-breakdown", divider: true },
+        { id: "credits-gifted", label: tx("ui.credits.menu.bucket.gifted", "Gifted"), shortcut: giftedCredits.toLocaleString(), disabled: true },
+        {
+          id: "credits-monthly",
+          label: tx("ui.credits.menu.bucket.monthly", "Monthly"),
+          shortcut: monthlyCredits === -1 ? "\u221e" : monthlyCredits.toLocaleString(),
+          disabled: true,
+        },
+        { id: "credits-purchased", label: tx("ui.credits.menu.bucket.purchased", "Purchased"), shortcut: purchasedCredits.toLocaleString(), disabled: true },
+        {
+          id: "credits-total",
+          label: tx("ui.credits.menu.bucket.total", "Total"),
+          shortcut: totalCredits === -1 ? "\u221e" : totalCredits.toLocaleString(),
+          disabled: true,
+        },
+        { id: "credits-divider-actions", divider: true },
+        {
+          id: "credits-action-redeem",
+          label: tx("ui.credits.menu.action.redeem_code", "Redeem Code"),
+          onSelect: openCreditsRedeemWindow,
+          icon: <TicketPercent size={14} />,
+        },
+        {
+          id: "credits-action-buy",
+          label: tx("ui.credits.menu.action.buy_credits", "Buy Credits"),
+          onSelect: () => openStoreWindow("credits"),
+          icon: <ShellStoreIcon size={14} tone="muted" />,
+        },
+        {
+          id: "credits-action-refer",
+          label: tx("ui.credits.menu.action.refer", "Refer"),
+          onSelect: () => openBenefitsWindow("referrals"),
+          icon: <ShellPeopleIcon size={14} tone="muted" />,
+        },
+      ];
 
   const avatarInitialSource = (user?.email || currentOrg?.name || "U").trim()
   const avatarInitial = avatarInitialSource.length > 0 ? avatarInitialSource.charAt(0).toUpperCase() : "U"
@@ -1163,7 +1557,7 @@ export default function HomePage() {
     }] : []),
     {
       id: "avatar-language",
-      label: "Language",
+      label: tx("ui.start_menu.language", "Language"),
       icon: <ShellTranslationsIcon size={16} tone="muted" />,
       submenu: true,
       children: languageSubmenuItems,
@@ -1172,9 +1566,21 @@ export default function HomePage() {
     { id: "avatar-settings", label: t("ui.start_menu.settings"), onSelect: requireAuth(openSettingsWindow), icon: <ShellSettingsIcon size={16} tone="muted" /> },
     {
       id: "avatar-user-profile",
-      label: "User Profile",
+      label: tx("ui.start_menu.user_profile", "User Profile"),
       onSelect: requireAuth(openCurrentUserProfile),
       icon: <ShellProfileIcon size={16} tone="muted" />,
+    },
+    {
+      id: "avatar-feedback",
+      label: tx("ui.start_menu.feedback", "Feedback"),
+      onSelect: requireAuth(openFeedbackWindow),
+      icon: <MessageSquare className="h-4 w-4" />,
+    },
+    {
+      id: "avatar-support-intake",
+      label: tx("ui.start_menu.support_intake", "Support Intake"),
+      onSelect: requireAuth(openSupportIntakeWindow),
+      icon: <LifeBuoy size={16} />,
     },
     { id: "avatar-terminal", label: "Terminal", onSelect: requireAuth(openTerminalWindow), icon: <ShellTerminalIcon size={16} tone="muted" /> },
     { id: "avatar-divider-auth", divider: true },
@@ -1222,7 +1628,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative" style={{
       background: desktopBackground
-        ? `url(${desktopBackground}) center/cover no-repeat`
+        ? `var(--background) url(${desktopBackground}) center / contain no-repeat`
         : 'var(--background)'
     }}>
       {/* Desktop Background Pattern - Win95 style (only show if no custom background) */}
@@ -1239,7 +1645,7 @@ export default function HomePage() {
       <ClientOnly>
 
       {/* Desktop Icons */}
-      <div className={isMobileShellFallback ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,48px)+12px)] space-y-4 z-10 desktop-only"}>
+      <div className={isMobileShellFallback ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,3rem)+0.75rem)] space-y-4 z-10 desktop-only"}>
         {/* <DesktopIcon icon="episodes" label="Episodes" onClick={openEpisodesWindow} /> */}
         {/* <DesktopIcon icon="about" label="About" onClick={openAboutWindow} /> */}
       </div>
@@ -1273,7 +1679,7 @@ export default function HomePage() {
                 return (
                   <button
                     key={window.id}
-                    className={`desktop-window-tab px-3 py-1 text-xs font-medium truncate max-w-[220px] transition-all ${
+                    className={`desktop-window-tab px-3 py-1 text-xs font-medium truncate max-w-56 transition-colors ${
                       !window.isMinimized ? 'desktop-window-tab-active' : ''
                     }`}
                     data-testid={`desktop-window-tab-${window.id}`}
@@ -1319,7 +1725,7 @@ export default function HomePage() {
                   title={`Account scheduled for deletion on ${deletionStatus.deletionDate?.toLocaleDateString()}. Click to restore.`}
                 >
                   <ShellWarningIcon size={18} tone="danger" className="animate-pulse" />
-                  <span className="text-[10px] font-pixel" style={{ color: 'var(--error-red)' }}>
+                  <span className="font-pixel text-xs text-[var(--error-red)]">
                     {deletionStatus.daysRemaining === 1
                       ? '1 DAY'
                       : `${deletionStatus.daysRemaining} DAYS`}
@@ -1342,6 +1748,28 @@ export default function HomePage() {
                 {isDarkAppearance ? <ShellMoonIcon size={16} tone="active" /> : <ShellSepiaIcon size={16} tone="active" />}
               </button>
 
+              {isSignedIn && (
+                <TopNavMenu
+                  label={(
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+                        {creditsMenuLabel}
+                      </span>
+                      <span className="text-xs font-semibold">
+                        {creditsCounterText}
+                      </span>
+                    </span>
+                  )}
+                  items={creditsMenuItems}
+                  align="right"
+                  submenuDirection="left"
+                  menuLabel={creditsMenuLabel}
+                  triggerAriaLabel={tx("ui.credits.menu.open_aria", "Open credits menu")}
+                  className="shrink-0"
+                  buttonClassName="desktop-taskbar-action border-l-2 px-3 py-1 shrink-0 relative z-10"
+                />
+              )}
+
               <TopNavMenu
                 label={(
                   <span className="flex items-center gap-2 whitespace-nowrap">
@@ -1353,7 +1781,7 @@ export default function HomePage() {
                         className="h-5 w-5 rounded-full border border-[var(--window-shell-border)] object-cover"
                       />
                     ) : (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--window-shell-border)] bg-[var(--window-document-bg-elevated)] text-[10px] font-semibold leading-none">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--window-shell-border)] bg-[var(--window-document-bg-elevated)] text-xs font-semibold leading-none">
                         {avatarInitial}
                       </span>
                     )}
@@ -1381,7 +1809,7 @@ export default function HomePage() {
             borderBottomLeftRadius: 0,
             borderBottomRightRadius: 0,
             overflow: "visible",
-            paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
+            paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0))",
           }}
 	        >
 	          <div className="flex items-center gap-2">

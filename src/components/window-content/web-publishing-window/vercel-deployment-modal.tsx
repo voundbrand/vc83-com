@@ -4,13 +4,16 @@ import { useState, useEffect } from "react";
 import { X, Rocket, AlertCircle, CheckCircle, ExternalLink, Settings, Loader2, RefreshCw, Copy, Key, Plus } from "lucide-react";
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useNotification } from "@/hooks/use-notification";
 import { DeploymentSettingsModal } from "./deployment-settings-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
+
+// Dynamic require avoids deep type-instantiation with generated API in this modal.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface VercelDeploymentModalProps {
   page: {
@@ -69,14 +72,22 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
 
   // Deployment info interface
   interface DeploymentInfo {
+    mode?: "managed" | "external";
     githubRepo?: string;
     vercelDeployButton?: string;
     deployedUrl?: string | null;
+    managedUrl?: string | null;
     status?: string;
   }
 
   // Use fresh data if available, fall back to prop
-  const deployment = (freshPage?.customProperties?.deployment as DeploymentInfo | undefined) || page.customProperties?.deployment || {};
+  const deployment = (
+    (freshPage?.customProperties?.deployment as DeploymentInfo | undefined) ||
+    (page.customProperties?.deployment as DeploymentInfo | undefined) ||
+    {}
+  ) as DeploymentInfo;
+  const deploymentMode = deployment.mode === "external" ? "external" : "managed";
+  const isExternalMode = deploymentMode === "external";
 
   // Actions for real HTTP validation
   const validateGithubRepo = useAction(api.publishingOntology.validateGithubRepo);
@@ -130,148 +141,162 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       envVars
     });
 
-    // CHECK 1: GitHub Repository URL (REAL HTTP validation)
-    const githubCheck: ValidationCheck = {
-      id: "github_repo",
-      label: "GitHub repository accessible",
-      status: "checking",
-      message: "Verifying repository exists...",
-    };
-    newChecks.push(githubCheck);
-    setChecks([...newChecks]);
+    if (!isExternalMode) {
+      newChecks.push({
+        id: "managed_publish",
+        label: "Managed publish path ready",
+        status: "passed",
+        message: "Managed mode publishes without GitHub or Vercel prerequisites.",
+      });
+      setChecks([...newChecks]);
+    } else {
+      // CHECK 1: GitHub Repository URL (REAL HTTP validation)
+      const githubCheck: ValidationCheck = {
+        id: "github_repo",
+        label: "GitHub repository accessible",
+        status: "checking",
+        message: "Verifying repository exists...",
+      };
+      newChecks.push(githubCheck);
+      setChecks([...newChecks]);
 
-    if (deployment.githubRepo) {
-      try {
-        const result = await validateGithubRepo({
-          sessionId,
-          githubUrl: deployment.githubRepo,
-        });
+      if (deployment.githubRepo) {
+        try {
+          const result = await validateGithubRepo({
+            sessionId,
+            githubUrl: deployment.githubRepo,
+          });
 
-        githubCheck.status = result.valid ? "passed" : "failed";
-        githubCheck.message = result.valid
-          ? ` ${result.repoInfo?.owner}/${result.repoInfo?.repo} verified`
-          : result.error || "Repository validation failed";
-        githubCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
-      } catch (error) {
+          githubCheck.status = result.valid ? "passed" : "failed";
+          githubCheck.message = result.valid
+            ? ` ${result.repoInfo?.owner}/${result.repoInfo?.repo} verified`
+            : result.error || "Repository validation failed";
+          githubCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
+        } catch (error) {
+          githubCheck.status = "failed";
+          githubCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+          githubCheck.fixAction = () => setShowEditModal(true);
+        }
+      } else {
         githubCheck.status = "failed";
-        githubCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+        githubCheck.message = "GitHub repository URL not configured";
         githubCheck.fixAction = () => setShowEditModal(true);
       }
-    } else {
-      githubCheck.status = "failed";
-      githubCheck.message = "GitHub repository URL not configured";
-      githubCheck.fixAction = () => setShowEditModal(true);
-    }
-    setChecks([...newChecks]);
+      setChecks([...newChecks]);
 
-    // CHECK 2: Vercel Deploy URL (REAL HTTP validation)
-    const vercelUrlCheck: ValidationCheck = {
-      id: "vercel_url",
-      label: "Vercel deploy URL valid",
-      status: "checking",
-      message: "Validating Vercel deploy button...",
-    };
-    newChecks.push(vercelUrlCheck);
-    setChecks([...newChecks]);
+      // CHECK 2: Vercel Deploy URL (REAL HTTP validation)
+      const vercelUrlCheck: ValidationCheck = {
+        id: "vercel_url",
+        label: "Vercel deploy URL valid",
+        status: "checking",
+        message: "Validating Vercel deploy button...",
+      };
+      newChecks.push(vercelUrlCheck);
+      setChecks([...newChecks]);
 
-    if (deployment.vercelDeployButton) {
-      try {
-        const result = await validateVercelUrl({
-          sessionId,
-          vercelUrl: deployment.vercelDeployButton,
-        });
+      if (deployment.vercelDeployButton) {
+        try {
+          const result = await validateVercelUrl({
+            sessionId,
+            vercelUrl: deployment.vercelDeployButton,
+          });
 
-        vercelUrlCheck.status = result.valid ? "passed" : "failed";
-        vercelUrlCheck.message = result.valid
-          ? ` Vercel deploy URL ready (${result.deployInfo?.envVars?.length || 0} env vars configured)`
-          : result.error || "Vercel URL validation failed";
-        vercelUrlCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
-      } catch (error) {
+          vercelUrlCheck.status = result.valid ? "passed" : "failed";
+          vercelUrlCheck.message = result.valid
+            ? ` Vercel deploy URL ready (${result.deployInfo?.envVars?.length || 0} env vars configured)`
+            : result.error || "Vercel URL validation failed";
+          vercelUrlCheck.fixAction = !result.valid ? () => setShowEditModal(true) : undefined;
+        } catch (error) {
+          vercelUrlCheck.status = "failed";
+          vercelUrlCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+          vercelUrlCheck.fixAction = () => setShowEditModal(true);
+        }
+      } else {
         vercelUrlCheck.status = "failed";
-        vercelUrlCheck.message = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+        vercelUrlCheck.message = "Vercel deploy button URL not configured";
         vercelUrlCheck.fixAction = () => setShowEditModal(true);
       }
-    } else {
-      vercelUrlCheck.status = "failed";
-      vercelUrlCheck.message = "Vercel deploy button URL not configured";
-      vercelUrlCheck.fixAction = () => setShowEditModal(true);
-    }
-    setChecks([...newChecks]);
+      setChecks([...newChecks]);
 
-    // CHECK 3: GitHub Integration (Database query - REQUIRED NOW)
-    const githubIntCheck: ValidationCheck = {
-      id: "github_integration",
-      label: "GitHub integration connected",
-      status: githubIntegration === undefined ? "checking" : (githubIntegration.connected ? "passed" : "failed"),
-      message: githubIntegration === undefined
-        ? "Checking GitHub OAuth connection..."
-        : (githubIntegration.connected
-          ? ` Connected: ${githubIntegration.integration?.name}`
-          : "GitHub integration not connected - required for deployment"),
-    };
-
-    if (githubIntegration !== undefined && !githubIntegration.connected) {
-      githubIntCheck.fixAction = () => {
-        // Open Integrations window
-        import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
-          openWindow(
-            "integrations",
-            "Integrations & API",
-            <IntegrationsWindow />,
-            undefined,
-            undefined,
-            "ui.windows.integrations.title",
-            undefined
-          );
-        });
-        notification.info("Opening Integrations", "Opening Integrations window - select GitHub from the list");
+      // CHECK 3: GitHub Integration (Database query - required in external mode)
+      const githubIntCheck: ValidationCheck = {
+        id: "github_integration",
+        label: "GitHub integration connected",
+        status: githubIntegration === undefined ? "checking" : (githubIntegration.connected ? "passed" : "failed"),
+        message: githubIntegration === undefined
+          ? "Checking GitHub OAuth connection..."
+          : (githubIntegration.connected
+            ? ` Connected: ${githubIntegration.integration?.name}`
+            : "GitHub integration not connected - required for external deployment"),
       };
-    }
-    newChecks.push(githubIntCheck);
-    setChecks([...newChecks]);
 
-    // CHECK 4: Vercel Integration (Database query - REQUIRED NOW)
-    const vercelIntCheck: ValidationCheck = {
-      id: "vercel_integration",
-      label: "Vercel integration connected",
-      status: vercelIntegration === undefined ? "checking" : (vercelIntegration.connected ? "passed" : "failed"),
-      message: vercelIntegration === undefined
-        ? "Checking Vercel OAuth connection..."
-        : (vercelIntegration.connected
-          ? ` Connected: ${vercelIntegration.integration?.name}`
-          : "Vercel integration not connected - required for deployment"),
-    };
+      if (githubIntegration !== undefined && !githubIntegration.connected) {
+        githubIntCheck.fixAction = () => {
+          // Open Integrations window
+          import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
+            openWindow(
+              "integrations",
+              "Integrations & API",
+              <IntegrationsWindow />,
+              undefined,
+              undefined,
+              "ui.windows.integrations.title",
+              undefined
+            );
+          });
+          notification.info("Opening Integrations", "Opening Integrations window - select GitHub from the list");
+        };
+      }
+      newChecks.push(githubIntCheck);
+      setChecks([...newChecks]);
 
-    if (vercelIntegration !== undefined && !vercelIntegration.connected) {
-      vercelIntCheck.fixAction = () => {
-        // Open Integrations window
-        import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
-          openWindow(
-            "integrations",
-            "Integrations & API",
-            <IntegrationsWindow />,
-            undefined,
-            undefined,
-            "ui.windows.integrations.title",
-            undefined
-          );
-        });
-        notification.info("Opening Integrations", "Opening Integrations window - select Vercel from the list");
+      // CHECK 4: Vercel Integration (Database query - required in external mode)
+      const vercelIntCheck: ValidationCheck = {
+        id: "vercel_integration",
+        label: "Vercel integration connected",
+        status: vercelIntegration === undefined ? "checking" : (vercelIntegration.connected ? "passed" : "failed"),
+        message: vercelIntegration === undefined
+          ? "Checking Vercel OAuth connection..."
+          : (vercelIntegration.connected
+            ? ` Connected: ${vercelIntegration.integration?.name}`
+            : "Vercel integration not connected - required for external deployment"),
       };
+
+      if (vercelIntegration !== undefined && !vercelIntegration.connected) {
+        vercelIntCheck.fixAction = () => {
+          // Open Integrations window
+          import("@/components/window-content/integrations-window").then(({ IntegrationsWindow }) => {
+            openWindow(
+              "integrations",
+              "Integrations & API",
+              <IntegrationsWindow />,
+              undefined,
+              undefined,
+              "ui.windows.integrations.title",
+              undefined
+            );
+          });
+          notification.info("Opening Integrations", "Opening Integrations window - select Vercel from the list");
+        };
+      }
+      newChecks.push(vercelIntCheck);
+      setChecks([...newChecks]);
     }
-    newChecks.push(vercelIntCheck);
-    setChecks([...newChecks]);
 
     // CHECK 5: Organization API Key (Database query)
     const apiKeyCheck: ValidationCheck = {
       id: "api_key",
       label: "Organization API key active",
-      status: apiKeyStatus === undefined ? "checking" : (apiKeyStatus.hasApiKey ? "passed" : "failed"),
+      status: apiKeyStatus === undefined
+        ? "checking"
+        : (apiKeyStatus.hasApiKey ? "passed" : (isExternalMode ? "failed" : "warning")),
       message: apiKeyStatus === undefined
         ? "Checking for active API keys..."
         : (apiKeyStatus.hasApiKey
           ? ` ${apiKeyStatus.count || 0} active API key${(apiKeyStatus.count || 0) > 1 ? "s" : ""} available`
-          : "No active API keys found - required for deployment"),
+          : (isExternalMode
+            ? "No active API keys found - required for external deployment"
+            : "No active API keys found - managed mode can still publish")),
     };
 
     if (apiKeyStatus !== undefined && !apiKeyStatus.hasApiKey) {
@@ -316,10 +341,13 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
   // Run validation on mount and when dependencies change
   // Only run when we have sessionId, currentOrg, AND the queries have loaded (not undefined)
   useEffect(() => {
-    const queriesLoaded = githubIntegration !== undefined &&
-                          vercelIntegration !== undefined &&
-                          apiKeyStatus !== undefined &&
-                          envVars !== undefined;
+    const queriesLoaded = isExternalMode
+      ? githubIntegration !== undefined &&
+        vercelIntegration !== undefined &&
+        apiKeyStatus !== undefined &&
+        envVars !== undefined
+      : apiKeyStatus !== undefined &&
+        envVars !== undefined;
 
     console.log("[Pre-flight] useEffect triggered:", {
       sessionId: !!sessionId,
@@ -336,36 +364,59 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
       runValidation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, currentOrg?.id, githubIntegration, vercelIntegration, apiKeyStatus, envVars]);
+  }, [sessionId, currentOrg?.id, githubIntegration, vercelIntegration, apiKeyStatus, envVars, isExternalMode]);
 
-  // Check if all CRITICAL checks passed (GitHub repo + Vercel URL + GitHub integration + Vercel integration + API key)
-  const allCriticalChecksPassed = checks.length > 0 &&
+  // Check if all CRITICAL checks passed (external: integrations + URLs; managed: managed path ready)
+  const criticalCheckIds = isExternalMode
+    ? ["github_repo", "vercel_url", "github_integration", "vercel_integration", "api_key"]
+    : ["managed_publish"];
+  const allCriticalChecksPassed =
+    checks.length > 0 &&
     !isValidating &&
-    checks.find(c => c.id === "github_repo")?.status === "passed" &&
-    checks.find(c => c.id === "vercel_url")?.status === "passed" &&
-    checks.find(c => c.id === "github_integration")?.status === "passed" &&
-    checks.find(c => c.id === "vercel_integration")?.status === "passed" &&
-    checks.find(c => c.id === "api_key")?.status === "passed";
+    criticalCheckIds.every((checkId) => checks.find((check) => check.id === checkId)?.status === "passed");
 
   const handleDeploy = async () => {
-    if (!allCriticalChecksPassed || !sessionId) return;
+    if (!sessionId || !allCriticalChecksPassed) return;
 
     setIsDeploying(true);
 
     try {
-      // Track deployment attempt
-      await updateDeployment({
-        sessionId,
-        pageId: page._id,
-        deploymentStatus: "deploying",
-      });
+      if (isExternalMode) {
+        // Track external deployment attempt
+        await updateDeployment({
+          sessionId,
+          pageId: page._id,
+          deploymentMode: "external",
+          deploymentStatus: "deploying",
+        });
 
-      // Open Vercel deploy in new tab
-      if (deployment.vercelDeployButton) {
-        window.open(deployment.vercelDeployButton, '_blank');
+        // Open Vercel deploy in new tab
+        if (deployment.vercelDeployButton) {
+          window.open(deployment.vercelDeployButton, '_blank');
+          notification.success(
+            "Deployment Started",
+            "Vercel deployment window opened. Complete the deployment in the new tab."
+          );
+        }
+      } else {
+        const managedPageUrl =
+          ((freshPage?.customProperties as Record<string, unknown> | undefined)?.publicUrl as string | undefined) ||
+          ((page.customProperties as Record<string, unknown> | undefined)?.publicUrl as string | undefined);
+        const managedUrl =
+          managedPageUrl ||
+          deployment.managedUrl ||
+          deployment.deployedUrl ||
+          null;
+        await updateDeployment({
+          sessionId,
+          pageId: page._id,
+          deploymentMode: "managed",
+          deploymentStatus: "deployed",
+          deployedUrl: managedUrl || undefined,
+        });
         notification.success(
-          "Deployment Started",
-          "Vercel deployment window opened. Complete the deployment in the new tab."
+          "Published",
+          "Managed publish is complete. Your page is now available without external setup."
         );
       }
 
@@ -410,7 +461,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
         >
           <h3 className="font-bold text-sm flex items-center gap-2">
             <Rocket size={16} />
-            Deploy to Vercel - Pre-flight Validation
+            {isExternalMode ? "Deploy to Vercel - Pre-flight Validation" : "Managed Publish - Pre-flight Validation"}
           </h3>
           <button
             onClick={onClose}
@@ -428,7 +479,9 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
               {page.name}
             </h4>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Running real validation checks (HTTP requests + database queries)...
+              {isExternalMode
+                ? "Running external deployment checks (HTTP requests + database queries)..."
+                : "Running managed deployment checks (no GitHub/Vercel prerequisites required)..."}
             </p>
           </div>
 
@@ -652,7 +705,7 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                 <AlertCircle size={20} style={{ color: 'var(--error)' }} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-bold text-sm mb-2" style={{ color: 'var(--error)' }}>
-                    Critical Issues Found
+                    {isExternalMode ? "Critical Issues Found" : "Issues Found"}
                   </h4>
                   <ul className="text-xs space-y-1" style={{ color: '#991B1B' }}>
                     {checks.filter(c => c.status === "failed").map((check) => (
@@ -663,7 +716,9 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                     ))}
                   </ul>
                   <p className="text-xs mt-2" style={{ color: '#991B1B' }}>
-                    Click "Fix This" buttons above to resolve these issues.
+                    {isExternalMode
+                      ? "Click \"Fix This\" buttons above to resolve these issues."
+                      : "Optional setup actions are available above if you want to configure advanced integrations."}
                   </p>
                 </div>
               </div>
@@ -683,10 +738,12 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                 <CheckCircle size={20} style={{ color: 'var(--success)' }} className="flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-bold text-sm mb-2" style={{ color: '#065F46' }}>
-                    Ready to Deploy!
+                    {isExternalMode ? "Ready to Deploy!" : "Ready to Publish!"}
                   </h4>
                   <p className="text-xs mb-2" style={{ color: '#065F46' }}>
-                    All critical pre-flight checks passed. Your deployment is ready to proceed.
+                    {isExternalMode
+                      ? "All critical pre-flight checks passed. Your deployment is ready to proceed."
+                      : "Managed publish checks passed. You can publish without external integration setup."}
                   </p>
                   {checks.some(c => c.status === "warning") && (
                     <p className="text-xs" style={{ color: '#D97706' }}>
@@ -733,12 +790,12 @@ export function VercelDeploymentModal({ page, onClose, onEditPage }: VercelDeplo
                   {isDeploying ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      Opening Vercel...
+                      {isExternalMode ? "Opening Vercel..." : "Publishing..."}
                     </>
                   ) : (
                     <>
-                      <ExternalLink size={14} />
-                      Deploy to Vercel
+                      {isExternalMode ? <ExternalLink size={14} /> : <Rocket size={14} />}
+                      {isExternalMode ? "Deploy to Vercel" : "Publish Managed"}
                     </>
                   )}
                 </InteriorButton>

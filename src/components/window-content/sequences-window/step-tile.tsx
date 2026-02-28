@@ -115,7 +115,7 @@ export function StepTile({
       case "sms":
         return "var(--success)";
       case "whatsapp":
-        return "#25D366";
+        return "var(--success)";
       default:
         return "var(--win95-highlight)";
     }
@@ -141,7 +141,7 @@ export function StepTile({
 
       {/* Tile */}
       <div
-        className={`border-2 p-3 cursor-pointer transition-all ${
+        className={`border p-3 cursor-pointer transition-colors ${
           isSelected ? "ring-2 ring-offset-1" : ""
         }`}
         style={{
@@ -233,7 +233,7 @@ export function StepTile({
                   onMoveUp();
                 }}
                 disabled={isFirst}
-                className="retro-button p-1 disabled:opacity-30"
+                className="desktop-interior-button p-1 disabled:opacity-30"
                 title="Move up"
               >
                 <ChevronUp className="h-3 w-3" />
@@ -244,7 +244,7 @@ export function StepTile({
                   onMoveDown();
                 }}
                 disabled={isLast}
-                className="retro-button p-1 disabled:opacity-30"
+                className="desktop-interior-button p-1 disabled:opacity-30"
                 title="Move down"
               >
                 <ChevronDown className="h-3 w-3" />
@@ -258,7 +258,7 @@ export function StepTile({
                   onDelete();
                 }
               }}
-              className="retro-button p-1"
+              className="desktop-interior-button p-1"
               style={{ color: "var(--error)" }}
               title="Delete step"
             >

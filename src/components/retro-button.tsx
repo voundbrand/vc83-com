@@ -14,18 +14,18 @@ interface RetroButtonProps {
 }
 
 export function RetroButton({ children, onClick, variant = "primary", size = "md", className, disabled = false, title }: RetroButtonProps) {
-  const baseClasses = "desktop-shell-button font-pixel"
+  const baseClasses = "desktop-shell-button"
 
   const variantClasses = {
     primary: "desktop-shell-button-primary",
     secondary: "",
-    outline: "bg-transparent border-2",
+    outline: "bg-transparent",
   }
 
   const sizeClasses = {
-    sm: "px-2 py-1",
-    md: "px-4 py-2",
-    lg: "px-6 py-3",
+    sm: "h-7 px-2.5 text-xs font-medium",
+    md: "h-8 px-3 text-xs font-medium",
+    lg: "h-9 px-4 text-sm font-medium",
   }
 
   return (
@@ -37,7 +37,7 @@ export function RetroButton({ children, onClick, variant = "primary", size = "md
         baseClasses,
         variantClasses[variant],
         sizeClasses[size],
-        disabled && "opacity-50 cursor-not-allowed",
+        disabled && "opacity-45 cursor-not-allowed",
         className
       )}
     >

@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Loader2, Download, ExternalLink, Globe, Code, Settings, AlertCircle } from "lucide-react";
+import { Loader2, Download, ExternalLink, Globe, Code, Settings, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { type ComponentProps, useMemo, useState } from "react";
 import { InteriorButton } from "@/components/window-content/shared/interior-primitives";
@@ -17,8 +17,10 @@ interface WebAppTemplate {
   customProperties?: {
     features?: string[];
     deployment?: {
+      mode?: "managed" | "external";
       githubRepo?: string;
       vercelDeployButton?: string;
+      managedUrl?: string;
       demoUrl?: string;
     };
     category?: string;
@@ -75,16 +77,23 @@ export function WebAppsTab({ onEditTemplate, onViewSchema }: WebAppsTabProps) {
 
   return (
     <div className="flex flex-col h-full">
+      <div className="mx-4 mt-4 rounded border-2 p-3" style={{ borderColor: "#10B981", background: "#ECFDF5" }}>
+        <p className="text-xs font-bold" style={{ color: "#065F46" }}>
+          Managed publish is the default path.
+        </p>
+        <p className="text-xs mt-1" style={{ color: "#065F46" }}>
+          No GitHub or Vercel setup is required for first-run web app publishing. External deploy remains available as advanced mode.
+        </p>
+      </div>
       {webAppTemplates.length === 0 ? (
         <div className="flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <Globe size={48} className="mx-auto mb-4" style={{ color: 'var(--neutral-gray)' }} />
             <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--window-document-text)' }}>
-              No Web App Templates Available
+              No Web App Templates Yet
             </h3>
             <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-              Web app templates haven't been enabled for your organization yet.
-              Contact your administrator or check back later.
+              Starter managed templates are seeded automatically. Create or publish from the Builder to see them here.
             </p>
           </div>
         </div>
@@ -120,23 +129,37 @@ function WebAppCard({
   const deployment = useMemo(() => customProps.deployment || {}, [customProps.deployment]);
   const category = customProps.category || "web_app";
   const tags = customProps.tags || [];
+  const deploymentMode = deployment.mode === "external" ? "external" : "managed";
+  const isManagedMode = deploymentMode === "managed";
+  const managedLaunchUrl = deployment.managedUrl || deployment.demoUrl;
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Validate deployment configuration
   const isDeploymentReady = useMemo(() => {
-    // Check if GitHub repo and Vercel deploy button are configured
+    if (isManagedMode) {
+      return true;
+    }
     return Boolean(
       deployment.githubRepo &&
       deployment.vercelDeployButton &&
       deployment.githubRepo.startsWith('https://github.com/') &&
       deployment.vercelDeployButton.startsWith('https://vercel.com/new/clone')
     );
-  }, [deployment]);
+  }, [deployment, isManagedMode]);
 
   const handleDeployClick = () => {
+    if (isManagedMode) {
+      if (managedLaunchUrl) {
+        window.open(managedLaunchUrl, '_blank');
+      } else {
+        alert("Managed mode is ready. Publish from Builder to generate the live URL.");
+      }
+      return;
+    }
+
     // Pre-deployment validation
     if (!isDeploymentReady) {
-      alert('This template needs configuration before deployment. Click "Edit Settings" to configure.');
+      alert('External mode requires configuration. Click "External Settings" to configure.');
       setShowEditModal(true);
       return;
     }
@@ -205,6 +228,16 @@ function WebAppCard({
                 Available
               </span>
             )}
+            <span
+              className="text-xs px-2 py-0.5 border rounded"
+              style={{
+                borderColor: isManagedMode ? "#10B981" : "#F59E0B",
+                background: isManagedMode ? "#D1FAE5" : "#FEF3C7",
+                color: isManagedMode ? "#065F46" : "#92400E",
+              }}
+            >
+              {isManagedMode ? "Managed" : "External Advanced"}
+            </span>
           </div>
         </div>
       </div>
@@ -255,12 +288,20 @@ function WebAppCard({
         </div>
       )}
 
-      {/* Deployment Status Warning */}
-      {!isDeploymentReady && (
+      {/* Deployment Status */}
+      {isManagedMode && (
+        <div className="mb-3 p-2 border rounded flex items-start gap-2" style={{ borderColor: '#10B981', background: '#D1FAE5' }}>
+          <CheckCircle2 size={16} style={{ color: '#047857', flexShrink: 0, marginTop: '2px' }} />
+          <p className="text-xs" style={{ color: '#065F46' }}>
+            Managed mode active: publish and updates work without GitHub/Vercel integration setup.
+          </p>
+        </div>
+      )}
+      {!isManagedMode && !isDeploymentReady && (
         <div className="mb-3 p-2 border rounded flex items-start gap-2" style={{ borderColor: '#F59E0B', background: '#FEF3C7' }}>
           <AlertCircle size={16} style={{ color: '#D97706', flexShrink: 0, marginTop: '2px' }} />
           <p className="text-xs" style={{ color: '#92400E' }}>
-            Configuration needed: Click "Edit Settings" to configure GitHub repo and Vercel deployment URLs.
+            External mode needs GitHub and Vercel URLs. Click "External Settings" to configure.
           </p>
         </div>
       )}
@@ -271,12 +312,12 @@ function WebAppCard({
         <div className="flex gap-2">
           <WebAppsButton
             onClick={handleDeployClick}
-            variant={isDeploymentReady ? "primary" : "outline"}
+            variant={isManagedMode || isDeploymentReady ? "primary" : "outline"}
             size="sm"
             className="flex-1 flex items-center justify-center gap-1"
           >
             <Download size={14} />
-            <span>Deploy to Vercel</span>
+            <span>{isManagedMode ? "Open Managed App" : "Deploy External"}</span>
           </WebAppsButton>
 
           <WebAppsButton
@@ -286,7 +327,7 @@ function WebAppCard({
             className="flex items-center justify-center gap-1"
           >
             <Settings size={14} />
-            <span>Edit Settings</span>
+            <span>{isManagedMode ? "External Advanced" : "External Settings"}</span>
           </WebAppsButton>
         </div>
 
@@ -389,7 +430,7 @@ function TemplateSettingsEditorModal({
               style={{ borderColor: 'var(--window-document-border)' }}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              The GitHub repository URL for this template (e.g., https://github.com/l4yercak3/freelancer-portal-template)
+              External advanced mode only: repository URL for Vercel-backed deploy.
             </p>
           </div>
 
@@ -407,15 +448,14 @@ function TemplateSettingsEditorModal({
               style={{ borderColor: 'var(--window-document-border)' }}
             />
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              The Vercel deploy button URL with pre-configured environment variables
+              External advanced mode only: Vercel deploy button URL with pre-configured environment variables.
             </p>
           </div>
 
           {/* Info Box */}
           <div className="p-3 border rounded" style={{ borderColor: '#3B82F6', background: '#DBEAFE' }}>
             <p className="text-xs" style={{ color: '#1E40AF' }}>
-              <strong>Note:</strong> These URLs should point to your organization's template repository.
-              Contact your administrator if you need help configuring these values.
+              <strong>Note:</strong> Managed mode is default and does not require these fields. Configure these only if you explicitly need external GitHub/Vercel deployment.
             </p>
           </div>
         </div>

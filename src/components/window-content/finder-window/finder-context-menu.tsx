@@ -172,7 +172,7 @@ const MenuContainer = forwardRef<HTMLDivElement, MenuContainerProps>(
     return (
       <div
         ref={ref}
-        className="fixed z-[999] min-w-[200px] py-1 border rounded-xl shadow-lg"
+        className="fixed z-[999] min-w-52 py-1 border rounded-xl"
         style={{
           top: position.top,
           left: position.left,

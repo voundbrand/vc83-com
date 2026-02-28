@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Clock, DollarSign, Users, Calendar, Settings, Ship, Armchair, BedDouble } from "lucide-react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
  * Bookable Resource Configuration
@@ -259,6 +260,15 @@ export function BookableConfigSection({
   onChange,
   subtype,
 }: BookableConfigSectionProps) {
+  const { t } = useNamespaceTranslations("ui.products.bookable_config");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const updateConfig = useCallback((updates: Partial<BookableConfig>) => {
     onChange({ ...config, ...updates });
   }, [config, onChange]);
@@ -304,17 +314,19 @@ export function BookableConfigSection({
     >
       <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
         <Settings size={16} />
-        Booking Configuration
+        {tx("title", "Booking Configuration")}
       </h3>
       <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-        Configure how this {subtypeLabels[subtype] || "resource"} can be booked.
+        {tx("description", "Configure how this {{resource}} can be booked.", {
+          resource: subtypeLabels[subtype] || tx("resource_fallback", "resource"),
+        })}
       </p>
 
       {/* Availability Model Selector */}
       <div>
         <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
           <Calendar size={14} className="inline mr-1" />
-          Availability Model
+          {tx("availability_model.label", "Availability Model")}
         </label>
         <select
           value={model}
@@ -339,7 +351,7 @@ export function BookableConfigSection({
           {/* Booking Mode */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
-              Booking Mode
+              {tx("time_slot.booking_mode", "Booking Mode")}
             </label>
             <select
               value={config.bookingMode}
@@ -347,9 +359,9 @@ export function BookableConfigSection({
               className="w-full px-3 py-2 text-sm border-2"
               style={inputStyle}
             >
-              <option value="calendar">Calendar - Pick specific time slots</option>
-              <option value="date-range">Date Range - Pick check-in/check-out dates</option>
-              <option value="both">Both - Support both modes</option>
+              <option value="calendar">{tx("time_slot.booking_mode_calendar", "Calendar - Pick specific time slots")}</option>
+              <option value="date-range">{tx("time_slot.booking_mode_date_range", "Date Range - Pick check-in/check-out dates")}</option>
+              <option value="both">{tx("time_slot.booking_mode_both", "Both - Support both modes")}</option>
             </select>
           </div>
 
@@ -358,7 +370,7 @@ export function BookableConfigSection({
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
                 <Clock size={12} className="inline mr-1" />
-                Duration Unit
+                {tx("time_slot.duration_unit", "Duration Unit")}
               </label>
               <select
                 value={config.durationUnit}
@@ -366,15 +378,15 @@ export function BookableConfigSection({
                 className={inputClass}
                 style={inputStyle}
               >
-                <option value="minutes">Minutes</option>
-                <option value="hours">Hours</option>
-                <option value="days">Days</option>
-                <option value="nights">Nights</option>
+                <option value="minutes">{tx("time_slot.duration_unit_minutes", "Minutes")}</option>
+                <option value="hours">{tx("time_slot.duration_unit_hours", "Hours")}</option>
+                <option value="days">{tx("time_slot.duration_unit_days", "Days")}</option>
+                <option value="nights">{tx("time_slot.duration_unit_nights", "Nights")}</option>
               </select>
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Slot Increment
+                {tx("time_slot.slot_increment", "Slot Increment")}
               </label>
               <select
                 value={config.slotIncrement}
@@ -382,10 +394,10 @@ export function BookableConfigSection({
                 className={inputClass}
                 style={inputStyle}
               >
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes</option>
-                <option value="60">60 minutes</option>
-                <option value="120">2 hours</option>
+                <option value="15">{tx("time_slot.slot_increment_15", "15 minutes")}</option>
+                <option value="30">{tx("time_slot.slot_increment_30", "30 minutes")}</option>
+                <option value="60">{tx("time_slot.slot_increment_60", "60 minutes")}</option>
+                <option value="120">{tx("time_slot.slot_increment_120", "2 hours")}</option>
               </select>
             </div>
           </div>
@@ -393,7 +405,7 @@ export function BookableConfigSection({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Min Duration ({config.durationUnit})
+                {tx("time_slot.min_duration", "Min Duration ({{unit}})", { unit: config.durationUnit })}
               </label>
               <input
                 type="number"
@@ -406,7 +418,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Max Duration ({config.durationUnit})
+                {tx("time_slot.max_duration", "Max Duration ({{unit}})", { unit: config.durationUnit })}
               </label>
               <input
                 type="number"
@@ -423,7 +435,7 @@ export function BookableConfigSection({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Buffer Before (min)
+                {tx("time_slot.buffer_before", "Buffer Before (min)")}
               </label>
               <input
                 type="number"
@@ -436,7 +448,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Buffer After (min)
+                {tx("time_slot.buffer_after", "Buffer After (min)")}
               </label>
               <input
                 type="number"
@@ -449,14 +461,14 @@ export function BookableConfigSection({
             </div>
           </div>
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Buffer time prevents back-to-back bookings (prep/cleanup time)
+            {tx("time_slot.buffer_help", "Buffer time prevents back-to-back bookings (prep/cleanup time)")}
           </p>
 
           {/* Capacity */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "var(--shell-text)" }}>
               <Users size={14} className="inline mr-1" />
-              Capacity
+              {tx("time_slot.capacity", "Capacity")}
             </label>
             <input
               type="number"
@@ -468,10 +480,10 @@ export function BookableConfigSection({
             />
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
               {subtype === "class"
-                ? "Maximum participants per session"
+                ? tx("time_slot.capacity_class", "Maximum participants per session")
                 : subtype === "room" || subtype === "accommodation"
-                ? "Maximum occupancy"
-                : "Concurrent bookings allowed (usually 1)"}
+                ? tx("time_slot.capacity_room", "Maximum occupancy")
+                : tx("time_slot.capacity_default", "Concurrent bookings allowed (usually 1)")}
             </p>
           </div>
         </>
@@ -485,13 +497,13 @@ export function BookableConfigSection({
         >
           <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <BedDouble size={14} />
-            Inventory Settings
+            {tx("date_range.inventory_settings", "Inventory Settings")}
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Number of Units
+                {tx("date_range.number_of_units", "Number of Units")}
               </label>
               <input
                 type="number"
@@ -502,12 +514,12 @@ export function BookableConfigSection({
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                How many of this item exist (rooms, rental units)
+                {tx("date_range.number_of_units_help", "How many of this item exist (rooms, rental units)")}
               </p>
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Max Occupancy per Unit
+                {tx("date_range.max_occupancy_per_unit", "Max Occupancy per Unit")}
               </label>
               <input
                 type="number"
@@ -518,7 +530,7 @@ export function BookableConfigSection({
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Guests per unit
+                {tx("date_range.guests_per_unit", "Guests per unit")}
               </p>
             </div>
           </div>
@@ -526,7 +538,7 @@ export function BookableConfigSection({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Minimum Stay (nights)
+                {tx("date_range.minimum_stay_nights", "Minimum Stay (nights)")}
               </label>
               <input
                 type="number"
@@ -539,7 +551,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Maximum Stay (nights)
+                {tx("date_range.maximum_stay_nights", "Maximum Stay (nights)")}
               </label>
               <input
                 type="number"
@@ -555,7 +567,7 @@ export function BookableConfigSection({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Check-in Time
+                {tx("date_range.check_in_time", "Check-in Time")}
               </label>
               <input
                 type="time"
@@ -567,7 +579,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Check-out Time
+                {tx("date_range.check_out_time", "Check-out Time")}
               </label>
               <input
                 type="time"
@@ -581,7 +593,7 @@ export function BookableConfigSection({
 
           <div>
             <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-              Base Nightly Rate
+              {tx("date_range.base_nightly_rate", "Base Nightly Rate")}
             </label>
             <input
               type="number"
@@ -594,7 +606,10 @@ export function BookableConfigSection({
               style={inputStyle}
             />
             <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-              Default rate per night. Can be overridden with seasonal pricing rules.
+              {tx(
+                "date_range.base_nightly_rate_help",
+                "Default rate per night. Can be overridden with seasonal pricing rules.",
+              )}
             </p>
           </div>
         </div>
@@ -608,13 +623,13 @@ export function BookableConfigSection({
         >
           <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <Armchair size={14} />
-            Seating Configuration
+            {tx("event_seating.title", "Seating Configuration")}
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Total Seats
+                {tx("event_seating.total_seats", "Total Seats")}
               </label>
               <input
                 type="number"
@@ -625,12 +640,12 @@ export function BookableConfigSection({
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Total available seats in the venue
+                {tx("event_seating.total_seats_help", "Total available seats in the venue")}
               </p>
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Max Seats per Booking
+                {tx("event_seating.max_seats_per_booking", "Max Seats per Booking")}
               </label>
               <input
                 type="number"
@@ -641,14 +656,14 @@ export function BookableConfigSection({
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Maximum seats one person can book at once
+                {tx("event_seating.max_seats_per_booking_help", "Maximum seats one person can book at once")}
               </p>
             </div>
           </div>
 
           <div>
             <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-              Price per Seat
+              {tx("event_seating.price_per_seat", "Price per Seat")}
             </label>
             <input
               type="number"
@@ -672,12 +687,12 @@ export function BookableConfigSection({
         >
           <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <Ship size={14} />
-            Vehicle / Transport Settings
+            {tx("transport.title", "Vehicle / Transport Settings")}
           </h4>
 
           <div>
             <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-              Vehicle Type
+              {tx("transport.vehicle_type", "Vehicle Type")}
             </label>
             <select
               value={config.vehicleType ?? "ferry"}
@@ -685,18 +700,18 @@ export function BookableConfigSection({
               className={inputClass}
               style={inputStyle}
             >
-              <option value="ferry">Ferry / Boat</option>
-              <option value="bus">Bus / Coach</option>
-              <option value="train">Train</option>
-              <option value="aircraft">Aircraft</option>
-              <option value="other">Other</option>
+              <option value="ferry">{tx("transport.vehicle_type_ferry", "Ferry / Boat")}</option>
+              <option value="bus">{tx("transport.vehicle_type_bus", "Bus / Coach")}</option>
+              <option value="train">{tx("transport.vehicle_type_train", "Train")}</option>
+              <option value="aircraft">{tx("transport.vehicle_type_aircraft", "Aircraft")}</option>
+              <option value="other">{tx("transport.vehicle_type_other", "Other")}</option>
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Total Passenger Seats
+                {tx("transport.total_passenger_seats", "Total Passenger Seats")}
               </label>
               <input
                 type="number"
@@ -707,12 +722,12 @@ export function BookableConfigSection({
                 style={inputStyle}
               />
               <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                Total seats available on this vehicle
+                {tx("transport.total_passenger_seats_help", "Total seats available on this vehicle")}
               </p>
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Boarding Opens (min before)
+                {tx("transport.boarding_opens", "Boarding Opens (min before)")}
               </label>
               <input
                 type="number"
@@ -727,7 +742,7 @@ export function BookableConfigSection({
 
           <div>
             <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-              Price per Passenger
+              {tx("transport.price_per_passenger", "Price per Passenger")}
             </label>
             <input
               type="number"
@@ -753,10 +768,10 @@ export function BookableConfigSection({
       >
         <div className="flex-1">
           <label className="block text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
-            Require Confirmation
+            {tx("shared.require_confirmation", "Require Confirmation")}
           </label>
           <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-            Admin must approve bookings before they are confirmed
+            {tx("shared.require_confirmation_help", "Admin must approve bookings before they are confirmed")}
           </p>
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
@@ -770,7 +785,9 @@ export function BookableConfigSection({
             className="text-sm font-bold"
             style={{ color: config.confirmationRequired ? "var(--success)" : "var(--neutral-gray)" }}
           >
-            {config.confirmationRequired ? "Yes" : "No"}
+            {config.confirmationRequired
+              ? tx("shared.yes", "Yes")
+              : tx("shared.no", "No")}
           </span>
         </label>
       </div>
@@ -786,13 +803,13 @@ export function BookableConfigSection({
         >
           <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--shell-text)" }}>
             <DollarSign size={14} />
-            Pricing
+            {tx("pricing.title", "Pricing")}
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Price
+                {tx("pricing.price", "Price")}
               </label>
               <input
                 type="number"
@@ -807,7 +824,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Per
+                {tx("pricing.per", "Per")}
               </label>
               <select
                 value={config.priceUnit}
@@ -815,11 +832,11 @@ export function BookableConfigSection({
                 className={inputClass}
                 style={inputStyle}
               >
-                <option value="hour">Hour</option>
-                <option value="day">Day</option>
-                <option value="night">Night</option>
-                <option value="session">Session</option>
-                <option value="flat">Flat Rate</option>
+                <option value="hour">{tx("pricing.per_hour", "Hour")}</option>
+                <option value="day">{tx("pricing.per_day", "Day")}</option>
+                <option value="night">{tx("pricing.per_night", "Night")}</option>
+                <option value="session">{tx("pricing.per_session", "Session")}</option>
+                <option value="flat">{tx("pricing.per_flat", "Flat Rate")}</option>
               </select>
             </div>
           </div>
@@ -836,7 +853,7 @@ export function BookableConfigSection({
       >
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-bold" style={{ color: "var(--shell-text)" }}>
-            Deposit Required
+            {tx("deposit.title", "Deposit Required")}
           </h4>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -849,7 +866,9 @@ export function BookableConfigSection({
               className="text-sm font-bold"
               style={{ color: config.depositRequired ? "var(--success)" : "var(--neutral-gray)" }}
             >
-              {config.depositRequired ? "Yes" : "No"}
+              {config.depositRequired
+                ? tx("shared.yes", "Yes")
+                : tx("shared.no", "No")}
             </span>
           </label>
         </div>
@@ -858,7 +877,7 @@ export function BookableConfigSection({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Fixed Amount
+                {tx("deposit.fixed_amount", "Fixed Amount")}
               </label>
               <input
                 type="number"
@@ -874,7 +893,7 @@ export function BookableConfigSection({
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--shell-text)" }}>
-                Or Percentage %
+                {tx("deposit.or_percentage", "Or Percentage %")}
               </label>
               <input
                 type="number"
@@ -893,7 +912,7 @@ export function BookableConfigSection({
           </div>
         )}
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Require a deposit at booking time, with remainder due later
+          {tx("deposit.help", "Require a deposit at booking time, with remainder due later")}
         </p>
       </div>
     </div>

@@ -115,7 +115,7 @@ export function EnrollmentsList({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {sequenceId && (
-              <button onClick={onBack} className="retro-button p-1" title="Back">
+              <button onClick={onBack} className="desktop-interior-button p-1" title="Back">
                 <ArrowLeft className="h-4 w-4" />
               </button>
             )}
@@ -136,7 +136,7 @@ export function EnrollmentsList({
               placeholder="Search enrollments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="retro-input w-full py-1 pl-7 pr-2 text-xs"
+              className="desktop-interior-input w-full py-1 pl-7 pr-2 text-xs"
             />
           </div>
 
@@ -151,7 +151,7 @@ export function EnrollmentsList({
                     : (e.target.value as "active" | "paused" | "completed" | "exited")
                 )
               }
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -344,7 +344,7 @@ function EnrollmentRow({ enrollment, onPause, onResume, onCancel }: EnrollmentRo
         {enrollment.status === "active" && (
           <button
             onClick={onPause}
-            className="retro-button p-1"
+            className="desktop-interior-button p-1"
             title="Pause enrollment"
           >
             <Pause className="h-3 w-3" />
@@ -353,7 +353,7 @@ function EnrollmentRow({ enrollment, onPause, onResume, onCancel }: EnrollmentRo
         {enrollment.status === "paused" && (
           <button
             onClick={onResume}
-            className="retro-button p-1"
+            className="desktop-interior-button p-1"
             title="Resume enrollment"
           >
             <Play className="h-3 w-3" />
@@ -362,7 +362,7 @@ function EnrollmentRow({ enrollment, onPause, onResume, onCancel }: EnrollmentRo
         {(enrollment.status === "active" || enrollment.status === "paused") && (
           <button
             onClick={onCancel}
-            className="retro-button p-1"
+            className="desktop-interior-button p-1"
             style={{ color: "var(--error)" }}
             title="Cancel enrollment"
           >

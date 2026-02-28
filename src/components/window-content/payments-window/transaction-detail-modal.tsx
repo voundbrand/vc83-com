@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { useQuery, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useOrganizationCurrency } from "@/hooks/use-organization-currency";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+// Dynamic require avoids TS2589 deep type instantiation from generated API type expansion.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 import {
   X,
   User,
@@ -30,24 +33,34 @@ export function TransactionDetailModal({
   sessionId,
   onClose,
 }: TransactionDetailModalProps) {
+  const { t } = useNamespaceTranslations("ui.payments");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   // State for refund process
   const [isRefunding, setIsRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
   const [refundSuccess, setRefundSuccess] = useState(false);
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => unknown;
 
   // Get full transaction details (NEW: using actual transaction object)
-  const transaction = useQuery(
-    api.transactionOntology.getTransaction,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transaction = unsafeUseQuery(
+    apiAny.transactionOntology.getTransaction,
     sessionId && transactionId
       ? {
           sessionId,
           transactionId,
         }
       : "skip"
-  );
+  ) as any;
 
   // Refund action
-  const processRefund = useAction(api.stripeRefunds.processStripeRefund);
+  const processRefund = useAction(apiAny.stripeRefunds.processStripeRefund);
 
   // Get organization currency settings (SINGLE SOURCE OF TRUTH)
   const { currency: orgCurrency } = useOrganizationCurrency();
@@ -98,7 +111,11 @@ export function TransactionDetailModal({
 
     // Confirm refund (use calculated total for both NEW and LEGACY formats)
     const confirmed = window.confirm(
-      `Are you sure you want to refund ${formatCurrency(totals.total)}?\n\nThis action cannot be undone.`
+      tx(
+        "ui.payments.transaction_detail.refund_confirm",
+        "Are you sure you want to refund {amount}? This action cannot be undone.",
+        { amount: formatCurrency(totals.total) },
+      )
     );
 
     if (!confirmed) return;
@@ -122,7 +139,7 @@ export function TransactionDetailModal({
       }
     } catch (error) {
       console.error("Refund error:", error);
-      setRefundError(error instanceof Error ? error.message : "Failed to process refund");
+      setRefundError(error instanceof Error ? error.message : tx("ui.payments.transaction_detail.refund_failed", "Failed to process refund"));
     } finally {
       setIsRefunding(false);
     }
@@ -192,11 +209,11 @@ export function TransactionDetailModal({
               className="desktop-interior-button h-8 px-3 text-xs shrink-0"
             >
               <ArrowLeft size={14} />
-              <span>Back to list</span>
+              <span>{tx("ui.payments.transaction_detail.back_to_list", "Back to list")}</span>
             </button>
             <Receipt size={16} style={{ color: "var(--window-document-text)" }} />
             <h2 className="text-sm font-bold truncate" style={{ color: "var(--window-document-text)" }}>
-              Transaction Details
+              {tx("ui.payments.transaction_detail.title", "Transaction Details")}
             </h2>
             <p className="text-xs shrink-0" style={{ color: "var(--neutral-gray)" }}>
               {formatDate(transaction._creationTime)}
@@ -206,7 +223,7 @@ export function TransactionDetailModal({
             onClick={onClose}
             className="desktop-interior-button h-9 w-9 p-0"
             style={{ color: "var(--window-document-text)" }}
-            aria-label="Close"
+            aria-label={tx("ui.payments.shared.close", "Close")}
           >
             <X size={20} />
           </button>
@@ -226,7 +243,9 @@ export function TransactionDetailModal({
                 <User size={16} style={{ color: "var(--primary)" }} />
               )}
               <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                {transaction.customProperties?.payerType === "organization" ? "Business Customer" : "Customer Information"}
+                {transaction.customProperties?.payerType === "organization"
+                  ? tx("ui.payments.transaction_detail.business_customer", "Business Customer")
+                  : tx("ui.payments.transaction_detail.customer_information", "Customer Information")}
               </h3>
               {transaction.customProperties?.payerType === "organization" && (
                 <span
@@ -236,7 +255,7 @@ export function TransactionDetailModal({
                     color: "var(--primary)",
                   }}
                 >
-                  B2B
+                  {tx("ui.payments.transaction_detail.b2b", "B2B")}
                 </span>
               )}
             </div>
@@ -244,20 +263,20 @@ export function TransactionDetailModal({
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                  Customer Name
+                  {tx("ui.payments.transaction_detail.customer_name", "Customer Name")}
                 </p>
                 <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.customerName as string}</p>
               </div>
               <div>
                 <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                  Email
+                  {tx("ui.payments.shared.email", "Email")}
                 </p>
                 <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.customerEmail as string}</p>
               </div>
               {transaction.customProperties?.customerPhone && (
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Phone
+                    {tx("ui.payments.shared.phone", "Phone")}
                   </p>
                   <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties.customerPhone as string}</p>
                 </div>
@@ -265,7 +284,7 @@ export function TransactionDetailModal({
               {transaction.customProperties?.employerName && (
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Employer
+                    {tx("ui.payments.transaction_detail.employer", "Employer")}
                   </p>
                   <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties.employerName as string}</p>
                 </div>
@@ -281,7 +300,9 @@ export function TransactionDetailModal({
             <div className="flex items-center gap-2 mb-3">
               <Package size={16} style={{ color: "var(--primary)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                {hasLineItems ? "Order Items" : "Product Details"}
+                {hasLineItems
+                  ? tx("ui.payments.transaction_detail.order_items", "Order Items")
+                  : tx("ui.payments.transaction_detail.product_details", "Product Details")}
               </h3>
               {hasLineItems && transaction?.customProperties?.lineItems && (
                 <span
@@ -291,7 +312,9 @@ export function TransactionDetailModal({
                     color: "var(--primary)",
                   }}
                 >
-                  {(transaction.customProperties.lineItems as Array<unknown>).length} items
+                  {tx("ui.payments.transaction_detail.items_count", "{count} items", {
+                    count: (transaction.customProperties.lineItems as Array<unknown>).length,
+                  })}
                 </span>
               )}
             </div>
@@ -303,10 +326,18 @@ export function TransactionDetailModal({
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b" style={{ borderColor: "var(--window-document-border)" }}>
-                        <th className="text-left pb-2 pr-2" style={{ color: "var(--neutral-gray)" }}>Product</th>
-                        <th className="text-center pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Qty</th>
-                        <th className="text-right pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>Unit Price</th>
-                        <th className="text-right pb-2 pl-2" style={{ color: "var(--neutral-gray)" }}>Total</th>
+                        <th className="text-left pb-2 pr-2" style={{ color: "var(--neutral-gray)" }}>
+                          {tx("ui.payments.transaction_detail.product", "Product")}
+                        </th>
+                        <th className="text-center pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>
+                          {tx("ui.payments.transaction_detail.qty", "Qty")}
+                        </th>
+                        <th className="text-right pb-2 px-2" style={{ color: "var(--neutral-gray)" }}>
+                          {tx("ui.payments.transaction_detail.unit_price", "Unit Price")}
+                        </th>
+                        <th className="text-right pb-2 pl-2" style={{ color: "var(--neutral-gray)" }}>
+                          {tx("ui.payments.shared.total", "Total")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -355,7 +386,7 @@ export function TransactionDetailModal({
               <div className="space-y-2">
                 <div>
                   <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                    Product
+                    {tx("ui.payments.transaction_detail.product", "Product")}
                   </p>
                   <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                     {transaction.customProperties?.productName as string}
@@ -370,7 +401,7 @@ export function TransactionDetailModal({
                 {transaction.customProperties?.eventName && (
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                      Event
+                      {tx("ui.payments.transaction_detail.event", "Event")}
                     </p>
                     <p className="text-sm" style={{ color: "var(--window-document-text)" }}>
                       {transaction.customProperties.eventName as string}
@@ -386,13 +417,13 @@ export function TransactionDetailModal({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                      Quantity
+                      {tx("ui.payments.transaction_detail.quantity", "Quantity")}
                     </p>
                     <p style={{ color: "var(--window-document-text)" }}>{transaction.customProperties?.quantity as number}</p>
                   </div>
                   <div>
                     <p className="text-xs font-bold mb-1" style={{ color: "var(--neutral-gray)" }}>
-                      Unit Price
+                      {tx("ui.payments.transaction_detail.unit_price", "Unit Price")}
                     </p>
                     <p style={{ color: "var(--window-document-text)" }}>
                       {formatCurrency((transaction.customProperties?.unitPriceInCents as number) || 0)}
@@ -411,12 +442,12 @@ export function TransactionDetailModal({
             <div className="flex items-center gap-2 mb-3">
               <CreditCard size={16} style={{ color: "var(--primary)" }} />
               <h3 className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-                Payment Summary
+                {tx("ui.payments.transaction_detail.payment_summary", "Payment Summary")}
               </h3>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span style={{ color: "var(--neutral-gray)" }}>Subtotal</span>
+                <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.shared.subtotal", "Subtotal")}</span>
                 <span style={{ color: "var(--window-document-text)" }}>
                   {formatCurrency(totals.subtotal)}
                 </span>
@@ -424,7 +455,8 @@ export function TransactionDetailModal({
 
               <div className="flex justify-between text-sm">
                 <span style={{ color: "var(--neutral-gray)" }}>
-                  Tax {hasLineItems ? "" : `(${((transaction.customProperties?.taxRatePercent as number) || 0)}%)`}
+                  {tx("ui.payments.shared.tax", "Tax")}{" "}
+                  {hasLineItems ? "" : `(${((transaction.customProperties?.taxRatePercent as number) || 0)}%)`}
                 </span>
                 <span style={{ color: "var(--window-document-text)" }}>
                   {formatCurrency(totals.tax)}
@@ -435,7 +467,7 @@ export function TransactionDetailModal({
                 className="flex justify-between text-base font-bold pt-2 border-t"
                 style={{ borderColor: "var(--window-document-border)" }}
               >
-                <span style={{ color: "var(--window-document-text)" }}>Total</span>
+                <span style={{ color: "var(--window-document-text)" }}>{tx("ui.payments.shared.total", "Total")}</span>
                 <span style={{ color: "var(--primary)" }}>
                   {formatCurrency(totals.total)}
                 </span>
@@ -444,11 +476,13 @@ export function TransactionDetailModal({
               {/* Payment Info */}
               <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: "var(--neutral-gray)" }}>Payment Method</span>
-                  <span style={{ color: "var(--window-document-text)" }}>{(transaction.customProperties?.paymentMethod as string) || "Unknown"}</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.payment_method", "Payment Method")}</span>
+                  <span style={{ color: "var(--window-document-text)" }}>
+                    {(transaction.customProperties?.paymentMethod as string) || tx("ui.payments.shared.unknown", "Unknown")}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm mt-1">
-                  <span style={{ color: "var(--neutral-gray)" }}>Payment Status</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.payment_status", "Payment Status")}</span>
                   <span
                     className="px-2 py-0.5 text-xs font-bold rounded-lg"
                     style={{
@@ -474,7 +508,7 @@ export function TransactionDetailModal({
                   </span>
                 </div>
                 <div className="flex justify-between text-sm mt-1">
-                  <span style={{ color: "var(--neutral-gray)" }}>Invoicing Status</span>
+                  <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.invoicing_status", "Invoicing Status")}</span>
                   <span
                     className="px-2 py-0.5 text-xs font-bold rounded-lg"
                     style={{
@@ -501,14 +535,14 @@ export function TransactionDetailModal({
                   transaction.customProperties?.paymentStatus === "partially_refunded") && (
                   <div className="pt-2 mt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
                     <div className="flex justify-between text-sm">
-                      <span style={{ color: "var(--neutral-gray)" }}>Refund Amount</span>
+                      <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.refund_amount", "Refund Amount")}</span>
                       <span style={{ color: "var(--error)" }}>
                         {formatCurrency((transaction.customProperties?.refundAmount as number) || 0)}
                       </span>
                     </div>
                     {transaction.customProperties?.refundDate && (
                       <div className="flex justify-between text-sm mt-1">
-                        <span style={{ color: "var(--neutral-gray)" }}>Refund Date</span>
+                        <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.refund_date", "Refund Date")}</span>
                         <span style={{ color: "var(--window-document-text)" }}>
                           {formatDate(transaction.customProperties.refundDate as number)}
                         </span>
@@ -516,7 +550,7 @@ export function TransactionDetailModal({
                     )}
                     {transaction.customProperties?.refundId && (
                       <div className="flex justify-between text-sm mt-1">
-                        <span style={{ color: "var(--neutral-gray)" }}>Refund ID</span>
+                        <span style={{ color: "var(--neutral-gray)" }}>{tx("ui.payments.transaction_detail.refund_id", "Refund ID")}</span>
                         <span style={{ color: "var(--window-document-text)", fontFamily: "monospace", fontSize: "0.75rem" }}>
                           {(transaction.customProperties.refundId as string).substring(0, 20)}...
                         </span>
@@ -540,7 +574,9 @@ export function TransactionDetailModal({
           >
             <AlertCircle size={16} style={{ color: "var(--error)" }} className="flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-bold" style={{ color: "var(--error)" }}>Refund Failed</p>
+              <p className="text-xs font-bold" style={{ color: "var(--error)" }}>
+                {tx("ui.payments.transaction_detail.refund_failed_title", "Refund Failed")}
+              </p>
               <p className="text-xs mt-1" style={{ color: "var(--error)" }}>{refundError}</p>
             </div>
           </div>
@@ -554,7 +590,7 @@ export function TransactionDetailModal({
             }}
           >
             <p className="text-xs font-bold" style={{ color: "var(--success)" }}>
-               Refund processed successfully!
+              {tx("ui.payments.transaction_detail.refund_success", "Refund processed successfully!")}
             </p>
           </div>
         )}
@@ -567,22 +603,22 @@ export function TransactionDetailModal({
           <div className="flex items-center gap-2">
             {transaction.customProperties?.invoicingStatus === "invoiced" && (
               <p className="text-xs" style={{ color: "var(--success)" }}>
-                 Invoiced
+                {tx("ui.payments.transaction_detail.invoiced", "Invoiced")}
               </p>
             )}
             {transaction.customProperties?.invoicingStatus === "on_draft_invoice" && (
               <p className="text-xs" style={{ color: "var(--primary)" }}>
-                On Draft Invoice
+                {tx("ui.payments.transaction_detail.on_draft_invoice", "On Draft Invoice")}
               </p>
             )}
             {transaction.customProperties?.paymentStatus === "refunded" && (
               <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                 Refunded
+                {tx("ui.payments.transaction_detail.refunded", "Refunded")}
               </p>
             )}
             {transaction.customProperties?.paymentStatus === "partially_refunded" && (
               <p className="text-xs" style={{ color: "var(--warning)" }}>
-                 Partially Refunded
+                {tx("ui.payments.transaction_detail.partially_refunded", "Partially Refunded")}
               </p>
             )}
           </div>
@@ -605,12 +641,12 @@ export function TransactionDetailModal({
                 {isRefunding ? (
                   <>
                     <Loader2 className="animate-spin" size={14} />
-                    Processing...
+                    {tx("ui.payments.shared.processing", "Processing...")}
                   </>
                 ) : (
                   <>
                     <RefreshCw size={14} />
-                    Issue Refund
+                    {tx("ui.payments.transaction_detail.issue_refund", "Issue Refund")}
                   </>
                 )}
               </button>
@@ -623,7 +659,7 @@ export function TransactionDetailModal({
                 color: "var(--window-document-text)",
               }}
             >
-              Close
+              {tx("ui.payments.shared.close", "Close")}
             </button>
           </div>
         </div>

@@ -1,31 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { Ticket, Plus, List, Loader2, AlertCircle, Building2, ArrowLeft, Maximize2 } from "lucide-react";
+import { Ticket, Plus, List, Loader2, AlertCircle, Building2, ArrowLeft, Maximize2, LifeBuoy } from "lucide-react";
 import Link from "next/link";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { TicketsList } from "./tickets-list";
 import { TicketForm } from "./ticket-form";
+import { SupportIntakeView } from "./support-intake-view";
 
-type ViewMode = "list" | "create" | "edit";
+type ViewMode = "list" | "create" | "edit" | "support-intake";
 
 interface TicketsWindowProps {
   initialEventId?: Id<"objects">;
   initialTicketId?: Id<"objects">;
+  initialPanel?: string;
+  context?: string;
   /** When true, shows back-to-desktop navigation (for /tickets route) */
   fullScreen?: boolean;
 }
 
-export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = false }: TicketsWindowProps = {}) {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+export function TicketsWindow({
+  initialEventId,
+  initialTicketId,
+  initialPanel,
+  context,
+  fullScreen = false,
+}: TicketsWindowProps = {}) {
+  const supportIntakeRequested = initialPanel === "support-intake";
+  const [viewMode, setViewMode] = useState<ViewMode>(supportIntakeRequested ? "support-intake" : "list");
   const [selectedTicketId, setSelectedTicketId] = useState<Id<"objects"> | null>(null);
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
-  const { t } = useNamespaceTranslations("ui.tickets");
+  const { t, tWithFallback } = useNamespaceTranslations("ui.tickets");
+
+  useEffect(() => {
+    if (supportIntakeRequested) {
+      setViewMode("support-intake");
+    }
+  }, [supportIntakeRequested]);
 
   // Check app availability - returns guard component if unavailable/loading, null if available
   const guard = useAppAvailabilityGuard({
@@ -105,13 +121,13 @@ export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = fa
           {fullScreen && (
             <Link
               href="/"
-              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors mr-3"
+              className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors mr-3"
               style={{
                 borderColor: "var(--win95-border)",
                 background: "var(--win95-button-face)",
                 color: "var(--win95-text)",
               }}
-              title="Back to Desktop"
+              title={tWithFallback("ui.tickets.nav.back_to_desktop", "Back to Desktop")}
             >
               <ArrowLeft size={14} />
             </Link>
@@ -138,13 +154,13 @@ export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = fa
             {!fullScreen && (
               <Link
                 href="/tickets"
-                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+                className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
                 style={{
                   borderColor: "var(--win95-border)",
                   background: "var(--win95-button-face)",
                   color: "var(--win95-text)",
                 }}
-                title="Open Full Screen"
+                title={tWithFallback("ui.tickets.nav.open_full_screen", "Open Full Screen")}
               >
                 <Maximize2 size={14} />
               </Link>
@@ -158,10 +174,22 @@ export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = fa
         className="flex items-center gap-2 px-4 py-2 border-b-2"
         style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
       >
+        <button
+          onClick={() => setViewMode("support-intake")}
+          className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
+          style={{
+            borderColor: "var(--win95-border)",
+            background: viewMode === "support-intake" ? "var(--win95-button-shadow)" : "var(--win95-button-face)",
+            color: "var(--win95-text)",
+          }}
+        >
+          <LifeBuoy size={14} />
+          {tWithFallback("ui.tickets.action.support_intake", "Support Intake")}
+        </button>
         {viewMode === "list" ? (
           <button
             onClick={handleCreateNew}
-            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-button-face)",
@@ -174,7 +202,7 @@ export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = fa
         ) : (
           <button
             onClick={handleBackToList}
-            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border-2 transition-colors"
+            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
             style={{
               borderColor: "var(--win95-border)",
               background: "var(--win95-button-face)",
@@ -189,6 +217,10 @@ export function TicketsWindow({ initialEventId, initialTicketId, fullScreen = fa
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {viewMode === "support-intake" && (
+          <SupportIntakeView initialContext={context} />
+        )}
+
         {viewMode === "list" && (
           <TicketsList
             sessionId={sessionId!}

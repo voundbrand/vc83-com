@@ -76,7 +76,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
       case "sms":
         return "var(--success)";
       case "whatsapp":
-        return "#25D366";
+        return "var(--success)";
       default:
         return "var(--win95-highlight)";
     }
@@ -160,7 +160,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
             <select
               value={newChannel}
               onChange={(e) => setNewChannel(e.target.value as "email" | "sms" | "whatsapp")}
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="email">Email</option>
               <option value="sms">SMS</option>
@@ -168,7 +168,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
             </select>
             <button
               onClick={() => setIsCreating(true)}
-              className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
+              className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
             >
               <Plus className="h-3 w-3" />
               New Template
@@ -187,7 +187,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
               placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="retro-input w-full py-1 pl-7 pr-2 text-xs"
+              className="desktop-interior-input w-full py-1 pl-7 pr-2 text-xs"
             />
           </div>
 
@@ -198,7 +198,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
               onChange={(e) =>
                 setChannelFilter(e.target.value === "all" ? undefined : e.target.value)
               }
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="all">All Channels</option>
               <option value="email">Email</option>
@@ -212,7 +212,7 @@ export function TemplatesList({ organizationId, sessionId }: TemplatesListProps)
             onChange={(e) =>
               setStatusFilter(e.target.value === "all" ? undefined : e.target.value)
             }
-            className="retro-input py-1 pl-2 pr-6 text-xs"
+            className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -324,7 +324,7 @@ function TemplateCard({
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="retro-button p-1 opacity-0 group-hover:opacity-100"
+            className="desktop-interior-button p-1 opacity-0 group-hover:opacity-100"
           >
             <MoreVertical className="h-3 w-3" />
           </button>
@@ -333,7 +333,7 @@ function TemplateCard({
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div
-                className="absolute right-0 top-8 z-20 w-36 border-2 py-1 shadow-lg"
+                className="absolute right-0 top-8 z-20 w-36 border py-1"
                 style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
               >
                 <button

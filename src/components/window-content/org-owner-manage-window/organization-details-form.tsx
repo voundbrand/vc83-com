@@ -3,7 +3,7 @@
 import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
 import { useQuery, useAction } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { OrganizationSection } from "./components/organization-section";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -97,6 +97,10 @@ export interface FormData {
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
     const { t } = useNamespaceTranslations("ui.manage");
+    const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+      const translated = t(key, params);
+      return translated === key ? fallback : translated;
+    };
     const { openWindow } = useWindowManager();
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
@@ -598,7 +602,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
-              placeholder="https://example.com"
+              placeholder={tx("ui.manage.org.website_placeholder", "https://example.com")}
               className="w-full px-2 py-1 text-sm"
               style={inputStyles}
             />
@@ -623,7 +627,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://linkedin.com/company/..."
+                placeholder={tx("ui.manage.org.linkedin_placeholder", "https://linkedin.com/company/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -642,7 +646,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://twitter.com/..."
+                placeholder={tx("ui.manage.org.twitter_placeholder", "https://twitter.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -661,7 +665,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://facebook.com/..."
+                placeholder={tx("ui.manage.org.facebook_placeholder", "https://facebook.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -680,7 +684,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://instagram.com/..."
+                placeholder={tx("ui.manage.org.instagram_placeholder", "https://instagram.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -699,7 +703,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         {/* Legal Entity Information */}
         <div className="mb-6">
           <p className="text-xs font-semibold mb-3" style={{ color: 'var(--window-document-text)' }}>
-            Legal Entity
+            {tx("ui.manage.org.legal_entity_section", "Legal Entity")}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -728,7 +732,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value.toUpperCase() })}
                   readOnly={!isEditing}
                   disabled={!canEdit || !isEditing}
-                  placeholder="GB123456789 or DE123456789"
+                  placeholder={tx("ui.manage.org.vat_number_placeholder", "GB123456789 or DE123456789")}
                   className="flex-1 px-2 py-1 text-sm font-mono"
                   style={inputStyles}
                 />
@@ -756,7 +760,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       opacity: isValidatingVAT ? 0.6 : 1,
                     }}
                   >
-                    {isValidatingVAT ? "Verifying..." : "Verify VAT"}
+                    {isValidatingVAT
+                      ? tx("ui.manage.org.vat_verifying", "Verifying...")
+                      : tx("ui.manage.org.vat_verify_button", "Verify VAT")}
                   </button>
                 )}
               </div>
@@ -773,19 +779,23 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   {vatValidationResult.valid ? (
                     <>
                       <p className="font-semibold" style={{ color: 'var(--success)' }}>
-                         VAT Number Valid
+                        {tx("ui.manage.org.vat_valid", "VAT Number Valid")}
                       </p>
                       {vatValidationResult.name && (
-                        <p className="mt-1"><strong>Company:</strong> {vatValidationResult.name}</p>
+                        <p className="mt-1">
+                          <strong>{tx("ui.manage.org.vat_company_label", "Company:")}</strong> {vatValidationResult.name}
+                        </p>
                       )}
                       {vatValidationResult.address && (
-                        <p className="mt-1"><strong>Address:</strong> {vatValidationResult.address}</p>
+                        <p className="mt-1">
+                          <strong>{tx("ui.manage.org.vat_address_label", "Address:")}</strong> {vatValidationResult.address}
+                        </p>
                       )}
                     </>
                   ) : (
                     <>
                       <p className="font-semibold" style={{ color: 'var(--error)' }}>
-                         VAT Number Invalid
+                        {tx("ui.manage.org.vat_invalid", "VAT Number Invalid")}
                       </p>
                       {vatValidationResult.error && (
                         <p className="mt-1">{vatValidationResult.error}</p>
@@ -795,7 +805,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </div>
               )}
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                EU VAT format: Country code + number (e.g., DE123456789)
+                {tx("ui.manage.org.vat_format_help", "EU VAT format: Country code + number (e.g., DE123456789)")}
               </p>
             </div>
 
@@ -826,14 +836,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   color: 'var(--warning)',
                   borderColor: 'var(--warning)'
                 }}>
-                   Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
+                  {tx(
+                    "ui.manage.org.tax_origin_missing_warning",
+                    'Please add an address and mark it as "tax origin" in the Addresses section above first.',
+                  )}
                 </div>
               )}
 
               {/* Show country if tax origin exists */}
               {taxOriginAddress && availableLegalEntities && (
                 <div className="mb-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                  Country: {availableLegalEntities.countryName} ({availableLegalEntities.country})
+                  {tx("ui.manage.org.country_label", "Country:")} {availableLegalEntities.countryName} ({availableLegalEntities.country})
                 </div>
               )}
 
@@ -846,13 +859,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               >
                 <option value="">
                   {!taxOriginAddress
-                    ? "Add tax origin address first"
+                    ? tx("ui.manage.org.tax_origin_required_option", "Add tax origin address first")
                     : t("ui.manage.org.legal_entity_type_select")}
                 </option>
                 {availableLegalEntities?.entities.map((entity) => (
                   <option key={entity.code} value={entity.code} title={entity.description}>
                     {entity.code} - {entity.name}
-                    {entity.minShareCapital ? ` (Min: ${entity.minShareCapital})` : ""}
+                    {entity.minShareCapital
+                      ? tx("ui.manage.org.legal_entity_min_short", " (Min: {amount})", {
+                        amount: entity.minShareCapital,
+                      })
+                      : ""}
                   </option>
                 ))}
               </select>
@@ -874,8 +891,16 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                         {selectedEntity.description}
                         <br />
                         <span style={{ fontSize: '0.65rem' }}>
-                          Liability: {selectedEntity.liability} | VAT Eligible: {selectedEntity.vatEligible ? 'Yes' : 'No'}
-                          {selectedEntity.minShareCapital && ` | Min Capital: ${selectedEntity.minShareCapital}`}
+                          {tx("ui.manage.org.legal_entity_liability_label", "Liability:")} {selectedEntity.liability}{" "}
+                          {tx("ui.manage.org.legal_entity_vat_eligible_label", "| VAT Eligible:")}{" "}
+                          {selectedEntity.vatEligible
+                            ? tx("ui.manage.org.legal_entity_yes", "Yes")
+                            : tx("ui.manage.org.legal_entity_no", "No")}
+                          {selectedEntity.minShareCapital
+                            ? tx("ui.manage.org.legal_entity_min_capital", " | Min Capital: {amount}", {
+                              amount: selectedEntity.minShareCapital,
+                            })
+                            : ""}
                         </span>
                       </>
                     );
@@ -890,7 +915,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
         <div className="border-t pt-4" style={{ borderColor: 'var(--window-document-border)' }}>
           <p className="text-xs font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--window-document-text)' }}>
             <Receipt className="w-3.5 h-3.5" />
-            Tax Collection Settings
+            {tx("ui.manage.org.tax_collection_settings", "Tax Collection Settings")}
           </p>
           <div className="space-y-4">
             {/* Enable Tax Collection */}
@@ -904,14 +929,14 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 className="w-4 h-4"
               />
               <label htmlFor="taxEnabled" className="text-sm font-semibold" style={{ color: 'var(--window-document-text)' }}>
-                Enable tax collection for this organization
+                {tx("ui.manage.org.tax_enable_label", "Enable tax collection for this organization")}
               </label>
             </div>
 
             {/* Tax Behavior */}
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                Default Tax Behavior
+                {tx("ui.manage.org.default_tax_behavior", "Default Tax Behavior")}
               </label>
               <select
                 value={formData.defaultTaxBehavior}
@@ -920,19 +945,25 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               >
-                <option value="exclusive">Exclusive (Tax added at checkout)</option>
-                <option value="inclusive">Inclusive (Tax included in price)</option>
-                <option value="automatic">Automatic (Provider determines)</option>
+                <option value="exclusive">
+                  {tx("ui.manage.org.tax_behavior_exclusive", "Exclusive (Tax added at checkout)")}
+                </option>
+                <option value="inclusive">
+                  {tx("ui.manage.org.tax_behavior_inclusive", "Inclusive (Tax included in price)")}
+                </option>
+                <option value="automatic">
+                  {tx("ui.manage.org.tax_behavior_automatic", "Automatic (Provider determines)")}
+                </option>
               </select>
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                How tax should be calculated on products by default
+                {tx("ui.manage.org.tax_behavior_help", "How tax should be calculated on products by default")}
               </p>
             </div>
 
             {/* Default Tax Code */}
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--window-document-text)' }}>
-                Default Tax Code
+                {tx("ui.manage.org.default_tax_code", "Default Tax Code")}
               </label>
               {availableTaxCodes ? (
                 <select
@@ -942,7 +973,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="">-- No Default (products must specify their own) --</option>
+                  <option value="">
+                    {tx("ui.manage.org.default_tax_code_none", "-- No Default (products must specify their own) --")}
+                  </option>
                   <optgroup label={`${availableTaxCodes.flag} ${availableTaxCodes.label}`}>
                     {availableTaxCodes.codes.map((code) => (
                       <option key={code.value} value={code.value}>
@@ -953,13 +986,15 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 </select>
               ) : (
                 <div className="w-full px-2 py-1 text-sm" style={inputStyles}>
-                  <p className="text-red-600"> No tax origin address set</p>
+                  <p className="text-red-600">{tx("ui.manage.org.no_tax_origin_address", "No tax origin address set")}</p>
                 </div>
               )}
               <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                 {availableTaxCodes
-                  ? `Products without a tax code will use this default (${taxOriginCountry})`
-                  : "Set a tax origin address first to select tax codes"
+                  ? tx("ui.manage.org.default_tax_code_help", "Products without a tax code will use this default ({country})", {
+                    country: taxOriginCountry ?? "",
+                  })
+                  : tx("ui.manage.org.default_tax_code_help_missing_origin", "Set a tax origin address first to select tax codes")
                 }
               </p>
             </div>
@@ -1064,7 +1099,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={formData.settings.branding.logo}
-                        alt="Organization avatar"
+                        alt={tx("ui.manage.org.organization_avatar_alt", "Organization avatar")}
                         className="h-full w-full object-cover"
                         onError={() =>
                           setFormData((previous) => ({
@@ -1099,7 +1134,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                         className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
                       >
                         <ImagePlus className="h-3.5 w-3.5" />
-                        Upload Avatar
+                        {tx("ui.manage.org.upload_avatar", "Upload Avatar")}
                       </button>
                       <button
                         type="button"
@@ -1116,7 +1151,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                         className="desktop-interior-button h-8 px-3 text-xs font-semibold"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Remove
+                        {tx("ui.manage.org.remove", "Remove")}
                       </button>
                     </div>
                     <input
@@ -1133,12 +1168,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       }
                       readOnly={!isEditing}
                       disabled={!canEdit || !isEditing}
-                      placeholder="https://..."
+                      placeholder={tx("ui.manage.org.url_placeholder_short", "https://...")}
                       className="flex-1 px-2 py-1 text-sm"
                       style={inputStyles}
                     />
                     <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-                      Use a square image for the best avatar crop.
+                      {tx("ui.manage.org.avatar_crop_help", "Use a square image for the best avatar crop.")}
                     </p>
                   </div>
                 </div>
@@ -1146,7 +1181,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--neutral-gray)' }}>
-                  Desktop Background
+                  {tx("ui.manage.org.desktop_background", "Desktop Background")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1161,7 +1196,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     })}
                     readOnly={!isEditing}
                     disabled={!canEdit || !isEditing}
-                    placeholder="https://..."
+                    placeholder={tx("ui.manage.org.url_placeholder_short", "https://...")}
                     className="flex-1 px-2 py-1 text-sm"
                     style={inputStyles}
                   />
@@ -1182,7 +1217,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
                   >
                     <ImagePlus className="h-3.5 w-3.5" />
-                    Browse
+                    {tx("ui.manage.org.browse", "Browse")}
                   </button>
                 </div>
                 {formData.settings.branding.desktopBackground && (
@@ -1190,7 +1225,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={formData.settings.branding.desktopBackground}
-                      alt="Desktop background preview"
+                      alt={tx("ui.manage.org.desktop_background_preview_alt", "Desktop background preview")}
                       className="h-24 w-32 object-cover border"
                       style={{ borderColor: 'var(--window-document-border)' }}
                       onError={(e) => {
@@ -1227,12 +1262,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
+                  <option value="en">{tx("ui.manage.org.language_en", "English")}</option>
+                  <option value="es">{tx("ui.manage.org.language_es", "Spanish")}</option>
+                  <option value="fr">{tx("ui.manage.org.language_fr", "French")}</option>
+                  <option value="de">{tx("ui.manage.org.language_de", "German")}</option>
+                  <option value="it">{tx("ui.manage.org.language_it", "Italian")}</option>
+                  <option value="pt">{tx("ui.manage.org.language_pt", "Portuguese")}</option>
                 </select>
               </div>
 
@@ -1253,12 +1288,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="JPY">JPY (¥)</option>
-                  <option value="CAD">CAD ($)</option>
-                  <option value="AUD">AUD ($)</option>
+                  <option value="USD">{tx("ui.manage.org.currency_usd", "USD ($)")}</option>
+                  <option value="EUR">{tx("ui.manage.org.currency_eur", "EUR (€)")}</option>
+                  <option value="GBP">{tx("ui.manage.org.currency_gbp", "GBP (£)")}</option>
+                  <option value="JPY">{tx("ui.manage.org.currency_jpy", "JPY (¥)")}</option>
+                  <option value="CAD">{tx("ui.manage.org.currency_cad", "CAD ($)")}</option>
+                  <option value="AUD">{tx("ui.manage.org.currency_aud", "AUD ($)")}</option>
                 </select>
               </div>
 
@@ -1323,13 +1358,27 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
 
                     return (
                       <>
-                        <option value="DD.MM.YYYY">DD.MM.YYYY (31.12.2025)</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</option>
-                        <option value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</option>
-                        <option value="DD MMMM YYYY">DD MMMM YYYY (31 {month} 2025)</option>
-                        <option value="MMMM DD, YYYY">MMMM DD, YYYY ({month} 31, 2025)</option>
-                        <option value="DD. MMMM YYYY">DD. MMMM YYYY (31. {month} 2025)</option>
+                        <option value="DD.MM.YYYY">
+                          {tx("ui.manage.org.date_format_dd_mm_yyyy_dots", "DD.MM.YYYY (31.12.2025)")}
+                        </option>
+                        <option value="DD/MM/YYYY">
+                          {tx("ui.manage.org.date_format_dd_mm_yyyy_slashes", "DD/MM/YYYY (31/12/2025)")}
+                        </option>
+                        <option value="MM/DD/YYYY">
+                          {tx("ui.manage.org.date_format_mm_dd_yyyy_slashes", "MM/DD/YYYY (12/31/2025)")}
+                        </option>
+                        <option value="YYYY-MM-DD">
+                          {tx("ui.manage.org.date_format_yyyy_mm_dd_dashes", "YYYY-MM-DD (2025-12-31)")}
+                        </option>
+                        <option value="DD MMMM YYYY">
+                          {tx("ui.manage.org.date_format_dd_mmmm_yyyy", "DD MMMM YYYY (31 {month} 2025)", { month })}
+                        </option>
+                        <option value="MMMM DD, YYYY">
+                          {tx("ui.manage.org.date_format_mmmm_dd_yyyy", "MMMM DD, YYYY ({month} 31, 2025)", { month })}
+                        </option>
+                        <option value="DD. MMMM YYYY">
+                          {tx("ui.manage.org.date_format_dd_dot_mmmm_yyyy", "DD. MMMM YYYY (31. {month} 2025)", { month })}
+                        </option>
                       </>
                     );
                   })()}
@@ -1343,8 +1392,9 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             <p className="text-xs flex items-center gap-2" style={{ color: 'var(--tone-accent-strong)' }}>
               <Receipt className="w-3.5 h-3.5" />
               <span>
-                {t("ui.manage.org.invoicing_settings")}: Configure invoice numbering and payment terms in{" "}
-                <strong>Payments → Invoicing</strong>
+                {t("ui.manage.org.invoicing_settings")}
+                {tx("ui.manage.org.invoicing_settings_note_suffix", ": Configure invoice numbering and payment terms in")}{" "}
+                <strong>{tx("ui.manage.org.invoicing_settings_location", "Payments → Invoicing")}</strong>
               </span>
             </p>
           </div>
@@ -1368,9 +1418,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               borderRadius: '4px'
             }}
           >
-            <p className="font-semibold mb-2"> Plan information available in header</p>
+            <p className="font-semibold mb-2">{tx("ui.manage.org.plan_info_header", "Plan information available in header")}</p>
             <p className="text-xs">
-              Your current plan tier is displayed in the organization badge at the top of this window.
+              {tx(
+                "ui.manage.org.plan_info_body",
+                "Your current plan tier is displayed in the organization badge at the top of this window.",
+              )}
             </p>
           </div>
 
@@ -1407,7 +1460,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  Custom Domain
+                  {tx("ui.manage.org.feature_custom_domain", "Custom Domain")}
                 </span>
               )}
               {false && (
@@ -1420,7 +1473,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  SSO
+                  {tx("ui.manage.org.feature_sso", "SSO")}
                 </span>
               )}
               {false && (
@@ -1433,7 +1486,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  API Access
+                  {tx("ui.manage.org.feature_api_access", "API Access")}
                 </span>
               )}
               {/* Show "no features" message since we haven't queried ontology yet */}

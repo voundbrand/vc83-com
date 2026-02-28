@@ -6,6 +6,7 @@
 "use client";
 
 import { Id } from "../../../../convex/_generated/dataModel";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { ClientSelector } from "./ClientSelector";
 import RichTextEditor from "./RichTextEditor";
 import type { ProjectFormData } from "./ProjectBuilder";
@@ -27,6 +28,17 @@ export function ProjectDetailsTab({
   organizationId,
   disabled = false,
 }: ProjectDetailsTabProps) {
+  const { t } = useNamespaceTranslations("ui.projects.details_tab");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const fullKey = `ui.projects.details_tab.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
+
   return (
     <div className="space-y-6">
       {/* Basic Info Section */}
@@ -35,13 +47,13 @@ export function ProjectDetailsTab({
         style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Basic Information
+          {tx("basic.title", "Basic Information")}
         </h3>
 
         {/* Project Name */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Project Name <span style={{ color: "var(--error)" }}>*</span>
+            {tx("basic.project_name_label", "Project Name")} <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <input
             type="text"
@@ -55,7 +67,7 @@ export function ProjectDetailsTab({
               background: "var(--window-document-bg)",
               color: "var(--window-document-text)",
             }}
-            placeholder="Enter project name"
+            placeholder={tx("basic.project_name_placeholder", "Enter project name")}
             disabled={disabled}
           />
         </div>
@@ -63,7 +75,7 @@ export function ProjectDetailsTab({
         {/* Short Description */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Short Description
+            {tx("basic.short_description_label", "Short Description")}
           </label>
           <input
             type="text"
@@ -76,7 +88,7 @@ export function ProjectDetailsTab({
               background: "var(--window-document-bg)",
               color: "var(--window-document-text)",
             }}
-            placeholder="Brief project summary"
+            placeholder={tx("basic.short_description_placeholder", "Brief project summary")}
             disabled={disabled}
           />
         </div>
@@ -86,7 +98,7 @@ export function ProjectDetailsTab({
           {/* Project Type */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Project Type <span style={{ color: "var(--error)" }}>*</span>
+              {tx("basic.project_type_label", "Project Type")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.subtype}
@@ -100,18 +112,18 @@ export function ProjectDetailsTab({
               }}
               disabled={disabled}
             >
-              <option value="client_project">Client Project</option>
-              <option value="internal">Internal</option>
-              <option value="campaign">Campaign</option>
-              <option value="product_development">Product Development</option>
-              <option value="other">Other</option>
+              <option value="client_project">{tx("basic.project_type.client_project", "Client Project")}</option>
+              <option value="internal">{tx("basic.project_type.internal", "Internal")}</option>
+              <option value="campaign">{tx("basic.project_type.campaign", "Campaign")}</option>
+              <option value="product_development">{tx("basic.project_type.product_development", "Product Development")}</option>
+              <option value="other">{tx("basic.project_type.other", "Other")}</option>
             </select>
           </div>
 
           {/* Priority */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Priority <span style={{ color: "var(--error)" }}>*</span>
+              {tx("basic.priority_label", "Priority")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.priority}
@@ -125,10 +137,10 @@ export function ProjectDetailsTab({
               }}
               disabled={disabled}
             >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
+              <option value="low">{tx("basic.priority.low", "Low")}</option>
+              <option value="medium">{tx("basic.priority.medium", "Medium")}</option>
+              <option value="high">{tx("basic.priority.high", "High")}</option>
+              <option value="critical">{tx("basic.priority.critical", "Critical")}</option>
             </select>
           </div>
         </div>
@@ -137,7 +149,7 @@ export function ProjectDetailsTab({
         {mode === "edit" && (
           <div className="mb-4">
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Status <span style={{ color: "var(--error)" }}>*</span>
+              {tx("basic.status_label", "Status")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={formData.status}
@@ -151,12 +163,12 @@ export function ProjectDetailsTab({
               }}
               disabled={disabled}
             >
-              <option value="draft">Draft</option>
-              <option value="planning">Planning</option>
-              <option value="active">Active</option>
-              <option value="on_hold">On Hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="draft">{tx("basic.status.draft", "Draft")}</option>
+              <option value="planning">{tx("basic.status.planning", "Planning")}</option>
+              <option value="active">{tx("basic.status.active", "Active")}</option>
+              <option value="on_hold">{tx("basic.status.on_hold", "On Hold")}</option>
+              <option value="completed">{tx("basic.status.completed", "Completed")}</option>
+              <option value="cancelled">{tx("basic.status.cancelled", "Cancelled")}</option>
             </select>
           </div>
         )}
@@ -165,7 +177,7 @@ export function ProjectDetailsTab({
         {mode === "edit" && (
           <div className="mb-4">
             <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-              Progress: {formData.progress}%
+              {tx("basic.progress", `Progress: ${formData.progress}%`, { progress: formData.progress })}
             </label>
             <input
               type="range"
@@ -187,13 +199,13 @@ export function ProjectDetailsTab({
         style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Client & Timeline
+          {tx("timeline.title", "Client & Timeline")}
         </h3>
 
         {/* Client Selector */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Client (CRM)
+            {tx("timeline.client_crm_label", "Client (CRM)")}
           </label>
           <ClientSelector
             sessionId={sessionId}
@@ -209,7 +221,7 @@ export function ProjectDetailsTab({
           {/* Start Date */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Start Date
+              {tx("timeline.start_date_label", "Start Date")}
             </label>
             <input
               type="date"
@@ -228,7 +240,7 @@ export function ProjectDetailsTab({
           {/* Target End Date */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Target End Date
+              {tx("timeline.target_end_date_label", "Target End Date")}
             </label>
             <input
               type="date"
@@ -252,14 +264,14 @@ export function ProjectDetailsTab({
         style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Budget
+          {tx("budget.title", "Budget")}
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Budget Amount */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Amount
+              {tx("budget.amount_label", "Amount")}
             </label>
             <input
               type="number"
@@ -281,7 +293,7 @@ export function ProjectDetailsTab({
           {/* Currency */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Currency
+              {tx("budget.currency_label", "Currency")}
             </label>
             <select
               value={formData.budgetCurrency}
@@ -294,11 +306,11 @@ export function ProjectDetailsTab({
               }}
               disabled={disabled}
             >
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="GBP">GBP</option>
-              <option value="CAD">CAD</option>
-              <option value="AUD">AUD</option>
+              <option value="EUR">{tx("budget.currency.eur", "EUR")}</option>
+              <option value="USD">{tx("budget.currency.usd", "USD")}</option>
+              <option value="GBP">{tx("budget.currency.gbp", "GBP")}</option>
+              <option value="CAD">{tx("budget.currency.cad", "CAD")}</option>
+              <option value="AUD">{tx("budget.currency.aud", "AUD")}</option>
             </select>
           </div>
         </div>
@@ -310,16 +322,22 @@ export function ProjectDetailsTab({
         style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Detailed Description
+          {tx("detailed.title", "Detailed Description")}
         </h3>
         <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-          Use the rich text editor to format your project description (bold, italic, lists, etc.)
+          {tx(
+            "detailed.help",
+            "Use the rich text editor to format your project description (bold, italic, lists, etc.)"
+          )}
         </p>
 
         <RichTextEditor
           value={formData.detailedDescription}
           onChange={(value) => onChange({ detailedDescription: value })}
-          placeholder="Enter detailed project description, requirements, notes, etc."
+          placeholder={tx(
+            "detailed.placeholder",
+            "Enter detailed project description, requirements, notes, etc."
+          )}
           disabled={disabled}
         />
       </div>

@@ -7,6 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { ClientSelector } from "./ClientSelector";
 import RichTextEditor from "./RichTextEditor";
 import MeetingsTab from "./MeetingsTab";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Loader2, Save, X, AlertCircle, Calendar, Globe, ExternalLink } from "lucide-react";
 
 interface ProjectFormProps {
@@ -26,6 +27,11 @@ export function ProjectForm({
   onSuccess,
   onCancel,
 }: ProjectFormProps) {
+  const { t } = useNamespaceTranslations("ui.projects");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const createProject = useMutation(api.projectOntology.createProject);
   const updateProject = useMutation(api.projectOntology.updateProject);
   const updatePublicPage = useMutation(api.projectOntology.updateProjectPublicPage);
@@ -122,7 +128,7 @@ export function ProjectForm({
         },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save public page settings");
+      setError(err instanceof Error ? err.message : tx("ui.projects.errors.save_public_page_failed", "Failed to save public page settings"));
     } finally {
       setPublicPageSaving(false);
     }
@@ -180,7 +186,7 @@ export function ProjectForm({
 
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save project");
+      setError(err instanceof Error ? err.message : tx("ui.projects.errors.save_project_failed", "Failed to save project"));
     } finally {
       setIsSubmitting(false);
     }
@@ -218,13 +224,13 @@ export function ProjectForm({
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Basic Information
+          {tx("ui.projects.form.section.basic_information", "Basic Information")}
         </h3>
 
         {/* Project Name */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Project Name <span style={{ color: "var(--error)" }}>*</span>
+            {tx("ui.projects.form.project_name", "Project Name")} <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <input
             type="text"
@@ -238,14 +244,14 @@ export function ProjectForm({
               background: "var(--window-document-bg)",
               color: "var(--window-document-text)",
             }}
-            placeholder="Enter project name"
+            placeholder={tx("ui.projects.form.project_name_placeholder", "Enter project name")}
           />
         </div>
 
         {/* Short Description */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Short Description
+            {tx("ui.projects.form.short_description", "Short Description")}
           </label>
           <input
             type="text"
@@ -258,7 +264,7 @@ export function ProjectForm({
               background: "var(--window-document-bg)",
               color: "var(--window-document-text)",
             }}
-            placeholder="Brief project summary"
+            placeholder={tx("ui.projects.form.short_description_placeholder", "Brief project summary")}
           />
         </div>
 
@@ -267,7 +273,7 @@ export function ProjectForm({
           {/* Project Type */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Project Type <span style={{ color: "var(--error)" }}>*</span>
+              {tx("ui.projects.form.project_type", "Project Type")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={subtype}
@@ -280,18 +286,18 @@ export function ProjectForm({
                 color: "var(--window-document-text)",
               }}
             >
-              <option value="client_project">Client Project</option>
-              <option value="internal">Internal</option>
-              <option value="campaign">Campaign</option>
-              <option value="product_development">Product Development</option>
-              <option value="other">Other</option>
+              <option value="client_project">{tx("ui.projects.form.project_type_client", "Client Project")}</option>
+              <option value="internal">{tx("ui.projects.form.project_type_internal", "Internal")}</option>
+              <option value="campaign">{tx("ui.projects.form.project_type_campaign", "Campaign")}</option>
+              <option value="product_development">{tx("ui.projects.form.project_type_product_development", "Product Development")}</option>
+              <option value="other">{tx("ui.projects.form.project_type_other", "Other")}</option>
             </select>
           </div>
 
           {/* Priority */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Priority <span style={{ color: "var(--error)" }}>*</span>
+              {tx("ui.projects.form.priority", "Priority")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={priority}
@@ -304,10 +310,10 @@ export function ProjectForm({
                 color: "var(--window-document-text)",
               }}
             >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
+              <option value="low">{tx("ui.projects.form.priority_low", "Low")}</option>
+              <option value="medium">{tx("ui.projects.form.priority_medium", "Medium")}</option>
+              <option value="high">{tx("ui.projects.form.priority_high", "High")}</option>
+              <option value="critical">{tx("ui.projects.form.priority_critical", "Critical")}</option>
             </select>
           </div>
         </div>
@@ -316,7 +322,7 @@ export function ProjectForm({
         {mode === "edit" && (
           <div className="mb-4">
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Status <span style={{ color: "var(--error)" }}>*</span>
+              {tx("ui.projects.form.status", "Status")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <select
               value={status}
@@ -329,12 +335,12 @@ export function ProjectForm({
                 color: "var(--window-document-text)",
               }}
             >
-              <option value="draft">Draft</option>
-              <option value="planning">Planning</option>
-              <option value="active">Active</option>
-              <option value="on_hold">On Hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="draft">{tx("ui.projects.form.status_draft", "Draft")}</option>
+              <option value="planning">{tx("ui.projects.form.status_planning", "Planning")}</option>
+              <option value="active">{tx("ui.projects.form.status_active", "Active")}</option>
+              <option value="on_hold">{tx("ui.projects.form.status_on_hold", "On Hold")}</option>
+              <option value="completed">{tx("ui.projects.form.status_completed", "Completed")}</option>
+              <option value="cancelled">{tx("ui.projects.form.status_cancelled", "Cancelled")}</option>
             </select>
           </div>
         )}
@@ -343,7 +349,7 @@ export function ProjectForm({
         {mode === "edit" && (
           <div className="mb-4">
             <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-              Progress: {progress}%
+              {tx("ui.projects.form.progress", "Progress:")} {progress}%
             </label>
             <input
               type="range"
@@ -364,13 +370,13 @@ export function ProjectForm({
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Client & Timeline
+          {tx("ui.projects.form.section.client_timeline", "Client & Timeline")}
         </h3>
 
         {/* Client Selector */}
         <div className="mb-4">
           <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-            Client (CRM)
+            {tx("ui.projects.form.client_crm", "Client (CRM)")}
           </label>
           <ClientSelector
             sessionId={sessionId}
@@ -386,7 +392,7 @@ export function ProjectForm({
           {/* Start Date */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Start Date
+              {tx("ui.projects.form.start_date", "Start Date")}
             </label>
             <input
               type="date"
@@ -404,7 +410,7 @@ export function ProjectForm({
           {/* Target End Date */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Target End Date
+              {tx("ui.projects.form.target_end_date", "Target End Date")}
             </label>
             <input
               type="date"
@@ -427,14 +433,14 @@ export function ProjectForm({
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Budget
+          {tx("ui.projects.form.section.budget", "Budget")}
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Budget Amount */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Amount
+              {tx("ui.projects.form.amount", "Amount")}
             </label>
             <input
               type="number"
@@ -448,14 +454,14 @@ export function ProjectForm({
                 background: "var(--window-document-bg)",
                 color: "var(--window-document-text)",
               }}
-              placeholder="0.00"
+              placeholder={tx("ui.projects.form.amount_placeholder", "0.00")}
             />
           </div>
 
           {/* Currency */}
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Currency
+              {tx("ui.projects.form.currency", "Currency")}
             </label>
             <select
               value={budgetCurrency}
@@ -467,11 +473,11 @@ export function ProjectForm({
                 color: "var(--window-document-text)",
               }}
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="CAD">CAD</option>
-              <option value="AUD">AUD</option>
+              <option value="USD">{tx("ui.projects.form.currency_usd", "USD")}</option>
+              <option value="EUR">{tx("ui.projects.form.currency_eur", "EUR")}</option>
+              <option value="GBP">{tx("ui.projects.form.currency_gbp", "GBP")}</option>
+              <option value="CAD">{tx("ui.projects.form.currency_cad", "CAD")}</option>
+              <option value="AUD">{tx("ui.projects.form.currency_aud", "AUD")}</option>
             </select>
           </div>
         </div>
@@ -483,16 +489,16 @@ export function ProjectForm({
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
         <h3 className="text-sm font-bold mb-4" style={{ color: "var(--window-document-text)" }}>
-          Detailed Description
+          {tx("ui.projects.form.section.detailed_description", "Detailed Description")}
         </h3>
         <p className="text-xs mb-2" style={{ color: "var(--neutral-gray)" }}>
-          Use the rich text editor to format your project description (bold, italic, lists, etc.)
+          {tx("ui.projects.form.detailed_description_help", "Use the rich text editor to format your project description (bold, italic, lists, etc.)")}
         </p>
 
         <RichTextEditor
           value={detailedDescription}
           onChange={setDetailedDescription}
-          placeholder="Enter detailed project description, requirements, notes, etc."
+          placeholder={tx("ui.projects.form.detailed_description_placeholder", "Enter detailed project description, requirements, notes, etc.")}
           disabled={isSubmitting}
         />
       </div>
@@ -505,10 +511,10 @@ export function ProjectForm({
         >
           <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Calendar size={16} />
-            Project Meetings
+            {tx("ui.projects.form.section.project_meetings", "Project Meetings")}
           </h3>
           <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-            Manage client-facing meetings for this project. These will be visible in the Project Drawer.
+            {tx("ui.projects.form.project_meetings_help", "Manage client-facing meetings for this project. These will be visible in the Project Drawer.")}
           </p>
 
           <div
@@ -532,10 +538,10 @@ export function ProjectForm({
         >
           <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Globe size={16} />
-            Public Project Page
+            {tx("ui.projects.form.section.public_project_page", "Public Project Page")}
           </h3>
           <p className="text-xs mb-4" style={{ color: "var(--neutral-gray)" }}>
-            Create a public-facing page for this project that clients can access via a unique URL.
+            {tx("ui.projects.form.public_project_page_help", "Create a public-facing page for this project that clients can access via a unique URL.")}
           </p>
 
           {/* Enable Toggle */}
@@ -549,7 +555,7 @@ export function ProjectForm({
                 disabled={publicPageSaving}
               />
               <span className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
-                Enable public page
+                {tx("ui.projects.form.enable_public_page", "Enable public page")}
               </span>
             </label>
           </div>
@@ -559,17 +565,17 @@ export function ProjectForm({
               {/* Slug */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  URL Slug <span style={{ color: "var(--error)" }}>*</span>
+                  {tx("ui.projects.form.url_slug", "URL Slug")} <span style={{ color: "var(--error)" }}>*</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    /project/
+                    {tx("ui.projects.form.url_prefix", "/project/")}
                   </span>
                   <input
                     type="text"
                     value={publicPageSlug}
                     onChange={(e) => setPublicPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="my-project"
+                    placeholder={tx("ui.projects.form.url_slug_placeholder", "my-project")}
                     className="flex-1 px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                     style={{
                       borderColor: "var(--window-document-border)",
@@ -581,20 +587,20 @@ export function ProjectForm({
                   />
                 </div>
                 <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-                  Only lowercase letters, numbers, and hyphens. 3-50 characters.
+                  {tx("ui.projects.form.url_slug_help", "Only lowercase letters, numbers, and hyphens. 3-50 characters.")}
                 </p>
               </div>
 
               {/* Password */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Password Protection
+                  {tx("ui.projects.form.password_protection", "Password Protection")}
                 </label>
                 <input
                   type="text"
                   value={publicPagePassword}
                   onChange={(e) => setPublicPagePassword(e.target.value)}
-                  placeholder="Leave empty for no password"
+                  placeholder={tx("ui.projects.form.password_placeholder", "Leave empty for no password")}
                   className="w-full px-2 py-1 text-sm border-2 focus:outline-none focus:border-black"
                   style={{
                     borderColor: "var(--window-document-border)",
@@ -608,7 +614,7 @@ export function ProjectForm({
               {/* Theme */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Theme Color
+                  {tx("ui.projects.form.theme_color", "Theme Color")}
                 </label>
                 <select
                   value={publicPageTheme}
@@ -621,18 +627,18 @@ export function ProjectForm({
                   }}
                   disabled={publicPageSaving}
                 >
-                  <option value="purple">Purple (Default)</option>
-                  <option value="amber">Amber/Orange</option>
-                  <option value="blue">Blue</option>
-                  <option value="green">Green</option>
-                  <option value="neutral">Neutral/Gray</option>
+                  <option value="purple">{tx("ui.projects.form.theme_purple", "Purple (Default)")}</option>
+                  <option value="amber">{tx("ui.projects.form.theme_amber", "Amber/Orange")}</option>
+                  <option value="blue">{tx("ui.projects.form.theme_blue", "Blue")}</option>
+                  <option value="green">{tx("ui.projects.form.theme_green", "Green")}</option>
+                  <option value="neutral">{tx("ui.projects.form.theme_neutral", "Neutral/Gray")}</option>
                 </select>
               </div>
 
               {/* Template */}
               <div>
                 <label className="block text-xs font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-                  Page Template
+                  {tx("ui.projects.form.page_template", "Page Template")}
                 </label>
                 <select
                   value={publicPageTemplate}
@@ -645,11 +651,11 @@ export function ProjectForm({
                   }}
                   disabled={publicPageSaving}
                 >
-                  <option value="simple">Simple (Meetings Only)</option>
-                  <option value="proposal">Proposal (Full Landing Page)</option>
-                  <option value="rikscha">Rikscha (Hamburg Pedicab)</option>
-                  <option value="gerrit">Gerrit (Sailing School)</option>
-                  <option value="portfolio">Portfolio (Project Showcase)</option>
+                  <option value="simple">{tx("ui.projects.form.template_simple", "Simple (Meetings Only)")}</option>
+                  <option value="proposal">{tx("ui.projects.form.template_proposal", "Proposal (Full Landing Page)")}</option>
+                  <option value="rikscha">{tx("ui.projects.form.template_rikscha", "Rikscha (Hamburg Pedicab)")}</option>
+                  <option value="gerrit">{tx("ui.projects.form.template_gerrit", "Gerrit (Sailing School)")}</option>
+                  <option value="portfolio">{tx("ui.projects.form.template_portfolio", "Portfolio (Project Showcase)")}</option>
                 </select>
               </div>
 
@@ -669,12 +675,12 @@ export function ProjectForm({
                   {publicPageSaving ? (
                     <>
                       <Loader2 size={12} className="animate-spin" />
-                      Saving...
+                      {tx("ui.projects.form.saving", "Saving...")}
                     </>
                   ) : (
                     <>
                       <Save size={12} />
-                      Save Public Page
+                      {tx("ui.projects.form.save_public_page", "Save Public Page")}
                     </>
                   )}
                 </button>
@@ -688,7 +694,7 @@ export function ProjectForm({
                     style={{ color: "var(--tone-accent)" }}
                   >
                     <ExternalLink size={12} />
-                    Preview: /project/{publicPageSlug}
+                    {tx("ui.projects.form.preview_prefix", "Preview: /project/")}{publicPageSlug}
                   </a>
                 )}
               </div>
@@ -711,7 +717,7 @@ export function ProjectForm({
           }}
         >
           <X size={14} />
-          Cancel
+          {tx("ui.projects.form.cancel", "Cancel")}
         </button>
 
         <button
@@ -727,12 +733,14 @@ export function ProjectForm({
           {isSubmitting ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              Saving...
+              {tx("ui.projects.form.saving", "Saving...")}
             </>
           ) : (
             <>
               <Save size={14} />
-              {mode === "create" ? "Create Project" : "Save Changes"}
+              {mode === "create"
+                ? tx("ui.projects.form.create_project", "Create Project")
+                : tx("ui.projects.form.save_changes", "Save Changes")}
             </>
           )}
         </button>

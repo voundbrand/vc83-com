@@ -239,7 +239,7 @@ export function NoteEditor({
           onInput={handleInput}
           className="min-h-full p-6 outline-none text-sm"
           style={{
-            background: "var(--win95-bg-light, #fff)",
+            background: "var(--win95-bg-light)",
             color: "var(--win95-text)",
             lineHeight: 1.8,
           }}

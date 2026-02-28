@@ -353,7 +353,7 @@ export function TopNavMenu({
           role="menu"
           aria-label={`${resolvedMenuLabel} menu`}
           className={cn(
-            "desktop-taskbar-menu absolute top-full mt-1 min-w-[220px] rounded-md p-1",
+            "desktop-taskbar-menu desktop-taskbar-menu-panel absolute top-full mt-1 min-w-56 rounded-md p-1",
             align === "left" ? "left-0" : "right-0",
           )}
         >
@@ -410,7 +410,7 @@ export function TopNavMenu({
                     {(item.submenu || hasSubmenu) && submenuOpensLeft ? <span aria-hidden="true">‹</span> : null}
                     {item.icon ? <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
                     <span className="flex-1 truncate">{item.label || ""}</span>
-                    {item.shortcut ? <span className="text-[10px] opacity-75">{item.shortcut}</span> : null}
+                    {item.shortcut ? <span className="text-xs opacity-75">{item.shortcut}</span> : null}
                     {(item.submenu || hasSubmenu) && !submenuOpensLeft ? <span aria-hidden="true">›</span> : null}
                   </span>
                 </button>
@@ -420,7 +420,7 @@ export function TopNavMenu({
                     role="menu"
                     aria-label={`${item.label ?? item.id} submenu`}
                     className={cn(
-                      "desktop-taskbar-menu absolute top-0 min-w-[220px] rounded-md p-1",
+                      "desktop-taskbar-menu desktop-taskbar-menu-panel absolute top-0 min-w-56 rounded-md p-1",
                       submenuOpensLeft ? "right-full mr-1" : "left-full ml-1",
                     )}
                   >
@@ -458,7 +458,7 @@ export function TopNavMenu({
                           <span className="flex items-center gap-2">
                             {child.icon ? <span className="flex h-4 w-4 items-center justify-center">{child.icon}</span> : null}
                             <span className="flex-1 truncate">{child.label || ""}</span>
-                            {child.shortcut ? <span className="text-[10px] opacity-75">{child.shortcut}</span> : null}
+                            {child.shortcut ? <span className="text-xs opacity-75">{child.shortcut}</span> : null}
                           </span>
                         </button>
                       );

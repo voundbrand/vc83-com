@@ -76,7 +76,7 @@ export function StepSettings({
         <h3 className="text-sm font-bold" style={{ color: "var(--win95-text)" }}>
           Step {step.order + 1} Settings
         </h3>
-        <button onClick={onClose} className="retro-button p-1" title="Close">
+        <button onClick={onClose} className="desktop-interior-button p-1" title="Close">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -97,7 +97,7 @@ export function StepSettings({
               <button
                 key={channel}
                 onClick={() => onUpdate({ channel, templateId: "" })}
-                className={`retro-button p-2 flex flex-col items-center gap-1 text-[10px] ${
+                className={`desktop-interior-button p-2 flex flex-col items-center gap-1 text-xs ${
                   step.channel === channel ? "ring-2" : ""
                 }`}
                 style={{
@@ -129,14 +129,14 @@ export function StepSettings({
                 min="0"
                 value={step.offsetValue}
                 onChange={(e) => onUpdate({ offsetValue: parseInt(e.target.value) || 0 })}
-                className="retro-input w-20 py-1 px-2 text-xs"
+                className="desktop-interior-input w-20 py-1 px-2 text-xs"
               />
               <select
                 value={step.offsetUnit}
                 onChange={(e) =>
                   onUpdate({ offsetUnit: e.target.value as "minutes" | "hours" | "days" })
                 }
-                className="retro-input py-1 pl-2 pr-6 text-xs"
+                className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
               >
                 <option value="minutes">Minutes</option>
                 <option value="hours">Hours</option>
@@ -148,7 +148,7 @@ export function StepSettings({
               <select
                 value={step.offsetType}
                 onChange={(e) => onUpdate({ offsetType: e.target.value as "before" | "after" })}
-                className="retro-input py-1 pl-2 pr-6 text-xs flex-1"
+                className="desktop-interior-input py-1 pl-2 pr-6 text-xs flex-1"
               >
                 <option value="after">After</option>
                 <option value="before">Before</option>
@@ -164,7 +164,7 @@ export function StepSettings({
                       | "previous_step",
                   })
                 }
-                className="retro-input py-1 pl-2 pr-6 text-xs flex-1"
+                className="desktop-interior-input py-1 pl-2 pr-6 text-xs flex-1"
               >
                 <option value="trigger_event">Trigger Event</option>
                 <option value="booking_start">Booking Start</option>
@@ -202,7 +202,7 @@ export function StepSettings({
             <select
               value={step.templateId}
               onChange={(e) => onUpdate({ templateId: e.target.value })}
-              className="retro-input w-full py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input w-full py-1 pl-2 pr-6 text-xs"
             >
               <option value="">Select a template...</option>
               {templates.map((template) => (
@@ -242,7 +242,7 @@ export function StepSettings({
                   })
                 }
                 placeholder="Any"
-                className="retro-input w-20 py-1 px-2 text-xs"
+                className="desktop-interior-input w-20 py-1 px-2 text-xs"
               />
             </div>
 
@@ -258,7 +258,7 @@ export function StepSettings({
                     },
                   })
                 }
-                className="retro-checkbox"
+                className="desktop-interior-checkbox"
               />
               <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Only send if not paid
@@ -277,7 +277,7 @@ export function StepSettings({
                     },
                   })
                 }
-                className="retro-checkbox"
+                className="desktop-interior-checkbox"
               />
               <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                 Only send if no reply
@@ -296,7 +296,7 @@ export function StepSettings({
               type="checkbox"
               checked={step.enabled}
               onChange={(e) => onUpdate({ enabled: e.target.checked })}
-              className="retro-checkbox"
+              className="desktop-interior-checkbox"
             />
             <span className="text-xs font-bold" style={{ color: "var(--win95-text)" }}>
               Step enabled

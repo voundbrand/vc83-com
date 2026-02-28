@@ -45,6 +45,14 @@ export function InvoicingSection() {
   const [isTogglingStripe, setIsTogglingStripe] = useState(false);
   const { openWindow } = useWindowManager();
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.payments.invoicing");
+  const tx = (
+    key: string,
+    fallback: string,
+    params?: Record<string, string | number>
+  ): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const notification = useNotification();
 
   // Check if invoice payment is available
@@ -99,7 +107,12 @@ export function InvoicingSection() {
 
     setIsEnabling(true);
     try {
-      alert("To enable invoicing, please contact your system administrator to enable the 'B2B/B2C Invoicing' app for your organization in the App Store.");
+      alert(
+        tx(
+          "ui.payments.invoicing.alert.enable_invoicing",
+          "To enable invoicing, please contact your system administrator to enable the 'B2B/B2C Invoicing' app for your organization in the App Store.",
+        )
+      );
     } catch (error) {
       console.error("Failed to enable invoicing:", error);
     } finally {
@@ -121,16 +134,29 @@ export function InvoicingSection() {
       });
 
       notification.success(
-        newValue ? "Stripe Invoices Enabled" : "Stripe Invoices Disabled",
         newValue
-          ? "Invoices will now be synced to Stripe for payment collection"
-          : "Invoices will only be generated as PDFs"
+          ? tx("ui.payments.invoicing.notifications.enabled_title", "Stripe Invoices Enabled")
+          : tx("ui.payments.invoicing.notifications.disabled_title", "Stripe Invoices Disabled"),
+        newValue
+          ? tx(
+              "ui.payments.invoicing.notifications.enabled_message",
+              "Invoices will now be synced to Stripe for payment collection",
+            )
+          : tx(
+              "ui.payments.invoicing.notifications.disabled_message",
+              "Invoices will only be generated as PDFs",
+            )
       );
     } catch (error) {
       console.error("Failed to toggle Stripe invoices:", error);
       notification.error(
-        "Update Failed",
-        error instanceof Error ? error.message : "Failed to update Stripe invoice settings"
+        tx("ui.payments.invoicing.notifications.update_failed_title", "Update Failed"),
+        error instanceof Error
+          ? error.message
+          : tx(
+              "ui.payments.invoicing.notifications.update_failed_message",
+              "Failed to update Stripe invoice settings",
+            )
       );
     } finally {
       setIsTogglingStripe(false);
@@ -178,18 +204,20 @@ export function InvoicingSection() {
       description: `${invoiceAvailability?.crmOrganizationsCount ?? 0} employer organizations in CRM`,
     },
     {
-      label: "Stripe Invoicing Connected",
+      label: tx("ui.payments.invoicing.setup.stripe_connected", "Stripe Invoicing Connected"),
       status: hasStripeInvoiceEnabled ? "complete" : "optional",
       description: hasStripeInvoiceEnabled
-        ? "Online payment collection enabled"
-        : "Optional: Enable for online payments",
+        ? tx("ui.payments.invoicing.setup.online_payment_enabled", "Online payment collection enabled")
+        : tx("ui.payments.invoicing.setup.optional_enable_online", "Optional: Enable for online payments"),
     },
   ];
 
   if (translationsLoading) {
     return (
       <div className="p-4">
-        <p style={{ color: "var(--window-document-text)" }}>Loading translations...</p>
+        <p style={{ color: "var(--window-document-text)" }}>
+          {tx("ui.payments.invoicing.loading_translations", "Loading translations...")}
+        </p>
       </div>
     );
   }
@@ -200,10 +228,13 @@ export function InvoicingSection() {
       <div>
         <h3 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <CreditCard size={16} />
-          Stripe Invoicing Integration
+          {tx("ui.payments.invoicing.header.title", "Stripe Invoicing Integration")}
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Connect your invoicing system to Stripe for online payment collection. When enabled, invoices are synced to Stripe where customers can pay via credit card, bank transfer, and more.
+          {tx(
+            "ui.payments.invoicing.header.subtitle",
+            "Connect your invoicing system to Stripe for online payment collection. When enabled, invoices are synced to Stripe where customers can pay via credit card, bank transfer, and more.",
+          )}
         </p>
       </div>
 
@@ -218,16 +249,19 @@ export function InvoicingSection() {
         <Info size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--tone-accent)" }} />
         <div className="flex-1">
           <p className="text-xs font-semibold mb-1" style={{ color: "var(--tone-accent)" }}>
-            Internal Invoice Settings
+            {tx("ui.payments.invoicing.internal_settings.title", "Internal Invoice Settings")}
           </p>
           <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-            Invoice numbering, prefix, and default payment terms are configured in the{" "}
+            {tx(
+              "ui.payments.invoicing.internal_settings.description",
+              "Invoice numbering, prefix, and default payment terms are configured in the",
+            )}{" "}
             <button
               onClick={handleOpenInvoicingSettings}
               className="font-bold hover:underline"
               style={{ color: "var(--tone-accent)" }}
             >
-              Invoicing App → Settings
+              {tx("ui.payments.invoicing.internal_settings.app_settings", "Invoicing App → Settings")}
             </button>
           </p>
         </div>
@@ -243,35 +277,51 @@ export function InvoicingSection() {
       >
         <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Zap size={14} />
-          How Stripe Invoicing Works
+          {tx("ui.payments.invoicing.how_it_works.title", "How Stripe Invoicing Works")}
         </h4>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-start gap-2">
             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--tone-accent)", color: "white" }}>1</div>
             <div>
-              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>Invoice Created</p>
-              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Create invoice in your system (checkout or manual)</p>
+              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step1_title", "Invoice Created")}
+              </p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step1_desc", "Create invoice in your system (checkout or manual)")}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--tone-accent)", color: "white" }}>2</div>
             <div>
-              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>Synced to Stripe</p>
-              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Invoice is automatically created in Stripe</p>
+              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step2_title", "Synced to Stripe")}
+              </p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step2_desc", "Invoice is automatically created in Stripe")}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--tone-accent)", color: "white" }}>3</div>
             <div>
-              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>Customer Pays Online</p>
-              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Customer receives payment link (card, bank transfer)</p>
+              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step3_title", "Customer Pays Online")}
+              </p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step3_desc", "Customer receives payment link (card, bank transfer)")}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{ background: "var(--tone-accent)", color: "white" }}>4</div>
             <div>
-              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>Status Synced Back</p>
-              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Payment status updates automatically via webhooks</p>
+              <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step4_title", "Status Synced Back")}
+              </p>
+              <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                {tx("ui.payments.invoicing.how_it_works.step4_desc", "Payment status updates automatically via webhooks")}
+              </p>
             </div>
           </div>
         </div>
@@ -291,14 +341,14 @@ export function InvoicingSection() {
               <>
                 <CheckCircle2 size={20} style={{ color: "var(--success)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--success)" }}>
-                  Invoicing Available
+                  {tx("ui.payments.invoicing.status.available", "Invoicing Available")}
                 </span>
               </>
             ) : (
               <>
                 <AlertCircle size={20} style={{ color: "var(--warning)" }} />
                 <span className="text-sm font-bold" style={{ color: "var(--warning)" }}>
-                  Invoicing Not Enabled
+                  {tx("ui.payments.invoicing.status.not_enabled", "Invoicing Not Enabled")}
                 </span>
               </>
             )}
@@ -308,7 +358,7 @@ export function InvoicingSection() {
         {/* Setup Checklist */}
         <div className="space-y-2 mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
-            Setup Checklist:
+            {tx("ui.payments.invoicing.setup.title", "Setup Checklist:")}
           </p>
           {setupItems.map((item, index) => (
             <div key={index} className="flex items-start gap-2">
@@ -335,7 +385,9 @@ export function InvoicingSection() {
                     className="text-xs font-semibold mt-1 hover:underline"
                     style={{ color: "var(--tone-accent)" }}
                   >
-                    {isEnabling ? "Enabling..." : item.action}
+                    {isEnabling
+                      ? tx("ui.payments.invoicing.setup.enabling", "Enabling...")
+                      : item.action}
                   </button>
                 )}
               </div>
@@ -347,23 +399,29 @@ export function InvoicingSection() {
         {invoiceStats && (
           <div className="pt-3 border-t-2" style={{ borderColor: "var(--window-document-border)" }}>
             <p className="text-xs font-semibold mb-2" style={{ color: "var(--window-document-text)" }}>
-              Quick Stats:
+              {tx("ui.payments.invoicing.stats.title", "Quick Stats:")}
             </p>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Total Invoices</p>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.stats.total_invoices", "Total Invoices")}
+                </p>
                 <p className="text-lg font-bold" style={{ color: "var(--window-document-text)" }}>
                   {invoiceStats.totalCount || 0}
                 </p>
               </div>
               <div>
-                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Paid</p>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.stats.paid", "Paid")}
+                </p>
                 <p className="text-lg font-bold" style={{ color: "var(--success)" }}>
                   {invoiceStats.paidCount || 0}
                 </p>
               </div>
               <div>
-                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Pending</p>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.stats.pending", "Pending")}
+                </p>
                 <p className="text-lg font-bold" style={{ color: "var(--warning)" }}>
                   {invoiceStats.pendingCount || 0}
                 </p>
@@ -371,7 +429,9 @@ export function InvoicingSection() {
             </div>
             {invoiceStats.totalAmountInCents !== undefined && (
               <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--window-document-border)" }}>
-                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>Total Amount</p>
+                <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.stats.total_amount", "Total Amount")}
+                </p>
                 <p className="text-lg font-bold" style={{ color: "var(--window-document-text)" }}>
                   €{((invoiceStats.totalAmountInCents || 0) / 100).toFixed(2)}
                 </p>
@@ -393,17 +453,23 @@ export function InvoicingSection() {
           <CreditCard size={20} style={{ color: hasStripeInvoiceEnabled ? "var(--success)" : "var(--tone-accent)" }} className="mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-              Enable Stripe Invoicing
+              {tx("ui.payments.invoicing.toggle.title", "Enable Stripe Invoicing")}
             </h4>
             <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
-              When enabled, invoices are synced to Stripe for online payment collection. Customers receive a Stripe-hosted payment page to pay via credit card, bank transfer, or other methods.
+              {tx(
+                "ui.payments.invoicing.toggle.description",
+                "When enabled, invoices are synced to Stripe for online payment collection. Customers receive a Stripe-hosted payment page to pay via credit card, bank transfer, or other methods.",
+              )}
             </p>
 
             {!hasStripeConnected ? (
               <div className="flex items-center gap-2 p-2 rounded" style={{ background: "var(--window-document-bg)", border: "1px solid var(--window-document-border)" }}>
                 <AlertCircle size={16} style={{ color: "var(--warning)" }} />
                 <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-                  Connect Stripe first in the "Stripe Connect" tab to enable Stripe Invoicing
+                  {tx(
+                    "ui.payments.invoicing.toggle.connect_stripe_first",
+                    "Connect Stripe first in the \"Stripe Connect\" tab to enable Stripe Invoicing",
+                  )}
                 </p>
               </div>
             ) : (
@@ -412,12 +478,18 @@ export function InvoicingSection() {
                 <div className="flex items-center justify-between p-3 rounded" style={{ background: "var(--window-document-bg)", border: "1px solid var(--window-document-border)" }}>
                   <div className="flex-1">
                     <p className="text-xs font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
-                      Sync Invoices to Stripe
+                      {tx("ui.payments.invoicing.toggle.sync_invoices", "Sync Invoices to Stripe")}
                     </p>
                     <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
                       {hasStripeInvoiceEnabled
-                        ? "Invoices are synced to Stripe with payment links"
-                        : "Invoices are internal-only (PDF generation only)"}
+                        ? tx(
+                            "ui.payments.invoicing.toggle.synced_description",
+                            "Invoices are synced to Stripe with payment links",
+                          )
+                        : tx(
+                            "ui.payments.invoicing.toggle.internal_only_description",
+                            "Invoices are internal-only (PDF generation only)",
+                          )}
                     </p>
                   </div>
                   <button
@@ -454,7 +526,9 @@ export function InvoicingSection() {
                       borderColor: hasStripeInvoiceEnabled ? "var(--success)" : "var(--window-document-border)"
                     }}
                   >
-                    {hasStripeInvoiceEnabled ? " Stripe Invoicing Active" : "○ Internal Only"}
+                    {hasStripeInvoiceEnabled
+                      ? tx("ui.payments.invoicing.toggle.active_badge", "Stripe Invoicing Active")
+                      : tx("ui.payments.invoicing.toggle.internal_only_badge", "○ Internal Only")}
                   </div>
                 </div>
               </div>
@@ -475,35 +549,63 @@ export function InvoicingSection() {
         >
           <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: "var(--neutral-gray)" }}>
             <Clock size={14} />
-            Coming Soon: Advanced Stripe Invoicing
+            {tx("ui.payments.invoicing.coming_soon.title", "Coming Soon: Advanced Stripe Invoicing")}
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--window-document-bg)" }}>
               <Mail size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Auto-Send via Stripe</p>
-                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatically send invoices through Stripe's email system</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.coming_soon.auto_send_title", "Auto-Send via Stripe")}
+                </p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                  {tx(
+                    "ui.payments.invoicing.coming_soon.auto_send_desc",
+                    "Automatically send invoices through Stripe's email system",
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--window-document-bg)" }}>
               <Bell size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Payment Reminders</p>
-                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatic reminder emails for overdue invoices</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.coming_soon.reminders_title", "Payment Reminders")}
+                </p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                  {tx(
+                    "ui.payments.invoicing.coming_soon.reminders_desc",
+                    "Automatic reminder emails for overdue invoices",
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--window-document-bg)" }}>
               <RefreshCw size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Smart Retry (Dunning)</p>
-                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Automatic retry of failed payment attempts</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.coming_soon.retry_title", "Smart Retry (Dunning)")}
+                </p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                  {tx(
+                    "ui.payments.invoicing.coming_soon.retry_desc",
+                    "Automatic retry of failed payment attempts",
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-2 p-2 rounded" style={{ background: "var(--window-document-bg)" }}>
               <Link2 size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--neutral-gray)" }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>Customer Portal</p>
-                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>Self-service portal for invoice history & payment methods</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--neutral-gray)" }}>
+                  {tx("ui.payments.invoicing.coming_soon.portal_title", "Customer Portal")}
+                </p>
+                <p className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                  {tx(
+                    "ui.payments.invoicing.coming_soon.portal_desc",
+                    "Self-service portal for invoice history & payment methods",
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -522,7 +624,7 @@ export function InvoicingSection() {
           }}
         >
           <Building2 size={16} />
-          Open Invoicing App
+          {tx("ui.payments.invoicing.actions.open_app", "Open Invoicing App")}
         </button>
         <button
           onClick={handleOpenInvoicingSettings}
@@ -534,32 +636,36 @@ export function InvoicingSection() {
           }}
         >
           <Settings size={16} />
-          Settings
+          {tx("ui.payments.invoicing.actions.settings", "Settings")}
         </button>
       </div>
 
       {/* Without Stripe vs With Stripe comparison */}
       <div className="text-xs space-y-2" style={{ color: "var(--neutral-gray)" }}>
         <p className="font-bold" style={{ color: "var(--window-document-text)" }}>
-          Internal vs Stripe Invoicing:
+          {tx("ui.payments.invoicing.comparison.title", "Internal vs Stripe Invoicing:")}
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div className="p-2 rounded" style={{ background: "var(--window-document-bg)", border: "1px solid var(--window-document-border)" }}>
-            <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>Without Stripe</p>
+            <p className="font-semibold mb-1" style={{ color: "var(--window-document-text)" }}>
+              {tx("ui.payments.invoicing.comparison.without_stripe", "Without Stripe")}
+            </p>
             <ul className="space-y-0.5 text-[10px]">
-              <li>• PDF invoice generation</li>
-              <li>• Manual payment tracking</li>
-              <li>• Email invoices yourself</li>
-              <li>• Accept bank transfers manually</li>
+              <li>{tx("ui.payments.invoicing.comparison.without.pdf", "• PDF invoice generation")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.without.manual_tracking", "• Manual payment tracking")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.without.email_yourself", "• Email invoices yourself")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.without.bank_transfers", "• Accept bank transfers manually")}</li>
             </ul>
           </div>
           <div className="p-2 rounded" style={{ background: "rgba(16, 185, 129, 0.05)", border: "1px solid var(--success)" }}>
-            <p className="font-semibold mb-1" style={{ color: "var(--success)" }}>With Stripe</p>
+            <p className="font-semibold mb-1" style={{ color: "var(--success)" }}>
+              {tx("ui.payments.invoicing.comparison.with_stripe", "With Stripe")}
+            </p>
             <ul className="space-y-0.5 text-[10px]">
-              <li>• Hosted payment page</li>
-              <li>• Card & bank payments</li>
-              <li>• Automatic status sync</li>
-              <li>• Payment reminders (coming)</li>
+              <li>{tx("ui.payments.invoicing.comparison.with.hosted_page", "• Hosted payment page")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.with.card_bank", "• Card & bank payments")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.with.status_sync", "• Automatic status sync")}</li>
+              <li>{tx("ui.payments.invoicing.comparison.with.reminders", "• Payment reminders (coming)")}</li>
             </ul>
           </div>
         </div>

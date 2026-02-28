@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { X, Eye, Monitor, Smartphone, Languages, Loader2 } from "lucide-react";
 import { useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { EmailLanguage, EmailTemplateMetadata } from "@/templates/emails/types";
 import { GenericEmailMetadata } from "@/templates/emails/generic-types";
@@ -12,6 +11,10 @@ import {
   getEmailTemplate,
 } from "@/templates/emails/registry";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+
+// Dynamic require avoids deep type-instantiation from generated API types in this client-only preview path.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../convex/_generated/api") as { api: any };
 
 interface TemplatePreviewModalProps {
   isOpen: boolean;
@@ -99,7 +102,7 @@ export function TemplatePreviewModal({
           // PDF template preview - render HTML/CSS with mock data
           try {
             const { getTemplateByCode } = await import("../../convex/pdfTemplateRegistry");
-            const { renderTemplate, createMockInvoiceData } = await import("@/lib/template-renderer");
+            const { createMockInvoiceData, renderPdfPreviewDocument } = await import("@/lib/template-renderer");
 
             const template = getTemplateByCode(templateCode);
 
@@ -128,22 +131,13 @@ export function TemplatePreviewModal({
             // Get mock data for this template type
             const mockData = createMockInvoiceData(templateCode);
 
-            // Render HTML and CSS with mock data
-            const renderedHtml = renderTemplate(template.template.html, mockData);
-            const renderedCss = renderTemplate(template.template.css, mockData);
+            const previewDocument = renderPdfPreviewDocument({
+              htmlTemplate: template.template.html,
+              cssTemplate: template.template.css,
+              data: mockData,
+            });
 
-            // Combine into full HTML document
-            const fullHtml = `
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <style>${renderedCss}</style>
-                </head>
-                <body>${renderedHtml}</body>
-              </html>
-            `;
-
-            setPreviewHtml(fullHtml);
+            setPreviewHtml(previewDocument.documentHtml);
           } catch (error) {
             console.error("Failed to render PDF template:", error);
             setPreviewHtml(`

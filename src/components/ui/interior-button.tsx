@@ -26,15 +26,15 @@ export function InteriorButton({
   }
 
   const sizeClasses: Record<InteriorButtonSize, string> = {
-    sm: "px-2 py-1",
-    md: "px-4 py-2",
-    lg: "px-6 py-3",
+    sm: "h-7 px-2.5 text-xs font-medium",
+    md: "h-8 px-3 text-xs font-medium",
+    lg: "h-9 px-4 text-sm font-medium",
   }
 
   return (
     <button
       className={cn(
-        "desktop-interior-button font-pixel",
+        "desktop-interior-button",
         variantClasses[variant],
         sizeClasses[size],
         className

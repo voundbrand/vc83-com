@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useImperativeHandle, forwardRef, useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
 import { OrganizationSection } from "./components/organization-section";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -28,6 +27,9 @@ import {
 import { Doc } from "../../../../../convex/_generated/dataModel";
 import { usePermissions } from "@/contexts/permission-context";
 import { getLegalEntitiesForCountry } from "../../../../../convex/legalEntityTypes";
+// Dynamic require avoids TS2589 deep type instantiation from generated API type expansion.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../../convex/_generated/api") as { api: any };
 
 interface OrganizationDetailsFormProps {
   organization: Doc<"organizations"> & { members?: unknown[] };
@@ -87,33 +89,37 @@ export interface FormData {
 export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, OrganizationDetailsFormProps>(
   function OrganizationDetailsForm({ organization, isEditing }, ref) {
     const { t } = useNamespaceTranslations("ui.manage");
+    const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+      const translated = t(key, params);
+      return translated === key ? fallback : translated;
+    };
     const { openWindow } = useWindowManager();
     // Check permissions inline using centralized context
     const { hasPermission } = usePermissions();
     const canEdit = hasPermission("manage_organization");
 
     // Query ontology data for this organization
-    const profile = useQuery(api.organizationOntology.getOrganizationProfile, {
+    const profile = useQuery(apiAny.organizationOntology.getOrganizationProfile, {
       organizationId: organization._id
     });
-    const contact = useQuery(api.organizationOntology.getOrganizationContact, {
+    const contact = useQuery(apiAny.organizationOntology.getOrganizationContact, {
       organizationId: organization._id
     });
-    const social = useQuery(api.organizationOntology.getOrganizationSocial, {
+    const social = useQuery(apiAny.organizationOntology.getOrganizationSocial, {
       organizationId: organization._id
     });
-    const legal = useQuery(api.organizationOntology.getOrganizationLegal, {
+    const legal = useQuery(apiAny.organizationOntology.getOrganizationLegal, {
       organizationId: organization._id
     });
-    const brandingSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+    const brandingSettingsData = useQuery(apiAny.organizationOntology.getOrganizationSettings, {
       organizationId: organization._id,
       subtype: "branding"
     });
-    const localeSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+    const localeSettingsData = useQuery(apiAny.organizationOntology.getOrganizationSettings, {
       organizationId: organization._id,
       subtype: "locale"
     });
-    const invoicingSettingsData = useQuery(api.organizationOntology.getOrganizationSettings, {
+    const invoicingSettingsData = useQuery(apiAny.organizationOntology.getOrganizationSettings, {
       organizationId: organization._id,
       subtype: "invoicing"
     });
@@ -133,13 +139,14 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
     );
 
   // Load addresses to find tax origin
-  const addresses = useQuery(api.organizationOntology.getOrganizationAddresses, {
+  const addresses = useQuery(apiAny.organizationOntology.getOrganizationAddresses, {
     organizationId: organization._id,
   });
 
   // Find tax origin address
   const taxOriginAddress = addresses?.find(
-    (addr) => (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
+    (addr: { customProperties?: { isTaxOrigin?: boolean } }) =>
+      (addr.customProperties as { isTaxOrigin?: boolean })?.isTaxOrigin
   );
 
   // Get country from tax origin address
@@ -536,7 +543,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               readOnly={!isEditing}
               disabled={!canEdit || !isEditing}
-              placeholder="https://example.com"
+              placeholder={tx("ui.manage.org.placeholders.website", "https://example.com")}
               className="w-full px-2 py-1 text-sm"
               style={inputStyles}
             />
@@ -561,7 +568,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://linkedin.com/company/..."
+                placeholder={tx("ui.manage.org.placeholders.linkedin", "https://linkedin.com/company/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -580,7 +587,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://twitter.com/..."
+                placeholder={tx("ui.manage.org.placeholders.twitter", "https://twitter.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -599,7 +606,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://facebook.com/..."
+                placeholder={tx("ui.manage.org.placeholders.facebook", "https://facebook.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -618,7 +625,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 })}
                 readOnly={!isEditing}
                 disabled={!canEdit || !isEditing}
-                placeholder="https://instagram.com/..."
+                placeholder={tx("ui.manage.org.placeholders.instagram", "https://instagram.com/...")}
                 className="w-full px-2 py-1 text-sm"
                 style={inputStyles}
               />
@@ -693,14 +700,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                 color: '#92400e',
                 borderColor: '#fcd34d'
               }}>
-                 Please add an address and mark it as &quot;tax origin&quot; in the Addresses section above first.
+                {tx(
+                  "ui.manage.org.legal_tax.tax_origin_warning",
+                  "Please add an address and mark it as \"tax origin\" in the Addresses section above first.",
+                )}
               </div>
             )}
 
             {/* Show country if tax origin exists */}
             {taxOriginAddress && availableLegalEntities && (
               <div className="mb-1 text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Country: {availableLegalEntities.countryName} ({availableLegalEntities.country})
+                {tx("ui.manage.org.legal_tax.country_label", "Country:")} {availableLegalEntities.countryName} ({availableLegalEntities.country})
               </div>
             )}
 
@@ -713,13 +723,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
             >
               <option value="">
                 {!taxOriginAddress
-                  ? "Add tax origin address first"
+                  ? tx("ui.manage.org.legal_tax.add_tax_origin_first", "Add tax origin address first")
                   : t("ui.manage.org.legal_entity_type_select")}
               </option>
               {availableLegalEntities?.entities.map((entity) => (
                 <option key={entity.code} value={entity.code} title={entity.description}>
                   {entity.code} - {entity.name}
-                  {entity.minShareCapital ? ` (Min: ${entity.minShareCapital})` : ""}
+                  {entity.minShareCapital
+                    ? tx("ui.manage.org.legal_tax.min_share_capital", " (Min: {amount})", {
+                      amount: entity.minShareCapital,
+                    })
+                    : ""}
                 </option>
               ))}
             </select>
@@ -741,8 +755,16 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       {selectedEntity.description}
                       <br />
                       <span style={{ fontSize: '0.65rem' }}>
-                        Liability: {selectedEntity.liability} | VAT Eligible: {selectedEntity.vatEligible ? 'Yes' : 'No'}
-                        {selectedEntity.minShareCapital && ` | Min Capital: ${selectedEntity.minShareCapital}`}
+                        {tx("ui.manage.org.legal_tax.liability_label", "Liability:")} {selectedEntity.liability}{" "}
+                        {tx("ui.manage.org.legal_tax.vat_eligible_label", "| VAT Eligible:")}{" "}
+                        {selectedEntity.vatEligible
+                          ? tx("ui.manage.org.shared.yes", "Yes")
+                          : tx("ui.manage.org.shared.no", "No")}
+                        {selectedEntity.minShareCapital
+                          ? tx("ui.manage.org.legal_tax.min_capital", " | Min Capital: {amount}", {
+                            amount: selectedEntity.minShareCapital,
+                          })
+                          : ""}
                       </span>
                     </>
                   );
@@ -814,7 +836,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={formData.settings.branding.logo}
-                        alt="Organization avatar"
+                        alt={tx("ui.manage.org.branding.organization_avatar", "Organization avatar")}
                         className="h-full w-full object-cover"
                         onError={() =>
                           setFormData((previous) => ({
@@ -849,7 +871,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                         className="desktop-interior-button desktop-interior-button-primary h-8 px-3 text-xs font-semibold"
                       >
                         <ImagePlus className="h-3.5 w-3.5" />
-                        Upload Avatar
+                        {tx("ui.manage.org.branding.upload_avatar", "Upload Avatar")}
                       </button>
                       <button
                         type="button"
@@ -866,7 +888,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                         className="desktop-interior-button h-8 px-3 text-xs font-semibold"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Remove
+                        {tx("ui.manage.org.shared.remove", "Remove")}
                       </button>
                     </div>
                     <input
@@ -883,12 +905,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                       }
                       readOnly={!isEditing}
                       disabled={!canEdit || !isEditing}
-                      placeholder="https://..."
+                      placeholder={tx("ui.manage.org.placeholders.image_url", "https://...")}
                       className="w-full px-2 py-1 text-sm"
                       style={inputStyles}
                     />
                     <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-                      Use a square image for the best avatar crop.
+                      {tx("ui.manage.org.branding.square_image_hint", "Use a square image for the best avatar crop.")}
                     </p>
                   </div>
                 </div>
@@ -920,12 +942,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
+                  <option value="en">{tx("ui.manage.org.locale.language_options.en", "English")}</option>
+                  <option value="es">{tx("ui.manage.org.locale.language_options.es", "Spanish")}</option>
+                  <option value="fr">{tx("ui.manage.org.locale.language_options.fr", "French")}</option>
+                  <option value="de">{tx("ui.manage.org.locale.language_options.de", "German")}</option>
+                  <option value="it">{tx("ui.manage.org.locale.language_options.it", "Italian")}</option>
+                  <option value="pt">{tx("ui.manage.org.locale.language_options.pt", "Portuguese")}</option>
                 </select>
               </div>
 
@@ -946,12 +968,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="JPY">JPY (¥)</option>
-                  <option value="CAD">CAD ($)</option>
-                  <option value="AUD">AUD ($)</option>
+                  <option value="USD">{tx("ui.manage.org.locale.currency_options.usd", "USD ($)")}</option>
+                  <option value="EUR">{tx("ui.manage.org.locale.currency_options.eur", "EUR (€)")}</option>
+                  <option value="GBP">{tx("ui.manage.org.locale.currency_options.gbp", "GBP (£)")}</option>
+                  <option value="JPY">{tx("ui.manage.org.locale.currency_options.jpy", "JPY (¥)")}</option>
+                  <option value="CAD">{tx("ui.manage.org.locale.currency_options.cad", "CAD ($)")}</option>
+                  <option value="AUD">{tx("ui.manage.org.locale.currency_options.aud", "AUD ($)")}</option>
                 </select>
               </div>
 
@@ -972,14 +994,14 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Chicago">Central Time</option>
-                  <option value="America/Denver">Mountain Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
-                  <option value="Europe/London">London</option>
-                  <option value="Europe/Paris">Paris</option>
-                  <option value="Asia/Tokyo">Tokyo</option>
-                  <option value="Australia/Sydney">Sydney</option>
+                  <option value="America/New_York">{tx("ui.manage.org.locale.timezone_options.new_york", "Eastern Time")}</option>
+                  <option value="America/Chicago">{tx("ui.manage.org.locale.timezone_options.chicago", "Central Time")}</option>
+                  <option value="America/Denver">{tx("ui.manage.org.locale.timezone_options.denver", "Mountain Time")}</option>
+                  <option value="America/Los_Angeles">{tx("ui.manage.org.locale.timezone_options.los_angeles", "Pacific Time")}</option>
+                  <option value="Europe/London">{tx("ui.manage.org.locale.timezone_options.london", "London")}</option>
+                  <option value="Europe/Paris">{tx("ui.manage.org.locale.timezone_options.paris", "Paris")}</option>
+                  <option value="Asia/Tokyo">{tx("ui.manage.org.locale.timezone_options.tokyo", "Tokyo")}</option>
+                  <option value="Australia/Sydney">{tx("ui.manage.org.locale.timezone_options.sydney", "Sydney")}</option>
                 </select>
               </div>
             </div>
@@ -1008,7 +1030,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   })}
                   readOnly={!isEditing}
                   disabled={!canEdit || !isEditing}
-                  placeholder="INV-"
+                  placeholder={tx("ui.manage.org.placeholders.invoice_prefix", "INV-")}
                   className="w-full px-2 py-1 text-sm font-mono"
                   style={inputStyles}
                 />
@@ -1053,12 +1075,12 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                   className="w-full px-2 py-1 text-sm"
                   style={inputStyles}
                 >
-                  <option value="Due on receipt">Due on receipt</option>
-                  <option value="Net 7">Net 7</option>
-                  <option value="Net 15">Net 15</option>
-                  <option value="Net 30">Net 30</option>
-                  <option value="Net 60">Net 60</option>
-                  <option value="Net 90">Net 90</option>
+                  <option value="Due on receipt">{tx("ui.manage.org.invoicing.terms.due_on_receipt", "Due on receipt")}</option>
+                  <option value="Net 7">{tx("ui.manage.org.invoicing.terms.net_7", "Net 7")}</option>
+                  <option value="Net 15">{tx("ui.manage.org.invoicing.terms.net_15", "Net 15")}</option>
+                  <option value="Net 30">{tx("ui.manage.org.invoicing.terms.net_30", "Net 30")}</option>
+                  <option value="Net 60">{tx("ui.manage.org.invoicing.terms.net_60", "Net 60")}</option>
+                  <option value="Net 90">{tx("ui.manage.org.invoicing.terms.net_90", "Net 90")}</option>
                 </select>
               </div>
             </div>
@@ -1088,10 +1110,17 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
               borderRadius: '4px'
             }}
           >
-            <p className="font-semibold mb-2"> Licensing Information Moved</p>
+            <p className="font-semibold mb-2">
+              {tx("ui.manage.org.licensing.info_moved_title", "Licensing Information Moved")}
+            </p>
             <p className="text-xs">
-              Plan tier, limits, and features are now managed in the <strong>Licensing Tab</strong>.
-              Use the Licensing tab to view current plan, change tiers, toggle features, and manage license settings.
+              {tx("ui.manage.org.licensing.info_moved_prefix", "Plan tier, limits, and features are now managed in the")}{" "}
+              <strong>{tx("ui.manage.org.licensing.tab_label", "Licensing Tab")}</strong>.
+              {" "}
+              {tx(
+                "ui.manage.org.licensing.info_moved_suffix",
+                "Use the Licensing tab to view current plan, change tiers, toggle features, and manage license settings.",
+              )}
             </p>
           </div>
 
@@ -1128,7 +1157,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  Custom Domain
+                  {tx("ui.manage.org.features.custom_domain", "Custom Domain")}
                 </span>
               )}
               {false && (
@@ -1141,7 +1170,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  SSO
+                  {tx("ui.manage.org.features.sso", "SSO")}
                 </span>
               )}
               {false && (
@@ -1154,7 +1183,7 @@ export const OrganizationDetailsForm = forwardRef<OrganizationDetailsFormRef, Or
                     borderColor: 'var(--window-document-border)'
                   }}
                 >
-                  API Access
+                  {tx("ui.manage.org.features.api_access", "API Access")}
                 </span>
               )}
               {/* Show "no features" message since we haven't queried ontology yet */}

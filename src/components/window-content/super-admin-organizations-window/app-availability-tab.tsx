@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { Shield, Check, X, Loader2, AlertCircle, Key, ToggleLeft, ToggleRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ProductOSReleaseStageTab } from "../org-owner-manage-window/product-os-release-stage-tab";
@@ -28,8 +29,20 @@ const SURFACE_STYLE = {
   backgroundColor: "var(--window-document-bg-elevated)",
 } as const;
 
+type TranslateWithFallback = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
+
 export function AppAvailabilityTab() {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.super_admin.app_availability");
+  const tx: TranslateWithFallback = (key, fallback, params) => {
+    const fullKey = `ui.super_admin.app_availability.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
   const [pageSize, setPageSize] = useState(25);
@@ -93,9 +106,14 @@ export function AppAvailabilityTab() {
           <div className="flex items-start gap-2">
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
             <div>
-              <h4 className="font-bold text-sm" style={{ color: "var(--error)" }}>Access Denied</h4>
+              <h4 className="font-bold text-sm" style={{ color: "var(--error)" }}>
+                {tx("access.denied_title", "Access Denied")}
+              </h4>
               <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
-                You don&apos;t have permission to view app availability settings. This feature is only available to super administrators.
+                {tx(
+                  "access.denied_body",
+                  "You don't have permission to view app availability settings. This feature is only available to super administrators."
+                )}
               </p>
             </div>
           </div>
@@ -125,12 +143,20 @@ export function AppAvailabilityTab() {
           <div className="flex items-start gap-2">
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--error)" }} />
             <div>
-              <h4 className="font-bold text-sm" style={{ color: "var(--error)" }}>Access Denied</h4>
+              <h4 className="font-bold text-sm" style={{ color: "var(--error)" }}>
+                {tx("access.denied_title", "Access Denied")}
+              </h4>
               <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
-                You don&apos;t have permission to view app availability settings. This feature is only available to super administrators.
+                {tx(
+                  "access.denied_body",
+                  "You don't have permission to view app availability settings. This feature is only available to super administrators."
+                )}
               </p>
               <p className="text-xs mt-2" style={{ color: "var(--desktop-menu-text-muted)" }}>
-                If you recently switched users or organizations, please close this window and refresh the page.
+                {tx(
+                  "access.switch_hint",
+                  "If you recently switched users or organizations, please close this window and refresh the page."
+                )}
               </p>
             </div>
           </div>
@@ -191,10 +217,17 @@ export function AppAvailabilityTab() {
           <div className="flex items-start gap-2">
             <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--warning)" }} />
             <div>
-              <h4 className="font-bold text-sm" style={{ color: "var(--warning)" }}>No Apps or Organizations Found</h4>
+              <h4 className="font-bold text-sm" style={{ color: "var(--warning)" }}>
+                {tx("empty.title", "No Apps or Organizations Found")}
+              </h4>
               <p className="text-xs mt-1" style={{ color: "var(--window-document-text)" }}>
-                {apps.length === 0 && "No apps have been registered yet. Run the seed script to create system apps."}
-                {organizations.length === 0 && "No organizations exist yet."}
+                {apps.length === 0 &&
+                  tx(
+                    "empty.no_apps_registered",
+                    "No apps have been registered yet. Run the seed script to create system apps."
+                  )}
+                {organizations.length === 0 &&
+                  tx("empty.no_organizations", "No organizations exist yet.")}
               </p>
             </div>
           </div>
@@ -211,13 +244,18 @@ export function AppAvailabilityTab() {
         <div className="mb-4">
           <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             <Shield size={16} />
-            App Availability Management
+            {tx("header.title", "App Availability Management")}
           </h3>
           <p className="text-xs mt-1" style={MUTED_TEXT_STYLE}>
-            Control which apps are visible to each organization. Click checkboxes to enable/disable.
+            {tx(
+              "header.subtitle",
+              "Control which apps are visible to each organization. Click checkboxes to enable/disable."
+            )}
           </p>
           <p className="text-xs mt-1" style={MUTED_TEXT_STYLE}>
-            Use the <strong>Product Rollout Badges</strong> section below to set app labels like New, Beta, or WIP.
+            {tx("header.badges_intro", "Use the")}{" "}
+            <strong>{tx("header.badges_label", "Product Rollout Badges")}</strong>{" "}
+            {tx("header.badges_outro", "section below to set app labels like New, Beta, or WIP.")}
           </p>
         </div>
 
@@ -233,7 +271,7 @@ export function AppAvailabilityTab() {
                 <input
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Search organizations by name"
+                  placeholder={tx("controls.search_placeholder", "Search organizations by name")}
                   className="pl-8 pr-2 py-1.5 text-xs border min-w-[220px]"
                   style={{
                     borderColor: "var(--window-document-border)",
@@ -250,7 +288,7 @@ export function AppAvailabilityTab() {
                   color: "var(--window-document-text)",
                 }}
               >
-                Search
+                {tx("controls.search", "Search")}
               </button>
               {searchTerm ? (
                 <button
@@ -262,13 +300,13 @@ export function AppAvailabilityTab() {
                     color: "var(--window-document-text)",
                   }}
                 >
-                  Clear
+                  {tx("controls.clear", "Clear")}
                 </button>
               ) : null}
             </form>
 
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--window-document-text)" }}>
-              <span className="font-semibold">Rows</span>
+              <span className="font-semibold">{tx("controls.rows", "Rows")}</span>
               <select
                 value={pageSize}
                 onChange={(event) => {
@@ -303,9 +341,11 @@ export function AppAvailabilityTab() {
                 }}
               >
                 <ChevronLeft size={12} />
-                Prev
+                {tx("pagination.prev", "Prev")}
               </button>
-              <span className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>Page {currentPage}</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {tx("pagination.page", `Page ${currentPage}`, { page: currentPage })}
+              </span>
               <button
                 type="button"
                 onClick={handleNextPage}
@@ -316,7 +356,7 @@ export function AppAvailabilityTab() {
                   color: "var(--window-document-text)",
                 }}
               >
-                Next
+                {tx("pagination.next", "Next")}
                 <ChevronRight size={12} />
               </button>
             </div>
@@ -329,7 +369,7 @@ export function AppAvailabilityTab() {
             <thead>
               <tr className="border-b-2" style={TABLE_HEADER_STYLE}>
                 <th className="px-3 py-2 text-left font-bold sticky left-0 z-10" style={TABLE_HEADER_STYLE}>
-                  Organization
+                  {tx("table.organization", "Organization")}
                 </th>
                 {apps.map((app) => (
                   <th key={app._id} className="px-3 py-2 text-center font-bold min-w-[100px]">
@@ -349,6 +389,7 @@ export function AppAvailabilityTab() {
                   apps={apps}
                   availabilityByApp={availabilityByOrg.get(org._id) ?? EMPTY_AVAILABILITY_BY_APP}
                   sessionId={sessionId!}
+                  tx={tx}
                 />
               ))}
             </tbody>
@@ -364,7 +405,9 @@ export function AppAvailabilityTab() {
             >
               <Check size={10} className="text-white" />
             </div>
-            <span style={{ color: "var(--window-document-text)" }}>Available</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx("legend.available", "Available")}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <div
@@ -373,7 +416,9 @@ export function AppAvailabilityTab() {
             >
               <X size={10} className="text-white" />
             </div>
-            <span style={{ color: "var(--window-document-text)" }}>Not Available</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx("legend.not_available", "Not Available")}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <div
@@ -382,13 +427,15 @@ export function AppAvailabilityTab() {
             >
               <Loader2 size={10} className="animate-spin" />
             </div>
-            <span style={{ color: "var(--window-document-text)" }}>Updating...</span>
+            <span style={{ color: "var(--window-document-text)" }}>
+              {tx("legend.updating", "Updating...")}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Security & API Section */}
-      <SecurityAndApiSection organizations={organizations} sessionId={sessionId} apiSettingsByOrg={apiSettingsByOrg} />
+      <SecurityAndApiSection organizations={organizations} sessionId={sessionId} apiSettingsByOrg={apiSettingsByOrg} tx={tx} />
 
       {/* Product rollout badges */}
       <div className="border-2 p-4" style={SURFACE_STYLE}>
@@ -406,12 +453,14 @@ function OrganizationRow({
   apps,
   availabilityByApp,
   sessionId,
+  tx,
 }: {
   organization: { _id: Id<"organizations">; name: string; slug?: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apps: any[];
   availabilityByApp: ReadonlyMap<string, boolean>;
   sessionId: string;
+  tx: TranslateWithFallback;
 }) {
   const [loadingAppId, setLoadingAppId] = useState<Id<"apps"> | null>(null);
   const setAvailability = useMutation(api.appAvailability.setAppAvailability);
@@ -427,7 +476,8 @@ function OrganizationRow({
       });
     } catch (error) {
       console.error("Failed to toggle app availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const message = error instanceof Error ? error.message : tx("app_row.errors.unknown_error", "Unknown error");
+      alert(tx("app_row.errors.failed_update_with_reason", `Failed to update: ${message}`, { message }));
     } finally {
       setLoadingAppId(null);
     }
@@ -475,10 +525,18 @@ function OrganizationRow({
               }}
               title={
                 isLoading
-                  ? "Updating..."
+                  ? tx("app_row.toggle.updating", "Updating...")
                   : isAvailable
-                  ? `Click to disable ${app.name} for ${organization.name}`
-                  : `Click to enable ${app.name} for ${organization.name}`
+                  ? tx(
+                      "app_row.toggle.disable",
+                      `Click to disable ${app.name} for ${organization.name}`,
+                      { appName: app.name, organizationName: organization.name }
+                    )
+                  : tx(
+                      "app_row.toggle.enable",
+                      `Click to enable ${app.name} for ${organization.name}`,
+                      { appName: app.name, organizationName: organization.name }
+                    )
               }
             >
               {isLoading ? (
@@ -504,10 +562,12 @@ function SecurityAndApiSection({
   organizations,
   sessionId,
   apiSettingsByOrg,
+  tx,
 }: {
   organizations: { _id: Id<"organizations">; name: string; slug?: string }[];
   sessionId: string;
   apiSettingsByOrg: ReadonlyMap<string, boolean>;
+  tx: TranslateWithFallback;
 }) {
   return (
     <div>
@@ -515,10 +575,13 @@ function SecurityAndApiSection({
       <div className="mb-4">
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Key size={16} />
-          Security & API Management
+          {tx("security.header.title", "Security & API Management")}
         </h3>
         <p className="text-xs mt-1" style={MUTED_TEXT_STYLE}>
-          Control which organizations can generate API keys for external integrations.
+          {tx(
+            "security.header.subtitle",
+            "Control which organizations can generate API keys for external integrations."
+          )}
         </p>
       </div>
 
@@ -528,13 +591,13 @@ function SecurityAndApiSection({
           <thead>
             <tr className="border-b-2" style={TABLE_HEADER_STYLE}>
               <th className="px-3 py-2 text-left font-bold sticky left-0 z-10" style={TABLE_HEADER_STYLE}>
-                Organization
+                {tx("security.table.organization", "Organization")}
               </th>
               <th className="px-3 py-2 text-center font-bold min-w-[150px]">
-                API Keys Access
+                {tx("security.table.api_keys_access", "API Keys Access")}
               </th>
               <th className="px-3 py-2 text-left font-bold min-w-[200px]">
-                Description
+                {tx("security.table.description", "Description")}
               </th>
             </tr>
           </thead>
@@ -545,6 +608,7 @@ function SecurityAndApiSection({
                 organization={org}
                 isEnabled={apiSettingsByOrg.get(org._id) ?? false}
                 sessionId={sessionId}
+                tx={tx}
               />
             ))}
           </tbody>
@@ -560,7 +624,9 @@ function SecurityAndApiSection({
           >
             <Check size={10} className="text-white" />
           </div>
-          <span style={{ color: "var(--window-document-text)" }}>API Keys Enabled</span>
+          <span style={{ color: "var(--window-document-text)" }}>
+            {tx("security.legend.enabled", "API Keys Enabled")}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <div
@@ -569,7 +635,9 @@ function SecurityAndApiSection({
           >
             <X size={10} className="text-white" />
           </div>
-          <span style={{ color: "var(--window-document-text)" }}>API Keys Disabled</span>
+          <span style={{ color: "var(--window-document-text)" }}>
+            {tx("security.legend.disabled", "API Keys Disabled")}
+          </span>
         </div>
       </div>
     </div>
@@ -584,10 +652,12 @@ function ApiAccessRow({
   organization,
   isEnabled,
   sessionId,
+  tx,
 }: {
   organization: { _id: Id<"organizations">; name: string; slug?: string };
   isEnabled: boolean;
   sessionId: string;
+  tx: TranslateWithFallback;
 }) {
   const [isToggling, setIsToggling] = useState(false);
   const toggleApiKeys = useMutation(api.organizationApiSettings.toggleApiKeys);
@@ -602,7 +672,8 @@ function ApiAccessRow({
       });
     } catch (error) {
       console.error("Failed to toggle API keys:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const message = error instanceof Error ? error.message : tx("security_row.errors.unknown_error", "Unknown error");
+      alert(tx("security_row.errors.failed_update_with_reason", `Failed to update: ${message}`, { message }));
     } finally {
       setIsToggling(false);
     }
@@ -646,34 +717,44 @@ function ApiAccessRow({
           }}
           title={
             isToggling
-              ? "Updating..."
+              ? tx("security_row.toggle.updating", "Updating...")
               : isEnabled
-              ? `Click to disable API keys for ${organization.name}`
-              : `Click to enable API keys for ${organization.name}`
+              ? tx(
+                  "security_row.toggle.disable",
+                  `Click to disable API keys for ${organization.name}`,
+                  { organizationName: organization.name }
+                )
+              : tx(
+                  "security_row.toggle.enable",
+                  `Click to enable API keys for ${organization.name}`,
+                  { organizationName: organization.name }
+                )
           }
         >
           {isToggling ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              <span className="text-xs font-bold">Updating...</span>
+              <span className="text-xs font-bold">
+                {tx("security_row.state.updating", "Updating...")}
+              </span>
             </>
           ) : isEnabled ? (
             <>
               <ToggleRight size={16} />
-              <span className="text-xs font-bold">Enabled</span>
+              <span className="text-xs font-bold">{tx("security_row.state.enabled", "Enabled")}</span>
             </>
           ) : (
             <>
               <ToggleLeft size={16} />
-              <span className="text-xs font-bold">Disabled</span>
+              <span className="text-xs font-bold">{tx("security_row.state.disabled", "Disabled")}</span>
             </>
           )}
         </button>
       </td>
       <td className="px-3 py-2 text-xs" style={MUTED_TEXT_STYLE}>
         {isEnabled
-          ? "Organization can generate and manage API keys"
-          : "Organization cannot access API key features"}
+          ? tx("security_row.description.enabled", "Organization can generate and manage API keys")
+          : tx("security_row.description.disabled", "Organization cannot access API key features")}
       </td>
     </tr>
   );

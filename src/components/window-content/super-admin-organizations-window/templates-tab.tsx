@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
   FileText,
   Check,
@@ -17,6 +17,9 @@ import {
   Filter,
   Package,
 } from "lucide-react";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 /** Audit template interface */
 interface AuditTemplate {
@@ -36,6 +39,18 @@ interface Organization {
   slug: string;
 }
 
+const READ_ONLY_AVAILABILITY_TYPES = new Set(["email", "page", "checkout", "pdf"]);
+
+function isReadOnlyAvailabilityType(type: string): boolean {
+  return READ_ONLY_AVAILABILITY_TYPES.has(type);
+}
+
+type TranslateWithFallback = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
+
 /**
  * Templates Tab - Redesigned with Two Sections + Theme System
  *
@@ -44,18 +59,31 @@ interface Organization {
  */
 export function TemplatesTab() {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.super_admin.templates");
+  const tx: TranslateWithFallback = (key, fallback, params) => {
+    const fullKey = `ui.super_admin.templates.${key}`;
+    const translated = t(fullKey, params);
+    return translated === fullKey ? fallback : translated;
+  };
 
   // Fetch audit data for all templates
   const auditData = useQuery(
-    api.auditTemplates.auditAllTemplates,
+    apiAny.auditTemplates.auditAllTemplates,
     sessionId ? {} : "skip"
-  );
+  ) as {
+    templates: {
+      schemaEmail: AuditTemplate[];
+      htmlEmail: AuditTemplate[];
+      pdf: AuditTemplate[];
+      unknown: AuditTemplate[];
+    };
+  } | undefined;
 
   // Fetch all organizations
   const organizations = useQuery(
-    api.organizations.listAll,
+    apiAny.organizations.listAll,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as Organization[] | undefined;
 
   if (!sessionId) {
     return (
@@ -71,10 +99,10 @@ export function TemplatesTab() {
             <AlertCircle size={20} style={{ color: "#dc2626" }} className="flex-shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold text-sm" style={{ color: "#991b1b" }}>
-                Authentication Required
+                {tx("access.authentication_required", "Authentication Required")}
               </h4>
               <p className="text-xs mt-1" style={{ color: "#b91c1c" }}>
-                Please log in to manage templates.
+                {tx("access.login_required_body", "Please log in to manage templates.")}
               </p>
             </div>
           </div>
@@ -105,10 +133,10 @@ export function TemplatesTab() {
             <AlertCircle size={20} style={{ color: "#ca8a04" }} className="flex-shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold text-sm" style={{ color: "#854d0e" }}>
-                No Organizations Found
+                {tx("empty.no_organizations_title", "No Organizations Found")}
               </h4>
               <p className="text-xs mt-1" style={{ color: "#a16207" }}>
-                No organizations exist yet.
+                {tx("empty.no_organizations_body", "No organizations exist yet.")}
               </p>
             </div>
           </div>
@@ -131,13 +159,14 @@ export function TemplatesTab() {
       style={{ background: "var(--window-document-bg)" }}
     >
       {/* SECTION 1: CRUD - Template Management */}
-      <TemplateCRUDSection templates={allTemplates} sessionId={sessionId} />
+      <TemplateCRUDSection templates={allTemplates} sessionId={sessionId} tx={tx} />
 
       {/* SECTION 2: Availability - Per-Org Template Access */}
       <TemplateAvailabilitySection
         templates={allTemplates}
         organizations={organizations}
         sessionId={sessionId}
+        tx={tx}
       />
     </div>
   );
@@ -149,9 +178,11 @@ export function TemplatesTab() {
 function TemplateCRUDSection({
   templates,
   sessionId,
+  tx,
 }: {
   templates: AuditTemplate[];
   sessionId: string;
+  tx: TranslateWithFallback;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -186,10 +217,13 @@ function TemplateCRUDSection({
       <div className="mb-4">
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <FileText size={16} />
-          System Templates Management
+          {tx("crud.header.title", "System Templates Management")}
         </h3>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Manage all system templates: create, edit, delete, and duplicate.
+          {tx(
+            "crud.header.subtitle",
+            "Manage all system templates: create, edit, delete, and duplicate."
+          )}
         </p>
       </div>
 
@@ -204,7 +238,7 @@ function TemplateCRUDSection({
           />
           <input
             type="text"
-            placeholder="Search templates..."
+            placeholder={tx("crud.filters.search_placeholder", "Search templates...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs border-2 focus:outline-none"
@@ -229,13 +263,13 @@ function TemplateCRUDSection({
               color: "var(--window-document-text)",
             }}
           >
-            <option value="all">All Types</option>
-            <option value="email">Email</option>
-            <option value="pdf">PDF</option>
-            <option value="form">Form</option>
-            <option value="checkout">Checkout</option>
-            <option value="workflow">Workflow</option>
-            <option value="other">Other</option>
+            <option value="all">{tx("crud.filters.type.all", "All Types")}</option>
+            <option value="email">{tx("crud.filters.type.email", "Email")}</option>
+            <option value="pdf">{tx("crud.filters.type.pdf", "PDF")}</option>
+            <option value="form">{tx("crud.filters.type.form", "Form")}</option>
+            <option value="checkout">{tx("crud.filters.type.checkout", "Checkout")}</option>
+            <option value="workflow">{tx("crud.filters.type.workflow", "Workflow")}</option>
+            <option value="other">{tx("crud.filters.type.other", "Other")}</option>
           </select>
         </div>
 
@@ -250,9 +284,9 @@ function TemplateCRUDSection({
             color: "var(--window-document-text)",
           }}
         >
-          <option value="all">All Templates</option>
-          <option value="schema">Schema-Driven Only</option>
-          <option value="legacy">Legacy HTML Only</option>
+          <option value="all">{tx("crud.filters.schema.all", "All Templates")}</option>
+          <option value="schema">{tx("crud.filters.schema.schema_only", "Schema-Driven Only")}</option>
+          <option value="legacy">{tx("crud.filters.schema.legacy_only", "Legacy HTML Only")}</option>
         </select>
       </div>
 
@@ -271,37 +305,37 @@ function TemplateCRUDSection({
                 className="px-3 py-2 text-left font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Name
+                {tx("crud.table.name", "Name")}
               </th>
               <th
                 className="px-3 py-2 text-left font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Code
+                {tx("crud.table.code", "Code")}
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Type
+                {tx("crud.table.type", "Type")}
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Schema
+                {tx("crud.table.schema", "Schema")}
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Status
+                {tx("crud.table.status", "Status")}
               </th>
               <th
                 className="px-3 py-2 text-center font-bold"
                 style={{ color: "var(--window-document-text)" }}
               >
-                Actions
+                {tx("crud.table.actions", "Actions")}
               </th>
             </tr>
           </thead>
@@ -309,12 +343,17 @@ function TemplateCRUDSection({
             {filteredTemplates.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center" style={{ color: "var(--neutral-gray)" }}>
-                  No templates found matching your filters.
+                  {tx("crud.table.empty", "No templates found matching your filters.")}
                 </td>
               </tr>
             ) : (
               filteredTemplates.map((template) => (
-                <TemplateCRUDRow key={template._id} template={template} sessionId={sessionId} />
+                <TemplateCRUDRow
+                  key={template._id}
+                  template={template}
+                  sessionId={sessionId}
+                  tx={tx}
+                />
               ))
             )}
           </tbody>
@@ -323,7 +362,11 @@ function TemplateCRUDSection({
 
       {/* Summary */}
       <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
-        Showing {filteredTemplates.length} of {templates.length} templates
+        {tx(
+          "crud.summary",
+          `Showing ${filteredTemplates.length} of ${templates.length} templates`,
+          { shown: filteredTemplates.length, total: templates.length }
+        )}
       </div>
     </div>
   );
@@ -336,9 +379,11 @@ function TemplateCRUDRow({
   template,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sessionId,
+  tx,
 }: {
   template: AuditTemplate;
   sessionId: string;
+  tx: TranslateWithFallback;
 }) {
   const templateType = getTemplateType(template);
   const typeIcon = getTypeIcon(templateType);
@@ -411,7 +456,7 @@ function TemplateCRUDRow({
               borderColor: "var(--window-document-border)",
               color: "var(--window-document-text)",
             }}
-            title="Edit template"
+            title={tx("crud.actions.edit_title", "Edit template")}
           >
             <Edit size={14} />
           </button>
@@ -421,7 +466,7 @@ function TemplateCRUDRow({
               borderColor: "var(--window-document-border)",
               color: "var(--window-document-text)",
             }}
-            title="Duplicate template"
+            title={tx("crud.actions.duplicate_title", "Duplicate template")}
           >
             <Copy size={14} />
           </button>
@@ -431,7 +476,7 @@ function TemplateCRUDRow({
               borderColor: "var(--window-document-border)",
               color: "#ef4444",
             }}
-            title="Delete template"
+            title={tx("crud.actions.delete_title", "Delete template")}
           >
             <Trash2 size={14} />
           </button>
@@ -448,45 +493,32 @@ function TemplateAvailabilitySection({
   templates,
   organizations,
   sessionId,
+  tx,
 }: {
   templates: AuditTemplate[];
   organizations: Organization[];
   sessionId: string;
+  tx: TranslateWithFallback;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<Id<"organizations"> | null>(
     organizations.length > 0 ? organizations[0]._id : null
   );
 
   // Fetch all availabilities for selected org
-  const webAvailabilities = useQuery(
-    api.templateAvailability.getAllTemplateAvailabilities,
-    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
-  );
-
   const formAvailabilities = useQuery(
-    api.formTemplateAvailability.getAllFormTemplateAvailabilities,
-    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
-  );
-
-  const checkoutAvailabilities = useQuery(
-    api.checkoutTemplateAvailability.getAllCheckoutTemplateAvailabilities,
-    selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
-  );
-
-  const pdfAvailabilities = useQuery(
-    api.pdfTemplateAvailability.getAllPdfTemplateAvailabilities,
+    apiAny.formTemplateAvailability.getAllFormTemplateAvailabilities,
     selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
   );
 
   const workflowAvailabilities = useQuery(
-    api.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
+    apiAny.workflowTemplateAvailability.getAllWorkflowTemplateAvailabilities,
     selectedOrgId && sessionId ? { sessionId, organizationId: selectedOrgId } : "skip"
   );
 
   // Preserved for future template set availability feature
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const templateSetAvailabilities = useQuery(
-    api.templateSetAvailability.getAllTemplateSetAvailabilities,
+    apiAny.templateSetAvailability.getAllTemplateSetAvailabilities,
     selectedOrgId && sessionId ? { sessionId } : "skip"
   );
 
@@ -497,26 +529,18 @@ function TemplateAvailabilitySection({
     const type = getTemplateType(template);
     const code = template.code;
 
+    if (isReadOnlyAvailabilityType(type)) {
+      return true;
+    }
+
     // Check appropriate availability list based on type
-    if (type === "email" || type === "page") {
-      return webAvailabilities?.some(
-        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
-      );
-    } else if (type === "form") {
+    if (type === "form") {
       return formAvailabilities?.some(
-        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
-      );
-    } else if (type === "checkout") {
-      return checkoutAvailabilities?.some(
-        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
-      );
-    } else if (type === "pdf") {
-      return pdfAvailabilities?.some(
-        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+        (a: any) => a.customProperties?.templateCode === code && a.customProperties?.available
       );
     } else if (type === "workflow") {
       return workflowAvailabilities?.some(
-        (a) => a.customProperties?.templateCode === code && a.customProperties?.available
+        (a: any) => a.customProperties?.templateCode === code && a.customProperties?.available
       );
     }
 
@@ -524,16 +548,10 @@ function TemplateAvailabilitySection({
   };
 
   // Mutations for toggling availability
-  const enableWebTemplate = useMutation(api.templateAvailability.enableTemplateForOrg);
-  const disableWebTemplate = useMutation(api.templateAvailability.disableTemplateForOrg);
-  const enableFormTemplate = useMutation(api.formTemplateAvailability.enableFormTemplate);
-  const disableFormTemplate = useMutation(api.formTemplateAvailability.disableFormTemplate);
-  const enableCheckoutTemplate = useMutation(api.checkoutTemplateAvailability.enableCheckoutTemplate);
-  const disableCheckoutTemplate = useMutation(api.checkoutTemplateAvailability.disableCheckoutTemplate);
-  const enablePdfTemplate = useMutation(api.pdfTemplateAvailability.enablePdfTemplate);
-  const disablePdfTemplate = useMutation(api.pdfTemplateAvailability.disablePdfTemplate);
-  const enableWorkflowTemplate = useMutation(api.workflowTemplateAvailability.enableWorkflowTemplate);
-  const disableWorkflowTemplate = useMutation(api.workflowTemplateAvailability.disableWorkflowTemplate);
+  const enableFormTemplate = useMutation(apiAny.formTemplateAvailability.enableFormTemplate);
+  const disableFormTemplate = useMutation(apiAny.formTemplateAvailability.disableFormTemplate);
+  const enableWorkflowTemplate = useMutation(apiAny.workflowTemplateAvailability.enableWorkflowTemplate);
+  const disableWorkflowTemplate = useMutation(apiAny.workflowTemplateAvailability.disableWorkflowTemplate);
 
   const [loadingTemplates, setLoadingTemplates] = useState<Set<string>>(new Set());
 
@@ -542,6 +560,10 @@ function TemplateAvailabilitySection({
 
     const code = template.code;
     const type = getTemplateType(template);
+
+    if (isReadOnlyAvailabilityType(type)) {
+      return;
+    }
 
     setLoadingTemplates((prev) => new Set(prev).add(code));
 
@@ -554,34 +576,26 @@ function TemplateAvailabilitySection({
 
       if (currentState) {
         // Disable
-        if (type === "email" || type === "page") {
-          await disableWebTemplate(args);
-        } else if (type === "form") {
+        if (type === "form") {
           await disableFormTemplate(args);
-        } else if (type === "checkout") {
-          await disableCheckoutTemplate(args);
-        } else if (type === "pdf") {
-          await disablePdfTemplate(args);
         } else if (type === "workflow") {
           await disableWorkflowTemplate(args);
         }
       } else {
         // Enable
-        if (type === "email" || type === "page") {
-          await enableWebTemplate(args);
-        } else if (type === "form") {
+        if (type === "form") {
           await enableFormTemplate(args);
-        } else if (type === "checkout") {
-          await enableCheckoutTemplate(args);
-        } else if (type === "pdf") {
-          await enablePdfTemplate(args);
         } else if (type === "workflow") {
           await enableWorkflowTemplate(args);
         }
       }
     } catch (error) {
       console.error("Failed to toggle template availability:", error);
-      alert(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const message =
+        error instanceof Error
+          ? error.message
+          : tx("availability.errors.unknown_error", "Unknown error");
+      alert(tx("availability.errors.failed_to_update", `Failed to update: ${message}`, { message }));
     } finally {
       setLoadingTemplates((prev) => {
         const next = new Set(prev);
@@ -599,17 +613,20 @@ function TemplateAvailabilitySection({
       <div className="mb-4">
         <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
           <Package size={16} />
-          Template Availability Management
+          {tx("availability.header.title", "Template Availability Management")}
         </h3>
         <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
-          Control which templates are visible to each organization.
+          {tx(
+            "availability.header.subtitle",
+            "Form/workflow toggles remain editable. Email, page, checkout, and PDF templates are read-only and globally available."
+          )}
         </p>
       </div>
 
       {/* Organization Selector */}
       <div className="mb-4">
         <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-          Select Organization:
+          {tx("availability.select_org_label", "Select Organization:")}
         </label>
         <select
           value={selectedOrgId || ""}
@@ -633,7 +650,11 @@ function TemplateAvailabilitySection({
       {selectedOrg && (
         <>
           <div className="mb-3 text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-            Available Templates for "{selectedOrg.name}":
+            {tx(
+              "availability.available_templates_for_org",
+              `Available Templates for "${selectedOrg.name}":`,
+              { organizationName: selectedOrg.name }
+            )}
           </div>
 
           <div
@@ -646,6 +667,7 @@ function TemplateAvailabilitySection({
                 const isLoading = loadingTemplates.has(template.code);
                 const type = getTemplateType(template);
                 const typeIcon = getTypeIcon(type);
+                const isReadOnlyType = isReadOnlyAvailabilityType(type);
 
                 return (
                   <div
@@ -658,10 +680,18 @@ function TemplateAvailabilitySection({
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => handleToggle(template, isAvailable || false)}
-                        disabled={isLoading}
+                        disabled={isLoading || isReadOnlyType}
                         className={`w-5 h-5 border-2 flex items-center justify-center transition-colors ${
-                          isLoading ? "opacity-50" : ""
+                          isLoading || isReadOnlyType ? "opacity-50" : ""
                         }`}
+                        title={
+                          isReadOnlyType
+                            ? tx(
+                                "availability.read_only_title",
+                                "Read-only compatibility mode: this template type is always available."
+                              )
+                            : undefined
+                        }
                         style={{
                           borderColor: "var(--window-document-border)",
                           backgroundColor: isLoading
@@ -694,7 +724,12 @@ function TemplateAvailabilitySection({
                         </code>
                         {template.hasSchema && (
                           <span className="text-xs font-bold" style={{ color: "#10b981" }}>
-                             Schema
+                            {tx("availability.badges.schema", "Schema")}
+                          </span>
+                        )}
+                        {isReadOnlyType && (
+                          <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>
+                            {tx("availability.badges.read_only", "Read-only")}
                           </span>
                         )}
                       </div>
@@ -711,7 +746,11 @@ function TemplateAvailabilitySection({
 
           {/* Summary */}
           <div className="mt-3 text-xs" style={{ color: "var(--neutral-gray)" }}>
-            {templates.filter(isTemplateAvailable).length} of {templates.length} templates enabled
+            {tx(
+              "availability.summary",
+              `${templates.filter(isTemplateAvailable).length} of ${templates.length} templates enabled`,
+              { enabled: templates.filter(isTemplateAvailable).length, total: templates.length }
+            )}
           </div>
         </>
       )}

@@ -238,16 +238,27 @@ export function WebPublishingWindow({
             </div>
           </div>
 
-          {/* Open full screen link (window mode only) */}
-          {!fullScreen && (
+          <div className="flex items-center gap-2">
             <Link
-              href="/publish"
+              href="/builder/new?launch=event&source=web-publishing"
               className={headerActionClass}
-              title="Open Full Screen"
+              title="Open Builder launch flow"
             >
-              <Maximize2 size={14} />
+              <Rocket size={14} />
+              Launch Flow
             </Link>
-          )}
+
+            {/* Open full screen link (window mode only) */}
+            {!fullScreen && (
+              <Link
+                href="/publish"
+                className={headerActionClass}
+                title="Open Full Screen"
+              >
+                <Maximize2 size={14} />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

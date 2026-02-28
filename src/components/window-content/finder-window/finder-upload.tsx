@@ -151,7 +151,7 @@ export function UploadProgressOverlay({
 
   return (
     <div
-      className="absolute bottom-4 right-4 w-72 border rounded-2xl shadow-lg z-40"
+      className="absolute bottom-4 right-4 w-72 border rounded-2xl z-40"
       style={{
         background: "var(--window-document-bg-elevated)",
         borderColor: "var(--window-document-border)",
@@ -191,7 +191,7 @@ export function UploadProgressOverlay({
               {(upload.status === "uploading" || upload.status === "saving") && (
                 <div className="w-full h-1 mt-1 rounded" style={{ background: "var(--window-document-border)" }}>
                   <div
-                    className="h-full rounded transition-all"
+                    className="h-full rounded transition-colors"
                     style={{
                       width: `${upload.progress}%`,
                       background: "var(--primary)",

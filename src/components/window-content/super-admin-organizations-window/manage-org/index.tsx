@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";

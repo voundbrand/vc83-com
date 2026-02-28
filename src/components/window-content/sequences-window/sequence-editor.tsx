@@ -240,7 +240,7 @@ export function SequenceEditor({
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="retro-button p-1"
+              className="desktop-interior-button p-1"
               title="Back to list"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -254,7 +254,7 @@ export function SequenceEditor({
                   setHasChanges(true);
                 }}
                 placeholder="Sequence name..."
-                className="retro-input text-sm font-bold px-2 py-1 w-64"
+                className="desktop-interior-input text-sm font-bold px-2 py-1 w-64"
               />
             </div>
           </div>
@@ -263,7 +263,7 @@ export function SequenceEditor({
             {sequenceId && sequence?.status === "draft" && (
               <button
                 onClick={handleActivate}
-                className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
+                className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
                 style={{ background: "var(--success)", color: "white" }}
               >
                 <Play className="h-3 w-3" />
@@ -273,7 +273,7 @@ export function SequenceEditor({
             {sequenceId && sequence?.status === "active" && (
               <button
                 onClick={handlePause}
-                className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
+                className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold"
               >
                 <Pause className="h-3 w-3" />
                 Pause
@@ -282,7 +282,7 @@ export function SequenceEditor({
             <button
               onClick={handleSave}
               disabled={isSaving || !hasChanges}
-              className="retro-button flex items-center gap-1 px-3 py-1 text-xs font-bold disabled:opacity-50"
+              className="desktop-interior-button flex items-center gap-1 px-3 py-1 text-xs font-bold disabled:opacity-50"
             >
               {isSaving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -306,7 +306,7 @@ export function SequenceEditor({
                 setSubtype(e.target.value);
                 setHasChanges(true);
               }}
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="vorher">Pre-Event (Vorher)</option>
               <option value="waehrend">During Event (Während)</option>
@@ -326,7 +326,7 @@ export function SequenceEditor({
                 setTriggerEvent(e.target.value);
                 setHasChanges(true);
               }}
-              className="retro-input py-1 pl-2 pr-6 text-xs"
+              className="desktop-interior-input py-1 pl-2 pr-6 text-xs"
             >
               <option value="booking_confirmed">Booking Confirmed</option>
               <option value="booking_checked_in">Booking Check-In</option>
@@ -354,7 +354,7 @@ export function SequenceEditor({
             </h3>
             <button
               onClick={handleAddStep}
-              className="retro-button flex items-center gap-1 px-2 py-1 text-xs font-bold"
+              className="desktop-interior-button flex items-center gap-1 px-2 py-1 text-xs font-bold"
             >
               <Plus className="h-3 w-3" />
               Add Step
@@ -407,7 +407,7 @@ export function SequenceEditor({
                 </p>
                 <button
                   onClick={handleAddStep}
-                  className="retro-button flex items-center gap-1 px-3 py-2 text-xs font-bold mx-auto"
+                  className="desktop-interior-button flex items-center gap-1 px-3 py-2 text-xs font-bold mx-auto"
                 >
                   <Plus className="h-3 w-3" />
                   Add First Step

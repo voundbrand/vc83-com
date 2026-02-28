@@ -2,14 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { X, Globe, Palette, Mail, Layout, Save, Loader2, Eye, Upload } from "lucide-react";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { getAllEmailTemplateMetadata } from "@/templates/emails/registry";
+import {
+  getAllEmailTemplateMetadata,
+  getEmailTemplateMetadata,
+  isCompatibilityArchivedEmailTemplateCode,
+} from "@/templates/emails/registry";
 import { TemplatePreviewModal } from "@/components/template-preview-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import MediaLibraryWindow from "@/components/window-content/media-library-window";
+
+// Dynamic require avoids deep type-instantiation from generated API types in this client component.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface DomainConfigModalProps {
   isOpen: boolean;
@@ -52,7 +59,7 @@ export function DomainConfigModal({
     systemEmail: "",
     salesEmail: "",
     replyToEmail: "",
-    emailTemplateCode: "luxury-confirmation", // Default template
+    emailTemplateCode: "event-confirmation-v2", // Default transactional template
     // Web
     enableWeb: false,
     templateId: "",
@@ -108,7 +115,7 @@ export function DomainConfigModal({
         systemEmail: props.email?.systemEmail || "",
         salesEmail: props.email?.salesEmail || "",
         replyToEmail: props.email?.replyToEmail || "",
-        emailTemplateCode: props.email?.defaultTemplateCode || "luxury-confirmation",
+        emailTemplateCode: props.email?.defaultTemplateCode || "event-confirmation-v2",
         enableWeb: !!props.webPublishing,
         templateId: props.webPublishing?.templateId || "",
         isExternal: props.webPublishing?.isExternal ?? true,
@@ -131,7 +138,7 @@ export function DomainConfigModal({
         systemEmail: "",
         salesEmail: "",
         replyToEmail: "",
-        emailTemplateCode: "luxury-confirmation",
+        emailTemplateCode: "event-confirmation-v2",
         enableWeb: false,
         templateId: "",
         isExternal: true,
@@ -210,6 +217,16 @@ export function DomainConfigModal({
       setIsSubmitting(false);
     }
   };
+
+  const activeEmailTemplateOptions = getAllEmailTemplateMetadata();
+  const selectedTemplateMetadata = getEmailTemplateMetadata(formData.emailTemplateCode);
+  const selectedTemplateInActiveOptions = activeEmailTemplateOptions.some(
+    (template) => template.code === formData.emailTemplateCode
+  );
+  const emailTemplateOptions =
+    selectedTemplateMetadata && !selectedTemplateInActiveOptions
+      ? [selectedTemplateMetadata, ...activeEmailTemplateOptions]
+      : activeEmailTemplateOptions;
 
   if (!isOpen || translationsLoading) return null;
 
@@ -577,11 +594,15 @@ export function DomainConfigModal({
                           color: 'var(--window-document-text)'
                         }}
                       >
-                        {getAllEmailTemplateMetadata().map((template) => (
-                          <option key={template.code} value={template.code}>
-                            {template.name}
-                          </option>
-                        ))}
+                        {emailTemplateOptions.map((template) => {
+                          const isArchived = isCompatibilityArchivedEmailTemplateCode(template.code);
+                          return (
+                            <option key={template.code} value={template.code}>
+                              {template.name}
+                              {isArchived ? " (Compatibility archived)" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                       <button
                         type="button"

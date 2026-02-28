@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
   ArrowLeft,
@@ -27,6 +28,11 @@ type BuilderTab = "schema" | "preview" | "settings" | "build";
 
 export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const { sessionId } = useAuth();
+  const { t } = useNamespaceTranslations("ui.templates");
+  const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
+    const translated = t(key, params);
+    return translated === key ? fallback : translated;
+  };
   const [activeTab, setActiveTab] = useState<BuilderTab>("schema");
 
   // Fetch template by ID (works for both system and user templates)
@@ -40,7 +46,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       <div className="p-4">
         <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "rgba(239, 68, 68, 0.1)" }}>
           <p className="text-sm" style={{ color: "var(--error)" }}>
-            Authentication required
+            {tx("ui.templates.builder.authentication_required", "Authentication required")}
           </p>
         </div>
       </div>
@@ -62,10 +68,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       <div className="p-4">
         <div className="border-2 p-4" style={{ borderColor: "var(--error)", background: "rgba(239, 68, 68, 0.1)" }}>
           <p className="text-sm font-bold mb-2" style={{ color: "var(--error)" }}>
-            Template Not Found
+            {tx("ui.templates.builder.template_not_found", "Template Not Found")}
           </p>
           <p className="text-xs" style={{ color: "var(--error)" }}>
-            The template you're looking for doesn't exist or has been removed.
+            {tx("ui.templates.builder.template_not_found_description", "The template you're looking for doesn't exist or has been removed.")}
           </p>
           <button
             onClick={onBack}
@@ -76,7 +82,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               color: 'var(--window-document-text)',
             }}
           >
-            Go Back
+            {tx("ui.templates.builder.go_back", "Go Back")}
           </button>
         </div>
       </div>
@@ -88,6 +94,22 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const isEmailTemplate = template.subtype === "email";
   const hasSchema = !!templateSchema;
   const templateCode = template.customProperties?.code || template.customProperties?.templateCode;
+  const templateCategory = (template.customProperties?.category as string | undefined)?.toLowerCase();
+  const templateSubtype = (template.subtype as string | undefined)?.toLowerCase();
+  const isPhase1CustomSurface =
+    templateSubtype === "web_app" ||
+    templateSubtype === "page" ||
+    templateSubtype === "checkout" ||
+    templateCategory === "web" ||
+    templateCategory === "event" ||
+    templateCategory === "checkout";
+  const isStableTransactionalDoc =
+    templateSubtype === "pdf" ||
+    templateSubtype === "ticket" ||
+    templateSubtype === "invoice" ||
+    templateCategory === "ticket" ||
+    templateCategory === "invoice" ||
+    templateCategory === "receipt";
 
   // Debug: Check what we have
   const hasHtml = !!template.customProperties?.html;
@@ -117,14 +139,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             }}
           >
             <ArrowLeft size={12} />
-            Back
+            {tx("ui.templates.builder.back", "Back")}
           </button>
           <div>
             <h2 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
               {template.name}
               {isEmailTemplate && (
                 <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: 'var(--tone-accent)', color: 'var(--window-document-text)' }}>
-                  Email
+                  {tx("ui.templates.builder.email_badge", "Email")}
                 </span>
               )}
             </h2>
@@ -148,7 +170,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           onClick={() => setActiveTab("schema")}
         >
           <Code size={14} />
-          Schema
+          {tx("ui.templates.builder.tabs.schema", "Schema")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -160,7 +182,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           onClick={() => setActiveTab("preview")}
         >
           <Eye size={14} />
-          Preview
+          {tx("ui.templates.builder.tabs.preview", "Preview")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
@@ -172,19 +194,31 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           onClick={() => setActiveTab("settings")}
         >
           <SettingsIcon size={14} />
-          Settings
+          {tx("ui.templates.builder.tabs.settings", "Settings")}
         </button>
         <button
           className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "build" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
-            color: activeTab === "build" ? 'var(--window-document-text)' : 'var(--neutral-gray)'
+            color: isPhase1CustomSurface
+              ? (activeTab === "build" ? 'var(--window-document-text)' : 'var(--neutral-gray)')
+              : 'var(--neutral-gray)',
+            opacity: isPhase1CustomSurface ? 1 : 0.5,
           }}
-          onClick={() => setActiveTab("build")}
+          onClick={() => {
+            if (!isPhase1CustomSurface) return;
+            setActiveTab("build");
+          }}
+          disabled={!isPhase1CustomSurface}
+          title={
+            isPhase1CustomSurface
+              ? tx("ui.templates.builder.build_enabled_tooltip", "Phase 1 custom generation enabled for web/event surfaces")
+              : tx("ui.templates.builder.build_disabled_tooltip", "Phase 1 custom generation is limited to web/event surfaces")
+          }
         >
           <Hammer size={14} />
-          Build (Coming Soon)
+          {tx("ui.templates.builder.tabs.build_phase_1", "Build (Phase 1)")}
         </button>
       </div>
 
@@ -197,27 +231,40 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             <div className="p-4">
               <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
                 <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
-                  {isEmailTemplate ? 'Email Template (Legacy)' : 'Template'}
+                  {isEmailTemplate
+                    ? tx("ui.templates.builder.email_template_legacy", "Email Template (Legacy)")
+                    : tx("ui.templates.builder.template", "Template")}
                 </h3>
                 <p className="text-xs mb-3" style={{ color: 'var(--neutral-gray)' }}>
                   {isEmailTemplate
-                    ? 'This email template is a React component defined in code. It doesn\'t use the schema editor.'
-                    : 'This template doesn\'t have a schema yet.'}
+                    ? tx(
+                      "ui.templates.builder.email_template_schema_editor_note",
+                      "This email template is a React component defined in code. It doesn't use the schema editor."
+                    )
+                    : tx("ui.templates.builder.no_schema_yet", "This template doesn't have a schema yet.")}
                 </p>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Template Code:</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
+                      {tx("ui.templates.builder.template_code", "Template Code:")}
+                    </span>
                     <code className="ml-2 text-xs px-2 py-1 rounded" style={{ background: '#1f2937', color: '#10b981' }}>
-                      {templateCode || 'Unknown'}
+                      {templateCode || tx("ui.templates.builder.unknown", "Unknown")}
                     </code>
                   </div>
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Category:</span>
-                    <span className="ml-2 text-xs">{template.customProperties?.category || 'N/A'}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
+                      {tx("ui.templates.builder.category", "Category:")}
+                    </span>
+                    <span className="ml-2 text-xs">{template.customProperties?.category || tx("ui.templates.builder.not_available", "N/A")}</span>
                   </div>
                   <div>
-                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>Languages:</span>
-                    <span className="ml-2 text-xs">{(template.customProperties?.supportedLanguages as string[])?.join(', ') || 'N/A'}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--window-document-text)' }}>
+                      {tx("ui.templates.builder.languages", "Languages:")}
+                    </span>
+                    <span className="ml-2 text-xs">
+                      {(template.customProperties?.supportedLanguages as string[])?.join(', ') || tx("ui.templates.builder.not_available", "N/A")}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -232,20 +279,23 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 <div className="border-2 p-6" style={{ borderColor: 'var(--window-document-border)', background: 'white' }}>
                   <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
                     <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
-                      Email Preview
+                      {tx("ui.templates.builder.email_preview", "Email Preview")}
                     </h3>
                     <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                      This is a preview with sample data
+                      {tx("ui.templates.builder.preview_with_sample_data", "This is a preview with sample data")}
                     </p>
                   </div>
                   <div className="text-center" style={{ color: 'var(--neutral-gray)' }}>
                     <Mail size={48} className="mx-auto mb-4" style={{ opacity: 0.3 }} />
-                    <p className="text-sm font-bold mb-2">Email Preview Coming Soon</p>
+                    <p className="text-sm font-bold mb-2">
+                      {tx("ui.templates.builder.email_preview_coming_soon", "Email Preview Coming Soon")}
+                    </p>
                     <p className="text-xs">
-                      Email templates are rendered at send-time with actual event/ticket data.
+                      {tx("ui.templates.builder.email_rendered_at_send_time", "Email templates are rendered at send-time with actual event/ticket data.")}
                     </p>
                     <p className="text-xs mt-2">
-                      Template Code: <code className="px-2 py-1 rounded" style={{ background: '#f3f4f6' }}>{templateCode}</code>
+                      {tx("ui.templates.builder.template_code", "Template Code:")}{" "}
+                      <code className="px-2 py-1 rounded" style={{ background: '#f3f4f6' }}>{templateCode}</code>
                     </p>
                   </div>
                 </div>
@@ -255,15 +305,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 <div className="border-2" style={{ borderColor: 'var(--window-document-border)', background: 'white' }}>
                   <div className="p-4 border-b" style={{ borderColor: 'var(--window-document-border)' }}>
                     <h3 className="text-sm font-bold" style={{ color: 'var(--window-document-text)' }}>
-                      PDF Template Preview
+                      {tx("ui.templates.builder.pdf_template_preview", "PDF Template Preview")}
                     </h3>
                     <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-                      This is a preview with sample data
+                      {tx("ui.templates.builder.preview_with_sample_data", "This is a preview with sample data")}
                     </p>
                   </div>
                   <div style={{ padding: '20px', background: '#F9FAFB' }}>
                     <iframe
-                      title="Template Preview"
+                      title={tx("ui.templates.builder.template_preview_title", "Template Preview")}
                       srcDoc={`
                         <!DOCTYPE html>
                         <html>
@@ -300,7 +350,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               <div className="flex items-center justify-center h-full">
                 <div className="text-center" style={{ color: 'var(--neutral-gray)' }}>
                   <Eye size={48} className="mx-auto mb-4" style={{ opacity: 0.3 }} />
-                  <p className="text-sm">No schema available for preview</p>
+                  <p className="text-sm">{tx("ui.templates.builder.no_schema_preview", "No schema available for preview")}</p>
                 </div>
               </div>
             )}
@@ -311,10 +361,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           <div className="p-4">
             <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
               <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
-                Template Settings
+                {tx("ui.templates.builder.template_settings", "Template Settings")}
               </h3>
               <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Settings tab coming soon...
+                {tx("ui.templates.builder.settings_coming_soon", "Settings tab coming soon...")}
               </p>
             </div>
           </div>
@@ -324,11 +374,31 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           <div className="p-4">
             <div className="border-2 p-4" style={{ borderColor: 'var(--window-document-border)', background: 'var(--window-document-bg-elevated)' }}>
               <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--window-document-text)' }}>
-                Visual Builder
+                {tx("ui.templates.builder.visual_builder", "Visual Builder")}
               </h3>
-              <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
-                Visual template builder coming soon...
-              </p>
+              {isPhase1CustomSurface ? (
+                <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  {tx(
+                    "ui.templates.builder.phase1_enabled_description",
+                    "Phase 1 custom generation is enabled for web/event surfaces with platform-managed credits."
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                  {tx(
+                    "ui.templates.builder.phase1_scope_guard",
+                    "Phase 1 scope guard: invoice/ticket transactional documents stay on the stable template path."
+                  )}
+                </p>
+              )}
+              {isStableTransactionalDoc && (
+                <p className="text-xs mt-2" style={{ color: 'var(--neutral-gray)' }}>
+                  {tx(
+                    "ui.templates.builder.transactional_doc_guidance",
+                    "Continue using schema and preview tabs for transactional document updates."
+                  )}
+                </p>
+              )}
             </div>
           </div>
         )}

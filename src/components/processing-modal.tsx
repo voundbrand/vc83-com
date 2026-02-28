@@ -41,8 +41,10 @@ export function ProcessingModal({
   const [hasCalledComplete, setHasCalledComplete] = useState(false);
 
   // Query real progress from backend
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
+  const getCheckoutProgressQuery = (api as any).checkoutSessionOntology.getCheckoutProgress;
   const progress = useQuery(
-    api.checkoutSessionOntology.getCheckoutProgress,
+    getCheckoutProgressQuery,
     isOpen && checkoutSessionId ? { checkoutSessionId } : "skip"
   );
 
@@ -82,7 +84,13 @@ export function ProcessingModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+      style={{ background: "var(--modal-overlay-bg)" }}
+      data-testid="processing-modal"
+      data-status={status || "unknown"}
+      data-fulfillment-status={fulfillmentStatus || "unknown"}
+    >
       <div className="bg-white rounded-lg shadow-2xl border-4 border-violet-600 max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
         <div
