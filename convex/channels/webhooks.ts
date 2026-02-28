@@ -7,13 +7,14 @@
  * Flow: HTTP route → schedule internalAction → normalize → agent pipeline → reply
  */
 
-import { internalAction, internalQuery } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { getProvider } from "./registry";
-import { buildSlackTopLevelConversationIdentifier } from "./providers/slackProvider";
 import { verifyWhatsAppWebhookSignature } from "./providers/whatsappSignature";
+import { resolveSingleTenantContext } from "../integrations/tenantResolver";
 import type { ProviderCredentials } from "./types";
 import type { Id } from "../_generated/dataModel";
+import type { SlackVacationRequestParseResult } from "./providers/slackProvider";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { api, internal: internalApi } = require("../_generated/api") as {
@@ -49,6 +50,108 @@ function uniqueSecretCandidates(values: Array<string | undefined>): string[] {
     .map((value) => normalizeOptionalString(value))
     .filter((value): value is string => Boolean(value));
   return Array.from(new Set(normalized));
+}
+
+type WebhookIngressStatus = "success" | "warning" | "error" | "skipped";
+type WebhookIngressOutcome = "accepted" | "warning" | "error" | "skipped";
+
+function normalizeWebhookIngressStatus(value: unknown): WebhookIngressStatus {
+  if (value === "warning" || value === "error" || value === "skipped") {
+    return value;
+  }
+  return "success";
+}
+
+function resolveWebhookIngressOutcome(status: WebhookIngressStatus): WebhookIngressOutcome {
+  if (status === "error") {
+    return "error";
+  }
+  if (status === "skipped") {
+    return "skipped";
+  }
+  if (status === "warning") {
+    return "warning";
+  }
+  return "accepted";
+}
+
+function buildIngressEventName(action: string, status: WebhookIngressStatus): string {
+  return `ingress.${action}.${status}`;
+}
+
+type RecordWebhookIngressOutcomeArgs = {
+  organizationId: Id<"organizations">;
+  provider: string;
+  endpoint: string;
+  action: string;
+  status: unknown;
+  message?: string;
+  errorMessage?: string;
+  providerEventId?: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  routeKey?: string;
+  sessionId?: string;
+  channel?: string;
+  metadata?: Record<string, unknown>;
+  processedAt?: number;
+};
+
+async function recordWebhookIngressOutcome(
+  ctx: unknown,
+  args: RecordWebhookIngressOutcomeArgs
+): Promise<void> {
+  const eventStatus = normalizeWebhookIngressStatus(args.status);
+  try {
+    await (ctx as any).runMutation(internalApi.channels.webhooks.recordWebhookEvent, {
+      organizationId: args.organizationId,
+      provider: args.provider,
+      endpoint: args.endpoint,
+      eventName: buildIngressEventName(args.action, eventStatus),
+      eventStatus,
+      outcome: resolveWebhookIngressOutcome(eventStatus),
+      message: args.message,
+      errorMessage: args.errorMessage,
+      providerEventId: args.providerEventId,
+      providerConnectionId: args.providerConnectionId,
+      providerAccountId: args.providerAccountId,
+      routeKey: args.routeKey,
+      sessionId: args.sessionId,
+      channel: args.channel,
+      metadata: args.metadata,
+      processedAt: args.processedAt ?? Date.now(),
+    });
+  } catch (error) {
+    console.warn("[Webhook] Failed to persist ingress observability event:", error);
+  }
+}
+
+async function resolveSlackOrganizationFromConnection(args: {
+  ctx: unknown;
+  providerConnectionId?: string;
+  teamId?: string;
+}): Promise<Id<"organizations"> | null> {
+  const providerConnectionId = normalizeOptionalString(args.providerConnectionId);
+  if (!providerConnectionId) {
+    return null;
+  }
+
+  const connection = await (args.ctx as any).db.get(
+    providerConnectionId as Id<"oauthConnections">
+  );
+  if (!connection) {
+    return null;
+  }
+  if (connection.provider !== "slack" || connection.status !== "active") {
+    return null;
+  }
+
+  const connectionTeamId = normalizeOptionalString(connection.providerAccountId);
+  if (args.teamId && connectionTeamId && connectionTeamId !== args.teamId) {
+    return null;
+  }
+
+  return connection.organizationId as Id<"organizations">;
 }
 
 /**
@@ -141,15 +244,19 @@ export const resolveOrgFromWhatsAppPhoneNumberId = internalQuery({
 export const resolveOrgFromSlackTeamId = internalQuery({
   args: { teamId: v.string() },
   handler: async (ctx, args) => {
-    const connection = await ctx.db
+    const connections = await ctx.db
       .query("oauthConnections")
       .withIndex("by_provider_account", (q) =>
         q.eq("provider", "slack").eq("providerAccountId", args.teamId)
       )
       .filter((q) => q.eq(q.field("status"), "active"))
-      .first();
+      .collect();
 
-    return connection?.organizationId ?? null;
+    if (connections.length !== 1) {
+      return null;
+    }
+
+    return connections[0].organizationId;
   },
 });
 
@@ -176,6 +283,10 @@ export const resolveSlackWebhookVerificationContext = internalQuery({
     const teamId = normalizeOptionalString(args.teamId);
     const appId = normalizeOptionalString(args.appId);
 
+    if (!teamId && !appId) {
+      return null;
+    }
+
     type SlackOauthConnection = {
       _id: Id<"oauthConnections">;
       organizationId: Id<"organizations">;
@@ -186,7 +297,7 @@ export const resolveSlackWebhookVerificationContext = internalQuery({
       customProperties?: unknown;
     };
 
-    let connection: SlackOauthConnection | null = null;
+    let candidates: SlackOauthConnection[] = [];
 
     if (teamId) {
       const byTeam = await ctx.db
@@ -195,90 +306,197 @@ export const resolveSlackWebhookVerificationContext = internalQuery({
           q.eq("provider", "slack").eq("providerAccountId", teamId)
         )
         .filter((q) => q.eq(q.field("status"), "active"))
-        .first();
-      if (byTeam) {
-        connection = byTeam as unknown as SlackOauthConnection;
-      }
-    }
-
-    if (!connection && appId) {
-      const candidates = await ctx.db
+        .collect();
+      candidates = byTeam as unknown as SlackOauthConnection[];
+    } else {
+      const activeConnections = await ctx.db
         .query("oauthConnections")
         .filter((q) => q.eq(q.field("provider"), "slack"))
         .filter((q) => q.eq(q.field("status"), "active"))
         .collect();
-      const byApp = candidates.find((candidate) => {
-        const metadata = (candidate.customProperties || {}) as Record<
-          string,
-          unknown
-        >;
-        return normalizeOptionalString(metadata.appId) === appId;
-      });
-      if (byApp) {
-        connection = byApp as unknown as SlackOauthConnection;
-      }
+      candidates = activeConnections as unknown as SlackOauthConnection[];
     }
 
-    if (!connection) {
+    if (candidates.length === 0) {
       return null;
     }
 
-    const metadata = (connection.customProperties || {}) as Record<
-      string,
-      unknown
-    >;
-    const providerProfileId =
-      normalizeOptionalString(connection.providerProfileId) ||
-      normalizeOptionalString(metadata.providerProfileId) ||
-      normalizeOptionalString(metadata.appProfileId);
-    const providerProfileType =
-      normalizeProviderProfileType(connection.providerProfileType) ||
-      normalizeProviderProfileType(metadata.providerProfileType) ||
-      normalizeProviderProfileType(metadata.profileType);
+    const scopedCandidates = appId
+      ? candidates.filter((candidate) => {
+          const metadata = (candidate.customProperties || {}) as Record<
+            string,
+            unknown
+          >;
+          return normalizeOptionalString(metadata.appId) === appId;
+        })
+      : candidates;
 
-    const explicitSecrets = uniqueSecretCandidates([
-      normalizeOptionalString(metadata.slackSigningSecret),
-      normalizeOptionalString(metadata.signingSecret),
-      normalizeOptionalString(metadata.slackSigningSecretPrevious),
-      normalizeOptionalString(metadata.signingSecretPrevious),
-      ...normalizeStringArray(metadata.slackSigningSecretCandidates),
-      ...normalizeStringArray(metadata.signingSecretCandidates),
-    ]);
+    if (scopedCandidates.length === 0) {
+      return null;
+    }
 
-    const allowPlatformEnvFallback =
-      providerProfileType === "platform" ||
-      providerProfileId === "slack_app:organization_default";
+    const contexts = scopedCandidates.map((connection) => {
+      const metadata = (connection.customProperties || {}) as Record<
+        string,
+        unknown
+      >;
+      const providerProfileId =
+        normalizeOptionalString(connection.providerProfileId) ||
+        normalizeOptionalString(metadata.providerProfileId) ||
+        normalizeOptionalString(metadata.appProfileId);
+      const providerProfileType =
+        normalizeProviderProfileType(connection.providerProfileType) ||
+        normalizeProviderProfileType(metadata.providerProfileType) ||
+        normalizeProviderProfileType(metadata.profileType);
 
-    const signingSecrets = allowPlatformEnvFallback
-      ? uniqueSecretCandidates([
-          ...explicitSecrets,
-          process.env.SLACK_SIGNING_SECRET,
-          process.env.SLACK_SIGNING_SECRET_PREVIOUS,
-        ])
-      : explicitSecrets;
+      const explicitSecrets = uniqueSecretCandidates([
+        normalizeOptionalString(metadata.slackSigningSecret),
+        normalizeOptionalString(metadata.signingSecret),
+        normalizeOptionalString(metadata.slackSigningSecretPrevious),
+        normalizeOptionalString(metadata.signingSecretPrevious),
+        ...normalizeStringArray(metadata.slackSigningSecretCandidates),
+        ...normalizeStringArray(metadata.signingSecretCandidates),
+      ]);
 
-    return {
-      organizationId: connection.organizationId,
-      teamId:
-        normalizeOptionalString(connection.providerAccountId) || teamId,
-      providerConnectionId: String(connection._id),
-      providerAccountId:
-        normalizeOptionalString(connection.providerAccountId) || teamId,
-      providerInstallationId:
-        normalizeOptionalString(connection.providerInstallationId) ||
-        normalizeOptionalString(metadata.providerInstallationId) ||
-        normalizeOptionalString(metadata.installationId),
-      providerProfileId,
-      providerProfileType,
-      routeKey:
-        normalizeOptionalString(
-          (connection as Record<string, unknown>).providerRouteKey
-        ) ||
-        normalizeOptionalString(metadata.providerRouteKey) ||
-        normalizeOptionalString(metadata.routeKey) ||
-        (teamId ? `slack:${teamId}` : undefined),
-      signingSecrets,
+      const allowPlatformEnvFallback =
+        providerProfileType === "platform" ||
+        (providerProfileId?.startsWith("platform:") ?? false) ||
+        providerProfileId === "slack_app:organization_default";
+
+      const signingSecrets = allowPlatformEnvFallback
+        ? uniqueSecretCandidates([
+            ...explicitSecrets,
+            process.env.SLACK_SIGNING_SECRET,
+            process.env.SLACK_SIGNING_SECRET_PREVIOUS,
+          ])
+        : explicitSecrets;
+
+      return {
+        organizationId: connection.organizationId,
+        teamId: normalizeOptionalString(connection.providerAccountId) || teamId,
+        providerConnectionId: String(connection._id),
+        providerAccountId:
+          normalizeOptionalString(connection.providerAccountId) || teamId,
+        providerInstallationId:
+          normalizeOptionalString(connection.providerInstallationId) ||
+          normalizeOptionalString(metadata.providerInstallationId) ||
+          normalizeOptionalString(metadata.installationId),
+        providerProfileId,
+        providerProfileType,
+        routeKey:
+          normalizeOptionalString(
+            (connection as Record<string, unknown>).providerRouteKey
+          ) ||
+          normalizeOptionalString(metadata.providerRouteKey) ||
+          normalizeOptionalString(metadata.routeKey) ||
+          (teamId ? `slack:${teamId}` : undefined),
+        signingSecrets,
+      };
+    });
+
+    const contextsWithSigningSecrets = contexts.filter(
+      (context) => context.signingSecrets.length > 0
+    );
+    const resolution = resolveSingleTenantContext(
+      contextsWithSigningSecrets.length > 0
+        ? contextsWithSigningSecrets
+        : contexts
+    );
+
+    if (resolution.status !== "resolved") {
+      return null;
+    }
+
+    if (resolution.context.signingSecrets.length === 0) {
+      return null;
+    }
+
+    return resolution.context;
+  },
+});
+
+export const recordWebhookEvent = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    provider: v.string(),
+    endpoint: v.string(),
+    eventName: v.string(),
+    eventStatus: v.union(
+      v.literal("success"),
+      v.literal("warning"),
+      v.literal("error"),
+      v.literal("skipped")
+    ),
+    outcome: v.union(
+      v.literal("accepted"),
+      v.literal("warning"),
+      v.literal("error"),
+      v.literal("skipped")
+    ),
+    message: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    providerEventId: v.optional(v.string()),
+    providerConnectionId: v.optional(v.string()),
+    providerAccountId: v.optional(v.string()),
+    routeKey: v.optional(v.string()),
+    sessionId: v.optional(v.string()),
+    channel: v.optional(v.string()),
+    metadata: v.optional(v.record(v.string(), v.any())),
+    processedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const processedAt = args.processedAt ?? now;
+    const baseProperties: Record<string, unknown> = {
+      provider: args.provider,
+      endpoint: args.endpoint,
+      eventName: args.eventName,
+      eventStatus: args.eventStatus,
+      outcome: args.outcome,
+      processedAt,
     };
+
+    if (args.message) {
+      baseProperties.message = args.message;
+    }
+    if (args.errorMessage) {
+      baseProperties.errorMessage = args.errorMessage;
+    }
+    if (args.providerEventId) {
+      baseProperties.providerEventId = args.providerEventId;
+    }
+    if (args.providerConnectionId) {
+      baseProperties.providerConnectionId = args.providerConnectionId;
+    }
+    if (args.providerAccountId) {
+      baseProperties.providerAccountId = args.providerAccountId;
+    }
+    if (args.routeKey) {
+      baseProperties.routeKey = args.routeKey;
+    }
+    if (args.sessionId) {
+      baseProperties.sessionId = args.sessionId;
+    }
+    if (args.channel) {
+      baseProperties.channel = args.channel;
+    }
+    if (args.metadata) {
+      for (const [key, value] of Object.entries(args.metadata)) {
+        baseProperties[key] = value;
+      }
+    }
+
+    await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "webhook_event",
+      subtype: args.provider,
+      name: args.eventName,
+      description: args.message,
+      status: args.eventStatus,
+      customProperties: baseProperties,
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 
@@ -343,11 +561,61 @@ export const processWhatsAppWebhook = internalAction({
     }
 
     // 2. Normalize inbound message
-    const rawPayload = JSON.parse(args.payload);
+    let rawPayload: Record<string, unknown>;
+    try {
+      rawPayload = JSON.parse(args.payload) as Record<string, unknown>;
+    } catch {
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "whatsapp",
+        endpoint: "webhooks/whatsapp",
+        action: "normalized",
+        status: "error",
+        message: "Invalid JSON payload",
+        errorMessage: "Invalid JSON payload",
+        providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+        providerAccountId: whatsappRoutingContext?.providerAccountId,
+        routeKey: whatsappRoutingContext?.routeKey,
+        metadata: {
+          phoneNumberId: args.phoneNumberId,
+        },
+      });
+      return { status: "error", message: "Invalid JSON payload" };
+    }
+
+    await recordWebhookIngressOutcome(ctx, {
+      organizationId,
+      provider: "whatsapp",
+      endpoint: "webhooks/whatsapp",
+      action: "received",
+      status: "success",
+      message: "WhatsApp webhook accepted",
+      providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+      providerAccountId: whatsappRoutingContext?.providerAccountId,
+      routeKey: whatsappRoutingContext?.routeKey,
+      metadata: {
+        phoneNumberId: args.phoneNumberId,
+      },
+    });
+
     const normalized = provider.normalizeInbound(rawPayload, {} as ProviderCredentials);
 
     if (!normalized) {
       // Could be a status update, not a message — silently skip
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "whatsapp",
+        endpoint: "webhooks/whatsapp",
+        action: "normalized",
+        status: "skipped",
+        message: "Not an inbound text message",
+        providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+        providerAccountId: whatsappRoutingContext?.providerAccountId,
+        routeKey: whatsappRoutingContext?.routeKey,
+        metadata: {
+          phoneNumberId: args.phoneNumberId,
+        },
+      });
       return { status: "skipped", message: "Not an inbound text message" };
     }
 
@@ -376,9 +644,37 @@ export const processWhatsAppWebhook = internalAction({
         }
       )) as { status: string; response?: string; message?: string };
 
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "whatsapp",
+        endpoint: "webhooks/whatsapp",
+        action: "processed",
+        status: result.status,
+        message: result.message,
+        providerEventId:
+          normalizeOptionalString(normalized.metadata.providerEventId) ||
+          normalizeOptionalString(normalized.metadata.providerMessageId),
+        providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+        providerAccountId: whatsappRoutingContext?.providerAccountId,
+        routeKey: whatsappRoutingContext?.routeKey,
+        channel: normalized.channel,
+      });
+
       return result;
     } catch (error) {
       console.error("[WhatsApp] Agent pipeline error:", error);
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "whatsapp",
+        endpoint: "webhooks/whatsapp",
+        action: "processed",
+        status: "error",
+        message: "WhatsApp pipeline error",
+        errorMessage: String(error),
+        providerConnectionId: whatsappRoutingContext?.providerConnectionId,
+        providerAccountId: whatsappRoutingContext?.providerAccountId,
+        routeKey: whatsappRoutingContext?.routeKey,
+      });
       return { status: "error", message: String(error) };
     }
   },
@@ -491,6 +787,416 @@ export function buildSlackSlashCommandIdempotencyKey(args: {
   return `slack:${args.organizationId}:slash:${args.providerEventId}`;
 }
 
+type SlackVacationIntakeStatus = "ready_for_policy_evaluation" | "blocked";
+type SlackVacationPolicyPrerequisiteStatus = "resolved" | "missing" | "ambiguous";
+type SlackVacationEvaluationVerdict =
+  | "approved"
+  | "conflict"
+  | "denied"
+  | "blocked";
+
+type PersistedSlackVacationRequestEnvelope = {
+  requestObjectId: string;
+  intakeStatus: SlackVacationIntakeStatus;
+  policyPrerequisiteStatus: SlackVacationPolicyPrerequisiteStatus;
+  failClosed: boolean;
+  blockedReasons: string[];
+  reusedExisting: boolean;
+  evaluationVerdict?: SlackVacationEvaluationVerdict;
+  evaluationReasonCodes?: string[];
+};
+
+function normalizeSlackVacationSource(
+  value: unknown
+): SlackVacationRequestParseResult["source"] | undefined {
+  if (value === "mention" || value === "message" || value === "slash_command") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeSlackVacationStatus(
+  value: unknown
+): SlackVacationRequestParseResult["status"] | undefined {
+  if (value === "parsed" || value === "blocked") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeSlackVacationIntent(
+  value: unknown
+): SlackVacationRequestParseResult | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const parsed = value as Record<string, unknown>;
+  if (parsed.intent !== "vacation_request") {
+    return null;
+  }
+
+  const source = normalizeSlackVacationSource(parsed.source);
+  const status = normalizeSlackVacationStatus(parsed.status);
+  const rawText = normalizeOptionalString(parsed.rawText);
+  if (!source || !status || !rawText) {
+    return null;
+  }
+
+  return {
+    intent: "vacation_request",
+    parserVersion:
+      typeof parsed.parserVersion === "number" && Number.isFinite(parsed.parserVersion)
+        ? parsed.parserVersion
+        : 1,
+    source,
+    status,
+    rawText,
+    requestedStartDate: normalizeOptionalString(parsed.requestedStartDate),
+    requestedEndDate: normalizeOptionalString(parsed.requestedEndDate),
+    blockedReasons: normalizeStringArray(parsed.blockedReasons),
+    commandName: normalizeOptionalString(parsed.commandName),
+  };
+}
+
+function normalizeSlackVacationIntakeStatus(
+  value: unknown
+): SlackVacationIntakeStatus | undefined {
+  if (value === "ready_for_policy_evaluation" || value === "blocked") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeSlackVacationPolicyPrerequisiteStatus(
+  value: unknown
+): SlackVacationPolicyPrerequisiteStatus | undefined {
+  if (value === "resolved" || value === "missing" || value === "ambiguous") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeSlackVacationEvaluationVerdict(
+  value: unknown
+): SlackVacationEvaluationVerdict | undefined {
+  if (
+    value === "approved" ||
+    value === "conflict" ||
+    value === "denied" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function dedupeStringValues(values: string[]): string[] {
+  return Array.from(new Set(values.filter((value) => value.trim().length > 0)));
+}
+
+function buildSlackVacationRequestName(args: {
+  requester: string;
+  startDate?: string;
+  endDate?: string;
+}): string {
+  const requester = args.requester.trim() || "unknown";
+  if (args.startDate && args.endDate) {
+    return `Slack vacation request ${requester} ${args.startDate}..${args.endDate}`;
+  }
+  return `Slack vacation request ${requester} undated`;
+}
+
+function slackPolicyMatchesRoute(args: {
+  policyObject: Record<string, unknown>;
+  providerConnectionId?: string;
+  teamId?: string;
+  routeKey?: string;
+}): boolean {
+  const customProperties = args.policyObject.customProperties as
+    | Record<string, unknown>
+    | undefined;
+  const integrations = customProperties?.integrations as
+    | Record<string, unknown>
+    | undefined;
+  const slackIntegration = integrations?.slack as Record<string, unknown> | undefined;
+  if (!slackIntegration || typeof slackIntegration !== "object") {
+    return true;
+  }
+
+  const policyConnectionId = normalizeOptionalString(
+    slackIntegration.providerConnectionId
+  );
+  const policyTeamId = normalizeOptionalString(slackIntegration.teamId);
+  const policyRouteKey = normalizeOptionalString(slackIntegration.routeKey);
+
+  if (
+    policyConnectionId &&
+    args.providerConnectionId &&
+    policyConnectionId !== args.providerConnectionId
+  ) {
+    return false;
+  }
+  if (policyTeamId && args.teamId && policyTeamId !== args.teamId) {
+    return false;
+  }
+  if (policyRouteKey && args.routeKey && policyRouteKey !== args.routeKey) {
+    return false;
+  }
+
+  return true;
+}
+
+async function persistSlackVacationRequestEnvelopeIfPresent(
+  ctx: unknown,
+  args: {
+    organizationId: Id<"organizations">;
+    normalizedMetadata: Record<string, unknown>;
+    externalContactIdentifier: string;
+    message: string;
+    idempotencyKey: string;
+    providerEventId?: string;
+    providerMessageId?: string;
+    providerConversationId?: string;
+    providerConnectionId?: string;
+    providerAccountId?: string;
+    providerInstallationId?: string;
+    providerProfileId?: string;
+    providerProfileType?: "platform" | "organization";
+    routeKey?: string;
+    receivedAt?: number;
+    fallbackTeamId?: string;
+    fallbackUserName?: string;
+  }
+): Promise<PersistedSlackVacationRequestEnvelope | null> {
+  const vacationIntent = normalizeSlackVacationIntent(
+    args.normalizedMetadata.slackVacationRequest
+  );
+  if (!vacationIntent) {
+    return null;
+  }
+
+  const teamId =
+    normalizeOptionalString(args.fallbackTeamId) ||
+    normalizeOptionalString(args.normalizedMetadata.slackTeamId) ||
+    normalizeOptionalString(args.providerAccountId);
+  const channelId = normalizeOptionalString(args.normalizedMetadata.slackChannelId);
+  const userId = normalizeOptionalString(args.normalizedMetadata.slackUserId);
+  const requesterDisplayName =
+    normalizeOptionalString(args.fallbackUserName) ||
+    normalizeOptionalString(args.normalizedMetadata.senderName) ||
+    userId ||
+    "unknown";
+  const blockedReasons = new Set<string>(
+    vacationIntent.status === "blocked" ? vacationIntent.blockedReasons : []
+  );
+
+  if (!teamId) {
+    blockedReasons.add("missing_slack_team_id");
+  }
+  if (!channelId) {
+    blockedReasons.add("missing_slack_channel_id");
+  }
+  if (!userId) {
+    blockedReasons.add("missing_slack_user_id");
+  }
+  if (!args.providerConnectionId) {
+    blockedReasons.add("missing_provider_connection_id");
+  }
+  if (!args.providerAccountId) {
+    blockedReasons.add("missing_provider_account_id");
+  }
+  if (teamId && args.providerAccountId && teamId !== args.providerAccountId) {
+    blockedReasons.add("provider_account_team_mismatch");
+  }
+  if (!args.routeKey) {
+    blockedReasons.add("missing_route_key");
+  }
+
+  const existingRequests = (await (ctx as any).runQuery(
+    internalApi.channels.router.listObjectsByOrgTypeInternal,
+    {
+      organizationId: args.organizationId,
+      type: "vacation_request",
+    }
+  )) as Array<Record<string, unknown>>;
+  const existing = existingRequests.find((request) => {
+    const props = request.customProperties as Record<string, unknown> | undefined;
+    const existingIdempotencyKey = normalizeOptionalString(props?.idempotencyKey);
+    const existingSource = normalizeOptionalString(props?.source);
+    return existingSource === "slack" && existingIdempotencyKey === args.idempotencyKey;
+  });
+
+  if (existing) {
+    const props = existing.customProperties as Record<string, unknown> | undefined;
+    const intakeStatus =
+      normalizeSlackVacationIntakeStatus(props?.intakeStatus) || "blocked";
+    const policyPrerequisiteStatus =
+      normalizeSlackVacationPolicyPrerequisiteStatus(
+        props?.policyPrerequisiteStatus
+      ) || "missing";
+    return {
+      requestObjectId: String(existing._id),
+      intakeStatus,
+      policyPrerequisiteStatus,
+      failClosed: props?.failClosed === true || intakeStatus === "blocked",
+      blockedReasons: dedupeStringValues(
+        normalizeStringArray(props?.blockedReasons)
+      ),
+      reusedExisting: true,
+      evaluationVerdict: normalizeSlackVacationEvaluationVerdict(
+        props?.policyEvaluationVerdict
+      ),
+      evaluationReasonCodes: dedupeStringValues(
+        normalizeStringArray(props?.policyEvaluationReasonCodes)
+      ),
+    };
+  }
+
+  const policies = (await (ctx as any).runQuery(
+    internalApi.channels.router.listObjectsByOrgTypeInternal,
+    {
+      organizationId: args.organizationId,
+      type: "vacation_policy",
+    }
+  )) as Array<Record<string, unknown>>;
+  const activePolicies = policies.filter(
+    (policy) => normalizeOptionalString(policy.status) === "active"
+  );
+  const matchedPolicies = activePolicies.filter((policy) =>
+    slackPolicyMatchesRoute({
+      policyObject: policy,
+      providerConnectionId: args.providerConnectionId,
+      teamId,
+      routeKey: args.routeKey,
+    })
+  );
+
+  let policyPrerequisiteStatus: SlackVacationPolicyPrerequisiteStatus = "resolved";
+  if (activePolicies.length === 0 || matchedPolicies.length === 0) {
+    policyPrerequisiteStatus = "missing";
+    blockedReasons.add("missing_matching_vacation_policy");
+  } else if (matchedPolicies.length > 1) {
+    policyPrerequisiteStatus = "ambiguous";
+    blockedReasons.add("ambiguous_matching_vacation_policy");
+  }
+
+  const resolvedPolicyObjectId =
+    policyPrerequisiteStatus === "resolved" ? matchedPolicies[0]?._id : undefined;
+  let evaluationVerdict: SlackVacationEvaluationVerdict | undefined;
+  let evaluationReasonCodes: string[] = [];
+  let evaluationSnapshot: Record<string, unknown> | undefined;
+  if (
+    resolvedPolicyObjectId &&
+    vacationIntent.requestedStartDate &&
+    vacationIntent.requestedEndDate
+  ) {
+    const evaluation = (await (ctx as any).runAction(
+      internalApi.bookingOntology.evaluatePharmacistVacationRequestInternal,
+      {
+        organizationId: args.organizationId,
+        policyObjectId: resolvedPolicyObjectId,
+        requestedStartDate: vacationIntent.requestedStartDate,
+        requestedEndDate: vacationIntent.requestedEndDate,
+        requesterSlackUserId: userId,
+      }
+    )) as Record<string, unknown>;
+    evaluationVerdict = normalizeSlackVacationEvaluationVerdict(evaluation.verdict);
+    evaluationReasonCodes = dedupeStringValues(
+      normalizeStringArray(evaluation.reasonCodes)
+    );
+    evaluationSnapshot = (evaluation.evaluationSnapshot ||
+      undefined) as Record<string, unknown> | undefined;
+    for (const reason of normalizeStringArray(evaluation.blockedReasons)) {
+      blockedReasons.add(reason);
+    }
+  } else if (policyPrerequisiteStatus === "resolved") {
+    blockedReasons.add("missing_requested_date_range");
+  }
+
+  const blockedReasonList = dedupeStringValues(Array.from(blockedReasons));
+  const intakeStatus: SlackVacationIntakeStatus =
+    blockedReasonList.length > 0 ? "blocked" : "ready_for_policy_evaluation";
+  const resolvedPolicyObjectIdString = resolvedPolicyObjectId
+    ? String(resolvedPolicyObjectId)
+    : undefined;
+  const now = Date.now();
+  const requestObjectId = (await (ctx as any).runMutation(
+    internalApi.channels.router.insertObjectInternal,
+    {
+      organizationId: args.organizationId,
+      type: "vacation_request",
+      subtype: "pharmacist_pto_v1",
+      name: buildSlackVacationRequestName({
+        requester: requesterDisplayName,
+        startDate: vacationIntent.requestedStartDate,
+        endDate: vacationIntent.requestedEndDate,
+      }),
+      status: "pending",
+      customProperties: {
+        source: "slack",
+        envelopeVersion: 1,
+        idempotencyKey: args.idempotencyKey,
+        parser: vacationIntent,
+        sourceMetadata: {
+          teamId,
+          channelId,
+          eventId: args.providerEventId,
+          messageTs: args.providerMessageId,
+          threadTs: args.providerConversationId,
+        },
+        requester: {
+          slackUserId: userId,
+          displayName: requesterDisplayName,
+          externalId:
+            teamId && userId ? `slack:${teamId}:${userId}` : undefined,
+        },
+        requestedStartDate: vacationIntent.requestedStartDate,
+        requestedEndDate: vacationIntent.requestedEndDate,
+        intakeStatus,
+        failClosed: intakeStatus === "blocked",
+        blockedReasons: blockedReasonList,
+        policyPrerequisiteStatus,
+        policyObjectId: resolvedPolicyObjectIdString,
+        policyCandidateObjectIds:
+          policyPrerequisiteStatus === "resolved" && resolvedPolicyObjectIdString
+            ? [resolvedPolicyObjectIdString]
+            : matchedPolicies.map((policy) => String(policy._id)),
+        policyEvaluationVerdict: evaluationVerdict,
+        policyEvaluationReasonCodes: evaluationReasonCodes,
+        evaluationSnapshot,
+        ingress: {
+          receivedAt: args.receivedAt ?? now,
+          externalContactIdentifier: args.externalContactIdentifier,
+          message: args.message,
+          providerEventId: args.providerEventId,
+          providerMessageId: args.providerMessageId,
+          providerConversationId: args.providerConversationId,
+          providerConnectionId: args.providerConnectionId,
+          providerAccountId: args.providerAccountId,
+          providerInstallationId: args.providerInstallationId,
+          providerProfileId: args.providerProfileId,
+          providerProfileType: args.providerProfileType,
+          routeKey: args.routeKey,
+        },
+      },
+      createdAt: now,
+      updatedAt: now,
+    }
+  )) as Id<"objects">;
+
+  return {
+    requestObjectId: String(requestObjectId),
+    intakeStatus,
+    policyPrerequisiteStatus,
+    failClosed: intakeStatus === "blocked",
+    blockedReasons: blockedReasonList,
+    reusedExisting: false,
+    evaluationVerdict,
+    evaluationReasonCodes,
+  };
+}
+
 export const processSlackEvent = internalAction({
   args: {
     payload: v.string(),
@@ -539,10 +1245,17 @@ export const processSlackEvent = internalAction({
       return { status: "error", message: "Missing Slack team ID" };
     }
 
-    const organizationId = await (ctx.runQuery as Function)(
-      internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
-      { teamId }
-    ) as Id<"organizations"> | null;
+    let organizationId = await resolveSlackOrganizationFromConnection({
+      ctx,
+      providerConnectionId: args.providerConnectionId,
+      teamId,
+    });
+    if (!organizationId) {
+      organizationId = (await (ctx.runQuery as Function)(
+        internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
+        { teamId }
+      )) as Id<"organizations"> | null;
+    }
 
     if (!organizationId) {
       console.error(`[Slack] No org found for team ${teamId}`);
@@ -569,6 +1282,19 @@ export const processSlackEvent = internalAction({
       credentials || ({} as ProviderCredentials)
     );
     if (!normalized) {
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "normalized",
+        status: "skipped",
+        message: "Not an inbound Slack message event",
+        providerEventId:
+          args.eventId || (rawPayload.event_id as string | undefined) || undefined,
+        providerConnectionId: args.providerConnectionId,
+        providerAccountId: args.providerAccountId || teamId,
+        routeKey: args.routeKey,
+      });
       return { status: "skipped", message: "Not an inbound Slack message event" };
     }
 
@@ -582,6 +1308,48 @@ export const processSlackEvent = internalAction({
       providerEventId,
       nowMs: Date.now(),
     });
+    const resolvedProviderConnectionId =
+      args.providerConnectionId ||
+      normalizeOptionalString(credentials?.providerConnectionId);
+    const resolvedProviderAccountId =
+      args.providerAccountId ||
+      normalizeOptionalString(credentials?.providerAccountId) ||
+      teamId;
+    const resolvedProviderInstallationId =
+      args.providerInstallationId ||
+      normalizeOptionalString(credentials?.providerInstallationId);
+    const resolvedProviderProfileId =
+      args.providerProfileId ||
+      normalizeOptionalString(credentials?.providerProfileId);
+    const resolvedProviderProfileType =
+      args.providerProfileType ||
+      normalizeProviderProfileType(credentials?.providerProfileType);
+    const resolvedRouteKey =
+      args.routeKey ||
+      normalizeOptionalString(credentials?.bindingRouteKey) ||
+      (resolvedProviderAccountId ? `slack:${resolvedProviderAccountId}` : undefined);
+
+    const vacationRequestEnvelope =
+      await persistSlackVacationRequestEnvelopeIfPresent(ctx, {
+        organizationId,
+        normalizedMetadata: normalized.metadata as Record<string, unknown>,
+        externalContactIdentifier: normalized.externalContactIdentifier,
+        message: normalized.message,
+        idempotencyKey,
+        providerEventId,
+        providerMessageId: normalizeOptionalString(normalized.metadata.providerMessageId),
+        providerConversationId: normalizeOptionalString(
+          normalized.metadata.providerConversationId
+        ),
+        providerConnectionId: resolvedProviderConnectionId,
+        providerAccountId: resolvedProviderAccountId,
+        providerInstallationId: resolvedProviderInstallationId,
+        providerProfileId: resolvedProviderProfileId,
+        providerProfileType: resolvedProviderProfileType,
+        routeKey: resolvedRouteKey,
+        receivedAt: args.receivedAt,
+        fallbackTeamId: teamId,
+      });
 
     try {
       const result = (await (ctx.runAction as Function)(
@@ -595,42 +1363,85 @@ export const processSlackEvent = internalAction({
             ...normalized.metadata,
             providerEventId,
             idempotencyKey,
-            providerConnectionId: args.providerConnectionId,
-            providerAccountId: args.providerAccountId || teamId,
-            providerInstallationId: args.providerInstallationId,
-            providerProfileId: args.providerProfileId,
-            providerProfileType: args.providerProfileType,
-            routeKey: args.routeKey,
+            providerConnectionId: resolvedProviderConnectionId,
+            providerAccountId: resolvedProviderAccountId,
+            providerInstallationId: resolvedProviderInstallationId,
+            providerProfileId: resolvedProviderProfileId,
+            providerProfileType: resolvedProviderProfileType,
+            routeKey: resolvedRouteKey,
             slackTeamId: teamId,
             slackRetryNum: args.retryNum,
             slackRetryReason: args.retryReason,
             slackSignatureTimestamp: args.signatureTimestamp,
             slackReceivedAt: args.receivedAt,
+            slackVacationRequestObjectId: vacationRequestEnvelope?.requestObjectId,
+            slackVacationRequestIntakeStatus: vacationRequestEnvelope?.intakeStatus,
+            slackVacationRequestPolicyPrerequisiteStatus:
+              vacationRequestEnvelope?.policyPrerequisiteStatus,
+            slackVacationRequestFailClosed: vacationRequestEnvelope?.failClosed,
+            slackVacationRequestBlockedReasons:
+              vacationRequestEnvelope?.blockedReasons,
+            slackVacationRequestReusedExisting:
+              vacationRequestEnvelope?.reusedExisting,
+            slackVacationRequestEvaluationVerdict:
+              vacationRequestEnvelope?.evaluationVerdict,
+            slackVacationRequestEvaluationReasonCodes:
+              vacationRequestEnvelope?.evaluationReasonCodes,
           },
         }
       )) as { status: string; response?: string; message?: string };
 
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "processed",
+        status: result.status,
+        message: result.message,
+        providerEventId,
+        providerConnectionId: resolvedProviderConnectionId,
+        providerAccountId: resolvedProviderAccountId,
+        routeKey: resolvedRouteKey,
+        channel: normalized.channel,
+        metadata: vacationRequestEnvelope
+          ? {
+              vacationRequestObjectId: vacationRequestEnvelope.requestObjectId,
+              vacationRequestIntakeStatus: vacationRequestEnvelope.intakeStatus,
+              vacationRequestPolicyPrerequisiteStatus:
+                vacationRequestEnvelope.policyPrerequisiteStatus,
+              vacationRequestFailClosed: vacationRequestEnvelope.failClosed,
+              vacationRequestBlockedReasons:
+                vacationRequestEnvelope.blockedReasons,
+              vacationRequestReusedExisting:
+                vacationRequestEnvelope.reusedExisting,
+              vacationRequestEvaluationVerdict:
+                vacationRequestEnvelope.evaluationVerdict,
+              vacationRequestEvaluationReasonCodes:
+                vacationRequestEnvelope.evaluationReasonCodes,
+            }
+          : undefined,
+      });
+
       return result;
     } catch (error) {
       console.error("[Slack] Agent pipeline error:", error);
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/events",
+        action: "processed",
+        status: "error",
+        message: "Slack pipeline error",
+        errorMessage: String(error),
+        providerEventId,
+        providerConnectionId: resolvedProviderConnectionId,
+        providerAccountId: resolvedProviderAccountId,
+        routeKey: resolvedRouteKey,
+      });
       return { status: "error", message: String(error) };
     }
   },
 });
-
-function normalizeSlackCommandName(command: string): string {
-  const trimmed = command.trim();
-  if (!trimmed) return "command";
-  return trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
-}
-
-function buildSlackSlashCommandMessage(command: string, text?: string): string {
-  const normalizedText = text?.trim();
-  if (normalizedText && normalizedText.length > 0) {
-    return normalizedText;
-  }
-  return normalizeSlackCommandName(command);
-}
 
 type SlackHitlQuickAction = {
   action: "takeover" | "resume";
@@ -755,10 +1566,17 @@ export const processSlackSlashCommand = internalAction({
       return { status: "error", message: "Slack provider not registered" };
     }
 
-    const organizationId = await (ctx.runQuery as Function)(
-      internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
-      { teamId: args.teamId }
-    ) as Id<"organizations"> | null;
+    let organizationId = await resolveSlackOrganizationFromConnection({
+      ctx,
+      providerConnectionId: args.providerConnectionId,
+      teamId: args.teamId,
+    });
+    if (!organizationId) {
+      organizationId = (await (ctx.runQuery as Function)(
+        internalApi.channels.webhooks.resolveOrgFromSlackTeamId,
+        { teamId: args.teamId }
+      )) as Id<"organizations"> | null;
+    }
 
     if (!organizationId) {
       console.error(`[Slack] No org found for team ${args.teamId}`);
@@ -780,6 +1598,17 @@ export const processSlackSlashCommand = internalAction({
     )) as ProviderCredentials | null;
 
     if (!credentials) {
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/commands",
+        action: "normalized",
+        status: "error",
+        message: "Slack credentials unavailable",
+        providerConnectionId: args.providerConnectionId,
+        providerAccountId: args.providerAccountId || args.teamId,
+        routeKey: args.routeKey,
+      });
       return { status: "error", message: "Slack credentials unavailable" };
     }
 
@@ -790,7 +1619,6 @@ export const processSlackSlashCommand = internalAction({
       organizationId,
       providerEventId,
     });
-    const message = buildSlackSlashCommandMessage(args.command, args.text);
     const quickAction = parseSlackHitlQuickAction(args.text);
 
     if (quickAction) {
@@ -814,6 +1642,20 @@ export const processSlackSlashCommand = internalAction({
         });
         await postSlackSlashCommandResponse(args.responseUrl, quickActionMessage);
 
+        await recordWebhookIngressOutcome(ctx, {
+          organizationId,
+          provider: "slack",
+          endpoint: "integrations/slack/commands",
+          action: "processed",
+          status: quickActionResult?.success ? "success" : "error",
+          message: quickActionMessage,
+          providerEventId,
+          providerConnectionId: args.providerConnectionId,
+          providerAccountId: args.providerAccountId || args.teamId,
+          routeKey: args.routeKey,
+          channel: "slack",
+        });
+
         return {
           status: quickActionResult?.success ? "success" : "error",
           message: quickActionMessage,
@@ -823,6 +1665,20 @@ export const processSlackSlashCommand = internalAction({
           "Unable to process HITL quick action. Use `hitl <takeover|resume> <sessionId>`.";
         await postSlackSlashCommandResponse(args.responseUrl, fallbackMessage);
         console.error("[Slack] HITL quick action failed:", error);
+        await recordWebhookIngressOutcome(ctx, {
+          organizationId,
+          provider: "slack",
+          endpoint: "integrations/slack/commands",
+          action: "processed",
+          status: "error",
+          message: fallbackMessage,
+          errorMessage: String(error),
+          providerEventId,
+          providerConnectionId: args.providerConnectionId,
+          providerAccountId: args.providerAccountId || args.teamId,
+          routeKey: args.routeKey,
+          channel: "slack",
+        });
         return {
           status: "error",
           message: String(error),
@@ -831,48 +1687,196 @@ export const processSlackSlashCommand = internalAction({
     }
 
     try {
+      const normalized = provider.normalizeInbound(
+        {
+          type: "slash_command",
+          team_id: args.teamId,
+          channel_id: args.channelId,
+          user_id: args.userId,
+          user_name: args.userName,
+          command: args.command,
+          text: args.text,
+          trigger_id: providerEventId,
+          event_id: providerEventId,
+          response_url: args.responseUrl,
+        },
+        credentials
+      );
+      if (!normalized) {
+        await recordWebhookIngressOutcome(ctx, {
+          organizationId,
+          provider: "slack",
+          endpoint: "integrations/slack/commands",
+          action: "normalized",
+          status: "error",
+          message: "Unable to normalize Slack slash command payload",
+          providerEventId,
+          providerConnectionId: args.providerConnectionId,
+          providerAccountId: args.providerAccountId || args.teamId,
+          routeKey: args.routeKey,
+        });
+        return {
+          status: "error",
+          message: "Unable to normalize Slack slash command payload",
+        };
+      }
+
+      const resolvedProviderConnectionId =
+        args.providerConnectionId ||
+        normalizeOptionalString(credentials.providerConnectionId);
+      const resolvedProviderAccountId =
+        args.providerAccountId ||
+        normalizeOptionalString(credentials.providerAccountId) ||
+        args.teamId;
+      const resolvedProviderInstallationId =
+        args.providerInstallationId ||
+        normalizeOptionalString(credentials.providerInstallationId);
+      const resolvedProviderProfileId =
+        args.providerProfileId ||
+        normalizeOptionalString(credentials.providerProfileId);
+      const resolvedProviderProfileType =
+        args.providerProfileType ||
+        normalizeProviderProfileType(credentials.providerProfileType);
+      const resolvedRouteKey =
+        args.routeKey ||
+        normalizeOptionalString(credentials.bindingRouteKey) ||
+        (resolvedProviderAccountId
+          ? `slack:${resolvedProviderAccountId}`
+          : undefined);
+
+      const vacationRequestEnvelope =
+        await persistSlackVacationRequestEnvelopeIfPresent(ctx, {
+          organizationId,
+          normalizedMetadata: normalized.metadata as Record<string, unknown>,
+          externalContactIdentifier: normalized.externalContactIdentifier,
+          message: normalized.message,
+          idempotencyKey,
+          providerEventId,
+          providerMessageId: normalizeOptionalString(
+            normalized.metadata.providerMessageId
+          ),
+          providerConversationId: normalizeOptionalString(
+            normalized.metadata.providerConversationId
+          ),
+          providerConnectionId: resolvedProviderConnectionId,
+          providerAccountId: resolvedProviderAccountId,
+          providerInstallationId: resolvedProviderInstallationId,
+          providerProfileId: resolvedProviderProfileId,
+          providerProfileType: resolvedProviderProfileType,
+          routeKey: resolvedRouteKey,
+          receivedAt: args.receivedAt,
+          fallbackTeamId: args.teamId,
+          fallbackUserName: args.userName,
+        });
+
       const result = (await (ctx.runAction as Function)(
         api.ai.agentExecution.processInboundMessage,
         {
           organizationId,
-          channel: "slack",
-          externalContactIdentifier: buildSlackTopLevelConversationIdentifier(
-            args.channelId,
-            args.userId
-          ),
-          message,
+          channel: normalized.channel,
+          externalContactIdentifier: normalized.externalContactIdentifier,
+          message: normalized.message,
           metadata: {
-            providerId: "slack",
+            ...normalized.metadata,
             providerEventId,
-            providerMessageId: providerEventId,
-            providerConversationId: undefined,
-            senderName: args.userName || args.userId,
+            providerMessageId:
+              normalizeOptionalString(normalized.metadata.providerMessageId) ||
+              providerEventId,
             idempotencyKey,
-            slackInvocationType: "slash_command",
-            slackResponseMode: "top_level",
-            slackCommand: normalizeSlackCommandName(args.command),
-            slackCommandText: args.text || "",
-            slackUserId: args.userId,
-            slackChannelId: args.channelId,
+            slackCommand: normalizeOptionalString(normalized.metadata.slackCommand),
+            slackCommandText: normalizeOptionalString(
+              normalized.metadata.slackCommandText
+            ) || "",
+            slackUserId:
+              normalizeOptionalString(normalized.metadata.slackUserId) || args.userId,
+            slackChannelId:
+              normalizeOptionalString(normalized.metadata.slackChannelId) ||
+              args.channelId,
             slackTeamId: args.teamId,
-            providerConnectionId: args.providerConnectionId,
-            providerAccountId: args.providerAccountId || args.teamId,
-            providerInstallationId: args.providerInstallationId,
-            providerProfileId: args.providerProfileId,
-            providerProfileType: args.providerProfileType,
-            routeKey: args.routeKey,
+            providerConnectionId: resolvedProviderConnectionId,
+            providerAccountId: resolvedProviderAccountId,
+            providerInstallationId: resolvedProviderInstallationId,
+            providerProfileId: resolvedProviderProfileId,
+            providerProfileType: resolvedProviderProfileType,
+            routeKey: resolvedRouteKey,
             slackRetryNum: args.retryNum,
             slackRetryReason: args.retryReason,
             slackSignatureTimestamp: args.signatureTimestamp,
             slackReceivedAt: args.receivedAt,
             slackResponseUrl: args.responseUrl,
+            slackVacationRequestObjectId: vacationRequestEnvelope?.requestObjectId,
+            slackVacationRequestIntakeStatus: vacationRequestEnvelope?.intakeStatus,
+            slackVacationRequestPolicyPrerequisiteStatus:
+              vacationRequestEnvelope?.policyPrerequisiteStatus,
+            slackVacationRequestFailClosed: vacationRequestEnvelope?.failClosed,
+            slackVacationRequestBlockedReasons:
+              vacationRequestEnvelope?.blockedReasons,
+            slackVacationRequestReusedExisting:
+              vacationRequestEnvelope?.reusedExisting,
+            slackVacationRequestEvaluationVerdict:
+              vacationRequestEnvelope?.evaluationVerdict,
+            slackVacationRequestEvaluationReasonCodes:
+              vacationRequestEnvelope?.evaluationReasonCodes,
           },
         }
       )) as { status: string; response?: string; message?: string };
 
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/commands",
+        action: "processed",
+        status: result.status,
+        message: result.message,
+        providerEventId,
+        providerConnectionId: resolvedProviderConnectionId,
+        providerAccountId: resolvedProviderAccountId,
+        routeKey: resolvedRouteKey,
+        channel: "slack",
+        metadata: vacationRequestEnvelope
+          ? {
+              vacationRequestObjectId: vacationRequestEnvelope.requestObjectId,
+              vacationRequestIntakeStatus: vacationRequestEnvelope.intakeStatus,
+              vacationRequestPolicyPrerequisiteStatus:
+                vacationRequestEnvelope.policyPrerequisiteStatus,
+              vacationRequestFailClosed: vacationRequestEnvelope.failClosed,
+              vacationRequestBlockedReasons:
+                vacationRequestEnvelope.blockedReasons,
+              vacationRequestReusedExisting:
+                vacationRequestEnvelope.reusedExisting,
+              vacationRequestEvaluationVerdict:
+                vacationRequestEnvelope.evaluationVerdict,
+              vacationRequestEvaluationReasonCodes:
+                vacationRequestEnvelope.evaluationReasonCodes,
+            }
+          : undefined,
+      });
+
       return result;
     } catch (error) {
       console.error("[Slack] Slash command pipeline error:", error);
+      await recordWebhookIngressOutcome(ctx, {
+        organizationId,
+        provider: "slack",
+        endpoint: "integrations/slack/commands",
+        action: "processed",
+        status: "error",
+        message: "Slack slash command pipeline error",
+        errorMessage: String(error),
+        providerEventId,
+        providerConnectionId:
+          args.providerConnectionId ||
+          normalizeOptionalString(credentials.providerConnectionId),
+        providerAccountId:
+          args.providerAccountId ||
+          normalizeOptionalString(credentials.providerAccountId) ||
+          args.teamId,
+        routeKey:
+          args.routeKey ||
+          normalizeOptionalString(credentials.bindingRouteKey) ||
+          `slack:${args.teamId}`,
+        channel: "slack",
+      });
       return { status: "error", message: String(error) };
     }
   },

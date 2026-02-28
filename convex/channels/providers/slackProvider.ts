@@ -17,6 +17,25 @@ const SLACK_SIGNATURE_VERSION = "v0";
 const SLACK_REPLAY_WINDOW_SECONDS = 60 * 5;
 const SLACK_API_BASE = "https://slack.com/api";
 const SLACK_TS_PATTERN = /^\d{10}\.\d+$/;
+const SLACK_ISO_DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
+const SLACK_VACATION_INTENT_PATTERN =
+  /\b(vacation|pto|time[\s_-]*off|out[\s_-]*of[\s_-]*office|ooo|away)\b/i;
+const SLACK_VACATION_PARSER_VERSION = 1;
+
+export type SlackVacationRequestSource = "mention" | "message" | "slash_command";
+export type SlackVacationRequestStatus = "parsed" | "blocked";
+
+export interface SlackVacationRequestParseResult {
+  intent: "vacation_request";
+  parserVersion: number;
+  source: SlackVacationRequestSource;
+  status: SlackVacationRequestStatus;
+  rawText: string;
+  requestedStartDate?: string;
+  requestedEndDate?: string;
+  blockedReasons: string[];
+  commandName?: string;
+}
 
 const capabilities: ChannelProviderCapabilities = {
   supportedChannels: ["slack"],
@@ -205,10 +224,230 @@ function normalizeSlackMessageText(
   return base;
 }
 
+export function normalizeSlackCommandName(command: string): string {
+  const trimmed = command.trim();
+  if (!trimmed) return "command";
+  return trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+}
+
+export function buildSlackSlashCommandMessage(command: string, text?: string): string {
+  const normalizedText = text?.trim();
+  if (normalizedText && normalizedText.length > 0) {
+    return normalizedText;
+  }
+  return normalizeSlackCommandName(command);
+}
+
+function normalizeIsoCalendarDate(value: string): string | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return undefined;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  const valid =
+    utc.getUTCFullYear() === year &&
+    utc.getUTCMonth() === month - 1 &&
+    utc.getUTCDate() === day;
+  if (!valid) {
+    return undefined;
+  }
+
+  return `${year.toString().padStart(4, "0")}-${month
+    .toString()
+    .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
+function extractIsoDatesFromText(text: string): string[] {
+  const candidates = text.match(SLACK_ISO_DATE_PATTERN) || [];
+  const dates: string[] = [];
+  for (const candidate of candidates) {
+    const normalized = normalizeIsoCalendarDate(candidate);
+    if (normalized) {
+      dates.push(normalized);
+    }
+  }
+  return dates;
+}
+
+function hasVacationIntent(args: {
+  text: string;
+  source: SlackVacationRequestSource;
+  commandName?: string;
+}): boolean {
+  if (args.source === "slash_command") {
+    const normalizedCommand = args.commandName
+      ? normalizeSlackCommandName(args.commandName)
+      : "";
+    const compactCommand = normalizedCommand
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+    if (
+      compactCommand.includes("vacation") ||
+      compactCommand === "pto" ||
+      compactCommand.includes("timeoff")
+    ) {
+      return true;
+    }
+  }
+
+  return SLACK_VACATION_INTENT_PATTERN.test(args.text);
+}
+
+export function parseSlackVacationRequestIntent(args: {
+  text?: string;
+  source: SlackVacationRequestSource;
+  commandName?: string;
+}): SlackVacationRequestParseResult | null {
+  const rawText = asString(args.text);
+  if (!rawText) {
+    return null;
+  }
+  if (
+    !hasVacationIntent({
+      text: rawText,
+      source: args.source,
+      commandName: args.commandName,
+    })
+  ) {
+    return null;
+  }
+
+  const blockedReasons: string[] = [];
+  const isoDates = extractIsoDatesFromText(rawText);
+  let requestedStartDate: string | undefined;
+  let requestedEndDate: string | undefined;
+
+  if (isoDates.length === 0) {
+    blockedReasons.push("missing_iso_date");
+  } else if (isoDates.length > 2) {
+    blockedReasons.push("ambiguous_date_range");
+  } else {
+    requestedStartDate = isoDates[0];
+    requestedEndDate = isoDates.length === 2 ? isoDates[1] : isoDates[0];
+    if (requestedEndDate < requestedStartDate) {
+      blockedReasons.push("date_range_out_of_order");
+    }
+  }
+
+  return {
+    intent: "vacation_request",
+    parserVersion: SLACK_VACATION_PARSER_VERSION,
+    source: args.source,
+    status: blockedReasons.length > 0 ? "blocked" : "parsed",
+    rawText,
+    requestedStartDate,
+    requestedEndDate,
+    blockedReasons,
+    commandName:
+      args.source === "slash_command" && args.commandName
+        ? normalizeSlackCommandName(args.commandName)
+        : undefined,
+  };
+}
+
+function buildSlackVacationRequestMetadata(
+  vacationRequest: SlackVacationRequestParseResult | null
+): Record<string, unknown> {
+  if (!vacationRequest) {
+    return { slackVacationRequestDetected: false };
+  }
+
+  return {
+    slackVacationRequestDetected: true,
+    slackVacationRequestStatus: vacationRequest.status,
+    slackVacationRequestStartDate: vacationRequest.requestedStartDate,
+    slackVacationRequestEndDate: vacationRequest.requestedEndDate,
+    slackVacationRequestBlockedReasons: vacationRequest.blockedReasons,
+    slackVacationRequest: vacationRequest,
+  };
+}
+
+function normalizeSlackInteractionMode(
+  value: unknown
+): "mentions_only" | "mentions_and_dm" {
+  return value === "mentions_and_dm" ? "mentions_and_dm" : "mentions_only";
+}
+
+function extractSlackAssistantThreadMetadata(
+  event: Record<string, unknown>
+): {
+  assistantThreadTs?: string;
+  assistantThreadTitle?: string;
+  assistantContextChannelId?: string;
+  assistantContextTeamId?: string;
+  assistantContextEnterpriseId?: string;
+  hasActionToken: boolean;
+} {
+  const assistantThread = event.assistant_thread as Record<string, unknown> | undefined;
+  if (!assistantThread || typeof assistantThread !== "object") {
+    return { hasActionToken: false };
+  }
+
+  const context = assistantThread.context as Record<string, unknown> | undefined;
+  const rawThreadTs = asString(assistantThread.thread_ts);
+
+  return {
+    assistantThreadTs:
+      rawThreadTs && SLACK_TS_PATTERN.test(rawThreadTs) ? rawThreadTs : undefined,
+    assistantThreadTitle: asString(assistantThread.title),
+    assistantContextChannelId: asString(context?.channel_id),
+    assistantContextTeamId: asString(context?.team_id),
+    assistantContextEnterpriseId: asString(context?.enterprise_id),
+    hasActionToken: Boolean(asString(assistantThread.action_token)),
+  };
+}
+
+function sanitizeSlackRawPayload(
+  rawPayload: Record<string, unknown>
+): Record<string, unknown> {
+  const event = rawPayload.event as Record<string, unknown> | undefined;
+  if (!event || typeof event !== "object") {
+    return rawPayload;
+  }
+
+  const assistantThread = event.assistant_thread as Record<string, unknown> | undefined;
+  if (!assistantThread || typeof assistantThread !== "object") {
+    return rawPayload;
+  }
+
+  if (!asString(assistantThread.action_token)) {
+    return rawPayload;
+  }
+
+  return {
+    ...rawPayload,
+    event: {
+      ...event,
+      assistant_thread: {
+        ...assistantThread,
+        action_token: "[REDACTED]",
+      },
+    },
+  };
+}
+
+function isSlackDirectMessageChannel(
+  event: Record<string, unknown>,
+  channelId: string
+): boolean {
+  const channelType = asString(event.channel_type);
+  if (channelType === "im") {
+    return true;
+  }
+  return channelId.toUpperCase().startsWith("D");
+}
+
 function parseSlackInboundPayload(
   rawPayload: Record<string, unknown>,
   credentials: ProviderCredentials
 ): NormalizedInboundMessage | null {
+  if (rawPayload.type === "slash_command") {
+    return parseSlackSlashCommandInboundPayload(rawPayload, credentials);
+  }
   if (rawPayload.type !== "event_callback") return null;
 
   const event = rawPayload.event as Record<string, unknown> | undefined;
@@ -216,6 +455,12 @@ function parseSlackInboundPayload(
 
   const eventType = asString(event.type);
   if (eventType !== "app_mention" && eventType !== "message") {
+    return null;
+  }
+  const interactionMode = normalizeSlackInteractionMode(
+    credentials.slackInteractionMode
+  );
+  if (eventType === "message" && interactionMode !== "mentions_and_dm") {
     return null;
   }
 
@@ -232,14 +477,26 @@ function parseSlackInboundPayload(
   const channelId = asString(event.channel);
   const eventTs = asString(event.ts);
   const explicitThreadTs = asString(event.thread_ts);
+  const assistantThread = extractSlackAssistantThreadMetadata(event);
   const threadTs =
     explicitThreadTs && SLACK_TS_PATTERN.test(explicitThreadTs)
       ? explicitThreadTs
+      : assistantThread.assistantThreadTs;
+  const isDmMessage =
+    eventType === "message" && channelId
+      ? isSlackDirectMessageChannel(event, channelId)
       : undefined;
   const senderId = asString(event.user);
   const text = normalizeSlackMessageText(asString(event.text), eventType);
+  const vacationRequest = parseSlackVacationRequestIntent({
+    text,
+    source: eventType === "app_mention" ? "mention" : "message",
+  });
 
   if (!channelId || !eventTs || !senderId || !text) {
+    return null;
+  }
+  if (eventType === "message" && !isDmMessage) {
     return null;
   }
 
@@ -250,6 +507,15 @@ function parseSlackInboundPayload(
   const externalContactIdentifier = threadTs
     ? buildSlackConversationIdentifier(channelId, threadTs)
     : buildSlackTopLevelConversationIdentifier(channelId, senderId);
+  const sanitizedRawPayload = sanitizeSlackRawPayload(rawPayload);
+  const hasAssistantThreadEnvelope = Boolean(
+    assistantThread.assistantThreadTs ||
+      assistantThread.assistantThreadTitle ||
+      assistantThread.assistantContextChannelId ||
+      assistantThread.assistantContextTeamId ||
+      assistantThread.assistantContextEnterpriseId ||
+      assistantThread.hasActionToken
+  );
 
   return {
     organizationId: "",
@@ -266,7 +532,71 @@ function parseSlackInboundPayload(
       slackResponseMode: threadTs ? "thread" : "top_level",
       slackInvocationType: eventType === "app_mention" ? "mention" : "message",
       slackChannelId: channelId,
+      slackChannelType: asString(event.channel_type),
+      slackInteractionMode: interactionMode,
       slackUserId: senderId,
+      slackAiAppMessage: hasAssistantThreadEnvelope,
+      slackAssistantThreadTs: assistantThread.assistantThreadTs,
+      slackAssistantThreadTitle: assistantThread.assistantThreadTitle,
+      slackAssistantContextChannelId: assistantThread.assistantContextChannelId,
+      slackAssistantContextTeamId: assistantThread.assistantContextTeamId,
+      slackAssistantContextEnterpriseId:
+        assistantThread.assistantContextEnterpriseId,
+      slackAssistantHasActionToken: assistantThread.hasActionToken,
+      ...buildSlackVacationRequestMetadata(vacationRequest),
+      raw: sanitizedRawPayload,
+    },
+  };
+}
+
+function parseSlackSlashCommandInboundPayload(
+  rawPayload: Record<string, unknown>,
+  credentials: ProviderCredentials
+): NormalizedInboundMessage | null {
+  const teamId = asString(rawPayload.team_id);
+  const channelId = asString(rawPayload.channel_id);
+  const userId = asString(rawPayload.user_id);
+  const command = asString(rawPayload.command);
+  if (!teamId || !channelId || !userId || !command) {
+    return null;
+  }
+
+  const commandText = asString(rawPayload.text);
+  const message = buildSlackSlashCommandMessage(command, commandText);
+  const providerEventId =
+    asString(rawPayload.trigger_id) || asString(rawPayload.event_id);
+  const vacationRequest = parseSlackVacationRequestIntent({
+    text: commandText || message,
+    source: "slash_command",
+    commandName: command,
+  });
+
+  return {
+    organizationId: "",
+    channel: "slack",
+    externalContactIdentifier: buildSlackTopLevelConversationIdentifier(
+      channelId,
+      userId
+    ),
+    message,
+    messageType: "text",
+    metadata: {
+      providerId: "slack",
+      providerMessageId:
+        providerEventId || `slash:${teamId}:${channelId}:${userId}`,
+      providerEventId,
+      senderName: asString(rawPayload.user_name) || userId,
+      slackResponseMode: "top_level",
+      slackInvocationType: "slash_command",
+      slackCommand: normalizeSlackCommandName(command),
+      slackCommandText: commandText || "",
+      slackUserId: userId,
+      slackChannelId: channelId,
+      slackTeamId: teamId,
+      slackInteractionMode: normalizeSlackInteractionMode(
+        credentials.slackInteractionMode
+      ),
+      ...buildSlackVacationRequestMetadata(vacationRequest),
       raw: rawPayload,
     },
   };

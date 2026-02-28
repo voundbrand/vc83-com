@@ -13,6 +13,7 @@ import { whatsappProvider } from "./providers/whatsappProvider";
 import { infobipProvider } from "./providers/infobipProvider";
 import { telegramProvider } from "./providers/telegramProvider";
 import { slackProvider } from "./providers/slackProvider";
+import { directCallProvider } from "./providers/directCallProvider";
 
 const PROVIDER_REGISTRY: Record<string, ChannelProvider> = {};
 
@@ -66,6 +67,7 @@ registerProvider(whatsappProvider);
 registerProvider(infobipProvider);
 registerProvider(telegramProvider);
 registerProvider(slackProvider);
+registerProvider(directCallProvider);
 
 export function getProvider(id: ProviderId): ChannelProvider | null {
   return PROVIDER_REGISTRY[id] ?? null;

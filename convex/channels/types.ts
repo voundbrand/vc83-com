@@ -14,6 +14,7 @@ export type ChannelType =
   | "whatsapp"
   | "sms"
   | "email"
+  | "phone_call"
   | "instagram"
   | "facebook_messenger"
   | "webchat"
@@ -115,7 +116,9 @@ export type ProviderCredentialField =
   | "telegramWebhookSecret"
   | "chatwootApiToken"
   | "manychatApiKey"
-  | "resendApiKey";
+  | "resendApiKey"
+  | "directCallApiKey"
+  | "directCallWebhookSecret";
 
 // Normalized inbound message from any provider
 export interface NormalizedInboundMessage {
@@ -155,6 +158,12 @@ export interface OutboundMessage {
     providerConversationId?: string;
     templateName?: string;
     templateParams?: string[];
+    idempotencyKey?: string;
+    organizationId?: string;
+    missionId?: string;
+    attemptId?: string;
+    bookingId?: string;
+    callContext?: Record<string, unknown>;
   };
 }
 
@@ -166,6 +175,16 @@ export interface SendResult {
   retryable?: boolean;
   statusCode?: number;
   retryAfterMs?: number;
+  telephony?: {
+    providerCallId?: string;
+    transcriptText?: string;
+    transcriptSegments?: Array<Record<string, unknown>>;
+    outcome?: string;
+    disposition?: string;
+    durationSeconds?: number;
+    endedAt?: number;
+    voicemailDetected?: boolean;
+  };
 }
 
 // Provider credentials stored in objects table (customProperties)
@@ -209,12 +228,19 @@ export interface ProviderCredentials {
   telegramBotToken?: string;
   telegramBotUsername?: string;
   telegramWebhookSecret?: string;
+  // Direct outbound telephony
+  directCallBaseUrl?: string;
+  directCallApiKey?: string;
+  directCallFromNumber?: string;
+  directCallWebhookSecret?: string;
   // Slack (per-org OAuth bot)
   slackBotToken?: string;
   slackBotUserId?: string;
   slackTeamId?: string;
   slackAppId?: string;
   slackSigningSecret?: string;
+  slackInteractionMode?: "mentions_only" | "mentions_and_dm";
+  slackAiAppFeaturesEnabled?: boolean;
   // Generic
   apiKey?: string;
   apiSecret?: string;

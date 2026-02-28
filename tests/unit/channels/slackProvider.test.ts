@@ -215,4 +215,238 @@ describe("slackProvider", () => {
       "top_level"
     );
   });
+
+  it("ignores generic message events when interaction mode is mentions-only", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvDmOff1",
+        event: {
+          type: "message",
+          user: "U123",
+          text: "hello in dm",
+          channel: "D123ABC",
+          channel_type: "im",
+          ts: "1700000200.200",
+        },
+      },
+      {
+        providerId: "slack",
+        slackInteractionMode: "mentions_only",
+      }
+    );
+
+    expect(normalized).toBeNull();
+  });
+
+  it("normalizes direct message events when interaction mode enables DMs", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvDmOn1",
+        event: {
+          type: "message",
+          user: "U123",
+          text: "hello in dm",
+          channel: "D123ABC",
+          channel_type: "im",
+          ts: "1700000300.300",
+        },
+      },
+      {
+        providerId: "slack",
+        slackInteractionMode: "mentions_and_dm",
+      }
+    );
+
+    expect(normalized).not.toBeNull();
+    expect(normalized?.externalContactIdentifier).toBe("slack:D123ABC:user:U123");
+    expect(normalized?.message).toBe("hello in dm");
+    expect((normalized?.metadata as Record<string, unknown>).slackInvocationType).toBe(
+      "message"
+    );
+  });
+
+  it("captures assistant thread metadata for AI app direct messages", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvDmAi1",
+        event: {
+          type: "message",
+          user: "U123",
+          text: "summarize this thread",
+          channel: "D123ABC",
+          channel_type: "im",
+          ts: "1700000300.300",
+          assistant_thread: {
+            thread_ts: "1700000999.123",
+            title: "Issue triage",
+            action_token: "xapp-action-token",
+            context: {
+              channel_id: "C777",
+              team_id: "T777",
+              enterprise_id: "E777",
+            },
+          },
+        },
+      },
+      {
+        providerId: "slack",
+        slackInteractionMode: "mentions_and_dm",
+      }
+    );
+
+    expect(normalized).not.toBeNull();
+    expect(normalized?.externalContactIdentifier).toBe("slack:D123ABC:1700000999.123");
+    expect((normalized?.metadata as Record<string, unknown>).slackAiAppMessage).toBe(
+      true
+    );
+    expect((normalized?.metadata as Record<string, unknown>).slackAssistantThreadTs).toBe(
+      "1700000999.123"
+    );
+    expect((normalized?.metadata as Record<string, unknown>).slackAssistantThreadTitle).toBe(
+      "Issue triage"
+    );
+    expect(
+      (normalized?.metadata as Record<string, unknown>).slackAssistantContextChannelId
+    ).toBe("C777");
+    expect((normalized?.metadata as Record<string, unknown>).slackAssistantContextTeamId).toBe(
+      "T777"
+    );
+    expect(
+      (normalized?.metadata as Record<string, unknown>).slackAssistantContextEnterpriseId
+    ).toBe("E777");
+    expect((normalized?.metadata as Record<string, unknown>).slackAssistantHasActionToken).toBe(
+      true
+    );
+    const raw = (normalized?.metadata as Record<string, unknown>).raw as Record<
+      string,
+      unknown
+    >;
+    const rawEvent = raw.event as Record<string, unknown>;
+    const rawAssistantThread = rawEvent.assistant_thread as Record<string, unknown>;
+    expect(rawAssistantThread.action_token).toBe("[REDACTED]");
+  });
+
+  it("ignores non-DM message events even when DM mode is enabled", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvDmOn2",
+        event: {
+          type: "message",
+          user: "U123",
+          text: "hello in channel",
+          channel: "C123ABC",
+          channel_type: "channel",
+          ts: "1700000400.400",
+        },
+      },
+      {
+        providerId: "slack",
+        slackInteractionMode: "mentions_and_dm",
+      }
+    );
+
+    expect(normalized).toBeNull();
+  });
+
+  it("parses mention vacation requests with deterministic ISO date ranges", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMention1",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> vacation 2026-07-10 to 2026-07-14",
+          channel: "C123ABC",
+          ts: "1700000600.600",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2026-07-10");
+    expect(metadata.slackVacationRequestEndDate).toBe("2026-07-14");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("fails closed for mention vacation requests without deterministic dates", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMention2",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> can I take vacation next week?",
+          channel: "C123ABC",
+          ts: "1700000700.700",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("blocked");
+    expect(metadata.slackVacationRequestBlockedReasons).toContain("missing_iso_date");
+  });
+
+  it("normalizes slash-command vacation requests through provider parsing", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "2026-08-01 to 2026-08-03",
+        trigger_id: "Trig123",
+      },
+      { providerId: "slack" }
+    );
+
+    expect(normalized).not.toBeNull();
+    expect(normalized?.message).toBe("2026-08-01 to 2026-08-03");
+    expect(normalized?.externalContactIdentifier).toBe("slack:C123ABC:user:U123");
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackInvocationType).toBe("slash_command");
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2026-08-01");
+    expect(metadata.slackVacationRequestEndDate).toBe("2026-08-03");
+  });
+
+  it("fails closed for ambiguous slash-command vacation date ranges", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "2026-09-01 2026-09-02 2026-09-03",
+        trigger_id: "Trig124",
+      },
+      { providerId: "slack" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("blocked");
+    expect(metadata.slackVacationRequestBlockedReasons).toContain(
+      "ambiguous_date_range"
+    );
+  });
 });

@@ -1,168 +1,137 @@
 # Multi-Provider BYOA Channel Runtime Master Plan
 
 **Date:** 2026-02-19  
-**Scope:** Separate platform-owned channel apps from org BYOA apps across Slack, Telegram, WhatsApp, and future providers, with stronger security and predictable routing.
+**Scope:** Final experience convergence pass to expose voice-first agent creation and soul-binding onboarding on top of completed multi-provider channel runtime foundations.
 
 ---
 
 ## Mission
 
-Deliver a dual-model channel architecture where:
-
-1. `l4yercak3` platform agents can run on dedicated platform-owned provider apps.
-2. customer orgs can connect their own provider apps (BYOA) without platform config collisions.
-3. inbound and outbound routing are installation-aware, auditable, and secure by default.
+Deliver the promised first-run experience: users can create and train an agent in under 15 minutes, then deploy it to webchat and/or Telegram without leaving a coherent native flow.
 
 ---
 
-## Architecture decision contract
+## Founder notes snapshot (2026-02-19)
 
-### Model 1: Platform App Profile
+Current gaps called out directly:
 
-Platform-owned app credentials used only for platform workflows and explicitly configured fallback cases.
-
-### Model 2: Org BYOA App Profile
-
-Org-owned app credentials and installs used for tenant-specific messaging and agent workflows.
-
-### Separation rules (hard requirements)
-
-1. Routing cannot select provider credentials by `provider` alone; it must resolve a concrete installation/profile binding.
-2. Inbound webhook verification must resolve the correct app profile before dispatch to runtime.
-3. BYOA credentials must never rely on global env token fallback.
-4. Platform and BYOA installations must be independently rotatable and revocable.
-5. Session identity must include installation/route context to prevent cross-agent/persona collisions.
+1. `Brain Voice` is exposed in shell menus, but this is not the desired product surface.
+2. Agents `Create Agent` flow opens an empty setup wizard.
+3. Voice-first UI is not discoverable as the primary creation surface.
+4. Soul-binding (recursive interview + training) exists but is not clearly exposed to users.
+5. Welcome promise says setup is fast, but launch flow does not yet deliver that path immediately.
+6. Deploy handoff to webapp/Telegram should be part of onboarding completion, not a disconnected follow-up.
 
 ---
 
-## Current blockers snapshot
+## Baseline already completed (kept, not re-scoped)
 
-1. `channel_provider_binding` currently lacks direct installation/profile identity.
-2. Some provider credential paths still resolve first active connection per org+provider.
-3. Slack signature verification currently depends on environment signing secret candidates.
-4. Telegram webhook endpoint does not enforce per-org secret-token header verification at HTTP boundary.
-5. Telegram custom bot token is stored in object settings and should move to encrypted-at-rest handling.
-6. WhatsApp webhook processing exists but inbound HTTP route wiring + real signature verification path is incomplete.
-7. Agent/session routing remains single-active-agent per org/channel with limited installation/persona partitioning.
+1. Multi-provider BYOA channel security/routing hardening (`MPB-001`..`MPB-014`) is complete except external typecheck blocker on `MPB-009`.
+2. Voice runtime + adaptive interview primitives are complete in `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/voice-agent-co-creation`.
+3. Trust/soul artifact and consent contracts are complete in `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-trust-experience`.
+4. Free onboarding channel parity is complete in `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/free-onboarding-global`.
+5. Webchat deployment UI contract exists in `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/webchat-deployment-ui`.
 
----
-
-## Target architecture
-
-### Identity and credential layers
-
-1. **App profile layer:** provider app identity + signing secret + OAuth client metadata.
-2. **Installation layer:** tenant installation/workspace/account credentials tied to one app profile.
-3. **Channel binding layer:** channel + route selector + installation reference + priority.
-
-### Routing and runtime layers
-
-1. **Inbound:** verify signature with app profile -> resolve installation -> resolve org -> normalize -> runtime.
-2. **Outbound:** resolve binding -> load installation credentials -> decrypt at send boundary -> provider send.
-3. **Sessioning:** include route key dimensions (`channel`, `installation`, `peer`, `agent`) so personas do not collide.
-
-### Security baseline
-
-1. Secrets encrypted at rest, decrypted only at send/verify boundary.
-2. Deterministic idempotency and replay windows for inbound provider events.
-3. No plaintext token persistence for BYOA credentials.
-4. Audit events for connect, rotate, revoke, webhook reject, and signature failures.
-5. Rollout gates and kill switches for each provider integration path.
+This extension only addresses presentation, discoverability, and end-to-end onboarding orchestration.
 
 ---
 
-## Phase-to-lane mapping
+## Experience contract (must ship)
+
+### First 15-minute flow
+
+1. User lands in welcome shell and sees one primary CTA: `Create my agent`.
+2. CTA opens a guided setup (not empty wizard) with two entry modes: `Talk` and `Type`.
+3. Flow launches a tall mobile-friendly voice/chat canvas with a live animated voice orb and transcript panel.
+4. Soul-binding checkpoints (`capture`, `summary`, `consent`, `save`) are visible and resumable.
+5. User can train one-on-one or switch to team training mode in the same canvas.
+6. Completion screen offers immediate deployment choices: `Deploy to Webchat`, `Deploy to Telegram`, or `Both`.
+7. On selection, channel setup packets and next actions are surfaced inline, then route to deployment surfaces.
+
+### IA contract
+
+1. Remove `Brain Voice` from Product menu and All Apps primary menus.
+2. Keep trust/voice capabilities behind one canonical creation surface.
+3. Keep deep-link compatibility for existing routes while redirecting menu pathways.
+
+### MPB-015 contract freeze (2026-02-24)
+
+1. **Route contract (frozen)**
+   - Keep `app=brain-voice` deep links valid for existing shell URLs and restored windows.
+   - Keep window IDs stable in registry (`ai-assistant`, `brain-voice`, `agents-browser`).
+   - Route all primary creation discovery to `app=agents-browser` instead of `brain-voice`.
+2. **Product menu contract (frozen)**
+   - `Brain Voice` is removed from primary Product menu discovery pathways (desktop + mobile launcher variants).
+   - `AI Agents` remains the canonical creation discovery entry.
+3. **All Apps contract (frozen)**
+   - `Brain Voice` is removed from browse/search/popular/new primary All Apps pathways.
+   - Hidden-primary-surface apps remain route-compatible if opened by existing deep links.
+4. **Create Agent wizard contract (frozen)**
+   - `Create Agent` first step is deterministic guided quickstart, not an empty wizard.
+   - Quickstart must present two explicit launch modes on first step: `Talk` and `Type`.
+   - `Talk` launches guided assistant creation context; `Type` opens deterministic form-first setup path.
+
+---
+
+## Architecture slices for this final pass
+
+| Slice | Requirement | Primary surfaces/files | Queue owner |
+|---|---|---|---|
+| Shell IA convergence | Remove unwanted Brain app/menu exposure and establish one primary creation entry | `src/app/page.tsx`; `src/hooks/window-registry.tsx`; `src/components/window-content/all-apps-window.tsx` | Lane `F` |
+| Setup wizard replacement | Replace empty agent wizard with deterministic guided setup starter | `src/components/window-content/agents/*`; onboarding launch hooks | Lane `F` |
+| Voice canvas launch | Ship tall responsive chat+voice window with animated orb and transcript controls | `src/components/window-content/ai-chat-window/*`; `src/components/interview/*`; voice hooks | Lane `G` |
+| Soul-binding exposure | Make recursive interview/training explicit in first-run and ongoing training entry points | `src/components/interview/*`; `convex/ai/interviewRunner.ts`; trust surfaces | Lane `G` |
+| Deploy handoff | Bind onboarding completion to webchat/Telegram deployment setup cards | `src/components/window-content/web-publishing-window/*`; channel integrations surfaces | Lane `H` |
+| Messaging and promise alignment | Ensure welcome messaging and CTA copy align with real launch path | `src/app/page.tsx`; welcome/assistant components | Lane `H` |
+
+---
+
+## Phase-to-lane mapping (extension)
 
 | Phase | Objective | Queue lanes | Queue tasks |
 |---|---|---|---|
-| Phase 1 | Contract and schema freeze | `A` | `MPB-001`..`MPB-003` |
-| Phase 2 | Inbound security and verification correctness | `B` | `MPB-004`..`MPB-006` |
-| Phase 3 | Routing/runtime installation awareness | `C` | `MPB-007`..`MPB-009` |
-| Phase 4 | Provider setup UX and onboarding docs | `D` | `MPB-010`..`MPB-011` |
-| Phase 5 | Migration, rollout, and closeout hardening | `E` | `MPB-012`..`MPB-014` |
+| Phase 6 | Shell IA + setup entry convergence | `F` | `MPB-015`..`MPB-017` |
+| Phase 7 | Voice canvas + soul-binding exposure | `G` | `MPB-018`..`MPB-019` |
+| Phase 8 | Deploy handoff + hardening closeout | `H` | `MPB-020`..`MPB-022` |
 
 ---
 
-## Execution status (2026-02-19)
+## Rollout strategy for final UX pass
 
-1. `MPB-002` completed: channel binding contract and router credential resolution now support explicit installation/profile identity hints, with backward-compatible provider-only fallback.
-2. `MPB-003` completed: idempotent backfill migrations + rollout flag seeds are in place, and Slack/WhatsApp OAuth metadata now persists installation/profile identity fields by default.
-3. `MPB-004` completed: Slack HTTP ingress now resolves installation/profile verification context before dispatch and validates signatures with installation-scoped secrets (platform fallback kept explicit).
-4. `MPB-005` completed: Telegram webhook auth now verifies secret ownership at ingress, routes custom bot traffic by authenticated ownership, and encrypts stored bot token/webhook secret material.
-5. `MPB-006` completed: WhatsApp inbound HTTP route is wired with explicit verification-token handshake and real SHA-256 HMAC validation before dispatch.
-6. `MPB-007` completed: outbound router now requires explicit platform fallback opt-in, validates binding/credential ownership alignment, and blocks organization BYOA bindings from platform fallback credential sources.
-7. `MPB-008` completed: session lifecycle now persists route-aware keys and installation identity hints, resolves active sessions by agent + route partition with deterministic matching, and preserves legacy sessions via safe promotion when no conflicting route-scoped session exists.
-8. `MPB-009` blocked: deterministic route-selector dispatch (account/team/peer/channel/provider dimensions) is implemented and threaded from inbound metadata to agent selection, with `V-LINT`/`V-UNIT`/`V-MODEL` passing; `V-TYPE` is blocked by external `TS2589` at `src/components/window-content/store-window.tsx:46` outside lane `C` ownership.
-9. `MPB-010` completed: integrations setup UX now exposes dual-mode platform vs org-BYOA flows for Slack/Telegram/WhatsApp (including WhatsApp surface wiring and concrete setup packet values), with `V-TYPE`/`V-LINT`/`V-UNIT` passing.
-10. `MPB-011` completed: published provider onboarding runbook with concrete setup contract values (manifest fields, callback/webhook URLs, scope lists), dev->prod cutover checklist, and per-provider key rotation steps; `V-DOCS` passed.
-11. `MPB-012` completed: rollout controls are now operational via migration APIs for state inspection, global flag updates, provider stage updates, and explicit provider rollback commands; provider promotion is guarded by canary-first sequencing and security matrix checks in mutation contracts.
-12. `MPB-013` completed: failure-path matrix now has explicit spoof/replay/rotation/routing-isolation coverage with new unit/integration tests and published operator matrix contract (`SECURITY_FAILURE_PATH_MATRIX.md`).
-13. `MPB-014` completed: queue/plan/index/runbook docs are synchronized for lane `E` closeout and docs guard is green; remaining verification exceptions are tracked as external/environmental (`V-TYPE` external compile errors outside lane `E`; `V-MODEL` conformance missing cost metric).
-
----
-
-## Rollout strategy
-
-1. Stage 0: Keep provider BYOA path behind feature flags while contracts land.
-2. Stage 1: Move each provider to `canary` with explicit `canaryOrganizationIds`.
-3. Stage 2: Promote provider `canary -> on` only after `SECURITY_FAILURE_PATH_MATRIX.md` is green.
-4. Stage 3: Expand to additional providers using the same app-profile + installation contract.
-5. At any stage regression, execute provider rollback mutation first, then optionally force global legacy-provider mode.
-
----
-
-## Migration + rollout controls runbook
-
-1. Seed rollout/rollback flags (idempotent):
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:initializeChannelRuntimeIdentityFlags`
-2. Inspect current rollout state:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:getChannelRuntimeIdentityFlagState`
-3. Dry-run oauth identity backfill:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:backfillOAuthConnectionIdentity '{"dryRun":true}'`
-4. Dry-run binding identity backfill:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:backfillChannelProviderBindingIdentity '{"dryRun":true}'`
-5. Execute oauth backfill in batches until `hasNextPage=false`:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:backfillOAuthConnectionIdentity`
-6. Execute binding backfill in batches until `hasNextPage=false`:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:backfillChannelProviderBindingIdentity`
-7. Set global rollout defaults for canary:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:setChannelRuntimeIdentityGlobalFlag '{"enabled":true,"allowLegacyProviderFallback":true,"progressiveRollout":true,"rollbackMode":"legacy_provider_only","updatedBy":"ops@company.com"}'`
-8. Move provider to canary with explicit org allowlist:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:setChannelRuntimeIdentityProviderFlag '{"provider":"slack","stage":"canary","canaryOrganizationIds":["org_canary_a"],"updatedBy":"ops@company.com"}'`
-9. Promote provider to `on` only when matrix is green:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:setChannelRuntimeIdentityProviderFlag '{"provider":"slack","stage":"on","securityMatrixGreen":true,"securityMatrixReference":"SECURITY_FAILURE_PATH_MATRIX.md","updatedBy":"ops@company.com"}'`
-
-Flag keys seeded by migration:
-
-1. `byoa_channel_runtime.identity.global`
-2. `byoa_channel_runtime.identity.slack`
-3. `byoa_channel_runtime.identity.telegram`
-4. `byoa_channel_runtime.identity.whatsapp`
-
-Rollback strategy:
-
-1. Keep `byoa_channel_runtime.identity.global.allowLegacyProviderFallback=true` during canary rollout.
-2. To rollback provider-specific routing, run:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:rollbackChannelRuntimeIdentityProviderFlag '{"provider":"slack","reason":"lane_e_regression","updatedBy":"ops@company.com"}'`
-3. To force global rollback behavior, run:
-   - `npx convex run migrations/backfillChannelRuntimeIdentity:setChannelRuntimeIdentityGlobalFlag '{"enabled":false,"allowLegacyProviderFallback":true,"rollbackMode":"legacy_provider_only","updatedBy":"ops@company.com"}'`
+1. Stage 0: Keep new creation surface behind feature flag while validating desktop + mobile parity.
+2. Stage 1: Enable for internal orgs only; monitor trust checkpoint completion and drop-off points.
+3. Stage 2: Enable for canary external orgs; validate deployment completion rates (webchat/Telegram).
+4. Stage 3: Promote to default onboarding path and remove legacy empty wizard launch entry.
+5. Rollback path: revert primary CTA routing to prior stable assistant window while preserving underlying trust artifacts.
 
 ---
 
 ## Acceptance criteria
 
-1. Platform app profiles and org BYOA profiles can coexist without routing overlap.
-2. Inbound webhook verification uses installation-specific app secrets.
-3. Outbound routing is installation-aware and never relies on implicit provider-only lookup.
-4. Session routing supports multi-agent/persona behavior without cross-thread collisions.
-5. Provider onboarding flow is documented and repeatable for agencies/org owners.
-6. Verification suite and docs guard pass before rollout stage promotion.
+1. No primary Product menu or All Apps entry labeled `Brain Voice`.
+2. `Create Agent` no longer opens an empty wizard.
+3. Voice-first creation UI is immediately discoverable and works on desktop + mobile layouts.
+4. Soul-binding/trust interview is clearly exposed in the user path with explicit consent checkpoints.
+5. Users can complete onboarding and launch deployment to webchat and/or Telegram in one flow.
+6. Welcome promise of rapid setup is reflected in live UI copy and routed behavior.
+7. Verification profile and `npm run docs:guard` pass before closeout.
 
 ---
 
 ## Non-goals
 
-1. Slack Marketplace listing automation.
-2. Full Enterprise Grid administration UX.
-3. Historical message backfill from external channels.
-4. Complete provider feature parity for advanced modal/workflow APIs in v1.
+1. Re-implementing completed provider security/runtime contracts from phases 1-5.
+2. Changing trust artifact schema (`trust-artifacts.v1`) in this pass.
+3. Building new provider channels beyond existing webchat + Telegram onboarding/deploy paths.
+
+---
+
+## Status snapshot
+
+1. `MPB-001`..`MPB-014`: complete baseline and runtime hardening (with known external blocker captured on `MPB-009`).
+2. `MPB-015`: `DONE` (contract freeze locked on 2026-02-24 with docs guard pass).
+3. `MPB-016`: `DONE` (Brain Voice removed from primary Product menu + All Apps discovery while deep-link compatibility retained).
+4. `MPB-017`: `DONE` (Create Agent now starts with deterministic `Talk`/`Type` quickstart).
+5. `MPB-018`: `DONE` (Interview runner now ships tall responsive voice/chat canvas with animated orb states, transcript stream, and typed fallback using existing voice runtime adapter).
+6. `MPB-019`: `DONE` (Selector and runner now expose explicit soul-binding recursion modes: `first-run`/`ongoing` and `one-on-one`/`team`, while keeping consent checkpoints explicit and trust-artifact schema untouched).
+7. `MPB-020`..`MPB-022`: `DONE` (lane `H` deploy handoff + messaging alignment + closeout hardening completed; docs synchronized and regression checklist published in `UX_REGRESSION_CHECKLIST.md`).

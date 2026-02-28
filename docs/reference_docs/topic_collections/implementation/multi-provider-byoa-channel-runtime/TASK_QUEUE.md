@@ -1,8 +1,8 @@
 # Multi-Provider BYOA Channel Runtime Task Queue
 
-**Last updated:** 2026-02-19  
+**Last updated:** 2026-02-24  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime`  
-**Source request:** Preserve platform-owned agent app behavior while delivering painless org BYOA setup across Slack/Telegram/WhatsApp with stronger security.
+**Source request:** Finalize world-class agent creation UX by converging onboarding, voice UI, soul-binding training, and deploy handoff while preserving completed BYOA runtime foundations.
 
 ---
 
@@ -28,8 +28,11 @@
 | `V-UNIT` | `npm run test:unit` |
 | `V-INTEG` | `npm run test:integration` |
 | `V-MODEL` | `npm run test:model` |
+| `V-E2E-DESKTOP` | `npm run test:e2e:desktop` |
+| `V-E2E-MOBILE` | `npm run test:e2e:mobile` |
+| `V-E2E-ATX` | `npm run test:e2e:atx` |
 | `V-DOCS` | `npm run docs:guard` |
-| `V-CHANNEL-LINT` | `npx eslint convex/channels convex/oauth/slack.ts convex/oauth/whatsapp.ts convex/integrations/telegram.ts convex/http.ts` |
+| `V-UX-LINT` | `npx eslint src/app/page.tsx src/hooks/window-registry.tsx src/components/window-content/all-apps-window.tsx src/components/window-content/agents src/components/window-content/ai-chat-window src/components/interview` |
 
 ---
 
@@ -37,20 +40,24 @@
 
 | Lane | Purpose | Primary ownership | Merge-overlap policy |
 |---|---|---|---|
-| `A` | Contract + schema + migration-safe foundation | `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/*`; `convex/schemas/*`; `convex/channels/types.ts` | No runtime/security implementation before lane `A` `P0` tasks are `DONE` |
-| `B` | Provider ingress security correctness | `convex/http.ts`; `convex/channels/webhooks.ts`; provider OAuth modules | No UI changes in lane `B` |
-| `C` | Installation-aware routing/session/agent behavior | `convex/channels/router.ts`; `convex/agentOntology.ts`; `convex/ai/agentSessions.ts`; `convex/ai/agentExecution.ts` | No onboarding UI changes in lane `C` |
-| `D` | Integrations setup UX + provider setup docs | `src/components/window-content/integrations-window/*`; docs prompts/guides | No schema contract changes in lane `D` |
-| `E` | Migration, rollout controls, and closeout hardening | migrations + docs + test matrix updates | Starts only when all `P0` rows are `DONE` or `BLOCKED` |
+| `A` | Contract + schema + migration-safe foundation (closed) | Runtime foundations from phases 1-5 | No new tasks in this extension |
+| `B` | Provider ingress security correctness (closed) | Inbound webhook verification paths | No new tasks in this extension |
+| `C` | Installation-aware routing/session behavior (closed except tracked blocker) | Channel router + session runtime | `MPB-009` blocker tracked separately |
+| `D` | Integrations setup UX + provider setup docs (closed) | Integrations setup and runbooks | No new tasks in this extension |
+| `E` | Migration/rollout controls + hardening (closed) | Migrations, matrix, closeout docs | No new tasks in this extension |
+| `F` | Shell IA + setup launch convergence | `src/app/page.tsx`; `src/hooks/window-registry.tsx`; `src/components/window-content/agents/*` | No trust schema mutation in lane `F` |
+| `G` | Voice canvas + soul-binding surfacing | `src/components/window-content/ai-chat-window/*`; `src/components/interview/*`; `convex/ai/interviewRunner.ts` | No provider auth contract changes in lane `G` |
+| `H` | Deploy handoff + messaging + closeout hardening | deployment windows/docs, onboarding copy, release checks | Starts after all lane `F/G` `P0` tasks are `DONE` or `BLOCKED` |
 
 ---
 
 ## Dependency-based status flow
 
-1. Start with lane `A` and complete `MPB-001`..`MPB-003`.
-2. After lane `A` `P0` completion, lanes `B` and `C` may run in parallel (max one `IN_PROGRESS` per lane).
-3. Lane `D` starts after `MPB-007` is `DONE`.
-4. Lane `E` starts only after all remaining `P0` tasks are `DONE` or `BLOCKED`.
+1. Keep historical phases (`A`..`E`) closed; use them as fixed dependency baseline only.
+2. Start with lane `F` (`MPB-015`..`MPB-017`).
+3. Start lane `G` after `MPB-017` is `DONE`.
+4. Start lane `H` after lane `F` and lane `G` `P0` rows are `DONE` or `BLOCKED`.
+5. Complete `MPB-022` only after docs synchronization and full verify profile rerun.
 
 ---
 
@@ -58,25 +65,25 @@
 
 | ID | Lane | Plan | Priority | Status | Depends On | Task | Primary files | Verify | Notes |
 |---|---|---:|---|---|---|---|---|---|---|
-| `MPB-001` | `A` | 1 | `P0` | `DONE` | - | Baseline architecture audit and dual-model contract freeze (platform app profile vs org BYOA profile) | `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/MASTER_PLAN.md`; `convex/channels/router.ts`; `convex/http.ts`; `convex/channels/webhooks.ts`; `convex/channels/telegramBotSetup.ts` | `V-DOCS` | Done 2026-02-19: blockers captured and target contract frozen. |
-| `MPB-002` | `A` | 1 | `P0` | `DONE` | `MPB-001` | Extend channel binding contract to reference explicit installation/profile identity (not provider-only routing) | `convex/channels/router.ts`; `convex/channels/types.ts`; `convex/schemas/coreSchemas.ts`; `convex/schemas/agentSessionSchemas.ts` | `V-TYPE`; `V-LINT`; `V-CHANNEL-LINT` | Done 2026-02-19: binding contract now carries installation/profile identity hints; router credential resolution prefers explicit connection/account identity with legacy fallback retained for migration safety. |
-| `MPB-003` | `A` | 1 | `P0` | `DONE` | `MPB-002` | Land migration/backfill strategy for existing Slack/Telegram/WhatsApp bindings and oauth connections | `convex/migrations/*`; `convex/oauth/slack.ts`; `convex/oauth/whatsapp.ts`; docs in this workstream | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-DOCS` | Done 2026-02-19: added idempotent binding/oauth identity backfills, rollout flag seed migration, and Slack/WhatsApp OAuth identity persistence contract for new connections. |
-| `MPB-004` | `B` | 2 | `P0` | `DONE` | `MPB-003` | Refactor Slack ingress to resolve app profile/install first, then verify signature with installation-specific secret | `convex/http.ts`; `convex/channels/webhooks.ts`; `convex/oauth/slack.ts`; `convex/oauth/config.ts` | `V-TYPE`; `V-LINT`; `V-CHANNEL-LINT`; `V-UNIT`; `V-INTEG` | Done 2026-02-19: Slack HTTP ingress now resolves install/profile context (team/app) before signature verification, validates against installation-scoped secret candidates, and removes global signing-secret candidate use on BYOA verification paths. |
-| `MPB-005` | `B` | 2 | `P0` | `DONE` | `MPB-003` | Harden Telegram ingress: enforce secret-token header validation and encrypt custom bot token + webhook secret storage | `convex/http.ts`; `convex/channels/telegramBotSetup.ts`; `convex/channels/providers/telegramProvider.ts`; `convex/integrations/telegram.ts`; `convex/oauth/encryption.ts` | `V-TYPE`; `V-LINT`; `V-CHANNEL-LINT`; `V-UNIT` | Done 2026-02-19: Telegram webhook now enforces secret-token auth at the HTTP boundary, custom bot traffic routes by authenticated secret ownership (not query params), `telegram_settings` stores encrypted bot token/webhook secret with fingerprint lookup, and router decrypts Telegram credentials at send boundary; all verify commands executed successfully (warnings only on lint profiles). |
-| `MPB-006` | `B` | 2 | `P0` | `DONE` | `MPB-003` | Wire WhatsApp inbound HTTP route and implement real HMAC verification path before dispatch | `convex/http.ts`; `convex/channels/webhooks.ts`; `convex/channels/providers/whatsappProvider.ts`; `convex/oauth/whatsapp.ts` | `V-TYPE`; `V-LINT`; `V-CHANNEL-LINT`; `V-UNIT`; `V-INTEG` | Done 2026-02-19: added `/webhooks/whatsapp` (and `/whatsapp-webhook` alias) GET/POST handlers, enforced verification-token handshake + boundary HMAC validation before scheduling dispatch, replaced internal WhatsApp signature no-op with real SHA-256 HMAC verification, and tightened provider-level verification guardrails; all verify commands executed successfully (warnings only on lint profiles). |
-| `MPB-007` | `C` | 3 | `P0` | `DONE` | `MPB-004`, `MPB-005`, `MPB-006` | Make outbound routing installation-aware and enforce strict platform-vs-BYOA credential boundaries | `convex/channels/router.ts`; `convex/channels/types.ts`; `convex/channels/registry.ts` | `V-TYPE`; `V-LINT`; `V-CHANNEL-LINT`; `V-UNIT` | Done 2026-02-19: outbound credential resolution now enforces explicit platform fallback opt-in, blocks platform fallback leakage into organization/BYOA bindings, validates binding-vs-credential identity alignment (profile/install/route), and adds router boundary unit coverage; verify commands passed (lint profiles emitted warnings only). |
-| `MPB-008` | `C` | 3 | `P0` | `DONE` | `MPB-007` | Expand session routing key dimensions to include installation/route identity to avoid multi-agent collisions in shared channels | `convex/schemas/agentSessionSchemas.ts`; `convex/ai/agentSessions.ts`; `convex/ai/agentExecution.ts` | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-INTEG` | Done 2026-02-19: agent sessions now persist route-aware `sessionRoutingKey` and route identity, resolve sessions by org+channel+agent+contact with deterministic route-key matching, promote legacy active sessions only when safe, and partition inbound idempotency with route identity metadata; verify commands passed (lint profile emitted warnings only). |
-| `MPB-009` | `C` | 3 | `P1` | `BLOCKED` | `MPB-008` | Implement OpenClaw-style route resolution policies (account/team/peer/channel selectors) for agent dispatch | `convex/agentOntology.ts`; `convex/channels/webhooks.ts`; `convex/ai/agentExecution.ts` | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-MODEL` | Blocked 2026-02-19: route-selector dispatch implementation landed; `V-LINT`, `V-UNIT`, and `V-MODEL` passed, but `V-TYPE` failed on external `TS2589` at `src/components/window-content/store-window.tsx:46` (outside lane `C` ownership). |
-| `MPB-010` | `D` | 4 | `P1` | `DONE` | `MPB-007` | Build integrations UX for dual-mode setup: platform-managed app vs org BYOA per provider | `src/components/window-content/integrations-window/*`; `src/hooks/*`; `convex/integrations/*` | `V-TYPE`; `V-LINT`; `V-UNIT` | Done 2026-02-19: landed dual-mode setup UX for Slack/Telegram/WhatsApp (including WhatsApp tile wiring and copy-ready setup packets), then reran full verify profile with `V-TYPE`, `V-LINT`, and `V-UNIT` all passing (lint warnings only). |
-| `MPB-011` | `D` | 4 | `P1` | `DONE` | `MPB-010` | Publish provider setup guides/manifests/checklists for Slack, Telegram, WhatsApp BYOA onboarding | `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/*` | `V-DOCS` | Done 2026-02-19: added concrete BYOA provider runbook (`BYOA_PROVIDER_SETUP_RUNBOOK.md`) with manifest/callback/webhook/scope values, dev->prod cutover checklist, and per-provider key rotation checklist; `V-DOCS` passed. |
-| `MPB-012` | `E` | 5 | `P0` | `DONE` | `MPB-008`, `MPB-010` | Execute migration + rollout plan with feature flags, canary orgs, and rollback commands | `convex/migrations/*`; `convex/oauth/config.ts`; docs in this workstream | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-INTEG`; `V-DOCS` | Done 2026-02-19: added rollout control APIs in `convex/migrations/backfillChannelRuntimeIdentity.ts` (`getChannelRuntimeIdentityFlagState`, `setChannelRuntimeIdentityGlobalFlag`, `setChannelRuntimeIdentityProviderFlag`, `rollbackChannelRuntimeIdentityProviderFlag`) with canary-first + security-matrix gating for stage promotion and explicit rollback paths; `V-LINT`, `V-UNIT`, `V-INTEG`, `V-DOCS` passed; `V-TYPE` hit unrelated pre-existing errors in `convex/ai/agentExecution.ts` and `convex/integrations/openclawBridge.ts`; top risks covered: accidental direct `on` promotion, non-idempotent rollback, flag-schema drift. |
-| `MPB-013` | `E` | 5 | `P1` | `DONE` | `MPB-012` | Expand failure-path security test matrix (signature spoof/replay/token-rotation/routing isolation) | `tests/unit/*`; `tests/integration/*`; `tests/model/*` | `V-UNIT`; `V-INTEG`; `V-MODEL` | Done 2026-02-19: added `tests/unit/channels/telegramWebhookSecret.test.ts`, `tests/unit/channels/whatsappSignature.test.ts`, expanded `tests/unit/ai/channelRouterCredentialBoundary.test.ts`, and added `tests/integration/ai/channelSecurityFailurePathMatrix.integration.test.ts`; published `SECURITY_FAILURE_PATH_MATRIX.md`; `V-UNIT` and `V-INTEG` passed; `V-MODEL` executed with 6/6 functional checks passing but conformance `FAIL` due missing `cost_per_1k_tokens_usd` metric in environment output; top risks covered: Slack-only coverage bias, replay-path blind spots, routing-boundary false positives. |
-| `MPB-014` | `E` | 5 | `P1` | `DONE` | `MPB-013` | Final closeout: sync queue docs, operator runbook, and CI guard validation | `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/*` | `V-DOCS` | Done 2026-02-19: synchronized `TASK_QUEUE.md`, `MASTER_PLAN.md`, `INDEX.md`, and `BYOA_PROVIDER_SETUP_RUNBOOK.md` with lane `E` rollout/rollback and matrix controls; `V-DOCS` passed; top risks covered: status drift across docs, hidden verification exceptions, missing operator gating references. |
+| `MPB-015` | `F` | 6 | `P0` | `DONE` | `MPB-014` | Baseline UX convergence audit + contract freeze for menu IA, setup wizard behavior, voice discoverability, and soul-binding entry path | `src/app/page.tsx`; `src/hooks/window-registry.tsx`; `src/components/window-content/agents/*`; `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/MASTER_PLAN.md` | `V-DOCS` | Contract freeze captured in `MASTER_PLAN.md` (`MPB-015 contract freeze`, 2026-02-24); `npm run docs:guard` passed. |
+| `MPB-016` | `F` | 6 | `P0` | `DONE` | `MPB-015` | Remove `Brain Voice` from Product menu/All Apps primary surfaces and reroute to one canonical creation entry | `src/app/page.tsx`; `src/hooks/window-registry.tsx`; `src/components/window-content/all-apps-window.tsx`; shell catalog files | `V-TYPE`; `V-LINT`; `V-UX-LINT`; `V-UNIT` | Primary-surface exclusion wired via `PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES`; legacy `app=brain-voice` action/registry routes retained; verify profile executed successfully. |
+| `MPB-017` | `F` | 6 | `P0` | `DONE` | `MPB-015` | Replace empty `Create Agent` wizard with deterministic guided quickstart that starts in <=15 minute flow | `src/components/window-content/agents/*`; onboarding launch hooks; welcome entry surfaces | `V-TYPE`; `V-LINT`; `V-UX-LINT`; `V-UNIT` | `Create Agent` now starts with deterministic `Talk`/`Type` quickstart; `Talk` launches guided assistant context; verify profile executed successfully. |
+| `MPB-018` | `G` | 7 | `P0` | `DONE` | `MPB-016`, `MPB-017` | Ship tall, mobile-friendly native voice/chat canvas with animated voice orb, transcript, and typed fallback | `src/components/window-content/ai-chat-window/*`; `src/components/interview/*`; `src/hooks/use-voice-runtime.ts` | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-E2E-DESKTOP`; `V-E2E-MOBILE` | Interview runner now renders a tall responsive voice/chat canvas with animated orb states, rolling transcript, and typed fallback composer; voice capture uses existing runtime adapter + consent flow. Verify profile executed: `V-UNIT` passed; `V-TYPE` failed on pre-existing Convex type errors (`agentExecution.ts`, `agentSessions.ts`); `V-E2E-DESKTOP` failed on existing unknown deep-link cleanup timeout; `V-E2E-MOBILE` failed on existing login deep-link timeout. |
+| `MPB-019` | `G` | 7 | `P0` | `DONE` | `MPB-018` | Expose soul-binding recursive training as explicit first-run + ongoing training mode, including one-on-one and team coaching entry points | `src/components/interview/*`; `src/components/window-content/agents/*`; `convex/ai/interviewRunner.ts` | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-MODEL`; `V-E2E-ATX` | Interview selector now exposes explicit soul-binding `first-run`/`ongoing` and `one-on-one`/`team` entry points; training mode metadata is surfaced in runner context without trust-artifact schema changes. Consent checkpoints remain explicit. Verify profile executed: `V-LINT` (warnings only) and `V-UNIT` passed; `V-TYPE` failed on pre-existing Convex type errors; `V-MODEL` failed due configured effective-model mismatch fallback; `V-E2E-ATX` failed on existing create-agent placeholder timeout in trust-experience spec. |
+| `MPB-020` | `H` | 8 | `P1` | `DONE` | `MPB-019` | Add onboarding completion handoff with immediate deploy choices (`Webchat`, `Telegram`, `Both`) and inline setup packets | `src/components/window-content/web-publishing-window/*`; `src/components/window-content/integrations-window/*`; onboarding completion UI | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-INTEG` | Completion UI now exposes `Deploy to Webchat` / `Deploy to Telegram` / `Deploy to Both` with inline setup packets and deterministic window routing (`webchat-deployment`, `integrations:telegram`). BYOA boundaries unchanged (no channel router/provider contract mutation). Verify executed: `V-TYPE` failed on pre-existing `convex/ai/chat.ts` TS2322 (`string` not assignable to `"proposal" | "commit" | "read_only"`); `V-LINT` passed with existing warnings; `V-UNIT` passed; `V-INTEG` passed. |
+| `MPB-021` | `H` | 8 | `P1` | `DONE` | `MPB-020` | Align welcome and launch copy with delivered behavior: setup promise, voice-first CTA, and deploy follow-through | `src/app/page.tsx`; welcome surfaces; onboarding copy docs | `V-LINT`; `V-UNIT`; `V-DOCS` | Welcome + launch copy now states voice-first `Talk`/`Type` first-run behavior, ~15-minute setup target, and deploy follow-through to Webchat/Telegram/Both. Assistant kickoff contract now includes setup promise + deploy handoff tokens. Verify executed: `V-LINT` passed with existing warnings; `V-UNIT` passed; `V-DOCS` passed. |
+| `MPB-022` | `H` | 8 | `P1` | `DONE` | `MPB-021` | Final hardening closeout: docs sync, regression checklist, and docs guard pass for release readiness | `docs/reference_docs/topic_collections/implementation/multi-provider-byoa-channel-runtime/*`; UX regression checklist docs | `V-TYPE`; `V-LINT`; `V-UNIT`; `V-DOCS` | Queue/plan/index synchronized; added `UX_REGRESSION_CHECKLIST.md` for lane `H` release checks; verification notes captured explicitly. Full closeout rerun executed: `V-TYPE` passed; `V-LINT` passed with warnings only; `V-UNIT` passed; `V-DOCS` passed. |
+
+---
+
+## Historical completion note
+
+- `MPB-001`..`MPB-014` remain completed from the BYOA runtime/security foundation pass and are treated as fixed prerequisites for this extension.
 
 ---
 
 ## Current kickoff
 
-- Active task: none.
-- Next task to execute: none (lane `E` closeout complete).
-- Immediate objective: monitor canary rollout operations and only promote provider stages when `SECURITY_FAILURE_PATH_MATRIX.md` remains green.
+- Active task: none (`Lane H` closeout complete).
+- Next task to execute: none (all lane `H` rows `DONE`).
+- Immediate objective: monitor post-closeout regressions using `UX_REGRESSION_CHECKLIST.md` and keep BYOA boundary contracts unchanged.
