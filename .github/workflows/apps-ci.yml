@@ -1,0 +1,144 @@
+name: apps-ci
+
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "scripts/ci/vercel-ignored-build.sh"
+      - ".github/workflows/apps-ci.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "apps/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "scripts/ci/vercel-ignored-build.sh"
+      - ".github/workflows/apps-ci.yml"
+
+jobs:
+  detect-apps:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      has_apps: ${{ steps.detect.outputs.has_apps }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect changed apps
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ steps.range.outputs.base }}"
+          HEAD="${{ steps.range.outputs.head }}"
+
+          if [[ -n "$BASE" ]] && git cat-file -e "$BASE^{commit}" >/dev/null 2>&1; then
+            CHANGED="$(git diff --name-only "$BASE" "$HEAD" || true)"
+          else
+            CHANGED="$(git show --pretty='' --name-only "$HEAD" || true)"
+          fi
+
+          mapfile -t ALL_APPS < <(find apps -mindepth 1 -maxdepth 1 -type d | sort)
+          SHARED_TOUCHED=0
+          if echo "$CHANGED" | rg -q "^(package\.json|package-lock\.json|tsconfig\.json)$"; then
+            SHARED_TOUCHED=1
+          fi
+
+          declare -A SELECTED=()
+          if [[ "$SHARED_TOUCHED" -eq 1 ]]; then
+            for app in "${ALL_APPS[@]}"; do
+              [[ -f "$app/package.json" ]] && SELECTED["$app"]=1
+            done
+          else
+            while IFS= read -r file; do
+              [[ -z "$file" ]] && continue
+              if [[ "$file" == apps/*/* ]]; then
+                app_dir="$(echo "$file" | cut -d'/' -f1-2)"
+                [[ -f "$app_dir/package.json" ]] && SELECTED["$app_dir"]=1
+              fi
+            done <<< "$CHANGED"
+          fi
+
+          APPS=()
+          for app in "${!SELECTED[@]}"; do
+            APPS+=("$app")
+          done
+          IFS=$'\n' APPS=($(sort <<<"${APPS[*]}"))
+          unset IFS
+
+          if [[ ${#APPS[@]} -eq 0 ]]; then
+            echo 'matrix={"app":[]}' >> "$GITHUB_OUTPUT"
+            echo 'has_apps=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          JSON_APPS="$(printf '%s\n' "${APPS[@]}" | node -e 'const fs=require("fs"); const lines=fs.readFileSync(0,"utf8").trim().split(/\n+/).filter(Boolean); process.stdout.write(JSON.stringify({app: lines}));')"
+          echo "matrix=$JSON_APPS" >> "$GITHUB_OUTPUT"
+          echo 'has_apps=true' >> "$GITHUB_OUTPUT"
+
+  validate-apps:
+    needs: detect-apps
+    if: needs.detect-apps.outputs.has_apps == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-apps.outputs.matrix) }}
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck app (if configured)
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${{ matrix.app }}"
+          if node -e "const p=require('./${APP}/package.json'); process.exit(p.scripts&&p.scripts.typecheck?0:1)"; then
+            npm --prefix "$APP" run typecheck
+          else
+            echo "No typecheck script in $APP/package.json; skipping."
+          fi
+
+      - name: Build app (if configured)
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${{ matrix.app }}"
+          if node -e "const p=require('./${APP}/package.json'); process.exit(p.scripts&&p.scripts.build?0:1)"; then
+            npm --prefix "$APP" run build
+          else
+            echo "No build script in $APP/package.json; skipping."
+          fi
