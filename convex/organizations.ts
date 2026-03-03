@@ -5,6 +5,17 @@ const generatedApi: any = require("./_generated/api");
 import { requireAuthenticatedUser, getUserContext, checkPermission, requirePermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 
+const LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY = "storeLegacyPricingManualReveal";
+const LEGACY_COMPATIBILITY_TIERS = new Set([
+  "pro",
+  "agency",
+  "scale",
+  "enterprise",
+  "starter",
+  "professional",
+  "community",
+]);
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -31,25 +42,10 @@ export const listAll = query({
       throw new Error("Nicht autorisiert: Nur Super-Administratoren können alle Organisationen auflisten");
     }
 
-    // Get all organizations with member counts
-    const organizations = await ctx.db.query("organizations").collect();
-
-    const orgsWithDetails = await Promise.all(
-      organizations.map(async (org) => {
-        const memberCount = await ctx.db
-          .query("organizationMembers")
-          .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect();
-
-        return {
-          ...org,
-          memberCount: memberCount.length,
-        };
-      })
-    );
-
-    return orgsWithDetails;
+    // NOTE: Keep this query lightweight to avoid Convex read limits on large datasets.
+    // Consumers that need member counts should use listAllPaginated, which computes
+    // member counts only for a small page.
+    return await ctx.db.query("organizations").collect();
   },
 });
 
@@ -94,10 +90,30 @@ export const listAllPaginated = query({
           .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
           .filter((q) => q.eq(q.field("isActive"), true))
           .collect();
+        const license = await getLicenseInternal(ctx, org._id);
+        const normalizedTier =
+          typeof license.planTier === "string"
+            ? license.planTier.toLowerCase()
+            : typeof org.plan === "string"
+              ? org.plan.toLowerCase()
+              : "free";
+        const hasLegacyPlanAccess =
+          Boolean(org.stripeSubscriptionId) || LEGACY_COMPATIBILITY_TIERS.has(normalizedTier);
+        const manualRevealEnabled = Boolean(
+          (license.features as Record<string, unknown> | undefined)?.[LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY]
+        );
+        const legacyPricingStatus = hasLegacyPlanAccess
+          ? "compatibility"
+          : manualRevealEnabled
+            ? "revealed"
+            : "hidden";
 
         return {
           ...org,
           memberCount: activeMembers.length,
+          legacyPricingStatus,
+          legacyPricingManualRevealEnabled: manualRevealEnabled,
+          hasLegacyPlanAccess,
         };
       }),
     );

@@ -104,6 +104,28 @@ export interface KnowledgeItemBridgeDocument {
   updatedAt: number;
 }
 
+export interface KnowledgeRetrievalScopeContract {
+  contractVersion: "aoh_knowledge_retrieval_scope_v1";
+  scopeType: "org";
+  scopeOrganizationId: Id<"organizations">;
+  enforcedBy: "organizationKnowledgeChunks.by_organization" | "organizationMedia.by_organization";
+}
+
+export function buildKnowledgeRetrievalScopeContract(args: {
+  organizationId: Id<"organizations">;
+  surface: "semantic_chunks" | "knowledge_base_docs";
+}): KnowledgeRetrievalScopeContract {
+  return {
+    contractVersion: "aoh_knowledge_retrieval_scope_v1",
+    scopeType: "org",
+    scopeOrganizationId: args.organizationId,
+    enforcedBy:
+      args.surface === "semantic_chunks"
+        ? "organizationKnowledgeChunks.by_organization"
+        : "organizationMedia.by_organization",
+  };
+}
+
 interface KnowledgeItemBridgeBuildArgs {
   knowledgeItem: {
     _id: string;
@@ -1428,10 +1450,14 @@ export const searchKnowledgeChunksInternal = internalQuery({
     );
     const mediaIdSet = new Set((args.mediaIds ?? []).map((mediaId) => mediaId.toString()));
 
+    const scopeContract = buildKnowledgeRetrievalScopeContract({
+      organizationId: args.organizationId,
+      surface: "semantic_chunks",
+    });
     // Tenant-safe candidate prefilter from org-scoped index.
     const candidateChunks = await ctx.db
       .query("organizationKnowledgeChunks")
-      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organization", (q) => q.eq("organizationId", scopeContract.scopeOrganizationId))
       .take(candidateLimit);
 
     const filteredChunkCandidates = candidateChunks.filter((chunk) => {
@@ -1522,9 +1548,13 @@ export const getKnowledgeBaseDocsInternal = internalQuery({
     );
     const maxDocs = Math.min(Math.max(limit ?? 20, 1), 50);
 
+    const scopeContract = buildKnowledgeRetrievalScopeContract({
+      organizationId,
+      surface: "knowledge_base_docs",
+    });
     const docs = await ctx.db
       .query("organizationMedia")
-      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+      .withIndex("by_organization", (q) => q.eq("organizationId", scopeContract.scopeOrganizationId))
       .filter((q) => q.eq(q.field("itemType"), "layercake_document"))
       .collect();
 

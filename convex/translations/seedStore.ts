@@ -56,12 +56,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.subtitle",
         values: {
-          en: "Platform services and subscriptions • Store prices are VAT-inclusive (EUR)",
-          de: "Plattformdienste und Abonnements • Store-Preise sind inkl. MwSt. (EUR)",
-          pl: "Usługi platformowe i subskrypcje • Ceny w sklepie zawierają VAT (EUR)",
-          es: "Servicios y suscripciones de la plataforma • Los precios de la tienda incluyen IVA (EUR)",
-          fr: "Services et abonnements de la plateforme • Les prix de la boutique incluent la TVA (EUR)",
-          ja: "プラットフォームサービスとサブスクリプション • ストア価格はVAT込み（EUR）",
+          en: "Everything you need to get started, scale, and grow. All prices include VAT (EUR).",
+          de: "Alles, was Sie für den Start, die Skalierung und das Wachstum brauchen. Alle Preise inkl. MwSt. (EUR).",
+          pl: "Wszystko, czego potrzebujesz, aby zacząć, skalować i rozwijać się. Wszystkie ceny zawierają VAT (EUR).",
+          es: "Todo lo que necesita para empezar, escalar y crecer. Todos los precios incluyen IVA (EUR).",
+          fr: "Tout ce dont vous avez besoin pour démarrer, évoluer et grandir. Tous les prix incluent la TVA (EUR).",
+          ja: "開始、拡張、成長に必要なすべてが揃っています。すべての価格はVAT込み（EUR）です。",
         }
       },
 
@@ -126,12 +126,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.ai.standard.description",
         values: {
-          en: "All 16 AI models with global routing for best performance",
-          de: "Alle 16 KI-Modelle mit globalem Routing für beste Leistung",
-          pl: "Wszystkie 16 modeli AI z globalnym routingiem dla najlepszej wydajności",
-          es: "Todos los 16 modelos de IA con enrutamiento global para un mejor rendimiento",
-          fr: "Tous les 16 modèles IA avec routage global pour les meilleures performances",
-          ja: "最高のパフォーマンスを実現するグローバルルーティングを備えた全16のAIモデル",
+          en: "Access all 16 AI models. Automatic smart routing picks the fastest option for you.",
+          de: "Zugriff auf alle 16 KI-Modelle. Automatisches Smart-Routing wählt die schnellste Option für Sie.",
+          pl: "Dostęp do wszystkich 16 modeli AI. Automatyczny smart routing wybiera najszybszą opcję.",
+          es: "Acceda a los 16 modelos de IA. El enrutamiento inteligente elige la opción más rápida para usted.",
+          fr: "Accédez aux 16 modèles IA. Le routage intelligent choisit automatiquement l'option la plus rapide.",
+          ja: "全16のAIモデルにアクセス。スマートルーティングが最速のオプションを自動選択します。",
         }
       },
       {
@@ -159,23 +159,23 @@ export const seed = internalMutation({
       {
         key: "ui.store.ai.standard.feature3",
         values: {
-          en: "Global routing",
-          de: "Globales Routing",
-          pl: "Globalny routing",
-          es: "Enrutamiento global",
-          fr: "Routage global",
-          ja: "グローバルルーティング",
+          en: "Smart routing for speed",
+          de: "Smart-Routing für Geschwindigkeit",
+          pl: "Smart routing dla szybkości",
+          es: "Enrutamiento inteligente",
+          fr: "Routage intelligent rapide",
+          ja: "高速スマートルーティング",
         }
       },
       {
         key: "ui.store.ai.standard.feature4",
         values: {
-          en: "Best performance",
-          de: "Beste Leistung",
-          pl: "Najlepsza wydajność",
-          es: "Mejor rendimiento",
-          fr: "Meilleures performances",
-          ja: "最高のパフォーマンス",
+          en: "Fast, reliable responses",
+          de: "Schnelle, zuverlässige Antworten",
+          pl: "Szybkie, niezawodne odpowiedzi",
+          es: "Respuestas rápidas y fiables",
+          fr: "Réponses rapides et fiables",
+          ja: "高速で信頼性の高い応答",
         }
       },
       {
@@ -216,12 +216,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.ai.privacy.description",
         values: {
-          en: "GDPR-compliant AI with zero data retention",
-          de: "DSGVO-konforme KI ohne Datenspeicherung",
-          pl: "AI zgodny z RODO bez przechowywania danych",
-          es: "IA compatible con GDPR sin retención de datos",
-          fr: "IA conforme au RGPD sans rétention de données",
-          ja: "データ保持なしのGDPR準拠AI",
+          en: "Your data stays yours. GDPR-compliant models with zero data retention.",
+          de: "Ihre Daten bleiben Ihre. DSGVO-konforme Modelle ohne Datenspeicherung.",
+          pl: "Twoje dane pozostają Twoje. Modele zgodne z RODO bez przechowywania danych.",
+          es: "Sus datos son suyos. Modelos compatibles con GDPR sin retención de datos.",
+          fr: "Vos données restent les vôtres. Modèles conformes au RGPD sans rétention de données.",
+          ja: "あなたのデータはあなたのもの。データ保持なしのGDPR準拠モデル。",
         }
       },
       {
@@ -317,12 +317,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.private_llm.starter.description",
         values: {
-          en: "Self-hosted AI with scale-to-zero compute",
-          de: "Selbst gehostete KI mit Scale-to-Zero-Computing",
-          pl: "Samodzielnie hostowane AI z obliczeniami skalującymi do zera",
-          es: "IA autohospedada con computación de escalado a cero",
-          fr: "IA auto-hébergée avec calcul évolutif à zéro",
-          ja: "ゼロまでスケールするセルフホストAI",
+          en: "Run AI on your own infrastructure. Pay only when it's active.",
+          de: "KI auf Ihrer eigenen Infrastruktur betreiben. Nur bei Nutzung zahlen.",
+          pl: "Uruchom AI na własnej infrastrukturze. Płać tylko, gdy jest aktywne.",
+          es: "Ejecute IA en su propia infraestructura. Pague solo cuando esté activo.",
+          fr: "Exécutez l'IA sur votre propre infrastructure. Payez uniquement quand elle est active.",
+          ja: "自社のインフラでAIを実行。アクティブ時のみ課金。",
         }
       },
       {
@@ -350,23 +350,23 @@ export const seed = internalMutation({
       {
         key: "ui.store.private_llm.starter.feature3",
         values: {
-          en: "Scale-to-zero compute",
-          de: "Scale-to-Zero-Computing",
-          pl: "Obliczenia skalujące do zera",
-          es: "Computación de escalado a cero",
-          fr: "Calcul évolutif à zéro",
-          ja: "ゼロまでスケール",
+          en: "No cost when idle",
+          de: "Keine Kosten im Ruhezustand",
+          pl: "Brak kosztów w stanie bezczynności",
+          es: "Sin coste cuando está inactivo",
+          fr: "Aucun coût au repos",
+          ja: "アイドル時は無料",
         }
       },
       {
         key: "ui.store.private_llm.starter.feature4",
         values: {
-          en: "Full data sovereignty",
-          de: "Vollständige Datensouveränität",
-          pl: "Pełna suwerenność danych",
-          es: "Soberanía completa de datos",
-          fr: "Souveraineté complète des données",
-          ja: "完全なデータ主権",
+          en: "Complete data ownership",
+          de: "Vollständige Datenhoheit",
+          pl: "Pełna kontrola nad danymi",
+          es: "Control total de sus datos",
+          fr: "Propriété totale de vos données",
+          ja: "データの完全な所有権",
         }
       },
 
@@ -385,12 +385,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.private_llm.professional.description",
         values: {
-          en: "Dedicated GPU infrastructure with 99.5% SLA",
-          de: "Dedizierte GPU-Infrastruktur mit 99,5% SLA",
-          pl: "Dedykowana infrastruktura GPU z 99,5% SLA",
-          es: "Infraestructura GPU dedicada con 99.5% SLA",
-          fr: "Infrastructure GPU dédiée avec 99,5% SLA",
-          ja: "99.5% SLA付き専用GPUインフラ",
+          en: "Dedicated GPU power for teams that need guaranteed performance and uptime.",
+          de: "Dedizierte GPU-Leistung für Teams, die garantierte Performance und Verfügbarkeit benötigen.",
+          pl: "Dedykowana moc GPU dla zespołów potrzebujących gwarantowanej wydajności i dostępności.",
+          es: "Potencia GPU dedicada para equipos que necesitan rendimiento y disponibilidad garantizados.",
+          fr: "Puissance GPU dédiée pour les équipes qui ont besoin de performances et de disponibilité garanties.",
+          ja: "パフォーマンスと稼働時間を保証する専用GPUパワー。",
         }
       },
       {
@@ -453,12 +453,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.private_llm.enterprise.description",
         values: {
-          en: "Custom infrastructure with unlimited requests",
-          de: "Individuelle Infrastruktur mit unbegrenzten Anfragen",
-          pl: "Niestandardowa infrastruktura z nieograniczonymi zapytaniami",
-          es: "Infraestructura personalizada con solicitudes ilimitadas",
-          fr: "Infrastructure personnalisée avec requêtes illimitées",
-          ja: "無制限リクエストのカスタムインフラ",
+          en: "Fully custom setup with no request limits. Built around your exact requirements.",
+          de: "Vollständig individuelle Einrichtung ohne Anfragelimits. Auf Ihre Anforderungen zugeschnitten.",
+          pl: "W pełni niestandardowa konfiguracja bez limitów zapytań. Dostosowana do Twoich wymagań.",
+          es: "Configuración totalmente personalizada sin límites de solicitudes. Diseñada según sus requisitos.",
+          fr: "Configuration entièrement personnalisée sans limites de requêtes. Conçue selon vos besoins.",
+          ja: "リクエスト制限なしの完全カスタムセットアップ。お客様の要件に合わせて構築。",
         }
       },
       {
@@ -655,12 +655,12 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.description",
         values: {
-          en: "Get a fully custom web application built specifically for your needs, connected to the sevenlayers.io backend via API. Perfect for unique business requirements.",
-          de: "Erhalten Sie eine vollständig maßgeschneiderte Webanwendung für Ihre spezifischen Anforderungen, verbunden mit dem sevenlayers.io-Backend über die API. Perfekt für einzigartige Geschäftsanforderungen.",
-          pl: "Otrzymaj w pełni niestandardową aplikację internetową dostosowaną do Twoich potrzeb, połączoną z backendem sevenlayers.io przez API. Idealne dla unikalnych wymagań biznesowych.",
-          es: "Obtenga una aplicación web totalmente personalizada creada específicamente para sus necesidades, conectada al backend de sevenlayers.io a través de API. Perfecta para requisitos comerciales únicos.",
-          fr: "Obtenez une application web entièrement personnalisée conçue spécifiquement pour vos besoins, connectée au backend sevenlayers.io via API. Parfait pour des exigences commerciales uniques.",
-          ja: "sevenlayers.ioバックエンドにAPI経由で接続された、あなたのニーズに特化した完全なカスタムWebアプリケーションを入手しましょう。独自のビジネス要件に最適です。",
+          en: "We build a custom web application for your business, fully connected to sevenlayers.io. You get a solution designed around your workflows — not a template.",
+          de: "Wir entwickeln eine maßgeschneiderte Webanwendung für Ihr Unternehmen, vollständig mit sevenlayers.io verbunden. Sie erhalten eine Lösung, die auf Ihre Arbeitsabläufe zugeschnitten ist — kein Template.",
+          pl: "Budujemy niestandardową aplikację internetową dla Twojej firmy, w pełni połączoną z sevenlayers.io. Otrzymujesz rozwiązanie zaprojektowane wokół Twoich procesów — nie szablon.",
+          es: "Construimos una aplicación web personalizada para su negocio, completamente conectada a sevenlayers.io. Obtiene una solución diseñada en torno a sus flujos de trabajo, no una plantilla.",
+          fr: "Nous construisons une application web sur mesure pour votre entreprise, entièrement connectée à sevenlayers.io. Vous obtenez une solution conçue autour de vos flux de travail — pas un modèle.",
+          ja: "sevenlayers.ioと完全に連携した、お客様のビジネス向けカスタムWebアプリケーションを構築します。テンプレートではなく、ワークフローに合わせた設計です。",
         }
       },
       {
@@ -776,12 +776,159 @@ export const seed = internalMutation({
       {
         key: "ui.store.custom.cta",
         values: {
-          en: "Let's discuss your project and create a custom quote",
-          de: "Lassen Sie uns über Ihr Projekt sprechen und ein individuelles Angebot erstellen",
-          pl: "Omówmy Twój projekt i stwórzmy indywidualną wycenę",
-          es: "Hablemos de su proyecto y creemos un presupuesto personalizado",
-          fr: "Discutons de votre projet et créons un devis personnalisé",
-          ja: "あなたのプロジェクトについて話し、カスタム見積もりを作成しましょう",
+          en: "Tell us about your project — we'll send you a tailored quote.",
+          de: "Erzählen Sie uns von Ihrem Projekt — wir senden Ihnen ein maßgeschneidertes Angebot.",
+          pl: "Opowiedz nam o swoim projekcie — wyślemy Ci dostosowaną wycenę.",
+          es: "Cuéntenos sobre su proyecto — le enviaremos un presupuesto personalizado.",
+          fr: "Parlez-nous de votre projet — nous vous enverrons un devis sur mesure.",
+          ja: "プロジェクトについてお聞かせください — カスタマイズされた見積もりをお送りします。",
+        }
+      },
+      {
+        key: "ui.store.commercial_architecture.title",
+        values: {
+          en: "Plans and pricing overview",
+          de: "Pläne und Preisübersicht",
+          pl: "Przegląd planów i cen",
+          es: "Resumen de planes y precios",
+          fr: "Aperçu des forfaits et tarifs",
+          ja: "プランと料金の概要",
+        }
+      },
+      {
+        key: "ui.store.commercial_architecture.description",
+        values: {
+          en: "Setup fees, monthly platform fees, and consulting options are listed below. Existing Pro/Scale subscribers keep full access.",
+          de: "Setup-Gebühren, monatliche Plattformgebühren und Beratungsoptionen sind unten aufgeführt. Bestehende Pro/Scale-Abonnenten behalten vollen Zugang.",
+          pl: "Opłaty konfiguracyjne, miesięczne opłaty platformowe i opcje konsultingowe poniżej. Obecni subskrybenci Pro/Scale zachowują pełny dostęp.",
+          es: "Las tarifas de configuración, tarifas mensuales y opciones de consultoría se enumeran a continuación. Los suscriptores existentes de Pro/Scale mantienen acceso completo.",
+          fr: "Les frais d'installation, les frais mensuels de plateforme et les options de conseil sont listés ci-dessous. Les abonnés Pro/Scale existants conservent un accès complet.",
+          ja: "セットアップ料金、月額プラットフォーム料金、コンサルティングオプションを以下に示します。既存のPro/Scaleサブスクライバーはフルアクセスを維持します。",
+        }
+      },
+      {
+        key: "ui.store.commercial_architecture.description_v2",
+        values: {
+          en: "Browse setup fees, monthly platform fees, and consulting options below. Existing Pro/Scale subscribers keep full access during the transition.",
+          de: "Durchsuchen Sie unten Setup-Gebühren, monatliche Plattformgebühren und Beratungsoptionen. Bestehende Pro/Scale-Abonnenten behalten während der Umstellung vollen Zugang.",
+          pl: "Przeglądaj opłaty konfiguracyjne, miesięczne opłaty platformowe i opcje konsultingowe poniżej. Obecni subskrybenci Pro/Scale zachowują pełny dostęp podczas przejścia.",
+          es: "Consulte las tarifas de configuración, tarifas mensuales y opciones de consultoría a continuación. Los suscriptores existentes de Pro/Scale mantienen acceso completo durante la transición.",
+          fr: "Parcourez ci-dessous les frais d'installation, les frais mensuels et les options de conseil. Les abonnés Pro/Scale existants conservent un accès complet pendant la transition.",
+          ja: "以下のセットアップ料金、月額プラットフォーム料金、コンサルティングオプションをご覧ください。既存のPro/Scaleサブスクライバーは移行中もフルアクセスを維持します。",
+        }
+      },
+      {
+        key: "ui.store.commercial_architecture.coexistence_notice",
+        values: {
+          en: "Your existing billing and credit balances are safe. New customers start with a Free Diagnostic, Consulting Sprint (€3,500), or Implementation Start (€7,000+).",
+          de: "Ihre bestehende Abrechnung und Guthaben sind sicher. Neukunden starten mit einer kostenlosen Diagnose, einem Consulting Sprint (3.500 €) oder einem Implementierungsstart (7.000 €+).",
+          pl: "Twoje obecne rozliczenia i salda kredytów są bezpieczne. Nowi klienci zaczynają od bezpłatnej diagnozy, sprintu konsultingowego (3 500 €) lub startu wdrożenia (7 000 €+).",
+          es: "Su facturación y saldos de créditos existentes están seguros. Los nuevos clientes comienzan con un diagnóstico gratuito, sprint de consultoría (3.500 €) o inicio de implementación (7.000 €+).",
+          fr: "Votre facturation et vos soldes de crédits existants sont préservés. Les nouveaux clients commencent par un diagnostic gratuit, un sprint de conseil (3 500 €) ou un démarrage d'implémentation (7 000 €+).",
+          ja: "既存の請求とクレジット残高は安全です。新規のお客様は、無料診断、コンサルティングスプリント（€3,500）、または実装開始（€7,000+）から始められます。",
+        }
+      },
+      {
+        key: "ui.store.commercial_architecture.coexistence_notice_v2",
+        values: {
+          en: "Your existing billing and credit balances are safe. New customers start with the options shown above.",
+          de: "Ihre bestehende Abrechnung und Guthaben sind sicher. Neukunden starten mit den oben gezeigten Optionen.",
+          pl: "Twoje obecne rozliczenia i salda kredytów są bezpieczne. Nowi klienci zaczynają od opcji pokazanych powyżej.",
+          es: "Su facturación y saldos existentes están seguros. Los nuevos clientes comienzan con las opciones mostradas arriba.",
+          fr: "Votre facturation et vos soldes existants sont préservés. Les nouveaux clients commencent avec les options ci-dessus.",
+          ja: "既存の請求とクレジット残高は安全です。新規のお客様は上記のオプションから始められます。",
+        }
+      },
+      {
+        key: "ui.store.motion_contract.title_v2",
+        values: {
+          en: "How our pricing works",
+          de: "So funktioniert unsere Preisgestaltung",
+          pl: "Jak działa nasz cennik",
+          es: "Cómo funciona nuestro precio",
+          fr: "Comment fonctionne notre tarification",
+          ja: "料金体系のご案内",
+        }
+      },
+      {
+        key: "ui.store.motion_contract.free_v2",
+        values: {
+          en: "Free Diagnostic — Explore the platform and see what's possible. No credit card needed.",
+          de: "Kostenlose Diagnose — Erkunden Sie die Plattform und sehen Sie, was möglich ist. Keine Kreditkarte erforderlich.",
+          pl: "Bezpłatna diagnoza — Poznaj platformę i sprawdź możliwości. Karta kredytowa nie jest wymagana.",
+          es: "Diagnóstico gratuito — Explore la plataforma y vea lo que es posible. Sin tarjeta de crédito.",
+          fr: "Diagnostic gratuit — Explorez la plateforme et découvrez les possibilités. Sans carte bancaire.",
+          ja: "無料診断 — プラットフォームを探索し、可能性をご確認ください。クレジットカード不要。",
+        }
+      },
+      {
+        key: "ui.store.motion_contract.consult_v2",
+        values: {
+          en: "Consulting Sprint (€3,500) — Get a tailored strategy and project scope. Consulting only, no build work included.",
+          de: "Consulting Sprint (3.500 €) — Erhalten Sie eine maßgeschneiderte Strategie und Projektumfang. Nur Beratung, keine Umsetzung enthalten.",
+          pl: "Sprint konsultingowy (3 500 €) — Otrzymaj dostosowaną strategię i zakres projektu. Wyłącznie doradztwo, bez wdrożenia.",
+          es: "Sprint de consultoría (3.500 €) — Obtenga una estrategia personalizada y alcance del proyecto. Solo consultoría, sin implementación.",
+          fr: "Sprint de conseil (3 500 €) — Obtenez une stratégie sur mesure et un périmètre de projet. Conseil uniquement, sans développement.",
+          ja: "コンサルティングスプリント（€3,500）— カスタマイズされた戦略とプロジェクト範囲を取得。コンサルティングのみ、構築作業は含まれません。",
+        }
+      },
+      {
+        key: "ui.store.motion_contract.implementation_v2",
+        values: {
+          en: "Implementation Start (from €7,000) — Launch your first production environment. Includes Layer 1 Foundation setup and above.",
+          de: "Implementierungsstart (ab 7.000 €) — Starten Sie Ihre erste Produktionsumgebung. Enthält Layer 1 Foundation-Setup und höher.",
+          pl: "Start wdrożenia (od 7 000 €) — Uruchom swoje pierwsze środowisko produkcyjne. Obejmuje konfigurację Layer 1 Foundation i wyżej.",
+          es: "Inicio de implementación (desde 7.000 €) — Lance su primer entorno de producción. Incluye configuración Layer 1 Foundation y superior.",
+          fr: "Démarrage d'implémentation (à partir de 7 000 €) — Lancez votre premier environnement de production. Inclut la configuration Layer 1 Foundation et au-delà.",
+          ja: "実装開始（€7,000から）— 最初の本番環境を立ち上げ。Layer 1 Foundationセットアップ以上を含みます。",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.title_v2",
+        values: {
+          en: "Admin: previous plan visibility",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.description_v2",
+        values: {
+          en: "Show or hide the previous Pro/Scale plan cards for this workspace. Existing subscribers keep their current access.",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.reveal_v2",
+        values: {
+          en: "Show previous plan cards",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.hide_v2",
+        values: {
+          en: "Hide previous plan cards",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.updating_v2",
+        values: {
+          en: "Updating...",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.status_override_v2",
+        values: {
+          en: "Shown by admin",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.status_compatibility_v2",
+        values: {
+          en: "Shown for existing subscribers",
+        }
+      },
+      {
+        key: "ui.store.legacy_pricing_control.status_hidden_v2",
+        values: {
+          en: "Hidden from public view",
         }
       },
     ];

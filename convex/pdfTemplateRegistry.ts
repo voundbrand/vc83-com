@@ -1096,12 +1096,128 @@ export const LEADMAGNET_AUDIT_WORKFLOW_REPORT_V1: PdfTemplateDefinition = {
     },
   ],
   defaultStyling: {
-    primaryColor: "#1D4ED8",
-    secondaryColor: "#334155",
-    fontSize: "10.5pt",
+    primaryColor: "#6D28D9",
+    secondaryColor: "#4338CA",
+    fontSize: "10pt",
     fontFamily: "-apple-system, sans-serif",
   },
   previewImageUrl: "https://cdn.vc83.com/templates/leadmagnet-audit-workflow-report-preview.png",
+  version: "1.1.0",
+};
+
+export const AUDIT_RECOMMENDATION_V1: PdfTemplateDefinition = {
+  code: "audit_recommendation_v1",
+  name: "Audit Recommendation Report",
+  description:
+    "Consulting-style audit recommendation with KPI callout, 7-day action timeline, and execution guardrails",
+  category: "leadmagnet",
+  template: {
+    html: AUDIT_WORKFLOW_REPORT_TEMPLATE_HTML,
+    css: AUDIT_WORKFLOW_REPORT_TEMPLATE_CSS,
+  },
+  apiTemplate: {
+    provider: "apitemplate.io",
+    endpoint: "https://rest.apitemplate.io/v2/create-pdf-from-html",
+  },
+  requiredFields: [
+    {
+      name: "logo_url",
+      type: "string",
+      required: false,
+      description: "Logo URL for the report header",
+    },
+    {
+      name: "highlight_color",
+      type: "string",
+      required: false,
+      description: "Accent color used across headers and timeline markers",
+      example: "#1D4ED8",
+    },
+    {
+      name: "client_name",
+      type: "string",
+      required: true,
+      description: "Client/prospect name",
+    },
+    {
+      name: "business_type",
+      type: "string",
+      required: true,
+      description: "Business type or industry",
+    },
+    {
+      name: "revenue",
+      type: "string",
+      required: true,
+      description: "Revenue band or revenue snapshot",
+    },
+    {
+      name: "team_size",
+      type: "string",
+      required: true,
+      description: "Team size descriptor",
+    },
+    {
+      name: "weekly_lift_hours",
+      type: "number",
+      required: true,
+      description: "Headline weekly hours recovered metric",
+    },
+    {
+      name: "lift_summary",
+      type: "string",
+      required: true,
+      description: "One-sentence expected outcome summary",
+    },
+    {
+      name: "workflow_name",
+      type: "string",
+      required: true,
+      description: "Recommended workflow title",
+    },
+    {
+      name: "workflow_description",
+      type: "string",
+      required: true,
+      description: "Recommended workflow rationale",
+    },
+    {
+      name: "action_steps",
+      type: "array",
+      required: true,
+      description: "Ordered action steps with owner/day metadata",
+    },
+    {
+      name: "guardrails",
+      type: "array",
+      required: true,
+      description: "Execution guardrails",
+    },
+    {
+      name: "tooling_recommendations",
+      type: "array",
+      required: true,
+      description: "Tooling recommendations list",
+    },
+    {
+      name: "next_move",
+      type: "string",
+      required: true,
+      description: "Final CTA line for the reader",
+    },
+    {
+      name: "generated_date",
+      type: "string",
+      required: true,
+      description: "Report generation date",
+    },
+  ],
+  defaultStyling: {
+    primaryColor: "#1D4ED8",
+    secondaryColor: "#0F172A",
+    fontSize: "13px",
+    fontFamily: "Inter, -apple-system, sans-serif",
+  },
   version: "1.0.0",
 };
 
@@ -1487,6 +1603,7 @@ export const PDF_TEMPLATE_REGISTRY: Record<string, PdfTemplateDefinition> = {
   leadmagnet_ebook_guide_v1: LEADMAGNET_EBOOK_GUIDE_V1,
   leadmagnet_checklist_onepager_v1: LEADMAGNET_CHECKLIST_ONEPAGER_V1,
   leadmagnet_audit_workflow_report_v1: LEADMAGNET_AUDIT_WORKFLOW_REPORT_V1,
+  audit_recommendation_v1: AUDIT_RECOMMENDATION_V1,
 
   // Quotes & Estimates
   quote_estimate_v1: QUOTE_ESTIMATE_V1,
@@ -1598,6 +1715,8 @@ export const INVOICE_TEMPLATES = [
 export const LEADMAGNET_TEMPLATES = [
   LEADMAGNET_EBOOK_GUIDE_V1,
   LEADMAGNET_CHECKLIST_ONEPAGER_V1,
+  LEADMAGNET_AUDIT_WORKFLOW_REPORT_V1,
+  AUDIT_RECOMMENDATION_V1,
 ];
 
 /**

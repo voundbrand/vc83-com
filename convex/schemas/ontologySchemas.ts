@@ -105,6 +105,7 @@ export const objects = defineTable({
   // Core indexes for fast queries
   .index("by_org", ["organizationId"])
   .index("by_org_type", ["organizationId", "type"])
+  .index("by_org_type_name", ["organizationId", "type", "name"])
   .index("by_org_type_subtype", ["organizationId", "type", "subtype"])
   .index("by_type", ["type"])
   .index("by_type_subtype", ["type", "subtype"])

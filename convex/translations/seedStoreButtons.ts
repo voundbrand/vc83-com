@@ -115,45 +115,45 @@ export const seed = internalMutation({
       {
         key: "ui.store.daily_credits.badge",
         values: {
-          en: "Free tier feature",
-          de: "Free-Tier-Funktion",
-          pl: "Funkcja planu Free",
-          es: "Función del plan gratis",
-          fr: "Fonction du forfait gratuit",
-          ja: "無料プラン機能",
+          en: "Included free",
+          de: "Kostenlos enthalten",
+          pl: "Zawarte bezpłatnie",
+          es: "Incluido gratis",
+          fr: "Inclus gratuitement",
+          ja: "無料で含まれています",
         }
       },
       {
         key: "ui.store.daily_credits.title",
         values: {
-          en: "Daily Free Credits",
-          de: "Tägliche Gratis-Credits",
-          pl: "Codzienne darmowe kredyty",
-          es: "Créditos diarios gratis",
-          fr: "Crédits gratuits quotidiens",
-          ja: "毎日の無料クレジット",
+          en: "5 Free Credits Every Day",
+          de: "5 kostenlose Credits jeden Tag",
+          pl: "5 darmowych kredytów każdego dnia",
+          es: "5 créditos gratis cada día",
+          fr: "5 crédits gratuits chaque jour",
+          ja: "毎日5クレジット無料",
         }
       },
       {
         key: "ui.store.daily_credits.description",
         values: {
-          en: "Free users receive 5 credits every day to test and explore sevenlayers features.",
-          de: "Kostenlose Nutzer erhalten jeden Tag 5 Credits, um sevenlayers-Funktionen zu testen und zu erkunden.",
-          pl: "Użytkownicy planu Free otrzymują codziennie 5 kredytów, aby testować i poznawać funkcje sevenlayers.",
-          es: "Los usuarios gratuitos reciben 5 créditos cada día para probar y explorar las funciones de sevenlayers.",
-          fr: "Les utilisateurs gratuits reçoivent 5 crédits chaque jour pour tester et explorer les fonctionnalités de sevenlayers.",
-          ja: "無料ユーザーは、sevenlayers の機能を試して活用するために、毎日 5 クレジットを受け取れます。",
+          en: "Try AI features, run automations, and explore the platform — no commitment required.",
+          de: "Testen Sie KI-Funktionen, führen Sie Automatisierungen aus und erkunden Sie die Plattform — unverbindlich.",
+          pl: "Wypróbuj funkcje AI, uruchom automatyzacje i poznaj platformę — bez zobowiązań.",
+          es: "Pruebe funciones de IA, ejecute automatizaciones y explore la plataforma — sin compromiso.",
+          fr: "Testez les fonctionnalités IA, lancez des automatisations et explorez la plateforme — sans engagement.",
+          ja: "AI機能を試し、自動化を実行し、プラットフォームを探索 — コミットメント不要。",
         }
       },
       {
         key: "ui.store.daily_credits.reset_note",
         values: {
-          en: "Credits reset daily and don't roll over.",
-          de: "Credits werden täglich zurückgesetzt und nicht übertragen.",
-          pl: "Kredyty resetują się codziennie i nie przechodzą na kolejny dzień.",
-          es: "Los créditos se reinician a diario y no se acumulan.",
-          fr: "Les crédits sont réinitialisés chaque jour et ne sont pas reportés.",
-          ja: "クレジットは毎日リセットされ、繰り越されません。",
+          en: "Credits refresh every 24 hours. Unused credits don't carry over.",
+          de: "Credits werden alle 24 Stunden erneuert. Unbenutzte Credits verfallen.",
+          pl: "Kredyty odnawiają się co 24 godziny. Niewykorzystane kredyty nie przechodzą na kolejny dzień.",
+          es: "Los créditos se renuevan cada 24 horas. Los créditos no utilizados no se acumulan.",
+          fr: "Les crédits se renouvellent toutes les 24 heures. Les crédits inutilisés ne sont pas reportés.",
+          ja: "クレジットは24時間ごとに更新されます。未使用のクレジットは繰り越されません。",
         }
       },
 

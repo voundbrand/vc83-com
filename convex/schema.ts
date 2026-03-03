@@ -70,8 +70,12 @@ import {
   agentInboxReceipts,
   aiTrainingExamples,
   aiTrustEvents,
+  qaRuns,
   voiceTransportSessionState,
+  voiceRuntimeSessionOpenRateState,
+  videoTransportSessionState,
   toolFoundryProposalBacklog,
+  agentSpecRegistry,
 } from "./schemas/aiSchemas";
 import {
   agentCatalogEntries,
@@ -297,8 +301,12 @@ export default defineSchema({
   aiWorkItems,            // Work items for human-in-the-loop approval workflow
   agentInboxReceipts,     // Durable inbound receipts for agent runtime ingress
   aiTrustEvents,          // Deterministic trust telemetry taxonomy events
+  qaRuns,                // Super-admin QA run lifecycle + failure taxonomy aggregates
   voiceTransportSessionState, // Keyed voice transport sequencing/replay checkpoint state
+  voiceRuntimeSessionOpenRateState, // Per-live-session voice open quota/rate-limit counters
+  videoTransportSessionState, // Keyed video frame sequencing/rate-control checkpoint state
   toolFoundryProposalBacklog, // Runtime ToolSpec proposal backlog with trace + rollback semantics
+  agentSpecRegistry,      // Deterministic registry for agent_spec_v1 contracts
   aiAgentTasks,          // Email AI tasks with approval workflow
   aiAgentMemory,         // Legacy table retained for backward compatibility; runtime contract is deprecated/fail-closed
   operatorPinnedNotes,   // Operator-authored pinned notes (L3 memory layer)

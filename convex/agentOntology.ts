@@ -241,6 +241,43 @@ interface ActiveAgentCandidate {
 
 const PRIMARY_AGENT_INELIGIBLE_STATUSES = new Set(["archived", "deleted", "template"]);
 const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
+const MANAGED_USE_CASE_CLONE_LIFECYCLE = "managed_use_case_clone_v1";
+const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
+  "displayName",
+  "personality",
+  "language",
+  "voiceLanguage",
+  "additionalLanguages",
+  "brandVoiceInstructions",
+  "elevenLabsVoiceId",
+  "systemPrompt",
+  "faqEntries",
+  "knowledgeBaseTags",
+  "toolProfile",
+  "enabledTools",
+  "disabledTools",
+  "autonomyLevel",
+  "maxMessagesPerDay",
+  "maxCostPerDay",
+  "requireApprovalFor",
+  "blockedTopics",
+  "domainAutonomy",
+  "autonomyTrust",
+  "modelProvider",
+  "modelId",
+  "temperature",
+  "maxTokens",
+  "channelBindings",
+  "unifiedPersonality",
+  "teamAccessMode",
+  "dreamTeamSpecialists",
+  "activeSoulMode",
+  "activeArchetype",
+  "modeChannelBindings",
+  "enabledArchetypes",
+  "operatorCollaborationDefaults",
+  "escalationPolicy",
+]);
 
 export type PrimaryAgentRepairCandidate = ActiveAgentCandidate;
 
@@ -322,6 +359,23 @@ function readAgentCustomProperties(
 function isPrimaryFlagged(candidate: ActiveAgentCandidate): boolean {
   const customProperties = readAgentCustomProperties(candidate);
   return customProperties.isPrimary === true;
+}
+
+export function isManagedUseCaseCloneCandidate(candidate: ActiveAgentCandidate): boolean {
+  const customProperties = readAgentCustomProperties(candidate);
+  return normalizeOptionalString(customProperties.cloneLifecycle) === MANAGED_USE_CASE_CLONE_LIFECYCLE;
+}
+
+export function resolveDisallowedManagedCloneTuningFields(updatedFields: string[]): string[] {
+  return Array.from(
+    new Set(
+      updatedFields.filter((field) => !SANCTIONED_MANAGED_CLONE_TUNING_FIELDS.has(field))
+    )
+  );
+}
+
+function normalizeDeterministicUpdatedFields(updatedFields: string[]): string[] {
+  return Array.from(new Set(updatedFields)).sort((a, b) => a.localeCompare(b));
 }
 
 function resolveOperatorContextId(candidate: ActiveAgentCandidate): string {
@@ -1263,6 +1317,8 @@ async function enforceOneOfOneOperatorMutationAccess(
     userId: Id<"users">;
     organizationId: Id<"organizations">;
     agent: ActiveAgentCandidate;
+    operation: "update" | "set_primary" | "activate" | "pause" | "delete";
+    updatedFields?: string[];
   }
 ) {
   const userContext = await getUserContext(ctx, args.userId, args.organizationId);
@@ -1286,11 +1342,29 @@ async function enforceOneOfOneOperatorMutationAccess(
     );
   }
 
-  if (!isPrimaryFlagged(args.agent)) {
+  if (isPrimaryFlagged(args.agent)) {
+    return;
+  }
+
+  if (args.operation === "set_primary") {
+    return;
+  }
+
+  if (args.operation === "update" && isManagedUseCaseCloneCandidate(args.agent)) {
+    const disallowedFields = resolveDisallowedManagedCloneTuningFields(
+      args.updatedFields ?? []
+    );
+    if (disallowedFields.length === 0) {
+      return;
+    }
     throw new Error(
-      "ONE_OF_ONE_PRIMARY_AGENT_REQUIRED: operator edits are limited to the primary one-of-one agent."
+      `ONE_OF_ONE_MANAGED_CLONE_TUNING_FIELD_FORBIDDEN: disallowed update fields: ${disallowedFields.join(", ")}`
     );
   }
+
+  throw new Error(
+    "ONE_OF_ONE_PRIMARY_AGENT_REQUIRED: operator edits are limited to the primary one-of-one agent."
+  );
 }
 
 // ============================================================================
@@ -1546,11 +1620,6 @@ export const updateAgent = mutation({
     }
 
     enforceNotProtected(agent);
-    await enforceOneOfOneOperatorMutationAccess(ctx, {
-      userId: session.userId,
-      organizationId: agent.organizationId,
-      agent,
-    });
     const normalizedChannelBindings = args.updates.channelBindings
       ? normalizeChannelBindingsContract(
           args.updates.channelBindings as ChannelBindingContractRecord[]
@@ -1593,7 +1662,19 @@ export const updateAgent = mutation({
           }
         : {}),
     };
+    const updatedFields = normalizeDeterministicUpdatedFields(
+      Object.keys(normalizedUpdates)
+    );
+    const isManagedCloneTuningMutation = isManagedUseCaseCloneCandidate(agent);
+    await enforceOneOfOneOperatorMutationAccess(ctx, {
+      userId: session.userId,
+      organizationId: agent.organizationId,
+      agent,
+      operation: "update",
+      updatedFields,
+    });
 
+    const now = Date.now();
     await ctx.db.patch(args.agentId, {
       name: args.updates.name || agent.name,
       subtype: args.updates.subtype || agent.subtype,
@@ -1601,19 +1682,119 @@ export const updateAgent = mutation({
         ...agent.customProperties,
         ...normalizedUpdates,
       },
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     await ctx.db.insert("objectActions", {
       organizationId: agent.organizationId,
       objectId: args.agentId,
-      actionType: "updated",
+      actionType: isManagedCloneTuningMutation ? "managed_clone_tuned" : "updated",
       actionData: {
-        updatedFields: Object.keys(normalizedUpdates),
+        updatedFields,
+        mutationSurface: isManagedCloneTuningMutation
+          ? "owner_managed_clone_tuning"
+          : "standard_agent_update",
       },
       performedBy: session.userId,
-      performedAt: Date.now(),
+      performedAt: now,
     });
+
+    if (isManagedCloneTuningMutation) {
+      await ctx.db.insert("auditLogs", {
+        organizationId: agent.organizationId,
+        userId: session.userId,
+        action: "managed_clone_tuned",
+        resource: "org_agent",
+        resourceId: String(args.agentId),
+        success: true,
+        metadata: {
+          updatedFields,
+          mutationSurface: "owner_managed_clone_tuning",
+          cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+        },
+        createdAt: now,
+      });
+    }
+  },
+});
+
+/**
+ * OWNER SPECIALIST CLONE TUNING
+ * Owner-facing mutation surface for sanctioned managed specialist clone tuning only.
+ */
+export const tuneManagedSpecialistClone = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    updates: v.object({
+      displayName: v.optional(v.string()),
+      personality: v.optional(v.string()),
+      language: v.optional(v.string()),
+      voiceLanguage: v.optional(v.string()),
+      additionalLanguages: v.optional(v.array(v.string())),
+      brandVoiceInstructions: v.optional(v.string()),
+      elevenLabsVoiceId: v.optional(v.string()),
+      systemPrompt: v.optional(v.string()),
+      faqEntries: v.optional(v.array(v.object({
+        q: v.string(),
+        a: v.string(),
+      }))),
+      knowledgeBaseTags: v.optional(v.array(v.string())),
+      toolProfile: v.optional(v.string()),
+      enabledTools: v.optional(v.array(v.string())),
+      disabledTools: v.optional(v.array(v.string())),
+      autonomyLevel: v.optional(v.union(
+        v.literal("supervised"),
+        v.literal("sandbox"),
+        v.literal("autonomous"),
+        v.literal("delegation"),
+        v.literal("draft_only")
+      )),
+      maxMessagesPerDay: v.optional(v.number()),
+      maxCostPerDay: v.optional(v.number()),
+      requireApprovalFor: v.optional(v.array(v.string())),
+      blockedTopics: v.optional(v.array(v.string())),
+      domainAutonomy: v.optional(v.any()),
+      autonomyTrust: v.optional(v.any()),
+      modelProvider: v.optional(v.string()),
+      modelId: v.optional(v.string()),
+      temperature: v.optional(v.number()),
+      maxTokens: v.optional(v.number()),
+      channelBindings: v.optional(v.array(webchatChannelBindingValidator)),
+      unifiedPersonality: v.optional(v.boolean()),
+      teamAccessMode: v.optional(teamAccessModeValidator),
+      dreamTeamSpecialists: v.optional(v.array(dreamTeamSpecialistContractValidator)),
+      activeSoulMode: v.optional(soulModeValidator),
+      activeArchetype: v.optional(v.string()),
+      modeChannelBindings: v.optional(v.array(modeChannelBindingValidator)),
+      enabledArchetypes: v.optional(v.array(v.string())),
+      operatorCollaborationDefaults: v.optional(
+        operatorCollaborationDefaultsValidator
+      ),
+      escalationPolicy: v.optional(v.any()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.type !== "org_agent") {
+      throw new Error("Agent not found");
+    }
+    if (!isManagedUseCaseCloneCandidate(agent)) {
+      throw new Error(
+        "ONE_OF_ONE_MANAGED_CLONE_REQUIRED: tuning surface supports managed specialist clones only."
+      );
+    }
+    const updatedFields = normalizeDeterministicUpdatedFields(
+      Object.keys(args.updates)
+    );
+    const disallowedFields = resolveDisallowedManagedCloneTuningFields(updatedFields);
+    if (disallowedFields.length > 0) {
+      throw new Error(
+        `ONE_OF_ONE_MANAGED_CLONE_TUNING_FIELD_FORBIDDEN: disallowed update fields: ${disallowedFields.join(", ")}`
+      );
+    }
+
+    await (updateAgent as any)._handler(ctx, args);
   },
 });
 
@@ -1647,6 +1828,7 @@ export const setPrimaryAgent = mutation({
       userId: session.userId,
       organizationId: targetAgent.organizationId,
       agent: targetAgent,
+      operation: "set_primary",
     });
     if (targetAgent.status !== "active") {
       throw new Error("Primary agent must be active");
@@ -1719,6 +1901,7 @@ export const activateAgent = mutation({
       userId: session.userId,
       organizationId: agent.organizationId,
       agent,
+      operation: "activate",
     });
     const operatorId = resolveOperatorContextId(agent);
 
@@ -1775,6 +1958,7 @@ export const pauseAgent = mutation({
       userId: session.userId,
       organizationId: agent.organizationId,
       agent,
+      operation: "pause",
     });
     const operatorId = resolveOperatorContextId(agent);
 
@@ -1831,6 +2015,7 @@ export const deleteAgent = mutation({
       userId: session.userId,
       organizationId: agent.organizationId,
       agent,
+      operation: "delete",
     });
     const operatorId = resolveOperatorContextId(agent);
     const wasPrimary = isPrimaryFlagged(agent);

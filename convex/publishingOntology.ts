@@ -4,6 +4,24 @@ import { requireAuthenticatedUser, getUserContext, checkPermission } from "./rba
 import { checkFeatureAccess, checkResourceLimit } from "./licensing/helpers";
 import { generateVercelDeployUrl } from "./publishingHelpers";
 import { normalizePublishedPageLifecycleStatus } from "./orchestrationContract";
+import {
+  CMS_REQUEST_DEFAULT_STATUS,
+  cmsRequestApprovalStatusValidator,
+  cmsRequestChangeManifestValidator,
+  cmsRequestLineageValidator,
+  cmsRequestLinkageValidator,
+  cmsRequestRiskTierValidator,
+  cmsRequestStatusValidator,
+  cmsRequestTargetValidator,
+  type CmsRequestStatus,
+} from "./cmsAgentRequestContracts";
+import {
+  attachCmsRequestChangeManifestRecord,
+  attachCmsRequestLinkageRecord,
+  createCmsRequestRecord,
+  transitionCmsRequestRecord,
+  updateCmsRequestApprovalRecord,
+} from "./cmsAgentRequestLifecycle";
 
 /**
  * PUBLISHING ONTOLOGY v2 - TEMPLATE + THEME ARCHITECTURE
@@ -1828,5 +1846,324 @@ export const getDeploymentEnvVars = query({
     }
 
     return envVars;
+  },
+});
+
+/**
+ * CREATE CMS REQUEST
+ *
+ * Creates a new app-agnostic CMS request object.
+ * If the idempotency key already exists with the same payload, returns the existing request.
+ */
+export const createCmsRequest = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    target: cmsRequestTargetValidator,
+    intentPayload: v.any(),
+    riskTier: cmsRequestRiskTierValidator,
+    idempotencyKey: v.string(),
+    lineage: cmsRequestLineageValidator,
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId, args.organizationId);
+
+    const canCreate = await checkPermission(
+      ctx,
+      userId,
+      "create_published_pages",
+      args.organizationId
+    );
+    if (!canCreate) {
+      throw new Error("Permission denied: create_published_pages required");
+    }
+
+    if (!userContext.isGlobal && userContext.organizationId !== args.organizationId) {
+      throw new Error("Cannot create CMS request for another organization");
+    }
+
+    return createCmsRequestRecord({
+      ctx,
+      organizationId: args.organizationId,
+      actorUserId: userId,
+      source: "public",
+      target: args.target,
+      intentPayload: args.intentPayload,
+      riskTier: args.riskTier,
+      idempotencyKey: args.idempotencyKey,
+      lineage: args.lineage,
+    });
+  },
+});
+
+/**
+ * TRANSITION CMS REQUEST STATUS
+ *
+ * Guarded fail-closed lifecycle state machine.
+ */
+export const transitionCmsRequestStatus = mutation({
+  args: {
+    sessionId: v.string(),
+    requestId: v.id("objects"),
+    toStatus: cmsRequestStatusValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    const canPublish = await checkPermission(
+      ctx,
+      userId,
+      "publish_pages",
+      request.organizationId
+    );
+
+    return transitionCmsRequestRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: userId,
+      toStatus: args.toStatus,
+      reason: args.reason,
+      source: "public",
+      canPublishTerminalTransition: canPublish,
+    });
+  },
+});
+
+/**
+ * UPDATE CMS REQUEST APPROVAL STATE
+ */
+export const updateCmsRequestApprovalState = mutation({
+  args: {
+    sessionId: v.string(),
+    requestId: v.id("objects"),
+    status: cmsRequestApprovalStatusValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    if (args.status === "approved" || args.status === "rejected") {
+      const canPublish = await checkPermission(
+        ctx,
+        userId,
+        "publish_pages",
+        request.organizationId
+      );
+      if (!canPublish) {
+        throw new Error("Permission denied: publish_pages required");
+      }
+    }
+
+    return updateCmsRequestApprovalRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: userId,
+      source: "public",
+      status: args.status,
+      reason: args.reason,
+    });
+  },
+});
+
+/**
+ * ATTACH CMS REQUEST LINKAGE
+ *
+ * Stores PR/deployment artifacts on the request object.
+ */
+export const attachCmsRequestLinkage = mutation({
+  args: {
+    sessionId: v.string(),
+    requestId: v.id("objects"),
+    linkage: cmsRequestLinkageValidator,
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    return attachCmsRequestLinkageRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: userId,
+      source: "public",
+      linkage: args.linkage,
+    });
+  },
+});
+
+/**
+ * ATTACH CMS REQUEST CHANGE MANIFEST
+ *
+ * Stores deterministic compiler output + UX diff contract on the request object.
+ */
+export const attachCmsRequestChangeManifest = mutation({
+  args: {
+    sessionId: v.string(),
+    requestId: v.id("objects"),
+    changeManifest: cmsRequestChangeManifestValidator,
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    return attachCmsRequestChangeManifestRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: userId,
+      source: "public",
+      changeManifest: args.changeManifest,
+    });
+  },
+});
+
+/**
+ * GET CMS REQUEST BY ID
+ */
+export const getCmsRequestById = query({
+  args: {
+    sessionId: v.string(),
+    requestId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      return null;
+    }
+
+    const canView = await checkPermission(
+      ctx,
+      userId,
+      "view_published_pages",
+      request.organizationId
+    );
+    if (!canView) {
+      throw new Error("Permission denied: view_published_pages required");
+    }
+
+    return request;
+  },
+});
+
+/**
+ * LIST CMS REQUESTS BY ORG + TARGET
+ */
+export const listCmsRequests = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    targetAppId: v.optional(v.id("objects")),
+    targetAppPath: v.optional(v.string()),
+    status: v.optional(cmsRequestStatusValidator),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId, args.organizationId);
+
+    const canView = await checkPermission(
+      ctx,
+      userId,
+      "view_published_pages",
+      args.organizationId
+    );
+    if (!canView) {
+      throw new Error("Permission denied: view_published_pages required");
+    }
+
+    if (!userContext.isGlobal && userContext.organizationId !== args.organizationId) {
+      throw new Error("Cannot view CMS requests for another organization");
+    }
+
+    const allRequests = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "cms_request")
+      )
+      .collect();
+
+    let filtered = allRequests;
+    if (args.targetAppId) {
+      filtered = filtered.filter(
+        (request) => request.customProperties?.target?.targetAppId === args.targetAppId
+      );
+    }
+    if (args.targetAppPath) {
+      filtered = filtered.filter(
+        (request) => request.customProperties?.lineage?.targetAppPath === args.targetAppPath
+      );
+    }
+    if (args.status) {
+      filtered = filtered.filter(
+        (request) =>
+          ((request.customProperties?.status as CmsRequestStatus | undefined) ??
+            CMS_REQUEST_DEFAULT_STATUS) === args.status
+      );
+    }
+
+    const limit = Math.min(args.limit ?? 50, 200);
+    const requests = filtered
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, limit);
+
+    return {
+      requests,
+      total: filtered.length,
+    };
   },
 });

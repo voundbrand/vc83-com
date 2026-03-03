@@ -81,10 +81,27 @@ export async function generatePdfFromTemplate(
     };
   }
 
+  const inlineCssIntoHtml = (html: string, css: string): string => {
+    if (!css.trim()) {
+      return html;
+    }
+    const styleTag = `<style>\n${css}\n</style>`;
+    const headClosePattern = /<\/head>/i;
+    if (headClosePattern.test(html)) {
+      return html.replace(headClosePattern, `${styleTag}\n</head>`);
+    }
+    return `${styleTag}\n${html}`;
+  };
+
+  const htmlWithInlineCss = inlineCssIntoHtml(
+    template.template.html,
+    template.template.css || ""
+  );
+
   // Prepare API request
   const requestBody = {
-    body: template.template.html,
-    css: template.template.css,
+    body: htmlWithInlineCss,
+    css: "",
     data: data,
     settings: {
       paper_size: paperSize,

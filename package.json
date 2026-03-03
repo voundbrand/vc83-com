@@ -19,6 +19,8 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e:mobile": "playwright test -c playwright.mobile.config.ts",
+    "test:e2e:mobile:hardware:chaos": "node scripts/mobile/voice-radio-chaos-hardware.mjs --platform android --run",
+    "test:e2e:mobile:hardware:chaos:plan": "node scripts/mobile/voice-radio-chaos-hardware.mjs --platform android",
     "test:e2e:mobile:headed": "playwright test -c playwright.mobile.config.ts --headed",
     "test:e2e:mobile:auth": "playwright test -c playwright.mobile.auth.config.ts",
     "test:e2e:mobile:auth:headed": "playwright test -c playwright.mobile.auth.config.ts --headed",
@@ -63,7 +65,14 @@
     "ui:legacy:guard": "bash scripts/ci/check-legacy-style-introductions.sh",
     "ui:design:guard": "bash scripts/ci/check-ui-design-drift.sh",
     "ui:showcase:guard": "bash scripts/ci/check-ui-showcase-enforcement.sh",
-    "ui:principles:ci": "npm run ui:design:guard && npm run ui:showcase:guard && npm run test:e2e:visual"
+    "ui:principles:ci": "npm run ui:design:guard && npm run ui:showcase:guard && npm run test:e2e:visual",
+    "agent-runtime:dev:stage1:spec-lint": "npm run typecheck && npm run docs:guard",
+    "agent-runtime:dev:stage2:compile-determinism": "npx tsc -p convex/tsconfig.json --noEmit",
+    "agent-runtime:dev:stage3:contract-tests": "npm run test:unit -- tests/unit/ai/auditDeliverableGuardrail.test.ts tests/unit/ai/actionCompletionMismatchTelemetry.test.ts tests/unit/ai/runtimeIncidentAlerts.test.ts tests/unit/ai/toolScopingPolicyAudit.test.ts && npm run qa:telemetry:guard",
+    "agent-runtime:dev:stage4:synthetic-warmup": "npm run test:unit -- tests/unit/shell/webchat-deployment-flow.smoke.test.ts && npm run test:integration -- tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts",
+    "agent-runtime:dev:gates": "bash scripts/ci/check-agent-runtime-dev-gates.sh",
+    "logs:qa:convex": "node scripts/ai/super-admin-agent-qa-log-tail.mjs",
+    "qa:telemetry:guard": "bash scripts/ci/check-super-admin-qa-telemetry-contract.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

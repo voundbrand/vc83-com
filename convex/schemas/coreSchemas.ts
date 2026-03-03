@@ -123,11 +123,25 @@ export const users = defineTable({
   isActive: v.optional(v.boolean()),
   createdAt: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
+
+  // Deterministic sort keys for global admin paging/sorting.
+  sortEmail: v.optional(v.string()),
+  sortEmailDesc: v.optional(v.string()),
+  sortName: v.optional(v.string()),
+  sortNameDesc: v.optional(v.string()),
+  sortCreatedAt: v.optional(v.number()),
+  sortCreatedAtDesc: v.optional(v.number()),
 })
   .index("email", ["email"])
   .index("by_default_org", ["defaultOrgId"])
   .index("by_beta_status", ["betaAccessStatus"])
   .index("by_beta_request_date", ["betaAccessRequestedAt"])
+  .index("by_sort_email", ["sortEmail"])
+  .index("by_sort_email_desc", ["sortEmailDesc"])
+  .index("by_sort_name", ["sortName"])
+  .index("by_sort_name_desc", ["sortNameDesc"])
+  .index("by_sort_created_at", ["sortCreatedAt"])
+  .index("by_sort_created_at_desc", ["sortCreatedAtDesc"])
   .searchIndex("search_by_name", {
     searchField: "firstName",
   });

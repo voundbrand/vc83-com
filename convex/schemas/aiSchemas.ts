@@ -717,6 +717,7 @@ export interface MediaSessionVoiceRuntime {
   sampleRateHz?: number;
   packetSequence?: number;
   packetTimestampMs?: number;
+  audioPayloadBase64?: string;
 }
 
 export const mediaSessionVoiceRuntimeValidator = v.object({
@@ -728,6 +729,35 @@ export const mediaSessionVoiceRuntimeValidator = v.object({
   sampleRateHz: v.optional(v.number()),
   packetSequence: v.optional(v.number()),
   packetTimestampMs: v.optional(v.number()),
+  audioPayloadBase64: v.optional(v.string()),
+});
+
+export interface MediaSessionVideoRuntime {
+  videoSessionId: string;
+  requestedProviderId?: string;
+  providerId: string;
+  mimeType?: string;
+  codec?: string;
+  frameRate?: number;
+  width?: number;
+  height?: number;
+  packetSequence?: number;
+  packetTimestampMs?: number;
+  framePayloadBase64?: string;
+}
+
+export const mediaSessionVideoRuntimeValidator = v.object({
+  videoSessionId: v.string(),
+  requestedProviderId: v.optional(v.string()),
+  providerId: v.string(),
+  mimeType: v.optional(v.string()),
+  codec: v.optional(v.string()),
+  frameRate: v.optional(v.number()),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+  packetSequence: v.optional(v.number()),
+  packetTimestampMs: v.optional(v.number()),
+  framePayloadBase64: v.optional(v.string()),
 });
 
 export interface MediaSessionCaptureRuntime {
@@ -937,6 +967,7 @@ export interface VoiceTransportEnvelope {
   heartbeat?: VoiceTransportHeartbeatMetadata;
   error?: VoiceTransportErrorMetadata;
   pcm?: VoiceTransportPcmContract;
+  transcriptionMimeType?: string;
   transcriptText?: string;
   audioChunkBase64?: string;
   assistantMessageId?: string;
@@ -1017,6 +1048,7 @@ const voiceTransportEnvelopeBaseFields = {
   heartbeat: v.optional(voiceTransportHeartbeatMetadataValidator),
   error: v.optional(voiceTransportErrorMetadataValidator),
   pcm: v.optional(voiceTransportPcmContractValidator),
+  transcriptionMimeType: v.optional(v.string()),
   transcriptText: v.optional(v.string()),
   audioChunkBase64: v.optional(v.string()),
   assistantMessageId: v.optional(v.string()),
@@ -1115,6 +1147,7 @@ export interface MediaSessionIngressContract {
   ingressTimestampMs: number;
   cameraRuntime?: MediaSessionCameraRuntime;
   voiceRuntime?: MediaSessionVoiceRuntime;
+  videoRuntime?: MediaSessionVideoRuntime;
   captureRuntime?: MediaSessionCaptureRuntime;
   transportRuntime?: MediaSessionTransportRuntime;
   authority: MediaSessionAuthorityInvariant;
@@ -1126,6 +1159,7 @@ export const mediaSessionIngressContractValidator = v.object({
   ingressTimestampMs: v.number(),
   cameraRuntime: v.optional(mediaSessionCameraRuntimeValidator),
   voiceRuntime: v.optional(mediaSessionVoiceRuntimeValidator),
+  videoRuntime: v.optional(mediaSessionVideoRuntimeValidator),
   captureRuntime: v.optional(mediaSessionCaptureRuntimeValidator),
   transportRuntime: v.optional(mediaSessionTransportRuntimeValidator),
   authority: mediaSessionAuthorityInvariantValidator,
@@ -1199,6 +1233,14 @@ export function assertVoiceTransportEnvelope(contract: VoiceTransportEnvelopeCon
       );
     }
   }
+  if (
+    typeof contract.transcriptionMimeType !== "undefined" &&
+    !contract.transcriptionMimeType.trim()
+  ) {
+    throw new Error(
+      "Voice transport envelope transcriptionMimeType must be a non-empty string when provided."
+    );
+  }
 
   switch (contract.eventType) {
     case "audio_chunk":
@@ -1241,11 +1283,20 @@ export function assertMediaSessionIngressContract(contract: MediaSessionIngressC
   if (
     !contract.cameraRuntime &&
     !contract.voiceRuntime &&
+    !contract.videoRuntime &&
     !contract.captureRuntime
   ) {
     throw new Error(
-      "Media session ingress contract requires cameraRuntime, voiceRuntime, or captureRuntime."
+      "Media session ingress contract requires cameraRuntime, voiceRuntime, videoRuntime, or captureRuntime."
     );
+  }
+
+  if (contract.videoRuntime && contract.transportRuntime?.mode === "realtime") {
+    if (!normalizeRuntimeContractString(contract.videoRuntime.framePayloadBase64)) {
+      throw new Error(
+        "Media session realtime video ingress requires videoRuntime.framePayloadBase64."
+      );
+    }
   }
 }
 
@@ -1597,6 +1648,29 @@ export const trustEventPayloadValidator = v.object({
   lifecycle_transition_actor: v.optional(v.string()),
   lifecycle_transition_reason: v.optional(v.string()),
 
+  // Voice runtime/session telemetry fields
+  voice_session_id: v.optional(v.string()),
+  voice_state_from: v.optional(v.string()),
+  voice_state_to: v.optional(v.string()),
+  voice_runtime_fsm_state_from: v.optional(v.string()),
+  voice_runtime_fsm_state: v.optional(v.string()),
+  voice_transition_reason: v.optional(v.string()),
+  voice_runtime_provider: v.optional(v.string()),
+  voice_requested_provider: v.optional(v.string()),
+  voice_failover_provider: v.optional(v.union(v.string(), v.null())),
+  voice_failover_reason: v.optional(v.string()),
+  voice_provider_health_status: v.optional(v.string()),
+  voice_transport_event_type: v.optional(v.string()),
+  voice_transport_expected_sequence: v.optional(v.float64()),
+  voice_transport_final_persisted: v.optional(v.boolean()),
+  voice_transport_ordering_decision: v.optional(v.string()),
+  voice_transport_relay_events: v.optional(v.array(v.any())),
+  voice_transport_sequence: v.optional(v.float64()),
+  adaptive_phase_id: v.optional(v.string()),
+  adaptive_decision: v.optional(v.string()),
+  adaptive_confidence: v.optional(v.number()),
+  consent_checkpoint_id: v.optional(v.string()),
+
   // Content DNA fields
   content_profile_id: v.optional(v.string()),
   content_profile_version: v.optional(v.string()),
@@ -1713,6 +1787,79 @@ export const aiTrustEvents = defineTable({
     "payload.occurred_at",
   ]);
 
+export const qaRuns = defineTable({
+  runId: v.string(),
+  modeVersion: v.string(),
+  organizationId: v.id("organizations"),
+  ownerUserId: v.id("users"),
+  ownerEmail: v.optional(v.string()),
+  label: v.optional(v.string()),
+  targetAgentId: v.optional(v.string()),
+  targetTemplateRole: v.optional(v.string()),
+  status: v.union(
+    v.literal("active"),
+    v.literal("completed"),
+    v.literal("failed"),
+  ),
+  startedAt: v.number(),
+  endedAt: v.optional(v.number()),
+  lastActivityAt: v.number(),
+  lastSessionId: v.optional(v.string()),
+  lastTurnId: v.optional(v.string()),
+  turnCount: v.number(),
+  successCount: v.number(),
+  blockedCount: v.number(),
+  errorCount: v.number(),
+  blockedReasonCounts: v.object({
+    tool_unavailable: v.number(),
+    missing_required_fields: v.number(),
+    missing_audit_session_context: v.optional(v.number()),
+    audit_session_not_found: v.optional(v.number()),
+    tool_not_observed: v.number(),
+    ambiguous_name: v.optional(v.number()),
+    ambiguous_founder_contact: v.optional(v.number()),
+    unknown: v.number(),
+  }),
+  dispatchDecisionCounts: v.optional(v.object({
+    auto_dispatch_executed_pdf: v.number(),
+    auto_dispatch_executed_docx: v.number(),
+    blocked_missing_required_fields: v.number(),
+    blocked_missing_audit_session_context: v.optional(v.number()),
+    blocked_audit_session_not_found: v.optional(v.number()),
+    blocked_ambiguous_name: v.number(),
+    blocked_ambiguous_founder_contact: v.number(),
+    blocked_tool_unavailable: v.number(),
+    blocked_tool_not_observed: v.number(),
+    unknown: v.number(),
+  })),
+  reasonCodeCounts: v.optional(v.record(v.string(), v.number())),
+  preflightReasonCodeCounts: v.optional(v.record(v.string(), v.number())),
+  recentIncidents: v.array(v.object({
+    occurredAt: v.number(),
+    sessionId: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    agentId: v.optional(v.string()),
+    status: v.string(),
+    reasonCode: v.optional(v.string()),
+    preflightReasonCode: v.optional(v.string()),
+    dispatchDecision: v.optional(v.string()),
+    blockedReason: v.optional(v.string()),
+    blockedDetail: v.optional(v.string()),
+    requiredTools: v.array(v.string()),
+    availableTools: v.array(v.string()),
+    missingRequiredFields: v.array(v.string()),
+    actionDecision: v.optional(v.string()),
+  })),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_run_id", ["runId"])
+  .index("by_org_run_id", ["organizationId", "runId"])
+  .index("by_status_last_activity", ["status", "lastActivityAt"])
+  .index("by_org_last_activity", ["organizationId", "lastActivityAt"])
+  .index("by_owner_last_activity", ["ownerUserId", "lastActivityAt"])
+  .index("by_last_activity", ["lastActivityAt"]);
+
 export const voiceTransportSessionState = defineTable({
   organizationId: v.id("organizations"),
   interviewSessionId: v.id("agentSessions"),
@@ -1729,6 +1876,48 @@ export const voiceTransportSessionState = defineTable({
     "organizationId",
     "interviewSessionId",
     "voiceSessionId",
+  ])
+  .index("by_updated_at", ["updatedAt"]);
+
+export const voiceRuntimeSessionOpenRateState = defineTable({
+  organizationId: v.id("organizations"),
+  interviewSessionId: v.id("agentSessions"),
+  liveSessionId: v.string(),
+  windowStartMs: v.number(),
+  openCount: v.number(),
+  blockedCount: v.optional(v.number()),
+  lastOpenAt: v.optional(v.number()),
+  lastBlockedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_session_live", [
+    "organizationId",
+    "interviewSessionId",
+    "liveSessionId",
+  ])
+  .index("by_updated_at", ["updatedAt"]);
+
+export const videoTransportSessionState = defineTable({
+  organizationId: v.id("organizations"),
+  interviewSessionId: v.id("agentSessions"),
+  liveSessionId: v.string(),
+  videoSessionId: v.string(),
+  lastAcceptedSequence: v.optional(v.number()),
+  acceptedSequenceWindow: v.array(v.number()),
+  windowStartMs: v.number(),
+  frameCountInWindow: v.number(),
+  blockedCount: v.optional(v.number()),
+  lastAcceptedAt: v.optional(v.number()),
+  lastBlockedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_session_live_video", [
+    "organizationId",
+    "interviewSessionId",
+    "liveSessionId",
+    "videoSessionId",
   ])
   .index("by_updated_at", ["updatedAt"]);
 
@@ -1981,6 +2170,14 @@ const toolFoundryRollbackStatusValidator = v.union(
   v.literal("rollback_applied"),
 );
 
+const toolFoundryLinearIssueValidator = v.object({
+  issueId: v.string(),
+  issueNumber: v.string(),
+  issueUrl: v.string(),
+  linkedAt: v.number(),
+  lastSyncedAt: v.number(),
+});
+
 /**
  * Tool Foundry Proposal Backlog
  *
@@ -2045,6 +2242,7 @@ export const toolFoundryProposalBacklog = defineTable({
     appliedAt: v.optional(v.number()),
     appliedBy: v.optional(v.string()),
   }),
+  linearIssue: v.optional(toolFoundryLinearIssueValidator),
 
   firstObservedAt: v.number(),
   lastObservedAt: v.number(),
@@ -2668,6 +2866,34 @@ export const agentInboxReceipts = defineTable({
   .index("by_org_queue_concurrency_status", ["organizationId", "queueConcurrencyKey", "status"])
   .index("by_turn", ["turnId"])
   .index("by_org_time", ["organizationId", "createdAt"]);
+
+/**
+ * Agent Spec Registry (ARH-RFC-001)
+ *
+ * Deterministic registry for `agent_spec_v1` contracts.
+ * Stores normalized spec artifacts keyed by scope + agent key.
+ */
+export const agentSpecRegistry = defineTable({
+  scopeKey: v.string(), // "global" or org:<organizationId>
+  organizationId: v.optional(v.id("organizations")),
+  agentKey: v.string(),
+  contractVersion: v.literal("agent_spec_v1"),
+  status: v.union(v.literal("active"), v.literal("draft")),
+  specHash: v.string(),
+  specNormalized: v.any(),
+  policyRefs: v.object({
+    orgPolicyRef: v.string(),
+    channelPolicyRef: v.string(),
+    runtimePolicyRef: v.string(),
+  }),
+  channelAllowList: v.array(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  updatedBy: v.optional(v.string()),
+})
+  .index("by_scope_agent_key", ["scopeKey", "agentKey"])
+  .index("by_spec_hash", ["specHash"])
+  .index("by_updated_at", ["updatedAt"]);
 
 // ============================================================================
 // AI TRAINING DATA COLLECTION (Custom Model Training)
