@@ -14,6 +14,7 @@ import { ConvexError } from "convex/values";
 const generatedApi: any = require("./_generated/api");
 import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
+import { buildUserSortFields } from "./userSortKeys";
 
 /**
  * Initialize Stripe client
@@ -386,6 +387,12 @@ export const createFreeAccountInternal = internalMutation({
       betaAccessApprovedAt: betaAccessStatus === "approved" ? now : undefined,
       createdAt: now,
       updatedAt: now,
+      ...buildUserSortFields({
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        createdAt: now,
+      }),
     });
 
     // 3. Store password

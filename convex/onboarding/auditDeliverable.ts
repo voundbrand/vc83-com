@@ -9,13 +9,15 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { createDocxDocumentTool } from "../ai/tools/docxTools";
 import { generatePdfFromTemplate } from "../lib/generatePdf";
 import { buildAuditLifecycleEventKey } from "./funnelEvents";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
-const AUDIT_WORKFLOW_TEMPLATE_CODE = "leadmagnet_audit_workflow_report_v1";
+const AUDIT_RECOMMENDATION_TEMPLATE_CODE = "audit_recommendation_v1";
+const AUDIT_WORKFLOW_TEMPLATE_CODE_LEGACY = "leadmagnet_audit_workflow_report_v1";
 
 const auditChannelValidator = v.union(v.literal("webchat"), v.literal("native_guest"));
 
@@ -26,6 +28,8 @@ const actionPlanItemValidator = v.object({
 });
 
 const auditDeliverableInputValidator = v.object({
+  language: v.optional(v.string()),
+  labels: v.optional(v.any()),
   title: v.optional(v.string()),
   subtitle: v.optional(v.string()),
   author: v.optional(v.string()),
@@ -44,6 +48,7 @@ const auditDeliverableInputValidator = v.object({
   ctaLine: v.optional(v.string()),
   brandColor: v.optional(v.string()),
   footerText: v.optional(v.string()),
+  outputFormats: v.optional(v.array(v.union(v.literal("pdf"), v.literal("docx")))),
 });
 
 type AuditChannel = "webchat" | "native_guest";
@@ -61,6 +66,8 @@ type ActionPlanItem = {
 };
 
 type AuditDeliverableInput = {
+  language?: string;
+  labels?: Record<string, string>;
   title?: string;
   subtitle?: string;
   author?: string;
@@ -79,9 +86,23 @@ type AuditDeliverableInput = {
   ctaLine?: string;
   brandColor?: string;
   footerText?: string;
+  outputFormats?: DeliverableFormat[];
+};
+
+type DeliverableFormat = "pdf" | "docx";
+
+type DeliverableRenderSource = "apitemplate_io_v2_create_pdf_from_html";
+
+type RequestedFormatRecord = {
+  format: DeliverableFormat;
+  status: "generated" | "unsupported";
+  blockedReasonCode?: "docx_renderer_unavailable";
+  blockedReasonDetail?: string;
 };
 
 type AuditTemplateData = {
+  language: string;
+  labels: Record<string, string>;
   title: string;
   subtitle?: string;
   generatedDate: string;
@@ -107,12 +128,25 @@ type StoredDeliverableRecord = {
   deliverableKey: string;
   inputFingerprint: string;
   templateCode: string;
+  templateVersion: string;
+  renderSource: DeliverableRenderSource;
+  requestedFormats: RequestedFormatRecord[];
   fileName: string;
   storageId: string;
   downloadUrl?: string;
   sourceDownloadUrl?: string;
+  docxFileName?: string;
+  docxStorageId?: string;
+  docxDownloadUrl?: string;
   generatedAt: number;
 };
+
+function resolveAuditChannelFallbackOrder(channel: AuditChannel): AuditChannel[] {
+  if (channel === "native_guest") {
+    return ["native_guest", "webchat"];
+  }
+  return ["webchat", "native_guest"];
+}
 
 function normalizeOptionalString(value: unknown, maxLength = 500): string | undefined {
   if (typeof value !== "string") {
@@ -273,6 +307,24 @@ function stripPdfExtension(fileName: string): string {
   return fileName.toLowerCase().endsWith(".pdf") ? fileName.slice(0, -4) : fileName;
 }
 
+function replacePdfWithDocx(fileName: string): string {
+  return fileName.toLowerCase().endsWith(".pdf")
+    ? `${fileName.slice(0, -4)}.docx`
+    : `${fileName}.docx`;
+}
+
+function normalizeRequestedOutputFormats(value: unknown): DeliverableFormat[] {
+  if (!Array.isArray(value)) {
+    return ["pdf"];
+  }
+  const normalized = Array.from(
+    new Set(
+      value.filter((entry): entry is DeliverableFormat => entry === "pdf" || entry === "docx")
+    )
+  ).sort((left, right) => left.localeCompare(right));
+  return normalized.length > 0 ? normalized : ["pdf"];
+}
+
 function formatGeneratedDate(now: number): string {
   return new Date(now).toLocaleDateString("en-US", {
     year: "numeric",
@@ -298,20 +350,56 @@ function resolveExistingDeliverableRecord(
   const storageId = normalizeOptionalString(record.storageId, 256);
   const fileName = normalizeOptionalString(record.fileName, 256);
   const templateCode = normalizeOptionalString(record.templateCode, 120);
+  const templateVersion = normalizeOptionalString(record.templateVersion, 64) || "1.0";
+  const renderSource = normalizeOptionalString(record.renderSource, 120);
   const inputFingerprint = normalizeOptionalString(record.inputFingerprint, 120);
   const generatedAt = typeof record.generatedAt === "number" ? record.generatedAt : undefined;
   if (!storageId || !fileName || !templateCode || !inputFingerprint || !generatedAt) {
     return null;
   }
+  const requestedFormatsRaw = Array.isArray(record.requestedFormats)
+    ? record.requestedFormats
+    : [];
+  const requestedFormats: RequestedFormatRecord[] = requestedFormatsRaw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return null;
+      }
+      const parsed = entry as Record<string, unknown>;
+      const format = normalizeOptionalString(parsed.format, 16);
+      const status = normalizeOptionalString(parsed.status, 24);
+      if ((format !== "pdf" && format !== "docx") || (status !== "generated" && status !== "unsupported")) {
+        return null;
+      }
+      return {
+        format,
+        status,
+        blockedReasonCode:
+          normalizeOptionalString(parsed.blockedReasonCode, 80) || undefined,
+        blockedReasonDetail:
+          normalizeOptionalString(parsed.blockedReasonDetail, 500) || undefined,
+      } as RequestedFormatRecord;
+    })
+    .filter((entry): entry is RequestedFormatRecord => Boolean(entry));
   return {
     deliverableKey,
     storageId,
     fileName,
     templateCode,
+    templateVersion,
+    renderSource:
+      renderSource === "apitemplate_io_v2_create_pdf_from_html"
+        ? renderSource
+        : "apitemplate_io_v2_create_pdf_from_html",
+    requestedFormats:
+      requestedFormats.length > 0 ? requestedFormats : [{ format: "pdf", status: "generated" }],
     inputFingerprint,
     generatedAt,
     downloadUrl: normalizeOptionalString(record.downloadUrl, 2000),
     sourceDownloadUrl: normalizeOptionalString(record.sourceDownloadUrl, 2000),
+    docxFileName: normalizeOptionalString(record.docxFileName, 256),
+    docxStorageId: normalizeOptionalString(record.docxStorageId, 256),
+    docxDownloadUrl: normalizeOptionalString(record.docxDownloadUrl, 2000),
   };
 }
 
@@ -343,6 +431,61 @@ function buildAuditTemplateData(args: {
   input?: AuditDeliverableInput;
   now: number;
 }): AuditTemplateData {
+  const resolvedLanguage = normalizeOptionalString(args.input?.language, 32)?.toLowerCase() || "en";
+  const normalizedLabelsInput = (() => {
+    if (!args.input?.labels || typeof args.input.labels !== "object" || Array.isArray(args.input.labels)) {
+      return {} as Record<string, string>;
+    }
+    const output: Record<string, string> = {};
+    for (const [key, value] of Object.entries(args.input.labels)) {
+      const normalized = normalizeOptionalString(value, 120);
+      if (normalized) {
+        output[key] = normalized;
+      }
+    }
+    return output;
+  })();
+  const labelsByLang: Record<string, Record<string, string>> = {
+    en: {
+      documentLabel: "AUDIT RECOMMENDATION",
+      generatedPrefix: "Generated",
+      kpiLabel: "Expected Weekly Lift",
+      clientSnapshotTitle: "Client Snapshot",
+      clientLabel: "Client",
+      businessLabel: "Business",
+      revenueLabel: "Revenue",
+      teamLabel: "Team",
+      workflowTitle: "Recommended Workflow",
+      actionPlanTitle: "7-Day Action Plan",
+      guardrailsTitle: "Execution Guardrails",
+      toolingTitle: "Tooling Recommendations",
+      nextMoveLabel: "Next Move",
+      preparedByPrefix: "Prepared by",
+      confidentialityNote: "Confidential: Prepared for internal planning use.",
+    },
+    de: {
+      documentLabel: "AUDIT-EMPFEHLUNG",
+      generatedPrefix: "Erstellt",
+      kpiLabel: "Erwarteter Wochengewinn",
+      clientSnapshotTitle: "Kundenprofil",
+      clientLabel: "Kunde",
+      businessLabel: "Business",
+      revenueLabel: "Umsatz",
+      teamLabel: "Team",
+      workflowTitle: "Empfohlener Workflow",
+      actionPlanTitle: "7-Tage-Aktionsplan",
+      guardrailsTitle: "Umsetzungsleitplanken",
+      toolingTitle: "Tooling-Empfehlungen",
+      nextMoveLabel: "Nächster Schritt",
+      preparedByPrefix: "Erstellt von",
+      confidentialityNote: "Vertraulich: Nur für interne Planung bestimmt.",
+    },
+  };
+  const languageFamily = resolvedLanguage.split("-")[0] || "en";
+  const resolvedLabels = {
+    ...(labelsByLang[languageFamily] || labelsByLang.en),
+    ...normalizedLabelsInput,
+  };
   const businessRevenueAnswer = getAuditAnswer(args.session, "business_revenue");
   const teamSizeAnswer = getAuditAnswer(args.session, "team_size");
   const mondayPriorityAnswer = getAuditAnswer(args.session, "monday_priority");
@@ -368,6 +511,8 @@ function buildAuditTemplateData(args: {
   const toolingRecommendations = normalizeStringList(args.input?.toolingRecommendations, 8, 240);
 
   return {
+    language: resolvedLanguage,
+    labels: resolvedLabels,
     title: normalizeRequiredString(args.input?.title, "Your One Workflow Report", 140),
     subtitle: normalizeOptionalString(args.input?.subtitle, 240),
     generatedDate: formatGeneratedDate(args.now),
@@ -426,7 +571,20 @@ function buildAuditTemplateData(args: {
 }
 
 function buildCanonicalPayload(templateData: AuditTemplateData): Record<string, unknown> {
+  const actionPlan = templateData.actionPlan.map((item, index) => ({
+    step: item.step,
+    owner: item.owner,
+    timing: item.timing || "",
+  }));
+  const actionSteps = templateData.actionPlan.map((item, index) => ({
+    step: index + 1,
+    title: item.step,
+    description: item.timing ? `Execution window: ${item.timing}` : "",
+    owner: item.owner as "Founder" | "Operator",
+    day: item.timing || "",
+  }));
   return {
+    // Legacy camelCase contract
     title: templateData.title,
     subtitle: templateData.subtitle || "",
     generatedDate: templateData.generatedDate,
@@ -440,17 +598,79 @@ function buildCanonicalPayload(templateData: AuditTemplateData): Record<string, 
     workflowSummary: templateData.workflowSummary,
     workflowOutcome: templateData.workflowOutcome,
     weeklyHoursRecovered: templateData.weeklyHoursRecovered,
-    actionPlan: templateData.actionPlan.map((item) => ({
-      step: item.step,
-      owner: item.owner,
-      timing: item.timing || "",
-    })),
+    actionPlan,
     guardrails: [...templateData.guardrails],
     toolingRecommendations: [...templateData.toolingRecommendations],
     ctaLine: templateData.ctaLine || "",
     brandColor: templateData.brandColor || "",
     footerText: templateData.footerText || "",
+    language: templateData.language,
+    labels: templateData.labels,
+
+    // New snake_case contract (audit_recommendation_v1)
+    logo_url: templateData.authorLogo || "",
+    highlight_color: templateData.brandColor || "",
+    client_name: templateData.clientName,
+    business_type: templateData.businessType,
+    revenue: templateData.revenueRange,
+    team_size: templateData.teamSize,
+    weekly_lift_hours: templateData.weeklyHoursRecovered,
+    lift_summary: templateData.workflowOutcome,
+    workflow_name: templateData.workflowName,
+    workflow_description: templateData.workflowSummary,
+    action_steps: actionSteps,
+    tooling_recommendations: [...templateData.toolingRecommendations],
+    next_move: templateData.ctaLine || "",
+    generated_date: templateData.generatedDate,
+    label_document: templateData.labels.documentLabel || "",
+    label_generated_prefix: templateData.labels.generatedPrefix || "",
+    label_kpi: templateData.labels.kpiLabel || "",
+    label_client_snapshot: templateData.labels.clientSnapshotTitle || "",
+    label_client: templateData.labels.clientLabel || "",
+    label_business: templateData.labels.businessLabel || "",
+    label_revenue: templateData.labels.revenueLabel || "",
+    label_team: templateData.labels.teamLabel || "",
+    label_workflow: templateData.labels.workflowTitle || "",
+    label_action_plan: templateData.labels.actionPlanTitle || "",
+    label_guardrails: templateData.labels.guardrailsTitle || "",
+    label_tooling: templateData.labels.toolingTitle || "",
+    label_next_move: templateData.labels.nextMoveLabel || "",
+    label_prepared_by: templateData.labels.preparedByPrefix || "",
+    label_confidentiality: templateData.labels.confidentialityNote || "",
   };
+}
+
+function buildDocxSectionsFromTemplateData(templateData: AuditTemplateData): Array<{
+  heading?: string;
+  paragraphs: string[];
+}> {
+  return [
+    {
+      heading: "Executive Summary",
+      paragraphs: [
+        `Client: ${templateData.clientName}`,
+        `Business: ${templateData.businessType}`,
+        `Revenue Range: ${templateData.revenueRange}`,
+        `Team Size: ${templateData.teamSize}`,
+        templateData.workflowSummary,
+        templateData.workflowOutcome,
+      ],
+    },
+    {
+      heading: "Action Plan",
+      paragraphs: templateData.actionPlan.map((item) =>
+        `${item.step} (Owner: ${item.owner}${item.timing ? `, Timing: ${item.timing}` : ""})`
+      ),
+    },
+    {
+      heading: "Guardrails",
+      paragraphs: templateData.guardrails,
+    },
+    {
+      heading: "Tooling Recommendations",
+      paragraphs: templateData.toolingRecommendations,
+    },
+  ];
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -469,6 +689,7 @@ async function emitAuditDeliverableGeneratedEvent(args: {
   session: Doc<"onboardingAuditSessions">;
   sessionToken: string;
   inputFingerprint: string;
+  templateCode: string;
   occurredAt: number;
   dedupedGeneration: boolean;
 }) {
@@ -493,7 +714,7 @@ async function emitAuditDeliverableGeneratedEvent(args: {
     metadata: {
       source: "onboarding.auditDeliverable.generateAuditWorkflowDeliverable",
       inputFingerprint: args.inputFingerprint,
-      templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+      templateCode: args.templateCode,
       dedupedGeneration: args.dedupedGeneration,
     },
   });
@@ -512,17 +733,23 @@ export const resolveAuditSessionForDeliverableInternal = internalQuery({
       return null;
     }
 
+    const channelFallbackOrder = resolveAuditChannelFallbackOrder(args.channel);
+    const keyToChannel = new Map<string, AuditChannel>();
+    for (const channel of channelFallbackOrder) {
+      const deterministicKey = resolveDeterministicAuditSessionKey({
+        channel,
+        organizationId: args.organizationId,
+        sessionToken: normalizedSessionToken,
+      });
+      keyToChannel.set(deterministicKey, channel);
+    }
     const explicitKey = normalizeOptionalString(args.auditSessionKey, 256);
-    const deterministicKey = resolveDeterministicAuditSessionKey({
-      channel: args.channel,
-      organizationId: args.organizationId,
-      sessionToken: normalizedSessionToken,
-    });
-    const candidateKeys = explicitKey && explicitKey !== deterministicKey
-      ? [explicitKey, deterministicKey]
-      : [deterministicKey];
+    if (explicitKey) {
+      keyToChannel.set(explicitKey, args.channel);
+    }
 
-    for (const key of candidateKeys) {
+    const candidateSessions: Doc<"onboardingAuditSessions">[] = [];
+    for (const [key, preferredChannel] of keyToChannel.entries()) {
       const direct = await ctx.db
         .query("onboardingAuditSessions")
         .withIndex("by_audit_session_key", (q) => q.eq("auditSessionKey", key))
@@ -531,10 +758,27 @@ export const resolveAuditSessionForDeliverableInternal = internalQuery({
       if (
         direct
         && String(direct.organizationId) === String(args.organizationId)
-        && direct.channel === args.channel
+        && (
+          direct.channel === preferredChannel
+          || channelFallbackOrder.includes(direct.channel as AuditChannel)
+        )
       ) {
-        return direct;
+        candidateSessions.push(direct);
       }
+    }
+    if (candidateSessions.length > 0) {
+      const channelPriority = new Map<AuditChannel, number>(
+        channelFallbackOrder.map((channel, index) => [channel, index])
+      );
+      const sorted = candidateSessions.sort((left, right) => {
+        const leftPriority = channelPriority.get(left.channel as AuditChannel) ?? 99;
+        const rightPriority = channelPriority.get(right.channel as AuditChannel) ?? 99;
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+        return right.updatedAt - left.updatedAt;
+      });
+      return sorted[0];
     }
 
     const bySessionToken = await ctx.db
@@ -542,12 +786,25 @@ export const resolveAuditSessionForDeliverableInternal = internalQuery({
       .withIndex("by_session_token", (q) => q.eq("sessionToken", normalizedSessionToken))
       .collect();
 
-    return bySessionToken
+    const byChannel = bySessionToken
       .filter((session) =>
         String(session.organizationId) === String(args.organizationId)
-        && session.channel === args.channel
-      )
-      .sort((a, b) => b.updatedAt - a.updatedAt)[0] || null;
+        && channelFallbackOrder.includes(session.channel as AuditChannel)
+      );
+    if (byChannel.length === 0) {
+      return null;
+    }
+    const channelPriority = new Map<AuditChannel, number>(
+      channelFallbackOrder.map((channel, index) => [channel, index])
+    );
+    return byChannel.sort((left, right) => {
+      const leftPriority = channelPriority.get(left.channel as AuditChannel) ?? 99;
+      const rightPriority = channelPriority.get(right.channel as AuditChannel) ?? 99;
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+      return right.updatedAt - left.updatedAt;
+    })[0] || null;
   },
 });
 
@@ -557,10 +814,23 @@ export const persistAuditDeliverableInternal = internalMutation({
     deliverableKey: v.string(),
     inputFingerprint: v.string(),
     templateCode: v.string(),
+    templateVersion: v.string(),
+    renderSource: v.string(),
+    requestedFormats: v.array(
+      v.object({
+        format: v.union(v.literal("pdf"), v.literal("docx")),
+        status: v.union(v.literal("generated"), v.literal("unsupported")),
+        blockedReasonCode: v.optional(v.string()),
+        blockedReasonDetail: v.optional(v.string()),
+      })
+    ),
     fileName: v.string(),
     storageId: v.id("_storage"),
     downloadUrl: v.optional(v.string()),
     sourceDownloadUrl: v.optional(v.string()),
+    docxFileName: v.optional(v.string()),
+    docxStorageId: v.optional(v.string()),
+    docxDownloadUrl: v.optional(v.string()),
     generatedAt: v.number(),
   },
   handler: async (ctx, args) => {
@@ -580,10 +850,30 @@ export const persistAuditDeliverableInternal = internalMutation({
       deliverableKey: args.deliverableKey,
       inputFingerprint: args.inputFingerprint,
       templateCode: args.templateCode,
+      templateVersion: args.templateVersion,
+      renderSource:
+        args.renderSource === "apitemplate_io_v2_create_pdf_from_html"
+          ? "apitemplate_io_v2_create_pdf_from_html"
+          : "apitemplate_io_v2_create_pdf_from_html",
+      requestedFormats: args.requestedFormats.map((formatRecord) => {
+        const blockedReasonCode =
+          formatRecord.blockedReasonCode === "docx_renderer_unavailable"
+            ? "docx_renderer_unavailable"
+            : undefined;
+        return {
+          format: formatRecord.format,
+          status: formatRecord.status,
+          blockedReasonCode,
+          blockedReasonDetail: formatRecord.blockedReasonDetail,
+        };
+      }),
       fileName: args.fileName,
       storageId: String(args.storageId),
       downloadUrl: args.downloadUrl,
       sourceDownloadUrl: args.sourceDownloadUrl,
+      docxFileName: args.docxFileName,
+      docxStorageId: args.docxStorageId,
+      docxDownloadUrl: args.docxDownloadUrl,
       generatedAt: args.generatedAt,
     };
 
@@ -650,19 +940,32 @@ export const generateAuditWorkflowDeliverable = internalAction({
       } as const;
     }
 
-    const template = await (ctx as any).runQuery(
+    const preferredTemplate = await (ctx as any).runQuery(
       generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateByCodeInternal,
       {
         organizationId: args.organizationId,
-        templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+        templateCode: AUDIT_RECOMMENDATION_TEMPLATE_CODE,
       }
     );
+    const legacyTemplate = !preferredTemplate
+      ? await (ctx as any).runQuery(
+        generatedApi.internal.pdfTemplateQueries.resolvePdfTemplateByCodeInternal,
+        {
+          organizationId: args.organizationId,
+          templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE_LEGACY,
+        }
+      )
+      : null;
+    const selectedTemplateCode = preferredTemplate
+      ? AUDIT_RECOMMENDATION_TEMPLATE_CODE
+      : AUDIT_WORKFLOW_TEMPLATE_CODE_LEGACY;
+    const template = preferredTemplate || legacyTemplate;
 
     if (!template) {
       return {
         success: false,
         errorCode: "missing_template",
-        message: `Template '${AUDIT_WORKFLOW_TEMPLATE_CODE}' is not available in template registry.`,
+        message: `Template '${AUDIT_RECOMMENDATION_TEMPLATE_CODE}' is not available in template registry.`,
       } as const;
     }
 
@@ -672,12 +975,19 @@ export const generateAuditWorkflowDeliverable = internalAction({
       input: args.input as AuditDeliverableInput | undefined,
       now,
     });
+    const requestedOutputFormats = normalizeRequestedOutputFormats(args.input?.outputFormats);
+    const requestedFormats: RequestedFormatRecord[] = [
+      {
+        format: "pdf",
+        status: "generated",
+      },
+    ];
     const canonicalPayload = buildCanonicalPayload(templateData);
     const canonicalPayloadJson = JSON.stringify(canonicalPayload);
     const inputFingerprint = await sha256Hex(
-      `${session.auditSessionKey}:${AUDIT_WORKFLOW_TEMPLATE_CODE}:${canonicalPayloadJson}`
+      `${session.auditSessionKey}:${selectedTemplateCode}:${requestedOutputFormats.join(",")}:${canonicalPayloadJson}`
     );
-    const deliverableKey = `${AUDIT_WORKFLOW_TEMPLATE_CODE}:${session.auditSessionKey}:${inputFingerprint}`;
+    const deliverableKey = `${selectedTemplateCode}:${session.auditSessionKey}:${inputFingerprint}`;
     const fileName = buildDeterministicFileName(session.auditSessionKey, inputFingerprint);
 
     const existingRecord = resolveExistingDeliverableRecord(session, deliverableKey);
@@ -691,6 +1001,7 @@ export const generateAuditWorkflowDeliverable = internalAction({
           session,
           sessionToken,
           inputFingerprint,
+          templateCode: selectedTemplateCode,
           occurredAt: existingRecord.generatedAt,
           dedupedGeneration: true,
         });
@@ -699,12 +1010,18 @@ export const generateAuditWorkflowDeliverable = internalAction({
           success: true,
           deduped: true,
           auditSessionKey: session.auditSessionKey,
-          templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+          templateCode: selectedTemplateCode,
+          templateVersion: existingRecord.templateVersion,
+          renderSource: existingRecord.renderSource,
+          requestedFormats: existingRecord.requestedFormats,
           inputFingerprint,
           fileName: existingRecord.fileName,
           storageId: existingRecord.storageId,
           downloadUrl: existingUrl,
           sourceDownloadUrl: existingRecord.sourceDownloadUrl,
+          docxFileName: existingRecord.docxFileName,
+          docxStorageId: existingRecord.docxStorageId,
+          docxDownloadUrl: existingRecord.docxDownloadUrl,
           generatedAt: existingRecord.generatedAt,
         } as const;
       }
@@ -721,7 +1038,7 @@ export const generateAuditWorkflowDeliverable = internalAction({
 
     const generationResult = await generatePdfFromTemplate({
       apiKey,
-      templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+      templateCode: selectedTemplateCode,
       filename: stripPdfExtension(fileName),
       paperSize: "Letter",
       data: canonicalPayload,
@@ -755,6 +1072,42 @@ export const generateAuditWorkflowDeliverable = internalAction({
       new Blob([pdfArrayBuffer], { type: "application/pdf" })
     );
     const downloadUrl = await ctx.storage.getUrl(storageId);
+
+    let docxFileName: string | undefined;
+    let docxStorageId: string | undefined;
+    let docxDownloadUrl: string | undefined;
+    if (requestedOutputFormats.includes("docx")) {
+      docxFileName = replacePdfWithDocx(fileName);
+      const docxResult = await createDocxDocumentTool.execute(ctx as any, {
+        fileName: docxFileName,
+        title: templateData.title,
+        subtitle: templateData.subtitle,
+        sections: buildDocxSectionsFromTemplateData(templateData),
+        saveToMediaLibrary: false,
+      });
+      const resultRecord =
+        docxResult && typeof docxResult === "object" && !Array.isArray(docxResult)
+          ? (docxResult as Record<string, unknown>)
+          : {};
+      const generatedDocxStorageId = normalizeOptionalString(resultRecord.storageId, 256);
+      if (resultRecord.success === true && generatedDocxStorageId) {
+        docxStorageId = generatedDocxStorageId;
+        docxDownloadUrl = normalizeOptionalString(resultRecord.downloadUrl, 2000);
+        requestedFormats.unshift({
+          format: "docx",
+          status: "generated",
+        });
+      } else {
+        requestedFormats.unshift({
+          format: "docx",
+          status: "unsupported",
+          blockedReasonCode: "docx_renderer_unavailable",
+          blockedReasonDetail:
+            normalizeOptionalString(resultRecord.message, 500)
+            || "DOCX generation request failed in backend tool path.",
+        });
+      }
+    }
     const generatedAt = Date.now();
 
     await (ctx as any).runMutation(
@@ -763,11 +1116,17 @@ export const generateAuditWorkflowDeliverable = internalAction({
         sessionId: session._id,
         deliverableKey,
         inputFingerprint,
-        templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+        templateCode: selectedTemplateCode,
+        templateVersion: normalizeOptionalString(template.version, 64) || "1.0",
+        renderSource: "apitemplate_io_v2_create_pdf_from_html",
+        requestedFormats,
         fileName,
         storageId,
         downloadUrl: downloadUrl || undefined,
         sourceDownloadUrl: generationResult.download_url,
+        docxFileName,
+        docxStorageId,
+        docxDownloadUrl,
         generatedAt,
       }
     );
@@ -779,6 +1138,7 @@ export const generateAuditWorkflowDeliverable = internalAction({
       session,
       sessionToken,
       inputFingerprint,
+      templateCode: selectedTemplateCode,
       occurredAt: generatedAt,
       dedupedGeneration: false,
     });
@@ -787,12 +1147,18 @@ export const generateAuditWorkflowDeliverable = internalAction({
       success: true,
       deduped: false,
       auditSessionKey: session.auditSessionKey,
-      templateCode: AUDIT_WORKFLOW_TEMPLATE_CODE,
+      templateCode: selectedTemplateCode,
+      templateVersion: normalizeOptionalString(template.version, 64) || "1.0",
+      renderSource: "apitemplate_io_v2_create_pdf_from_html" as const,
+      requestedFormats,
       inputFingerprint,
       fileName,
       storageId: String(storageId),
       downloadUrl: downloadUrl || null,
       sourceDownloadUrl: generationResult.download_url,
+      docxFileName: docxFileName || null,
+      docxStorageId: docxStorageId || null,
+      docxDownloadUrl: docxDownloadUrl || null,
       generatedAt,
     } as const;
   },

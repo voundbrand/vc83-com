@@ -55,16 +55,6 @@ export const ONBOARDING_TELEGRAM_ALIAS_DEPRECATION_PLAN = [
     checkpoint: "Phase 6 - remove once all runtime callers send channelContactIdentifier only",
     notes: "Kept for backward compatibility with non-migrated internal callers.",
   },
-  {
-    alias: "telegramChatId",
-    scope: "onboarding",
-    file: "convex/onboarding/orgBootstrap.ts",
-    symbol: "createMinimalOrg.args.telegramChatId",
-    status: "deferred",
-    owner: "onboarding-runtime",
-    checkpoint: "Phase 6 - remove after metadata/index consumers migrate to channelContactIdentifier",
-    notes: "Still used in audit metadata and legacy onboarding tracing.",
-  },
 ] as const satisfies readonly LegacyTelegramAliasSurface[];
 
 const CHANNEL_CONTACT_ID_ALIASES = ["channelContactIdentifier", "telegramChatId"] as const;

@@ -26,6 +26,13 @@ import { SEED_TEMPLATES } from "../seeds/interviewTemplates";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
 import {
+  ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+  AUDIT_DELIVERABLE_OUTCOME_KEY,
+  AUDIT_DELIVERABLE_TOOL_NAME,
+  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+} from "../ai/samanthaAuditContract";
+import {
   TRUST_EVENT_TAXONOMY_VERSION,
   validateTrustEventPayload,
   type TrustEventName,
@@ -834,7 +841,7 @@ const QUINN_CUSTOM_PROPERTIES = {
   enabledTools: [
     "complete_onboarding",
     "request_audit_deliverable_email",
-    "generate_audit_workflow_deliverable",
+    AUDIT_DELIVERABLE_TOOL_NAME,
     "verify_telegram_link",
     "start_account_creation_handoff",
     "start_slack_workspace_connect",
@@ -876,8 +883,8 @@ const QUINN_CUSTOM_PROPERTIES = {
   },
 };
 
-const SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE = "one_of_one_lead_capture_consultant_template";
 const SAMANTHA_LEAD_CAPTURE_WORKER_NAME = "Samantha Lead Capture 1";
+const SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME = "Samantha Warm Lead Capture 1";
 const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   displayName: "Samantha",
   personality:
@@ -886,7 +893,19 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
   systemPrompt: [
     "You are Samantha, a 7-minute lead capture consultant for high-performing business owners.",
-    "Your core job: find the user's highest-impact pain point, recommend one concrete workflow, and deliver a clear implementation plan.",
+    "Your core job: find the user's highest-impact pain point, recommend one concrete workflow, and deliver a clear implementation-ready scope plan.",
+    "Commercial motion contract (must stay explicit and consistent):",
+    "- Free Diagnostic is lead qualification only.",
+    "- Consulting Sprint is €3,500 and scope-only (no implementation delivery).",
+    "- Implementation Start begins at €7,000+.",
+    "Intent routing behavior:",
+    "- intent_code=diagnostic_qualification: run diagnostic qualification flow and deliver one high-leverage workflow recommendation before contact capture.",
+    "- intent_code=consulting_sprint_scope_only: keep scope strictly strategy/discovery, define boundaries, and never imply production implementation is included.",
+    "- intent_code=implementation_start_layer1: confirm implementation readiness, budget/timing, and route to implementation-start expectations at €7,000+.",
+    "Handoff and lead payload tagging contract:",
+    "- In handoff summaries and qualification recaps, preserve canonical fields: offer_code, intent_code, surface, routing_hint.",
+    "- Preserve canonical campaign envelope keys: source, medium, campaign, content, term, referrer, landingPath.",
+    "- Include compatibility aliases when available: offerCode, intentCode, routingHint, utm_source/utmSource, utm_medium/utmMedium, utm_campaign/utmCampaign, utm_content/utmContent, utm_term/utmTerm, funnelReferrer, funnelLandingPath.",
     "Language policy:",
     "- Treat language support as unrestricted: respond in whatever language the user writes.",
     "- Detect and mirror the user's language on every turn.",
@@ -902,6 +921,8 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
     "Ask this explicitly as one yes/no question: Would you like Remington the founder of sevenlayers.io to discuss implementation support?",
     "4) Use request_audit_deliverable_email only after value delivery to request or confirm the delivery email.",
     "5) Generate the implementation PDF using generate_audit_workflow_deliverable only after minimum required fields are captured.",
+    "When discussing consulting sprint outcomes, state explicitly that implementation delivery is excluded.",
+    "If implementation readiness is requested, state explicitly that implementation starts at €7,000+.",
     "Never ask for contact details before delivering value.",
     "Prioritize high-intent leads for follow-up based on completeness and clarity of qualification data.",
     "Never present a broad list of ideas; give one strongest plan.",
@@ -920,7 +941,7 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   knowledgeBaseTags: ["one_of_one", "lead_capture", "audit_mode"],
   enabledTools: [
     "request_audit_deliverable_email",
-    "generate_audit_workflow_deliverable",
+    AUDIT_DELIVERABLE_TOOL_NAME,
     "start_account_creation_handoff",
   ],
   disabledTools: [] as string[],
@@ -959,6 +980,20 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
     maxClonesPerOwner: 3,
     allowedPlaybooks: ["lead_capture"],
   },
+  actionCompletionContract: {
+    contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+    mode: "enforce",
+    outcomes: [
+      {
+        outcome: AUDIT_DELIVERABLE_OUTCOME_KEY,
+        requiredTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+        unavailableMessage:
+          "I can’t generate your implementation PDF in this turn because the delivery tool is unavailable in the current runtime scope. I won’t claim completion without a real tool execution.",
+        notObservedMessage:
+          "I can’t confirm PDF generation yet because the delivery tool did not execute in this turn. I won’t claim completion without a real tool call. Please confirm first name, last name, email, phone number, and founder-contact preference (yes/no), and I will run it now.",
+      },
+    ],
+  },
 };
 
 const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
@@ -968,6 +1003,50 @@ const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
     "Protected template for one-of-one lead capture audit flow (7-minute bottleneck diagnosis + implementation plan deliverable).",
   role: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
   customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+};
+
+const SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
+  ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+  displayName: "Samantha Warm",
+  personality:
+    "High-intent implementation consultant. Converts warm commercial handoffs into clear next steps, qualification payloads, and deterministic follow-up actions.",
+  systemPrompt: [
+    "You are Samantha Warm, the warm-intent commercial conversion specialist for sevenlayers.io.",
+    "Audience gate:",
+    "- You only run warm conversion behavior when inbound metadata indicates surface=store or target_specialist_template_role=one_of_one_warm_lead_capture_consultant_template.",
+    "- If metadata indicates one_of_one_landing or cold traffic, stay value-first and do not hard-sell.",
+    "Commercial motion contract (must stay explicit and consistent):",
+    "- Free Diagnostic is qualification only.",
+    "- Consulting Sprint is €3,500 and scope-only (no implementation delivery).",
+    "- Implementation Start begins at €7,000+.",
+    "Intent routing behavior:",
+    "- intent_code=diagnostic_qualification or diagnostic_scope_intake: deliver one workflow recommendation, then capture qualification for next-step call.",
+    "- intent_code=consulting_sprint_scope_only: keep scope strategy/discovery only and explicitly exclude production implementation.",
+    "- intent_code=implementation_start_layer1 or implementation_layer_upgrade: confirm readiness, budget/timing, and implementation expectations.",
+    "Handoff and lead payload tagging contract:",
+    "- In handoff summaries and qualification recaps, preserve canonical fields: offer_code, intent_code, surface, routing_hint.",
+    "- Preserve canonical campaign envelope keys: source, medium, campaign, content, term, referrer, landingPath.",
+    "- Include compatibility aliases when available: offerCode, intentCode, routingHint, utm_source/utmSource, utm_medium/utmMedium, utm_campaign/utmCampaign, utm_content/utmContent, utm_term/utmTerm, funnelReferrer, funnelLandingPath.",
+    "Sequencing contract:",
+    "1) Deliver value first (one strongest workflow recommendation).",
+    "2) Collect qualification fields before finalizing follow-up.",
+    "3) Request audit deliverable email and generate PDF only after minimum required fields are captured.",
+    "Minimum required before PDF generation: first name, last name, email, phone number, and founder-contact preference (yes/no).",
+    "If implementation readiness is requested, state explicitly that implementation starts at €7,000+.",
+    "Keep responses concise, direct, and operator-level.",
+  ].join("\n"),
+  knowledgeBaseTags: ["one_of_one", "lead_capture", "audit_mode", "warm_intent"],
+  temperature: 0.4,
+  templateRole: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+};
+
+const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
+  name: "Samantha Warm Lead Capture Consultant",
+  subtype: "general",
+  description:
+    "Protected template for warm-intent commercial handoffs (store/chat) with strict conversion guardrails and audit deliverable flow.",
+  role: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+  customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
 };
 
 type ProtectedTemplateAgentSeed = {
@@ -1309,12 +1388,18 @@ async function upsertProtectedTemplateAgent(
   return { agentId, created: true };
 }
 
-async function upsertSamanthaLeadCaptureWorker(
+async function upsertLeadCaptureWorker(
   ctx: WriteCtx,
   args: {
     organizationId: Id<"organizations">;
     now: number;
     templateAgentId: Id<"objects">;
+    workerPoolRole: string;
+    workerName: string;
+    workerDescription: string;
+    customProperties: Record<string, unknown>;
+    displayName: string;
+    seedRole: string;
   },
 ): Promise<{ workerId: Id<"objects"> | null; created: boolean }> {
   const existingAgents = await ctx.db
@@ -1329,7 +1414,7 @@ async function upsertSamanthaLeadCaptureWorker(
     return (
       agent.status === "active" &&
       `${props.templateAgentId || ""}` === `${args.templateAgentId}` &&
-      props.workerPoolRole === "lead_capture_consultant"
+      props.workerPoolRole === args.workerPoolRole
     );
   });
 
@@ -1339,14 +1424,14 @@ async function upsertSamanthaLeadCaptureWorker(
     const liveProps = asRecord(worker.customProperties);
     await ctx.db.patch(worker._id, {
       subtype: "general",
-      description: "Samantha lead capture consultant worker (seeded)",
+      description: args.workerDescription,
       status: "active",
       customProperties: {
-        ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-        displayName: "Samantha",
+        ...args.customProperties,
+        displayName: args.displayName,
         status: "active",
         templateAgentId: args.templateAgentId,
-        workerPoolRole: "lead_capture_consultant",
+        workerPoolRole: args.workerPoolRole,
         lastActiveSessionAt: args.now,
         totalMessages: typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
         totalCostUsd: typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
@@ -1360,15 +1445,15 @@ async function upsertSamanthaLeadCaptureWorker(
     organizationId: args.organizationId,
     type: "org_agent",
     subtype: "general",
-    name: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
-    description: "Samantha lead capture consultant worker (seeded)",
+    name: args.workerName,
+    description: args.workerDescription,
     status: "active",
     customProperties: {
-      ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-      displayName: "Samantha",
+      ...args.customProperties,
+      displayName: args.displayName,
       status: "active",
       templateAgentId: args.templateAgentId,
-      workerPoolRole: "lead_capture_consultant",
+      workerPoolRole: args.workerPoolRole,
       lastActiveSessionAt: args.now,
     },
     createdAt: args.now,
@@ -1380,8 +1465,8 @@ async function upsertSamanthaLeadCaptureWorker(
     objectId: workerId,
     actionType: "seeded",
     actionData: {
-      agent: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
-      role: "lead_capture_consultant",
+      agent: args.workerName,
+      role: args.seedRole,
       templateId: args.templateAgentId,
     },
     performedAt: args.now,
@@ -1557,15 +1642,47 @@ export const seedAll = internalMutation({
       `[seedPlatformAgents] ${SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED.name} upserted (${samanthaTemplateResult.created ? "created" : "updated"}): ${samanthaTemplateResult.agentId}`,
     );
 
-    const samanthaWorkerResult = await upsertSamanthaLeadCaptureWorker(ctx, {
+    const samanthaWorkerResult = await upsertLeadCaptureWorker(ctx, {
       organizationId: platformOrgId,
       now,
       templateAgentId: samanthaTemplateResult.agentId,
+      workerPoolRole: "lead_capture_consultant",
+      workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
+      workerDescription: "Samantha lead capture consultant worker (seeded)",
+      customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+      displayName: "Samantha",
+      seedRole: "lead_capture_consultant",
     });
     if (samanthaWorkerResult.created) {
       console.log(`[seedPlatformAgents] Initial Samantha worker spawned: ${samanthaWorkerResult.workerId}`);
     } else {
       console.log(`[seedPlatformAgents] Samantha worker already exists — skipped`);
+    }
+
+    const samanthaWarmTemplateResult = await upsertProtectedTemplateAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED,
+    });
+    console.log(
+      `[seedPlatformAgents] ${SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED.name} upserted (${samanthaWarmTemplateResult.created ? "created" : "updated"}): ${samanthaWarmTemplateResult.agentId}`,
+    );
+
+    const samanthaWarmWorkerResult = await upsertLeadCaptureWorker(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateAgentId: samanthaWarmTemplateResult.agentId,
+      workerPoolRole: "lead_capture_consultant_warm",
+      workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
+      workerDescription: "Samantha warm lead capture consultant worker (seeded)",
+      customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+      displayName: "Samantha Warm",
+      seedRole: "lead_capture_consultant_warm",
+    });
+    if (samanthaWarmWorkerResult.created) {
+      console.log(`[seedPlatformAgents] Initial Samantha Warm worker spawned: ${samanthaWarmWorkerResult.workerId}`);
+    } else {
+      console.log(`[seedPlatformAgents] Samantha Warm worker already exists — skipped`);
     }
 
     // ------------------------------------------------------------------
@@ -1741,6 +1858,10 @@ export const seedAll = internalMutation({
       samanthaLeadCaptureTemplateCreated: samanthaTemplateResult.created,
       samanthaLeadCaptureWorkerId: samanthaWorkerResult.workerId,
       samanthaLeadCaptureWorkerCreated: samanthaWorkerResult.created,
+      samanthaWarmLeadCaptureTemplateId: samanthaWarmTemplateResult.agentId,
+      samanthaWarmLeadCaptureTemplateCreated: samanthaWarmTemplateResult.created,
+      samanthaWarmLeadCaptureWorkerId: samanthaWarmWorkerResult.workerId,
+      samanthaWarmLeadCaptureWorkerCreated: samanthaWarmWorkerResult.created,
       initialWorkerId,
       workerCreated: existingWorkers.length === 0,
     };
@@ -1764,10 +1885,16 @@ export const seedSamanthaLeadCaptureConsultant = internalMutation({
       seed: SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED,
     });
 
-    const workerResult = await upsertSamanthaLeadCaptureWorker(ctx, {
+    const workerResult = await upsertLeadCaptureWorker(ctx, {
       organizationId: platformOrgId,
       now,
       templateAgentId: templateResult.agentId,
+      workerPoolRole: "lead_capture_consultant",
+      workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
+      workerDescription: "Samantha lead capture consultant worker (seeded)",
+      customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+      displayName: "Samantha",
+      seedRole: "lead_capture_consultant",
     });
 
     return {
@@ -1779,6 +1906,48 @@ export const seedSamanthaLeadCaptureConsultant = internalMutation({
       workerCreated: workerResult.created,
       templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
       workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
+    };
+  },
+});
+
+export const seedSamanthaWarmLeadCaptureConsultant = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const platformOrgId = getPlatformOrgId();
+    const now = Date.now();
+
+    const platformOrg = await ctx.db.get(platformOrgId);
+    if (!platformOrg) {
+      throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+    }
+
+    const templateResult = await upsertProtectedTemplateAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED,
+    });
+
+    const workerResult = await upsertLeadCaptureWorker(ctx, {
+      organizationId: platformOrgId,
+      now,
+      templateAgentId: templateResult.agentId,
+      workerPoolRole: "lead_capture_consultant_warm",
+      workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
+      workerDescription: "Samantha warm lead capture consultant worker (seeded)",
+      customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
+      displayName: "Samantha Warm",
+      seedRole: "lead_capture_consultant_warm",
+    });
+
+    return {
+      success: true,
+      platformOrgId,
+      templateId: templateResult.agentId,
+      templateCreated: templateResult.created,
+      workerId: workerResult.workerId,
+      workerCreated: workerResult.created,
+      templateRole: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+      workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
     };
   },
 });

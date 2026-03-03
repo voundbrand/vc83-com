@@ -34,7 +34,6 @@ export const createMinimalOrg = internalMutation({
     industry: v.optional(v.string()),
     source: v.string(),
     channelContactIdentifier: v.optional(v.string()),
-    telegramChatId: v.optional(v.string()), // TODO(onboarding-phase6-telegram-alias): remove after compatibility window.
   },
   handler: async (ctx, args) => {
     const workspaceName =
@@ -44,9 +43,7 @@ export const createMinimalOrg = internalMutation({
     const workspaceContext =
       normalizeOptionalString(args.workspaceContext) ||
       normalizeOptionalString(args.industry);
-    const channelContactIdentifier =
-      normalizeOptionalString(args.channelContactIdentifier) ||
-      normalizeOptionalString(args.telegramChatId);
+    const channelContactIdentifier = normalizeOptionalString(args.channelContactIdentifier);
 
     // Generate a unique slug from the name
     const baseSlug = workspaceName
@@ -80,7 +77,6 @@ export const createMinimalOrg = internalMutation({
         workspaceContext,
         industry: workspaceContext,
         channelContactIdentifier,
-        telegramChatId: channelContactIdentifier,
       },
       success: true,
       createdAt: now,

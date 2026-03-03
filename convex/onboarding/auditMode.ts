@@ -153,6 +153,42 @@ function createInitialQuestionState(now: number) {
   };
 }
 
+function createDispatchBootstrapQuestionState(now: number) {
+  const bootstrapAnswer = "Captured through Samantha dispatch bootstrap.";
+  return {
+    business_revenue: {
+      status: "answered" as const,
+      askedAt: now,
+      answeredAt: now,
+      answer: bootstrapAnswer,
+    },
+    team_size: {
+      status: "answered" as const,
+      askedAt: now,
+      answeredAt: now,
+      answer: bootstrapAnswer,
+    },
+    monday_priority: {
+      status: "answered" as const,
+      askedAt: now,
+      answeredAt: now,
+      answer: bootstrapAnswer,
+    },
+    delegation_gap: {
+      status: "answered" as const,
+      askedAt: now,
+      answeredAt: now,
+      answer: bootstrapAnswer,
+    },
+    reclaimed_time: {
+      status: "answered" as const,
+      askedAt: now,
+      answeredAt: now,
+      answer: bootstrapAnswer,
+    },
+  };
+}
+
 function buildAuditSessionSnapshot(session: any) {
   const currentQuestionId = (session.currentQuestionId as AuditQuestionId | undefined) || undefined;
 
@@ -539,6 +575,112 @@ export const resumeAuditModeSession = internalQuery({
       success: true,
       session: buildAuditSessionSnapshot(session),
     };
+  },
+});
+
+export const ensureAuditModeSessionForDeliverable = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    agentId: v.id("objects"),
+    channel: auditChannelValidator,
+    sessionToken: v.string(),
+    auditSessionKey: v.optional(v.string()),
+    workflowRecommendation: v.optional(v.string()),
+    capturedEmail: v.optional(v.string()),
+    capturedName: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const sessionToken = args.sessionToken.trim();
+    if (!sessionToken) {
+      return {
+        success: false,
+        errorCode: "missing_session_token",
+      } as const;
+    }
+
+    const existing = await resolveAuditSession(ctx, {
+      organizationId: args.organizationId,
+      channel: args.channel,
+      sessionToken,
+      auditSessionKey: args.auditSessionKey,
+    });
+    const workflowRecommendation = normalizeAuditAnswer(args.workflowRecommendation || "");
+    const capturedEmail = normalizeOptionalString(args.capturedEmail)?.slice(0, 320);
+    const capturedName = normalizeOptionalString(args.capturedName)?.slice(0, 320);
+    const metadataPatch = normalizeMetadataRecord(args.metadata);
+    if (existing) {
+      const existingMetadata = normalizeMetadataRecord(existing.metadata);
+      await ctx.db.patch(existing._id, {
+        agentId: args.agentId,
+        sessionToken,
+        capturedEmail: capturedEmail || existing.capturedEmail,
+        capturedName: capturedName || existing.capturedName,
+        workflowRecommendation: workflowRecommendation || existing.workflowRecommendation,
+        workflowDeliveredAt:
+          workflowRecommendation && !existing.workflowDeliveredAt
+            ? now
+            : existing.workflowDeliveredAt,
+        completedAt: existing.completedAt || now,
+        metadata:
+          Object.keys(metadataPatch).length > 0
+            ? { ...existingMetadata, ...metadataPatch }
+            : existing.metadata,
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+      const updated = await ctx.db.get(existing._id);
+      return {
+        success: true,
+        created: false,
+        session: updated ? buildAuditSessionSnapshot(updated) : null,
+      } as const;
+    }
+
+    const auditSessionKey = resolveDeterministicAuditSessionKey({
+      channel: args.channel,
+      organizationId: args.organizationId,
+      sessionToken,
+    });
+    const questionState = createDispatchBootstrapQuestionState(now);
+    const metadata = Object.keys(metadataPatch).length > 0
+      ? {
+          source: "samantha_dispatch_bootstrap",
+          ...metadataPatch,
+        }
+      : {
+          source: "samantha_dispatch_bootstrap",
+        };
+
+    const docId = await ctx.db.insert("onboardingAuditSessions", {
+      auditSessionKey,
+      channel: args.channel,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      sessionToken,
+      questionSetVersion: AUDIT_MODE_QUESTION_SET_VERSION,
+      status: workflowRecommendation ? "workflow_delivered" : "completed",
+      currentQuestionId: undefined,
+      answeredQuestionCount: AUDIT_QUESTION_ORDER.length,
+      questionState,
+      workflowRecommendation: workflowRecommendation || undefined,
+      workflowDeliveredAt: workflowRecommendation ? now : undefined,
+      capturedEmail: capturedEmail || undefined,
+      capturedName: capturedName || undefined,
+      completedAt: now,
+      metadata,
+      startedAt: now,
+      lastActivityAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const created = await ctx.db.get(docId);
+    return {
+      success: true,
+      created: true,
+      session: created ? buildAuditSessionSnapshot(created) : null,
+    } as const;
   },
 });
 
