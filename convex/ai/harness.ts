@@ -515,6 +515,9 @@ export function buildHarnessContext(
     lines.push(
       "Cross-org read-only soul enrichment active (personal workspace -> business summaries only):",
     );
+    lines.push(
+      "Cross-org enrichment policy: explicit personal-workspace opt-in is enabled for this runtime.",
+    );
     for (const entry of crossOrgSoulReadOnlyEnrichment) {
       const subtype = entry.primaryAgentSubtype || "general";
       const role = entry.roleName || "member";

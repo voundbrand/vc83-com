@@ -83,6 +83,31 @@ function normalizeAllowedPlaybooks(value: unknown): string[] | null {
   return normalized.length > 0 ? Array.from(new Set(normalized)) : null;
 }
 
+function normalizeDeterministicStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      value
+        .map((entry) => normalizeOptionalString(entry))
+        .filter((entry): entry is string => Boolean(entry))
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function arraysAreEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface TemplateClonePolicy {
   spawnEnabled: boolean;
   maxClonesPerOrg: number;
@@ -413,6 +438,9 @@ export const spawnUseCaseAgent = internalMutation({
     spawnReason: v.optional(v.string()),
     preferredCloneName: v.optional(v.string()),
     reuseExisting: v.optional(v.boolean()),
+    requiredTools: v.optional(v.array(v.string())),
+    requiredCapabilities: v.optional(v.array(v.string())),
+    contractSourceCatalogAgentNumber: v.optional(v.number()),
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -461,6 +489,29 @@ export const spawnUseCaseAgent = internalMutation({
 
     const useCaseLabel = normalizeUseCaseLabel(args.useCase);
     const useCaseKey = normalizeUseCaseKey(args.useCase);
+    const templateRequiredTools = normalizeDeterministicStringArray(templateProps.requiredTools);
+    const templateRequiredCapabilities = normalizeDeterministicStringArray(
+      templateProps.requiredCapabilities
+    );
+    const requestedRequiredTools = normalizeDeterministicStringArray(args.requiredTools);
+    const requestedRequiredCapabilities = normalizeDeterministicStringArray(
+      args.requiredCapabilities
+    );
+    const requiredTools =
+      requestedRequiredTools.length > 0 ? requestedRequiredTools : templateRequiredTools;
+    const requiredCapabilities =
+      requestedRequiredCapabilities.length > 0
+        ? requestedRequiredCapabilities
+        : templateRequiredCapabilities;
+    const specialistContract = {
+      contractVersion: "curated_specialist_scope_requirements_v1",
+      requiredTools,
+      requiredCapabilities,
+      sourceCatalogAgentNumber:
+        typeof args.contractSourceCatalogAgentNumber === "number"
+          ? Math.floor(args.contractSourceCatalogAgentNumber)
+          : undefined,
+    };
 
     const allOrgAgents = await ctx.db
       .query("objects")
@@ -493,13 +544,23 @@ export const spawnUseCaseAgent = internalMutation({
 
     const reuseExisting = args.reuseExisting !== false;
     if (reuseExisting && matchingClone) {
-      if (!ownerHadPrimaryBeforeSpawn) {
-        const matchingCloneProps = asRecord(matchingClone.customProperties);
+      const matchingCloneProps = asRecord(matchingClone.customProperties);
+      const currentRequiredTools = normalizeDeterministicStringArray(matchingCloneProps.requiredTools);
+      const currentRequiredCapabilities = normalizeDeterministicStringArray(
+        matchingCloneProps.requiredCapabilities
+      );
+      const requiresContractUpdate =
+        !arraysAreEqual(currentRequiredTools, requiredTools)
+        || !arraysAreEqual(currentRequiredCapabilities, requiredCapabilities);
+      if (!ownerHadPrimaryBeforeSpawn || requiresContractUpdate) {
         await ctx.db.patch(matchingClone._id, {
           customProperties: {
             ...matchingCloneProps,
             operatorId: ownerOperatorId,
-            isPrimary: true,
+            isPrimary: !ownerHadPrimaryBeforeSpawn ? true : matchingCloneProps.isPrimary === true,
+            requiredTools,
+            requiredCapabilities,
+            specialistScopeContract: specialistContract,
           },
           updatedAt: now,
         });
@@ -519,6 +580,9 @@ export const spawnUseCaseAgent = internalMutation({
           playbook: normalizedPlaybook ?? normalizeOptionalString(templateProps.templatePlaybook),
           operatorId: ownerOperatorId,
           promotedToPrimary: !ownerHadPrimaryBeforeSpawn,
+          requiredTools,
+          requiredCapabilities,
+          specialistScopeContract: specialistContract,
         },
         performedBy: requestedByUserId,
         performedAt: now,
@@ -614,6 +678,9 @@ export const spawnUseCaseAgent = internalMutation({
           maxClonesPerOwner: clonePolicy.maxClonesPerOwner,
           allowedPlaybooks: clonePolicy.allowedPlaybooks,
         },
+        requiredTools,
+        requiredCapabilities,
+        specialistScopeContract: specialistContract,
         spawnMetadata: asRecord(args.metadata),
       },
       createdBy: requestedByUserId,
@@ -634,6 +701,9 @@ export const spawnUseCaseAgent = internalMutation({
       lifecycle: USE_CASE_CLONE_LIFECYCLE,
       operatorId: ownerOperatorId,
       isPrimaryAssigned: !ownerHadPrimaryBeforeSpawn,
+      requiredTools,
+      requiredCapabilities,
+      specialistScopeContract: specialistContract,
     };
 
     await ctx.db.insert("objectActions", {

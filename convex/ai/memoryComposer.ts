@@ -971,7 +971,7 @@ const CONTACT_MEMORY_USER_NAME_PATTERNS = [
   /\bcall me\s+([A-Za-z][A-Za-z .'-]{1,80})/gi,
 ];
 const CONTACT_MEMORY_EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
-const CONTACT_MEMORY_NAME_REGEX = /^[A-Za-z][A-Za-z .'-]{1,80}$/;
+const CONTACT_MEMORY_NAME_REGEX = /^\p{L}[\p{L} .'-]{1,80}$/u;
 const CONTACT_MEMORY_TIMEZONE_REGEX = /^[A-Za-z_\/+\-]{2,64}$/;
 const CONTACT_MEMORY_TOOL_FIELD_MAP: Record<string, SessionContactMemoryField> = {
   preferredname: "preferred_name",
@@ -1126,6 +1126,32 @@ function buildContactMemoryExtractionCandidate(args: {
   };
 }
 
+function extractStructuredContactFieldRows(
+  userMessage: string
+): Array<{ label: string; value: string; sourceExcerpt: string }> {
+  const rows: Array<{ label: string; value: string; sourceExcerpt: string }> = [];
+  const linePattern = /^\s*([^:\n]{1,80})\s*:\s*(.+?)\s*$/gm;
+  linePattern.lastIndex = 0;
+  let matched: RegExpExecArray | null = null;
+  while ((matched = linePattern.exec(userMessage)) !== null) {
+    const label = normalizeContactMemoryText(matched[1], 80);
+    const rawValue = normalizeContactMemoryText(matched[2], 140);
+    if (!label || !rawValue) {
+      continue;
+    }
+    const value = rawValue.replace(/^['"]/, "").replace(/['"]$/, "").trim();
+    if (!value) {
+      continue;
+    }
+    rows.push({
+      label,
+      value,
+      sourceExcerpt: `user:${label}: ${value}`,
+    });
+  }
+  return rows;
+}
+
 function pushUserMessageContactCandidates(
   userMessage: string,
   target: SessionContactMemoryExtractionCandidate[]
@@ -1206,6 +1232,74 @@ function pushUserMessageContactCandidates(
     });
     if (candidate) {
       target.push(candidate);
+    }
+  }
+
+  const structuredRows = extractStructuredContactFieldRows(userMessage);
+  const structuredNameTokens: string[] = [];
+  for (const row of structuredRows) {
+    const emailCandidate = buildContactMemoryExtractionCandidate({
+      field: "email",
+      value: row.value,
+      sourceKind: "user_message",
+      sourceExcerpt: row.sourceExcerpt,
+    });
+    if (emailCandidate) {
+      target.push(emailCandidate);
+      continue;
+    }
+
+    const phoneCandidate = buildContactMemoryExtractionCandidate({
+      field: "phone",
+      value: row.value,
+      sourceKind: "user_message",
+      sourceExcerpt: row.sourceExcerpt,
+    });
+    if (phoneCandidate) {
+      target.push(phoneCandidate);
+      continue;
+    }
+
+    const preferenceCandidate = buildContactMemoryExtractionCandidate({
+      field: "communication_preference",
+      value: row.value,
+      sourceKind: "user_message",
+      sourceExcerpt: row.sourceExcerpt,
+    });
+    if (preferenceCandidate) {
+      target.push(preferenceCandidate);
+      continue;
+    }
+
+    const displayName = normalizeContactMemoryDisplayName(row.value);
+    if (!displayName) {
+      continue;
+    }
+    if (displayName.includes(" ")) {
+      const fullNameCandidate = buildContactMemoryExtractionCandidate({
+        field: "preferred_name",
+        value: displayName,
+        sourceKind: "user_message",
+        sourceExcerpt: row.sourceExcerpt,
+      });
+      if (fullNameCandidate) {
+        target.push(fullNameCandidate);
+      }
+      continue;
+    }
+    structuredNameTokens.push(displayName);
+  }
+
+  if (structuredNameTokens.length >= 2) {
+    const inferredFullName = `${structuredNameTokens[0]} ${structuredNameTokens[1]}`;
+    const inferredCandidate = buildContactMemoryExtractionCandidate({
+      field: "preferred_name",
+      value: inferredFullName,
+      sourceKind: "user_message",
+      sourceExcerpt: "user:structured_name_pair",
+    });
+    if (inferredCandidate) {
+      target.push(inferredCandidate);
     }
   }
 }
@@ -1543,12 +1637,12 @@ export function extractSessionContactMemoryCandidates(args: {
   toolResults?: Array<{ tool?: unknown; status?: unknown; result?: unknown }> | null;
 }): SessionContactMemoryExtractionCandidate[] {
   const candidates: SessionContactMemoryExtractionCandidate[] = [];
-  const userMessage = normalizeContactMemoryText(
-    args.userMessage,
-    CONTACT_MEMORY_EXCERPT_MAX_CHARS * 4
-  );
-  if (userMessage) {
-    pushUserMessageContactCandidates(userMessage, candidates);
+  const rawUserMessage =
+    typeof args.userMessage === "string"
+      ? args.userMessage.trim().slice(0, CONTACT_MEMORY_EXCERPT_MAX_CHARS * 4)
+      : null;
+  if (rawUserMessage) {
+    pushUserMessageContactCandidates(rawUserMessage, candidates);
   }
   pushToolResultContactCandidates({
     toolResults: args.toolResults ?? undefined,

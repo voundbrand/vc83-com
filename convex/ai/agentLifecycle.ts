@@ -314,8 +314,15 @@ function buildLifecycleTrustPayload(args: {
   checkpoint: AgentLifecycleCheckpoint;
   reason?: string;
 }): TrustEventPayload {
+  const transitionFingerprint = [
+    args.fromState,
+    args.toState,
+    args.checkpoint,
+    args.actor,
+  ].join(":");
+
   return {
-    event_id: `trust.lifecycle.transition_checkpoint.v1:${args.sessionId}:${args.occurredAt}`,
+    event_id: `trust.lifecycle.transition_checkpoint.v1:${args.sessionId}:${args.occurredAt}:${transitionFingerprint}`,
     event_version: TRUST_EVENT_TAXONOMY_VERSION,
     occurred_at: args.occurredAt,
     org_id: args.organizationId,

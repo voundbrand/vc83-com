@@ -45,6 +45,10 @@ import {
 import {
   getPlatformBlockedTools,
   resolveActiveToolsWithAudit,
+  validateRequiredSpecialistScopeContract,
+  TOOL_PROFILES,
+  type RequiredSpecialistScopeContract,
+  type RequiredSpecialistScopeGap,
   SUBTYPE_DEFAULT_PROFILES,
 } from "./toolScoping";
 import {
@@ -54,6 +58,7 @@ import {
   composeSessionReactivationMemoryContext,
   composeRollingSessionMemoryContext,
   composeKnowledgeContext,
+  extractSessionContactMemoryCandidates,
   estimateTokensFromText,
   getUtf8ByteLength,
   type SessionHistoryContextMessage,
@@ -134,6 +139,7 @@ import {
   type AutonomyLevelInput,
 } from "./autonomy";
 import {
+  isDreamTeamSpecialistContractInWorkspaceScope,
   buildHarnessContext,
   determineAgentLayer,
   normalizeDreamTeamSpecialistContracts,
@@ -142,6 +148,7 @@ import {
   type CrossOrgSoulReadOnlyEnrichmentSummary,
   type DreamTeamWorkspaceType,
 } from "./harness";
+import { resolveTeamSpecialistSelection } from "./tools/teamTools";
 import {
   resolveActiveArchetypeRuntimeContract,
   resolveSensitiveArchetypeRuntimeConstraint,
@@ -161,6 +168,9 @@ import {
   resolveSupportRuntimeContext,
 } from "./prompts/supportRuntimePolicy";
 import {
+  collectSuccessfulToolNames,
+  type AgentToolExecutionStatus,
+  type AgentToolResult,
   buildToolErrorStatePatch,
   type ToolCapabilityGapBlockedPayload,
   executeToolCallsWithApproval,
@@ -199,12 +209,51 @@ import {
 } from "./trustEvents";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
 import {
+  ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+  ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+  AUDIT_DELIVERABLE_OUTCOME_KEY,
+  AUDIT_DELIVERABLE_TOOL_NAME,
+  SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+  SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
+  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+  type SamanthaAuditRequiredField,
+  type SamanthaAuditRoutingAuditChannel,
+  type SamanthaAuditSourceContext,
+  type SamanthaPreflightReasonCode,
+} from "./samanthaAuditContract";
+import {
   enforceRuntimeGovernorCost,
   enforceRuntimeGovernorStepAndTime,
   resolveRuntimeGovernorContract,
   type RuntimeGovernorContract,
   type RuntimeGovernorLimit,
 } from "./runtimeGovernor";
+import {
+  buildCrossOrgEnrichmentTelemetryLabels,
+  resolveCrossOrgEnrichmentCandidateDecision,
+  resolveCrossOrgEnrichmentRequestDecision,
+  type CrossOrgEnrichmentCandidateDecision,
+  type CrossOrgEnrichmentTelemetryLabels,
+} from "../lib/layerScope";
+import { buildRuntimeIncidentThreadDeepLink } from "./runtimeIncidentAlerts";
+import {
+  buildAdmissionDenial,
+  type AdmissionDecisionStage,
+  type AdmissionDenialReasonCode,
+  type AdmissionDenialV1,
+  type AdmissionIngressChannel,
+} from "./admissionController";
+import {
+  buildDeterministicIdempotencyPayloadHash,
+  evaluateInboundIdempotencyTuple,
+} from "./idempotencyCoordinator";
+import {
+  buildActionCompletionQaDiagnostics,
+  buildSuperAdminAgentQaTurnTelemetryEnvelope,
+  SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+  type ActionCompletionQaDiagnostics,
+} from "./qaModeContracts";
 
 export {
   buildAgentSystemPrompt,
@@ -244,6 +293,8 @@ interface AgentConfig {
   toolProfile?: string;
   enabledTools?: string[];
   disabledTools?: string[];
+  requiredTools?: string[];
+  requiredCapabilities?: string[];
   autonomyLevel: AutonomyLevelInput;
   maxMessagesPerDay?: number;
   maxCostPerDay?: number;
@@ -279,6 +330,20 @@ interface AgentConfig {
   activeChannel?: string;
   domainAutonomy?: unknown;
   autonomyTrust?: unknown;
+  actionCompletionContract?: {
+    contractVersion?: string;
+    mode?: "off" | "observe" | "enforce" | string;
+    outcomes?: Array<{
+      outcome?: string;
+      requiredTools?: string[];
+      unavailableMessage?: string;
+      notObservedMessage?: string;
+    }>;
+  };
+  crossOrgEnrichment?: {
+    personalWorkspaceReadOnlyOptIn?: boolean;
+  };
+  crossOrgPersonalWorkspaceReadOnlyOptIn?: boolean;
 }
 
 function resolveAppointmentBookingDomainDefault(
@@ -359,6 +424,21 @@ function resolveAgentDisplayNameForEnrichment(agent: {
     : "Primary Agent";
 }
 
+export function resolveCrossOrgPersonalWorkspaceEnrichmentOptIn(
+  config: Pick<
+    AgentConfig,
+    "crossOrgPersonalWorkspaceReadOnlyOptIn" | "crossOrgEnrichment"
+  > | null | undefined
+): boolean {
+  if (!config) {
+    return false;
+  }
+  return (
+    config.crossOrgPersonalWorkspaceReadOnlyOptIn === true
+    || config.crossOrgEnrichment?.personalWorkspaceReadOnlyOptIn === true
+  );
+}
+
 function resolvePrimaryBusinessAgentForOperator(args: {
   agents: Array<{
     _id: Id<"objects">;
@@ -400,13 +480,19 @@ function resolvePrimaryBusinessAgentForOperator(args: {
 async function resolveCrossOrgSoulReadOnlyEnrichment(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any;
+  authorityConfig: AgentConfig;
   organization: {
     _id: Id<"organizations">;
     isPersonalWorkspace?: boolean;
+    parentOrganizationId?: Id<"organizations"> | null;
+    customProperties?: Record<string, unknown> | null;
   };
   channel: string;
   externalContactIdentifier: string;
-}): Promise<CrossOrgSoulReadOnlyEnrichmentSummary[]> {
+}): Promise<{
+  enrichment: CrossOrgSoulReadOnlyEnrichmentSummary[];
+  telemetry: CrossOrgEnrichmentTelemetryLabels;
+}> {
   type QueryableDb = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: (...args: any[]) => any;
@@ -424,33 +510,54 @@ async function resolveCrossOrgSoulReadOnlyEnrichment(args: {
   // `processInboundMessage` runs as an action context where `ctx.db` may be absent.
   // Keep enrichment best-effort and avoid hard failures when only runQuery/runMutation are exposed.
   const dbCandidate = (args.ctx as { db?: unknown })?.db;
-  if (!hasQueryableDb(dbCandidate)) {
-    return [];
-  }
-  const db = dbCandidate;
-
   const workspaceType = resolveWorkspaceTypeFromOrganization(args.organization);
-  if (workspaceType !== "personal") {
-    return [];
-  }
-
   const operatorUserId = resolveDesktopUserIdFromExternalContactIdentifier({
     channel: args.channel,
     externalContactIdentifier: args.externalContactIdentifier,
   });
-  if (!operatorUserId) {
-    return [];
+  const requestDecisionWithoutMembership = resolveCrossOrgEnrichmentRequestDecision({
+    workspaceType,
+    operatorUserIdResolved: Boolean(operatorUserId),
+    hasActiveViewerMembership: false,
+    optInEnabled: resolveCrossOrgPersonalWorkspaceEnrichmentOptIn(args.authorityConfig),
+  });
+  if (!hasQueryableDb(dbCandidate)) {
+    return {
+      enrichment: [],
+      telemetry: buildCrossOrgEnrichmentTelemetryLabels({
+        requestDecision: requestDecisionWithoutMembership,
+        viewerOrganization: args.organization,
+        candidateOrganizations: [],
+      }),
+    };
   }
+  const db = dbCandidate;
 
-  const currentMembership = await db
-    .query("organizationMembers")
-    .withIndex("by_user_and_org", (q: any) =>
-      q.eq("userId", operatorUserId).eq("organizationId", args.organization._id)
-    )
-    .filter((q: any) => q.eq(q.field("isActive"), true))
-    .first();
-  if (!currentMembership) {
-    return [];
+  const optInEnabled = resolveCrossOrgPersonalWorkspaceEnrichmentOptIn(args.authorityConfig);
+  const currentMembership = operatorUserId
+    ? await db
+        .query("organizationMembers")
+        .withIndex("by_user_and_org", (q: any) =>
+          q.eq("userId", operatorUserId).eq("organizationId", args.organization._id)
+        )
+        .filter((q: any) => q.eq(q.field("isActive"), true))
+        .first()
+    : null;
+  const requestDecision = resolveCrossOrgEnrichmentRequestDecision({
+    workspaceType,
+    operatorUserIdResolved: Boolean(operatorUserId),
+    hasActiveViewerMembership: Boolean(currentMembership),
+    optInEnabled,
+  });
+  if (!requestDecision.allowed || !operatorUserId) {
+    return {
+      enrichment: [],
+      telemetry: buildCrossOrgEnrichmentTelemetryLabels({
+        requestDecision,
+        viewerOrganization: args.organization,
+        candidateOrganizations: [],
+      }),
+    };
   }
 
   const memberships = await db
@@ -459,17 +566,37 @@ async function resolveCrossOrgSoulReadOnlyEnrichment(args: {
     .filter((q: any) => q.eq(q.field("isActive"), true))
     .collect();
 
+  const candidateOrganizationsForTelemetry: Array<{
+    _id: Id<"organizations">;
+    parentOrganizationId?: Id<"organizations"> | null;
+    customProperties?: Record<string, unknown> | null;
+  }> = [];
+  const candidateDecisionsForTelemetry: CrossOrgEnrichmentCandidateDecision[] = [];
   const enrichments = await Promise.all(
     memberships.map(async (membership: {
       organizationId: Id<"organizations">;
       role: Id<"roles">;
     }) => {
-      if (membership.organizationId === args.organization._id) {
+      const org = await db.get(membership.organizationId);
+      if (!org) {
         return null;
       }
-
-      const org = await db.get(membership.organizationId);
-      if (!org || org.isActive !== true || org.isPersonalWorkspace === true) {
+      const candidateOrganization = {
+        _id: org._id,
+        parentOrganizationId: org.parentOrganizationId,
+        customProperties: org.customProperties ?? null,
+      };
+      if (org._id !== args.organization._id) {
+        candidateOrganizationsForTelemetry.push(candidateOrganization);
+      }
+      const candidateDecision = resolveCrossOrgEnrichmentCandidateDecision({
+        viewerOrganization: args.organization,
+        candidateOrganization,
+        candidateIsActive: org.isActive === true,
+        candidateIsPersonalWorkspace: org.isPersonalWorkspace === true,
+      });
+      candidateDecisionsForTelemetry.push(candidateDecision);
+      if (!candidateDecision.allowed) {
         return null;
       }
 
@@ -511,12 +638,21 @@ async function resolveCrossOrgSoulReadOnlyEnrichment(args: {
     }),
   );
 
-  return enrichments
+  const enrichment = enrichments
     .filter(
       (entry): entry is CrossOrgSoulReadOnlyEnrichmentSummary => entry !== null,
     )
     .sort((a, b) => a.organizationName.localeCompare(b.organizationName))
     .slice(0, 5);
+  return {
+    enrichment,
+    telemetry: buildCrossOrgEnrichmentTelemetryLabels({
+      requestDecision,
+      viewerOrganization: args.organization,
+      candidateOrganizations: candidateOrganizationsForTelemetry,
+      candidateDecisions: candidateDecisionsForTelemetry,
+    }),
+  };
 }
 
 export interface DelegationAuthorityRuntimeContract<IdLike extends string = string> {
@@ -527,11 +663,26 @@ export interface DelegationAuthorityRuntimeContract<IdLike extends string = stri
   authorityToolProfile: string;
   authorityEnabledTools: string[];
   authorityDisabledTools: string[];
+  authorityRequiredTools: string[];
+  authorityRequiredCapabilities: string[];
   authorityUseToolBroker: boolean;
   authorityActiveSoulMode?: string;
   authorityModeChannelBindings?: unknown;
   authorityRequestedArchetype?: string | null;
   authorityEnabledArchetypes?: unknown;
+}
+
+function normalizeDeterministicRuntimeStringArray(values?: string[]): string[] {
+  if (!values) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter((value) => value.length > 0)
+    )
+  ).sort((left, right) => left.localeCompare(right));
 }
 
 export function resolveDelegationAuthorityRuntimeContract<
@@ -546,6 +697,8 @@ export function resolveDelegationAuthorityRuntimeContract<
     | "toolProfile"
     | "enabledTools"
     | "disabledTools"
+    | "requiredTools"
+    | "requiredCapabilities"
     | "useToolBroker"
     | "activeSoulMode"
     | "modeChannelBindings"
@@ -569,13 +722,105 @@ export function resolveDelegationAuthorityRuntimeContract<
       args.primaryConfig.toolProfile
       ?? SUBTYPE_DEFAULT_PROFILES[args.primaryAgentSubtype ?? "general"]
       ?? "general",
-    authorityEnabledTools: [...(args.primaryConfig.enabledTools ?? [])],
-    authorityDisabledTools: [...(args.primaryConfig.disabledTools ?? [])],
+    authorityEnabledTools: normalizeDeterministicRuntimeStringArray(
+      args.primaryConfig.enabledTools,
+    ),
+    authorityDisabledTools: normalizeDeterministicRuntimeStringArray(
+      args.primaryConfig.disabledTools,
+    ),
+    authorityRequiredTools: normalizeDeterministicRuntimeStringArray(
+      args.primaryConfig.requiredTools,
+    ),
+    authorityRequiredCapabilities: normalizeDeterministicRuntimeStringArray(
+      args.primaryConfig.requiredCapabilities,
+    ),
     authorityUseToolBroker: args.primaryConfig.useToolBroker === true,
     authorityActiveSoulMode: args.primaryConfig.activeSoulMode,
     authorityModeChannelBindings: args.primaryConfig.modeChannelBindings,
     authorityRequestedArchetype: args.primaryConfig.activeArchetype,
     authorityEnabledArchetypes: args.primaryConfig.enabledArchetypes,
+  };
+}
+
+function mergeRuntimeMandatoryTools(
+  baseline: string[],
+  mandatory: string[],
+): string[] {
+  return normalizeDeterministicRuntimeStringArray([
+    ...baseline,
+    ...mandatory,
+  ]);
+}
+
+function removeRuntimeMandatoryTools(
+  baseline: string[],
+  mandatory: string[],
+): string[] {
+  if (mandatory.length === 0 || baseline.length === 0) {
+    return baseline;
+  }
+  const blocked = new Set(
+    mandatory.map((toolName) => normalizeExecutionString(toolName)?.toLowerCase())
+      .filter((value): value is string => Boolean(value)),
+  );
+  return normalizeDeterministicRuntimeStringArray(
+    baseline.filter((toolName) => {
+      const normalized = normalizeExecutionString(toolName)?.toLowerCase();
+      return !normalized || !blocked.has(normalized);
+    }),
+  );
+}
+
+function resolveNativeGuestMandatoryActionCompletionTools(args: {
+  channel: string;
+  actionCompletionContractConfig: ActionCompletionRuntimeContractConfig;
+}): string[] {
+  if (args.channel !== "native_guest") {
+    return [];
+  }
+
+  const hasAuditDeliverableOutcome = args.actionCompletionContractConfig.outcomes.some(
+    (outcome) =>
+      outcome.outcome === AUDIT_DELIVERABLE_OUTCOME_KEY
+      && outcome.requiredTools.includes(AUDIT_DELIVERABLE_TOOL_NAME),
+  );
+  if (!hasAuditDeliverableOutcome) {
+    return [];
+  }
+
+  const contractRequiredTools = args.actionCompletionContractConfig.outcomes.flatMap(
+    (outcome) => outcome.requiredTools,
+  );
+  return normalizeDeterministicRuntimeStringArray([
+    "request_audit_deliverable_email",
+    ...contractRequiredTools,
+  ]);
+}
+
+export function resolveNativeGuestRequiredToolInvariant(args: {
+  channel: string;
+  requiredTools: string[];
+  effectiveExecutableToolNames: string[];
+}): {
+  enforced: boolean;
+  missingRequiredTools: string[];
+} {
+  if (args.channel !== "native_guest" || args.requiredTools.length === 0) {
+    return {
+      enforced: false,
+      missingRequiredTools: [],
+    };
+  }
+
+  const missingRequiredTools = normalizeDeterministicRuntimeStringArray(
+    args.requiredTools.filter(
+      (toolName) => !args.effectiveExecutableToolNames.includes(toolName),
+    ),
+  );
+
+  return {
+    enforced: missingRequiredTools.length > 0,
+    missingRequiredTools,
   };
 }
 
@@ -628,6 +873,7 @@ const HITL_WAITPOINT_CONTRACT_VERSION = "tcg_hitl_waitpoint_v1" as const;
 const DEFAULT_HITL_WAITPOINT_TTL_MS = 10 * 60_000;
 const MIN_HITL_WAITPOINT_TTL_MS = 60_000;
 const MAX_HITL_WAITPOINT_TTL_MS = 60 * 60_000;
+const DUPLICATE_INGRESS_REPLAY_ALERT_THRESHOLD = 3;
 
 export const HITL_WAITPOINT_CHECKPOINT_VALUES = [
   "session_pending",
@@ -739,6 +985,36 @@ export interface RuntimeCapabilityGapBlockedResponse {
   proposalArtifact: ToolCapabilityGapBlockedPayload["proposalArtifact"];
 }
 
+interface RuntimeCapabilityGapLinearIssueResult {
+  issueId: string;
+  issueNumber: string;
+  issueUrl: string;
+}
+
+function detectRuntimeCapabilityGapTicketRequestIntent(args: {
+  inboundMessage: string;
+}): boolean {
+  const normalized = args.inboundMessage.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return (
+    /\b(create request|open ticket|create ticket|file ticket|feature request)\b/i.test(normalized)
+    || /\b(ticket erstellen|feature request erstellen|anfrage erstellen|ticket aufmachen)\b/i.test(normalized)
+  );
+}
+
+function formatCapabilityGapLinearIssueLine(args: {
+  language: ActionCompletionResponseLanguage;
+  linearIssue: RuntimeCapabilityGapLinearIssueResult;
+}): string {
+  void args.linearIssue;
+  if (args.language === "de") {
+    return "Feature-Request-Ticket intern erstellt.";
+  }
+  return "Feature request ticket created internally.";
+}
+
 export function buildRuntimeCapabilityGapBlockedResponse(args: {
   capabilityGap: ToolCapabilityGapBlockedPayload;
 }): RuntimeCapabilityGapBlockedResponse {
@@ -758,20 +1034,62 @@ export function buildRuntimeCapabilityGapBlockedResponse(args: {
 
 export function formatRuntimeCapabilityGapBlockedMessage(args: {
   blocked: RuntimeCapabilityGapBlockedResponse;
+  language?: ActionCompletionResponseLanguage;
+  ticketRequestIntent?: boolean;
+  linearIssue?: RuntimeCapabilityGapLinearIssueResult | null;
+  backlogInsertStatus?: "inserted" | "updated" | "error";
 }): string {
+  const language = args.language ?? "en";
+  const requestedTool = args.blocked.missing.requestedToolName;
+  const missingSummary = args.blocked.missing.summary;
+  const unblockingSteps = args.blocked.unblockingSteps.map(
+    (step, index) => `${index + 1}. ${step}`
+  );
+
+  if (language === "de") {
+    const ticketLine = args.linearIssue
+      ? formatCapabilityGapLinearIssueLine({
+          language,
+          linearIssue: args.linearIssue,
+        })
+      : args.ticketRequestIntent
+        ? args.backlogInsertStatus === "updated"
+          ? "Ihr Request wurde bereits erfasst und an die Foundry-Review-Queue angehaengt."
+          : "Ich konnte in diesem Schritt kein Linear-Ticket erstellen, aber die Anfrage wurde intern fuer Review erfasst."
+        : "Wenn Sie ein Feature-Request-Ticket wollen, antworten Sie mit: \"Ticket erstellen\".";
+    return [
+      `Diese Funktion ist in dieser Umgebung noch nicht verfuegbar (${requestedTool}).`,
+      "Ich breche fail-closed ab und behaupte keinen Erfolg ohne echte Tool-Ausfuehrung.",
+      `Grund: ${args.blocked.reason}`,
+      `Fehlende Bausteine: ${args.blocked.missing.missingKinds.join(", ")}`,
+      `Zusammenfassung: ${missingSummary}`,
+      ticketLine,
+      "Naechste Schritte:",
+      ...unblockingSteps,
+    ].join("\n");
+  }
+
+  const ticketLine = args.linearIssue
+    ? formatCapabilityGapLinearIssueLine({
+        language,
+        linearIssue: args.linearIssue,
+      })
+    : args.ticketRequestIntent
+      ? args.backlogInsertStatus === "updated"
+        ? "Your request was already captured and attached to the existing foundry review backlog."
+        : "I couldn't create a Linear ticket in this turn, but the request was captured internally for review."
+      : "If you want a feature request ticket opened, reply with: \"create request\".";
+
   const lines = [
-    "Execution blocked: requested capability is not implemented in the trusted internal runtime contracts.",
+    `This capability is not available yet in the current runtime scope (${requestedTool}).`,
+    "I am fail-closed here and won't claim completion without real tool execution.",
     `Reason code: ${args.blocked.reasonCode}`,
     `Reason: ${args.blocked.reason}`,
     `Missing: ${args.blocked.missing.missingKinds.join(", ")}`,
-    `Requested tool: ${args.blocked.missing.requestedToolName}`,
-    `Missing summary: ${args.blocked.missing.summary}`,
+    `Missing summary: ${missingSummary}`,
+    ticketLine,
     "Unblocking steps:",
-    ...args.blocked.unblockingSteps.map(
-      (step, index) => `${index + 1}. ${step}`
-    ),
-    "ToolSpec proposal artifact (draft metadata):",
-    JSON.stringify(args.blocked.proposalArtifact, null, 2),
+    ...unblockingSteps,
   ];
 
   return lines.join("\n");
@@ -780,6 +1098,510 @@ export function formatRuntimeCapabilityGapBlockedMessage(args: {
 export interface InboundRuntimeContracts {
   queueContract: TurnQueueContract;
   idempotencyContract: RuntimeIdempotencyContract;
+}
+
+export interface RequiredScopeToolManifestContract {
+  contractVersion: "aoh_required_scope_tool_manifest_v1";
+  manifestHash: string;
+  finalToolNames: string[];
+  removedByLayer: {
+    platform: string[];
+    orgAllow: string[];
+    orgDeny: string[];
+    integration: string[];
+    agentProfile: string[];
+    agentEnable: string[];
+    agentDisable: string[];
+    autonomy: string[];
+    session: string[];
+    channel: string[];
+  };
+}
+
+export interface ProcessInboundMessageResult {
+  status: string;
+  message?: string;
+  response?: string;
+  sessionId?: Id<"agentSessions">;
+  turnId?: Id<"agentTurns">;
+  qaDiagnostics?: ActionCompletionQaDiagnostics;
+  requiredScopeContract?: RequiredSpecialistScopeContract;
+  requiredScopeGap?: RequiredSpecialistScopeGap;
+  requiredScopeManifest?: RequiredScopeToolManifestContract;
+  requiredScopeFallback?: RequiredScopeFallbackDelegationContract;
+  [key: string]: unknown;
+}
+
+interface InboundSuperAdminQaModeContract {
+  enabled: boolean;
+  targetAgentId?: Id<"objects">;
+  targetTemplateRole?: string;
+  runId?: string;
+}
+
+function resolveInboundSuperAdminQaModeContract(
+  metadata: Record<string, unknown>
+): InboundSuperAdminQaModeContract | null {
+  const qaRaw = metadata.qaMode;
+  if (!qaRaw || typeof qaRaw !== "object" || Array.isArray(qaRaw)) {
+    return null;
+  }
+  const qa = qaRaw as Record<string, unknown>;
+  if (qa.enabled !== true) {
+    return null;
+  }
+  const targetAgentId = firstInboundString(qa.targetAgentId) as Id<"objects"> | undefined;
+  const targetTemplateRole = firstInboundString(qa.targetTemplateRole);
+  const runId = firstInboundString(qa.runId, qa.qaRunId);
+  return {
+    enabled: true,
+    targetAgentId,
+    targetTemplateRole,
+    runId,
+  };
+}
+
+export function buildDeniedTurnAdmissionPayload(args: {
+  channel: AdmissionIngressChannel;
+  stage: AdmissionDecisionStage;
+  reasonCode: AdmissionDenialReasonCode;
+  reason?: string;
+  httpStatusHint?: number;
+  userSafeMessage?: string;
+  deniedAtMs?: number;
+  manifestHash?: string;
+  idempotencyContract?: RuntimeIdempotencyContract | null;
+  metadata?: Record<string, string | number | boolean | null>;
+}): AdmissionDenialV1 {
+  return buildAdmissionDenial({
+    channel: args.channel,
+    stage: args.stage,
+    reasonCode: args.reasonCode,
+    reason: args.reason,
+    httpStatusHint: args.httpStatusHint,
+    userSafeMessage: args.userSafeMessage,
+    deniedAtMs: args.deniedAtMs,
+    manifestHash: args.manifestHash,
+    idempotency: args.idempotencyContract
+      ? {
+          scopeKey: args.idempotencyContract.scopeKey,
+          payloadHash: args.idempotencyContract.payloadHash,
+          classification: args.idempotencyContract.intentType,
+        }
+      : undefined,
+    metadata: args.metadata,
+  });
+}
+
+function resolveAdmissionDenialChannel(channel: string): AdmissionIngressChannel {
+  switch (channel) {
+    case "webchat":
+    case "native_guest":
+    case "slack":
+    case "email":
+    case "sms":
+    case "whatsapp":
+    case "api_test":
+      return channel;
+    default:
+      return "unknown";
+  }
+}
+
+export const REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION =
+  "aoh_required_scope_fallback_delegation_v1" as const;
+
+export type RequiredScopeFallbackReasonCode =
+  | "fallback_delegated"
+  | "fallback_prerequisites_missing"
+  | "fallback_no_specialist_candidate"
+  | "fallback_selection_blocked"
+  | "fallback_handoff_blocked";
+
+export interface RequiredScopeFallbackDelegationContract {
+  contractVersion: typeof REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION;
+  attempted: boolean;
+  outcome: "delegated" | "blocked";
+  reasonCode: RequiredScopeFallbackReasonCode;
+  reason: string;
+  requiredScopeManifestHash: string;
+  requestedSpecialistType?: string;
+  selectedSpecialistId?: string;
+  selectedSpecialistSubtype?: string;
+  selectedSpecialistName?: string;
+  teamAccessMode?: "invisible" | "direct" | "meeting";
+  handoffNumber?: number;
+  message?: string;
+}
+
+interface RequiredScopeFallbackSpecialistTypeSelection {
+  selectedSpecialistType?: string;
+  reasonCode?: RequiredScopeFallbackReasonCode;
+  reason?: string;
+}
+
+interface RequiredScopeFallbackSpecialistSelectionInput {
+  requiredScopeContract: RequiredSpecialistScopeContract;
+  requiredScopeGap: RequiredSpecialistScopeGap;
+  dreamTeamSpecialists: Array<{
+    specialistSubtype?: string;
+  }>;
+  activeAgents: Array<{
+    _id: string;
+    subtype?: string;
+  }>;
+  authorityAgentId: string;
+}
+
+function normalizeOptionalLowercaseToken(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildRequiredScopeFallbackSummary(gap: RequiredSpecialistScopeGap): string {
+  const lines: string[] = [];
+  if (gap.missingTools.length > 0) {
+    lines.push(`Missing tools: ${gap.missingTools.join(", ")}`);
+  }
+  if (gap.missingCapabilities.length > 0) {
+    lines.push(`Missing capabilities: ${gap.missingCapabilities.join(", ")}`);
+  }
+  if (lines.length === 0) {
+    lines.push(`Missing required scope contract fields (${gap.reasonCode}).`);
+  }
+  return lines.join(" | ");
+}
+
+function buildRequiredScopeFallbackMessage(args: {
+  specialistName: string;
+  teamAccessMode: string;
+}): string {
+  if (args.teamAccessMode === "invisible") {
+    return `${args.specialistName} is advising in invisible mode. Continue in primary-agent voice and synthesize their guidance.`;
+  }
+  if (args.teamAccessMode === "meeting") {
+    return `${args.specialistName} joined the meeting context. Keep the primary agent visible while incorporating specialist input.`;
+  }
+  return `${args.specialistName} has been tagged in and will respond next. They have the conversation context.`;
+}
+
+export function selectRequiredScopeFallbackSpecialistType(
+  input: RequiredScopeFallbackSpecialistSelectionInput
+): RequiredScopeFallbackSpecialistTypeSelection {
+  const missingToolNames = new Set(
+    [
+      ...input.requiredScopeGap.missingTools,
+      ...input.requiredScopeGap.missingCapabilities
+        .filter((capability) => capability.startsWith("tool:"))
+        .map((capability) => capability.slice("tool:".length)),
+    ]
+      .map((toolName) => normalizeOptionalLowercaseToken(toolName))
+      .filter((toolName): toolName is string => Boolean(toolName))
+  );
+  if (missingToolNames.size === 0) {
+    return {
+      reasonCode: "fallback_no_specialist_candidate",
+      reason: "No missing tool contract entries available for specialist fallback routing.",
+    };
+  }
+
+  const capabilityHintSubtypes = input.requiredScopeContract.requiredCapabilities
+    .map((capability) => {
+      const normalized = normalizeOptionalLowercaseToken(capability);
+      if (!normalized) {
+        return undefined;
+      }
+      if (normalized.startsWith("specialist:")) {
+        return normalizeOptionalLowercaseToken(
+          normalized.slice("specialist:".length)
+        );
+      }
+      if (normalized.startsWith("subtype:")) {
+        return normalizeOptionalLowercaseToken(
+          normalized.slice("subtype:".length)
+        );
+      }
+      return undefined;
+    })
+    .filter((subtype): subtype is string => Boolean(subtype));
+  const dreamTeamSubtypes = input.dreamTeamSpecialists
+    .map((contract) => normalizeOptionalLowercaseToken(contract.specialistSubtype))
+    .filter((subtype): subtype is string => Boolean(subtype));
+  const activeAgentSubtypes = input.activeAgents
+    .filter((agent) => String(agent._id) !== input.authorityAgentId)
+    .map((agent) => normalizeOptionalLowercaseToken(agent.subtype))
+    .filter((subtype): subtype is string => Boolean(subtype));
+  const candidateSubtypes = Array.from(
+    new Set([
+      ...capabilityHintSubtypes,
+      ...dreamTeamSubtypes,
+      ...activeAgentSubtypes,
+    ])
+  ).sort((left, right) => left.localeCompare(right));
+
+  if (candidateSubtypes.length === 0) {
+    return {
+      reasonCode: "fallback_no_specialist_candidate",
+      reason: "No deterministic specialist subtype candidates available for required scope fallback.",
+    };
+  }
+
+  const scoredCandidates = candidateSubtypes
+    .map((subtype) => {
+      const profileId = SUBTYPE_DEFAULT_PROFILES[subtype] ?? subtype;
+      const profileTools = TOOL_PROFILES[profileId];
+      if (!Array.isArray(profileTools)) {
+        return {
+          subtype,
+          coverage: 0,
+        };
+      }
+      const coverage = profileTools.includes("*")
+        ? missingToolNames.size
+        : profileTools
+            .filter((toolName) => missingToolNames.has(toolName))
+            .length;
+      return {
+        subtype,
+        coverage,
+      };
+    })
+    .filter((candidate) => candidate.coverage > 0)
+    .sort((left, right) => {
+      if (left.coverage !== right.coverage) {
+        return right.coverage - left.coverage;
+      }
+      return left.subtype.localeCompare(right.subtype);
+    });
+
+  if (scoredCandidates.length === 0) {
+    return {
+      reasonCode: "fallback_no_specialist_candidate",
+      reason: "No subtype profile provides deterministic coverage for missing required scope tools.",
+    };
+  }
+
+  return {
+    selectedSpecialistType: scoredCandidates[0]?.subtype,
+  };
+}
+
+async function attemptRequiredScopeDelegationFallback(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  args: {
+    organizationId: Id<"organizations">;
+    sessionId: Id<"agentSessions">;
+    authorityAgentId: Id<"objects">;
+    requiredScopeContract: RequiredSpecialistScopeContract;
+    requiredScopeGap: RequiredSpecialistScopeGap;
+    requiredScopeManifest: RequiredScopeToolManifestContract;
+  }
+): Promise<RequiredScopeFallbackDelegationContract> {
+  const [allAgents, authorityAgent, organization] = await Promise.all([
+    ctx.runQuery(getInternal().agentOntology.getAllActiveAgentsForOrg, {
+      organizationId: args.organizationId,
+    }),
+    ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+      agentId: args.authorityAgentId,
+    }),
+    ctx.runQuery(getInternal().organizations.getOrganization, {
+      organizationId: args.organizationId,
+    }),
+  ]);
+
+  if (!authorityAgent || authorityAgent.type !== "org_agent") {
+    return {
+      contractVersion: REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION,
+      attempted: true,
+      outcome: "blocked",
+      reasonCode: "fallback_prerequisites_missing",
+      reason: "Primary authority agent is unavailable for required-scope fallback delegation.",
+      requiredScopeManifestHash: args.requiredScopeManifest.manifestHash,
+    };
+  }
+
+  const workspaceType: DreamTeamWorkspaceType =
+    organization?.isPersonalWorkspace === true ? "personal" : "business";
+  const authorityProps =
+    authorityAgent.customProperties as Record<string, unknown> | undefined;
+  const dreamTeamSpecialists = normalizeDreamTeamSpecialistContracts(
+    authorityProps?.dreamTeamSpecialists
+  );
+  const scopedDreamTeamSpecialists = dreamTeamSpecialists.filter((contract) =>
+    isDreamTeamSpecialistContractInWorkspaceScope({ contract, workspaceType })
+  );
+  const specialistTypeDecision = selectRequiredScopeFallbackSpecialistType({
+    requiredScopeContract: args.requiredScopeContract,
+    requiredScopeGap: args.requiredScopeGap,
+    dreamTeamSpecialists: scopedDreamTeamSpecialists,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    activeAgents: (allAgents as any[]).map((agent) => ({
+      _id: String(agent._id),
+      subtype: typeof agent.subtype === "string" ? agent.subtype : undefined,
+    })),
+    authorityAgentId: String(args.authorityAgentId),
+  });
+  if (!specialistTypeDecision.selectedSpecialistType) {
+    return {
+      contractVersion: REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION,
+      attempted: true,
+      outcome: "blocked",
+      reasonCode: specialistTypeDecision.reasonCode ?? "fallback_no_specialist_candidate",
+      reason:
+        specialistTypeDecision.reason
+        || "No deterministic specialist fallback subtype candidate was available.",
+      requiredScopeManifestHash: args.requiredScopeManifest.manifestHash,
+    };
+  }
+
+  const selection = resolveTeamSpecialistSelection({
+    requestedSpecialistType: specialistTypeDecision.selectedSpecialistType,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    activeAgents: allAgents as any[],
+    authorityAgentId: String(args.authorityAgentId),
+    dreamTeamSpecialists,
+    workspaceType,
+  });
+  if (!selection.targetAgent || !selection.provenance) {
+    return {
+      contractVersion: REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION,
+      attempted: true,
+      outcome: "blocked",
+      reasonCode: "fallback_selection_blocked",
+      reason:
+        selection.error
+        || "Specialist fallback selection failed policy and deterministic routing checks.",
+      requiredScopeManifestHash: args.requiredScopeManifest.manifestHash,
+      requestedSpecialistType: specialistTypeDecision.selectedSpecialistType,
+    };
+  }
+
+  const handoffResult = await ctx.runMutation(
+    getInternal().ai.teamHarness.executeTeamHandoff,
+    {
+      sessionId: args.sessionId,
+      fromAgentId: args.authorityAgentId,
+      toAgentId: selection.targetAgent._id,
+      organizationId: args.organizationId,
+      handoff: {
+        reason: `Required scope contract gap (${args.requiredScopeGap.reasonCode}).`,
+        summary: buildRequiredScopeFallbackSummary(args.requiredScopeGap),
+        goal:
+          "Route execution to an in-scope specialist while keeping primary orchestrator authority anchored.",
+      },
+      handoffProvenance: selection.provenance,
+    }
+  ) as {
+    error?: string;
+    targetAgentName?: string;
+    teamAccessMode?: "invisible" | "direct" | "meeting";
+    handoffNumber?: number;
+    authorityAgentId?: string;
+  };
+
+  if (handoffResult?.error) {
+    return {
+      contractVersion: REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION,
+      attempted: true,
+      outcome: "blocked",
+      reasonCode: "fallback_handoff_blocked",
+      reason: handoffResult.error,
+      requiredScopeManifestHash: args.requiredScopeManifest.manifestHash,
+      requestedSpecialistType: specialistTypeDecision.selectedSpecialistType,
+      selectedSpecialistId: String(selection.targetAgent._id),
+      selectedSpecialistSubtype:
+        typeof selection.targetAgent.subtype === "string"
+          ? selection.targetAgent.subtype
+          : specialistTypeDecision.selectedSpecialistType,
+    };
+  }
+
+  const specialistName =
+    handoffResult?.targetAgentName || specialistTypeDecision.selectedSpecialistType;
+  const teamAccessMode = handoffResult?.teamAccessMode ?? "invisible";
+  return {
+    contractVersion: REQUIRED_SCOPE_FALLBACK_DELEGATION_CONTRACT_VERSION,
+    attempted: true,
+    outcome: "delegated",
+    reasonCode: "fallback_delegated",
+    reason: "Required-scope fallback delegation completed through Dream Team handoff.",
+    requiredScopeManifestHash: args.requiredScopeManifest.manifestHash,
+    requestedSpecialistType: specialistTypeDecision.selectedSpecialistType,
+    selectedSpecialistId: String(selection.targetAgent._id),
+    selectedSpecialistSubtype:
+      typeof selection.targetAgent.subtype === "string"
+        ? selection.targetAgent.subtype
+        : specialistTypeDecision.selectedSpecialistType,
+    selectedSpecialistName: specialistName,
+    teamAccessMode,
+    handoffNumber:
+      typeof handoffResult?.handoffNumber === "number"
+        ? handoffResult.handoffNumber
+        : undefined,
+    message: buildRequiredScopeFallbackMessage({
+      specialistName,
+      teamAccessMode,
+    }),
+  };
+}
+
+function computeDeterministicScopeManifestHash(input: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function buildRequiredScopeToolManifestContract(args: {
+  finalToolNames: string[];
+  removedByLayer: {
+    platform: string[];
+    orgAllow: string[];
+    orgDeny: string[];
+    integration: string[];
+    agentProfile: string[];
+    agentEnable: string[];
+    agentDisable: string[];
+    autonomy: string[];
+    session: string[];
+    channel: string[];
+  };
+}): RequiredScopeToolManifestContract {
+  const manifest = {
+    contractVersion: "aoh_required_scope_tool_manifest_v1" as const,
+    finalToolNames: [...args.finalToolNames].sort((left, right) => left.localeCompare(right)),
+    removedByLayer: {
+      platform: [...args.removedByLayer.platform].sort((left, right) => left.localeCompare(right)),
+      orgAllow: [...args.removedByLayer.orgAllow].sort((left, right) => left.localeCompare(right)),
+      orgDeny: [...args.removedByLayer.orgDeny].sort((left, right) => left.localeCompare(right)),
+      integration: [...args.removedByLayer.integration].sort((left, right) => left.localeCompare(right)),
+      agentProfile: [...args.removedByLayer.agentProfile].sort((left, right) => left.localeCompare(right)),
+      agentEnable: [...args.removedByLayer.agentEnable].sort((left, right) => left.localeCompare(right)),
+      agentDisable: [...args.removedByLayer.agentDisable].sort((left, right) => left.localeCompare(right)),
+      autonomy: [...args.removedByLayer.autonomy].sort((left, right) => left.localeCompare(right)),
+      session: [...args.removedByLayer.session].sort((left, right) => left.localeCompare(right)),
+      channel: [...args.removedByLayer.channel].sort((left, right) => left.localeCompare(right)),
+    },
+    manifestHash: "",
+  };
+
+  const manifestHash = computeDeterministicScopeManifestHash(
+    JSON.stringify({
+      finalToolNames: manifest.finalToolNames,
+      removedByLayer: manifest.removedByLayer,
+    })
+  );
+
+  return {
+    ...manifest,
+    manifestHash,
+  };
 }
 
 interface SessionCollaborationSnapshot {
@@ -1259,6 +2081,8 @@ export const spawn_use_case_agent = action({
             allowedPlaybooks: string[] | null;
           };
         };
+        requiredTools: string[];
+        requiredCapabilities: string[];
         catalogAgentNumber?: number;
         allowClone: boolean;
         capabilitySnapshot?: {
@@ -1285,6 +2109,8 @@ export const spawn_use_case_agent = action({
         message: string;
         allowClone: false;
         catalogAgentNumber?: number;
+        requiredTools?: string[];
+        requiredCapabilities?: string[];
         capabilitySnapshot?: {
           availableNow: Array<{
             capabilityId: string;
@@ -1323,6 +2149,15 @@ export const spawn_use_case_agent = action({
       typeof args.catalogAgentNumber === "number" && Number.isFinite(args.catalogAgentNumber)
         ? Math.floor(args.catalogAgentNumber)
         : undefined;
+    if (catalogAgentNumber === undefined) {
+      return {
+        status: "blocked",
+        reason: "catalog_template_mismatch",
+        message:
+          "Catalog clone preflight requires a valid catalogAgentNumber. Owner-facing clone spawning is catalog-bound.",
+        allowClone: false,
+      };
+    }
     const preflight = catalogAgentNumber !== undefined
       ? await ctx.runQuery(getApi().api.ai.agentStoreCatalog.getClonePreflight, {
           sessionId: args.sessionId,
@@ -1351,6 +2186,8 @@ export const spawn_use_case_agent = action({
             }>;
           };
           allowClone: boolean;
+          requiredTools: string[];
+          requiredCapabilities: string[];
           noFitEscalation: {
             minimum: string;
             deposit: string;
@@ -1370,6 +2207,8 @@ export const spawn_use_case_agent = action({
             "Catalog clone preflight failed because the selected template does not match the requested catalog entry.",
           allowClone: false,
           catalogAgentNumber: preflight.catalogAgentNumber,
+          requiredTools: preflight.requiredTools,
+          requiredCapabilities: preflight.requiredCapabilities,
           capabilitySnapshot: preflight.capabilitySnapshot,
           noFitEscalation: preflight.noFitEscalation,
         };
@@ -1383,6 +2222,8 @@ export const spawn_use_case_agent = action({
         message: CATALOG_CLONE_CAPABILITY_LIMITS_BLOCKED_MESSAGE,
         allowClone: false,
         catalogAgentNumber: preflight.catalogAgentNumber,
+        requiredTools: preflight.requiredTools,
+        requiredCapabilities: preflight.requiredCapabilities,
         capabilitySnapshot: preflight.capabilitySnapshot,
         noFitEscalation: preflight.noFitEscalation,
       };
@@ -1400,6 +2241,9 @@ export const spawn_use_case_agent = action({
         spawnReason: args.spawnReason,
         preferredCloneName: args.preferredCloneName,
         reuseExisting: args.reuseExisting,
+        requiredTools: preflight?.requiredTools ?? [],
+        requiredCapabilities: preflight?.requiredCapabilities ?? [],
+        contractSourceCatalogAgentNumber: preflight?.catalogAgentNumber,
         metadata: args.metadata,
       },
     ) as {
@@ -1445,6 +2289,8 @@ export const spawn_use_case_agent = action({
       useCase: spawnResult.useCase,
       useCaseKey: spawnResult.useCaseKey,
       quota: spawnResult.quota,
+      requiredTools: preflight?.requiredTools ?? [],
+      requiredCapabilities: preflight?.requiredCapabilities ?? [],
       catalogAgentNumber: preflight?.catalogAgentNumber,
       allowClone: preflight?.allowClone ?? true,
       capabilitySnapshot: preflight?.capabilitySnapshot,
@@ -2314,30 +3160,12 @@ export const processInboundMessage = action({
     message: v.string(),
     metadata: v.optional(v.any()),
   },
-  handler: async (ctx, args): Promise<{
-    status: string;
-    message?: string;
-    response?: string;
-    modelResolution?: {
-      requestedModel?: string;
-      selectedModel: string;
-      usedModel?: string;
-      selectedAuthProfileId?: string;
-      usedAuthProfileId?: string;
-      selectionSource: string;
-      fallbackUsed: boolean;
-      fallbackReason?: string;
-    };
-    toolResults?: Array<{ tool: string; status: string; result?: unknown; error?: string }>;
-    sessionId?: string;
-    turnId?: string;
-    voiceRuntime?: Record<string, unknown>;
-    waitpoint?: HitlWaitpointPublicState;
-  }> => {
+  handler: async (ctx, args): Promise<ProcessInboundMessageResult> => {
     const runtimeGovernorStartedAt = Date.now();
     const inboundMetadata = {
       ...((args.metadata as Record<string, unknown>) || {}),
     };
+    const superAdminQaMode = resolveInboundSuperAdminQaModeContract(inboundMetadata);
     let runtimeGovernorContract: RuntimeGovernorContract = resolveRuntimeGovernorContract({
       metadata: inboundMetadata,
     });
@@ -2350,6 +3178,83 @@ export const processInboundMessage = action({
       channel: args.channel,
       externalContactIdentifier: args.externalContactIdentifier,
       metadata: inboundMetadata,
+    });
+    let samanthaDispatchTraceCorrelationId: string | undefined;
+    const shouldEmitSamanthaDispatchConsoleTrace =
+      args.channel === "native_guest"
+      || args.channel === "webchat"
+      || args.channel === "desktop";
+    const samanthaDispatchTraceStartedAt = Date.now();
+    const samanthaDispatchTraceEvents: Array<{
+      stage: string;
+      status: "pass" | "skip" | "fail";
+      reasonCode: string;
+      detail?: Record<string, unknown>;
+      atMs: number;
+    }> = [];
+    const samanthaDispatchRouterSelectionPath: Array<{
+      stage: string;
+      source: string;
+      agentId: string | null;
+      displayName: string | null;
+      templateRole: string | null;
+      subtype: string | null;
+      isSamanthaRuntime: boolean;
+    }> = [];
+    const recordSamanthaDispatchEvent = (event: {
+      stage: string;
+      status: "pass" | "skip" | "fail";
+      reasonCode: string;
+      detail?: Record<string, unknown>;
+    }) => {
+      const tracedEvent = {
+        ...event,
+        atMs: Date.now() - samanthaDispatchTraceStartedAt,
+      };
+      samanthaDispatchTraceEvents.push(tracedEvent);
+      if (shouldEmitSamanthaDispatchConsoleTrace) {
+        console.info("[AgentExecution][SamanthaDispatchTrace]", {
+          correlationId: samanthaDispatchTraceCorrelationId ?? null,
+          organizationId: String(args.organizationId),
+          channel: args.channel,
+          stage: tracedEvent.stage,
+          status: tracedEvent.status,
+          reasonCode: tracedEvent.reasonCode,
+          detail: tracedEvent.detail,
+        });
+      }
+    };
+    const recordSamanthaRouterSelectionStage = (stage: string, source: string, selectedAgent: unknown) => {
+      const snapshot = resolveSamanthaRoutingAgentSnapshot(selectedAgent);
+      samanthaDispatchRouterSelectionPath.push({
+        stage,
+        source,
+        ...snapshot,
+      });
+      recordSamanthaDispatchEvent({
+        stage,
+        status: snapshot.agentId ? "pass" : "skip",
+        reasonCode: snapshot.agentId ? source : `${source}_unresolved`,
+        detail: {
+          agentId: snapshot.agentId,
+          displayName: snapshot.displayName,
+          templateRole: snapshot.templateRole,
+          isSamanthaRuntime: snapshot.isSamanthaRuntime,
+          subtype: snapshot.subtype,
+        },
+      });
+    };
+    const routeSelectorCount = Object.values(inboundDispatchRouteSelectors || {}).filter(
+      (value) => typeof value === "string" && value.trim().length > 0
+    ).length;
+    recordSamanthaDispatchEvent({
+      stage: "router_entry",
+      status: "pass",
+      reasonCode: "router_reached",
+      detail: {
+        channel: args.channel,
+        routeSelectorCount,
+      },
     });
 
     await ctx.runMutation(
@@ -2365,12 +3270,18 @@ export const processInboundMessage = action({
       channel: args.channel,
       routeSelectors: inboundDispatchRouteSelectors,
     });
+    recordSamanthaRouterSelectionStage("router_lookup", "active_agent_lookup", agent);
 
     if (!agent) {
       // No active agent — check if this org has a template agent (worker pool model).
       // If so, spawn/reuse a worker from the pool.
       const template = await ctx.runQuery(getInternal().agentOntology.getTemplateAgent, {
         organizationId: args.organizationId,
+      });
+      recordSamanthaDispatchEvent({
+        stage: "router_template_fallback_lookup",
+        status: template ? "pass" : "skip",
+        reasonCode: template ? "template_found" : "template_not_found",
       });
 
       if (template) {
@@ -2380,6 +3291,11 @@ export const processInboundMessage = action({
         agent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
           agentId: workerId,
         });
+        recordSamanthaRouterSelectionStage(
+          "router_template_worker_resolution",
+          "template_worker_fallback",
+          agent
+        );
       }
     }
 
@@ -2392,15 +3308,63 @@ export const processInboundMessage = action({
           routeSelectors: inboundDispatchRouteSelectors,
         }
       );
+      recordSamanthaDispatchEvent({
+        stage: "router_ensure_active_agent",
+        status: ensuredAgent?.agentId ? "pass" : "fail",
+        reasonCode: ensuredAgent?.agentId
+          ? "ensure_active_agent_resolved"
+          : "ensure_active_agent_unresolved",
+        detail: ensuredAgent?.agentId
+          ? {
+              ensuredAgentId: String(ensuredAgent.agentId),
+              recoveryAction: (ensuredAgent as { recoveryAction?: string }).recoveryAction || null,
+            }
+          : undefined,
+      });
       if (ensuredAgent?.agentId) {
         agent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
           agentId: ensuredAgent.agentId,
         });
+        recordSamanthaRouterSelectionStage(
+          "router_ensure_active_agent_lookup",
+          "ensure_active_agent_fallback",
+          agent
+        );
       }
     }
 
     if (!agent) {
+      recordSamanthaDispatchEvent({
+        stage: "router_terminal",
+        status: "fail",
+        reasonCode: "no_active_agent_found",
+      });
       return { status: "error", message: "No active agent found for this organization" };
+    }
+    recordSamanthaRouterSelectionStage("router_final_selection", "active_agent_selected", agent);
+
+    if (superAdminQaMode?.targetAgentId) {
+      const qaTargetAgent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+        agentId: superAdminQaMode.targetAgentId,
+      });
+      if (
+        qaTargetAgent
+        && String(qaTargetAgent.organizationId) === String(args.organizationId)
+        && (qaTargetAgent.type === "org_agent" || qaTargetAgent.type === "agent")
+        && !(qaTargetAgent as { deletedAt?: number }).deletedAt
+      ) {
+        agent = qaTargetAgent;
+        recordSamanthaRouterSelectionStage("router_qa_override", "qa_target_agent_override", agent);
+      } else {
+        recordSamanthaDispatchEvent({
+          stage: "router_qa_override",
+          status: "skip",
+          reasonCode: "qa_target_agent_unusable",
+          detail: {
+            requestedQaTargetAgentId: String(superAdminQaMode.targetAgentId),
+          },
+        });
+      }
     }
 
     // Update worker's last active timestamp if this is a worker
@@ -2421,6 +3385,15 @@ export const processInboundMessage = action({
     let authorityConfig = {
       ...config,
     } as AgentConfig;
+    if (superAdminQaMode?.targetTemplateRole) {
+      authorityConfig = {
+        ...authorityConfig,
+      };
+      (authorityConfig as unknown as Record<string, unknown>).templateRole =
+        superAdminQaMode.targetTemplateRole;
+      inboundMetadata.target_specialist_template_role = superAdminQaMode.targetTemplateRole;
+      inboundMetadata.targetSpecialistTemplateRole = superAdminQaMode.targetTemplateRole;
+    }
 
     // 2. Check rate limits
     const rateLimitCheck = await ctx.runQuery(getInternal().ai.agentSessions.checkAgentRateLimit, {
@@ -2431,6 +3404,11 @@ export const processInboundMessage = action({
     });
 
     if (!rateLimitCheck.allowed) {
+      recordSamanthaDispatchEvent({
+        stage: "router_terminal",
+        status: "skip",
+        reasonCode: "rate_limited_before_dispatch",
+      });
       return { status: "rate_limited", message: rateLimitCheck.message };
     }
 
@@ -2444,6 +3422,11 @@ export const processInboundMessage = action({
     });
 
     if (!session) {
+      recordSamanthaDispatchEvent({
+        stage: "router_terminal",
+        status: "fail",
+        reasonCode: "session_resolution_failed",
+      });
       return { status: "error", message: "Failed to create session" };
     }
 
@@ -2550,7 +3533,28 @@ export const processInboundMessage = action({
             primarySessionAgent.customProperties || {}
           ) as AgentConfig,
         };
+        recordSamanthaRouterSelectionStage(
+          "router_session_primary_override",
+          "session_primary_agent_override",
+          primarySessionAgent
+        );
+      } else {
+        recordSamanthaDispatchEvent({
+          stage: "router_session_primary_override",
+          status: "skip",
+          reasonCode: "session_primary_agent_missing",
+          detail: {
+            sessionAgentId: String(session.agentId),
+          },
+        });
       }
+    }
+    if (superAdminQaMode?.targetTemplateRole) {
+      authorityConfig = {
+        ...authorityConfig,
+      };
+      (authorityConfig as unknown as Record<string, unknown>).templateRole =
+        superAdminQaMode.targetTemplateRole;
     }
 
     runtimeGovernorContract = resolveRuntimeGovernorContract({
@@ -2597,6 +3601,80 @@ export const processInboundMessage = action({
       channelRouteIdentity: inboundChannelRouteIdentity,
       runtimeContracts,
     });
+    const requestCorrelationId = firstInboundString(
+      inboundMetadata.requestCorrelationId,
+      inboundMetadata.correlationId,
+      inboundMetadata.traceId,
+      inboundMetadata.idempotencyKey,
+      inboundIdempotencyKey,
+    ) || inboundIdempotencyKey;
+    samanthaDispatchTraceCorrelationId = requestCorrelationId;
+    recordSamanthaDispatchEvent({
+      stage: "router_correlation",
+      status: "pass",
+      reasonCode: "correlation_established",
+      detail: {
+        correlationId: requestCorrelationId,
+      },
+    });
+    const scheduleRuntimeIncidentAlert = async (payload: {
+      incidentType:
+        | "claim_tool_unavailable"
+        | "runtime_capability_gap_blocked"
+        | "delivery_blocked_escalated"
+        | "response_loop"
+        | "duplicate_ingress_replay";
+      turnId?: Id<"agentTurns">;
+      proposalKey?: string;
+      manifestHash?: string;
+      idempotencyScopeKey?: string;
+      tool?: string;
+      reasonCode: string;
+      reason?: string;
+      linearIssueId?: string;
+      linearIssueUrl?: string;
+      metadata?: unknown;
+    }) => {
+      await ctx.scheduler.runAfter(
+        0,
+        getInternal().ai.runtimeIncidentAlerts.notifyRuntimeIncident,
+        {
+          incidentType: payload.incidentType,
+          organizationId: args.organizationId,
+          sessionId: session._id,
+          turnId: payload.turnId,
+          proposalKey: payload.proposalKey,
+          manifestHash: payload.manifestHash,
+          tool: payload.tool,
+          reasonCode: payload.reasonCode,
+          reason: payload.reason,
+          idempotencyKey: inboundIdempotencyKey,
+          idempotencyScopeKey:
+            payload.idempotencyScopeKey
+            || payload.proposalKey
+            || runtimeContracts.idempotencyContract.scopeKey,
+          payloadHash: runtimeContracts.idempotencyContract.payloadHash,
+          admissionReasonCode: payload.reasonCode,
+          linearIssueId: payload.linearIssueId,
+          linearIssueUrl: payload.linearIssueUrl,
+          metadata: payload.metadata,
+        },
+      );
+    };
+
+    if (args.channel === "native_guest") {
+      console.info("[NativeGuestReplayTrace] ingress_request", {
+        correlationId: requestCorrelationId,
+        organizationId: String(args.organizationId),
+        sessionId: String(session._id),
+        externalContactIdentifier: args.externalContactIdentifier,
+        idempotencyKey: inboundIdempotencyKey,
+        idempotencyScopeKey: runtimeContracts.idempotencyContract.scopeKey,
+        payloadHash: runtimeContracts.idempotencyContract.payloadHash,
+        intentType: runtimeContracts.idempotencyContract.intentType,
+        workflowKey: runtimeContracts.queueContract.workflowKey,
+      });
+    }
 
     const receiptIngress = await ctx.runMutation(getInternal().ai.agentExecution.ingestInboundReceipt, {
       organizationId: args.organizationId,
@@ -2613,6 +3691,7 @@ export const processInboundMessage = action({
         channelRouteIdentity: inboundChannelRouteIdentity,
         routeSelectors: inboundDispatchRouteSelectors,
         ingressEnvelope: baseIngressEnvelope,
+        correlationId: requestCorrelationId,
       },
     }) as {
       receiptId?: Id<"agentInboxReceipts">;
@@ -2621,6 +3700,8 @@ export const processInboundMessage = action({
       turnId?: Id<"agentTurns">;
       conflictLabel?: TurnQueueConflictLabel;
       replayOutcome?: string;
+      duplicateCount?: number;
+      idempotencyScopeKey?: string;
       error?: string;
     } | null;
 
@@ -2629,10 +3710,39 @@ export const processInboundMessage = action({
         status: "blocked_sync_checkpoint",
         message: "A commit is already processing for this collaboration lineage.",
         sessionId: session._id,
+        admissionDenial: buildDeniedTurnAdmissionPayload({
+          channel: resolveAdmissionDenialChannel(args.channel),
+          stage: "idempotency",
+          reasonCode: "precondition_missing",
+          reason: "conflict_commit_in_progress",
+          httpStatusHint: 409,
+          userSafeMessage:
+            "A commit is already processing for this conversation. Please retry shortly.",
+          idempotencyContract: runtimeContracts.idempotencyContract,
+          metadata: {
+            conflictLabel: "conflict_commit_in_progress",
+            workflowKey: runtimeContracts.queueContract.workflowKey,
+          },
+        }),
       };
     }
 
     const runtimeReceiptId = receiptIngress?.receiptId;
+    if (args.channel === "native_guest") {
+      console.info("[NativeGuestReplayTrace] ingest_inbound_receipt_result", {
+        correlationId: requestCorrelationId,
+        receiptId: runtimeReceiptId ? String(runtimeReceiptId) : null,
+        duplicate: Boolean(receiptIngress?.duplicate),
+        status: receiptIngress?.status,
+        turnId: receiptIngress?.turnId ? String(receiptIngress.turnId) : null,
+        conflictLabel: receiptIngress?.conflictLabel,
+        replayOutcome: receiptIngress?.replayOutcome,
+        idempotencyScopeKey: receiptIngress?.idempotencyScopeKey
+          || runtimeContracts.idempotencyContract.scopeKey,
+        payloadHash: runtimeContracts.idempotencyContract.payloadHash,
+        idempotencyKey: inboundIdempotencyKey,
+      });
+    }
     if (!runtimeReceiptId) {
       return {
         status: "error",
@@ -2642,11 +3752,45 @@ export const processInboundMessage = action({
     }
 
     if (receiptIngress?.duplicate) {
+      if (
+        typeof receiptIngress.duplicateCount === "number"
+        && receiptIngress.duplicateCount >= DUPLICATE_INGRESS_REPLAY_ALERT_THRESHOLD
+      ) {
+        await scheduleRuntimeIncidentAlert({
+          incidentType: "duplicate_ingress_replay",
+          turnId: receiptIngress.turnId,
+          proposalKey: receiptIngress.idempotencyScopeKey || inboundIdempotencyKey,
+          reasonCode: receiptIngress.conflictLabel || "replay_duplicate_ingress",
+          reason:
+            `Duplicate ingress replay detected (${receiptIngress.duplicateCount} duplicate hit(s))`,
+          metadata: {
+            duplicateCount: receiptIngress.duplicateCount,
+            replayOutcome: receiptIngress.replayOutcome,
+          },
+        });
+      }
       return {
         status: "duplicate_acknowledged",
         message: "Duplicate inbound event acknowledged.",
         sessionId: session._id,
         turnId: receiptIngress.turnId,
+        admissionDenial: buildDeniedTurnAdmissionPayload({
+          channel: resolveAdmissionDenialChannel(args.channel),
+          stage: "idempotency",
+          reasonCode: "replay_duplicate",
+          reason: "replay_duplicate_ingress",
+          httpStatusHint: 409,
+          userSafeMessage: "Message received. Continuing from your latest step.",
+          idempotencyContract: runtimeContracts.idempotencyContract,
+          metadata: {
+            conflictLabel: receiptIngress.conflictLabel || "replay_duplicate_ingress",
+            replayOutcome: receiptIngress.replayOutcome || "duplicate_acknowledged",
+            duplicateCount:
+              typeof receiptIngress.duplicateCount === "number"
+                ? receiptIngress.duplicateCount
+                : null,
+          },
+        }),
       };
     }
 
@@ -2793,6 +3937,20 @@ export const processInboundMessage = action({
         config.unifiedPersonality = oneAgentRuntimeContract.unifiedPersonality;
         config.teamAccessMode = oneAgentRuntimeContract.teamAccessMode;
         config.dreamTeamSpecialists = oneAgentRuntimeContract.dreamTeamSpecialists;
+        recordSamanthaRouterSelectionStage(
+          "router_team_session_override",
+          "team_session_active_agent_override",
+          effectiveAgent
+        );
+      } else {
+        recordSamanthaDispatchEvent({
+          stage: "router_team_session_override",
+          status: "skip",
+          reasonCode: "team_session_active_agent_missing",
+          detail: {
+            requestedActiveAgentId: String(teamSession.activeAgentId),
+          },
+        });
       }
     }
     const delegationAuthorityContract = resolveDelegationAuthorityRuntimeContract({
@@ -2800,6 +3958,16 @@ export const processInboundMessage = action({
       primaryAgentSubtype: authorityAgent.subtype ?? undefined,
       primaryConfig: authorityConfig,
       speakerAgentId: agent._id,
+    });
+    recordSamanthaDispatchEvent({
+      stage: "router_authority_resolution",
+      status: "pass",
+      reasonCode: "authority_contract_resolved",
+      detail: {
+        primaryAgentId: String(authorityAgent._id),
+        speakerAgentId: String(agent._id),
+        authorityAgentId: String(delegationAuthorityContract.authorityAgentId),
+      },
     });
     const canonicalIngressEnvelope = resolveInboundIngressEnvelope({
       organizationId: args.organizationId,
@@ -2868,6 +4036,20 @@ export const processInboundMessage = action({
         sessionId: session._id,
         turnId: runtimeTurnId,
         waitpoint: waitpointState,
+        admissionDenial: buildDeniedTurnAdmissionPayload({
+          channel: resolveAdmissionDenialChannel(args.channel),
+          stage: "runtime",
+          reasonCode: "precondition_missing",
+          reason: waitpointGate.error || "hitl_waitpoint_precondition_missing",
+          httpStatusHint: 409,
+          userSafeMessage:
+            "A required coordination checkpoint is still pending. Please retry in a moment.",
+          idempotencyContract: runtimeContracts.idempotencyContract,
+          metadata: {
+            checkpoint: "hitl_waitpoint",
+            escalationStatus: escalationStatus || "unknown",
+          },
+        }),
       };
     }
 
@@ -2947,6 +4129,20 @@ export const processInboundMessage = action({
           message: resolveCollaborationSyncCheckpointFailureMessage(syncGate?.error),
           sessionId: session._id,
           turnId: runtimeTurnId,
+          admissionDenial: buildDeniedTurnAdmissionPayload({
+            channel: resolveAdmissionDenialChannel(args.channel),
+            stage: "runtime",
+            reasonCode: "precondition_missing",
+            reason: syncGate?.error || "collaboration_sync_checkpoint_missing",
+            httpStatusHint: 409,
+            userSafeMessage:
+              "A collaboration sync checkpoint is required before this commit can continue.",
+            idempotencyContract: runtimeContracts.idempotencyContract,
+            metadata: {
+              checkpoint: "collaboration_sync",
+              intentType: inboundCommitIntent || "commit",
+            },
+          }),
         };
       }
     }
@@ -3288,9 +4484,23 @@ export const processInboundMessage = action({
       metadata,
       message: inboundMessage,
     });
+    const actionCompletionResponseLanguage = resolveActionCompletionResponseLanguage({
+      authorityConfig: authorityConfig as unknown as Record<string, unknown>,
+      inboundMessage,
+      metadata,
+    });
+    const actionCompletionTicketRequestIntent =
+      detectRuntimeCapabilityGapTicketRequestIntent({
+        inboundMessage,
+      });
+    const actionCompletionContractConfig = resolveActionCompletionContractsForRuntime({
+      authorityConfig: authorityConfig as unknown as Record<string, unknown>,
+      preferredLanguage: actionCompletionResponseLanguage,
+    });
     const composerRuntimeContextParts = [
       buildInboundComposerRuntimeContext(composerRuntimeControls),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
+      buildActionCompletionRuntimeContext(actionCompletionContractConfig),
     ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
     const composerRuntimeContext =
       composerRuntimeContextParts.length > 0
@@ -3494,20 +4704,31 @@ export const processInboundMessage = action({
         recordTurnTransition: async (transitionArgs) => {
           await ctx.runMutation(getInternal().ai.agentSessions.recordTurnTransition, transitionArgs);
         },
-        notifyTelegram: (payload) => {
-          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
+        notifyTelegram: async (payload) => {
+          await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
         },
-        notifyPushover: (payload) => {
-          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
+        notifyPushover: async (payload) => {
+          await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
         },
-        notifyEmail: (payload) => {
-          ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
+        notifyEmail: async (payload) => {
+          await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
         },
-        notifyHighUrgencyRetry: (payload) => {
-          ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
+        notifyHighUrgencyRetry: async (payload) => {
+          await ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
         },
         onTransitionError: (error) => {
           console.warn("[AgentExecution] Failed to append pre-LLM escalation turn edge", error);
+        },
+      });
+      await scheduleRuntimeIncidentAlert({
+        incidentType: "delivery_blocked_escalated",
+        turnId: runtimeTurnId,
+        reasonCode: preEscalation.triggerType,
+        reason: preEscalation.reason,
+        metadata: {
+          lifecycleState: "escalated",
+          deliveryState: "blocked",
+          checkpoint: "pre_llm_escalation",
         },
       });
 
@@ -4134,23 +5355,84 @@ export const processInboundMessage = action({
     // Resolve agent's effective tool profile
     const agentProfile = delegationAuthorityContract.authorityToolProfile;
 
+    const mandatorySamanthaTools = resolveNativeGuestMandatoryActionCompletionTools({
+      channel: args.channel,
+      actionCompletionContractConfig,
+    });
+
+    const scopedOrgEnabledTools =
+      orgToolPolicy.orgEnabled.length > 0
+        ? mergeRuntimeMandatoryTools(orgToolPolicy.orgEnabled, mandatorySamanthaTools)
+        : orgToolPolicy.orgEnabled;
+    const scopedOrgDisabledTools = removeRuntimeMandatoryTools(
+      orgToolPolicy.orgDisabled,
+      mandatorySamanthaTools,
+    );
+    const scopedAgentEnabledTools = (() => {
+      if (mandatorySamanthaTools.length === 0) {
+        return delegationAuthorityContract.authorityEnabledTools;
+      }
+      if (delegationAuthorityContract.authorityEnabledTools.length > 0) {
+        return mergeRuntimeMandatoryTools(
+          delegationAuthorityContract.authorityEnabledTools,
+          mandatorySamanthaTools,
+        );
+      }
+      const profileTools =
+        delegationAuthorityContract.authorityToolProfile
+        && TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile]
+        && !TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile].includes("*")
+          ? TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile]
+          : [];
+      return mergeRuntimeMandatoryTools(profileTools, mandatorySamanthaTools);
+    })();
+    const scopedAgentDisabledTools = removeRuntimeMandatoryTools(
+      delegationAuthorityContract.authorityDisabledTools,
+      mandatorySamanthaTools,
+    );
+
     // Session-level disabled tools (from degraded mode / error state)
-    const sessionDisabledTools = preflightErrorState?.disabledTools ?? [];
+    const sessionDisabledTools = removeRuntimeMandatoryTools(
+      preflightErrorState?.disabledTools ?? [],
+      mandatorySamanthaTools,
+    );
 
     const allToolDefs = getAllToolDefinitions();
     const scopedTools = resolveActiveToolsWithAudit({
       allTools: allToolDefs,
       platformBlocked: getPlatformBlockedTools(),
-      orgEnabled: orgToolPolicy.orgEnabled,
-      orgDisabled: orgToolPolicy.orgDisabled,
+      orgEnabled: scopedOrgEnabledTools,
+      orgDisabled: scopedOrgDisabledTools,
       connectedIntegrations,
       agentProfile,
-      agentEnabled: delegationAuthorityContract.authorityEnabledTools,
-      agentDisabled: delegationAuthorityContract.authorityDisabledTools,
+      agentEnabled: scopedAgentEnabledTools,
+      agentDisabled: scopedAgentDisabledTools,
       autonomyLevel: effectiveAutonomyLevel,
       sessionDisabled: sessionDisabledTools,
       channel: args.channel,
     });
+    if (mandatorySamanthaTools.length > 0) {
+      const existingToolNames = new Set(scopedTools.tools.map((tool) => tool.name));
+      const injectedToolNames: string[] = [];
+      for (const requiredToolName of mandatorySamanthaTools) {
+        if (existingToolNames.has(requiredToolName)) {
+          continue;
+        }
+        const requiredToolDef = allToolDefs.find((tool) => tool.name === requiredToolName);
+        if (!requiredToolDef) {
+          continue;
+        }
+        scopedTools.tools.push(requiredToolDef);
+        existingToolNames.add(requiredToolName);
+        injectedToolNames.push(requiredToolName);
+      }
+      if (injectedToolNames.length > 0) {
+        scopedTools.audit.finalToolNames = normalizeDeterministicRuntimeStringArray(
+          scopedTools.tools.map((tool) => tool.name),
+        );
+        scopedTools.audit.finalCount = scopedTools.audit.finalToolNames.length;
+      }
+    }
     const activeToolDefs = disableAllToolsForMode ? [] : scopedTools.tools;
     const toolScopingAudit = {
       ...scopedTools.audit,
@@ -4161,9 +5443,10 @@ export const processInboundMessage = action({
       channel: args.channel,
       authorityAgentId: delegationAuthorityContract.authorityAgentId,
       speakerAgentId: delegationAuthorityContract.speakerAgentId,
-      agentEnabledCount: delegationAuthorityContract.authorityEnabledTools.length,
-      agentDisabledCount: delegationAuthorityContract.authorityDisabledTools.length,
+      agentEnabledCount: scopedAgentEnabledTools.length,
+      agentDisabledCount: scopedAgentDisabledTools.length,
       sessionDisabledCount: sessionDisabledTools.length,
+      runtimeMandatoryTools: mandatorySamanthaTools,
       soulMode: soulModeRuntime.mode,
       soulModeSource: soulModeRuntime.source,
       soulModeToolScope: soulModeRuntime.config.toolScope,
@@ -4171,7 +5454,71 @@ export const processInboundMessage = action({
       archetypeSource: archetypeRuntime.source,
       sensitiveArchetypeReadOnly: sensitiveArchetypeConstraint?.forceReadOnlyTools === true,
     };
-    const harnessToolNames = activeToolDefs.map((toolDef) => toolDef.name);
+    const effectiveExecutableToolNames = activeToolDefs.map((toolDef) => toolDef.name);
+    const nativeGuestRequiredToolInvariant = resolveNativeGuestRequiredToolInvariant({
+      channel: args.channel,
+      requiredTools: mandatorySamanthaTools,
+      effectiveExecutableToolNames,
+    });
+    if (nativeGuestRequiredToolInvariant.enforced) {
+      const missingTool = nativeGuestRequiredToolInvariant.missingRequiredTools[0];
+      if (missingTool) {
+        const removalReasonByLayer = {
+          platform: toolScopingAudit.removedByPlatform.includes(missingTool),
+          orgAllow: toolScopingAudit.removedByOrgAllow.includes(missingTool),
+          orgDeny: toolScopingAudit.removedByOrgDeny.includes(missingTool),
+          integration: toolScopingAudit.removedByIntegration.includes(missingTool),
+          agentProfile: toolScopingAudit.removedByAgentProfile.includes(missingTool),
+          agentEnable: toolScopingAudit.removedByAgentEnable.includes(missingTool),
+          agentDisable: toolScopingAudit.removedByAgentDisable.includes(missingTool),
+          autonomy: toolScopingAudit.removedByAutonomy.includes(missingTool),
+          session: toolScopingAudit.removedBySession.includes(missingTool),
+          channel: toolScopingAudit.removedByChannel.includes(missingTool),
+          mode: disableAllToolsForMode,
+        };
+        const invariantDiagnostic = {
+          correlationId: requestCorrelationId,
+          organizationId: String(args.organizationId),
+          sessionId: String(session._id),
+          turnId: String(runtimeTurnId),
+          channel: args.channel,
+          requiredTool: missingTool,
+          requiredTools: mandatorySamanthaTools,
+          executableTools: effectiveExecutableToolNames,
+          finalScopedTools: toolScopingAudit.finalToolNames,
+          runtimeMandatoryTools: toolScopingAudit.runtimeMandatoryTools,
+          removedByLayer: removalReasonByLayer,
+          idempotencyScopeKey: runtimeContracts.idempotencyContract.scopeKey,
+          payloadHash: runtimeContracts.idempotencyContract.payloadHash,
+        };
+        console.error("[NativeGuestToolInvariant] required tool missing before execution", invariantDiagnostic);
+        await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+          organizationId: args.organizationId,
+          actionType: "native_guest_required_tool_missing_preexecution",
+          actionData: invariantDiagnostic,
+        });
+        await scheduleRuntimeIncidentAlert({
+          incidentType: "claim_tool_unavailable",
+          turnId: runtimeTurnId,
+          proposalKey: runtimeContracts.idempotencyContract.scopeKey,
+          tool: missingTool,
+          reasonCode: "required_tool_missing_preexecution",
+          reason:
+            "Required audit deliverable tool missing from executable runtime tool set before LLM execution.",
+          metadata: invariantDiagnostic,
+        });
+        return {
+          status: "error",
+          message: actionCompletionResponseLanguage === "de"
+            ? "Wir koennen den Audit-Report aktuell nicht liefern, weil ein erforderliches Runtime-Tool fehlt. Unser Team wurde automatisch informiert."
+            : "We can’t deliver the audit report right now because a required runtime tool is missing. Our team has been alerted automatically.",
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+        };
+      }
+    }
+    const harnessToolNames = effectiveExecutableToolNames;
     const activeToolNames = new Set(harnessToolNames);
     let toolSchemas = getToolSchemas().filter((schema) => activeToolNames.has(schema.function.name));
     if (disableAllToolsForMode || isPlanMode(composerRuntimeControls.mode)) {
@@ -4180,6 +5527,31 @@ export const processInboundMessage = action({
     const modeDisabledTools = disableAllToolsForMode
       ? scopedTools.tools.map((tool) => tool.name)
       : [];
+    const requiredScopeManifest = buildRequiredScopeToolManifestContract({
+      finalToolNames: disableAllToolsForMode ? [] : toolScopingAudit.finalToolNames,
+      removedByLayer: {
+        platform: toolScopingAudit.removedByPlatform,
+        orgAllow: toolScopingAudit.removedByOrgAllow,
+        orgDeny: toolScopingAudit.removedByOrgDeny,
+        integration: toolScopingAudit.removedByIntegration,
+        agentProfile: toolScopingAudit.removedByAgentProfile,
+        agentEnable: toolScopingAudit.removedByAgentEnable,
+        agentDisable: toolScopingAudit.removedByAgentDisable,
+        autonomy: toolScopingAudit.removedByAutonomy,
+        session: toolScopingAudit.removedBySession,
+        channel: [
+          ...toolScopingAudit.removedByChannel,
+          ...modeDisabledTools,
+        ],
+      },
+    });
+    let requiredScopeDelegationDeliveryOverride: {
+      requiredScopeContract: RequiredSpecialistScopeContract;
+      requiredScopeGap: RequiredSpecialistScopeGap;
+      requiredScopeManifest: RequiredScopeToolManifestContract;
+      requiredScopeFallback: RequiredScopeFallbackDelegationContract;
+      message: string;
+    } | null = null;
     const unavailableByPolicyTools = [
       ...toolScopingAudit.removedByPlatform,
       ...toolScopingAudit.removedByOrgDeny,
@@ -4188,6 +5560,107 @@ export const processInboundMessage = action({
       ...toolScopingAudit.removedByChannel,
       ...modeDisabledTools,
     ];
+    const requiredSpecialistScopeValidation = validateRequiredSpecialistScopeContract({
+      requiredTools: delegationAuthorityContract.authorityRequiredTools,
+      requiredCapabilities: delegationAuthorityContract.authorityRequiredCapabilities,
+      scopedToolNames: disableAllToolsForMode ? [] : toolScopingAudit.finalToolNames,
+      connectedIntegrations: toolScopingAudit.connectedIntegrations,
+      removedByLayer: {
+        platform: toolScopingAudit.removedByPlatform,
+        orgAllow: toolScopingAudit.removedByOrgAllow,
+        orgDeny: toolScopingAudit.removedByOrgDeny,
+        integration: toolScopingAudit.removedByIntegration,
+        agentProfile: toolScopingAudit.removedByAgentProfile,
+        agentEnable: toolScopingAudit.removedByAgentEnable,
+        agentDisable: toolScopingAudit.removedByAgentDisable,
+        autonomy: toolScopingAudit.removedByAutonomy,
+        session: toolScopingAudit.removedBySession,
+        channel: [
+          ...toolScopingAudit.removedByChannel,
+          ...modeDisabledTools,
+        ].sort((left, right) => left.localeCompare(right)),
+      },
+    });
+    if (requiredSpecialistScopeValidation.blocked && requiredSpecialistScopeValidation.gap) {
+      const requiredScopeFallback = await attemptRequiredScopeDelegationFallback(ctx, {
+        organizationId: args.organizationId,
+        sessionId: session._id,
+        authorityAgentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        requiredScopeContract: requiredSpecialistScopeValidation.contract,
+        requiredScopeGap: requiredSpecialistScopeValidation.gap,
+        requiredScopeManifest,
+      });
+      await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+        agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        organizationId: args.organizationId,
+        actionType: "required_scope_fallback_delegation",
+        actionData: {
+          sessionId: String(session._id),
+          turnId: String(runtimeTurnId),
+          channel: args.channel,
+          requiredScopeManifestHash: requiredScopeManifest.manifestHash,
+          requiredScopeContract: requiredSpecialistScopeValidation.contract,
+          requiredScopeGap: requiredSpecialistScopeValidation.gap,
+          fallback: requiredScopeFallback,
+          queueContract: runtimeContracts.queueContract,
+          idempotencyContract: runtimeContracts.idempotencyContract,
+        },
+      });
+      if (requiredScopeFallback.outcome === "delegated") {
+        requiredScopeDelegationDeliveryOverride = {
+          requiredScopeContract: requiredSpecialistScopeValidation.contract,
+          requiredScopeGap: requiredSpecialistScopeValidation.gap,
+          requiredScopeManifest,
+          requiredScopeFallback,
+          message:
+            requiredScopeFallback.message
+            || "Specialist fallback delegation completed.",
+        };
+      } else {
+      await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+        agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        organizationId: args.organizationId,
+        actionType: "required_scope_contract_blocked",
+        actionData: {
+          sessionId: String(session._id),
+          turnId: String(runtimeTurnId),
+          channel: args.channel,
+          contract: requiredSpecialistScopeValidation.contract,
+          gap: requiredSpecialistScopeValidation.gap,
+          requiredScopeManifest,
+          requiredScopeFallback,
+          queueContract: runtimeContracts.queueContract,
+          idempotencyContract: runtimeContracts.idempotencyContract,
+        },
+      });
+      return {
+        status: "blocked",
+        message:
+          `Curated specialist runtime contract failed after layered scope resolution (${requiredSpecialistScopeValidation.gap.reasonCode}).`,
+        requiredScopeContract: requiredSpecialistScopeValidation.contract,
+        requiredScopeGap: requiredSpecialistScopeValidation.gap,
+        requiredScopeManifest,
+        requiredScopeFallback,
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+        admissionDenial: buildDeniedTurnAdmissionPayload({
+          channel: resolveAdmissionDenialChannel(args.channel),
+          stage: "runtime",
+          reasonCode: "precondition_missing",
+          reason: `required_scope_contract_blocked:${requiredSpecialistScopeValidation.gap.reasonCode}`,
+          httpStatusHint: 422,
+          userSafeMessage:
+            "A required specialist scope precondition is missing, so this turn was blocked.",
+          manifestHash: requiredScopeManifest.manifestHash,
+          idempotencyContract: runtimeContracts.idempotencyContract,
+          metadata: {
+            requiredScopeGap: requiredSpecialistScopeValidation.gap.reasonCode,
+            fallbackOutcome: requiredScopeFallback.outcome,
+          },
+        }),
+      };
+      }
+    }
     const planFeasibilityContext = buildInboundPlanFeasibilityContext({
       mode: composerRuntimeControls.mode,
       userMessage: inboundMessage,
@@ -4264,9 +5737,10 @@ export const processInboundMessage = action({
       agent.subtype ?? undefined,
       organization.slug === "system",
     );
-    const crossOrgSoulReadOnlyEnrichment =
+    const crossOrgSoulReadOnlyEnrichmentRuntime =
       await resolveCrossOrgSoulReadOnlyEnrichment({
         ctx,
+        authorityConfig,
         organization,
         channel: args.channel,
         externalContactIdentifier: args.externalContactIdentifier,
@@ -4319,7 +5793,7 @@ export const processInboundMessage = action({
             : undefined,
         testingMode: args.channel === "api_test",
       },
-      crossOrgSoulReadOnlyEnrichment,
+      crossOrgSoulReadOnlyEnrichmentRuntime.enrichment,
     );
 
     const handoffPromptContext = handoffCtx
@@ -4334,6 +5808,9 @@ export const processInboundMessage = action({
     const supportPolicyPrompt = supportRuntimeContext.enabled
       ? buildSupportRuntimePolicy(supportRuntimeContext)
       : undefined;
+    const commercialKickoffRuntimeContext = buildInboundCommercialKickoffRuntimeContext(
+      resolveInboundCommercialKickoffContract(inboundMetadata)
+    );
     const promptConfig = supportPolicyPrompt
       ? {
           ...runtimeConfig,
@@ -4438,6 +5915,7 @@ export const processInboundMessage = action({
       contactMemoryContext ?? "",
       composerRuntimeContext ?? "",
       planFeasibilityContext ?? "",
+      commercialKickoffRuntimeContext ?? "",
       inboundMessage,
     ].join("\n\n"));
     const adaptiveHistoryWindow = composeAdaptiveRecentContextWindow({
@@ -4478,6 +5956,7 @@ export const processInboundMessage = action({
       contactMemoryContext,
       composerRuntimeContext,
       planFeasibilityContext,
+      commercialKickoffRuntimeContext,
     });
 
     for (const msg of history as Array<{ role: string; content: string }>) {
@@ -4569,71 +6048,75 @@ export const processInboundMessage = action({
       );
     };
 
-    // 7.5. Pre-flight credit check
-    const estimatedCost = estimateCreditsFromPricing(resolvedModelPricing);
-    const preflightLlmBillingSource = resolveLlmBillingSource({
-      providerId: selectedModelProviderId,
-      profileId: primaryAuthProfileId,
-    });
-
-    try {
-      await ctx.runMutation(getInternal().credits.index.grantDailyCreditsInternalMutation, {
-        organizationId: args.organizationId,
+    const skipLlmExecutionForRequiredScopeFallback =
+      requiredScopeDelegationDeliveryOverride !== null;
+    if (!skipLlmExecutionForRequiredScopeFallback) {
+      // 7.5. Pre-flight credit check
+      const estimatedCost = estimateCreditsFromPricing(resolvedModelPricing);
+      const preflightLlmBillingSource = resolveLlmBillingSource({
+        providerId: selectedModelProviderId,
+        profileId: primaryAuthProfileId,
       });
-    } catch (error) {
-      console.warn("[AgentExecution] Failed to grant daily credits (non-blocking):", error);
-    }
 
-    const creditCheck = await ctx.runQuery(
-      getInternal().credits.index.checkCreditsInternalQuery,
-      {
-        organizationId: args.organizationId,
-        requiredAmount: estimatedCost,
-        billingSource: preflightLlmBillingSource,
-        requestSource: "llm",
+      try {
+        await ctx.runMutation(getInternal().credits.index.grantDailyCreditsInternalMutation, {
+          organizationId: args.organizationId,
+        });
+      } catch (error) {
+        console.warn("[AgentExecution] Failed to grant daily credits (non-blocking):", error);
       }
-    );
 
-    if (!creditCheck.hasCredits) {
-      // Fire-and-forget notification to org owner
-      ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyCreditExhausted, {
-        organizationId: args.organizationId,
+      const creditCheck = await ctx.runQuery(
+        getInternal().credits.index.checkCreditsInternalQuery,
+        {
+          organizationId: args.organizationId,
+          requiredAmount: estimatedCost,
+          billingSource: preflightLlmBillingSource,
+          requestSource: "llm",
+        }
+      );
+
+      if (!creditCheck.hasCredits) {
+        // Fire-and-forget notification to org owner
+        await ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyCreditExhausted, {
+          organizationId: args.organizationId,
+        });
+
+        return {
+          status: "credits_exhausted",
+          // Customer-facing: never expose credit internals
+          message: "Our team is currently unavailable. Please try again later or contact us directly.",
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+        };
+      }
+
+      // 8. Call LLM with retry + model/auth-profile failover
+      if (!runtimeLeaseToken) {
+        return {
+          status: "error",
+          message: "Turn lease token missing before model execution.",
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+        };
+      }
+
+      const leaseHeartbeat = await heartbeatTurnLease(ctx, {
+        turnId: runtimeTurnId,
+        expectedVersion: runtimeTurnVersion,
+        leaseToken: runtimeLeaseToken,
+        leaseDurationMs: 3 * 60_000,
       });
-
-      return {
-        status: "credits_exhausted",
-        // Customer-facing: never expose credit internals
-        message: "Our team is currently unavailable. Please try again later or contact us directly.",
-        sessionId: session._id,
-        turnId: runtimeTurnId,
-      };
+      if (!leaseHeartbeat.success || typeof leaseHeartbeat.transitionVersion !== "number") {
+        return {
+          status: "error",
+          message: "Failed to refresh turn lease before model execution.",
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+        };
+      }
+      runtimeTurnVersion = leaseHeartbeat.transitionVersion;
     }
-
-    // 8. Call LLM with retry + model/auth-profile failover
-    if (!runtimeLeaseToken) {
-      return {
-        status: "error",
-        message: "Turn lease token missing before model execution.",
-        sessionId: session._id,
-        turnId: runtimeTurnId,
-      };
-    }
-
-    const leaseHeartbeat = await heartbeatTurnLease(ctx, {
-      turnId: runtimeTurnId,
-      expectedVersion: runtimeTurnVersion,
-      leaseToken: runtimeLeaseToken,
-      leaseDurationMs: 3 * 60_000,
-    });
-    if (!leaseHeartbeat.success || typeof leaseHeartbeat.transitionVersion !== "number") {
-      return {
-        status: "error",
-        message: "Failed to refresh turn lease before model execution.",
-        sessionId: session._id,
-        turnId: runtimeTurnId,
-      };
-    }
-    runtimeTurnVersion = leaseHeartbeat.transitionVersion;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any = null;
@@ -4656,7 +6139,34 @@ export const processInboundMessage = action({
       "none";
     let skippedModelNoAuthProfileCount = 0;
     let skippedModelCooldownCount = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let choice: any = null;
 
+    if (skipLlmExecutionForRequiredScopeFallback) {
+      response = {
+        usage: { total_tokens: 0 },
+        choices: [
+          {
+            message: {
+              content: requiredScopeDelegationDeliveryOverride?.message
+                || "Specialist fallback delegation completed.",
+              tool_calls: [],
+            },
+          },
+        ],
+      };
+      choice = response.choices?.[0] ?? null;
+      await ctx.runMutation(getInternal().ai.agentSessions.recordTurnRunAttempt, {
+        turnId: runtimeTurnId,
+        runAttempt: buildRunAttemptContract({
+          attempts: 0,
+          maxAttempts: LLM_RETRY_POLICY.maxAttempts,
+          delayReason: "none",
+          delayMs: 0,
+          terminalOutcome: "success",
+        }),
+      });
+    } else {
     const logSkippedModel = (
       modelId: string,
       providerId: string,
@@ -4898,7 +6408,7 @@ export const processInboundMessage = action({
       }
 
       // Notify owner — this is a model failure, not a credit issue
-      ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyAllModelsFailed, {
+      await ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyAllModelsFailed, {
         organizationId: args.organizationId,
         error: "All retry attempts and fallback models exhausted",
       });
@@ -4921,7 +6431,7 @@ export const processInboundMessage = action({
       };
     }
 
-    const choice = response.choices?.[0];
+    choice = response.choices?.[0];
     if (!choice) {
       await ctx.runMutation(getInternal().ai.agentSessions.recordTurnRunAttempt, {
         turnId: runtimeTurnId,
@@ -4956,9 +6466,10 @@ export const processInboundMessage = action({
         terminalOutcome: "success",
       }),
     });
+    }
 
     let assistantContent = choice.message?.content || "";
-    if (composerRuntimeControls.mode === "plan_soft") {
+    if (composerRuntimeControls.mode === "plan_soft" && !skipLlmExecutionForRequiredScopeFallback) {
       assistantContent = applyPlanSoftReadinessScoring({
         assistantContent,
         availableToolNames: toolScopingAudit.finalToolNames,
@@ -4968,36 +6479,36 @@ export const processInboundMessage = action({
       });
     }
     const runtimePolicyAdvisories: string[] = [];
-    if (
-      typeof selectedPolicyGuardrail === "string"
-      && selectedPolicyGuardrail.trim().length > 0
-      && modelRoutingPolicySeed.privacyMode !== "off"
-      && !selectedRouteIsLocal
-    ) {
-      runtimePolicyAdvisories.push(`Privacy safeguard: ${selectedPolicyGuardrail}`);
-    }
-    if (
-      typeof selectedModelDriftWarning === "string"
-      && selectedModelDriftWarning.trim().length > 0
-    ) {
-      runtimePolicyAdvisories.push(`Model safety note: ${selectedModelDriftWarning}`);
-    }
-    if (runtimePolicyAdvisories.length > 0) {
-      const advisoryBlock = runtimePolicyAdvisories.join("\n");
-      assistantContent = assistantContent.trim().length > 0
-        ? `${advisoryBlock}\n\n${assistantContent}`
-        : advisoryBlock;
+    if (!skipLlmExecutionForRequiredScopeFallback) {
+      if (
+        typeof selectedPolicyGuardrail === "string"
+        && selectedPolicyGuardrail.trim().length > 0
+        && modelRoutingPolicySeed.privacyMode !== "off"
+        && !selectedRouteIsLocal
+      ) {
+        runtimePolicyAdvisories.push(`Privacy safeguard: ${selectedPolicyGuardrail}`);
+      }
+      if (
+        typeof selectedModelDriftWarning === "string"
+        && selectedModelDriftWarning.trim().length > 0
+      ) {
+        runtimePolicyAdvisories.push(`Model safety note: ${selectedModelDriftWarning}`);
+      }
+      if (runtimePolicyAdvisories.length > 0) {
+        const advisoryBlock = runtimePolicyAdvisories.join("\n");
+        assistantContent = assistantContent.trim().length > 0
+          ? `${advisoryBlock}\n\n${assistantContent}`
+          : advisoryBlock;
+      }
     }
     let toolCalls = Array.isArray(choice.message?.tool_calls)
       ? choice.message.tool_calls as Array<Record<string, unknown>>
       : [];
-    if (!hasMeetingConciergeToolCall(toolCalls)) {
-      const previewToolCall = buildAutoPreviewMeetingConciergeToolCall(
-        meetingConciergeIntent
-      );
-      if (previewToolCall) {
-        toolCalls = [...toolCalls, previewToolCall];
-      }
+    if (!skipLlmExecutionForRequiredScopeFallback) {
+      toolCalls = injectAutoPreviewMeetingConciergeToolCall({
+        toolCalls,
+        meetingConciergeIntent,
+      });
     }
     const runtimeElapsedBeforeTools = Date.now() - runtimeGovernorStartedAt;
     const stepAndTimeEnforcement = enforceRuntimeGovernorStepAndTime({
@@ -5224,6 +6735,33 @@ export const processInboundMessage = action({
     ) as { disabledTools?: string[]; failedToolCounts?: Record<string, number> } | null;
 
     const { failedToolCounts, disabledTools } = initializeToolFailureState(existingErrorState);
+    if (mandatorySamanthaTools.length > 0) {
+      for (const requiredToolName of mandatorySamanthaTools) {
+        disabledTools.delete(requiredToolName);
+        delete failedToolCounts[requiredToolName];
+      }
+    }
+    const inboundCommercialRoutingPolicy = resolveInboundCommercialRoutingPolicy({
+      inboundMessage: args.message,
+      metadata: inboundMetadata,
+    });
+    const samanthaAuditSourceContext = resolveSamanthaAuditSourceContext({
+      ingressChannel: args.channel,
+      externalContactIdentifier: args.externalContactIdentifier,
+      metadata: inboundMetadata,
+    });
+    recordSamanthaDispatchEvent({
+      stage: "samantha_source_context",
+      status: "pass",
+      reasonCode: "source_context_resolved",
+      detail: {
+        ingressChannel: samanthaAuditSourceContext.ingressChannel,
+        sourceAuditChannel: samanthaAuditSourceContext.sourceAuditChannel || null,
+        hasSourceSessionToken: Boolean(
+          normalizeExecutionString(samanthaAuditSourceContext.sourceSessionToken)
+        ),
+      },
+    });
     const toolCtx: ToolExecutionContext = {
       ...ctx,
       organizationId: args.organizationId,
@@ -5252,15 +6790,44 @@ export const processInboundMessage = action({
           sourceAttestation: meetingConciergeIntent.sourceAttestation,
           commandPolicy: meetingConciergeIntent.commandPolicy,
         },
+        commercialRouting: inboundCommercialRoutingPolicy,
+        sourceAuditContext: {
+          ingressChannel: samanthaAuditSourceContext.ingressChannel,
+          originSurface: samanthaAuditSourceContext.originSurface,
+          sourceSessionToken: samanthaAuditSourceContext.sourceSessionToken,
+          sourceAuditChannel: samanthaAuditSourceContext.sourceAuditChannel,
+        },
         runtimeAuthorityPrecedence:
           canonicalIngressEnvelope.nativeVisionEdge.nativeAuthorityPrecedence,
       },
     };
-    const {
-      toolResults,
-      errorStateDirty,
-      blockedCapabilityGap,
-    } = await executeToolCallsWithApproval({
+    const createToolApprovalRequest = async (request: {
+      actionType: string;
+      actionPayload: Record<string, unknown>;
+    }) => {
+      await ctx.runMutation(getInternal().ai.agentApprovals.createApprovalRequest, {
+        agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        sessionId: session._id,
+        organizationId: args.organizationId,
+        actionType: request.actionType,
+        actionPayload: request.actionPayload,
+      });
+    };
+    const handleToolDisabled = async (event: {
+      toolName: string;
+      error: string;
+    }) => {
+      console.error(
+        `[AgentExecution] Tool "${event.toolName}" disabled after 3 failures in session ${session._id}`
+      );
+      await ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyToolDisabled, {
+        organizationId: args.organizationId,
+        toolName: event.toolName,
+        error: event.error,
+      });
+    };
+
+    const initialToolExecution = await executeToolCallsWithApproval({
       toolCalls: toolCalls as Array<{ function?: { name?: string; arguments?: unknown } }>,
       organizationId: args.organizationId,
       agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
@@ -5270,31 +6837,24 @@ export const processInboundMessage = action({
       toolExecutionContext: toolCtx,
       failedToolCounts,
       disabledTools,
-      createApprovalRequest: async ({ actionType, actionPayload }) => {
-        await ctx.runMutation(getInternal().ai.agentApprovals.createApprovalRequest, {
-          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
-          sessionId: session._id,
-          organizationId: args.organizationId,
-          actionType,
-          actionPayload,
-        });
-      },
-      onToolDisabled: ({ toolName, error }) => {
-        console.error(
-          `[AgentExecution] Tool "${toolName}" disabled after 3 failures in session ${session._id}`
-        );
-        ctx.scheduler.runAfter(0, getInternal().credits.notifications.notifyToolDisabled, {
-          organizationId: args.organizationId,
-          toolName,
-          error,
-        });
-      },
+      nonDisableableTools: mandatorySamanthaTools,
+      createApprovalRequest: createToolApprovalRequest,
+      onToolDisabled: handleToolDisabled,
     });
+    const toolResults = [...initialToolExecution.toolResults];
+    let errorStateDirty = initialToolExecution.errorStateDirty;
+    const blockedCapabilityGap = initialToolExecution.blockedCapabilityGap;
     const runtimeCapabilityGapBlockedResponse = blockedCapabilityGap
       ? buildRuntimeCapabilityGapBlockedResponse({
           capabilityGap: blockedCapabilityGap,
         })
       : null;
+    let runtimeCapabilityGapLinearIssue: RuntimeCapabilityGapLinearIssueResult | null = null;
+    let runtimeCapabilityGapBacklogInsertStatus: "inserted" | "updated" | "error" = "error";
+    const runtimeCapabilityGapTicketRequestIntent =
+      detectRuntimeCapabilityGapTicketRequestIntent({
+        inboundMessage,
+      });
     if (blockedCapabilityGap && runtimeCapabilityGapBlockedResponse) {
       const toolFoundryLineageId = runtimeContracts.queueContract.lineageId;
       const toolFoundryThreadId = runtimeContracts.queueContract.threadId;
@@ -5335,7 +6895,7 @@ export const processInboundMessage = action({
         boundaryReason: toolFoundryBoundaryReason,
       });
       try {
-        await ctx.runMutation(
+        const persistResult = await ctx.runMutation(
           getInternal().ai.toolFoundry.proposalBacklog.persistRuntimeCapabilityGapProposal,
           {
             organizationId: args.organizationId,
@@ -5360,6 +6920,58 @@ export const processInboundMessage = action({
             observedAt: runtimeCapabilityGapBlockedResponse.proposalArtifact.createdAt,
           },
         );
+        runtimeCapabilityGapBacklogInsertStatus =
+          persistResult?.status === "inserted" || persistResult?.status === "updated"
+            ? persistResult.status
+            : "error";
+
+        const shouldCreateLinearIssue =
+          runtimeCapabilityGapBacklogInsertStatus === "inserted";
+        if (shouldCreateLinearIssue) {
+          try {
+            const linearIssue = await ctx.runAction(
+              getInternal().ai.linearActions.createFeatureRequestIssue,
+              {
+                userName: "Anonymous Native Guest",
+                userEmail: "native-guest@unknown.local",
+                organizationName: organization.name,
+                toolName: blockedCapabilityGap.missing.requestedToolName,
+                featureDescription: blockedCapabilityGap.missing.summary,
+                userMessage: inboundMessage,
+                userElaboration: undefined,
+                category: "runtime_capability_gap",
+                conversationId: String(session._id),
+                occurredAt: runtimeCapabilityGapBlockedResponse.proposalArtifact.createdAt,
+              },
+            ) as RuntimeCapabilityGapLinearIssueResult;
+            runtimeCapabilityGapLinearIssue = linearIssue;
+            try {
+              await ctx.runMutation(
+                getInternal().ai.toolFoundry.proposalBacklog.attachLinearIssueToProposal,
+                {
+                  organizationId: args.organizationId,
+                  proposalKey: blockedCapabilityGap.proposalArtifact.proposalKey,
+                  issueId: linearIssue.issueId,
+                  issueNumber: linearIssue.issueNumber,
+                  issueUrl: linearIssue.issueUrl,
+                  linkedAt: runtimeCapabilityGapBlockedResponse.proposalArtifact.createdAt,
+                },
+              );
+            } catch (persistLinearIssueError) {
+              console.error("[AgentExecution] Failed to persist Linear issue link on Tool Foundry backlog", {
+                proposalKey: blockedCapabilityGap.proposalArtifact.proposalKey,
+                sessionId: session._id,
+                persistLinearIssueError,
+              });
+            }
+          } catch (linearError) {
+            console.error("[AgentExecution] Failed to create Linear issue for runtime capability gap", {
+              proposalKey: blockedCapabilityGap.proposalArtifact.proposalKey,
+              sessionId: session._id,
+              linearError,
+            });
+          }
+        }
       } catch (error) {
         console.error("[AgentExecution] Failed to persist Tool Foundry proposal backlog", {
           proposalKey: blockedCapabilityGap.proposalArtifact.proposalKey,
@@ -5369,10 +6981,1011 @@ export const processInboundMessage = action({
       }
     }
     if (runtimeCapabilityGapBlockedResponse) {
+      recordSamanthaDispatchEvent({
+        stage: "samantha_auto_dispatch_gate",
+        status: "skip",
+        reasonCode: "runtime_capability_gap_blocked",
+        detail: {
+          missingTool: runtimeCapabilityGapBlockedResponse.missing.requestedToolName,
+        },
+      });
       assistantContent = formatRuntimeCapabilityGapBlockedMessage({
         blocked: runtimeCapabilityGapBlockedResponse,
+        language: actionCompletionResponseLanguage,
+        ticketRequestIntent: runtimeCapabilityGapTicketRequestIntent,
+        linearIssue: runtimeCapabilityGapLinearIssue,
+        backlogInsertStatus: runtimeCapabilityGapBacklogInsertStatus,
+      });
+      await scheduleRuntimeIncidentAlert({
+        incidentType: "runtime_capability_gap_blocked",
+        turnId: runtimeTurnId,
+        proposalKey: runtimeCapabilityGapBlockedResponse.proposalArtifact.proposalKey,
+        tool: runtimeCapabilityGapBlockedResponse.missing.requestedToolName,
+        reasonCode: runtimeCapabilityGapBlockedResponse.reasonCode,
+        reason: runtimeCapabilityGapBlockedResponse.reason,
+        linearIssueId: runtimeCapabilityGapLinearIssue?.issueId,
+        linearIssueUrl: runtimeCapabilityGapLinearIssue?.issueUrl,
+        metadata: {
+          backlogInsertStatus: runtimeCapabilityGapBacklogInsertStatus,
+          ticketRequestIntent: runtimeCapabilityGapTicketRequestIntent,
+        },
       });
     }
+    const actionCompletionRawAssistantContent = assistantContent;
+    const actionCompletionClaims = extractActionCompletionClaimsFromAssistantContent(
+      assistantContent
+    );
+    assistantContent = actionCompletionClaims.sanitizedContent;
+    let actionCompletionEnforcementPayload:
+      | ActionCompletionContractEnforcementPayload
+      | null = null;
+    let actionCompletionRewriteApplied = false;
+    let actionCompletionLinearIssue: RuntimeCapabilityGapLinearIssueResult | null = null;
+    let samanthaCapabilityGapFallbackDelivery:
+      | {
+          leadEmailDelivery?: {
+            success: boolean;
+            skipped?: boolean;
+            reason?: string;
+            error?: string;
+            messageId?: string;
+          };
+          salesEmailDelivery?: {
+            success: boolean;
+            skipped?: boolean;
+            reason?: string;
+            error?: string;
+            messageId?: string;
+          };
+        }
+      | null = null;
+    let samanthaAuditAutoDispatchPlan: SamanthaAuditAutoDispatchPlan | null = null;
+    let samanthaAuditAutoDispatchAttempted = false;
+    let samanthaAuditAutoDispatchExecuted = false;
+    let samanthaAuditRecoveryAttempted = false;
+    let samanthaAuditAutoDispatchToolResults: AgentToolResult[] = [];
+    let samanthaAuditDispatchDecision: SamanthaAuditDispatchDecision | undefined;
+    let samanthaAutoDispatchInvocationStatus: SamanthaAutoDispatchInvocationStatus = "not_attempted";
+    let samanthaClaimRecoveryDecision: SamanthaClaimRecoveryDecision = {
+      shouldAttempt: false,
+      reasonCode: "plan_missing",
+    };
+    let preflightAuditSessionFound: boolean | undefined;
+    let samanthaDispatchTerminalReasonCode = runtimeCapabilityGapBlockedResponse
+      ? "runtime_capability_gap_blocked"
+      : "auto_dispatch_pending";
+    const actionCompletionAuthorityConfig =
+      authorityConfig as unknown as Record<string, unknown>;
+    const requestedToolNames = normalizeDeterministicExecutionToolNames(
+      (toolCalls as Array<{ function?: { name?: unknown } }>)
+        .map((toolCall) => normalizeExecutionString(toolCall?.function?.name))
+        .filter((toolName): toolName is string => Boolean(toolName))
+    );
+    const preflightDispatchRequestDetected = isLikelyAuditDeliverableInvocationRequest(
+      inboundMessage
+    ) || requestedToolNames.includes(AUDIT_DELIVERABLE_TOOL_NAME);
+    const recentUserMessagesForPreflight = sessionHistorySnapshot
+      .filter((message) => message.role === "user")
+      .slice(-120)
+      .map((message) => message.content);
+    const preflightAuditLookupTarget = resolveSamanthaAuditLookupTarget(
+      samanthaAuditSourceContext
+    );
+    recordSamanthaDispatchEvent({
+      stage: "samantha_preflight_lookup_target",
+      status: preflightAuditLookupTarget.ok ? "pass" : "skip",
+      reasonCode: preflightAuditLookupTarget.ok
+        ? "audit_lookup_target_resolved"
+        : preflightAuditLookupTarget.errorCode,
+      detail: preflightAuditLookupTarget.ok
+        ? {
+            sourceAuditChannel: preflightAuditLookupTarget.channel,
+            hasSessionToken: true,
+          }
+        : {
+            message: preflightAuditLookupTarget.message,
+          },
+    });
+    let preflightAuditSession:
+      | {
+          capturedEmail?: string;
+          capturedName?: string;
+          workflowRecommendation?: string;
+        }
+      | null = null;
+    if (preflightAuditLookupTarget.ok) {
+      try {
+        preflightAuditSession = await ctx.runQuery(
+          getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+          {
+            organizationId: args.organizationId,
+            channel: preflightAuditLookupTarget.channel,
+            sessionToken: preflightAuditLookupTarget.sessionToken,
+          },
+        ) as {
+          capturedEmail?: string;
+          capturedName?: string;
+          workflowRecommendation?: string;
+        } | null;
+        preflightAuditSessionFound = Boolean(preflightAuditSession);
+        recordSamanthaDispatchEvent({
+          stage: "samantha_preflight_audit_session",
+          status: preflightAuditSession ? "pass" : "skip",
+          reasonCode: preflightAuditSession
+            ? "audit_session_found"
+            : "audit_session_not_found",
+        });
+        if (
+          !preflightAuditSession
+          && preflightDispatchRequestDetected
+          && isSamanthaLeadCaptureRuntime(actionCompletionAuthorityConfig)
+        ) {
+          const bootstrapLeadData = resolveSamanthaAuditLeadData({
+            inboundMessage,
+            recentUserMessages: recentUserMessagesForPreflight,
+            capturedEmail: null,
+            capturedName: null,
+            contactMemory,
+            auditSessionWorkflowRecommendation: null,
+          });
+          const bootstrapName = [
+            bootstrapLeadData.firstName,
+            bootstrapLeadData.lastName,
+          ].filter((token): token is string => Boolean(token)).join(" ");
+          const bootstrapWorkflowRecommendation = normalizeExecutionString(
+            extractActionCompletionClaimsFromAssistantContent(
+              actionCompletionRawAssistantContent
+            ).sanitizedContent
+          );
+          try {
+            await ctx.runMutation(
+              getInternal().onboarding.auditMode.ensureAuditModeSessionForDeliverable,
+              {
+                organizationId: args.organizationId,
+                agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+                channel: preflightAuditLookupTarget.channel,
+                sessionToken: preflightAuditLookupTarget.sessionToken,
+                workflowRecommendation: bootstrapWorkflowRecommendation,
+                capturedEmail: bootstrapLeadData.email,
+                capturedName: bootstrapName || undefined,
+                metadata: {
+                  source: "ai.agentExecution.samantha_preflight",
+                  bootstrapReason: "audit_session_not_found",
+                  correlationId: samanthaDispatchTraceCorrelationId || null,
+                },
+              }
+            );
+            preflightAuditSession = await ctx.runQuery(
+              getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+              {
+                organizationId: args.organizationId,
+                channel: preflightAuditLookupTarget.channel,
+                sessionToken: preflightAuditLookupTarget.sessionToken,
+              },
+            ) as {
+              capturedEmail?: string;
+              capturedName?: string;
+              workflowRecommendation?: string;
+            } | null;
+            preflightAuditSessionFound = Boolean(preflightAuditSession);
+            recordSamanthaDispatchEvent({
+              stage: "samantha_preflight_audit_session_bootstrap",
+              status: preflightAuditSession ? "pass" : "fail",
+              reasonCode: preflightAuditSession
+                ? "audit_session_bootstrapped"
+                : "audit_session_bootstrap_not_resolved",
+            });
+          } catch (bootstrapError) {
+            console.error("[AgentExecution] Failed to bootstrap Samantha audit session during preflight", {
+              sessionId: session._id,
+              sourceAuditContext: samanthaAuditSourceContext,
+              bootstrapError,
+            });
+            recordSamanthaDispatchEvent({
+              stage: "samantha_preflight_audit_session_bootstrap",
+              status: "fail",
+              reasonCode: "audit_session_bootstrap_error",
+            });
+          }
+        }
+      } catch (auditSessionResolveError) {
+        console.error("[AgentExecution] Failed to resolve audit session for Samantha preflight guardrail", {
+          sessionId: session._id,
+          sourceAuditContext: samanthaAuditSourceContext,
+          auditSessionResolveError,
+        });
+        recordSamanthaDispatchEvent({
+          stage: "samantha_preflight_audit_session",
+          status: "fail",
+          reasonCode: "audit_session_lookup_error",
+        });
+      }
+    } else {
+      preflightAuditSessionFound = false;
+    }
+    if (!runtimeCapabilityGapBlockedResponse) {
+      samanthaAuditAutoDispatchPlan = resolveSamanthaAuditAutoDispatchPlan({
+        authorityConfig: actionCompletionAuthorityConfig,
+        inboundMessage,
+        availableToolNames: toolScopingAudit.finalToolNames,
+        toolResults,
+        requestedToolNames,
+        recentUserMessages: recentUserMessagesForPreflight,
+        capturedEmail: preflightAuditSession?.capturedEmail,
+        capturedName: preflightAuditSession?.capturedName,
+        contactMemory,
+        auditSessionWorkflowRecommendation: preflightAuditSession?.workflowRecommendation,
+      });
+      recordSamanthaDispatchEvent({
+        stage: "samantha_auto_dispatch_plan",
+        status: samanthaAuditAutoDispatchPlan.shouldDispatch ? "pass" : "skip",
+        reasonCode: samanthaAuditAutoDispatchPlan.shouldDispatch
+          ? "auto_dispatch_ready"
+          : (samanthaAuditAutoDispatchPlan.skipReasonCodes[0] || "auto_dispatch_preconditions_not_met"),
+        detail: {
+          eligible: samanthaAuditAutoDispatchPlan.eligible,
+          requestDetected: samanthaAuditAutoDispatchPlan.requestDetected,
+          toolAvailable: samanthaAuditAutoDispatchPlan.toolAvailable,
+          alreadyAttempted: samanthaAuditAutoDispatchPlan.alreadyAttempted,
+          preexistingInvocationStatus:
+            samanthaAuditAutoDispatchPlan.preexistingInvocationStatus,
+          retryEligibleAfterFailure:
+            samanthaAuditAutoDispatchPlan.retryEligibleAfterFailure,
+          skipReasonCodes: samanthaAuditAutoDispatchPlan.skipReasonCodes,
+          missingRequiredFields: samanthaAuditAutoDispatchPlan.missingRequiredFields,
+          ambiguousName: samanthaAuditAutoDispatchPlan.ambiguousName,
+          ambiguousFounderContact: samanthaAuditAutoDispatchPlan.ambiguousFounderContact,
+        },
+      });
+      if (samanthaAuditAutoDispatchPlan.retryEligibleAfterFailure) {
+        recordSamanthaDispatchEvent({
+          stage: "samantha_retry_eligibility",
+          status: "pass",
+          reasonCode: "retry_eligible_after_failure",
+          detail: {
+            preexistingInvocationStatus:
+              samanthaAuditAutoDispatchPlan.preexistingInvocationStatus,
+          },
+        });
+      }
+      const runSamanthaAutoDispatchAttempt = async () => {
+        if (!samanthaAuditAutoDispatchPlan?.toolArgs) {
+          recordSamanthaDispatchEvent({
+            stage: "samantha_auto_dispatch_attempt",
+            status: "skip",
+            reasonCode: "auto_dispatch_tool_args_missing",
+          });
+          return;
+        }
+        samanthaAuditAutoDispatchAttempted = true;
+        recordSamanthaDispatchEvent({
+          stage: "samantha_auto_dispatch_attempt",
+          status: "pass",
+          reasonCode: "auto_dispatch_attempt_started",
+        });
+        const sourceAwareToolArgs: SamanthaAuditAutoDispatchToolArgs = {
+          ...samanthaAuditAutoDispatchPlan.toolArgs,
+          ingressChannel: samanthaAuditSourceContext.ingressChannel,
+          originSurface: samanthaAuditSourceContext.originSurface,
+          sourceSessionToken: preflightAuditLookupTarget.ok
+            ? preflightAuditLookupTarget.sessionToken
+            : samanthaAuditSourceContext.sourceSessionToken,
+          sourceAuditChannel: preflightAuditLookupTarget.ok
+            ? preflightAuditLookupTarget.channel
+            : samanthaAuditSourceContext.sourceAuditChannel,
+        };
+        const autoDispatchExecution = await executeToolCallsWithApproval({
+          toolCalls: [
+            {
+              function: {
+                name: AUDIT_DELIVERABLE_TOOL_NAME,
+                arguments: JSON.stringify(sourceAwareToolArgs),
+              },
+            },
+          ],
+          organizationId: args.organizationId,
+          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+          sessionId: session._id,
+          autonomyLevel: effectiveAutonomyLevel,
+          requireApprovalFor: delegationAuthorityContract.authorityRequireApprovalFor,
+          toolExecutionContext: toolCtx,
+          failedToolCounts,
+          disabledTools,
+          nonDisableableTools: mandatorySamanthaTools,
+          createApprovalRequest: createToolApprovalRequest,
+          onToolDisabled: handleToolDisabled,
+        });
+        if (autoDispatchExecution.errorStateDirty) {
+          errorStateDirty = true;
+        }
+        if (autoDispatchExecution.toolResults.length > 0) {
+          samanthaAuditAutoDispatchToolResults.push(...autoDispatchExecution.toolResults);
+        }
+        if (autoDispatchExecution.toolResults.length > 0) {
+          toolResults.push(...autoDispatchExecution.toolResults);
+        }
+        if (
+          autoDispatchExecution.toolResults.some(
+            (result) =>
+              result.tool === AUDIT_DELIVERABLE_TOOL_NAME && result.status === "success"
+          )
+        ) {
+          samanthaAuditAutoDispatchExecuted = true;
+        }
+        samanthaAutoDispatchInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+          attempted: samanthaAuditAutoDispatchAttempted,
+          toolResults: samanthaAuditAutoDispatchToolResults,
+        });
+        recordSamanthaDispatchEvent({
+          stage: "samantha_auto_dispatch_attempt_result",
+          status:
+            samanthaAutoDispatchInvocationStatus === "executed_success"
+              ? "pass"
+              : samanthaAutoDispatchInvocationStatus === "queued_pending_approval"
+                ? "skip"
+                : "fail",
+          reasonCode: samanthaAutoDispatchInvocationStatus,
+          detail: {
+            toolStatuses: autoDispatchExecution.toolResults
+              .filter((result) => result.tool === AUDIT_DELIVERABLE_TOOL_NAME)
+              .map((result) => result.status),
+            toolErrors: autoDispatchExecution.toolResults
+              .filter((result) => result.tool === AUDIT_DELIVERABLE_TOOL_NAME)
+              .map((result) => result.error || null),
+          },
+        });
+      };
+
+      if (samanthaAuditAutoDispatchPlan.shouldDispatch && samanthaAuditAutoDispatchPlan.toolArgs) {
+        await runSamanthaAutoDispatchAttempt();
+      } else {
+        recordSamanthaDispatchEvent({
+          stage: "samantha_auto_dispatch_attempt",
+          status: "skip",
+          reasonCode:
+            samanthaAuditAutoDispatchPlan.skipReasonCodes[0]
+            || "auto_dispatch_preconditions_not_met",
+          detail: {
+            skipReasonCodes: samanthaAuditAutoDispatchPlan.skipReasonCodes,
+          },
+        });
+      }
+      let actionCompletionEnforcement = resolveAuditDeliverableInvocationGuardrail({
+        authorityConfig: actionCompletionAuthorityConfig,
+        inboundMessage,
+        assistantContent: actionCompletionRawAssistantContent,
+        toolResults,
+        availableToolNames: toolScopingAudit.finalToolNames,
+        recentUserMessages: recentUserMessagesForPreflight,
+        capturedEmail: preflightAuditSession?.capturedEmail,
+        capturedName: preflightAuditSession?.capturedName,
+        contactMemory,
+        auditSessionWorkflowRecommendation: preflightAuditSession?.workflowRecommendation,
+        turnId: String(runtimeTurnId),
+      });
+      actionCompletionEnforcementPayload = actionCompletionEnforcement.payload;
+      samanthaClaimRecoveryDecision = resolveSamanthaClaimRecoveryDecision({
+        plan: samanthaAuditAutoDispatchPlan,
+        alreadyAttempted: samanthaAuditAutoDispatchAttempted,
+        enforcementPayload: actionCompletionEnforcementPayload,
+      });
+      const shouldAttemptSamanthaClaimRecovery =
+        samanthaClaimRecoveryDecision.shouldAttempt;
+      recordSamanthaDispatchEvent({
+        stage: "samantha_claim_recovery_decision",
+        status: shouldAttemptSamanthaClaimRecovery ? "pass" : "skip",
+        reasonCode: samanthaClaimRecoveryDecision.reasonCode,
+      });
+      if (shouldAttemptSamanthaClaimRecovery) {
+        samanthaAuditRecoveryAttempted = true;
+        await runSamanthaAutoDispatchAttempt();
+        actionCompletionEnforcement = resolveAuditDeliverableInvocationGuardrail({
+          authorityConfig: actionCompletionAuthorityConfig,
+          inboundMessage,
+          assistantContent: actionCompletionRawAssistantContent,
+          toolResults,
+          availableToolNames: toolScopingAudit.finalToolNames,
+          recentUserMessages: recentUserMessagesForPreflight,
+          capturedEmail: preflightAuditSession?.capturedEmail,
+          capturedName: preflightAuditSession?.capturedName,
+          contactMemory,
+          auditSessionWorkflowRecommendation: preflightAuditSession?.workflowRecommendation,
+          turnId: String(runtimeTurnId),
+        });
+        actionCompletionEnforcementPayload = actionCompletionEnforcement.payload;
+      }
+      samanthaAuditDispatchDecision = resolveSamanthaAuditDispatchDecision({
+        plan: samanthaAuditAutoDispatchPlan,
+        autoDispatchToolResults: samanthaAuditAutoDispatchToolResults,
+        allToolResults: toolResults,
+        enforcementPayload: actionCompletionEnforcementPayload,
+      });
+      samanthaAutoDispatchInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+        attempted: samanthaAuditAutoDispatchAttempted,
+        toolResults: samanthaAuditAutoDispatchToolResults,
+      });
+      samanthaDispatchTerminalReasonCode = resolveSamanthaDispatchTerminalReasonCode({
+        runtimeCapabilityGapBlocked: Boolean(runtimeCapabilityGapBlockedResponse),
+        plan: samanthaAuditAutoDispatchPlan,
+        dispatchDecision: samanthaAuditDispatchDecision,
+        invocationStatus: samanthaAutoDispatchInvocationStatus,
+        preflightLookupTargetOk: preflightAuditLookupTarget.ok,
+        preflightAuditSessionFound,
+      });
+      recordSamanthaDispatchEvent({
+        stage: "samantha_dispatch_decision",
+        status: samanthaAuditDispatchDecision?.startsWith("auto_dispatch_executed")
+          ? "pass"
+          : "skip",
+        reasonCode: samanthaDispatchTerminalReasonCode,
+        detail: {
+          dispatchDecision: samanthaAuditDispatchDecision || null,
+          invocationStatus: samanthaAutoDispatchInvocationStatus,
+        },
+      });
+      if (actionCompletionEnforcement.enforced && actionCompletionEnforcement.assistantContent) {
+        assistantContent = actionCompletionEnforcement.assistantContent;
+        actionCompletionRewriteApplied = true;
+      }
+      if (
+        actionCompletionRewriteApplied
+        && actionCompletionEnforcement.payload.reasonCode === "claim_tool_not_observed"
+        && samanthaAuditAutoDispatchPlan?.eligible
+      ) {
+        const priorFailClosedCount = countTrailingSamanthaFailClosedAssistantMessages(
+          sessionHistorySnapshot
+        );
+        if (priorFailClosedCount >= 1) {
+          const responseLanguage = resolveActionCompletionResponseLanguage({
+            authorityConfig: actionCompletionAuthorityConfig,
+            inboundMessage,
+            assistantContent: actionCompletionRawAssistantContent,
+          });
+          const sanitizedRaw = extractActionCompletionClaimsFromAssistantContent(
+            actionCompletionRawAssistantContent
+          ).sanitizedContent;
+          const gracefulFallback = buildSamanthaAuditDeliverableGracefulDegradationMessage(
+            responseLanguage
+          );
+          assistantContent = sanitizedRaw
+            ? `${sanitizedRaw}\n\n${gracefulFallback}`
+            : gracefulFallback;
+          recordSamanthaDispatchEvent({
+            stage: "samantha_fail_closed_fallback",
+            status: "pass",
+            reasonCode: "graceful_degradation_fallback",
+            detail: {
+              priorFailClosedCount,
+            },
+          });
+        }
+      }
+      if (
+        actionCompletionRewriteApplied
+        && actionCompletionEnforcement.payload.reasonCode === "claim_tool_not_observed"
+        && samanthaAuditAutoDispatchPlan?.eligible
+      ) {
+        console.warn("[AgentExecution] Samantha fail-closed rewrite diagnostics", {
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+          preflightReasonCode: actionCompletionEnforcement.payload.preflightReasonCode || null,
+          missingRequiredFields:
+            actionCompletionEnforcement.payload.preflightMissingRequiredFields
+            || samanthaAuditAutoDispatchPlan.missingRequiredFields,
+          dispatchDecision: samanthaAuditDispatchDecision || null,
+          recoveryAttempted: samanthaAuditRecoveryAttempted,
+        });
+      }
+      const unavailableReason =
+        actionCompletionEnforcement.payload.reasonCode === "claim_tool_unavailable";
+      const samanthaAuditDeliverableUnavailable = unavailableReason
+        && isSamanthaAuditDeliverableActionCompletionOutcome({
+          outcome: actionCompletionEnforcement.payload.outcome || "",
+          requiredTools: actionCompletionEnforcement.payload.requiredTools,
+        });
+      if (
+        unavailableReason
+        && (actionCompletionTicketRequestIntent || samanthaAuditDeliverableUnavailable)
+      ) {
+        try {
+          const preferredToolName = actionCompletionEnforcement.payload.requiredTools[0]
+            || actionCompletionEnforcement.payload.outcome
+            || "runtime_capability_gap";
+          actionCompletionLinearIssue = await ctx.runAction(
+            getInternal().ai.linearActions.createFeatureRequestIssue,
+            {
+              userName: "Anonymous Native Guest",
+              userEmail: "native-guest@unknown.local",
+              organizationName: organization.name,
+              toolName: preferredToolName,
+              featureDescription:
+                actionCompletionEnforcement.payload.outcome
+                || "Runtime capability unavailable in current scope",
+              userMessage: inboundMessage,
+              userElaboration: undefined,
+              category: samanthaAuditDeliverableUnavailable
+                ? "samantha_audit_deliverable_capability_gap"
+                : "action_completion_capability_gap",
+              conversationId: String(session._id),
+              occurredAt: Date.now(),
+            },
+          ) as RuntimeCapabilityGapLinearIssueResult;
+        } catch (linearError) {
+          console.error("[AgentExecution] Failed to create Linear issue for action-completion capability gap", {
+            sessionId: session._id,
+            reasonCode: actionCompletionEnforcement.payload.reasonCode,
+            linearError,
+          });
+        }
+      }
+      if (
+        actionCompletionEnforcement.enforced
+        && actionCompletionLinearIssue
+        && !assistantContent.includes(actionCompletionLinearIssue.issueNumber)
+      ) {
+        assistantContent = [
+          assistantContent.trim(),
+          formatCapabilityGapLinearIssueLine({
+            language: actionCompletionResponseLanguage,
+            linearIssue: actionCompletionLinearIssue,
+          }),
+        ].filter((line) => line.length > 0).join("\n");
+      }
+    }
+    if (
+      actionCompletionEnforcementPayload?.reasonCode === "claim_tool_unavailable"
+    ) {
+      const unavailableToolName =
+        actionCompletionEnforcementPayload.requiredTools[0]
+        || actionCompletionEnforcementPayload.outcome
+        || "runtime_capability_gap";
+      const claimUnavailableMetadata = {
+        requiredTools: actionCompletionEnforcementPayload.requiredTools,
+        availableTools: actionCompletionEnforcementPayload.availableTools,
+        enforcementMode: actionCompletionEnforcementPayload.enforcementMode,
+      };
+      const samanthaAuditDeliverableUnavailable =
+        isSamanthaAuditDeliverableActionCompletionOutcome({
+          outcome: actionCompletionEnforcementPayload.outcome || "",
+          requiredTools: actionCompletionEnforcementPayload.requiredTools,
+        });
+      let claimUnavailableIncidentResult:
+        | {
+            success?: boolean;
+            emitted?: boolean;
+            deduped?: boolean;
+            threadDeepLink?: string;
+          }
+        | null = null;
+      if (samanthaAuditDeliverableUnavailable) {
+        claimUnavailableIncidentResult = await ctx.runAction(
+          getInternal().ai.runtimeIncidentAlerts.notifyRuntimeIncident,
+          {
+            incidentType: "claim_tool_unavailable",
+            organizationId: args.organizationId,
+            sessionId: session._id,
+            turnId: runtimeTurnId,
+            proposalKey: runtimeContracts.idempotencyContract.scopeKey,
+            manifestHash: requiredScopeManifest?.manifestHash,
+            tool: unavailableToolName,
+            reasonCode: actionCompletionEnforcementPayload.reasonCode,
+            reason:
+              actionCompletionEnforcementPayload.outcome
+              || "Action completion claim blocked because required tool is unavailable.",
+            idempotencyKey: inboundIdempotencyKey,
+            idempotencyScopeKey: runtimeContracts.idempotencyContract.scopeKey,
+            payloadHash: runtimeContracts.idempotencyContract.payloadHash,
+            admissionReasonCode: actionCompletionEnforcementPayload.reasonCode,
+            linearIssueId: actionCompletionLinearIssue?.issueId,
+            linearIssueUrl: actionCompletionLinearIssue?.issueUrl,
+            metadata: claimUnavailableMetadata,
+          },
+        ) as {
+          success?: boolean;
+          emitted?: boolean;
+          deduped?: boolean;
+          threadDeepLink?: string;
+        } | null;
+      } else {
+        await scheduleRuntimeIncidentAlert({
+          incidentType: "claim_tool_unavailable",
+          turnId: runtimeTurnId,
+          proposalKey: runtimeContracts.idempotencyContract.scopeKey,
+          tool: unavailableToolName,
+          reasonCode: actionCompletionEnforcementPayload.reasonCode,
+          reason:
+            actionCompletionEnforcementPayload.outcome
+            || "Action completion claim blocked because required tool is unavailable.",
+          linearIssueId: actionCompletionLinearIssue?.issueId,
+          linearIssueUrl: actionCompletionLinearIssue?.issueUrl,
+          metadata: claimUnavailableMetadata,
+        });
+      }
+      if (
+        samanthaAuditDeliverableUnavailable
+        && claimUnavailableIncidentResult?.deduped !== true
+      ) {
+        const threadDeepLink =
+          claimUnavailableIncidentResult?.threadDeepLink
+          || buildRuntimeIncidentThreadDeepLink({
+            sessionId: session._id,
+            proposalKey: runtimeContracts.idempotencyContract.scopeKey,
+          });
+        let fallbackAuditSession = preflightAuditSession;
+        if (!fallbackAuditSession && preflightAuditLookupTarget.ok) {
+          try {
+            fallbackAuditSession = await ctx.runQuery(
+              getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+              {
+                organizationId: args.organizationId,
+                channel: preflightAuditLookupTarget.channel,
+                sessionToken: preflightAuditLookupTarget.sessionToken,
+              },
+            ) as { capturedEmail?: string; capturedName?: string } | null;
+          } catch (auditSessionResolveError) {
+            console.error("[AgentExecution] Failed to resolve audit session for Samantha fallback handling", {
+              sessionId: session._id,
+              sourceAuditContext: samanthaAuditSourceContext,
+              auditSessionResolveError,
+            });
+          }
+        }
+        const userTextCandidates = recentUserMessagesForPreflight;
+        const fallbackLeadEmail =
+          extractFirstEmailAddress(fallbackAuditSession?.capturedEmail)
+          || extractFirstEmailAddress(inboundMessage)
+          || userTextCandidates
+            .map((text) => extractFirstEmailAddress(text))
+            .find((candidate): candidate is string => Boolean(candidate));
+        const domainConfigId = await resolveActiveEmailDomainConfigIdForOrg(
+          ctx,
+          args.organizationId,
+        );
+        const linearIssueReference = actionCompletionLinearIssue?.issueNumber
+          && actionCompletionLinearIssue?.issueUrl
+          ? `${actionCompletionLinearIssue.issueNumber} (${actionCompletionLinearIssue.issueUrl})`
+          : "Not created";
+        const fallbackLeadName = normalizeExecutionString(
+          fallbackAuditSession?.capturedName,
+        ) || "there";
+        const fallbackLeadLanguage = actionCompletionResponseLanguage;
+        const fallbackSubject = fallbackLeadLanguage === "de"
+          ? "Update: Ihre One of One Workflow-Anfrage"
+          : "Update: your One of One workflow report request";
+        const fallbackGreeting = fallbackLeadLanguage === "de"
+          ? `Hallo ${fallbackLeadName},`
+          : `Hi ${fallbackLeadName},`;
+        const fallbackMessage = fallbackLeadLanguage === "de"
+          ? "Samantha konnte das Workflow-PDF nicht generieren, weil das Runtime-Delivery-Tool in diesem Scope derzeit nicht verfuegbar ist."
+          : "Samantha could not generate the workflow PDF because the runtime delivery tool is not available in this scope yet.";
+        const fallbackFollowUp = fallbackLeadLanguage === "de"
+          ? "Wir haben das intern als Feature-Luecke erfasst und unser Team meldet sich mit dem naechstbesten Deliverable-Pfad direkt bei Ihnen."
+          : "We logged this as a tracked feature gap and our team will follow up directly with your next-best deliverable path.";
+        const leadEmailDelivery:
+          | {
+              success: boolean;
+              skipped?: boolean;
+              reason?: string;
+              error?: string;
+              messageId?: string;
+            }
+          = !domainConfigId
+            ? {
+                success: false,
+                skipped: true,
+                reason: "missing_domain_config",
+              }
+            : !fallbackLeadEmail
+              ? {
+                  success: false,
+                  skipped: true,
+                  reason: "missing_lead_email",
+                }
+              : await (async () => {
+                  try {
+                    const leadResult = await ctx.runAction(
+                      getInternal().emailDelivery.sendEmail,
+                      {
+                        domainConfigId,
+                        to: fallbackLeadEmail,
+                        subject: fallbackSubject,
+                        html: [
+                          `<p>${fallbackGreeting}</p>`,
+                          `<p>${fallbackMessage}</p>`,
+                          `<p>${fallbackFollowUp}</p>`,
+                        ].join(""),
+                        text: [
+                          fallbackGreeting,
+                          "",
+                          fallbackMessage,
+                          fallbackFollowUp,
+                        ].join("\n"),
+                      },
+                    ) as { success?: boolean; messageId?: string; error?: string } | null;
+                    return {
+                      success: Boolean(leadResult?.success),
+                      messageId: normalizeExecutionString(leadResult?.messageId) || undefined,
+                      error: normalizeExecutionString(leadResult?.error) || undefined,
+                    };
+                  } catch (leadEmailError) {
+                    return {
+                      success: false,
+                      error:
+                        leadEmailError instanceof Error
+                          ? leadEmailError.message
+                          : "lead_email_send_failed",
+                    };
+                  }
+                })();
+        const salesEmailDelivery:
+          | {
+              success: boolean;
+              skipped?: boolean;
+              reason?: string;
+              error?: string;
+              messageId?: string;
+            }
+          = !domainConfigId
+            ? {
+                success: false,
+                skipped: true,
+                reason: "missing_domain_config",
+              }
+            : await (async () => {
+                try {
+                  const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+                  const salesResult = await ctx.runAction(
+                    getInternal().emailDelivery.sendEmail,
+                    {
+                      domainConfigId,
+                      to: salesInbox,
+                      subject: "Samantha capability-gap fallback triggered",
+                      html: [
+                        "<h2>Samantha PDF capability gap fallback triggered</h2>",
+                        `<p><strong>Org:</strong> ${String(args.organizationId)}</p>`,
+                        `<p><strong>Session:</strong> ${String(session._id)}</p>`,
+                        `<p><strong>Turn:</strong> ${String(runtimeTurnId)}</p>`,
+                        `<p><strong>Proposal Key:</strong> ${runtimeContracts.idempotencyContract.scopeKey}</p>`,
+                        `<p><strong>Tool:</strong> ${unavailableToolName}</p>`,
+                        `<p><strong>Reason Code:</strong> ${actionCompletionEnforcementPayload.reasonCode}</p>`,
+                        `<p><strong>Lead Email:</strong> ${fallbackLeadEmail || "Not resolved"}</p>`,
+                        `<p><strong>Linear:</strong> ${linearIssueReference}</p>`,
+                        `<p><strong>Thread:</strong> <a href="${threadDeepLink}">${threadDeepLink}</a></p>`,
+                      ].join(""),
+                      text: [
+                        "Samantha PDF capability gap fallback triggered",
+                        `Org: ${String(args.organizationId)}`,
+                        `Session: ${String(session._id)}`,
+                        `Turn: ${String(runtimeTurnId)}`,
+                        `Proposal Key: ${runtimeContracts.idempotencyContract.scopeKey}`,
+                        `Tool: ${unavailableToolName}`,
+                        `Reason Code: ${actionCompletionEnforcementPayload.reasonCode}`,
+                        `Lead Email: ${fallbackLeadEmail || "Not resolved"}`,
+                        `Linear: ${linearIssueReference}`,
+                        `Thread: ${threadDeepLink}`,
+                      ].join("\n"),
+                    },
+                  ) as { success?: boolean; messageId?: string; error?: string } | null;
+                  return {
+                    success: Boolean(salesResult?.success),
+                    messageId: normalizeExecutionString(salesResult?.messageId) || undefined,
+                    error: normalizeExecutionString(salesResult?.error) || undefined,
+                  };
+                } catch (salesEmailError) {
+                  return {
+                    success: false,
+                    error:
+                      salesEmailError instanceof Error
+                        ? salesEmailError.message
+                        : "sales_email_send_failed",
+                  };
+                }
+              })();
+        samanthaCapabilityGapFallbackDelivery = {
+          leadEmailDelivery,
+          salesEmailDelivery,
+        };
+        if (!leadEmailDelivery.success || !salesEmailDelivery.success) {
+          console.error("[AgentExecution] Samantha capability-gap fallback deliveries incomplete", {
+            sessionId: session._id,
+            turnId: runtimeTurnId,
+            leadEmailDelivery,
+            salesEmailDelivery,
+          });
+        }
+      }
+    }
+    let actionCompletionSanitizationFallbackApplied = false;
+    if (assistantContent.trim().length === 0) {
+      const successfulAuditDeliverableResult = [...toolResults]
+        .reverse()
+        .find(
+          (result) =>
+            normalizeExecutionString(result.tool) === AUDIT_DELIVERABLE_TOOL_NAME
+            && result.status === "success"
+        );
+      const successfulAuditDeliverablePayload =
+        successfulAuditDeliverableResult?.result
+        && typeof successfulAuditDeliverableResult.result === "object"
+        && !Array.isArray(successfulAuditDeliverableResult.result)
+          ? (successfulAuditDeliverableResult.result as Record<string, unknown>)
+          : null;
+      const successfulDownloadUrl =
+        normalizeExecutionString(successfulAuditDeliverablePayload?.downloadUrl)
+        || normalizeExecutionString(
+          successfulAuditDeliverablePayload?.cta
+          && typeof successfulAuditDeliverablePayload.cta === "object"
+          && !Array.isArray(successfulAuditDeliverablePayload.cta)
+            ? (successfulAuditDeliverablePayload.cta as Record<string, unknown>).url
+            : undefined
+        );
+
+      if (successfulAuditDeliverablePayload) {
+        const leadDelivery =
+          successfulAuditDeliverablePayload.leadEmailDelivery
+          && typeof successfulAuditDeliverablePayload.leadEmailDelivery === "object"
+          && !Array.isArray(successfulAuditDeliverablePayload.leadEmailDelivery)
+            ? (successfulAuditDeliverablePayload.leadEmailDelivery as Record<string, unknown>)
+            : null;
+        const salesDelivery =
+          successfulAuditDeliverablePayload.salesEmailDelivery
+          && typeof successfulAuditDeliverablePayload.salesEmailDelivery === "object"
+          && !Array.isArray(successfulAuditDeliverablePayload.salesEmailDelivery)
+            ? (successfulAuditDeliverablePayload.salesEmailDelivery as Record<string, unknown>)
+            : null;
+        const leadEmailSent = leadDelivery?.success === true;
+        const salesEmailSent = salesDelivery?.success === true;
+
+        if (actionCompletionResponseLanguage === "de") {
+          assistantContent = successfulDownloadUrl
+            ? `Ihr Workflow-Report wurde erstellt.\nDownload: ${successfulDownloadUrl}`
+            : "Ihr Workflow-Report wurde erstellt.";
+          if (leadEmailSent || salesEmailSent) {
+            assistantContent += "\nDie Zustell-E-Mails wurden angestoßen.";
+          }
+        } else {
+          assistantContent = successfulDownloadUrl
+            ? `Your workflow report is ready.\nDownload: ${successfulDownloadUrl}`
+            : "Your workflow report has been generated.";
+          if (leadEmailSent || salesEmailSent) {
+            assistantContent += "\nDelivery emails have been triggered.";
+          }
+        }
+      } else {
+        assistantContent = buildActionCompletionSanitizationFallbackMessage({
+          contractConfig: actionCompletionContractConfig,
+          claims: actionCompletionClaims.claims,
+          malformedClaimCount: actionCompletionClaims.malformedClaimCount,
+          language: actionCompletionResponseLanguage,
+        });
+      }
+      actionCompletionSanitizationFallbackApplied = true;
+    }
+    const actionCompletionClaimedOutcomes = Array.from(
+      new Set(
+        actionCompletionClaims.claims
+          .map((claim) => normalizeExecutionString(claim.outcome))
+          .filter((outcome): outcome is string => Boolean(outcome))
+      )
+    ).sort((left, right) => left.localeCompare(right));
+    const authorityAgentRoutingSnapshot = resolveSamanthaRoutingAgentSnapshot(authorityAgent);
+    const speakerAgentRoutingSnapshot = resolveSamanthaRoutingAgentSnapshot(agent);
+    const samanthaDispatchIntentObserved =
+      isLikelyAuditDeliverableInvocationRequest(inboundMessage)
+      || actionCompletionClaimedOutcomes.includes(AUDIT_DELIVERABLE_OUTCOME_KEY)
+      || Boolean(samanthaAuditAutoDispatchPlan?.requestDetected);
+    const shouldEmitSamanthaAutoDispatchTelemetry =
+      authorityAgentRoutingSnapshot.isSamanthaRuntime
+      || speakerAgentRoutingSnapshot.isSamanthaRuntime
+      || samanthaDispatchIntentObserved
+      || Boolean(runtimeCapabilityGapBlockedResponse);
+    const samanthaPlanForTelemetry: SamanthaAuditAutoDispatchPlan = samanthaAuditAutoDispatchPlan ?? {
+      eligible: false,
+      requestDetected: false,
+      toolAvailable: false,
+      alreadyAttempted: false,
+      preexistingInvocationStatus: "not_attempted",
+      retryEligibleAfterFailure: false,
+      ambiguousName: false,
+      ambiguousFounderContact: false,
+      missingRequiredFields: [],
+      skipReasonCodes: [],
+      shouldDispatch: false,
+    };
+    samanthaAutoDispatchInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+      attempted: samanthaAuditAutoDispatchAttempted,
+      toolResults: samanthaAuditAutoDispatchToolResults,
+    });
+    if (samanthaDispatchTerminalReasonCode === "auto_dispatch_pending") {
+      samanthaDispatchTerminalReasonCode = resolveSamanthaDispatchTerminalReasonCode({
+        runtimeCapabilityGapBlocked: Boolean(runtimeCapabilityGapBlockedResponse),
+        plan: samanthaAuditAutoDispatchPlan,
+        dispatchDecision: samanthaAuditDispatchDecision,
+        invocationStatus: samanthaAutoDispatchInvocationStatus,
+        preflightLookupTargetOk: preflightAuditLookupTarget.ok,
+        preflightAuditSessionFound,
+      });
+    }
+    recordSamanthaDispatchEvent({
+      stage: "samantha_auto_dispatch_complete",
+      status:
+        samanthaDispatchTerminalReasonCode.startsWith("auto_dispatch_executed")
+          ? "pass"
+          : "skip",
+      reasonCode: samanthaDispatchTerminalReasonCode,
+      detail: {
+        dispatchDecision: samanthaAuditDispatchDecision || null,
+        invocationStatus: samanthaAutoDispatchInvocationStatus,
+      },
+    });
+    const authorityConfigRecord =
+      authorityConfig as unknown as Record<string, unknown> | undefined;
+    const actionCompletionTelemetry = {
+      contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+      templateContractVersion: actionCompletionContractConfig.contractVersion,
+      enforcementMode: actionCompletionContractConfig.mode,
+      source: actionCompletionContractConfig.source,
+      templateRole:
+        normalizeExecutionString(authorityConfigRecord?.templateRole) ?? undefined,
+      templateAgentId:
+        normalizeExecutionString(authorityConfigRecord?.templateAgentId) ?? undefined,
+      claimedOutcomes: actionCompletionClaimedOutcomes,
+      malformedClaimCount: actionCompletionClaims.malformedClaimCount,
+      rewriteApplied: actionCompletionRewriteApplied,
+      sanitizationFallbackApplied: actionCompletionSanitizationFallbackApplied,
+      responseLanguage: actionCompletionResponseLanguage,
+      ticketRequestIntent: actionCompletionTicketRequestIntent,
+      linearIssue: actionCompletionLinearIssue
+        ? {
+            issueNumber: actionCompletionLinearIssue.issueNumber,
+            issueUrl: actionCompletionLinearIssue.issueUrl,
+          }
+        : undefined,
+      samanthaCapabilityGapFallbackDelivery:
+        samanthaCapabilityGapFallbackDelivery ?? undefined,
+      samanthaAutoDispatch: shouldEmitSamanthaAutoDispatchTelemetry
+        ? {
+            traceContractVersion: "samantha_dispatch_trace_v1",
+            correlationId: samanthaDispatchTraceCorrelationId ?? null,
+            terminalReasonCode: samanthaDispatchTerminalReasonCode,
+            invocationStatus: samanthaAutoDispatchInvocationStatus,
+            preflightLookupTarget: {
+              ok: preflightAuditLookupTarget.ok,
+              errorCode: preflightAuditLookupTarget.ok
+                ? null
+                : preflightAuditLookupTarget.errorCode,
+            },
+            preflightAuditSessionFound:
+              typeof preflightAuditSessionFound === "boolean"
+                ? preflightAuditSessionFound
+                : null,
+            router: {
+              selectedAuthorityAgent: authorityAgentRoutingSnapshot,
+              selectedSpeakerAgent: speakerAgentRoutingSnapshot,
+              routeSelectors: inboundDispatchRouteSelectors,
+              selectionPath: samanthaDispatchRouterSelectionPath,
+            },
+            eligible: samanthaPlanForTelemetry.eligible,
+            requestDetected: samanthaPlanForTelemetry.requestDetected,
+            toolAvailable: samanthaPlanForTelemetry.toolAvailable,
+            alreadyAttempted: samanthaPlanForTelemetry.alreadyAttempted,
+            preexistingInvocationStatus:
+              samanthaPlanForTelemetry.preexistingInvocationStatus,
+            retryEligibleAfterFailure:
+              samanthaPlanForTelemetry.retryEligibleAfterFailure,
+            skipReasonCodes: samanthaPlanForTelemetry.skipReasonCodes,
+            attempted: samanthaAuditAutoDispatchAttempted,
+            executed: samanthaAuditAutoDispatchExecuted,
+            recoveryAttempted: samanthaAuditRecoveryAttempted,
+            recoveryDecisionReasonCode: samanthaClaimRecoveryDecision.reasonCode,
+            missingRequiredFields: samanthaPlanForTelemetry.missingRequiredFields,
+            toolStatuses: samanthaAuditAutoDispatchToolResults.map((result) => result.status),
+            dispatchDecision: samanthaAuditDispatchDecision,
+            traceEvents: samanthaDispatchTraceEvents,
+          }
+        : undefined,
+      payload: actionCompletionEnforcementPayload ?? undefined,
+    };
 
     // Persist error state to session if anything changed
     if (errorStateDirty) {
@@ -5424,20 +8037,31 @@ export const processInboundMessage = action({
             recordTurnTransition: async (transitionArgs) => {
               await ctx.runMutation(getInternal().ai.agentSessions.recordTurnTransition, transitionArgs);
             },
-            notifyTelegram: (payload) => {
-              ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
+            notifyTelegram: async (payload) => {
+              await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
             },
-            notifyPushover: (payload) => {
-              ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
+            notifyPushover: async (payload) => {
+              await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
             },
-            notifyEmail: (payload) => {
-              ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
+            notifyEmail: async (payload) => {
+              await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
             },
-            notifyHighUrgencyRetry: (payload) => {
-              ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
+            notifyHighUrgencyRetry: async (payload) => {
+              await ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
             },
             onTransitionError: (error) => {
               console.warn("[AgentExecution] Failed to append tool escalation turn edge", error);
+            },
+          });
+          await scheduleRuntimeIncidentAlert({
+            incidentType: "delivery_blocked_escalated",
+            turnId: runtimeTurnId,
+            reasonCode: toolEsc.triggerType,
+            reason: toolEsc.reason,
+            metadata: {
+              lifecycleState: "escalated",
+              deliveryState: "blocked",
+              checkpoint: "tool_failure_escalation",
             },
           });
         }
@@ -5511,22 +8135,46 @@ export const processInboundMessage = action({
           recordTurnTransition: async (transitionArgs) => {
             await ctx.runMutation(getInternal().ai.agentSessions.recordTurnTransition, transitionArgs);
           },
-          notifyTelegram: (payload) => {
-            ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
+          notifyTelegram: async (payload) => {
+            await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationTelegram, payload);
           },
-          notifyPushover: (payload) => {
-            ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
+          notifyPushover: async (payload) => {
+            await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationPushover, payload);
           },
-          notifyEmail: (payload) => {
-            ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
+          notifyEmail: async (payload) => {
+            await ctx.scheduler.runAfter(0, getInternal().ai.escalation.notifyEscalationEmail, payload);
           },
-          notifyHighUrgencyRetry: (payload) => {
-            ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
+          notifyHighUrgencyRetry: async (payload) => {
+            await ctx.scheduler.runAfter(5 * 60 * 1000, getInternal().ai.escalation.retryHighUrgencyEmail, payload);
           },
           onTransitionError: (error) => {
             console.warn("[AgentExecution] Failed to append post-LLM escalation turn edge", error);
           },
         });
+        await scheduleRuntimeIncidentAlert({
+          incidentType: "delivery_blocked_escalated",
+          turnId: runtimeTurnId,
+          reasonCode: postEscalation.triggerType,
+          reason: postEscalation.reason,
+          metadata: {
+            lifecycleState: "escalated",
+            deliveryState: "blocked",
+            checkpoint: "post_llm_escalation",
+          },
+        });
+        if (postEscalation.triggerType === "response_loop") {
+          await scheduleRuntimeIncidentAlert({
+            incidentType: "response_loop",
+            turnId: runtimeTurnId,
+            reasonCode: "response_loop",
+            reason: postEscalation.reason,
+            metadata: {
+              lifecycleState: "escalated",
+              deliveryState: "blocked",
+              checkpoint: "post_llm_escalation",
+            },
+          });
+        }
         // Note: still send the LLM response (already generated) but now team is notified
       }
     }
@@ -5870,6 +8518,13 @@ export const processInboundMessage = action({
 
     // 11. Update stats
     const tokensUsed = response.usage?.total_tokens || 0;
+    const runtimeElapsedMs = Date.now() - runtimeGovernorStartedAt;
+    const meetingConciergeDecisionTelemetry = buildMeetingConciergeDecisionTelemetry({
+      intent: meetingConciergeIntent,
+      toolResults,
+      runtimeElapsedMs,
+      latencyTargetMs: 60_000,
+    });
 
     await ctx.runMutation(getInternal().ai.agentSessions.updateSessionStats, {
       sessionId: session._id,
@@ -5938,7 +8593,7 @@ export const processInboundMessage = action({
               runtimeGovernorLimitTriggered !== "none"
                 ? runtimeGovernorLimitTriggered
                 : null,
-            elapsedMs: Date.now() - runtimeGovernorStartedAt,
+            elapsedMs: runtimeElapsedMs,
           },
           generation: {
             temperature: usedComposerGenerationSettings.temperature,
@@ -5969,6 +8624,7 @@ export const processInboundMessage = action({
               sourceAttestation: meetingConciergeIntent.sourceAttestation,
               commandPolicy: meetingConciergeIntent.commandPolicy,
               payload: meetingConciergeIntent.payload,
+              decisionTelemetry: meetingConciergeDecisionTelemetry,
             }
           : {
               enabled: false,
@@ -5990,7 +8646,17 @@ export const processInboundMessage = action({
         },
         memory: runtimeMemoryTelemetry,
         knowledgeLoad: systemKnowledgeLoad.telemetry,
-        toolScoping: toolScopingAudit,
+        toolScoping: {
+          ...toolScopingAudit,
+          requiredScopeManifest,
+          ...(requiredScopeDelegationDeliveryOverride ? {
+            requiredScopeContract: requiredScopeDelegationDeliveryOverride.requiredScopeContract,
+            requiredScopeGap: requiredScopeDelegationDeliveryOverride.requiredScopeGap,
+            requiredScopeFallback: requiredScopeDelegationDeliveryOverride.requiredScopeFallback,
+          } : {}),
+        },
+        crossOrgEnrichment: crossOrgSoulReadOnlyEnrichmentRuntime.telemetry,
+        actionCompletion: actionCompletionTelemetry,
         ...(voiceRuntimeMetadata ? {
           voiceRuntime: {
             ...voiceRuntimeMetadata,
@@ -6011,6 +8677,39 @@ export const processInboundMessage = action({
         } : {}),
       },
     });
+    const actionCompletionIncidentPayload =
+      actionCompletionTelemetry.payload?.observedViolation === true
+        ? {
+            contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+            enforcementMode: actionCompletionTelemetry.enforcementMode,
+            source: actionCompletionTelemetry.source,
+            templateRole: actionCompletionTelemetry.templateRole ?? null,
+            templateAgentId: actionCompletionTelemetry.templateAgentId ?? null,
+            sessionId: session._id,
+            turnId: runtimeTurnId,
+            channel: args.channel,
+            rewriteApplied: actionCompletionTelemetry.rewriteApplied === true,
+            claimedOutcomes: actionCompletionTelemetry.claimedOutcomes,
+            malformedClaimCount: actionCompletionTelemetry.malformedClaimCount,
+            payload: actionCompletionTelemetry.payload,
+          }
+        : null;
+    if (actionCompletionIncidentPayload) {
+      await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+        agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        organizationId: args.organizationId,
+        actionType: "action_completion_mismatch_detected",
+        actionData: actionCompletionIncidentPayload,
+      });
+      if (actionCompletionIncidentPayload.rewriteApplied) {
+        await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+          organizationId: args.organizationId,
+          actionType: "action_completion_fail_closed_rewrite_applied",
+          actionData: actionCompletionIncidentPayload,
+        });
+      }
+    }
 
     // 13. Route response back through channel provider (outbound delivery)
     // Skip if: metadata.skipOutbound is true (webhook/native endpoint sends reply itself),
@@ -6047,14 +8746,38 @@ export const processInboundMessage = action({
       turnId: runtimeTurnId,
     });
 
+    const qaDiagnostics = superAdminQaMode?.enabled
+      ? buildActionCompletionQaDiagnostics(actionCompletionTelemetry)
+      : undefined;
+
+    if (qaDiagnostics && superAdminQaMode?.enabled) {
+      const qaTurnTelemetryEnvelope = buildSuperAdminAgentQaTurnTelemetryEnvelope({
+        qaRunId: superAdminQaMode.runId,
+        sessionId: String(session._id),
+        turnId: String(runtimeTurnId),
+        agentId: String(authorityAgent._id),
+        qaDiagnostics,
+      });
+      console.log(
+        JSON.stringify(qaTurnTelemetryEnvelope),
+      );
+    }
+
     return {
       status: runtimeCapabilityGapBlockedResponse ? "blocked" : "success",
       message: assistantContent,
       response: deliveryContent,
       modelResolution: runtimeModelResolution,
       toolResults,
+      agentId: authorityAgent._id,
       sessionId: session._id,
       turnId: runtimeTurnId,
+      ...(requiredScopeDelegationDeliveryOverride ? {
+        requiredScopeContract: requiredScopeDelegationDeliveryOverride.requiredScopeContract,
+        requiredScopeGap: requiredScopeDelegationDeliveryOverride.requiredScopeGap,
+        requiredScopeManifest: requiredScopeDelegationDeliveryOverride.requiredScopeManifest,
+        requiredScopeFallback: requiredScopeDelegationDeliveryOverride.requiredScopeFallback,
+      } : {}),
       ...(runtimeCapabilityGapBlockedResponse ? {
         blocked: runtimeCapabilityGapBlockedResponse,
       } : {}),
@@ -6063,6 +8786,9 @@ export const processInboundMessage = action({
           ...voiceRuntimeMetadata,
           synthesis: voiceSynthesisResult ?? undefined,
         },
+      } : {}),
+      ...(superAdminQaMode?.enabled ? {
+        qaDiagnostics,
       } : {}),
     };
     } catch (error) {
@@ -6190,26 +8916,17 @@ export const ingestInboundReceipt = internalMutation({
     }
 
     const now = Date.now();
-    const idempotencyScopeKey = normalizeInboundRouteString(
-      args.idempotencyContract?.scopeKey
-    );
-    const idempotencyPayloadHash = normalizeInboundRouteString(
-      args.idempotencyContract?.payloadHash
-    );
+    const idempotencyEvaluation = evaluateInboundIdempotencyTuple({
+      channel: args.channel,
+      ingressKey: args.idempotencyKey,
+      idempotencyContract: args.idempotencyContract,
+    });
+    const idempotencyScopeKey = idempotencyEvaluation.scopeKey;
+    const idempotencyPayloadHash = idempotencyEvaluation.payloadHash;
     const queueConcurrencyKey = normalizeInboundRouteString(
       args.queueContract?.concurrencyKey
     );
-    const intentType = args.idempotencyContract?.intentType;
-    const replayConflictLabel =
-      intentType === "proposal"
-        ? "replay_duplicate_proposal"
-        : intentType === "commit"
-          ? "replay_duplicate_commit"
-          : "replay_duplicate_ingress";
-    const replayOutcome =
-      intentType === "proposal" || intentType === "commit"
-        ? "replay_previous_result"
-        : "duplicate_acknowledged";
+    const allowScopePayloadHashReplayMatch = idempotencyEvaluation.allowScopePayloadHashReplayMatch;
 
     if (
       queueConcurrencyKey
@@ -6229,6 +8946,7 @@ export const ingestInboundReceipt = internalMutation({
       if (inFlightCommit && inFlightCommit.idempotencyKey !== args.idempotencyKey) {
         return {
           success: false,
+          status: "conflict_commit_in_progress",
           error: "conflict_commit_in_progress" as const,
           receiptId: inFlightCommit._id,
           turnId: inFlightCommit.turnId,
@@ -6302,6 +9020,10 @@ export const ingestInboundReceipt = internalMutation({
           return true;
         }
 
+        if (!allowScopePayloadHashReplayMatch) {
+          return false;
+        }
+
         if (!idempotencyPayloadHash || !candidatePayloadHash) {
           return false;
         }
@@ -6353,8 +9075,9 @@ export const ingestInboundReceipt = internalMutation({
     }
 
     if (existing) {
+      const nextDuplicateCount = existing.duplicateCount + 1;
       await ctx.db.patch(existing._id, {
-        duplicateCount: existing.duplicateCount + 1,
+        duplicateCount: nextDuplicateCount,
         lastSeenAt: now,
         updatedAt: now,
         metadata: args.metadata ?? existing.metadata,
@@ -6366,8 +9089,12 @@ export const ingestInboundReceipt = internalMutation({
         duplicate: true,
         status: existing.status,
         turnId: existing.turnId,
-        conflictLabel: replayConflictLabel as TurnQueueConflictLabel,
-        replayOutcome,
+        conflictLabel: idempotencyEvaluation.replayConflictLabel,
+        replayOutcome: idempotencyEvaluation.replayOutcome,
+        duplicateCount: nextDuplicateCount,
+        idempotencyScopeKey:
+          normalizeInboundRouteString(existing.idempotencyScopeKey)
+          || idempotencyScopeKey,
       };
     }
 
@@ -6931,6 +9658,25 @@ export interface InboundNativeVisionObservabilityContract {
   sessionCorrelationId?: string;
 }
 
+export const MOBILE_TRANSPORT_SESSION_ATTESTATION_CONTRACT_VERSION =
+  "tcg_mobile_transport_session_attestation_v1" as const;
+
+export type MobileTransportSessionAttestationStatus =
+  | "not_required"
+  | "verified"
+  | "failed";
+
+export interface MobileTransportSessionAttestationContract {
+  contractVersion: typeof MOBILE_TRANSPORT_SESSION_ATTESTATION_CONTRACT_VERSION;
+  required: boolean;
+  status: MobileTransportSessionAttestationStatus;
+  verified: boolean;
+  reasonCodes: string[];
+  canonicalLiveSessionId?: string;
+  observedLiveSessionIds: string[];
+  transportMode?: string;
+}
+
 export interface InboundNativeVisionEdgeBridgeContract {
   contractVersion: typeof NATIVE_VISION_EDGE_BRIDGE_CONTRACT_VERSION;
   ingressSurface: IngressEventSurface;
@@ -6950,6 +9696,7 @@ export interface InboundNativeVisionEdgeBridgeContract {
   directDeviceMutationRequested: boolean;
   intents: InboundNativeVisionEdgeIntent[];
   sourceAttestation: MobileSourceAttestationContract;
+  transportSessionAttestation: MobileTransportSessionAttestationContract;
   observability: InboundNativeVisionObservabilityContract;
 }
 
@@ -7237,6 +9984,126 @@ function resolveInboundSourceHealthContract(
     };
   }
   return undefined;
+}
+
+function normalizeInboundSessionToken(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeInboundSourceClassToken(value: unknown): string | undefined {
+  const normalized = normalizeInboundSessionToken(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized.replace(/[^a-z0-9._:-]+/g, "_");
+}
+
+function isInboundMetaGlassesSourceClass(sourceClass: string | undefined): boolean {
+  if (!sourceClass) {
+    return false;
+  }
+  return sourceClass === "meta_glasses" || sourceClass === "glasses_stream_meta";
+}
+
+function resolveInboundTransportSessionAttestationContract(args: {
+  metadata: Record<string, unknown>;
+}): MobileTransportSessionAttestationContract {
+  const cameraRuntime = normalizeInboundObjectValue(args.metadata.cameraRuntime);
+  const voiceRuntime = normalizeInboundObjectValue(args.metadata.voiceRuntime);
+  const conversationRuntime = normalizeInboundObjectValue(args.metadata.conversationRuntime);
+  const transportRuntime = normalizeInboundObjectValue(args.metadata.transportRuntime);
+  const avObservability = normalizeInboundObjectValue(args.metadata.avObservability);
+  const transportObservability = normalizeInboundObjectValue(
+    transportRuntime?.observability
+  );
+
+  const sessionCandidates = [
+    normalizeInboundSessionToken(args.metadata.liveSessionId),
+    normalizeInboundSessionToken(args.metadata.realtimeSessionId),
+    normalizeInboundSessionToken(cameraRuntime?.liveSessionId),
+    normalizeInboundSessionToken(voiceRuntime?.liveSessionId),
+    normalizeInboundSessionToken(transportRuntime?.liveSessionId),
+    normalizeInboundSessionToken(transportObservability?.liveSessionId),
+    normalizeInboundSessionToken(avObservability?.liveSessionId),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  const observedLiveSessionIds = Array.from(new Set(sessionCandidates));
+  const canonicalLiveSessionId = observedLiveSessionIds[0];
+
+  const cameraSourceClass = normalizeInboundSourceClassToken(
+    firstInboundString(cameraRuntime?.sourceClass, cameraRuntime?.sourceId)
+  );
+  const voiceSourceClass = normalizeInboundSourceClassToken(
+    firstInboundString(voiceRuntime?.sourceClass, voiceRuntime?.sourceId)
+  );
+  const metaSourceDetected =
+    isInboundMetaGlassesSourceClass(cameraSourceClass)
+    || isInboundMetaGlassesSourceClass(voiceSourceClass)
+    || normalizeInboundSourceClassToken(args.metadata.sourceMode) === "meta_glasses"
+    || normalizeInboundSourceClassToken(conversationRuntime?.sourceMode) === "meta_glasses"
+    || normalizeInboundSourceClassToken(conversationRuntime?.requestedEyesSource) === "meta_glasses";
+  const required = metaSourceDetected || observedLiveSessionIds.length > 0;
+
+  if (!required) {
+    return {
+      contractVersion: MOBILE_TRANSPORT_SESSION_ATTESTATION_CONTRACT_VERSION,
+      required: false,
+      status: "not_required",
+      verified: true,
+      reasonCodes: [],
+      observedLiveSessionIds: [],
+    };
+  }
+
+  const reasonCodes = new Set<string>();
+  if (observedLiveSessionIds.length > 1) {
+    reasonCodes.add("live_session_id_mismatch");
+  }
+
+  const transportModeRaw = firstInboundString(
+    transportRuntime?.transport,
+    transportRuntime?.mode,
+    transportObservability?.transport,
+    transportObservability?.mode,
+    cameraRuntime?.transport,
+    voiceRuntime?.transport
+  );
+  const transportMode = transportModeRaw?.trim().toLowerCase();
+  if (metaSourceDetected && transportMode !== "webrtc") {
+    reasonCodes.add("meta_transport_must_be_webrtc");
+  }
+
+  const providerToken = firstInboundString(
+    cameraRuntime?.providerId,
+    voiceRuntime?.providerId
+  )?.toLowerCase();
+  if (metaSourceDetected && (!providerToken || !providerToken.startsWith("meta_"))) {
+    reasonCodes.add("meta_provider_contract_required");
+  }
+
+  const relayPolicy = firstInboundString(
+    cameraRuntime?.relayPolicy,
+    normalizeInboundObjectValue(cameraRuntime?.metadata)?.relayPolicy,
+    args.metadata.relayPolicy
+  );
+  if (metaSourceDetected && relayPolicy !== "meta_dat_webrtc_required") {
+    reasonCodes.add("meta_relay_policy_marker_missing");
+  }
+
+  const verified = reasonCodes.size === 0;
+  return {
+    contractVersion: MOBILE_TRANSPORT_SESSION_ATTESTATION_CONTRACT_VERSION,
+    required: true,
+    status: verified ? "verified" : "failed",
+    verified,
+    reasonCodes: Array.from(reasonCodes).sort(),
+    canonicalLiveSessionId,
+    observedLiveSessionIds,
+    transportMode,
+  };
 }
 
 function collectInboundDeterministicFallbackReasons(
@@ -7675,15 +10542,29 @@ export function resolveInboundNativeVisionEdgeBridgeContract(args: {
   });
   const sourceAttestationBlocked =
     sourceAttestation.verificationRequired && !sourceAttestation.verified;
+  const transportSessionAttestation = resolveInboundTransportSessionAttestationContract({
+    metadata: args.metadata,
+  });
+  const transportSessionAttestationBlocked =
+    transportSessionAttestation.required && !transportSessionAttestation.verified;
   let observability = resolveInboundNativeVisionObservabilityContract({
     metadata: args.metadata,
   });
-  if (sourceAttestationBlocked) {
+  if (sourceAttestationBlocked || transportSessionAttestationBlocked) {
     const deterministicFallbackReasons = Array.from(
       new Set([
         ...observability.deterministicFallbackReasons,
-        "source_attestation_unverified",
-        ...sourceAttestation.reasonCodes,
+        ...(sourceAttestationBlocked
+          ? ["source_attestation_unverified", ...sourceAttestation.reasonCodes]
+          : []),
+        ...(transportSessionAttestationBlocked
+          ? [
+              "transport_session_attestation_unverified",
+              ...transportSessionAttestation.reasonCodes.map(
+                (reasonCode) => `transport_session_attestation:${reasonCode}`
+              ),
+            ]
+          : []),
       ])
     ).sort();
     observability = {
@@ -7741,14 +10622,21 @@ export function resolveInboundNativeVisionEdgeBridgeContract(args: {
     actionableIntentCount: intents.length,
     mutatingIntentCount,
     trustGateRequired:
-      sourceAttestationBlocked || intents.length > 0 || nativeCompanionIngressSignal,
+      sourceAttestationBlocked
+      || transportSessionAttestationBlocked
+      || intents.length > 0
+      || nativeCompanionIngressSignal,
     approvalGatePolicy:
-      sourceAttestationBlocked || mutatingIntentCount > 0 || nativeCompanionIngressSignal
+      sourceAttestationBlocked
+      || transportSessionAttestationBlocked
+      || mutatingIntentCount > 0
+      || nativeCompanionIngressSignal
         ? "required_for_mutating_intents"
         : "policy_driven",
     directDeviceMutationRequested,
     intents,
     sourceAttestation,
+    transportSessionAttestation,
     observability,
   };
 }
@@ -7887,6 +10775,12 @@ export function resolveInboundMutationAuthorityContract<
     invariantViolations.push("source_attestation_verification_failed");
   }
   if (
+    args.nativeVisionEdge?.transportSessionAttestation?.required === true
+    && args.nativeVisionEdge.transportSessionAttestation.verified !== true
+  ) {
+    invariantViolations.push("transport_session_attestation_verification_failed");
+  }
+  if (
     Array.isArray(args.nativeVisionEdge?.sourceAttestation?.quarantinedSourceIds)
     && args.nativeVisionEdge.sourceAttestation.quarantinedSourceIds.length > 0
   ) {
@@ -8002,6 +10896,332 @@ function firstInboundString(
   return undefined;
 }
 
+function extractInboundMessageKeyValue(
+  message: string,
+  key: string
+): string | undefined {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `(?:^|[\\s\\n\\r])${escapedKey}\\s*=\\s*([^\\s\\n\\r]+)`,
+    "i"
+  );
+  const match = message.match(pattern);
+  if (!match || typeof match[1] !== "string") {
+    return undefined;
+  }
+  return normalizeInboundRouteString(match[1]);
+}
+
+function normalizeInboundAudienceTemperature(
+  value: unknown
+): "warm" | "cold" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "warm") {
+    return "warm";
+  }
+  if (normalized === "cold") {
+    return "cold";
+  }
+  return undefined;
+}
+
+function resolveInboundCommercialRoutingPolicy(args: {
+  inboundMessage: string;
+  metadata: Record<string, unknown>;
+}): {
+  audienceTemperature?: "warm" | "cold" | "unknown";
+  surface?: string;
+  intentCode?: string;
+  offerCode?: string;
+  routingHint?: string;
+  targetSpecialistTemplateRole?: string;
+  warmLeadEligible: boolean;
+  signalSource: "none" | "message" | "metadata" | "mixed";
+} {
+  const metadataCommercialIntent = normalizeInboundObjectValue(
+    args.metadata.commercialIntent
+  );
+  const messageSurface = extractInboundMessageKeyValue(args.inboundMessage, "surface");
+  const messageAudience = normalizeInboundAudienceTemperature(
+    extractInboundMessageKeyValue(args.inboundMessage, "audience_temperature")
+    || extractInboundMessageKeyValue(args.inboundMessage, "audienceTemperature")
+  );
+  const messageIntentCode =
+    extractInboundMessageKeyValue(args.inboundMessage, "intent_code")
+    || extractInboundMessageKeyValue(args.inboundMessage, "intentCode")
+    || extractInboundMessageKeyValue(args.inboundMessage, "intent");
+  const messageOfferCode =
+    extractInboundMessageKeyValue(args.inboundMessage, "offer_code")
+    || extractInboundMessageKeyValue(args.inboundMessage, "offerCode");
+  const messageRoutingHint =
+    extractInboundMessageKeyValue(args.inboundMessage, "routing_hint")
+    || extractInboundMessageKeyValue(args.inboundMessage, "routingHint");
+  const messageTargetTemplateRole =
+    extractInboundMessageKeyValue(
+      args.inboundMessage,
+      "target_specialist_template_role"
+    )
+    || extractInboundMessageKeyValue(
+      args.inboundMessage,
+      "targetSpecialistTemplateRole"
+    );
+
+  const metadataAudience = normalizeInboundAudienceTemperature(
+    firstInboundString(
+      args.metadata.audience_temperature,
+      args.metadata.audienceTemperature,
+      metadataCommercialIntent?.audience_temperature,
+      metadataCommercialIntent?.audienceTemperature
+    )
+  );
+  const metadataSurface = firstInboundString(
+    metadataCommercialIntent?.surface,
+    args.metadata.surface
+  );
+  const metadataIntentCode = firstInboundString(
+    metadataCommercialIntent?.intent_code,
+    metadataCommercialIntent?.intentCode,
+    args.metadata.intent_code,
+    args.metadata.intentCode
+  );
+  const metadataOfferCode = firstInboundString(
+    metadataCommercialIntent?.offer_code,
+    metadataCommercialIntent?.offerCode,
+    args.metadata.offer_code,
+    args.metadata.offerCode
+  );
+  const metadataRoutingHint = firstInboundString(
+    metadataCommercialIntent?.routing_hint,
+    metadataCommercialIntent?.routingHint,
+    args.metadata.routing_hint,
+    args.metadata.routingHint
+  );
+  const metadataTargetTemplateRole = firstInboundString(
+    metadataCommercialIntent?.target_specialist_template_role,
+    metadataCommercialIntent?.targetSpecialistTemplateRole,
+    args.metadata.target_specialist_template_role,
+    args.metadata.targetSpecialistTemplateRole
+  );
+
+  const audienceTemperature =
+    metadataAudience || messageAudience || undefined;
+  const surface =
+    normalizeInboundRouteString(metadataSurface)?.toLowerCase()
+    || normalizeInboundRouteString(messageSurface)?.toLowerCase()
+    || undefined;
+  const intentCode =
+    normalizeInboundRouteString(metadataIntentCode)
+    || normalizeInboundRouteString(messageIntentCode)
+    || undefined;
+  const offerCode =
+    normalizeInboundRouteString(metadataOfferCode)
+    || normalizeInboundRouteString(messageOfferCode)
+    || undefined;
+  const routingHint =
+    normalizeInboundRouteString(metadataRoutingHint)
+    || normalizeInboundRouteString(messageRoutingHint)
+    || undefined;
+  const targetSpecialistTemplateRole =
+    normalizeInboundRouteString(metadataTargetTemplateRole)
+    || normalizeInboundRouteString(messageTargetTemplateRole)
+    || undefined;
+
+  const metadataSignalDetected = Boolean(
+    metadataAudience
+    || metadataSurface
+    || metadataIntentCode
+    || metadataOfferCode
+    || metadataRoutingHint
+    || metadataTargetTemplateRole
+  );
+  const messageSignalDetected = Boolean(
+    messageAudience
+    || messageSurface
+    || messageIntentCode
+    || messageOfferCode
+    || messageRoutingHint
+    || messageTargetTemplateRole
+  );
+
+  const signalSource: "none" | "message" | "metadata" | "mixed" =
+    metadataSignalDetected && messageSignalDetected
+      ? "mixed"
+      : metadataSignalDetected
+        ? "metadata"
+        : messageSignalDetected
+          ? "message"
+          : "none";
+
+  const explicitWarm = audienceTemperature === "warm";
+  const explicitCold =
+    audienceTemperature === "cold" || surface === "one_of_one_landing";
+  const warmLeadEligible = explicitWarm && !explicitCold;
+
+  return {
+    audienceTemperature:
+      audienceTemperature
+      || (signalSource === "none" ? undefined : "unknown"),
+    surface,
+    intentCode,
+    offerCode,
+    routingHint,
+    targetSpecialistTemplateRole,
+    warmLeadEligible,
+    signalSource,
+  };
+}
+
+interface InboundCommercialKickoffContract {
+  kind: "commercial_motion_v1";
+  audienceTemperature: "warm" | "cold";
+  targetSpecialistDisplayName?: string;
+  targetSpecialistTemplateRole?: string;
+  intentCode: string;
+  offerCode: string;
+  surface: "one_of_one_landing" | "store";
+  routingHint?: string;
+  channel?: string;
+  campaign?: {
+    source?: string;
+    medium?: string;
+    campaign?: string;
+    content?: string;
+    term?: string;
+    referrer?: string;
+    landingPath?: string;
+  };
+}
+
+function resolveInboundCommercialKickoffContract(
+  metadata: Record<string, unknown>
+): InboundCommercialKickoffContract | null {
+  const kickoffContract = normalizeInboundObjectValue(metadata.kickoffContract);
+  if (!kickoffContract) {
+    return null;
+  }
+
+  const kind = firstInboundString(
+    kickoffContract.kind,
+    kickoffContract.contractVersion
+  );
+  if (kind !== "commercial_motion_v1") {
+    return null;
+  }
+
+  const audienceTemperature = normalizeInboundAudienceTemperature(
+    firstInboundString(
+      kickoffContract.audienceTemperature,
+      kickoffContract.audience_temperature
+    )
+  );
+  const intentCode = normalizeInboundRouteString(kickoffContract.intentCode);
+  const offerCode = normalizeInboundRouteString(kickoffContract.offerCode);
+  const routingHint = normalizeInboundRouteString(kickoffContract.routingHint);
+  const channel = normalizeInboundRouteString(kickoffContract.channel);
+  const surface = normalizeInboundRouteString(kickoffContract.surface);
+  const targetSpecialistDisplayName = normalizeInboundRouteString(
+    kickoffContract.targetSpecialistDisplayName
+  );
+  const targetSpecialistTemplateRole = normalizeInboundRouteString(
+    kickoffContract.targetSpecialistTemplateRole
+  );
+  const campaignRaw = normalizeInboundObjectValue(kickoffContract.campaign);
+
+  if (!audienceTemperature || !intentCode || !offerCode) {
+    return null;
+  }
+  if (surface !== "one_of_one_landing" && surface !== "store") {
+    return null;
+  }
+
+  return {
+    kind: "commercial_motion_v1",
+    audienceTemperature,
+    targetSpecialistDisplayName,
+    targetSpecialistTemplateRole,
+    intentCode,
+    offerCode,
+    surface,
+    routingHint,
+    channel,
+    campaign: campaignRaw
+      ? {
+          source: normalizeInboundRouteString(campaignRaw.source),
+          medium: normalizeInboundRouteString(campaignRaw.medium),
+          campaign: normalizeInboundRouteString(campaignRaw.campaign),
+          content: normalizeInboundRouteString(campaignRaw.content),
+          term: normalizeInboundRouteString(campaignRaw.term),
+          referrer: normalizeInboundRouteString(campaignRaw.referrer),
+          landingPath: normalizeInboundRouteString(campaignRaw.landingPath),
+        }
+      : undefined,
+  };
+}
+
+function buildInboundCommercialKickoffRuntimeContext(
+  kickoffContract: InboundCommercialKickoffContract | null
+): string | null {
+  if (!kickoffContract) {
+    return null;
+  }
+
+  const lines = [
+    "--- COMMERCIAL MOTION KICKOFF CONTRACT ---",
+    "Route this conversation through Samantha commercial intake.",
+    `audience_temperature=${kickoffContract.audienceTemperature}`,
+    `target_specialist_display_name=${kickoffContract.targetSpecialistDisplayName || "Samantha"}`,
+    `target_specialist_template_role=${kickoffContract.targetSpecialistTemplateRole || "one_of_one_lead_capture_consultant_template"}`,
+    `intent=${kickoffContract.intentCode}`,
+    `offer_code=${kickoffContract.offerCode}`,
+    `surface=${kickoffContract.surface}`,
+    kickoffContract.routingHint
+      ? `routing_hint=${kickoffContract.routingHint}`
+      : "routing_hint=none",
+    kickoffContract.channel
+      ? `source_channel=${kickoffContract.channel}`
+      : "source_channel=n/a",
+    `source=${kickoffContract.campaign?.source || "n/a"}`,
+    `medium=${kickoffContract.campaign?.medium || "n/a"}`,
+    `campaign=${kickoffContract.campaign?.campaign || "n/a"}`,
+    `content=${kickoffContract.campaign?.content || "n/a"}`,
+    `term=${kickoffContract.campaign?.term || "n/a"}`,
+    `referrer=${kickoffContract.campaign?.referrer || "n/a"}`,
+    `landingPath=${kickoffContract.campaign?.landingPath || "n/a"}`,
+    "commercial_contract:",
+    "1) Free Diagnostic is qualification only.",
+    "2) Consulting Sprint is €3,500 scope-only (no implementation delivery).",
+    "3) Implementation Start begins at €7,000+.",
+    "required_lead_fields=first_name,last_name,email,phone,founder_contact_requested_yes_no",
+    "response_contract:",
+  ];
+
+  if (kickoffContract.intentCode === "diagnostic_qualification") {
+    lines.push(
+      "1) Deliver one highest-leverage workflow recommendation first.",
+      "2) Then collect qualification details and founder contact preference.",
+      "3) Do not imply paid implementation is included in this diagnostic stage."
+    );
+  } else if (kickoffContract.intentCode === "consulting_sprint_scope_only") {
+    lines.push(
+      "1) Keep scope in strategy/discovery and implementation roadmap design.",
+      "2) State explicitly that consulting sprint excludes production implementation.",
+      "3) If user asks for build delivery, route to implementation readiness (starts at €7,000+)."
+    );
+  } else {
+    lines.push(
+      "1) Confirm implementation readiness, constraints, and launch priorities.",
+      "2) State explicitly that implementation starts at €7,000+.",
+      "3) If budget/timing is not ready, route to Consulting Sprint scope-only path."
+    );
+  }
+
+  lines.push("--- END COMMERCIAL MOTION KICKOFF CONTRACT ---");
+  return lines.join("\n");
+}
+
 function hashRuntimeSeed(seed: string): string {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {
@@ -8109,25 +11329,24 @@ function buildInboundPayloadHash(args: {
   workflowKey: string;
   collaboration?: SessionCollaborationSnapshot;
 }): string {
-  const providerEventId = firstInboundString(
-    args.metadata.providerEventId,
-    args.metadata.eventId,
-    args.metadata.providerMessageId
+  return buildDeterministicIdempotencyPayloadHash({
+    organizationId: args.organizationId,
+    message: args.message,
+    metadata: args.metadata,
+    workflowKey: args.workflowKey,
+    collaboration: args.collaboration,
+  });
+}
+
+export function shouldAllowScopePayloadHashReplayMatch(args: {
+  channel: string;
+  intentType?: RuntimeIdempotencyContract["intentType"] | null;
+}): boolean {
+  return !(
+    args.channel === "native_guest"
+    && args.intentType !== "proposal"
+    && args.intentType !== "commit"
   );
-  const normalizedMessage = args.message
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .slice(0, 240);
-  const seed = [
-    args.organizationId,
-    args.workflowKey,
-    args.collaboration?.lineageId ?? "",
-    args.collaboration?.threadId ?? "",
-    providerEventId ?? "",
-    normalizedMessage,
-  ].join(":");
-  return hashRuntimeSeed(seed);
 }
 
 export function resolveInboundRuntimeContracts(args: {
@@ -8741,6 +11960,2029 @@ export function resolveCollaborationSyncCheckpointFailureMessage(error?: string)
   }
 }
 
+function normalizeExecutionString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeExecutionStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeExecutionString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+function isSamanthaLeadCaptureRuntime(config: Record<string, unknown> | null | undefined): boolean {
+  if (!config || typeof config !== "object") {
+    return false;
+  }
+
+  const templateRole = normalizeExecutionString(config.templateRole);
+  if (
+    templateRole === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+    || templateRole === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
+  ) {
+    return true;
+  }
+
+  const displayName = normalizeExecutionString(config.displayName)?.toLowerCase();
+  const enabledTools = new Set(
+    normalizeExecutionStringList(config.enabledTools).map((tool) => tool.toLowerCase())
+  );
+  return Boolean(displayName?.includes("samantha"))
+    && enabledTools.has(AUDIT_DELIVERABLE_TOOL_NAME);
+}
+
+function resolveSamanthaRoutingAgentSnapshot(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  agent: any
+): {
+  agentId: string | null;
+  displayName: string | null;
+  templateRole: string | null;
+  subtype: string | null;
+  isSamanthaRuntime: boolean;
+} {
+  if (!agent || typeof agent !== "object") {
+    return {
+      agentId: null,
+      displayName: null,
+      templateRole: null,
+      subtype: null,
+      isSamanthaRuntime: false,
+    };
+  }
+  const customProperties =
+    agent.customProperties && typeof agent.customProperties === "object"
+      ? (agent.customProperties as Record<string, unknown>)
+      : undefined;
+  const displayName =
+    normalizeExecutionString(customProperties?.displayName)
+    || normalizeExecutionString(agent.name)
+    || null;
+  const templateRole = normalizeExecutionString(customProperties?.templateRole);
+  return {
+    agentId: normalizeExecutionString(agent._id),
+    displayName,
+    templateRole,
+    subtype: normalizeExecutionString(agent.subtype),
+    isSamanthaRuntime: isSamanthaLeadCaptureRuntime(customProperties),
+  };
+}
+
+export const ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION =
+  "aoh_action_completion_enforcement_v1" as const;
+export const ACTION_COMPLETION_EVIDENCE_CONTRACT_VERSION =
+  "action_completion_evidence_v1" as const;
+export const ACTION_COMPLETION_CLAIM_BLOCK_LABEL = "action_completion_claim" as const;
+export type ActionCompletionClaimStatus = "in_progress" | "completed";
+export type ActionCompletionEnforcementMode = "off" | "observe" | "enforce";
+export type ActionCompletionEnforcementReasonCode =
+  | "claim_tool_not_observed"
+  | "claim_tool_unavailable"
+  | "claim_payload_invalid";
+export type ActionCompletionResponseLanguage = "en" | "de";
+
+function normalizeActionCompletionResponseLanguage(
+  value: unknown
+): ActionCompletionResponseLanguage | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (
+    normalized === "de"
+    || normalized.startsWith("de-")
+    || normalized === "german"
+    || normalized === "deutsch"
+  ) {
+    return "de";
+  }
+  if (
+    normalized === "en"
+    || normalized.startsWith("en-")
+    || normalized === "english"
+    || normalized === "englisch"
+  ) {
+    return "en";
+  }
+  return null;
+}
+
+function detectLikelyActionCompletionResponseLanguage(
+  text: string | null | undefined
+): ActionCompletionResponseLanguage | null {
+  if (typeof text !== "string") {
+    return null;
+  }
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (
+    /\b(auf deutsch|deutsch bitte|in german|bitte auf deutsch)\b/i.test(normalized)
+  ) {
+    return "de";
+  }
+  if (/\b(in english|auf englisch|english please)\b/i.test(normalized)) {
+    return "en";
+  }
+  if (/[äöüß]/i.test(normalized)) {
+    return "de";
+  }
+
+  const germanHintTokens = [
+    " bitte ",
+    " danke ",
+    " ich ",
+    " ja ",
+    " nein ",
+    " urlaub",
+    " urlaubs",
+    " apotheke",
+    " mitarbeit",
+    " implementierungsplan",
+    " bereitschaftsplan",
+    " schulferien",
+    " bottleneck",
+  ];
+  const padded = ` ${normalized} `;
+  let hintScore = 0;
+  for (const token of germanHintTokens) {
+    if (padded.includes(token)) {
+      hintScore += 1;
+    }
+  }
+  return hintScore >= 2 ? "de" : null;
+}
+
+function resolveActionCompletionResponseLanguage(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  inboundMessage?: string | null;
+  assistantContent?: string | null;
+  metadata?: Record<string, unknown> | null;
+  preferredLanguage?: string | ActionCompletionResponseLanguage | null;
+}): ActionCompletionResponseLanguage {
+  const metadata = args.metadata ?? undefined;
+  const metadataVisitorInfo =
+    metadata?.visitorInfo && typeof metadata.visitorInfo === "object"
+      ? (metadata.visitorInfo as Record<string, unknown>)
+      : undefined;
+
+  const explicitLanguage =
+    normalizeActionCompletionResponseLanguage(args.preferredLanguage)
+    ?? normalizeActionCompletionResponseLanguage(
+      firstInboundString(
+        metadata?.language,
+        metadata?.locale,
+        metadataVisitorInfo?.language,
+      )
+    );
+  if (explicitLanguage) {
+    return explicitLanguage;
+  }
+
+  const detectedFromInbound = detectLikelyActionCompletionResponseLanguage(
+    args.inboundMessage
+  );
+  if (detectedFromInbound) {
+    return detectedFromInbound;
+  }
+
+  const detectedFromAssistant = detectLikelyActionCompletionResponseLanguage(
+    args.assistantContent
+  );
+  if (detectedFromAssistant) {
+    return detectedFromAssistant;
+  }
+
+  const configLanguage = normalizeActionCompletionResponseLanguage(
+    args.authorityConfig?.language
+  );
+  if (configLanguage) {
+    return configLanguage;
+  }
+
+  return "en";
+}
+
+interface ActionCompletionRuntimeContract {
+  outcome: string;
+  requiredTools: string[];
+  unavailableMessage: string;
+  notObservedMessage: string;
+}
+
+export interface ActionCompletionRuntimeContractConfig {
+  contractVersion: typeof ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION;
+  mode: ActionCompletionEnforcementMode;
+  outcomes: ActionCompletionRuntimeContract[];
+  source: "template_metadata" | "legacy_samantha_fallback" | "none";
+}
+
+export interface ParsedActionCompletionClaim {
+  contractVersion: typeof ACTION_COMPLETION_CLAIM_CONTRACT_VERSION;
+  outcome: string;
+  status: ActionCompletionClaimStatus;
+}
+
+export interface ActionCompletionContractEnforcementPayload {
+  contractVersion: typeof ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION;
+  status: "enforced" | "pass";
+  enforcementMode: ActionCompletionEnforcementMode;
+  observedViolation: boolean;
+  reasonCode?: ActionCompletionEnforcementReasonCode;
+  preflightReasonCode?: SamanthaPreflightReasonCode;
+  preflightMissingRequiredFields?: SamanthaAuditRequiredField[];
+  outcome?: string;
+  claimStatus?: ActionCompletionClaimStatus;
+  requiredTools: string[];
+  observedTools: string[];
+  availableTools: string[];
+  malformedClaimCount: number;
+  evidence?: ActionCompletionEvidenceContract;
+}
+
+export interface ActionCompletionEvidenceObservedToolCall {
+  toolName: string;
+  callId: string;
+  turnId?: string;
+  status: AgentToolExecutionStatus;
+  outputRef?: string;
+}
+
+export interface ActionCompletionEvidenceContract {
+  contractVersion: typeof ACTION_COMPLETION_EVIDENCE_CONTRACT_VERSION;
+  outcomeKey: string;
+  requiredTools: string[];
+  requiredFields: string[];
+  observedToolCalls: ActionCompletionEvidenceObservedToolCall[];
+  preconditionCheck: {
+    passed: boolean;
+    missingFields: string[];
+  };
+  decision: {
+    status: "pass" | "fail";
+    failureCode: ActionCompletionEnforcementReasonCode | null;
+    failureDetail?: string;
+  };
+}
+
+export interface ActionCompletionContractEnforcementDecision {
+  enforced: boolean;
+  assistantContent?: string;
+  payload: ActionCompletionContractEnforcementPayload;
+}
+
+function normalizeDeterministicExecutionToolNames(toolNames: string[]): string[] {
+  return Array.from(
+    new Set(
+      toolNames
+        .map((toolName) => normalizeExecutionString(toolName))
+        .filter((toolName): toolName is string => Boolean(toolName))
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeActionCompletionEnforcementMode(
+  value: unknown
+): ActionCompletionEnforcementMode | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  if (value === "off" || value === "observe" || value === "enforce") {
+    return value;
+  }
+  return null;
+}
+
+function buildActionCompletionMissingToolUnavailableMessage(args: {
+  outcome: string;
+  requiredTools: string[];
+  language: ActionCompletionResponseLanguage;
+}): string {
+  if (args.language === "de") {
+    return `Ich kann "${args.outcome}" in diesem Schritt nicht bestaetigen, weil erforderliche Tools im Runtime-Umfang noch nicht verfuegbar sind (${args.requiredTools.join(", ")}). Ich bestaetige keinen Abschluss ohne echte Tool-Ausfuehrungsnachweise. Wenn Sie ein Feature-Request-Ticket wuenschen, antworten Sie mit: "Ticket erstellen".`;
+  }
+  return `I can’t confirm "${args.outcome}" in this turn because required tools are not available yet in runtime scope (${args.requiredTools.join(", ")}). I won’t claim completion without real tool execution evidence. If you want a feature request ticket, reply with: "create request".`;
+}
+
+function buildActionCompletionMissingToolObservedMessage(args: {
+  outcome: string;
+  requiredTools: string[];
+  language: ActionCompletionResponseLanguage;
+}): string {
+  if (args.language === "de") {
+    return `Ich kann "${args.outcome}" noch nicht bestaetigen, weil erforderliche Tools in diesem Schritt nicht ausgefuehrt wurden (${args.requiredTools.join(", ")}). Ich bestaetige weder Fortschritt noch Abschluss ohne echte Tool-Ausfuehrungsnachweise.`;
+  }
+  return `I can’t confirm "${args.outcome}" yet because required tools did not execute in this turn (${args.requiredTools.join(", ")}). I won’t claim progress or completion without real tool execution evidence.`;
+}
+
+function buildActionCompletionInvalidPayloadMessage(
+  language: ActionCompletionResponseLanguage
+): string {
+  if (language === "de") {
+    return "Ich kann die Ausfuehrung noch nicht bestaetigen, weil das Action-Completion-Contract-Payload in diesem Schritt ungueltig war. Ich bestaetige weder Fortschritt noch Abschluss ohne gueltigen Contract-Marker und echte Tool-Ausfuehrung.";
+  }
+  return "I can’t confirm execution yet because the action-completion contract payload was invalid for this turn. I won’t claim progress or completion without a valid contract marker and real tool execution.";
+}
+
+function buildSamanthaAuditDeliverableActionCompletionMessage(args: {
+  kind: "unavailable" | "not_observed";
+  language: ActionCompletionResponseLanguage;
+}): string {
+  if (args.language === "de") {
+    if (args.kind === "unavailable") {
+      return "Ich kann Ihren Implementierungsplan als PDF in diesem Schritt nicht erstellen, weil das Zustellungs-Tool im aktuellen Runtime-Umfang noch nicht verfuegbar ist. Ich bestaetige keinen Abschluss ohne echte Tool-Ausfuehrung. Wenn Sie ein Feature-Request-Ticket wuenschen, antworten Sie mit: \"Ticket erstellen\".";
+    }
+    return "Ich kann die PDF-Erstellung noch nicht bestaetigen, weil das Zustellungs-Tool in diesem Schritt nicht ausgefuehrt wurde. Ich bestaetige keinen Abschluss ohne echten Tool-Aufruf. Bitte bestaetigen Sie Vorname, Nachname, E-Mail, Telefonnummer und ob Founder-Kontakt gewuenscht ist (ja/nein), dann fuehre ich es jetzt aus.";
+  }
+  if (args.kind === "unavailable") {
+    return "I can’t generate your implementation PDF in this turn because the delivery tool is not available yet in the current runtime scope. I won’t claim completion without a real tool execution. If you want a feature request ticket, reply with: \"create request\".";
+  }
+  return "I can’t confirm PDF generation yet because the delivery tool did not execute in this turn. I won’t claim completion without a real tool call. Please confirm first name, last name, email, phone number, and founder-contact preference (yes/no), and I will run it now.";
+}
+
+function buildSamanthaAuditDeliverableVerificationFallbackMessage(
+  language: ActionCompletionResponseLanguage
+): string {
+  if (language === "de") {
+    return "Ich konnte die PDF-Zustellung in diesem Schritt nicht verifizieren, obwohl die Anfrage erkannt wurde. Bitte antworten Sie mit \"erneut zustellen\", dann fuehre ich die Zustellung direkt erneut aus. Alternativ schreibe ich sofort ein manuelles Follow-up an das Team fuer die direkte Zusendung.";
+  }
+  return "I couldn’t verify PDF delivery in this turn even though your request was recognized. Reply with \"retry delivery\" and I’ll rerun it immediately, or I can trigger a manual team follow-up for direct send now.";
+}
+
+function buildSamanthaAuditDeliverableGracefulDegradationMessage(
+  language: ActionCompletionResponseLanguage
+): string {
+  if (language === "de") {
+    return "Die automatische PDF-Zustellung bleibt aktuell blockiert. Ich sende den Plan jetzt direkt im Chat weiter und markiere ein manuelles Follow-up, damit das Team die finale PDF und persoenliche Rueckmeldung innerhalb von 24 Stunden zustellt.";
+  }
+  return "Automatic PDF delivery is still blocked. I am sharing the implementation plan in chat now and flagging a manual follow-up so the team sends the final PDF and personal follow-up within 24 hours.";
+}
+
+function isSamanthaFailClosedRefusalContent(content: string): boolean {
+  const normalized = content.toLowerCase();
+  return normalized.includes(
+    "i can’t confirm completion in this turn because no verifiable tool execution was observed"
+  )
+    || normalized.includes(
+      "i couldn't confirm completion in this turn because no verifiable tool execution was observed"
+    )
+    || normalized.includes(
+      "i can’t confirm pdf generation yet because the delivery tool did not execute in this turn"
+    )
+    || normalized.includes(
+      "i couldn't verify pdf delivery in this turn even though your request was recognized"
+    )
+    || normalized.includes(
+      "ich kann den abschluss in diesem schritt nicht bestaetigen, weil keine verifizierbare tool-ausfuehrung beobachtet wurde"
+    )
+    || normalized.includes(
+      "ich kann die pdf-erstellung noch nicht bestaetigen, weil das zustellungs-tool in diesem schritt nicht ausgefuehrt wurde"
+    )
+    || normalized.includes(
+      "ich konnte die pdf-zustellung in diesem schritt nicht verifizieren"
+    );
+}
+
+function countTrailingSamanthaFailClosedAssistantMessages(
+  sessionHistory: Array<{ role: string; content: string }>
+): number {
+  let count = 0;
+  for (let index = sessionHistory.length - 1; index >= 0; index -= 1) {
+    const message = sessionHistory[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+    if (!isSamanthaFailClosedRefusalContent(message.content || "")) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function isSamanthaAuditDeliverableActionCompletionOutcome(args: {
+  outcome: string;
+  requiredTools: string[];
+}): boolean {
+  return (
+    args.outcome === AUDIT_DELIVERABLE_OUTCOME_KEY
+    && args.requiredTools.includes(AUDIT_DELIVERABLE_TOOL_NAME)
+  );
+}
+
+function isLikelyAuditDeliverableInvocationRequest(
+  inboundMessage: string
+): boolean {
+  const normalized = normalizeExecutionString(inboundMessage)?.toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.includes(AUDIT_DELIVERABLE_TOOL_NAME)) {
+    return true;
+  }
+  const mentionsDeliverableTarget =
+    /\b(pdf|docx)\b/i.test(normalized)
+    || /\b(implementierungsplan|workflow report|workflow brief|implementation plan|rapport|plan de mise en œuvre|plan de mise en oeuvre)\b/i.test(
+      normalized,
+    );
+  if (!mentionsDeliverableTarget) {
+    return false;
+  }
+  return /\b(generate|generer|g[eé]n[eé]rer|erstell|send|senden|envoyer|create|c[ré]er|export|bereitstell|download|telecharger|t[eé]l[eé]charger)\b/i.test(
+    normalized,
+  );
+}
+
+function buildActionCompletionSanitizationFallbackMessage(args: {
+  contractConfig: ActionCompletionRuntimeContractConfig;
+  claims: ParsedActionCompletionClaim[];
+  malformedClaimCount: number;
+  language: ActionCompletionResponseLanguage;
+}): string {
+  if (args.malformedClaimCount > 0) {
+    return buildActionCompletionInvalidPayloadMessage(args.language);
+  }
+
+  const claimedOutcome = normalizeExecutionString(args.claims[0]?.outcome);
+  if (claimedOutcome) {
+    const matchedContract = args.contractConfig.outcomes.find(
+      (contract) => normalizeExecutionString(contract.outcome) === claimedOutcome
+    );
+    if (matchedContract) {
+      return matchedContract.notObservedMessage;
+    }
+  }
+
+  if (args.contractConfig.mode !== "off" && args.contractConfig.outcomes.length > 0) {
+    if (args.language === "de") {
+      return "Ich kann den Abschluss in diesem Schritt nicht bestaetigen, weil keine verifizierbare Tool-Ausfuehrung beobachtet wurde. Ich bestaetige keinen Abschluss ohne echte Tool-Ausfuehrungsnachweise.";
+    }
+    return "I can’t confirm completion in this turn because no verifiable tool execution was observed. I won’t claim completion without real tool execution evidence.";
+  }
+
+  if (args.language === "de") {
+    return "Ich kann in diesem Schritt keine sichtbare Antwort nach den Runtime-Contract-Pruefungen bereitstellen. Bitte wiederholen Sie Ihre Anfrage.";
+  }
+  return "I’m unable to provide a visible response for this turn after runtime contract checks. Please retry your request.";
+}
+
+function buildLegacySamanthaActionCompletionContract(args: {
+  language: ActionCompletionResponseLanguage;
+}): ActionCompletionRuntimeContractConfig {
+  return {
+    contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+    mode: "enforce",
+    source: "legacy_samantha_fallback",
+    outcomes: [
+      {
+        outcome: AUDIT_DELIVERABLE_OUTCOME_KEY,
+        requiredTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+        unavailableMessage: buildSamanthaAuditDeliverableActionCompletionMessage({
+          kind: "unavailable",
+          language: args.language,
+        }),
+        notObservedMessage: buildSamanthaAuditDeliverableActionCompletionMessage({
+          kind: "not_observed",
+          language: args.language,
+        }),
+      },
+    ],
+  };
+}
+
+function resolveActionCompletionContractsForRuntime(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  preferredLanguage?: string | ActionCompletionResponseLanguage | null;
+}): ActionCompletionRuntimeContractConfig {
+  const responseLanguage = resolveActionCompletionResponseLanguage({
+    authorityConfig: args.authorityConfig,
+    preferredLanguage: args.preferredLanguage,
+  });
+  const fallbackContract: ActionCompletionRuntimeContractConfig = {
+    contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+    mode: "off",
+    source: "none",
+    outcomes: [],
+  };
+  if (!args.authorityConfig || typeof args.authorityConfig !== "object") {
+    return fallbackContract;
+  }
+
+  const metadata = (args.authorityConfig as Record<string, unknown>).actionCompletionContract;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const record = metadata as Record<string, unknown>;
+    if (record.contractVersion === ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION) {
+      const mode = normalizeActionCompletionEnforcementMode(record.mode) ?? "observe";
+      const rawOutcomes = Array.isArray(record.outcomes) ? record.outcomes : [];
+      const outcomes = rawOutcomes
+        .map((rawOutcome) => {
+          if (!rawOutcome || typeof rawOutcome !== "object" || Array.isArray(rawOutcome)) {
+            return null;
+          }
+          const outcomeRecord = rawOutcome as Record<string, unknown>;
+          const outcome = normalizeExecutionString(outcomeRecord.outcome);
+          const requiredTools = normalizeDeterministicExecutionToolNames(
+            normalizeExecutionStringList(outcomeRecord.requiredTools)
+          );
+          if (!outcome || requiredTools.length === 0) {
+            return null;
+          }
+          const isSamanthaAuditDeliverableOutcome =
+            isSamanthaAuditDeliverableActionCompletionOutcome({
+              outcome,
+              requiredTools,
+            });
+          return {
+            outcome,
+            requiredTools,
+            unavailableMessage:
+              isSamanthaAuditDeliverableOutcome
+                ? buildSamanthaAuditDeliverableActionCompletionMessage({
+                    kind: "unavailable",
+                    language: responseLanguage,
+                  })
+                : (
+              normalizeExecutionString(outcomeRecord.unavailableMessage)
+              ?? buildActionCompletionMissingToolUnavailableMessage({
+                outcome,
+                requiredTools,
+                language: responseLanguage,
+              })
+                ),
+            notObservedMessage:
+              isSamanthaAuditDeliverableOutcome
+                ? buildSamanthaAuditDeliverableActionCompletionMessage({
+                    kind: "not_observed",
+                    language: responseLanguage,
+                  })
+                : (
+              normalizeExecutionString(outcomeRecord.notObservedMessage)
+              ?? buildActionCompletionMissingToolObservedMessage({
+                outcome,
+                requiredTools,
+                language: responseLanguage,
+              })
+                ),
+          } satisfies ActionCompletionRuntimeContract;
+        })
+        .filter(
+          (outcome): outcome is ActionCompletionRuntimeContract => Boolean(outcome)
+        );
+
+      return {
+        contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+        mode: outcomes.length > 0 ? mode : "off",
+        source: "template_metadata",
+        outcomes,
+      };
+    }
+  }
+
+  // Migration safety: keep Samantha fail-closed until all runtime records are reseeded.
+  if (isSamanthaLeadCaptureRuntime(args.authorityConfig)) {
+    return buildLegacySamanthaActionCompletionContract({
+      language: responseLanguage,
+    });
+  }
+  return fallbackContract;
+}
+
+export function buildActionCompletionRuntimeContext(
+  contractConfig: ActionCompletionRuntimeContractConfig
+): string | null {
+  if (
+    contractConfig.mode === "off"
+    || !Array.isArray(contractConfig.outcomes)
+    || contractConfig.outcomes.length === 0
+  ) {
+    return null;
+  }
+
+  const lines = [
+    "Action-completion contracts are active for this runtime.",
+    `Enforcement mode: ${contractConfig.mode}.`,
+    "When claiming progress/completion for a contract-bound outcome, append exactly one fenced JSON block labeled action_completion_claim.",
+    "Allowed status values: in_progress, completed.",
+    "Never claim a bound outcome without matching tool execution in the same turn.",
+    "Block format:",
+    "```action_completion_claim",
+    JSON.stringify({
+      contractVersion: ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+      outcome: contractConfig.outcomes[0]?.outcome ?? "outcome_key",
+      status: "in_progress",
+    }),
+    "```",
+    "Active outcomes:",
+  ];
+
+  for (const contract of contractConfig.outcomes) {
+    const requiredTools = normalizeDeterministicExecutionToolNames(
+      contract.requiredTools
+    );
+    lines.push(`- ${contract.outcome} (requiredTools: ${requiredTools.join(", ")})`);
+  }
+
+  return [
+    "--- ACTION COMPLETION CONTRACTS ---",
+    lines.join("\n"),
+    "--- END ACTION COMPLETION CONTRACTS ---",
+  ].join("\n");
+}
+
+function parseActionCompletionClaim(
+  rawClaimPayload: string
+): ParsedActionCompletionClaim | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawClaimPayload);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const record = parsed as Record<string, unknown>;
+  if (record.contractVersion !== ACTION_COMPLETION_CLAIM_CONTRACT_VERSION) {
+    return null;
+  }
+  if (
+    typeof record.outcome !== "string"
+    || (record.status !== "in_progress" && record.status !== "completed")
+  ) {
+    return null;
+  }
+  const outcome = record.outcome.trim();
+  if (!outcome) {
+    return null;
+  }
+  return {
+    contractVersion: ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+    outcome,
+    status: record.status,
+  };
+}
+
+export function extractActionCompletionClaimsFromAssistantContent(content: string): {
+  sanitizedContent: string;
+  claims: ParsedActionCompletionClaim[];
+  malformedClaimCount: number;
+} {
+  const claimBlockPattern = new RegExp(
+    "```" + ACTION_COMPLETION_CLAIM_BLOCK_LABEL + "\\s*([\\s\\S]*?)```",
+    "gi"
+  );
+  const claims: ParsedActionCompletionClaim[] = [];
+  let malformedClaimCount = 0;
+  const sanitizedContent = content
+    .replace(claimBlockPattern, (_block, payload: string) => {
+      const claim = parseActionCompletionClaim(payload.trim());
+      if (claim) {
+        claims.push(claim);
+      } else {
+        malformedClaimCount += 1;
+      }
+      return "";
+    })
+    .trim();
+  return {
+    sanitizedContent,
+    claims,
+    malformedClaimCount,
+  };
+}
+
+function resolveActionCompletionOutputRef(result: unknown): string | undefined {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return undefined;
+  }
+  const record = result as Record<string, unknown>;
+  const directOutputRef = normalizeExecutionString(record.outputRef);
+  if (directOutputRef) {
+    return directOutputRef;
+  }
+  const directId = normalizeExecutionString(record.id);
+  if (directId) {
+    return directId;
+  }
+  return undefined;
+}
+
+export function buildActionCompletionEvidenceContract(args: {
+  outcomeKey: string;
+  requiredTools: string[];
+  requiredFields?: string[];
+  toolResults: AgentToolResult[];
+  turnId?: string;
+}): ActionCompletionEvidenceContract {
+  const outcomeKey = normalizeExecutionString(args.outcomeKey) ?? "unknown_outcome";
+  const requiredTools = normalizeDeterministicExecutionToolNames(args.requiredTools);
+  const requiredFieldSet = new Set<string>();
+  for (const field of args.requiredFields ?? []) {
+    const normalized = normalizeExecutionString(field);
+    if (normalized) {
+      requiredFieldSet.add(normalized);
+    }
+  }
+  const requiredFields = Array.from(requiredFieldSet).sort((a, b) => a.localeCompare(b));
+
+  const observedToolCalls = args.toolResults
+    .map((toolResult, index) => ({
+      toolName: toolResult.tool,
+      callId: `tool_call_${index + 1}`,
+      turnId: normalizeExecutionString(args.turnId) ?? undefined,
+      status: toolResult.status,
+      outputRef: resolveActionCompletionOutputRef(toolResult.result),
+    }))
+    .sort((left, right) => {
+      const toolCompare = left.toolName.localeCompare(right.toolName);
+      if (toolCompare !== 0) {
+        return toolCompare;
+      }
+      return left.callId.localeCompare(right.callId);
+    });
+
+  return {
+    contractVersion: ACTION_COMPLETION_EVIDENCE_CONTRACT_VERSION,
+    outcomeKey,
+    requiredTools,
+    requiredFields,
+    observedToolCalls,
+    preconditionCheck: {
+      passed: true,
+      missingFields: [],
+    },
+    decision: {
+      status: "pass",
+      failureCode: null,
+    },
+  };
+}
+
+export function verifyActionCompletionEvidenceContract(args: {
+  evidence: ActionCompletionEvidenceContract;
+  availableToolNames: string[];
+}): {
+  passed: boolean;
+  failureCode?: ActionCompletionEnforcementReasonCode;
+  failureDetail?: string;
+} {
+  const requiredTools = normalizeDeterministicExecutionToolNames(args.evidence.requiredTools);
+  const availableTools = new Set(
+    normalizeDeterministicExecutionToolNames(args.availableToolNames)
+  );
+  const missingAvailable = requiredTools.filter((toolName) => !availableTools.has(toolName));
+  if (missingAvailable.length > 0) {
+    return {
+      passed: false,
+      failureCode: "claim_tool_unavailable",
+      failureDetail: `Required tools unavailable: ${missingAvailable.join(", ")}`,
+    };
+  }
+
+  const successfulObservedTools = new Set(
+    collectSuccessfulToolNames(
+      args.evidence.observedToolCalls.map((call) => ({
+        tool: call.toolName,
+        status: call.status,
+      }))
+    )
+  );
+  const missingObserved = requiredTools.filter((toolName) =>
+    !successfulObservedTools.has(toolName)
+  );
+  if (missingObserved.length > 0) {
+    return {
+      passed: false,
+      failureCode: "claim_tool_not_observed",
+      failureDetail: `Required tools not observed with success status: ${missingObserved.join(", ")}`,
+    };
+  }
+
+  return { passed: true };
+}
+
+export function resolveActionCompletionContractEnforcement(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  runtimeContractConfig?: ActionCompletionRuntimeContractConfig;
+  claims: ParsedActionCompletionClaim[];
+  malformedClaimCount: number;
+  toolResults: AgentToolResult[];
+  availableToolNames: string[];
+  preferredLanguage?: string | ActionCompletionResponseLanguage | null;
+  turnId?: string;
+}): ActionCompletionContractEnforcementDecision {
+  const responseLanguage = resolveActionCompletionResponseLanguage({
+    authorityConfig: args.authorityConfig,
+    preferredLanguage: args.preferredLanguage,
+  });
+  const runtimeContractConfig =
+    args.runtimeContractConfig
+    ?? resolveActionCompletionContractsForRuntime({
+      authorityConfig: args.authorityConfig,
+      preferredLanguage: responseLanguage,
+    });
+  const contracts = runtimeContractConfig.outcomes;
+  if (contracts.length === 0 || runtimeContractConfig.mode === "off") {
+    return {
+      enforced: false,
+      payload: {
+        contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+        status: "pass",
+        enforcementMode: runtimeContractConfig.mode,
+        observedViolation: false,
+        requiredTools: [],
+        observedTools: normalizeDeterministicExecutionToolNames(
+          args.toolResults.map((result) => result.tool)
+        ),
+        availableTools: normalizeDeterministicExecutionToolNames(
+          args.availableToolNames
+        ),
+        malformedClaimCount: args.malformedClaimCount,
+      },
+    };
+  }
+
+  const observedTools = normalizeDeterministicExecutionToolNames(
+    args.toolResults.map((result) => result.tool)
+  );
+  const availableTools = normalizeDeterministicExecutionToolNames(
+    args.availableToolNames
+  );
+  const contractByOutcome = new Map(contracts.map((contract) => [contract.outcome, contract]));
+  const normalizedClaims = args.claims
+    .map((claim) => ({
+      ...claim,
+      outcome: normalizeExecutionString(claim.outcome) ?? "",
+    }))
+    .filter((claim) => claim.outcome.length > 0);
+
+  const firstClaim = normalizedClaims[0];
+  const claimedContract = firstClaim ? contractByOutcome.get(firstClaim.outcome) : undefined;
+
+  let reasonCode: ActionCompletionEnforcementReasonCode | undefined;
+  let enforcementMessage: string | undefined;
+  let outcome: string | undefined;
+  let claimStatus: ActionCompletionClaimStatus | undefined;
+  let requiredTools: string[] = [];
+  let evidence: ActionCompletionEvidenceContract | undefined;
+
+  if (args.malformedClaimCount > 0) {
+    requiredTools = claimedContract
+      ? normalizeDeterministicExecutionToolNames(claimedContract.requiredTools)
+      : [];
+    reasonCode = "claim_payload_invalid";
+    enforcementMessage = buildActionCompletionInvalidPayloadMessage(responseLanguage);
+    outcome = firstClaim?.outcome;
+    claimStatus = firstClaim?.status;
+  }
+
+  if (!reasonCode && !claimedContract) {
+    return {
+      enforced: false,
+      payload: {
+        contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+        status: "pass",
+        enforcementMode: runtimeContractConfig.mode,
+        observedViolation: false,
+        requiredTools: [],
+        observedTools,
+        availableTools,
+        malformedClaimCount: 0,
+      },
+    };
+  }
+
+  if (!reasonCode && claimedContract) {
+    requiredTools = normalizeDeterministicExecutionToolNames(
+      claimedContract.requiredTools
+    );
+    outcome = claimedContract.outcome;
+    claimStatus = firstClaim?.status;
+    evidence = buildActionCompletionEvidenceContract({
+      outcomeKey: claimedContract.outcome,
+      requiredTools,
+      toolResults: args.toolResults,
+      turnId: args.turnId,
+    });
+    const evidenceVerification = verifyActionCompletionEvidenceContract({
+      evidence,
+      availableToolNames: args.availableToolNames,
+    });
+    if (!evidenceVerification.passed && evidenceVerification.failureCode) {
+      reasonCode = evidenceVerification.failureCode;
+      enforcementMessage =
+        evidenceVerification.failureCode === "claim_tool_unavailable"
+          ? claimedContract.unavailableMessage
+          : claimedContract.notObservedMessage;
+      evidence = {
+        ...evidence,
+        decision: {
+          status: "fail",
+          failureCode: evidenceVerification.failureCode,
+          failureDetail: evidenceVerification.failureDetail,
+        },
+      };
+    } else if (evidence) {
+      evidence = {
+        ...evidence,
+        decision: {
+          status: "pass",
+          failureCode: null,
+        },
+      };
+    }
+  }
+
+  if (reasonCode) {
+    const shouldEnforce = runtimeContractConfig.mode === "enforce";
+    return {
+      enforced: shouldEnforce,
+      assistantContent: shouldEnforce ? enforcementMessage : undefined,
+      payload: {
+        contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+        status: shouldEnforce ? "enforced" : "pass",
+        enforcementMode: runtimeContractConfig.mode,
+        observedViolation: true,
+        reasonCode,
+        outcome,
+        claimStatus,
+        requiredTools,
+        observedTools,
+        availableTools,
+        malformedClaimCount: args.malformedClaimCount,
+        evidence,
+      },
+    };
+  }
+
+  return {
+    enforced: false,
+    payload: {
+      contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+      status: "pass",
+      enforcementMode: runtimeContractConfig.mode,
+      observedViolation: false,
+      outcome,
+      claimStatus,
+      requiredTools,
+      observedTools,
+      availableTools,
+      malformedClaimCount: 0,
+      evidence,
+    },
+  };
+}
+
+const SAMANTHA_FOUNDER_CONTACT_LABEL_HINTS = [
+  "foundercontact",
+  "foundercontactpreference",
+  "foundercontactrequested",
+  "contactfounder",
+  "founderkontakt",
+  "gruenderkontakt",
+  "grunderkontakt",
+  "fondateur",
+] as const;
+const SAMANTHA_BOOLEAN_TRUE_TOKENS = new Set([
+  "yes",
+  "y",
+  "ja",
+  "oui",
+  "si",
+  "true",
+  "1",
+  "ok",
+  "okay",
+  "requested",
+  "gewuenscht",
+  "gewunscht",
+]);
+const SAMANTHA_BOOLEAN_FALSE_TOKENS = new Set([
+  "no",
+  "n",
+  "nein",
+  "non",
+  "false",
+  "0",
+  "not",
+  "kein",
+  "keine",
+  "keinen",
+]);
+const SAMANTHA_PHONE_DIRECT_INPUT_PATTERN = /^[+()\d.\-\s]{8,28}$/;
+const SAMANTHA_PHONE_CONTEXT_HINT_PATTERN =
+  /\b(?:phone|phone number|contact number|my number|number|mobile|telephone|tel|call|text|sms|whatsapp|telefon|telefonnummer|handy|nummer)\b/i;
+const SAMANTHA_PHONE_EMBEDDED_PATTERN = /(?:\+?\d[\d().\-\s]{6,24}\d)/g;
+
+function normalizeSamanthaToken(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .toLowerCase();
+}
+
+function normalizeSamanthaPhoneCandidate(
+  value: string,
+  minDigits = 8,
+): string | undefined {
+  const normalized = normalizeExecutionString(value);
+  if (!normalized) {
+    return undefined;
+  }
+  const hasLeadingPlus = normalized.startsWith("+");
+  const digits = normalized.replace(/[^\d]/g, "");
+  if (digits.length < minDigits || digits.length > 15) {
+    return undefined;
+  }
+  return `${hasLeadingPlus ? "+" : ""}${digits}`;
+}
+
+function extractSamanthaStructuredRows(message: string): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const linePattern = /^\s*([^:\n]{1,80})\s*:\s*(.+?)\s*$/gm;
+  linePattern.lastIndex = 0;
+  let matched: RegExpExecArray | null = null;
+  while ((matched = linePattern.exec(message)) !== null) {
+    const label = normalizeExecutionString(matched[1]);
+    const rawValue = normalizeExecutionString(matched[2]);
+    if (!label || !rawValue) {
+      continue;
+    }
+    const value = rawValue.replace(/^['"]/, "").replace(/['"]$/, "").trim();
+    if (!value) {
+      continue;
+    }
+    rows.push({ label, value });
+  }
+  return rows;
+}
+
+function resolveFirstSessionContactMemoryValue(
+  records: SessionContactMemoryRecord[] | undefined,
+  field: SessionContactMemoryRecord["field"],
+): string | undefined {
+  for (const record of records || []) {
+    if (record.field !== field || record.status !== "active") {
+      continue;
+    }
+    const normalized = normalizeExecutionString(record.value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+}
+
+function normalizeSamanthaNamePart(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.replace(/\s+/g, " ").trim().replace(/^['"]|['"]$/g, "");
+  if (!/^\p{L}[\p{L}'-]{0,79}$/u.test(normalized)) {
+    return undefined;
+  }
+  return normalized;
+}
+
+const SAMANTHA_FOUNDER_CONTACT_CONFIDENCE_THRESHOLD = 0.8;
+
+function splitSamanthaPreferredName(value: unknown): {
+  firstName?: string;
+  lastName?: string;
+  mononym?: string;
+  inputTokenCount: number;
+} {
+  if (typeof value !== "string") {
+    return { inputTokenCount: 0 };
+  }
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return { inputTokenCount: 0 };
+  }
+  const rawTokens = normalized.split(" ");
+  const tokens = rawTokens.map((token) => normalizeSamanthaNamePart(token));
+  const validTokens = tokens.filter((token): token is string => Boolean(token));
+  if (validTokens.length === 1) {
+    return {
+      mononym: validTokens[0],
+      inputTokenCount: rawTokens.length,
+    };
+  }
+  if (validTokens.length < 2) {
+    return { inputTokenCount: rawTokens.length };
+  }
+  return {
+    firstName: validTokens[0],
+    lastName: validTokens.slice(1).join(" "),
+    inputTokenCount: rawTokens.length,
+  };
+}
+
+function normalizeSamanthaLabelToken(value: string): string {
+  return normalizeSamanthaToken(value).replace(/[^a-z0-9]/g, "");
+}
+
+interface SamanthaResolvedNameParts {
+  firstName?: string;
+  lastName?: string;
+  ambiguousName: boolean;
+}
+
+function resolveSamanthaNameParts(args: { resolvedName?: string }): SamanthaResolvedNameParts {
+  const splitName = splitSamanthaPreferredName(args.resolvedName);
+  if (splitName.firstName && splitName.lastName) {
+    return {
+      firstName: splitName.firstName,
+      lastName: splitName.lastName,
+      ambiguousName: false,
+    };
+  }
+  if (splitName.mononym) {
+    if (splitName.inputTokenCount === 1) {
+      return {
+        firstName: splitName.mononym,
+        lastName: splitName.mononym,
+        ambiguousName: false,
+      };
+    }
+    return {
+      ambiguousName: true,
+    };
+  }
+  if (typeof args.resolvedName === "string" && args.resolvedName.trim().length > 0) {
+    return {
+      ambiguousName: true,
+    };
+  }
+  return {
+    ambiguousName: false,
+  };
+}
+
+function parseSamanthaBooleanToken(value: string): {
+  parsed?: boolean;
+  ambiguous: boolean;
+} {
+  const normalized = normalizeSamanthaToken(value)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return { ambiguous: false };
+  }
+  const tokens = normalized.split(" ");
+  let seenTrue = false;
+  let seenFalse = false;
+  for (const token of tokens) {
+    if (SAMANTHA_BOOLEAN_TRUE_TOKENS.has(token)) {
+      seenTrue = true;
+    }
+    if (SAMANTHA_BOOLEAN_FALSE_TOKENS.has(token)) {
+      seenFalse = true;
+    }
+  }
+  if (seenTrue && seenFalse) {
+    return { ambiguous: true };
+  }
+  if (seenTrue && !seenFalse) {
+    return { parsed: true, ambiguous: false };
+  }
+  if (seenFalse && !seenTrue) {
+    return { parsed: false, ambiguous: false };
+  }
+  return { ambiguous: false };
+}
+
+function isFounderContactLabel(label: string): boolean {
+  const normalized = normalizeSamanthaLabelToken(label);
+  if (!normalized) {
+    return false;
+  }
+  if (SAMANTHA_FOUNDER_CONTACT_LABEL_HINTS.some((hint) => normalized.includes(hint))) {
+    return true;
+  }
+  return normalized.includes("founder")
+    && (normalized.includes("contact") || normalized.includes("kontakt"));
+}
+
+interface SamanthaFounderContactResolution {
+  founderContactRequested?: boolean;
+  ambiguous: boolean;
+  confidence: number;
+}
+
+function extractFounderContactInlineSegments(message: string): string[] {
+  return message
+    .split(/[\n\r.!?;]+/g)
+    .map((segment) => normalizeExecutionString(segment))
+    .filter((segment): segment is string => Boolean(segment))
+    .filter((segment) => isFounderContactLabel(segment));
+}
+
+function resolveFounderContactPreference(messages: string[]): SamanthaFounderContactResolution {
+  let resolved: boolean | undefined;
+  let confidence = 0;
+  let sawConflictingSignals = false;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    const structuredRows = extractSamanthaStructuredRows(message);
+    let sawFounderContactStructuredRow = false;
+    for (let rowIndex = structuredRows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+      const row = structuredRows[rowIndex];
+      if (!isFounderContactLabel(row.label)) {
+        continue;
+      }
+      sawFounderContactStructuredRow = true;
+      const parsed = parseSamanthaBooleanToken(row.value);
+      if (parsed.ambiguous) {
+        sawConflictingSignals = true;
+      } else if (typeof parsed.parsed === "boolean") {
+        if (typeof resolved === "boolean" && resolved !== parsed.parsed) {
+          sawConflictingSignals = true;
+        }
+        resolved = parsed.parsed;
+        confidence = Math.max(confidence, 1);
+      }
+    }
+
+    // Prefer structured founder-contact rows when present; full-message parsing can
+    // falsely absorb unrelated yes/no tokens from other fields in the same payload.
+    if (sawFounderContactStructuredRow) {
+      continue;
+    }
+
+    const inlineSegments = extractFounderContactInlineSegments(message);
+    for (const segment of inlineSegments) {
+      const parsedInline = parseSamanthaBooleanToken(segment);
+      if (parsedInline.ambiguous) {
+        sawConflictingSignals = true;
+      } else if (typeof parsedInline.parsed === "boolean") {
+        if (typeof resolved === "boolean" && resolved !== parsedInline.parsed) {
+          sawConflictingSignals = true;
+        }
+        resolved = parsedInline.parsed;
+        confidence = Math.max(confidence, 0.85);
+      }
+    }
+  }
+
+  if (sawConflictingSignals) {
+    return {
+      founderContactRequested: undefined,
+      ambiguous: true,
+      confidence,
+    };
+  }
+  if (typeof resolved === "boolean" && confidence >= SAMANTHA_FOUNDER_CONTACT_CONFIDENCE_THRESHOLD) {
+    return {
+      founderContactRequested: resolved,
+      ambiguous: false,
+      confidence,
+    };
+  }
+  return {
+    founderContactRequested: undefined,
+    ambiguous: false,
+    confidence,
+  };
+}
+
+interface SamanthaAuditResolvedLeadData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  founderContactRequested?: boolean;
+  workflowRecommendation?: string;
+  ambiguousName: boolean;
+  ambiguousFounderContact: boolean;
+  missingRequiredFields: SamanthaAuditRequiredField[];
+}
+
+function resolveFallbackSamanthaEmail(messages: string[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const email = extractFirstEmailAddress(messages[index]);
+    if (email) {
+      return email;
+    }
+  }
+  return undefined;
+}
+
+function resolveFallbackSamanthaPhone(messages: string[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = normalizeExecutionString(messages[index]);
+    if (!message) {
+      continue;
+    }
+
+    if (SAMANTHA_PHONE_DIRECT_INPUT_PATTERN.test(message)) {
+      const direct = normalizeSamanthaPhoneCandidate(message, 10);
+      if (direct) {
+        return direct;
+      }
+    }
+
+    if (!SAMANTHA_PHONE_CONTEXT_HINT_PATTERN.test(message)) {
+      continue;
+    }
+
+    const embeddedMatches = message.match(SAMANTHA_PHONE_EMBEDDED_PATTERN);
+    if (!embeddedMatches || embeddedMatches.length === 0) {
+      continue;
+    }
+    for (let matchIndex = embeddedMatches.length - 1; matchIndex >= 0; matchIndex -= 1) {
+      const phone = normalizeSamanthaPhoneCandidate(embeddedMatches[matchIndex], 8);
+      if (phone) {
+        return phone;
+      }
+    }
+  }
+  return undefined;
+}
+
+function resolveSamanthaAuditLeadData(args: {
+  inboundMessage: string;
+  recentUserMessages: string[];
+  capturedEmail?: string | null;
+  capturedName?: string | null;
+  contactMemory?: SessionContactMemoryRecord[];
+  auditSessionWorkflowRecommendation?: string | null;
+}): SamanthaAuditResolvedLeadData {
+  const candidateMessages = [...args.recentUserMessages, args.inboundMessage]
+    .map((message) => message.trim())
+    .filter((message) => message.length > 0);
+  const extractedByField = new Map<"preferred_name" | "email" | "phone", string>();
+  for (let index = candidateMessages.length - 1; index >= 0; index -= 1) {
+    const message = candidateMessages[index];
+    const messageCandidates = extractSessionContactMemoryCandidates({
+      userMessage: message,
+    });
+    for (const candidate of messageCandidates) {
+      if (
+        candidate.field !== "preferred_name"
+        && candidate.field !== "email"
+        && candidate.field !== "phone"
+      ) {
+        continue;
+      }
+      const normalized = normalizeExecutionString(candidate.value);
+      if (!normalized || extractedByField.has(candidate.field)) {
+        continue;
+      }
+      extractedByField.set(candidate.field, normalized);
+    }
+  }
+  const combinedExtraction = extractSessionContactMemoryCandidates({
+    userMessage: candidateMessages.join("\n"),
+  });
+  for (const candidate of combinedExtraction) {
+    if (
+      candidate.field !== "preferred_name"
+      && candidate.field !== "email"
+      && candidate.field !== "phone"
+    ) {
+      continue;
+    }
+    if (extractedByField.has(candidate.field)) {
+      continue;
+    }
+    const normalized = normalizeExecutionString(candidate.value);
+    if (normalized) {
+      extractedByField.set(candidate.field, normalized);
+    }
+  }
+  const resolvedName =
+    extractedByField.get("preferred_name")
+    || resolveFirstSessionContactMemoryValue(args.contactMemory, "preferred_name")
+    || normalizeExecutionString(args.capturedName)
+    || undefined;
+  const resolvedNameParts = resolveSamanthaNameParts({ resolvedName });
+  const fallbackEmail = resolveFallbackSamanthaEmail(candidateMessages);
+  const fallbackPhone = resolveFallbackSamanthaPhone(candidateMessages);
+  const email =
+    extractedByField.get("email")
+    || fallbackEmail
+    || resolveFirstSessionContactMemoryValue(args.contactMemory, "email")
+    || extractFirstEmailAddress(args.capturedEmail)
+    || undefined;
+  const phone =
+    extractedByField.get("phone")
+    || fallbackPhone
+    || resolveFirstSessionContactMemoryValue(args.contactMemory, "phone")
+    || undefined;
+  const founderContactResolution = resolveFounderContactPreference(candidateMessages);
+  const founderContactRequested = founderContactResolution.founderContactRequested;
+
+  const missing: SamanthaAuditRequiredField[] = [];
+  if (!resolvedNameParts.firstName) {
+    missing.push("first_name");
+  }
+  if (!resolvedNameParts.lastName) {
+    missing.push("last_name");
+  }
+  if (!email) {
+    missing.push("email");
+  }
+  if (!phone) {
+    missing.push("phone");
+  }
+  if (typeof founderContactRequested !== "boolean") {
+    missing.push("founder_contact_preference");
+  }
+
+  return {
+    firstName: resolvedNameParts.firstName,
+    lastName: resolvedNameParts.lastName,
+    email,
+    phone,
+    founderContactRequested,
+    workflowRecommendation:
+      normalizeExecutionString(args.auditSessionWorkflowRecommendation) || undefined,
+    ambiguousName: resolvedNameParts.ambiguousName,
+    ambiguousFounderContact: founderContactResolution.ambiguous,
+    missingRequiredFields: Array.from(new Set(missing)).sort((left, right) =>
+      left.localeCompare(right)
+    ),
+  };
+}
+
+function resolveSamanthaAuditMissingRequiredFields(args: {
+  inboundMessage: string;
+  recentUserMessages: string[];
+  capturedEmail?: string | null;
+  capturedName?: string | null;
+  contactMemory?: SessionContactMemoryRecord[];
+  auditSessionWorkflowRecommendation?: string | null;
+}): SamanthaAuditRequiredField[] {
+  return resolveSamanthaAuditLeadData(args).missingRequiredFields;
+}
+
+export interface SamanthaAuditAutoDispatchToolArgs {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  founderContactRequested: boolean;
+  sales_call?: boolean;
+  clientName?: string;
+  workflowRecommendation?: string;
+  outputFormats?: ("pdf" | "docx")[];
+  ingressChannel?: string;
+  originSurface?: string;
+  sourceSessionToken?: string;
+  sourceAuditChannel?: SamanthaAuditRoutingAuditChannel;
+}
+
+export interface SamanthaAuditAutoDispatchPlan {
+  eligible: boolean;
+  requestDetected: boolean;
+  toolAvailable: boolean;
+  alreadyAttempted: boolean;
+  preexistingInvocationStatus: SamanthaAutoDispatchInvocationStatus;
+  retryEligibleAfterFailure: boolean;
+  ambiguousName: boolean;
+  ambiguousFounderContact: boolean;
+  missingRequiredFields: SamanthaAuditRequiredField[];
+  skipReasonCodes: SamanthaAutoDispatchSkipReasonCode[];
+  shouldDispatch: boolean;
+  toolArgs?: SamanthaAuditAutoDispatchToolArgs;
+}
+
+export type SamanthaAutoDispatchSkipReasonCode =
+  | "not_samantha_runtime"
+  | "request_not_detected"
+  | "tool_unavailable_in_scope"
+  | "tool_already_attempted"
+  | "ambiguous_name"
+  | "ambiguous_founder_contact"
+  | "missing_required_fields";
+
+export type SamanthaAuditDispatchDecision =
+  | "auto_dispatch_executed_pdf"
+  | "auto_dispatch_executed_docx"
+  | "blocked_ambiguous_name"
+  | "blocked_ambiguous_founder_contact"
+  | "blocked_missing_required_fields"
+  | "blocked_missing_audit_session_context"
+  | "blocked_audit_session_not_found"
+  | "blocked_tool_unavailable"
+  | "blocked_tool_not_observed";
+
+function resolveRequestedDeliverableFormats(messages: string[]): ("pdf" | "docx")[] | undefined {
+  const joined = messages.join("\n");
+  if (!joined.trim()) {
+    return undefined;
+  }
+  const normalized = normalizeSamanthaToken(joined);
+  const docxRequested = /\bdocx\b/i.test(normalized);
+  if (docxRequested) {
+    return ["pdf", "docx"];
+  }
+  if (/\bpdf\b/i.test(normalized)) {
+    return ["pdf"];
+  }
+  return undefined;
+}
+
+export function resolveSamanthaAuditAutoDispatchPlan(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  inboundMessage: string;
+  availableToolNames: string[];
+  toolResults: AgentToolResult[];
+  requestedToolNames?: string[];
+  recentUserMessages?: string[];
+  capturedEmail?: string | null;
+  capturedName?: string | null;
+  contactMemory?: SessionContactMemoryRecord[];
+  auditSessionWorkflowRecommendation?: string | null;
+}): SamanthaAuditAutoDispatchPlan {
+  const eligible = isSamanthaLeadCaptureRuntime(args.authorityConfig);
+  const requestedToolNames = normalizeDeterministicExecutionToolNames(
+    args.requestedToolNames ?? []
+  );
+  const toolAvailable = args.availableToolNames.some(
+    (toolName) => normalizeExecutionString(toolName) === AUDIT_DELIVERABLE_TOOL_NAME
+  );
+  const preexistingDispatchToolResults = args.toolResults.filter(
+    (result) => normalizeExecutionString(result.tool) === AUDIT_DELIVERABLE_TOOL_NAME
+  );
+  const requestDetected =
+    isLikelyAuditDeliverableInvocationRequest(args.inboundMessage)
+    || requestedToolNames.includes(AUDIT_DELIVERABLE_TOOL_NAME)
+    || preexistingDispatchToolResults.length > 0;
+  const alreadyAttempted = preexistingDispatchToolResults.length > 0;
+  const preexistingInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+    attempted: alreadyAttempted,
+    toolResults: preexistingDispatchToolResults,
+  });
+  const leadData = resolveSamanthaAuditLeadData({
+    inboundMessage: args.inboundMessage,
+    recentUserMessages: args.recentUserMessages ?? [],
+    capturedEmail: args.capturedEmail,
+    capturedName: args.capturedName,
+    contactMemory: args.contactMemory,
+    auditSessionWorkflowRecommendation: args.auditSessionWorkflowRecommendation,
+  });
+  const retryEligibleAfterFailure =
+    alreadyAttempted
+    && (preexistingInvocationStatus === "attempted_without_result"
+      || preexistingInvocationStatus === "executed_error")
+    && leadData.missingRequiredFields.length === 0
+    && !leadData.ambiguousName
+    && !leadData.ambiguousFounderContact;
+  const shouldTreatAsAlreadyAttempted = alreadyAttempted && !retryEligibleAfterFailure;
+  const canAutoDispatchWithLeadData =
+    eligible
+    && toolAvailable
+    && !shouldTreatAsAlreadyAttempted
+    && !leadData.ambiguousName
+    && !leadData.ambiguousFounderContact
+    && leadData.missingRequiredFields.length === 0;
+  const requestedFormats = resolveRequestedDeliverableFormats([
+    ...(args.recentUserMessages ?? []),
+    args.inboundMessage,
+  ]);
+
+  const toolArgs = canAutoDispatchWithLeadData
+    && leadData.email
+    && leadData.firstName
+    && leadData.lastName
+    && leadData.phone
+    && typeof leadData.founderContactRequested === "boolean"
+      ? {
+          email: leadData.email,
+          firstName: leadData.firstName,
+          lastName: leadData.lastName,
+          phone: leadData.phone,
+          founderContactRequested: leadData.founderContactRequested,
+          sales_call: leadData.founderContactRequested,
+          clientName: `${leadData.firstName} ${leadData.lastName}`.trim(),
+          workflowRecommendation: leadData.workflowRecommendation,
+          outputFormats: requestedFormats,
+        }
+      : undefined;
+  const shouldDispatch = requestDetected && Boolean(toolArgs);
+  const skipReasonCodes: SamanthaAutoDispatchSkipReasonCode[] = [];
+  if (!eligible) {
+    skipReasonCodes.push("not_samantha_runtime");
+  }
+  if (!requestDetected) {
+    skipReasonCodes.push("request_not_detected");
+  }
+  if (!toolAvailable) {
+    skipReasonCodes.push("tool_unavailable_in_scope");
+  }
+  if (shouldTreatAsAlreadyAttempted) {
+    skipReasonCodes.push("tool_already_attempted");
+  }
+  if (leadData.ambiguousName) {
+    skipReasonCodes.push("ambiguous_name");
+  }
+  if (leadData.ambiguousFounderContact) {
+    skipReasonCodes.push("ambiguous_founder_contact");
+  }
+  if (leadData.missingRequiredFields.length > 0) {
+    skipReasonCodes.push("missing_required_fields");
+  }
+
+  return {
+    eligible,
+    requestDetected,
+    toolAvailable,
+    alreadyAttempted,
+    preexistingInvocationStatus,
+    retryEligibleAfterFailure,
+    ambiguousName: leadData.ambiguousName,
+    ambiguousFounderContact: leadData.ambiguousFounderContact,
+    missingRequiredFields: leadData.missingRequiredFields,
+    skipReasonCodes,
+    shouldDispatch,
+    toolArgs,
+  };
+}
+
+function resolveSamanthaAutoDispatchExecutionFormat(toolResults: AgentToolResult[]): "pdf" | "docx" | null {
+  for (const result of toolResults) {
+    if (
+      normalizeExecutionString(result.tool) !== AUDIT_DELIVERABLE_TOOL_NAME
+      || result.status !== "success"
+    ) {
+      continue;
+    }
+    const payload =
+      result.result && typeof result.result === "object" && !Array.isArray(result.result)
+        ? (result.result as Record<string, unknown>)
+        : {};
+    const requestedFormats = Array.isArray(payload.requestedFormats)
+      ? payload.requestedFormats
+      : [];
+    const docxGenerated = requestedFormats.some((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        return false;
+      }
+      const record = entry as Record<string, unknown>;
+      return record.format === "docx" && record.status === "generated";
+    });
+    if (docxGenerated) {
+      return "docx";
+    }
+    return "pdf";
+  }
+  return null;
+}
+
+function resolveSamanthaAuditDispatchDecision(args: {
+  plan: SamanthaAuditAutoDispatchPlan | null;
+  autoDispatchToolResults: AgentToolResult[];
+  allToolResults: AgentToolResult[];
+  enforcementPayload: ActionCompletionContractEnforcementPayload | null;
+}): SamanthaAuditDispatchDecision | undefined {
+  if (!args.plan || !args.plan.eligible) {
+    return undefined;
+  }
+  const executionFormat = resolveSamanthaAutoDispatchExecutionFormat(args.autoDispatchToolResults);
+  if (executionFormat === "docx") {
+    return "auto_dispatch_executed_docx";
+  }
+  if (executionFormat === "pdf") {
+    return "auto_dispatch_executed_pdf";
+  }
+  if (!args.plan.requestDetected) {
+    return undefined;
+  }
+  const sessionContextFailure = resolveSamanthaAuditSessionContextFailure(
+    args.allToolResults
+  );
+  if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING) {
+    return "blocked_missing_audit_session_context";
+  }
+  if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND) {
+    return "blocked_audit_session_not_found";
+  }
+  if (!args.plan.toolAvailable) {
+    return "blocked_tool_unavailable";
+  }
+  if (args.plan.ambiguousName) {
+    return "blocked_ambiguous_name";
+  }
+  if (args.plan.ambiguousFounderContact) {
+    return "blocked_ambiguous_founder_contact";
+  }
+  if (args.plan.missingRequiredFields.length > 0) {
+    return "blocked_missing_required_fields";
+  }
+  if (args.enforcementPayload?.reasonCode === "claim_tool_not_observed") {
+    return "blocked_tool_not_observed";
+  }
+  return undefined;
+}
+
+export function shouldAttemptSamanthaClaimRecoveryAutoDispatch(args: {
+  plan: SamanthaAuditAutoDispatchPlan | null;
+  alreadyAttempted: boolean;
+  enforcementPayload: ActionCompletionContractEnforcementPayload | null;
+}): boolean {
+  return resolveSamanthaClaimRecoveryDecision(args).shouldAttempt;
+}
+
+export interface SamanthaClaimRecoveryDecision {
+  shouldAttempt: boolean;
+  reasonCode:
+    | "plan_missing"
+    | "already_attempted"
+    | "not_samantha_runtime"
+    | "tool_unavailable_in_scope"
+    | "tool_already_attempted"
+    | "lead_data_incomplete"
+    | "enforcement_reason_not_tool_not_observed"
+    | "enforcement_not_audit_deliverable"
+    | "retry_eligible_after_failure"
+    | "eligible_for_recovery";
+}
+
+export function resolveSamanthaClaimRecoveryDecision(args: {
+  plan: SamanthaAuditAutoDispatchPlan | null;
+  alreadyAttempted: boolean;
+  enforcementPayload: ActionCompletionContractEnforcementPayload | null;
+}): SamanthaClaimRecoveryDecision {
+  if (!args.plan) {
+    return { shouldAttempt: false, reasonCode: "plan_missing" };
+  }
+  if (args.alreadyAttempted) {
+    return { shouldAttempt: false, reasonCode: "already_attempted" };
+  }
+  if (!args.plan.eligible) {
+    return { shouldAttempt: false, reasonCode: "not_samantha_runtime" };
+  }
+  if (!args.plan.toolAvailable) {
+    return { shouldAttempt: false, reasonCode: "tool_unavailable_in_scope" };
+  }
+  const retryEligibleAfterFailure = args.plan.retryEligibleAfterFailure === true;
+  if (args.plan.alreadyAttempted && !retryEligibleAfterFailure) {
+    return { shouldAttempt: false, reasonCode: "tool_already_attempted" };
+  }
+  if (
+    args.plan.ambiguousName
+    || args.plan.ambiguousFounderContact
+    || args.plan.missingRequiredFields.length > 0
+    || !args.plan.toolArgs
+  ) {
+    return { shouldAttempt: false, reasonCode: "lead_data_incomplete" };
+  }
+  if (args.enforcementPayload?.reasonCode !== "claim_tool_not_observed") {
+    return {
+      shouldAttempt: false,
+      reasonCode: "enforcement_reason_not_tool_not_observed",
+    };
+  }
+  const enforcementTargetsAuditDeliverable = isSamanthaAuditDeliverableActionCompletionOutcome({
+    outcome: args.enforcementPayload.outcome || "",
+    requiredTools: args.enforcementPayload.requiredTools,
+  });
+  if (!enforcementTargetsAuditDeliverable) {
+    return {
+      shouldAttempt: false,
+      reasonCode: "enforcement_not_audit_deliverable",
+    };
+  }
+  if (retryEligibleAfterFailure) {
+    return { shouldAttempt: true, reasonCode: "retry_eligible_after_failure" };
+  }
+  return { shouldAttempt: true, reasonCode: "eligible_for_recovery" };
+}
+
+type SamanthaAutoDispatchInvocationStatus =
+  | "not_attempted"
+  | "attempted_without_result"
+  | "queued_pending_approval"
+  | "executed_success"
+  | "executed_error"
+  | "executed_blocked"
+  | "executed_disabled";
+
+function resolveSamanthaAutoDispatchInvocationStatus(args: {
+  attempted: boolean;
+  toolResults: AgentToolResult[];
+}): SamanthaAutoDispatchInvocationStatus {
+  const dispatchResults = args.toolResults.filter(
+    (result) => normalizeExecutionString(result.tool) === AUDIT_DELIVERABLE_TOOL_NAME
+  );
+  if (!args.attempted) {
+    return "not_attempted";
+  }
+  if (dispatchResults.length === 0) {
+    return "attempted_without_result";
+  }
+  if (dispatchResults.some((result) => result.status === "success")) {
+    return "executed_success";
+  }
+  if (dispatchResults.some((result) => result.status === "pending_approval")) {
+    return "queued_pending_approval";
+  }
+  if (dispatchResults.some((result) => result.status === "blocked")) {
+    return "executed_blocked";
+  }
+  if (dispatchResults.some((result) => result.status === "disabled")) {
+    return "executed_disabled";
+  }
+  return "executed_error";
+}
+
+function resolveSamanthaDispatchTerminalReasonCode(args: {
+  runtimeCapabilityGapBlocked: boolean;
+  plan: SamanthaAuditAutoDispatchPlan | null;
+  dispatchDecision?: SamanthaAuditDispatchDecision;
+  invocationStatus: SamanthaAutoDispatchInvocationStatus;
+  preflightLookupTargetOk: boolean;
+  preflightAuditSessionFound?: boolean;
+}): string {
+  if (args.dispatchDecision) {
+    return args.dispatchDecision;
+  }
+  if (args.runtimeCapabilityGapBlocked) {
+    return "runtime_capability_gap_blocked";
+  }
+  if (!args.plan) {
+    return "auto_dispatch_plan_not_resolved";
+  }
+  if (!args.plan.eligible) {
+    return "not_samantha_runtime";
+  }
+  if (!args.preflightLookupTargetOk) {
+    return "missing_audit_session_context";
+  }
+  if (args.preflightAuditSessionFound === false && args.plan.requestDetected) {
+    return "audit_session_not_found";
+  }
+  if (args.plan.skipReasonCodes.length > 0) {
+    return args.plan.skipReasonCodes[0];
+  }
+  if (args.invocationStatus !== "not_attempted") {
+    return args.invocationStatus;
+  }
+  if (!args.plan.requestDetected) {
+    return "request_not_detected";
+  }
+  return "no_dispatch_reason_resolved";
+}
+
+export function resolveAuditDeliverableInvocationGuardrail(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  inboundMessage: string;
+  assistantContent: string;
+  toolResults: AgentToolResult[];
+  availableToolNames: string[];
+  recentUserMessages?: string[];
+  capturedEmail?: string | null;
+  capturedName?: string | null;
+  contactMemory?: SessionContactMemoryRecord[];
+  auditSessionWorkflowRecommendation?: string | null;
+  turnId?: string;
+}): {
+  enforced: boolean;
+  assistantContent?: string;
+  reason?:
+    | "tool_not_invoked"
+    | "tool_unavailable"
+    | "missing_required_fields"
+    | "missing_audit_session_context"
+    | "audit_session_not_found";
+  payload: ActionCompletionContractEnforcementPayload;
+} {
+  const responseLanguage = resolveActionCompletionResponseLanguage({
+    authorityConfig: args.authorityConfig,
+    inboundMessage: args.inboundMessage,
+    assistantContent: args.assistantContent,
+  });
+  const parsedClaims = extractActionCompletionClaimsFromAssistantContent(
+    args.assistantContent
+  );
+  const runtimeContractConfig = resolveActionCompletionContractsForRuntime({
+    authorityConfig: args.authorityConfig,
+    preferredLanguage: responseLanguage,
+  });
+  const auditDeliverableContract = runtimeContractConfig.outcomes.find((contract) =>
+    isSamanthaAuditDeliverableActionCompletionOutcome({
+      outcome: contract.outcome,
+      requiredTools: contract.requiredTools,
+    })
+  );
+  const inferredClaims = parsedClaims.claims.length > 0
+    ? parsedClaims.claims
+    : (
+        parsedClaims.malformedClaimCount === 0
+        && auditDeliverableContract
+        && isLikelyAuditDeliverableInvocationRequest(args.inboundMessage)
+      )
+      ? [
+          {
+            contractVersion: ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+            outcome: auditDeliverableContract.outcome,
+            status: "in_progress" as const,
+          },
+        ]
+      : [];
+  const decision = resolveActionCompletionContractEnforcement({
+    authorityConfig: args.authorityConfig,
+    runtimeContractConfig,
+    claims: inferredClaims,
+    malformedClaimCount: parsedClaims.malformedClaimCount,
+    toolResults: args.toolResults,
+    availableToolNames: args.availableToolNames,
+    preferredLanguage: responseLanguage,
+    turnId: args.turnId,
+  });
+
+  const missingRequiredFields = resolveSamanthaAuditMissingRequiredFields({
+    inboundMessage: args.inboundMessage,
+    recentUserMessages: args.recentUserMessages ?? [],
+    capturedEmail: args.capturedEmail,
+    capturedName: args.capturedName,
+    contactMemory: args.contactMemory,
+    auditSessionWorkflowRecommendation: args.auditSessionWorkflowRecommendation,
+  });
+  const sessionContextFailure = resolveSamanthaAuditSessionContextFailure(args.toolResults);
+
+  let preflightReasonCode: SamanthaPreflightReasonCode | undefined;
+  if (decision.payload.reasonCode === "claim_tool_unavailable") {
+    preflightReasonCode = "tool_unavailable";
+  } else if (decision.payload.reasonCode === "claim_tool_not_observed") {
+    if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING) {
+      preflightReasonCode = "missing_audit_session_context";
+    } else if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND) {
+      preflightReasonCode = "audit_session_not_found";
+    } else {
+      preflightReasonCode =
+        missingRequiredFields.length > 0 ? "missing_required_fields" : "tool_not_observed";
+    }
+  }
+
+  let reason:
+    | "tool_not_invoked"
+    | "tool_unavailable"
+    | "missing_required_fields"
+    | "missing_audit_session_context"
+    | "audit_session_not_found"
+    | undefined;
+  if (decision.enforced && decision.payload.reasonCode === "claim_tool_not_observed") {
+    if (preflightReasonCode === "missing_required_fields") {
+      reason = "missing_required_fields";
+    } else if (preflightReasonCode === "missing_audit_session_context") {
+      reason = "missing_audit_session_context";
+    } else if (preflightReasonCode === "audit_session_not_found") {
+      reason = "audit_session_not_found";
+    } else {
+      reason = "tool_not_invoked";
+    }
+  } else if (decision.enforced && decision.payload.reasonCode === "claim_tool_unavailable") {
+    reason = "tool_unavailable";
+  }
+
+  let assistantContent = decision.assistantContent;
+  const isSamanthaDeliverableOutcome = isSamanthaAuditDeliverableActionCompletionOutcome({
+    outcome: decision.payload.outcome || "",
+    requiredTools: decision.payload.requiredTools,
+  });
+  const isSamanthaRuntime = isSamanthaLeadCaptureRuntime(args.authorityConfig);
+  if (
+    decision.enforced
+    && decision.payload.reasonCode === "claim_tool_not_observed"
+    && preflightReasonCode === "tool_not_observed"
+    && isSamanthaDeliverableOutcome
+    && isSamanthaRuntime
+  ) {
+    assistantContent = buildSamanthaAuditDeliverableVerificationFallbackMessage(
+      responseLanguage
+    );
+  }
+
+  return {
+    enforced: decision.enforced,
+    assistantContent,
+    reason,
+    payload: {
+      ...decision.payload,
+      preflightReasonCode,
+      preflightMissingRequiredFields:
+        preflightReasonCode === "missing_required_fields" ? missingRequiredFields : undefined,
+    },
+  };
+}
+
 const COMPOSER_CONTROL_BLOCK_PATTERN = /\[COMPOSER CONTROLS\][\s\S]*?\[\/COMPOSER CONTROLS\]\s*/i;
 const COMPOSER_REFERENCE_BLOCK_PATTERN = /--- URL REFERENCES ---[\s\S]*?--- END URL REFERENCES ---\s*/i;
 const COMPOSER_IMAGE_BLOCK_PATTERN = /--- IMAGE ATTACHMENTS ---[\s\S]*?--- END IMAGE ATTACHMENTS ---\s*/i;
@@ -8827,6 +14069,7 @@ export interface InboundMeetingConciergeIntent {
   fallbackReasons: string[];
   ingestLatencyMs?: number;
   sourceAttestation: MobileSourceAttestationContract;
+  transportSessionAttestation: MobileTransportSessionAttestationContract;
   commandPolicy: MobileNodeCommandPolicyDecision;
   payload?: MeetingConciergeExtractedPayload;
 }
@@ -8837,6 +14080,197 @@ function normalizeConciergeOptionalString(value: unknown): string | undefined {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeSamanthaAuditRoutingChannel(
+  value: unknown
+): SamanthaAuditRoutingAuditChannel | undefined {
+  if (value === "webchat" || value === "native_guest") {
+    return value;
+  }
+  return undefined;
+}
+
+function resolveSamanthaAuditSourceContext(args: {
+  ingressChannel: string;
+  externalContactIdentifier: string;
+  metadata: Record<string, unknown>;
+}): SamanthaAuditSourceContext {
+  const sourceContextRecord =
+    args.metadata.sourceAuditContext
+    && typeof args.metadata.sourceAuditContext === "object"
+    && !Array.isArray(args.metadata.sourceAuditContext)
+      ? (args.metadata.sourceAuditContext as Record<string, unknown>)
+      : {};
+  const ingressChannel = firstInboundString(
+    sourceContextRecord.ingressChannel,
+    args.metadata.ingressChannel,
+    args.metadata.sourceIngressChannel,
+    args.metadata.originChannel,
+    args.ingressChannel,
+  ) || "unknown";
+  const sourceSessionToken = firstInboundString(
+    sourceContextRecord.sourceSessionToken,
+    args.metadata.sourceSessionToken,
+    args.metadata.auditSourceSessionToken,
+    args.metadata.sourceAuditSessionToken,
+    args.metadata.auditSessionToken,
+    args.metadata.sourceSessionId,
+    args.metadata.originSessionToken,
+    args.metadata.originSessionId,
+  ) || (
+    normalizeSamanthaAuditRoutingChannel(ingressChannel)
+      ? firstInboundString(args.externalContactIdentifier)
+      : undefined
+  );
+  const sourceAuditChannel = normalizeSamanthaAuditRoutingChannel(
+    firstInboundString(
+      sourceContextRecord.sourceAuditChannel,
+      args.metadata.sourceAuditChannel,
+      args.metadata.auditChannel,
+    ) || normalizeSamanthaAuditRoutingChannel(args.ingressChannel)
+  );
+  const originSurface = firstInboundString(
+    sourceContextRecord.originSurface,
+    args.metadata.originSurface,
+    args.metadata.sourceSurface,
+    args.metadata.screen,
+    args.metadata.appScreen,
+  );
+
+  return {
+    ingressChannel,
+    originSurface: originSurface || undefined,
+    sourceSessionToken: sourceSessionToken || undefined,
+    sourceAuditChannel,
+  };
+}
+
+function resolveSamanthaAuditLookupTarget(sourceContext: SamanthaAuditSourceContext):
+  | {
+      ok: true;
+      channel: SamanthaAuditRoutingAuditChannel;
+      sessionToken: string;
+    }
+  | {
+      ok: false;
+      errorCode: typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING;
+      message: string;
+    } {
+  const sourceSessionToken = normalizeExecutionString(sourceContext.sourceSessionToken);
+  if (!sourceSessionToken) {
+    return {
+      ok: false,
+      errorCode: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+      message:
+        "Missing audit session context. Provide sourceSessionToken and sourceAuditChannel from the originating channel.",
+    };
+  }
+  const sourceAuditChannel = normalizeSamanthaAuditRoutingChannel(sourceContext.sourceAuditChannel);
+  if (sourceAuditChannel) {
+    return {
+      ok: true,
+      channel: sourceAuditChannel,
+      sessionToken: sourceSessionToken,
+    };
+  }
+  const ingressAuditChannel = normalizeSamanthaAuditRoutingChannel(sourceContext.ingressChannel);
+  if (ingressAuditChannel) {
+    return {
+      ok: true,
+      channel: ingressAuditChannel,
+      sessionToken: sourceSessionToken,
+    };
+  }
+  return {
+    ok: false,
+    errorCode: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+    message:
+      "Missing audit session context. Ingress channel is not routable for audit lookup without sourceAuditChannel.",
+  };
+}
+
+function resolveSamanthaAuditSessionContextFailure(toolResults: AgentToolResult[]):
+  | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING
+  | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND
+  | null {
+  for (const result of toolResults) {
+    if (normalizeExecutionString(result.tool) !== AUDIT_DELIVERABLE_TOOL_NAME) {
+      continue;
+    }
+    if (result.status === "success") {
+      return null;
+    }
+    const payload =
+      result.result && typeof result.result === "object" && !Array.isArray(result.result)
+        ? (result.result as Record<string, unknown>)
+        : {};
+    const toolErrorCode = normalizeExecutionString(
+      firstInboundString(
+        payload.error,
+        payload.errorCode,
+      )
+    );
+    if (toolErrorCode === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING) {
+      return SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING;
+    }
+    if (toolErrorCode === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND) {
+      return SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND;
+    }
+  }
+  return null;
+}
+
+function extractFirstEmailAddress(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const match = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (!match) {
+    return undefined;
+  }
+  return match[0].trim().toLowerCase();
+}
+
+async function resolveActiveEmailDomainConfigIdForOrg(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: Id<"organizations">,
+): Promise<Id<"objects"> | undefined> {
+  const orgDomainConfigs = await ctx.runQuery(
+    getInternal().domainConfigOntology.listDomainConfigsForOrg,
+    {
+      organizationId,
+    },
+  );
+  const orgActive = orgDomainConfigs?.find(
+    (config: { status?: string; _id?: string }) => config.status === "active",
+  );
+  if (orgActive?._id) {
+    return orgActive._id as Id<"objects">;
+  }
+
+  const systemOrg = await ctx.runQuery(
+    getInternal().helpers.backendTranslationQueries.getSystemOrganization,
+    {},
+  );
+  if (!systemOrg?._id) {
+    return undefined;
+  }
+
+  const systemDomainConfigs = await ctx.runQuery(
+    getInternal().domainConfigOntology.listDomainConfigsForOrg,
+    {
+      organizationId: systemOrg._id,
+    },
+  );
+  const systemActive = systemDomainConfigs?.find(
+    (config: { status?: string; _id?: string }) => config.status === "active",
+  );
+  if (!systemActive?._id) {
+    return undefined;
+  }
+  return systemActive._id as Id<"objects">;
 }
 
 function normalizeConciergeNumber(value: unknown): number | undefined {
@@ -8993,6 +14427,9 @@ export function resolveInboundMeetingConciergeIntent(args: {
     metadata: args.metadata,
     nowMs: now,
   });
+  const transportSessionAttestation = resolveInboundTransportSessionAttestationContract({
+    metadata: args.metadata,
+  });
   const liveSignal = Boolean(
     firstInboundString(args.metadata.liveSessionId)
     || normalizeInboundObjectValue(args.metadata.cameraRuntime)
@@ -9016,9 +14453,16 @@ export function resolveInboundMeetingConciergeIntent(args: {
   });
   const cameraRuntimeRaw = normalizeInboundObjectValue(args.metadata.cameraRuntime);
   const voiceRuntimeRaw = normalizeInboundObjectValue(args.metadata.voiceRuntime);
+  const conversationRuntimeRaw = normalizeInboundObjectValue(args.metadata.conversationRuntime);
   const avObservabilityRaw = normalizeInboundObjectValue(args.metadata.avObservability);
+  const conversationSourceModeToken = firstInboundString(
+    conversationRuntimeRaw?.sourceMode,
+    conversationRuntimeRaw?.requestedEyesSource,
+    conversationRuntimeRaw?.mode,
+  )?.toLowerCase();
   const sourceModeToken = firstInboundString(
     args.metadata.sourceMode,
+    conversationSourceModeToken,
     avObservabilityRaw?.sourceMode,
     cameraRuntimeRaw?.sourceMode,
     voiceRuntimeRaw?.sourceMode,
@@ -9044,14 +14488,18 @@ export function resolveInboundMeetingConciergeIntent(args: {
       missingRequiredFields: [],
       fallbackReasons: [],
       sourceAttestation,
+      transportSessionAttestation,
       commandPolicy,
     };
   }
 
   const sourceMetadataTrusted =
     !sourceAttestation.verificationRequired || sourceAttestation.verified;
+  const transportSessionTrusted =
+    !transportSessionAttestation.required || transportSessionAttestation.verified;
   const metaSourceTrusted = !metaSourceRequested || metaSourceVerified;
-  const trustedSourceContext = sourceMetadataTrusted && metaSourceTrusted;
+  const trustedSourceContext =
+    sourceMetadataTrusted && transportSessionTrusted && metaSourceTrusted;
   const metadataForExtraction = trustedSourceContext
     ? args.metadata
     : {
@@ -9124,6 +14572,12 @@ export function resolveInboundMeetingConciergeIntent(args: {
       fallbackReasons.push(`source_attestation:${reasonCode}`);
     }
   }
+  if (!transportSessionTrusted) {
+    fallbackReasons.push("transport_session_metadata_quarantined");
+    for (const reasonCode of transportSessionAttestation.reasonCodes) {
+      fallbackReasons.push(`transport_session_attestation:${reasonCode}`);
+    }
+  }
   if (!metaSourceTrusted) {
     fallbackReasons.push("meta_source_attestation_missing_or_unverified");
   }
@@ -9152,6 +14606,7 @@ export function resolveInboundMeetingConciergeIntent(args: {
     missingRequiredFields,
     fallbackReasons,
     sourceAttestation,
+    transportSessionAttestation,
     commandPolicy,
     ingestLatencyMs: resolveMeetingConciergeIngestLatencyMs({
       metadata: metadataForExtraction,
@@ -9175,8 +14630,12 @@ export function resolveInboundMeetingConciergeIntent(args: {
   };
 }
 
-function hasMeetingConciergeToolCall(toolCalls: Array<Record<string, unknown>>): boolean {
-  return toolCalls.some((toolCall) => {
+function hasMeetingConciergeToolCall(args: {
+  toolCalls: Array<Record<string, unknown>>;
+  mode?: "preview" | "execute";
+}): boolean {
+  const targetMode = args.mode;
+  return args.toolCalls.some((toolCall) => {
     const toolName = normalizeConciergeOptionalString(
       (toolCall.function as Record<string, unknown> | undefined)?.name
     );
@@ -9189,22 +14648,56 @@ function hasMeetingConciergeToolCall(toolCalls: Array<Record<string, unknown>>):
     }
     try {
       const parsed = JSON.parse(rawArguments) as Record<string, unknown>;
-      return normalizeConciergeOptionalString(parsed.action) === "run_meeting_concierge_demo";
+      if (normalizeConciergeOptionalString(parsed.action) !== "run_meeting_concierge_demo") {
+        return false;
+      }
+      if (!targetMode) {
+        return true;
+      }
+      return normalizeConciergeOptionalString(parsed.mode) === targetMode;
     } catch {
       return false;
     }
   });
 }
 
+export function injectAutoPreviewMeetingConciergeToolCall(args: {
+  toolCalls: Array<Record<string, unknown>>;
+  meetingConciergeIntent: InboundMeetingConciergeIntent;
+  now?: number;
+}): Array<Record<string, unknown>> {
+  if (
+    hasMeetingConciergeToolCall({
+      toolCalls: args.toolCalls,
+      mode: "preview",
+    })
+  ) {
+    return args.toolCalls;
+  }
+
+  const previewToolCall = buildAutoPreviewMeetingConciergeToolCall(
+    args.meetingConciergeIntent,
+    args.now
+  );
+  if (!previewToolCall) {
+    return args.toolCalls;
+  }
+
+  // Prepend to enforce preview-first ordering when model emitted execute directly.
+  return [previewToolCall, ...args.toolCalls];
+}
+
 function buildAutoPreviewMeetingConciergeToolCall(
-  intent: InboundMeetingConciergeIntent
+  intent: InboundMeetingConciergeIntent,
+  now?: number
 ): Record<string, unknown> | null {
   if (!intent.autoTriggerPreview || !intent.payload) {
     return null;
   }
+  const timestamp = typeof now === "number" ? now : Date.now();
 
   return {
-    id: `mobile_concierge_preview_${Date.now().toString(36)}`,
+    id: `mobile_concierge_preview_${timestamp.toString(36)}`,
     type: "function",
     function: {
       name: "manage_bookings",
@@ -9838,6 +15331,11 @@ export function buildInboundMeetingConciergeRuntimeContext(
       `Source attestation: ${intent.sourceAttestation.verified ? "verified" : "quarantined"} (${intent.sourceAttestation.verificationStatus}).`
     );
   }
+  if (intent.transportSessionAttestation.required) {
+    lines.push(
+      `Transport/session attestation: ${intent.transportSessionAttestation.verified ? "verified" : "quarantined"} (${intent.transportSessionAttestation.status}).`
+    );
+  }
   lines.push(
     `Node command policy (${MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION}): ${intent.commandPolicy.status}.`
   );
@@ -9874,6 +15372,177 @@ export function buildInboundMeetingConciergeRuntimeContext(
   ].join("\n");
 }
 
+export function buildMeetingConciergeDecisionTelemetry(args: {
+  intent: InboundMeetingConciergeIntent;
+  toolResults: AgentToolResult[];
+  runtimeElapsedMs: number;
+  latencyTargetMs?: number;
+}): {
+  decision:
+    | "not_applicable"
+    | "preview_success"
+    | "execute_success"
+    | "pending_approval"
+    | "blocked_missing_required_fields"
+    | "blocked_command_policy"
+    | "blocked_explicit_confirmation"
+    | "blocked_source_attestation"
+    | "blocked_unknown";
+  decisionReasonCodes: string[];
+  ingestLatencyMs: number | null;
+  runtimeLatencyMs: number;
+  endToEndLatencyMs: number | null;
+  latencyTargetMs: number;
+  latencyTargetBreached: boolean | null;
+  payloadFieldCoverage: {
+    requiredTotal: number;
+    requiredPresent: number;
+    optionalPresent: number;
+  };
+  toolInvocation: {
+    attempted: boolean;
+    status: string | null;
+    success: boolean;
+    mode: "preview" | "execute" | null;
+    error: string | null;
+  };
+} {
+  const latencyTargetMs =
+    typeof args.latencyTargetMs === "number" && Number.isFinite(args.latencyTargetMs)
+      ? Math.max(1, Math.floor(args.latencyTargetMs))
+      : 60_000;
+  const normalizedRuntimeElapsedMs = Math.max(
+    0,
+    Number.isFinite(args.runtimeElapsedMs) ? Math.floor(args.runtimeElapsedMs) : 0
+  );
+  const ingestLatencyMs =
+    typeof args.intent.ingestLatencyMs === "number"
+      ? Math.max(0, Math.floor(args.intent.ingestLatencyMs))
+      : null;
+  const endToEndLatencyMs =
+    ingestLatencyMs === null
+      ? null
+      : ingestLatencyMs + normalizedRuntimeElapsedMs;
+  const latencyTargetBreached =
+    endToEndLatencyMs === null ? null : endToEndLatencyMs > latencyTargetMs;
+
+  const requiredTotal = 1;
+  const requiredPresent =
+    args.intent.payload?.personEmail && args.intent.payload.personEmail.trim().length > 0
+      ? 1
+      : 0;
+  const optionalPresent = [
+    args.intent.payload?.personName,
+    args.intent.payload?.personPhone,
+    args.intent.payload?.company,
+    args.intent.payload?.meetingTitle,
+    args.intent.payload?.confirmationRecipient,
+  ].filter((value) => typeof value === "string" && value.trim().length > 0).length;
+
+  const meetingToolResult =
+    args.toolResults.find((result) => result.tool === "manage_bookings") ?? null;
+  const toolStatus = meetingToolResult?.status ?? null;
+  const toolSuccess = toolStatus === "success";
+  const toolError = meetingToolResult?.error ?? null;
+  const rawMode =
+    (meetingToolResult?.result &&
+      typeof meetingToolResult.result === "object" &&
+      "mode" in (meetingToolResult.result as Record<string, unknown>))
+      ? (meetingToolResult.result as { mode?: unknown }).mode
+      : null;
+  const mode =
+    rawMode === "preview" || rawMode === "execute"
+      ? rawMode
+      : null;
+
+  const decisionReasonCodes = Array.from(
+    new Set([
+      ...args.intent.fallbackReasons,
+      ...args.intent.missingRequiredFields.map((field) => `missing:${field}`),
+    ])
+  );
+
+  const commandPolicyBlocked =
+    args.intent.commandPolicy.policyRequired && !args.intent.commandPolicy.allowed;
+  const sourceAttestationBlocked =
+    decisionReasonCodes.includes("source_metadata_quarantined")
+    || decisionReasonCodes.includes("transport_session_metadata_quarantined")
+    || decisionReasonCodes.includes("meta_source_attestation_missing_or_unverified")
+    || decisionReasonCodes.some(
+      (reason) =>
+        reason.startsWith("source_attestation:")
+        || reason.startsWith("transport_session_attestation:")
+    );
+  const explicitConfirmationBlocked =
+    typeof toolError === "string"
+    && toolError.toLowerCase().includes("explicit operator confirmation");
+
+  if (!args.intent.enabled) {
+    return {
+      decision: "not_applicable",
+      decisionReasonCodes,
+      ingestLatencyMs,
+      runtimeLatencyMs: normalizedRuntimeElapsedMs,
+      endToEndLatencyMs,
+      latencyTargetMs,
+      latencyTargetBreached,
+      payloadFieldCoverage: { requiredTotal, requiredPresent, optionalPresent },
+      toolInvocation: {
+        attempted: false,
+        status: null,
+        success: false,
+        mode: null,
+        error: null,
+      },
+    };
+  }
+
+  let decision:
+    | "preview_success"
+    | "execute_success"
+    | "pending_approval"
+    | "blocked_missing_required_fields"
+    | "blocked_command_policy"
+    | "blocked_explicit_confirmation"
+    | "blocked_source_attestation"
+    | "blocked_unknown";
+  if (toolSuccess && mode === "execute") {
+    decision = "execute_success";
+  } else if (toolSuccess) {
+    decision = "preview_success";
+  } else if (toolStatus === "pending_approval") {
+    decision = "pending_approval";
+  } else if (explicitConfirmationBlocked) {
+    decision = "blocked_explicit_confirmation";
+  } else if (commandPolicyBlocked) {
+    decision = "blocked_command_policy";
+  } else if (args.intent.missingRequiredFields.length > 0) {
+    decision = "blocked_missing_required_fields";
+  } else if (sourceAttestationBlocked) {
+    decision = "blocked_source_attestation";
+  } else {
+    decision = "blocked_unknown";
+  }
+
+  return {
+    decision,
+    decisionReasonCodes,
+    ingestLatencyMs,
+    runtimeLatencyMs: normalizedRuntimeElapsedMs,
+    endToEndLatencyMs,
+    latencyTargetMs,
+    latencyTargetBreached,
+    payloadFieldCoverage: { requiredTotal, requiredPresent, optionalPresent },
+    toolInvocation: {
+      attempted: meetingToolResult !== null,
+      status: toolStatus,
+      success: toolSuccess,
+      mode,
+      error: toolError,
+    },
+  };
+}
+
 function normalizeRuntimeSystemContext(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
     return null;
@@ -9890,6 +15559,7 @@ export function assembleRuntimeSystemMessages(args: {
   contactMemoryContext?: string | null;
   composerRuntimeContext?: string | null;
   planFeasibilityContext?: string | null;
+  commercialKickoffRuntimeContext?: string | null;
 }): Array<{ role: "system"; content: string }> {
   const messages: Array<{ role: "system"; content: string }> = [
     { role: "system", content: args.systemPrompt },
@@ -9938,6 +15608,15 @@ export function assembleRuntimeSystemMessages(args: {
     messages.push({
       role: "system",
       content: planFeasibilityContext,
+    });
+  }
+  const commercialKickoffRuntimeContext = normalizeRuntimeSystemContext(
+    args.commercialKickoffRuntimeContext
+  );
+  if (commercialKickoffRuntimeContext) {
+    messages.push({
+      role: "system",
+      content: commercialKickoffRuntimeContext,
     });
   }
   return messages;

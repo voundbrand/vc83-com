@@ -55,6 +55,29 @@ export interface TerminalLogEntry {
     webhookEventName?: string;
     webhookEndpoint?: string;
     providerEventId?: string;
+    actionCompletionReasonCode?: string;
+    actionCompletionOutcome?: string;
+    actionCompletionPreflightReasonCode?: string;
+    actionCompletionMissingRequiredFields?: string[];
+    actionCompletionDispatchDecision?: string;
+    actionCompletionDispatchTerminalReasonCode?: string;
+    actionCompletionDispatchInvocationStatus?: string;
+    actionCompletionDispatchSkipReasonCodes?: string[];
+    actionCompletionDispatchRecoveryDecisionReasonCode?: string;
+    actionCompletionDispatchTraceEventCount?: number;
+    actionCompletionDispatchAuthorityIsSamantha?: boolean;
+    actionCompletionDispatchSpeakerIsSamantha?: boolean;
+    actionCompletionDispatchAuthorityTemplateRole?: string;
+    actionCompletionDispatchSpeakerTemplateRole?: string;
+    actionCompletionRecoveryAttempted?: boolean;
+    actionCompletionRewriteApplied?: boolean;
+    actionCompletionEnforcementMode?: "off" | "observe" | "enforce";
+    actionCompletionTemplateRole?: string;
+    actionCompletionTemplateIdentifier?: string;
+    actionCompletionClaimedOutcomes?: string[];
+    actionCompletionRequiredTools?: string[];
+    actionCompletionObservedTools?: string[];
+    actionCompletionAvailableTools?: string[];
     // Layer scope metadata
     orgName?: string;
     orgSlug?: string;
@@ -268,17 +291,292 @@ export const getTerminalFeed = query({
         const data = action.actionData as Record<string, unknown> | undefined;
 
         if (action.actionType === "message_processed") {
+          const actionCompletion =
+            data?.actionCompletion && typeof data.actionCompletion === "object"
+              ? (data.actionCompletion as Record<string, unknown>)
+              : undefined;
+          const actionCompletionPayload =
+            actionCompletion?.payload && typeof actionCompletion.payload === "object"
+              ? (actionCompletion.payload as Record<string, unknown>)
+              : undefined;
+          const actionCompletionObservedViolation =
+            actionCompletionPayload?.observedViolation === true;
+          const actionCompletionReasonCode = normalizeTerminalTraceString(
+            actionCompletionPayload?.reasonCode
+          );
+          const actionCompletionOutcome = normalizeTerminalTraceString(
+            actionCompletionPayload?.outcome
+          );
+          const actionCompletionPreflightReasonCode = normalizeTerminalTraceString(
+            actionCompletionPayload?.preflightReasonCode
+          );
+          const actionCompletionMissingRequiredFields = Array.isArray(
+            actionCompletionPayload?.preflightMissingRequiredFields
+          )
+            ? actionCompletionPayload.preflightMissingRequiredFields.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : [];
+          const samanthaAutoDispatch =
+            actionCompletion?.samanthaAutoDispatch
+            && typeof actionCompletion.samanthaAutoDispatch === "object"
+            && !Array.isArray(actionCompletion.samanthaAutoDispatch)
+              ? (actionCompletion.samanthaAutoDispatch as Record<string, unknown>)
+              : undefined;
+          const actionCompletionDispatchDecision = normalizeTerminalTraceString(
+            samanthaAutoDispatch?.dispatchDecision
+          );
+          const actionCompletionDispatchTerminalReasonCode = normalizeTerminalTraceString(
+            samanthaAutoDispatch?.terminalReasonCode
+          );
+          const actionCompletionDispatchInvocationStatus = normalizeTerminalTraceString(
+            samanthaAutoDispatch?.invocationStatus
+          );
+          const actionCompletionDispatchSkipReasonCodes = Array.isArray(
+            samanthaAutoDispatch?.skipReasonCodes
+          )
+            ? samanthaAutoDispatch.skipReasonCodes.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : [];
+          const actionCompletionDispatchRecoveryDecisionReasonCode = normalizeTerminalTraceString(
+            samanthaAutoDispatch?.recoveryDecisionReasonCode
+          );
+          const actionCompletionDispatchTraceEventCount = Array.isArray(
+            samanthaAutoDispatch?.traceEvents
+          )
+            ? samanthaAutoDispatch.traceEvents.length
+            : 0;
+          const samanthaRouter =
+            samanthaAutoDispatch?.router
+            && typeof samanthaAutoDispatch.router === "object"
+            && !Array.isArray(samanthaAutoDispatch.router)
+              ? (samanthaAutoDispatch.router as Record<string, unknown>)
+              : undefined;
+          const samanthaAuthorityAgent =
+            samanthaRouter?.selectedAuthorityAgent
+            && typeof samanthaRouter.selectedAuthorityAgent === "object"
+            && !Array.isArray(samanthaRouter.selectedAuthorityAgent)
+              ? (samanthaRouter.selectedAuthorityAgent as Record<string, unknown>)
+              : undefined;
+          const samanthaSpeakerAgent =
+            samanthaRouter?.selectedSpeakerAgent
+            && typeof samanthaRouter.selectedSpeakerAgent === "object"
+            && !Array.isArray(samanthaRouter.selectedSpeakerAgent)
+              ? (samanthaRouter.selectedSpeakerAgent as Record<string, unknown>)
+              : undefined;
+          const actionCompletionDispatchAuthorityIsSamantha =
+            samanthaAuthorityAgent?.isSamanthaRuntime === true;
+          const actionCompletionDispatchSpeakerIsSamantha =
+            samanthaSpeakerAgent?.isSamanthaRuntime === true;
+          const actionCompletionDispatchAuthorityTemplateRole = normalizeTerminalTraceString(
+            samanthaAuthorityAgent?.templateRole
+          );
+          const actionCompletionDispatchSpeakerTemplateRole = normalizeTerminalTraceString(
+            samanthaSpeakerAgent?.templateRole
+          );
+          const actionCompletionRecoveryAttempted = samanthaAutoDispatch?.recoveryAttempted === true;
+          const actionCompletionEnforcementMode =
+            actionCompletion?.enforcementMode === "off"
+            || actionCompletion?.enforcementMode === "observe"
+            || actionCompletion?.enforcementMode === "enforce"
+              ? actionCompletion.enforcementMode
+              : undefined;
+          const actionCompletionTemplateRole = normalizeTerminalTraceString(
+            actionCompletion?.templateRole
+          );
+          const actionCompletionTemplateIdentifier = normalizeTerminalTraceString(
+            actionCompletion?.templateAgentId
+          ) || actionCompletionTemplateRole;
+          const actionCompletionClaimedOutcomes = Array.isArray(actionCompletion?.claimedOutcomes)
+            ? actionCompletion.claimedOutcomes.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const actionCompletionRequiredTools = Array.isArray(actionCompletionPayload?.requiredTools)
+            ? actionCompletionPayload.requiredTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const actionCompletionObservedTools = Array.isArray(actionCompletionPayload?.observedTools)
+            ? actionCompletionPayload.observedTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const actionCompletionAvailableTools = Array.isArray(actionCompletionPayload?.availableTools)
+            ? actionCompletionPayload.availableTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const actionCompletionRewriteApplied = actionCompletion?.rewriteApplied === true;
+          const actionCompletionEnforced = actionCompletionPayload?.status === "enforced";
+          const actionCompletionRewriteDiagnostics =
+            actionCompletionObservedViolation && actionCompletionEnforced && actionCompletionRewriteApplied
+              ? ` — preflight=${actionCompletionPreflightReasonCode || "unknown"}; missingRequiredFields=[${actionCompletionMissingRequiredFields.join(", ")}]; dispatchDecision=${actionCompletionDispatchDecision || "unknown"}; recoveryAttempted=${actionCompletionRecoveryAttempted ? "true" : "false"}`
+              : "";
+
           entries.push({
             id: action._id,
             timestamp: action.performedAt,
-            type: "tool_execution",
-            severity: "success",
-            message: `[Pipeline] Message processed${data?.toolsUsed ? ` — tools: ${(data.toolsUsed as string[]).join(", ")}` : ""}`,
+            type:
+              actionCompletionObservedViolation && actionCompletionEnforced
+                ? "error"
+                : "tool_execution",
+            severity:
+              actionCompletionObservedViolation
+                ? actionCompletionEnforced
+                  ? "error"
+                  : "warning"
+                : "success",
+            message:
+              actionCompletionObservedViolation && actionCompletionReasonCode
+                ? `[ActionCompletion] ${actionCompletionRewriteApplied ? "Fail-closed rewrite applied" : "Mismatch observed"} (${actionCompletionReasonCode})${actionCompletionOutcome ? ` — outcome: ${actionCompletionOutcome}` : ""}${actionCompletionRewriteDiagnostics}`
+                : `[Pipeline] Message processed${data?.toolsUsed ? ` — tools: ${(data.toolsUsed as string[]).join(", ")}` : ""}`,
             metadata: {
               sessionId: data?.sessionId as string | undefined,
               toolsUsed: data?.toolsUsed as string[] | undefined,
               tokensUsed: data?.tokensUsed as number | undefined,
               costUsd: data?.costUsd as number | undefined,
+              actionCompletionReasonCode: actionCompletionReasonCode,
+              actionCompletionOutcome: actionCompletionOutcome,
+              actionCompletionPreflightReasonCode: actionCompletionPreflightReasonCode,
+              actionCompletionMissingRequiredFields,
+              actionCompletionDispatchDecision,
+              actionCompletionDispatchTerminalReasonCode,
+              actionCompletionDispatchInvocationStatus,
+              actionCompletionDispatchSkipReasonCodes,
+              actionCompletionDispatchRecoveryDecisionReasonCode,
+              actionCompletionDispatchTraceEventCount,
+              actionCompletionDispatchAuthorityIsSamantha,
+              actionCompletionDispatchSpeakerIsSamantha,
+              actionCompletionDispatchAuthorityTemplateRole,
+              actionCompletionDispatchSpeakerTemplateRole,
+              actionCompletionRecoveryAttempted,
+              actionCompletionRewriteApplied,
+              actionCompletionEnforcementMode,
+              actionCompletionTemplateRole,
+              actionCompletionTemplateIdentifier,
+              actionCompletionClaimedOutcomes,
+              actionCompletionRequiredTools,
+              actionCompletionObservedTools,
+              actionCompletionAvailableTools,
+              visibilityScope,
+              ...(isLayerMode && {
+                orgName: scopedOrg.orgName,
+                orgSlug: scopedOrg.orgSlug,
+                layer: scopedOrg.layer,
+              }),
+            },
+          });
+          if (samanthaAutoDispatch) {
+            const dispatchSummaryReason =
+              actionCompletionDispatchDecision
+              || actionCompletionDispatchTerminalReasonCode
+              || "unknown";
+            const dispatchSummaryInvocation = actionCompletionDispatchInvocationStatus || "not_recorded";
+            const dispatchSummarySkipReasons = actionCompletionDispatchSkipReasonCodes.length > 0
+              ? actionCompletionDispatchSkipReasonCodes.join(", ")
+              : "none";
+            const dispatchSummaryTraceCount = actionCompletionDispatchTraceEventCount;
+            const dispatchSeverity: TerminalLogEntry["severity"] =
+              actionCompletionDispatchDecision?.startsWith("auto_dispatch_executed")
+                ? "success"
+                : actionCompletionDispatchInvocationStatus === "queued_pending_approval"
+                  ? "info"
+                  : actionCompletionDispatchTerminalReasonCode?.startsWith("blocked_")
+                    || actionCompletionDispatchTerminalReasonCode === "missing_required_fields"
+                    || actionCompletionDispatchTerminalReasonCode === "missing_audit_session_context"
+                    || actionCompletionDispatchTerminalReasonCode === "audit_session_not_found"
+                    ? "warning"
+                    : "info";
+
+            entries.push({
+              id: `${action._id}-samantha-dispatch`,
+              timestamp: action.performedAt,
+              type: "tool_execution",
+              severity: dispatchSeverity,
+              message: `[SamanthaDispatch] reason=${dispatchSummaryReason}; invocation=${dispatchSummaryInvocation}; skipReasons=[${dispatchSummarySkipReasons}]; traceEvents=${dispatchSummaryTraceCount}`,
+              metadata: {
+                sessionId: data?.sessionId as string | undefined,
+                actionCompletionDispatchDecision,
+                actionCompletionDispatchTerminalReasonCode,
+                actionCompletionDispatchInvocationStatus,
+                actionCompletionDispatchSkipReasonCodes,
+                actionCompletionDispatchRecoveryDecisionReasonCode,
+                actionCompletionDispatchTraceEventCount,
+                actionCompletionDispatchAuthorityIsSamantha,
+                actionCompletionDispatchSpeakerIsSamantha,
+                actionCompletionDispatchAuthorityTemplateRole,
+                actionCompletionDispatchSpeakerTemplateRole,
+                actionCompletionRecoveryAttempted,
+                actionCompletionTemplateRole,
+                actionCompletionTemplateIdentifier,
+                visibilityScope,
+                ...(isLayerMode && {
+                  orgName: scopedOrg.orgName,
+                  orgSlug: scopedOrg.orgSlug,
+                  layer: scopedOrg.layer,
+                }),
+              },
+            });
+          }
+        } else if (
+          action.actionType === "action_completion_mismatch_detected"
+          || action.actionType === "action_completion_fail_closed_rewrite_applied"
+        ) {
+          const payload = data?.payload && typeof data.payload === "object"
+            ? (data.payload as Record<string, unknown>)
+            : undefined;
+          const reasonCode = normalizeTerminalTraceString(payload?.reasonCode);
+          const outcome = normalizeTerminalTraceString(payload?.outcome);
+          const templateRole = normalizeTerminalTraceString(data?.templateRole);
+          const templateIdentifier =
+            normalizeTerminalTraceString(data?.templateAgentId) || templateRole;
+          const requiredTools = Array.isArray(payload?.requiredTools)
+            ? payload.requiredTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const observedTools = Array.isArray(payload?.observedTools)
+            ? payload.observedTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const availableTools = Array.isArray(payload?.availableTools)
+            ? payload.availableTools.filter(
+                (value): value is string => typeof value === "string" && value.trim().length > 0
+              )
+            : undefined;
+          const isRewrite = action.actionType === "action_completion_fail_closed_rewrite_applied";
+          entries.push({
+            id: action._id,
+            timestamp: action.performedAt,
+            type: isRewrite ? "error" : "tool_execution",
+            severity: isRewrite ? "error" : "warning",
+            message: `[ActionCompletion] ${isRewrite ? "Fail-closed rewrite persisted" : "Mismatch incident persisted"}${reasonCode ? ` (${reasonCode})` : ""}${outcome ? ` — outcome: ${outcome}` : ""}`,
+            metadata: {
+              sessionId: data?.sessionId as string | undefined,
+              channel: data?.channel as string | undefined,
+              actionCompletionReasonCode: reasonCode,
+              actionCompletionOutcome: outcome,
+              actionCompletionRewriteApplied: data?.rewriteApplied === true,
+              actionCompletionEnforcementMode:
+                data?.enforcementMode === "off"
+                || data?.enforcementMode === "observe"
+                || data?.enforcementMode === "enforce"
+                  ? data.enforcementMode
+                  : undefined,
+              actionCompletionTemplateRole: templateRole,
+              actionCompletionTemplateIdentifier: templateIdentifier,
+              actionCompletionClaimedOutcomes: Array.isArray(data?.claimedOutcomes)
+                ? (data?.claimedOutcomes as unknown[]).filter(
+                    (value): value is string =>
+                      typeof value === "string" && value.trim().length > 0
+                  )
+                : undefined,
+              actionCompletionRequiredTools: requiredTools,
+              actionCompletionObservedTools: observedTools,
+              actionCompletionAvailableTools: availableTools,
               visibilityScope,
               ...(isLayerMode && {
                 orgName: scopedOrg.orgName,

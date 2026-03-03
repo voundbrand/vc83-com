@@ -417,6 +417,37 @@ export interface ResolvedToolsWithAudit {
   audit: ToolScopingAudit;
 }
 
+export interface RequiredSpecialistScopeContract {
+  requiredTools: string[];
+  requiredCapabilities: string[];
+  enforced: boolean;
+}
+
+export interface RequiredSpecialistScopeGap {
+  reasonCode: "required_scope_contract_missing";
+  missingTools: string[];
+  missingCapabilities: string[];
+  missingCapabilityKinds: Array<"integration" | "tool" | "unknown">;
+  missingByLayer: {
+    platform: string[];
+    orgAllow: string[];
+    orgDeny: string[];
+    integration: string[];
+    agentProfile: string[];
+    agentEnable: string[];
+    agentDisable: string[];
+    autonomy: string[];
+    session: string[];
+    channel: string[];
+  };
+}
+
+export interface RequiredSpecialistScopeValidation {
+  blocked: boolean;
+  contract: RequiredSpecialistScopeContract;
+  gap?: RequiredSpecialistScopeGap;
+}
+
 function normalizeToolNames(toolNames: string[]): string[] {
   return Array.from(
     new Set(
@@ -425,6 +456,166 @@ function normalizeToolNames(toolNames: string[]): string[] {
         .filter((toolName) => toolName.length > 0)
     )
   );
+}
+
+function normalizeCapabilityNames(capabilities: string[]): string[] {
+  return Array.from(
+    new Set(
+      capabilities
+        .map((capability) => capability.trim().toLowerCase())
+        .filter((capability) => capability.length > 0)
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeDeterministicTools(toolNames: string[]): string[] {
+  return normalizeToolNames(toolNames).sort((left, right) => left.localeCompare(right));
+}
+
+export function normalizeDeterministicToolNames(toolNames: string[]): string[] {
+  return normalizeDeterministicTools(toolNames);
+}
+
+export function resolveRequiredSpecialistScopeContract(args: {
+  requiredTools?: string[] | null;
+  requiredCapabilities?: string[] | null;
+}): RequiredSpecialistScopeContract {
+  const requiredTools = normalizeDeterministicTools(args.requiredTools ?? []);
+  const requiredCapabilities = normalizeCapabilityNames(args.requiredCapabilities ?? []);
+  return {
+    requiredTools,
+    requiredCapabilities,
+    enforced: requiredTools.length > 0 || requiredCapabilities.length > 0,
+  };
+}
+
+export function validateRequiredSpecialistScopeContract(args: {
+  requiredTools?: string[] | null;
+  requiredCapabilities?: string[] | null;
+  scopedToolNames: string[];
+  connectedIntegrations: string[];
+  removedByLayer: {
+    platform: string[];
+    orgAllow: string[];
+    orgDeny: string[];
+    integration: string[];
+    agentProfile: string[];
+    agentEnable: string[];
+    agentDisable: string[];
+    autonomy: string[];
+    session: string[];
+    channel: string[];
+  };
+}): RequiredSpecialistScopeValidation {
+  const contract = resolveRequiredSpecialistScopeContract({
+    requiredTools: args.requiredTools,
+    requiredCapabilities: args.requiredCapabilities,
+  });
+  if (!contract.enforced) {
+    return { blocked: false, contract };
+  }
+
+  const activeTools = new Set(normalizeToolNames(args.scopedToolNames));
+  const connectedIntegrations = new Set(normalizeToolNames(args.connectedIntegrations));
+
+  const missingTools = contract.requiredTools
+    .filter((toolName) => !activeTools.has(toolName))
+    .sort((left, right) => left.localeCompare(right));
+  const missingCapabilities: string[] = [];
+  let hasIntegrationGap = false;
+  let hasToolGap = false;
+  let hasUnknownGap = false;
+
+  for (const capability of contract.requiredCapabilities) {
+    if (capability.startsWith("integration:")) {
+      const integration = capability.slice("integration:".length).trim();
+      if (!integration || connectedIntegrations.has(integration)) {
+        continue;
+      }
+      hasIntegrationGap = true;
+      missingCapabilities.push(capability);
+      continue;
+    }
+    if (capability.startsWith("tool:")) {
+      const toolName = capability.slice("tool:".length).trim();
+      if (!toolName || activeTools.has(toolName)) {
+        continue;
+      }
+      hasToolGap = true;
+      missingCapabilities.push(capability);
+      continue;
+    }
+    hasUnknownGap = true;
+    missingCapabilities.push(capability);
+  }
+
+  if (missingTools.length === 0 && missingCapabilities.length === 0) {
+    return { blocked: false, contract };
+  }
+
+  const missingToolSet = new Set(
+    normalizeToolNames([
+      ...missingTools,
+      ...missingCapabilities
+        .filter((capability) => capability.startsWith("tool:"))
+        .map((capability) => capability.slice("tool:".length).trim()),
+    ])
+  );
+  const missingByLayer = {
+    platform: normalizeDeterministicTools(
+      args.removedByLayer.platform.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    orgAllow: normalizeDeterministicTools(
+      args.removedByLayer.orgAllow.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    orgDeny: normalizeDeterministicTools(
+      args.removedByLayer.orgDeny.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    integration: normalizeDeterministicTools(
+      args.removedByLayer.integration.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    agentProfile: normalizeDeterministicTools(
+      args.removedByLayer.agentProfile.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    agentEnable: normalizeDeterministicTools(
+      args.removedByLayer.agentEnable.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    agentDisable: normalizeDeterministicTools(
+      args.removedByLayer.agentDisable.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    autonomy: normalizeDeterministicTools(
+      args.removedByLayer.autonomy.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    session: normalizeDeterministicTools(
+      args.removedByLayer.session.filter((toolName) => missingToolSet.has(toolName))
+    ),
+    channel: normalizeDeterministicTools(
+      args.removedByLayer.channel.filter((toolName) => missingToolSet.has(toolName))
+    ),
+  };
+
+  const missingCapabilityKinds: Array<"integration" | "tool" | "unknown"> = [];
+  if (hasIntegrationGap) {
+    missingCapabilityKinds.push("integration");
+  }
+  if (hasToolGap) {
+    missingCapabilityKinds.push("tool");
+  }
+  if (hasUnknownGap) {
+    missingCapabilityKinds.push("unknown");
+  }
+
+  return {
+    blocked: true,
+    contract,
+    gap: {
+      reasonCode: "required_scope_contract_missing",
+      missingTools,
+      missingCapabilities: normalizeCapabilityNames(missingCapabilities),
+      missingCapabilityKinds,
+      missingByLayer,
+    },
+  };
 }
 
 function applyScopedFilter(

@@ -95,10 +95,10 @@ export async function createAndDispatchEscalation(args: {
     transition: "escalation_started";
     metadata: Record<string, unknown>;
   }) => Promise<void>;
-  notifyTelegram: (args: EscalationNotificationPayload) => void;
-  notifyPushover: (args: Omit<EscalationNotificationPayload, "sessionId" | "lastMessage">) => void;
-  notifyEmail: (args: Omit<EscalationNotificationPayload, "sessionId">) => void;
-  notifyHighUrgencyRetry: (args: EscalationRetryPayload) => void;
+  notifyTelegram: (args: EscalationNotificationPayload) => Promise<void>;
+  notifyPushover: (args: Omit<EscalationNotificationPayload, "sessionId" | "lastMessage">) => Promise<void>;
+  notifyEmail: (args: Omit<EscalationNotificationPayload, "sessionId">) => Promise<void>;
+  notifyHighUrgencyRetry: (args: EscalationRetryPayload) => Promise<void>;
   onTransitionError?: (error: unknown) => void;
 }): Promise<void> {
   await args.createEscalation({
@@ -119,7 +119,7 @@ export async function createAndDispatchEscalation(args: {
     onRecordError: args.onTransitionError,
   });
 
-  args.notifyTelegram({
+  await args.notifyTelegram({
     sessionId: args.sessionId,
     organizationId: args.organizationId,
     agentName: args.agentName,
@@ -129,7 +129,7 @@ export async function createAndDispatchEscalation(args: {
     channel: args.channel,
     lastMessage: args.lastMessage,
   });
-  args.notifyPushover({
+  await args.notifyPushover({
     organizationId: args.organizationId,
     agentName: args.agentName,
     reason: args.trigger.reason,
@@ -137,7 +137,7 @@ export async function createAndDispatchEscalation(args: {
     contactIdentifier: args.contactIdentifier,
     channel: args.channel,
   });
-  args.notifyEmail({
+  await args.notifyEmail({
     organizationId: args.organizationId,
     agentName: args.agentName,
     reason: args.trigger.reason,
@@ -148,7 +148,7 @@ export async function createAndDispatchEscalation(args: {
   });
 
   if (args.trigger.urgency === "high") {
-    args.notifyHighUrgencyRetry({
+    await args.notifyHighUrgencyRetry({
       sessionId: args.sessionId,
       organizationId: args.organizationId,
       agentName: args.agentName,

@@ -776,11 +776,21 @@ export const listAgents = query({
   handler: async (ctx, args) => {
     await requireSuperAdminSession(ctx, args.sessionId);
     const datasetVersion = normalizeDatasetVersion(args.datasetVersion);
+    const dbAny = ctx.db as any;
 
     const entries = await loadDatasetEntries(ctx, datasetVersion);
     const resolvedEntries = entries.map(resolveCatalogEntryRecommendationFields);
     const toolRequirements = await loadToolRequirements(ctx, datasetVersion);
     const coverageMap = toCoverageMap(toolRequirements);
+    const seedRows = (await dbAny
+      .query("agentCatalogSeedRegistry")
+      .withIndex("by_dataset_seed_coverage", (q: any) =>
+        q.eq("datasetVersion", datasetVersion),
+      )
+      .collect()) as SeedRegistryRow[];
+    const seedByAgentNumber = new Map<number, SeedRegistryRow>(
+      seedRows.map((row) => [row.catalogAgentNumber, row]),
+    );
 
     const searchTokens = tokenizeSearchInput(args.filters?.search || "");
     const intentTagFilter = normalizeToken(args.filters?.intentTag || "");
@@ -852,12 +862,90 @@ export const listAgents = query({
           implemented: 0,
           missing: 0,
         };
+        const seed = seedByAgentNumber.get(entry.catalogAgentNumber);
         return {
           ...entry,
           blockersCount: entry.blockers.length,
           toolCoverageCounts: coverage,
+          seedTemplateRole: seed?.templateRole ?? null,
+          seedTemplateAgentId: seed?.systemTemplateAgentId
+            ? String(seed.systemTemplateAgentId)
+            : null,
         };
       }),
+    };
+  },
+});
+
+export const listPlatformAgents = query({
+  args: {
+    sessionId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    const dbAny = ctx.db as any;
+    const requestedLimit = typeof args.limit === "number" && Number.isFinite(args.limit)
+      ? Math.floor(args.limit)
+      : 500;
+    const limit = Math.max(1, Math.min(2000, requestedLimit));
+
+    const platformOrgIdEnv = (process.env.PLATFORM_ORG_ID || "").trim();
+    if (!platformOrgIdEnv) {
+      throw new Error("PLATFORM_ORG_ID is not configured.");
+    }
+
+    const systemOrg = await dbAny.get(platformOrgIdEnv);
+    if (!systemOrg || systemOrg._id !== platformOrgIdEnv) {
+      throw new Error(`PLATFORM_ORG_ID does not resolve to an organization: ${platformOrgIdEnv}`);
+    }
+
+    const rows = (await dbAny
+      .query("objects")
+      .withIndex("by_org_type", (q: any) =>
+        q.eq("organizationId", platformOrgIdEnv).eq("type", "org_agent"),
+      )
+      .collect()) as Array<{
+      _id: string;
+      name?: string;
+      status?: string;
+      customProperties?: Record<string, unknown>;
+    }>;
+
+    const normalized = rows
+      .map((row) => {
+        const props = asRecord(row.customProperties);
+        const templateRole = normalizeOptionalString(props.templateRole);
+        const templateLayer = normalizeOptionalString(props.templateLayer);
+        const templatePlaybook = normalizeOptionalString(props.templatePlaybook);
+        const operatorId = normalizeOptionalString(props.operatorId);
+        const protectedTemplate = props.protected === true;
+        const primary = props.isPrimary === true;
+        return {
+          _id: String(row._id),
+          name: normalizeOptionalString(row.name) || "Unnamed Platform Agent",
+          status: normalizeOptionalString(row.status) || "unknown",
+          protectedTemplate,
+          templateRole,
+          templateLayer,
+          templatePlaybook,
+          primary,
+          operatorId,
+        };
+      })
+      .sort((left, right) => {
+        const leftRole = left.templateRole || "";
+        const rightRole = right.templateRole || "";
+        if (leftRole !== rightRole) {
+          return leftRole.localeCompare(rightRole);
+        }
+        return left.name.localeCompare(right.name);
+      });
+
+    return {
+      systemOrganizationId: platformOrgIdEnv,
+      total: normalized.length,
+      agents: normalized.slice(0, limit),
     };
   },
 });

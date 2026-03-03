@@ -121,7 +121,7 @@ Use this when an operator asks, "Which agent do I need now?"
    - Specialist: Provider Outreach Specialist
    - Integration minimum: Telegram, WhatsApp, or Slack
 3. Medical follow-up coordination:
-   - Specialist: Appointment Booking Specialist + Medical Compliance Reviewer
+   - Specialist: Appointment Booking Specialist (self-sufficient baseline; add compliance reviewer only when policy requires escalation)
    - Integration minimum: calendar + messaging readiness
 
 ## Gap Explanation Requirements

@@ -26,6 +26,8 @@ const DEFAULT_DATASET_VERSION = "agp_v1";
 const DEFAULT_PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 100;
 const MANAGED_USE_CASE_CLONE_LIFECYCLE = "managed_use_case_clone_v1";
+const ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION =
+  "aoh_action_completion_template_contract_v1";
 
 const categoryValidator = v.union(
   v.literal("core"),
@@ -308,6 +310,56 @@ function normalizeTokenArray(values: Iterable<string>): string[] {
     result.push(normalized);
   }
   return result;
+}
+
+function resolveActionCompletionContractSummary(
+  value: unknown,
+): {
+  contractVersion: string;
+  mode: "off" | "observe" | "enforce";
+  outcomeKeys: string[];
+  requiredToolCount: number;
+} | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.contractVersion !== ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION) {
+    return null;
+  }
+
+  const modeValue = normalizeOptionalString(record.mode);
+  const mode = modeValue === "off" || modeValue === "observe" || modeValue === "enforce"
+    ? modeValue
+    : "observe";
+  const outcomes = Array.isArray(record.outcomes) ? record.outcomes : [];
+  const outcomeKeys: string[] = [];
+  let requiredToolCount = 0;
+  for (const rawOutcome of outcomes) {
+    if (!rawOutcome || typeof rawOutcome !== "object" || Array.isArray(rawOutcome)) {
+      continue;
+    }
+    const outcomeRecord = rawOutcome as Record<string, unknown>;
+    const outcome = normalizeOptionalString(outcomeRecord.outcome);
+    if (!outcome) {
+      continue;
+    }
+    outcomeKeys.push(outcome);
+    const requiredTools = Array.isArray(outcomeRecord.requiredTools)
+      ? outcomeRecord.requiredTools
+      : [];
+    for (const toolName of requiredTools) {
+      if (normalizeOptionalString(toolName)) {
+        requiredToolCount += 1;
+      }
+    }
+  }
+  return {
+    contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+    mode,
+    outcomeKeys: Array.from(new Set(outcomeKeys)).sort((a, b) => a.localeCompare(b)),
+    requiredToolCount,
+  };
 }
 
 function humanizeToken(token: string): string {
@@ -636,6 +688,31 @@ function deriveCapabilitySnapshot(args: {
   }
 
   return { availableNow, blocked };
+}
+
+function deriveRequiredSpecialistScopeContract(args: {
+  entry: CatalogEntryRow;
+  requiredTools: ToolRequirementRow[];
+}): {
+  requiredTools: string[];
+  requiredCapabilities: string[];
+} {
+  const requiredTools = normalizeTokenArray(
+    args.requiredTools
+      .filter((tool) => tool.requirementLevel === "required")
+      .map((tool) => tool.toolName),
+  ).sort((left, right) => left.localeCompare(right));
+  const requiredCapabilities = normalizeTokenArray([
+    ...requiredTools.map((toolName) => `tool:${toolName}`),
+    ...(args.entry.requiredIntegrations ?? []).map(
+      (integration) => `integration:${normalizeIntegrationKey(integration)}`,
+    ),
+  ]).sort((left, right) => left.localeCompare(right));
+
+  return {
+    requiredTools,
+    requiredCapabilities,
+  };
 }
 
 function getTemplateAvailability(args: {
@@ -1264,6 +1341,8 @@ export const getClonePreflight = query({
           templateRole: null,
         },
         capabilitySnapshot: buildCompatibilityDisabledCapabilitySnapshot(compatibility.flagKey),
+        requiredTools: [],
+        requiredCapabilities: [],
         quota: {
           orgUsed: 0,
           templateUsed: 0,
@@ -1322,6 +1401,10 @@ export const getClonePreflight = query({
 
     const toolRows = toolsByAgentNumber.get(catalogAgentNumber) ?? [];
     const requiredTools = toolRows.filter((row) => row.requirementLevel === "required");
+    const requiredScopeContract = deriveRequiredSpecialistScopeContract({
+      entry,
+      requiredTools,
+    });
     const seedRow = seedByAgentNumber.get(catalogAgentNumber) ?? null;
     const candidate = candidateByAgentNumber.get(catalogAgentNumber);
     const intentTags = deriveIntentTags(entry);
@@ -1457,8 +1540,13 @@ export const getClonePreflight = query({
         templateRole: normalizeOptionalString(
           asRecord(templateAgent?.customProperties).templateRole,
         ),
+        actionCompletionContract: resolveActionCompletionContractSummary(
+          asRecord(templateAgent?.customProperties).actionCompletionContract
+        ),
       },
       capabilitySnapshot,
+      requiredTools: requiredScopeContract.requiredTools,
+      requiredCapabilities: requiredScopeContract.requiredCapabilities,
       quota,
       allowClone: capabilitySnapshot.blocked.length === 0,
       directCreateAllowed: false,

@@ -6,7 +6,7 @@
 
 import { action, internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
 import { getToolSchemas, executeTool } from "./tools/registry";
@@ -54,7 +54,22 @@ import {
   validateTrustEventPayload,
   type TrustEventPayload,
 } from "./trustEvents";
+import {
+  classifyVoiceProviderFailureReason,
+  normalizeVoiceRuntimeTelemetryContract,
+  type VoiceRuntimeTelemetryContract,
+  type VoiceRuntimeTelemetryEvent,
+} from "./trustTelemetry";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import {
+  SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+  resolveSuperAdminAgentQaDeniedReason,
+  type ActionCompletionQaDiagnostics,
+} from "./qaModeContracts";
+import {
+  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+} from "./samanthaAuditContract";
 
 // Type definitions for OpenRouter API
 interface ChatMessage {
@@ -193,6 +208,36 @@ interface ModelResolutionPayload {
   fallbackReason?: string;
 }
 
+interface SuperAdminAgentQaRuntimeContract {
+  enabled: boolean;
+  targetAgentId?: Id<"objects">;
+  targetTemplateRole?: string;
+  label?: string;
+  sessionId?: string;
+  runId?: string;
+  sourceSessionToken?: string;
+  sourceAuditChannel?: "webchat" | "native_guest";
+  ingressChannel?: string;
+  originSurface?: string;
+}
+
+const QA_SAMANTHA_AUDIT_QUESTION_ORDER = [
+  "business_revenue",
+  "team_size",
+  "monday_priority",
+  "delegation_gap",
+  "reclaimed_time",
+] as const;
+type QaSamanthaAuditQuestionId = (typeof QA_SAMANTHA_AUDIT_QUESTION_ORDER)[number];
+
+const QA_SAMANTHA_AUDIT_DEFAULT_ANSWERS: Record<QaSamanthaAuditQuestionId, string> = {
+  business_revenue: "Service business at approximately €1.2M ARR.",
+  team_size: "8",
+  monday_priority: "Triage inbound client operations and missed follow-ups.",
+  delegation_gap: "Escalation handling for high-priority founder-level exceptions.",
+  reclaimed_time: "10 hours weekly on growth partnerships and product improvements.",
+};
+
 interface ResolvedSendAttachment {
   attachmentId: Id<"aiMessageAttachments">;
   kind: "image";
@@ -305,11 +350,422 @@ function normalizeNonEmptyString(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeSuperAdminQaMode(
+  value: unknown
+): SuperAdminAgentQaRuntimeContract | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const enabled = record.enabled === true;
+  if (!enabled) {
+    return undefined;
+  }
+  const sourceAuditChannelRaw = normalizeNonEmptyString(record.sourceAuditChannel);
+  const sourceAuditChannel = sourceAuditChannelRaw === "native_guest"
+    ? "native_guest"
+    : sourceAuditChannelRaw === "webchat"
+      ? "webchat"
+      : undefined;
+  return {
+    enabled: true,
+    targetAgentId: normalizeNonEmptyString(record.targetAgentId) as Id<"objects"> | undefined,
+    targetTemplateRole: normalizeNonEmptyString(record.targetTemplateRole),
+    label: normalizeNonEmptyString(record.label),
+    sessionId: normalizeNonEmptyString(record.sessionId),
+    runId: normalizeNonEmptyString(record.runId),
+    sourceSessionToken: normalizeNonEmptyString(record.sourceSessionToken),
+    sourceAuditChannel,
+    ingressChannel: normalizeNonEmptyString(record.ingressChannel),
+    originSurface: normalizeNonEmptyString(record.originSurface),
+  };
+}
+
+function isSamanthaQaTemplateRole(value: string | undefined): boolean {
+  return value === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+    || value === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE;
+}
+
+async function ensureSamanthaQaAuditSessionSeed(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId: Id<"objects">;
+  sourceAuditChannel: "webchat" | "native_guest";
+  sourceSessionToken: string;
+  runId?: string;
+}): Promise<void> {
+  await args.ctx.runMutation(
+    generatedApi.internal.onboarding.auditMode.startAuditModeSession,
+    {
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      channel: args.sourceAuditChannel,
+      sessionToken: args.sourceSessionToken,
+      metadata: {
+        source: "ai.chat.sendMessage.samantha_qa_seed",
+        qaRunId: args.runId,
+      },
+    },
+  );
+
+  let loopGuard = 0;
+  while (loopGuard < QA_SAMANTHA_AUDIT_QUESTION_ORDER.length + 2) {
+    loopGuard += 1;
+    const resumed = await args.ctx.runQuery(
+      generatedApi.internal.onboarding.auditMode.resumeAuditModeSession,
+      {
+        organizationId: args.organizationId,
+        channel: args.sourceAuditChannel,
+        sessionToken: args.sourceSessionToken,
+      },
+    ) as { session?: { currentQuestionId?: QaSamanthaAuditQuestionId } } | null;
+    const currentQuestionId = resumed?.session?.currentQuestionId;
+    if (!currentQuestionId) {
+      break;
+    }
+    const answer = QA_SAMANTHA_AUDIT_DEFAULT_ANSWERS[currentQuestionId];
+    if (!answer) {
+      break;
+    }
+    const answerResult = await args.ctx.runMutation(
+      generatedApi.internal.onboarding.auditMode.answerAuditModeQuestion,
+      {
+        organizationId: args.organizationId,
+        channel: args.sourceAuditChannel,
+        sessionToken: args.sourceSessionToken,
+        questionId: currentQuestionId,
+        answer,
+        metadata: {
+          source: "ai.chat.sendMessage.samantha_qa_seed",
+          qaRunId: args.runId,
+        },
+      },
+    ) as { success?: boolean; errorCode?: string } | null;
+    if (!answerResult?.success && answerResult?.errorCode !== "question_already_answered") {
+      break;
+    }
+  }
+
+  await args.ctx.runMutation(
+    generatedApi.internal.onboarding.auditMode.completeAuditModeSession,
+    {
+      organizationId: args.organizationId,
+      channel: args.sourceAuditChannel,
+      sessionToken: args.sourceSessionToken,
+      workflowRecommendation:
+        "Automate first-response triage and escalation routing to recover founder capacity while preserving quality.",
+      metadata: {
+        source: "ai.chat.sendMessage.samantha_qa_seed",
+        qaRunId: args.runId,
+      },
+    },
+  );
+}
+
 function normalizeRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
   }
   return value as Record<string, unknown>;
+}
+
+const LIVE_SESSION_EXECUTION_LANE_CONTRACT_VERSION =
+  "live_session_execution_lane_v1" as const;
+
+const CONVERSATION_RUNTIME_STATES = new Set([
+  "idle",
+  "connecting",
+  "live",
+  "reconnecting",
+  "ending",
+  "ended",
+  "error",
+] as const);
+
+const CONVERSATION_RUNTIME_MODES = new Set(["voice", "voice_with_eyes"] as const);
+
+interface LiveSessionExecutionLaneMetadata {
+  contractVersion: typeof LIVE_SESSION_EXECUTION_LANE_CONTRACT_VERSION;
+  liveSessionId?: string;
+  state?: string;
+  mode?: string;
+  sourceMode?: string;
+  approvalInvariant: "non_bypassable";
+  mcpOrchestration: {
+    enabled: boolean;
+    route: "session_scoped_mcp";
+  };
+  handoff?: {
+    fromAgentId?: string;
+    toAgentId?: string;
+    handoffId?: string;
+    reason?: string;
+  };
+}
+
+export function resolveLiveSessionExecutionLaneMetadata(args: {
+  liveSessionId?: unknown;
+  conversationRuntime?: unknown;
+  commandPolicy?: unknown;
+}): LiveSessionExecutionLaneMetadata | undefined {
+  const runtime = normalizeRecord(args.conversationRuntime);
+  const policy = normalizeRecord(args.commandPolicy);
+  if (!runtime && !policy && !args.liveSessionId) {
+    return undefined;
+  }
+
+  const mode = normalizeNonEmptyString(runtime?.mode);
+  const normalizedMode = mode && CONVERSATION_RUNTIME_MODES.has(mode as "voice")
+    ? mode
+    : undefined;
+  const state = normalizeNonEmptyString(runtime?.state);
+  const normalizedState =
+    state && CONVERSATION_RUNTIME_STATES.has(state as "idle")
+      ? state
+      : undefined;
+  const sourceMode =
+    normalizeNonEmptyString(runtime?.sourceMode)
+    ?? normalizeNonEmptyString(runtime?.requestedEyesSource);
+  const handoff = normalizeRecord(runtime?.agentHandoff) ?? normalizeRecord(runtime?.handoff);
+  const mcp = normalizeRecord(runtime?.mcpOrchestration) ?? normalizeRecord(runtime?.mcp);
+  const attemptedCommands = Array.isArray(policy?.attemptedCommands)
+    ? policy.attemptedCommands.filter((token): token is string => typeof token === "string")
+    : [];
+  const mcpEnabled =
+    mcp?.enabled === true
+    || mcp?.required === true
+    || attemptedCommands.some((token) => token.toLowerCase().includes("mcp"));
+
+  return {
+    contractVersion: LIVE_SESSION_EXECUTION_LANE_CONTRACT_VERSION,
+    liveSessionId:
+      normalizeNonEmptyString(args.liveSessionId)
+      ?? normalizeNonEmptyString(runtime?.liveSessionId),
+    state: normalizedState,
+    mode: normalizedMode,
+    sourceMode,
+    approvalInvariant: "non_bypassable",
+    mcpOrchestration: {
+      enabled: mcpEnabled,
+      route: "session_scoped_mcp",
+    },
+    handoff: handoff
+      ? {
+          fromAgentId:
+            normalizeNonEmptyString(handoff.fromAgentId)
+            ?? normalizeNonEmptyString(handoff.fromAgent),
+          toAgentId:
+            normalizeNonEmptyString(handoff.toAgentId)
+            ?? normalizeNonEmptyString(handoff.toAgent),
+          handoffId:
+            normalizeNonEmptyString(handoff.handoffId)
+            ?? normalizeNonEmptyString(handoff.id),
+          reason: normalizeNonEmptyString(handoff.reason),
+        }
+      : undefined,
+  };
+}
+
+const VOICE_TRUST_ADAPTIVE_EVENT_NAME =
+  "trust.voice.adaptive_flow_decision.v1" as const;
+const VOICE_TRUST_FAILOVER_EVENT_NAME =
+  "trust.voice.runtime_failover_triggered.v1" as const;
+
+type VoiceRuntimeTelemetryTrustEventName =
+  | typeof VOICE_TRUST_ADAPTIVE_EVENT_NAME
+  | typeof VOICE_TRUST_FAILOVER_EVENT_NAME;
+
+interface PersistedVoiceRuntimeTelemetryTrustEvent {
+  eventName: VoiceRuntimeTelemetryTrustEventName;
+  payload: TrustEventPayload;
+}
+
+function normalizeVoiceRuntimeProviderToken(value: unknown): string {
+  const normalized = normalizeNonEmptyString(value)?.toLowerCase();
+  if (!normalized) {
+    return "browser";
+  }
+  return normalized.replace(/[^a-z0-9_:-]/g, "_");
+}
+
+function resolveVoiceRuntimeTelemetryContractFromInbound(args: {
+  liveSessionId?: unknown;
+  voiceRuntime?: unknown;
+  transportRuntime?: unknown;
+  avObservability?: unknown;
+}): VoiceRuntimeTelemetryContract | null {
+  const transportRuntime = normalizeRecord(args.transportRuntime);
+  const voiceTransportRuntime = normalizeRecord(transportRuntime?.voiceTransportRuntime);
+  const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const avObservability = normalizeRecord(args.avObservability);
+  const telemetryCandidate =
+    voiceTransportRuntime?.telemetry
+    ?? transportRuntime?.telemetry
+    ?? avObservability?.voiceRuntimeTelemetry;
+  if (!telemetryCandidate || typeof telemetryCandidate !== "object") {
+    return null;
+  }
+
+  const normalizedLiveSessionId =
+    normalizeNonEmptyString((telemetryCandidate as Record<string, unknown>).liveSessionId)
+    ?? normalizeNonEmptyString(args.liveSessionId)
+    ?? normalizeNonEmptyString(voiceRuntime?.liveSessionId);
+  const normalizedVoiceSessionId =
+    normalizeNonEmptyString((telemetryCandidate as Record<string, unknown>).voiceSessionId)
+    ?? normalizeNonEmptyString(voiceRuntime?.voiceSessionId)
+    ?? normalizeNonEmptyString(avObservability?.voiceSessionId);
+  if (!normalizedLiveSessionId || !normalizedVoiceSessionId) {
+    return null;
+  }
+  return normalizeVoiceRuntimeTelemetryContract({
+    ...(telemetryCandidate as Record<string, unknown>),
+    liveSessionId: normalizedLiveSessionId,
+    voiceSessionId: normalizedVoiceSessionId,
+    interviewSessionId:
+      normalizeNonEmptyString((telemetryCandidate as Record<string, unknown>).interviewSessionId)
+      ?? normalizeNonEmptyString(voiceRuntime?.interviewSessionId),
+  });
+}
+
+function buildAdaptiveDecisionFromTelemetryEvent(event: VoiceRuntimeTelemetryEvent): {
+  phaseId: string;
+  decision: string;
+  confidence: number;
+} {
+  const payload = normalizeRecord(event.payload);
+  if (event.eventType === "latency_checkpoint") {
+    const stage = normalizeNonEmptyString(payload?.stage) ?? "latency";
+    const breached = payload?.breached === true;
+    return {
+      phaseId: `latency:${stage}`,
+      decision: breached ? "latency_budget_breached" : "latency_budget_ok",
+      confidence: breached ? 0.3 : 0.95,
+    };
+  }
+  if (event.eventType === "interruption") {
+    const source = normalizeNonEmptyString(payload?.source) ?? "unknown_source";
+    const reasonCode = normalizeNonEmptyString(payload?.reasonCode) ?? "unknown_reason";
+    return {
+      phaseId: `interruption:${source}`,
+      decision: `interruption:${reasonCode}`,
+      confidence: 0.9,
+    };
+  }
+  if (event.eventType === "reconnect") {
+    const phase = normalizeNonEmptyString(payload?.phase) ?? "attempt";
+    const reasonCode = normalizeNonEmptyString(payload?.reasonCode) ?? "no_reason";
+    return {
+      phaseId: `reconnect:${phase}`,
+      decision: `reconnect:${phase}:${reasonCode}`,
+      confidence: phase === "succeeded" ? 0.95 : 0.5,
+    };
+  }
+  if (event.eventType === "fallback_transition") {
+    const fromTransport = normalizeNonEmptyString(payload?.fromTransport) ?? "unknown";
+    const toTransport = normalizeNonEmptyString(payload?.toTransport) ?? "unknown";
+    const reasonCode = normalizeNonEmptyString(payload?.reasonCode) ?? "unknown_reason";
+    return {
+      phaseId: `fallback:${fromTransport}->${toTransport}`,
+      decision: `fallback:${reasonCode}`,
+      confidence: 0.85,
+    };
+  }
+  return {
+    phaseId: "runtime",
+    decision: event.eventType,
+    confidence: 0.75,
+  };
+}
+
+export function buildVoiceRuntimeTelemetryTrustEventPayloads(args: {
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  sessionId: Id<"agentSessions">;
+  channel: string;
+  liveSessionId?: unknown;
+  voiceRuntime?: unknown;
+  transportRuntime?: unknown;
+  avObservability?: unknown;
+  occurredAt?: number;
+}): PersistedVoiceRuntimeTelemetryTrustEvent[] {
+  const contract = resolveVoiceRuntimeTelemetryContractFromInbound({
+    liveSessionId: args.liveSessionId,
+    voiceRuntime: args.voiceRuntime,
+    transportRuntime: args.transportRuntime,
+    avObservability: args.avObservability,
+  });
+  if (!contract || contract.events.length === 0) {
+    return [];
+  }
+
+  const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const baselineProviderId = normalizeVoiceRuntimeProviderToken(
+    voiceRuntime?.providerId
+  );
+  const baseOccurredAt =
+    typeof args.occurredAt === "number" && Number.isFinite(args.occurredAt)
+      ? Math.floor(args.occurredAt)
+      : Date.now();
+  const events: PersistedVoiceRuntimeTelemetryTrustEvent[] = [];
+
+  for (const event of contract.events) {
+    const payload = normalizeRecord(event.payload);
+    if (event.eventType === "provider_failure") {
+      const runtimeProvider = normalizeVoiceRuntimeProviderToken(
+        payload?.providerId ?? baselineProviderId
+      );
+      const fallbackProvider = normalizeVoiceRuntimeProviderToken(
+        payload?.fallbackProviderId ?? "browser"
+      );
+      const failureClassification = classifyVoiceProviderFailureReason(
+        payload?.reasonCode
+      );
+      events.push({
+        eventName: VOICE_TRUST_FAILOVER_EVENT_NAME,
+        payload: {
+          event_id: `${VOICE_TRUST_FAILOVER_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
+          event_version: TRUST_EVENT_TAXONOMY_VERSION,
+          occurred_at: event.occurredAtMs || baseOccurredAt,
+          org_id: args.organizationId,
+          mode: "runtime",
+          channel: args.channel,
+          session_id: String(args.sessionId),
+          actor_type: "user",
+          actor_id: String(args.userId),
+          voice_session_id: contract.voiceSessionId,
+          voice_runtime_provider: runtimeProvider,
+          voice_failover_provider: fallbackProvider,
+          voice_failover_reason: failureClassification.reasonCode,
+          voice_provider_health_status: failureClassification.healthStatus,
+        },
+      });
+      continue;
+    }
+
+    const adaptive = buildAdaptiveDecisionFromTelemetryEvent(event);
+    events.push({
+      eventName: VOICE_TRUST_ADAPTIVE_EVENT_NAME,
+      payload: {
+        event_id: `${VOICE_TRUST_ADAPTIVE_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
+        event_version: TRUST_EVENT_TAXONOMY_VERSION,
+        occurred_at: event.occurredAtMs || baseOccurredAt,
+        org_id: args.organizationId,
+        mode: "runtime",
+        channel: args.channel,
+        session_id: String(args.sessionId),
+        actor_type: "user",
+        actor_id: String(args.userId),
+        voice_session_id: contract.voiceSessionId,
+        adaptive_phase_id: adaptive.phaseId,
+        adaptive_decision: adaptive.decision,
+        adaptive_confidence: adaptive.confidence,
+        consent_checkpoint_id: contract.contractVersion,
+      },
+    });
+  }
+
+  return events;
 }
 
 function appendMacosCompanionFallbackReason(
@@ -1158,6 +1614,7 @@ export const sendMessage = action({
     message: v.string(),
     organizationId: v.id("organizations"),
     userId: v.id("users"),
+    sessionId: v.optional(v.string()),
     selectedModel: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("auto"), v.literal("plan"), v.literal("plan_soft"))),
     reasoningEffort: v.optional(
@@ -1199,10 +1656,13 @@ export const sendMessage = action({
     liveSessionId: v.optional(v.string()),
     cameraRuntime: v.optional(v.any()),
     voiceRuntime: v.optional(v.any()),
+    conversationRuntime: v.optional(v.any()),
+    kickoffContract: v.optional(v.any()),
     commandPolicy: v.optional(v.any()),
     transportRuntime: v.optional(v.any()),
     avObservability: v.optional(v.any()),
     geminiLive: v.optional(v.any()),
+    qaMode: v.optional(v.any()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"), v.literal("layers_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
@@ -1216,6 +1676,20 @@ export const sendMessage = action({
     usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null;
     cost: number;
     modelResolution: ModelResolutionPayload;
+    qaDiagnostics?: {
+      enabled: boolean;
+      modeVersion: typeof SUPER_ADMIN_AGENT_QA_MODE_VERSION;
+      runId?: string;
+      actor: {
+        userId: string;
+        email?: string;
+      };
+      target: {
+        agentId?: string;
+        templateRole?: string;
+      };
+      diagnostics?: ActionCompletionQaDiagnostics;
+    };
   }> => {
     await (ctx as any).runMutation(
       generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
@@ -1230,6 +1704,97 @@ export const sendMessage = action({
         channel: "desktop",
       }
     );
+    let qaMode = normalizeSuperAdminQaMode(args.qaMode);
+    if (qaMode?.enabled && !qaMode.runId) {
+      qaMode = {
+        ...qaMode,
+        runId: `qa_${Date.now()}_${String(args.userId).slice(-8)}`,
+      };
+    }
+    let qaActorEmail: string | undefined;
+    if (qaMode?.enabled) {
+      const normalizedSessionId =
+        normalizeNonEmptyString(args.sessionId) || qaMode.sessionId;
+      const session = normalizedSessionId
+        ? await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
+            sessionId: normalizedSessionId,
+          }) as { userId?: Id<"users"> } | null
+        : null;
+      const sessionUserMatchesActor = Boolean(
+        session?.userId && String(session.userId) === String(args.userId),
+      );
+      const actorContext = sessionUserMatchesActor
+        ? await (ctx as any).runQuery(generatedApi.api.auth.getCurrentUser, {
+            sessionId: normalizedSessionId,
+          }) as { id?: string; email?: string; isSuperAdmin?: boolean } | null
+        : null;
+      qaActorEmail = normalizeNonEmptyString(actorContext?.email);
+      const isSuperAdmin = actorContext?.isSuperAdmin === true
+        && String(actorContext?.id) === String(args.userId);
+      if (!isSuperAdmin) {
+        const denyReason = resolveSuperAdminAgentQaDeniedReason({
+          hasSessionId: Boolean(normalizedSessionId),
+          isAuthenticated: sessionUserMatchesActor,
+          isSuperAdmin,
+        });
+        try {
+          await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
+            userId: args.userId,
+            organizationId: args.organizationId,
+            action: "ai.super_admin_agent_qa_mode_access",
+            resource: "ai_chat",
+            resourceId: undefined,
+            success: false,
+            metadata: {
+              modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+              deniedReason: denyReason,
+              targetAgentId: qaMode.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+              targetTemplateRole: qaMode.targetTemplateRole,
+              label: qaMode.label,
+              runId: qaMode.runId,
+            },
+          });
+        } catch (auditError) {
+          console.warn("[AI Chat] Failed to persist QA denial audit event (continuing fail-open)", {
+            organizationId: String(args.organizationId),
+            userId: String(args.userId),
+            denyReason,
+            auditError: auditError instanceof Error ? auditError.message : String(auditError),
+          });
+        }
+        console.warn("[AI Chat] Super-admin QA mode denied; continuing without QA mode", {
+          organizationId: String(args.organizationId),
+          userId: String(args.userId),
+          denyReason,
+        });
+        qaMode = undefined;
+      } else {
+        try {
+          await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
+            userId: args.userId,
+            organizationId: args.organizationId,
+            action: "ai.super_admin_agent_qa_mode_access",
+            resource: "ai_chat",
+            resourceId: undefined,
+            success: true,
+            metadata: {
+              modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+              targetAgentId: qaMode.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+              targetTemplateRole: qaMode.targetTemplateRole,
+              label: qaMode.label,
+              runId: qaMode.runId,
+            },
+          });
+        } catch (auditError) {
+          console.warn("[AI Chat] Failed to persist QA allow audit event (continuing)", {
+            organizationId: String(args.organizationId),
+            userId: String(args.userId),
+            runId: qaMode.runId,
+            auditError: auditError instanceof Error ? auditError.message : String(auditError),
+          });
+        }
+      }
+    }
 
     // 1. Get or create conversation
     let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
@@ -1590,6 +2155,49 @@ export const sendMessage = action({
         response?: string;
         modelResolution?: ModelResolutionPayload;
         toolResults?: MacosCompanionRuntimeToolResult[];
+        sessionId?: string;
+        turnId?: string;
+        agentId?: string;
+        qaDiagnostics?: ActionCompletionQaDiagnostics;
+      };
+
+      const persistSuperAdminQaRunEvent = async (event: {
+        eventType: "start" | "turn";
+        outcome?: "success" | "blocked" | "error" | "rate_limited" | "credits_exhausted";
+        sessionId?: string;
+        turnId?: string;
+        agentId?: string;
+        diagnostics?: ActionCompletionQaDiagnostics;
+        runtimeError?: string;
+      }) => {
+        if (!qaMode?.enabled || !qaMode.runId) {
+          return;
+        }
+        try {
+          await (ctx as any).runMutation(
+            generatedApi.internal.ai.qaRuns.upsertQaRunTurnInternal,
+            {
+              eventType: event.eventType,
+              runId: qaMode.runId,
+              organizationId: args.organizationId,
+              ownerUserId: args.userId,
+              ownerEmail: qaActorEmail,
+              modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+              label: qaMode.label,
+              targetAgentId: qaMode.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+              targetTemplateRole: qaMode.targetTemplateRole,
+              sessionId: event.sessionId,
+              turnId: event.turnId,
+              agentId: event.agentId,
+              occurredAt: Date.now(),
+              outcome: event.outcome,
+              qaDiagnostics: event.diagnostics,
+              runtimeError: normalizeNonEmptyString(event.runtimeError),
+            },
+          );
+        } catch (error) {
+          console.error("[AI Chat] Failed to persist super-admin QA run telemetry:", error);
+        }
       };
 
       const emitMacosCompanionObservabilityTrustEvent = async (
@@ -1643,6 +2251,155 @@ export const sendMessage = action({
           );
         }
       };
+
+      const emitVoiceRuntimeTelemetryTrustEvents = async () => {
+        try {
+          const telemetryEvents = buildVoiceRuntimeTelemetryTrustEventPayloads({
+            organizationId: args.organizationId,
+            userId: args.userId,
+            sessionId: operatorSessionId,
+            channel: "desktop",
+            liveSessionId: args.liveSessionId,
+            voiceRuntime:
+              args.voiceRuntime && typeof args.voiceRuntime === "object"
+                ? args.voiceRuntime
+                : undefined,
+            transportRuntime:
+              args.transportRuntime && typeof args.transportRuntime === "object"
+                ? args.transportRuntime
+                : undefined,
+            avObservability:
+              args.avObservability && typeof args.avObservability === "object"
+                ? args.avObservability
+                : undefined,
+          });
+          for (const event of telemetryEvents) {
+            await (ctx as any).runMutation(
+              generatedApi.internal.ai.voiceRuntime.recordVoiceTrustEvent,
+              {
+                eventName: event.eventName,
+                payload: event.payload,
+              }
+            );
+          }
+        } catch (error) {
+          console.error(
+            "[AI Chat] Failed to persist voice runtime telemetry trust events:",
+            error
+          );
+        }
+      };
+
+      await persistSuperAdminQaRunEvent({
+        eventType: "start",
+        sessionId: String(operatorSessionId),
+        agentId: qaMode?.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+      });
+
+      const kickoffContract =
+        args.kickoffContract && typeof args.kickoffContract === "object"
+          ? args.kickoffContract as Record<string, unknown>
+          : undefined;
+      const kickoffKind = normalizeNonEmptyString(kickoffContract?.kind);
+      const commercialKickoffContract =
+        kickoffKind === "commercial_motion_v1"
+          ? kickoffContract
+          : undefined;
+      const kickoffAudienceTemperature = normalizeNonEmptyString(
+        commercialKickoffContract?.audienceTemperature
+      );
+      const kickoffSurface = normalizeNonEmptyString(commercialKickoffContract?.surface);
+      const kickoffIntentCode = normalizeNonEmptyString(
+        commercialKickoffContract?.intentCode
+      );
+      const kickoffOfferCode = normalizeNonEmptyString(commercialKickoffContract?.offerCode);
+      const kickoffRoutingHint = normalizeNonEmptyString(
+        commercialKickoffContract?.routingHint
+      );
+      const kickoffTargetSpecialistTemplateRole = normalizeNonEmptyString(
+        commercialKickoffContract?.targetSpecialistTemplateRole
+      );
+      const kickoffTargetSpecialistDisplayName = normalizeNonEmptyString(
+        commercialKickoffContract?.targetSpecialistDisplayName
+      );
+      const kickoffChannel = normalizeNonEmptyString(commercialKickoffContract?.channel);
+      const qaTargetAgentId = qaMode?.targetAgentId
+        ? String(qaMode.targetAgentId)
+        : undefined;
+      const qaTargetTemplateRole = qaMode?.targetTemplateRole;
+      const qaRunId = qaMode?.runId;
+      const shouldSeedSamanthaQaSession =
+        qaMode?.enabled === true && isSamanthaQaTemplateRole(qaTargetTemplateRole);
+      const effectiveSamanthaQaSourceAuditChannel =
+        shouldSeedSamanthaQaSession
+          ? (qaMode?.sourceAuditChannel || "webchat")
+          : undefined;
+      const effectiveSamanthaQaSourceSessionToken =
+        shouldSeedSamanthaQaSession
+          ? (
+              qaMode?.sourceSessionToken
+              || `qa_samantha_${String(args.organizationId)}_${qaRunId || String(conversationId)}`
+            )
+          : undefined;
+      if (
+        shouldSeedSamanthaQaSession
+        && effectiveSamanthaQaSourceAuditChannel
+        && effectiveSamanthaQaSourceSessionToken
+      ) {
+        try {
+          await ensureSamanthaQaAuditSessionSeed({
+            ctx,
+            organizationId: args.organizationId,
+            agentId: routedOperatorAgent._id as Id<"objects">,
+            sourceAuditChannel: effectiveSamanthaQaSourceAuditChannel,
+            sourceSessionToken: effectiveSamanthaQaSourceSessionToken,
+            runId: qaRunId,
+          });
+        } catch (seedError) {
+          console.error("[AI Chat] Samantha QA audit session auto-seed failed", {
+            organizationId: args.organizationId,
+            runId: qaRunId,
+            sourceAuditChannel: effectiveSamanthaQaSourceAuditChannel,
+            seedError,
+          });
+        }
+      }
+      const samanthaQaSourceContext =
+        qaMode?.enabled && isSamanthaQaTemplateRole(qaTargetTemplateRole)
+          ? {
+              ingressChannel: qaMode.ingressChannel || "desktop",
+              originSurface: qaMode.originSurface || "super_admin_qa_chat",
+              sourceSessionToken: effectiveSamanthaQaSourceSessionToken,
+              sourceAuditChannel: effectiveSamanthaQaSourceAuditChannel || "webchat",
+            }
+          : undefined;
+      const kickoffCampaign =
+        commercialKickoffContract?.campaign && typeof commercialKickoffContract.campaign === "object"
+          ? commercialKickoffContract.campaign as Record<string, unknown>
+          : undefined;
+      const commercialIntentFromKickoff = commercialKickoffContract
+        ? {
+            offerCode: kickoffOfferCode,
+            intentCode: kickoffIntentCode,
+            surface: kickoffSurface,
+            audienceTemperature: kickoffAudienceTemperature,
+            routingHint: kickoffRoutingHint,
+            targetSpecialistTemplateRole: qaTargetTemplateRole || kickoffTargetSpecialistTemplateRole,
+            targetSpecialistDisplayName: kickoffTargetSpecialistDisplayName,
+            sourceChannel: kickoffChannel,
+            campaign: kickoffCampaign
+              ? {
+                  source: normalizeNonEmptyString(kickoffCampaign.source),
+                  medium: normalizeNonEmptyString(kickoffCampaign.medium),
+                  campaign: normalizeNonEmptyString(kickoffCampaign.campaign),
+                  content: normalizeNonEmptyString(kickoffCampaign.content),
+                  term: normalizeNonEmptyString(kickoffCampaign.term),
+                  referrer: normalizeNonEmptyString(kickoffCampaign.referrer),
+                  landingPath: normalizeNonEmptyString(kickoffCampaign.landingPath),
+                }
+              : undefined,
+          }
+        : undefined;
 
       const inboundRuntimeMetadata = {
         skipOutbound: true,
@@ -1720,6 +2477,53 @@ export const sendMessage = action({
           args.voiceRuntime && typeof args.voiceRuntime === "object"
             ? args.voiceRuntime
             : undefined,
+        conversationRuntime:
+          args.conversationRuntime && typeof args.conversationRuntime === "object"
+            ? args.conversationRuntime
+            : undefined,
+        liveSessionExecutionLane: resolveLiveSessionExecutionLaneMetadata({
+          liveSessionId: args.liveSessionId,
+          conversationRuntime: args.conversationRuntime,
+          commandPolicy: args.commandPolicy,
+        }),
+        kickoffContract,
+        qaMode: qaMode?.enabled
+          ? {
+              enabled: true,
+              modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+              actorUserId: String(args.userId),
+              actorEmail: qaActorEmail,
+              targetAgentId: qaTargetAgentId,
+              targetTemplateRole: qaTargetTemplateRole,
+              label: qaMode.label,
+              runId: qaRunId,
+              sourceSessionToken: effectiveSamanthaQaSourceSessionToken,
+              sourceAuditChannel: effectiveSamanthaQaSourceAuditChannel,
+              ingressChannel: qaMode.ingressChannel,
+              originSurface: qaMode.originSurface,
+            }
+          : undefined,
+        sourceAuditContext: samanthaQaSourceContext,
+        commercialIntent: commercialIntentFromKickoff,
+        audience_temperature: kickoffAudienceTemperature,
+        audienceTemperature: kickoffAudienceTemperature,
+        surface: kickoffSurface,
+        intent_code: kickoffIntentCode,
+        intentCode: kickoffIntentCode,
+        offer_code: kickoffOfferCode,
+        offerCode: kickoffOfferCode,
+        routing_hint: kickoffRoutingHint,
+        routingHint: kickoffRoutingHint,
+        target_specialist_template_role: qaTargetTemplateRole || kickoffTargetSpecialistTemplateRole,
+        targetSpecialistTemplateRole: qaTargetTemplateRole || kickoffTargetSpecialistTemplateRole,
+        qa_target_agent_id: qaTargetAgentId,
+        qaTargetAgentId: qaTargetAgentId,
+        qa_run_id: qaRunId,
+        qaRunId: qaRunId,
+        target_specialist_display_name: kickoffTargetSpecialistDisplayName,
+        targetSpecialistDisplayName: kickoffTargetSpecialistDisplayName,
+        source_channel: kickoffChannel,
+        sourceChannel: kickoffChannel,
         commandPolicy:
           args.commandPolicy && typeof args.commandPolicy === "object"
             ? args.commandPolicy
@@ -1770,6 +2574,17 @@ export const sendMessage = action({
         MACOS_COMPANION_INGRESS_TRUST_EVENT_NAME,
         agentResult
       );
+      await emitVoiceRuntimeTelemetryTrustEvents();
+      const runtimeQaDiagnostics =
+        agentResult.qaDiagnostics && typeof agentResult.qaDiagnostics === "object"
+          ? (agentResult.qaDiagnostics as ActionCompletionQaDiagnostics)
+          : undefined;
+      const runtimeSessionId =
+        normalizeNonEmptyString(agentResult.sessionId) || String(operatorSessionId);
+      const runtimeTurnId = normalizeNonEmptyString(agentResult.turnId);
+      const runtimeAgentId =
+        normalizeNonEmptyString(agentResult.agentId)
+        || (qaMode?.targetAgentId ? String(qaMode.targetAgentId) : undefined);
 
       if (agentResult.status === "credits_exhausted") {
         await emitMacosCompanionObservabilityTrustEvent(
@@ -1777,7 +2592,19 @@ export const sendMessage = action({
           agentResult,
           "credits_exhausted"
         );
-        throw new Error("CREDITS_EXHAUSTED: Not enough credits for this request.");
+        await persistSuperAdminQaRunEvent({
+          eventType: "turn",
+          outcome: "credits_exhausted",
+          sessionId: runtimeSessionId,
+          turnId: runtimeTurnId,
+          agentId: runtimeAgentId,
+          diagnostics: runtimeQaDiagnostics,
+          runtimeError: "credits_exhausted",
+        });
+        throw new ConvexError({
+          code: "CREDITS_EXHAUSTED",
+          message: "CREDITS_EXHAUSTED: Not enough credits for this request.",
+        });
       }
       if (agentResult.status === "rate_limited") {
         await emitMacosCompanionObservabilityTrustEvent(
@@ -1785,6 +2612,15 @@ export const sendMessage = action({
           agentResult,
           "rate_limited"
         );
+        await persistSuperAdminQaRunEvent({
+          eventType: "turn",
+          outcome: "rate_limited",
+          sessionId: runtimeSessionId,
+          turnId: runtimeTurnId,
+          agentId: runtimeAgentId,
+          diagnostics: runtimeQaDiagnostics,
+          runtimeError: normalizeNonEmptyString(agentResult.message) || "rate_limited",
+        });
         throw new Error(agentResult.message || "Rate limit exceeded. Please try again later.");
       }
       if (agentResult.status === "error") {
@@ -1796,6 +2632,15 @@ export const sendMessage = action({
         const runtimeErrorMessage =
           normalizeNonEmptyString(agentResult.message)
           || "Failed to process message via agent runtime.";
+        await persistSuperAdminQaRunEvent({
+          eventType: "turn",
+          outcome: "error",
+          sessionId: runtimeSessionId,
+          turnId: runtimeTurnId,
+          agentId: runtimeAgentId,
+          diagnostics: runtimeQaDiagnostics,
+          runtimeError: runtimeErrorMessage,
+        });
         const runtimeErrorModelId =
           conversationPinnedModel
           || normalizeNonEmptyString(args.selectedModel)
@@ -1823,6 +2668,21 @@ export const sendMessage = action({
           usage: null,
           cost: 0,
           modelResolution: runtimeErrorModelResolution,
+          ...(qaMode?.enabled && {
+            qaDiagnostics: {
+              enabled: true,
+              modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+              runId: qaMode.runId,
+              actor: {
+                userId: String(args.userId),
+                email: qaActorEmail,
+              },
+              target: {
+                agentId: qaMode.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+                templateRole: qaMode.targetTemplateRole,
+              },
+            },
+          }),
         };
       }
       let replayedAssistantMessage: string | null = null;
@@ -1974,6 +2834,19 @@ export const sendMessage = action({
         });
       }
 
+      const qaTurnOutcome: "success" | "blocked" =
+        runtimeQaDiagnostics?.blockedReason || agentResult.status === "blocked"
+          ? "blocked"
+          : "success";
+      await persistSuperAdminQaRunEvent({
+        eventType: "turn",
+        outcome: qaTurnOutcome,
+        sessionId: runtimeSessionId,
+        turnId: runtimeTurnId,
+        agentId: runtimeAgentId,
+        diagnostics: runtimeQaDiagnostics,
+      });
+
       return {
         conversationId: conversationId!,
         slug: conversationSlug,
@@ -1982,6 +2855,25 @@ export const sendMessage = action({
         usage: null,
         cost: 0,
         modelResolution: runtimeModelResolution,
+        ...(qaMode?.enabled && {
+          qaDiagnostics: {
+            enabled: true,
+            modeVersion: SUPER_ADMIN_AGENT_QA_MODE_VERSION,
+            runId: qaMode.runId,
+            actor: {
+              userId: String(args.userId),
+              email: qaActorEmail,
+            },
+            target: {
+              agentId: qaMode.targetAgentId ? String(qaMode.targetAgentId) : undefined,
+              templateRole: qaMode.targetTemplateRole,
+            },
+            diagnostics:
+              agentResult.qaDiagnostics && typeof agentResult.qaDiagnostics === "object"
+                ? (agentResult.qaDiagnostics as ActionCompletionQaDiagnostics)
+                : undefined,
+          },
+        }),
       };
     }
 
@@ -2324,9 +3216,12 @@ export const sendMessage = action({
         console.warn("[AI Chat] Failed to schedule exhausted-credit notification:", error);
       }
 
-      throw new Error(
-        `CREDITS_EXHAUSTED: Not enough credits (have ${creditCheck.totalCredits}, need ${messageCreditCost}).`
-      );
+      throw new ConvexError({
+        code: "CREDITS_EXHAUSTED",
+        message: `CREDITS_EXHAUSTED: Not enough credits (have ${creditCheck.totalCredits}, need ${messageCreditCost}).`,
+        creditsRequired: messageCreditCost,
+        creditsAvailable: creditCheck.totalCredits,
+      });
     }
 
     const modelPricingCache = new Map<string, {

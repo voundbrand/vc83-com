@@ -102,6 +102,19 @@ export interface PersistedToolFailureState {
   failedToolCounts?: Record<string, number>;
 }
 
+export function collectSuccessfulToolNames(
+  toolResults: AgentToolResult[]
+): string[] {
+  return Array.from(
+    new Set(
+      toolResults
+        .filter((result) => result.status === "success")
+        .map((result) => result.tool.trim())
+        .filter((toolName) => toolName.length > 0)
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
 interface ToolCallEnvelope {
   function?: {
     name?: string;
@@ -353,6 +366,14 @@ function resolveMeetingConciergeCommandPolicyBlock(args: {
   if (policyRequired && evaluatedCommands.length > 0 && !evaluatedCommands.includes(expectedCommand)) {
     return `Meeting concierge command policy does not authorize ${expectedCommand}; runtime is fail-closed.`;
   }
+  if (
+    args.executeOperation
+    && policyRequired
+    && evaluatedCommands.length > 0
+    && !evaluatedCommands.includes("preview_meeting_concierge")
+  ) {
+    return "Meeting concierge command policy does not authorize preview_meeting_concierge; runtime is fail-closed.";
+  }
 
   return undefined;
 }
@@ -474,11 +495,12 @@ export async function executeToolCallsWithApproval(args: {
   toolExecutionContext: ToolExecutionContext;
   failedToolCounts: Record<string, number>;
   disabledTools: Set<string>;
+  nonDisableableTools?: string[];
   createApprovalRequest: (args: {
     actionType: string;
     actionPayload: Record<string, unknown>;
   }) => Promise<void>;
-  onToolDisabled: (args: { toolName: string; error: string }) => void;
+  onToolDisabled: (args: { toolName: string; error: string }) => Promise<void>;
 }): Promise<{
   toolResults: AgentToolResult[];
   errorStateDirty: boolean;
@@ -486,6 +508,7 @@ export async function executeToolCallsWithApproval(args: {
 }> {
   const toolResults: AgentToolResult[] = [];
   let errorStateDirty = false;
+  const nonDisableableTools = new Set(args.nonDisableableTools || []);
 
   for (const toolCall of args.toolCalls) {
     const toolName = toolCall.function?.name;
@@ -517,8 +540,11 @@ export async function executeToolCallsWithApproval(args: {
     }
 
     if (
-      args.disabledTools.has(toolName)
-      || (args.failedToolCounts[toolName] || 0) >= 3
+      !nonDisableableTools.has(toolName)
+      && (
+        args.disabledTools.has(toolName)
+        || (args.failedToolCounts[toolName] || 0) >= 3
+      )
     ) {
       toolResults.push({
         tool: toolName,
@@ -658,9 +684,12 @@ export async function executeToolCallsWithApproval(args: {
         });
         errorStateDirty = true;
 
-        if (args.failedToolCounts[toolName] >= 3) {
+        if (
+          args.failedToolCounts[toolName] >= 3
+          && !nonDisableableTools.has(toolName)
+        ) {
           args.disabledTools.add(toolName);
-          args.onToolDisabled({ toolName, error: semanticFailure });
+          await args.onToolDisabled({ toolName, error: semanticFailure });
         }
         continue;
       }
@@ -676,9 +705,12 @@ export async function executeToolCallsWithApproval(args: {
       });
       errorStateDirty = true;
 
-      if (args.failedToolCounts[toolName] >= 3) {
+      if (
+        args.failedToolCounts[toolName] >= 3
+        && !nonDisableableTools.has(toolName)
+      ) {
         args.disabledTools.add(toolName);
-        args.onToolDisabled({ toolName, error: errorMessage });
+        await args.onToolDisabled({ toolName, error: errorMessage });
       }
     }
   }

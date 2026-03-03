@@ -474,6 +474,9 @@ export const executeTeamHandoff = internalMutation({
     toAgentId: v.id("objects"),
     organizationId: v.id("organizations"),
     handoff: teamHandoffPayloadValidator,
+    preferredTeamAccessMode: v.optional(
+      v.union(v.literal("invisible"), v.literal("direct"), v.literal("meeting"))
+    ),
     handoffProvenance: v.optional(handoffProvenanceValidator),
   },
   handler: async (ctx, args) => {
@@ -525,9 +528,14 @@ export const executeTeamHandoff = internalMutation({
     }
     const primaryProps =
       primaryAgent.customProperties as Record<string, unknown> | undefined;
-    const teamAccessMode =
+    const configuredTeamAccessMode =
       normalizeTeamAccessModeToken(primaryProps?.teamAccessMode, "invisible")
       ?? "invisible";
+    const teamAccessMode =
+      normalizeTeamAccessModeToken(
+        args.preferredTeamAccessMode,
+        configuredTeamAccessMode
+      ) ?? configuredTeamAccessMode;
     const dreamTeamSpecialists = normalizeDreamTeamSpecialistContracts(
       primaryProps?.dreamTeamSpecialists
     );
@@ -725,12 +733,13 @@ export const executeTeamHandoff = internalMutation({
     }
 
     // Audit trail
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: routingDecision.authorityAgentId as Id<"objects">,
-      actionType: "team_handoff",
-      actionData: {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: routingDecision.authorityAgentId as Id<"objects">,
+        actionType: "team_handoff",
+        actionData: {
         sessionId: args.sessionId,
+        turnId: activeTurn ? String(activeTurn._id) : undefined,
         fromAgentId: routingDecision.authorityAgentId,
         toAgentId: args.toAgentId,
         reason: handoff.reason,
@@ -739,12 +748,14 @@ export const executeTeamHandoff = internalMutation({
         teamAccessMode: routingDecision.teamAccessMode,
         authorityAgentId: routingDecision.authorityAgentId,
         activeAgentId: routingDecision.activeAgentId,
-        specialistCatalogMatched: Boolean(specialistContract),
-        handoffNumber: normalizedExistingHistory.length + 1,
-        handoffProvenance,
-      },
-      performedAt: now,
-    });
+          specialistCatalogMatched: Boolean(specialistContract),
+          handoffNumber: normalizedExistingHistory.length + 1,
+          configuredTeamAccessMode,
+          preferredTeamAccessMode: args.preferredTeamAccessMode,
+          handoffProvenance,
+        },
+        performedAt: now,
+      });
 
     return {
       success: true,

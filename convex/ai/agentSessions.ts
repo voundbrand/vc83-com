@@ -66,9 +66,17 @@ import {
 import {
   AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS,
   evaluateAgentOpsAlertThreshold,
+  normalizeActionCompletionMismatchReasonCode,
+  normalizeActionCompletionTemplateIdentifier,
+  type ActionCompletionMismatchReasonCode,
   type AgentOpsAlertMetricKey,
   type AgentOpsAlertSeverity,
 } from "./trustTelemetry";
+import {
+  RUNTIME_CAPABILITY_MANIFEST_ARTIFACT_ACTION_TYPE,
+  buildRuntimeCapabilityManifestArtifact,
+  normalizeRuntimeCapabilityManifestArtifact,
+} from "./runtimeCapabilityManifestStore";
 import {
   determineOrgLayer,
   getOrgIdsForScope,
@@ -150,6 +158,55 @@ function normalizeRouteIdentityString(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function areJsonValuesEquivalent(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null) {
+    return left === right;
+  }
+  const leftType = typeof left;
+  const rightType = typeof right;
+  if (leftType !== rightType) {
+    return false;
+  }
+  if (leftType !== "object") {
+    return false;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) {
+      return false;
+    }
+    if (left.length !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (!areJsonValuesEquivalent(left[index], right[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord).sort();
+  const rightKeys = Object.keys(rightRecord).sort();
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (let index = 0; index < leftKeys.length; index += 1) {
+    const key = leftKeys[index];
+    if (!key || key !== rightKeys[index]) {
+      return false;
+    }
+    if (!areJsonValuesEquivalent(leftRecord[key], rightRecord[key])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function normalizeSessionRouteProfileType(
@@ -822,6 +879,326 @@ export function aggregateAgentToolSuccessFailure(
   };
 }
 
+interface AgentActionCompletionTelemetry {
+  contractVersion?: string;
+  templateContractVersion?: string;
+  enforcementMode?: "off" | "observe" | "enforce";
+  source?: "template_metadata" | "legacy_samantha_fallback" | "none";
+  templateRole?: string;
+  templateAgentId?: string;
+  rewriteApplied: boolean;
+  claimedOutcomes: string[];
+  malformedClaimCount: number;
+  payload?: {
+    observedViolation: boolean;
+    reasonCode?: ActionCompletionMismatchReasonCode | "unknown";
+    outcome?: string;
+    claimStatus?: "in_progress" | "completed";
+    status?: "enforced" | "pass";
+    requiredTools: string[];
+    observedTools: string[];
+    availableTools: string[];
+  };
+}
+
+interface AgentActionCompletionTelemetryRecord {
+  performedAt: number;
+  sessionId?: string;
+  turnId?: string;
+  agentId?: string;
+  channel?: string;
+  actionCompletion?: AgentActionCompletionTelemetry;
+}
+
+export interface AgentActionCompletionMismatchAggregation {
+  windowHours: number;
+  since: number;
+  actionsScanned: number;
+  actionsWithActionCompletionTelemetry: number;
+  mismatchCount: number;
+  rewriteCount: number;
+  mismatchRate: number;
+  reasonCodes: Array<{ reasonCode: string; count: number }>;
+  channels: Array<{ channel: string; count: number }>;
+  outcomes: Array<{ outcome: string; count: number }>;
+  templateIdentifiers: Array<{
+    templateIdentifier: string;
+    mismatchCount: number;
+    rewriteCount: number;
+  }>;
+  templateIncidents: Array<{
+    templateRole: string;
+    mismatchCount: number;
+    rewriteCount: number;
+  }>;
+}
+
+function normalizeActionCompletionTelemetry(
+  value: unknown
+): AgentActionCompletionTelemetry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const enforcementMode =
+    record.enforcementMode === "off"
+    || record.enforcementMode === "observe"
+    || record.enforcementMode === "enforce"
+      ? record.enforcementMode
+      : undefined;
+  const source =
+    record.source === "template_metadata"
+    || record.source === "legacy_samantha_fallback"
+    || record.source === "none"
+      ? record.source
+      : undefined;
+  const templateRole =
+    typeof record.templateRole === "string" && record.templateRole.trim().length > 0
+      ? record.templateRole.trim()
+      : undefined;
+  const templateAgentId = normalizeActionCompletionTemplateIdentifier(record.templateAgentId);
+  const claimedOutcomes = Array.isArray(record.claimedOutcomes)
+    ? Array.from(
+        new Set(
+          record.claimedOutcomes
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0)
+        )
+      ).sort((left, right) => left.localeCompare(right))
+    : [];
+  const malformedClaimCount =
+    typeof record.malformedClaimCount === "number" && Number.isFinite(record.malformedClaimCount)
+      ? Math.max(0, Math.floor(record.malformedClaimCount))
+      : 0;
+  const rewriteApplied = record.rewriteApplied === true;
+  const payloadRecord =
+    record.payload && typeof record.payload === "object"
+      ? (record.payload as Record<string, unknown>)
+      : undefined;
+  const payload = payloadRecord
+    ? (() => {
+        const status =
+          payloadRecord.status === "enforced" || payloadRecord.status === "pass"
+            ? (payloadRecord.status as "enforced" | "pass")
+            : undefined;
+        const claimStatus =
+          payloadRecord.claimStatus === "in_progress" || payloadRecord.claimStatus === "completed"
+            ? (payloadRecord.claimStatus as "in_progress" | "completed")
+            : undefined;
+        const requiredTools = Array.isArray(payloadRecord.requiredTools)
+          ? Array.from(
+              new Set(
+                payloadRecord.requiredTools
+                  .filter((entry): entry is string => typeof entry === "string")
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry.length > 0)
+              )
+            ).sort((left, right) => left.localeCompare(right))
+          : [];
+        const observedTools = Array.isArray(payloadRecord.observedTools)
+          ? Array.from(
+              new Set(
+                payloadRecord.observedTools
+                  .filter((entry): entry is string => typeof entry === "string")
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry.length > 0)
+              )
+            ).sort((left, right) => left.localeCompare(right))
+          : [];
+        const availableTools = Array.isArray(payloadRecord.availableTools)
+          ? Array.from(
+              new Set(
+                payloadRecord.availableTools
+                  .filter((entry): entry is string => typeof entry === "string")
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry.length > 0)
+              )
+            ).sort((left, right) => left.localeCompare(right))
+          : [];
+        return {
+          observedViolation: payloadRecord.observedViolation === true,
+          reasonCode: normalizeActionCompletionMismatchReasonCode(payloadRecord.reasonCode),
+          outcome:
+            typeof payloadRecord.outcome === "string" && payloadRecord.outcome.trim().length > 0
+              ? payloadRecord.outcome.trim()
+              : undefined,
+          claimStatus,
+          status,
+          requiredTools,
+          observedTools,
+          availableTools,
+        };
+      })()
+    : undefined;
+
+  return {
+    contractVersion: normalizeActionCompletionTemplateIdentifier(record.contractVersion),
+    templateContractVersion: normalizeActionCompletionTemplateIdentifier(
+      record.templateContractVersion
+    ),
+    enforcementMode,
+    source,
+    templateRole,
+    templateAgentId,
+    rewriteApplied,
+    claimedOutcomes,
+    malformedClaimCount,
+    payload,
+  };
+}
+
+export function aggregateActionCompletionMismatchTelemetry(
+  records: AgentActionCompletionTelemetryRecord[],
+  options: { windowHours: number; since: number }
+): AgentActionCompletionMismatchAggregation {
+  let actionsWithActionCompletionTelemetry = 0;
+  let mismatchCount = 0;
+  let rewriteCount = 0;
+  const reasonCounts = new Map<string, number>();
+  const channelCounts = new Map<string, number>();
+  const outcomeCounts = new Map<string, number>();
+  const templateIdentifierCounts = new Map<
+    string,
+    { mismatchCount: number; rewriteCount: number }
+  >();
+  const templateCounts = new Map<string, { mismatchCount: number; rewriteCount: number }>();
+
+  for (const record of records) {
+    const actionCompletion = normalizeActionCompletionTelemetry(record.actionCompletion);
+    if (!actionCompletion) {
+      continue;
+    }
+    actionsWithActionCompletionTelemetry += 1;
+
+    const templateRole = actionCompletion.templateRole ?? "unknown_template";
+    const templateIdentifier =
+      actionCompletion.templateAgentId ?? actionCompletion.templateRole ?? "unknown_template";
+    if (!templateIdentifierCounts.has(templateIdentifier)) {
+      templateIdentifierCounts.set(templateIdentifier, { mismatchCount: 0, rewriteCount: 0 });
+    }
+    if (!templateCounts.has(templateRole)) {
+      templateCounts.set(templateRole, { mismatchCount: 0, rewriteCount: 0 });
+    }
+
+    const hasMismatch = actionCompletion.payload?.observedViolation === true;
+    if (!hasMismatch) {
+      continue;
+    }
+
+    mismatchCount += 1;
+    const reasonCode = actionCompletion.payload?.reasonCode ?? "unknown";
+    reasonCounts.set(reasonCode, (reasonCounts.get(reasonCode) ?? 0) + 1);
+
+    if (actionCompletion.rewriteApplied === true) {
+      rewriteCount += 1;
+      const templateIdentifierEntry = templateIdentifierCounts.get(templateIdentifier);
+      if (templateIdentifierEntry) {
+        templateIdentifierEntry.rewriteCount += 1;
+      }
+      const templateEntry = templateCounts.get(templateRole);
+      if (templateEntry) {
+        templateEntry.rewriteCount += 1;
+      }
+    }
+
+    const channel = typeof record.channel === "string" ? record.channel.trim().toLowerCase() : "";
+    if (channel.length > 0) {
+      channelCounts.set(channel, (channelCounts.get(channel) ?? 0) + 1);
+    }
+
+    const outcome =
+      actionCompletion.payload?.outcome
+      || actionCompletion.claimedOutcomes[0]
+      || "";
+    const normalizedOutcome = outcome.trim();
+    if (normalizedOutcome.length > 0) {
+      outcomeCounts.set(
+        normalizedOutcome,
+        (outcomeCounts.get(normalizedOutcome) ?? 0) + 1
+      );
+    }
+
+    const templateEntry = templateCounts.get(templateRole);
+    if (templateEntry) {
+      templateEntry.mismatchCount += 1;
+    }
+    const templateIdentifierEntry = templateIdentifierCounts.get(templateIdentifier);
+    if (templateIdentifierEntry) {
+      templateIdentifierEntry.mismatchCount += 1;
+    }
+  }
+
+  return {
+    windowHours: options.windowHours,
+    since: options.since,
+    actionsScanned: records.length,
+    actionsWithActionCompletionTelemetry,
+    mismatchCount,
+    rewriteCount,
+    mismatchRate:
+      actionsWithActionCompletionTelemetry > 0
+        ? Number((mismatchCount / actionsWithActionCompletionTelemetry).toFixed(4))
+        : 0,
+    reasonCodes: Array.from(reasonCounts.entries())
+      .sort((left, right) => {
+        if (left[1] !== right[1]) {
+          return right[1] - left[1];
+        }
+        return left[0].localeCompare(right[0]);
+      })
+      .map(([reasonCode, count]) => ({ reasonCode, count })),
+    channels: Array.from(channelCounts.entries())
+      .sort((left, right) => {
+        if (left[1] !== right[1]) {
+          return right[1] - left[1];
+        }
+        return left[0].localeCompare(right[0]);
+      })
+      .map(([channel, count]) => ({ channel, count })),
+    outcomes: Array.from(outcomeCounts.entries())
+      .sort((left, right) => {
+        if (left[1] !== right[1]) {
+          return right[1] - left[1];
+        }
+        return left[0].localeCompare(right[0]);
+      })
+      .map(([outcome, count]) => ({ outcome, count })),
+    templateIdentifiers: Array.from(templateIdentifierCounts.entries())
+      .map(([templateIdentifier, counts]) => ({
+        templateIdentifier,
+        mismatchCount: counts.mismatchCount,
+        rewriteCount: counts.rewriteCount,
+      }))
+      .filter((entry) => entry.mismatchCount > 0 || entry.rewriteCount > 0)
+      .sort((left, right) => {
+        if (left.mismatchCount !== right.mismatchCount) {
+          return right.mismatchCount - left.mismatchCount;
+        }
+        if (left.rewriteCount !== right.rewriteCount) {
+          return right.rewriteCount - left.rewriteCount;
+        }
+        return left.templateIdentifier.localeCompare(right.templateIdentifier);
+      }),
+    templateIncidents: Array.from(templateCounts.entries())
+      .map(([templateRole, counts]) => ({
+        templateRole,
+        mismatchCount: counts.mismatchCount,
+        rewriteCount: counts.rewriteCount,
+      }))
+      .filter((entry) => entry.mismatchCount > 0 || entry.rewriteCount > 0)
+      .sort((left, right) => {
+        if (left.mismatchCount !== right.mismatchCount) {
+          return right.mismatchCount - left.mismatchCount;
+        }
+        if (left.rewriteCount !== right.rewriteCount) {
+          return right.rewriteCount - left.rewriteCount;
+        }
+        return left.templateRole.localeCompare(right.templateRole);
+      }),
+  };
+}
+
 interface AgentRetrievalTelemetry {
   docsRetrieved?: number;
   docsInjected?: number;
@@ -1318,6 +1695,16 @@ export const createInboundTurn = internalMutation({
     const normalizedPayloadHash = normalizeExecutionContractString(
       args.idempotencyContract?.payloadHash
     );
+    const metadataRecord =
+      args.metadata && typeof args.metadata === "object"
+        ? (args.metadata as Record<string, unknown>)
+        : undefined;
+    const runtimeChannel = normalizeExecutionContractString(metadataRecord?.channel);
+    const allowScopePayloadHashReplayMatch = !(
+      runtimeChannel === "native_guest"
+      && args.idempotencyContract?.intentType !== "proposal"
+      && args.idempotencyContract?.intentType !== "commit"
+    );
     const now = Date.now();
     const replayConflictLabel = resolveReplayConflictLabel(
       args.idempotencyContract?.intentType
@@ -1368,6 +1755,9 @@ export const createInboundTurn = internalMutation({
             candidate.idempotencyKey === normalizedIdempotencyKey
           ) {
             return true;
+          }
+          if (!allowScopePayloadHashReplayMatch) {
+            return false;
           }
           if (!normalizedPayloadHash || !candidatePayloadHash) {
             return false;
@@ -2297,6 +2687,7 @@ export const upsertSessionCollaborationContract = internalMutation({
     if (!session) {
       return { success: false, error: "session_not_found" as const };
     }
+    const sessionRecord = session as Record<string, unknown>;
 
     const normalizedKernelLineageId = normalizeRouteIdentityString(
       (args.kernel as Record<string, unknown>).lineageId
@@ -2326,9 +2717,9 @@ export const upsertSessionCollaborationContract = internalMutation({
     }
 
     const existingRoutingMetadata = normalizeSessionRoutingMetadata(
-      (session as Record<string, unknown>).routingMetadata
+      sessionRecord.routingMetadata
     );
-    if ((session as Record<string, unknown>).routingMetadata && !existingRoutingMetadata) {
+    if (sessionRecord.routingMetadata && !existingRoutingMetadata) {
       return {
         success: false,
         error: "blocked_policy" as const,
@@ -2351,6 +2742,25 @@ export const upsertSessionCollaborationContract = internalMutation({
           reason: consistencyError,
         };
       }
+    }
+
+    const existingCollaborationRecord =
+      sessionRecord.collaboration && typeof sessionRecord.collaboration === "object"
+        ? (sessionRecord.collaboration as Record<string, unknown>)
+        : undefined;
+    const existingContractVersion = normalizeRouteIdentityString(
+      existingCollaborationRecord?.contractVersion
+    );
+    if (
+      existingContractVersion === COLLABORATION_CONTRACT_VERSION
+      && areJsonValuesEquivalent(existingCollaborationRecord?.kernel, args.kernel)
+      && areJsonValuesEquivalent(existingCollaborationRecord?.authority, args.authority)
+    ) {
+      return {
+        success: true,
+        idempotent: true,
+        collaboration: existingCollaborationRecord,
+      };
     }
 
     const now = Date.now();
@@ -2391,6 +2801,7 @@ export const upsertSessionRoutingMetadata = internalMutation({
     if (!session) {
       return { success: false, error: "session_not_found" as const };
     }
+    const sessionRecord = session as Record<string, unknown>;
 
     const tenantId = normalizeRouteIdentityString(args.tenantId);
     const lineageId = normalizeRouteIdentityString(args.lineageId);
@@ -2407,9 +2818,9 @@ export const upsertSessionRoutingMetadata = internalMutation({
 
     const expectedTenantId = String(session.organizationId);
     const collaborationRecord =
-      (session as Record<string, unknown>).collaboration
-      && typeof (session as Record<string, unknown>).collaboration === "object"
-        ? (session as Record<string, unknown>).collaboration as Record<string, unknown>
+      sessionRecord.collaboration
+      && typeof sessionRecord.collaboration === "object"
+        ? sessionRecord.collaboration as Record<string, unknown>
         : undefined;
     const collaborationKernel = normalizeSessionCollaborationKernelIdentity(
       collaborationRecord?.kernel
@@ -2437,13 +2848,27 @@ export const upsertSessionRoutingMetadata = internalMutation({
     }
 
     const existingRoutingMetadata = normalizeSessionRoutingMetadata(
-      (session as Record<string, unknown>).routingMetadata
+      sessionRecord.routingMetadata
     );
-    if ((session as Record<string, unknown>).routingMetadata && !existingRoutingMetadata) {
+    if (sessionRecord.routingMetadata && !existingRoutingMetadata) {
       return {
         success: false,
         error: "blocked_policy" as const,
         reason: "routing_metadata_contract_invalid",
+      };
+    }
+    if (
+      existingRoutingMetadata
+      && existingRoutingMetadata.contractVersion === SESSION_ROUTING_METADATA_CONTRACT_VERSION
+      && existingRoutingMetadata.tenantId === tenantId
+      && existingRoutingMetadata.lineageId === lineageId
+      && existingRoutingMetadata.threadId === threadId
+      && existingRoutingMetadata.workflowKey === workflowKey
+    ) {
+      return {
+        success: true,
+        idempotent: true,
+        routingMetadata: existingRoutingMetadata,
       };
     }
     if (
@@ -3469,16 +3894,33 @@ export const refreshSessionContactMemory = internalMutation({
       };
     }
 
-    const extractedCandidates = extractSessionContactMemoryCandidates({
+    let extractedCandidates = extractSessionContactMemoryCandidates({
       userMessage: args.userMessage,
       toolResults: args.toolResults,
     });
     if (extractedCandidates.length === 0) {
-      return {
-        success: false,
-        error: "blocked_policy" as const,
-        reason: "no_eligible_sources" as const,
-      };
+      const fallbackMessages = await ctx.db
+        .query("agentSessionMessages")
+        .withIndex("by_session_timestamp", (q) => q.eq("sessionId", args.sessionId))
+        .order("desc")
+        .take(30);
+      const fallbackUserMessage = fallbackMessages
+        .reverse()
+        .filter((message) => message.role === "user")
+        .map((message) => message.content)
+        .filter((content): content is string => typeof content === "string" && content.trim().length > 0)
+        .join("\n");
+      extractedCandidates = extractSessionContactMemoryCandidates({
+        userMessage: fallbackUserMessage,
+        toolResults: args.toolResults,
+      });
+      if (extractedCandidates.length === 0) {
+        return {
+          success: false,
+          error: "blocked_policy" as const,
+          reason: "no_eligible_sources" as const,
+        };
+      }
     }
 
     const scopedRecords = await ctx.db
@@ -4234,6 +4676,124 @@ export const getAgentStats = query({
 });
 
 /**
+ * Lightweight debug event feed for a single agent.
+ * Designed for in-product troubleshooting without terminal log hunting.
+ */
+export const getAgentDebugEvents = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.id("objects"),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const clampedLimit = Math.min(Math.max(Math.floor(args.limit ?? 60), 1), 300);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    // by_object is the narrowest index for per-agent diagnostics.
+    const sampled = await ctx.db
+      .query("objectActions")
+      .withIndex("by_object", (q) => q.eq("objectId", args.agentId))
+      .order("desc")
+      .take(clampedLimit * 6);
+
+    const events: Array<{
+      actionId: string;
+      performedAt: number;
+      actionType: string;
+      sessionId?: string;
+      turnId?: string;
+      summary: {
+        toolsUsed: string[];
+        reasonCode?: string;
+        outcome?: string;
+        preflightReasonCode?: string;
+        dispatchDecision?: string;
+        dispatchInvocationStatus?: string;
+      };
+      payload: Record<string, unknown>;
+    }> = [];
+
+    for (const action of sampled) {
+      if (action.organizationId !== args.organizationId) {
+        continue;
+      }
+      if (action.performedAt < since) {
+        continue;
+      }
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      const actionCompletion =
+        actionData.actionCompletion
+        && typeof actionData.actionCompletion === "object"
+        && !Array.isArray(actionData.actionCompletion)
+          ? (actionData.actionCompletion as Record<string, unknown>)
+          : undefined;
+      const actionCompletionPayload =
+        actionCompletion?.payload
+        && typeof actionCompletion.payload === "object"
+        && !Array.isArray(actionCompletion.payload)
+          ? (actionCompletion.payload as Record<string, unknown>)
+          : undefined;
+      const samanthaAutoDispatch =
+        actionCompletion?.samanthaAutoDispatch
+        && typeof actionCompletion.samanthaAutoDispatch === "object"
+        && !Array.isArray(actionCompletion.samanthaAutoDispatch)
+          ? (actionCompletion.samanthaAutoDispatch as Record<string, unknown>)
+          : undefined;
+      const toolsUsed = Array.isArray(actionData.toolsUsed)
+        ? actionData.toolsUsed.filter((value): value is string => typeof value === "string")
+        : [];
+
+      events.push({
+        actionId: String(action._id),
+        performedAt: action.performedAt,
+        actionType: action.actionType,
+        sessionId: typeof actionData.sessionId === "string" ? actionData.sessionId : undefined,
+        turnId: typeof actionData.turnId === "string" ? actionData.turnId : undefined,
+        summary: {
+          toolsUsed,
+          reasonCode:
+            typeof actionCompletionPayload?.reasonCode === "string"
+              ? actionCompletionPayload.reasonCode
+              : undefined,
+          outcome:
+            typeof actionCompletionPayload?.outcome === "string"
+              ? actionCompletionPayload.outcome
+              : undefined,
+          preflightReasonCode:
+            typeof actionCompletionPayload?.preflightReasonCode === "string"
+              ? actionCompletionPayload.preflightReasonCode
+              : undefined,
+          dispatchDecision:
+            typeof samanthaAutoDispatch?.dispatchDecision === "string"
+              ? samanthaAutoDispatch.dispatchDecision
+              : undefined,
+          dispatchInvocationStatus:
+            typeof samanthaAutoDispatch?.invocationStatus === "string"
+              ? samanthaAutoDispatch.invocationStatus
+              : undefined,
+        },
+        payload: actionData,
+      });
+      if (events.length >= clampedLimit) {
+        break;
+      }
+    }
+
+    return {
+      windowHours: clampedHours,
+      since,
+      totalEvents: events.length,
+      events,
+    };
+  },
+});
+
+/**
  * Aggregate retrieval telemetry emitted by agentExecution message_processed logs.
  * Used by Lane C/WS4 quality checks and later SLO dashboards.
  */
@@ -4592,6 +5152,987 @@ export const getToolScopingAudit = query({
         .sort((a, b) => b.performedAt - a.performedAt)
         .slice(0, args.limit ?? 50),
     };
+  },
+});
+
+/**
+ * Inspect claim-vs-execution mismatch telemetry emitted by action-completion contracts.
+ * User-facing strict mode: artifact-backed incidents only.
+ */
+export const getActionCompletionMismatchTelemetry = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+    return await buildActionCompletionMismatchTelemetryResponse({
+      ctx,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      hours: args.hours,
+      limit: args.limit,
+      sourceMode: "artifacts_only",
+    });
+  },
+});
+
+/**
+ * Admin diagnostic variant for mismatch telemetry.
+ * Allows controlled fallback behavior for investigations.
+ */
+export const getActionCompletionMismatchTelemetryDiagnostic = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+    sourceMode: v.optional(
+      v.union(v.literal("auto"), v.literal("artifacts_only"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+    return await buildActionCompletionMismatchTelemetryResponse({
+      ctx,
+      organizationId: args.organizationId,
+      agentId: args.agentId,
+      hours: args.hours,
+      limit: args.limit,
+      sourceMode: args.sourceMode ?? "auto",
+    });
+  },
+});
+
+async function buildActionCompletionMismatchTelemetryResponse(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  agentId?: Id<"objects">;
+  hours?: number;
+  limit?: number;
+  sourceMode: "auto" | "artifacts_only";
+}) {
+  const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+  const clampedLimit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 500);
+  const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+  const messageActions = await args.ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "message_processed")
+      )
+      .collect();
+  const mismatchActions = await args.ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "action_completion_mismatch_detected")
+      )
+      .collect();
+  const rewriteActions = await args.ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q: any) =>
+        q.eq(
+          "organizationId",
+          args.organizationId
+        ).eq("actionType", "action_completion_fail_closed_rewrite_applied")
+      )
+      .collect();
+
+  const records: AgentActionCompletionTelemetryRecord[] = [];
+  for (const action of messageActions) {
+    if (action.performedAt < since) {
+      continue;
+    }
+    if (args.agentId && action.objectId !== args.agentId) {
+      continue;
+    }
+    const actionData = (action.actionData || {}) as Record<string, unknown>;
+    records.push({
+      performedAt: action.performedAt,
+      sessionId:
+        typeof actionData.sessionId === "string" ? actionData.sessionId : undefined,
+      turnId:
+        typeof actionData.turnId === "string" ? actionData.turnId : undefined,
+      agentId: String(action.objectId),
+      channel: typeof actionData.channel === "string" ? actionData.channel : undefined,
+      actionCompletion: actionData.actionCompletion as AgentActionCompletionTelemetry | undefined,
+    });
+  }
+  const mismatchArtifactRecords: AgentActionCompletionTelemetryRecord[] = [];
+  for (const action of mismatchActions) {
+    if (action.performedAt < since) {
+      continue;
+    }
+    if (args.agentId && action.objectId !== args.agentId) {
+      continue;
+    }
+    const actionData = (action.actionData || {}) as Record<string, unknown>;
+    mismatchArtifactRecords.push({
+      performedAt: action.performedAt,
+      sessionId:
+        typeof actionData.sessionId === "string" ? actionData.sessionId : undefined,
+      turnId:
+        typeof actionData.turnId === "string" ? actionData.turnId : undefined,
+      agentId: String(action.objectId),
+      channel: typeof actionData.channel === "string" ? actionData.channel : undefined,
+      actionCompletion: actionData as unknown as AgentActionCompletionTelemetry,
+    });
+  }
+
+  const incidents: Array<{
+      performedAt: number;
+      sessionId?: string;
+      turnId?: string;
+      agentId: string;
+      channel?: string;
+      reasonCode: string;
+      outcome?: string;
+      enforcementMode: "off" | "observe" | "enforce";
+      source: "template_metadata" | "legacy_samantha_fallback" | "none";
+      templateRole: string;
+      templateAgentId?: string;
+      templateIdentifier: string;
+      contractVersion?: string;
+      templateContractVersion?: string;
+      claimedOutcomes: string[];
+      malformedClaimCount: number;
+      rewriteApplied: boolean;
+      contractEvidence: {
+        claimStatus?: "in_progress" | "completed";
+        status?: "enforced" | "pass";
+        requiredTools: string[];
+        observedTools: string[];
+        availableTools: string[];
+      };
+  }> = [];
+  const sourceMode = args.sourceMode;
+  const hasArtifactRecords = mismatchArtifactRecords.length > 0;
+  const incidentSourceRecords =
+    sourceMode === "artifacts_only"
+      ? mismatchArtifactRecords
+      : hasArtifactRecords
+        ? mismatchArtifactRecords
+        : records;
+  const summarySourceRecords =
+    sourceMode === "artifacts_only" ? mismatchArtifactRecords : records;
+  for (const record of incidentSourceRecords) {
+    const actionCompletion = normalizeActionCompletionTelemetry(record.actionCompletion);
+    if (!actionCompletion || actionCompletion.payload?.observedViolation !== true) {
+      continue;
+    }
+    const templateIdentifier =
+      actionCompletion.templateAgentId ?? actionCompletion.templateRole ?? "unknown_template";
+    incidents.push({
+      performedAt: record.performedAt,
+      sessionId: record.sessionId,
+      turnId: record.turnId,
+      agentId: record.agentId ?? "unknown_agent",
+      channel: record.channel,
+      reasonCode: actionCompletion.payload.reasonCode ?? "unknown",
+      outcome:
+        actionCompletion.payload.outcome
+        || actionCompletion.claimedOutcomes[0]
+        || undefined,
+      enforcementMode: actionCompletion.enforcementMode ?? "off",
+      source: actionCompletion.source ?? "none",
+      templateRole: actionCompletion.templateRole ?? "unknown_template",
+      templateAgentId: actionCompletion.templateAgentId,
+      templateIdentifier,
+      contractVersion: actionCompletion.contractVersion,
+      templateContractVersion: actionCompletion.templateContractVersion,
+      claimedOutcomes: actionCompletion.claimedOutcomes,
+      malformedClaimCount: actionCompletion.malformedClaimCount,
+      rewriteApplied: actionCompletion.rewriteApplied === true,
+      contractEvidence: {
+        claimStatus: actionCompletion.payload?.claimStatus,
+        status: actionCompletion.payload?.status,
+        requiredTools: actionCompletion.payload?.requiredTools ?? [],
+        observedTools: actionCompletion.payload?.observedTools ?? [],
+        availableTools: actionCompletion.payload?.availableTools ?? [],
+      },
+    });
+  }
+  const sortedIncidents = incidents
+    .sort((left, right) => {
+      if (left.performedAt !== right.performedAt) {
+        return right.performedAt - left.performedAt;
+      }
+      const leftSession = left.sessionId ?? "";
+      const rightSession = right.sessionId ?? "";
+      if (leftSession !== rightSession) {
+        return leftSession.localeCompare(rightSession);
+      }
+      const leftTurn = left.turnId ?? "";
+      const rightTurn = right.turnId ?? "";
+      if (leftTurn !== rightTurn) {
+        return leftTurn.localeCompare(rightTurn);
+      }
+      if (left.agentId !== right.agentId) {
+        return left.agentId.localeCompare(right.agentId);
+      }
+      return left.templateIdentifier.localeCompare(right.templateIdentifier);
+    })
+    .slice(0, clampedLimit);
+
+  return {
+    source: "agent_message_processed",
+    sourceMode,
+    dataQuality:
+      sourceMode === "artifacts_only"
+        ? hasArtifactRecords
+          ? "artifact_backed"
+          : "no_artifacts"
+        : hasArtifactRecords
+          ? "artifact_backed_with_fallback_available"
+          : "fallback_derived",
+    summarySource:
+      sourceMode === "artifacts_only"
+        ? "action_completion_mismatch_detected"
+        : "message_processed",
+    incidentSource: sourceMode === "artifacts_only"
+      ? "action_completion_mismatch_detected"
+      : hasArtifactRecords
+        ? "action_completion_mismatch_detected"
+        : "message_processed_fallback",
+    rewriteArtifactCount: rewriteActions.filter((action: any) => {
+      if (action.performedAt < since) {
+        return false;
+      }
+      if (args.agentId && action.objectId !== args.agentId) {
+        return false;
+      }
+      return true;
+    }).length,
+    ...aggregateActionCompletionMismatchTelemetry(summarySourceRecords, {
+      windowHours: clampedHours,
+      since,
+    }),
+    incidents: sortedIncidents,
+  };
+}
+
+/**
+ * Inspect required-scope contract failures emitted by runtime fail-closed checks.
+ */
+export const getRequiredScopeContractFailures = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const clampedLimit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 500);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const actions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", "required_scope_contract_blocked")
+      )
+      .order("desc")
+      .collect();
+
+    const records: Array<{
+      performedAt: number;
+      agentId: string;
+      sessionId?: string;
+      turnId?: string;
+      reasonCode?: string;
+      manifestHash?: string;
+      missingTools: string[];
+      missingCapabilities: string[];
+      missingCapabilityKinds: string[];
+      requiredTools: string[];
+      requiredCapabilities: string[];
+      removedByLayer?: Record<string, unknown>;
+      requiredScopeManifest?: Record<string, unknown>;
+    }> = [];
+
+    for (const action of actions) {
+      if (action.performedAt < since) {
+        continue;
+      }
+      if (args.agentId && action.objectId !== args.agentId) {
+        continue;
+      }
+
+      const actionData = (action.actionData || {}) as Record<string, unknown>;
+      const contract =
+        actionData.contract && typeof actionData.contract === "object"
+          ? (actionData.contract as Record<string, unknown>)
+          : {};
+      const gap =
+        actionData.gap && typeof actionData.gap === "object"
+          ? (actionData.gap as Record<string, unknown>)
+          : {};
+      const requiredScopeManifest =
+        actionData.requiredScopeManifest && typeof actionData.requiredScopeManifest === "object"
+          ? (actionData.requiredScopeManifest as Record<string, unknown>)
+          : undefined;
+
+      const requiredTools = Array.isArray(contract.requiredTools)
+        ? contract.requiredTools.filter((item): item is string => typeof item === "string")
+        : [];
+      const requiredCapabilities = Array.isArray(contract.requiredCapabilities)
+        ? contract.requiredCapabilities.filter((item): item is string => typeof item === "string")
+        : [];
+      const missingTools = Array.isArray(gap.missingTools)
+        ? gap.missingTools.filter((item): item is string => typeof item === "string")
+        : [];
+      const missingCapabilities = Array.isArray(gap.missingCapabilities)
+        ? gap.missingCapabilities.filter((item): item is string => typeof item === "string")
+        : [];
+      const missingCapabilityKinds = Array.isArray(gap.missingCapabilityKinds)
+        ? gap.missingCapabilityKinds.filter((item): item is string => typeof item === "string")
+        : [];
+      const removedByLayer =
+        gap.missingByLayer && typeof gap.missingByLayer === "object"
+          ? (gap.missingByLayer as Record<string, unknown>)
+          : undefined;
+      const manifestHash = requiredScopeManifest
+        && typeof requiredScopeManifest.manifestHash === "string"
+        ? requiredScopeManifest.manifestHash
+        : undefined;
+
+      records.push({
+        performedAt: action.performedAt,
+        agentId: String(action.objectId),
+        sessionId:
+          typeof actionData.sessionId === "string" ? actionData.sessionId : undefined,
+        turnId:
+          typeof actionData.turnId === "string" ? actionData.turnId : undefined,
+        reasonCode:
+          typeof gap.reasonCode === "string" ? gap.reasonCode : undefined,
+        manifestHash,
+        missingTools: Array.from(new Set(missingTools)).sort((a, b) => a.localeCompare(b)),
+        missingCapabilities: Array.from(new Set(missingCapabilities)).sort((a, b) => a.localeCompare(b)),
+        missingCapabilityKinds: Array.from(new Set(missingCapabilityKinds)).sort((a, b) => a.localeCompare(b)),
+        requiredTools: Array.from(new Set(requiredTools)).sort((a, b) => a.localeCompare(b)),
+        requiredCapabilities: Array.from(new Set(requiredCapabilities)).sort((a, b) => a.localeCompare(b)),
+        removedByLayer,
+        requiredScopeManifest,
+      });
+      if (records.length >= clampedLimit) {
+        break;
+      }
+    }
+
+    return {
+      windowHours: clampedHours,
+      since,
+      totalFailures: records.length,
+      records,
+    };
+  },
+});
+
+/**
+ * Persist and retrieve runtime capability manifest artifacts for explainability and audits.
+ */
+export const persistRuntimeCapabilityManifestArtifact = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    agentId: v.id("objects"),
+    manifest: v.any(),
+    persistedAtMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const artifact = buildRuntimeCapabilityManifestArtifact(
+      args.manifest as Parameters<typeof buildRuntimeCapabilityManifestArtifact>[0],
+    );
+
+    const existing = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("actionType", RUNTIME_CAPABILITY_MANIFEST_ARTIFACT_ACTION_TYPE),
+      )
+      .collect();
+
+    const duplicate = existing.find((action) => {
+      if (action.objectId !== args.agentId) {
+        return false;
+      }
+      const persisted = normalizeRuntimeCapabilityManifestArtifact(action.actionData);
+      return persisted?.manifestHash === artifact.manifestHash;
+    });
+
+    if (duplicate) {
+      return {
+        stored: false,
+        actionId: duplicate._id,
+        manifestHash: artifact.manifestHash,
+        manifestKey: artifact.manifestKey,
+      };
+    }
+
+    const actionId = await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.agentId,
+      actionType: RUNTIME_CAPABILITY_MANIFEST_ARTIFACT_ACTION_TYPE,
+      actionData: artifact,
+      performedAt: args.persistedAtMs ?? Date.now(),
+    });
+
+    return {
+      stored: true,
+      actionId,
+      manifestHash: artifact.manifestHash,
+      manifestKey: artifact.manifestKey,
+    };
+  },
+});
+
+export const getRuntimeCapabilityManifestArtifacts = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    manifestHash: v.optional(v.string()),
+    hours: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const clampedHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const clampedLimit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 500);
+    const since = Date.now() - clampedHours * 60 * 60 * 1000;
+
+    const actions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("actionType", RUNTIME_CAPABILITY_MANIFEST_ARTIFACT_ACTION_TYPE),
+      )
+      .order("desc")
+      .collect();
+
+    const records: Array<{
+      performedAt: number;
+      agentId: string;
+      actionId: string;
+      manifestHash: string;
+      manifestKey: string;
+      sourceLayerCatalog: string[];
+      denyCatalog: string[];
+      manifest: Record<string, unknown>;
+    }> = [];
+    const seenHashes = new Set<string>();
+
+    for (const action of actions) {
+      if (action.performedAt < since) {
+        continue;
+      }
+      if (args.agentId && action.objectId !== args.agentId) {
+        continue;
+      }
+
+      const artifact = normalizeRuntimeCapabilityManifestArtifact(action.actionData);
+      if (!artifact) {
+        continue;
+      }
+      if (args.manifestHash && artifact.manifestHash !== args.manifestHash) {
+        continue;
+      }
+      if (seenHashes.has(artifact.manifestHash)) {
+        continue;
+      }
+      seenHashes.add(artifact.manifestHash);
+
+      records.push({
+        performedAt: action.performedAt,
+        agentId: String(action.objectId),
+        actionId: String(action._id),
+        manifestHash: artifact.manifestHash,
+        manifestKey: artifact.manifestKey,
+        sourceLayerCatalog: artifact.sourceLayerCatalog,
+        denyCatalog: artifact.denyCatalog,
+        manifest: artifact.manifest as unknown as Record<string, unknown>,
+      });
+
+      if (records.length >= clampedLimit) {
+        break;
+      }
+    }
+
+    return {
+      windowHours: clampedHours,
+      since,
+      totalArtifacts: records.length,
+      records,
+    };
+  },
+});
+
+export interface DelegationExplainabilityActionRecord {
+  _id: string;
+  organizationId: string;
+  objectId: string;
+  actionType: string;
+  performedAt: number;
+  actionData?: Record<string, unknown>;
+}
+
+export interface DelegationExplainabilityExecutionEdgeRecord {
+  _id: string;
+  organizationId: string;
+  sessionId: string;
+  turnId: string;
+  transition: string;
+  occurredAt: number;
+  edgeOrdinal?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DelegationExplainabilityTrace {
+  organizationId: string;
+  sessionId: string;
+  turnId: string;
+  authority: {
+    agentId: string | null;
+    source: string;
+  };
+  speaker: {
+    agentId: string | null;
+    source: string;
+  };
+  handoffProvenance: {
+    source: string;
+    teamAccessMode: "invisible" | "direct" | "meeting" | "unknown";
+    fromAgentId?: string;
+    toAgentId?: string;
+    handoffNumber?: number;
+    selectionStrategy?: string;
+    requestedSpecialistType?: string;
+    matchedBy?: string;
+    candidateCount?: number;
+    catalogSize?: number;
+  };
+  outcome: {
+    status: "success" | "blocked" | "error";
+    reasonCode: string;
+    reason: string;
+    source: string;
+  };
+  trace: {
+    actionIds: string[];
+    edgeIds: string[];
+    actionCount: number;
+    edgeCount: number;
+  };
+}
+
+const DELEGATION_EXPLAINABILITY_ACTION_TYPES = new Set([
+  "team_handoff",
+  "required_scope_fallback_delegation",
+  "required_scope_contract_blocked",
+  "message_processed",
+]);
+
+function normalizeExplainabilityActionData(
+  value: unknown
+): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function normalizeExplainabilityString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeExplainabilityNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function sortExplainabilityActions(
+  actions: DelegationExplainabilityActionRecord[]
+): DelegationExplainabilityActionRecord[] {
+  const precedence: Record<string, number> = {
+    team_handoff: 1,
+    required_scope_fallback_delegation: 2,
+    required_scope_contract_blocked: 3,
+    message_processed: 4,
+  };
+  return [...actions].sort((left, right) => {
+    if (left.performedAt !== right.performedAt) {
+      return left.performedAt - right.performedAt;
+    }
+    const leftPrecedence = precedence[left.actionType] ?? 99;
+    const rightPrecedence = precedence[right.actionType] ?? 99;
+    if (leftPrecedence !== rightPrecedence) {
+      return leftPrecedence - rightPrecedence;
+    }
+    return String(left._id).localeCompare(String(right._id));
+  });
+}
+
+function sortExplainabilityEdges(
+  edges: DelegationExplainabilityExecutionEdgeRecord[]
+): DelegationExplainabilityExecutionEdgeRecord[] {
+  return [...edges].sort((left, right) => {
+    const leftOrdinal = normalizeExplainabilityNumber(left.edgeOrdinal) ?? 0;
+    const rightOrdinal = normalizeExplainabilityNumber(right.edgeOrdinal) ?? 0;
+    if (leftOrdinal !== rightOrdinal) {
+      return leftOrdinal - rightOrdinal;
+    }
+    if (left.occurredAt !== right.occurredAt) {
+      return left.occurredAt - right.occurredAt;
+    }
+    return String(left._id).localeCompare(String(right._id));
+  });
+}
+
+export function buildDelegationExplainabilityTrace(args: {
+  organizationId: string;
+  sessionId: string;
+  turnId: string;
+  authorityAgentId?: string;
+  sessionTeamState?: {
+    activeAgentId?: string;
+  };
+  actions: DelegationExplainabilityActionRecord[];
+  executionEdges?: DelegationExplainabilityExecutionEdgeRecord[];
+}): DelegationExplainabilityTrace {
+  const scopedActions = sortExplainabilityActions(
+    args.actions.filter((action) => {
+      if (action.organizationId !== args.organizationId) {
+        return false;
+      }
+      const actionData = normalizeExplainabilityActionData(action.actionData);
+      const actionSessionId = normalizeExplainabilityString(actionData.sessionId);
+      if (actionSessionId !== args.sessionId) {
+        return false;
+      }
+      if (action.actionType === "team_handoff") {
+        const actionTurnId = normalizeExplainabilityString(actionData.turnId);
+        if (actionTurnId) {
+          return actionTurnId === args.turnId;
+        }
+        return true;
+      }
+      const actionTurnId = normalizeExplainabilityString(actionData.turnId);
+      return actionTurnId === args.turnId;
+    })
+  );
+  const scopedEdges = sortExplainabilityEdges(
+    (args.executionEdges || []).filter(
+      (edge) =>
+        edge.organizationId === args.organizationId
+        && edge.sessionId === args.sessionId
+        && edge.turnId === args.turnId
+    )
+  );
+
+  const messageProcessed = scopedActions.find(
+    (action) => action.actionType === "message_processed"
+  );
+  const blockedAction = scopedActions.find(
+    (action) => action.actionType === "required_scope_contract_blocked"
+  );
+  const fallbackAction = scopedActions.find(
+    (action) => action.actionType === "required_scope_fallback_delegation"
+  );
+  const handoffAction = [...scopedActions]
+    .filter((action) => action.actionType === "team_handoff")
+    .at(-1);
+  const handoffCompletedEdge = [...scopedEdges]
+    .filter((edge) => edge.transition === "handoff_completed")
+    .at(-1);
+  const terminalErrorEdge = [...scopedEdges]
+    .reverse()
+    .find((edge) => edge.transition === "turn_failed" || edge.transition === "turn_cancelled");
+
+  const messageProcessedData = normalizeExplainabilityActionData(messageProcessed?.actionData);
+  const blockedData = normalizeExplainabilityActionData(blockedAction?.actionData);
+  const fallbackData = normalizeExplainabilityActionData(fallbackAction?.actionData);
+  const fallbackContract = normalizeExplainabilityActionData(fallbackData.fallback);
+  const handoffData = normalizeExplainabilityActionData(handoffAction?.actionData);
+  const handoffEdgeMetadata = normalizeExplainabilityActionData(handoffCompletedEdge?.metadata);
+  const handoffEdgeProvenance = normalizeExplainabilityActionData(
+    handoffEdgeMetadata.handoffProvenance
+  );
+  const handoffActionProvenance = normalizeExplainabilityActionData(
+    handoffData.handoffProvenance
+  );
+
+  const authorityAgentId =
+    normalizeExplainabilityString(messageProcessedData.authorityAgentId)
+    || normalizeExplainabilityString(blockedData.authorityAgentId)
+    || normalizeExplainabilityString(handoffEdgeMetadata.authorityAgentId)
+    || normalizeExplainabilityString(handoffData.authorityAgentId)
+    || (blockedAction ? String(blockedAction.objectId) : undefined)
+    || (fallbackAction ? String(fallbackAction.objectId) : undefined)
+    || args.authorityAgentId
+    || null;
+
+  const speakerAgentId =
+    normalizeExplainabilityString(messageProcessedData.speakerAgentId)
+    || normalizeExplainabilityString(handoffEdgeMetadata.activeAgentId)
+    || normalizeExplainabilityString(handoffData.activeAgentId)
+    || args.sessionTeamState?.activeAgentId
+    || authorityAgentId;
+
+  let outcome: DelegationExplainabilityTrace["outcome"];
+  if (blockedAction) {
+    const fallbackReasonCode = normalizeExplainabilityString(fallbackContract.reasonCode);
+    const fallbackReason = normalizeExplainabilityString(fallbackContract.reason);
+    const gap = normalizeExplainabilityActionData(blockedData.gap);
+    const gapReasonCode = normalizeExplainabilityString(gap.reasonCode);
+    outcome = {
+      status: "blocked",
+      reasonCode: fallbackReasonCode || gapReasonCode || "required_scope_contract_blocked",
+      reason:
+        fallbackReason
+        || normalizeExplainabilityString(gap.reason)
+        || "Required-scope contract blocked without explicit fallback resolution.",
+      source: "required_scope_contract_blocked",
+    };
+  } else if (messageProcessed) {
+    const messageFallback = normalizeExplainabilityActionData(
+      normalizeExplainabilityActionData(messageProcessedData.toolScoping).requiredScopeFallback
+    );
+    const messageFallbackReasonCode = normalizeExplainabilityString(messageFallback.reasonCode);
+    const messageFallbackReason = normalizeExplainabilityString(messageFallback.reason);
+    outcome = {
+      status: "success",
+      reasonCode: messageFallbackReasonCode || "message_processed",
+      reason:
+        messageFallbackReason
+        || "Turn completed and persisted via message_processed trace.",
+      source: "message_processed",
+    };
+  } else {
+    const errorMetadata = normalizeExplainabilityActionData(terminalErrorEdge?.metadata);
+    const transition = normalizeExplainabilityString(terminalErrorEdge?.transition);
+    outcome = {
+      status: "error",
+      reasonCode: transition || "turn_outcome_unresolved",
+      reason:
+        normalizeExplainabilityString(errorMetadata.reason)
+        || "No success/blocked audit action was found for the requested turn.",
+      source: transition ? "execution_edge" : "unresolved",
+    };
+  }
+
+  const teamAccessMode =
+    normalizeExplainabilityString(handoffEdgeMetadata.teamAccessMode)
+    || normalizeExplainabilityString(handoffData.teamAccessMode)
+    || normalizeExplainabilityString(fallbackContract.teamAccessMode)
+    || "unknown";
+
+  return {
+    organizationId: args.organizationId,
+    sessionId: args.sessionId,
+    turnId: args.turnId,
+    authority: {
+      agentId: authorityAgentId,
+      source: messageProcessed
+        ? "message_processed.authorityAgentId"
+        : blockedAction
+          ? "required_scope_contract_blocked.objectId"
+          : args.authorityAgentId
+            ? "session.authorityAgentId"
+            : "unresolved",
+    },
+    speaker: {
+      agentId: speakerAgentId || null,
+      source: messageProcessed
+        ? "message_processed.speakerAgentId"
+        : handoffCompletedEdge
+          ? "execution_edge.handoff_completed.activeAgentId"
+          : args.sessionTeamState?.activeAgentId
+            ? "session.teamSession.activeAgentId"
+            : "authority_fallback",
+    },
+    handoffProvenance: {
+      source: handoffCompletedEdge
+        ? "execution_edge.handoff_completed"
+        : handoffAction
+          ? "object_action.team_handoff"
+          : "not_available",
+      teamAccessMode:
+        teamAccessMode === "invisible"
+        || teamAccessMode === "direct"
+        || teamAccessMode === "meeting"
+          ? teamAccessMode
+          : "unknown",
+      fromAgentId:
+        normalizeExplainabilityString(handoffEdgeMetadata.fromAgentId)
+        || normalizeExplainabilityString(handoffData.fromAgentId)
+        || undefined,
+      toAgentId:
+        normalizeExplainabilityString(handoffEdgeMetadata.toAgentId)
+        || normalizeExplainabilityString(handoffData.toAgentId)
+        || normalizeExplainabilityString(fallbackContract.selectedSpecialistId)
+        || undefined,
+      handoffNumber:
+        normalizeExplainabilityNumber(handoffEdgeMetadata.handoffNumber)
+        ?? normalizeExplainabilityNumber(handoffData.handoffNumber),
+      selectionStrategy:
+        normalizeExplainabilityString(handoffEdgeProvenance.selectionStrategy)
+        || normalizeExplainabilityString(handoffActionProvenance.selectionStrategy)
+        || undefined,
+      requestedSpecialistType:
+        normalizeExplainabilityString(handoffEdgeProvenance.requestedSpecialistType)
+        || normalizeExplainabilityString(handoffActionProvenance.requestedSpecialistType)
+        || normalizeExplainabilityString(fallbackContract.requestedSpecialistType)
+        || undefined,
+      matchedBy:
+        normalizeExplainabilityString(handoffEdgeProvenance.matchedBy)
+        || normalizeExplainabilityString(handoffActionProvenance.matchedBy)
+        || undefined,
+      candidateCount:
+        normalizeExplainabilityNumber(handoffEdgeProvenance.candidateCount)
+        ?? normalizeExplainabilityNumber(handoffActionProvenance.candidateCount),
+      catalogSize:
+        normalizeExplainabilityNumber(handoffEdgeProvenance.catalogSize)
+        ?? normalizeExplainabilityNumber(handoffActionProvenance.catalogSize),
+    },
+    outcome,
+    trace: {
+      actionIds: scopedActions.map((action) => String(action._id)),
+      edgeIds: scopedEdges.map((edge) => String(edge._id)),
+      actionCount: scopedActions.length,
+      edgeCount: scopedEdges.length,
+    },
+  };
+}
+
+/**
+ * Inspect deterministic delegation explainability chain for one turn.
+ * Reconstructs authority -> speaker -> handoff provenance -> outcome from existing traces.
+ */
+export const getDelegationExplainabilityTrace = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentSessionId: v.id("agentSessions"),
+    turnId: v.id("agentTurns"),
+    scanLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+    const session = await ctx.db.get(args.agentSessionId);
+    if (!session || session.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    const turn = await ctx.db.get(args.turnId);
+    if (
+      !turn
+      || turn.organizationId !== args.organizationId
+      || turn.sessionId !== args.agentSessionId
+    ) {
+      return null;
+    }
+
+    const clampedScanLimit = Math.min(Math.max(Math.floor(args.scanLimit ?? 750), 100), 4000);
+    const sessionObjectIds = new Set<string>();
+    sessionObjectIds.add(String(session.agentId));
+    sessionObjectIds.add(String(turn.agentId));
+    if (session.teamSession?.activeAgentId) {
+      sessionObjectIds.add(String(session.teamSession.activeAgentId));
+    }
+    for (const participantId of session.teamSession?.participatingAgentIds || []) {
+      sessionObjectIds.add(String(participantId));
+    }
+    for (const handoff of session.teamSession?.handoffHistory || []) {
+      if (handoff?.fromAgentId) {
+        sessionObjectIds.add(String(handoff.fromAgentId));
+      }
+      if (handoff?.toAgentId) {
+        sessionObjectIds.add(String(handoff.toAgentId));
+      }
+    }
+
+    const [objectScopedActions, executionEdges] =
+      await Promise.all([
+        Promise.all(
+          Array.from(sessionObjectIds).map((objectId) =>
+            ctx.db
+              .query("objectActions")
+              .withIndex("by_object", (q) => q.eq("objectId", objectId as Id<"objects">))
+              .order("desc")
+              .take(clampedScanLimit)
+          )
+        ),
+        ctx.db
+          .query("executionEdges")
+          .withIndex("by_session_time", (q) => q.eq("sessionId", args.agentSessionId))
+          .order("desc")
+          .take(clampedScanLimit),
+      ]);
+
+    const actionMap = new Map<string, DelegationExplainabilityActionRecord>();
+    for (const action of objectScopedActions.flat()) {
+      const actionType = action.actionType;
+      if (!DELEGATION_EXPLAINABILITY_ACTION_TYPES.has(actionType)) {
+        continue;
+      }
+      if (action.organizationId !== args.organizationId) {
+        continue;
+      }
+      const actionId = String(action._id);
+      if (actionMap.has(actionId)) {
+        continue;
+      }
+      actionMap.set(actionId, {
+        _id: actionId,
+        organizationId: String(action.organizationId),
+        objectId: String(action.objectId),
+        actionType,
+        performedAt: action.performedAt,
+        actionData: normalizeExplainabilityActionData(action.actionData),
+      });
+    }
+    const actions: DelegationExplainabilityActionRecord[] = Array.from(actionMap.values());
+
+    const edges: DelegationExplainabilityExecutionEdgeRecord[] = executionEdges.map((edge) => ({
+      _id: String(edge._id),
+      organizationId: String(edge.organizationId),
+      sessionId: String(edge.sessionId),
+      turnId: String(edge.turnId),
+      transition: edge.transition,
+      occurredAt: edge.occurredAt,
+      edgeOrdinal:
+        typeof edge.edgeOrdinal === "number" && Number.isFinite(edge.edgeOrdinal)
+          ? edge.edgeOrdinal
+          : undefined,
+      metadata: normalizeExplainabilityActionData(edge.metadata),
+    }));
+
+    return buildDelegationExplainabilityTrace({
+      organizationId: String(args.organizationId),
+      sessionId: String(args.agentSessionId),
+      turnId: String(args.turnId),
+      authorityAgentId: String(session.agentId),
+      sessionTeamState: {
+        activeAgentId: normalizeExplainabilityString(session.teamSession?.activeAgentId),
+      },
+      actions,
+      executionEdges: edges,
+    });
   },
 });
 
@@ -7016,11 +8557,15 @@ export const getControlCenterThreadDrillDown = query({
           normalizeControlCenterTraceString(payloadRecord.turn_id)
           || normalizeControlCenterTraceString(payloadRecord.turnId);
 
+        const payloadEventId =
+          typeof event.payload.event_id === "string" && event.payload.event_id.trim().length > 0
+            ? event.payload.event_id
+            : undefined;
+
         return {
-          eventId:
-            typeof event.payload.event_id === "string" && event.payload.event_id.trim().length > 0
-              ? event.payload.event_id
-              : String(event._id),
+          eventId: payloadEventId
+            ? `${payloadEventId}:${String(event._id)}`
+            : String(event._id),
           sessionId: args.threadId,
           turnId: trustTurnId,
           threadId: args.threadId,
@@ -7038,8 +8583,7 @@ export const getControlCenterThreadDrillDown = query({
           reason,
           workflowKey,
           trustEventName: event.event_name,
-          trustEventId:
-            typeof event.payload.event_id === "string" ? event.payload.event_id : undefined,
+          trustEventId: payloadEventId,
           sourceObjectIds: event.payload.source_object_ids,
           metadata: roleScopedTimelineMetadata({
             visibilityScope,

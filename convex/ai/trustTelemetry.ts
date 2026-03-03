@@ -23,6 +23,109 @@ export const TRUST_VOICE_SESSION_TELEMETRY_SOURCE_EVENTS = [
   "trust.voice.runtime_failover_triggered.v1",
 ] as const satisfies readonly TrustEventName[];
 
+export const VOICE_RUNTIME_TELEMETRY_CONTRACT_VERSION =
+  "voice_runtime_telemetry_v1" as const;
+
+export const VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES = [
+  "latency_checkpoint",
+  "interruption",
+  "reconnect",
+  "fallback_transition",
+  "provider_failure",
+] as const;
+
+export type VoiceRuntimeTelemetryEventType =
+  (typeof VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES)[number];
+
+export interface VoiceRuntimeTelemetryEvent {
+  eventId: string;
+  eventType: VoiceRuntimeTelemetryEventType;
+  occurredAtMs: number;
+  liveSessionId: string;
+  voiceSessionId: string;
+  interviewSessionId?: string;
+  payload: Record<string, unknown>;
+}
+
+export type VoiceRuntimeTelemetryCoverage = Record<
+  VoiceRuntimeTelemetryEventType,
+  boolean
+>;
+
+export interface VoiceRuntimeTelemetryContract {
+  contractVersion: typeof VOICE_RUNTIME_TELEMETRY_CONTRACT_VERSION;
+  liveSessionId: string;
+  voiceSessionId: string;
+  interviewSessionId?: string;
+  correlationKey: string;
+  eventCount: number;
+  coverage: VoiceRuntimeTelemetryCoverage;
+  events: VoiceRuntimeTelemetryEvent[];
+}
+
+export type VoiceRuntimeCanaryDecision = "PROMOTE" | "HOLD" | "ROLLBACK";
+
+export const VOICE_RUNTIME_CANARY_BUDGET_VERSION =
+  "voice_runtime_canary_budget_v1" as const;
+
+export interface VoiceRuntimeCanaryBudgetThresholds {
+  maxLatencyBreaches: number;
+  maxFallbackTransitions: number;
+  maxProviderFailures: number;
+  maxReconnectEvents: number;
+  maxInterruptionEvents: number;
+  requiredCoverage: readonly VoiceRuntimeTelemetryEventType[];
+}
+
+export interface VoiceRuntimeCanaryBudgetSnapshot {
+  contractVersion: typeof VOICE_RUNTIME_CANARY_BUDGET_VERSION;
+  decision: VoiceRuntimeCanaryDecision;
+  liveSessionId: string;
+  voiceSessionId: string;
+  correlationKey: string;
+  windowStartedAtMs: number;
+  windowEndedAtMs: number;
+  thresholds: VoiceRuntimeCanaryBudgetThresholds;
+  observed: {
+    latencyBreaches: number;
+    fallbackTransitions: number;
+    providerFailures: number;
+    reconnectEvents: number;
+    interruptionEvents: number;
+    missingCoverage: VoiceRuntimeTelemetryEventType[];
+  };
+  reasons: string[];
+}
+
+export type VoiceProviderFailureTaxonomyReason =
+  | "transport_connectivity_failure"
+  | "provider_health_degraded"
+  | "provider_timeout"
+  | "transcription_failure"
+  | "synthesis_failure"
+  | "provider_unavailable"
+  | "runtime_unknown_failure";
+
+export type VoiceProviderHealthStatus =
+  | "healthy"
+  | "degraded"
+  | "unavailable"
+  | "unknown";
+
+export const ACTION_COMPLETION_MISMATCH_REASON_CODE_VALUES = [
+  "claim_tool_not_observed",
+  "claim_tool_unavailable",
+  "claim_payload_invalid",
+] as const;
+
+export type ActionCompletionMismatchReasonCode =
+  (typeof ACTION_COMPLETION_MISMATCH_REASON_CODE_VALUES)[number];
+
+export interface VoiceProviderFailureClassification {
+  reasonCode: VoiceProviderFailureTaxonomyReason;
+  healthStatus: VoiceProviderHealthStatus;
+}
+
 export type TrustKpiUnit = "ratio" | "minutes";
 export type TrustKpiDirection = "min" | "max";
 export type TrustKpiSeverity = "ok" | "warning" | "critical";
@@ -199,6 +302,18 @@ export interface TrustKpiEvaluation {
   thresholdValue: number | null;
 }
 
+export const RUNTIME_TURN_TELEMETRY_DIMENSIONS_CONTRACT_VERSION =
+  "aoh_runtime_turn_telemetry_dimensions_v1" as const;
+
+export interface RuntimeTurnTelemetryDimensions {
+  contractVersion: typeof RUNTIME_TURN_TELEMETRY_DIMENSIONS_CONTRACT_VERSION;
+  manifestHash: string;
+  idempotencyKey: string;
+  idempotencyScopeKey: string;
+  payloadHash: string;
+  admissionReasonCode: string;
+}
+
 const TRUST_SEVERITY_RANK: Record<TrustKpiSeverity, number> = {
   ok: 0,
   warning: 1,
@@ -207,6 +322,385 @@ const TRUST_SEVERITY_RANK: Record<TrustKpiSeverity, number> = {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizeTelemetryToken(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeTelemetryDimensionToken(
+  value: unknown,
+  fallback: string,
+): string {
+  return normalizeTelemetryToken(value) ?? fallback;
+}
+
+export function buildRuntimeTurnTelemetryDimensions(args: {
+  manifestHash?: unknown;
+  idempotencyKey?: unknown;
+  idempotencyScopeKey?: unknown;
+  payloadHash?: unknown;
+  admissionReasonCode?: unknown;
+}): RuntimeTurnTelemetryDimensions {
+  return {
+    contractVersion: RUNTIME_TURN_TELEMETRY_DIMENSIONS_CONTRACT_VERSION,
+    manifestHash: normalizeTelemetryDimensionToken(args.manifestHash, "manifest:unknown"),
+    idempotencyKey: normalizeTelemetryDimensionToken(args.idempotencyKey, "idempotency:unknown"),
+    idempotencyScopeKey: normalizeTelemetryDimensionToken(
+      args.idempotencyScopeKey,
+      "idempotency_scope:unknown",
+    ),
+    payloadHash: normalizeTelemetryDimensionToken(args.payloadHash, "payload:unknown"),
+    admissionReasonCode: normalizeTelemetryDimensionToken(
+      args.admissionReasonCode,
+      "admission_reason:unspecified",
+    ).toLowerCase(),
+  };
+}
+
+export function normalizeActionCompletionMismatchReasonCode(
+  reasonCodeInput: unknown
+): ActionCompletionMismatchReasonCode | "unknown" {
+  const normalized = normalizeTelemetryToken(reasonCodeInput)?.toLowerCase() ?? "";
+  if (
+    normalized === "claim_tool_not_observed"
+    || normalized === "claim_tool_unavailable"
+    || normalized === "claim_payload_invalid"
+  ) {
+    return normalized;
+  }
+  return "unknown";
+}
+
+export function normalizeActionCompletionTemplateIdentifier(
+  templateIdentifierInput: unknown
+): string | undefined {
+  return normalizeTelemetryToken(templateIdentifierInput) ?? undefined;
+}
+
+function normalizeTelemetryTimestamp(value: unknown): number | null {
+  if (!isFiniteNumber(value)) {
+    return null;
+  }
+  return Math.floor(value);
+}
+
+export function buildVoiceRuntimeTelemetryCorrelationKey(args: {
+  liveSessionId: string;
+  voiceSessionId: string;
+}): string {
+  const liveSessionId = normalizeTelemetryToken(args.liveSessionId) ?? "live:none";
+  const voiceSessionId = normalizeTelemetryToken(args.voiceSessionId) ?? "voice:none";
+  return `${liveSessionId}::${voiceSessionId}`;
+}
+
+function createEmptyVoiceRuntimeCoverage(): VoiceRuntimeTelemetryCoverage {
+  return {
+    latency_checkpoint: false,
+    interruption: false,
+    reconnect: false,
+    fallback_transition: false,
+    provider_failure: false,
+  };
+}
+
+function isVoiceRuntimeTelemetryEventType(value: unknown): value is VoiceRuntimeTelemetryEventType {
+  return (
+    value === "latency_checkpoint"
+    || value === "interruption"
+    || value === "reconnect"
+    || value === "fallback_transition"
+    || value === "provider_failure"
+  );
+}
+
+export function normalizeVoiceRuntimeTelemetryContract(
+  input: unknown,
+): VoiceRuntimeTelemetryContract | null {
+  if (typeof input !== "object" || input === null) {
+    return null;
+  }
+  const candidate = input as Record<string, unknown>;
+  if (candidate.contractVersion !== VOICE_RUNTIME_TELEMETRY_CONTRACT_VERSION) {
+    return null;
+  }
+
+  const liveSessionId = normalizeTelemetryToken(candidate.liveSessionId);
+  const voiceSessionId = normalizeTelemetryToken(candidate.voiceSessionId);
+  if (!liveSessionId || !voiceSessionId) {
+    return null;
+  }
+  const interviewSessionId = normalizeTelemetryToken(candidate.interviewSessionId) ?? undefined;
+  const correlationKey = buildVoiceRuntimeTelemetryCorrelationKey({
+    liveSessionId,
+    voiceSessionId,
+  });
+
+  const rawEvents = Array.isArray(candidate.events) ? candidate.events : [];
+  const events: VoiceRuntimeTelemetryEvent[] = [];
+  const coverage = createEmptyVoiceRuntimeCoverage();
+  for (const rawEvent of rawEvents) {
+    if (typeof rawEvent !== "object" || rawEvent === null) {
+      continue;
+    }
+    const event = rawEvent as Record<string, unknown>;
+    if (!isVoiceRuntimeTelemetryEventType(event.eventType)) {
+      continue;
+    }
+    const eventId = normalizeTelemetryToken(event.eventId);
+    const occurredAtMs = normalizeTelemetryTimestamp(event.occurredAtMs);
+    const eventLiveSessionId = normalizeTelemetryToken(event.liveSessionId);
+    const eventVoiceSessionId = normalizeTelemetryToken(event.voiceSessionId);
+    const eventPayload =
+      typeof event.payload === "object" && event.payload !== null
+        ? (event.payload as Record<string, unknown>)
+        : {};
+    if (!eventId || occurredAtMs === null || !eventLiveSessionId || !eventVoiceSessionId) {
+      continue;
+    }
+    if (eventLiveSessionId !== liveSessionId || eventVoiceSessionId !== voiceSessionId) {
+      continue;
+    }
+    coverage[event.eventType] = true;
+    events.push({
+      eventId,
+      eventType: event.eventType,
+      occurredAtMs,
+      liveSessionId: eventLiveSessionId,
+      voiceSessionId: eventVoiceSessionId,
+      interviewSessionId: normalizeTelemetryToken(event.interviewSessionId) ?? undefined,
+      payload: eventPayload,
+    });
+  }
+
+  const reportedCount = isFiniteNumber(candidate.eventCount)
+    ? Math.max(0, Math.floor(candidate.eventCount))
+    : events.length;
+  return {
+    contractVersion: VOICE_RUNTIME_TELEMETRY_CONTRACT_VERSION,
+    liveSessionId,
+    voiceSessionId,
+    interviewSessionId,
+    correlationKey,
+    eventCount: reportedCount,
+    coverage,
+    events,
+  };
+}
+
+export function listMissingVoiceRuntimeTelemetryCoverage(
+  contract: VoiceRuntimeTelemetryContract,
+): VoiceRuntimeTelemetryEventType[] {
+  return VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES.filter(
+    (eventType) => contract.coverage[eventType] !== true,
+  );
+}
+
+function normalizeCanaryBudgetCount(value: unknown, fallback: number): number {
+  if (!isFiniteNumber(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeCanaryThresholds(
+  input?: Partial<VoiceRuntimeCanaryBudgetThresholds>,
+): VoiceRuntimeCanaryBudgetThresholds {
+  const requiredCoverageInput = Array.isArray(input?.requiredCoverage)
+    ? input?.requiredCoverage
+    : VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES;
+  const requiredCoverage = requiredCoverageInput.filter((eventType) =>
+    VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES.includes(eventType),
+  );
+
+  return {
+    maxLatencyBreaches: normalizeCanaryBudgetCount(input?.maxLatencyBreaches, 1),
+    maxFallbackTransitions: normalizeCanaryBudgetCount(input?.maxFallbackTransitions, 1),
+    maxProviderFailures: normalizeCanaryBudgetCount(input?.maxProviderFailures, 1),
+    maxReconnectEvents: normalizeCanaryBudgetCount(input?.maxReconnectEvents, 2),
+    maxInterruptionEvents: normalizeCanaryBudgetCount(input?.maxInterruptionEvents, 3),
+    requiredCoverage:
+      requiredCoverage.length > 0
+        ? requiredCoverage
+        : [...VOICE_RUNTIME_TELEMETRY_EVENT_TYPE_VALUES],
+  };
+}
+
+function isVoiceRuntimeLatencyBreach(
+  event: VoiceRuntimeTelemetryEvent,
+  latencyBreachThresholdMs: number,
+): boolean {
+  if (event.eventType !== "latency_checkpoint") {
+    return false;
+  }
+  const latencyMs = event.payload.latencyMs;
+  const targetMs = event.payload.targetMs;
+  if (isFiniteNumber(targetMs) && isFiniteNumber(latencyMs)) {
+    return latencyMs > targetMs;
+  }
+  if (isFiniteNumber(latencyMs)) {
+    return latencyMs > latencyBreachThresholdMs;
+  }
+  return false;
+}
+
+export function evaluateVoiceRuntimeCanaryBudget(args: {
+  contract: VoiceRuntimeTelemetryContract;
+  windowStartedAtMs: number;
+  windowEndedAtMs: number;
+  thresholds?: Partial<VoiceRuntimeCanaryBudgetThresholds>;
+  latencyBreachThresholdMs?: number;
+}): VoiceRuntimeCanaryBudgetSnapshot {
+  const thresholds = normalizeCanaryThresholds(args.thresholds);
+  const latencyBreachThresholdMs = normalizeCanaryBudgetCount(
+    args.latencyBreachThresholdMs,
+    1000,
+  );
+  const coverageSet = new Set(thresholds.requiredCoverage);
+  const missingCoverage = [...coverageSet].filter(
+    (eventType) => args.contract.coverage[eventType] !== true,
+  );
+
+  const observed = {
+    latencyBreaches: 0,
+    fallbackTransitions: 0,
+    providerFailures: 0,
+    reconnectEvents: 0,
+    interruptionEvents: 0,
+    missingCoverage,
+  };
+
+  for (const event of args.contract.events) {
+    if (!coverageSet.has(event.eventType)) {
+      continue;
+    }
+    if (event.eventType === "fallback_transition") {
+      observed.fallbackTransitions += 1;
+    } else if (event.eventType === "provider_failure") {
+      observed.providerFailures += 1;
+    } else if (event.eventType === "reconnect") {
+      observed.reconnectEvents += 1;
+    } else if (event.eventType === "interruption") {
+      observed.interruptionEvents += 1;
+    }
+    if (isVoiceRuntimeLatencyBreach(event, latencyBreachThresholdMs)) {
+      observed.latencyBreaches += 1;
+    }
+  }
+
+  const reasons: string[] = [];
+  if (observed.missingCoverage.length > 0) {
+    reasons.push("coverage_missing");
+  }
+  if (observed.latencyBreaches > thresholds.maxLatencyBreaches) {
+    reasons.push("latency_breach_limit_exceeded");
+  }
+  if (observed.fallbackTransitions > thresholds.maxFallbackTransitions) {
+    reasons.push("fallback_transition_limit_exceeded");
+  }
+  if (observed.providerFailures > thresholds.maxProviderFailures) {
+    reasons.push("provider_failure_limit_exceeded");
+  }
+  if (observed.reconnectEvents > thresholds.maxReconnectEvents) {
+    reasons.push("reconnect_limit_exceeded");
+  }
+  if (observed.interruptionEvents > thresholds.maxInterruptionEvents) {
+    reasons.push("interruption_limit_exceeded");
+  }
+
+  const rollbackTriggered =
+    reasons.includes("latency_breach_limit_exceeded")
+    || reasons.includes("fallback_transition_limit_exceeded")
+    || reasons.includes("provider_failure_limit_exceeded");
+  const holdTriggered =
+    reasons.includes("coverage_missing")
+    || reasons.includes("reconnect_limit_exceeded")
+    || reasons.includes("interruption_limit_exceeded");
+
+  const decision: VoiceRuntimeCanaryDecision = rollbackTriggered
+    ? "ROLLBACK"
+    : holdTriggered
+      ? "HOLD"
+      : "PROMOTE";
+
+  return {
+    contractVersion: VOICE_RUNTIME_CANARY_BUDGET_VERSION,
+    decision,
+    liveSessionId: args.contract.liveSessionId,
+    voiceSessionId: args.contract.voiceSessionId,
+    correlationKey: args.contract.correlationKey,
+    windowStartedAtMs: Math.floor(args.windowStartedAtMs),
+    windowEndedAtMs: Math.floor(args.windowEndedAtMs),
+    thresholds,
+    observed,
+    reasons,
+  };
+}
+
+export function classifyVoiceProviderFailureReason(
+  reasonCodeInput: unknown,
+): VoiceProviderFailureClassification {
+  const normalized = normalizeTelemetryToken(reasonCodeInput)?.toLowerCase() ?? "";
+  if (!normalized) {
+    return {
+      reasonCode: "runtime_unknown_failure",
+      healthStatus: "unknown",
+    };
+  }
+  if (
+    normalized.includes("websocket")
+    || normalized.includes("network")
+    || normalized.includes("connect")
+    || normalized.includes("closed")
+    || normalized.includes("transport")
+  ) {
+    return {
+      reasonCode: "transport_connectivity_failure",
+      healthStatus: "degraded",
+    };
+  }
+  if (normalized.includes("timeout")) {
+    return {
+      reasonCode: "provider_timeout",
+      healthStatus: "degraded",
+    };
+  }
+  if (normalized.includes("degraded") || normalized.includes("health")) {
+    return {
+      reasonCode: "provider_health_degraded",
+      healthStatus: "degraded",
+    };
+  }
+  if (
+    normalized.includes("unavailable")
+    || normalized.includes("unsupported")
+    || normalized.includes("not_implemented")
+  ) {
+    return {
+      reasonCode: "provider_unavailable",
+      healthStatus: "unavailable",
+    };
+  }
+  if (normalized.includes("transcription")) {
+    return {
+      reasonCode: "transcription_failure",
+      healthStatus: "degraded",
+    };
+  }
+  if (normalized.includes("synthesis") || normalized.includes("tts")) {
+    return {
+      reasonCode: "synthesis_failure",
+      healthStatus: "degraded",
+    };
+  }
+  return {
+    reasonCode: "runtime_unknown_failure",
+    healthStatus: "unknown",
+  };
 }
 
 export function evaluateTrustKpiMetric(
