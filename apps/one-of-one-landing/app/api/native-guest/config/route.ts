@@ -11,6 +11,9 @@ interface NativeGuestActiveAgentCandidate {
   customProperties?: Record<string, unknown>;
 }
 
+const DEFAULT_ONE_OF_ONE_AUDIT_TEMPLATE_ROLE =
+  "one_of_one_lead_capture_consultant_template";
+
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -68,6 +71,7 @@ function resolveAgentIdByConfiguredSelector(
   args: {
     templateRole?: string | null;
     agentName?: string | null;
+    channel?: string;
   }
 ): string | null {
   if (!Array.isArray(activeAgents) || activeAgents.length === 0) {
@@ -76,26 +80,37 @@ function resolveAgentIdByConfiguredSelector(
 
   const normalizedTemplateRole = normalizeOptionalString(args.templateRole)?.toLowerCase();
   const normalizedAgentName = normalizeOptionalString(args.agentName)?.toLowerCase();
+  const channel = normalizeOptionalString(args.channel) || "native_guest";
 
   if (normalizedTemplateRole) {
-    const byRole = activeAgents.find((agent) => {
+    const roleCandidates = activeAgents
+      .filter((agent) => {
       const templateRole = normalizeOptionalString(agent.customProperties?.templateRole);
       return templateRole?.toLowerCase() === normalizedTemplateRole;
-    });
+      })
+      .sort((left, right) => String(left._id).localeCompare(String(right._id)));
+    const byRole =
+      roleCandidates.find((agent) => hasEnabledChannelBinding(agent, channel))
+      || roleCandidates[0];
     if (byRole?._id) {
       return byRole._id;
     }
   }
 
   if (normalizedAgentName) {
-    const byName = activeAgents.find((agent) => {
-      const topLevelName = normalizeOptionalString(agent.name);
-      const displayName = normalizeOptionalString(agent.customProperties?.displayName);
-      return (
-        topLevelName?.toLowerCase() === normalizedAgentName ||
-        displayName?.toLowerCase() === normalizedAgentName
-      );
-    });
+    const nameCandidates = activeAgents
+      .filter((agent) => {
+        const topLevelName = normalizeOptionalString(agent.name);
+        const displayName = normalizeOptionalString(agent.customProperties?.displayName);
+        return (
+          topLevelName?.toLowerCase() === normalizedAgentName ||
+          displayName?.toLowerCase() === normalizedAgentName
+        );
+      })
+      .sort((left, right) => String(left._id).localeCompare(String(right._id)));
+    const byName =
+      nameCandidates.find((agent) => hasEnabledChannelBinding(agent, channel))
+      || nameCandidates[0];
     if (byName?._id) {
       return byName._id;
     }
@@ -145,8 +160,10 @@ export async function GET() {
     }
 
     const convex = getConvexClient();
-    const configuredAgentId =
+    const configuredOneOfOneAgentId =
       process.env.NEXT_PUBLIC_ONE_OF_ONE_AUDIT_AGENT_ID ||
+      null;
+    const configuredGenericAgentId =
       process.env.NEXT_PUBLIC_NATIVE_GUEST_AGENT_ID ||
       process.env.NEXT_PUBLIC_PLATFORM_AGENT_ID ||
       process.env.PLATFORM_AGENT_ID ||
@@ -154,82 +171,122 @@ export async function GET() {
     const configuredTemplateRole =
       process.env.NEXT_PUBLIC_ONE_OF_ONE_AUDIT_TEMPLATE_ROLE ||
       process.env.ONE_OF_ONE_AUDIT_TEMPLATE_ROLE ||
-      null;
+      DEFAULT_ONE_OF_ONE_AUDIT_TEMPLATE_ROLE;
     const configuredAgentName =
       process.env.NEXT_PUBLIC_ONE_OF_ONE_AUDIT_AGENT_NAME ||
       process.env.ONE_OF_ONE_AUDIT_AGENT_NAME ||
       null;
 
-    let agentId = configuredAgentId;
-    if (!agentId) {
-      const activeAgents = await convex.query(
-        generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
-        {
-          organizationId: organizationId as Id<"organizations">,
-        }
-      );
-      const typedActiveAgents = activeAgents as NativeGuestActiveAgentCandidate[];
+    const activeAgents = await convex.query(
+      generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
+      {
+        organizationId: organizationId as Id<"organizations">,
+      }
+    );
+    const typedActiveAgents = activeAgents as NativeGuestActiveAgentCandidate[];
+    const activeAgent = await convex.query(
+      generatedApi.internal.agentOntology.getActiveAgentForOrg,
+      {
+        organizationId: organizationId as Id<"organizations">,
+        channel: "native_guest",
+      }
+    );
 
-      agentId = resolveAgentIdByConfiguredSelector(typedActiveAgents, {
+    const candidateAgentIds: string[] = [];
+    const candidateSet = new Set<string>();
+    const activeAgentIdSet = new Set(
+      typedActiveAgents
+        .map((agent) => normalizeOptionalString(agent._id))
+        .filter((value): value is string => Boolean(value))
+    );
+    const normalizedActiveAgentId = normalizeOptionalString(activeAgent?._id);
+    if (normalizedActiveAgentId) {
+      activeAgentIdSet.add(normalizedActiveAgentId);
+    }
+    const appendCandidateAgentId = (candidate?: string | null) => {
+      const normalized = normalizeOptionalString(candidate);
+      if (!normalized || candidateSet.has(normalized)) {
+        return;
+      }
+      if (activeAgentIdSet.size > 0 && !activeAgentIdSet.has(normalized)) {
+        return;
+      }
+      candidateSet.add(normalized);
+      candidateAgentIds.push(normalized);
+    };
+
+    appendCandidateAgentId(configuredOneOfOneAgentId);
+    appendCandidateAgentId(
+      resolveAgentIdByConfiguredSelector(typedActiveAgents, {
         templateRole: configuredTemplateRole,
         agentName: configuredAgentName,
-      });
-    }
+        channel: "native_guest",
+      })
+    );
+    appendCandidateAgentId(configuredGenericAgentId);
+    appendCandidateAgentId(
+      resolvePrimaryAwareNativeGuestAgentId(typedActiveAgents, "native_guest")
+    );
+    appendCandidateAgentId(activeAgent?._id || null);
 
-    if (!agentId) {
-      const activeAgents = await convex.query(
-        generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
-        {
-          organizationId: organizationId as Id<"organizations">,
-        }
-      );
-      agentId = resolvePrimaryAwareNativeGuestAgentId(
-        activeAgents as NativeGuestActiveAgentCandidate[],
-        "native_guest"
-      );
-    }
-
-    if (!agentId) {
-      const activeAgent = await convex.query(
-        generatedApi.internal.agentOntology.getActiveAgentForOrg,
-        {
-          organizationId: organizationId as Id<"organizations">,
-          channel: "native_guest",
-        }
-      );
-      agentId = activeAgent?._id || null;
-    }
-
-    if (!agentId) {
+    if (candidateAgentIds.length === 0) {
       return NextResponse.json(
         { error: "No active native guest agent available" },
         { status: 503 }
       );
     }
 
-    const resolvedContext = await convex.query(
-      generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
-      {
-        organizationId: organizationId as Id<"organizations">,
-        agentId: agentId as Id<"objects">,
-        channel: "native_guest",
-      }
-    );
+    let bootstrapContract: {
+      organizationId: Id<"organizations">;
+      agentId: Id<"objects">;
+      channel: string;
+      contractVersion: string;
+      config: {
+        agentName: string;
+      };
+    } | null = null;
 
-    if (!resolvedContext) {
-      return NextResponse.json(
-        { error: "Native guest agent context could not be resolved" },
-        { status: 503 }
+    for (const candidateAgentId of candidateAgentIds) {
+      let resolvedContext:
+        | {
+          agentId: Id<"objects">;
+        }
+        | null = null;
+      try {
+        resolvedContext = await convex.query(
+          generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            agentId: candidateAgentId as Id<"objects">,
+            channel: "native_guest",
+            deploymentMode: "direct_agent_entry",
+          }
+        );
+      } catch (error) {
+        console.warn(
+          `[LandingNativeGuestConfig] Skipping candidate agentId due to context resolution error: ${candidateAgentId}`,
+          error
+        );
+        continue;
+      }
+      if (!resolvedContext) {
+        continue;
+      }
+
+      const candidateBootstrap = await convex.query(
+        generatedApi.internal.api.v1.webchatApi.getPublicWebchatBootstrap,
+        {
+          agentId: resolvedContext.agentId,
+          channel: "native_guest",
+        }
       );
-    }
-
-    const bootstrapContract = await convex.query(
-      generatedApi.internal.api.v1.webchatApi.getPublicWebchatBootstrap,
-      {
-        agentId: resolvedContext.agentId,
-        channel: "native_guest",
+      if (!candidateBootstrap) {
+        continue;
       }
-    );
+
+      bootstrapContract = candidateBootstrap;
+      break;
+    }
 
     if (!bootstrapContract) {
       return NextResponse.json(

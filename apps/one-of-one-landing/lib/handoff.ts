@@ -14,6 +14,15 @@ interface CampaignAttribution {
   landingPath?: string;
 }
 
+interface CommercialIntentEnvelope {
+  offerCode: string;
+  intentCode: string;
+  surface: "one_of_one_landing";
+  routingHint: "samantha_lead_capture" | "founder_bridge";
+}
+
+type LandingLegacyIntent = "resume" | "done-with-you" | "full-build";
+
 export interface LandingAuditHandoffState extends LandingAuditStateSnapshot {
   userMessages: number;
   assistantMessages: number;
@@ -39,6 +48,29 @@ const EMPTY_AUDIT_HANDOFF_STATE: LandingAuditHandoffState = {
   isAuditReady: false,
 };
 
+const LANDING_COMMERCIAL_SURFACE: CommercialIntentEnvelope["surface"] = "one_of_one_landing";
+
+const LANDING_LEGACY_INTENT_MAP: Record<LandingLegacyIntent, CommercialIntentEnvelope> = {
+  resume: {
+    offerCode: "consult_full_build_scoping",
+    intentCode: "diagnostic_qualification",
+    surface: LANDING_COMMERCIAL_SURFACE,
+    routingHint: "samantha_lead_capture",
+  },
+  "done-with-you": {
+    offerCode: "consult_done_with_you",
+    intentCode: "consulting_sprint_scope_only",
+    surface: LANDING_COMMERCIAL_SURFACE,
+    routingHint: "samantha_lead_capture",
+  },
+  "full-build": {
+    offerCode: "layer1_foundation",
+    intentCode: "implementation_start_layer1",
+    surface: LANDING_COMMERCIAL_SURFACE,
+    routingHint: "founder_bridge",
+  },
+};
+
 function isBrowser(): boolean {
   return typeof window !== "undefined";
 }
@@ -52,11 +84,31 @@ export function readLandingCampaignAttribution(): CampaignAttribution | undefine
   if (!isBrowser()) return undefined;
   const url = new URL(window.location.href);
   const attribution: CampaignAttribution = {
-    source: url.searchParams.get("utm_source") || url.searchParams.get("utmSource") || undefined,
-    medium: url.searchParams.get("utm_medium") || url.searchParams.get("utmMedium") || undefined,
-    campaign: url.searchParams.get("utm_campaign") || url.searchParams.get("utmCampaign") || undefined,
-    content: url.searchParams.get("utm_content") || url.searchParams.get("utmContent") || undefined,
-    term: url.searchParams.get("utm_term") || url.searchParams.get("utmTerm") || undefined,
+    source:
+      url.searchParams.get("source")
+      || url.searchParams.get("utm_source")
+      || url.searchParams.get("utmSource")
+      || undefined,
+    medium:
+      url.searchParams.get("medium")
+      || url.searchParams.get("utm_medium")
+      || url.searchParams.get("utmMedium")
+      || undefined,
+    campaign:
+      url.searchParams.get("campaign")
+      || url.searchParams.get("utm_campaign")
+      || url.searchParams.get("utmCampaign")
+      || undefined,
+    content:
+      url.searchParams.get("content")
+      || url.searchParams.get("utm_content")
+      || url.searchParams.get("utmContent")
+      || undefined,
+    term:
+      url.searchParams.get("term")
+      || url.searchParams.get("utm_term")
+      || url.searchParams.get("utmTerm")
+      || undefined,
     referrer: document.referrer || undefined,
     landingPath: `${url.pathname}${url.search}`,
   };
@@ -65,6 +117,28 @@ export function readLandingCampaignAttribution(): CampaignAttribution | undefine
     (value) => typeof value === "string" && value.length > 0
   );
   return hasSignal ? attribution : undefined;
+}
+
+function buildLandingCommercialChatUrl(
+  baseChatUrl: string,
+  legacyIntent: LandingLegacyIntent
+): string {
+  const intentEnvelope = LANDING_LEGACY_INTENT_MAP[legacyIntent];
+  const params = new URLSearchParams({
+    offer_code: intentEnvelope.offerCode,
+    intent_code: intentEnvelope.intentCode,
+    surface: intentEnvelope.surface,
+    routing_hint: intentEnvelope.routingHint,
+    // Coexistence bridge for legacy handoff links during migration.
+    handoff: "one-of-one",
+    intent: legacyIntent,
+  });
+
+  params.set("offerCode", intentEnvelope.offerCode);
+  params.set("intentCode", intentEnvelope.intentCode);
+  params.set("routingHint", intentEnvelope.routingHint);
+
+  return `${baseChatUrl}?${params.toString()}`;
 }
 
 function withOnboardingAttribution(args: {
@@ -81,10 +155,15 @@ function withOnboardingAttribution(args: {
     if (args.claimToken) parsed.searchParams.set("identityClaimToken", args.claimToken);
     if (args.sessionToken) parsed.searchParams.set("guestSession", args.sessionToken);
 
+    if (args.attribution?.source) parsed.searchParams.set("source", args.attribution.source);
     if (args.attribution?.source) parsed.searchParams.set("utm_source", args.attribution.source);
+    if (args.attribution?.medium) parsed.searchParams.set("medium", args.attribution.medium);
     if (args.attribution?.medium) parsed.searchParams.set("utm_medium", args.attribution.medium);
+    if (args.attribution?.campaign) parsed.searchParams.set("campaign", args.attribution.campaign);
     if (args.attribution?.campaign) parsed.searchParams.set("utm_campaign", args.attribution.campaign);
+    if (args.attribution?.content) parsed.searchParams.set("content", args.attribution.content);
     if (args.attribution?.content) parsed.searchParams.set("utm_content", args.attribution.content);
+    if (args.attribution?.term) parsed.searchParams.set("term", args.attribution.term);
     if (args.attribution?.term) parsed.searchParams.set("utm_term", args.attribution.term);
     if (args.attribution?.referrer) parsed.searchParams.set("referrer", args.attribution.referrer);
     if (args.attribution?.landingPath) parsed.searchParams.set("landingPath", args.attribution.landingPath);
@@ -114,10 +193,15 @@ function buildAccountSignupUrl(args: {
     params.set("identityClaimToken", args.claimToken);
   }
 
+  if (args.attribution?.source) params.set("source", args.attribution.source);
   if (args.attribution?.source) params.set("utm_source", args.attribution.source);
+  if (args.attribution?.medium) params.set("medium", args.attribution.medium);
   if (args.attribution?.medium) params.set("utm_medium", args.attribution.medium);
+  if (args.attribution?.campaign) params.set("campaign", args.attribution.campaign);
   if (args.attribution?.campaign) params.set("utm_campaign", args.attribution.campaign);
+  if (args.attribution?.content) params.set("content", args.attribution.content);
   if (args.attribution?.content) params.set("utm_content", args.attribution.content);
+  if (args.attribution?.term) params.set("term", args.attribution.term);
   if (args.attribution?.term) params.set("utm_term", args.attribution.term);
   if (args.attribution?.referrer) params.set("referrer", args.attribution.referrer);
   if (args.attribution?.landingPath) params.set("landingPath", args.attribution.landingPath);
@@ -180,21 +264,21 @@ export function buildLandingHandoffLinks(
   const baseChatUrl = `${appBaseUrl}/chat`;
 
   const resumeChatUrl = withOnboardingAttribution({
-    url: `${baseChatUrl}?handoff=one-of-one&intent=resume`,
+    url: buildLandingCommercialChatUrl(baseChatUrl, "resume"),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,
   });
 
   const doneWithYouUrl = withOnboardingAttribution({
-    url: `${baseChatUrl}?handoff=one-of-one&intent=done-with-you`,
+    url: buildLandingCommercialChatUrl(baseChatUrl, "done-with-you"),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,
   });
 
   const fullBuildUrl = withOnboardingAttribution({
-    url: `${baseChatUrl}?handoff=one-of-one&intent=full-build`,
+    url: buildLandingCommercialChatUrl(baseChatUrl, "full-build"),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,

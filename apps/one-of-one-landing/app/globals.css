@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Codec Pro can be re-enabled here once font files are added under public/fonts */
+/* Brand font: Jost (Google Fonts) — loaded via next/font/google in layout.tsx */
 
 @layer base {
   /* Scheme B: "Daylight" (Light — default) */
@@ -270,21 +270,21 @@
     text-wrap: pretty;
   }
 
-  /* Brand name styling - always lowercase italic */
+  /* Brand name styling - Jost uppercase */
   .brand-name {
-    text-transform: lowercase;
-    font-style: italic;
-    font-family: var(--font-playfair), serif;
+    text-transform: uppercase;
+    font-family: var(--font-jost), sans-serif;
+    letter-spacing: 0.05em;
   }
 
-  /* Logo text styling - CODEC PRO uppercase */
+  /* Logo text styling - Jost uppercase */
   .logo-text {
-    font-family: 'Codec Pro', var(--font-geist-sans), system-ui, sans-serif;
+    font-family: var(--font-jost), sans-serif;
     text-transform: uppercase;
   }
 
   .logo-text-seven {
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .logo-text-layers {
@@ -411,5 +411,13 @@
   .path-card:hover {
     border-color: var(--color-border-hover);
     box-shadow: var(--shadow-md);
+  }
+
+  .motion-contract-note {
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
 }

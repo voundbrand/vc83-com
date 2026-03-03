@@ -160,28 +160,89 @@ function parseFormattedBlocks(content: string): FormattedBlock[] {
 }
 
 function renderInlineBold(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  const boldPattern = /\*\*(.+?)\*\*/g;
+  const out: ReactNode[] = [];
+  const tokens: Array<{ type: "text" | "strong" | "em" | "link"; value: string; href?: string }> = [];
+  const pattern = /(\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s)]+)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = null;
-  let key = 0;
 
-  while ((match = boldPattern.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
+    const full = match[0];
     const start = match.index;
-    const end = boldPattern.lastIndex;
     if (start > lastIndex) {
-      nodes.push(text.slice(lastIndex, start));
+      tokens.push({ type: "text", value: text.slice(lastIndex, start) });
     }
-    nodes.push(<strong key={`assistant_bold_${key}`}>{match[1]}</strong>);
-    key += 1;
-    lastIndex = end;
+
+    const markdownLinkMatch = full.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (markdownLinkMatch) {
+      tokens.push({
+        type: "link",
+        value: markdownLinkMatch[1],
+        href: markdownLinkMatch[2],
+      });
+      lastIndex = pattern.lastIndex;
+      continue;
+    }
+
+    if (full.startsWith("http://") || full.startsWith("https://")) {
+      tokens.push({ type: "link", value: full, href: full });
+      lastIndex = pattern.lastIndex;
+      continue;
+    }
+
+    if (full.startsWith("**") && full.endsWith("**")) {
+      tokens.push({ type: "strong", value: full.slice(2, -2) });
+      lastIndex = pattern.lastIndex;
+      continue;
+    }
+
+    if (full.startsWith("*") && full.endsWith("*")) {
+      tokens.push({ type: "em", value: full.slice(1, -1) });
+      lastIndex = pattern.lastIndex;
+      continue;
+    }
+
+    if (full.startsWith("_") && full.endsWith("_")) {
+      tokens.push({ type: "em", value: full.slice(1, -1) });
+      lastIndex = pattern.lastIndex;
+      continue;
+    }
+
+    tokens.push({ type: "text", value: full });
+    lastIndex = pattern.lastIndex;
   }
 
   if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+    tokens.push({ type: "text", value: text.slice(lastIndex) });
   }
 
-  return nodes;
+  tokens.forEach((token, index) => {
+    if (token.type === "strong") {
+      out.push(<strong key={`assistant_strong_${index}`}>{token.value}</strong>);
+      return;
+    }
+    if (token.type === "em") {
+      out.push(<em key={`assistant_em_${index}`}>{token.value}</em>);
+      return;
+    }
+    if (token.type === "link" && token.href) {
+      out.push(
+        <a
+          key={`assistant_link_${index}`}
+          href={token.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2"
+        >
+          {token.value}
+        </a>
+      );
+      return;
+    }
+    out.push(token.value);
+  });
+
+  return out;
 }
 
 function renderAssistantContent(content: string): ReactNode {
@@ -217,6 +278,7 @@ function renderAssistantContent(content: string): ReactNode {
 
 export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLanguage?: Language }) {
   const runtimeConfig = useMemo(() => resolveLandingAuditRuntimeConfig(), []);
+  const activeLanguage = useMemo(() => resolveStarterLanguage(preferredLanguage), [preferredLanguage]);
   const [messages, setMessages] = useState<LandingAuditMessage[]>([]);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
@@ -236,10 +298,10 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
       return;
     }
 
-    const starterMessage = buildStarterMessage(resolveStarterLanguage(preferredLanguage));
+    const starterMessage = buildStarterMessage(activeLanguage);
     setMessages([starterMessage]);
     persistLandingAuditMessages([starterMessage]);
-  }, [preferredLanguage]);
+  }, [activeLanguage]);
 
   useEffect(() => {
     persistLandingAuditMessages(messages);
@@ -322,6 +384,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
         config: runtimeConfig,
         message: trimmed,
         sessionToken,
+        language: activeLanguage,
       });
 
       const assistantMessage: LandingAuditMessage = {
@@ -340,6 +403,16 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
       setMessages((previous) => [...previous, assistantMessage]);
     } catch (caughtError) {
       if (isDuplicateInboundAckError(caughtError)) {
+        const duplicateAckMessage: LandingAuditMessage = {
+          id: makeMessageId("assistant"),
+          role: "assistant",
+          content:
+            activeLanguage === "de"
+              ? "Nachricht erhalten. Wir machen mit Ihrem letzten Schritt weiter."
+              : "Message received. Continuing from your latest step.",
+          timestamp: Date.now(),
+        };
+        setMessages((previous) => [...previous, duplicateAckMessage]);
         return;
       }
       setError(caughtError instanceof Error ? caughtError.message : "Unable to send message.");
@@ -446,6 +519,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
         }}
       >
         <input
+          id="landing-audit-input"
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -464,7 +538,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
       </form>
 
       {error && (
-        <p className="px-4 pb-3 text-xs" style={{ color: "var(--color-error)" }}>
+        <p className="px-4 pb-3 text-sm font-medium" style={{ color: "var(--color-error)" }}>
           {error}
         </p>
       )}

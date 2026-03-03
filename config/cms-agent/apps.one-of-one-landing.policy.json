@@ -1,0 +1,41 @@
+{
+  "contractVersion": "cms_agent_policy.v1",
+  "appPath": "apps/one-of-one-landing",
+  "defaultAction": "deny",
+  "allowedFileGlobs": [
+    "apps/one-of-one-landing/content/**/*.json",
+    "apps/one-of-one-landing/app/page.tsx",
+    "apps/one-of-one-landing/components/**/*.tsx",
+    "apps/one-of-one-landing/lib/**/*.ts"
+  ],
+  "allowedOperationClasses": [
+    "content_copy",
+    "design_token",
+    "layout_structure"
+  ],
+  "verifyProfilesByRiskTier": {
+    "low": [
+      "V-TYPE",
+      "V-UNIT"
+    ],
+    "medium": [
+      "V-TYPE",
+      "V-UNIT",
+      "V-CMS-LINT"
+    ],
+    "high": [
+      "V-TYPE",
+      "V-UNIT",
+      "V-CMS-LINT",
+      "V-REFERENCE-APP-TYPE"
+    ],
+    "critical": [
+      "V-TYPE",
+      "V-UNIT",
+      "V-CMS-LINT",
+      "V-REFERENCE-APP-TYPE",
+      "V-REFERENCE-APP-BUILD"
+    ]
+  },
+  "notes": "Reference app policy for CMS lane. Unknown apps are denied by default."
+}

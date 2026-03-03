@@ -1,24 +1,14 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Playfair_Display } from "next/font/google"
+import type { CSSProperties } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
-const geistSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-})
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
-})
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-  style: ["normal", "italic"],
-})
+const fontVariableFallbacks: CSSProperties = {
+  ["--font-geist-sans" as string]: "system-ui, -apple-system, Segoe UI, sans-serif",
+  ["--font-geist-mono" as string]:
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  ["--font-jost" as string]: "system-ui, -apple-system, Segoe UI, sans-serif",
+}
 
 export const metadata: Metadata = {
   title: "sevenlayers — Private AI. You can Trust.",
@@ -62,7 +52,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} font-sans antialiased`}
+        className="font-sans antialiased"
+        style={fontVariableFallbacks}
       >
         <ThemeProvider
           attribute="class"

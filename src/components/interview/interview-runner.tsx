@@ -53,6 +53,10 @@ import {
   buildVoiceAgentCoCreationHandoffPayload,
   stageVoiceAgentCoCreationHandoff,
 } from "@/lib/voice-assistant/agent-co-creation-handoff";
+import {
+  resolveVoiceCaptureFallbackMimeType,
+  resolveVoiceCapturePreferredMimeTypes,
+} from "@/lib/voice-assistant/runtime-policy";
 
 interface InterviewRunnerProps {
   authSessionId?: string;
@@ -525,11 +529,9 @@ export function InterviewRunner({
       mediaStreamRef.current = stream;
       captureChunksRef.current = [];
 
-      const preferredMimeTypes = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ];
+      const preferredMimeTypes = resolveVoiceCapturePreferredMimeTypes(
+        voiceProviderId,
+      );
       const supportedMimeType = preferredMimeTypes.find((mimeType) =>
         window.MediaRecorder.isTypeSupported(mimeType),
       );
@@ -551,7 +553,9 @@ export function InterviewRunner({
       recorder.onstop = () => {
         releaseVoiceMediaStream();
         mediaRecorderRef.current = null;
-        const audioType = captureChunksRef.current[0]?.type || "audio/webm";
+        const audioType =
+          captureChunksRef.current[0]?.type
+          || resolveVoiceCaptureFallbackMimeType(voiceProviderId);
         const audioBlob = new Blob(captureChunksRef.current, { type: audioType });
         captureChunksRef.current = [];
 

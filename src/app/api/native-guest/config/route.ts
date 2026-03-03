@@ -116,17 +116,28 @@ export async function GET() {
       process.env.PLATFORM_AGENT_ID ||
       null
 
-    let agentId = configuredAgentId
+    const activeAgents = await convex.query(
+      generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
+      {
+        organizationId: organizationId as Id<"organizations">,
+      }
+    )
+    const typedActiveAgents = activeAgents as NativeGuestActiveAgentCandidate[]
+    const activeAgentIdSet = new Set(
+      typedActiveAgents
+        .map((agent) => normalizeOptionalString(agent._id))
+        .filter((value): value is string => Boolean(value))
+    )
+
+    const normalizedConfiguredAgentId = normalizeOptionalString(configuredAgentId)
+    let agentId =
+      normalizedConfiguredAgentId && activeAgentIdSet.has(normalizedConfiguredAgentId)
+        ? normalizedConfiguredAgentId
+        : null
 
     if (!agentId) {
-      const activeAgents = await convex.query(
-        generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
-        {
-          organizationId: organizationId as Id<"organizations">,
-        }
-      )
       agentId = resolvePrimaryAwareNativeGuestAgentId(
-        activeAgents as NativeGuestActiveAgentCandidate[],
+        typedActiveAgents,
         "native_guest"
       )
     }
@@ -149,14 +160,25 @@ export async function GET() {
       )
     }
 
-    const resolvedContext = await convex.query(
-      generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
-      {
-        organizationId: organizationId as Id<"organizations">,
-        agentId: agentId as Id<"objects">,
-        channel: "native_guest",
-      }
-    )
+    let resolvedContext: {
+      agentId: Id<"objects">
+    } | null = null
+    try {
+      resolvedContext = await convex.query(
+        generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
+        {
+          organizationId: organizationId as Id<"organizations">,
+          agentId: agentId as Id<"objects">,
+          channel: "native_guest",
+        }
+      )
+    } catch (error) {
+      console.warn(
+        `[NativeGuestConfig] Failed candidate agent context resolution for ${agentId}`,
+        error
+      )
+      resolvedContext = null
+    }
 
     if (!resolvedContext) {
       return NextResponse.json(

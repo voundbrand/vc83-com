@@ -224,7 +224,7 @@ export default function HomePage() {
   ) as ShellCreditBalanceSnapshot | undefined
 
   const openWelcomeWindow = () => {
-    openWindow("welcome", "sevenlayers.io", <WelcomeWindow />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
+    openWindow("welcome", "sevenlayers.io", <WelcomeWindow onStartBriefing={openAIAssistantWindow} />, { x: 100, y: 100 }, { width: 650, height: 500 }, 'ui.app.l4yercak3_exe')
   }
 
   const openSettingsWindow = () => {
@@ -972,25 +972,61 @@ export default function HomePage() {
     const oauthProvider = params.get('oauthProvider');
     const identityClaimToken = params.get("identityClaimToken");
     const onboardingChannel = params.get("onboardingChannel");
+    const legacyHandoff = params.get("handoff");
+    const legacyIntent = params.get("intent");
+    const legacyCommercialIntent =
+      legacyHandoff === "one-of-one" && legacyIntent === "resume"
+        ? {
+            offerCode: "consult_full_build_scoping",
+            intentCode: "diagnostic_qualification",
+            surface: "one_of_one_landing",
+            routingHint: "samantha_lead_capture",
+          }
+        : legacyHandoff === "one-of-one" && legacyIntent === "done-with-you"
+          ? {
+              offerCode: "consult_done_with_you",
+              intentCode: "consulting_sprint_scope_only",
+              surface: "one_of_one_landing",
+              routingHint: "samantha_lead_capture",
+            }
+          : legacyHandoff === "one-of-one" && legacyIntent === "full-build"
+            ? {
+                offerCode: "layer1_foundation",
+                intentCode: "implementation_start_layer1",
+                surface: "one_of_one_landing",
+                routingHint: "founder_bridge",
+              }
+            : undefined;
+    const commercialIntent = {
+      offerCode: params.get("offer_code") || params.get("offerCode") || legacyCommercialIntent?.offerCode || undefined,
+      intentCode: params.get("intent_code") || params.get("intentCode") || legacyCommercialIntent?.intentCode || undefined,
+      surface: params.get("surface") || legacyCommercialIntent?.surface || undefined,
+      routingHint:
+        params.get("routing_hint") || params.get("routingHint") || legacyCommercialIntent?.routingHint || undefined,
+    };
     const onboardingCampaign = {
-      source: params.get("utm_source") || params.get("utmSource") || undefined,
-      medium: params.get("utm_medium") || params.get("utmMedium") || undefined,
-      campaign: params.get("utm_campaign") || params.get("utmCampaign") || undefined,
-      content: params.get("utm_content") || params.get("utmContent") || undefined,
-      term: params.get("utm_term") || params.get("utmTerm") || undefined,
+      source: params.get("source") || params.get("utm_source") || params.get("utmSource") || undefined,
+      medium: params.get("medium") || params.get("utm_medium") || params.get("utmMedium") || undefined,
+      campaign: params.get("campaign") || params.get("utm_campaign") || params.get("utmCampaign") || undefined,
+      content: params.get("content") || params.get("utm_content") || params.get("utmContent") || undefined,
+      term: params.get("term") || params.get("utm_term") || params.get("utmTerm") || undefined,
       referrer: params.get("referrer") || undefined,
       landingPath: params.get("landingPath") || undefined,
     };
     const hasOnboardingCampaign = Object.values(onboardingCampaign).some(
       (value) => typeof value === "string" && value.length > 0
     );
+    const hasCommercialIntent = Object.values(commercialIntent).some(
+      (value) => typeof value === "string" && value.length > 0
+    );
 
-    if (onboardingChannel || hasOnboardingCampaign) {
+    if (onboardingChannel || hasOnboardingCampaign || hasCommercialIntent) {
       localStorage.setItem(
         "l4yercak3_onboarding_attribution",
         JSON.stringify({
           channel: onboardingChannel || "platform_web",
           campaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
+          commercialIntent: hasCommercialIntent ? commercialIntent : undefined,
           capturedAt: Date.now(),
         })
       );
@@ -1061,18 +1097,32 @@ export default function HomePage() {
       newParams.delete('oauthProvider');
       newParams.delete("identityClaimToken");
       newParams.delete("onboardingChannel");
+      newParams.delete("source");
       newParams.delete("utm_source");
       newParams.delete("utmSource");
+      newParams.delete("medium");
       newParams.delete("utm_medium");
       newParams.delete("utmMedium");
+      newParams.delete("campaign");
       newParams.delete("utm_campaign");
       newParams.delete("utmCampaign");
+      newParams.delete("content");
       newParams.delete("utm_content");
       newParams.delete("utmContent");
+      newParams.delete("term");
       newParams.delete("utm_term");
       newParams.delete("utmTerm");
       newParams.delete("referrer");
       newParams.delete("landingPath");
+      newParams.delete("offer_code");
+      newParams.delete("offerCode");
+      newParams.delete("intent_code");
+      newParams.delete("intentCode");
+      newParams.delete("surface");
+      newParams.delete("routing_hint");
+      newParams.delete("routingHint");
+      newParams.delete("handoff");
+      newParams.delete("intent");
       const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
       window.history.replaceState({}, '', newUrl);
     }

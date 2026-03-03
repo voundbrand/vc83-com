@@ -1,0 +1,27 @@
+{
+  "contractVersion": "cms_agent_global_guardrails.v1",
+  "defaultAction": "deny",
+  "blockedFileGlobs": [
+    "**/.env",
+    "**/.env.*",
+    "**/secrets/**",
+    "**/*.pem",
+    "**/*.key",
+    "convex/_generated/**",
+    "node_modules/**"
+  ],
+  "allowedVerifyProfiles": [
+    "V-DOCS",
+    "V-TYPE",
+    "V-LINT",
+    "V-UNIT",
+    "V-REFERENCE-APP-TYPE",
+    "V-REFERENCE-APP-BUILD",
+    "V-CMS-LINT"
+  ],
+  "blockedOperationClasses": [
+    "dependency_mutation",
+    "secret_mutation",
+    "shell_execution"
+  ]
+}

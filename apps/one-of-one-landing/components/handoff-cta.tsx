@@ -30,17 +30,17 @@ export interface HandoffTranslations {
 }
 
 const DEFAULT_TRANSLATIONS: HandoffTranslations = {
-  startFree: "Start Free",
+  startFree: "Free Diagnostic",
   startFreeDesc:
-    "Download the app. Your operator begins learning you today. Free tier includes core interactions. Upgrade when you're ready.",
-  doneWithYou: "Done With You",
-  doneWithYouPrice: "€2,500 to start",
+    "Run a free diagnostic audit to qualify your highest-leverage workflow before any paid scope.",
+  doneWithYou: "Consulting Sprint",
+  doneWithYouPrice: "€3,500 scope-only",
   doneWithYouDesc:
-    "I personally build your operator around the workflow we identified in your audit. Live in 7 days. We build out from there.",
-  fullBuild: "Full Build",
-  fullBuildPrice: "Projects from €5,000",
+    "Strategy and implementation roadmap only. No production build is included in this sprint.",
+  fullBuild: "Implementation Start",
+  fullBuildPrice: "€7,000+",
   fullBuildDesc:
-    "Custom operator deployment across your entire operation. Calendar, CRM, finance, client comms — all connected through one operator.",
+    "Production implementation starts here, beginning with layer-one foundation and delivery.",
   startConversation: "Start a conversation",
 };
 
@@ -273,6 +273,7 @@ export function HandoffCta({
           >
             {t.doneWithYouPrice}
           </p>
+          <p className="motion-contract-note mb-2">Scope-only consulting. No implementation delivery.</p>
           <p
             className="text-sm mb-6 flex-1"
             style={{ color: "var(--color-text-secondary)" }}
@@ -318,6 +319,7 @@ export function HandoffCta({
           >
             {t.fullBuildPrice}
           </p>
+          <p className="motion-contract-note mb-2">Implementation work starts at this motion.</p>
           <p
             className="text-sm mb-6 flex-1"
             style={{ color: "var(--color-text-secondary)" }}

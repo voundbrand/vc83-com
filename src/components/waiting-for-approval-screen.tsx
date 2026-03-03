@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "@/contexts/translation-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -174,6 +174,7 @@ export function WaitingForApprovalScreen({
   const { signOut } = useAuth();
   const { locale } = useTranslation();
   const { t } = useNamespaceTranslations("ui.login");
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -208,8 +209,17 @@ export function WaitingForApprovalScreen({
     return interpolate(copy[fallbackKey], params);
   };
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+      setIsSigningOut(false);
+    }
   };
 
   const requestedDate = requestedAt ? new Date(requestedAt) : null;
@@ -283,7 +293,10 @@ export function WaitingForApprovalScreen({
 
               <div className="flex justify-center">
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => {
+                    void handleSignOut();
+                  }}
+                  disabled={isSigningOut}
                   className="beveled-button min-w-44 px-8 py-3"
                 >
                   <span className="font-pixel text-xs">
@@ -333,7 +346,10 @@ export function WaitingForApprovalScreen({
 
               <div className="flex justify-center">
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => {
+                    void handleSignOut();
+                  }}
+                  disabled={isSigningOut}
                   className="beveled-button min-w-44 px-8 py-3"
                 >
                   <span className="font-pixel text-xs">
@@ -374,7 +390,10 @@ export function WaitingForApprovalScreen({
 
               <div className="flex justify-center">
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => {
+                    void handleSignOut();
+                  }}
+                  disabled={isSigningOut}
                   className="beveled-button min-w-44 px-8 py-3"
                 >
                   <span className="font-pixel text-xs">

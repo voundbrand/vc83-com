@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import localFont from "next/font/local";
-import { Geist, Geist_Mono, Instrument_Serif, Playfair_Display, Press_Start_2P } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Jost, Playfair_Display, Press_Start_2P } from "next/font/google";
 import { Providers } from "./providers";
 import { NotificationContainer } from "@/components/ui/notification-container";
 import { SessionExpiredBoundary } from "@/components/session-expired-boundary";
@@ -68,14 +67,10 @@ const pressStart2P = Press_Start_2P({
   subsets: ["latin"],
 });
 
-const codecPro = localFont({
-  src: [
-    { path: "../../public/fonts/CodecPro-Regular.woff2", weight: "400", style: "normal" },
-    { path: "../../public/fonts/CodecPro-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-codec-pro",
+const jost = Jost({
+  variable: "--font-jost",
+  subsets: ["latin"],
   display: "swap",
-  fallback: ["Arial", "Helvetica", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -144,7 +139,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${playfairDisplay.variable} ${pressStart2P.variable} ${codecPro.variable} font-sans antialiased crt-scanlines`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${playfairDisplay.variable} ${pressStart2P.variable} ${jost.variable} font-sans antialiased crt-scanlines`}
         style={{ fontSynthesis: "none" }}
       >
         <SessionExpiredBoundary>
