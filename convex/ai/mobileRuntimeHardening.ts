@@ -90,6 +90,8 @@ export interface MobileNodeCommandPolicyDecision {
     | "not_required"
     | "missing_policy_contract"
     | "unknown_policy_contract"
+    | "missing_attempted_commands"
+    | "source_binding_mismatch"
     | "command_not_allowlisted"
     | "unsafe_command_pattern"
     | "allowed";
@@ -331,6 +333,32 @@ function verifyMobileSourceAttestation(args: {
       quarantined: true,
     };
   }
+  if (
+    normalizeIdentityToken(attestedSourceClass) !==
+    normalizeIdentityToken(args.context.sourceClass)
+  ) {
+    return {
+      ...defaultEvidenceBase,
+      verificationStatus: "source_mismatch",
+      reasonCode: "attested_source_class_mismatch",
+      challengeNoncePresent,
+      signaturePresent,
+      quarantined: true,
+    };
+  }
+  if (
+    args.context.providerId
+    && normalizeIdentityToken(attestedProviderId) !== normalizeIdentityToken(args.context.providerId)
+  ) {
+    return {
+      ...defaultEvidenceBase,
+      verificationStatus: "source_mismatch",
+      reasonCode: "attested_provider_mismatch",
+      challengeNoncePresent,
+      signaturePresent,
+      quarantined: true,
+    };
+  }
 
   const expectedChallenge = buildMobileSourceAttestationChallenge({
     liveSessionId: args.context.liveSessionId,
@@ -411,6 +439,10 @@ function parseNodeCommandList(value: unknown): string[] {
         .filter((entry) => entry.length > 0)
     )
   );
+}
+
+function normalizeSourceIdentity(value: unknown): string {
+  return normalizeIdentityToken(value);
 }
 
 function parseNodeCommandAllowlistFromEnv(): Set<string> {
@@ -556,6 +588,44 @@ export function resolveMobileNodeCommandPolicyDecision(args: {
   const attemptedCommands = parseNodeCommandList(
     policy.attemptedCommands || policy.commands
   );
+  if (attemptedCommands.length === 0) {
+    return {
+      contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
+      policyRequired: true,
+      status: "blocked",
+      allowed: false,
+      reasonCode: "missing_attempted_commands",
+      policyVersion,
+      evaluatedCommands,
+      observedAttemptedCommands: attemptedCommands,
+    };
+  }
+
+  const sourceContexts = collectMobileSourceContexts(args.metadata);
+  const policySourceId = normalizeSourceIdentity(policy.sourceId);
+  const policySourceClass = normalizeSourceIdentity(policy.sourceClass);
+  if (policySourceId || policySourceClass) {
+    const sourceBindingMatch = sourceContexts.some((context) => {
+      const sourceIdMatches =
+        !policySourceId || normalizeSourceIdentity(context.sourceId) === policySourceId;
+      const sourceClassMatches =
+        !policySourceClass || normalizeSourceIdentity(context.sourceClass) === policySourceClass;
+      return sourceIdMatches && sourceClassMatches;
+    });
+    if (!sourceBindingMatch) {
+      return {
+        contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
+        policyRequired: true,
+        status: "blocked",
+        allowed: false,
+        reasonCode: "source_binding_mismatch",
+        policyVersion,
+        evaluatedCommands,
+        observedAttemptedCommands: attemptedCommands,
+      };
+    }
+  }
+
   const candidateCommands = Array.from(
     new Set([...evaluatedCommands, ...attemptedCommands])
   );

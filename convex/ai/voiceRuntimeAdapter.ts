@@ -146,6 +146,30 @@ const ELEVENLABS_ESTIMATED_TTS_USD_PER_1K_CHAR = 0.3;
 const ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND = 4_000;
 const BROWSER_ADAPTER_UNSUPPORTED_REASON =
   "browser_runtime_requires_client_side_voice_processing";
+const BASE64_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function encodeBytesToBase64(bytes: Uint8Array): string {
+  if (bytes.length === 0) {
+    return "";
+  }
+  let encoded = "";
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0;
+    const second = bytes[index + 1] ?? 0;
+    const third = bytes[index + 2] ?? 0;
+    const chunk = (first << 16) | (second << 8) | third;
+
+    encoded += BASE64_ALPHABET[(chunk >> 18) & 0x3f] ?? "";
+    encoded += BASE64_ALPHABET[(chunk >> 12) & 0x3f] ?? "";
+    encoded +=
+      index + 1 < bytes.length
+        ? (BASE64_ALPHABET[(chunk >> 6) & 0x3f] ?? "")
+        : "=";
+    encoded += index + 2 < bytes.length ? (BASE64_ALPHABET[chunk & 0x3f] ?? "") : "=";
+  }
+  return encoded;
+}
 
 export interface VoicePcmContractLike {
   encoding: "pcm_s16le" | "pcm_f32le";
@@ -160,6 +184,39 @@ function normalizeString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeTranscriptionMimeType(value: unknown): string {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (!normalized) {
+    return "audio/webm";
+  }
+  const canonical = normalized.split(";", 1)[0]?.trim() ?? normalized;
+  if (canonical === "audio/m4a" || canonical === "audio/x-m4a") {
+    return "audio/mp4";
+  }
+  return canonical;
+}
+
+function resolveTranscriptionFilename(mimeType: string): string {
+  switch (mimeType) {
+    case "audio/mp4":
+      return "voice-input.m4a";
+    case "audio/mpeg":
+    case "audio/mp3":
+      return "voice-input.mp3";
+    case "audio/wav":
+    case "audio/x-wav":
+      return "voice-input.wav";
+    case "audio/webm":
+      return "voice-input.webm";
+    case "audio/ogg":
+      return "voice-input.ogg";
+    case "audio/flac":
+      return "voice-input.flac";
+    default:
+      return "voice-input.audio";
+  }
 }
 
 export function resolvePcmTranscriptionMimeType(
@@ -495,19 +552,21 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
 
   async transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult> {
     const inputByteLength = args.audioBytes.byteLength;
+    const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType);
     const formData = new FormData();
     const audioBuffer = Uint8Array.from(args.audioBytes).buffer;
     const blob = new Blob([audioBuffer], {
-      type: normalizeString(args.mimeType) ?? "audio/webm",
+      type: normalizedMimeType,
     });
-    formData.append("file", blob, "voice-input.webm");
+    formData.append("file", blob, resolveTranscriptionFilename(normalizedMimeType));
     formData.append("model_id", this.sttModelId);
     const language = normalizeString(args.language);
     if (language) {
       formData.append("language_code", language);
     }
 
-    const response = await this.fetchFn(`${this.baseUrl}/speech-to-text`, {
+    const endpoint = `${this.baseUrl}/speech-to-text`;
+    const response = await this.fetchFn(endpoint, {
       method: "POST",
       headers: {
         "xi-api-key": this.apiKey,
@@ -516,11 +575,13 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     });
 
     if (!response.ok) {
-      const payload = parseJsonSafely(await response.text());
+      const errorBody = await response.text();
+      const payload = parseJsonSafely(errorBody);
       const message = extractErrorMessage(payload);
       throw new Error(
-        message ??
-          `ElevenLabs transcription failed (${response.status}).`,
+        message
+          ? `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${normalizedMimeType}: ${message}`
+          : `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${normalizedMimeType}: ${errorBody.trim() || "no response body"}`,
       );
     }
 
@@ -571,7 +632,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
         providerRequestId,
         metadata: {
           modelId: this.sttModelId,
-          mimeType: normalizeString(args.mimeType) ?? "audio/webm",
+          mimeType: normalizedMimeType,
           inputBytes: inputByteLength,
           durationSource:
             payloadDurationSeconds !== null
@@ -618,7 +679,8 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     }
 
     const audioBuffer = await response.arrayBuffer();
-    if (audioBuffer.byteLength === 0) {
+    const audioBytes = new Uint8Array(audioBuffer);
+    if (audioBytes.byteLength === 0) {
       throw new Error("ElevenLabs synthesis returned empty audio.");
     }
 
@@ -646,7 +708,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     return {
       providerId: this.providerId,
       mimeType: response.headers.get("content-type") ?? "audio/mpeg",
-      audioBase64: Buffer.from(audioBuffer).toString("base64"),
+      audioBase64: encodeBytesToBase64(audioBytes),
       usage: {
         nativeUsageUnit: "characters",
         nativeUsageQuantity: normalizedCharacterCount,
@@ -660,7 +722,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
         metadata: {
           modelId: this.ttsModelId,
           voiceId,
-          responseBytes: audioBuffer.byteLength,
+          responseBytes: audioBytes.byteLength,
         },
       },
       raw: { voiceId },

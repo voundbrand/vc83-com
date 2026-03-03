@@ -9,9 +9,11 @@ import {
 } from "../session/mediaSessionContract";
 
 export const DEFAULT_MOBILE_GLASSES_PROVIDER_ID = "native_mobile_bridge";
+export const DEFAULT_META_GLASSES_PROVIDER_ID = "meta_dat_bridge";
 export const DEFAULT_MOBILE_GLASSES_DEVICE_PROFILE = "generic_device";
 export const DEFAULT_MOBILE_GLASSES_STREAM_ID = "primary";
 export const DEFAULT_MOBILE_GLASSES_TRANSPORT: MobileGlassesTransport = "webrtc";
+export const META_GLASSES_REQUIRED_TRANSPORT: MobileGlassesTransport = "webrtc";
 export const DEFAULT_MOBILE_GLASSES_FRAME_RATE = 24;
 export const DEFAULT_MOBILE_GLASSES_TARGET_LATENCY_MS = 180;
 export const DEFAULT_MOBILE_GLASSES_MAX_LATENCY_MS = 450;
@@ -201,6 +203,10 @@ function normalizeTransport(
     return fallback;
   }
   return transport;
+}
+
+function isMetaDatProviderId(providerId: string): boolean {
+  return providerId.startsWith("meta_");
 }
 
 function resolveSettings(
@@ -414,9 +420,13 @@ export function createMobileGlassesIngressBridge(
         request.liveSessionId,
         "liveSessionId"
       );
+      const providerFallback =
+        request.sourceClass === "glasses_stream_meta"
+          ? DEFAULT_META_GLASSES_PROVIDER_ID
+          : settings.defaultProviderId;
       const providerId = normalizeOptionalIdentityToken(
         request.providerId,
-        settings.defaultProviderId
+        providerFallback
       );
       const deviceProfile = normalizeOptionalIdentityToken(
         request.deviceProfile,
@@ -447,6 +457,24 @@ export function createMobileGlassesIngressBridge(
         targetLatencyMs
       );
 
+      const transport = normalizeTransport(request.transport, settings.defaultTransport);
+      if (
+        request.sourceClass === "glasses_stream_meta"
+        && transport !== META_GLASSES_REQUIRED_TRANSPORT
+      ) {
+        throw new Error(
+          "Meta glasses bridge requires webrtc transport relay."
+        );
+      }
+      if (
+        request.sourceClass === "glasses_stream_meta"
+        && !isMetaDatProviderId(providerId)
+      ) {
+        throw new Error(
+          "Meta glasses bridge requires a meta DAT provider contract."
+        );
+      }
+
       const nextState: MobileGlassesSessionState = {
         liveSessionId,
         sourceClass: request.sourceClass,
@@ -454,7 +482,7 @@ export function createMobileGlassesIngressBridge(
         providerId,
         deviceProfile,
         streamId,
-        transport: normalizeTransport(request.transport, settings.defaultTransport),
+        transport,
         status: "running",
         frameRate,
         targetLatencyMs,
@@ -561,6 +589,9 @@ export function createMobileGlassesIngressBridge(
         targetLatencyMs: session.targetLatencyMs,
         maxLatencyMs: session.maxLatencyMs,
         latencyBudgetBreached: diagnosticsResolution.latencyBudgetBreached,
+        ...(session.sourceClass === "glasses_stream_meta"
+          ? { relayPolicy: "meta_dat_webrtc_required" }
+          : {}),
         ...(session.metadata ?? {}),
         ...(request.metadata ?? {}),
       };

@@ -2,10 +2,15 @@ import { action, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
+import { getLicenseInternal } from "../licensing/helpers";
 import { resolveOrganizationProviderBindingForProvider } from "./providerRegistry";
 import { convertUsdToCredits } from "./modelPricing";
 import {
+  assertMediaSessionIngressContract,
+  mediaSessionIngressContractValidator,
   assertVoiceTransportEnvelope,
+  trustEventPayloadValidator,
+  type MediaSessionIngressContract,
   type VoiceTransportEnvelopeContract,
   voiceTransportEnvelopeValidator,
   VOICE_TRANSPORT_ENVELOPE_CONTRACT_VERSION,
@@ -24,6 +29,7 @@ import {
   type VoiceRuntimeProviderId,
   type VoiceUsageTelemetry,
 } from "./voiceRuntimeAdapter";
+import { resolveMobileSourceAttestationContract } from "./mobileRuntimeHardening";
 
 // Dynamic require keeps action contexts ergonomic for internal runQuery/runMutation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +71,24 @@ export type VoiceRuntimeSessionFsmState =
   (typeof VOICE_RUNTIME_SESSION_FSM_STATE_VALUES)[number];
 
 const VOICE_RUNTIME_SESSION_STALE_TIMEOUT_MS = 5 * 60 * 1000;
+const VOICE_SESSION_OPEN_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const VOICE_SESSION_OPEN_RATE_LIMIT_MAX_REQUESTS = 6;
+const VOICE_RUNTIME_ATTESTATION_PROOF_TTL_MS = 60 * 1000;
+const VOICE_SESSION_OPEN_PROTECTED_SOURCE_CLASS_PREFIXES = [
+  "iphone_camera",
+  "iphone_microphone",
+  "meta_glasses",
+  "mobile_stream_ios",
+  "mobile_stream_android",
+  "glasses_stream_meta",
+] as const;
+
+const TRUST_EVENT_ALLOWED_PAYLOAD_KEYS = new Set(
+  Object.keys(
+    ((trustEventPayloadValidator as unknown as { fields?: Record<string, unknown> })
+      .fields ?? {}) as Record<string, unknown>,
+  ),
+);
 
 interface VoiceRuntimeSessionSnapshot {
   voiceSessionId: string;
@@ -153,6 +177,20 @@ interface VoiceRuntimeNativeBridgeMetadata {
   fallbackReason?: string | null;
 }
 
+interface VoiceSessionOpenAttestationProofPayload {
+  v: "voice_session_open_attestation_proof_v1";
+  org: string;
+  user: string;
+  interview: string;
+  live: string;
+  sourceId: string;
+  sourceClass: string;
+  providerId: string;
+  surface: string;
+  iat: number;
+  exp: number;
+}
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -161,15 +199,461 @@ function normalizeString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeObject(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeTranscriptionMimeType(value: unknown): string | undefined {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized;
+}
+
+function normalizeSourceClassToken(value: unknown): string | undefined {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized.replace(/[^a-z0-9._:-]+/g, "_");
+}
+
+function isProtectedSourceClass(sourceClass?: string): boolean {
+  if (!sourceClass) {
+    return false;
+  }
+  return VOICE_SESSION_OPEN_PROTECTED_SOURCE_CLASS_PREFIXES.includes(
+    sourceClass as (typeof VOICE_SESSION_OPEN_PROTECTED_SOURCE_CLASS_PREFIXES)[number],
+  );
+}
+
+function isMetaSourceClass(sourceClass?: string): boolean {
+  return sourceClass === "meta_glasses" || sourceClass === "glasses_stream_meta";
+}
+
+function normalizeSessionToken(value: unknown): string | undefined {
+  const normalized = normalizeString(value);
+  return normalized ?? undefined;
+}
+
+function normalizeIdentityToken(value: unknown): string | undefined {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized
+    .replace(/[^a-z0-9._:-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeHex32(value: number): string {
+  return (value >>> 0).toString(16).padStart(8, "0");
+}
+
+const BASE64_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_CHAR_MAP = new Map<string, number>(
+  Array.from(BASE64_ALPHABET).map((char, index) => [char, index]),
+);
+
+function encodeBase64(bytes: Uint8Array): string {
+  if (bytes.length === 0) {
+    return "";
+  }
+  let encoded = "";
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0;
+    const second = bytes[index + 1] ?? 0;
+    const third = bytes[index + 2] ?? 0;
+    const chunk = (first << 16) | (second << 8) | third;
+
+    encoded += BASE64_ALPHABET[(chunk >> 18) & 0x3f] ?? "";
+    encoded += BASE64_ALPHABET[(chunk >> 12) & 0x3f] ?? "";
+    encoded +=
+      index + 1 < bytes.length
+        ? (BASE64_ALPHABET[(chunk >> 6) & 0x3f] ?? "")
+        : "=";
+    encoded += index + 2 < bytes.length ? (BASE64_ALPHABET[chunk & 0x3f] ?? "") : "=";
+  }
+  return encoded;
+}
+
+function decodeBase64(payload: string): Uint8Array {
+  const normalized = payload.replace(/[\s\r\n\t]/g, "");
+  if (!normalized) {
+    return new Uint8Array(0);
+  }
+
+  const standard = normalized.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = `${standard}${"=".repeat((4 - (standard.length % 4)) % 4)}`;
+  const bytes: number[] = [];
+
+  for (let index = 0; index < padded.length; index += 4) {
+    const a = padded[index];
+    const b = padded[index + 1];
+    const c = padded[index + 2];
+    const d = padded[index + 3];
+    if (!a || !b || !c || !d) {
+      throw new Error("Invalid base64 payload length.");
+    }
+    const valueA = BASE64_CHAR_MAP.get(a);
+    const valueB = BASE64_CHAR_MAP.get(b);
+    const valueC = c === "=" ? 0 : BASE64_CHAR_MAP.get(c);
+    const valueD = d === "=" ? 0 : BASE64_CHAR_MAP.get(d);
+    if (
+      valueA === undefined
+      || valueB === undefined
+      || valueC === undefined
+      || valueD === undefined
+    ) {
+      throw new Error("Invalid base64 payload characters.");
+    }
+
+    const chunk = (valueA << 18) | (valueB << 12) | (valueC << 6) | valueD;
+    bytes.push((chunk >> 16) & 0xff);
+    if (c !== "=") {
+      bytes.push((chunk >> 8) & 0xff);
+    }
+    if (d !== "=") {
+      bytes.push(chunk & 0xff);
+    }
+  }
+
+  return new Uint8Array(bytes);
+}
+
+function encodeBase64UrlUtf8(value: string): string {
+  return encodeBase64(new TextEncoder().encode(value))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function decodeBase64UrlUtf8(value: string): string {
+  const decoded = decodeBase64(value);
+  return new TextDecoder().decode(decoded);
+}
+
+function hashDeterministic(seed: string): string {
+  let hashA = 0x811c9dc5;
+  let hashB = 0x811c9dc5;
+  for (let index = 0; index < seed.length; index += 1) {
+    const charCode = seed.charCodeAt(index);
+    hashA ^= charCode;
+    hashA = Math.imul(hashA, 0x01000193);
+    hashB ^= charCode + ((index + 1) * 17);
+    hashB = Math.imul(hashB, 0x01000193);
+  }
+  return `${normalizeHex32(hashA)}${normalizeHex32(hashB)}`;
+}
+
+function resolveVoiceRuntimeAttestationSecret(): string {
+  return (
+    normalizeString(process.env.VOICE_RUNTIME_ATTESTATION_SECRET) ??
+    "voice_runtime_attestation_secret_dev_v1"
+  );
+}
+
+function encodeAttestationPayload(
+  payload: VoiceSessionOpenAttestationProofPayload,
+): string {
+  return encodeBase64UrlUtf8(JSON.stringify(payload));
+}
+
+function decodeAttestationPayload(
+  encodedPayload: string,
+): VoiceSessionOpenAttestationProofPayload | null {
+  try {
+    const raw = decodeBase64UrlUtf8(encodedPayload);
+    const parsed = JSON.parse(raw) as VoiceSessionOpenAttestationProofPayload;
+    if (parsed?.v !== "voice_session_open_attestation_proof_v1") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function signAttestationPayload(encodedPayload: string): string {
+  const secret = resolveVoiceRuntimeAttestationSecret();
+  return `sigv1_${hashDeterministic(`${secret}|${encodedPayload}`)}`;
+}
+
+function buildVoiceSessionOpenAttestationProofToken(
+  payload: VoiceSessionOpenAttestationProofPayload,
+): string {
+  const encodedPayload = encodeAttestationPayload(payload);
+  const signature = signAttestationPayload(encodedPayload);
+  return `vrsat1.${encodedPayload}.${signature}`;
+}
+
+function verifyVoiceSessionOpenAttestationProofToken(args: {
+  token?: string | null;
+  nowMs: number;
+  organizationId: string;
+  userId: string;
+  interviewSessionId: string;
+  liveSessionId: string;
+  sourceId: string;
+  sourceClass: string;
+  providerId: string;
+  clientSurface: string;
+}): { ok: boolean; reasonCodes: string[] } {
+  const token = normalizeString(args.token);
+  if (!token) {
+    return { ok: false, reasonCodes: ["missing_attestation_proof_token"] };
+  }
+  const [version, encodedPayload, signature] = token.split(".", 3);
+  if (version !== "vrsat1" || !encodedPayload || !signature) {
+    return { ok: false, reasonCodes: ["malformed_attestation_proof_token"] };
+  }
+  const expectedSignature = signAttestationPayload(encodedPayload);
+  if (signature !== expectedSignature) {
+    return { ok: false, reasonCodes: ["invalid_attestation_proof_signature"] };
+  }
+  const payload = decodeAttestationPayload(encodedPayload);
+  if (!payload) {
+    return { ok: false, reasonCodes: ["invalid_attestation_proof_payload"] };
+  }
+  if (payload.exp <= args.nowMs) {
+    return { ok: false, reasonCodes: ["attestation_proof_expired"] };
+  }
+  const matches =
+    payload.org === String(args.organizationId) &&
+    payload.user === String(args.userId) &&
+    payload.interview === String(args.interviewSessionId) &&
+    payload.live === String(args.liveSessionId) &&
+    payload.sourceId === String(args.sourceId) &&
+    payload.sourceClass === String(args.sourceClass) &&
+    payload.providerId === String(args.providerId) &&
+    payload.surface === String(args.clientSurface);
+  if (!matches) {
+    return { ok: false, reasonCodes: ["attestation_proof_context_mismatch"] };
+  }
+  return { ok: true, reasonCodes: [] };
+}
+
+export interface VoiceSessionOpenSecurityDecision {
+  protectedPath: boolean;
+  allowed: boolean;
+  reasonCodes: string[];
+  canonicalLiveSessionId?: string;
+  sourceAttestation: {
+    required: boolean;
+    verified: boolean;
+    reasonCodes: string[];
+  };
+  transportSessionAttestation: {
+    required: boolean;
+    verified: boolean;
+    reasonCodes: string[];
+  };
+}
+
+export function resolveVoiceSessionOpenSecurityDecision(args: {
+  nowMs: number;
+  clientSurface?: string | null;
+  enforceSourceAttestation?: boolean;
+  liveSessionId?: string | null;
+  sourceMode?: string | null;
+  voiceRuntime?: Record<string, unknown>;
+  transportRuntime?: Record<string, unknown>;
+  avObservability?: Record<string, unknown>;
+}): VoiceSessionOpenSecurityDecision {
+  const voiceRuntime = normalizeObject(args.voiceRuntime);
+  const transportRuntime = normalizeObject(args.transportRuntime);
+  const avObservability = normalizeObject(args.avObservability);
+  const clientSurface = normalizeString(args.clientSurface) ?? "unknown_surface";
+  const sourceMode = normalizeSourceClassToken(args.sourceMode);
+  const sourceId = normalizeIdentityToken(voiceRuntime?.sourceId);
+  const providerId = normalizeIdentityToken(voiceRuntime?.providerId);
+  const voiceSourceClass = normalizeSourceClassToken(
+    voiceRuntime?.sourceClass ?? voiceRuntime?.sourceId,
+  );
+  const sourceModeProtected = isProtectedSourceClass(sourceMode);
+  const voiceSourceProtected = isProtectedSourceClass(voiceSourceClass);
+  const metaSourceDetected =
+    isMetaSourceClass(sourceMode) || isMetaSourceClass(voiceSourceClass);
+
+  const observedLiveSessionIds = Array.from(
+    new Set(
+      [
+        normalizeSessionToken(args.liveSessionId),
+        normalizeSessionToken(voiceRuntime?.liveSessionId),
+        normalizeSessionToken(transportRuntime?.liveSessionId),
+        normalizeSessionToken(avObservability?.liveSessionId),
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const canonicalLiveSessionId = observedLiveSessionIds[0];
+  const protectedPath =
+    clientSurface === "mobile_api_v1" ||
+    sourceModeProtected ||
+    voiceSourceProtected ||
+    observedLiveSessionIds.length > 0;
+  const strictProtectedPath = clientSurface === "mobile_api_v1";
+  const enforceSourceAttestation = args.enforceSourceAttestation !== false;
+
+  const sourceAttestationMetadata: Record<string, unknown> = {
+    liveSessionId: canonicalLiveSessionId,
+    voiceRuntime,
+  };
+  const sourceAttestation = resolveMobileSourceAttestationContract({
+    metadata: sourceAttestationMetadata,
+    nowMs: args.nowMs,
+  });
+  const sourceAttestationRequired =
+    protectedPath && sourceAttestation.verificationRequired && enforceSourceAttestation;
+  const sourceAttestationVerified =
+    !sourceAttestationRequired || sourceAttestation.verified === true;
+
+  const transportReasonCodes = new Set<string>();
+  const transportMode = normalizeString(
+    transportRuntime?.transport ??
+      transportRuntime?.mode ??
+      voiceRuntime?.transport,
+  )?.toLowerCase();
+  if (observedLiveSessionIds.length > 1) {
+    transportReasonCodes.add("live_session_id_mismatch");
+  }
+  if (metaSourceDetected && transportMode !== "webrtc") {
+    transportReasonCodes.add("meta_transport_must_be_webrtc");
+  }
+  const providerToken = normalizeString(voiceRuntime?.providerId)?.toLowerCase();
+  if (metaSourceDetected && (!providerToken || !providerToken.startsWith("meta_"))) {
+    transportReasonCodes.add("meta_provider_contract_required");
+  }
+  const transportSessionAttestationRequired = protectedPath;
+  const transportSessionAttestationVerified =
+    !transportSessionAttestationRequired || transportReasonCodes.size === 0;
+
+  const reasonCodes = new Set<string>();
+  if (strictProtectedPath && !canonicalLiveSessionId) {
+    reasonCodes.add("missing_live_session_id");
+  }
+  if (strictProtectedPath && (!sourceId || !voiceSourceClass || !providerId)) {
+    reasonCodes.add("missing_source_runtime_identity");
+  }
+  if (sourceAttestationRequired && !sourceAttestationVerified) {
+    reasonCodes.add("source_attestation_verification_failed");
+    for (const reasonCode of sourceAttestation.reasonCodes) {
+      reasonCodes.add(`source_attestation:${reasonCode}`);
+    }
+  }
+  if (transportSessionAttestationRequired && !transportSessionAttestationVerified) {
+    reasonCodes.add("transport_session_attestation_verification_failed");
+    for (const reasonCode of transportReasonCodes) {
+      reasonCodes.add(`transport_session_attestation:${reasonCode}`);
+    }
+  }
+
+  return {
+    protectedPath,
+    allowed: reasonCodes.size === 0,
+    reasonCodes: Array.from(reasonCodes).sort(),
+    canonicalLiveSessionId,
+    sourceAttestation: {
+      required: sourceAttestationRequired,
+      verified: sourceAttestationVerified,
+      reasonCodes: sourceAttestation.reasonCodes,
+    },
+    transportSessionAttestation: {
+      required: transportSessionAttestationRequired,
+      verified: transportSessionAttestationVerified,
+      reasonCodes: Array.from(transportReasonCodes).sort(),
+    },
+  };
+}
+
+export function resolveVoiceSessionOpenRateLimitProfileFromTier(planTier?: string): {
+  windowMs: number;
+  maxRequests: number;
+} {
+  const normalizedTier = normalizeString(planTier)?.toLowerCase() ?? "free";
+  switch (normalizedTier) {
+    case "enterprise":
+      return { windowMs: 60 * 1000, maxRequests: 20 };
+    case "agency":
+      return { windowMs: 60 * 1000, maxRequests: 12 };
+    case "professional":
+    case "pro":
+    case "starter":
+      return { windowMs: 60 * 1000, maxRequests: 8 };
+    case "free":
+    default:
+      return { windowMs: 60 * 1000, maxRequests: 4 };
+  }
+}
+
+interface VoiceSessionOpenRateLimitWindowState {
+  windowStartMs: number;
+  openCount: number;
+}
+
+export function resolveVoiceSessionOpenRateLimitDecision(args: {
+  nowMs: number;
+  windowMs?: number;
+  maxRequests?: number;
+  state?: VoiceSessionOpenRateLimitWindowState | null;
+}): {
+  allowed: boolean;
+  retryAfterMs: number;
+  nextState: VoiceSessionOpenRateLimitWindowState;
+} {
+  const windowMs = args.windowMs ?? VOICE_SESSION_OPEN_RATE_LIMIT_WINDOW_MS;
+  const maxRequests = args.maxRequests ?? VOICE_SESSION_OPEN_RATE_LIMIT_MAX_REQUESTS;
+  const activeState =
+    args.state &&
+    args.nowMs - args.state.windowStartMs < windowMs &&
+    args.nowMs >= args.state.windowStartMs
+      ? args.state
+      : {
+          windowStartMs: args.nowMs,
+          openCount: 0,
+        };
+  const nextCount = activeState.openCount + 1;
+  const windowEndMs = activeState.windowStartMs + windowMs;
+  if (nextCount > maxRequests) {
+    return {
+      allowed: false,
+      retryAfterMs: Math.max(0, windowEndMs - args.nowMs),
+      nextState: {
+        windowStartMs: activeState.windowStartMs,
+        openCount: activeState.openCount,
+      },
+    };
+  }
+  return {
+    allowed: true,
+    retryAfterMs: 0,
+    nextState: {
+      windowStartMs: activeState.windowStartMs,
+      openCount: nextCount,
+    },
+  };
+}
+
 function decodeBase64Audio(payload: string): Uint8Array {
   const base64Payload = payload.includes(",")
     ? payload.split(",", 2)[1] ?? ""
     : payload;
-  return new Uint8Array(Buffer.from(base64Payload, "base64"));
+  return decodeBase64(base64Payload);
 }
 
 export const VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID =
   "voice_transport_websocket_ingest_v1" as const;
+export const VIDEO_TRANSPORT_FRAME_INGEST_PHASE_ID =
+  "video_transport_frame_ingest_v1" as const;
+const VIDEO_TRANSPORT_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const VIDEO_TRANSPORT_MAX_FRAMES_PER_WINDOW = 1_800;
+const VIDEO_TRANSPORT_SEQUENCE_WINDOW_LIMIT = 1_024;
 
 type VoiceTransportSequenceDecision =
   | "accepted"
@@ -233,6 +717,68 @@ export function resolveVoiceTransportSequenceDecision(
   return {
     decision: "accepted",
     expectedSequence,
+  };
+}
+
+interface ResolveVideoTransportFrameRateDecisionArgs {
+  nowMs: number;
+  windowMs?: number;
+  maxFramesPerWindow?: number;
+  state?: {
+    windowStartMs: number;
+    frameCountInWindow: number;
+  } | null;
+}
+
+interface ResolveVideoTransportFrameRateDecisionResult {
+  allowed: boolean;
+  retryAfterMs: number;
+  windowStartMs: number;
+  nextFrameCount: number;
+}
+
+export function resolveVideoTransportFrameRateDecision(
+  args: ResolveVideoTransportFrameRateDecisionArgs,
+): ResolveVideoTransportFrameRateDecisionResult {
+  const windowMs =
+    typeof args.windowMs === "number" && Number.isFinite(args.windowMs) && args.windowMs > 0
+      ? Math.floor(args.windowMs)
+      : VIDEO_TRANSPORT_RATE_LIMIT_WINDOW_MS;
+  const maxFramesPerWindow =
+    typeof args.maxFramesPerWindow === "number" &&
+    Number.isFinite(args.maxFramesPerWindow) &&
+    args.maxFramesPerWindow > 0
+      ? Math.floor(args.maxFramesPerWindow)
+      : VIDEO_TRANSPORT_MAX_FRAMES_PER_WINDOW;
+  const previousWindowStart =
+    args.state &&
+    Number.isFinite(args.state.windowStartMs) &&
+    args.state.windowStartMs >= 0
+      ? Math.floor(args.state.windowStartMs)
+      : args.nowMs;
+  const previousFrameCount =
+    args.state &&
+    Number.isFinite(args.state.frameCountInWindow) &&
+    args.state.frameCountInWindow >= 0
+      ? Math.floor(args.state.frameCountInWindow)
+      : 0;
+
+  const windowExpired = args.nowMs >= previousWindowStart + windowMs;
+  const windowStartMs = windowExpired ? args.nowMs : previousWindowStart;
+  const activeFrameCount = windowExpired ? 0 : previousFrameCount;
+  if (activeFrameCount >= maxFramesPerWindow) {
+    return {
+      allowed: false,
+      retryAfterMs: Math.max(0, windowStartMs + windowMs - args.nowMs),
+      windowStartMs,
+      nextFrameCount: activeFrameCount,
+    };
+  }
+  return {
+    allowed: true,
+    retryAfterMs: 0,
+    windowStartMs,
+    nextFrameCount: activeFrameCount + 1,
   };
 }
 
@@ -480,6 +1026,86 @@ interface ResolveVoiceAssistantRelayResult {
   relayEvents: VoiceTransportEnvelopeContract[];
   relayErrorMessage: string | null;
   cancellationAssistantMessageId: string | null;
+}
+
+export type VoiceRealtimeTurnOrchestrationReason =
+  | "final_transcript_eou"
+  | "waiting_for_eou"
+  | "sequence_not_accepted"
+  | "idempotent_replay"
+  | "empty_transcript"
+  | "transcript_not_persisted"
+  | "barge_in_interrupt";
+
+export interface VoiceRealtimeTurnOrchestrationDecision {
+  shouldTriggerAssistantTurn: boolean;
+  interrupted: boolean;
+  reason: VoiceRealtimeTurnOrchestrationReason;
+  transcriptText: string | null;
+}
+
+export function resolveVoiceRealtimeTurnOrchestrationDecision(args: {
+  sequenceDecision: VoiceTransportSequenceDecision;
+  eventType: VoiceTransportEnvelopeContract["eventType"];
+  transcriptText?: string;
+  idempotentReplay?: boolean;
+  persistedFinalTranscript?: boolean;
+}): VoiceRealtimeTurnOrchestrationDecision {
+  if (args.sequenceDecision !== "accepted") {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "sequence_not_accepted",
+      transcriptText: null,
+    };
+  }
+  if (args.idempotentReplay) {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "idempotent_replay",
+      transcriptText: null,
+    };
+  }
+  if (args.eventType === "barge_in") {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: true,
+      reason: "barge_in_interrupt",
+      transcriptText: null,
+    };
+  }
+  if (args.eventType !== "final_transcript") {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "waiting_for_eou",
+      transcriptText: null,
+    };
+  }
+  const transcriptText = normalizeString(args.transcriptText) ?? null;
+  if (!transcriptText) {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "empty_transcript",
+      transcriptText: null,
+    };
+  }
+  if (!args.persistedFinalTranscript) {
+    return {
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "transcript_not_persisted",
+      transcriptText,
+    };
+  }
+  return {
+    shouldTriggerAssistantTurn: true,
+    interrupted: false,
+    reason: "final_transcript_eou",
+    transcriptText,
+  };
 }
 
 export function resolveVoiceAssistantRelay(args: ResolveVoiceAssistantRelayArgs): ResolveVoiceAssistantRelayResult {
@@ -856,10 +1482,26 @@ async function emitVoiceTrustEvent(
     actor_id: args.actorId,
   };
   const payload = Object.assign({}, basePayload, args.additionalPayload) as TrustEventPayload;
+  const strippedKeys: string[] = [];
+  const sanitizedPayloadEntries = Object.entries(payload).filter(([key]) => {
+    if (!TRUST_EVENT_ALLOWED_PAYLOAD_KEYS.has(key)) {
+      strippedKeys.push(key);
+      return false;
+    }
+    return true;
+  });
+  if (strippedKeys.length > 0) {
+    console.warn(
+      `[VoiceRuntime] Trust payload stripped unknown keys for ${args.eventName}: ${strippedKeys.sort().join(",")}`,
+    );
+  }
+  const sanitizedPayload = Object.fromEntries(
+    sanitizedPayloadEntries,
+  ) as TrustEventPayload;
 
   await ctx.runMutation(generatedApi.internal.ai.voiceRuntime.recordVoiceTrustEvent, {
     eventName: args.eventName,
-    payload,
+    payload: sanitizedPayload,
   });
 }
 
@@ -941,13 +1583,26 @@ async function resolveLatestVoiceRuntimeSessionSnapshot(
   },
 ): Promise<VoiceRuntimeSessionSnapshot | null> {
   const targetVoiceSessionId = normalizeString(args.voiceSessionId ?? undefined);
-  const events = await ctx.db
-    .query("aiTrustEvents")
-    .withIndex("by_event_name_occurred_at", (q: any) =>
-      q.eq("event_name", "trust.voice.session_transition.v1")
-    )
-    .order("desc")
-    .take(256);
+  const events =
+    typeof ctx?.runQuery === "function"
+      ? await ctx.runQuery(
+          generatedApi.internal.ai.voiceRuntime.listRecentVoiceSessionTransitionEvents,
+          { limit: 256 },
+        )
+      : ctx?.db?.query
+        ? await ctx.db
+            .query("aiTrustEvents")
+            .withIndex("by_event_name_occurred_at", (q: any) =>
+              q.eq("event_name", "trust.voice.session_transition.v1")
+            )
+            .order("desc")
+            .take(256)
+        : null;
+  if (!events) {
+    throw new Error(
+      "voice_runtime_snapshot_resolution_context_missing: expected runQuery or db.query context",
+    );
+  }
 
   for (const event of events) {
     const payload =
@@ -977,6 +1632,25 @@ async function resolveLatestVoiceRuntimeSessionSnapshot(
 
   return null;
 }
+
+export const listRecentVoiceSessionTransitionEvents = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const resolvedLimit =
+      typeof args.limit === "number" && Number.isFinite(args.limit)
+        ? Math.max(1, Math.min(512, Math.floor(args.limit)))
+        : 256;
+    return await ctx.db
+      .query("aiTrustEvents")
+      .withIndex("by_event_name_occurred_at", (q: any) =>
+        q.eq("event_name", "trust.voice.session_transition.v1"),
+      )
+      .order("desc")
+      .take(resolvedLimit);
+  },
+});
 
 async function emitVoiceSessionTransitionEvent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1070,6 +1744,17 @@ function isAlreadyClosedRemoteError(error: unknown): boolean {
     message.includes("not found") ||
     message.includes("already closed") ||
     message.includes("unknown session")
+  );
+}
+
+function isNoTranscriptTextError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("no transcript text") ||
+    message.includes("transcription returned no")
   );
 }
 
@@ -1303,6 +1988,353 @@ export const commitVoiceTransportIngestCheckpoint = internalMutation({
   },
 });
 
+type VideoTransportFrameOrderingDecision =
+  | "accepted"
+  | "duplicate_replay"
+  | "gap_detected"
+  | "rate_limited";
+
+interface IngestVideoTransportFrameCheckpointResult {
+  decision: VideoTransportFrameOrderingDecision;
+  expectedSequence: number;
+  lastAcceptedSequence: number | null;
+  retryAfterMs: number;
+  frameCountInWindow: number;
+  windowStartMs: number;
+}
+
+export const ingestVideoTransportFrameCheckpoint = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    interviewSessionId: v.id("agentSessions"),
+    liveSessionId: v.string(),
+    videoSessionId: v.string(),
+    sequence: v.number(),
+    nowMs: v.number(),
+    maxFramesPerWindow: v.optional(v.number()),
+    windowMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<IngestVideoTransportFrameCheckpointResult> => {
+    const existing = await ctx.db
+      .query("videoTransportSessionState")
+      .withIndex("by_org_session_live_video", (q: any) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("interviewSessionId", args.interviewSessionId)
+          .eq("liveSessionId", args.liveSessionId)
+          .eq("videoSessionId", args.videoSessionId),
+      )
+      .first();
+
+    const acceptedSequenceWindow = Array.isArray(existing?.acceptedSequenceWindow)
+      ? existing.acceptedSequenceWindow
+      : [];
+    const acceptedSequenceSet = new Set(
+      acceptedSequenceWindow
+        .filter((value) => Number.isInteger(value) && value >= 0)
+        .map((value) => Math.floor(value)),
+    );
+    const lastAcceptedSequence =
+      typeof existing?.lastAcceptedSequence === "number"
+        ? Math.floor(existing.lastAcceptedSequence)
+        : null;
+    const expectedSequence =
+      typeof lastAcceptedSequence === "number" ? lastAcceptedSequence + 1 : 0;
+    const now = args.nowMs;
+
+    if (acceptedSequenceSet.has(args.sequence) || args.sequence < expectedSequence) {
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          updatedAt: now,
+        });
+      }
+      return {
+        decision: "duplicate_replay",
+        expectedSequence,
+        lastAcceptedSequence,
+        retryAfterMs: 0,
+        frameCountInWindow:
+          typeof existing?.frameCountInWindow === "number"
+            ? existing.frameCountInWindow
+            : 0,
+        windowStartMs:
+          typeof existing?.windowStartMs === "number" ? existing.windowStartMs : now,
+      };
+    }
+
+    if (args.sequence > expectedSequence) {
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          updatedAt: now,
+        });
+      }
+      return {
+        decision: "gap_detected",
+        expectedSequence,
+        lastAcceptedSequence,
+        retryAfterMs: 0,
+        frameCountInWindow:
+          typeof existing?.frameCountInWindow === "number"
+            ? existing.frameCountInWindow
+            : 0,
+        windowStartMs:
+          typeof existing?.windowStartMs === "number" ? existing.windowStartMs : now,
+      };
+    }
+
+    const rateDecision = resolveVideoTransportFrameRateDecision({
+      nowMs: now,
+      windowMs: args.windowMs,
+      maxFramesPerWindow: args.maxFramesPerWindow,
+      state: existing
+        ? {
+            windowStartMs: existing.windowStartMs,
+            frameCountInWindow: existing.frameCountInWindow,
+          }
+        : null,
+    });
+
+    if (!rateDecision.allowed) {
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          windowStartMs: rateDecision.windowStartMs,
+          frameCountInWindow: rateDecision.nextFrameCount,
+          blockedCount: (existing.blockedCount ?? 0) + 1,
+          lastBlockedAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("videoTransportSessionState", {
+          organizationId: args.organizationId,
+          interviewSessionId: args.interviewSessionId,
+          liveSessionId: args.liveSessionId,
+          videoSessionId: args.videoSessionId,
+          lastAcceptedSequence: undefined,
+          acceptedSequenceWindow: [],
+          windowStartMs: rateDecision.windowStartMs,
+          frameCountInWindow: rateDecision.nextFrameCount,
+          blockedCount: 1,
+          lastBlockedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      return {
+        decision: "rate_limited",
+        expectedSequence,
+        lastAcceptedSequence,
+        retryAfterMs: rateDecision.retryAfterMs,
+        frameCountInWindow: rateDecision.nextFrameCount,
+        windowStartMs: rateDecision.windowStartMs,
+      };
+    }
+
+    const nextAcceptedSequenceWindow = mergeVoiceTransportAcceptedSequenceWindow({
+      previous: acceptedSequenceWindow,
+      nextAcceptedSequence: args.sequence,
+      windowLimit: VIDEO_TRANSPORT_SEQUENCE_WINDOW_LIMIT,
+    });
+    const nextLastAcceptedSequence =
+      typeof lastAcceptedSequence === "number"
+        ? Math.max(lastAcceptedSequence, args.sequence)
+        : args.sequence;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        lastAcceptedSequence: nextLastAcceptedSequence,
+        acceptedSequenceWindow: nextAcceptedSequenceWindow,
+        windowStartMs: rateDecision.windowStartMs,
+        frameCountInWindow: rateDecision.nextFrameCount,
+        lastAcceptedAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("videoTransportSessionState", {
+        organizationId: args.organizationId,
+        interviewSessionId: args.interviewSessionId,
+        liveSessionId: args.liveSessionId,
+        videoSessionId: args.videoSessionId,
+        lastAcceptedSequence: nextLastAcceptedSequence,
+        acceptedSequenceWindow: nextAcceptedSequenceWindow,
+        windowStartMs: rateDecision.windowStartMs,
+        frameCountInWindow: rateDecision.nextFrameCount,
+        lastAcceptedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      decision: "accepted",
+      expectedSequence,
+      lastAcceptedSequence: nextLastAcceptedSequence,
+      retryAfterMs: 0,
+      frameCountInWindow: rateDecision.nextFrameCount,
+      windowStartMs: rateDecision.windowStartMs,
+    };
+  },
+});
+
+export const enforceVoiceSessionOpenRateLimit = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    interviewSessionId: v.id("agentSessions"),
+    liveSessionId: v.string(),
+    nowMs: v.number(),
+    windowMs: v.optional(v.number()),
+    maxRequests: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("voiceRuntimeSessionOpenRateState")
+      .withIndex("by_org_session_live", (q: any) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("interviewSessionId", args.interviewSessionId)
+          .eq("liveSessionId", args.liveSessionId),
+      )
+      .first();
+
+    const decision = resolveVoiceSessionOpenRateLimitDecision({
+      nowMs: args.nowMs,
+      windowMs:
+        typeof args.windowMs === "number" && args.windowMs > 0
+          ? Math.floor(args.windowMs)
+          : undefined,
+      maxRequests:
+        typeof args.maxRequests === "number" && args.maxRequests > 0
+          ? Math.floor(args.maxRequests)
+          : undefined,
+      state: existing
+        ? {
+            windowStartMs: existing.windowStartMs,
+            openCount: existing.openCount,
+          }
+        : null,
+    });
+
+    const now = args.nowMs;
+    if (existing) {
+      if (decision.allowed) {
+        await ctx.db.patch(existing._id, {
+          windowStartMs: decision.nextState.windowStartMs,
+          openCount: decision.nextState.openCount,
+          lastOpenAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.patch(existing._id, {
+          blockedCount: (existing.blockedCount ?? 0) + 1,
+          lastBlockedAt: now,
+          updatedAt: now,
+        });
+      }
+    } else {
+      await ctx.db.insert("voiceRuntimeSessionOpenRateState", {
+        organizationId: args.organizationId,
+        interviewSessionId: args.interviewSessionId,
+        liveSessionId: args.liveSessionId,
+        windowStartMs: decision.nextState.windowStartMs,
+        openCount: decision.allowed ? decision.nextState.openCount : 0,
+        blockedCount: decision.allowed ? 0 : 1,
+        lastOpenAt: decision.allowed ? now : undefined,
+        lastBlockedAt: decision.allowed ? undefined : now,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      allowed: decision.allowed,
+      retryAfterMs: decision.retryAfterMs,
+      windowStartMs: decision.nextState.windowStartMs,
+      openCount: decision.nextState.openCount,
+    };
+  },
+});
+
+export const resolveVoiceSessionOpenRateLimitProfile = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const license = await getLicenseInternal(ctx, args.organizationId);
+    const tierProfile = resolveVoiceSessionOpenRateLimitProfileFromTier(
+      license.planTier,
+    );
+    return {
+      planTier: license.planTier,
+      windowMs: tierProfile.windowMs,
+      maxRequests: tierProfile.maxRequests,
+    };
+  },
+});
+
+export const issueVoiceSessionOpenAttestationProof = action({
+  args: {
+    sessionId: v.string(),
+    interviewSessionId: v.id("agentSessions"),
+    liveSessionId: v.string(),
+    sourceMode: v.optional(v.string()),
+    voiceRuntime: v.any(),
+    clientSurface: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const runtimeContext = (await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
+      {
+        sessionId: args.sessionId,
+        interviewSessionId: args.interviewSessionId,
+      },
+    )) as VoiceRuntimeContext;
+    const nowMs = Date.now();
+    const voiceRuntime = normalizeObject(args.voiceRuntime);
+    const sourceId = normalizeIdentityToken(voiceRuntime?.sourceId);
+    const sourceClass = normalizeSourceClassToken(
+      voiceRuntime?.sourceClass ?? voiceRuntime?.sourceId,
+    );
+    const providerId = normalizeIdentityToken(voiceRuntime?.providerId);
+    const liveSessionId = normalizeSessionToken(args.liveSessionId);
+    const clientSurface =
+      normalizeString(args.clientSurface) ?? "mobile_api_v1";
+    if (!sourceId || !sourceClass || !providerId || !liveSessionId) {
+      throw new Error(
+        "voice_session_open_attestation_proof_issue_failed:missing_source_context",
+      );
+    }
+    const securityDecision = resolveVoiceSessionOpenSecurityDecision({
+      nowMs,
+      enforceSourceAttestation: false,
+      clientSurface,
+      liveSessionId,
+      sourceMode: normalizeString(args.sourceMode),
+      voiceRuntime,
+    });
+    if (!securityDecision.protectedPath || !securityDecision.allowed) {
+      throw new Error(
+        `voice_session_open_attestation_proof_issue_failed:${securityDecision.reasonCodes.join(",")}`,
+      );
+    }
+    const token = buildVoiceSessionOpenAttestationProofToken({
+      v: "voice_session_open_attestation_proof_v1",
+      org: String(runtimeContext.organizationId),
+      user: String(runtimeContext.actorId),
+      interview: String(runtimeContext.interviewSessionId),
+      live: liveSessionId,
+      sourceId,
+      sourceClass,
+      providerId,
+      surface: clientSurface,
+      iat: nowMs,
+      exp: nowMs + VOICE_RUNTIME_ATTESTATION_PROOF_TTL_MS,
+    });
+    return {
+      token,
+      expiresAt: nowMs + VOICE_RUNTIME_ATTESTATION_PROOF_TTL_MS,
+    };
+  },
+});
+
 export const resolveVoiceSessionState = action({
   args: {
     sessionId: v.string(),
@@ -1355,11 +2387,20 @@ export const openVoiceSession = action({
   args: {
     sessionId: v.string(),
     interviewSessionId: v.id("agentSessions"),
+    expectedOrganizationId: v.optional(v.id("organizations")),
+    expectedUserId: v.optional(v.id("users")),
     requestedProviderId: v.optional(
       v.union(v.literal("browser"), v.literal("elevenlabs")),
     ),
     requestedVoiceId: v.optional(v.string()),
     voiceSessionId: v.optional(v.string()),
+    liveSessionId: v.optional(v.string()),
+    sourceMode: v.optional(v.string()),
+    voiceRuntime: v.optional(v.any()),
+    transportRuntime: v.optional(v.any()),
+    avObservability: v.optional(v.any()),
+    clientSurface: v.optional(v.string()),
+    attestationProofToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const runtimeContext = (await ctx.runQuery(
@@ -1369,12 +2410,79 @@ export const openVoiceSession = action({
         interviewSessionId: args.interviewSessionId,
       },
     )) as VoiceRuntimeContext;
+    if (
+      args.expectedOrganizationId &&
+      String(args.expectedOrganizationId) !== String(runtimeContext.organizationId)
+    ) {
+      throw new Error("voice_session_open_authz_failed:organization_mismatch");
+    }
+    if (
+      args.expectedUserId &&
+      String(args.expectedUserId) !== String(runtimeContext.actorId)
+    ) {
+      throw new Error("voice_session_open_authz_failed:user_mismatch");
+    }
     const requestedProviderId = normalizeVoiceRuntimeProviderId(
       args.requestedProviderId,
     );
-    const voiceId =
-      normalizeString(args.requestedVoiceId) ??
-      runtimeContext.elevenLabsBinding?.defaultVoiceId;
+    const securityDecision = resolveVoiceSessionOpenSecurityDecision({
+      nowMs: Date.now(),
+      enforceSourceAttestation: !normalizeString(args.attestationProofToken),
+      clientSurface: normalizeString(args.clientSurface),
+      liveSessionId: normalizeString(args.liveSessionId),
+      sourceMode: normalizeString(args.sourceMode),
+      voiceRuntime: normalizeObject(args.voiceRuntime),
+      transportRuntime: normalizeObject(args.transportRuntime),
+      avObservability: normalizeObject(args.avObservability),
+    });
+    const clientSurface = normalizeString(args.clientSurface) ?? "mobile_api_v1";
+    const voiceRuntimeMetadata = normalizeObject(args.voiceRuntime);
+    const sourceId = normalizeIdentityToken(voiceRuntimeMetadata?.sourceId);
+    const sourceClass = normalizeSourceClassToken(
+      voiceRuntimeMetadata?.sourceClass ?? voiceRuntimeMetadata?.sourceId,
+    );
+    const providerId = normalizeIdentityToken(voiceRuntimeMetadata?.providerId);
+    if (
+      securityDecision.protectedPath &&
+      securityDecision.allowed &&
+      securityDecision.canonicalLiveSessionId &&
+      sourceId &&
+      sourceClass &&
+      providerId
+    ) {
+      const tokenCheck = verifyVoiceSessionOpenAttestationProofToken({
+        token: normalizeString(args.attestationProofToken),
+        nowMs: Date.now(),
+        organizationId: String(runtimeContext.organizationId),
+        userId: String(runtimeContext.actorId),
+        interviewSessionId: String(runtimeContext.interviewSessionId),
+        liveSessionId: securityDecision.canonicalLiveSessionId,
+        sourceId,
+        sourceClass,
+        providerId,
+        clientSurface,
+      });
+      if (!tokenCheck.ok) {
+        throw new Error(
+          `voice_session_open_attestation_failed:${tokenCheck.reasonCodes.join(",")}`,
+        );
+      }
+    }
+    if (securityDecision.protectedPath && !securityDecision.allowed) {
+      throw new Error(
+        `voice_session_open_attestation_failed:${securityDecision.reasonCodes.join(",")}`,
+      );
+    }
+    const requestedVoiceId = normalizeString(args.requestedVoiceId);
+    const bindingDefaultVoiceId = runtimeContext.elevenLabsBinding?.defaultVoiceId;
+    const voiceId = requestedVoiceId ?? bindingDefaultVoiceId;
+    console.info("[VoiceRuntime] open_session_voice_resolution", {
+      requestedProviderId,
+      requestedVoiceId: requestedVoiceId ?? null,
+      bindingDefaultVoiceId: bindingDefaultVoiceId ?? null,
+      resolvedVoiceId: voiceId ?? null,
+      hasElevenLabsBinding: Boolean(runtimeContext.elevenLabsBinding),
+    });
     const voiceSessionId =
       normalizeString(args.voiceSessionId) ??
       `voice:${args.interviewSessionId}:${Date.now()}`;
@@ -1420,6 +2528,32 @@ export const openVoiceSession = action({
         fsmState: cleanedSession.state,
         idempotent: true,
       };
+    }
+    const rateLimitLiveSessionId =
+      securityDecision.canonicalLiveSessionId ??
+      normalizeString(args.liveSessionId) ??
+      `interview:${runtimeContext.interviewSessionId}`;
+    const rateLimitProfile = await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveVoiceSessionOpenRateLimitProfile,
+      {
+        organizationId: runtimeContext.organizationId,
+      },
+    );
+    const rateLimit = await ctx.runMutation(
+      generatedApi.internal.ai.voiceRuntime.enforceVoiceSessionOpenRateLimit,
+      {
+        organizationId: runtimeContext.organizationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        liveSessionId: rateLimitLiveSessionId,
+        nowMs,
+        windowMs: rateLimitProfile.windowMs,
+        maxRequests: rateLimitProfile.maxRequests,
+      },
+    );
+    if (!rateLimit.allowed) {
+      throw new Error(
+        `voice_session_open_rate_limited:${rateLimit.retryAfterMs}`,
+      );
     }
 
     await emitVoiceSessionTransitionEvent(ctx, {
@@ -1822,6 +2956,12 @@ export const transcribeVoiceAudio = action({
         mimeType: normalizeString(args.mimeType) ?? "audio/webm",
         language: normalizeString(args.language) ?? undefined,
       });
+      const loggedTranscriptText = normalizeString(transcript.text) ?? "";
+      if (loggedTranscriptText) {
+        console.info(
+          `[VoiceRuntime] Transcription result: "${loggedTranscriptText.slice(0, 240)}"`,
+        );
+      }
 
       await emitVoiceTrustEvent(ctx, {
         eventName: "trust.voice.adaptive_flow_decision.v1",
@@ -1885,6 +3025,21 @@ export const transcribeVoiceAudio = action({
         }),
       };
     } catch (error) {
+      if (isNoTranscriptTextError(error)) {
+        console.warn(
+          "[VoiceRuntime] Empty transcript from provider; treating frame as no speech.",
+        );
+        return {
+          success: true,
+          text: "",
+          noSpeechDetected: true,
+          providerId: resolved.adapter.providerId,
+          requestedProviderId,
+          fallbackProviderId: resolved.fallbackFromProviderId ?? null,
+          health: resolved.health,
+          nativeBridge,
+        };
+      }
       const transcriptionError =
         error instanceof Error
           ? error.message
@@ -1928,9 +3083,14 @@ export const ingestVoiceTransportEnvelope = action({
   args: {
     sessionId: v.string(),
     interviewSessionId: v.id("agentSessions"),
+    conversationId: v.optional(v.id("aiConversations")),
     requestedProviderId: v.optional(
       v.union(v.literal("browser"), v.literal("elevenlabs")),
     ),
+    conversationRuntime: v.optional(v.any()),
+    voiceRuntime: v.optional(v.any()),
+    transportRuntime: v.optional(v.any()),
+    avObservability: v.optional(v.any()),
     envelope: voiceTransportEnvelopeValidator,
   },
   handler: async (ctx, args) => {
@@ -1985,6 +3145,10 @@ export const ingestVoiceTransportEnvelope = action({
     const requestedProviderId = normalizeVoiceRuntimeProviderId(
       args.requestedProviderId,
     );
+    const normalizedConversationRuntime = normalizeObject(args.conversationRuntime);
+    const normalizedVoiceRuntime = normalizeObject(args.voiceRuntime);
+    const normalizedTransportRuntime = normalizeObject(args.transportRuntime);
+    const normalizedAvObservability = normalizeObject(args.avObservability);
 
     let relayEvents: VoiceTransportEnvelopeContract[] = [];
     let persistedFinalTranscript = false;
@@ -2052,13 +3216,25 @@ export const ingestVoiceTransportEnvelope = action({
           }
         } else {
           try {
+            const transcriptionMimeType =
+              normalizeTranscriptionMimeType(envelope.transcriptionMimeType) ??
+              resolvePcmTranscriptionMimeType(envelope.pcm);
+            console.info(
+              `[VoiceRuntime] Realtime frame transcription seq=${envelope.sequence} provider=${resolved.adapter.providerId} mimeType=${transcriptionMimeType}`,
+            );
             const transcript = await resolved.adapter.transcribe({
               voiceSessionId: envelope.voiceSessionId,
               audioBytes: decodeBase64Audio(envelope.audioChunkBase64),
-              mimeType: resolvePcmTranscriptionMimeType(envelope.pcm),
+              mimeType: transcriptionMimeType,
             });
             const transcriptText = normalizeString(transcript.text);
             if (transcriptText) {
+              console.info(
+                `[VoiceRuntime] Transcription result: "${transcriptText.slice(0, 240)}"`,
+              );
+              console.info(
+                `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${transcriptText.slice(0, 120)}"`,
+              );
               const partialEnvelope: VoiceTransportEnvelopeContract = {
                 contractVersion: VOICE_TRANSPORT_ENVELOPE_CONTRACT_VERSION,
                 transportMode: envelope.transportMode,
@@ -2075,26 +3251,42 @@ export const ingestVoiceTransportEnvelope = action({
               relayEvents.push(partialEnvelope);
             }
           } catch (error) {
-            relayErrorMessage =
-              error instanceof Error
-                ? error.message
-                : "Voice realtime PCM transcription failed.";
-            relayEvents.push(
-              buildVoiceTransportErrorEnvelope({
-                sourceEnvelope: envelope,
-                code: "vt_upstream_provider_error",
-                message: relayErrorMessage,
-                retryable: true,
-              }),
-            );
+            if (isNoTranscriptTextError(error)) {
+              relayErrorMessage = "voice_no_speech_detected";
+              console.warn(
+                "[VoiceRuntime] Empty transcript for realtime frame; skipping relay event.",
+              );
+            } else {
+              relayErrorMessage =
+                error instanceof Error
+                  ? error.message
+                  : "Voice realtime PCM transcription failed.";
+              relayEvents.push(
+                buildVoiceTransportErrorEnvelope({
+                  sourceEnvelope: envelope,
+                  code: "vt_upstream_provider_error",
+                  message: relayErrorMessage,
+                  retryable: true,
+                }),
+              );
+            }
           }
         }
       } else if (envelope.eventType === "partial_transcript") {
+        const partialTranscriptText = normalizeString(envelope.transcriptText);
+        if (partialTranscriptText) {
+          console.info(
+            `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${partialTranscriptText.slice(0, 120)}"`,
+          );
+        }
         relayEvents = [envelope];
       } else if (envelope.eventType === "final_transcript") {
         relayEvents = [envelope];
         const finalTranscriptText = normalizeString(envelope.transcriptText);
         if (finalTranscriptText) {
+          console.info(
+            `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${finalTranscriptText.slice(0, 120)}"`,
+          );
           await ctx.runMutation(
             generatedApi.internal.ai.agentSessions.addSessionMessage,
             {
@@ -2191,6 +3383,128 @@ export const ingestVoiceTransportEnvelope = action({
       }
     }
 
+    const turnOrchestrationDecision = resolveVoiceRealtimeTurnOrchestrationDecision({
+      sequenceDecision: sequenceDecision.decision,
+      eventType: envelope.eventType,
+      transcriptText: envelope.eventType === "final_transcript"
+        ? envelope.transcriptText
+        : undefined,
+      idempotentReplay: writeIdempotentReplay,
+      persistedFinalTranscript,
+    });
+
+    let realtimeTurn:
+      | {
+          status: "triggered" | "suppressed" | "failed";
+          reason: string;
+          transcriptText?: string;
+          assistantText?: string;
+          conversationId?: Id<"aiConversations">;
+          toolCallCount?: number;
+        }
+      | undefined;
+    if (turnOrchestrationDecision.shouldTriggerAssistantTurn) {
+      console.info(
+        `[VoiceRuntime] Agent response triggered, transcript length=${turnOrchestrationDecision.transcriptText?.length ?? 0}`,
+      );
+      if (!args.conversationId) {
+        realtimeTurn = {
+          status: "suppressed",
+          reason: "missing_conversation_id",
+          transcriptText: turnOrchestrationDecision.transcriptText ?? undefined,
+        };
+      } else {
+        try {
+          const sendMessageResult = await (ctx as any).runAction(
+            generatedApi.api.ai.chat.sendMessage,
+            {
+              organizationId: runtimeContext.organizationId,
+              userId: runtimeContext.actorId as Id<"users">,
+              sessionId: args.sessionId,
+              conversationId: args.conversationId,
+              message: turnOrchestrationDecision.transcriptText,
+              liveSessionId: envelope.liveSessionId,
+              conversationRuntime: {
+                ...(normalizedConversationRuntime ?? {}),
+                source: "voice_transport_ingest",
+                mode:
+                  normalizeString(normalizedConversationRuntime?.mode) ?? "voice",
+                turnPolicy: "final_transcript_eou",
+                eventType: envelope.eventType,
+                sequence: envelope.sequence,
+              },
+              voiceRuntime: {
+                ...(normalizedVoiceRuntime ?? {}),
+                source: "voice_transport_ingest",
+                voiceSessionId: envelope.voiceSessionId,
+                liveSessionId: envelope.liveSessionId,
+                phaseId: VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID,
+                eventType: envelope.eventType,
+                sequence: envelope.sequence,
+                contractVersion: envelope.contractVersion,
+                transportMode: envelope.transportMode,
+              },
+              transportRuntime: {
+                ...(normalizedTransportRuntime ?? {}),
+                source: "voice_transport_ingest",
+                transport: envelope.transportMode,
+                mode: envelope.transportMode,
+                eventType: envelope.eventType,
+                sequence: envelope.sequence,
+                orderingDecision: sequenceDecision.decision,
+                expectedSequence: sequenceDecision.expectedSequence,
+              },
+              avObservability: {
+                ...(normalizedAvObservability ?? {}),
+                source: "voice_transport_ingest",
+                liveSessionId: envelope.liveSessionId,
+                voiceSessionId: envelope.voiceSessionId,
+                interviewSessionId: envelope.interviewSessionId,
+                eventType: envelope.eventType,
+                sequence: envelope.sequence,
+              },
+            },
+          ) as {
+            message?: string;
+            toolCalls?: Array<unknown>;
+          };
+          realtimeTurn = {
+            status: "triggered",
+            reason: turnOrchestrationDecision.reason,
+            transcriptText: turnOrchestrationDecision.transcriptText ?? undefined,
+            assistantText: normalizeString(sendMessageResult.message) ?? undefined,
+            conversationId: args.conversationId,
+            toolCallCount: Array.isArray(sendMessageResult.toolCalls)
+              ? sendMessageResult.toolCalls.length
+              : 0,
+          };
+          if (realtimeTurn.assistantText) {
+            console.info(
+              `[VoiceRuntime] Agent LLM response: "${realtimeTurn.assistantText.slice(0, 50)}..."`,
+            );
+            console.info(
+              `[VoiceRuntime] Playback event emitted for session=${envelope.voiceSessionId}`,
+            );
+          }
+        } catch (error) {
+          realtimeTurn = {
+            status: "failed",
+            reason:
+              normalizeString(error instanceof Error ? error.message : undefined)
+                ?? "realtime_turn_orchestration_failed",
+            transcriptText: turnOrchestrationDecision.transcriptText ?? undefined,
+            conversationId: args.conversationId,
+          };
+        }
+      }
+    } else {
+      realtimeTurn = {
+        status: "suppressed",
+        reason: turnOrchestrationDecision.reason,
+        transcriptText: turnOrchestrationDecision.transcriptText ?? undefined,
+      };
+    }
+
     return {
       success: sequenceDecision.decision !== "gap_detected",
       ordering: {
@@ -2201,12 +3515,110 @@ export const ingestVoiceTransportEnvelope = action({
       idempotent: writeIdempotentReplay,
       persistedFinalTranscript,
       relayEvents,
+      orchestration: {
+        ...turnOrchestrationDecision,
+        turn: realtimeTurn,
+      },
       nativeBridge: buildVoiceRuntimeNativeBridgeMetadata({
         voiceSessionId: envelope.voiceSessionId,
         sessionState: "stt",
         requestedProviderId,
         providerId: requestedProviderId,
       }),
+    };
+  },
+});
+
+export const ingestVideoFrameEnvelope = action({
+  args: {
+    sessionId: v.string(),
+    interviewSessionId: v.id("agentSessions"),
+    envelope: mediaSessionIngressContractValidator,
+    maxFramesPerWindow: v.optional(v.number()),
+    windowMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const runtimeContext = (await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
+      {
+        sessionId: args.sessionId,
+        interviewSessionId: args.interviewSessionId,
+      },
+    )) as VoiceRuntimeContext;
+
+    const envelope = args.envelope as MediaSessionIngressContract;
+    assertMediaSessionIngressContract(envelope);
+
+    const videoRuntime = normalizeObject(envelope.videoRuntime);
+    const videoSessionId = normalizeSessionToken(videoRuntime?.videoSessionId);
+    if (!videoSessionId) {
+      throw new Error(
+        "Media session video frame ingress requires videoRuntime.videoSessionId.",
+      );
+    }
+
+    const sequence = Number(videoRuntime?.packetSequence);
+    if (!Number.isInteger(sequence) || sequence < 0) {
+      throw new Error(
+        "Media session video frame ingress requires non-negative integer videoRuntime.packetSequence.",
+      );
+    }
+
+    const checkpoint = (await ctx.runMutation(
+      generatedApi.internal.ai.voiceRuntime.ingestVideoTransportFrameCheckpoint,
+      {
+        organizationId: runtimeContext.organizationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        liveSessionId: envelope.liveSessionId,
+        videoSessionId,
+        sequence,
+        nowMs: envelope.ingressTimestampMs,
+        maxFramesPerWindow:
+          typeof args.maxFramesPerWindow === "number"
+            ? args.maxFramesPerWindow
+            : undefined,
+        windowMs:
+          typeof args.windowMs === "number" ? args.windowMs : undefined,
+      },
+    )) as IngestVideoTransportFrameCheckpointResult;
+
+    return {
+      success:
+        checkpoint.decision === "accepted" ||
+        checkpoint.decision === "duplicate_replay",
+      phaseId: VIDEO_TRANSPORT_FRAME_INGEST_PHASE_ID,
+      liveSessionId: envelope.liveSessionId,
+      videoSessionId,
+      ordering: {
+        decision: checkpoint.decision,
+        expectedSequence: checkpoint.expectedSequence,
+        receivedSequence: sequence,
+        lastAcceptedSequence: checkpoint.lastAcceptedSequence,
+      },
+      rateControl: {
+        frameCountInWindow: checkpoint.frameCountInWindow,
+        windowStartMs: checkpoint.windowStartMs,
+        retryAfterMs: checkpoint.retryAfterMs,
+      },
+      relay: {
+        accepted:
+          checkpoint.decision === "accepted" ||
+          checkpoint.decision === "duplicate_replay",
+        reason:
+          checkpoint.decision === "accepted"
+            ? "video_frame_relay_accepted"
+            : checkpoint.decision === "duplicate_replay"
+              ? "video_frame_duplicate_replay"
+              : checkpoint.decision === "gap_detected"
+                ? "video_frame_sequence_gap"
+                : "video_frame_rate_limited",
+      },
+      payload: {
+        framePayloadBytes: Math.floor(
+          (normalizeString(videoRuntime?.framePayloadBase64)?.length ?? 0) *
+            0.75,
+        ),
+      },
     };
   },
 });
@@ -2260,13 +3672,30 @@ export const synthesizeVoicePreview = action({
     }
 
     try {
+      const requestedVoiceId = normalizeString(args.requestedVoiceId);
+      const bindingDefaultVoiceId = runtimeContext.elevenLabsBinding?.defaultVoiceId;
+      const resolvedVoiceId = requestedVoiceId ?? bindingDefaultVoiceId;
+      console.info("[VoiceRuntime] tts_voice_resolution", {
+        requestedProviderId,
+        requestedVoiceId: requestedVoiceId ?? null,
+        bindingDefaultVoiceId: bindingDefaultVoiceId ?? null,
+        resolvedVoiceId: resolvedVoiceId ?? null,
+        hasElevenLabsBinding: Boolean(runtimeContext.elevenLabsBinding),
+      });
+      console.info(
+        `[VoiceRuntime] TTS request: voice_id=${resolvedVoiceId ?? "default"} text_length=${args.text.length}`,
+      );
       const synthesis = await resolved.adapter.synthesize({
         voiceSessionId: args.voiceSessionId,
         text: args.text,
-        voiceId:
-          normalizeString(args.requestedVoiceId) ??
-          runtimeContext.elevenLabsBinding?.defaultVoiceId,
+        voiceId: resolvedVoiceId,
       });
+      const synthesizedBytes = synthesis.audioBase64
+        ? Math.floor((synthesis.audioBase64.length * 3) / 4)
+        : 0;
+      console.info(
+        `[VoiceRuntime] TTS response: audio_bytes=${synthesizedBytes}`,
+      );
 
       try {
         const synthesisBridge = buildVoiceRuntimeNativeBridgeMetadata({

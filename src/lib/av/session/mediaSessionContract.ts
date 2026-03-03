@@ -48,6 +48,7 @@ export const MEDIA_SESSION_RUNTIME_METADATA_KEYS = {
   interviewSessionId: "interviewSessionId",
   cameraRuntime: "cameraRuntime",
   voiceRuntime: "voiceRuntime",
+  videoRuntime: "videoRuntime",
   transportRuntime: "transportRuntime",
   sourceAttestation: "sourceAttestation",
 } as const;
@@ -67,6 +68,18 @@ export interface MediaSessionVoiceRuntimeMetadata {
   providerId?: string;
   language?: string;
   sampleRateHz?: number;
+  runtimeError?: string;
+  fallbackReason?: string;
+}
+
+export interface MediaSessionVideoRuntimeMetadata {
+  videoSessionId?: string;
+  sessionState?: string;
+  providerId?: string;
+  codec?: string;
+  frameRate?: number;
+  width?: number;
+  height?: number;
   runtimeError?: string;
   fallbackReason?: string;
 }
@@ -130,6 +143,7 @@ export interface MediaSessionRuntimeMetadata {
   interviewSessionId?: string;
   cameraRuntime?: MediaSessionCameraRuntimeMetadata;
   voiceRuntime?: MediaSessionVoiceRuntimeMetadata;
+  videoRuntime?: MediaSessionVideoRuntimeMetadata;
   transportRuntime?: MediaSessionTransportRuntimeMetadata;
   sourceAttestation?: MediaSessionSourceAttestationMetadata;
 }
@@ -139,6 +153,7 @@ export interface MediaSessionRuntimeMetadataInput {
   interviewSessionId?: string;
   cameraRuntime?: MediaSessionCameraRuntimeMetadata;
   voiceRuntime?: MediaSessionVoiceRuntimeMetadata;
+  videoRuntime?: MediaSessionVideoRuntimeMetadata;
   transportRuntime?: MediaSessionTransportRuntimeMetadata;
   sourceAttestation?: MediaSessionSourceAttestationMetadata;
 }
@@ -251,6 +266,20 @@ export function normalizeMediaSessionRuntimeMetadata(
       fallbackReason: normalizeOptionalString(input.voiceRuntime.fallbackReason),
     };
   }
+  if (input.videoRuntime) {
+    metadata.videoRuntime = {
+      ...input.videoRuntime,
+      videoSessionId: normalizeOptionalString(input.videoRuntime.videoSessionId),
+      sessionState: normalizeOptionalString(input.videoRuntime.sessionState),
+      providerId: normalizeOptionalString(input.videoRuntime.providerId),
+      codec: normalizeOptionalString(input.videoRuntime.codec),
+      frameRate: normalizeOptionalPositiveNumber(input.videoRuntime.frameRate),
+      width: normalizeOptionalPositiveNumber(input.videoRuntime.width),
+      height: normalizeOptionalPositiveNumber(input.videoRuntime.height),
+      runtimeError: normalizeOptionalString(input.videoRuntime.runtimeError),
+      fallbackReason: normalizeOptionalString(input.videoRuntime.fallbackReason),
+    };
+  }
   if (input.transportRuntime) {
     metadata.transportRuntime = {
       mode: normalizeOptionalString(input.transportRuntime.mode),
@@ -301,6 +330,10 @@ export function toMediaSessionRuntimeEnvelopeMetadata(
     envelope[MEDIA_SESSION_RUNTIME_METADATA_KEYS.voiceRuntime] =
       metadata.voiceRuntime;
   }
+  if (metadata.videoRuntime) {
+    envelope[MEDIA_SESSION_RUNTIME_METADATA_KEYS.videoRuntime] =
+      metadata.videoRuntime;
+  }
   if (metadata.transportRuntime) {
     envelope[MEDIA_SESSION_RUNTIME_METADATA_KEYS.transportRuntime] =
       metadata.transportRuntime;
@@ -321,6 +354,14 @@ export function assertMediaSessionRuntimeMetadata(
     if (!voiceSessionId) {
       throw new Error(
         "Media session runtime metadata requires voiceRuntime.voiceSessionId when voiceRuntime is present."
+      );
+    }
+  }
+  if (metadata.videoRuntime) {
+    const videoSessionId = normalizeOptionalString(metadata.videoRuntime.videoSessionId);
+    if (!videoSessionId) {
+      throw new Error(
+        "Media session runtime metadata requires videoRuntime.videoSessionId when videoRuntime is present."
       );
     }
   }
@@ -350,6 +391,114 @@ export function isMobileGlassesSourceClass(
   return (MOBILE_GLASSES_SOURCE_CLASS_VALUES as readonly string[]).includes(
     sourceClass
   );
+}
+
+export const CONVERSATION_EYES_SOURCE_VALUES = ["webcam", "meta_glasses"] as const;
+export type ConversationEyesSource = (typeof CONVERSATION_EYES_SOURCE_VALUES)[number];
+
+export type ConversationCapabilityReasonCode =
+  | "permission_denied_mic"
+  | "permission_denied_camera"
+  | "device_unavailable"
+  | "dat_sdk_unavailable"
+  | "transport_failed"
+  | "session_auth_failed"
+  | "session_open_failed"
+  | "provider_unavailable";
+
+export interface ConversationSourceCapability {
+  available: boolean;
+  reasonCode: ConversationCapabilityReasonCode | null;
+}
+
+export interface ConversationCapabilitySnapshot {
+  contractVersion: "conversation_interaction_v1";
+  sessionIntent: "voice" | "voice_with_eyes";
+  requestedEyesSource: "none" | ConversationEyesSource;
+  capabilities: {
+    mic: ConversationSourceCapability;
+    webcam: ConversationSourceCapability;
+    metaGlasses: ConversationSourceCapability;
+  };
+}
+
+export function mapConversationCapabilityReasonCode(
+  reason: string | null | undefined
+): ConversationCapabilityReasonCode {
+  const normalized = (reason || "").trim().toLowerCase();
+  if (!normalized) {
+    return "session_open_failed";
+  }
+  if (normalized.includes("camera")) {
+    return "permission_denied_camera";
+  }
+  if (normalized.includes("notallowederror") || normalized.includes("permission") || normalized.includes("mic")) {
+    return "permission_denied_mic";
+  }
+  if (
+    normalized.includes("dat_sdk_unavailable")
+    || normalized.includes("meta_bridge_dat_sdk_unavailable")
+  ) {
+    return "dat_sdk_unavailable";
+  }
+  if (
+    normalized.includes("meta_bridge_not_connected")
+    || normalized.includes("meta_bridge_missing_device")
+    || normalized.includes("meta_bridge_source_class_mismatch")
+    || normalized.includes("meta_bridge_failure")
+    || normalized.includes("meta_bridge_fallback")
+  ) {
+    return "device_unavailable";
+  }
+  if (normalized.includes("auth")) {
+    return "session_auth_failed";
+  }
+  if (normalized.includes("transport") || normalized.includes("websocket")) {
+    return "transport_failed";
+  }
+  if (normalized.includes("provider")) {
+    return "provider_unavailable";
+  }
+  if (normalized.includes("unavailable")) {
+    return "device_unavailable";
+  }
+  return "session_open_failed";
+}
+
+export function buildConversationCapabilitySnapshot(input: {
+  sessionIntent: "voice" | "voice_with_eyes";
+  requestedEyesSource: "none" | ConversationEyesSource;
+  micAvailable: boolean;
+  webcamAvailable: boolean;
+  webcamReasonCode?: string | null;
+  metaGlassesAvailable: boolean;
+  metaGlassesReasonCode?: string | null;
+}): ConversationCapabilitySnapshot {
+  return {
+    contractVersion: "conversation_interaction_v1",
+    sessionIntent: input.sessionIntent,
+    requestedEyesSource: input.requestedEyesSource,
+    capabilities: {
+      mic: {
+        available: input.micAvailable,
+        reasonCode: input.micAvailable ? null : "permission_denied_mic",
+      },
+      webcam: {
+        available: input.webcamAvailable,
+        reasonCode: input.webcamAvailable
+          ? null
+          : mapConversationCapabilityReasonCode(input.webcamReasonCode),
+      },
+      metaGlasses: {
+        available: input.metaGlassesAvailable,
+        reasonCode: input.metaGlassesAvailable
+          ? null
+          : mapConversationCapabilityReasonCode(
+            input.metaGlassesReasonCode || "dat_sdk_unavailable"
+          ),
+      },
+    },
+  };
 }
 
 function normalizeRequiredString(value: string, fieldName: string): string {
