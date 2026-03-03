@@ -31,6 +31,10 @@ import {
   type WebchatCustomizationContract,
   type WebchatWidgetPosition,
 } from "../../webchatCustomizationContract";
+import {
+  evaluateIngressAdmission,
+  type AdmissionDenialV1,
+} from "../../ai/admissionController";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
 
@@ -84,6 +88,8 @@ const SESSION_TOKEN_PREFIX: Record<PublicInboundChannel, string> = {
   webchat: "wc",
   native_guest: "ng",
 };
+const PUBLIC_MESSAGE_CONTEXT_FAILURE_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+const PUBLIC_MESSAGE_CONTEXT_FAILURE_MAX_SCAN = 120;
 const PUBLIC_OPERATOR_NAME_FALLBACK = "Operator";
 const INTERNAL_OPERATOR_NAME_PATTERN = /\b(midwife|quin|quinn|worker\s*\d+)\b/i;
 const GENERIC_AGENT_LABEL_PATTERN = /^(the\s+)?(ai\s+)?agent$/i;
@@ -769,6 +775,8 @@ export const handleWebchatMessage = internalAction({
     agentId: v.id("objects"),
     channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
     sessionToken: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    requestCorrelationId: v.optional(v.string()),
     message: v.string(),
     attachments: v.optional(v.array(v.any())),
     attribution: v.optional(challengeMetadataValidator),
@@ -790,6 +798,7 @@ export const handleWebchatMessage = internalAction({
     response?: string;
     agentName?: string;
     error?: string;
+    admissionDenial?: AdmissionDenialV1;
   }> => {
     try {
       const channel = normalizePublicChannel(args.channel);
@@ -854,17 +863,35 @@ export const handleWebchatMessage = internalAction({
       });
 
       if (!agentConfig) {
+        const admission = evaluateIngressAdmission({
+          channel,
+          contextResolved: true,
+          agentFound: true,
+          channelAllowed: false,
+        });
         return {
           success: false,
           sessionToken: sessionToken!,
           claimToken: null,
-          error: "Agent not found or webchat not enabled",
+          error: admission.allowed
+            ? "Agent not found or webchat not enabled"
+            : admission.denial.reason,
+          admissionDenial: admission.allowed ? undefined : admission.denial,
         };
       }
 
       // Route message through the agent execution pipeline
       // The sessionToken becomes the externalContactIdentifier for webchat channel
       const skipOutbound = channel === "native_guest";
+      if (channel === "native_guest") {
+        console.info("[NativeGuestReplayTrace] webchat_handle_message", {
+          requestCorrelationId: args.requestCorrelationId || null,
+          organizationId: String(args.organizationId),
+          agentId: String(args.agentId),
+          sessionToken: sessionToken!,
+          idempotencyKey: args.idempotencyKey || null,
+        });
+      }
       const result = await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
         organizationId: args.organizationId,
         channel,
@@ -872,6 +899,10 @@ export const handleWebchatMessage = internalAction({
         message: args.message,
         metadata: {
           agentId: args.agentId,
+          idempotencyKey: args.idempotencyKey,
+          payloadHash: args.idempotencyKey,
+          requestCorrelationId: args.requestCorrelationId,
+          correlationId: args.requestCorrelationId,
           visitorInfo: args.visitorInfo,
           attachments: args.attachments,
           imageAttachmentCount: Array.isArray(args.attachments) ? args.attachments.length : 0,
@@ -880,14 +911,6 @@ export const handleWebchatMessage = internalAction({
           ...(skipOutbound ? { skipOutbound: true, transport: "native_guest_http" } : {}),
         },
       });
-
-      const nativeGuestCriticalLeadFailure = channel === "native_guest"
-        ? (result.toolResults || []).find(
-            (toolResult: { tool?: string; status?: string; error?: string }) =>
-              toolResult?.tool === "generate_audit_workflow_deliverable"
-              && toolResult?.status !== "success"
-          )
-        : undefined;
 
       // Update session with agent session ID if created
       if (result.sessionId) {
@@ -934,6 +957,15 @@ export const handleWebchatMessage = internalAction({
         (typeof result.message === "string" && result.message.length > 0
           ? result.message
           : undefined);
+      if (channel === "native_guest") {
+        console.info("[NativeGuestReplayTrace] webchat_process_inbound_result", {
+          requestCorrelationId: args.requestCorrelationId || null,
+          status: result.status,
+          sessionId: result.sessionId ? String(result.sessionId) : null,
+          turnId: result.turnId ? String(result.turnId) : null,
+          hasResponse: Boolean(runtimeResponse),
+        });
+      }
 
       // Emit deterministic funnel stages for first touch and activation.
       // Event emitter handles idempotent dedupe by eventKey.
@@ -969,14 +1001,20 @@ export const handleWebchatMessage = internalAction({
       }
 
       return {
-        success: result.status === "success" && !nativeGuestCriticalLeadFailure,
+        success:
+          result.status === "success"
+          || (
+            Boolean(runtimeResponse)
+            && channel === "native_guest"
+          ),
         sessionToken: sessionToken!,
         claimToken,
         response: runtimeResponse,
         agentName: agentConfig.agentName,
         error:
-          nativeGuestCriticalLeadFailure?.error
-          || (result.status !== "success" ? (runtimeResponse || "Unable to process message") : undefined),
+          (result.status !== "success" && !runtimeResponse)
+            ? "Unable to process message"
+            : undefined,
       };
     } catch (error) {
       console.error("[Webchat] Error handling message:", error);
@@ -1337,6 +1375,78 @@ export const completeAuditModeSession = internalAction({
         error: error instanceof Error ? error.message : "Unable to complete audit session",
       };
     }
+  },
+});
+
+// ============================================================================
+// CONTEXT FAILURE SIGNALS
+// ============================================================================
+
+export const recordPublicMessageContextFailure = internalMutation({
+  args: {
+    channel: v.union(v.literal("webchat"), v.literal("native_guest")),
+    requestId: v.optional(v.string()),
+    reason: v.string(),
+    error: v.optional(v.string()),
+    organizationId: v.optional(v.id("organizations")),
+    agentId: v.optional(v.id("objects")),
+    sessionToken: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const sessionToken = args.sessionToken?.trim();
+    const dedupeKey = [
+      args.channel,
+      args.reason.trim().toLowerCase() || "unknown_reason",
+      args.organizationId ? String(args.organizationId) : "org:none",
+      args.agentId ? String(args.agentId) : "agent:none",
+      sessionToken?.slice(0, 24) || "session:none",
+    ].join("|");
+
+    const recentLogs = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .take(PUBLIC_MESSAGE_CONTEXT_FAILURE_MAX_SCAN);
+    const dedupeCutoff = now - PUBLIC_MESSAGE_CONTEXT_FAILURE_DEDUPE_WINDOW_MS;
+    const deduped = recentLogs.some((entry) => {
+      if (entry.createdAt < dedupeCutoff) {
+        return false;
+      }
+      if (entry.action !== "onboarding.public_message_context_failure") {
+        return false;
+      }
+      const metadata = (entry.metadata || {}) as Record<string, unknown>;
+      return metadata.dedupeKey === dedupeKey;
+    });
+
+    if (deduped) {
+      return { deduped: true };
+    }
+
+    await ctx.db.insert("auditLogs", {
+      organizationId: args.organizationId,
+      action: "onboarding.public_message_context_failure",
+      resource: "public_message_context",
+      resourceId: args.requestId,
+      metadata: {
+        channel: args.channel,
+        reason: args.reason,
+        error: args.error,
+        agentId: args.agentId ? String(args.agentId) : undefined,
+        hasSessionToken: Boolean(sessionToken),
+        dedupeKey,
+      },
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+      success: false,
+      errorMessage: args.error,
+      createdAt: now,
+    });
+
+    return { deduped: false };
   },
 });
 

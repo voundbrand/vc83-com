@@ -472,6 +472,61 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
       isNewUser: userResult.isNewUser,
     });
 
+    if (!userResult.isNewUser) {
+      const pendingBetaNotification = await ctx.runQuery(
+        internal.api.v1.mobileOAuthInternal.shouldNotifyPendingBetaAccess,
+        {
+          userId: userResult.userId,
+          cooldownMs: 6 * 60 * 60 * 1000,
+        }
+      ) as {
+        shouldNotify: boolean;
+        user: {
+          _id: Id<"users">;
+          email: string;
+          firstName?: string;
+          lastName?: string;
+          betaAccessStatus?: "approved" | "pending" | "rejected" | "none";
+          betaRequestReason?: string;
+          betaRequestUseCase?: string;
+          betaReferralSource?: string;
+          defaultOrgId?: Id<"organizations">;
+        } | null;
+      };
+
+      if (pendingBetaNotification.shouldNotify && pendingBetaNotification.user?.betaAccessStatus === "pending") {
+        const pendingUser = pendingBetaNotification.user;
+        await Promise.all([
+          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
+            userId: pendingUser._id,
+            email: pendingUser.email,
+            firstName: pendingUser.firstName,
+            lastName: pendingUser.lastName,
+            requestReason: pendingUser.betaRequestReason ?? "Pending approval login reminder from mobile OAuth",
+            useCase: pendingUser.betaRequestUseCase,
+            referralSource: pendingUser.betaReferralSource ?? `mobile_oauth_login_${provider}`,
+          }),
+          ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
+            email: pendingUser.email,
+            firstName: pendingUser.firstName || firstName,
+          }),
+        ]);
+
+        await ctx.runMutation(internal.rbac.logAudit, {
+          userId: userResult.userId,
+          organizationId: pendingUser.defaultOrgId ?? userResult.organizationId,
+          action: "mobile_oauth_pending_beta_notification_sent",
+          resource: "users",
+          resourceId: String(userResult.userId),
+          success: true,
+          metadata: {
+            provider,
+            reason: "existing_user_pending_beta",
+          },
+        });
+      }
+    }
+
     await ctx.runMutation(
       internal.ai.settings.ensureOrganizationModelDefaultsInternal,
       {

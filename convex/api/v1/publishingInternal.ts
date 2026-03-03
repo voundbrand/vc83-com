@@ -10,6 +10,25 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
+import {
+  CMS_REQUEST_DEFAULT_STATUS,
+  cmsRequestApprovalStatusValidator,
+  cmsRequestChangeManifestValidator,
+  cmsRequestLineageValidator,
+  cmsRequestLinkageValidator,
+  cmsRequestRiskTierValidator,
+  cmsRequestStatusValidator,
+  cmsRequestTargetValidator,
+  type CmsRequestStatus,
+} from "../../cmsAgentRequestContracts";
+import {
+  attachCmsRequestChangeManifestRecord,
+  attachCmsRequestLinkageRecord,
+  createCmsRequestRecord,
+  transitionCmsRequestRecord,
+  updateCmsRequestApprovalRecord,
+} from "../../cmsAgentRequestLifecycle";
+import { checkPermission } from "../../rbacHelpers";
 
 // ============================================================================
 // INTERNAL QUERIES
@@ -540,5 +559,266 @@ export const getPageAnalyticsInternal = internalQuery({
       publishedAt: page.customProperties?.publishedAt,
       analyticsEnabled: page.customProperties?.analyticsEnabled ?? true,
     };
+  },
+});
+
+/**
+ * LIST CMS REQUESTS (Internal)
+ */
+export const listCmsRequestsInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    targetAppId: v.optional(v.id("objects")),
+    targetAppPath: v.optional(v.string()),
+    status: v.optional(cmsRequestStatusValidator),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const allRequests = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "cms_request")
+      )
+      .collect();
+
+    let filtered = allRequests;
+    if (args.targetAppId) {
+      filtered = filtered.filter(
+        (request) => request.customProperties?.target?.targetAppId === args.targetAppId
+      );
+    }
+    if (args.targetAppPath) {
+      filtered = filtered.filter(
+        (request) => request.customProperties?.lineage?.targetAppPath === args.targetAppPath
+      );
+    }
+    if (args.status) {
+      filtered = filtered.filter(
+        (request) =>
+          ((request.customProperties?.status as CmsRequestStatus | undefined) ??
+            CMS_REQUEST_DEFAULT_STATUS) === args.status
+      );
+    }
+
+    const offset = args.offset ?? 0;
+    const limit = Math.min(args.limit ?? 50, 200);
+    const requests = filtered
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(offset, offset + limit);
+
+    return {
+      requests,
+      total: filtered.length,
+      hasMore: offset + limit < filtered.length,
+    };
+  },
+});
+
+/**
+ * GET CMS REQUEST (Internal)
+ */
+export const getCmsRequestInternal = internalQuery({
+  args: {
+    requestId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      return null;
+    }
+    return request;
+  },
+});
+
+/**
+ * CREATE CMS REQUEST (Internal)
+ */
+export const createCmsRequestInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    target: cmsRequestTargetValidator,
+    intentPayload: v.any(),
+    riskTier: cmsRequestRiskTierValidator,
+    idempotencyKey: v.string(),
+    lineage: cmsRequestLineageValidator,
+  },
+  handler: async (ctx, args) => {
+    return createCmsRequestRecord({
+      ctx,
+      organizationId: args.organizationId,
+      actorUserId: args.userId,
+      source: "internal",
+      target: args.target,
+      intentPayload: args.intentPayload,
+      riskTier: args.riskTier,
+      idempotencyKey: args.idempotencyKey,
+      lineage: args.lineage,
+    });
+  },
+});
+
+/**
+ * TRANSITION CMS REQUEST STATUS (Internal)
+ */
+export const transitionCmsRequestStatusInternal = internalMutation({
+  args: {
+    requestId: v.id("objects"),
+    userId: v.id("users"),
+    toStatus: cmsRequestStatusValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      args.userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    const canPublish = await checkPermission(
+      ctx,
+      args.userId,
+      "publish_pages",
+      request.organizationId
+    );
+
+    return transitionCmsRequestRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: args.userId,
+      toStatus: args.toStatus,
+      reason: args.reason,
+      source: "internal",
+      canPublishTerminalTransition: canPublish,
+    });
+  },
+});
+
+/**
+ * UPDATE CMS REQUEST APPROVAL STATE (Internal)
+ */
+export const updateCmsRequestApprovalStateInternal = internalMutation({
+  args: {
+    requestId: v.id("objects"),
+    userId: v.id("users"),
+    status: cmsRequestApprovalStatusValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      args.userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    if (args.status === "approved" || args.status === "rejected") {
+      const canPublish = await checkPermission(
+        ctx,
+        args.userId,
+        "publish_pages",
+        request.organizationId
+      );
+      if (!canPublish) {
+        throw new Error("Permission denied: publish_pages required");
+      }
+    }
+
+    return updateCmsRequestApprovalRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: args.userId,
+      source: "internal",
+      status: args.status,
+      reason: args.reason,
+    });
+  },
+});
+
+/**
+ * ATTACH CMS REQUEST LINKAGE (Internal)
+ */
+export const attachCmsRequestLinkageInternal = internalMutation({
+  args: {
+    requestId: v.id("objects"),
+    userId: v.id("users"),
+    linkage: cmsRequestLinkageValidator,
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      args.userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    return attachCmsRequestLinkageRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: args.userId,
+      source: "internal",
+      linkage: args.linkage,
+    });
+  },
+});
+
+/**
+ * ATTACH CMS REQUEST CHANGE MANIFEST (Internal)
+ */
+export const attachCmsRequestChangeManifestInternal = internalMutation({
+  args: {
+    requestId: v.id("objects"),
+    userId: v.id("users"),
+    changeManifest: cmsRequestChangeManifestValidator,
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.requestId);
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+
+    const canEdit = await checkPermission(
+      ctx,
+      args.userId,
+      "edit_published_pages",
+      request.organizationId
+    );
+    if (!canEdit) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    return attachCmsRequestChangeManifestRecord({
+      ctx,
+      requestId: args.requestId,
+      actorUserId: args.userId,
+      source: "internal",
+      changeManifest: args.changeManifest,
+    });
   },
 });

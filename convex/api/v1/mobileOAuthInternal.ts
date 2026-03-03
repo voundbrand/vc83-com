@@ -87,3 +87,48 @@ export const getOrganizationById = internalQuery({
     return await ctx.db.get(args.organizationId);
   },
 });
+
+/**
+ * Determine whether pending-beta notification emails should be re-sent for a user.
+ * Uses auditLogs action cooldown to avoid repeated sends on each login attempt.
+ */
+export const shouldNotifyPendingBetaAccess = internalQuery({
+  args: {
+    userId: v.id("users"),
+    cooldownMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return {
+        shouldNotify: false,
+        user: null,
+      };
+    }
+
+    if (user.betaAccessStatus !== "pending") {
+      return {
+        shouldNotify: false,
+        user,
+      };
+    }
+
+    const cooldownMs = Math.max(0, args.cooldownMs ?? 6 * 60 * 60 * 1000);
+    const cutoff = Date.now() - cooldownMs;
+    const recentNotificationLog = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("action"), "mobile_oauth_pending_beta_notification_sent"),
+          q.gte(q.field("createdAt"), cutoff)
+        )
+      )
+      .first();
+
+    return {
+      shouldNotify: !recentNotificationLog,
+      user,
+    };
+  },
+});

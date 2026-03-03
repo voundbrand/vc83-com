@@ -2,6 +2,7 @@ import { action, internalQuery, mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
+import { resolveOrganizationProviderBindingForProvider } from "../ai/providerRegistry";
 import type { Id } from "../_generated/dataModel";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,6 +107,27 @@ function parseJsonSafely(value: string): unknown {
   } catch {
     return null;
   }
+}
+
+function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const bytes = new Uint8Array(buffer);
+  let output = "";
+
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = bytes[i + 1] ?? 0;
+    const b2 = bytes[i + 2] ?? 0;
+    const chunk = (b0 << 16) | (b1 << 8) | b2;
+
+    output += alphabet[(chunk >> 18) & 63];
+    output += alphabet[(chunk >> 12) & 63];
+    output += i + 1 < bytes.length ? alphabet[(chunk >> 6) & 63] : "=";
+    output += i + 2 < bytes.length ? alphabet[chunk & 63] : "=";
+  }
+
+  return output;
 }
 
 type ElevenLabsVoiceCatalogEntry = {
@@ -358,6 +380,27 @@ function summarizeProfileHealth(profile: ElevenLabsProviderProfile | null): {
   };
 }
 
+function resolveElevenLabsBindingFromSettings(
+  settings:
+    | {
+        billingMode?: "platform" | "byok";
+        billingSource?: "platform" | "byok" | "private";
+        llm?: Record<string, unknown>;
+      }
+    | null
+) {
+  return resolveOrganizationProviderBindingForProvider({
+    providerId: "elevenlabs",
+    llmSettings: (settings?.llm ?? null) as {
+      providerId?: string;
+      openrouterApiKey?: string;
+      providerAuthProfiles?: Array<Record<string, unknown>>;
+    } | null,
+    defaultBillingSource: resolveBillingSource(settings),
+    now: Date.now(),
+  });
+}
+
 export const getElevenLabsSettings = query({
   args: {
     sessionId: v.string(),
@@ -382,24 +425,23 @@ export const getElevenLabsSettings = query({
       authenticated.userId,
     );
     const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
+    const binding = resolveElevenLabsBindingFromSettings(settings);
     const profileBillingSource = normalizeBillingSource(profile?.billingSource);
-    const resolvedBillingSource = profileBillingSource ?? resolveBillingSource(settings);
-    const billingSource =
-      !canUsePlatformManaged && !profileBillingSource
-        ? resolvedBillingSource === "private"
-          ? "private"
-          : "byok"
-        : resolvedBillingSource;
+    const resolvedBillingSource =
+      normalizeBillingSource(binding?.billingSource) ??
+      profileBillingSource ??
+      resolveBillingSource(settings);
+    const billingSource = resolvedBillingSource;
     const platformApiKey = getPlatformElevenLabsApiKey();
     const profileApiKey = normalizeString(profile?.apiKey);
-    const hasEffectiveApiKey =
-      billingSource === "platform"
-        ? Boolean(platformApiKey)
-        : Boolean(profileApiKey);
-    const health = summarizeProfileHealth(profile);
+    const hasEffectiveApiKey = Boolean(normalizeString(binding?.apiKey));
+    const health =
+      binding && hasEffectiveApiKey
+        ? { status: "healthy" as const }
+        : summarizeProfileHealth(profile);
 
     return {
-      enabled: profile?.enabled ?? false,
+      enabled: Boolean(binding),
       hasApiKey: Boolean(profileApiKey),
       hasPlatformApiKey: Boolean(platformApiKey),
       hasEffectiveApiKey,
@@ -436,20 +478,24 @@ export const getAuthorizedElevenLabsBinding = internalQuery({
       )
       .first();
     const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
+    const binding = resolveElevenLabsBindingFromSettings(settings);
     const billingSource =
+      normalizeBillingSource(binding?.billingSource) ??
       normalizeBillingSource(profile?.billingSource) ??
       resolveBillingSource(settings);
-    const platformApiKey = getPlatformElevenLabsApiKey();
-    const profileApiKey = normalizeString(profile?.apiKey);
     const effectiveApiKey =
-      billingSource === "platform" ? platformApiKey : profileApiKey;
+      normalizeString(binding?.apiKey) ??
+      (billingSource === "platform"
+        ? getPlatformElevenLabsApiKey()
+        : normalizeString(profile?.apiKey));
 
     return {
       apiKey: effectiveApiKey ?? null,
-      baseUrl:
-        normalizeBaseUrl(profile?.baseUrl) ?? ELEVENLABS_BASE_URL,
+      baseUrl: normalizeBaseUrl(binding?.baseUrl) ??
+        normalizeBaseUrl(profile?.baseUrl) ??
+        ELEVENLABS_BASE_URL,
       defaultVoiceId: getDefaultVoiceId(profile) ?? null,
-      enabled: profile?.enabled ?? false,
+      enabled: Boolean(binding),
       billingSource,
     };
   },
@@ -783,6 +829,108 @@ export const listElevenLabsVoices = action({
         voices: [] as ElevenLabsVoiceCatalogEntry[],
         defaultVoiceId: authorizedBinding.defaultVoiceId ?? null,
         providerEnabled: authorizedBinding.enabled,
+      };
+    }
+  },
+});
+
+export const synthesizeElevenLabsVoiceSample = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    voiceId: v.string(),
+    text: v.optional(v.string()),
+    apiKey: v.optional(v.string()),
+    baseUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const checkedAt = Date.now();
+    const authorizedBinding = (await ctx.runQuery(
+      generatedApi.internal.integrations.elevenlabs.getAuthorizedElevenLabsBinding,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+      },
+    )) as {
+      apiKey: string | null;
+      baseUrl: string;
+      enabled: boolean;
+    };
+
+    const apiKey =
+      normalizeString(args.apiKey) ??
+      normalizeString(authorizedBinding.apiKey);
+    const baseUrl =
+      normalizeBaseUrl(args.baseUrl) ??
+      normalizeBaseUrl(authorizedBinding.baseUrl) ??
+      ELEVENLABS_BASE_URL;
+    const voiceId = normalizeString(args.voiceId);
+    const text =
+      normalizeString(args.text)?.slice(0, 200) ??
+      "hello this is voice preview";
+
+    if (!voiceId) {
+      return {
+        success: false,
+        status: "offline" as const,
+        checkedAt,
+        reason: "missing_voice_id",
+      };
+    }
+
+    if (!apiKey) {
+      return {
+        success: false,
+        status: "degraded" as const,
+        checkedAt,
+        reason: "missing_elevenlabs_api_key",
+      };
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/text-to-speech/${voiceId}`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+          accept: "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text,
+          model_id: "eleven_multilingual_v2",
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = parseJsonSafely(await response.text());
+        const status = response.status >= 500 ? "degraded" : "offline";
+        return {
+          success: false,
+          status,
+          checkedAt,
+          reason:
+            extractErrorMessage(payload) ??
+            `elevenlabs_voice_sample_http_${response.status}`,
+        };
+      }
+
+      const audioBuffer = await response.arrayBuffer();
+      return {
+        success: true,
+        status: "healthy" as const,
+        checkedAt,
+        mimeType: "audio/mpeg",
+        audioBase64: encodeArrayBufferToBase64(audioBuffer),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        status: "degraded" as const,
+        checkedAt,
+        reason:
+          error instanceof Error
+            ? error.message
+            : "elevenlabs_voice_sample_failed",
       };
     }
   },

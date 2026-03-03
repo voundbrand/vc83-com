@@ -149,6 +149,23 @@ function parseOptionalString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function parseOptionalNullableString(value: unknown): string | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  return parseOptionalString(value);
+}
+
+function parseOptionalPositiveNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  if (value <= 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
 function parseConversationId(value: unknown): Id<"aiConversations"> | undefined {
   const parsed = parseOptionalString(value);
   return parsed as Id<"aiConversations"> | undefined;
@@ -161,6 +178,51 @@ function parseRequestedVoiceProviderId(
     return undefined;
   }
   return value;
+}
+
+function classifyVoiceSessionOpenError(error: unknown): {
+  status: number;
+  message: string;
+} {
+  const fallback = {
+    status: 500,
+    message: error instanceof Error ? error.message : "Failed to open voice session",
+  };
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+  const message = error.message || "";
+  if (message.startsWith("voice_session_open_authz_failed:")) {
+    return {
+      status: 403,
+      message: "Voice session authorization failed.",
+    };
+  }
+  if (message.startsWith("voice_session_open_attestation_failed:")) {
+    return {
+      status: 403,
+      message:
+        "Voice session attestation verification failed for protected realtime path.",
+    };
+  }
+  if (message.startsWith("voice_session_open_attestation_proof_issue_failed:")) {
+    return {
+      status: 403,
+      message:
+        "Voice session attestation proof issue failed for protected realtime path.",
+    };
+  }
+  if (message.startsWith("voice_session_open_rate_limited:")) {
+    const retryAfterRaw = Number(message.split(":", 2)[1] ?? "0");
+    const retryAfterMs = Number.isFinite(retryAfterRaw)
+      ? Math.max(0, Math.floor(retryAfterRaw))
+      : 0;
+    return {
+      status: 429,
+      message: `Voice session open rate limited. Retry after ${retryAfterMs}ms.`,
+    };
+  }
+  return fallback;
 }
 
 async function resolveVoiceRuntimeSessionContext(
@@ -452,6 +514,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
       liveSessionId,
       cameraRuntime,
       voiceRuntime,
+      conversationRuntime,
       commandPolicy,
       transportRuntime,
       avObservability,
@@ -465,6 +528,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
       liveSessionId?: string;
       cameraRuntime?: Record<string, unknown>;
       voiceRuntime?: Record<string, unknown>;
+      conversationRuntime?: Record<string, unknown>;
       commandPolicy?: Record<string, unknown>;
       transportRuntime?: Record<string, unknown>;
       avObservability?: Record<string, unknown>;
@@ -495,6 +559,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
     const parsedLiveSessionId = parseOptionalString(liveSessionId);
     const parsedCameraRuntime = parseOptionalRuntimeObject(cameraRuntime);
     const parsedVoiceRuntime = parseOptionalRuntimeObject(voiceRuntime);
+    const parsedConversationRuntime = parseOptionalRuntimeObject(conversationRuntime);
     const parsedCommandPolicy = parseOptionalRuntimeObject(commandPolicy);
     const parsedTransportRuntime = parseOptionalRuntimeObject(transportRuntime);
     const parsedAvObservability = parseOptionalRuntimeObject(avObservability);
@@ -512,6 +577,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
         liveSessionId: parsedLiveSessionId,
         cameraRuntime: parsedCameraRuntime,
         voiceRuntime: parsedVoiceRuntime,
+        conversationRuntime: parsedConversationRuntime,
         commandPolicy: parsedCommandPolicy,
         transportRuntime: parsedTransportRuntime,
         avObservability: parsedAvObservability,
@@ -863,9 +929,15 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
     const parsedBody = body as {
       conversationId?: unknown;
       voiceSessionId?: unknown;
+      liveSessionId?: unknown;
+      sourceMode?: unknown;
+      voiceRuntime?: unknown;
     };
     const conversationId = parseConversationId(parsedBody.conversationId);
     const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
+    const liveSessionId = parseOptionalString(parsedBody.liveSessionId);
+    const sourceMode = parseOptionalString(parsedBody.sourceMode);
+    const voiceRuntime = parseOptionalRuntimeObject(parsedBody.voiceRuntime);
     const resolved = await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
     const state = await (ctx as any).runAction(
       generatedApi.api.ai.voiceRuntime.resolveVoiceSessionState,
@@ -875,10 +947,25 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
         voiceSessionId,
       }
     );
+    let sessionOpenAttestationProof: { token: string; expiresAt: number } | null = null;
+    if (liveSessionId && voiceRuntime) {
+      sessionOpenAttestationProof = await (ctx as any).runAction(
+        generatedApi.api.ai.voiceRuntime.issueVoiceSessionOpenAttestationProof,
+        {
+          sessionId: auth.sessionId,
+          interviewSessionId: resolved.interviewSessionId,
+          liveSessionId,
+          sourceMode,
+          voiceRuntime,
+          clientSurface: "mobile_api_v1",
+        }
+      );
+    }
     return successResponse(
       {
         ...resolved,
         voiceSession: state.voiceSession ?? null,
+        sessionOpenAttestationProof,
       },
       origin
     );
@@ -910,6 +997,12 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
       requestedProviderId?: unknown;
       requestedVoiceId?: unknown;
       voiceSessionId?: unknown;
+      liveSessionId?: unknown;
+      sourceMode?: unknown;
+      voiceRuntime?: unknown;
+      transportRuntime?: unknown;
+      avObservability?: unknown;
+      attestationProofToken?: unknown;
     };
     const conversationId = parseConversationId(parsedBody.conversationId);
     const resolved =
@@ -925,9 +1018,18 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
       {
         sessionId: auth.sessionId,
         interviewSessionId: resolved.interviewSessionId,
+        expectedOrganizationId: auth.organizationId,
+        expectedUserId: auth.userId,
         requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
         requestedVoiceId: parseOptionalString(parsedBody.requestedVoiceId),
         voiceSessionId: parseOptionalString(parsedBody.voiceSessionId),
+        liveSessionId: parseOptionalString(parsedBody.liveSessionId),
+        sourceMode: parseOptionalString(parsedBody.sourceMode),
+        voiceRuntime: parseOptionalRuntimeObject(parsedBody.voiceRuntime),
+        transportRuntime: parseOptionalRuntimeObject(parsedBody.transportRuntime),
+        avObservability: parseOptionalRuntimeObject(parsedBody.avObservability),
+        clientSurface: "mobile_api_v1",
+        attestationProofToken: parseOptionalString(parsedBody.attestationProofToken),
       }
     );
 
@@ -941,11 +1043,8 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
     );
   } catch (error) {
     console.error("[AI Chat API] Open voice session error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to open voice session",
-      500,
-      origin
-    );
+    const classified = classifyVoiceSessionOpenError(error);
+    return errorResponse(classified.message, classified.status, origin);
   }
 });
 
@@ -1139,6 +1238,277 @@ export const synthesizeVoice = httpAction(async (ctx, request) => {
     console.error("[AI Chat API] Synthesize voice error:", error);
     return errorResponse(
       error instanceof Error ? error.message : "Failed to synthesize voice preview",
+      500,
+      origin
+    );
+  }
+});
+
+type MobileElevenLabsVoiceEntry = {
+  id: string;
+  name: string;
+  labels?: Record<string, string>;
+  previewUrl?: string;
+};
+
+/**
+ * GET /api/v1/ai/voice/catalog
+ *
+ * Returns authenticated ElevenLabs voice catalog for mobile settings.
+ */
+export const listVoiceCatalog = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  if (!auth.organizationId || !auth.userId) {
+    return errorResponse("Missing organization context", 403, origin);
+  }
+
+  try {
+    const result = await (ctx as any).runAction(
+      generatedApi.api.integrations.elevenlabs.listElevenLabsVoices,
+      {
+        sessionId: auth.sessionId,
+        organizationId: auth.organizationId,
+      }
+    ) as {
+      success: boolean;
+      voices?: Array<{
+        voiceId?: string;
+        name?: string;
+        labels?: Record<string, string>;
+        previewUrl?: string;
+      }>;
+      reason?: string;
+    };
+
+    const voices: MobileElevenLabsVoiceEntry[] = Array.isArray(result.voices)
+      ? result.voices
+          .filter((voice) => typeof voice.voiceId === "string" && voice.voiceId.length > 0)
+          .map((voice) => ({
+            id: voice.voiceId as string,
+            name:
+              typeof voice.name === "string" && voice.name.trim().length > 0
+                ? voice.name
+                : (voice.voiceId as string),
+            ...(voice.labels && typeof voice.labels === "object" ? { labels: voice.labels } : {}),
+            ...(typeof voice.previewUrl === "string" ? { previewUrl: voice.previewUrl } : {}),
+          }))
+      : [];
+
+    const preferences = await (ctx as any).runQuery(generatedApi.api.userPreferences.get, {
+      sessionId: auth.sessionId,
+    }) as {
+      voiceRuntimeVoiceId?: string;
+      voiceRuntimeProviderId?: "browser" | "elevenlabs";
+    } | null;
+
+    return successResponse(
+      {
+        voices,
+        selectedVoiceId:
+          typeof preferences?.voiceRuntimeVoiceId === "string" &&
+          preferences.voiceRuntimeVoiceId.trim().length > 0
+            ? preferences.voiceRuntimeVoiceId
+            : null,
+        provider: "elevenlabs",
+        providerStatus: result.success ? "healthy" : "degraded",
+        ...(result.success ? {} : { warning: result.reason || "voice_catalog_unavailable" }),
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] List voice catalog error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to list ElevenLabs voices",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * PATCH /api/v1/ai/voice/preferences
+ *
+ * Persist One-of-One operator voice selection for authenticated user.
+ */
+export const updateVoicePreferences = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  if (!auth.organizationId || !auth.userId) {
+    return errorResponse("Missing organization context", 403, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      agentVoiceId?: unknown;
+    };
+    const parsedAgentVoiceId = parseOptionalNullableString(parsedBody.agentVoiceId);
+    if (parsedAgentVoiceId === undefined) {
+      return errorResponse("agentVoiceId must be a string or null", 400, origin);
+    }
+
+    await (ctx as any).runMutation(generatedApi.api.userPreferences.update, {
+      sessionId: auth.sessionId,
+      voiceRuntimeProviderId: "elevenlabs",
+      voiceRuntimeVoiceId: parsedAgentVoiceId ?? "",
+    });
+
+    return successResponse(
+      {
+        agentVoiceId: parsedAgentVoiceId,
+        provider: "elevenlabs",
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Update voice preferences error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to update voice preferences",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/audio/frame
+ */
+export const ingestVoiceFrame = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      requestedProviderId?: unknown;
+      conversationRuntime?: unknown;
+      voiceRuntime?: unknown;
+      transportRuntime?: unknown;
+      avObservability?: unknown;
+      envelope?: unknown;
+    };
+    const envelope = parseOptionalRuntimeObject(parsedBody.envelope);
+    if (!envelope) {
+      return errorResponse("envelope is required", 400, origin);
+    }
+
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.ingestVoiceTransportEnvelope,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+        requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
+        conversationRuntime: parseOptionalRuntimeObject(parsedBody.conversationRuntime),
+        voiceRuntime: parseOptionalRuntimeObject(parsedBody.voiceRuntime),
+        transportRuntime: parseOptionalRuntimeObject(parsedBody.transportRuntime),
+        avObservability: parseOptionalRuntimeObject(parsedBody.avObservability),
+        envelope,
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Ingest voice frame error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to ingest voice frame",
+      500,
+      origin
+    );
+  }
+});
+
+/**
+ * POST /api/v1/ai/voice/video/frame
+ */
+export const ingestVideoFrame = httpAction(async (ctx, request) => {
+  const origin = request.headers.get("origin");
+  const auth = await validateSessionFromRequest(ctx, request);
+  if (!auth.success) {
+    return errorResponse(auth.error, auth.status, origin);
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsedBody = body as {
+      conversationId?: unknown;
+      interviewSessionId?: Id<"agentSessions">;
+      mediaSessionEnvelope?: unknown;
+      maxFramesPerWindow?: unknown;
+      windowMs?: unknown;
+    };
+
+    const mediaSessionEnvelope = parseOptionalRuntimeObject(
+      parsedBody.mediaSessionEnvelope
+    );
+    if (!mediaSessionEnvelope) {
+      return errorResponse("mediaSessionEnvelope is required", 400, origin);
+    }
+
+    const conversationId = parseConversationId(parsedBody.conversationId);
+    const resolved =
+      parsedBody.interviewSessionId
+        ? {
+            conversationId,
+            interviewSessionId: parsedBody.interviewSessionId,
+          }
+        : await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
+
+    const result = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.ingestVideoFrameEnvelope,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        envelope: mediaSessionEnvelope,
+        maxFramesPerWindow: parseOptionalPositiveNumber(
+          parsedBody.maxFramesPerWindow
+        ),
+        windowMs: parseOptionalPositiveNumber(parsedBody.windowMs),
+      }
+    );
+
+    return successResponse(
+      {
+        ...result,
+        interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
+      },
+      origin
+    );
+  } catch (error) {
+    console.error("[AI Chat API] Ingest video frame error:", error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to ingest video frame",
       500,
       origin
     );

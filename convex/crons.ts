@@ -225,6 +225,21 @@ crons.interval(
 );
 
 /**
+ * Cleanup old super-admin QA run telemetry
+ *
+ * Runs hourly to enforce QA run retention policy:
+ * - completed/failed runs older than 30 days are deleted
+ * - active runs idle > 7 days are deleted
+ * - table is trimmed toward bounded row cap to keep storage predictable
+ */
+crons.interval(
+  "Cleanup super-admin QA runs",
+  { minutes: 60 },
+  generatedApi.internal.ai.qaRuns.cleanupQaRunsInternal,
+  {}
+);
+
+/**
  * Cleanup Old Credit Sharing Ledger Entries
  *
  * Runs daily at 3:30 AM UTC to remove ledger entries older than 90 days.

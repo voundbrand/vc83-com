@@ -26,6 +26,7 @@ import {
   WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
   WEBCHAT_CUSTOMIZATION_FIELDS,
 } from "./webchatCustomizationContract";
+import { evaluateIngressAdmission } from "./ai/admissionController";
 
 const generatedApi: any = require("./_generated/api");
 
@@ -956,11 +957,15 @@ import {
   sendMessage as aiChatSendMessage,
   getSettings as aiChatGetSettings,
   getModels as aiChatGetModels,
+  listVoiceCatalog as aiChatListVoiceCatalog,
+  updateVoicePreferences as aiChatUpdateVoicePreferences,
   resolveVoiceSession as aiChatResolveVoiceSession,
   openVoiceSession as aiChatOpenVoiceSession,
   closeVoiceSession as aiChatCloseVoiceSession,
   transcribeVoice as aiChatTranscribeVoice,
   synthesizeVoice as aiChatSynthesizeVoice,
+  ingestVoiceFrame as aiChatIngestVoiceFrame,
+  ingestVideoFrame as aiChatIngestVideoFrame,
   handleToolAction as aiChatHandleToolAction,
   getPendingTools as aiChatGetPendingTools,
   updateConversation as aiChatUpdateConversation,
@@ -3476,6 +3481,20 @@ http.route({
   handler: aiChatHandleOptions,
 });
 
+// GET /api/v1/ai/voice/catalog - List ElevenLabs voices for mobile settings
+http.route({
+  path: "/api/v1/ai/voice/catalog",
+  method: "GET",
+  handler: aiChatListVoiceCatalog,
+});
+
+// PATCH /api/v1/ai/voice/preferences - Persist operator voice preference
+http.route({
+  path: "/api/v1/ai/voice/preferences",
+  method: "PATCH",
+  handler: aiChatUpdateVoicePreferences,
+});
+
 // POST /api/v1/ai/voice/session/resolve - Resolve conversation + interview session
 http.route({
   path: "/api/v1/ai/voice/session/resolve",
@@ -3509,6 +3528,20 @@ http.route({
   path: "/api/v1/ai/voice/synthesize",
   method: "POST",
   handler: aiChatSynthesizeVoice,
+});
+
+// POST /api/v1/ai/voice/audio/frame - Ingest realtime voice frame envelope
+http.route({
+  path: "/api/v1/ai/voice/audio/frame",
+  method: "POST",
+  handler: aiChatIngestVoiceFrame,
+});
+
+// POST /api/v1/ai/voice/video/frame - Ingest realtime video frame envelope
+http.route({
+  path: "/api/v1/ai/voice/video/frame",
+  method: "POST",
+  handler: aiChatIngestVideoFrame,
 });
 
 // OPTIONS /api/v1/ai/tools/:id/* - CORS preflight
@@ -3910,6 +3943,8 @@ http.route({
         organizationId,
         agentId,
         sessionToken,
+        idempotencyKey,
+        requestCorrelationId,
         message,
         attachments,
         visitorInfo,
@@ -3920,6 +3955,8 @@ http.route({
         organizationId?: string;
         agentId?: string;
         sessionToken?: string;
+        idempotencyKey?: string;
+        requestCorrelationId?: string;
         message: string;
         attachments?: Array<Record<string, unknown>>;
         visitorInfo?: { name?: string; email?: string; phone?: string };
@@ -3955,6 +3992,14 @@ http.route({
         typeof sessionToken === "string" && sessionToken.trim().length > 0
           ? sessionToken.trim()
           : undefined;
+      const normalizedIdempotencyKey =
+        typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0
+          ? idempotencyKey.trim()
+          : undefined;
+      const normalizedRequestCorrelationId =
+        typeof requestCorrelationId === "string" && requestCorrelationId.trim().length > 0
+          ? requestCorrelationId.trim()
+          : requestId;
       const normalizedDeviceFingerprint = typeof deviceFingerprint === "string" ? deviceFingerprint : undefined;
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
@@ -3985,9 +4030,40 @@ http.route({
       );
 
       if (!resolvedContext) {
+        const admission = evaluateIngressAdmission({
+          channel: "webchat",
+          contextResolved: false,
+        });
+        const contextFailureReason = normalizedSessionToken && normalizedAgentId
+          ? "session_agent_context_mismatch"
+          : normalizedSessionToken
+            ? "session_context_unresolvable"
+            : normalizedAgentId
+              ? "agent_context_unresolvable"
+              : "missing_context_inputs";
+        await (ctx as any).runMutation(
+          generatedApi.internal.api.v1.webchatApi.recordPublicMessageContextFailure,
+          {
+            channel: "webchat",
+            requestId,
+            reason: contextFailureReason,
+            error: "Agent not found, disabled, or session context invalid",
+            organizationId: normalizedOrganizationId,
+            agentId: normalizedAgentId,
+            sessionToken: normalizedSessionToken,
+            ipAddress,
+            userAgent,
+          }
+        );
+        if (admission.allowed) {
+          throw new Error("Admission decision mismatch for unresolved webchat context");
+        }
         return new Response(
-          JSON.stringify({ error: "Agent not found, disabled, or session context invalid" }),
-          { status: 400, headers: corsHeaders }
+          JSON.stringify({
+            error: admission.denial.reason,
+            admission: admission.denial,
+          }),
+          { status: 403, headers: corsHeaders }
         );
       }
 
@@ -4129,6 +4205,7 @@ http.route({
         agentId: resolvedContext.agentId,
         channel: "webchat",
         sessionToken: normalizedSessionToken,
+        idempotencyKey: normalizedIdempotencyKey,
         message,
         attachments: normalizedAttachments,
         visitorInfo,
@@ -4136,6 +4213,16 @@ http.route({
       });
 
       if (!result.success) {
+        if (result.admissionDenial) {
+          return new Response(
+            JSON.stringify({
+              error: result.admissionDenial.reason,
+              admission: result.admissionDenial,
+              sessionToken: result.sessionToken,
+            }),
+            { status: 403, headers: corsHeaders }
+          );
+        }
         return new Response(
           JSON.stringify({ error: result.error, sessionToken: result.sessionToken }),
           { status: 400, headers: corsHeaders }
@@ -4303,6 +4390,8 @@ http.route({
         organizationId,
         agentId,
         sessionToken,
+        idempotencyKey,
+        requestCorrelationId,
         message,
         attachments,
         visitorInfo,
@@ -4313,6 +4402,8 @@ http.route({
         organizationId?: string;
         agentId?: string;
         sessionToken?: string;
+        idempotencyKey?: string;
+        requestCorrelationId?: string;
         message: string;
         attachments?: Array<Record<string, unknown>>;
         visitorInfo?: { name?: string; email?: string; phone?: string };
@@ -4346,6 +4437,14 @@ http.route({
         typeof sessionToken === "string" && sessionToken.trim().length > 0
           ? sessionToken.trim()
           : undefined;
+      const normalizedIdempotencyKey =
+        typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0
+          ? idempotencyKey.trim()
+          : undefined;
+      const normalizedRequestCorrelationId =
+        typeof requestCorrelationId === "string" && requestCorrelationId.trim().length > 0
+          ? requestCorrelationId.trim()
+          : requestId;
       const normalizedDeviceFingerprint = typeof deviceFingerprint === "string" ? deviceFingerprint : undefined;
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
@@ -4371,14 +4470,45 @@ http.route({
           agentId: normalizedAgentId,
           channel: "native_guest",
           sessionToken: normalizedSessionToken,
-          deploymentMode: normalizedSessionToken ? "platform_entry" : "direct_agent_entry",
+          deploymentMode: normalizedAgentId ? "direct_agent_entry" : "platform_entry",
         }
       );
 
       if (!resolvedContext) {
+        const admission = evaluateIngressAdmission({
+          channel: "native_guest",
+          contextResolved: false,
+        });
+        const contextFailureReason = normalizedSessionToken && normalizedAgentId
+          ? "session_agent_context_mismatch"
+          : normalizedSessionToken
+            ? "session_context_unresolvable"
+            : normalizedAgentId
+              ? "agent_context_unresolvable"
+              : "missing_context_inputs";
+        await (ctx as any).runMutation(
+          generatedApi.internal.api.v1.webchatApi.recordPublicMessageContextFailure,
+          {
+            channel: "native_guest",
+            requestId,
+            reason: contextFailureReason,
+            error: "Agent not found, disabled, or session context invalid",
+            organizationId: normalizedOrganizationId,
+            agentId: normalizedAgentId,
+            sessionToken: normalizedSessionToken,
+            ipAddress,
+            userAgent,
+          }
+        );
+        if (admission.allowed) {
+          throw new Error("Admission decision mismatch for unresolved native_guest context");
+        }
         return new Response(
-          JSON.stringify({ error: "Agent not found, disabled, or session context invalid" }),
-          { status: 400, headers: corsHeaders }
+          JSON.stringify({
+            error: admission.denial.reason,
+            admission: admission.denial,
+          }),
+          { status: 403, headers: corsHeaders }
         );
       }
 
@@ -4513,18 +4643,48 @@ http.route({
         requestId,
       });
 
+      console.info("[NativeGuestReplayTrace] http_native_guest_message", {
+        requestId,
+        requestCorrelationId: normalizedRequestCorrelationId,
+        organizationId: String(resolvedContext.organizationId),
+        agentId: String(resolvedContext.agentId),
+        hasSessionToken: Boolean(normalizedSessionToken),
+        idempotencyKey: normalizedIdempotencyKey || null,
+      });
+
       const result = await (ctx as any).runAction(generatedApi.internal.api.v1.webchatApi.handleWebchatMessage, {
         organizationId: resolvedContext.organizationId,
         agentId: resolvedContext.agentId,
         channel: "native_guest",
         sessionToken: normalizedSessionToken,
+        idempotencyKey: normalizedIdempotencyKey,
+        requestCorrelationId: normalizedRequestCorrelationId,
         message,
         attachments: normalizedAttachments,
         visitorInfo,
         attribution: normalizedAttribution,
       });
 
+      console.info("[NativeGuestReplayTrace] http_native_guest_result", {
+        requestId,
+        requestCorrelationId: normalizedRequestCorrelationId,
+        success: Boolean(result.success),
+        error: result.error || null,
+        hasResponse: typeof result.response === "string" && result.response.trim().length > 0,
+        sessionToken: result.sessionToken || null,
+      });
+
       if (!result.success) {
+        if (result.admissionDenial) {
+          return new Response(
+            JSON.stringify({
+              error: result.admissionDenial.reason,
+              admission: result.admissionDenial,
+              sessionToken: result.sessionToken,
+            }),
+            { status: 403, headers: corsHeaders }
+          );
+        }
         return new Response(
           JSON.stringify({
             error: result.error || "Unable to process message",

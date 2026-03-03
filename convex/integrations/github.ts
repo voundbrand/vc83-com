@@ -12,6 +12,10 @@
 import { action, query, internalQuery, ActionCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { Id, Doc } from "../_generated/dataModel";
+import type {
+  CmsRequestChangeManifest,
+  CmsRequestChangePatchOperation,
+} from "../cmsAgentRequestContracts";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,6 +131,424 @@ async function githubFetch<T>(
   }
 
   return response.json();
+}
+
+async function githubFetchText(
+  endpoint: string,
+  accessToken: string,
+  options: RequestInit = {}
+): Promise<string> {
+  const response = await fetch(`https://api.github.com${endpoint}`, {
+    ...options,
+    headers: {
+      Accept: "application/vnd.github.raw",
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "l4yercak3-builder",
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`GitHub API error (${response.status}): ${errorText}`);
+  }
+
+  return response.text();
+}
+
+type CmsGithubPatchFile = CmsRequestChangeManifest["patches"][number];
+
+type CmsGithubPrOrchestrationArgs = {
+  requestId: string;
+  repoFullName: string;
+  baseBranch: string;
+  changeManifest: Pick<CmsRequestChangeManifest, "patches" | "touchedFiles">;
+  accessToken: string;
+  title?: string;
+  body?: string;
+  fetchJson?: typeof githubFetch;
+  fetchText?: typeof githubFetchText;
+};
+
+export type CmsGithubPrOrchestrationResult = {
+  branchName: string;
+  baseBranch: string;
+  repoFullName: string;
+  commitSha: string | null;
+  prNumber: number;
+  prUrl: string;
+  createdBranch: boolean;
+  createdCommit: boolean;
+  createdPr: boolean;
+  idempotentReplay: boolean;
+  touchedFiles: string[];
+};
+
+export function buildCmsRequestBranchName(requestId: string): string {
+  const normalized = requestId.trim().toLowerCase();
+  if (!normalized) {
+    throw new Error("requestId must be a non-empty string");
+  }
+  const safeId = normalized.replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!safeId) {
+    throw new Error("requestId produced an empty branch suffix");
+  }
+  return `l4yercak3/cms/${safeId}`;
+}
+
+function encodeGitHubPath(filePath: string): string {
+  return filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+function decodePointerSegment(segment: string): string {
+  return segment.replace(/~1/g, "/").replace(/~0/g, "~");
+}
+
+function parsePointerSegments(pointer: string): string[] {
+  const normalized = pointer.startsWith("/") ? pointer : `/${pointer}`;
+  if (normalized === "/") {
+    return [];
+  }
+  return normalized
+    .slice(1)
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map(decodePointerSegment);
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonValue);
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+  const sortedKeys = Object.keys(value).sort((a, b) => a.localeCompare(b));
+  const sorted: Record<string, unknown> = {};
+  for (const key of sortedKeys) {
+    sorted[key] = sortJsonValue(value[key]);
+  }
+  return sorted;
+}
+
+function applyCmsPatchOperation(args: {
+  root: Record<string, unknown>;
+  operation: CmsRequestChangePatchOperation;
+  filePath: string;
+}): boolean {
+  const segments = parsePointerSegments(args.operation.path);
+  if (segments.length === 0) {
+    throw new Error(
+      `CMS manifest operation cannot target root document: ${args.filePath}${args.operation.path}`
+    );
+  }
+
+  let parent: Record<string, unknown> = args.root;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const segment = segments[i];
+    const next = parent[segment];
+    if (!isRecord(next)) {
+      throw new Error(
+        `CMS manifest operation target missing: ${args.filePath}${args.operation.path}`
+      );
+    }
+    parent = next;
+  }
+
+  const lastSegment = segments[segments.length - 1];
+  if (args.operation.op === "remove") {
+    if (!(lastSegment in parent)) {
+      return false;
+    }
+    delete parent[lastSegment];
+    return true;
+  }
+
+  if (typeof args.operation.value === "undefined") {
+    throw new Error(
+      `CMS manifest replace operation missing value: ${args.filePath}${args.operation.path}`
+    );
+  }
+
+  const before = parent[lastSegment];
+  const nextValue = cloneJson(args.operation.value);
+  if (deepEqual(before, nextValue)) {
+    return false;
+  }
+  parent[lastSegment] = nextValue;
+  return true;
+}
+
+function applyCmsManifestPatchToFile(args: {
+  currentContent: string;
+  patchFile: CmsGithubPatchFile;
+}): { nextContent: string; changed: boolean } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(args.currentContent);
+  } catch (error) {
+    throw new Error(
+      `CMS manifest target file is not valid JSON: ${args.patchFile.filePath} (${error instanceof Error ? error.message : String(error)})`
+    );
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error(
+      `CMS manifest target file must be a JSON object: ${args.patchFile.filePath}`
+    );
+  }
+
+  const working = cloneJson(parsed) as Record<string, unknown>;
+  let changed = false;
+  for (const operation of args.patchFile.operations) {
+    const opChanged = applyCmsPatchOperation({
+      root: working,
+      operation,
+      filePath: args.patchFile.filePath,
+    });
+    changed = changed || opChanged;
+  }
+
+  return {
+    nextContent: `${JSON.stringify(sortJsonValue(working), null, 2)}\n`,
+    changed,
+  };
+}
+
+async function getOpenPullRequestForBranch(args: {
+  repoFullName: string;
+  owner: string;
+  branchName: string;
+  baseBranch: string;
+  accessToken: string;
+  fetchJson: typeof githubFetch;
+}): Promise<{ number: number; html_url: string } | null> {
+  const pulls = await args.fetchJson<Array<{ number: number; html_url: string }>>(
+    `/repos/${args.repoFullName}/pulls?state=open&head=${args.owner}:${encodeURIComponent(
+      args.branchName
+    )}&base=${encodeURIComponent(args.baseBranch)}`,
+    args.accessToken
+  );
+  return pulls[0] ?? null;
+}
+
+export async function orchestrateCmsRequestPullRequest(
+  args: CmsGithubPrOrchestrationArgs
+): Promise<CmsGithubPrOrchestrationResult> {
+  const fetchJson = args.fetchJson || githubFetch;
+  const fetchText = args.fetchText || githubFetchText;
+  const branchName = buildCmsRequestBranchName(args.requestId);
+  const [owner] = args.repoFullName.split("/");
+  if (!owner) {
+    throw new Error(`Invalid repoFullName: ${args.repoFullName}`);
+  }
+
+  const baseRef = await fetchJson<{ object: { sha: string } }>(
+    `/repos/${args.repoFullName}/git/ref/heads/${encodeURIComponent(args.baseBranch)}`,
+    args.accessToken
+  );
+  const baseCommitSha = baseRef.object.sha;
+
+  let createdBranch = false;
+  let branchRefSha = baseCommitSha;
+  try {
+    const existingBranch = await fetchJson<{ object: { sha: string } }>(
+      `/repos/${args.repoFullName}/git/ref/heads/${encodeURIComponent(branchName)}`,
+      args.accessToken
+    );
+    branchRefSha = existingBranch.object.sha;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("GitHub API error (404)")) {
+      throw error;
+    }
+    await fetchJson(
+      `/repos/${args.repoFullName}/git/refs`,
+      args.accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: baseCommitSha,
+        }),
+      }
+    );
+    createdBranch = true;
+    branchRefSha = baseCommitSha;
+  }
+
+  const branchCommit = await fetchJson<{ tree: { sha: string } }>(
+    `/repos/${args.repoFullName}/git/commits/${branchRefSha}`,
+    args.accessToken
+  );
+
+  const patchesByFile = new Map(
+    args.changeManifest.patches.map((patchFile) => [patchFile.filePath, patchFile])
+  );
+  const orderedTouchedFiles = [...new Set(args.changeManifest.touchedFiles)].sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const changedFiles: Array<{ path: string; nextContent: string }> = [];
+
+  for (const filePath of orderedTouchedFiles) {
+    const patchFile = patchesByFile.get(filePath);
+    if (!patchFile) {
+      throw new Error(
+        `CMS manifest touched file is missing patch operations: ${filePath}`
+      );
+    }
+
+    const currentContent = await fetchText(
+      `/repos/${args.repoFullName}/contents/${encodeGitHubPath(
+        filePath
+      )}?ref=${encodeURIComponent(branchName)}`,
+      args.accessToken
+    );
+    const patched = applyCmsManifestPatchToFile({
+      currentContent,
+      patchFile,
+    });
+    if (patched.changed) {
+      changedFiles.push({
+        path: filePath,
+        nextContent: patched.nextContent,
+      });
+    }
+  }
+
+  let createdCommit = false;
+  let commitSha: string | null = null;
+  if (changedFiles.length > 0) {
+    const treeEntries: Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string;
+    }> = [];
+    for (const file of changedFiles) {
+      const blob = await fetchJson<{ sha: string }>(
+        `/repos/${args.repoFullName}/git/blobs`,
+        args.accessToken,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            content: utf8ToBase64(file.nextContent),
+            encoding: "base64",
+          }),
+        }
+      );
+      treeEntries.push({
+        path: file.path,
+        mode: "100644",
+        type: "blob",
+        sha: blob.sha,
+      });
+    }
+
+    const nextTree = await fetchJson<{ sha: string }>(
+      `/repos/${args.repoFullName}/git/trees`,
+      args.accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          base_tree: branchCommit.tree.sha,
+          tree: treeEntries,
+        }),
+      }
+    );
+
+    const nextCommit = await fetchJson<{ sha: string }>(
+      `/repos/${args.repoFullName}/git/commits`,
+      args.accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          message:
+            args.title ||
+            `CMS request ${args.requestId}: apply deterministic content manifest`,
+          tree: nextTree.sha,
+          parents: [branchRefSha],
+        }),
+      }
+    );
+
+    await fetchJson(
+      `/repos/${args.repoFullName}/git/refs/heads/${encodeURIComponent(branchName)}`,
+      args.accessToken,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ sha: nextCommit.sha, force: true }),
+      }
+    );
+
+    createdCommit = true;
+    commitSha = nextCommit.sha;
+  }
+
+  const existingPull = await getOpenPullRequestForBranch({
+    repoFullName: args.repoFullName,
+    owner,
+    branchName,
+    baseBranch: args.baseBranch,
+    accessToken: args.accessToken,
+    fetchJson,
+  });
+
+  let createdPr = false;
+  let prNumber: number;
+  let prUrl: string;
+  if (existingPull) {
+    prNumber = existingPull.number;
+    prUrl = existingPull.html_url;
+  } else {
+    const createdPull = await fetchJson<{ number: number; html_url: string }>(
+      `/repos/${args.repoFullName}/pulls`,
+      args.accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          title: args.title || `CMS request ${args.requestId}: content update`,
+          head: branchName,
+          base: args.baseBranch,
+          body:
+            args.body ||
+            `Automated PR for CMS request \`${args.requestId}\` using persisted change manifest.`,
+        }),
+      }
+    );
+    createdPr = true;
+    prNumber = createdPull.number;
+    prUrl = createdPull.html_url;
+  }
+
+  return {
+    branchName,
+    baseBranch: args.baseBranch,
+    repoFullName: args.repoFullName,
+    commitSha,
+    prNumber,
+    prUrl,
+    createdBranch,
+    createdCommit,
+    createdPr,
+    idempotentReplay: !createdBranch && !createdCommit && !createdPr,
+    touchedFiles: orderedTouchedFiles,
+  };
 }
 
 
@@ -1159,6 +1581,118 @@ export const createRepoFromBuilderApp = action({
         `Failed to create GitHub repository: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
+  },
+});
+
+export const createCmsRequestPullRequest = action({
+  args: {
+    organizationId: v.id("organizations"),
+    requestId: v.id("objects"),
+    title: v.optional(v.string()),
+    body: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { internal } = getApi();
+    const request = await ctx.runQuery(
+      internal.api.v1.publishingInternal.getCmsRequestInternal,
+      {
+        requestId: args.requestId,
+      }
+    );
+
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+    if (request.organizationId !== args.organizationId) {
+      throw new Error("CMS request organization mismatch");
+    }
+
+    const requesterUserId = request.customProperties?.requester?.userId as
+      | Id<"users">
+      | undefined;
+    if (!requesterUserId) {
+      throw new Error("CMS request requester.userId is required");
+    }
+
+    const changeManifest = request.customProperties
+      ?.changeManifest as CmsRequestChangeManifest | null | undefined;
+    if (!changeManifest) {
+      throw new Error(
+        "CMS request is missing changeManifest; compile/manifest flow is required before GitHub PR orchestration"
+      );
+    }
+
+    const lineage = (request.customProperties?.lineage || {}) as {
+      targetRepo?: string;
+      targetBranch?: string;
+    };
+
+    if (!lineage.targetRepo) {
+      throw new Error("CMS request lineage.targetRepo is required");
+    }
+
+    const repoUrlMatch = lineage.targetRepo.match(
+      /^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/
+    );
+    if (!repoUrlMatch) {
+      throw new Error(
+        `CMS request lineage.targetRepo must be a GitHub URL: ${lineage.targetRepo}`
+      );
+    }
+
+    const repoFullName = `${repoUrlMatch[1]}/${repoUrlMatch[2]}`;
+    const baseBranch = lineage.targetBranch || "main";
+
+    const connection = await ctx.runQuery(
+      internal.integrations.github.getGitHubConnectionInternal,
+      {
+        organizationId: args.organizationId,
+      }
+    );
+    if (!connection) {
+      throw new Error("GitHub not connected. Please connect GitHub in Integrations settings.");
+    }
+
+    let accessToken = "";
+    if (connection.accessToken) {
+      accessToken = await ctx.runAction(internal.oauth.encryption.decryptToken, {
+        encrypted: connection.accessToken,
+      });
+    }
+    if (!accessToken) {
+      accessToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN || "";
+    }
+    if (!accessToken) {
+      throw new Error("GitHub access token not available.");
+    }
+
+    const orchestrationResult = await orchestrateCmsRequestPullRequest({
+      requestId: String(args.requestId),
+      repoFullName,
+      baseBranch,
+      changeManifest,
+      accessToken,
+      title: args.title,
+      body: args.body,
+    });
+
+    await ctx.runMutation(
+      internal.api.v1.publishingInternal.attachCmsRequestLinkageInternal,
+      {
+        requestId: args.requestId,
+        userId: requesterUserId,
+        linkage: {
+          prNumber: orchestrationResult.prNumber,
+          prUrl: orchestrationResult.prUrl,
+        },
+      }
+    );
+
+    return {
+      success: true,
+      requestId: args.requestId,
+      ...orchestrationResult,
+    };
   },
 });
 

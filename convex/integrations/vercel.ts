@@ -13,6 +13,8 @@
 import { action, query, internalQuery, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
+import { buildCmsRequestBranchName } from "./github";
+import type { CmsRequestStatus } from "../cmsAgentRequestContracts";
 
 // Lazy-load internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +68,28 @@ interface VercelDeploymentEvent {
   };
   text?: string;
 }
+
+type CmsRequestObject = {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  type: "cms_request";
+  customProperties?: Record<string, any>;
+};
+
+type CmsPreviewDeploymentSpec = {
+  branchName: string;
+  repoFullName: string;
+  payload: {
+    name: string;
+    project: string;
+    gitSource: {
+      type: "github";
+      repo: string;
+      ref: string;
+    };
+    target: "preview";
+  };
+};
 
 // ============================================================================
 // TOKEN HELPERS
@@ -251,6 +275,56 @@ async function vercelFetch<T>(
   }
 
   return response.json();
+}
+
+function parseGitHubRepoFullName(githubUrl: string): string {
+  const match = githubUrl
+    .trim()
+    .match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+  if (!match) {
+    throw new Error(`Invalid GitHub URL: ${githubUrl}`);
+  }
+  return `${match[1]}/${match[2]}`;
+}
+
+export function buildCmsPreviewDeploymentSpec(args: {
+  requestId: string;
+  targetRepoUrl: string;
+  vercelProjectId: string;
+  projectName: string;
+  linkedRepoFullName?: string;
+}): CmsPreviewDeploymentSpec {
+  const branchName = buildCmsRequestBranchName(args.requestId);
+  const repoFullName = parseGitHubRepoFullName(args.targetRepoUrl);
+  const linkedRepo = args.linkedRepoFullName?.trim();
+  const deploymentRepo = linkedRepo || repoFullName;
+
+  return {
+    branchName,
+    repoFullName,
+    payload: {
+      name: args.projectName,
+      project: args.vercelProjectId,
+      gitSource: {
+        type: "github",
+        repo: deploymentRepo,
+        ref: branchName,
+      },
+      target: "preview",
+    },
+  };
+}
+
+export function resolveCmsStatusFromVercelReadyState(
+  readyState: string
+): CmsRequestStatus | null {
+  if (readyState === "READY") {
+    return "preview_ready";
+  }
+  if (readyState === "ERROR" || readyState === "CANCELED") {
+    return "failed";
+  }
+  return null;
 }
 
 // ============================================================================
@@ -450,6 +524,235 @@ export const deployToVercel = action({
       vercelProjectUrl,
       deploymentId,
       deploymentUrl,
+    };
+  },
+});
+
+/**
+ * DEPLOY CMS REQUEST PREVIEW
+ *
+ * Triggers a preview deployment on the CMS request branch and persists linkage.
+ */
+export const deployCmsRequestPreview = action({
+  args: {
+    organizationId: v.id("organizations"),
+    requestId: v.id("objects"),
+  },
+  handler: async (ctx, args): Promise<{
+    requestId: Id<"objects">;
+    deploymentId: string;
+    deploymentUrl: string;
+    branchName: string;
+    readyState: string;
+  }> => {
+    const { internal } = getInternal();
+    const request = (await ctx.runQuery(
+      internal.api.v1.publishingInternal.getCmsRequestInternal,
+      { requestId: args.requestId }
+    )) as CmsRequestObject | null;
+
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+    if (request.organizationId !== args.organizationId) {
+      throw new Error("CMS request organization mismatch");
+    }
+
+    const requesterUserId = request.customProperties?.requester?.userId as
+      | Id<"users">
+      | undefined;
+    if (!requesterUserId) {
+      throw new Error("CMS request requester.userId is required");
+    }
+
+    const lineage = (request.customProperties?.lineage || {}) as {
+      targetRepo?: string;
+    };
+    if (!lineage.targetRepo) {
+      throw new Error("CMS request lineage.targetRepo is required");
+    }
+
+    const connection = await ctx.runQuery(
+      internal.integrations.vercel.getVercelConnectionInternal,
+      { organizationId: args.organizationId }
+    );
+    if (!connection) {
+      throw new Error("Vercel not connected. Please connect Vercel in Integrations settings.");
+    }
+
+    const accessToken = await decryptAccessToken(ctx, connection);
+    const teamId = connection.teamId;
+
+    const repoFullName = parseGitHubRepoFullName(lineage.targetRepo);
+    const projectsResponse = await vercelFetch<{
+      projects?: Array<{
+        id: string;
+        name: string;
+        link?: { repo?: string };
+      }>;
+    }>("/v9/projects?limit=100", accessToken, teamId);
+
+    const matchedProject =
+      projectsResponse.projects?.find((project) => project.link?.repo === repoFullName) ||
+      null;
+    if (!matchedProject) {
+      throw new Error(
+        `No Vercel project linked to repo ${repoFullName}. Deploy the app once before CMS preview orchestration.`
+      );
+    }
+
+    const spec = buildCmsPreviewDeploymentSpec({
+      requestId: String(args.requestId),
+      targetRepoUrl: lineage.targetRepo,
+      vercelProjectId: matchedProject.id,
+      projectName: matchedProject.name || matchedProject.id,
+      linkedRepoFullName: matchedProject.link?.repo,
+    });
+
+    if (matchedProject.link?.repo && matchedProject.link.repo !== spec.repoFullName) {
+      throw new Error(
+        `Vercel project repo mismatch: expected ${spec.repoFullName}, found ${matchedProject.link.repo}`
+      );
+    }
+
+    const deployment = await vercelFetch<{ id: string; url: string; readyState: string }>(
+      "/v13/deployments",
+      accessToken,
+      teamId,
+      {
+        method: "POST",
+        body: JSON.stringify(spec.payload),
+      }
+    );
+
+    const deploymentUrl = `https://${deployment.url}`;
+    await ctx.runMutation(
+      internal.api.v1.publishingInternal.attachCmsRequestLinkageInternal,
+      {
+        requestId: args.requestId,
+        userId: requesterUserId,
+        linkage: {
+          previewDeploymentId: deployment.id,
+          previewUrl: deploymentUrl,
+        },
+      }
+    );
+
+    await ctx.runMutation(
+      internal.api.v1.publishingInternal.transitionCmsRequestStatusInternal,
+      {
+        requestId: args.requestId,
+        userId: requesterUserId,
+        toStatus: "applying",
+        reason: "Preview deployment started",
+      }
+    );
+
+    return {
+      requestId: args.requestId,
+      deploymentId: deployment.id,
+      deploymentUrl,
+      branchName: spec.branchName,
+      readyState: deployment.readyState,
+    };
+  },
+});
+
+/**
+ * CHECK CMS REQUEST PREVIEW STATUS
+ *
+ * Polls Vercel deployment status and updates CMS request linkage/status.
+ */
+export const checkCmsRequestPreviewDeploymentStatus = action({
+  args: {
+    organizationId: v.id("organizations"),
+    requestId: v.id("objects"),
+    deploymentId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    requestId: Id<"objects">;
+    deploymentId: string;
+    readyState: string;
+    previewUrl: string | null;
+    nextCmsStatus: CmsRequestStatus | null;
+  }> => {
+    const { internal } = getInternal();
+    const request = (await ctx.runQuery(
+      internal.api.v1.publishingInternal.getCmsRequestInternal,
+      { requestId: args.requestId }
+    )) as CmsRequestObject | null;
+
+    if (!request || request.type !== "cms_request") {
+      throw new Error("CMS request not found");
+    }
+    if (request.organizationId !== args.organizationId) {
+      throw new Error("CMS request organization mismatch");
+    }
+
+    const requesterUserId = request.customProperties?.requester?.userId as
+      | Id<"users">
+      | undefined;
+    if (!requesterUserId) {
+      throw new Error("CMS request requester.userId is required");
+    }
+
+    const linkage = (request.customProperties?.linkage || {}) as Record<string, unknown>;
+    const deploymentId =
+      args.deploymentId || (linkage.previewDeploymentId as string | undefined);
+    if (!deploymentId) {
+      throw new Error("CMS request previewDeploymentId is required");
+    }
+
+    const connection = await ctx.runQuery(
+      internal.integrations.vercel.getVercelConnectionInternal,
+      { organizationId: args.organizationId }
+    );
+    if (!connection) {
+      throw new Error("Vercel not connected");
+    }
+
+    const accessToken = await decryptAccessToken(ctx, connection);
+    const teamId = connection.teamId;
+    const deployment = await vercelFetch<VercelDeployment>(
+      `/v13/deployments/${deploymentId}`,
+      accessToken,
+      teamId
+    );
+
+    const previewUrl = deployment.url ? `https://${deployment.url}` : null;
+    if (previewUrl) {
+      await ctx.runMutation(
+        internal.api.v1.publishingInternal.attachCmsRequestLinkageInternal,
+        {
+          requestId: args.requestId,
+          userId: requesterUserId,
+          linkage: {
+            previewDeploymentId: deployment.uid || deploymentId,
+            previewUrl,
+          },
+        }
+      );
+    }
+
+    const nextCmsStatus = resolveCmsStatusFromVercelReadyState(deployment.readyState);
+    if (nextCmsStatus) {
+      await ctx.runMutation(
+        internal.api.v1.publishingInternal.transitionCmsRequestStatusInternal,
+        {
+          requestId: args.requestId,
+          userId: requesterUserId,
+          toStatus: nextCmsStatus,
+          reason: `Vercel preview deployment ${deployment.readyState.toLowerCase()}`,
+        }
+      );
+    }
+
+    return {
+      requestId: args.requestId,
+      deploymentId: deployment.uid || deploymentId,
+      readyState: deployment.readyState,
+      previewUrl,
+      nextCmsStatus,
     };
   },
 });
