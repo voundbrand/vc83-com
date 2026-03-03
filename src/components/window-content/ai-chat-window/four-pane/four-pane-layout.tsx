@@ -53,17 +53,17 @@ export function FourPaneLayout() {
   }
 
   return (
-    <div className="h-full" style={{ background: 'var(--shell-surface)' }}>
-      <PanelGroup direction="horizontal">
+    <div className="h-full min-h-0 overflow-hidden" style={{ background: 'var(--shell-surface)' }}>
+      <PanelGroup direction="horizontal" className="h-full min-h-0">
         {/* Column 1 - Conversation History */}
         <Panel
           defaultSize={18}
           minSize={12}
           maxSize={30}
-          className="flex flex-col"
+          className="flex min-h-0 flex-col"
         >
           <div
-            className="flex flex-col h-full border-r-2"
+            className="flex h-full min-h-0 flex-col border-r-2"
             style={{
               borderColor: 'var(--shell-border-strong)',
               background: 'var(--shell-surface)'
@@ -84,10 +84,10 @@ export function FourPaneLayout() {
         <Panel
           defaultSize={38}
           minSize={25}
-          className="flex flex-col"
+          className="flex min-h-0 flex-col"
         >
           <div
-            className="flex flex-col h-full"
+            className="flex h-full min-h-0 flex-col"
             style={{ background: 'var(--shell-surface)' }}
           >
             <ChatHeader />
@@ -109,10 +109,10 @@ export function FourPaneLayout() {
           defaultSize={22}
           minSize={15}
           maxSize={35}
-          className="flex flex-col"
+          className="flex min-h-0 flex-col"
         >
           <div
-            className="flex flex-col h-full border-l-2"
+            className="flex h-full min-h-0 flex-col border-l-2"
             style={{
               borderColor: 'var(--shell-border-strong)',
               background: 'var(--shell-surface)'
@@ -152,10 +152,10 @@ export function FourPaneLayout() {
           defaultSize={22}
           minSize={15}
           maxSize={40}
-          className="flex flex-col"
+          className="flex min-h-0 flex-col"
         >
           <div
-            className="flex flex-col h-full border-l-2"
+            className="flex h-full min-h-0 flex-col border-l-2"
             style={{
               borderColor: 'var(--shell-border-strong)',
               background: 'var(--shell-surface)'

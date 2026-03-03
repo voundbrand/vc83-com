@@ -6,6 +6,7 @@ import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { Sparkles } from "lucide-react"
 import { ShellProfileIcon } from "@/components/icons/shell-icons"
 import type { AIChatReasoningEffort } from "@/hooks/use-ai-chat"
+import { shouldHideInternalKickoffMessage } from "../kickoff-message-visibility"
 import {
   compactUnifiedCorrelationId,
   compareTimelineEventsDeterministically,
@@ -18,6 +19,10 @@ import type {
   OperatorCollaborationContextPayload,
   OperatorCollaborationTimelineEvent,
 } from "./operator-collaboration-types"
+import {
+  CHAT_MESSAGE_TEXT_CLASS,
+  CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
+} from "../message-content-styles"
 
 type ChatMessage = {
   _id?: string
@@ -275,26 +280,26 @@ export function SlickChatMessages({
 
   const messages = useMemo(() => {
     const sourceMessages = (chat.messages || []) as ChatMessage[]
-    if (selectedSurface.kind === "group") {
-      return sourceMessages.filter((message) => message.collaboration?.threadType !== "dm_thread")
-    }
+    const scopedMessages = selectedSurface.kind === "group"
+      ? sourceMessages.filter((message) => message.collaboration?.threadType !== "dm_thread")
+      : sourceMessages.filter((message) => {
+          if (message.collaboration?.threadType !== "dm_thread") {
+            return false
+          }
 
-    return sourceMessages.filter((message) => {
-      if (message.collaboration?.threadType !== "dm_thread") {
-        return false
-      }
+          const dmThreadId = message.collaboration.dmThreadId || message.collaboration.threadId
+          if (dmThreadId !== selectedSurface.dmThreadId) {
+            return false
+          }
 
-      const dmThreadId = message.collaboration.dmThreadId || message.collaboration.threadId
-      if (dmThreadId !== selectedSurface.dmThreadId) {
-        return false
-      }
+          if (!message.collaboration.specialistAgentId) {
+            return true
+          }
 
-      if (!message.collaboration.specialistAgentId) {
-        return true
-      }
+          return message.collaboration.specialistAgentId === selectedSurface.specialistAgentId
+        })
 
-      return message.collaboration.specialistAgentId === selectedSurface.specialistAgentId
-    })
+    return scopedMessages.filter((message) => !shouldHideInternalKickoffMessage(message))
   }, [chat.messages, selectedSurface])
   const timelineMarkers = useMemo(() => {
     return timelineEvents
@@ -362,6 +367,21 @@ export function SlickChatMessages({
   }
 
   if (messages.length === 0) {
+    if (isSending) {
+      return (
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-20 pb-40">
+          <div className="mx-auto w-full max-w-4xl space-y-4">
+            <ThinkingProgress
+              isSending={isSending}
+              composerMode={composerMode}
+              reasoningEffort={reasoningEffort}
+            />
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+      )
+    }
+
     const specialistLabel = selectedSurface.kind === "dm" ? selectedSurface.specialistLabel : null
     return (
       <div className="relative z-10 flex-1 flex items-center justify-center px-6 pb-24">
@@ -395,7 +415,7 @@ export function SlickChatMessages({
   }
 
   return (
-    <div className="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 pt-20 pb-40">
+    <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-20 pb-40">
       <div className="mx-auto w-full max-w-4xl space-y-4">
         {showChatDebugMetadata && timelineMarkers.length > 0 ? (
           <div
@@ -455,9 +475,9 @@ export function SlickChatMessages({
               (attachment) => attachment.kind === "image"
             )
             return (
-              <div key={key} className="flex justify-end">
+              <div key={key} className="flex min-w-0 justify-end">
                 <div
-                  className="max-w-[82%] rounded-3xl border px-4 py-3 text-sm leading-relaxed"
+                  className="max-w-[82%] min-w-0 rounded-3xl border px-4 py-3 text-sm leading-relaxed"
                   style={{
                     borderColor: "var(--shell-border-soft)",
                     background: "var(--shell-surface-elevated)",
@@ -544,8 +564,10 @@ export function SlickChatMessages({
                     </div>
                   ) : null}
 
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 whitespace-pre-wrap break-words">{content}</div>
+                  <div className="flex min-w-0 items-start gap-2">
+                    <div className={`flex-1 ${CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}`}>
+                      <div className={CHAT_MESSAGE_TEXT_CLASS}>{content}</div>
+                    </div>
                     <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
                       <ShellProfileIcon size={16} tone="active" />
                     </span>
@@ -556,8 +578,8 @@ export function SlickChatMessages({
           }
 
           return (
-            <div key={key} className="flex justify-start">
-              <div className="max-w-[88%] px-1 py-1 text-[15px] leading-7" style={{ color: "var(--shell-text)" }}>
+            <div key={key} className="flex min-w-0 justify-start">
+              <div className="max-w-[88%] min-w-0 px-1 py-1 text-[15px] leading-7" style={{ color: "var(--shell-text)" }}>
                 <div className="mb-1 flex items-center gap-2 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/splash-icon.png" alt="" className="h-3.5 w-3.5 rounded-full" />
@@ -600,7 +622,9 @@ export function SlickChatMessages({
                     ) : null}
                   </div>
                 ) : null}
-                <div className="whitespace-pre-wrap break-words">{content}</div>
+                <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
+                  <div className={CHAT_MESSAGE_TEXT_CLASS}>{content}</div>
+                </div>
               </div>
             </div>
           )

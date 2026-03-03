@@ -96,7 +96,7 @@ export function SlickPaneLayout() {
 
   return (
     <div
-      className="relative flex h-full min-h-0 overflow-visible"
+      className="relative flex h-full min-h-0 overflow-hidden"
       style={{
         background:
           "linear-gradient(180deg, var(--shell-surface-elevated) 0%, var(--shell-surface) 100%)",
@@ -122,7 +122,7 @@ export function SlickPaneLayout() {
           onSelectSurface={setSelectedSurface}
         />
 
-        <div className="relative min-h-0 flex-1 overflow-visible">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <div className="relative z-0 flex h-full min-h-0 flex-col overflow-hidden">
             <SlickChatMessages
               visualMode={visualMode}

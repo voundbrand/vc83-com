@@ -5,19 +5,24 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { SystemMessage } from "../single-pane/message-types/system-message"
 import { Sparkles, Wrench, CheckCircle2, XCircle } from "lucide-react"
+import { shouldHideInternalKickoffMessage } from "../kickoff-message-visibility"
+import {
+  CHAT_MESSAGE_TEXT_LEADING_CLASS,
+  CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
+} from "../message-content-styles"
 
 // User Message Component - LEFT SIDE (flipped from original)
 function UserMessage({ content }: { content: string }) {
   return (
-    <div className="flex justify-start">
+    <div className="flex min-w-0 justify-start">
       <div
-        className="px-2 py-2 max-w-[85%] text-sm"
+        className="max-w-[85%] min-w-0 px-2 py-2 text-sm"
         style={{
           color: 'var(--shell-text)',
         }}
       >
-        <div className="leading-relaxed whitespace-pre-wrap break-words">
-          {content}
+        <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
+          <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
         </div>
       </div>
     </div>
@@ -35,16 +40,16 @@ function AssistantMessage({ content }: { content: string }) {
     const isSuccess = content.includes("successfully")
 
     return (
-      <div className="flex justify-center my-2">
+      <div className="my-2 flex min-w-0 justify-center">
         <div
-          className="px-3 py-2 max-w-[90%] text-xs rounded border"
+          className="max-w-[90%] min-w-0 rounded border px-3 py-2 text-xs"
           style={{
             borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
             background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
             color: 'var(--shell-text)',
           }}
         >
-          <div className="flex items-start gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             {isError ? (
               <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
             ) : isSuccess ? (
@@ -52,8 +57,10 @@ function AssistantMessage({ content }: { content: string }) {
             ) : (
               <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
             )}
-            <div className="leading-relaxed whitespace-pre-wrap break-words flex-1">
-              {content.replace("[Tool Result] ", "")}
+            <div className={`flex-1 ${CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}`}>
+              <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>
+                {content.replace("[Tool Result] ", "")}
+              </div>
             </div>
           </div>
         </div>
@@ -63,15 +70,15 @@ function AssistantMessage({ content }: { content: string }) {
 
   // Regular assistant message
   return (
-    <div className="flex justify-end">
+    <div className="flex min-w-0 justify-end">
       <div
-        className="px-2 py-2 max-w-[85%] text-sm"
+        className="max-w-[85%] min-w-0 px-2 py-2 text-sm"
         style={{
           color: 'var(--shell-text)',
         }}
       >
-        <div className="leading-relaxed whitespace-pre-wrap break-words">
-          {content}
+        <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
+          <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
         </div>
       </div>
     </div>
@@ -85,16 +92,16 @@ function ToolMessage({ content }: { content: string }) {
   const isSuccess = content.includes("successfully")
 
   return (
-    <div className="flex justify-center my-2">
+    <div className="my-2 flex min-w-0 justify-center">
       <div
-        className="px-3 py-2 max-w-[90%] text-xs rounded border"
+        className="max-w-[90%] min-w-0 rounded border px-3 py-2 text-xs"
         style={{
           borderColor: isError ? 'var(--error)' : isSuccess ? 'var(--success)' : 'var(--info)',
           background: isError ? 'var(--error-bg)' : isSuccess ? 'var(--success-bg)' : 'var(--info-bg)',
           color: 'var(--shell-text)',
         }}
       >
-        <div className="flex items-start gap-2">
+        <div className="flex min-w-0 items-start gap-2">
           {isError ? (
             <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--error)' }} />
           ) : isSuccess ? (
@@ -102,8 +109,8 @@ function ToolMessage({ content }: { content: string }) {
           ) : (
             <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
           )}
-          <div className="leading-relaxed whitespace-pre-wrap break-words flex-1">
-            {content}
+          <div className={`flex-1 ${CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}`}>
+            <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
           </div>
         </div>
       </div>
@@ -135,7 +142,7 @@ export function ChatMessages() {
 
   // Get messages from the current conversation
   const messages = chat.messages || []
-  const displayMessages = messages
+  const displayMessages = messages.filter((message) => !shouldHideInternalKickoffMessage(message))
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -158,7 +165,7 @@ export function ChatMessages() {
 
   return (
     <div
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-4"
       style={{
         background: 'var(--shell-surface)',
         color: 'var(--shell-text)'

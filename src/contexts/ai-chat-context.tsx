@@ -6,8 +6,10 @@ import {
   useAIChat,
   type AIChatComposerMode,
   type AIChatReasoningEffort,
+  type AIChatSuperAdminQaMode,
 } from "@/hooks/use-ai-chat"
 import { useAuth } from "@/hooks/use-auth"
+import type { ConversationEventEnvelope } from "@/lib/ai/conversation-session-contract"
 
 const CHAT_COMPOSER_MODE_STORAGE_KEY = "ai_chat_composer_mode"
 const CHAT_REASONING_EFFORT_STORAGE_KEY = "ai_chat_reasoning_effort"
@@ -61,11 +63,18 @@ interface AIChatContextType {
   // Abort control
   abortController: React.MutableRefObject<AbortController | null>
   stopCurrentRequest: () => void
+  latestConversationEvent: ConversationEventEnvelope | null
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
 
-export function AIChatProvider({ children }: { children: ReactNode }) {
+export function AIChatProvider({
+  children,
+  superAdminQaMode,
+}: {
+  children: ReactNode
+  superAdminQaMode?: AIChatSuperAdminQaMode
+}) {
   const [currentConversationId, setCurrentConversationId] = useState<
     Id<"aiConversations"> | undefined
   >(undefined)
@@ -75,11 +84,12 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
   const [reasoningEffort, setReasoningEffort] = useState<AIChatReasoningEffort>("medium")
   const [humanInLoopEnabled, setHumanInLoopEnabled] = useState(false)
   const [privateModeEnabled, setPrivateModeEnabled] = useState(false)
+  const [latestConversationEvent, setLatestConversationEvent] = useState<ConversationEventEnvelope | null>(null)
 
   // Abort controller for cancelling in-flight requests
   const abortController = useRef<AbortController | null>(null)
 
-  const chat = useAIChat(currentConversationId, selectedModel)
+  const chat = useAIChat(currentConversationId, selectedModel, superAdminQaMode)
 
   // Get current user's organization ID
   const { user } = useAuth()
@@ -127,6 +137,23 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(CHAT_PRIVATE_MODE_STORAGE_KEY, privateModeEnabled ? "1" : "0")
   }, [privateModeEnabled])
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+    const handleConversationEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<ConversationEventEnvelope>
+      if (!customEvent.detail) {
+        return
+      }
+      setLatestConversationEvent(customEvent.detail)
+    }
+    window.addEventListener("conversation_session_event", handleConversationEvent as EventListener)
+    return () => {
+      window.removeEventListener("conversation_session_event", handleConversationEvent as EventListener)
+    }
+  }, [])
+
   const stopCurrentRequest = () => {
     if (abortController.current) {
       console.log("🛑 [AI Chat] User stopped the request")
@@ -158,6 +185,7 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
         setPrivateModeEnabled,
         abortController,
         stopCurrentRequest,
+        latestConversationEvent,
       }}
     >
       {children}

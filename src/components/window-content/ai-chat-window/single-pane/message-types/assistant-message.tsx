@@ -2,6 +2,10 @@
 
 import { Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { ShellBotIcon } from "@/components/icons/shell-icons"
+import {
+  CHAT_MESSAGE_TEXT_LEADING_CLASS,
+  CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
+} from "../../message-content-styles"
 
 interface AssistantMessageProps {
   content: string
@@ -17,9 +21,9 @@ interface AssistantMessageProps {
 
 export function AssistantMessage({ content, toolExecution, quickActions }: AssistantMessageProps) {
   return (
-    <div className="flex justify-start">
+    <div className="flex min-w-0 justify-start">
       <div
-        className="px-4 py-2 rounded border-2 max-w-[75%] text-sm"
+        className="max-w-[75%] min-w-0 rounded border-2 px-4 py-2 text-sm"
         style={{
           borderColor: 'var(--shell-border)',
           background: 'var(--shell-surface-elevated)',
@@ -27,13 +31,13 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
           borderStyle: 'inset'
         }}
       >
-        <div className="flex items-start gap-2">
+        <div className="flex min-w-0 items-start gap-2">
           <span className="flex h-5 w-5 items-center justify-center">
             <ShellBotIcon size={16} tone="active" />
           </span>
-          <div className="flex-1 space-y-2">
-            <div className="leading-relaxed whitespace-pre-wrap break-words">
-              {content}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
+              <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
             </div>
 
             {/* Tool execution status */}

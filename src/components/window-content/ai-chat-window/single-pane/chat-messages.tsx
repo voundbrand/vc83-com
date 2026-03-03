@@ -7,6 +7,7 @@ import { SystemMessage } from "./message-types/system-message"
 import { UserMessage } from "./message-types/user-message"
 import { AssistantMessage } from "./message-types/assistant-message"
 import { TypingIndicator } from "./message-types/typing-indicator"
+import { shouldHideInternalKickoffMessage } from "../kickoff-message-visibility"
 
 export function ChatMessages() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -15,7 +16,7 @@ export function ChatMessages() {
 
   // Get messages from the current conversation
   const messages = chat.messages || []
-  const displayMessages = messages
+  const displayMessages = messages.filter((message: any) => !shouldHideInternalKickoffMessage(message))
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -44,7 +45,7 @@ export function ChatMessages() {
 
   return (
     <div
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-4"
       style={{
         background: 'var(--shell-surface)',
         color: 'var(--shell-text)'

@@ -157,6 +157,26 @@ export interface AIChatVoiceRuntimeMetadata {
   [key: string]: unknown
 }
 
+export interface AIChatConversationRuntimeMetadata {
+  contractVersion: "conversation_interaction_v1"
+  state:
+    | "idle"
+    | "connecting"
+    | "live"
+    | "reconnecting"
+    | "ending"
+    | "ended"
+    | "error"
+  eventType?: string
+  reasonCode?: string
+  [key: string]: unknown
+}
+
+export interface AIChatKickoffContract {
+  kind: string
+  [key: string]: unknown
+}
+
 export interface AIChatVoiceRuntimeSessionResolution {
   conversationId: Id<"aiConversations">
   agentSessionId: Id<"agentSessions">
@@ -188,6 +208,36 @@ export interface AIChatSendOptions {
   liveSessionId?: string
   cameraRuntime?: AIChatCameraRuntimeMetadata
   voiceRuntime?: AIChatVoiceRuntimeMetadata
+  conversationRuntime?: AIChatConversationRuntimeMetadata
+  kickoffContract?: AIChatKickoffContract
+  commandPolicy?: Record<string, unknown>
+  transportRuntime?: Record<string, unknown>
+  avObservability?: Record<string, unknown>
+  qaMode?: {
+    enabled: boolean
+    sessionId?: string
+    targetAgentId?: string
+    targetTemplateRole?: string
+    label?: string
+    runId?: string
+    sourceSessionToken?: string
+    sourceAuditChannel?: "webchat" | "native_guest"
+    ingressChannel?: string
+    originSurface?: string
+  }
+}
+
+export interface AIChatSuperAdminQaMode {
+  enabled: boolean
+  sessionId?: string
+  targetAgentId?: string
+  targetTemplateRole?: string
+  label?: string
+  runId?: string
+  sourceSessionToken?: string
+  sourceAuditChannel?: "webchat" | "native_guest"
+  ingressChannel?: string
+  originSurface?: string
 }
 
 interface CampaignAttribution {
@@ -703,7 +753,11 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
   }
 }
 
-export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?: string) {
+export function useAIChat(
+  conversationId?: Id<"aiConversations">,
+  selectedModel?: string,
+  superAdminQaMode?: AIChatSuperAdminQaMode
+) {
   const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
   const [error, setError] = useState<string | null>(null)
@@ -743,6 +797,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
     message: string
     organizationId: Id<"organizations">
     userId: Id<"users">
+    sessionId?: string
     selectedModel?: string
     mode?: AIChatComposerMode
     reasoningEffort?: AIChatReasoningEffort
@@ -753,6 +808,23 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
     liveSessionId?: string
     cameraRuntime?: AIChatCameraRuntimeMetadata
     voiceRuntime?: AIChatVoiceRuntimeMetadata
+    conversationRuntime?: AIChatConversationRuntimeMetadata
+    kickoffContract?: AIChatKickoffContract
+    commandPolicy?: Record<string, unknown>
+    transportRuntime?: Record<string, unknown>
+    avObservability?: Record<string, unknown>
+    qaMode?: {
+      enabled: boolean
+      sessionId?: string
+      targetAgentId?: string
+      targetTemplateRole?: string
+      label?: string
+      runId?: string
+      sourceSessionToken?: string
+      sourceAuditChannel?: "webchat" | "native_guest"
+      ingressChannel?: string
+      originSurface?: string
+    }
   }) => Promise<{ conversationId?: Id<"aiConversations"> } & Record<string, unknown>>
   const resolveVoiceRuntimeSessionAction = useActionUntyped(
     apiUntyped.ai.chat.resolveVoiceRuntimeSession
@@ -807,6 +879,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
           message,
           organizationId: organization.id as Id<"organizations">,
           userId: user.id as Id<"users">,
+          sessionId: sessionId || undefined,
           selectedModel,
           mode: options?.mode,
           reasoningEffort: options?.reasoningEffort,
@@ -817,6 +890,12 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
           liveSessionId: options?.liveSessionId,
           cameraRuntime: options?.cameraRuntime,
           voiceRuntime: options?.voiceRuntime,
+          conversationRuntime: options?.conversationRuntime,
+          kickoffContract: options?.kickoffContract,
+          commandPolicy: options?.commandPolicy,
+          transportRuntime: options?.transportRuntime,
+          avObservability: options?.avObservability,
+          qaMode: options?.qaMode || superAdminQaMode,
         })
 
         return result
@@ -826,7 +905,7 @@ export function useAIChat(conversationId?: Id<"aiConversations">, selectedModel?
         throw err
       }
     },
-    [user, organization, sendMessageAction, selectedModel]
+    [organization, selectedModel, sendMessageAction, sessionId, superAdminQaMode, user]
   )
 
   const resolveVoiceRuntimeSession = useCallback(

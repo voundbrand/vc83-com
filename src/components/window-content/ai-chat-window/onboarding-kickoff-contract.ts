@@ -1,26 +1,40 @@
+import {
+  SPECIALIST_ROLE_CONTRACTS,
+  type SpecialistRoleId,
+} from "../agents/agent-recommender";
+
 interface CoverageSpecialistHint {
   roleName: string;
   subtype: string;
   focus: string;
 }
 
-const COVERAGE_SPECIALIST_HINTS: Record<string, CoverageSpecialistHint> = {
+const COVERAGE_SPECIALIST_HINTS: Record<SpecialistRoleId, CoverageSpecialistHint> = {
   appointment_booking_specialist: {
-    roleName: "Appointment Booking Specialist",
-    subtype: "booking_agent",
-    focus: "Coordinate calendar-aware booking intents and deterministic scheduling follow-through.",
+    roleName: SPECIALIST_ROLE_CONTRACTS.appointment_booking_specialist.roleName,
+    subtype: SPECIALIST_ROLE_CONTRACTS.appointment_booking_specialist.defaultSubtype,
+    focus: SPECIALIST_ROLE_CONTRACTS.appointment_booking_specialist.focus,
   },
   provider_outreach_specialist: {
-    roleName: "Provider Outreach Specialist",
-    subtype: "customer_support",
-    focus: "Handle asynchronous provider outreach via messaging/email channels before escalation.",
+    roleName: SPECIALIST_ROLE_CONTRACTS.provider_outreach_specialist.roleName,
+    subtype: SPECIALIST_ROLE_CONTRACTS.provider_outreach_specialist.defaultSubtype,
+    focus: SPECIALIST_ROLE_CONTRACTS.provider_outreach_specialist.focus,
   },
   personal_schedule_coordinator: {
-    roleName: "Personal Schedule Coordinator",
-    subtype: "general",
-    focus: "Orchestrate end-to-end personal operator plans and manage handoff readiness.",
+    roleName: SPECIALIST_ROLE_CONTRACTS.personal_schedule_coordinator.roleName,
+    subtype: SPECIALIST_ROLE_CONTRACTS.personal_schedule_coordinator.defaultSubtype,
+    focus: SPECIALIST_ROLE_CONTRACTS.personal_schedule_coordinator.focus,
+  },
+  medical_compliance_reviewer: {
+    roleName: SPECIALIST_ROLE_CONTRACTS.medical_compliance_reviewer.roleName,
+    subtype: SPECIALIST_ROLE_CONTRACTS.medical_compliance_reviewer.defaultSubtype,
+    focus: SPECIALIST_ROLE_CONTRACTS.medical_compliance_reviewer.focus,
   },
 };
+
+function isSpecialistRoleId(value: string): value is SpecialistRoleId {
+  return Object.prototype.hasOwnProperty.call(COVERAGE_SPECIALIST_HINTS, value);
+}
 
 function resolveCoverageSpecialistHint(openContext?: string): CoverageSpecialistHint | null {
   if (!openContext) {
@@ -41,8 +55,8 @@ function resolveCoverageSpecialistHint(openContext?: string): CoverageSpecialist
   }
   const explicitSubtype = contextTokens[2] || undefined;
 
-  const knownHint = COVERAGE_SPECIALIST_HINTS[roleId];
-  if (knownHint) {
+  if (isSpecialistRoleId(roleId)) {
+    const knownHint = COVERAGE_SPECIALIST_HINTS[roleId];
     return {
       ...knownHint,
       subtype: explicitSubtype || knownHint.subtype,

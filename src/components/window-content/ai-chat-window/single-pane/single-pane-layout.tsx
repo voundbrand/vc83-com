@@ -7,7 +7,7 @@ import { ChatFooter } from "./chat-footer"
 
 export function SinglePaneLayout() {
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--shell-surface)' }}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--shell-surface)' }}>
       <ChatHeader />
       <ChatMessages />
       <ChatInput />

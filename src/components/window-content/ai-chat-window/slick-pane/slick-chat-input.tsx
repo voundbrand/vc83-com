@@ -23,7 +23,6 @@ import {
 import {
   AlertCircle,
   ArrowUp,
-  Camera,
   Check,
   ChevronDown,
   ImagePlus,
@@ -39,7 +38,23 @@ import {
   consumeVoiceAgentCoCreationHandoff,
   VOICE_AGENT_HANDOFF_EVENT,
 } from "@/lib/voice-assistant/agent-co-creation-handoff"
+import {
+  resolveVoiceCaptureFallbackMimeType,
+  resolveVoiceCapturePreferredMimeTypes,
+} from "@/lib/voice-assistant/runtime-policy"
 import { buildFrontlineFeatureIntakeKickoff } from "@/lib/ai/frontline-feature-intake"
+import {
+  CONVERSATION_CONTRACT_VERSION,
+  type ConversationEventType,
+  type ConversationReasonCode,
+  type ConversationSessionState,
+  inferConversationReasonCode,
+} from "@/lib/ai/conversation-session-contract"
+import {
+  buildConversationCapabilitySnapshot,
+  mapConversationCapabilityReasonCode,
+  type ConversationCapabilitySnapshot,
+} from "@/lib/av/session/mediaSessionContract"
 import type {
   CollaborationSurfaceSelection,
   OperatorCollaborationContextPayload,
@@ -193,6 +208,8 @@ interface ComposerImageAttachment {
 }
 
 type VoiceCaptureState = "idle" | "listening" | "transcribing"
+type ConversationModeSelection = "voice" | "voice_with_eyes"
+type ConversationEyesSourceSelection = "webcam" | "meta_glasses"
 
 interface CameraLiveSessionState {
   liveSessionId: string
@@ -394,9 +411,7 @@ interface ComposerActionMenuProps {
   referenceCount: number
   onAddLink: () => void
   onAttachImage: () => void
-  onVision: () => void
   onFrontlineIntake: () => void
-  visionActive?: boolean
   modeLabel: string
   reasoningLabel: string
   voiceLanguageLabel?: string
@@ -411,9 +426,7 @@ function ComposerActionMenu({
   referenceCount,
   onAddLink,
   onAttachImage,
-  onVision,
   onFrontlineIntake,
-  visionActive,
   modeLabel,
   reasoningLabel,
   voiceLanguageLabel,
@@ -425,7 +438,7 @@ function ComposerActionMenu({
   const [isOpen, setIsOpen] = useState(false)
   const [isButtonHovered, setIsButtonHovered] = useState(false)
   const [hoveredAction, setHoveredAction] = useState<
-    "attach" | "link" | "vision" | "frontline" | "mode" | "reasoning" | "language" | null
+    "attach" | "link" | "frontline" | "mode" | "reasoning" | "language" | null
   >(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -486,23 +499,6 @@ function ComposerActionMenu({
             background: "var(--shell-input-surface)",
           }}
         >
-          <button
-            type="button"
-            onClick={() => {
-              onVision()
-              setIsOpen(false)
-            }}
-            onMouseEnter={() => setHoveredAction("vision")}
-            onMouseLeave={() => setHoveredAction(null)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors duration-120"
-            style={{
-              color: "var(--shell-input-text)",
-              background: hoveredAction === "vision" ? "var(--shell-neutral-hover-surface)" : "transparent",
-            }}
-          >
-            <Camera size={14} />
-            {visionActive ? "Stop Vision" : "Vision"}
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -736,6 +732,28 @@ export function SlickChatInput({
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>("idle")
   const [voiceCaptureError, setVoiceCaptureError] = useState<string | null>(null)
   const [voiceCaptureSupported, setVoiceCaptureSupported] = useState(false)
+  const [isConversationPickerOpen, setIsConversationPickerOpen] = useState(false)
+  const [conversationModeSelection, setConversationModeSelection] =
+    useState<ConversationModeSelection>("voice")
+  const [conversationEyesSourceSelection, setConversationEyesSourceSelection] =
+    useState<ConversationEyesSourceSelection>("webcam")
+  const [isStartingConversation, setIsStartingConversation] = useState(false)
+  const [isConversationEnding, setIsConversationEnding] = useState(false)
+  const [isConversationMicMuted, setIsConversationMicMuted] = useState(false)
+  const [conversationState, setConversationState] = useState<ConversationSessionState>("idle")
+  const [conversationReasonCode, setConversationReasonCode] = useState<ConversationReasonCode | undefined>(undefined)
+  const [conversationCapabilitySnapshot, setConversationCapabilitySnapshot] =
+    useState<ConversationCapabilitySnapshot>(() =>
+      buildConversationCapabilitySnapshot({
+        sessionIntent: "voice",
+        requestedEyesSource: "none",
+        micAvailable: false,
+        webcamAvailable: false,
+        webcamReasonCode: "device_unavailable",
+        metaGlassesAvailable: false,
+        metaGlassesReasonCode: "dat_sdk_unavailable",
+      })
+    )
   const [pendingVoiceRuntime, setPendingVoiceRuntime] = useState<AIChatVoiceRuntimeMetadata | null>(null)
   const [resolvedVoiceRuntimeSession, setResolvedVoiceRuntimeSession] =
     useState<AIChatVoiceRuntimeSessionResolution | null>(null)
@@ -758,7 +776,10 @@ export function SlickChatInput({
   const voiceRecorderRef = useRef<MediaRecorder | null>(null)
   const voiceStreamRef = useRef<MediaStream | null>(null)
   const voiceCaptureChunksRef = useRef<Blob[]>([])
+  const conversationPickerRef = useRef<HTMLDivElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
+  const lastConversationEventRef = useRef<string>("")
+  const activeConversationEyesSourceRef = useRef<ConversationEyesSourceSelection | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
   const useQueryUntyped = useQuery as (query: unknown, args?: unknown) => unknown
   const useActionUntyped = useAction as (action: unknown) => unknown
@@ -860,6 +881,44 @@ export function SlickChatInput({
       && Boolean(navigator.mediaDevices?.getUserMedia)
     )
   }, [])
+
+  useEffect(() => {
+    const webcamAvailable =
+      typeof window !== "undefined"
+      && Boolean(navigator.mediaDevices?.getUserMedia)
+    setConversationCapabilitySnapshot(
+      buildConversationCapabilitySnapshot({
+        sessionIntent: conversationModeSelection,
+        requestedEyesSource:
+          conversationModeSelection === "voice_with_eyes"
+            ? conversationEyesSourceSelection
+            : "none",
+        micAvailable: voiceCaptureSupported,
+        webcamAvailable,
+        webcamReasonCode: webcamAvailable ? null : "device_unavailable",
+        metaGlassesAvailable: false,
+        metaGlassesReasonCode: "dat_sdk_unavailable",
+      })
+    )
+  }, [conversationEyesSourceSelection, conversationModeSelection, voiceCaptureSupported])
+
+  useEffect(() => {
+    if (!isConversationPickerOpen) {
+      return
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        conversationPickerRef.current
+        && !conversationPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsConversationPickerOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isConversationPickerOpen])
 
   useEffect(() => {
     return () => {
@@ -966,8 +1025,13 @@ export function SlickChatInput({
     setPendingVoiceRuntime(null)
     setResolvedVoiceRuntimeSession(null)
     setActiveVoiceSessionId(null)
+    setIsConversationPickerOpen(false)
     setCameraLiveSession(null)
     setCameraVisionError(null)
+    setIsConversationMicMuted(false)
+    setIsConversationEnding(false)
+    setConversationState("idle")
+    setConversationReasonCode(undefined)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId])
 
@@ -1005,10 +1069,52 @@ export function SlickChatInput({
     })
   }
 
-  const startVisionStream = async () => {
+  const degradeConversationToVoice = (
+    reason: string,
+    source: ConversationEyesSourceSelection
+  ) => {
+    const reasonCode = mapConversationCapabilityReasonCode(reason)
+    stopVisionStream("conversation_source_drop")
+    setConversationModeSelection("voice")
+    setConversationReasonCode(reasonCode)
+    activeConversationEyesSourceRef.current = null
+    emitConversationEvent("conversation_degraded_to_voice", {
+      reasonCode,
+      source,
+    })
+    notification.info(
+      "Eyes feed unavailable",
+      "Continuing with voice only."
+    )
+  }
+
+  const emitConversationEvent = (eventType: ConversationEventType, payload?: Record<string, unknown>) => {
+    const liveSessionId = pendingVoiceRuntime?.liveSessionId || cameraLiveSession?.liveSessionId
+    const envelope = {
+      contractVersion: CONVERSATION_CONTRACT_VERSION,
+      eventType,
+      timestampMs: Date.now(),
+      liveSessionId,
+      conversationId: currentConversationId ? String(currentConversationId) : undefined,
+      state: conversationState,
+      reasonCode: conversationReasonCode,
+      payload,
+    }
+    const eventKey = `${envelope.eventType}:${envelope.state}:${envelope.reasonCode || "none"}`
+    if (eventKey === lastConversationEventRef.current) {
+      return
+    }
+    lastConversationEventRef.current = eventKey
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("conversation_session_event", { detail: envelope }))
+    }
+    console.info("[conversation_event]", envelope)
+  }
+
+  const startVisionStream = async (): Promise<boolean> => {
     if (cameraStreamRef.current) {
       stopVisionStream("operator_toggle_off")
-      return
+      return false
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -1027,12 +1133,22 @@ export function SlickChatInput({
         "Vision Unavailable",
         "Live camera capture requires getUserMedia support on this device."
       )
-      return
+      return false
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
+      })
+      stream.getVideoTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          if (
+            activeConversationEyesSourceRef.current === "webcam"
+            && conversationModeSelection === "voice_with_eyes"
+          ) {
+            degradeConversationToVoice("device_unavailable", "webcam")
+          }
+        }, { once: true })
       })
       cameraStreamRef.current = stream
       if (cameraVideoRef.current) {
@@ -1048,6 +1164,7 @@ export function SlickChatInput({
         frameCaptureCount: 0,
         sessionState: "capturing",
       })
+      return true
     } catch (error) {
       const fallbackReason =
         error instanceof Error && error.message.trim().length > 0
@@ -1067,6 +1184,7 @@ export function SlickChatInput({
         "Vision Stream Failed",
         "Camera permission is required for live vision capture."
       )
+      return false
     }
   }
 
@@ -1266,11 +1384,7 @@ export function SlickChatInput({
       voiceStreamRef.current = stream
       voiceCaptureChunksRef.current = []
 
-      const preferredMimeTypes = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ]
+      const preferredMimeTypes = resolveVoiceCapturePreferredMimeTypes("elevenlabs")
       const mimeType = preferredMimeTypes.find((value) => window.MediaRecorder.isTypeSupported(value))
       const recorder = mimeType
         ? new window.MediaRecorder(stream, { mimeType })
@@ -1290,7 +1404,9 @@ export function SlickChatInput({
         releaseVoiceMediaStream()
         voiceRecorderRef.current = null
 
-        const audioType = voiceCaptureChunksRef.current[0]?.type || "audio/webm"
+        const audioType =
+          voiceCaptureChunksRef.current[0]?.type
+          || resolveVoiceCaptureFallbackMimeType("elevenlabs")
         const audioBlob = new Blob(voiceCaptureChunksRef.current, { type: audioType })
         voiceCaptureChunksRef.current = []
         if (!audioBlob.size) {
@@ -1396,6 +1512,95 @@ export function SlickChatInput({
           reason: "chat_voice_capture_failed_to_start",
         })
       }
+    }
+  }
+
+  const startConversationCapture = async () => {
+    if (isStartingConversation || voiceCaptureState === "transcribing") {
+      return
+    }
+
+    setIsStartingConversation(true)
+    try {
+      emitConversationEvent("conversation_start_requested")
+      if (conversationModeSelection === "voice_with_eyes") {
+        const sourceCapability =
+          conversationEyesSourceSelection === "webcam"
+            ? conversationCapabilitySnapshot.capabilities.webcam
+            : conversationCapabilitySnapshot.capabilities.metaGlasses
+        if (!sourceCapability.available) {
+          const reasonCode =
+            sourceCapability.reasonCode
+            || mapConversationCapabilityReasonCode("device_unavailable")
+          setConversationState("error")
+          setConversationReasonCode(reasonCode)
+          notification.error(
+            "Eyes Source Unavailable",
+            `Selected eyes source is unavailable (\`${reasonCode}\`).`
+          )
+          emitConversationEvent("conversation_error", {
+            source: conversationEyesSourceSelection,
+            reasonCode,
+            capabilitySnapshot: conversationCapabilitySnapshot,
+          })
+          return
+        }
+        activeConversationEyesSourceRef.current = conversationEyesSourceSelection
+        const startedVision = await startVisionStream()
+        if (!startedVision) {
+          const reasonCode = mapConversationCapabilityReasonCode(cameraVisionError || "device_unavailable")
+          setConversationState("error")
+          setConversationReasonCode(reasonCode)
+          emitConversationEvent("conversation_error", {
+            source: conversationEyesSourceSelection,
+            reasonCode,
+          })
+          return
+        }
+      } else if (cameraLiveSession?.sessionState === "capturing") {
+        stopVisionStream("conversation_voice_only_selected")
+        activeConversationEyesSourceRef.current = null
+      }
+
+      setIsConversationPickerOpen(false)
+      if (voiceCaptureState !== "listening") {
+        await startVoiceCapture()
+      }
+    } finally {
+      setIsStartingConversation(false)
+    }
+  }
+
+  const endConversationSession = () => {
+    setIsConversationEnding(true)
+    if (voiceCaptureState === "listening") {
+      stopVoiceCapture()
+    }
+    if (cameraLiveSession?.sessionState === "capturing") {
+      stopVisionStream("conversation_end_control")
+    }
+    activeConversationEyesSourceRef.current = null
+    setPendingVoiceRuntime(null)
+    setConversationState("ended")
+    setConversationReasonCode(undefined)
+    emitConversationEvent("conversation_ended")
+    setTimeout(() => {
+      setIsConversationEnding(false)
+      setConversationState("idle")
+    }, 0)
+  }
+
+  const toggleConversationMute = async () => {
+    if (isConversationMicMuted) {
+      setIsConversationMicMuted(false)
+      if (voiceCaptureState === "idle") {
+        await startVoiceCapture()
+      }
+      return
+    }
+    setIsConversationMicMuted(true)
+    if (voiceCaptureState === "listening") {
+      stopVoiceCapture()
     }
   }
 
@@ -1913,6 +2118,21 @@ export function SlickChatInput({
         liveSessionId: normalizedLiveSessionId,
         cameraRuntime,
         voiceRuntime,
+        conversationRuntime: {
+          contractVersion: CONVERSATION_CONTRACT_VERSION,
+          state: conversationState,
+          reasonCode: conversationReasonCode,
+          mode: conversationModeSelection,
+          requestedEyesSource:
+            conversationModeSelection === "voice_with_eyes"
+              ? conversationEyesSourceSelection
+              : "none",
+          sourceMode:
+            conversationModeSelection === "voice_with_eyes"
+              ? conversationEyesSourceSelection
+              : "voice",
+          capabilitySnapshot: conversationCapabilitySnapshot,
+        },
       })
 
       if (!currentConversationId && result.conversationId) {
@@ -2006,6 +2226,7 @@ export function SlickChatInput({
   const isVoiceListening = voiceCaptureState === "listening"
   const isVoiceTranscribing = voiceCaptureState === "transcribing"
   const hasLiveVisionStream = Boolean(cameraStreamRef.current && cameraLiveSession?.sessionState === "capturing")
+  const isConversationActive = conversationState === "connecting" || conversationState === "live" || conversationState === "reconnecting"
   const controlDisabled = isSending || isFetchingReferences
   const configuredModelRows = useMemo(() => {
     const rows: Array<{ modelId: string; customLabel?: string }> = []
@@ -2227,6 +2448,101 @@ export function SlickChatInput({
     || !organizationId
     || dmSyncSummaryDraft.trim().length === 0
 
+  useEffect(() => {
+    const hasConversationIntent = isStartingConversation || isVoiceListening || isVoiceTranscribing || Boolean(pendingVoiceRuntime)
+    const nextState: ConversationSessionState =
+      isConversationEnding
+        ? "ending"
+        : conversationState === "ended"
+          ? "ended"
+          : cameraVisionError || voiceCaptureError
+            ? "error"
+            : !hasConversationIntent
+              ? "idle"
+              : isStartingConversation || isVoiceTranscribing
+                ? "connecting"
+                : isVoiceListening
+                  ? "live"
+                  : "reconnecting"
+
+    const nextReason =
+      nextState === "error"
+        ? inferConversationReasonCode(cameraVisionError || voiceCaptureError)
+        : nextState === "reconnecting"
+          ? "transport_failed"
+          : undefined
+
+    setConversationState((current) => (current === nextState ? current : nextState))
+    setConversationReasonCode((current) => (current === nextReason ? current : nextReason))
+  }, [
+    cameraVisionError,
+    conversationState,
+    isConversationEnding,
+    isStartingConversation,
+    isVoiceListening,
+    isVoiceTranscribing,
+    pendingVoiceRuntime,
+    voiceCaptureError,
+  ])
+
+  useEffect(() => {
+    if (conversationState === "idle") {
+      return
+    }
+    if (conversationState === "connecting") {
+      emitConversationEvent("conversation_connecting")
+      return
+    }
+    if (conversationState === "live") {
+      emitConversationEvent("conversation_live")
+      return
+    }
+    if (conversationState === "reconnecting") {
+      emitConversationEvent("conversation_reconnecting")
+      return
+    }
+    if (conversationState === "ending") {
+      emitConversationEvent("conversation_ending")
+      return
+    }
+    if (conversationState === "ended") {
+      emitConversationEvent("conversation_ended")
+      return
+    }
+    emitConversationEvent("conversation_error")
+    if (conversationReasonCode === "permission_denied_mic" || conversationReasonCode === "permission_denied_camera") {
+      emitConversationEvent("conversation_permission_denied")
+    }
+  }, [conversationReasonCode, conversationState])
+
+  useEffect(() => {
+    if (conversationModeSelection !== "voice_with_eyes") {
+      return
+    }
+    if (conversationState !== "live" && conversationState !== "reconnecting") {
+      return
+    }
+    if (!activeConversationEyesSourceRef.current) {
+      return
+    }
+    if (cameraLiveSession?.sessionState === "capturing") {
+      return
+    }
+    if (
+      cameraLiveSession?.stopReason === "conversation_eyes_toggle_off"
+      || cameraLiveSession?.stopReason === "conversation_end_control"
+      || cameraLiveSession?.stopReason === "conversation_voice_only_selected"
+      || cameraLiveSession?.stopReason === "operator_toggle_off"
+      || cameraLiveSession?.stopReason === "operator_stop"
+    ) {
+      return
+    }
+    degradeConversationToVoice(
+      cameraVisionError || cameraLiveSession?.fallbackReason || "device_unavailable",
+      activeConversationEyesSourceRef.current
+    )
+  }, [cameraLiveSession, cameraVisionError, conversationModeSelection, conversationState])
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -2310,6 +2626,93 @@ export function SlickChatInput({
               >
                 <X size={14} />
               </button>
+            </div>
+          ) : null}
+
+          {(isConversationActive || conversationState === "ending" || conversationState === "error") ? (
+            <div
+              className="mb-3 rounded-2xl border p-2"
+              style={{
+                borderColor:
+                  conversationState === "error"
+                    ? "var(--error)"
+                    : conversationState === "reconnecting"
+                      ? "var(--shell-input-border-strong)"
+                      : "var(--success)",
+                background: "var(--shell-surface)",
+              }}
+            >
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+                  Conversation • {conversationModeSelection === "voice_with_eyes" ? "Voice + Eyes" : "Voice only"}
+                </div>
+                <div className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
+                  {conversationState}
+                  {conversationReasonCode ? ` • ${conversationReasonCode}` : ""}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toggleConversationMute()
+                  }}
+                  disabled={isVoiceTranscribing}
+                  className="rounded-full border px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    borderColor: "var(--shell-border-soft)",
+                    background: isConversationMicMuted ? "var(--error-bg)" : "var(--shell-surface)",
+                    color: isConversationMicMuted ? "var(--error)" : "var(--shell-text)",
+                  }}
+                >
+                  {isConversationMicMuted ? "Unmute mic" : "Mute mic"}
+                </button>
+                {conversationModeSelection === "voice_with_eyes" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (cameraLiveSession?.sessionState === "capturing") {
+                          degradeConversationToVoice("device_unavailable", conversationEyesSourceSelection)
+                          return
+                        }
+                        void (async () => {
+                          const started = await startVisionStream()
+                          if (started) {
+                            activeConversationEyesSourceRef.current = conversationEyesSourceSelection
+                            emitConversationEvent("conversation_eyes_source_changed", {
+                              eyesSource: conversationEyesSourceSelection,
+                            })
+                          }
+                        })()
+                      }}
+                      className="rounded-full border px-3 py-1 text-xs font-semibold"
+                      style={{
+                        borderColor: "var(--shell-border-soft)",
+                        background: "var(--shell-surface)",
+                        color: "var(--shell-text)",
+                      }}
+                    >
+                      {cameraLiveSession?.sessionState === "capturing" ? "Eyes off" : "Eyes on"}
+                    </button>
+                    <span className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
+                      source: {conversationEyesSourceSelection}
+                    </span>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={endConversationSession}
+                  className="rounded-full border px-3 py-1 text-xs font-semibold"
+                  style={{
+                    borderColor: "var(--error)",
+                    background: "var(--error-bg)",
+                    color: "var(--error)",
+                  }}
+                >
+                  End conversation
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -2640,10 +3043,6 @@ export function SlickChatInput({
                 onFrontlineIntake={() => {
                   void startFrontlineIntake()
                 }}
-                onVision={() => {
-                  void startVisionStream()
-                }}
-                visionActive={hasLiveVisionStream}
                 modeLabel={modeLabel}
                 reasoningLabel={reasoningLabel}
                 voiceLanguageLabel={selectedLanguageCode}
@@ -2677,7 +3076,7 @@ export function SlickChatInput({
               />
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="relative flex shrink-0 items-center gap-2" ref={conversationPickerRef}>
               {isSending ? (
                 <button
                   type="button"
@@ -2697,39 +3096,197 @@ export function SlickChatInput({
                   <StopCircle size={16} />
                 </button>
               ) : (message.trim().length === 0 && imageAttachments.length === 0 && voiceCaptureSupported) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isVoiceListening) {
-                      stopVoiceCapture()
-                      return
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isVoiceListening) {
+                        stopVoiceCapture()
+                        return
+                      }
+                      if (isVoiceTranscribing) {
+                        return
+                      }
+                      void startVoiceCapture()
+                    }}
+                    disabled={controlDisabled || isVoiceTranscribing}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      borderColor: "var(--shell-border-soft)",
+                      background: "var(--shell-surface)",
+                      color: isVoiceListening ? "var(--error)" : "var(--shell-text-dim)",
+                    }}
+                    title={
+                      isVoiceTranscribing
+                        ? "Transcribing voice capture"
+                        : isVoiceListening
+                          ? "Stop voice capture"
+                          : "Start voice capture"
                     }
-                    if (isVoiceTranscribing) {
-                      return
-                    }
-                    void startVoiceCapture()
-                  }}
-                  disabled={controlDisabled || isVoiceTranscribing}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{
-                    borderColor: "var(--shell-border-soft)",
-                    background: "var(--shell-surface)",
-                    color: isVoiceListening ? "var(--error)" : "var(--shell-text-dim)",
-                  }}
-                  title={
-                    isVoiceTranscribing
-                      ? "Transcribing voice capture"
-                      : isVoiceListening
-                        ? "Stop voice capture"
-                        : "Start voice capture"
-                  }
-                >
-                  {isVoiceTranscribing ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Mic size={16} />
-                  )}
-                </button>
+                  >
+                    {isVoiceTranscribing ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Mic size={14} />
+                    )}
+                    <span>Dictate</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-expanded={isConversationPickerOpen}
+                    onClick={() => setIsConversationPickerOpen((current) => !current)}
+                    disabled={controlDisabled || isVoiceTranscribing}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      borderColor: isConversationPickerOpen
+                        ? "var(--shell-neutral-active-border)"
+                        : "var(--shell-border-soft)",
+                      background: isConversationPickerOpen
+                        ? "var(--shell-neutral-hover-surface)"
+                        : "var(--shell-surface)",
+                      color: "var(--shell-text)",
+                    }}
+                    title="Choose conversation mode"
+                  >
+                    <span>Conversation</span>
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {isConversationPickerOpen ? (
+                    <div
+                      role="dialog"
+                      aria-label="Conversation mode picker"
+                      className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-2xl border p-3"
+                      style={{
+                        borderColor: "var(--shell-input-border-strong)",
+                        background: "var(--shell-input-surface)",
+                      }}
+                    >
+                      <p className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+                        Start Conversation
+                      </p>
+                      <p className="mt-1 text-xs" style={{ color: "var(--shell-text-dim)" }}>
+                        Choose mode, then press Start.
+                      </p>
+                      <div className="mt-2 space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setConversationModeSelection("voice")}
+                          className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
+                          style={{
+                            borderColor:
+                              conversationModeSelection === "voice"
+                                ? "var(--shell-neutral-active-border)"
+                                : "var(--shell-border-soft)",
+                            background:
+                              conversationModeSelection === "voice"
+                                ? "var(--shell-neutral-hover-surface)"
+                                : "var(--shell-surface)",
+                            color: "var(--shell-text)",
+                          }}
+                        >
+                          <span className="font-semibold">Voice only</span>
+                          {conversationModeSelection === "voice" ? <Check size={14} /> : null}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConversationModeSelection("voice_with_eyes")}
+                          className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
+                          style={{
+                            borderColor:
+                              conversationModeSelection === "voice_with_eyes"
+                                ? "var(--shell-neutral-active-border)"
+                                : "var(--shell-border-soft)",
+                            background:
+                              conversationModeSelection === "voice_with_eyes"
+                                ? "var(--shell-neutral-hover-surface)"
+                                : "var(--shell-surface)",
+                            color: "var(--shell-text)",
+                          }}
+                        >
+                          <span className="font-semibold">Voice + Eyes</span>
+                          {conversationModeSelection === "voice_with_eyes" ? <Check size={14} /> : null}
+                        </button>
+                      </div>
+
+                      {conversationModeSelection === "voice_with_eyes" ? (
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-xs font-semibold" style={{ color: "var(--shell-text-dim)" }}>
+                            Eyes source
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setConversationEyesSourceSelection("webcam")}
+                            className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
+                            style={{
+                              borderColor:
+                                conversationEyesSourceSelection === "webcam"
+                                  ? "var(--shell-neutral-active-border)"
+                                  : "var(--shell-border-soft)",
+                              background: "var(--shell-surface)",
+                              color: "var(--shell-text)",
+                            }}
+                            disabled={!conversationCapabilitySnapshot.capabilities.webcam.available}
+                          >
+                            <span>Webcam</span>
+                            {conversationEyesSourceSelection === "webcam" ? <Check size={14} /> : null}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConversationEyesSourceSelection("meta_glasses")}
+                            className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{
+                              borderColor: "var(--shell-border-soft)",
+                              background: "var(--shell-surface)",
+                              color: "var(--shell-text-dim)",
+                            }}
+                            disabled={!conversationCapabilitySnapshot.capabilities.metaGlasses.available}
+                            title={conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode || undefined}
+                          >
+                            <span>Meta Glasses</span>
+                            <span>
+                              {conversationCapabilitySnapshot.capabilities.metaGlasses.available
+                                ? "Available"
+                                : "Unavailable"}
+                            </span>
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsConversationPickerOpen(false)}
+                          className="rounded-full border px-3 py-1 text-xs font-semibold"
+                          style={{
+                            borderColor: "var(--shell-border-soft)",
+                            background: "var(--shell-surface)",
+                            color: "var(--shell-text-dim)",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void startConversationCapture()
+                          }}
+                          disabled={isStartingConversation || isVoiceTranscribing || controlDisabled}
+                          className="rounded-full border px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{
+                            borderColor: "var(--shell-border-soft)",
+                            background: "var(--shell-button-primary-gradient)",
+                            color: "var(--shell-on-accent)",
+                          }}
+                        >
+                          {isStartingConversation ? "Starting..." : "Start"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               {!isSending && !(message.trim().length === 0 && imageAttachments.length === 0 && voiceCaptureSupported) ? (
                 <button
