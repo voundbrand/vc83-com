@@ -72,6 +72,28 @@ interface TeamSpecialistSelectionResult {
   error?: string;
 }
 
+export interface SamanthaWarmLeadGuardrailInput {
+  selectedAgent: TeamSpecialistAgentRecord;
+  activeAgents: TeamSpecialistAgentRecord[];
+  requestedSpecialistType: string;
+  requestedSpecialistId?: string;
+  runtimePolicy?: ToolExecutionContext["runtimePolicy"];
+  provenance?: TeamSpecialistSelectionProvenance;
+}
+
+export interface SamanthaWarmLeadGuardrailResult {
+  targetAgent: TeamSpecialistAgentRecord;
+  provenance?: TeamSpecialistSelectionProvenance;
+  guardrailApplied: boolean;
+  reasonCode?: "warm_samantha_disallowed_for_cold_lead";
+  error?: string;
+}
+
+const SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE =
+  "one_of_one_lead_capture_consultant_template";
+const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE =
+  "one_of_one_warm_lead_capture_consultant_template";
+
 // Lazy-load to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -100,6 +122,41 @@ function normalizeOptionalString(value: unknown): string | undefined {
 function normalizeLower(value: unknown): string | undefined {
   const normalized = normalizeOptionalString(value);
   return normalized ? normalized.toLowerCase() : undefined;
+}
+
+function resolveAgentTemplateRole(
+  agent: TeamSpecialistAgentRecord
+): string | undefined {
+  if (!agent.customProperties || typeof agent.customProperties !== "object") {
+    return undefined;
+  }
+  return normalizeOptionalString(
+    (agent.customProperties as Record<string, unknown>).templateRole
+  );
+}
+
+function isSamanthaWarmLeadCaptureAgent(
+  agent: TeamSpecialistAgentRecord
+): boolean {
+  return (
+    resolveAgentTemplateRole(agent) === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
+  );
+}
+
+function isSamanthaLeadCaptureAgent(
+  agent: TeamSpecialistAgentRecord
+): boolean {
+  const templateRole = resolveAgentTemplateRole(agent);
+  return (
+    templateRole === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+    || templateRole === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
+  );
+}
+
+function resolveWarmLeadEligibilityFromRuntimePolicy(
+  runtimePolicy?: ToolExecutionContext["runtimePolicy"]
+): boolean {
+  return runtimePolicy?.commercialRouting?.warmLeadEligible === true;
 }
 
 function resolveAgentDisplayName(agent: TeamSpecialistAgentRecord): string {
@@ -401,6 +458,64 @@ export function resolveTeamSpecialistSelection(
   };
 }
 
+export function resolveSamanthaWarmLeadGuardrail(
+  input: SamanthaWarmLeadGuardrailInput
+): SamanthaWarmLeadGuardrailResult {
+  const warmSpecialistSelected = isSamanthaWarmLeadCaptureAgent(
+    input.selectedAgent
+  );
+  if (!warmSpecialistSelected) {
+    return {
+      targetAgent: input.selectedAgent,
+      provenance: input.provenance,
+      guardrailApplied: false,
+    };
+  }
+
+  if (resolveWarmLeadEligibilityFromRuntimePolicy(input.runtimePolicy)) {
+    return {
+      targetAgent: input.selectedAgent,
+      provenance: input.provenance,
+      guardrailApplied: false,
+    };
+  }
+
+  const coldSamanthaCandidates = input.activeAgents
+    .filter(
+      (agent) =>
+        resolveAgentTemplateRole(agent) === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+    )
+    .sort((left, right) => String(left._id).localeCompare(String(right._id)));
+
+  const fallbackAgent = coldSamanthaCandidates[0];
+  if (!fallbackAgent) {
+    return {
+      targetAgent: input.selectedAgent,
+      provenance: input.provenance,
+      guardrailApplied: false,
+      reasonCode: "warm_samantha_disallowed_for_cold_lead",
+      error:
+        "Warm Samantha is restricted to warm/store leads. No cold Samantha fallback is available for this organization.",
+    };
+  }
+
+  return {
+    targetAgent: fallbackAgent,
+    provenance: {
+      selectionStrategy: "fallback_subtype",
+      requestedSpecialistType:
+        normalizeSpecialistSubtype(input.requestedSpecialistType)
+        || input.requestedSpecialistType,
+      requestedSpecialistId: normalizeOptionalString(input.requestedSpecialistId),
+      matchedBy: "fallback_subtype",
+      candidateCount: coldSamanthaCandidates.length,
+      catalogSize: coldSamanthaCandidates.length,
+    },
+    guardrailApplied: true,
+    reasonCode: "warm_samantha_disallowed_for_cold_lead",
+  };
+}
+
 function resolveListContractAgent(
   contract: DreamTeamSpecialistRuntimeContract,
   activeAgents: TeamSpecialistAgentRecord[],
@@ -605,16 +720,52 @@ export const tagInSpecialistTool: AITool = {
       return { error: selection.error || "Unable to resolve specialist selection." };
     }
 
+    const warmLeadGuardrail = resolveSamanthaWarmLeadGuardrail({
+      selectedAgent: selection.targetAgent,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      activeAgents: allAgents as any[],
+      requestedSpecialistType: specialistType,
+      requestedSpecialistId: specialistId,
+      runtimePolicy: ctx.runtimePolicy,
+      provenance: selection.provenance,
+    });
+    if (warmLeadGuardrail.error) {
+      return { error: warmLeadGuardrail.error };
+    }
+    const selectedSpecialist = warmLeadGuardrail.targetAgent;
+    const handoffProvenance = warmLeadGuardrail.provenance || selection.provenance;
+    const preferredTeamAccessMode = isSamanthaLeadCaptureAgent(selectedSpecialist)
+      ? "direct"
+      : undefined;
+
+    if (warmLeadGuardrail.guardrailApplied) {
+      await ctx.runMutation(getInternal().ai.agentSessions.logAgentAction, {
+        agentId: ctx.agentId,
+        organizationId: ctx.organizationId,
+        actionType: "warm_specialist_guardrail_applied",
+        actionData: {
+          sessionId: ctx.agentSessionId,
+          requestedSpecialistType: specialistType,
+          requestedSpecialistId: specialistId,
+          selectedSpecialistId: selection.targetAgent._id,
+          reroutedSpecialistId: selectedSpecialist._id,
+          reasonCode: warmLeadGuardrail.reasonCode,
+          commercialRouting: ctx.runtimePolicy?.commercialRouting ?? null,
+        },
+      });
+    }
+
     // 2. Execute validated handoff via teamHarness
     const handoffResult = await ctx.runMutation(
       getInternal().ai.teamHarness.executeTeamHandoff,
       {
         sessionId: ctx.agentSessionId,
         fromAgentId: ctx.agentId,
-        toAgentId: selection.targetAgent._id,
+        toAgentId: selectedSpecialist._id,
         organizationId: ctx.organizationId,
         handoff: handoffPayload.payload,
-        handoffProvenance: selection.provenance,
+        preferredTeamAccessMode,
+        handoffProvenance,
       }
     );
 
@@ -643,11 +794,11 @@ export const tagInSpecialistTool: AITool = {
       success: true,
       tagged: specialistName,
       subtype: specialistType,
-      specialistId: selection.targetAgent._id,
+      specialistId: selectedSpecialist._id,
       teamAccessMode,
       activeAgentId: result?.activeAgentId,
       handoffNumber: result?.handoffNumber,
-      handoffProvenance: result?.handoffProvenance || selection.provenance,
+      handoffProvenance: result?.handoffProvenance || handoffProvenance,
       message:
         teamAccessMode === "invisible"
           ? `${specialistName} is advising in invisible mode. Continue in primary-agent voice and synthesize their guidance.`

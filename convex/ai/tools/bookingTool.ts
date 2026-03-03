@@ -564,6 +564,10 @@ export const executeManageBookings = action({
     confirmationRecipient: v.optional(v.string()),
     conciergeIdempotencyKey: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
+    meetingConciergeExplicitConfirmDetected: v.optional(v.boolean()),
+    meetingConciergePolicyRequired: v.optional(v.boolean()),
+    meetingConciergeCommandPolicyAllowed: v.optional(v.boolean()),
+    meetingConciergeCommandPolicyReasonCode: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -707,6 +711,33 @@ export const executeManageBookings = action({
         case "run_meeting_concierge_demo":
           if (!userId) {
             throw new Error("userId is required for run_meeting_concierge_demo");
+          }
+          if (
+            args.meetingConciergePolicyRequired === true
+            && args.meetingConciergeCommandPolicyAllowed !== true
+          ) {
+            return {
+              success: false,
+              action: "run_meeting_concierge_demo",
+              mode: args.mode === "preview" ? "preview" : "execute",
+              error: "Meeting concierge command policy blocked execution",
+              message:
+                `Meeting concierge command policy blocked execution (${args.meetingConciergeCommandPolicyReasonCode || "policy_blocked"}).`,
+            };
+          }
+          if (
+            args.mode !== "preview"
+            && typeof args.meetingConciergeExplicitConfirmDetected === "boolean"
+            && args.meetingConciergeExplicitConfirmDetected !== true
+          ) {
+            return {
+              success: false,
+              action: "run_meeting_concierge_demo",
+              mode: "execute",
+              error: "Explicit confirmation required",
+              message:
+                "Meeting concierge execute path requires explicit operator confirmation before mutation.",
+            };
           }
           return await runMeetingConciergeDemo(ctx, organizationId, userId, args);
 

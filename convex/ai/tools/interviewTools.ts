@@ -37,6 +37,12 @@ import {
   normalizeUniversalOnboardingChannel,
   requiresClaimedAccountForOnboardingCompletion,
 } from "../../onboarding/universalOnboardingPolicy";
+import {
+  SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+  SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
+  type SamanthaAuditRoutingAuditChannel,
+  type SamanthaAuditSourceContext,
+} from "../samanthaAuditContract";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +61,48 @@ function getInternal(): any {
 
 type RuntimeChannel = "telegram" | "webchat" | "native_guest";
 type OAuthProvider = "google" | "microsoft" | "github";
+type CommercialRoutingHint = "samantha_lead_capture" | "founder_bridge" | "enterprise_sales";
+
+type CommercialLeadPayloadTags = {
+  offer_code?: string;
+  offerCode?: string;
+  intent_code?: string;
+  intentCode?: string;
+  surface?: string;
+  routing_hint?: CommercialRoutingHint;
+  routingHint?: CommercialRoutingHint;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+  referrer?: string;
+  landingPath?: string;
+  utm_source?: string;
+  utmSource?: string;
+  utm_medium?: string;
+  utmMedium?: string;
+  utm_campaign?: string;
+  utmCampaign?: string;
+  utm_content?: string;
+  utmContent?: string;
+  utm_term?: string;
+  utmTerm?: string;
+  funnelReferrer?: string;
+  funnelLandingPath?: string;
+};
+
+type AuditSessionLookupResolution =
+  | {
+      ok: true;
+      channel: SamanthaAuditRoutingAuditChannel;
+      sessionToken: string;
+    }
+  | {
+      ok: false;
+      errorCode: typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING;
+      message: string;
+    };
 
 function normalizeRuntimeChannel(channel?: string): RuntimeChannel {
   return normalizeUniversalOnboardingChannel(channel);
@@ -64,6 +112,147 @@ function cleanOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeRoutingHint(value: unknown): CommercialRoutingHint | undefined {
+  const cleaned = cleanOptionalString(value);
+  if (
+    cleaned === "samantha_lead_capture"
+    || cleaned === "founder_bridge"
+    || cleaned === "enterprise_sales"
+  ) {
+    return cleaned;
+  }
+  return undefined;
+}
+
+function readMetadataRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function buildCommercialLeadPayloadTags(args: {
+  rawArgs: Record<string, unknown>;
+  sessionMetadata?: Record<string, unknown>;
+}): CommercialLeadPayloadTags {
+  const metadata = args.sessionMetadata || {};
+  const metadataCommercial = readMetadataRecord(metadata.commercialIntent);
+  const metadataCampaign = readMetadataRecord(metadata.campaign);
+
+  const pick = (...values: unknown[]): string | undefined => {
+    for (const value of values) {
+      const cleaned = cleanOptionalString(value);
+      if (cleaned) return cleaned;
+    }
+    return undefined;
+  };
+
+  const offerCode = pick(
+    args.rawArgs.offer_code,
+    args.rawArgs.offerCode,
+    metadataCommercial.offer_code,
+    metadataCommercial.offerCode
+  );
+  const intentCode = pick(
+    args.rawArgs.intent_code,
+    args.rawArgs.intentCode,
+    metadataCommercial.intent_code,
+    metadataCommercial.intentCode
+  );
+  const surface = pick(args.rawArgs.surface, metadataCommercial.surface);
+  const routingHint = normalizeRoutingHint(
+    args.rawArgs.routing_hint
+    ?? args.rawArgs.routingHint
+    ?? metadataCommercial.routing_hint
+    ?? metadataCommercial.routingHint
+  );
+  const source = pick(
+    args.rawArgs.source,
+    args.rawArgs.utm_source,
+    args.rawArgs.utmSource,
+    metadataCampaign.source,
+    metadataCampaign.utm_source,
+    metadataCampaign.utmSource
+  );
+  const medium = pick(
+    args.rawArgs.medium,
+    args.rawArgs.utm_medium,
+    args.rawArgs.utmMedium,
+    metadataCampaign.medium,
+    metadataCampaign.utm_medium,
+    metadataCampaign.utmMedium
+  );
+  const campaign = pick(
+    args.rawArgs.campaign,
+    args.rawArgs.utm_campaign,
+    args.rawArgs.utmCampaign,
+    metadataCampaign.campaign,
+    metadataCampaign.utm_campaign,
+    metadataCampaign.utmCampaign
+  );
+  const content = pick(
+    args.rawArgs.content,
+    args.rawArgs.utm_content,
+    args.rawArgs.utmContent,
+    metadataCampaign.content,
+    metadataCampaign.utm_content,
+    metadataCampaign.utmContent
+  );
+  const term = pick(
+    args.rawArgs.term,
+    args.rawArgs.utm_term,
+    args.rawArgs.utmTerm,
+    metadataCampaign.term,
+    metadataCampaign.utm_term,
+    metadataCampaign.utmTerm
+  );
+  const referrer = pick(
+    args.rawArgs.referrer,
+    args.rawArgs.funnelReferrer,
+    metadataCampaign.referrer,
+    metadataCampaign.funnelReferrer
+  );
+  const landingPath = pick(
+    args.rawArgs.landingPath,
+    args.rawArgs.funnelLandingPath,
+    metadataCampaign.landingPath,
+    metadataCampaign.funnelLandingPath
+  );
+
+  const tags: CommercialLeadPayloadTags = {
+    offer_code: offerCode,
+    offerCode,
+    intent_code: intentCode,
+    intentCode,
+    surface,
+    routing_hint: routingHint,
+    routingHint: routingHint,
+    source,
+    medium,
+    campaign,
+    content,
+    term,
+    referrer,
+    landingPath,
+    utm_source: source,
+    utmSource: source,
+    utm_medium: medium,
+    utmMedium: medium,
+    utm_campaign: campaign,
+    utmCampaign: campaign,
+    utm_content: content,
+    utmContent: content,
+    utm_term: term,
+    utmTerm: term,
+    funnelReferrer: referrer,
+    funnelLandingPath: landingPath,
+  };
+
+  return Object.fromEntries(
+    Object.entries(tags).filter(([, value]) => typeof value === "string" && value.length > 0)
+  ) as CommercialLeadPayloadTags;
 }
 
 function normalizePhoneForResponse(value: unknown): string | undefined {
@@ -117,6 +306,89 @@ function resolveAuditChannel(channel: RuntimeChannel): "webchat" | "native_guest
     return channel;
   }
   return null;
+}
+
+function normalizeAuditRoutingChannel(value: unknown): SamanthaAuditRoutingAuditChannel | undefined {
+  if (value === "webchat" || value === "native_guest") {
+    return value;
+  }
+  return undefined;
+}
+
+function resolveAuditSourceContext(args: {
+  ctx: ToolExecutionContext;
+  toolArgs: Record<string, unknown>;
+}): SamanthaAuditSourceContext {
+  const runtimeSourceContext =
+    args.ctx.runtimePolicy?.sourceAuditContext
+    && typeof args.ctx.runtimePolicy.sourceAuditContext === "object"
+      ? (args.ctx.runtimePolicy.sourceAuditContext as Record<string, unknown>)
+      : {};
+
+  const ingressChannel =
+    cleanOptionalString(args.toolArgs.ingressChannel)
+    || cleanOptionalString(runtimeSourceContext.ingressChannel)
+    || cleanOptionalString(args.ctx.channel)
+    || "unknown";
+  const sourceSessionToken =
+    cleanOptionalString(args.toolArgs.sourceSessionToken)
+    || cleanOptionalString(runtimeSourceContext.sourceSessionToken)
+    || (
+      normalizeAuditRoutingChannel(args.ctx.channel) ? cleanOptionalString(args.ctx.contactId) : undefined
+    );
+  const sourceAuditChannel =
+    normalizeAuditRoutingChannel(args.toolArgs.sourceAuditChannel)
+    || normalizeAuditRoutingChannel(runtimeSourceContext.sourceAuditChannel)
+    || normalizeAuditRoutingChannel(args.ctx.channel);
+  const originSurface =
+    cleanOptionalString(args.toolArgs.originSurface)
+    || cleanOptionalString(runtimeSourceContext.originSurface);
+
+  return {
+    ingressChannel,
+    originSurface,
+    sourceSessionToken,
+    sourceAuditChannel,
+  };
+}
+
+function resolveAuditSessionLookupFromSourceContext(
+  sourceContext: SamanthaAuditSourceContext
+): AuditSessionLookupResolution {
+  const sourceSessionToken = cleanOptionalString(sourceContext.sourceSessionToken);
+  if (!sourceSessionToken) {
+    return {
+      ok: false,
+      errorCode: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+      message:
+        "Missing audit session context. Provide sourceSessionToken and sourceAuditChannel from the originating device/session.",
+    };
+  }
+
+  const explicitAuditChannel = normalizeAuditRoutingChannel(sourceContext.sourceAuditChannel);
+  if (explicitAuditChannel) {
+    return {
+      ok: true,
+      channel: explicitAuditChannel,
+      sessionToken: sourceSessionToken,
+    };
+  }
+
+  const ingressAuditChannel = normalizeAuditRoutingChannel(sourceContext.ingressChannel);
+  if (ingressAuditChannel) {
+    return {
+      ok: true,
+      channel: ingressAuditChannel,
+      sessionToken: sourceSessionToken,
+    };
+  }
+
+  return {
+    ok: false,
+    errorCode: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
+    message:
+      "Missing audit session context. Ingress channel is not routable for audit lookup without sourceAuditChannel.",
+  };
 }
 
 function buildChannelSafeUrlCta(args: {
@@ -635,6 +907,23 @@ const requestAuditDeliverableEmailTool: AITool = {
         type: "string",
         description: "Optional client name to personalize the capture prompt.",
       },
+      ingressChannel: {
+        type: "string",
+        description: "Optional ingress channel where this request originated (for source-aware session routing).",
+      },
+      originSurface: {
+        type: "string",
+        description: "Optional origin app/screen marker for audit telemetry and routing.",
+      },
+      sourceSessionToken: {
+        type: "string",
+        description: "Optional source session token from the origin channel.",
+      },
+      sourceAuditChannel: {
+        type: "string",
+        enum: ["webchat", "native_guest"],
+        description: "Optional explicit audit channel for source session lookup.",
+      },
     },
     required: [],
   },
@@ -642,45 +931,70 @@ const requestAuditDeliverableEmailTool: AITool = {
 
   async execute(
     ctx: ToolExecutionContext,
-    args: { workflowRecommendation?: string; clientName?: string }
+    args: {
+      workflowRecommendation?: string;
+      clientName?: string;
+      ingressChannel?: string;
+      originSurface?: string;
+      sourceSessionToken?: string;
+      sourceAuditChannel?: "webchat" | "native_guest";
+    }
   ) {
-    const runtimeChannel = normalizeRuntimeChannel(ctx.channel);
-    const auditChannel = resolveAuditChannel(runtimeChannel);
-    if (!auditChannel) {
+    const sourceContext = resolveAuditSourceContext({
+      ctx,
+      toolArgs: args as unknown as Record<string, unknown>,
+    });
+    const sessionLookup = resolveAuditSessionLookupFromSourceContext(sourceContext);
+    if (!sessionLookup.ok) {
       return {
         success: false,
         flow: "audit_deliverable_email_capture",
-        error: "unsupported_channel",
-        message: "Audit deliverable email capture is only supported for webchat and native_guest.",
+        error: sessionLookup.errorCode,
+        message: sessionLookup.message,
       };
     }
 
-    const sessionToken = cleanOptionalString(ctx.contactId);
-    if (!sessionToken) {
-      return {
-        success: false,
-        flow: "audit_deliverable_email_capture",
-        error: "missing_session_token",
-        message: "No session token found for the current audit conversation.",
-      };
-    }
-
-    const session = await ctx.runQuery(
+    let session = await ctx.runQuery(
       getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
       {
         organizationId: ctx.organizationId,
-        channel: auditChannel,
-        sessionToken,
+        channel: sessionLookup.channel,
+        sessionToken: sessionLookup.sessionToken,
       }
     );
 
     if (!session) {
-      return {
-        success: false,
-        flow: "audit_deliverable_email_capture",
-        error: "audit_session_not_found",
-        message: "Audit session not found. Start or resume the audit flow first.",
-      };
+      await ctx.runMutation(
+        getInternal().onboarding.auditMode.ensureAuditModeSessionForDeliverable,
+        {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          channel: sessionLookup.channel,
+          sessionToken: sessionLookup.sessionToken,
+          workflowRecommendation: cleanOptionalString(args.workflowRecommendation),
+          capturedName: normalizeOptionalNameForResponse(args.clientName),
+          metadata: {
+            source: "ai.tools.request_audit_deliverable_email",
+            bootstrapReason: "audit_session_not_found",
+          },
+        }
+      );
+      session = await ctx.runQuery(
+        getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+        {
+          organizationId: ctx.organizationId,
+          channel: sessionLookup.channel,
+          sessionToken: sessionLookup.sessionToken,
+        }
+      );
+      if (!session) {
+        return {
+          success: false,
+          flow: "audit_deliverable_email_capture",
+          error: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
+          message: "Audit session not found. Start or resume the audit flow first.",
+        };
+      }
     }
 
     if ((session.answeredQuestionCount as number) < 5) {
@@ -716,7 +1030,7 @@ const requestAuditDeliverableEmailTool: AITool = {
     return {
       success: true,
       flow: "audit_deliverable_email_capture",
-      channel: auditChannel,
+      channel: session.channel,
       readyForEmailCapture: true,
       suggestedPrompt: prompt,
       workflowRecommendation,
@@ -730,7 +1044,7 @@ const requestAuditDeliverableEmailTool: AITool = {
 const generateAuditWorkflowDeliverableTool: AITool = {
   name: "generate_audit_workflow_deliverable",
   description:
-    "Generate and persist the One of One audit workflow PDF deliverable after email capture. " +
+    "Generate and persist the One of One audit workflow strategy PDF deliverable after email capture. " +
     "Runs deterministic/idempotent generation and returns storage/download references. " +
     "Minimum qualification data for delivery is firstName, lastName, email, phone, and founderContactRequested.",
   parameters: {
@@ -744,13 +1058,25 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         type: "string",
         description: "Lead first name (required).",
       },
+      first_name: {
+        type: "string",
+        description: "Compatibility alias for firstName.",
+      },
       lastName: {
         type: "string",
         description: "Lead last name (required).",
       },
+      last_name: {
+        type: "string",
+        description: "Compatibility alias for lastName.",
+      },
       phone: {
         type: "string",
         description: "Lead phone number (required).",
+      },
+      phone_number: {
+        type: "string",
+        description: "Compatibility alias for phone.",
       },
       clientName: {
         type: "string",
@@ -793,6 +1119,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         description:
           "Required explicit yes/no answer: should the founder of sevenlayers.io contact this lead to set up a call?",
       },
+      founder_contact_requested: {
+        type: "boolean",
+        description: "Compatibility alias for founderContactRequested.",
+      },
       "sales_call": {
         type: "boolean",
         description: "Optional legacy call-intent flag.",
@@ -810,9 +1140,149 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         type: "string",
         description: "Optional expected outcome statement for the report.",
       },
+      language: {
+        type: "string",
+        description:
+          "Optional BCP-47 language tag (for example: en, de, fr, es, pl, ja) for PDF labels and defaults.",
+      },
+      labels: {
+        type: "object",
+        description:
+          "Optional localized label overrides for template UI copy. Use this for any language-specific section labels.",
+      },
+      outputFormats: {
+        type: "array",
+        description:
+          "Optional ordered format preferences for deliverable output. PDF is always generated; DOCX is only returned when backend rendering is supported.",
+        items: {
+          type: "string",
+          enum: ["pdf", "docx"],
+        },
+      },
       weeklyHoursRecovered: {
         type: "number",
         description: "Optional weekly hours saved estimate.",
+      },
+      offer_code: {
+        type: "string",
+        description: "Optional canonical commercial offer code for lead payload tags.",
+      },
+      offerCode: {
+        type: "string",
+        description: "Optional compatibility alias for offer_code.",
+      },
+      intent_code: {
+        type: "string",
+        description: "Optional canonical commercial intent code for lead payload tags.",
+      },
+      intentCode: {
+        type: "string",
+        description: "Optional compatibility alias for intent_code.",
+      },
+      surface: {
+        type: "string",
+        description: "Optional canonical originating surface (for example: one_of_one_landing, store).",
+      },
+      routing_hint: {
+        type: "string",
+        description: "Optional canonical routing hint for Samantha handoff continuity.",
+      },
+      routingHint: {
+        type: "string",
+        description: "Optional compatibility alias for routing_hint.",
+      },
+      source: {
+        type: "string",
+        description: "Optional canonical campaign source.",
+      },
+      medium: {
+        type: "string",
+        description: "Optional canonical campaign medium.",
+      },
+      campaign: {
+        type: "string",
+        description: "Optional canonical campaign name.",
+      },
+      content: {
+        type: "string",
+        description: "Optional canonical campaign content value.",
+      },
+      term: {
+        type: "string",
+        description: "Optional canonical campaign term value.",
+      },
+      referrer: {
+        type: "string",
+        description: "Optional canonical referrer value.",
+      },
+      landingPath: {
+        type: "string",
+        description: "Optional canonical landing path value.",
+      },
+      utm_source: {
+        type: "string",
+        description: "Optional compatibility alias for source.",
+      },
+      utmSource: {
+        type: "string",
+        description: "Optional compatibility alias for source.",
+      },
+      utm_medium: {
+        type: "string",
+        description: "Optional compatibility alias for medium.",
+      },
+      utmMedium: {
+        type: "string",
+        description: "Optional compatibility alias for medium.",
+      },
+      utm_campaign: {
+        type: "string",
+        description: "Optional compatibility alias for campaign.",
+      },
+      utmCampaign: {
+        type: "string",
+        description: "Optional compatibility alias for campaign.",
+      },
+      utm_content: {
+        type: "string",
+        description: "Optional compatibility alias for content.",
+      },
+      utmContent: {
+        type: "string",
+        description: "Optional compatibility alias for content.",
+      },
+      utm_term: {
+        type: "string",
+        description: "Optional compatibility alias for term.",
+      },
+      utmTerm: {
+        type: "string",
+        description: "Optional compatibility alias for term.",
+      },
+      funnelReferrer: {
+        type: "string",
+        description: "Optional compatibility alias for referrer.",
+      },
+      funnelLandingPath: {
+        type: "string",
+        description: "Optional compatibility alias for landingPath.",
+      },
+      ingressChannel: {
+        type: "string",
+        description: "Optional ingress channel where this request originated (for source-aware session routing).",
+      },
+      originSurface: {
+        type: "string",
+        description: "Optional origin app/screen marker for audit telemetry and routing.",
+      },
+      sourceSessionToken: {
+        type: "string",
+        description: "Optional source session token from the origin channel.",
+      },
+      sourceAuditChannel: {
+        type: "string",
+        enum: ["webchat", "native_guest"],
+        description: "Optional explicit audit channel for source session lookup.",
       },
     },
     required: ["email", "firstName", "lastName", "phone", "founderContactRequested"],
@@ -823,9 +1293,12 @@ const generateAuditWorkflowDeliverableTool: AITool = {
     ctx: ToolExecutionContext,
     args: {
       email: string;
-      firstName: string;
-      lastName: string;
-      phone: string;
+      firstName?: string;
+      first_name?: string;
+      lastName?: string;
+      last_name?: string;
+      phone?: string;
+      phone_number?: string;
       clientName?: string;
       deliveryAddress?: string;
       annualRevenue?: string;
@@ -835,32 +1308,59 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       ownershipShare?: string;
       aiBudgetStatus?: string;
       aiBudgetTimeline?: string;
-      founderContactRequested: boolean;
+      founderContactRequested?: boolean;
+      founder_contact_requested?: boolean;
       "sales_call"?: boolean;
       workflowRecommendation?: string;
       workflowName?: string;
       workflowOutcome?: string;
+      language?: string;
+      labels?: Record<string, string>;
+      outputFormats?: ("pdf" | "docx")[];
       weeklyHoursRecovered?: number;
+      offer_code?: string;
+      offerCode?: string;
+      intent_code?: string;
+      intentCode?: string;
+      surface?: string;
+      routing_hint?: string;
+      routingHint?: string;
+      source?: string;
+      medium?: string;
+      campaign?: string;
+      content?: string;
+      term?: string;
+      referrer?: string;
+      landingPath?: string;
+      utm_source?: string;
+      utmSource?: string;
+      utm_medium?: string;
+      utmMedium?: string;
+      utm_campaign?: string;
+      utmCampaign?: string;
+      utm_content?: string;
+      utmContent?: string;
+      utm_term?: string;
+      utmTerm?: string;
+      funnelReferrer?: string;
+      funnelLandingPath?: string;
+      ingressChannel?: string;
+      originSurface?: string;
+      sourceSessionToken?: string;
+      sourceAuditChannel?: "webchat" | "native_guest";
     }
   ) {
-    const runtimeChannel = normalizeRuntimeChannel(ctx.channel);
-    const auditChannel = resolveAuditChannel(runtimeChannel);
-    if (!auditChannel) {
+    const sourceContext = resolveAuditSourceContext({
+      ctx,
+      toolArgs: args as unknown as Record<string, unknown>,
+    });
+    const sessionLookup = resolveAuditSessionLookupFromSourceContext(sourceContext);
+    if (!sessionLookup.ok) {
       return {
         success: false,
         flow: "audit_deliverable_generation",
-        error: "unsupported_channel",
-        message: "Audit deliverable generation is only supported for webchat and native_guest.",
-      };
-    }
-
-    const sessionToken = cleanOptionalString(ctx.contactId);
-    if (!sessionToken) {
-      return {
-        success: false,
-        flow: "audit_deliverable_generation",
-        error: "missing_session_token",
-        message: "No session token found for the current audit conversation.",
+        error: sessionLookup.errorCode,
+        message: sessionLookup.message,
       };
     }
 
@@ -874,9 +1374,9 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       };
     }
 
-    const firstName = normalizeOptionalNameForResponse(args.firstName);
-    const lastName = normalizeOptionalNameForResponse(args.lastName);
-    const capturedPhone = normalizePhoneForResponse(args.phone);
+    const firstName = normalizeOptionalNameForResponse(args.firstName || args.first_name);
+    const lastName = normalizeOptionalNameForResponse(args.lastName || args.last_name);
+    const capturedPhone = normalizePhoneForResponse(args.phone || args.phone_number);
     if (!firstName || !lastName || !capturedPhone) {
       return {
         success: false,
@@ -887,7 +1387,13 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       };
     }
 
-    if (typeof args.founderContactRequested !== "boolean") {
+    const founderContactRequested =
+      typeof args.founderContactRequested === "boolean"
+        ? args.founderContactRequested
+        : typeof args.founder_contact_requested === "boolean"
+          ? args.founder_contact_requested
+          : undefined;
+    if (typeof founderContactRequested !== "boolean") {
       return {
         success: false,
         flow: "audit_deliverable_generation",
@@ -899,24 +1405,51 @@ const generateAuditWorkflowDeliverableTool: AITool = {
 
     const salesCall = typeof args["sales_call"] === "boolean"
       ? args["sales_call"]
-      : args.founderContactRequested;
+      : founderContactRequested;
 
-    const session = await ctx.runQuery(
+    let session = await ctx.runQuery(
       getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
       {
         organizationId: ctx.organizationId,
-        channel: auditChannel,
-        sessionToken,
+        channel: sessionLookup.channel,
+        sessionToken: sessionLookup.sessionToken,
       }
     );
 
     if (!session) {
-      return {
-        success: false,
-        flow: "audit_deliverable_generation",
-        error: "audit_session_not_found",
-        message: "Audit session not found. Start or resume the audit flow first.",
-      };
+      const fallbackWorkflowRecommendation = cleanOptionalString(args.workflowRecommendation);
+      await ctx.runMutation(
+        getInternal().onboarding.auditMode.ensureAuditModeSessionForDeliverable,
+        {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          channel: sessionLookup.channel,
+          sessionToken: sessionLookup.sessionToken,
+          workflowRecommendation: fallbackWorkflowRecommendation,
+          capturedEmail,
+          capturedName: `${firstName} ${lastName}`.trim(),
+          metadata: {
+            source: "ai.tools.generate_audit_workflow_deliverable",
+            bootstrapReason: "audit_session_not_found",
+          },
+        }
+      );
+      session = await ctx.runQuery(
+        getInternal().onboarding.auditDeliverable.resolveAuditSessionForDeliverableInternal,
+        {
+          organizationId: ctx.organizationId,
+          channel: sessionLookup.channel,
+          sessionToken: sessionLookup.sessionToken,
+        }
+      );
+      if (!session) {
+        return {
+          success: false,
+          flow: "audit_deliverable_generation",
+          error: SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
+          message: "Audit session not found. Start or resume the audit flow first.",
+        };
+      }
     }
 
     const workflowRecommendation =
@@ -932,12 +1465,44 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       };
     }
 
+    const leadPayloadTags = buildCommercialLeadPayloadTags({
+      rawArgs: args as unknown as Record<string, unknown>,
+      sessionMetadata: readMetadataRecord(session.metadata),
+    });
+    const canonicalCommercialSummary = [
+      `offer_code=${leadPayloadTags.offer_code || "n/a"}`,
+      `intent_code=${leadPayloadTags.intent_code || "n/a"}`,
+      `surface=${leadPayloadTags.surface || "n/a"}`,
+      `routing_hint=${leadPayloadTags.routing_hint || "n/a"}`,
+    ].join(" | ");
+    const campaignEnvelopeSummary = [
+      `source=${leadPayloadTags.source || "n/a"}`,
+      `medium=${leadPayloadTags.medium || "n/a"}`,
+      `campaign=${leadPayloadTags.campaign || "n/a"}`,
+      `content=${leadPayloadTags.content || "n/a"}`,
+      `term=${leadPayloadTags.term || "n/a"}`,
+      `referrer=${leadPayloadTags.referrer || "n/a"}`,
+      `landingPath=${leadPayloadTags.landingPath || "n/a"}`,
+    ].join(" | ");
+    const compatibilitySummary = [
+      `offerCode=${leadPayloadTags.offerCode || "n/a"}`,
+      `intentCode=${leadPayloadTags.intentCode || "n/a"}`,
+      `routingHint=${leadPayloadTags.routingHint || "n/a"}`,
+      `utm_source=${leadPayloadTags.utm_source || "n/a"}`,
+      `utm_medium=${leadPayloadTags.utm_medium || "n/a"}`,
+      `utm_campaign=${leadPayloadTags.utm_campaign || "n/a"}`,
+      `utm_content=${leadPayloadTags.utm_content || "n/a"}`,
+      `utm_term=${leadPayloadTags.utm_term || "n/a"}`,
+      `funnelReferrer=${leadPayloadTags.funnelReferrer || "n/a"}`,
+      `funnelLandingPath=${leadPayloadTags.funnelLandingPath || "n/a"}`,
+    ].join(" | ");
+
     const completionResult = await ctx.runMutation(
       getInternal().onboarding.auditMode.completeAuditModeSession,
       {
         organizationId: ctx.organizationId,
-        channel: auditChannel,
-        sessionToken,
+        channel: session.channel,
+        sessionToken: sessionLookup.sessionToken,
         workflowRecommendation,
       }
     );
@@ -961,8 +1526,8 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       getInternal().onboarding.auditDeliverable.generateAuditWorkflowDeliverable,
       {
         organizationId: ctx.organizationId,
-        channel: auditChannel,
-        sessionToken,
+        channel: session.channel,
+        sessionToken: sessionLookup.sessionToken,
         input: {
           clientName: clientName || undefined,
           businessType: cleanOptionalString(args.industry),
@@ -971,6 +1536,16 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           workflowSummary: workflowRecommendation,
           workflowName: cleanOptionalString(args.workflowName),
           workflowOutcome: cleanOptionalString(args.workflowOutcome),
+          language: cleanOptionalString(args.language),
+          labels:
+            args.labels && typeof args.labels === "object" && !Array.isArray(args.labels)
+              ? (args.labels as Record<string, string>)
+              : undefined,
+          outputFormats: Array.isArray(args.outputFormats)
+            ? args.outputFormats.filter((entry): entry is "pdf" | "docx" =>
+              entry === "pdf" || entry === "docx"
+            )
+            : undefined,
           weeklyHoursRecovered:
             typeof args.weeklyHoursRecovered === "number"
               ? args.weeklyHoursRecovered
@@ -1030,18 +1605,24 @@ const generateAuditWorkflowDeliverableTool: AITool = {
 
     if (downloadUrl) {
       const domainConfigId = await resolveActiveEmailDomainConfigId(ctx, ctx.organizationId);
-      if (!domainConfigId) {
-        leadEmailDelivery = {
-          success: false,
-          skipped: true,
-          reason: "missing_domain_config",
-        };
-        salesEmailDelivery = {
-          success: false,
-          skipped: true,
-          reason: "missing_domain_config",
-        };
-      } else {
+      const useDefaultSenderFallback = !domainConfigId;
+      const sendEmailAction = useDefaultSenderFallback
+        ? getInternal().emailDelivery.sendEmailWithDefaultSender
+        : getInternal().emailDelivery.sendEmail;
+      const sendEmailArgs = (payload: {
+        to: string;
+        subject: string;
+        html: string;
+        text: string;
+      }) => (
+          useDefaultSenderFallback
+            ? payload
+            : {
+                ...payload,
+                domainConfigId,
+              }
+        );
+      {
         const safeFirstName = escapeHtml(firstName);
         const safeFullName = escapeHtml(`${firstName} ${lastName}`.trim());
         const safeDownloadUrl = escapeHtml(downloadUrl);
@@ -1057,25 +1638,24 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         const safeWorkflow = escapeHtml(workflowRecommendation);
 
         try {
-          const leadResult = await ctx.runAction(getInternal().emailDelivery.sendEmail, {
-            domainConfigId,
+          const leadResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
             to: capturedEmail,
-            subject: "Your One of One workflow implementation report",
+            subject: "Your One of One workflow strategy report",
             html: [
               "<p>Hi " + safeFirstName + ",</p>",
-              "<p>Your workflow implementation report is ready.</p>",
+              "<p>Your workflow strategy report is ready.</p>",
               "<p><a href=\"" + safeDownloadUrl + "\">Download your report</a></p>",
-              "<p>If you want support implementing it, reply to this email and we can set up a call.</p>",
+              "<p>If you want support with scope planning or implementation readiness, reply to this email and we can set up a call.</p>",
             ].join(""),
             text: [
               `Hi ${firstName},`,
               "",
-              "Your workflow implementation report is ready.",
+              "Your workflow strategy report is ready.",
               `Download: ${downloadUrl}`,
               "",
-              "If you want support implementing it, reply to this email and we can set up a call.",
+              "If you want support with scope planning or implementation readiness, reply to this email and we can set up a call.",
             ].join("\n"),
-          });
+          }));
           leadEmailDelivery = {
             success: Boolean(leadResult?.success),
             messageId: cleanOptionalString(leadResult?.messageId),
@@ -1090,8 +1670,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
 
         const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
         try {
-          const salesResult = await ctx.runAction(getInternal().emailDelivery.sendEmail, {
-            domainConfigId,
+          const salesResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
             to: salesInbox,
             subject: `New audit lead: ${firstName} ${lastName}`,
             html: [
@@ -1100,7 +1679,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
               `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
               `<p><strong>Phone:</strong> ${safePhone}</p>`,
               `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
-              `<p><strong>Founder Contact Requested:</strong> ${args.founderContactRequested ? "Yes" : "No"}</p>`,
+              `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
               `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
               `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
               `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
@@ -1110,6 +1689,9 @@ const generateAuditWorkflowDeliverableTool: AITool = {
               `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
               `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
               `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
+              `<p><strong>Canonical Commercial Intent:</strong> ${escapeHtml(canonicalCommercialSummary)}</p>`,
+              `<p><strong>Canonical Campaign Envelope:</strong> ${escapeHtml(campaignEnvelopeSummary)}</p>`,
+              `<p><strong>Compatibility Aliases:</strong> ${escapeHtml(compatibilitySummary)}</p>`,
               `<p><a href="${safeDownloadUrl}">Open lead workflow report</a></p>`,
             ].join(""),
             text: [
@@ -1118,7 +1700,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
               `Email: ${capturedEmail}`,
               `Phone: ${capturedPhone}`,
               `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
-              `Founder Contact Requested: ${args.founderContactRequested ? "Yes" : "No"}`,
+              `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
               `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
               `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
               `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
@@ -1128,9 +1710,12 @@ const generateAuditWorkflowDeliverableTool: AITool = {
               `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
               `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
               `Workflow Recommendation: ${workflowRecommendation}`,
+              `Canonical Commercial Intent: ${canonicalCommercialSummary}`,
+              `Canonical Campaign Envelope: ${campaignEnvelopeSummary}`,
+              `Compatibility Aliases: ${compatibilitySummary}`,
               `Report URL: ${downloadUrl}`,
             ].join("\n"),
-          });
+          }));
           salesEmailDelivery = {
             success: Boolean(salesResult?.success),
             messageId: cleanOptionalString(salesResult?.messageId),
@@ -1143,7 +1728,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           };
         }
 
-        if (args.founderContactRequested) {
+        if (founderContactRequested) {
           try {
             const callResult = await ctx.runAction(getInternal().integrations.infobip.startFounderThreeWayCall, {
               organizationId: ctx.organizationId,
@@ -1156,7 +1741,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
                 source: "ai.tools.generate_audit_workflow_deliverable",
                 email: capturedEmail,
                 salesCall: salesCall,
-                founderContactRequested: args.founderContactRequested,
+                founderContactRequested,
                 downloadUrl,
                 annualRevenue: cleanOptionalString(args.annualRevenue),
                 aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
@@ -1166,6 +1751,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
                 aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
                 aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
                 deliveryAddress: cleanOptionalString(args.deliveryAddress),
+                commercialTags: leadPayloadTags,
+                canonicalCommercialSummary,
+                campaignEnvelopeSummary,
+                compatibilitySummary,
               },
             });
 
@@ -1210,11 +1799,48 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         reason: "missing_download_url",
       };
     }
+    const storageId = cleanOptionalString(generationResult.storageId);
+    const inputFingerprint = cleanOptionalString(generationResult.inputFingerprint);
+    const outputRef = inputFingerprint
+      ? `audit_deliverable:${inputFingerprint}`
+      : storageId
+        ? `storage:${storageId}`
+        : undefined;
+    const salesNotificationDelivered = salesEmailDelivery?.success === true;
+    if (!downloadUrl || !storageId) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error: "deliverable_receipt_missing",
+        message:
+          "Audit deliverable generation did not produce a verifiable PDF artifact. Retry generate_audit_workflow_deliverable now.",
+        outputRef,
+        leadEmailDelivery,
+        salesEmailDelivery,
+      };
+    }
+    if (!salesNotificationDelivered) {
+      return {
+        success: false,
+        flow: "audit_deliverable_generation",
+        error:
+          salesEmailDelivery?.error
+          || salesEmailDelivery?.reason
+          || "sales_notification_delivery_failed",
+        message:
+          "Audit report PDF was generated, but sales notification email was not confirmed. Retry generate_audit_workflow_deliverable now.",
+        outputRef,
+        storageId,
+        downloadUrl,
+        leadEmailDelivery,
+        salesEmailDelivery,
+      };
+    }
 
     return {
       success: true,
       flow: "audit_deliverable_generation",
-      channel: auditChannel,
+      channel: session.channel,
       email: capturedEmail,
       firstName,
       lastName,
@@ -1228,20 +1854,39 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       ownershipShare: cleanOptionalString(args.ownershipShare),
       aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
       aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
-      founderContactRequested: args.founderContactRequested,
+      founderContactRequested,
       sales_call: salesCall,
       leadEmailDelivery,
       salesEmailDelivery,
       founderCallOrchestration,
+      leadPayloadTags,
+      canonicalCommercialSummary,
+      campaignEnvelopeSummary,
+      compatibilitySummary,
       deduped: Boolean(generationResult.deduped),
       fileName: cleanOptionalString(generationResult.fileName),
-      storageId: cleanOptionalString(generationResult.storageId),
+      storageId,
       downloadUrl: downloadUrl || undefined,
       sourceDownloadUrl: cleanOptionalString(generationResult.sourceDownloadUrl),
-      inputFingerprint: cleanOptionalString(generationResult.inputFingerprint),
+      templateVersion: cleanOptionalString(generationResult.templateVersion),
+      renderSource: cleanOptionalString(generationResult.renderSource),
+      requestedFormats:
+        Array.isArray(generationResult.requestedFormats)
+          ? generationResult.requestedFormats
+          : undefined,
+      inputFingerprint,
+      outputRef,
+      executionReceipt: {
+        contractVersion: "samantha_audit_delivery_receipt_v1",
+        flow: "audit_deliverable_generation",
+        outputRef: outputRef || null,
+        storageId,
+        downloadUrl,
+        salesNotificationDelivered,
+      },
       cta,
       message:
-        "Audit workflow report generated. Share the download link now and continue with the handoff offer.",
+        "Audit workflow report generated. Share the download link now, then offer either Consulting Sprint (€3,500 scope-only, no implementation delivery) or Implementation Start (€7,000+).",
     };
   },
 };

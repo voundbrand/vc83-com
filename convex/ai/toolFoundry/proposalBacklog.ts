@@ -1,6 +1,7 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
-import { internalMutation } from "../../_generated/server";
+import { internalMutation, mutation, query } from "../../_generated/server";
+import { getUserContext, requireAuthenticatedUser } from "../../rbacHelpers";
 import type {
   ToolCapabilityGapBlockedPayload,
   ToolFoundryCapabilityGapMissingKind,
@@ -106,6 +107,14 @@ export interface ToolFoundryProposalBacklogRollback {
   appliedBy?: string;
 }
 
+export interface ToolFoundryProposalBacklogLinearIssue {
+  issueId: string;
+  issueNumber: string;
+  issueUrl: string;
+  linkedAt: number;
+  lastSyncedAt: number;
+}
+
 export interface ToolFoundryProposalBacklogRecord {
   contractVersion: typeof TOOL_FOUNDRY_PROPOSAL_BACKLOG_CONTRACT_VERSION;
   artifactType: "tool_spec_proposal";
@@ -120,6 +129,7 @@ export interface ToolFoundryProposalBacklogRecord {
   trace: ToolFoundryProposalBacklogTrace;
   provenance: ToolFoundryProposalBacklogProvenance;
   rollback: ToolFoundryProposalBacklogRollback;
+  linearIssue?: ToolFoundryProposalBacklogLinearIssue;
   firstObservedAt: number;
   lastObservedAt: number;
   observationCount: number;
@@ -644,22 +654,14 @@ export const persistRuntimeCapabilityGapProposal = internalMutation({
   },
 });
 
-export const resolveProposalPromotionDecision = internalMutation({
+export const attachLinearIssueToProposal = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     proposalKey: v.string(),
-    decision: v.union(v.literal("granted"), v.literal("denied")),
-    actorType: v.optional(v.union(
-      v.literal("user"),
-      v.literal("agent"),
-      v.literal("admin"),
-      v.literal("system"),
-      v.literal("workflow"),
-    )),
-    actorId: v.optional(v.string()),
-    channel: v.optional(v.string()),
-    reason: v.optional(v.string()),
-    occurredAt: v.optional(v.number()),
+    issueId: v.string(),
+    issueNumber: v.string(),
+    issueUrl: v.string(),
+    linkedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const db = ctx.db as any;
@@ -676,50 +678,229 @@ export const resolveProposalPromotionDecision = internalMutation({
       };
     }
 
-    const occurredAt = normalizeObservedAt(args.occurredAt, Date.now());
-    const nextStatus: ToolFoundryProposalBacklogStatus =
-      args.decision === "granted" ? "promoted" : "rejected";
-    const reviewDecision = args.decision === "granted" ? "approved" : "rejected";
-    const eventName =
-      args.decision === "granted"
-        ? TOOL_FOUNDRY_LIFECYCLE_EVENT_NAMES.promotionGranted
-        : TOOL_FOUNDRY_LIFECYCLE_EVENT_NAMES.promotionDenied;
+    const now = normalizeObservedAt(args.linkedAt, Date.now());
+    const currentLinearIssue = existing.linearIssue;
+    const nextLinearIssue: ToolFoundryProposalBacklogLinearIssue = {
+      issueId: normalizeNonEmptyString(args.issueId) ?? args.issueId,
+      issueNumber: normalizeNonEmptyString(args.issueNumber) ?? args.issueNumber,
+      issueUrl: normalizeNonEmptyString(args.issueUrl) ?? args.issueUrl,
+      linkedAt: currentLinearIssue?.linkedAt ?? now,
+      lastSyncedAt: now,
+    };
 
     await db.patch(existing._id, {
-      status: nextStatus,
-      updatedAt: occurredAt,
-    });
-
-    const nextRecord: ToolFoundryProposalBacklogRecord = {
-      ...existing,
-      status: nextStatus,
-      updatedAt: occurredAt,
-    };
-    await persistToolFoundryLifecycleTrustEvent({
-      ctx,
-      eventName,
-      payload: buildToolFoundryLifecycleTrustPayload({
-        eventName,
-        record: nextRecord,
-        occurredAt,
-        mode: "agents",
-        actorType: args.actorType || "admin",
-        actorId: normalizeNonEmptyString(args.actorId) || "tool_foundry_reviewer",
-        channel: args.channel,
-        reviewDecision,
-        decisionReason:
-          normalizeNonEmptyString(args.reason)
-          || normalizeNonEmptyString(existing.trace.reasonCode)
-          || "promotion_decision_recorded",
-      }),
-      occurredAt,
+      linearIssue: nextLinearIssue,
+      updatedAt: now,
     });
 
     return {
       status: "updated" as const,
       proposalKey: args.proposalKey,
-      backlogStatus: nextStatus,
-      trustEventName: eventName,
+      linearIssue: nextLinearIssue,
     };
+  },
+});
+
+export const listPendingProposalsForReview = query({
+  args: {
+    sessionId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, organizationId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const actorContext = await getUserContext(ctx, userId);
+    if (!(actorContext.isGlobal && actorContext.roleName === "super_admin")) {
+      throw new ConvexError({
+        code: "TF_FORBIDDEN_SUPER_ADMIN_REQUIRED",
+        message:
+          "Tool Foundry proposal review denied: super_admin role required.",
+        details: {
+          actorUserId: String(userId),
+          roleName: actorContext.roleName ?? null,
+          isGlobal: actorContext.isGlobal === true,
+        },
+      });
+    }
+
+    const requestedLimit = typeof args.limit === "number" ? Math.floor(args.limit) : 20;
+    const limit = Math.min(Math.max(requestedLimit, 1), 100);
+    const rows = await ctx.db
+      .query("toolFoundryProposalBacklog")
+      .withIndex("by_org_last_observed", (q) => q.eq("organizationId", organizationId))
+      .order("desc")
+      .take(limit * 2);
+
+    return rows
+      .filter((row) => row.status === "pending_review" || row.status === "in_review")
+      .slice(0, limit)
+      .map((row) => ({
+        _id: row._id,
+        organizationId: row.organizationId,
+        proposalKey: row.proposalKey,
+        requestedToolName: row.requestedToolName,
+        status: row.status,
+        lastObservedAt: row.lastObservedAt,
+        sourceRequestTraceKey: row.provenance.sourceRequestTraceKey,
+        reasonCode: row.trace.reasonCode,
+      }));
+  },
+});
+
+async function applyPromotionDecision(args: {
+  ctx: any;
+  organizationId: Id<"organizations">;
+  proposalKey: string;
+  decision: "granted" | "denied";
+  actorType?: "user" | "agent" | "admin" | "system" | "workflow";
+  actorId?: string;
+  channel?: string;
+  reason?: string;
+  occurredAt?: number;
+}) {
+  const db = args.ctx.db as any;
+  const existing = await db
+    .query("toolFoundryProposalBacklog")
+    .withIndex("by_org_proposal_key", (q: any) =>
+      q.eq("organizationId", args.organizationId).eq("proposalKey", args.proposalKey))
+    .first() as (ToolFoundryProposalBacklogRecord & { _id: unknown }) | null;
+
+  if (!existing) {
+    return {
+      status: "missing" as const,
+      proposalKey: args.proposalKey,
+    };
+  }
+
+  const occurredAt = normalizeObservedAt(args.occurredAt, Date.now());
+  const nextStatus: ToolFoundryProposalBacklogStatus =
+    args.decision === "granted" ? "promoted" : "rejected";
+  const reviewDecision = args.decision === "granted" ? "approved" : "rejected";
+  const eventName =
+    args.decision === "granted"
+      ? TOOL_FOUNDRY_LIFECYCLE_EVENT_NAMES.promotionGranted
+      : TOOL_FOUNDRY_LIFECYCLE_EVENT_NAMES.promotionDenied;
+
+  await db.patch(existing._id, {
+    status: nextStatus,
+    updatedAt: occurredAt,
+  });
+
+  const nextRecord: ToolFoundryProposalBacklogRecord = {
+    ...existing,
+    status: nextStatus,
+    updatedAt: occurredAt,
+  };
+  await persistToolFoundryLifecycleTrustEvent({
+    ctx: args.ctx,
+    eventName,
+    payload: buildToolFoundryLifecycleTrustPayload({
+      eventName,
+      record: nextRecord,
+      occurredAt,
+      mode: "agents",
+      actorType: args.actorType || "admin",
+      actorId: normalizeNonEmptyString(args.actorId) || "tool_foundry_reviewer",
+      channel: args.channel,
+      reviewDecision,
+      decisionReason:
+        normalizeNonEmptyString(args.reason)
+        || normalizeNonEmptyString(existing.trace.reasonCode)
+        || "promotion_decision_recorded",
+    }),
+    occurredAt,
+  });
+
+  return {
+    status: "updated" as const,
+    proposalKey: args.proposalKey,
+    backlogStatus: nextStatus,
+    trustEventName: eventName,
+  };
+}
+
+export const resolveProposalPromotionDecision = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    proposalKey: v.string(),
+    decision: v.union(v.literal("granted"), v.literal("denied")),
+    actorUserId: v.id("users"),
+    actorType: v.optional(v.union(
+      v.literal("user"),
+      v.literal("agent"),
+      v.literal("admin"),
+      v.literal("system"),
+      v.literal("workflow"),
+    )),
+    actorId: v.optional(v.string()),
+    channel: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    occurredAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const actorContext = await getUserContext(ctx, args.actorUserId);
+    if (!(actorContext.isGlobal && actorContext.roleName === "super_admin")) {
+      throw new ConvexError({
+        code: "TF_FORBIDDEN_SUPER_ADMIN_REQUIRED",
+        message:
+          "Tool Foundry promotion decision denied: super_admin role required.",
+        details: {
+          actorUserId: String(args.actorUserId),
+          roleName: actorContext.roleName ?? null,
+          isGlobal: actorContext.isGlobal === true,
+        },
+      });
+    }
+
+    return await applyPromotionDecision({
+      ctx,
+      organizationId: args.organizationId,
+      proposalKey: args.proposalKey,
+      decision: args.decision,
+      actorType: args.actorType,
+      actorId: args.actorId,
+      channel: args.channel,
+      reason: args.reason,
+      occurredAt: args.occurredAt,
+    });
+  },
+});
+
+export const submitProposalPromotionDecision = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    proposalKey: v.string(),
+    decision: v.union(v.literal("granted"), v.literal("denied")),
+    channel: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    occurredAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const actorContext = await getUserContext(ctx, userId);
+    if (!(actorContext.isGlobal && actorContext.roleName === "super_admin")) {
+      throw new ConvexError({
+        code: "TF_FORBIDDEN_SUPER_ADMIN_REQUIRED",
+        message:
+          "Tool Foundry promotion decision denied: super_admin role required.",
+        details: {
+          actorUserId: String(userId),
+          roleName: actorContext.roleName ?? null,
+          isGlobal: actorContext.isGlobal === true,
+        },
+      });
+    }
+
+    return await applyPromotionDecision({
+      ctx,
+      organizationId: args.organizationId,
+      proposalKey: args.proposalKey,
+      decision: args.decision,
+      actorType: "admin",
+      actorId: String(userId),
+      channel: args.channel,
+      reason: args.reason,
+      occurredAt: args.occurredAt,
+    });
   },
 });

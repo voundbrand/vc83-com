@@ -28,6 +28,7 @@ import { bookingWorkflowToolDefinition } from "./bookingWorkflowTool";
 import { searchUnsplashImagesTool } from "./unsplashTool";
 import { transcribeYoutubeVideoTool } from "./youtubeTranscribeTool";
 import { transcribeAudioTool } from "./mediaTools";
+import { createDocxDocumentTool } from "./docxTools";
 import { INTERVIEW_TOOLS } from "./interviewTools";
 import {
   tagInSpecialistTool,
@@ -175,6 +176,22 @@ export interface ToolExecutionContext extends ActionCtx {
         observedAttemptedCommands?: string[];
         blockedCommand?: string;
       };
+    };
+    commercialRouting?: {
+      audienceTemperature?: "warm" | "cold" | "unknown";
+      surface?: string;
+      intentCode?: string;
+      offerCode?: string;
+      routingHint?: string;
+      targetSpecialistTemplateRole?: string;
+      warmLeadEligible?: boolean;
+      signalSource?: "none" | "message" | "metadata" | "mixed";
+    };
+    sourceAuditContext?: {
+      ingressChannel?: string;
+      originSurface?: string;
+      sourceSessionToken?: string;
+      sourceAuditChannel?: "webchat" | "native_guest";
     };
     runtimeAuthorityPrecedence?: "vc83_runtime_policy" | string;
   };
@@ -1515,7 +1532,7 @@ const manageBenefitsTool: AITool = {
 
 const manageBookingsTool: AITool = {
   name: "manage_bookings",
-  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots.",
+  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots. Meeting concierge flow is preview-first and execute is explicit-confirm gated.",
   status: "ready",
   parameters: bookingToolDefinition.function.parameters,
   execute: async (ctx, args) => {
@@ -1591,6 +1608,14 @@ const manageBookingsTool: AITool = {
       confirmationRecipient: args.confirmationRecipient,
       conciergeIdempotencyKey: args.conciergeIdempotencyKey,
       jobTitle: args.jobTitle,
+      meetingConciergeExplicitConfirmDetected:
+        ctx.runtimePolicy?.meetingConcierge?.explicitConfirmDetected === true,
+      meetingConciergePolicyRequired:
+        ctx.runtimePolicy?.meetingConcierge?.commandPolicy?.policyRequired === true,
+      meetingConciergeCommandPolicyAllowed:
+        ctx.runtimePolicy?.meetingConcierge?.commandPolicy?.allowed === true,
+      meetingConciergeCommandPolicyReasonCode:
+        ctx.runtimePolicy?.meetingConcierge?.commandPolicy?.reasonCode,
     });
 
     return result;
@@ -3903,6 +3928,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   remove_behavior_from_workflow: removeBehaviorFromWorkflowTool,
 
   // Media
+  create_docx_document: createDocxDocumentTool,
   upload_media: uploadMediaTool,
   search_media: searchMediaTool,
   transcribe_audio: transcribeAudioTool,
@@ -4238,6 +4264,7 @@ export const DATABASE_WRITE_TOOLS = [
   "add_behavior_to_workflow",
   "remove_behavior_from_workflow",
   // Media
+  "create_docx_document",
   "upload_media",
   // Templates
   "create_template",
