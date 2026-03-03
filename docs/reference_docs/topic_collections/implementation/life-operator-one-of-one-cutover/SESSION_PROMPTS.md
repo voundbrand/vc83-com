@@ -2,7 +2,7 @@
 
 Use these prompts to execute this workstream lane-by-lane with deterministic queue behavior.
 
-**Last synced:** 2026-02-28 (`LOC-001`..`LOC-028`, `LOC-032`, `LOC-036`, and `LOC-037` are `DONE`; `LOC-029` is `IN_PROGRESS`; lane `J` cleanup sprint queued with `LOC-038` `READY`)
+**Last synced:** 2026-03-02 (`LOC-001`..`LOC-042` are `DONE`; lane `K` has `LOC-043`..`LOC-049` `DONE` with final signoff `GO` and drift-watch maintenance locked)
 
 Workstream root:
 `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover`
@@ -29,6 +29,7 @@ Queue:
 13. For lane `H`, keep `LOC-032`/`LOC-026` evidence intact (`DONE`), then ship baseline capability (`LOC-027`..`LOC-030`), then hardening + parity closeout (`LOC-031`..`LOC-035`) without weakening trust gates.
 14. For lane `I`, enforce iPhone release hygiene: Node runtime contract, icon preflight, and CI/workflow parity with runbook/docs synchronization.
 15. For lane `J`, execute cleanup stabilization in strict order starting with user-blocking simulator focus/keyboard UX regressions before broader hygiene/deprecation work.
+16. For lane `K`, map Option A (`Der Terminmacher`) script beats to runtime contracts and require artifact-backed rehearsal evidence before any production-demo `GO` claim.
 
 ---
 
@@ -164,7 +165,7 @@ Execute only lane `H` rows from:
 Rules:
 
 1. Treat iPhone app (`apps/operator-mobile`) as the primary and sufficient runtime surface; do not require webchat relay for baseline completion.
-2. Implement in deterministic order: `LOC-027` -> `LOC-028` -> `LOC-029` -> `LOC-030` -> `LOC-031` -> `LOC-033` -> `LOC-034` -> `LOC-035` (`LOC-032`, `LOC-026`, `LOC-027`, and `LOC-028` are already `DONE`; start at `LOC-029`).
+2. Implement in deterministic order: `LOC-027` -> `LOC-028` -> `LOC-029` -> `LOC-030` -> `LOC-031` -> `LOC-033` -> `LOC-034` -> `LOC-035` (`LOC-032`, `LOC-026`, `LOC-027`, `LOC-028`, `LOC-029`, `LOC-030`, `LOC-031`, `LOC-033`, and `LOC-034` are already `DONE`; unblock/finish at `LOC-035`).
 3. Keep trust/approval gates fail-closed for mutating intents; preview-first or explicit confirmation is mandatory for booking execution.
 4. Copy OpenClaw strong patterns conceptually:
    - provider/ingress registry (explicit source registration, no implicit execution),
@@ -198,8 +199,8 @@ Non-goals for this pass:
 - Do not add broad new marketplace/catalog surfaces.
 - Do not weaken trust/approval gates.
 
-"Do it right after baseline" follow-up:
-- LOC-031 + LOC-034: full realtime Meta DAT/WebRTC bridge hardening, stronger source attestation, and stricter node command policy enforcement.
+Hardening/parity follow-up:
+- LOC-034: production-grade realtime iPhone + Meta DAT/WebRTC stream hardening with deterministic fallback traceability.
 - LOC-035: publish world-class parity acceptance/runbook after external gates are fully green (`AVR-012` and `FOG2-016` are both `DONE`).
 
 Design constraints:
@@ -235,7 +236,22 @@ Rules:
 4. Preserve fail-closed trust/approval/runtime invariants when touching onboarding or voice runtime.
 5. Run row `Verify` commands exactly.
 6. Sync `TASK_QUEUE.md`, `INDEX.md`, `MASTER_PLAN.md`, and `SESSION_PROMPTS.md` after each lane-`J` milestone.
-7. Stop when lane `J` has no promotable rows.
+7. Enforce row ownership boundaries and park unrelated dirty deltas before verify/commit prep:
+   - `LOC-039`: docs only (`TASK_QUEUE.md`, `INDEX.md`, `MASTER_PLAN.md`, `SESSION_PROMPTS.md`).
+   - `LOC-040`: `convex/ai/voiceRuntime.ts` + targeted `voiceRuntime`/onboarding tests.
+   - `LOC-041`: operator-mobile audio runtime + dependency manifests only.
+   - `LOC-042`: onboarding alias-retirement files + decision log only.
+8. Use path-scoped parking protocol when worktree includes unrelated changes:
+   - snapshot: `git status --short`,
+   - park unrelated deltas: `git stash push -u -m "loc-row-park" -- <non-owned-paths>`,
+   - fail closed if non-owned files remain modified before verification.
+9. Apply deterministic verification subsets with explicit pass criteria:
+   - `LOC-039`: `npm run docs:guard` must exit `0` and all four artifacts must show identical lane-`J` states.
+   - `LOC-040`: `npm run typecheck` and `npx vitest run tests/unit/ai/voiceRuntime*.test.ts tests/unit/onboarding` must both exit `0`.
+   - `LOC-041`: mobile typecheck + targeted unit tests (`npx vitest run tests/unit/ai/mobileRuntimeHardening.test.ts tests/unit/ai/mobileGlassesBridge.test.ts`) + iOS preflight must exit `0`; zero `expo-av` references in operator-mobile source/manifests.
+   - `LOC-042`: `npm run typecheck` + `npx vitest run tests/unit/onboarding` + docs guard must exit `0`; residual `telegramChatId` references require explicit defer/compatibility evidence.
+10. `LOC-039` completion gate is already satisfied (`DONE`): ownership boundaries, parking protocol, and deterministic verification subsets are published in all four workstream artifacts with `V-DOCS` pass evidence.
+11. Stop when lane `J` has no promotable rows.
 
 ---
 
@@ -254,3 +270,32 @@ Rules:
 5. Link lane `I` artifacts back to lane `H` parity gates (`LOC-032`, `LOC-033`, `LOC-035`).
 6. Run row `Verify` commands exactly.
 7. Stop when lane `I` has no promotable rows.
+
+---
+
+## Session K (Lane K: Der Terminmacher demo-ops)
+
+You are Codex in `/Users/foundbrand_001/Development/vc83-com`.
+Execute only lane `K` rows from:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover/TASK_QUEUE.md`
+
+Rules:
+
+1. Execute deterministic order exactly: `LOC-043` -> `LOC-044` -> `LOC-045` -> `LOC-046` -> `LOC-047` -> `LOC-048` -> `LOC-049`.
+2. Keep Option A script contract explicit for `0:00`..`0:60` (name-tag identify, CRM dedupe/create, slot capture, contact capture, invite dispatch, phone-buzz confirmation).
+3. Preserve one-visible-operator UX; no exposed specialist handoff UI.
+4. Preserve preview-first and explicit-confirm mutation governance for meeting-concierge execution.
+5. Publish both primary and fallback run paths:
+   - primary: Meta glasses vision ingress,
+   - fallback: iPhone camera ingress with same trust/approval constraints.
+6. Treat `LOC-044` as mandatory reality sanity gate: publish file-level `GO`/`NO_GO` map for recommender IDs vs coverage blueprint IDs vs concierge runtime hooks before any rehearsal claim.
+7. Require `LOC-045` to close `LOC-044` P0 drifts (or explicitly carry forward `BLOCKED` owners/dates) plus artifact-backed rehearsal evidence (`tmp/reports/fnd-007/latest.json`, `tmp/reports/founder-rehearsal/latest.json`) before promoting to `DONE`.
+8. `LOC-047` cannot move to `DONE` until `LOC-041` is `DONE` (`LOC-041@DONE_GATE`), even if demo-ops rows are otherwise green.
+9. Treat `LOC-048` as mandatory post-signoff hardening: appointment-booking outcomes must remain self-sufficient (no planned-path drift for medical-follow-up routing) while preserving iPhone preflight + agentic sanity gates.
+10. Treat `LOC-049` as mandatory maintenance drift-watch: rerun recommender/runtime/docs contract checks and refresh lane-`K` GO continuity evidence before any new live-demo claim.
+11. Run row `Verify` commands exactly.
+12. Use deterministic failover wording in both stage and runtime docs:
+   - when fallback is required: "Wir schalten jetzt auf iPhone-Kamera um, gleicher Ablauf."
+   - before mutation: "Vorschau ist bereit, ich sende erst nach deiner Bestatigung."
+   - if integration state is unverified: "Verbindung ist nicht verifiziert, ich behaupte keinen Versand."
+13. Stop when lane `K` has no promotable rows or blockers are explicitly documented.

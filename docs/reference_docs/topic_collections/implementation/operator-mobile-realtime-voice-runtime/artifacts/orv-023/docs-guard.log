@@ -1,0 +1,5 @@
+
+> l4yercak3-com@0.1.0 docs:guard
+> bash scripts/ci/check-docs-guard.sh
+
+Docs guard passed.

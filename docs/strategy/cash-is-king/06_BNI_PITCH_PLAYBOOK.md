@@ -106,6 +106,27 @@
 
 ---
 
+### LOC-046 Deterministic Failover Choreography (Primary + Fallback)
+
+Use this exact run card to preserve trust and keep the demo inside 20-60 seconds.
+
+| Time | Branch | Operator line (German) | Runtime intent |
+|---|---|---|---|
+| `0:00-0:18` | Primary start | "Ich starte mit der Brille. Gleicher Ablauf, kurze Live-Demo." | Meta glasses ingress begins; identify-from-name-tag path. |
+| `0:18-0:28` | Primary continue | "Agent, wer steht vor mir?" + slot capture question | CRM lookup/create + scheduling extraction. |
+| `0:28-0:36` | Fallback trigger (if needed) | "Wir schalten jetzt auf iPhone-Kamera um, gleicher Ablauf." | Immediate camera-source swap to iPhone; no restart, no branch drift. |
+| `0:36-0:46` | Both branches | "Vorschau ist bereit, ich sende erst nach deiner Bestatigung." | Preview-first gate, explicit approval before mutating send. |
+| `0:46-0:60` | Degraded safeguard | "Verbindung ist nicht verifiziert, ich behaupte keinen Versand." | Fail closed if invite evidence is missing; no false send claim. |
+
+Failover rules:
+
+1. Keep one visible operator narrative in both branches; do not mention hidden specialist routing.
+2. If confidence/readiness drops (vision read, CRM, calendar, outbound invite), switch to fallback immediately and keep the same trust gates.
+3. Never claim "sent" unless delivery evidence exists (invite, message ID, or visible confirmation on recipient phone).
+4. If send evidence is unavailable, close with a truthful preview-state statement and post-demo completion plan.
+
+---
+
 ### Why This Works
 
 | Element | Effect |

@@ -1,0 +1,250 @@
+
+> l4yercak3-com@0.1.0 test:integration
+> vitest run tests/integration
+
+[dotenv@17.2.3] injecting env (66) from .env.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+ RUN  v3.2.4 /Users/foundbrand_001/Development/vc83-com
+
+stdout | tests/integration/ai/outboundDelivery.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/outboundDelivery.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/outboundDelivery.integration.test.ts (2 tests) 4ms
+stdout | tests/integration/slack/slackWebhookSignature.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/slack/slackWebhookSignature.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/slack/slackWebhookSignature.integration.test.ts (5 tests) 5ms
+stdout | tests/integration/onboarding/audit-flow.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/onboarding/audit-flow.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/onboarding/audit-flow.integration.test.ts (1 test) 28ms
+stdout | tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/creditsApiContract.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts (4 tests) 4ms
+stdout | tests/integration/creditsApiContract.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/creditsApiContract.integration.test.ts (3 tests) 12ms
+stdout | tests/integration/credits/referralClaimBoundary.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/credits/referralClaimBoundary.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/credits/referralClaimBoundary.integration.test.ts (8 tests) 4ms
+stdout | tests/integration/ai/channelSecurityFailurePathMatrix.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/channelSecurityFailurePathMatrix.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/channelSecurityFailurePathMatrix.integration.test.ts (1 test) 12ms
+stdout | tests/integration/ai/realtimeVoiceTelemetryContract.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/realtimeVoiceTelemetryContract.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/realtimeVoiceTelemetryContract.integration.test.ts (2 tests) 3ms
+stdout | tests/integration/credits/redeemClaimBoundary.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/credits/redeemClaimBoundary.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/credits/redeemClaimBoundary.integration.test.ts (5 tests) 3ms
+stdout | tests/integration/ai/voiceRuntimeWebsocketIngest.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/voiceRuntimeWebsocketIngest.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/voiceRuntimeWebsocketIngest.integration.test.ts (6 tests) 3ms
+stdout | tests/integration/ai/channelAdapterConformance.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/channelAdapterConformance.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/channelAdapterConformance.integration.test.ts (3 tests) 4ms
+stdout | tests/integration/ai/supportAbuseFilters.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/supportAbuseFilters.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/supportAbuseFilters.integration.test.ts (3 tests) 3ms
+stdout | tests/integration/ai/modelConformanceEnablement.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/modelConformanceEnablement.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/modelConformanceEnablement.integration.test.ts (3 tests) 3ms
+stdout | tests/integration/feedback/supportRouting.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/feedback/supportRouting.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/feedback/supportRouting.integration.test.ts (3 tests) 3ms
+stdout | tests/integration/ai/voiceRuntimeTelemetryTrustIngestion.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/voiceRuntimeTelemetryTrustIngestion.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/voiceRuntimeTelemetryTrustIngestion.integration.test.ts (1 test) 5ms
+stdout | tests/integration/ai/voiceRuntimeChaosFallback.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/voiceRuntimeChaosFallback.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/voiceRuntimeChaosFallback.integration.test.ts (1 test) 4ms
+stdout | tests/integration/ai/aiAgentMemoryContract.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/knowledgeComposition.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/mobileRuntimeHardening.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/knowledgeComposition.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/knowledgeComposition.integration.test.ts (3 tests) 10ms
+stdout | tests/integration/ai/aiAgentMemoryContract.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/aiAgentMemoryContract.integration.test.ts (1 test) 12ms
+stdout | tests/integration/ai/mobileRuntimeHardening.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/mobileRuntimeHardening.integration.test.ts (3 tests) 13ms
+stdout | tests/integration/ai/runtimeHotspotCharacterization.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/runtimeHotspotCharacterization.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/runtimeHotspotCharacterization.integration.test.ts (3 tests) 3ms
+stdout | tests/integration/ai/approvalPolicy.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/approvalPolicy.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/approvalPolicy.integration.test.ts (6 tests) 3ms
+stdout | tests/integration/ai/sessionRouting.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/sessionRouting.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/sessionRouting.integration.test.ts (2 tests) 4ms
+stdout | tests/integration/ai/semanticRetrievalTelemetry.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/operatorPinnedNotesPrompting.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/operatorPinnedNotesPrompting.integration.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/integration/ai/semanticRetrievalTelemetry.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/operatorPinnedNotesPrompting.integration.test.ts (6 tests) 6ms
+ ✓ tests/integration/ai/semanticRetrievalTelemetry.integration.test.ts (6 tests) 7ms
+stdout | tests/integration/ai/avDeviceMatrixLatency.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/avDeviceMatrixLatency.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/avDeviceMatrixLatency.integration.test.ts (1 test) 9ms
+stdout | tests/integration/ai/toolCallParsingParity.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/toolCallParsingParity.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/toolCallParsingParity.integration.test.ts (2 tests) 2ms
+stdout | tests/integration/ai/modelPolicy.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/modelPolicy.integration.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/integration/ai/supportEscalationCriteria.integration.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/integration/ai/modelPolicy.integration.test.ts (4 tests) 4ms
+stdout | tests/integration/ai/supportEscalationCriteria.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/supportEscalationCriteria.integration.test.ts (2 tests) 5ms
+stdout | tests/integration/ai/teamAccessModePrompting.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/teamAccessModePrompting.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/teamAccessModePrompting.integration.test.ts (3 tests) 3ms
+ ↓ tests/integration/user-workflows.test.ts (14 tests | 14 skipped)
+stdout | tests/integration/vat-checkout-invoice-flow.test.ts
+🧪 Starting VAT integration test suite...
+
+ ↓ tests/integration/vat-checkout-invoice-flow.test.ts (8 tests | 8 skipped)
+stdout | tests/integration/ai/onboardingCoreMemory.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/onboardingCoreMemory.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/onboardingCoreMemory.integration.test.ts (2 tests) 5ms
+stdout | tests/integration/ai/soulDriftTelemetry.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/soulDriftTelemetry.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/soulDriftTelemetry.integration.test.ts (3 tests) 3ms
+stdout | tests/integration/ai/teamHandoffContinuity.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/teamHandoffContinuity.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/teamHandoffContinuity.integration.test.ts (2 tests) 4ms
+stdout | tests/integration/ai/polymarketApprovalPolicy.integration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/integration/ai/polymarketApprovalPolicy.integration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/integration/ai/polymarketApprovalPolicy.integration.test.ts (3 tests) 5ms
+
+ Test Files  33 passed | 2 skipped (35)
+      Tests  103 passed | 22 skipped (125)
+   Start at  07:29:10
+   Duration  2.85s (transform 3.14s, setup 1.08s, collect 17.58s, tests 199ms, environment 5ms, prepare 2.30s)
+

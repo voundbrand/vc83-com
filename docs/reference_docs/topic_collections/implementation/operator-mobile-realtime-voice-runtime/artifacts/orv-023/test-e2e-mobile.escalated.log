@@ -1,0 +1,39 @@
+
+> l4yercak3-com@0.1.0 test:e2e:mobile
+> playwright test -c playwright.mobile.config.ts
+
+
+Running 14 tests using 4 workers
+
+(node:39596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39594) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39593) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39594) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39593) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 [tablet-834x1112] › tests/e2e/mobile-voice-chaos.spec.ts:9:7 › Mobile Voice Chaos Probe › runs cross-transport chaos probe with rollback-drill budget checks (5.2s)
+  ✓   1 [phone-390x844] › tests/e2e/mobile-voice-chaos.spec.ts:9:7 › Mobile Voice Chaos Probe › runs cross-transport chaos probe with rollback-drill budget checks (5.2s)
+  ✓   4 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:94:7 › Mobile Shell › login deep-link opens and closes cleanly (5.3s)
+  ✓   3 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:94:7 › Mobile Shell › login deep-link opens and closes cleanly (5.3s)
+  ✓   5 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:106:7 › Mobile Shell › apps menu exposes launcher entries and opens store (3.3s)
+  ✓   6 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:106:7 › Mobile Shell › apps menu exposes launcher entries and opens store (3.4s)
+  ✓   7 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:117:7 › Mobile Shell › switching apps keeps a single active mobile panel (3.2s)
+  ✓   8 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:117:7 › Mobile Shell › switching apps keeps a single active mobile panel (3.1s)
+  ✓   9 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:139:7 › Mobile Shell › store deep-link clears app param (3.3s)
+  ✓  10 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:139:7 › Mobile Shell › store deep-link clears app param (3.4s)
+  ✓  12 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:146:7 › Mobile Shell › public /store full-screen keeps section deep-link parity on mobile layouts (3.6s)
+  ✓  11 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:146:7 › Mobile Shell › public /store full-screen keeps section deep-link parity on mobile layouts (4.0s)
+  ✓  14 [phone-390x844] › tests/e2e/mobile-shell.spec.ts:159:7 › Mobile Shell › unknown deep-link app is cleaned from URL (3.7s)
+  ✓  13 [tablet-834x1112] › tests/e2e/mobile-shell.spec.ts:159:7 › Mobile Shell › unknown deep-link app is cleaned from URL (4.2s)
+
+  14 passed (25.8s)

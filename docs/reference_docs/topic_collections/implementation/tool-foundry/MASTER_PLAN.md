@@ -1,7 +1,7 @@
 # Tool Foundry Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/tool-foundry`  
-**Last updated:** 2026-02-27
+**Last updated:** 2026-03-01
 
 ---
 
@@ -130,11 +130,11 @@ Validated in repo state on 2026-02-27:
    - `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/ai-chat-window/four-pane/tool-execution-panel-redesign.tsx`
 3. `request_feature` tool contract still carries explicit confirmation guidance in `/Users/foundbrand_001/Development/vc83-com/convex/ai/tools/registry.ts`.
 
-Current gaps to close with low risk:
+Current gaps to close with low risk (status update 2026-03-01):
 
-1. Operator-mobile parity is not wired yet (`apps/operator-mobile` has no frontline intake hooks).
-2. No dedicated tests currently cover frontline kickoff prompt composition and boundary CTA launch behavior.
-3. `TFD-007` now backs foundry lifecycle and frontline boundary intake paths with machine-verifiable trust events; explicit confirmation behavior outside foundry lifecycle remains prompt-level.
+1. Operator-mobile parity intake entrypoint is now wired through `TFD-014` in `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/app/(tabs)/index.tsx` and `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/src/lib/chat/frontlineFeatureIntake.ts`.
+2. Dedicated regression coverage for kickoff prompt composition and boundary CTA launch gating is now in place through `TFD-015` at `/Users/foundbrand_001/Development/vc83-com/tests/unit/ai/mobileFrontlineFeatureIntake.test.ts`.
+3. `TFD-007` lifecycle trust evidence remains machine-verifiable; explicit confirmation behavior remains enforced in kickoff contract copy.
 
 ---
 
@@ -270,6 +270,32 @@ Execution outcomes recorded for `TFD-010` in this run:
 1. Published rollout recommendation: proceed with controlled desktop/web Tool Foundry rollout under existing trust gates (`blocked` capability-gap enforcement, stage promotion evidence, approval-bound mutating execution).
 2. Published residual risk register: operator-mobile intake entrypoint is still absent and dedicated frontline kickoff parity regression coverage is still missing.
 3. Published explicit parity decision: full operator-mobile Tool Foundry rollout is `NO-GO`; feature-flagged contract parity validation remains `GO` only.
+
+### Residual risk follow-up (2026-03-01)
+
+1. Caller adoption path risk addressed:
+   - Added canonical session-authenticated mutation for promotion decisions: `submitProposalPromotionDecision` in `/Users/foundbrand_001/Development/vc83-com/convex/ai/toolFoundry/proposalBacklog.ts`.
+   - This gives UI/integration callers an immediate hardened entrypoint without internal mutation coupling.
+2. `actorUserId` omission risk addressed:
+   - Internal mutation `resolveProposalPromotionDecision` now requires `actorUserId` in args contract.
+   - Fail-closed super-admin enforcement remains mandatory.
+3. Immutable-core governance drift risk addressed:
+   - Added deterministic guard test in `/Users/foundbrand_001/Development/vc83-com/tests/unit/ai/toolFoundryGovernance.test.ts` ensuring `CRITICAL_TOOL_NAMES` stay covered by immutable `CORE_TOOL_CLASS_ALLOWLIST`.
 4. Published rollback path: freeze promotions into `canary` and `trusted`; force mutating execution routes to `require_approval`; set `NEXT_PUBLIC_OPERATOR_MOBILE_TOOL_FOUNDRY_EVIDENCE_VIEW_ENABLED=false`; apply proposal rollback plans using backlog trace keys and rollback keys.
 5. `npm run docs:guard` passed.
 6. `TFD-010` moved to `DONE`.
+
+### Operator-mobile parity residual closeout (2026-03-01)
+
+1. Boundary-intake entrypoint risk addressed (`TFD-014`):
+   - Added operator-mobile boundary CTA launch path in `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/app/(tabs)/index.tsx`.
+   - CTA emits interview-first Tool Foundry kickoff payloads from `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/src/lib/chat/frontlineFeatureIntake.ts`.
+   - Added scoped send-path bypass for command-gate checks only for this intake CTA so policy-blocked runtime states can still collect requirements.
+2. Kickoff/CTA regression risk addressed (`TFD-015`):
+   - Added deterministic unit coverage in `/Users/foundbrand_001/Development/vc83-com/tests/unit/ai/mobileFrontlineFeatureIntake.test.ts`.
+   - Coverage verifies kickoff contract strings, explicit-confirmation requirement before `request_feature`, CTA visibility gating, and tool-failure launch payload derivation.
+3. Verification for this closeout:
+   - `npm run typecheck` passed.
+   - `cd apps/operator-mobile && npm run typecheck` passed.
+   - `npx vitest run tests/unit/ai/mobileFrontlineFeatureIntake.test.ts tests/unit/ai/toolFoundryGovernance.test.ts tests/unit/ai/toolFoundryContracts.test.ts` passed.
+   - `npm run docs:guard` passed.

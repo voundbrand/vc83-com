@@ -1,7 +1,7 @@
 # iPhone GTM CI Implementation
 
 **Status:** Active contract (`LOC-037`)  
-**Last updated:** 2026-02-27  
+**Last updated:** 2026-03-02  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover`
 
 ---
@@ -95,3 +95,21 @@ npm run deploy:testflight
 
 This implementation works with existing TestFlight runbook:
 `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/DEPLOY_TESTFLIGHT.md`
+
+---
+
+## LOC-044 Reality Sanity Ledger (2026-03-02)
+
+Fail-closed stage status: `GO` for `LOC-044` contract-alignment gates; rehearsal acceptance remains governed by `LOC-045` verify results.
+
+| Contract signal | File-level evidence | Status | Owner | Unblock date |
+|---|---|---|---|---|
+| iPhone runtime/toolchain preflight gate | `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile` (`npm run ci:ios:preflight`) | `GO` | lane `I` release ops | 2026-03-02 |
+| Recommender specialist IDs are registered in kickoff specialist hints | `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/agents/agent-recommender.ts`; `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/ai-chat-window/onboarding-kickoff-contract.ts` | `GO` (kickoff hints now include `medical_compliance_reviewer` from shared specialist-role contract) | lane `K` `LOC-045` engineering | 2026-03-02 |
+| Coverage blueprint IDs are present and stable | `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/agents-window.tsx` | `GO` | lane `K` product/runtime | 2026-03-02 |
+| Deterministic recommender-ID -> blueprint-ID join contract exists | `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/agents/agent-recommender.ts`; `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/agents-window.tsx` | `GO` (shared `SPECIALIST_ROLE_CONTRACTS` now anchors role-to-blueprint mapping and specialist coverage derivation) | lane `K` `LOC-045` engineering | 2026-03-02 |
+| Concierge runtime hook contract exists with preview-first + explicit-confirm guardrails | `/Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts` | `GO` | lane `H`/`K` runtime | 2026-03-02 |
+| Convex + CRM + calendar + outbound invite channel readiness is captured in deterministic preflight evidence | `/Users/foundbrand_001/Development/vc83-com/tests/e2e/utils/fnd-007-rehearsal.ts`; `/Users/foundbrand_001/Development/vc83-com/tmp/reports/fnd-007/latest.json`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover/DEMO_READINESS_SCORECARD.md` | `GO` (artifact now includes `preflight_status.runtimeReadiness.{convexConnected, crmLookupCreateConfigured, calendarReadinessConfigured, outboundInviteChannelReady}` fields) | demo-ops owner (`LOC-045`) | 2026-03-02 |
+| iOS/TestFlight profile and release path are documented | `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/DEPLOY_TESTFLIGHT.md` | `GO` | lane `I` release ops | 2026-03-02 |
+
+`LOC-045` closed prior `LOC-044` contract-alignment `NO_GO` rows; remaining lane-`K` blocker is rehearsal checkpoint failure (`FND-007-C3`) captured in `tmp/reports/fnd-007/latest.json` and founder aggregate `tmp/reports/founder-rehearsal/latest.json`.

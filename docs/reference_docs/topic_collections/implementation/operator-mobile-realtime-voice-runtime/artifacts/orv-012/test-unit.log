@@ -1,0 +1,1414 @@
+
+> l4yercak3-com@0.1.0 test:unit
+> vitest run tests/unit
+
+[dotenv@17.2.3] injecting env (66) from .env.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+ RUN  v3.2.4 /Users/foundbrand_001/Development/vc83-com
+
+stdout | tests/unit/shell/legacy-style-guard.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileMetaBridgeRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileFrontlineFeatureIntake.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileFrontlineFeatureIntake.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileFrontlineFeatureIntake.test.ts (2 tests) 3ms
+stdout | tests/unit/agents/primaryAgentUi.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/agents/primaryAgentUi.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/agents/primaryAgentUi.test.ts (5 tests) 4ms
+stdout | tests/unit/api/cmsAgentRequestContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/api/cmsAgentRequestContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/api/cmsAgentRequestContracts.test.ts (3 tests) 4ms
+stdout | tests/unit/ai/coordinatorSubtypeRouting.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileMetaBridgeRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileMetaBridgeRuntime.test.ts (2 tests) 259ms
+stdout | tests/unit/ai/deviceIngestAdapter.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/coordinatorSubtypeRouting.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/coordinatorSubtypeRouting.test.ts (2 tests) 29ms
+stdout | tests/unit/ai/toolScopingPolicyAudit.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/deviceIngestAdapter.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/deviceIngestAdapter.test.ts (5 tests) 4ms
+stdout | tests/unit/ai/toolScopingPolicyAudit.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolScopingPolicyAudit.test.ts (6 tests) 11ms
+stdout | tests/unit/ai/runtimeGovernor.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/runtimeGovernor.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/runtimeGovernor.test.ts (13 tests) 7ms
+stdout | tests/unit/finder/new-file-flow.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/new-file-flow.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/finder/new-file-flow.test.ts (4 tests) 4ms
+stdout | tests/unit/ai/turnTransitionPolicyContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/channelRouterCredentialBoundary.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/channelRouterCredentialBoundary.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/turnTransitionPolicyContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/turnTransitionPolicyContract.test.ts (4 tests) 18ms
+ ✓ tests/unit/ai/channelRouterCredentialBoundary.test.ts (9 tests) 5ms
+stdout | tests/unit/onboarding/audit-deliverable.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/audit-deliverable.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/audit-deliverable.test.ts (3 tests) 52ms
+stdout | tests/unit/credits/redemptionCodePrimitives.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/credits/redemptionCodePrimitives.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/soulCoreMemoryModel.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulCoreMemoryModel.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/soulCoreMemoryModel.test.ts (6 tests) 8ms
+ ✓ tests/unit/credits/redemptionCodePrimitives.test.ts (8 tests) 9ms
+stdout | tests/unit/ai/nonChatUsageMetering.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/nonChatUsageMetering.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/nonChatUsageMetering.test.ts (5 tests) 34ms
+stdout | tests/unit/ai/youtubeTranscribeTool.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/youtubeTranscribeTool.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/youtubeTranscribeTool.test.ts (12 tests) 17ms
+stdout | tests/unit/ai/providerRegistry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/providerRegistry.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/channels/whatsappSignature.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/providerRegistry.test.ts (8 tests) 16ms
+stdout | tests/unit/channels/whatsappSignature.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/channels/whatsappSignature.test.ts (5 tests) 13ms
+stdout | tests/unit/i18n/check-namespace-load-budget.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/i18n/check-namespace-load-budget.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/agentControlCenterTab.controlledWrites.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/i18n/check-namespace-load-budget.test.ts (3 tests) 25ms
+stdout | tests/unit/ai/modelEnablementGates.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelEnablementGates.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelEnablementGates.test.ts (9 tests) 5ms
+stdout | tests/unit/store/pricing-calculator.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/store/pricing-calculator.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/store/pricing-calculator.test.ts (4 tests) 19ms
+stdout | tests/unit/ai/agentControlCenterTab.controlledWrites.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentControlCenterTab.controlledWrites.test.ts (4 tests) 117ms
+stdout | tests/unit/ai/memoryComposer.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/memoryComposer.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/memoryComposer.test.ts (20 tests) 19ms
+stdout | tests/unit/ai/agentOntologyMutationPaths.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentOntologyMutationPaths.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentOntologyMutationPaths.test.ts (8 tests) 24ms
+stdout | tests/unit/store/credit-pricing-parity.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/store/credit-pricing-parity.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/store/credit-pricing-parity.test.ts (3 tests) 3ms
+stdout | tests/unit/i18n/find-untranslated-ui-strings.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentStoreCatalog.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/shell/legacy-style-guard.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/i18n/find-untranslated-ui-strings.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/shell/legacy-style-guard.test.ts (4 tests) 2608ms
+   ✓ legacy style guard > passes for non-legacy scoped additions  451ms
+   ✓ legacy style guard > fails when retro-button is introduced and reports line-level output  611ms
+   ✓ legacy style guard > applies shade-class matching with deterministic boundaries  888ms
+   ✓ legacy style guard > keeps violation output deterministic across repeated runs (smoke)  656ms
+ ✓ tests/unit/i18n/find-untranslated-ui-strings.test.ts (4 tests) 30ms
+stdout | tests/unit/ai/agentStoreCatalog.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentStoreCatalog.test.ts (3 tests) 28ms
+stdout | tests/unit/ai/orchestrationConversationPublish.smoke.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/orchestrationConversationPublish.smoke.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/orchestrationConversationPublish.smoke.test.ts (3 tests) 19ms
+stdout | tests/unit/ai/agentToolOrchestrationAuthorityInvariant.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentToolOrchestrationAuthorityInvariant.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentToolOrchestrationAuthorityInvariant.test.ts (13 tests) 23ms
+stdout | tests/unit/ai/toolFoundryGovernance.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolFoundryGovernance.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/toolFoundryContracts.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/toolFoundryGovernance.test.ts (3 tests) 17ms
+stdout | tests/unit/ai/toolFoundryContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolFoundryContracts.test.ts (22 tests) 39ms
+stdout | tests/unit/ai/toolContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolContracts.test.ts (3 tests) 3ms
+stdout | tests/unit/ai/agentCatalogAdmin.recommendationMetadata.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentCatalogAdmin.recommendationMetadata.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentCatalogAdmin.recommendationMetadata.test.ts (5 tests) 7ms
+stdout | tests/unit/api/nativeGuestPrimaryResolution.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/api/nativeGuestPrimaryResolution.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/api/nativeGuestPrimaryResolution.test.ts (3 tests) 11ms
+stdout | tests/unit/onboarding/claimTokenResponse.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/claimTokenResponse.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/slack/slackOAuthTokenExchange.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/slack/slackOAuthTokenExchange.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/slack/slackOAuthTokenExchange.test.ts (4 tests) 5ms
+ ✓ tests/unit/onboarding/claimTokenResponse.test.ts (3 tests) 8ms
+stdout | tests/unit/ai/operatorRoutingResolution.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/operatorRoutingResolution.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/operatorRoutingResolution.test.ts (6 tests) 21ms
+stdout | tests/unit/ai/retryPolicySlack.test.ts
+🧪 Starting RBAC test suite...
+
+stderr | tests/unit/ai/retryPolicySlack.test.ts > withRetry Slack rate-limit behavior > honors retryAfterMs when policy requests it
+[Retry] Attempt 1/2 failed, retrying in 250ms: ratelimited
+
+stdout | tests/unit/ai/retryPolicySlack.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/retryPolicySlack.test.ts (1 test) 4ms
+stdout | tests/unit/ai/proactiveBriefing.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelReleaseGateAudit.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/proactiveBriefing.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/proactiveBriefing.test.ts (5 tests) 11ms
+stdout | tests/unit/ai/modelReleaseGateAudit.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelReleaseGateAudit.test.ts (5 tests) 13ms
+stdout | tests/unit/ai/realtimeMediaSession.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/realtimeMediaSession.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/realtimeMediaSession.test.ts (12 tests) 12ms
+stdout | tests/unit/ai/supportQualityMetrics.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/supportQualityMetrics.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/supportQualityMetrics.test.ts (2 tests) 13ms
+stdout | tests/unit/interview/voiceAgentCoCreationHandoff.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/interview/voiceAgentCoCreationHandoff.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/interview/voiceAgentCoCreationHandoff.test.ts (3 tests) 11ms
+stdout | tests/unit/channels/slackProvider.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/channels/slackProvider.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/channels/slackProvider.test.ts (16 tests) 9ms
+stdout | tests/unit/ai/openclawBridge.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/openclawBridge.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/openclawBridge.test.ts (10 tests) 7ms
+stdout | tests/unit/ai/executionRuntimeContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/aiAgentMemoryContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/meetingConciergeIngress.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/meetingConciergeIngress.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/executionRuntimeContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/meetingConciergeIngress.test.ts (15 tests) 11ms
+stdout | tests/unit/ai/aiAgentMemoryContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/executionRuntimeContracts.test.ts (7 tests) 17ms
+stdout | tests/unit/ai/delegationAuthorityRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/aiAgentMemoryContract.test.ts (3 tests) 16ms
+stdout | tests/unit/ai/delegationAuthorityRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/delegationAuthorityRuntime.test.ts (3 tests) 16ms
+stdout | tests/unit/ai/creditBillingPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/creditBillingPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/creditBillingPolicy.test.ts (5 tests) 4ms
+stdout | tests/unit/ai/modelDiscoveryFanout.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelDiscoveryFanout.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelDiscoveryFanout.test.ts (2 tests) 26ms
+stdout | tests/unit/ai/mobileRuntimeHardening.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileRuntimeHardening.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileRuntimeHardening.test.ts (10 tests) 6ms
+stdout | tests/unit/ai/templateAgentSelection.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mediaSession_av_metadata_contract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mediaSession_av_metadata_contract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mediaSession_av_metadata_contract.test.ts (5 tests) 5ms
+stdout | tests/unit/ai/templateAgentSelection.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/templateAgentSelection.test.ts (3 tests) 9ms
+stdout | tests/unit/finder/desktop-appearance-parity.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/desktop-appearance-parity.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/finder/desktop-appearance-parity.test.ts (2 tests) 4ms
+stdout | tests/unit/ai/mobileVoiceLifecycle.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileVoiceLifecycle.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoiceLifecycle.test.ts (6 tests) 4ms
+stdout | tests/unit/ai/activeAgentRouting.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/interview/birthingIdentityContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/activeAgentRouting.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/interview/birthingIdentityContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/activeAgentRouting.test.ts (9 tests) 11ms
+ ✓ tests/unit/interview/birthingIdentityContracts.test.ts (2 tests) 4ms
+stdout | tests/unit/slack/slackSignatureRotation.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/slack/slackSignatureRotation.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/slack/slackSignatureRotation.test.ts (3 tests) 32ms
+stdout | tests/unit/ai/modelAdapters.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelAdapters.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelAdapters.test.ts (14 tests) 5ms
+stdout | tests/unit/ai/mediaTools.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mediaTools.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mediaTools.test.ts (2 tests) 9ms
+stdout | tests/unit/ai/agentRecommendationResolver.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentRecommendationResolver.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentRecommendationResolver.test.ts (7 tests) 9ms
+stdout | tests/unit/finder/text-editor-launch.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/text-editor-launch.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/finder/text-editor-launch.test.ts (3 tests) 5ms
+stdout | tests/unit/ai/mobileMetaBridgeContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileMetaBridgeContracts.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/trustTelemetryDashboards.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentLifecycleContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentLifecycleContract.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/trustTelemetryDashboards.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/interventionTemplatesContract.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/agentLifecycleContract.test.ts (5 tests) 7ms
+stdout | tests/unit/ai/interventionTemplatesContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/trustTelemetryDashboards.test.ts (8 tests) 12ms
+ ✓ tests/unit/ai/interventionTemplatesContract.test.ts (3 tests) 5ms
+ ✓ tests/unit/ai/mobileMetaBridgeContracts.test.ts (4 tests) 6ms
+stdout | tests/unit/finder/hardening-safety.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/hardening-safety.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/finder/hardening-safety.test.ts (4 tests) 6ms
+stdout | tests/unit/ai/publishFlowStatusTransitions.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/publishFlowStatusTransitions.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/publishFlowStatusTransitions.test.ts (4 tests) 116ms
+stdout | tests/unit/ai/agentExecutionComposerControls.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/file-type-registry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentExecutionComposerControls.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentExecutionComposerControls.test.ts (11 tests) 8ms
+stdout | tests/unit/ai/mobileVoiceFrameStreaming.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/finder/file-type-registry.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/mobileVoiceFrameStreaming.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoiceFrameStreaming.test.ts (4 tests) 6ms
+stdout | tests/unit/ai/harnessContextEnvelope.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/harnessContextEnvelope.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/ingressEnvelopeAuthorityMatrix.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/harnessContextEnvelope.test.ts (3 tests) 3ms
+ ✓ tests/unit/finder/file-type-registry.test.ts (4 tests) 7ms
+stdout | tests/unit/ai/ingressEnvelopeAuthorityMatrix.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/ingressEnvelopeAuthorityMatrix.test.ts (13 tests) 13ms
+stdout | tests/unit/feedback/supportRouting.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/feedback/supportRouting.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/feedback/supportRouting.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/outboundDelivery.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/outboundDelivery.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/outboundDelivery.test.ts (3 tests) 4ms
+stdout | tests/unit/ai/userPreferences.appearance.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/userPreferences.appearance.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/userPreferences.appearance.test.ts (10 tests) 3ms
+stdout | tests/unit/ai/voiceProviderFailureTaxonomy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/webchatPublicMessageContext.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/voiceProviderFailureTaxonomy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/voiceProviderFailureTaxonomy.test.ts (4 tests) 4ms
+stdout | tests/unit/ai/webchatPublicMessageContext.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/webchatPublicMessageContext.test.ts (8 tests) 7ms
+stdout | tests/unit/ai/desktopCaptureAdapter.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/desktopCaptureAdapter.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/desktopCaptureAdapter.test.ts (3 tests) 10ms
+stdout | tests/unit/onboarding/audit-mode.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/audit-mode.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/audit-mode.test.ts (1 test) 6ms
+stdout | tests/unit/ai/modelPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelPolicy.test.ts (36 tests) 15ms
+stdout | tests/unit/shell/webchat-deployment-flow.smoke.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/shell/webchat-deployment-flow.smoke.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/shell/webchat-deployment-flow.smoke.test.ts (2 tests) 12ms
+stdout | tests/unit/ai/teamSpecialistSelection.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/platformEconomicsAggregation.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/teamSpecialistSelection.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/teamSpecialistSelection.test.ts (5 tests) 6ms
+stdout | tests/unit/ai/platformEconomicsAggregation.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/platformEconomicsAggregation.test.ts (4 tests) 7ms
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > preserves existing claimed workspace by default for webchat completion
+[completeOnboarding] Starting for channel contact: wc_session_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > preserves existing claimed workspace by default for webchat completion
+[completeOnboarding] Extracted data: {"workspaceName":"Preserved Workspace"}
+[completeOnboarding] Reusing existing org: org_claimed_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > preserves existing claimed workspace by default for webchat completion
+[completeOnboarding] Credits seeded for org: org_claimed_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > preserves existing claimed workspace by default for webchat completion
+[completeOnboarding] Agent bootstrapped: agent_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > preserves existing claimed workspace by default for webchat completion
+[completeOnboarding] Complete! Agent: Phase 5 Agent Org: org_claimed_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Starting for channel contact: ng_session_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Extracted data: {"workspaceName":"Recreated Workspace","workspaceContext":"Consulting","workspaceMutationAction":"recreate","confirmRecreateWorkspace":true}
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Created org: org_new_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Credits seeded for org: org_new_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Agent bootstrapped: agent_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > recreates workspace only when explicitly confirmed and rebinds session to new org
+[completeOnboarding] Complete! Agent: Phase 5 Agent Org: org_new_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > keeps telegram active mapping in preserve mode without recreating org
+[completeOnboarding] Starting for channel contact: tg_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > keeps telegram active mapping in preserve mode without recreating org
+[completeOnboarding] Extracted data: {"workspaceName":"Telegram Workspace"}
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts > complete onboarding phase 5 orchestration > keeps telegram active mapping in preserve mode without recreating org
+[completeOnboarding] Active Telegram mapping already linked; preserving existing org: org_claimed_phase5
+
+stdout | tests/unit/onboarding/completeOnboarding.phase5.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/completeOnboarding.phase5.test.ts (3 tests) 9ms
+stdout | tests/unit/ai/autonomyRuntimeContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/channels/telegramWebhookSecret.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/autonomyRuntimeContracts.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/channels/telegramWebhookSecret.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/autonomyRuntimeContracts.test.ts (4 tests) 4ms
+ ✓ tests/unit/channels/telegramWebhookSecret.test.ts (4 tests) 4ms
+stdout | tests/unit/ai/trustEventTaxonomy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/trustEventTaxonomy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/trustEventTaxonomy.test.ts (16 tests) 14ms
+stdout | tests/unit/ai/transcribeMediaAudio.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/transcribeMediaAudio.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/transcribeMediaAudio.test.ts (4 tests) 6ms
+stdout | tests/unit/ai/voiceRuntimeAdapter.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/voiceRuntimeAdapter.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/voiceRuntimeAdapter.test.ts (8 tests) 9ms
+stdout | tests/unit/shell/telemetry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/shell/telemetry.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/shell/telemetry.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/modelValidationRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelValidationRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelValidationRuntime.test.ts (5 tests) 7ms
+stdout | tests/unit/slack/slackScopePolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/slack/slackScopePolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/slack/slackScopePolicy.test.ts (7 tests) 13ms
+stdout | tests/unit/ai/runtimeModelRoutingPolicyContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/runtimeModelRoutingPolicyContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/runtimeModelRoutingPolicyContract.test.ts (3 tests) 4ms
+stdout | tests/unit/stripe/byokCommercialPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/stripe/byokCommercialPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/stripe/byokCommercialPolicy.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/codeExecutionGovernance.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/codeExecutionGovernance.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/codeExecutionGovernance.test.ts (7 tests) 6ms
+stdout | tests/unit/ai/agentCatalogAdmin.controlledWrites.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentCatalogAdmin.controlledWrites.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentCatalogAdmin.controlledWrites.test.ts (7 tests) 9ms
+stdout | tests/unit/ai/toolApprovalPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/teamHandoffPayload.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolApprovalPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolApprovalPolicy.test.ts (10 tests) 6ms
+stdout | tests/unit/ai/teamHandoffPayload.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/teamHandoffPayload.test.ts (6 tests) 7ms
+stdout | tests/unit/interview/adaptiveInterviewFlow.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/interview/adaptiveInterviewFlow.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/interview/adaptiveInterviewFlow.test.ts (4 tests) 4ms
+stdout | tests/unit/ai/mobileVoiceContinuity.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileVoiceContinuity.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoiceContinuity.test.ts (2 tests) 4ms
+stdout | tests/unit/auth/platformSessionLookup.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/auth/platformSessionLookup.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/auth/platformSessionLookup.test.ts (4 tests) 14ms
+stdout | tests/unit/ai/soulEvolutionToolRegistration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulEvolutionToolRegistration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/soulEvolutionToolRegistration.test.ts (2 tests) 3ms
+stdout | tests/unit/onboarding/cloneFirstBirthingRegression.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/cloneFirstBirthingRegression.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/cloneFirstBirthingRegression.test.ts (6 tests) 5ms
+stdout | tests/unit/ai/modelFallbackTelemetry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelFallbackTelemetry.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelFallbackTelemetry.test.ts (2 tests) 8ms
+stdout | tests/unit/ai/agentExecutionHarnessPrompt.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolCallParsingAdapter.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolCallParsingAdapter.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/agentExecutionHarnessPrompt.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolCallParsingAdapter.test.ts (5 tests) 6ms
+ ✓ tests/unit/ai/agentExecutionHarnessPrompt.test.ts (6 tests) 10ms
+stdout | tests/unit/ai/toolFoundryIntegrityContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolFoundryIntegrityContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolFoundryIntegrityContract.test.ts (5 tests) 7ms
+stdout | tests/unit/onboarding/completeOnboarding.channelMatrix.phase3.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/openrouterPricing.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/openrouterPricing.test.ts > OpenRouter pricing fallback > passes sanitized extra request fields into provider payload
+[LLMAdapter] Request: {
+  providerId: 'openrouter',
+  model: 'openai/gpt-5',
+  endpointPath: '/chat/completions',
+  messageCount: 1,
+  hasTools: false,
+  toolCount: 0
+}
+
+stdout | tests/unit/ai/openrouterPricing.test.ts > OpenRouter pricing fallback > passes sanitized extra request fields into provider payload
+[LLMAdapter] Response: {
+  providerId: 'openrouter',
+  model: 'openai/gpt-5',
+  hasChoices: true,
+  choiceCount: 1,
+  hasToolCalls: false,
+  toolCallCount: 0,
+  usage: { prompt_tokens: 8, completion_tokens: 4, total_tokens: 12 },
+  hasStructuredOutput: false
+}
+
+stdout | tests/unit/ai/openrouterPricing.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/onboarding/completeOnboarding.channelMatrix.phase3.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/completeOnboarding.channelMatrix.phase3.test.ts (5 tests) 9ms
+ ✓ tests/unit/ai/openrouterPricing.test.ts (3 tests) 4ms
+stdout | tests/unit/ai/teamAccessModeRouting.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/teamAccessModeRouting.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/teamAccessModeRouting.test.ts (6 tests) 5ms
+stdout | tests/unit/shell/webchat-deployment-snippets.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/shell/webchat-deployment-snippets.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/shell/webchat-deployment-snippets.test.ts (5 tests) 11ms
+stdout | tests/unit/onboarding/soulReportScheduler.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/soulReportScheduler.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/soulReportScheduler.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/providerExecutionTelemetryCoverage.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/providerExecutionTelemetryCoverage.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/providerExecutionTelemetryCoverage.test.ts (4 tests) 7ms
+stdout | tests/unit/ai/desktopCaptureOrchestration.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/desktopCaptureOrchestration.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/desktopCaptureOrchestration.test.ts (6 tests) 10ms
+stdout | tests/unit/vat-calculation.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/vat-calculation.test.ts > Edge Cases and Error Handling
+✅ RBAC test suite completed
+
+ ✓ tests/unit/vat-calculation.test.ts (12 tests | 9 skipped) 3ms
+stdout | tests/unit/ai/supportRuntimePolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/supportRuntimePolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/supportRuntimePolicy.test.ts (3 tests) 4ms
+stdout | tests/unit/ai/hitlWaitpointContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/hitlWaitpointContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/hitlWaitpointContract.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/mobileVoicePlaybackPlan.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileVoicePlaybackPlan.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoicePlaybackPlan.test.ts (3 tests) 7ms
+stdout | tests/unit/ai/personalLifeOperatorPilotChecklist.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/personalLifeOperatorPilotChecklist.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/personalLifeOperatorPilotChecklist.test.ts (16 tests) 10ms
+stdout | tests/unit/ai/macosCompanionObservabilityContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/macosCompanionObservabilityContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/macosCompanionObservabilityContract.test.ts (2 tests) 3ms
+stdout | tests/unit/ai/collaborationRuntimeContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/collaborationRuntimeContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/collaborationRuntimeContract.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/soulModesArchetypes.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulModesArchetypes.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/soulModesArchetypes.test.ts (6 tests) 5ms
+stdout | tests/unit/ai/operatorCollaborationCutoverFlags.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/operatorCollaborationCutoverFlags.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/operatorCollaborationCutoverFlags.test.ts (4 tests) 7ms
+stdout | tests/unit/ai/freeOnboardingRolloutGuardrails.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelLifecyclePolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/freeOnboardingRolloutGuardrails.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/modelLifecyclePolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/freeOnboardingRolloutGuardrails.test.ts (6 tests) 5ms
+ ✓ tests/unit/ai/modelLifecyclePolicy.test.ts (5 tests) 4ms
+stdout | tests/unit/ai/agentExecutionVoiceRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentExecutionVoiceRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentExecutionVoiceRuntime.test.ts (7 tests) 8ms
+stdout | tests/unit/ai/midwifeCatalogComposer.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/midwifeCatalogComposer.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/midwifeCatalogComposer.test.ts (3 tests) 6ms
+stdout | tests/unit/ai/organizationMediaKnowledgeIndex.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/organizationMediaKnowledgeIndex.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/organizationMediaKnowledgeIndex.test.ts (3 tests) 5ms
+stdout | tests/unit/ai/soulProposalReviewPayload.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulProposalReviewPayload.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/soulProposalReviewPayload.test.ts (3 tests) 6ms
+stdout | tests/unit/ai/mobileGlassesBridge.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileGlassesBridge.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/voiceRuntimeSessionFsm.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/mobileGlassesBridge.test.ts (7 tests) 4ms
+stdout | tests/unit/ai/voiceRuntimeSessionFsm.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/voiceRuntimeSessionFsm.test.ts (12 tests) 20ms
+stdout | tests/unit/ai/avTransportFallbackPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/avTransportFallbackPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/avTransportFallbackPolicy.test.ts (6 tests) 3ms
+stdout | tests/unit/ai/spawnUseCaseAgentCatalogBinding.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/spawnUseCaseAgentCatalogBinding.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/spawnUseCaseAgentCatalogBinding.test.ts (3 tests) 7ms
+stdout | tests/unit/ai/knowledgeItemRetrievalBridge.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/knowledgeItemRetrievalBridge.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/interventionEvidence.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/ai/knowledgeItemRetrievalBridge.test.ts (6 tests) 4ms
+stdout | tests/unit/ai/interventionEvidence.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/interventionEvidence.test.ts (2 tests) 3ms
+stdout | tests/unit/ai/primaryAgentInvariants.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulGeneratorIdentityOrigin.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulGeneratorIdentityOrigin.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/soulGeneratorIdentityOrigin.test.ts (2 tests) 27ms
+stdout | tests/unit/ai/primaryAgentInvariants.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/primaryAgentInvariants.test.ts (4 tests) 44ms
+stdout | tests/unit/credits/creditExhaustionParser.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/credits/creditExhaustionParser.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/credits/creditExhaustionParser.test.ts (3 tests) 6ms
+stdout | tests/unit/ai/conversationRoutingParity.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/conversationRoutingParity.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/conversationRoutingParity.test.ts (5 tests) 3ms
+stdout | tests/unit/ai/chatModelResolution.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/chatModelResolution.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/chatModelResolution.test.ts (4 tests) 4ms
+stdout | tests/unit/shell/url-state.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/shell/url-state.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/shell/url-state.test.ts (12 tests) 9ms
+stdout | tests/unit/ai/sessionHandoffContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/sessionHandoffContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/sessionHandoffContract.test.ts (2 tests) 2ms
+stdout | tests/unit/onboarding/universalOnboardingPolicy.phase2.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/soulEvolutionPolicyGuards.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/universalOnboardingPolicy.phase2.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/soulEvolutionPolicyGuards.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/onboarding/universalOnboardingPolicy.phase2.test.ts (13 tests) 4ms
+ ✓ tests/unit/ai/soulEvolutionPolicyGuards.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/authProfilePolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/authProfilePolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/authProfilePolicy.test.ts (7 tests) 5ms
+stdout | tests/unit/ai/sessionRollingMemoryAccess.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/sessionRollingMemoryAccess.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/sessionRollingMemoryAccess.test.ts (3 tests) 3ms
+stdout | tests/unit/ai/toolSuccessFailureTelemetry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolSuccessFailureTelemetry.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolSuccessFailureTelemetry.test.ts (2 tests) 2ms
+stdout | tests/unit/ai/modelValidationContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelValidationContracts.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/oneOfOneMarketplaceRegression.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/oneOfOneMarketplaceRegression.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/oneOfOneMarketplaceRegression.test.ts (2 tests) 4ms
+ ✓ tests/unit/ai/modelValidationContracts.test.ts (5 tests) 8ms
+stdout | tests/unit/ai/interviewCoreMemoryDistillation.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/interviewCoreMemoryDistillation.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/interviewCoreMemoryDistillation.test.ts (2 tests) 4ms
+stdout | tests/unit/i18n/i18n-audit-allowlist.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/systemKnowledgeComposition.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/i18n/i18n-audit-allowlist.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/systemKnowledgeComposition.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/systemKnowledgeComposition.test.ts (5 tests) 4ms
+ ✓ tests/unit/i18n/i18n-audit-allowlist.test.ts (2 tests) 4ms
+stdout | tests/unit/agents/agentRecommender.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/agents/agentRecommender.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/agents/agentRecommender.test.ts (3 tests) 11ms
+stdout | tests/unit/ai/mobileAvCommandGate.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileAvCommandGate.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileAvCommandGate.test.ts (7 tests) 5ms
+stdout | tests/unit/ai/twoStageFailoverExecutor.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/twoStageFailoverExecutor.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/onboarding/channelBootstrap.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/onboarding/channelBootstrap.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/twoStageFailoverExecutor.test.ts (6 tests) 18ms
+ ✓ tests/unit/onboarding/channelBootstrap.test.ts (8 tests) 4ms
+stdout | tests/unit/ai/agentExecutionHotspotCharacterization.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentExecutionHotspotCharacterization.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentExecutionHotspotCharacterization.test.ts (3 tests) 9ms
+stdout | tests/unit/ai/voiceTransportEnvelopeContract.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/voiceTransportEnvelopeContract.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/voiceTransportEnvelopeContract.test.ts (6 tests) 3ms
+stdout | tests/unit/ai/modelConformance.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelConformance.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelConformance.test.ts (4 tests) 6ms
+stdout | tests/unit/ai/polymarketTool.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/api/cmsAgentPolicyContracts.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/polymarketTool.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/polymarketTool.test.ts (4 tests) 7ms
+stdout | tests/unit/api/cmsAgentPolicyContracts.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/api/cmsAgentPolicyContracts.test.ts (4 tests) 4ms
+stdout | tests/unit/ai/toolScopingSoulEvolution.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/toolScopingSoulEvolution.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/toolScopingSoulEvolution.test.ts (3 tests) 5ms
+stdout | tests/unit/ai/useCaseClonePolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/useCaseClonePolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/useCaseClonePolicy.test.ts (4 tests) 6ms
+stdout | tests/unit/appearance/appearance-context.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/appearance/appearance-context.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/legacyBillingGuardrails.test.ts
+🧪 Starting RBAC test suite...
+
+ ✓ tests/unit/appearance/appearance-context.test.ts (7 tests) 3ms
+stdout | tests/unit/ai/legacyBillingGuardrails.test.ts
+✅ RBAC test suite completed
+
+stdout | tests/unit/ai/modelFailoverPolicy.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelFailoverPolicy.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelFailoverPolicy.test.ts (5 tests) 3ms
+ ✓ tests/unit/ai/legacyBillingGuardrails.test.ts (5 tests) 5ms
+stdout | tests/unit/integrations/endpointResolver.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/integrations/endpointResolver.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/integrations/endpointResolver.test.ts (4 tests) 3ms
+stdout | tests/unit/ai/mobileVoiceTransportSelection.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileVoiceTransportSelection.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoiceTransportSelection.test.ts (6 tests) 7ms
+stdout | tests/unit/ai/modelPricing.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/modelPricing.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/modelPricing.test.ts (7 tests) 8ms
+stdout | tests/unit/ai/conversationContinuityTelemetry.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/conversationContinuityTelemetry.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/conversationContinuityTelemetry.test.ts (3 tests) 34ms
+stdout | tests/unit/ai/oneOfOneManagedCloneTuning.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/oneOfOneManagedCloneTuning.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/oneOfOneManagedCloneTuning.test.ts (3 tests) 2ms
+stdout | tests/unit/ai/mobileVoiceChaosHarness.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/mobileVoiceChaosHarness.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/mobileVoiceChaosHarness.test.ts (3 tests) 3ms
+stdout | tests/unit/credits/creditLedgerPrimitives.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/credits/creditLedgerPrimitives.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/credits/creditLedgerPrimitives.test.ts (4 tests) 4ms
+stdout | tests/unit/auth/oauthSignupRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/auth/oauthSignupRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/auth/oauthSignupRuntime.test.ts (3 tests) 3ms
+stdout | tests/unit/ai/sessionRouteIdentity.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/sessionRouteIdentity.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/sessionRouteIdentity.test.ts (8 tests) 3ms
+stdout | tests/unit/integrations/tenantResolver.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/integrations/tenantResolver.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/integrations/tenantResolver.test.ts (3 tests) 4ms
+stdout | tests/unit/slack/slackReplayIdempotency.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/slack/slackReplayIdempotency.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/slack/slackReplayIdempotency.test.ts (3 tests) 2ms
+ ↓ tests/unit/permissions/basic-checks.test.ts (16 tests | 16 skipped)
+stdout | tests/unit/ai/settingsModelLifecycleGuard.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/operatorPinnedNotesAccess.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/settingsModelLifecycleGuard.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/settingsModelLifecycleGuard.test.ts (2 tests) 5ms
+stdout | tests/unit/ai/operatorPinnedNotesAccess.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/operatorPinnedNotesAccess.test.ts (4 tests) 5ms
+stdout | tests/unit/ai/sessionReactivationMemoryAccess.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/sessionReactivationMemoryAccess.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/sessionReactivationMemoryAccess.test.ts (4 tests) 48ms
+ ↓ tests/unit/permissions/organization-scoped.test.ts (19 tests | 19 skipped)
+stdout | tests/unit/ai/operatorCollaborationCutoverRuntime.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/operatorCollaborationCutoverRuntime.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/operatorCollaborationCutoverRuntime.test.ts (3 tests) 3ms
+stdout | tests/unit/ai/sessionContactMemoryAccess.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/sessionContactMemoryAccess.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/sessionContactMemoryAccess.test.ts (3 tests) 4ms
+stdout | tests/unit/ai/controlCenterThreadRows.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/controlCenterThreadRows.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/controlCenterThreadRows.test.ts (4 tests) 3ms
+ ↓ tests/unit/permissions/wildcards.test.ts (18 tests | 18 skipped)
+ ↓ tests/unit/roles/role-assignment.test.ts (18 tests | 18 skipped)
+stdout | tests/unit/ai/runtimeModelReleaseGateGuard.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/runtimeModelReleaseGateGuard.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/runtimeModelReleaseGateGuard.test.ts (2 tests) 2ms
+stdout | tests/unit/agents/agentStorePanel.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/ai/agentControlCenterTab.clickthrough.dom.test.ts
+🧪 Starting RBAC test suite...
+
+stdout | tests/unit/agents/agentStorePanel.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/agents/agentStorePanel.test.ts (3 tests) 259ms
+stdout | tests/unit/ai/agentControlCenterTab.clickthrough.dom.test.ts
+✅ RBAC test suite completed
+
+ ✓ tests/unit/ai/agentControlCenterTab.clickthrough.dom.test.ts (5 tests) 996ms
+   ✓ Agent Control Center DOM click-through write flows > confirms and executes add blocker only after modal confirmation  335ms
+
+ Test Files  189 passed | 4 skipped (193)
+      Tests  1019 passed | 80 skipped (1099)
+   Start at  07:28:47
+   Duration  13.71s (transform 11.02s, setup 12.32s, collect 60.91s, tests 6.02s, environment 1.10s, prepare 17.88s)
+

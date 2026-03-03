@@ -1,0 +1,8 @@
+
+> l4yercak3-com@0.1.0 mobile:typecheck
+> npm --prefix apps/operator-mobile run typecheck
+
+
+> l4yercak3-mobile@1.0.0 typecheck
+> tsc --noEmit
+

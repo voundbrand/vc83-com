@@ -1,0 +1,19 @@
+
+> l4yercak3-com@0.1.0 test:e2e:mobile
+> playwright test -c playwright.mobile.config.ts
+
+[2m[WebServer] [22m(node:31186) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:31226) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m ⨯ Failed to start server
+[2m[WebServer] [22mError: listen EPERM: operation not permitted 127.0.0.1:3000
+[2m[WebServer] [22m    at <unknown> (Error: listen EPERM: operation not permitted 127.0.0.1:3000) {
+[2m[WebServer] [22m  code: [32m'EPERM'[39m,
+[2m[WebServer] [22m  errno: [33m-1[39m,
+[2m[WebServer] [22m  syscall: [32m'listen'[39m,
+[2m[WebServer] [22m  address: [32m'127.0.0.1'[39m,
+[2m[WebServer] [22m  port: [33m3000[39m
+[2m[WebServer] [22m}
+Error: Process from config.webServer exited early.
+

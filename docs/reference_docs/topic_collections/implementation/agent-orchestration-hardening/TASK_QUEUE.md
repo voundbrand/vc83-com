@@ -1,0 +1,71 @@
+# Agent Orchestration Hardening Task Queue (DEV-Only)
+
+**Last updated:** 2026-03-02 (UTC)  
+**Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-orchestration-hardening`  
+**RFC source:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-orchestration-hardening/SCALABLE_AGENT_RUNTIME_ARCHITECTURE_RFC.md`  
+**Execution scope:** DEV execution only. No migration/shadow/canary/promotion/cutover/rollback tasks are included.
+
+## Queue rules
+
+1. Allowed statuses are only: `READY`, `IN_PROGRESS`, `PENDING`, `BLOCKED`, `DONE`.
+2. Row schema is fixed and must remain exact: `ID | Lane | Plan | Priority | Status | Depends On | Task | Primary files | Verify | Notes`.
+3. Deterministic pick order: `P0` before `P1`, then lexical `ID`.
+4. `Depends On` semantics:
+   - `ID` means dependency must be `DONE` before this row moves to `IN_PROGRESS`.
+   - `ID@DONE_GATE` means work may start, but row cannot move to `DONE` until dependency is `DONE`.
+5. Dependencies must remain acyclic; add new rows only with forward references.
+6. Every row must include concrete executable verification commands.
+7. Queue and state synchronization is mandatory across `TASK_QUEUE.md`, `SESSION_PROMPTS.md`, `MASTER_PLAN.md`, and `INDEX.md`.
+8. Contract-first policy: runtime behavior changes must be backed by schema/manifest/contract artifacts first.
+
+## Verification profiles
+
+| Profile | Command |
+|---|---|
+| `docs` | `npm run docs:guard` |
+| `typecheck` | `npm run typecheck` |
+| `convex-ts` | `npx tsc -p convex/tsconfig.json --noEmit` |
+| `unit-rfc-core` | `npm run test:unit -- tests/unit/ai/toolScopingPolicyAudit.test.ts tests/unit/ai/runtimeIncidentAlerts.test.ts tests/unit/ai/auditDeliverableGuardrail.test.ts tests/unit/ai/actionCompletionMismatchTelemetry.test.ts` |
+| `unit-warmup` | `npm run test:unit -- tests/unit/shell/webchat-deployment-flow.smoke.test.ts` |
+| `integration-warmup` | `npm run test:integration -- tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts` |
+
+## Execution lanes
+
+| Lane | Purpose | Primary ownership | Concurrency gate |
+|---|---|---|---|
+| `A` | Agent Spec + schema contracts | `convex/ai/agentSpecRegistry.ts` (new), `convex/schema.ts` | Starts immediately; must complete before `B-002` |
+| `B` | Policy Compiler + manifest hash determinism | `convex/ai/policyCompiler.ts` (new), `convex/ai/toolScoping.ts` | `B-002` waits for `A-001` |
+| `C` | Admission control + structured denial contract | `convex/ai/admissionController.ts` (new), `convex/http.ts`, `convex/api/v1/webchatApi.ts` | `C-002` waits for `B-002` |
+| `D` | Action completion evidence + failure taxonomy | `convex/ai/agentExecution.ts`, `convex/ai/agentToolOrchestration.ts` | `D-002` waits for `C-002` |
+| `E` | Idempotency tuple + replay matrix behavior | `convex/ai/idempotencyCoordinator.ts` (new), `convex/ai/agentExecution.ts`, `convex/crons.ts` | `E-002` waits for `C-002` |
+| `F` | Observability + SLO/incident thresholds | `convex/ai/trustTelemetry.ts`, `convex/ai/runtimeIncidentAlerts.ts` | `F-002` waits for `D-002` and `E-002` |
+| `G` | CI/warmup pipeline wiring (dev gates only) | `scripts/ci/check-agent-runtime-dev-gates.sh` (new), `package.json` | `G-002` waits for `F-002` |
+
+## Execution order
+
+1. Wave 1 parallel kickoff: `ARH-A-001`, `ARH-B-001`, `ARH-C-001`, `ARH-D-001`, `ARH-E-001`, `ARH-F-001`, `ARH-G-001`.
+2. Wave 2 gated completion: `ARH-A-002` -> `ARH-B-002` -> `ARH-C-002` -> (`ARH-D-002` and `ARH-E-002`) -> `ARH-F-002` -> `ARH-G-002`.
+3. Definition of done for this queue: all rows `DONE` and all row-level `Verify` commands pass in the same branch.
+
+## Task queue
+
+| ID | Lane | Plan | Priority | Status | Depends On | Task | Primary files | Verify | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| `ARH-A-001` | `A` | `RFC §8.1, §6.1.1` | `P0` | `DONE` | `-` | Add `agent_spec_v1` schema contract and registry read/write validation with deterministic field normalization before persistence. | `convex/ai/agentSpecRegistry.ts`; `convex/schema.ts`; `tests/unit/ai/agentSpecRegistry.contract.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/agentSpecRegistry.contract.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added `agentSpecRegistry` table + indexes, strict `agent_spec_v1` normalization/validation, deterministic spec hashing, internal upsert/read functions, and contract tests. |
+| `ARH-A-002` | `A` | `RFC §8.1, §7.2` | `P0` | `DONE` | `ARH-A-001` | Enforce contract-reference validation (`tool`, `outcome`, `policy profile`) so unresolved refs fail compile input validation. | `convex/ai/agentSpecRegistry.ts`; `convex/ai/tools/registry.ts`; `tests/unit/ai/agentSpecReferenceValidation.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/agentSpecReferenceValidation.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added fail-closed reference validation for required tools, outcome keys, and policy profile refs with dedicated regression tests. |
+| `ARH-B-001` | `B` | `RFC §7.3, §8.2` | `P0` | `DONE` | `-` | Implement deterministic `PolicyCompiler` output for `runtime_capability_manifest_v1` (sorted maps/arrays + stable hash input canonicalization). | `convex/ai/policyCompiler.ts`; `convex/ai/toolScoping.ts`; `tests/unit/ai/policyCompilerDeterminism.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/policyCompilerDeterminism.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added deterministic compiler module, normalized channel/tool/outcome decisions, stable manifest hash generation, and regression tests for order-independent manifest/hash output. |
+| `ARH-B-002` | `B` | `RFC §6.2.1, §10.2(2)` | `P0` | `DONE` | `ARH-B-001`, `ARH-A-001` | Persist hash-addressed manifest artifacts and include decision provenance (`sourceLayer`) plus normalized deny catalog. | `convex/ai/runtimeCapabilityManifestStore.ts`; `convex/ai/policyCompiler.ts`; `convex/ai/agentSessions.ts`; `tests/unit/ai/runtimeCapabilityManifestStore.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/runtimeCapabilityManifestStore.test.ts tests/unit/ai/toolScopingPolicyAudit.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added deterministic hash-addressed runtime manifest artifact storage/read paths, source-layer provenance catalogs, deny-catalog normalization, and dedicated unit coverage. |
+| `ARH-C-001` | `C` | `RFC §7.4, §8.3, §9` | `P0` | `DONE` | `-` | Add `AdmissionController` pre-runtime gate to `native_guest` + webchat entrypoints and return `admission_denial_v1` on deny. | `convex/ai/admissionController.ts`; `convex/http.ts`; `convex/api/v1/webchatApi.ts`; `tests/unit/ai/admissionDenialContract.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/admissionDenialContract.test.ts tests/unit/ai/webchatPublicMessageContext.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added deterministic `admission_denial_v1` contract and pre-runtime denial gating for `/api/v1/webchat/message`, `/api/v1/native-guest/message`, and `handleWebchatMessage`. |
+| `ARH-C-002` | `C` | `RFC §6.2.2, §10.2(1)` | `P0` | `BLOCKED` | `ARH-C-001`, `ARH-B-002` | Normalize denial reason catalog + stage taxonomy and guarantee machine-readable denial payload fields for all denied turns. | `convex/ai/admissionController.ts`; `convex/ai/agentExecution.ts`; `tests/unit/ai/admissionReasonCatalog.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/admissionReasonCatalog.test.ts tests/unit/ai/runtimeIncidentAlerts.test.ts`; `npm run docs:guard` | 2026-03-02 implementation complete in required files; verification blocked by unrelated pre-existing failures in `tests/unit/ai/mobileMetaBridgeContracts.test.ts` (`meta_bridge_dat_sdk_unavailable` / `meta_glasses` readiness assertions). |
+| `ARH-D-001` | `D` | `RFC §7.5, §8.4` | `P0` | `BLOCKED` | `-` | Implement `action_completion_evidence_v1` builder and verifier wiring so outcome pass/fail is evidence-based, not phrasing-based. | `convex/ai/agentExecution.ts`; `convex/ai/agentToolOrchestration.ts`; `tests/unit/ai/actionCompletionEvidenceContract.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/actionCompletionEvidenceContract.test.ts tests/unit/ai/auditDeliverableGuardrail.test.ts`; `npm run docs:guard` | 2026-03-02 implementation complete in required files; verification blocked by unrelated pre-existing failures in `tests/unit/ai/mobileMetaBridgeContracts.test.ts` (`meta_bridge_dat_sdk_unavailable` / `meta_glasses` readiness assertions). |
+| `ARH-D-002` | `D` | `RFC §7.5 taxonomy map, §12.2` | `P0` | `PENDING` | `ARH-D-001`, `ARH-C-002` | Apply canonical failure taxonomy (`tool_unavailable`, `tool_not_observed`, `contract_invalid`, `precondition_missing`, `replay_duplicate`) and enforce fail-closed rewrite behavior. | `convex/ai/agentExecution.ts`; `convex/ai/trustTelemetry.ts`; `tests/unit/ai/actionCompletionMismatchTelemetry.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/actionCompletionMismatchTelemetry.test.ts tests/unit/ai/auditDeliverableGuardrail.test.ts`; `npm run docs:guard` | Maintain compatibility mapping from legacy claim reason codes. |
+| `ARH-E-001` | `E` | `RFC §7.6, §8.5` | `P0` | `DONE` | `-` | Implement canonical idempotency tuple contract (`ingressKey`, `scopeKey`, `payloadHash`, `intentType`, `ttlMs`) and evaluator entrypoint. | `convex/ai/idempotencyCoordinator.ts`; `convex/ai/agentExecution.ts`; `tests/unit/ai/idempotencyTupleContract.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/idempotencyTupleContract.test.ts tests/unit/ai/sessionRouteIdentity.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added canonical tuple contract + evaluator entrypoint wiring with deterministic payload normalization/hash, and passed all required verify commands after fixing baseline `mobileMetaBridgeContracts` readiness assertions. |
+| `ARH-E-002` | `E` | `RFC §8.5 replay matrix, §11.3` | `P0` | `PENDING` | `ARH-E-001`, `ARH-C-002` | Implement replay matrix outcomes (`duplicate_acknowledged`, `replay_previous_result`, `accepted`, `conflict_commit_in_progress`) and expiry cleanup behavior. | `convex/ai/idempotencyCoordinator.ts`; `convex/ai/agentExecution.ts`; `convex/crons.ts`; `tests/unit/ai/idempotencyReplayMatrix.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/idempotencyReplayMatrix.test.ts tests/unit/ai/runtimeIncidentAlerts.test.ts`; `npm run docs:guard` | Keep replay audit summary retention deterministic (7-day compact window). |
+| `ARH-F-001` | `F` | `RFC §11.1, §11.2` | `P0` | `DONE` | `-` | Add required trace/metric dimensions (`manifestHash`, idempotency keys, admission reason) to turn telemetry and counters. | `convex/ai/trustTelemetry.ts`; `convex/ai/runtimeIncidentAlerts.ts`; `convex/ai/agentExecution.ts`; `tests/unit/ai/trustTelemetryDashboards.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/trustTelemetryDashboards.test.ts tests/unit/ai/runtimeIncidentAlerts.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added canonical runtime turn telemetry dimension contract and wired manifest/idempotency/admission dimensions into runtime incident alert context/log counters with deterministic defaults. |
+| `ARH-F-002` | `F` | `RFC §11.3, §11.4` | `P0` | `PENDING` | `ARH-F-001`, `ARH-D-002`, `ARH-E-002` | Implement incident dedupe key + threshold checks (`duplicate_ingress_replay`, `tool_unavailable`, `context_invalid`, false replay) with bounded throttle window enforcement. | `convex/ai/runtimeIncidentAlerts.ts`; `convex/ai/trustTelemetry.ts`; `tests/unit/ai/runtimeIncidentAlerts.test.ts`; `tests/unit/ai/trustTelemetryDashboards.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/ai/runtimeIncidentAlerts.test.ts tests/unit/ai/trustTelemetryDashboards.test.ts`; `npm run docs:guard` | Dedupe key contract: `{organizationId}|{proposalOrSessionPartition}|{reasonCode}`. |
+| `ARH-G-001` | `G` | `RFC §7.7, §10.1 stages 1-4` | `P0` | `DONE` | `-` | Add DEV gate command wiring for `define -> warm up` stages (spec lint, compile determinism, contract tests, synthetic warmup). | `scripts/ci/check-agent-runtime-dev-gates.sh`; `package.json`; `tests/unit/shell/agent-runtime-dev-gates.smoke.test.ts` | `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/shell/agent-runtime-dev-gates.smoke.test.ts tests/unit/shell/webchat-deployment-flow.smoke.test.ts`; `npm run docs:guard` | Completed 2026-03-02: added deterministic DEV-only stage 1-4 gate script wiring via explicit npm scripts, smoke coverage for deterministic dry-run stage order, and explicit exclusion of migration/canary/promotion/cutover/rollback execution logic. |
+| `ARH-G-002` | `G` | `RFC §10.2, Appendix D #6` | `P1` | `PENDING` | `ARH-G-001`, `ARH-F-002` | Publish deterministic DEV pipeline artifact contract and enforce it in docs + CI invocation path. | `docs/reference_docs/topic_collections/implementation/agent-orchestration-hardening/MASTER_PLAN.md`; `docs/reference_docs/topic_collections/implementation/agent-orchestration-hardening/INDEX.md`; `scripts/ci/check-agent-runtime-dev-gates.sh` | `npm run docs:guard`; `npm run typecheck`; `npx tsc -p convex/tsconfig.json --noEmit`; `npm run test:unit -- tests/unit/shell/webchat-deployment-flow.smoke.test.ts`; `npm run test:integration -- tests/integration/onboarding/universalOnboardingIngress.phase5.integration.test.ts` | Artifact families: `artifacts/spec-lint`, `artifacts/manifest`, `artifacts/tests/contracts`, `artifacts/warmup`. |
+
+## Current READY-first set
+
+- None. Remaining rows are dependency-gated (`BLOCKED`/`PENDING`).

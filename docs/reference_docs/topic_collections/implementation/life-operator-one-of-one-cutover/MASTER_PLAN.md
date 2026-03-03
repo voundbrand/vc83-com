@@ -1,7 +1,7 @@
 # Life Operator One-of-One Cutover Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover`  
-**Last updated:** 2026-02-28
+**Last updated:** 2026-03-02
 
 ---
 
@@ -123,11 +123,18 @@ A task is frozen/deferred when it primarily optimizes:
 12. `LOC-014` is complete: demo-readiness scorecard now enforces deterministic rehearsal gates with fail-closed evidence requirements across seven scenarios.
 13. Lane `F` memory completion is closed: `LOC-015`..`LOC-020` are `DONE` (tenant-scoped pinned notes + fail-closed RBAC + deterministic prompt injection + rolling summary/recent-context budgeting + inactivity-triggered reactivation cache + structured contact memory with provenance/merge gates and scoped continuity boundaries + explicit `aiAgentMemory` runtime `deprecate` contract with fail-closed scope evaluation and memory-lane telemetry).
 14. Lane `G` pharmacist-vacation track is complete: `LOC-021`..`LOC-025` are `DONE` (contract + Slack parser/envelope persistence + deterministic policy/calendar evaluator + owner policy configuration UI + deterministic conflict mediation with trust-evidenced outcomes).
-15. Lane `H` baseline runtime send/sync + AV command-gating contract is complete: `LOC-032`, `LOC-026`, `LOC-027`, and `LOC-028` are `DONE` (2026-02-27), `LOC-029` is `IN_PROGRESS` (2026-02-28), `LOC-030`..`LOC-031` remain baseline/hardening delivery rows, and `LOC-033`..`LOC-035` close webchat/iPhone parity + final acceptance gates.
-16. Concrete parity gap is now explicit in plan scope: web send contract currently omits `commandPolicy`, `transportRuntime`, and `avObservability` while backend/mobile paths already support these metadata fields (`LOC-033`).
-17. `LOC-036` is complete: operator-mobile Expo command scripts now enforce a supported Node runtime contract (`>=20`, `<24`) with deterministic fail-fast guidance, removing the local Node 24 iOS startup blocker.
-18. `LOC-037` is complete: iPhone preflight CI + implementation/runbook sync are active (`.github/workflows/operator-mobile-ios-preflight.yml` + `IPHONE_GTM_CI_IMPLEMENTATION.md`), with explicit linkage to lane-`H` parity gates.
-19. Lane `J` cleanup stabilization sprint is queued (`LOC-038`..`LOC-042`) with explicit preemption rule for user-blocking simulator auth-form regressions; first row `LOC-038` targets the signup Tab-focus/password-field UI break reported on 2026-02-28.
+15. Lane `H` baseline runtime send/sync + AV command-gating + concierge telemetry + parity/hardening foundation are complete: `LOC-032`, `LOC-026`, `LOC-027`, `LOC-028`, `LOC-029`, `LOC-030`, `LOC-031`, `LOC-033`, and `LOC-034` are `DONE` (latest on 2026-03-01).
+16. `LOC-033` closed webchat/iPhone send-envelope metadata parity by forwarding `commandPolicy`, `transportRuntime`, and `avObservability` through web send contracts.
+17. `LOC-034` delivered transport/session attestation fail-closed enforcement (`tcg_mobile_transport_session_attestation_v1`) across ingress/runtime contracts, with deterministic fallback traceability and mutation-authority invariant blocks when attestation drifts.
+18. `LOC-035` is now `DONE`: root typecheck blocker in `src/components/window-content/agents/agent-escalation-queue.tsx` (`TS2589`) is resolved, follow-on mobile typecheck token-index issue in `apps/operator-mobile/app/(tabs)/index.tsx` is resolved, desktop e2e baseline is green, and `AVR-012`/`FOG2-016` remain satisfied.
+19. `LOC-036` is complete: operator-mobile Expo command scripts now enforce a supported Node runtime contract (`>=20`, `<24`) with deterministic fail-fast guidance, removing the local Node 24 iOS startup blocker.
+20. `LOC-037` is complete: iPhone preflight CI + implementation/runbook sync are active (`.github/workflows/operator-mobile-ios-preflight.yml` + `IPHONE_GTM_CI_IMPLEMENTATION.md`), with explicit linkage to lane-`H` parity gates.
+21. Lane `J` cleanup stabilization sprint is complete: `LOC-038`..`LOC-042` are `DONE` with deterministic verify subset evidence captured for the alias-retirement closeout row.
+22. External workstreams required for this live mobile concierge path are fully closed: ORV (`ORV-001`..`ORV-019`) is `DONE`, AVR (`AVR-001`..`AVR-013`) is `DONE`, and AOH (`AOH-001`..`AOH-014`) is `DONE`.
+23. Lane `K` demo-ops rollout is complete for Option A (`Der Terminmacher`): `LOC-043`..`LOC-047` are `DONE`; lane-`K` rehearsals are green (`FND-007-C3` recovered, founder aggregate `GO`) and deterministic degraded-path choreography is codified.
+24. Final production-demo signoff is `GO`: consolidated ORV/AVR/AOH/LOC readiness evidence with explicit founder demo-ops handoff.
+25. `LOC-048` is complete as post-signoff hardening: Appointment Booking Specialist is now the deterministic self-sufficient path for medical-follow-up routing (integrations ready), removing planned-path drift from lane-`K` readiness output while preserving iPhone preflight + agentic sanity gates.
+26. Maintenance pass on 2026-03-02 found no recommender/runtime/docs drift for the self-sufficient medical-follow-up contract and closed `LOC-049` (`DONE`) as the deterministic drift-watch rerun row for lane-`K` GO continuity.
 
 ---
 
@@ -143,7 +150,10 @@ A task is frozen/deferred when it primarily optimizes:
 8. `Wave 8` (`LOC-032`, `LOC-026`..`LOC-031`): lane-`H` unblock + baseline mobile-first concierge runtime (iPhone ingress, guarded command execution, telemetry) followed by hardening.
 9. `Wave 9` (`LOC-033`..`LOC-035`): cross-surface parity closure and launch-gate evidence (webchat + iPhone metadata parity, Meta-stream hardening completion, and external done-gates `AVR-012` + `FOG2-016`; both external gates are satisfied as of 2026-02-27).
 10. `Wave 10` (`LOC-036`, `LOC-037`): iPhone release hygiene closeout (Node runtime guard, icon preflight checks, dedicated preflight CI workflow, and go-to-market implementation contract).
-11. `Wave 11` (`LOC-038`..`LOC-042`): cleanup stabilization sprint (simulator signup focus regression fix, lane-scoped hygiene controls, Convex typecheck blocker recovery, `expo-av` deprecation migration, onboarding alias phase-6 execution).
+11. `Wave 11` (`LOC-038`..`LOC-042`): cleanup stabilization sprint is complete (`LOC-038`..`LOC-042` done).
+12. `Wave 12` (`LOC-043`..`LOC-047`): Der Terminmacher demo-ops lock is complete (`LOC-043`..`LOC-047` done) covering stage script mapping, fail-closed reality sanity gate, iPhone/toolchain/integration readiness, contract-fix closure + artifact-backed rehearsal proof, live failover choreography, and final production-demo GO/NO_GO signoff.
+13. `Wave 13` (`LOC-048`): post-signoff specialist-path hardening is complete, with deterministic appointment self-sufficient routing and rerun readiness gates (`typecheck`, `iOS preflight`, agentic sanity, docs guard).
+14. `Wave 14` (`LOC-049`): post-signoff drift-watch maintenance rerun is complete; recommender/runtime/docs contracts remain aligned and lane-`K` `GO` evidence is current.
 
 ---
 
@@ -151,17 +161,38 @@ A task is frozen/deferred when it primarily optimizes:
 
 Deterministic order:
 
-1. `LOC-038` (`P0`, `READY`): fix user-blocking simulator signup Tab-focus transition bug (email -> password) that breaks auth-form UI state/layout.
-2. `LOC-039` (`P0`, `PENDING`): establish lane-scoped hygiene controls in docs/queue due high concurrent repo churn.
-3. `LOC-040` (`P0`, `PENDING`): recover global Convex typecheck baseline by fixing `voiceRuntime` context typing blocker.
-4. `LOC-041` (`P1`, `PENDING`): migrate operator-mobile off deprecated `expo-av` to supported package contracts.
-5. `LOC-042` (`P1`, `PENDING`): execute onboarding alias phase-6 cleanup with compatibility-safe removals and explicit residual defer log.
+1. `LOC-038` (`P0`, `DONE`): fixed user-blocking simulator signup Tab-focus transition bug (email -> password) and confirmed with green verify stack plus manual simulator hardware-Tab traversal.
+2. `LOC-039` (`P0`, `DONE`): established lane-scoped hygiene controls in docs/queue for high-concurrency churn (ownership matrix + parking protocol + deterministic verify subsets).
+3. `LOC-040` (`P0`, `DONE`): validated global Convex typecheck baseline and targeted `voiceRuntime` + onboarding coverage; pre-existing `GenericActionCtx`/`db` blocker is not reproducible.
+4. `LOC-041` (`P1`, `DONE`): operator-mobile `expo-av` migration dependency gate is closed.
+5. `LOC-042` (`P1`, `DONE`): onboarding alias phase-6 cleanup row is closed; prior unrelated `TS7053` blocker is no longer reproducible and deterministic verify subset is green (`V-TYPE`, onboarding unit subset, alias-reference audit, `V-DOCS`).
 
 Constraints:
 
-1. Lane `J` may preempt lane `H` execution while preserving existing `IN_PROGRESS` state for `LOC-029`.
+1. Lane `J` may preempt lane `H` execution while preserving deterministic lane sequence (`LOC-035` remains the next lane-`H` row).
 2. Keep runtime trust/approval invariants fail-closed while touching onboarding or voice runtime boundaries.
 3. Use row-level verify gates exactly and sync queue/index/master/session artifacts at lane milestones.
+
+### Lane `J` blast-radius controls (`LOC-039`)
+
+1. File ownership boundaries are row-scoped and fail closed:
+   - `LOC-039`: workstream docs only (`TASK_QUEUE.md`, `INDEX.md`, `MASTER_PLAN.md`, `SESSION_PROMPTS.md`).
+   - `LOC-040`: `convex/ai/voiceRuntime.ts` + targeted unit tests in `tests/unit/ai/voiceRuntime*.test.ts` and `tests/unit/onboarding/*`.
+   - `LOC-041`: operator-mobile audio/runtime + dependency manifests (`useMobileVoiceRuntime.ts`, `VoiceRecorder.tsx`, `package.json`, `package-lock.json`).
+   - `LOC-042`: onboarding alias retirement surfaces + decision log.
+2. Unrelated dirty deltas are parked before verify/commit prep with path-scoped stash and revalidated via `git status --short`; if non-owned deltas cannot be isolated cleanly, row status moves to `BLOCKED`.
+3. Deterministic verification subsets are row-bound:
+   - `LOC-039`: `npm run docs:guard`.
+   - `LOC-040`: `npm run typecheck` + `npx vitest run tests/unit/ai/voiceRuntime*.test.ts tests/unit/onboarding`.
+   - `LOC-041`: `cd apps/operator-mobile && npm run typecheck`; `npx vitest run tests/unit/ai/mobileRuntimeHardening.test.ts tests/unit/ai/mobileGlassesBridge.test.ts`; `cd apps/operator-mobile && npm run ci:ios:preflight`; zero `expo-av` references check.
+   - `LOC-042`: `npm run typecheck`; `npx vitest run tests/unit/onboarding`; alias-reference audit; `npm run docs:guard`.
+4. `LOC-039` completion gate is satisfied (`DONE`): controls are synchronized in queue/index/master/session artifacts and `V-DOCS` passed.
+
+Closure evidence (`LOC-041`):
+
+1. Operator-mobile audio runtime/dependency migration now uses `expo-audio`/`expo-video` and removes `expo-av` references.
+2. Verification subset is green: mobile typecheck, targeted mobile hardening/glasses tests, iOS preflight, and `expo-av` grep gate.
+3. Runtime compatibility preserved for existing chat surfaces (`suspendSession`, `finalizeStreamingUtterance`) under fail-closed voice capture/transcription behavior.
 
 ---
 
@@ -257,12 +288,12 @@ Deterministic delivery order:
 2. `LOC-026` (`DONE`, `P0`): mobile ingress contract is closed (`liveSessionId`, `cameraRuntime`, `voiceRuntime`, `commandPolicy`, `attachments`, plus transport/observability envelope preservation) through `/api/v1/ai/chat` into runtime.
 3. `LOC-027` (`DONE`, `P0`): replace operator-mobile chat stubs with real backend send/sync and approval-aware UI rendering.
 4. `LOC-028` (`DONE`, `P0`): add mobile AV source registry + command gating policy.
-5. `LOC-029` (`IN_PROGRESS`, `P0`): map voice/camera context into concierge payload fields and trigger guarded `manage_bookings:run_meeting_concierge_demo`.
-6. `LOC-030` (`PENDING`, `P1`): add payload/decision telemetry and latency instrumentation with `<60s` demo target evidence.
-7. `LOC-031` (`PENDING`, `P1`): hardening track foundation (Meta DAT/WebRTC relay + stronger source attestation + tighter node command policy).
-8. `LOC-033` (`PENDING`, `P0`): close webchat/iPhone send-envelope parity for `commandPolicy`, `transportRuntime`, and `avObservability`.
-9. `LOC-034` (`PENDING`, `P1`): complete production-grade iPhone + Meta stream transport/attestation hardening with deterministic fallback traceability.
-10. `LOC-035` (`PENDING`, `P1`): publish world-class parity acceptance + runbook; row retains `@DONE_GATE` dependencies on `AVR-012` and `FOG2-016`, and both are satisfied (`DONE`) as of 2026-02-27.
+5. `LOC-029` (`DONE`, `P0`): mapped voice/camera context into concierge payload fields, enforced preview-first auto-injection, and retained explicit-confirm mutation gating for `manage_bookings:run_meeting_concierge_demo`.
+6. `LOC-030` (`DONE`, `P1`): payload/decision telemetry and end-to-end latency instrumentation are now recorded with `<60s` target breach signals and test evidence.
+7. `LOC-031` (`DONE`, `P1`): hardening track foundation delivered (Meta DAT/WebRTC relay constraints + stronger source attestation + tighter fail-closed node command policy enforcement).
+8. `LOC-033` (`DONE`, `P0`): webchat/iPhone send-envelope parity is complete for `commandPolicy`, `transportRuntime`, and `avObservability`.
+9. `LOC-034` (`DONE`, `P1`): production-grade iPhone + Meta stream transport/session attestation hardening is complete with deterministic fallback traceability and fail-closed mutation invariants.
+10. `LOC-035` (`DONE`, `P1`): world-class parity acceptance + runbook verification is complete with all row-level checks green under satisfied external gates `AVR-012@DONE_GATE` and `FOG2-016@DONE_GATE`.
 
 OpenClaw-inspired implementation posture (conceptual copy, not dependency coupling):
 
@@ -275,7 +306,7 @@ Implementation invariants:
 1. mutating execution remains preview-first and approval-gated,
 2. tenant/org scoping and idempotency contracts remain unchanged,
 3. webchat and iPhone chat must carry equivalent runtime metadata and trust semantics for world-class parity claims.
-4. final lane closeout evidence is now blocked only on remaining lane-`H` parity work (`LOC-034` and `LOC-035` verification evidence); external quality gates `AVR-012` and `FOG2-016` are both satisfied as of 2026-02-27.
+4. final lane closeout evidence for lane `H` is complete through `LOC-035`, while external quality gates `AVR-012` and `FOG2-016` remain satisfied as of 2026-02-27.
 
 ---
 
@@ -296,6 +327,70 @@ Implementation invariants:
 1. iPhone preflight checks stay deterministic: `typecheck` + icon size/no-alpha validation.
 2. Expo-facing commands fail fast on unsupported Node runtimes with explicit remediation steps (`nvm use`).
 3. Lane `I` does not weaken or bypass lane `H` trust/parity acceptance gates; it hardens release readiness only.
+
+---
+
+## Der Terminmacher Demo-Ops Path (Lane K)
+
+Lane `K` turns Option A from stage script into an executable runtime contract with deterministic go/no-go evidence.
+
+Deterministic delivery order:
+
+1. `LOC-043` (`P0`, `DONE`): lock the `0:00`..`0:60` script beat map to runtime actions and trust gates.
+2. `LOC-044` (`P0`, `DONE`): locked iPhone + integration preflight matrix and published fail-closed reality sanity map (recommender IDs, coverage blueprint IDs, runtime concierge hooks) with explicit `GO`/`NO_GO` classification.
+3. `LOC-045` (`P0`, `DONE`): `LOC-044` P0 contract drifts are closed and full verify stack is green with artifact-backed rehearsal evidence (`FND-007-C1`..`C4` all `PASS`, founder aggregate `GO`).
+4. `LOC-046` (`P1`, `DONE`): deterministic degraded-path choreography (Meta-glasses primary, iPhone fallback) is now published with fail-closed wording and operator run cards.
+5. `LOC-047` (`P0`, `DONE`): final production-demo GO/NO_GO signoff ledger is published with `GO` outcome and explicit owner handoff; `LOC-041@DONE_GATE` is satisfied.
+6. `LOC-048` (`P0`, `DONE`): post-signoff hardening keeps appointment outcomes self-sufficient under `appointment_booking_specialist` and removes planned-path drift from medical-follow-up recommender output.
+7. `LOC-049` (`P0`, `DONE`): maintenance drift-watch rerun validated recommender/runtime/docs alignment and refreshed the lane-`K` GO continuity ledger.
+
+`LOC-045` closeout evidence:
+
+1. Closed drift: kickoff specialist-hint parity now includes `medical_compliance_reviewer` via shared role contract (`agent-recommender.ts` + `onboarding-kickoff-contract.ts`).
+2. Closed drift: deterministic specialist-role -> blueprint mapping contract now exists via `SPECIALIST_ROLE_CONTRACTS` consumed in `agents-window.tsx`.
+3. Closed drift: `FND-007` preflight now publishes deterministic runtime readiness evidence fields (`convexConnected`, `crmLookupCreateConfigured`, `calendarReadinessConfigured`, `outboundInviteChannelReady`) and scorecard contract references them.
+4. Rehearsal evidence now passes: `tmp/reports/fnd-007/latest.json` records `result: "PASS"` with `checkpointFailIds: "none"` and founder aggregate at `tmp/reports/founder-rehearsal/latest.json` records `result: "GO"`.
+5. Verification rerun for row closeout is green in deterministic order: `npm run typecheck`; targeted `vitest` sanity subset; `npm run demo:fnd-007`; `npm run demo:founder`; `npm run docs:guard`.
+
+Script-to-runtime contract (`LOC-043`) for Option A:
+
+1. `0:16` “Agent — wer steht vor mir?” -> vision ingest + name-tag extraction + CRM lookup path.
+2. `0:22` scheduling question capture -> meeting window extraction + payload assembly.
+3. `0:30` phone contact view capture -> email/phone extraction with explicit confidence/fallback handling.
+4. `0:35` concierge execution path -> preview-first validation, explicit-confirm mutation gate, invite dispatch.
+5. `0:40` phone buzz confirmation -> delivery evidence + operator verbal confirmation contract.
+
+`LOC-046` deterministic failover choreography contract:
+
+1. Primary path (Meta glasses): execute full identify -> slot capture -> contact capture -> preview -> explicit approval -> invite dispatch sequence in <=60 seconds.
+2. Immediate fallback trigger: if vision, network, CRM, calendar, or outbound invite checks are not confidently `GO`, switch in-session to iPhone camera ingress without restarting the demo.
+3. Fallback path (iPhone camera): preserve identical trust gates (preview-first, explicit confirm before mutating invite send) and keep one visible operator narrative; no specialist/tooling internals are exposed.
+4. Degraded-path wording is fail-closed: operator states "preview ready, send pending your confirmation" or "connection not verified, I will not claim sent yet" instead of claiming execution without evidence.
+5. Cadence guardrail remains 20-60 seconds total with deterministic stage prompts for each branch.
+
+`LOC-047` final signoff evidence:
+
+1. `V-IOS-PREFLIGHT` pass: `cd apps/operator-mobile && npm run ci:ios:preflight`.
+2. `V-DEMO-FND-007` pass: `tmp/reports/fnd-007/latest.json` shows `result: "PASS"` with `checkpointFailIds: "none"` and live invoice dispatch evidence.
+3. `V-DEMO-FOUNDER` pass: `tmp/reports/founder-rehearsal/latest.json` shows `result: "GO"` and `totals.passCount: 7` of `7`.
+4. `V-DOCS` pass: `npm run docs:guard`.
+5. Consolidated external done-gates remain satisfied in signoff ledger: ORV (`ORV-001`..`ORV-019`), AVR (`AVR-001`..`AVR-013`), AOH (`AOH-001`..`AOH-014`).
+
+`LOC-048` post-signoff hardening evidence:
+
+1. Recommender routing contract now keeps `medical_follow_up` on the self-sufficient appointment path (`appointment_booking_specialist`) under ready calendar/messaging integrations.
+2. Support knowledge baseline mirrors the same contract so operator-facing guidance does not reintroduce planned-path drift.
+3. Verification rerun is green in deterministic order: `npm run typecheck`; `cd apps/operator-mobile && npm run ci:ios:preflight`; `npx vitest run tests/unit/agents/agentRecommender.test.ts tests/unit/agents/agentStorePanel.test.ts tests/integration/ai/mobileRuntimeHardening.integration.test.ts`; `npm run docs:guard`.
+
+Implementation invariants:
+
+1. One visible operator only; specialist routing remains hidden.
+2. Trust/approval contracts remain fail-closed for mutating paths.
+3. Fallback path must preserve the same trust gates and evidence contracts.
+4. No “production-ready” claim is allowed without explicit `GO` output from `LOC-047`.
+5. No lane-`K` readiness claim is allowed unless `LOC-044` reality sanity ledger is complete with file-level evidence and owner-tagged unblock actions for every `NO_GO` finding.
+6. Lane-`K` `GO` remains valid only while `LOC-048` self-sufficient appointment-routing contract is preserved (no reintroduced planned-path dependency for medical-follow-up demo output).
+7. Lane-`K` `GO` remains valid only while `LOC-049` drift-watch evidence is current and no recommender/runtime/docs contract drift is detected.
 
 ---
 

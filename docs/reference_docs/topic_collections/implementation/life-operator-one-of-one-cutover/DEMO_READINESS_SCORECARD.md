@@ -1,7 +1,7 @@
 # Demo Readiness Scorecard
 
 **Status:** Final deterministic gate (`LOC-014`)  
-**Last updated:** 2026-02-26
+**Last updated:** 2026-03-02
 
 Use this scorecard before any customer-facing founder demo claim.
 
@@ -65,6 +65,10 @@ Executable rehearsal commands:
 | `oneVisibleOperatorMaintained` | `yes`/`no` |
 | `result` | `PASS`/`FAIL` |
 | `notes` | concise remediation detail when `FAIL` |
+| `preflight_status.runtimeReadiness.convexConnected` | `true`/`false` |
+| `preflight_status.runtimeReadiness.crmLookupCreateConfigured` | `true`/`false` |
+| `preflight_status.runtimeReadiness.calendarReadinessConfigured` | `true`/`false` |
+| `preflight_status.runtimeReadiness.outboundInviteChannelReady` | `true`/`false` |
 
 ---
 
@@ -90,6 +94,22 @@ Executable rehearsal commands:
 4. Any blocked case is missing concrete unblocking steps.
 5. Any run exceeds `7m` total runtime.
 6. Any run exposes raw specialist handoff UI.
+
+---
+
+## LOC-045 runtime readiness evidence contract
+
+`FND-007` artifacts must publish deterministic runtime-readiness fields for the stage-critical path:
+
+1. Convex connectivity (`preflight_status.runtimeReadiness.convexConnected`),
+2. CRM lookup/create configuration (`preflight_status.runtimeReadiness.crmLookupCreateConfigured`),
+3. Calendar readiness configuration (`preflight_status.runtimeReadiness.calendarReadinessConfigured`),
+4. Outbound invite channel readiness (`preflight_status.runtimeReadiness.outboundInviteChannelReady`).
+
+Fail-closed policy:
+
+1. Missing readiness fields in `tmp/reports/fnd-007/latest.json` is immediate `NO_GO`.
+2. Any `false` readiness value must include explicit owner/date follow-up in lane `K` ledger notes before `LOC-047` signoff.
 
 ---
 
