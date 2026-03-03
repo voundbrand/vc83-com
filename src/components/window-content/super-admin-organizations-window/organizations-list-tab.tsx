@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
-import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe, Search, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useState, useMemo } from "react";
@@ -11,6 +11,7 @@ import { AdminManageWindow } from "./manage-org";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const apiAny: any = require("../../../../convex/_generated/api").api;
+const LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY = "storeLegacyPricingManualReveal";
 
 /**
  * Organizations List Tab
@@ -31,11 +32,14 @@ export function OrganizationsListTab() {
   // Avoid deep generated type instantiation on large Convex API unions.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const unsafeUseAction = useAction as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsafeUseMutation = useMutation as any;
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
+  const [legacyPricingMutationOrgId, setLegacyPricingMutationOrgId] = useState<Id<"organizations"> | null>(null);
 
   // Archive modal (soft delete - for active orgs)
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
@@ -87,6 +91,9 @@ export function OrganizationsListTab() {
           isActive: boolean;
           createdAt: number;
           memberCount: number;
+          legacyPricingStatus?: "hidden" | "compatibility" | "revealed";
+          legacyPricingManualRevealEnabled?: boolean;
+          hasLegacyPlanAccess?: boolean;
         }>;
         continueCursor: string;
         isDone: boolean;
@@ -117,6 +124,30 @@ export function OrganizationsListTab() {
   const archiveOrganization = unsafeUseAction(apiAny.organizations.deleteOrganization); // This soft-deletes
   const restoreOrganization = unsafeUseAction(apiAny.organizations.restoreOrganization);
   const permanentlyDeleteOrganization = unsafeUseAction(apiAny.organizations.permanentlyDeleteOrganization);
+  const toggleLegacyPricingOverride = unsafeUseMutation(apiAny.licensing.helpers.toggleFeature);
+
+  const handleToggleLegacyPricing = async (
+    organizationId: Id<"organizations">,
+    enabled: boolean,
+  ) => {
+    if (!sessionId || !isSuperAdmin) {
+      return;
+    }
+    setLegacyPricingMutationOrgId(organizationId);
+    try {
+      await toggleLegacyPricingOverride({
+        sessionId,
+        organizationId,
+        featureKey: LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY,
+        enabled,
+      });
+    } catch (error) {
+      console.error("Failed to toggle legacy pricing override:", error);
+      alert(`Failed to update legacy pricing override: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setLegacyPricingMutationOrgId(null);
+    }
+  };
 
   // Open AdminManageWindow for system admins
   const handleManageClick = (organizationId: Id<"organizations">, organizationName: string) => {
@@ -488,6 +519,36 @@ export function OrganizationsListTab() {
                       </div>
                     )}
 
+                    {isSuperAdmin && "legacyPricingStatus" in org && (
+                      <div className="flex items-center gap-1.5">
+                        <span style={{ color: "var(--window-document-text)" }}>Legacy pricing:</span>
+                        <span
+                          className="px-2 py-0.5 text-xs font-semibold border"
+                          style={{
+                            backgroundColor:
+                              org.legacyPricingStatus === "compatibility"
+                                ? "var(--success)"
+                                : org.legacyPricingStatus === "revealed"
+                                  ? "var(--warning)"
+                                  : "var(--neutral-gray)",
+                            color: "white",
+                            borderColor:
+                              org.legacyPricingStatus === "compatibility"
+                                ? "var(--success)"
+                                : org.legacyPricingStatus === "revealed"
+                                  ? "var(--warning)"
+                                  : "var(--neutral-gray)",
+                          }}
+                        >
+                          {org.legacyPricingStatus === "compatibility"
+                            ? "Compatibility"
+                            : org.legacyPricingStatus === "revealed"
+                              ? "Revealed"
+                              : "Hidden"}
+                        </span>
+                      </div>
+                    )}
+
                     {joinedAt && (
                       <div className="flex items-center gap-1.5">
                         <Calendar size={12} style={{ color: "var(--neutral-gray)" }} />
@@ -513,6 +574,47 @@ export function OrganizationsListTab() {
                 </div>
 
                 <div className="ml-3 flex gap-2">
+                  {isSuperAdmin && "legacyPricingStatus" in org ? (
+                    <button
+                      onClick={() => {
+                        if (org.legacyPricingStatus === "compatibility") {
+                          return;
+                        }
+                        void handleToggleLegacyPricing(
+                          org._id,
+                          org.legacyPricingStatus !== "revealed",
+                        );
+                      }}
+                      disabled={
+                        legacyPricingMutationOrgId === org._id ||
+                        org.legacyPricingStatus === "compatibility"
+                      }
+                      className="beveled-button px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: "var(--window-document-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                      title={
+                        org.legacyPricingStatus === "compatibility"
+                          ? "Legacy pricing is automatically available for compatibility."
+                          : undefined
+                      }
+                    >
+                      {legacyPricingMutationOrgId === org._id ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : org.legacyPricingStatus === "revealed" ? (
+                        <EyeOff size={11} />
+                      ) : (
+                        <Eye size={11} />
+                      )}
+                      {org.legacyPricingStatus === "compatibility"
+                        ? "Compatibility auto"
+                        : org.legacyPricingStatus === "revealed"
+                          ? "Hide legacy pricing"
+                          : "Reveal legacy pricing"}
+                    </button>
+                  ) : null}
+
                   {/* System Admin: Show "Manage" button */}
                   {isSuperAdmin && (
                     <button

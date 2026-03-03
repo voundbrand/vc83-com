@@ -10,6 +10,7 @@ import {
   Activity,
   AlertTriangle,
   Bot,
+  Copy,
   CheckCircle,
   Clock,
   MessageSquare,
@@ -21,6 +22,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { useAuth } from "@/hooks/use-auth";
 import type { AgentCustomProps } from "./types";
 import { isPlatformManagedL2Soul } from "./platform-soul-scope";
 import {
@@ -449,6 +451,71 @@ interface ToolScopingAuditAggregation {
   }>;
 }
 
+type ActionCompletionMismatchDataQuality =
+  | "artifact_backed"
+  | "no_artifacts"
+  | "artifact_backed_with_fallback_available"
+  | "fallback_derived";
+
+type ActionCompletionMismatchSourceMode = "auto" | "artifacts_only";
+
+interface ActionCompletionMismatchIncident {
+  performedAt: number;
+  sessionId?: string;
+  turnId?: string;
+  agentId: string;
+  channel?: string;
+  reasonCode: string;
+  outcome?: string;
+  enforcementMode: "off" | "observe" | "enforce";
+  source: "template_metadata" | "legacy_samantha_fallback" | "none";
+  templateRole: string;
+  templateAgentId?: string;
+  templateIdentifier: string;
+  contractVersion?: string;
+  templateContractVersion?: string;
+  claimedOutcomes: string[];
+  malformedClaimCount: number;
+  rewriteApplied: boolean;
+  contractEvidence: {
+    claimStatus?: "in_progress" | "completed";
+    status?: "enforced" | "pass";
+    requiredTools: string[];
+    observedTools: string[];
+    availableTools: string[];
+  };
+}
+
+interface ActionCompletionMismatchTelemetryAggregation {
+  source: string;
+  sourceMode: ActionCompletionMismatchSourceMode;
+  dataQuality: ActionCompletionMismatchDataQuality;
+  summarySource: string;
+  incidentSource: string;
+  rewriteArtifactCount: number;
+  windowHours: number;
+  since: number;
+  actionsScanned: number;
+  actionsWithActionCompletionTelemetry: number;
+  mismatchCount: number;
+  rewriteCount: number;
+  mismatchRate: number;
+  reasonCodes: Array<{ reasonCode: string; count: number }>;
+  channels: Array<{ channel: string; count: number }>;
+  outcomes: Array<{ outcome: string; count: number }>;
+  templateIdentifiers: Array<{
+    templateIdentifier: string;
+    mismatchCount: number;
+    rewriteCount: number;
+  }>;
+  templateIncidents: Array<{
+    templateRole: string;
+    mismatchCount: number;
+    rewriteCount: number;
+  }>;
+  incidents: ActionCompletionMismatchIncident[];
+}
+
 interface ActionItem {
   id: string;
   severity: TimelineSeverity;
@@ -517,6 +584,7 @@ const RUNTIME_KPI_WINDOW_HOURS = 24;
 
 export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentTrustCockpitProps) {
   const { t } = useNamespaceTranslations("ui.agents.trust_cockpit");
+  const { isSuperAdmin } = useAuth();
   const tx = (
     key: string,
     fallback: string,
@@ -639,6 +707,16 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     hours: RUNTIME_KPI_WINDOW_HOURS,
     limit: 40,
   }) as ToolScopingAuditAggregation | undefined;
+  const actionCompletionMismatchTelemetry = unsafeUseQuery(
+    apiAny.ai.agentSessions.getActionCompletionMismatchTelemetry,
+    {
+      sessionId,
+      organizationId,
+      agentId,
+      hours: RUNTIME_KPI_WINDOW_HOURS,
+      limit: 20,
+    },
+  ) as ActionCompletionMismatchTelemetryAggregation | undefined;
 
   const [selectedInterventionId, setSelectedInterventionId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<InterventionTemplateId>("override_draft");
@@ -654,6 +732,12 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   const [selectedReliabilityReceiptId, setSelectedReliabilityReceiptId] = useState<Id<"agentInboxReceipts"> | null>(null);
   const [reliabilityActionMessage, setReliabilityActionMessage] = useState<string | null>(null);
   const [isRequestingReplay, setIsRequestingReplay] = useState(false);
+  const [copiedKeyField, setCopiedKeyField] = useState<string | null>(null);
+  const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
+  const [copiedThreadId, setCopiedThreadId] = useState<string | null>(null);
+  const [showMismatchDiagnostic, setShowMismatchDiagnostic] = useState(false);
+  const [mismatchDiagnosticMode, setMismatchDiagnosticMode] =
+    useState<ActionCompletionMismatchSourceMode>("auto");
 
   const approveAction = useMutation(apiAny.ai.agentApprovals.approveAction);
   const rejectAction = useMutation(apiAny.ai.agentApprovals.rejectAction);
@@ -683,6 +767,19 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
       }
       : "skip"
   ) as ReplaySafeReceiptDebug | null | undefined;
+  const actionCompletionMismatchTelemetryDiagnostic = unsafeUseQuery(
+    apiAny.ai.agentSessions.getActionCompletionMismatchTelemetryDiagnostic,
+    showMismatchDiagnostic && isSuperAdmin
+      ? {
+          sessionId,
+          organizationId,
+          agentId,
+          hours: RUNTIME_KPI_WINDOW_HOURS,
+          limit: 30,
+          sourceMode: mismatchDiagnosticMode,
+        }
+      : "skip",
+  ) as ActionCompletionMismatchTelemetryAggregation | undefined;
 
   const props = (agent?.customProperties || {}) as AgentCustomProps;
   const agentDisplayName = useMemo(() => {
@@ -1013,12 +1110,14 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     || toolSuccessFailureRatio?.windowHours
     || retrievalTelemetry?.windowHours
     || toolScopingAudit?.windowHours
+    || actionCompletionMismatchTelemetry?.windowHours
     || RUNTIME_KPI_WINDOW_HOURS;
   const runtimeSince =
     modelFallbackRate?.since
     || toolSuccessFailureRatio?.since
     || retrievalTelemetry?.since
     || toolScopingAudit?.since
+    || actionCompletionMismatchTelemetry?.since
     || (Date.now() - runtimeWindowHours * 60 * 60 * 1000);
   const runtimeScopeLabel = `Agent ${agentDisplayName} · organization scope`;
 
@@ -1180,6 +1279,50 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     }
   };
 
+  const handleCopyKeyField = async (field: string, value: string) => {
+    if (!value || value === "n/a") {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKeyField(field);
+      setTimeout(() => {
+        setCopiedKeyField((current) => (current === field ? null : current));
+      }, 1200);
+    } catch {
+      setReliabilityActionMessage("Clipboard copy failed. Select and copy manually.");
+    }
+  };
+
+  const buildThreadQueueExport = (threadRow: ControlCenterThreadRow): string => {
+    const drillDown =
+      controlCenterThreadDrillDown?.threadId === threadRow.threadId
+        ? controlCenterThreadDrillDown
+        : null;
+    return JSON.stringify(
+      {
+        exportedAt: new Date().toISOString(),
+        thread: threadRow,
+        selectedThreadId,
+        drillDown,
+      },
+      null,
+      2,
+    );
+  };
+
+  const handleCopyThreadQueue = async (threadRow: ControlCenterThreadRow) => {
+    try {
+      await navigator.clipboard.writeText(buildThreadQueueExport(threadRow));
+      setCopiedThreadId(threadRow.threadId);
+      setTimeout(() => {
+        setCopiedThreadId((current) => (current === threadRow.threadId ? null : current));
+      }, 1200);
+    } catch {
+      setReliabilityActionMessage("Thread payload copy failed. Expand and copy manually.");
+    }
+  };
+
   if (
     !agent
     || !proposals
@@ -1329,21 +1472,26 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         <Card title={tx("cards.immediate_actions.title", "Immediate Actions")}>
           <div className="space-y-2">
             {actionItems.map((item) => (
+              (() => {
+                const tone = actionItemTone(item.severity);
+                return (
               <div
                 key={item.id}
                 className="border p-2"
                 style={{
-                  borderColor: item.severity === "high" ? "#fecaca" : item.severity === "medium" ? "#fde68a" : "#bbf7d0",
-                  background: item.severity === "high" ? "#fef2f2" : item.severity === "medium" ? "#fffbeb" : "#f0fdf4",
+                  borderColor: tone.border,
+                  background: tone.background,
                 }}
               >
                 <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                   {item.label}
                 </div>
-                <div className="text-[10px] mt-1" style={{ color: "var(--neutral-gray)" }}>
+                <div className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
                   {item.action}
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         </Card>
@@ -1488,17 +1636,29 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   label={tx("cards.receipt_reliability.can_replay", "Can replay")}
                   value={selectedReliabilityReceiptDebug.canReplay ? "Yes" : "No"}
                 />
-                <MetricLine
+                <CopyableKeyField
                   label={tx("cards.receipt_reliability.idempotency", "Idempotency")}
-                  value={compactId(selectedReliabilityReceiptDebug.idempotencyKey)}
+                  value={selectedReliabilityReceiptDebug.idempotencyKey}
+                  copied={copiedKeyField === "idempotency"}
+                  onCopy={() =>
+                    void handleCopyKeyField("idempotency", selectedReliabilityReceiptDebug.idempotencyKey)
+                  }
                 />
-                <MetricLine
+                <CopyableKeyField
                   label={tx("cards.receipt_reliability.concurrency_key", "Concurrency key")}
                   value={selectedReliabilityReceiptDebug.queueConcurrencyKey || "n/a"}
+                  copied={copiedKeyField === "concurrency"}
+                  onCopy={() =>
+                    void handleCopyKeyField("concurrency", selectedReliabilityReceiptDebug.queueConcurrencyKey || "")
+                  }
                 />
-                <MetricLine
+                <CopyableKeyField
                   label={tx("cards.receipt_reliability.ordering_key", "Ordering key")}
                   value={selectedReliabilityReceiptDebug.queueOrderingKey || "n/a"}
+                  copied={copiedKeyField === "ordering"}
+                  onCopy={() =>
+                    void handleCopyKeyField("ordering", selectedReliabilityReceiptDebug.queueOrderingKey || "")
+                  }
                 />
                 {selectedReliabilityReceiptDebug.canReplay && (
                   <button
@@ -1689,6 +1849,194 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
               </div>
             )}
           </div>
+
+          <div
+            className="border p-2.5"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                {tx("cards.runtime_kpis.action_completion_mismatch", "Action completion mismatch")}
+              </div>
+              {actionCompletionMismatchTelemetry && (
+                <StatusPill
+                  label={actionCompletionMismatchTelemetry.dataQuality}
+                  tone={actionCompletionDataQualityTone(actionCompletionMismatchTelemetry.dataQuality)}
+                />
+              )}
+            </div>
+            {!actionCompletionMismatchTelemetry && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_action_completion_mismatch", "Loading mismatch telemetry...")}
+              </div>
+            )}
+            {actionCompletionMismatchTelemetry && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine
+                  label={tx("cards.runtime_kpis.mismatch_incidents", "Mismatch incidents")}
+                  value={String(actionCompletionMismatchTelemetry.mismatchCount)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.mismatch_rate", "Mismatch rate")}
+                  value={formatRatePercent(actionCompletionMismatchTelemetry.mismatchRate)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.rewrites_applied", "Rewrites applied")}
+                  value={String(actionCompletionMismatchTelemetry.rewriteCount)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.telemetry_coverage", "Telemetry coverage")}
+                  value={formatCountRatio(
+                    actionCompletionMismatchTelemetry.actionsWithActionCompletionTelemetry,
+                    actionCompletionMismatchTelemetry.actionsScanned,
+                  )}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.top_mismatch_reason", "Top mismatch reason")}
+                  value={actionCompletionMismatchTelemetry.reasonCodes[0]
+                    ? `${humanizeText(actionCompletionMismatchTelemetry.reasonCodes[0].reasonCode)} (${actionCompletionMismatchTelemetry.reasonCodes[0].count})`
+                    : "none"}
+                />
+                {actionCompletionMismatchTelemetry.dataQuality === "no_artifacts" ? (
+                  <div className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {tx(
+                      "cards.runtime_kpis.no_verified_mismatch_incidents",
+                      "No verified mismatch incidents in this period."
+                    )}
+                  </div>
+                ) : actionCompletionMismatchTelemetry.incidents[0] ? (
+                  <div className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {tx(
+                      "cards.runtime_kpis.latest_incident_summary",
+                      "Latest incident: {{reason}} ({{timeAgo}}).",
+                      {
+                        reason: humanizeText(actionCompletionMismatchTelemetry.incidents[0].reasonCode),
+                        timeAgo: timeAgo(actionCompletionMismatchTelemetry.incidents[0].performedAt),
+                      }
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {isSuperAdmin && (
+            <div
+              className="border p-2.5 xl:col-span-2"
+              style={{
+                borderColor: "var(--window-document-border)",
+                background: "var(--window-document-panel-bg, var(--window-document-bg))",
+              }}
+            >
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-left"
+                onClick={() => setShowMismatchDiagnostic((value) => !value)}
+              >
+                <span className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                  {tx("cards.runtime_kpis.mismatch_admin_diagnostic", "Admin mismatch diagnostic")}
+                </span>
+                <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {showMismatchDiagnostic
+                    ? tx("cards.runtime_kpis.collapse", "Collapse")
+                    : tx("cards.runtime_kpis.expand", "Expand")}
+                </span>
+              </button>
+              {showMismatchDiagnostic && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <label style={{ color: "var(--neutral-gray)" }}>
+                      {tx("cards.runtime_kpis.diagnostic_mode", "Diagnostic mode")}
+                    </label>
+                    <select
+                      value={mismatchDiagnosticMode}
+                      onChange={(event) =>
+                        setMismatchDiagnosticMode(event.target.value as ActionCompletionMismatchSourceMode)
+                      }
+                      className="border px-2 py-1 text-xs"
+                      style={{
+                        borderColor: "var(--window-document-border)",
+                        background: "var(--window-document-card-bg)",
+                        color: "var(--window-document-text)",
+                      }}
+                    >
+                      <option value="auto">auto</option>
+                      <option value="artifacts_only">artifacts_only</option>
+                    </select>
+                  </div>
+                  {!actionCompletionMismatchTelemetryDiagnostic && (
+                    <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {tx("cards.runtime_kpis.loading_diagnostic", "Loading diagnostic telemetry...")}
+                    </div>
+                  )}
+                  {actionCompletionMismatchTelemetryDiagnostic && (
+                    <div className="space-y-2 text-xs">
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_source_mode", "Source mode")}
+                          value={actionCompletionMismatchTelemetryDiagnostic.sourceMode}
+                        />
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_data_quality", "Data quality")}
+                          value={actionCompletionMismatchTelemetryDiagnostic.dataQuality}
+                        />
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_summary_source", "Summary source")}
+                          value={actionCompletionMismatchTelemetryDiagnostic.summarySource}
+                        />
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_incident_source", "Incident source")}
+                          value={actionCompletionMismatchTelemetryDiagnostic.incidentSource}
+                        />
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_artifact_rewrites", "Rewrite artifacts")}
+                          value={String(actionCompletionMismatchTelemetryDiagnostic.rewriteArtifactCount)}
+                        />
+                        <MetricLine
+                          label={tx("cards.runtime_kpis.debug_incident_count", "Returned incidents")}
+                          value={String(actionCompletionMismatchTelemetryDiagnostic.incidents.length)}
+                        />
+                      </div>
+                      {actionCompletionMismatchTelemetryDiagnostic.incidents.length > 0 && (
+                        <div className="space-y-1">
+                          {actionCompletionMismatchTelemetryDiagnostic.incidents.slice(0, 5).map((incident) => (
+                            <div
+                              key={`${incident.performedAt}-${incident.sessionId || "session"}-${incident.reasonCode}`}
+                              className="border px-2 py-1"
+                              style={{
+                                borderColor: "var(--window-document-border)",
+                                background: "var(--window-document-card-bg)",
+                                color: "var(--window-document-text)",
+                              }}
+                            >
+                              <div className="text-xs font-medium">
+                                {humanizeText(incident.reasonCode)} · {humanizeText(incident.enforcementMode)}
+                              </div>
+                              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                                {tx(
+                                  "cards.runtime_kpis.debug_incident_line",
+                                  "source={{source}} · template={{template}} · {{channel}} · {{timeAgo}}",
+                                  {
+                                    source: incident.source,
+                                    template: incident.templateIdentifier,
+                                    channel: incident.channel || tx("cards.runtime_kpis.unknown_channel", "unknown channel"),
+                                    timeAgo: timeAgo(incident.performedAt),
+                                  }
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -1701,10 +2049,9 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
 
         <div className="space-y-2">
           {sortedThreadRows.map((threadRow) => (
-            <button
+            <div
               key={threadRow.threadId}
-              onClick={() => setSelectedThreadId(threadRow.threadId)}
-              className="w-full border p-2 text-left"
+              className="w-full border p-2"
               style={{
                 borderColor: "var(--window-document-border)",
                 borderLeft: `3px solid ${
@@ -1717,68 +2064,112 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                 background:
                   selectedThreadId === threadRow.threadId
                     ? "var(--desktop-shell-accent)"
-                    : "var(--window-document-card-bg, #fff)",
+                    : "var(--window-document-card-bg)",
               }}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
-                  {threadRow.externalContactIdentifier}
+              <button
+                type="button"
+                onClick={() => setSelectedThreadId(threadRow.threadId)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                    {threadRow.externalContactIdentifier}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--neutral-gray)" }} title={formatDateTime(threadRow.updatedAt)}>
+                    {timeAgo(threadRow.updatedAt)}
+                  </div>
                 </div>
-                <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }} title={formatDateTime(threadRow.updatedAt)}>
-                  {timeAgo(threadRow.updatedAt)}
+
+                <div className="mt-0.5 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  {threadRow.channel} · {threadRow.templateAgentName}
                 </div>
-              </div>
 
-              <div className="mt-0.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                {threadRow.channel} · {threadRow.templateAgentName}
-              </div>
+                <div className="mt-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                  {threadRow.lastMessagePreview}
+                </div>
 
-              <div className="mt-1 text-[10px]" style={{ color: "var(--window-document-text)" }}>
-                {threadRow.lastMessagePreview}
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <StatusPill
-                  label={tx("cards.thread_queue.lifecycle", "Lifecycle: {{state}}", {
-                    state: threadRow.lifecycleState,
-                  })}
-                  tone={lifecycleBadgeTone(threadRow.lifecycleState)}
-                />
-                <StatusPill
-                  label={tx("cards.thread_queue.delivery", "Delivery: {{state}}", {
-                    state: threadRow.deliveryState,
-                  })}
-                  tone={deliveryBadgeTone(threadRow.deliveryState)}
-                />
-                {threadRow.escalationCountOpen > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <StatusPill
-                    label={tx(
-                      "cards.thread_queue.escalations",
-                      "Escalations: {{count}}{{urgency}}",
-                      {
-                        count: threadRow.escalationCountOpen,
-                        urgency: threadRow.escalationUrgency
-                          ? ` (${humanizeText(threadRow.escalationUrgency)})`
-                          : "",
-                      }
-                    )}
-                    tone={{ background: "#fef3c7", border: "#f59e0b", color: "#92400e" }}
+                    label={tx("cards.thread_queue.lifecycle", "Lifecycle: {{state}}", {
+                      state: threadRow.lifecycleState,
+                    })}
+                    tone={lifecycleBadgeTone(threadRow.lifecycleState)}
                   />
-                )}
-                <StatusPill
-                  label={tx("cards.thread_queue.active_instances", "Active instances: {{count}}", {
-                    count: threadRow.activeInstanceCount,
-                  })}
-                  tone={{ background: "#e2e8f0", border: "#94a3b8", color: "#334155" }}
-                />
-                {threadRow.waitingOnHuman && (
                   <StatusPill
-                    label={tx("cards.thread_queue.waiting_on_human", "Waiting on human")}
-                    tone={{ background: "#fee2e2", border: "#dc2626", color: "#991b1b" }}
+                    label={tx("cards.thread_queue.delivery", "Delivery: {{state}}", {
+                      state: threadRow.deliveryState,
+                    })}
+                    tone={deliveryBadgeTone(threadRow.deliveryState)}
                   />
-                )}
+                  {threadRow.escalationCountOpen > 0 && (
+                    <StatusPill
+                      label={tx(
+                        "cards.thread_queue.escalations",
+                        "Escalations: {{count}}{{urgency}}",
+                        {
+                          count: threadRow.escalationCountOpen,
+                          urgency: threadRow.escalationUrgency
+                            ? ` (${humanizeText(threadRow.escalationUrgency)})`
+                            : "",
+                        }
+                      )}
+                      tone={{ background: "var(--warning-bg)", border: "var(--warning)", color: "var(--warning)" }}
+                    />
+                  )}
+                  <StatusPill
+                    label={tx("cards.thread_queue.active_instances", "Active instances: {{count}}", {
+                      count: threadRow.activeInstanceCount,
+                    })}
+                    tone={{
+                      background: "var(--window-document-panel-bg)",
+                      border: "var(--window-document-border)",
+                      color: "var(--window-document-text)",
+                    }}
+                  />
+                  {threadRow.waitingOnHuman && (
+                    <StatusPill
+                      label={tx("cards.thread_queue.waiting_on_human", "Waiting on human")}
+                      tone={{ background: "var(--error-bg)", border: "var(--error)", color: "var(--error)" }}
+                    />
+                  )}
+                </div>
+              </button>
+
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="border px-2 py-1 text-xs"
+                  style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+                  onClick={() =>
+                    setExpandedThreadId((current) => (current === threadRow.threadId ? null : threadRow.threadId))
+                  }
+                >
+                  {expandedThreadId === threadRow.threadId ? "Collapse" : "Expand"}
+                </button>
+                <button
+                  type="button"
+                  className="border px-2 py-1 text-xs"
+                  style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+                  onClick={() => { void handleCopyThreadQueue(threadRow); }}
+                >
+                  {copiedThreadId === threadRow.threadId ? "Copied" : "Copy thread data"}
+                </button>
               </div>
-            </button>
+
+              {expandedThreadId === threadRow.threadId && (
+                <textarea
+                  readOnly
+                  value={buildThreadQueueExport(threadRow)}
+                  className="mt-2 h-36 w-full resize-y border p-2 font-mono text-xs"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-card-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                />
+              )}
+            </div>
           ))}
         </div>
       </Card>
@@ -1808,7 +2199,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
               className="border p-2"
               style={{
                 borderColor: "var(--window-document-border)",
-                background: "var(--window-document-panel-bg, #fff)",
+                background: "var(--window-document-panel-bg)",
               }}
               >
               <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
@@ -1832,7 +2223,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                       background:
                         selectedLineageInstanceId === instance.instanceAgentId
                           ? "var(--desktop-shell-accent)"
-                          : "var(--window-document-card-bg, #fff)",
+                          : "var(--window-document-card-bg)",
                     }}
                   >
                     <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
@@ -1851,7 +2242,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
               className="border p-3"
               style={{
                 borderColor: "var(--window-document-border)",
-                background: "var(--window-document-panel-bg, #fff)",
+                background: "var(--window-document-panel-bg)",
               }}
             >
               {!selectedLineageInstance && (
@@ -1896,7 +2287,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
             className="border p-2"
             style={{
               borderColor: "var(--window-document-border)",
-              background: "var(--window-document-panel-bg, #fff)",
+              background: "var(--window-document-panel-bg)",
             }}
           >
             <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
@@ -1922,7 +2313,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     background:
                       selectedInterventionId === item.id
                         ? "var(--desktop-shell-accent)"
-                        : "var(--window-document-card-bg, #fff)",
+                        : "var(--window-document-card-bg)",
                   }}
                 >
                   <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
@@ -1947,7 +2338,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
               <>
                 <div
                   className="border p-3"
-                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                 >
                   <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                     {tx("cards.intervention_drilldown.blocker_reason", "Blocker Reason")}
@@ -1963,7 +2354,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                 {selectedIntervention.harnessContext && (
                   <div
                     className="border p-3"
-                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                       {tx("cards.intervention_drilldown.harness_context", "Harness Context")}
@@ -2008,7 +2399,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                 {selectedIntervention.kind === "escalation" && (
                   <div
                     className="border p-3"
-                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                       {tx("cards.intervention_drilldown.memory_provenance", "Memory Provenance")}
@@ -2063,7 +2454,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                                   className="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px]"
                                   style={{
                                     borderColor: "var(--window-document-border)",
-                                    background: "var(--window-document-card-bg, #fff)",
+                                    background: "var(--window-document-card-bg)",
                                     color: "var(--window-document-text)",
                                   }}
                                   title={candidateId}
@@ -2082,7 +2473,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                 {selectedIntervention.kind === "escalation" && (
                   <div
                     className="border p-3"
-                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                    style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                   >
                     <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                       {tx("cards.intervention_drilldown.retrieval_citation_provenance", "Retrieval Citation Provenance")}
@@ -2140,7 +2531,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                                 className="border p-2"
                                 style={{
                                   borderColor: "var(--window-document-border)",
-                                  background: "var(--window-document-card-bg, #fff)",
+                                  background: "var(--window-document-card-bg)",
                                 }}
                               >
                                 <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
@@ -2163,7 +2554,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
 
                 <div
                   className="border p-3"
-                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                 >
                   <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                     {tx("cards.intervention_drilldown.session_timeline", "Session Timeline")}
@@ -2191,7 +2582,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           className="border p-2"
                           style={{
                             borderColor: "var(--window-document-border)",
-                            background: "var(--window-document-card-bg, #fff)",
+                            background: "var(--window-document-card-bg)",
                           }}
                         >
                           <div className="mb-1 flex items-center gap-1.5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
@@ -2213,7 +2604,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
 
                 <div
                   className="border p-3"
-                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg, #fff)" }}
+                  style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-panel-bg)" }}
                 >
                   <div className="mb-2 text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                     {tx("cards.intervention_drilldown.action_panel", "Intervention Action Panel")}
@@ -2222,7 +2613,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   {shouldRenderTemplateControls && selectedTemplate && (
                     <div
                       className="mb-3 space-y-2 border p-2"
-                      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                     >
                       <div className="text-[10px] font-medium" style={{ color: "var(--window-document-text)" }}>
                         {tx("cards.intervention_drilldown.action_template", "Action Template")}
@@ -2234,7 +2625,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                           setInterventionError(null);
                         }}
                         className="w-full border px-2 py-1 text-[10px]"
-                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                       >
                         {availableTemplates.map((template) => (
                           <option key={template.id} value={template.id}>
@@ -2252,14 +2643,14 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                             onChange={(event) => setTemplateFileName(event.target.value)}
                             placeholder={tx("cards.intervention_drilldown.file_name_placeholder", "File name (for example pricing-deck.pdf)")}
                             className="border px-2 py-1 text-[10px]"
-                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                           />
                           <input
                             value={templateFileUrl}
                             onChange={(event) => setTemplateFileUrl(event.target.value)}
                             placeholder={tx("cards.intervention_drilldown.file_url_placeholder", "File URL (optional if name is enough)")}
                             className="border px-2 py-1 text-[10px]"
-                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                           />
                         </div>
                       )}
@@ -2268,7 +2659,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                         onChange={(event) => setTemplateNote(event.target.value)}
                         placeholder={tx("cards.intervention_drilldown.template_note_placeholder", "Template note for audit log (optional)")}
                         className="h-14 w-full border px-2 py-1 text-[10px]"
-                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                       />
                     </div>
                   )}
@@ -2280,7 +2671,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                         onChange={(event) => setRejectionReason(event.target.value)}
                         placeholder={tx("cards.intervention_drilldown.rejection_reason_placeholder", "Optional rejection reason")}
                         className="h-16 w-full border px-2 py-1 text-[11px]"
-                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                       />
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -2347,7 +2738,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                             onChange={(event) => setResolutionSummary(event.target.value)}
                             placeholder={tx("cards.intervention_drilldown.resolution_summary_placeholder", "Resolution summary (required to resume agent)")}
                             className="h-16 w-full border px-2 py-1 text-[11px]"
-                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg, #fff)" }}
+                            style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-card-bg)" }}
                           />
                           <button
                             onClick={() => { void handleResolve(); }}
@@ -2497,8 +2888,11 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                     <div className="text-[11px] font-medium" style={{ color: "var(--window-document-text)" }}>
                       {group.label}
                     </div>
-                    {group.events.map((event) => (
-                      <ControlCenterTimelineRow key={event.eventId} event={event} />
+                    {group.events.map((event, index) => (
+                      <ControlCenterTimelineRow
+                        key={`${event.eventId}:${event.eventOrdinal}:${event.occurredAt}:${index}`}
+                        event={event}
+                      />
                     ))}
                   </div>
                 )
@@ -2540,9 +2934,51 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function MetricLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span style={{ color: "var(--neutral-gray)" }}>{label}</span>
-      <span className="font-medium" style={{ color: "var(--window-document-text)" }}>{value}</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-2 text-xs">
+      <span className="min-w-0" style={{ color: "var(--neutral-gray)" }}>{label}</span>
+      <span className="min-w-0 break-all text-right font-medium" style={{ color: "var(--window-document-text)" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function CopyableKeyField({
+  label,
+  value,
+  copied,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="space-y-1 text-xs">
+      <div style={{ color: "var(--neutral-gray)" }}>{label}</div>
+      <div className="flex items-center gap-2">
+        <input
+          readOnly
+          value={value}
+          onFocus={(event) => event.currentTarget.select()}
+          className="min-w-0 flex-1 border px-2 py-1 font-mono text-xs"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-card-bg)",
+            color: "var(--window-document-text)",
+          }}
+        />
+        <button
+          type="button"
+          onClick={onCopy}
+          className="inline-flex items-center gap-1 border px-2 py-1 text-xs"
+          style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+        >
+          <Copy size={12} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -2635,7 +3071,7 @@ function ControlCenterTimelineRow({ event }: { event: ControlCenterTimelineEvent
       style={{
         borderColor: "var(--window-document-border)",
         borderLeft: `3px solid ${tone.border}`,
-        background: "var(--window-document-card-bg, var(--window-document-panel-bg, #fff))",
+        background: "var(--window-document-card-bg, var(--window-document-panel-bg))",
       }}
     >
       <div className="flex items-center justify-between gap-2">
@@ -2758,6 +3194,25 @@ function deliveryBadgeTone(state: ThreadDeliveryState): StatusPillTone {
     return { background: "#fefce8", border: "#ca8a04", color: "#854d0e" };
   }
   return { background: "#ffe4e6", border: "#e11d48", color: "#9f1239" };
+}
+
+function actionCompletionDataQualityTone(
+  dataQuality: ActionCompletionMismatchDataQuality
+): StatusPillTone {
+  if (dataQuality === "artifact_backed") {
+    return { background: "var(--success-bg)", border: "var(--success)", color: "var(--success)" };
+  }
+  if (dataQuality === "no_artifacts") {
+    return {
+      background: "var(--window-document-panel-bg, var(--window-document-bg))",
+      border: "var(--window-document-border)",
+      color: "var(--window-document-text)",
+    };
+  }
+  if (dataQuality === "artifact_backed_with_fallback_available") {
+    return { background: "var(--warning-bg)", border: "var(--warning)", color: "var(--warning)" };
+  }
+  return { background: "var(--error-bg)", border: "var(--error)", color: "var(--error)" };
 }
 
 function severityColor(severity: TimelineSeverity): string {
@@ -2937,15 +3392,29 @@ function timelineGateLabel(gate: EscalationGate): string {
 
 function escalationGateTone(gate: EscalationGate): StatusPillTone {
   if (gate === "pre_llm") {
-    return { background: "#fffbeb", border: "#f59e0b", color: "#92400e" };
+    return { background: "var(--warning-bg)", border: "var(--warning)", color: "var(--warning)" };
   }
   if (gate === "post_llm") {
-    return { background: "#eff6ff", border: "#2563eb", color: "#1d4ed8" };
+    return { background: "var(--info-bg)", border: "var(--info)", color: "var(--info)" };
   }
   if (gate === "tool_failure") {
-    return { background: "#fef2f2", border: "#dc2626", color: "#991b1b" };
+    return { background: "var(--error-bg)", border: "var(--error)", color: "var(--error)" };
   }
-  return { background: "#f8fafc", border: "#94a3b8", color: "#334155" };
+  return {
+    background: "var(--window-document-panel-bg)",
+    border: "var(--window-document-border)",
+    color: "var(--window-document-text)",
+  };
+}
+
+function actionItemTone(severity: TimelineSeverity): Pick<StatusPillTone, "background" | "border"> {
+  if (severity === "high") {
+    return { background: "var(--error-bg)", border: "var(--error)" };
+  }
+  if (severity === "medium") {
+    return { background: "var(--warning-bg)", border: "var(--warning)" };
+  }
+  return { background: "var(--success-bg)", border: "var(--success)" };
 }
 
 function compactId(value: string): string {

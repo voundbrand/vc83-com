@@ -9,8 +9,11 @@
 import { AlertTriangle, UserCheck, XCircle, Shield, Clock, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+
+// Use require to avoid TS2589 deep type instantiation
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 interface AgentEscalationQueueProps {
   sessionId: string;
@@ -36,13 +39,13 @@ export function AgentEscalationQueue({ sessionId, organizationId }: AgentEscalat
   const [showMetrics, setShowMetrics] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const escalations = useQuery(api.ai.escalation.getEscalationQueue, {
+  const escalations = (useQuery as any)((api.ai.escalation as any).getEscalationQueue, {
     sessionId,
     organizationId,
   }) as any[] | undefined;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const metrics = useQuery(api.ai.escalation.getEscalationMetrics, {
+  const metrics = (useQuery as any)((api.ai.escalation as any).getEscalationMetrics, {
     sessionId,
     organizationId,
     sinceDaysAgo: 30,
@@ -69,7 +72,7 @@ export function AgentEscalationQueue({ sessionId, organizationId }: AgentEscalat
         {metrics && metrics.totalEscalations > 0 && (
           <button
             onClick={() => setShowMetrics(true)}
-            className="flex items-center gap-1 mx-auto px-3 py-1 border-2 text-xs hover:bg-gray-50"
+            className="flex items-center gap-1 mx-auto px-3 py-1 border text-xs transition-opacity hover:opacity-80"
             style={{ borderColor: "var(--win95-border)" }}
           >
             <BarChart3 size={12} />
@@ -88,7 +91,7 @@ export function AgentEscalationQueue({ sessionId, organizationId }: AgentEscalat
         </div>
         <button
           onClick={() => setShowMetrics(!showMetrics)}
-          className="flex items-center gap-1 px-2 py-0.5 text-[10px] border hover:bg-gray-50"
+          className="flex items-center gap-1 px-2 py-0.5 text-xs border transition-opacity hover:opacity-80"
           style={{ borderColor: "var(--win95-border)" }}
         >
           <BarChart3 size={10} />

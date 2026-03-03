@@ -33,9 +33,12 @@ import { AgentDetailPanel } from "./agents/agent-detail-panel";
 import { AgentCreateForm } from "./agents/agent-create-form";
 import {
   AGENT_NEED_OUTCOME_OPTIONS,
+  SPECIALIST_ROLE_CONTRACTS,
   buildAgentNeedRecommendation,
+  type CoverageBlueprintId,
   type AgentIntegrationReadiness,
   type AgentNeedOutcomeId,
+  type SpecialistRoleId,
 } from "./agents/agent-recommender";
 import { AIChatWindow } from "./ai-chat-window";
 import { getVoiceAssistantWindowContract } from "./ai-chat-window/voice-assistant-contract";
@@ -75,6 +78,8 @@ interface AgentsWindowApi {
       getControlCenterThreadRows: unknown;
       getAgentOpsScopeOptions: unknown;
       getAgentOpsIncidentWorkspace: unknown;
+      getActionCompletionMismatchTelemetry: unknown;
+      getActionCompletionMismatchTelemetryDiagnostic: unknown;
       syncAgentOpsThresholdIncidents: unknown;
       transitionAgentOpsIncidentState: unknown;
     };
@@ -216,8 +221,9 @@ type SpecialistSubtype = "booking_agent" | "customer_support" | "general" | "sal
 type CoverageIntegrationPrerequisite = "calendar_connected" | "messaging_connected";
 
 interface SpecialistCoverageBlueprint {
-  id: string;
-  packId: string;
+  id: CoverageBlueprintId;
+  packId: CoverageBlueprintId;
+  primarySpecialistRoleId: SpecialistRoleId;
   specialistName: string;
   objective: string;
   recommendationHint: string;
@@ -232,6 +238,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_personal_inbox_defense",
     packId: "pack_personal_inbox_defense",
+    primarySpecialistRoleId: "provider_outreach_specialist",
     specialistName: "Email Inbox Defense",
     objective: "Email spam filtering and urgent-priority triage with approval-gated rule changes.",
     recommendationHint: "One visible operator routes hidden inbox specialists and asks before persisting new rules.",
@@ -246,6 +253,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_wearable_operator_companion",
     packId: "pack_wearable_operator_companion",
+    primarySpecialistRoleId: "personal_schedule_coordinator",
     specialistName: "Wearable Operator Companion",
     objective: "Work-with-me guidance from pocket + Meta glasses context while preserving one-operator continuity.",
     recommendationHint: "Hidden specialist routing stays default while operator confirms learned preferences.",
@@ -260,6 +268,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_exec_daily_checkup",
     packId: "pack_exec_daily_checkup",
+    primarySpecialistRoleId: "personal_schedule_coordinator",
     specialistName: "Executive Daily Checkup",
     objective: "Actionable business administration with proactive daily priorities, risks, and owners.",
     recommendationHint: "Outbound follow-ups remain trust-gated while internal summaries can run automatically.",
@@ -272,6 +281,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_visual_todo_shopping",
     packId: "pack_visual_todo_shopping",
+    primarySpecialistRoleId: "personal_schedule_coordinator",
     specialistName: "Visual Todo + Shopping",
     objective: "Convert Meta glasses or iPhone camera captures into structured todo and shopping actions.",
     recommendationHint: "Ambiguous captures stay blocked until clarified; no silent list mutation path.",
@@ -286,6 +296,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_note_capture_memory",
     packId: "pack_note_capture_memory",
+    primarySpecialistRoleId: "personal_schedule_coordinator",
     specialistName: "Note Capture Memory",
     objective: "Capture notes, extract decisions/actions, and keep retrieval hooks deterministic.",
     recommendationHint: "Structured note capture is available now when a general specialist is active.",
@@ -298,6 +309,7 @@ const SPECIALIST_COVERAGE_BLUEPRINTS: SpecialistCoverageBlueprint[] = [
   {
     id: "pack_vacation_delegate_guard",
     packId: "pack_vacation_delegate_guard",
+    primarySpecialistRoleId: "provider_outreach_specialist",
     specialistName: "Vacation Delegate Guard",
     objective: "First-wave defense while away with escalation through the user-selected channel.",
     recommendationHint: "Low-risk responses can run delegated-auto; policy changes and high-risk actions stay ask-gated.",
@@ -821,7 +833,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
       return;
     }
 
-    const openContext = `agent_coverage:${blueprint.id}:${blueprint.defaultSubtype}`;
+    const openContext = `agent_coverage:${blueprint.primarySpecialistRoleId}:${blueprint.defaultSubtype}`;
     openAgentCreationAssistant(openContext);
   };
 
@@ -1229,18 +1241,44 @@ function AgentOpsSection({
   }, [currentAgents, integrationReadiness]);
   const [selectedOutcomeId, setSelectedOutcomeId] =
     useState<AgentNeedOutcomeId>("book_appointment");
+  const specialistCoverageRows = useMemo(() => {
+    const roleIds = Object.keys(SPECIALIST_ROLE_CONTRACTS) as SpecialistRoleId[];
+
+    return roleIds.map((roleId) => {
+      const roleContract = SPECIALIST_ROLE_CONTRACTS[roleId];
+      const mappedBlueprints = coverageRows.filter((row) =>
+        roleContract.coverageBlueprintIds.includes(row.id)
+      );
+
+      if (mappedBlueprints.length === 0) {
+        return {
+          id: roleId,
+          specialistName: roleContract.roleName,
+          availability: "planned" as const,
+          isCovered: false,
+        };
+      }
+
+      const hasBlockedBlueprint = mappedBlueprints.some(
+        (row) => row.availability === "blocked",
+      );
+      const isCovered = mappedBlueprints.some((row) => row.isCovered);
+
+      return {
+        id: roleId,
+        specialistName: roleContract.roleName,
+        availability: hasBlockedBlueprint ? ("planned" as const) : ("available_now" as const),
+        isCovered,
+      };
+    });
+  }, [coverageRows]);
   const outcomeRecommendation = useMemo(() => {
     return buildAgentNeedRecommendation({
       outcomeId: selectedOutcomeId,
-      coverageRows: coverageRows.map((row) => ({
-        id: row.id,
-        specialistName: row.specialistName,
-        availability: row.availability === "available_now" ? "available_now" : "planned",
-        isCovered: row.isCovered,
-      })),
+      coverageRows: specialistCoverageRows,
       readiness: integrationReadiness,
     });
-  }, [coverageRows, integrationReadiness, selectedOutcomeId]);
+  }, [integrationReadiness, selectedOutcomeId, specialistCoverageRows]);
 
   const blockedCapabilityCount = coverageRows.filter(
     (row) => row.availability === "blocked"

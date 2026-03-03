@@ -291,7 +291,7 @@ export default function DesignTokenShowcaseV2({
       {/* ── TASKBAR ── */}
       <div style={{ background: t.titleBarBg, borderBottom: `1px solid ${t.border}`, position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", height: 40, gap: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".05em", color: t.text, marginRight: 20, textTransform: "uppercase", fontFamily: "var(--font-codec-pro), Arial, Helvetica, sans-serif" }}>sevenlayers.io</span>
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: ".05em", color: t.text, marginRight: 20, textTransform: "uppercase", fontFamily: "var(--font-jost), sans-serif" }}>sevenlayers.io</span>
 
           {/* Product OS menu trigger */}
           <div ref={menuRef} style={{ position: "relative" }}>
@@ -515,7 +515,7 @@ function Window({
         </div>
         <span style={{ flex: 1, textAlign: "center", fontSize: 12, fontWeight: 500, color: t.titleBarText }}>
           {title.split("sevenlayers.io").map((part, i, arr) => (
-            <span key={i}>{part}{i < arr.length - 1 && <span style={{ textTransform: "uppercase", fontFamily: "var(--font-codec-pro), Arial, Helvetica, sans-serif", letterSpacing: ".05em" }}>sevenlayers.io</span>}</span>
+            <span key={i}>{part}{i < arr.length - 1 && <span style={{ textTransform: "uppercase", fontFamily: "var(--font-jost), sans-serif", letterSpacing: ".05em" }}>sevenlayers.io</span>}</span>
           ))}
         </span>
         <div style={{ width: 48 }} />
@@ -674,11 +674,11 @@ function TypographyPanel({ t }: { t: TokenPalette }) {
           { tok: "--font-geist-sans", family: "'Geist', 'Segoe UI', Tahoma, sans-serif", label: "Shell UI · Body · Headings", sample: "The quick brown fox jumps" },
           { tok: "--font-geist-mono", family: "'JetBrains Mono', ui-monospace, monospace", label: "Code · IDs · Debug fields", sample: "const x = 42;" },
           { tok: "--font-instrument-serif", family: "'Instrument Serif', serif", label: "Editorial accents only", sample: "Where Events Come Alive" },
-          { tok: "--font-codec-pro", family: "'Codec Pro', Arial, Helvetica, sans-serif", label: "Brand accents only · always uppercase (all caps)", sample: "SEVENLAYERS.IO" },
+          { tok: "--font-jost", family: "'Jost', sans-serif", label: "Brand accents only · uppercase semi-bold (600)", sample: "SEVENLAYERS.IO" },
         ].map(f => (
           <div key={f.tok} style={{ padding: 12, borderRadius: 8, background: t.surfaceHover, border: `1px solid ${t.border}` }}>
             <div style={{ fontSize: 10, color: t.textTertiary, fontFamily: "var(--mono)", marginBottom: 4 }}>{f.tok}</div>
-            <div style={{ fontSize: 20, fontFamily: f.family, color: t.text, marginBottom: 4, lineHeight: 1.3, fontStyle: "normal", textTransform: f.tok === "--font-codec-pro" ? "uppercase" as const : "none" as const, letterSpacing: f.tok === "--font-codec-pro" ? ".05em" : undefined }}>{f.sample}</div>
+            <div style={{ fontSize: 20, fontFamily: f.family, color: t.text, marginBottom: 4, lineHeight: 1.3, fontStyle: "normal", fontWeight: f.tok === "--font-jost" ? 600 : undefined, textTransform: f.tok === "--font-jost" ? "uppercase" as const : "none" as const, letterSpacing: f.tok === "--font-jost" ? ".05em" : undefined }}>{f.sample}</div>
             <div style={{ fontSize: 11, color: t.textSecondary }}>{f.label}</div>
           </div>
         ))}

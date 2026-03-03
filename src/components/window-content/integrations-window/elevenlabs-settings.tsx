@@ -9,7 +9,7 @@ import {
   Mic,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -39,6 +39,7 @@ type ElevenLabsVoiceCatalogEntry = {
   category?: string;
   language?: string;
   labels?: Record<string, string>;
+  previewUrl?: string;
 };
 
 interface ElevenLabsSettingsProps {
@@ -63,6 +64,9 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
   const listElevenLabsVoices = useAction(
     apiAny.integrations.elevenlabs.listElevenLabsVoices,
   );
+  const synthesizeElevenLabsVoiceSample = useAction(
+    apiAny.integrations.elevenlabs.synthesizeElevenLabsVoiceSample,
+  );
 
   const [enabled, setEnabled] = useState(false);
   const [billingSource, setBillingSource] = useState<"platform" | "byok">("platform");
@@ -76,6 +80,9 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
   const [voiceSearch, setVoiceSearch] = useState("");
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
   const [voiceCatalogError, setVoiceCatalogError] = useState<string | null>(null);
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{
@@ -233,6 +240,66 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
       setIsProbing(false);
     }
   };
+
+  const handlePreviewVoice = async (voiceId: string) => {
+    if (!sessionId || !organizationId || !voiceId) {
+      return;
+    }
+
+    setVoicePreviewError(null);
+    setIsPreviewingVoice(true);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const selected = voiceCatalog.find((voice) => voice.voiceId === voiceId);
+    const previewName = selected?.name || voiceId;
+
+    try {
+      const result = (await synthesizeElevenLabsVoiceSample({
+        sessionId,
+        organizationId,
+        voiceId,
+        text: `hello this is ${previewName}`,
+        apiKey: billingSource === "byok" ? apiKey.trim() || undefined : undefined,
+        baseUrl: baseUrl.trim() || undefined,
+      })) as {
+        success: boolean;
+        reason?: string;
+        mimeType?: string;
+        audioBase64?: string;
+      };
+
+      if (!result.success || !result.audioBase64 || !result.mimeType) {
+        setVoicePreviewError(
+          result.reason || "Unable to preview this voice."
+        );
+        return;
+      }
+
+      const audio = new Audio(
+        `data:${result.mimeType};base64,${result.audioBase64}`,
+      );
+      audioRef.current = audio;
+      await audio.play();
+    } catch (error) {
+      setVoicePreviewError(
+        error instanceof Error ? error.message : "Unable to preview this voice.",
+      );
+    } finally {
+      setIsPreviewingVoice(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     if (!sessionId || !organizationId) {
@@ -475,7 +542,13 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
 
           <select
             value={defaultVoiceId}
-            onChange={(event) => setDefaultVoiceId(event.target.value)}
+            onChange={(event) => {
+              const nextVoiceId = event.target.value;
+              setDefaultVoiceId(nextVoiceId);
+              if (nextVoiceId) {
+                void handlePreviewVoice(nextVoiceId);
+              }
+            }}
             disabled={platformManagedLocked}
             className="w-full p-2 text-xs border-2"
             style={{
@@ -492,6 +565,29 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
               </option>
             ))}
           </select>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (defaultVoiceId) {
+                  void handlePreviewVoice(defaultVoiceId);
+                }
+              }}
+              disabled={!defaultVoiceId || isPreviewingVoice}
+              className="desktop-interior-button py-1 px-3 text-xs font-pixel disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {isPreviewingVoice ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Mic size={12} />
+              )}
+              {isPreviewingVoice ? "Playing..." : "Replay preview"}
+            </button>
+            <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              Selecting a voice auto-plays: hello this is [name]
+            </span>
+          </div>
 
           <input
             type="text"
@@ -518,6 +614,11 @@ export function ElevenLabsSettings({ onBack }: ElevenLabsSettingsProps) {
                 : "Select from live list or paste a custom voice ID."}
             </p>
           )}
+          {voicePreviewError ? (
+            <p className="text-xs" style={{ color: "var(--error)" }}>
+              {voicePreviewError}
+            </p>
+          ) : null}
         </div>
 
         <div

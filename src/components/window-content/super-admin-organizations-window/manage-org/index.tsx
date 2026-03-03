@@ -61,6 +61,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
 
   // Parent organization state
   const [selectedParentId, setSelectedParentId] = useState<string>("");
+  const [parentOrganizationSearch, setParentOrganizationSearch] = useState("");
   const [isSavingParent, setIsSavingParent] = useState(false);
   const [parentSaveError, setParentSaveError] = useState<string | null>(null);
 
@@ -92,18 +93,31 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
   ) as OrganizationAddress[] | undefined;
 
   // Get all organizations for parent selection (super admin only)
-  const allOrganizations = useQuery(
-    api.organizations.listAll,
-    sessionId && isSuperAdmin ? { sessionId } : "skip"
-  ) as ParentOrganizationOption[] | undefined;
+  const allOrganizationsPage = useQuery(
+    api.organizations.listAllPaginated,
+    sessionId && isSuperAdmin
+      ? {
+        sessionId,
+        pageSize: 100,
+        search: parentOrganizationSearch.trim() || undefined,
+      }
+      : "skip"
+  ) as
+    | {
+      organizations: ParentOrganizationOption[];
+      continueCursor: string;
+      isDone: boolean;
+    }
+    | undefined;
+  const allOrganizations = allOrganizationsPage?.organizations ?? [];
 
   // Mutation for updating parent
   const updateOrganizationParent = useMutation(api.organizations.updateOrganizationParent);
 
   // Filter to only show orgs that can be parents (not sub-orgs, not self)
-  const potentialParentOrgs = allOrganizations?.filter(org =>
+  const potentialParentOrgs = allOrganizations.filter(org =>
     org.isActive && !org.parentOrganizationId && org._id !== organizationId
-  ) || [];
+  );
 
   const tabs: Array<{ id: TabType; label: string; icon: ReactNode }> = [
     { id: "organization", label: t("ui.manage.tab.organization"), icon: <Building2 size={14} /> },
@@ -503,6 +517,19 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
 
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                      Search Parent Organization
+                    </label>
+                    <input
+                      type="text"
+                      value={parentOrganizationSearch}
+                      onChange={(e) => setParentOrganizationSearch(e.target.value)}
+                      placeholder="Search by organization name"
+                      className="desktop-interior-input w-full text-sm"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                       Parent Organization
                     </label>
                     <select
@@ -524,7 +551,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
                       <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
                         <strong>Current parent:</strong>{' '}
                         {potentialParentOrgs.find(o => o._id === organization.parentOrganizationId)?.name ||
-                         allOrganizations?.find(o => o._id === organization.parentOrganizationId)?.name ||
+                         allOrganizations.find(o => o._id === organization.parentOrganizationId)?.name ||
                          'Unknown'}
                       </p>
                     </div>

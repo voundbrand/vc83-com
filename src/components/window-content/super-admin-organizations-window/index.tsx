@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck, Ticket, BarChart3, Database, DollarSign } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck, Ticket, BarChart3, Database, DollarSign, Users, FlaskConical } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
@@ -12,8 +12,10 @@ import { BetaAccessTab } from "./beta-access-tab";
 import { PlatformAgentTrustTrainingTab } from "./platform-agent-trust-training-tab";
 import { CreditRedemptionCodesTab } from "./credit-redemption-codes-tab";
 import { SupportAgentQualityTab } from "./support-agent-quality-tab";
+import { QaRunsTab } from "./qa-runs-tab";
 import { AgentControlCenterTab } from "./agent-control-center-tab";
 import { PlatformEconomicsTab } from "./platform-economics-tab";
+import { SuperAdminUsersTab } from "./super-admin-users-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -40,7 +42,9 @@ type TabType =
   | "credit-redemption-codes"
   | "platform-economics"
   | "support-agent-quality"
-  | "agent-control-center";
+  | "qa-runs"
+  | "agent-control-center"
+  | "users";
 
 interface OrganizationsWindowProps {
   initialTab?: string;
@@ -59,7 +63,9 @@ const ORGANIZATIONS_WINDOW_TABS: TabType[] = [
   "credit-redemption-codes",
   "platform-economics",
   "support-agent-quality",
+  "qa-runs",
   "agent-control-center",
+  "users",
 ];
 
 function resolveOrganizationsWindowTab(tabOrPanel?: string): TabType {
@@ -238,6 +244,18 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
+            background: activeTab === "qa-runs" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "qa-runs" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("qa-runs")}
+        >
+          <FlaskConical size={14} />
+          QA Runs
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
             background: activeTab === "agent-control-center" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
             color: activeTab === "agent-control-center" ? "var(--window-document-text)" : "var(--neutral-gray)",
           }}
@@ -245,6 +263,18 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
         >
           <Database size={14} />
           Agent Control
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: activeTab === "users" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "users" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("users")}
+        >
+          <Users size={14} />
+          Users
         </button>
         </div>
       </div>
@@ -262,7 +292,9 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
         {activeTab === "credit-redemption-codes" && <CreditRedemptionCodesTab />}
         {activeTab === "platform-economics" && <PlatformEconomicsTab />}
         {activeTab === "support-agent-quality" && <SupportAgentQualityTab />}
+        {activeTab === "qa-runs" && <QaRunsTab />}
         {activeTab === "agent-control-center" && <AgentControlCenterTab />}
+        {activeTab === "users" && <SuperAdminUsersTab />}
       </div>
     </div>
   );

@@ -94,12 +94,26 @@ function formatEscalationStatus(status: string): string {
 export function SupportAgentQualityTab() {
   const { sessionId, isSuperAdmin } = useAuth();
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  const [organizationSearch, setOrganizationSearch] = useState("");
   const [windowHours, setWindowHours] = useState<number>(24 * 7);
 
-  const organizations = useQuery(
-    api.organizations.listAll,
-    sessionId && isSuperAdmin ? { sessionId } : "skip"
-  ) as OrganizationOption[] | undefined;
+  const organizationsPage = useQuery(
+    api.organizations.listAllPaginated,
+    sessionId && isSuperAdmin
+      ? {
+        sessionId,
+        pageSize: 100,
+        search: organizationSearch.trim() || undefined,
+      }
+      : "skip"
+  ) as
+    | {
+      organizations: OrganizationOption[];
+      continueCursor: string;
+      isDone: boolean;
+    }
+    | undefined;
+  const organizations = organizationsPage?.organizations;
 
   useEffect(() => {
     if (!organizations || organizations.length === 0) {
@@ -171,6 +185,16 @@ export function SupportAgentQualityTab() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+            Search
+            <input
+              className="px-2 py-1 text-xs border rounded bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={organizationSearch}
+              onChange={(event) => setOrganizationSearch(event.target.value)}
+              placeholder="Org name"
+            />
+          </label>
           <label className="text-xs flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
             Org
             <select

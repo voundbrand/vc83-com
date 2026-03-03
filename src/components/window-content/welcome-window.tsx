@@ -7,9 +7,13 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
  *
  * Speaks directly to the €1M–€50M business owner ICP.
  * Voice: Ogilvy precision, Hormozi arithmetic, Fisher respect.
- * Uses Codec Pro all-caps for the sevenlayers.io brand name.
+ * Uses Jost all-caps for the sevenlayers.io brand name.
  */
-export function WelcomeWindow() {
+interface WelcomeWindowProps {
+  onStartBriefing?: () => void;
+}
+
+export function WelcomeWindow({ onStartBriefing }: WelcomeWindowProps) {
   const { tWithFallback } = useNamespaceTranslations("ui.welcome");
 
   return (
@@ -17,8 +21,8 @@ export function WelcomeWindow() {
       {/* Hero */}
       <div className="text-center mb-2">
         <h1
-          className="text-4xl md:text-5xl font-bold mb-3 uppercase tracking-wide"
-          style={{ color: 'var(--win95-text)', fontFamily: 'var(--font-codec-pro), Arial, Helvetica, sans-serif' }}
+          className="text-4xl md:text-5xl font-semibold mb-3 uppercase tracking-wide"
+          style={{ color: 'var(--win95-text)', fontFamily: 'var(--font-jost), sans-serif' }}
         >
           sevenlayers.io
         </h1>
@@ -60,12 +64,21 @@ export function WelcomeWindow() {
             "The first hire that actually compounds.",
           )}
         </p>
-        <p className="text-center font-semibold pt-2 border-t" style={{
-          color: 'var(--win95-text)',
-          borderColor: 'var(--win95-border)'
-        }}>
-          {tWithFallback("ui.welcome.v2.cta", "Start the briefing")}
-        </p>
+        <button
+          onClick={onStartBriefing}
+          className="w-full text-center font-semibold pt-2 border-t cursor-pointer hover:underline"
+          style={{
+            color: 'var(--win95-text)',
+            borderColor: 'var(--win95-border)',
+            background: 'transparent',
+            border: 'none',
+            borderTopWidth: 1,
+            borderTopColor: 'var(--win95-border)',
+            paddingTop: '0.5rem',
+          }}
+        >
+          {tWithFallback("ui.welcome.v2.cta", "Start the briefing")} →
+        </button>
       </div>
 
       {/* Footer */}
@@ -77,7 +90,7 @@ export function WelcomeWindow() {
         <div>
           {tWithFallback("ui.welcome.footer_startup", "sevenlayers.io is a vc83-W26 startup").split(/(sevenlayers\.io)/i).map((part, index) =>
             /sevenlayers\.io/i.test(part) ? (
-              <span key={index} className="uppercase tracking-wide" style={{ fontFamily: 'var(--font-codec-pro), Arial, Helvetica, sans-serif' }}>{part}</span>
+              <span key={index} className="uppercase tracking-wide" style={{ fontFamily: 'var(--font-jost), sans-serif' }}>{part}</span>
             ) : (
               <span key={index}>{part}</span>
             )

@@ -78,4 +78,5 @@ export type AgentTab =
   | "sessions"
   | "approvals"
   | "escalations"
-  | "analytics";
+  | "analytics"
+  | "debug";

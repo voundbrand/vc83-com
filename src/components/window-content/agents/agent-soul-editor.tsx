@@ -4,9 +4,9 @@
  * Soul editor tab — edit agent personality, review evolution proposals.
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Save, CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
 import { FormField } from "./form-field";
@@ -31,6 +31,12 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
   };
   const agent = useQuery(api.agentOntology.getAgent, { sessionId, agentId });
   const updateAgent = useMutation(api.agentOntology.updateAgent);
+  const listElevenLabsVoices = useAction(
+    api.integrations.elevenlabs.listElevenLabsVoices,
+  );
+  const synthesizeElevenLabsVoiceSample = useAction(
+    api.integrations.elevenlabs.synthesizeElevenLabsVoiceSample,
+  );
   const approveSoul = useMutation(api.ai.soulEvolution.approveSoulProposalAuth);
   const rejectSoul = useMutation(api.ai.soulEvolution.rejectSoulProposalAuth);
   const agentCustomProperties =
@@ -71,6 +77,21 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
 
   const [personality, setPersonality] = useState(props.personality || "");
   const [brandVoice, setBrandVoice] = useState(props.brandVoiceInstructions || "");
+  const [voiceLanguage, setVoiceLanguage] = useState(props.voiceLanguage || props.language || "en");
+  const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState(props.elevenLabsVoiceId || "");
+  const [voiceSearchQuery, setVoiceSearchQuery] = useState("");
+  const [voiceCatalog, setVoiceCatalog] = useState<Array<{
+    voiceId: string;
+    name: string;
+    category?: string;
+    language?: string;
+    labels?: Record<string, string>;
+  }>>([]);
+  const [isVoiceCatalogLoading, setIsVoiceCatalogLoading] = useState(false);
+  const [voiceCatalogError, setVoiceCatalogError] = useState<string | null>(null);
+  const [isVoicePreviewLoading, setIsVoicePreviewLoading] = useState(false);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soulName, setSoulName] = useState(soul.name || "");
   const [tagline, setTagline] = useState(soul.tagline || "");
   const [communicationStyle, setCommunicationStyle] = useState(soul.communicationStyle || "");
@@ -86,6 +107,8 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     const s = p.soul || {};
     setPersonality(p.personality || "");
     setBrandVoice(p.brandVoiceInstructions || "");
+    setVoiceLanguage(p.voiceLanguage || p.language || "en");
+    setElevenLabsVoiceId(p.elevenLabsVoiceId || "");
     setSoulName(s.name || "");
     setTagline(s.tagline || "");
     setCommunicationStyle(s.communicationStyle || "");
@@ -94,6 +117,119 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     setEmojiUsage(s.emojiUsage || "minimal");
     setInitialized(true);
   }
+
+  const filteredVoiceCatalog = useMemo(() => {
+    const query = voiceSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return voiceCatalog;
+    }
+    return voiceCatalog.filter((voice) => {
+      const labelValues = voice.labels ? Object.values(voice.labels) : [];
+      const haystack = [
+        voice.name,
+        voice.voiceId,
+        voice.language || "",
+        voice.category || "",
+        ...labelValues,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [voiceCatalog, voiceSearchQuery]);
+
+  const loadVoiceCatalog = useCallback(async () => {
+    setIsVoiceCatalogLoading(true);
+    setVoiceCatalogError(null);
+    try {
+      const result = (await listElevenLabsVoices({
+        sessionId,
+        organizationId,
+        pageSize: 100,
+      })) as {
+        success: boolean;
+        voices?: Array<{
+          voiceId: string;
+          name: string;
+          category?: string;
+          language?: string;
+          labels?: Record<string, string>;
+        }>;
+        reason?: string;
+      };
+
+      if (!result.success) {
+        setVoiceCatalog([]);
+        setVoiceCatalogError(result.reason || "Unable to load ElevenLabs voices.");
+      } else {
+        setVoiceCatalog(Array.isArray(result.voices) ? result.voices : []);
+      }
+    } catch (error) {
+      setVoiceCatalog([]);
+      setVoiceCatalogError(
+        error instanceof Error ? error.message : "Unable to load ElevenLabs voices.",
+      );
+    } finally {
+      setIsVoiceCatalogLoading(false);
+    }
+  }, [listElevenLabsVoices, organizationId, sessionId]);
+
+  const previewVoice = useCallback(async (voiceId: string) => {
+    if (!voiceId) {
+      return;
+    }
+    setVoicePreviewError(null);
+    setIsVoicePreviewLoading(true);
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const selectedVoice = voiceCatalog.find((voice) => voice.voiceId === voiceId);
+    const previewName = selectedVoice?.name || voiceId;
+    try {
+      const result = (await synthesizeElevenLabsVoiceSample({
+        sessionId,
+        organizationId,
+        voiceId,
+        text: `hello this is ${previewName}`,
+      })) as {
+        success: boolean;
+        reason?: string;
+        mimeType?: string;
+        audioBase64?: string;
+      };
+
+      if (!result.success || !result.mimeType || !result.audioBase64) {
+        setVoicePreviewError(result.reason || "Unable to preview selected voice.");
+        return;
+      }
+
+      const audio = new Audio(`data:${result.mimeType};base64,${result.audioBase64}`);
+      audioRef.current = audio;
+      await audio.play();
+    } catch (error) {
+      setVoicePreviewError(
+        error instanceof Error ? error.message : "Unable to preview selected voice.",
+      );
+    } finally {
+      setIsVoicePreviewLoading(false);
+    }
+  }, [organizationId, sessionId, synthesizeElevenLabsVoiceSample, voiceCatalog]);
+
+  useEffect(() => {
+    void loadVoiceCatalog();
+  }, [loadVoiceCatalog]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     if (!agent) return;
@@ -105,6 +241,8 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
         updates: {
           personality,
           brandVoiceInstructions: brandVoice,
+          voiceLanguage: voiceLanguage.trim() || props.language || "en",
+          elevenLabsVoiceId: elevenLabsVoiceId.trim() || undefined,
           soul: {
             ...soul,
             name: soulName || agent.name || "Agent",
@@ -148,6 +286,91 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
           onChange={setTagline}
           placeholder={tx("identity.tagline.placeholder", "One-liner about the agent")}
         />
+      </Section>
+
+      <Section title={tx("sections.voice", "Voice")}>
+        <FormField
+          label={tx("voice.language.label", "Voice Language")}
+          value={voiceLanguage}
+          onChange={setVoiceLanguage}
+          placeholder={tx("voice.language.placeholder", "en or en-US")}
+        />
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-medium" style={{ color: "var(--win95-text)" }}>
+              {tx("voice.picker.label", "ElevenLabs Voice")}
+            </label>
+            <button
+              type="button"
+              onClick={() => void loadVoiceCatalog()}
+              disabled={isVoiceCatalogLoading}
+              className="px-2 py-1 border-2 text-xs disabled:opacity-50"
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+            >
+              {isVoiceCatalogLoading ? tx("voice.actions.loading", "Loading...") : tx("voice.actions.refresh", "Refresh")}
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={voiceSearchQuery}
+            onChange={(event) => setVoiceSearchQuery(event.target.value)}
+            placeholder={tx("voice.search.placeholder", "Search by name, ID, or language")}
+            className="w-full border-2 px-2 py-1 text-xs"
+            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+          />
+
+          <select
+            value={elevenLabsVoiceId}
+            onChange={(event) => {
+              const nextVoiceId = event.target.value;
+              setElevenLabsVoiceId(nextVoiceId);
+              if (nextVoiceId) {
+                void previewVoice(nextVoiceId);
+              }
+            }}
+            className="w-full border-2 px-2 py-1 text-xs"
+            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+          >
+            <option value="">{tx("voice.picker.org_default", "Use org default voice")}</option>
+            {filteredVoiceCatalog.map((voice) => (
+              <option key={voice.voiceId} value={voice.voiceId}>
+                {voice.name} ({voice.voiceId}){voice.language ? ` - ${voice.language}` : ""}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (elevenLabsVoiceId) {
+                  void previewVoice(elevenLabsVoiceId);
+                }
+              }}
+              disabled={!elevenLabsVoiceId || isVoicePreviewLoading}
+              className="px-2 py-1 border-2 text-xs disabled:opacity-50"
+              style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg)", color: "var(--win95-text)" }}
+            >
+              {isVoicePreviewLoading ? tx("voice.actions.playing", "Playing...") : tx("voice.actions.preview", "Preview")}
+            </button>
+            <span className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+              {tx("voice.preview.hint", "Auto-plays: hello this is [name]")}
+            </span>
+          </div>
+
+          {voiceCatalogError ? (
+            <p className="text-[11px]" style={{ color: "var(--error)" }}>
+              {voiceCatalogError}
+            </p>
+          ) : null}
+          {voicePreviewError ? (
+            <p className="text-[11px]" style={{ color: "var(--error)" }}>
+              {voicePreviewError}
+            </p>
+          ) : null}
+        </div>
       </Section>
 
       {/* Personality */}

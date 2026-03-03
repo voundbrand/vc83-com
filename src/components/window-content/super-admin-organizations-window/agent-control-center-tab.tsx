@@ -136,6 +136,17 @@ type SeedRegistryRow = {
   sourcePath: string;
 };
 
+type ToolFoundryProposalReviewRow = {
+  _id: string;
+  organizationId: string;
+  proposalKey: string;
+  requestedToolName: string;
+  status: "pending_review" | "in_review" | "promoted" | "rejected" | "rolled_back";
+  lastObservedAt: number;
+  sourceRequestTraceKey: string;
+  reasonCode: string;
+};
+
 type SyncRunRow = {
   _id: string;
   mode: "read_only_audit" | "sync_apply";
@@ -331,6 +342,9 @@ export function AgentControlCenterTab() {
   const setAgentBlocker = useMutation(api.ai.agentCatalogAdmin.setAgentBlocker);
   const setSeedStatusOverride = useMutation(api.ai.agentCatalogAdmin.setSeedStatusOverride);
   const setSeedTemplateBinding = useMutation(api.ai.agentCatalogAdmin.setSeedTemplateBinding);
+  const submitToolFoundryPromotionDecision = useMutation(
+    api.ai.toolFoundry.proposalBacklog.submitProposalPromotionDecision,
+  );
 
   const overview = useQuery(
     api.ai.agentCatalogAdmin.getOverview,
@@ -388,6 +402,16 @@ export function AgentControlCenterTab() {
         }
       : "skip",
   ) as AgentDetailsResponse | null | undefined;
+
+  const toolFoundryProposals = useQuery(
+    api.ai.toolFoundry.proposalBacklog.listPendingProposalsForReview,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          limit: 20,
+        }
+      : "skip",
+  ) as ToolFoundryProposalReviewRow[] | undefined;
 
   useEffect(() => {
     if (!overview) {
@@ -463,6 +487,38 @@ export function AgentControlCenterTab() {
       setAuditMessage({ type: "error", text: message });
     } finally {
       setIsRunningAudit(false);
+    }
+  };
+
+  const handleToolFoundryDecision = async (proposal: ToolFoundryProposalReviewRow, decision: "granted" | "denied") => {
+    if (!sessionId || isSubmittingWrite) {
+      return;
+    }
+    setIsSubmittingWrite(true);
+    setWriteMessage(null);
+    try {
+      await submitToolFoundryPromotionDecision({
+        sessionId,
+        organizationId: proposal.organizationId as any,
+        proposalKey: proposal.proposalKey,
+        decision,
+        reason:
+          decision === "granted"
+            ? "approved_via_agent_control_center"
+            : "denied_via_agent_control_center",
+      });
+      setWriteMessage({
+        type: "success",
+        text:
+          decision === "granted"
+            ? `Approved Tool Foundry proposal ${proposal.proposalKey}.`
+            : `Rejected Tool Foundry proposal ${proposal.proposalKey}.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Tool Foundry decision failed.";
+      setWriteMessage({ type: "error", text: message });
+    } finally {
+      setIsSubmittingWrite(false);
     }
   };
 
@@ -1353,6 +1409,61 @@ export function AgentControlCenterTab() {
                         "Runtime promotion remains an explicit follow-up path.",
                       )}
                     </p>
+                  </div>
+                  <div
+                    className="border rounded p-2 space-y-2"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                  >
+                    <p className="font-semibold">
+                      {tx("details.runtime.tool_foundry_queue", "Tool Foundry proposal queue")}
+                    </p>
+                    {toolFoundryProposals === undefined ? (
+                      <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {tx("details.runtime.tool_foundry_queue_loading", "Loading proposal queue...")}
+                      </p>
+                    ) : toolFoundryProposals.length === 0 ? (
+                      <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {tx("details.runtime.tool_foundry_queue_empty", "No pending Tool Foundry proposals.")}
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {toolFoundryProposals.map((proposal) => (
+                          <div
+                            key={proposal._id}
+                            className="border rounded px-2 py-1.5 space-y-1"
+                            style={{ borderColor: "var(--window-document-border)" }}
+                          >
+                            <p className="text-xs font-semibold">{proposal.requestedToolName}</p>
+                            <p className="text-xs break-all" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                              {proposal.proposalKey}
+                            </p>
+                            <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                              {proposal.status} | {formatDateTime(proposal.lastObservedAt)}
+                            </p>
+                            <div className="flex gap-1.5 pt-0.5">
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-xs border rounded"
+                                style={{ borderColor: "var(--window-document-border)" }}
+                                disabled={isSubmittingWrite}
+                                onClick={() => void handleToolFoundryDecision(proposal, "granted")}
+                              >
+                                {tx("details.runtime.tool_foundry_queue_approve", "Approve")}
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2 py-1 text-xs border rounded"
+                                style={{ borderColor: "var(--window-document-border)" }}
+                                disabled={isSubmittingWrite}
+                                onClick={() => void handleToolFoundryDecision(proposal, "denied")}
+                              >
+                                {tx("details.runtime.tool_foundry_queue_reject", "Reject")}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

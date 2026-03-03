@@ -3,8 +3,11 @@
 import React, { useState } from "react";
 import { ArrowLeft, Github, ExternalLink, Check, CheckCircle2, AlertCircle, Loader2, Sparkles } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids TS2589 deep instantiation from generated API types.
+const generatedApi: any = require("../../../../convex/_generated/api");
+const apiRefs = generatedApi.api;
 
 interface GitHubSettingsProps {
   onBack: () => void;
@@ -22,14 +25,15 @@ export function GitHubSettings({ onBack }: GitHubSettingsProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Query connection status from backend
+  const getGitHubConnectionStatusQuery = apiRefs.oauth.github.getGitHubConnectionStatus;
   const connectionStatus = useQuery(
-    api.oauth.github.getGitHubConnectionStatus,
+    getGitHubConnectionStatusQuery,
     sessionId ? { sessionId } : "skip"
   );
 
   // Mutations
-  const initiateGitHubOAuth = useMutation(api.oauth.github.initiateGitHubOAuth);
-  const disconnectGitHub = useMutation(api.oauth.github.disconnectGitHub);
+  const initiateGitHubOAuth = useMutation(apiRefs.oauth.github.initiateGitHubOAuth);
+  const disconnectGitHub = useMutation(apiRefs.oauth.github.disconnectGitHub);
 
   const isConnected = connectionStatus?.connected || false;
   const connection = connectionStatus?.connection;

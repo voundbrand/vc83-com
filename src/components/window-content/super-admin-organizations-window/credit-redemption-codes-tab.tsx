@@ -130,6 +130,7 @@ export function CreditRedemptionCodesTab() {
   const [isRevokingCodeId, setIsRevokingCodeId] = useState<string | null>(null);
   const [selectedCodeId, setSelectedCodeId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [organizationSearch, setOrganizationSearch] = useState("");
 
   const [codeInput, setCodeInput] = useState("");
   const [creditsAmountInput, setCreditsAmountInput] = useState("100");
@@ -143,10 +144,23 @@ export function CreditRedemptionCodesTab() {
   const createCode = useMutation(api.credits.index.createCreditRedemptionCode);
   const revokeCode = useMutation(api.credits.index.revokeCreditRedemptionCode);
 
-  const organizations = useQuery(
-    api.organizations.listAll,
-    sessionId && isSuperAdmin ? { sessionId } : "skip"
-  ) as OrganizationOption[] | undefined;
+  const organizationsPage = useQuery(
+    api.organizations.listAllPaginated,
+    sessionId && isSuperAdmin
+      ? {
+        sessionId,
+        pageSize: 100,
+        search: organizationSearch.trim() || undefined,
+      }
+      : "skip"
+  ) as
+    | {
+      organizations: OrganizationOption[];
+      continueCursor: string;
+      isDone: boolean;
+    }
+    | undefined;
+  const organizations = organizationsPage?.organizations ?? [];
 
   const codesResponse = useQuery(
     api.credits.index.listCreditRedemptionCodes,
@@ -401,6 +415,13 @@ export function CreditRedemptionCodesTab() {
             <p className="text-xs font-medium mb-1" style={{ color: "var(--window-document-text)" }}>
               {tx("create.allowed_organizations", "Allowed Organizations")}
             </p>
+            <input
+              className="mb-2 w-full rounded border px-2 py-1 text-xs bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={organizationSearch}
+              onChange={(event) => setOrganizationSearch(event.target.value)}
+              placeholder={tx("create.allowed_organizations_search", "Search organizations...")}
+            />
             <select
               className="w-full rounded border px-2 py-1 text-xs bg-transparent"
               style={{ borderColor: "var(--window-document-border)" }}
@@ -412,7 +433,7 @@ export function CreditRedemptionCodesTab() {
                 setAllowedOrganizationIds(next);
               }}
             >
-              {(organizations ?? []).map((organization) => (
+              {organizations.map((organization) => (
                 <option key={organization._id} value={organization._id}>
                   {organization.name || organization.slug || organization._id}
                 </option>

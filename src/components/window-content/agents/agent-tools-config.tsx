@@ -161,7 +161,7 @@ export function AgentToolsConfig({ agentId, sessionId, organizationId }: AgentTo
             </h5>
             <div className="space-y-0.5">
               {categoryTools.map((tool) => (
-                <label key={tool.key} className="flex items-center gap-2 text-[11px] py-0.5 px-1 cursor-pointer hover:bg-gray-50">
+                <label key={tool.key} className="flex items-center gap-2 text-xs py-0.5 px-1 cursor-pointer transition-opacity hover:opacity-80">
                   <input type="checkbox"
                     checked={!disabledTools.includes(tool.key)}
                     onChange={() => toggleTool(tool.key)} />

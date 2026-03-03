@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import {
   Key,
@@ -24,6 +23,20 @@ import { TokenPackIssuance } from "./components/token-pack-issuance";
 import { ManualGrantsHistory } from "./components/manual-grants-history";
 import { LicenseOverview } from "../../../licensing/license-overview";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const apiAny: any = require("../../../../../convex/_generated/api").api;
+
+const LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY = "storeLegacyPricingManualReveal";
+const LEGACY_COMPATIBILITY_TIERS = new Set([
+  "pro",
+  "agency",
+  "scale",
+  "enterprise",
+  "starter",
+  "professional",
+  "community",
+]);
 
 interface LicensingTabProps {
   organizationId: Id<"organizations">;
@@ -43,30 +56,40 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
   };
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [isUpdatingLegacyPricing, setIsUpdatingLegacyPricing] = useState(false);
+  const [legacyPricingStatusMessage, setLegacyPricingStatusMessage] = useState<string | null>(null);
+  const unsafeUseQuery = useQuery as unknown as (
+    queryRef: unknown,
+    args: unknown
+  ) => unknown;
 
   // Fetch organization data
-  const organization = useQuery(
-    api.organizations.getById,
+  const organization = unsafeUseQuery(
+    apiAny.organizations.getById,
     organizationId && sessionId ? { organizationId, sessionId } : "skip"
-  );
+  ) as any;
 
   // Fetch app availabilities
-  const appAvailabilities = useQuery(
-    api.appAvailability.getOrgAvailabilities,
+  const appAvailabilities = unsafeUseQuery(
+    apiAny.appAvailability.getOrgAvailabilities,
     organizationId ? { organizationId } : "skip"
-  );
+  ) as any[] | undefined;
 
   // Fetch all apps
-  const allApps = useQuery(
-    api.appAvailability.listAllApps,
+  const allApps = unsafeUseQuery(
+    apiAny.appAvailability.listAllApps,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as any[] | undefined;
 
   // Fetch AI subscription
-  const aiSubscription = useQuery(
-    api.ai.billing.getSubscriptionStatus,
+  const aiSubscription = unsafeUseQuery(
+    apiAny.ai.billing.getSubscriptionStatus,
     organizationId ? { organizationId } : "skip"
-  );
+  ) as any;
+  const license = unsafeUseQuery(
+    apiAny.licensing.helpers.getLicense,
+    organizationId ? { organizationId } : "skip"
+  ) as { planTier?: string; features?: Record<string, unknown> } | undefined;
 
   // Local state for quota overrides
   const [quotaOverrides, setQuotaOverrides] = useState({
@@ -83,8 +106,9 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
   const [clearSubscriptionStatus, setClearSubscriptionStatus] = useState<string | null>(null);
 
   // Mutations
-  const setAppAvailability = useMutation(api.appAvailability.setAppAvailability);
-  const clearStripeSubscription = useMutation(api.organizations.clearStripeSubscription);
+  const setAppAvailability = useMutation(apiAny.appAvailability.setAppAvailability);
+  const clearStripeSubscription = useMutation(apiAny.organizations.clearStripeSubscription);
+  const toggleFeature = useMutation(apiAny.licensing.helpers.toggleFeature);
 
   // Initialize quota overrides when org loads
   useState(() => {
@@ -177,6 +201,52 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
     }
   };
 
+  const currentPlanTier = typeof license?.planTier === "string"
+    ? license.planTier.toLowerCase()
+    : typeof organization?.plan === "string"
+      ? organization.plan.toLowerCase()
+      : "free";
+  const hasLegacyPlanAccess =
+    Boolean(organization?.stripeSubscriptionId) || LEGACY_COMPATIBILITY_TIERS.has(currentPlanTier);
+  const manualRevealEnabled = Boolean(
+    ((license as { features?: Record<string, unknown> } | undefined)?.features ?? {})[
+      LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY
+    ]
+  );
+  const legacyPricingStatus = hasLegacyPlanAccess
+    ? "compatibility"
+    : manualRevealEnabled
+      ? "revealed"
+      : "hidden";
+
+  const handleToggleLegacyPricing = async () => {
+    if (!sessionId || !organizationId) {
+      return;
+    }
+    setIsUpdatingLegacyPricing(true);
+    setLegacyPricingStatusMessage(null);
+    try {
+      await toggleFeature({
+        sessionId,
+        organizationId,
+        featureKey: LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY,
+        enabled: !manualRevealEnabled,
+      });
+      setLegacyPricingStatusMessage(
+        !manualRevealEnabled
+          ? "Manual reveal override enabled."
+          : "Manual reveal override disabled."
+      );
+    } catch (error) {
+      console.error("Failed to update legacy pricing override:", error);
+      setLegacyPricingStatusMessage(
+        `Failed to update override: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setIsUpdatingLegacyPricing(false);
+    }
+  };
+
   if (!organization) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -198,6 +268,80 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
         sessionId={sessionId}
         editable={true}
       />
+
+      <div
+        className="border p-4"
+        style={{
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
+        }}
+      >
+        <h4 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+          <Settings size={14} />
+          Legacy Pricing Visibility
+        </h4>
+        <p className="text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
+          Authoritative control for Store legacy pricing visibility. Quick actions in the org list use this same flag.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs" style={{ color: "var(--window-document-text)" }}>Effective status:</span>
+          <span
+            className="inline-flex items-center px-2 py-1 text-xs font-bold border"
+            style={{
+              background:
+                legacyPricingStatus === "compatibility"
+                  ? "var(--success)"
+                  : legacyPricingStatus === "revealed"
+                    ? "var(--warning)"
+                    : "var(--neutral-gray)",
+              color: "white",
+              borderColor:
+                legacyPricingStatus === "compatibility"
+                  ? "var(--success)"
+                  : legacyPricingStatus === "revealed"
+                    ? "var(--warning)"
+                    : "var(--neutral-gray)",
+            }}
+          >
+            {legacyPricingStatus === "compatibility"
+              ? "Compatibility"
+              : legacyPricingStatus === "revealed"
+                ? "Revealed"
+                : "Hidden"}
+          </span>
+          <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            {hasLegacyPlanAccess
+              ? "Compatibility is automatic for legacy-access organizations."
+              : "Status follows manual reveal override."}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleLegacyPricing}
+            disabled={isUpdatingLegacyPricing}
+            className="beveled-button px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: "var(--window-document-bg)",
+              color: "var(--window-document-text)",
+            }}
+          >
+            {isUpdatingLegacyPricing ? <Loader2 size={12} className="animate-spin" /> : <Settings size={12} />}
+            {manualRevealEnabled ? "Disable manual reveal override" : "Enable manual reveal override"}
+          </button>
+          <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            Override flag: {manualRevealEnabled ? "enabled" : "disabled"}
+          </span>
+        </div>
+
+        {legacyPricingStatusMessage ? (
+          <p className="text-xs mt-2" style={{ color: "var(--window-document-text)" }}>
+            {legacyPricingStatusMessage}
+          </p>
+        ) : null}
+      </div>
 
       {/* Header */}
       <div className="flex items-start justify-between">

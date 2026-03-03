@@ -60,6 +60,7 @@ type TranslateWithFallback = (
 export function TemplatesTab() {
   const { sessionId } = useAuth();
   const { t } = useNamespaceTranslations("ui.super_admin.templates");
+  const [organizationSearch, setOrganizationSearch] = useState("");
   const tx: TranslateWithFallback = (key, fallback, params) => {
     const fullKey = `ui.super_admin.templates.${key}`;
     const translated = t(fullKey, params);
@@ -80,10 +81,23 @@ export function TemplatesTab() {
   } | undefined;
 
   // Fetch all organizations
-  const organizations = useQuery(
-    apiAny.organizations.listAll,
-    sessionId ? { sessionId } : "skip"
-  ) as Organization[] | undefined;
+  const organizationsPage = useQuery(
+    apiAny.organizations.listAllPaginated,
+    sessionId
+      ? {
+        sessionId,
+        pageSize: 100,
+        search: organizationSearch.trim() || undefined,
+      }
+      : "skip"
+  ) as
+    | {
+      organizations: Organization[];
+      continueCursor: string;
+      isDone: boolean;
+    }
+    | undefined;
+  const organizations = organizationsPage?.organizations;
 
   if (!sessionId) {
     return (
@@ -167,6 +181,8 @@ export function TemplatesTab() {
         organizations={organizations}
         sessionId={sessionId}
         tx={tx}
+        organizationSearch={organizationSearch}
+        onOrganizationSearchChange={setOrganizationSearch}
       />
     </div>
   );
@@ -494,11 +510,15 @@ function TemplateAvailabilitySection({
   organizations,
   sessionId,
   tx,
+  organizationSearch,
+  onOrganizationSearchChange,
 }: {
   templates: AuditTemplate[];
   organizations: Organization[];
   sessionId: string;
   tx: TranslateWithFallback;
+  organizationSearch: string;
+  onOrganizationSearchChange: (value: string) => void;
 }) {
   const [selectedOrgId, setSelectedOrgId] = useState<Id<"organizations"> | null>(
     organizations.length > 0 ? organizations[0]._id : null
@@ -626,12 +646,26 @@ function TemplateAvailabilitySection({
       {/* Organization Selector */}
       <div className="mb-4">
         <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
+          {tx("availability.search_org_label", "Search Organization:")}
+        </label>
+        <input
+          value={organizationSearch}
+          onChange={(e) => onOrganizationSearchChange(e.target.value)}
+          placeholder={tx("availability.search_org_placeholder", "Search by organization name")}
+          className="mb-3 w-full max-w-md border px-3 py-2 text-xs focus:outline-none"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg-elevated)",
+            color: "var(--window-document-text)",
+          }}
+        />
+        <label className="block text-xs font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
           {tx("availability.select_org_label", "Select Organization:")}
         </label>
         <select
           value={selectedOrgId || ""}
           onChange={(e) => setSelectedOrgId(e.target.value as Id<"organizations">)}
-          className="w-full max-w-md text-xs border-2 px-3 py-2 focus:outline-none"
+          className="w-full max-w-md border px-3 py-2 text-xs focus:outline-none"
           style={{
             borderColor: "var(--window-document-border)",
             background: "var(--window-document-bg-elevated)",

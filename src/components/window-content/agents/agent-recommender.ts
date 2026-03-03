@@ -15,6 +15,62 @@ export interface AgentIntegrationReadiness {
   slackConnected: boolean;
 }
 
+export const SPECIALIST_COVERAGE_BLUEPRINT_IDS = [
+  "pack_personal_inbox_defense",
+  "pack_wearable_operator_companion",
+  "pack_exec_daily_checkup",
+  "pack_visual_todo_shopping",
+  "pack_note_capture_memory",
+  "pack_vacation_delegate_guard",
+] as const;
+
+export type CoverageBlueprintId = (typeof SPECIALIST_COVERAGE_BLUEPRINT_IDS)[number];
+
+export type SpecialistRoleId =
+  | "appointment_booking_specialist"
+  | "provider_outreach_specialist"
+  | "personal_schedule_coordinator"
+  | "medical_compliance_reviewer";
+
+export interface SpecialistRoleContract {
+  roleName: string;
+  defaultSubtype: "booking_agent" | "customer_support" | "general";
+  focus: string;
+  coverageBlueprintIds: readonly CoverageBlueprintId[];
+}
+
+export const SPECIALIST_ROLE_CONTRACTS: Record<SpecialistRoleId, SpecialistRoleContract> = {
+  appointment_booking_specialist: {
+    roleName: "Appointment Booking Specialist",
+    defaultSubtype: "booking_agent",
+    focus: "Coordinate calendar-aware booking intents and deterministic scheduling follow-through.",
+    coverageBlueprintIds: ["pack_exec_daily_checkup"],
+  },
+  provider_outreach_specialist: {
+    roleName: "Provider Outreach Specialist",
+    defaultSubtype: "customer_support",
+    focus: "Handle asynchronous provider outreach via messaging/email channels before escalation.",
+    coverageBlueprintIds: ["pack_personal_inbox_defense", "pack_vacation_delegate_guard"],
+  },
+  personal_schedule_coordinator: {
+    roleName: "Personal Schedule Coordinator",
+    defaultSubtype: "general",
+    focus: "Orchestrate end-to-end personal operator plans and manage handoff readiness.",
+    coverageBlueprintIds: [
+      "pack_wearable_operator_companion",
+      "pack_exec_daily_checkup",
+      "pack_visual_todo_shopping",
+      "pack_note_capture_memory",
+    ],
+  },
+  medical_compliance_reviewer: {
+    roleName: "Medical Compliance Reviewer",
+    defaultSubtype: "booking_agent",
+    focus: "Review high-risk medical follow-up plans before execution and preserve compliance boundaries.",
+    coverageBlueprintIds: ["pack_exec_daily_checkup"],
+  },
+};
+
 export type AgentNeedOutcomeId =
   | "book_appointment"
   | "reschedule_appointment"
@@ -84,7 +140,7 @@ const INTEGRATION_REQUIREMENTS: Record<IntegrationRequirementId, IntegrationRequ
 };
 
 interface OutcomeRule {
-  specialistIds: string[];
+  specialistIds: SpecialistRoleId[];
   integrationRequirements: IntegrationRequirementId[];
 }
 
@@ -102,7 +158,7 @@ const OUTCOME_RULES: Record<AgentNeedOutcomeId, OutcomeRule> = {
     integrationRequirements: ["messaging_connected"],
   },
   medical_follow_up: {
-    specialistIds: ["appointment_booking_specialist", "medical_compliance_reviewer"],
+    specialistIds: ["appointment_booking_specialist"],
     integrationRequirements: ["calendar_connected", "messaging_connected"],
   },
   general_planning: {

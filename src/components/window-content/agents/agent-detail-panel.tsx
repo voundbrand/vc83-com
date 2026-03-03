@@ -9,7 +9,7 @@ import { useState } from "react";
 import {
   Crown,
   Play, Pause, Settings, Trash2, CheckCircle, XCircle,
-  Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle,
+  Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle, Bug,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -20,6 +20,7 @@ import { AgentSessionsViewer } from "./agent-sessions-viewer";
 import { AgentApprovalQueue } from "./agent-approval-queue";
 import { AgentEscalationQueue } from "./agent-escalation-queue";
 import { AgentAnalytics } from "./agent-analytics";
+import { AgentDebugEvents } from "./agent-debug-events";
 import { AgentTrustCockpit } from "./agent-trust-cockpit";
 import {
   canMakePrimaryInUi,
@@ -48,6 +49,7 @@ const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
   { id: "approvals", label: "Approvals", icon: <Shield size={12} /> },
   { id: "escalations", label: "Escalations", icon: <AlertTriangle size={12} /> },
   { id: "analytics", label: "Analytics", icon: <BarChart3 size={12} /> },
+  { id: "debug", label: "Debug", icon: <Bug size={12} /> },
 ];
 
 export function AgentDetailPanel({
@@ -197,7 +199,7 @@ export function AgentDetailPanel({
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="p-1 border hover:bg-gray-50"
+                className="p-1 border transition-opacity hover:opacity-80"
                 style={{ borderColor: "var(--window-document-border)" }}
               >
                 <XCircle size={10} />
@@ -262,6 +264,9 @@ export function AgentDetailPanel({
         )}
         {activeTab === "analytics" && (
           <AgentAnalytics agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
+        )}
+        {activeTab === "debug" && (
+          <AgentDebugEvents agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
         )}
       </div>
     </div>
