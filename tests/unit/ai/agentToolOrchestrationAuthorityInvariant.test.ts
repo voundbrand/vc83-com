@@ -328,6 +328,7 @@ describe("agent tool orchestration authority invariants", () => {
               reasonCode: "allowed",
               evaluatedCommands: [
                 "assemble_concierge_payload",
+                "preview_meeting_concierge",
                 "execute_meeting_concierge",
               ],
             },
@@ -471,6 +472,70 @@ describe("agent tool orchestration authority invariants", () => {
         status: "error",
         error:
           "Meeting concierge command policy blocked execution (command_not_allowlisted).",
+      },
+    ]);
+    expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks meeting concierge execute when preview authorization is missing from command policy", async () => {
+    const executeMock = vi.fn(async () => ({ mode: "execute", status: "ok" }));
+    registerTestTool(MANAGE_BOOKINGS_TOOL, {
+      name: MANAGE_BOOKINGS_TOOL,
+      description: "test manage bookings concierge tool",
+      status: "ready",
+      readOnly: false,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: executeMock,
+    });
+
+    const result = await executeToolCallsWithApproval({
+      toolCalls: [
+        {
+          function: {
+            name: MANAGE_BOOKINGS_TOOL,
+            arguments: JSON.stringify({
+              action: "run_meeting_concierge_demo",
+              mode: "execute",
+              personEmail: "jordan@example.com",
+            }),
+          },
+        },
+      ],
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      sessionId: SESSION_ID,
+      autonomyLevel: "autonomous",
+      toolExecutionContext: {
+        runtimePolicy: {
+          meetingConcierge: {
+            explicitConfirmDetected: true,
+            previewIntentDetected: false,
+            extractedPayloadReady: true,
+            commandPolicy: {
+              policyRequired: true,
+              status: "allowed",
+              allowed: true,
+              reasonCode: "allowed",
+              evaluatedCommands: ["assemble_concierge_payload", "execute_meeting_concierge"],
+            },
+          },
+        },
+      } as any,
+      failedToolCounts: {},
+      disabledTools: new Set<string>(),
+      createApprovalRequest: async () => {},
+      onToolDisabled: () => {},
+    });
+
+    expect(result.toolResults).toEqual([
+      {
+        tool: MANAGE_BOOKINGS_TOOL,
+        status: "error",
+        error:
+          "Meeting concierge command policy does not authorize preview_meeting_concierge; runtime is fail-closed.",
       },
     ]);
     expect(executeMock).not.toHaveBeenCalled();
@@ -782,5 +847,62 @@ describe("agent tool orchestration authority invariants", () => {
       },
     ]);
     expect(executeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-disable non-disableable tools even when failure threshold state is reached", async () => {
+    const executeMock = vi.fn(async () => ({ ok: true }));
+    registerTestTool(MUTATING_TOOL, {
+      name: MUTATING_TOOL,
+      description: "test mutating tool",
+      status: "ready",
+      readOnly: false,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: executeMock,
+    });
+
+    const onToolDisabled = vi.fn(async () => {});
+    const result = await executeToolCallsWithApproval({
+      toolCalls: [
+        {
+          function: {
+            name: MUTATING_TOOL,
+            arguments: "{}",
+          },
+        },
+      ],
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      sessionId: SESSION_ID,
+      autonomyLevel: "autonomous",
+      toolExecutionContext: {
+        runtimePolicy: {
+          mutationAuthority: {
+            mutatingToolExecutionAllowed: true,
+            invariantViolations: [],
+          },
+        },
+      } as any,
+      failedToolCounts: {
+        [MUTATING_TOOL]: 3,
+      },
+      disabledTools: new Set<string>([MUTATING_TOOL]),
+      nonDisableableTools: [MUTATING_TOOL],
+      createApprovalRequest: async () => {},
+      onToolDisabled,
+    });
+
+    expect(result.errorStateDirty).toBe(false);
+    expect(result.toolResults).toEqual([
+      {
+        tool: MUTATING_TOOL,
+        status: "success",
+        result: { ok: true },
+      },
+    ]);
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(onToolDisabled).not.toHaveBeenCalled();
   });
 });

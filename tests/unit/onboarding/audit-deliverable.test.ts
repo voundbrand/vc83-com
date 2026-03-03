@@ -232,7 +232,7 @@ describe("onboarding audit deliverable failure modes", () => {
     const ctx = createDeliverableContext({
       db,
       storage,
-      template: { _id: "template_1" },
+      template: { _id: "template_1", version: "9.2.1" },
     });
 
     const result = await (generateAuditWorkflowDeliverable as any)._handler(ctx, {
@@ -275,6 +275,24 @@ describe("onboarding audit deliverable failure modes", () => {
     expect(db.tableRows("onboardingFunnelEvents")).toHaveLength(0);
   });
 
+  it("resolves audit session across native_guest/webchat channel fallback when session token matches", async () => {
+    const db = new InMemoryDb();
+    await seedCompletedAuditSession(db);
+
+    const resolved = await (resolveAuditSessionForDeliverableInternal as any)._handler(
+      { db },
+      {
+        organizationId: ORG_ID,
+        channel: "native_guest",
+        sessionToken: SESSION_ID,
+      },
+    );
+
+    expect(resolved).toBeTruthy();
+    expect(resolved.channel).toBe("webchat");
+    expect(resolved.auditSessionKey).toBe(`audit:webchat:${SESSION_ID}`);
+  });
+
   it("replays deliverable generation idempotently without duplicate funnel rows", async () => {
     process.env.API_TEMPLATE_IO_KEY = "test-api-key";
 
@@ -298,7 +316,7 @@ describe("onboarding audit deliverable failure modes", () => {
     const ctx = createDeliverableContext({
       db,
       storage,
-      template: { _id: "template_1" },
+      template: { _id: "template_1", version: "9.2.1" },
     });
 
     const firstResult = await (generateAuditWorkflowDeliverable as any)._handler(ctx, {
@@ -313,6 +331,20 @@ describe("onboarding audit deliverable failure modes", () => {
     expect(firstResult.success).toBe(true);
     expect(firstResult.deduped).toBe(false);
     expect(firstResult.auditSessionKey).toBe(`audit:${CHANNEL}:${SESSION_ID}`);
+    expect(firstResult.templateVersion).toBe("9.2.1");
+    expect(firstResult.renderSource).toBe("apitemplate_io_v2_create_pdf_from_html");
+    expect(firstResult.requestedFormats).toEqual([
+      {
+        format: "pdf",
+        status: "generated",
+      },
+    ]);
+    expect(generatePdfMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateCode: "leadmagnet_audit_workflow_report_v1",
+        paperSize: "Letter",
+      }),
+    );
 
     const secondResult = await (generateAuditWorkflowDeliverable as any)._handler(ctx, {
       organizationId: ORG_ID,
@@ -329,6 +361,7 @@ describe("onboarding audit deliverable failure modes", () => {
     expect(secondResult.fileName).toBe(firstResult.fileName);
     expect(secondResult.inputFingerprint).toBe(firstResult.inputFingerprint);
     expect(secondResult.generatedAt).toBe(firstResult.generatedAt);
+    expect(secondResult.requestedFormats).toEqual(firstResult.requestedFormats);
 
     expect(generatePdfMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -358,5 +391,56 @@ describe("onboarding audit deliverable failure modes", () => {
       .tableRows("onboardingFunnelEvents")
       .map((row) => row.eventKey as string);
     expect(new Set(eventKeys).size).toBe(eventKeys.length);
+  });
+
+  it("generates docx when requested and keeps deterministic format metadata", async () => {
+    process.env.API_TEMPLATE_IO_KEY = "test-api-key";
+
+    const generatePdfMock = vi.mocked(generatePdfFromTemplate);
+    generatePdfMock.mockResolvedValue({
+      status: "success",
+      download_url: "https://template.example/generated-docx-request.pdf",
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new TextEncoder().encode("%PDF-1.4 docx requested").buffer,
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const db = new InMemoryDb();
+    const storage = new InMemoryStorage();
+    await seedCompletedAuditSession(db);
+
+    const ctx = createDeliverableContext({
+      db,
+      storage,
+      template: { _id: "template_1", version: "2.0.0" },
+    });
+
+    const result = await (generateAuditWorkflowDeliverable as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      channel: CHANNEL,
+      sessionToken: SESSION_ID,
+      input: {
+        outputFormats: ["pdf", "docx"],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.requestedFormats).toEqual([
+      {
+        format: "docx",
+        status: "generated",
+      },
+      {
+        format: "pdf",
+        status: "generated",
+      },
+    ]);
+    expect(result.docxFileName).toMatch(/\.docx$/);
+    expect(result.docxStorageId).toBe("storage_2");
+    expect(result.docxDownloadUrl).toBe("https://storage.test/storage_2");
   });
 });

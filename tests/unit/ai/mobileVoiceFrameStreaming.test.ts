@@ -34,16 +34,26 @@ describe("mobile voice frame streaming runtime", () => {
   });
 
   it("preserves fallback behavior when realtime transport is unavailable", () => {
-    const realtimePolicy = resolveFrameStreamingPolicy({
+    const realtimeStreamingPolicy = resolveFrameStreamingPolicy({
       transportMode: "websocket",
       isRealtimeConnected: true,
+      isFinalFrame: false,
     });
-    expect(realtimePolicy.shouldSendRealtimeEnvelope).toBe(true);
-    expect(realtimePolicy.shouldUseHttpTranscription).toBe(true);
+    expect(realtimeStreamingPolicy.shouldSendRealtimeEnvelope).toBe(true);
+    expect(realtimeStreamingPolicy.shouldUseHttpTranscription).toBe(false);
+
+    const realtimeFinalPolicy = resolveFrameStreamingPolicy({
+      transportMode: "websocket",
+      isRealtimeConnected: true,
+      isFinalFrame: true,
+    });
+    expect(realtimeFinalPolicy.shouldSendRealtimeEnvelope).toBe(true);
+    expect(realtimeFinalPolicy.shouldUseHttpTranscription).toBe(true);
 
     const fallbackPolicy = resolveFrameStreamingPolicy({
       transportMode: "chunked_fallback",
       isRealtimeConnected: false,
+      isFinalFrame: false,
     });
     expect(fallbackPolicy.shouldSendRealtimeEnvelope).toBe(false);
     expect(fallbackPolicy.shouldUseHttpTranscription).toBe(true);

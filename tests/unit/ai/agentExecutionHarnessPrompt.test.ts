@@ -151,6 +151,7 @@ describe("agent execution harness wiring", () => {
     );
 
     expect(harnessContext).toContain("Cross-org read-only soul enrichment active");
+    expect(harnessContext).toContain("explicit personal-workspace opt-in is enabled");
     expect(harnessContext).toContain("Acme Agency");
     expect(harnessContext).toContain("Dream Team contracts 6");
     expect(harnessContext).toContain("Never perform cross-org writes");

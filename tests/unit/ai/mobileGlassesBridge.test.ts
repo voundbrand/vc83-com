@@ -122,6 +122,35 @@ describe("mobile glasses ingress bridge", () => {
     ).toThrow(/stopped/);
   });
 
+  it("enforces webrtc relay transport for meta glasses sessions", () => {
+    const bridge = createMobileGlassesIngressBridge({
+      now: () => 1_700_975_000_000,
+    });
+
+    expect(() =>
+      bridge.startSession({
+        liveSessionId: "live_session_glasses_transport_guard",
+        sourceClass: "glasses_stream_meta",
+        transport: "rtmp",
+      })
+    ).toThrow(/requires webrtc transport relay/i);
+  });
+
+  it("enforces meta DAT provider contract for meta glasses sessions", () => {
+    const bridge = createMobileGlassesIngressBridge({
+      now: () => 1_700_976_000_000,
+    });
+
+    expect(() =>
+      bridge.startSession({
+        liveSessionId: "live_session_glasses_provider_guard",
+        sourceClass: "glasses_stream_meta",
+        providerId: "ios_avfoundation",
+        transport: "webrtc",
+      })
+    ).toThrow(/requires a meta DAT provider contract/i);
+  });
+
   it("marks latency budget breaches and tracks dropped/late frame counters", () => {
     const nowValues = [1_700_980_000_000, 1_700_980_000_300];
     const bridge = createMobileGlassesIngressBridge({

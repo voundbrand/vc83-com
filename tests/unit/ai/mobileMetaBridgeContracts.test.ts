@@ -4,6 +4,8 @@ import {
   buildGeminiLiveMetadata,
   createDefaultMetaBridgeSnapshot,
   evaluateVisionSourceReadiness,
+  mapVisionReadinessReasonToConversationReason,
+  negotiateVisionSource,
 } from '../../../apps/operator-mobile/src/lib/av/metaBridge-contracts';
 
 describe('mobile meta bridge contracts', () => {
@@ -35,6 +37,7 @@ describe('mobile meta bridge contracts', () => {
     const bridge = {
       ...createDefaultMetaBridgeSnapshot(1_701_000_000_000),
       connectionState: 'connected' as const,
+      datSdkAvailable: true,
       activeDevice: {
         sourceId: 'iphone_camera:ios_avfoundation:front_camera',
         sourceClass: 'meta_glasses' as const,
@@ -53,10 +56,47 @@ describe('mobile meta bridge contracts', () => {
     expect(readiness.reasonCode).toBe('meta_bridge_healthy');
   });
 
+  it('fails closed in Meta source mode when DAT SDK is unavailable despite active bridge/device', () => {
+    const bridge = {
+      ...createDefaultMetaBridgeSnapshot(1_701_000_000_000),
+      connectionState: 'connected' as const,
+      datSdkAvailable: false,
+      activeDevice: {
+        sourceId: 'meta_glasses:meta_dat_bridge:rayban_meta',
+        sourceClass: 'meta_glasses' as const,
+        providerId: 'meta_dat_bridge',
+        deviceId: 'meta_device_1',
+        deviceLabel: 'Ray-Ban Meta',
+      },
+    };
+
+    const readiness = evaluateVisionSourceReadiness({
+      sourceMode: 'meta_glasses',
+      bridge,
+    });
+
+    expect(readiness.ready).toBe(false);
+    expect(readiness.reasonCode).toBe('meta_bridge_dat_sdk_unavailable');
+    expect(mapVisionReadinessReasonToConversationReason(readiness.reasonCode)).toBe('dat_sdk_unavailable');
+  });
+
+  it('negotiates preferred Meta source and falls back to iPhone when Meta is unavailable', () => {
+    const bridge = createDefaultMetaBridgeSnapshot(1_701_000_000_000);
+    const negotiation = negotiateVisionSource({
+      preferredSourceMode: 'meta_glasses',
+      bridge,
+    });
+
+    expect(negotiation.ready).toBe(true);
+    expect(negotiation.selectedSourceMode).toBe('iphone');
+    expect(negotiation.conversationReasonCode).toBe('device_unavailable');
+  });
+
   it('enriches Gemini metadata with bridge diagnostics only for Meta source mode', () => {
     const bridge = {
       ...createDefaultMetaBridgeSnapshot(1_701_000_000_000),
       connectionState: 'connected' as const,
+      datSdkAvailable: true,
       activeDevice: {
         sourceId: 'meta_glasses:meta_dat_bridge:rayban_meta',
         sourceClass: 'meta_glasses' as const,

@@ -138,6 +138,56 @@ describe("mobile runtime hardening", () => {
     expect(contract.reasonCodes).toContain("unknown_attestation_contract");
   });
 
+  it("quarantines attestations when source class/provider do not match runtime metadata", () => {
+    const nowMs = 1_701_560_000_000;
+    const liveSessionId = "mobile_live_test_source_mismatch";
+    const sourceId = "iphone_camera:ios_avfoundation:front_camera";
+    const nonce = "nonce_source_mismatch";
+    const challenge = buildMobileSourceAttestationChallenge({
+      liveSessionId,
+      sourceId,
+      nonce,
+    });
+    const issuedAtMs = nowMs - 1_000;
+    const signature = computeMobileSourceAttestationSignature({
+      secret: "attestation_secret_source_mismatch",
+      challenge,
+      nonce,
+      issuedAtMs,
+      liveSessionId,
+      sourceId,
+      sourceClass: "iphone_microphone",
+      providerId: "ios_avfoundation",
+    });
+
+    const contract = resolveMobileSourceAttestationContract({
+      nowMs,
+      secret: "attestation_secret_source_mismatch",
+      metadata: {
+        liveSessionId,
+        cameraRuntime: {
+          sourceId,
+          sourceClass: "iphone_camera",
+          providerId: "ios_avfoundation",
+          sourceAttestation: {
+            contractVersion: MOBILE_SOURCE_ATTESTATION_CONTRACT_VERSION,
+            challenge,
+            nonce,
+            issuedAtMs,
+            sourceId,
+            sourceClass: "iphone_microphone",
+            providerId: "ios_avfoundation",
+            signature,
+          },
+        },
+      },
+    });
+
+    expect(contract.verified).toBe(false);
+    expect(contract.verificationStatus).toBe("source_mismatch");
+    expect(contract.reasonCodes).toContain("attested_source_class_mismatch");
+  });
+
   it("skips attestation requirement for non-mobile source classes", () => {
     const contract = resolveMobileSourceAttestationContract({
       nowMs: 1_701_600_000_000,
@@ -222,5 +272,44 @@ describe("mobile runtime hardening", () => {
       "assemble_concierge_payload",
       "preview_meeting_concierge",
     ]);
+  });
+
+  it("fails closed when attempted command list is empty for live ingress", () => {
+    const decision = resolveMobileNodeCommandPolicyDecision({
+      metadata: {
+        commandPolicy: {
+          contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
+          attemptedCommands: [],
+        },
+      },
+      requiredCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
+      enforceForLiveIngress: true,
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.reasonCode).toBe("missing_attempted_commands");
+  });
+
+  it("fails closed when policy source binding mismatches ingress source metadata", () => {
+    const decision = resolveMobileNodeCommandPolicyDecision({
+      metadata: {
+        liveSessionId: "mobile_live_policy_source_mismatch",
+        cameraRuntime: {
+          sourceId: "iphone_camera:ios_avfoundation:front_camera",
+          sourceClass: "iphone_camera",
+        },
+        commandPolicy: {
+          contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
+          attemptedCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
+          sourceId: "iphone_camera:ios_avfoundation:rear_camera",
+          sourceClass: "iphone_camera",
+        },
+      },
+      requiredCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
+      enforceForLiveIngress: true,
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.reasonCode).toBe("source_binding_mismatch");
   });
 });

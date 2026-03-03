@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAgentNeedRecommendation,
+  SPECIALIST_COVERAGE_BLUEPRINT_IDS,
+  SPECIALIST_ROLE_CONTRACTS,
   type AgentCoverageRecommendationRow,
 } from "../../../src/components/window-content/agents/agent-recommender";
 
@@ -32,6 +34,19 @@ const COVERAGE_ROWS: AgentCoverageRecommendationRow[] = [
 ];
 
 describe("agent recommender flow", () => {
+  it("keeps specialist-to-blueprint join contract deterministic", () => {
+    const blueprintIds = new Set(SPECIALIST_COVERAGE_BLUEPRINT_IDS);
+    for (const role of Object.values(SPECIALIST_ROLE_CONTRACTS)) {
+      expect(role.coverageBlueprintIds.length).toBeGreaterThan(0);
+      for (const coverageBlueprintId of role.coverageBlueprintIds) {
+        expect(blueprintIds.has(coverageBlueprintId)).toBe(true);
+      }
+    }
+    expect(SPECIALIST_ROLE_CONTRACTS.medical_compliance_reviewer.coverageBlueprintIds).toContain(
+      "pack_exec_daily_checkup"
+    );
+  });
+
   it("surfaces integration gaps before activation suggestions", () => {
     const recommendation = buildAgentNeedRecommendation({
       outcomeId: "book_appointment",
@@ -68,10 +83,15 @@ describe("agent recommender flow", () => {
     expect(recommendation.cards[0].shouldSuggestActivation).toBe(true);
   });
 
-  it("keeps planned specialists as tool gaps", () => {
+  it("keeps medical follow-up on the appointment specialist path when integrations are ready", () => {
+    const coverageRows = COVERAGE_ROWS.map((row) =>
+      row.id === "appointment_booking_specialist"
+        ? { ...row, isCovered: true }
+        : row
+    );
     const recommendation = buildAgentNeedRecommendation({
       outcomeId: "medical_follow_up",
-      coverageRows: COVERAGE_ROWS,
+      coverageRows,
       readiness: {
         googleCalendarConnected: true,
         microsoftCalendarConnected: false,
@@ -81,13 +101,13 @@ describe("agent recommender flow", () => {
       },
     });
 
-    const plannedCard = recommendation.cards.find(
-      (card) => card.coverageId === "medical_compliance_reviewer"
+    const appointmentCard = recommendation.cards.find(
+      (card) => card.coverageId === "appointment_booking_specialist"
     );
-    expect(plannedCard?.availability).toBe("planned");
-    expect(plannedCard?.toolGaps).toContain(
-      "Tool/runtime gap: this specialist path is still planned."
-    );
-    expect(plannedCard?.shouldSuggestActivation).toBe(false);
+    expect(recommendation.cards).toHaveLength(1);
+    expect(appointmentCard?.availability).toBe("available_now");
+    expect(appointmentCard?.toolGaps).toHaveLength(0);
+    expect(appointmentCard?.integrationGaps).toHaveLength(0);
+    expect(appointmentCard?.shouldSuggestActivation).toBe(false);
   });
 });

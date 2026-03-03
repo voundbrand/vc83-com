@@ -5,6 +5,7 @@ import {
   TRUST_KPI_DEFINITIONS,
   TRUST_TELEMETRY_DASHBOARDS,
   VOICE_TRUST_PRE_ROLLOUT_BASELINES,
+  buildRuntimeTurnTelemetryDimensions,
   buildTrustKpiCheckpointPayload,
   buildTrustTelemetryDashboardSnapshots,
   evaluateTrustKpiMetric,
@@ -172,5 +173,32 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
     );
     expect(evaluation.severity).toBe("critical");
     expect(evaluation.thresholdValue).toBeNull();
+  });
+
+  it("builds deterministic runtime turn telemetry dimensions with required fields", () => {
+    const dimensionsA = buildRuntimeTurnTelemetryDimensions({
+      manifestHash: "manifest:abc123",
+      idempotencyKey: "idem:1",
+      idempotencyScopeKey: "org_1:route:webchat:message_ingress",
+      payloadHash: "payload:hash:1",
+      admissionReasonCode: "Replay_Duplicate",
+    });
+    const dimensionsB = buildRuntimeTurnTelemetryDimensions({
+      manifestHash: "  manifest:abc123  ",
+      idempotencyKey: "idem:1",
+      idempotencyScopeKey: "org_1:route:webchat:message_ingress",
+      payloadHash: "payload:hash:1",
+      admissionReasonCode: "replay_duplicate",
+    });
+
+    expect(dimensionsA).toEqual({
+      contractVersion: "aoh_runtime_turn_telemetry_dimensions_v1",
+      manifestHash: "manifest:abc123",
+      idempotencyKey: "idem:1",
+      idempotencyScopeKey: "org_1:route:webchat:message_ingress",
+      payloadHash: "payload:hash:1",
+      admissionReasonCode: "replay_duplicate",
+    });
+    expect(dimensionsB).toEqual(dimensionsA);
   });
 });

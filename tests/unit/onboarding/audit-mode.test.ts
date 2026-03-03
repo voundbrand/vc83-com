@@ -3,6 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   answerAuditModeQuestion,
   completeAuditModeSession,
+  ensureAuditModeSessionForDeliverable,
   openAuditModeHandoff,
   startAuditModeSession,
 } from "../../../convex/onboarding/auditMode";
@@ -324,5 +325,64 @@ describe("onboarding audit mode lifecycle", () => {
       .tableRows("onboardingFunnelEvents")
       .map((row) => row.eventKey as string);
     expect(new Set(eventKeys).size).toBe(eventKeys.length);
+  });
+
+  it("bootstraps a deliverable-ready audit session when Samantha dispatch has no existing audit record", async () => {
+    const db = new InMemoryDb();
+    const ctx = createAuditModeContext(db);
+
+    const result = await (ensureAuditModeSessionForDeliverable as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "native_guest",
+      sessionToken: "ng_dispatch_bootstrap",
+      workflowRecommendation: "Automate intake triage and route founder-ready follow-ups.",
+      capturedEmail: "lead@example.com",
+      capturedName: "Ava Rivers",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.created).toBe(true);
+    expect(result.session?.status).toBe("workflow_delivered");
+    expect(result.session?.answeredQuestionCount).toBe(5);
+    expect(result.session?.workflowRecommendation).toContain("Automate intake triage");
+
+    const sessions = db.tableRows("onboardingAuditSessions");
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.channel).toBe("native_guest");
+    expect(sessions[0]?.capturedEmail).toBe("lead@example.com");
+    expect(sessions[0]?.capturedName).toBe("Ava Rivers");
+  });
+
+  it("returns existing session when bootstrap is called repeatedly for the same scope", async () => {
+    const db = new InMemoryDb();
+    const ctx = createAuditModeContext(db);
+    const args = {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "native_guest",
+      sessionToken: "ng_dispatch_bootstrap_repeat",
+      workflowRecommendation: "First recommendation",
+      capturedEmail: "first@example.com",
+      capturedName: "First Lead",
+    };
+
+    const first = await (ensureAuditModeSessionForDeliverable as any)._handler(ctx, args);
+    const second = await (ensureAuditModeSessionForDeliverable as any)._handler(ctx, {
+      ...args,
+      workflowRecommendation: "Updated recommendation",
+      capturedEmail: "updated@example.com",
+      capturedName: "Updated Lead",
+    });
+
+    expect(first.success).toBe(true);
+    expect(first.created).toBe(true);
+    expect(second.success).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.session?.workflowRecommendation).toContain("Updated recommendation");
+    expect(db.tableRows("onboardingAuditSessions")).toHaveLength(1);
+    const persisted = db.tableRows("onboardingAuditSessions")[0];
+    expect(persisted?.capturedEmail).toBe("updated@example.com");
+    expect(persisted?.capturedName).toBe("Updated Lead");
   });
 });

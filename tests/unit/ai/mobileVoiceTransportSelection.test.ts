@@ -5,6 +5,7 @@ import {
   downgradeVoiceTransportSelection,
   resolveVoiceTransportSelection,
 } from "../../../apps/operator-mobile/src/lib/voice/transport";
+import { createVoiceRuntimeTelemetryCollector } from "../../../apps/operator-mobile/src/lib/av/voiceTelemetry";
 
 describe("mobile voice transport fallback selection", () => {
   it("uses webrtc when requested and available", () => {
@@ -57,12 +58,18 @@ describe("mobile voice transport fallback selection", () => {
       },
       isRealtimeConnected: true,
       partialTranscript: "hello world",
+      telemetry: createVoiceRuntimeTelemetryCollector({
+        liveSessionId: "mobile_live_corr_1",
+        voiceSessionId: "voice_corr_1",
+        interviewSessionId: "interview_corr_1",
+      }).snapshot(),
     }) as {
       liveSessionId?: string;
       interviewSessionId?: string;
       voiceSessionId?: string;
       sessionState?: string;
       partialTranscript?: string;
+      telemetry?: Record<string, unknown>;
     };
 
     expect(runtime.liveSessionId).toBe("mobile_live_corr_1");
@@ -71,6 +78,9 @@ describe("mobile voice transport fallback selection", () => {
     expect(runtime.sessionState).toBe("open");
     expect(runtime.partialTranscript).toBe("hello world");
     expect(runtime.fallbackReason).toBe("none");
+    expect((runtime.telemetry?.correlationKey as string) || "").toBe(
+      "mobile_live_corr_1::voice_corr_1"
+    );
   });
 
   it("downgrades webrtc mode deterministically when adapter is not implemented", () => {

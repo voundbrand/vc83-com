@@ -420,6 +420,28 @@ describe("memoryComposer", () => {
     ).toBe(true);
   });
 
+  it("extracts structured contact fields from generic label:value input without language-specific labels", () => {
+    const candidates = extractSessionContactMemoryCandidates({
+      userMessage: [
+        "prenom: Franziska",
+        "nom: Splettstoeser",
+        "courriel: info@apothekevital.de",
+        "telefon: +49 151 40427103",
+      ].join("\n"),
+      toolResults: [],
+    });
+
+    expect(candidates.find((candidate) => candidate.field === "preferred_name")?.value).toBe(
+      "Franziska Splettstoeser"
+    );
+    expect(candidates.find((candidate) => candidate.field === "email")?.value).toBe(
+      "info@apothekevital.de"
+    );
+    expect(candidates.find((candidate) => candidate.field === "phone")?.value).toBe(
+      "+4915140427103"
+    );
+  });
+
   it("fails closed merge planning when multiple values exist for the same field", () => {
     const mergePlan = planSessionContactMemoryMerge({
       existingRecords: [],

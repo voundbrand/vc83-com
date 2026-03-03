@@ -325,6 +325,53 @@ describe("inbound ingress envelope matrix", () => {
     expect(envelope.authority.invariantViolations).toContain("source_metadata_quarantined");
   });
 
+  it("fails closed when transport/session attestation drifts from meta relay contract", () => {
+    const envelope = resolveInboundIngressEnvelope({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      externalContactIdentifier: "desktop:user_123:conversation_1",
+      metadata: {
+        liveSessionId: "live_meta_session_a",
+        cameraRuntime: {
+          liveSessionId: "live_meta_session_b",
+          sourceId: "glasses_stream_meta:meta_dat_bridge:rayban_meta:primary",
+          sourceClass: "glasses_stream_meta",
+          providerId: "meta_dat_bridge",
+          sessionState: "capturing",
+        },
+        transportRuntime: {
+          transport: "rtmp",
+          observability: {
+            liveSessionId: "live_meta_session_c",
+          },
+        },
+      },
+      authority: {
+        primaryAgentId: "agent_primary",
+        authorityAgentId: "agent_primary",
+        speakerAgentId: "agent_primary",
+      },
+    });
+
+    expect(envelope.nativeVisionEdge.transportSessionAttestation.required).toBe(true);
+    expect(envelope.nativeVisionEdge.transportSessionAttestation.verified).toBe(false);
+    expect(envelope.nativeVisionEdge.transportSessionAttestation.reasonCodes).toEqual([
+      "live_session_id_mismatch",
+      "meta_relay_policy_marker_missing",
+      "meta_transport_must_be_webrtc",
+    ]);
+    expect(envelope.nativeVisionEdge.observability.deterministicFallbackReasons).toContain(
+      "transport_session_attestation_unverified",
+    );
+    expect(envelope.nativeVisionEdge.observability.deterministicFallbackReasons).toContain(
+      "transport_session_attestation:live_session_id_mismatch",
+    );
+    expect(envelope.authority.mutatingToolExecutionAllowed).toBe(false);
+    expect(envelope.authority.invariantViolations).toContain(
+      "transport_session_attestation_verification_failed",
+    );
+  });
+
   it("accepts verified mobile source attestation without invariant violations", () => {
     const liveSessionId = "live_session_attestation_verified";
     const sourceId = "iphone_camera:ios_avfoundation:front_camera";

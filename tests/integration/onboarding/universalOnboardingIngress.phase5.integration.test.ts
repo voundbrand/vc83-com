@@ -119,6 +119,60 @@ describe("universal onboarding ingress matrix", () => {
     expect(executionMetadata.transport).toBe("native_guest_http");
   });
 
+  it("returns success for native_guest when runtime provides fallback response despite non-success status", async () => {
+    const runQuery = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+      if (Object.prototype.hasOwnProperty.call(payload, "sessionToken")) {
+        return null;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, "agentId")) {
+        return { agentName: "Operator" };
+      }
+      return null;
+    });
+    const runMutation = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+      if (
+        Object.prototype.hasOwnProperty.call(payload, "organizationId")
+        && Object.prototype.hasOwnProperty.call(payload, "agentId")
+        && Object.prototype.hasOwnProperty.call(payload, "channel")
+        && !Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      ) {
+        return { sessionToken: "ng_phase5_fallback" };
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, "eventName")) {
+        return { success: true };
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+        && Object.prototype.hasOwnProperty.call(payload, "organizationId")
+        && Object.prototype.hasOwnProperty.call(payload, "agentId")
+        && Object.prototype.hasOwnProperty.call(payload, "channel")
+        && Object.prototype.hasOwnProperty.call(payload, "attribution")
+      ) {
+        return { claimToken: "claim_phase5_fallback" };
+      }
+      return { success: true };
+    });
+    const runAction = vi.fn(async () => ({
+      status: "error",
+      message: "I can’t confirm completion yet; I have logged the request internally.",
+      sessionId: "session_phase5_fallback",
+    }));
+
+    const result = await (handleWebchatMessage as any)._handler(
+      { runQuery, runMutation, runAction },
+      {
+        organizationId: ORG_ID,
+        agentId: AGENT_ID,
+        channel: "native_guest",
+        message: "please send my audit PDF",
+        requestCorrelationId: "landing_ng_req_test",
+      }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.response).toContain("logged the request internally");
+  });
+
   it("routes unknown telegram first-touch to platform onboarding and emits first-touch event", async () => {
     process.env.TEST_ORG_ID = ORG_ID;
     const mutations: Array<Record<string, unknown>> = [];

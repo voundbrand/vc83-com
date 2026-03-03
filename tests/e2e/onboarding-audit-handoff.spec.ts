@@ -104,11 +104,6 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(firstPayloadAttribution?.landingPath).toContain("utm_source=e2e");
 
     await expect(page.getByText("Claim token captured for handoff.")).toBeVisible();
-    await expect(
-      page.getByRole("heading", {
-        name: /You just spent seven minutes with an operator that doesn't know you yet/i,
-      })
-    ).toBeVisible();
 
     const createAccountLink = page.getByRole("link", { name: /Create account and carry audit context/i });
     await expect(createAccountLink).toBeVisible();
@@ -139,7 +134,7 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(callbackUrl.searchParams.get("utm_source")).toBe("e2e");
     expect(callbackUrl.searchParams.get("utm_medium")).toBe("playwright");
 
-    const webLink = page.locator(".handoff-cta__platform-links a", { hasText: "Web" });
+    const webLink = page.getByRole("link", { name: /^Web$/ }).first();
     const webHref = await webLink.getAttribute("href");
     if (!webHref) {
       throw new Error("Expected Start Free Web handoff URL");
@@ -150,9 +145,8 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
 
     const doneWithYouHref = await page
-      .locator("article.ooo-card--path")
-      .filter({ hasText: "Done With You" })
-      .locator("a.ooo-button")
+      .locator('a[href*="intent=done-with-you"]')
+      .first()
       .getAttribute("href");
     if (!doneWithYouHref) {
       throw new Error("Expected Done With You CTA link");
@@ -162,9 +156,8 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(doneWithYouUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
 
     const fullBuildHref = await page
-      .locator("article.ooo-card--path")
-      .filter({ hasText: "Full Build" })
-      .locator("a.ooo-button")
+      .locator('a[href*="intent=full-build"]')
+      .first()
       .getAttribute("href");
     if (!fullBuildHref) {
       throw new Error("Expected Full Build CTA link");

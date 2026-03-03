@@ -26,7 +26,7 @@ describe("delegation authority runtime contract", () => {
     expect(contract.authorityAutonomyLevel).toBe("supervised");
     expect(contract.authorityRequireApprovalFor).toEqual(["process_payment"]);
     expect(contract.authorityToolProfile).toBe("operations");
-    expect(contract.authorityEnabledTools).toEqual(["list_forms", "create_invoice"]);
+    expect(contract.authorityEnabledTools).toEqual(["create_invoice", "list_forms"]);
     expect(contract.authorityDisabledTools).toEqual(["process_payment"]);
     expect(contract.authorityUseToolBroker).toBe(true);
   });

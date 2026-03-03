@@ -7,6 +7,7 @@ import {
   resolveBrowserFallbackTranscriptText,
   resolveVoiceAssistantRelay,
   resolveVoiceAssistantStreamRelayState,
+  resolveVoiceRealtimeTurnOrchestrationDecision,
   resolveVoiceTransportSequenceDecision,
 } from "../../../convex/ai/voiceRuntime";
 import type { VoiceTransportEnvelopeContract } from "../../../convex/schemas/aiSchemas";
@@ -130,6 +131,67 @@ describe("voice runtime session fsm", () => {
     expect(VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID).toBe(
       "voice_transport_websocket_ingest_v1"
     );
+  });
+
+  it("triggers realtime assistant turn only on accepted final transcript EOU", () => {
+    expect(
+      resolveVoiceRealtimeTurnOrchestrationDecision({
+        sequenceDecision: "accepted",
+        eventType: "final_transcript",
+        transcriptText: "  hello world  ",
+        idempotentReplay: false,
+        persistedFinalTranscript: true,
+      }),
+    ).toEqual({
+      shouldTriggerAssistantTurn: true,
+      interrupted: false,
+      reason: "final_transcript_eou",
+      transcriptText: "hello world",
+    });
+  });
+
+  it("suppresses realtime assistant turn on non-EOU, replay, and barge-in events", () => {
+    expect(
+      resolveVoiceRealtimeTurnOrchestrationDecision({
+        sequenceDecision: "accepted",
+        eventType: "partial_transcript",
+        transcriptText: "partial",
+        persistedFinalTranscript: false,
+      }),
+    ).toEqual({
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "waiting_for_eou",
+      transcriptText: null,
+    });
+
+    expect(
+      resolveVoiceRealtimeTurnOrchestrationDecision({
+        sequenceDecision: "accepted",
+        eventType: "final_transcript",
+        transcriptText: "final",
+        idempotentReplay: true,
+        persistedFinalTranscript: true,
+      }),
+    ).toEqual({
+      shouldTriggerAssistantTurn: false,
+      interrupted: false,
+      reason: "idempotent_replay",
+      transcriptText: null,
+    });
+
+    expect(
+      resolveVoiceRealtimeTurnOrchestrationDecision({
+        sequenceDecision: "accepted",
+        eventType: "barge_in",
+        persistedFinalTranscript: false,
+      }),
+    ).toEqual({
+      shouldTriggerAssistantTurn: false,
+      interrupted: true,
+      reason: "barge_in_interrupt",
+      transcriptText: null,
+    });
   });
 
   it("uses client transcript hints for browser audio_chunk fallback", () => {

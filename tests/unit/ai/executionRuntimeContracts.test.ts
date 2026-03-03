@@ -5,9 +5,12 @@ import {
   formatRuntimeCapabilityGapBlockedMessage,
   issueCollaborationSyncCheckpointContract,
   parseCollaborationSyncCheckpointToken,
+  resolveActionCompletionContractEnforcement,
   resolveCollaborationSyncCheckpointTokenValidationError,
   resolveInboundCollaborationSyncCheckpointToken,
+  resolveNativeGuestRequiredToolInvariant,
   resolveInboundRuntimeContracts,
+  shouldAllowScopePayloadHashReplayMatch,
 } from "../../../convex/ai/agentExecution";
 import {
   TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE,
@@ -84,6 +87,39 @@ describe("execution runtime contracts", () => {
       "replay_previous_result"
     );
     expect(contracts.idempotencyContract.payloadHash).toBe("payload_123");
+  });
+});
+
+describe("native guest replay + required-tool invariants", () => {
+  it("allows payload-hash replay matching only for proposal/commit in native_guest", () => {
+    expect(
+      shouldAllowScopePayloadHashReplayMatch({
+        channel: "native_guest",
+        intentType: "ingress",
+      })
+    ).toBe(false);
+    expect(
+      shouldAllowScopePayloadHashReplayMatch({
+        channel: "native_guest",
+        intentType: "proposal",
+      })
+    ).toBe(true);
+    expect(
+      shouldAllowScopePayloadHashReplayMatch({
+        channel: "native_guest",
+        intentType: "commit",
+      })
+    ).toBe(true);
+  });
+
+  it("flags missing native_guest deliverable tools from the executable runtime set", () => {
+    const invariant = resolveNativeGuestRequiredToolInvariant({
+      channel: "native_guest",
+      requiredTools: ["generate_audit_workflow_deliverable"],
+      effectiveExecutableToolNames: ["request_audit_deliverable_email"],
+    });
+    expect(invariant.enforced).toBe(true);
+    expect(invariant.missingRequiredTools).toEqual(["generate_audit_workflow_deliverable"]);
   });
 });
 
@@ -225,8 +261,57 @@ describe("runtime capability-gap blocked contract", () => {
 
     expect(message).toContain(`Reason code: ${TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE}`);
     expect(message).toContain("Unblocking steps:");
-    expect(message).toContain("ToolSpec proposal artifact (draft metadata):");
-    expect(message).toContain("\"artifactType\": \"tool_spec_proposal\"");
-    expect(message).toContain("\"suggestedToolName\": \"future_tool\"");
+    expect(message).toContain("Reason: Requested capability is blocked");
+    expect(message).toContain("Missing: internal_concept, tool_contract, backend_contract");
+    expect(message).toContain('reply with: "create request"');
+  });
+
+  it("renders language-specific fail-closed copy for DE runtime capability-gaps", () => {
+    const capabilityGap = buildCapabilityGapBlockedPayload({
+      requestedToolName: "future_tool",
+      parsedArgs: {},
+      organizationId: ORG_ID,
+      agentId: "agent_1" as Id<"objects">,
+      sessionId: "session_1" as Id<"agentSessions">,
+      now: 1700000000000,
+    });
+    const blocked = buildRuntimeCapabilityGapBlockedResponse({
+      capabilityGap,
+    });
+    const message = formatRuntimeCapabilityGapBlockedMessage({
+      blocked,
+      language: "de",
+    });
+
+    expect(message).toContain("noch nicht verfuegbar");
+    expect(message).toContain("fail-closed");
+    expect(message).toContain("Ticket erstellen");
+  });
+});
+
+describe("action-completion fail-closed localization", () => {
+  it("uses DE fail-closed unavailable-tool output when required tools are missing", () => {
+    const decision = resolveActionCompletionContractEnforcement({
+      authorityConfig: {
+        templateRole: "one_of_one_lead_capture_consultant_template",
+        language: "de",
+      },
+      claims: [
+        {
+          contractVersion: "aoh_action_completion_claim_v1",
+          outcome: "audit_workflow_deliverable_pdf",
+          status: "completed",
+        },
+      ],
+      malformedClaimCount: 0,
+      toolResults: [],
+      availableToolNames: [],
+      preferredLanguage: "de",
+    });
+
+    expect(decision.enforced).toBe(true);
+    expect(decision.payload.reasonCode).toBe("claim_tool_unavailable");
+    expect(decision.assistantContent).toContain("Ticket erstellen");
+    expect(decision.assistantContent).toContain("Ich kann");
   });
 });

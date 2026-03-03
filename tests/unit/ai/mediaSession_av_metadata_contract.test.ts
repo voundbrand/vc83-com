@@ -23,6 +23,12 @@ describe("media session runtime metadata contract", () => {
         voiceSessionId: "voice_session_9",
         sessionState: "capturing",
       },
+      videoRuntime: {
+        videoSessionId: "video_session_9",
+        sessionState: "streaming",
+        codec: "h264",
+        frameRate: 30,
+      },
       transportRuntime: {
         mode: "realtime",
         fallbackReason: "none",
@@ -68,6 +74,17 @@ describe("media session runtime metadata contract", () => {
         providerId: undefined,
         language: undefined,
         sampleRateHz: undefined,
+        runtimeError: undefined,
+        fallbackReason: undefined,
+      },
+      videoRuntime: {
+        videoSessionId: "video_session_9",
+        sessionState: "streaming",
+        providerId: undefined,
+        codec: "h264",
+        frameRate: 30,
+        width: undefined,
+        height: undefined,
         runtimeError: undefined,
         fallbackReason: undefined,
       },
@@ -135,6 +152,17 @@ describe("media session runtime metadata contract", () => {
         providerId: undefined,
         language: undefined,
         sampleRateHz: undefined,
+        runtimeError: undefined,
+        fallbackReason: undefined,
+      },
+      [MEDIA_SESSION_RUNTIME_METADATA_KEYS.videoRuntime]: {
+        videoSessionId: "video_session_9",
+        sessionState: "streaming",
+        providerId: undefined,
+        codec: "h264",
+        frameRate: 30,
+        width: undefined,
+        height: undefined,
         runtimeError: undefined,
         fallbackReason: undefined,
       },
@@ -213,6 +241,18 @@ describe("media session runtime metadata contract", () => {
         },
       })
     ).toThrow(/voiceRuntime.voiceSessionId/);
+  });
+
+  it("fails closed when videoRuntime is present without videoSessionId", () => {
+    expect(() =>
+      assertMediaSessionRuntimeMetadata({
+        contractVersion: MEDIA_SESSION_RUNTIME_METADATA_CONTRACT_VERSION,
+        liveSessionId: "live_1",
+        videoRuntime: {
+          sessionState: "streaming",
+        },
+      })
+    ).toThrow(/videoRuntime.videoSessionId/);
   });
 
   it("fails closed when source attestation marked verified without verified status", () => {

@@ -149,10 +149,27 @@ let triggerCatalogSyncMock: ReturnType<typeof vi.fn>;
 let setAgentBlockerMock: ReturnType<typeof vi.fn>;
 let setSeedStatusOverrideMock: ReturnType<typeof vi.fn>;
 let setSeedTemplateBindingMock: ReturnType<typeof vi.fn>;
+let submitToolFoundryPromotionDecisionMock: ReturnType<typeof vi.fn>;
 
-function resolveUseQueryResult(args: any) {
+const TOOL_FOUNDRY_PENDING_PROPOSALS = [
+  {
+    _id: "tf_backlog_1",
+    organizationId: "organizations_super_admin",
+    proposalKey: "toolspec:issue_refund_transfer:org_1:session_1",
+    requestedToolName: "issue_refund_transfer",
+    status: "pending_review" as const,
+    lastObservedAt: 1_700_000_000_000,
+    sourceRequestTraceKey: "trace_1",
+    reasonCode: "missing_internal_concept_tool_backend_contract",
+  },
+];
+
+function resolveUseQueryResult(queryRef: any, args: any) {
   if (args === "skip") {
     return undefined;
+  }
+  if (args && typeof args === "object" && "limit" in args && !("datasetVersion" in args)) {
+    return TOOL_FOUNDRY_PENDING_PROPOSALS;
   }
   if (args && typeof args === "object" && "catalogAgentNumber" in args) {
     return AGENT_DETAILS_RESPONSE;
@@ -185,13 +202,14 @@ beforeEach(() => {
   setAgentBlockerMock = vi.fn().mockResolvedValue({ success: true });
   setSeedStatusOverrideMock = vi.fn().mockResolvedValue({ success: true });
   setSeedTemplateBindingMock = vi.fn().mockResolvedValue({ success: true });
+  submitToolFoundryPromotionDecisionMock = vi.fn().mockResolvedValue({ success: true });
 
   useAuthMock.mockReturnValue({
     sessionId: "sessions_super_admin",
     isSuperAdmin: true,
   } as any);
 
-  useQueryMock.mockImplementation((_queryRef, args) => resolveUseQueryResult(args));
+  useQueryMock.mockImplementation((queryRef, args) => resolveUseQueryResult(queryRef, args));
 
   let mutationCallIndex = 0;
   useMutationMock.mockImplementation(() => {
@@ -200,6 +218,7 @@ beforeEach(() => {
       setAgentBlockerMock,
       setSeedStatusOverrideMock,
       setSeedTemplateBindingMock,
+      submitToolFoundryPromotionDecisionMock,
     ];
     const handler = handlers[mutationCallIndex % handlers.length];
     mutationCallIndex += 1;
@@ -347,6 +366,28 @@ describe("Agent Control Center DOM click-through write flows", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Set template binding for agent #7.")).toBeTruthy();
+    });
+  });
+
+  it("routes Tool Foundry approve action through submitProposalPromotionDecision", async () => {
+    render(React.createElement(AgentControlCenterTab));
+
+    const rowNameCell = screen.getByText("Revenue Strategist");
+    const row = rowNameCell.closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.click(row as HTMLTableRowElement);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Runtime" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+
+    await waitFor(() => {
+      expect(submitToolFoundryPromotionDecisionMock).toHaveBeenCalledWith({
+        sessionId: "sessions_super_admin",
+        organizationId: "organizations_super_admin",
+        proposalKey: "toolspec:issue_refund_transfer:org_1:session_1",
+        decision: "granted",
+        reason: "approved_via_agent_control_center",
+      });
     });
   });
 });

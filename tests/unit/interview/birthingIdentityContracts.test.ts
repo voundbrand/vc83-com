@@ -86,7 +86,7 @@ describe("birthing identity contracts", () => {
     expect(handshake.includesDreamTeamMention).toBe(true);
     expect(handshake.preview).toContain("Based on your onboarding compilation");
     expect(handshake.preview).toContain("Business Context:");
-    expect(handshake.preview).toContain("Business: Atlas Fitness");
+    expect(handshake.preview).toContain("Workspace: Atlas Fitness");
     expect(handshake.preview).toContain("Private Context (teaser)");
     expect(handshake.preview).toContain("Dream Team");
     expect(handshake.confirmationPrompt).toContain("Does this feel right");

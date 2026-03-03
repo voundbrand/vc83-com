@@ -60,6 +60,12 @@ export type Fnd007Preflight = {
     stripeConnected: boolean;
     resendConnected: boolean;
   };
+  runtimeReadiness: {
+    convexConnected: boolean;
+    crmLookupCreateConfigured: boolean;
+    calendarReadinessConfigured: boolean;
+    outboundInviteChannelReady: boolean;
+  };
   simulatedFallbacks: string[];
 };
 
@@ -145,6 +151,18 @@ export function evaluateFnd007Preflight(): Fnd007Preflight {
   const hasConvexUrl = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL?.trim());
   const stripeConnected = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
   const resendConnected = Boolean(process.env.RESEND_API_KEY?.trim());
+  const crmLookupCreateConfigured = Boolean(
+    process.env.HUBSPOT_API_KEY?.trim()
+      || process.env.SALESFORCE_CLIENT_ID?.trim()
+      || process.env.PIPEDRIVE_API_TOKEN?.trim(),
+  );
+  const calendarReadinessConfigured = Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim()
+      || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim()
+      || process.env.MICROSOFT_CLIENT_ID?.trim()
+      || process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID?.trim(),
+  );
+  const outboundInviteChannelReady = Boolean(resendConnected || process.env.SENDGRID_API_KEY?.trim());
   const sandboxAutonomyRequested =
     process.env.FND_007_REQUIRE_SANDBOX_DRY_RUN_AUTONOMY === "1";
 
@@ -177,6 +195,12 @@ export function evaluateFnd007Preflight(): Fnd007Preflight {
     liveIntegrations: {
       stripeConnected,
       resendConnected,
+    },
+    runtimeReadiness: {
+      convexConnected: hasConvexUrl,
+      crmLookupCreateConfigured,
+      calendarReadinessConfigured,
+      outboundInviteChannelReady,
     },
     simulatedFallbacks,
   };

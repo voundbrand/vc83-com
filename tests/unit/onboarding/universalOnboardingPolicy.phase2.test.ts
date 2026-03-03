@@ -133,10 +133,11 @@ describe("contact identifier compatibility policy", () => {
 
 describe("legacy telegram alias deprecation policy", () => {
   it("tracks onboarding alias surfaces with owners and checkpoints", () => {
-    expect(ONBOARDING_TELEGRAM_ALIAS_DEPRECATION_PLAN.length).toBeGreaterThan(0);
+    expect(ONBOARDING_TELEGRAM_ALIAS_DEPRECATION_PLAN).toHaveLength(1);
     for (const entry of ONBOARDING_TELEGRAM_ALIAS_DEPRECATION_PLAN) {
       expect(entry.alias).toBe("telegramChatId");
       expect(entry.scope).toBe("onboarding");
+      expect(entry.symbol).toBe("run.args.telegramChatId");
       expect(entry.owner.length).toBeGreaterThan(0);
       expect(entry.checkpoint.length).toBeGreaterThan(0);
       expect(entry.status).toBe("deferred");
