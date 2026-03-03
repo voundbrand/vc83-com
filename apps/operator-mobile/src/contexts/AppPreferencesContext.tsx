@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { getLocales } from 'expo-localization';
 
 import { SupportedLanguage, TranslationKey, translate } from '../i18n/translations';
+import { l4yercak3Client } from '../api/client';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 export type LanguagePreference = 'system' | SupportedLanguage;
@@ -14,7 +15,6 @@ type AppPreferencesContextType = {
   appearancePreference: AppearancePreference;
   languagePreference: LanguagePreference;
   agentName: string;
-  agentAvatar: string;
   agentVoiceId: AgentVoicePreference;
   autoSpeakReplies: boolean;
   deviceLanguage: SupportedLanguage;
@@ -23,7 +23,6 @@ type AppPreferencesContextType = {
   setAppearancePreference: (value: AppearancePreference) => void;
   setLanguagePreference: (value: LanguagePreference) => void;
   setAgentName: (value: string) => void;
-  setAgentAvatar: (value: string) => void;
   setAgentVoiceId: (value: AgentVoicePreference) => void;
   setAutoSpeakReplies: (value: boolean) => void;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
@@ -34,16 +33,26 @@ type StoredPreferences = {
   appearancePreference: AppearancePreference;
   languagePreference: LanguagePreference;
   agentName: string;
-  agentAvatar: string;
   agentVoiceId: AgentVoicePreference;
   autoSpeakReplies: boolean;
 };
 
 const STORAGE_KEY = 'l4yercak3_app_preferences_v1';
+const SESSION_KEY = 'l4yercak3_session';
 const DEFAULT_AGENT_NAME = 'SevenLayers';
-const DEFAULT_AGENT_AVATAR = '✨';
 
 const AppPreferencesContext = createContext<AppPreferencesContextType | null>(null);
+
+function normalizeAgentVoicePreference(value: unknown): AgentVoicePreference {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
 
 function getDeviceLanguage(): SupportedLanguage {
   const locale = getLocales()[0];
@@ -60,7 +69,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
   const [appearancePreference, setAppearancePreferenceState] = useState<AppearancePreference>('system');
   const [languagePreference, setLanguagePreferenceState] = useState<LanguagePreference>('system');
   const [agentName, setAgentNameState] = useState(DEFAULT_AGENT_NAME);
-  const [agentAvatar, setAgentAvatarState] = useState(DEFAULT_AGENT_AVATAR);
   const [agentVoiceId, setAgentVoiceIdState] = useState<AgentVoicePreference>(null);
   const [autoSpeakReplies, setAutoSpeakRepliesState] = useState(true);
 
@@ -78,6 +86,12 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
 
   useEffect(() => {
     const loadPreferences = async () => {
+      let nextAppearancePreference: AppearancePreference = 'system';
+      let nextLanguagePreference: LanguagePreference = 'system';
+      let nextAgentName = DEFAULT_AGENT_NAME;
+      let nextAgentVoiceId: AgentVoicePreference = null;
+      let nextAutoSpeakReplies = true;
+
       try {
         const raw = await SecureStore.getItemAsync(STORAGE_KEY);
         if (raw) {
@@ -87,31 +101,67 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
             parsed.appearancePreference === 'light' ||
             parsed.appearancePreference === 'dark'
           ) {
-            setAppearancePreferenceState(parsed.appearancePreference);
+            nextAppearancePreference = parsed.appearancePreference;
           }
           if (
             parsed.languagePreference === 'system' ||
             parsed.languagePreference === 'en' ||
             parsed.languagePreference === 'de'
           ) {
-            setLanguagePreferenceState(parsed.languagePreference);
+            nextLanguagePreference = parsed.languagePreference;
           }
           if (typeof parsed.agentName === 'string' && parsed.agentName.trim().length > 0) {
-            setAgentNameState(parsed.agentName.trim().slice(0, 40));
-          }
-          if (typeof parsed.agentAvatar === 'string' && parsed.agentAvatar.trim().length > 0) {
-            setAgentAvatarState(parsed.agentAvatar.trim().slice(0, 4));
+            nextAgentName = parsed.agentName.trim().slice(0, 40);
           }
           if (parsed.agentVoiceId === null || typeof parsed.agentVoiceId === 'string') {
-            setAgentVoiceIdState(parsed.agentVoiceId);
+            nextAgentVoiceId = normalizeAgentVoicePreference(parsed.agentVoiceId);
           }
           if (typeof parsed.autoSpeakReplies === 'boolean') {
-            setAutoSpeakRepliesState(parsed.autoSpeakReplies);
+            nextAutoSpeakReplies = parsed.autoSpeakReplies;
           }
         }
+
+        const sessionRaw = await SecureStore.getItemAsync(SESSION_KEY);
+        if (sessionRaw) {
+          const session = JSON.parse(sessionRaw) as {
+            sessionId?: unknown;
+            apiKey?: unknown;
+            organizationId?: unknown;
+          };
+          if (typeof session.apiKey === 'string' && session.apiKey.trim().length > 0) {
+            l4yercak3Client.setApiKey(session.apiKey);
+          }
+          if (typeof session.sessionId === 'string' && session.sessionId.trim().length > 0) {
+            l4yercak3Client.setSession(session.sessionId);
+          }
+          if (typeof session.organizationId === 'string' && session.organizationId.trim().length > 0) {
+            l4yercak3Client.setOrganization(session.organizationId);
+          }
+
+          const voiceCatalog = await l4yercak3Client.ai.voice.listCatalog();
+          nextAgentVoiceId = normalizeAgentVoicePreference(voiceCatalog.selectedVoiceId);
+
+          const mergedPayload: StoredPreferences = {
+            appearancePreference: nextAppearancePreference,
+            languagePreference: nextLanguagePreference,
+            agentName: nextAgentName,
+            agentVoiceId: nextAgentVoiceId,
+            autoSpeakReplies: nextAutoSpeakReplies,
+          };
+          await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(mergedPayload));
+        }
       } catch (error) {
-        console.warn('Failed to load app preferences:', error);
+        if (error instanceof Error && /session expired/i.test(error.message)) {
+          // Ignore auth expiry on bootstrap; local fallback stays in place.
+        } else {
+          console.warn('Failed to load app preferences:', error);
+        }
       } finally {
+        setAppearancePreferenceState(nextAppearancePreference);
+        setLanguagePreferenceState(nextLanguagePreference);
+        setAgentNameState(nextAgentName);
+        setAgentVoiceIdState(nextAgentVoiceId);
+        setAutoSpeakRepliesState(nextAutoSpeakReplies);
         setIsReady(true);
       }
     };
@@ -124,7 +174,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       nextAppearance: AppearancePreference,
       nextLanguage: LanguagePreference,
       nextAgentName: string,
-      nextAgentAvatar: string,
       nextAgentVoiceId: AgentVoicePreference,
       nextAutoSpeakReplies: boolean
     ) => {
@@ -132,7 +181,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         appearancePreference: nextAppearance,
         languagePreference: nextLanguage,
         agentName: nextAgentName,
-        agentAvatar: nextAgentAvatar,
         agentVoiceId: nextAgentVoiceId,
         autoSpeakReplies: nextAutoSpeakReplies,
       };
@@ -149,51 +197,43 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
   const setAppearancePreference = useCallback(
     (value: AppearancePreference) => {
       setAppearancePreferenceState(value);
-      void persist(value, languagePreference, agentName, agentAvatar, agentVoiceId, autoSpeakReplies);
+      void persist(value, languagePreference, agentName, agentVoiceId, autoSpeakReplies);
     },
-    [agentAvatar, agentName, agentVoiceId, autoSpeakReplies, languagePreference, persist]
+    [agentName, agentVoiceId, autoSpeakReplies, languagePreference, persist]
   );
 
   const setLanguagePreference = useCallback(
     (value: LanguagePreference) => {
       setLanguagePreferenceState(value);
-      void persist(appearancePreference, value, agentName, agentAvatar, agentVoiceId, autoSpeakReplies);
+      void persist(appearancePreference, value, agentName, agentVoiceId, autoSpeakReplies);
     },
-    [agentAvatar, agentName, agentVoiceId, autoSpeakReplies, appearancePreference, persist]
+    [agentName, agentVoiceId, autoSpeakReplies, appearancePreference, persist]
   );
 
   const setAgentName = useCallback(
     (value: string) => {
       const nextValue = value.trim().slice(0, 40) || DEFAULT_AGENT_NAME;
       setAgentNameState(nextValue);
-      void persist(appearancePreference, languagePreference, nextValue, agentAvatar, agentVoiceId, autoSpeakReplies);
+      void persist(appearancePreference, languagePreference, nextValue, agentVoiceId, autoSpeakReplies);
     },
-    [agentAvatar, agentVoiceId, autoSpeakReplies, appearancePreference, languagePreference, persist]
-  );
-
-  const setAgentAvatar = useCallback(
-    (value: string) => {
-      const nextValue = value.trim().slice(0, 4) || DEFAULT_AGENT_AVATAR;
-      setAgentAvatarState(nextValue);
-      void persist(appearancePreference, languagePreference, agentName, nextValue, agentVoiceId, autoSpeakReplies);
-    },
-    [agentName, agentVoiceId, autoSpeakReplies, appearancePreference, languagePreference, persist]
+    [agentVoiceId, autoSpeakReplies, appearancePreference, languagePreference, persist]
   );
 
   const setAgentVoiceId = useCallback(
     (value: AgentVoicePreference) => {
-      setAgentVoiceIdState(value);
-      void persist(appearancePreference, languagePreference, agentName, agentAvatar, value, autoSpeakReplies);
+      const normalizedValue = normalizeAgentVoicePreference(value);
+      setAgentVoiceIdState(normalizedValue);
+      void persist(appearancePreference, languagePreference, agentName, normalizedValue, autoSpeakReplies);
     },
-    [agentAvatar, agentName, autoSpeakReplies, appearancePreference, languagePreference, persist]
+    [agentName, autoSpeakReplies, appearancePreference, languagePreference, persist]
   );
 
   const setAutoSpeakReplies = useCallback(
     (value: boolean) => {
       setAutoSpeakRepliesState(value);
-      void persist(appearancePreference, languagePreference, agentName, agentAvatar, agentVoiceId, value);
+      void persist(appearancePreference, languagePreference, agentName, agentVoiceId, value);
     },
-    [agentAvatar, agentName, agentVoiceId, appearancePreference, languagePreference, persist]
+    [agentName, agentVoiceId, appearancePreference, languagePreference, persist]
   );
 
   const t = useCallback(
@@ -208,7 +248,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       appearancePreference,
       languagePreference,
       agentName,
-      agentAvatar,
       agentVoiceId,
       autoSpeakReplies,
       deviceLanguage,
@@ -217,7 +256,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       setAppearancePreference,
       setLanguagePreference,
       setAgentName,
-      setAgentAvatar,
       setAgentVoiceId,
       setAutoSpeakReplies,
       t,
@@ -227,7 +265,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       appearancePreference,
       languagePreference,
       agentName,
-      agentAvatar,
       agentVoiceId,
       autoSpeakReplies,
       deviceLanguage,
@@ -236,7 +273,6 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       setAppearancePreference,
       setLanguagePreference,
       setAgentName,
-      setAgentAvatar,
       setAgentVoiceId,
       setAutoSpeakReplies,
       t,

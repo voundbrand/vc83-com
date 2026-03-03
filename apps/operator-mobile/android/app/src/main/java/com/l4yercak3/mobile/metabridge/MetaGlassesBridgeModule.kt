@@ -11,6 +11,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import java.lang.reflect.Proxy
 import kotlin.math.max
 
 object MetaGlassesBridgeRuntimeHooks {
@@ -27,6 +28,12 @@ object MetaGlassesBridgeRuntimeHooks {
     fun onDeviceDisconnected(reasonCode: String?)
     fun onFrameIngress(timestampMs: Double, droppedFrames: Int)
     fun onAudioIngress(timestampMs: Double, sampleRate: Int, packetDelta: Int)
+    fun onCallbackSurfaceDiagnostics(
+      surface: String,
+      status: String,
+      reasonCode: String?,
+      message: String?,
+    )
     fun onFailure(reasonCode: String, message: String?, recoverable: Boolean)
   }
 
@@ -63,6 +70,23 @@ object MetaGlassesBridgeRuntimeHooks {
   }
 
   @JvmStatic
+  fun publishCallbackSurfaceDiagnostics(
+    surface: String,
+    status: String,
+    reasonCode: String? = null,
+    message: String? = null,
+  ) {
+    listenersSnapshot().forEach {
+      it.onCallbackSurfaceDiagnostics(
+        surface = surface,
+        status = status,
+        reasonCode = reasonCode,
+        message = message,
+      )
+    }
+  }
+
+  @JvmStatic
   fun publishFailure(reasonCode: String, message: String?, recoverable: Boolean = true) {
     listenersSnapshot().forEach { it.onFailure(reasonCode, message, recoverable) }
   }
@@ -78,7 +102,17 @@ private class MetaDatSdkRuntimeConnector(
   private var started = false
   private var lastDeviceFingerprint: String? = null
   private var ingressBound = false
-  private var ingressFailurePublished = false
+  private var boundSessionIdentity: String? = null
+  private var frameListenerHandle: Any? = null
+  private var audioListenerHandle: Any? = null
+  private var stateListenerHandle: Any? = null
+  private var errorListenerHandle: Any? = null
+  private var didReceiveVideoIngress = false
+  private var didReceiveAudioIngress = false
+  private var publishedVideoStalled = false
+  private var publishedAudioStalled = false
+  private var bindingStartedAtMs: Double? = null
+  private val callbackSurfaceStatus = mutableMapOf<String, String>()
 
   private val devicePollRunnable = object : Runnable {
     override fun run() {
@@ -86,6 +120,7 @@ private class MetaDatSdkRuntimeConnector(
         return
       }
       pollDeviceState()
+      evaluateIngressHealth()
       handler.postDelayed(this, 1_500L)
     }
   }
@@ -105,12 +140,13 @@ private class MetaDatSdkRuntimeConnector(
     started = false
     handler.removeCallbacks(devicePollRunnable)
     lastDeviceFingerprint = null
-    ingressBound = false
+    clearIngressBindings()
   }
 
   private fun pollDeviceState() {
     val device = resolveActiveDevice()
     if (device == null) {
+      clearIngressBindings()
       if (lastDeviceFingerprint != null) {
         lastDeviceFingerprint = null
         MetaGlassesBridgeRuntimeHooks.publishDeviceDisconnected("dat_device_disconnected")
@@ -132,32 +168,467 @@ private class MetaDatSdkRuntimeConnector(
       )
     }
 
-    bindIngressEventSourcesIfAvailable()
+    bindIngressEventSourcesIfAvailable(device)
   }
 
-  private fun bindIngressEventSourcesIfAvailable() {
-    if (ingressBound) {
+  private fun bindIngressEventSourcesIfAvailable(device: ResolvedDatDevice) {
+    val streamSession = resolveStreamSession()
+    if (streamSession == null) {
+      clearIngressBindings()
+      publishCallbackSurfaceDiagnostics(
+        surface = "video",
+        status = "unavailable",
+        reasonCode = "dat_video_callback_surface_unavailable",
+        message = "DAT StreamSession callback surface unavailable for active device ${device.deviceId}.",
+      )
+      publishCallbackSurfaceDiagnostics(
+        surface = "audio",
+        status = "unavailable",
+        reasonCode = "dat_audio_callback_surface_unavailable",
+        message = "DAT StreamSession callback surface unavailable for active device ${device.deviceId}.",
+      )
       return
     }
 
-    val hasDatCameraApis = classExists("com.meta.wearable.dat.camera.StreamSession")
-      || classExists("com.meta.wearable.dat.camera.types.VideoFrame")
-
-    if (hasDatCameraApis) {
-      ingressBound = true
+    val sessionIdentity = streamSessionIdentity(streamSession)
+    if (ingressBound && boundSessionIdentity == sessionIdentity) {
       return
     }
 
-    if (!ingressFailurePublished) {
-      ingressFailurePublished = true
-      // TODO(meta-dat-sdk): Bind DAT StreamSession video/audio callbacks and publish
-      // MetaGlassesBridgeRuntimeHooks.publishFrameIngress/publishAudioIngress directly from DAT.
-      MetaGlassesBridgeRuntimeHooks.publishFailure(
-        reasonCode = "dat_ingress_listener_unavailable",
-        message = "DAT core is present but camera/audio ingress listeners are not bound in this build.",
-        recoverable = true,
+    clearIngressBindings()
+
+    val framePublisher = resolvePublisher(
+      streamSession,
+      listOf(
+        "videoFramePublisher",
+        "getVideoFramePublisher",
+        "framePublisher",
+        "getFramePublisher",
+        "videoPublisher",
+        "getVideoPublisher",
+      ),
+    )
+    frameListenerHandle = framePublisher?.let { publisher ->
+      bindGenericListener(publisher) { payload ->
+        didReceiveVideoIngress = true
+        MetaGlassesBridgeRuntimeHooks.publishFrameIngress(
+          timestampMs = normalizeEpochTimestampMs(
+            resolveNumericField(
+              payload = payload,
+              keys = listOf(
+                "timestampMs",
+                "timestamp",
+                "timestampNs",
+                "timestampNanos",
+                "timestampUs",
+                "timestampMicros",
+                "captureTimestamp",
+              ),
+            ),
+          ),
+          droppedFrames = max(
+            0,
+            (resolveNumericField(
+              payload = payload,
+              keys = listOf("droppedFrames", "droppedFrameCount", "dropCount"),
+            ) ?: 0.0).toInt(),
+          ),
+        )
+        publishCallbackSurfaceDiagnostics(surface = "video", status = "healthy")
+      }
+    }
+    if (frameListenerHandle == null) {
+      publishCallbackSurfaceDiagnostics(
+        surface = "video",
+        status = "unavailable",
+        reasonCode = "dat_video_callback_surface_unavailable",
+        message = "DAT video callback listener surface unavailable in StreamSession.",
       )
     }
+
+    val audioPublisher = resolvePublisher(
+      streamSession,
+      listOf(
+        "audioPacketPublisher",
+        "getAudioPacketPublisher",
+        "audioFramePublisher",
+        "getAudioFramePublisher",
+        "audioPublisher",
+        "getAudioPublisher",
+        "audioDataPublisher",
+        "getAudioDataPublisher",
+        "audioSamplePublisher",
+        "getAudioSamplePublisher",
+      ),
+    )
+    audioListenerHandle = audioPublisher?.let { publisher ->
+      bindGenericListener(publisher) { payload ->
+        didReceiveAudioIngress = true
+        MetaGlassesBridgeRuntimeHooks.publishAudioIngress(
+          timestampMs = normalizeEpochTimestampMs(
+            resolveNumericField(
+              payload = payload,
+              keys = listOf(
+                "timestampMs",
+                "timestamp",
+                "timestampNs",
+                "timestampNanos",
+                "timestampUs",
+                "timestampMicros",
+                "captureTimestamp",
+              ),
+            ),
+          ),
+          sampleRate = max(
+            8_000,
+            (resolveNumericField(
+              payload = payload,
+              keys = listOf("sampleRate", "sampleRateHz", "audioSampleRate"),
+            ) ?: 16_000.0).toInt(),
+          ),
+          packetDelta = max(
+            1,
+            (resolveNumericField(
+              payload = payload,
+              keys = listOf("packetDelta", "packetCount", "packets", "frameCount"),
+            ) ?: 1.0).toInt(),
+          ),
+        )
+        publishCallbackSurfaceDiagnostics(surface = "audio", status = "healthy")
+      }
+    }
+    if (audioListenerHandle == null) {
+      publishCallbackSurfaceDiagnostics(
+        surface = "audio",
+        status = "unavailable",
+        reasonCode = "dat_audio_callback_surface_unavailable",
+        message = "DAT audio callback listener surface unavailable in StreamSession.",
+      )
+    }
+
+    stateListenerHandle = resolvePublisher(
+      streamSession,
+      listOf("statePublisher", "getStatePublisher"),
+    )?.let { publisher ->
+      bindGenericListener(publisher) { payload ->
+        val stateName = resolveStateName(payload)
+        if (stateName == "stopped") {
+          MetaGlassesBridgeRuntimeHooks.publishDeviceDisconnected("dat_stream_stopped")
+        }
+      }
+    }
+
+    errorListenerHandle = resolvePublisher(
+      streamSession,
+      listOf("errorPublisher", "getErrorPublisher"),
+    )?.let { publisher ->
+      bindGenericListener(publisher) { payload ->
+        MetaGlassesBridgeRuntimeHooks.publishFailure(
+          reasonCode = "dat_stream_error",
+          message = payload?.toString(),
+          recoverable = true,
+        )
+      }
+    }
+
+    val hasAnyIngress = frameListenerHandle != null || audioListenerHandle != null
+    if (!hasAnyIngress) {
+      ingressBound = false
+      boundSessionIdentity = null
+      return
+    }
+
+    ingressBound = true
+    boundSessionIdentity = sessionIdentity
+    didReceiveVideoIngress = false
+    didReceiveAudioIngress = false
+    publishedVideoStalled = false
+    publishedAudioStalled = false
+    bindingStartedAtMs = nowMs()
+  }
+
+  private fun clearIngressBindings() {
+    ingressBound = false
+    boundSessionIdentity = null
+    detachListener(frameListenerHandle)
+    detachListener(audioListenerHandle)
+    detachListener(stateListenerHandle)
+    detachListener(errorListenerHandle)
+    frameListenerHandle = null
+    audioListenerHandle = null
+    stateListenerHandle = null
+    errorListenerHandle = null
+    didReceiveVideoIngress = false
+    didReceiveAudioIngress = false
+    publishedVideoStalled = false
+    publishedAudioStalled = false
+    bindingStartedAtMs = null
+  }
+
+  private fun evaluateIngressHealth() {
+    if (!ingressBound) {
+      return
+    }
+    val startedAt = bindingStartedAtMs ?: return
+    if (nowMs() - startedAt < 5_000) {
+      return
+    }
+
+    if (frameListenerHandle != null && !didReceiveVideoIngress && !publishedVideoStalled) {
+      publishedVideoStalled = true
+      publishCallbackSurfaceDiagnostics(
+        surface = "video",
+        status = "degraded",
+        reasonCode = "dat_video_callback_stalled",
+        message = "No DAT video ingress callbacks observed after listener binding.",
+      )
+    }
+    if (audioListenerHandle != null && !didReceiveAudioIngress && !publishedAudioStalled) {
+      publishedAudioStalled = true
+      publishCallbackSurfaceDiagnostics(
+        surface = "audio",
+        status = "degraded",
+        reasonCode = "dat_audio_callback_stalled",
+        message = "No DAT audio ingress callbacks observed after listener binding.",
+      )
+    }
+  }
+
+  private fun streamSessionIdentity(streamSession: Any): String {
+    return "${streamSession.javaClass.name}@${System.identityHashCode(streamSession)}"
+  }
+
+  private fun resolveStreamSession(): Any? {
+    val wearablesClass = runCatching {
+      Class.forName("com.meta.wearable.dat.core.Wearables")
+    }.getOrNull() ?: return null
+
+    val candidates = mutableListOf<Any>()
+    findValueByNoArgMethod(wearablesClass, null, "getStreamSession")?.let { candidates.add(it) }
+    findValueByField(wearablesClass, null, "streamSession")?.let { candidates.add(it) }
+
+    val shared = findValueByNoArgMethod(wearablesClass, null, "getShared")
+      ?: findValueByNoArgMethod(wearablesClass, null, "getInstance")
+      ?: findValueByField(wearablesClass, null, "shared")
+    if (shared != null) {
+      findValueByNoArgMethod(shared.javaClass, shared, "getStreamSession")?.let { candidates.add(it) }
+      findValueByNoArgMethod(shared.javaClass, shared, "streamSession")?.let { candidates.add(it) }
+      findValueByField(shared.javaClass, shared, "streamSession")?.let { candidates.add(it) }
+      findValueByField(shared.javaClass, shared, "cameraStreamSession")?.let { candidates.add(it) }
+    }
+
+    return candidates.firstOrNull { candidate ->
+      candidate.javaClass.name.contains("StreamSession")
+        || candidate.javaClass.methods.any {
+          it.parameterCount == 0 && it.name.contains("FramePublisher")
+        }
+    }
+  }
+
+  private fun resolvePublisher(streamSession: Any, memberNames: List<String>): Any? {
+    for (memberName in memberNames) {
+      findValueByNoArgMethod(streamSession.javaClass, streamSession, memberName)?.let { return it }
+      findValueByField(streamSession.javaClass, streamSession, memberName)?.let { return it }
+    }
+    return null
+  }
+
+  private fun bindGenericListener(
+    publisher: Any,
+    onEvent: (Any?) -> Unit,
+  ): Any? {
+    val methods = publisher.javaClass.methods.filter {
+      it.parameterCount == 1 && listOf("listen", "addListener", "addObserver", "subscribe").contains(it.name)
+    }
+    for (method in methods) {
+      val callback = createListenerCallback(method.parameterTypes.firstOrNull(), onEvent) ?: continue
+      val invocation = runCatching {
+        method.isAccessible = true
+        method.invoke(publisher, callback)
+      }.getOrNull()
+      return invocation ?: ListenerHandle(publisher = publisher, callback = callback)
+    }
+    return null
+  }
+
+  private fun createListenerCallback(
+    callbackType: Class<*>?,
+    onEvent: (Any?) -> Unit,
+  ): Any? {
+    val type = callbackType ?: return null
+    if (type.name == "kotlin.jvm.functions.Function1"
+      || kotlin.jvm.functions.Function1::class.java.isAssignableFrom(type)
+    ) {
+      return object : kotlin.jvm.functions.Function1<Any?, Unit> {
+        override fun invoke(p1: Any?) {
+          onEvent(p1)
+        }
+      }
+    }
+    if (type.name == "java.util.function.Consumer") {
+      return Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
+        if (method.name == "accept") {
+          onEvent(args?.firstOrNull())
+        }
+        null
+      }
+    }
+    if (type.isInterface) {
+      return Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
+        if (method.parameterTypes.size == 1) {
+          onEvent(args?.firstOrNull())
+        }
+        null
+      }
+    }
+    return null
+  }
+
+  private fun detachListener(handle: Any?) {
+    when (handle) {
+      null -> Unit
+      is ListenerHandle -> {
+        invokeOneArgMethod(
+          receiver = handle.publisher,
+          methodNames = listOf("removeListener", "removeObserver", "unsubscribe", "unlisten"),
+          argument = handle.callback,
+        )
+        invokeNoArgMethod(
+          receiver = handle.publisher,
+          methodNames = listOf("removeAllListeners", "clearListeners"),
+        )
+      }
+      else -> {
+        invokeNoArgMethod(
+          receiver = handle,
+          methodNames = listOf("cancel", "close", "dispose", "remove", "invalidate", "stop", "unsubscribe"),
+        )
+      }
+    }
+  }
+
+  private fun invokeNoArgMethod(receiver: Any, methodNames: List<String>): Boolean {
+    for (methodName in methodNames) {
+      val method = receiver.javaClass.methods.firstOrNull {
+        it.name == methodName && it.parameterCount == 0
+      } ?: continue
+      val invoked = runCatching {
+        method.isAccessible = true
+        method.invoke(receiver)
+      }.isSuccess
+      if (invoked) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private fun invokeOneArgMethod(receiver: Any, methodNames: List<String>, argument: Any): Boolean {
+    for (methodName in methodNames) {
+      val method = receiver.javaClass.methods.firstOrNull {
+        it.name == methodName && it.parameterCount == 1
+      } ?: continue
+      val invoked = runCatching {
+        method.isAccessible = true
+        method.invoke(receiver, argument)
+      }.isSuccess
+      if (invoked) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private fun resolveStateName(payload: Any?): String? {
+    if (payload == null) {
+      return null
+    }
+    val direct = payload.toString().trim()
+    if (direct.isNotEmpty()) {
+      return direct.substringAfterLast(".").lowercase()
+    }
+    return null
+  }
+
+  private fun resolveNumericField(payload: Any?, keys: List<String>): Double? {
+    if (payload == null) {
+      return null
+    }
+    if (payload is Number) {
+      return payload.toDouble()
+    }
+    if (payload is Map<*, *>) {
+      for (key in keys) {
+        val value = payload[key]
+        if (value is Number) {
+          return value.toDouble()
+        }
+      }
+    }
+
+    for (key in keys) {
+      val getter = "get" + key.replaceFirstChar { it.uppercaseChar() }
+      val getterMethod = payload.javaClass.methods.firstOrNull {
+        it.name == getter && it.parameterCount == 0
+      }
+      if (getterMethod != null) {
+        val value = runCatching {
+          getterMethod.isAccessible = true
+          getterMethod.invoke(payload)
+        }.getOrNull()
+        if (value is Number) {
+          return value.toDouble()
+        }
+      }
+
+      val field = payload.javaClass.declaredFields.firstOrNull { it.name == key }
+      if (field != null) {
+        val value = runCatching {
+          field.isAccessible = true
+          field.get(payload)
+        }.getOrNull()
+        if (value is Number) {
+          return value.toDouble()
+        }
+      }
+    }
+    return null
+  }
+
+  private fun normalizeEpochTimestampMs(rawTimestamp: Double?): Double {
+    val now = nowMs()
+    if (rawTimestamp == null || !rawTimestamp.isFinite() || rawTimestamp <= 0) {
+      return now
+    }
+    if (rawTimestamp >= 100_000_000_000_000_000) {
+      return rawTimestamp / 1_000_000
+    }
+    if (rawTimestamp >= 100_000_000_000_000) {
+      return rawTimestamp / 1_000
+    }
+    if (rawTimestamp < 10_000_000_000) {
+      return rawTimestamp * 1_000
+    }
+    return rawTimestamp
+  }
+
+  private fun publishCallbackSurfaceDiagnostics(
+    surface: String,
+    status: String,
+    reasonCode: String? = null,
+    message: String? = null,
+  ) {
+    val statusKey = "$status|${reasonCode ?: "none"}|${message ?: "none"}"
+    if (callbackSurfaceStatus[surface] == statusKey) {
+      return
+    }
+    callbackSurfaceStatus[surface] = statusKey
+    MetaGlassesBridgeRuntimeHooks.publishCallbackSurfaceDiagnostics(
+      surface = surface,
+      status = status,
+      reasonCode = reasonCode,
+      message = message,
+    )
   }
 
   private data class ResolvedDatDevice(
@@ -266,6 +737,29 @@ private class MetaDatSdkRuntimeConnector(
   }
 
   private fun nowMs(): Double = System.currentTimeMillis().toDouble()
+
+  private fun findValueByNoArgMethod(type: Class<*>, receiver: Any?, methodName: String): Any? {
+    val method = type.methods.firstOrNull {
+      it.name == methodName && it.parameterCount == 0
+    } ?: return null
+    return runCatching {
+      method.isAccessible = true
+      method.invoke(receiver)
+    }.getOrNull()
+  }
+
+  private fun findValueByField(type: Class<*>, receiver: Any?, fieldName: String): Any? {
+    val field = type.declaredFields.firstOrNull { it.name == fieldName } ?: return null
+    return runCatching {
+      field.isAccessible = true
+      field.get(receiver)
+    }.getOrNull()
+  }
+
+  private data class ListenerHandle(
+    val publisher: Any,
+    val callback: Any,
+  )
 }
 
 class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext) :
@@ -283,6 +777,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   private var listeners = 0
   private var connectionState = "disconnected"
   private var fallbackReason: String? = null
+  private val callbackSurfaceReasons = mutableMapOf<String, String>()
   private var failure: FailureState? = null
 
   private var sourceId: String? = null
@@ -324,9 +819,11 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
         return@postOnMain
       }
 
+      datRuntimeConnector.start()
       connectionState = "connecting"
       failure = null
       fallbackReason = null
+      callbackSurfaceReasons.clear()
       emitStatus()
 
       if (!isDatSdkAvailable()) {
@@ -343,7 +840,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       if (hasActiveDevice()) {
         connectionState = "connected"
         failure = null
-        fallbackReason = null
+        fallbackReason = resolveCallbackSurfaceFallbackReason()
         emitStatus()
         promise.resolve(buildSnapshot())
         return@postOnMain
@@ -362,8 +859,10 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   @ReactMethod
   fun disconnect(promise: Promise) {
     postOnMain {
+      datRuntimeConnector.stop()
       connectionState = "disconnected"
       fallbackReason = null
+      callbackSurfaceReasons.clear()
       failure = null
       sourceId = null
       deviceId = null
@@ -425,7 +924,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       connectedAtMs = device.connectedAtMs
       connectionState = "connected"
       failure = null
-      fallbackReason = null
+      fallbackReason = resolveCallbackSurfaceFallbackReason()
       emitStatus()
     }
   }
@@ -434,6 +933,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     postOnMain {
       connectionState = "disconnected"
       fallbackReason = reasonCode
+      callbackSurfaceReasons.clear()
       sourceId = null
       deviceId = null
       deviceLabel = null
@@ -455,6 +955,26 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
         sampleRateValue = sampleRate,
         packetDelta = packetDelta,
       )
+    }
+  }
+
+  override fun onCallbackSurfaceDiagnostics(
+    surface: String,
+    status: String,
+    reasonCode: String?,
+    message: String?,
+  ) {
+    postOnMain {
+      if (status == "healthy") {
+        callbackSurfaceReasons.remove(surface)
+      } else {
+        callbackSurfaceReasons[surface] = reasonCode ?: "dat_${surface}_callback_$status"
+      }
+
+      if (failure == null) {
+        fallbackReason = resolveCallbackSurfaceFallbackReason()
+      }
+      emitStatus()
     }
   }
 
@@ -489,9 +1009,9 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
 
     totalFrames += 1
     droppedFrames += max(0, dropped)
-    lastFrameTs = timestampMs
+    lastFrameTs = normalizeTimestampMs(timestampMs)
     failure = null
-    fallbackReason = null
+    fallbackReason = resolveCallbackSurfaceFallbackReason()
     emitStatus()
   }
 
@@ -508,9 +1028,9 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
 
     packetCount += max(1, packetDelta)
     sampleRate = max(8_000, sampleRateValue)
-    lastPacketTs = timestampMs
+    lastPacketTs = normalizeTimestampMs(timestampMs)
     failure = null
-    fallbackReason = null
+    fallbackReason = resolveCallbackSurfaceFallbackReason()
     emitStatus()
   }
 
@@ -533,6 +1053,10 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
 
   private fun hasActiveDevice(): Boolean {
     return !sourceId.isNullOrBlank() && !deviceId.isNullOrBlank() && !deviceLabel.isNullOrBlank()
+  }
+
+  private fun resolveCallbackSurfaceFallbackReason(): String? {
+    return callbackSurfaceReasons.toSortedMap().values.firstOrNull()
   }
 
   private fun isDatSdkAvailable(): Boolean {
@@ -570,6 +1094,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     val snapshot = Arguments.createMap()
     val now = nowMs()
     snapshot.putString("connectionState", connectionState)
+    snapshot.putBoolean("datSdkAvailable", isDatSdkAvailable())
 
     if (sourceId != null && deviceId != null && deviceLabel != null) {
       val activeDevice = Arguments.createMap()
@@ -637,6 +1162,23 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   }
 
   private fun nowMs(): Double = System.currentTimeMillis().toDouble()
+
+  private fun normalizeTimestampMs(rawTimestampMs: Double?): Double {
+    val now = nowMs()
+    if (rawTimestampMs == null || !rawTimestampMs.isFinite() || rawTimestampMs <= 0) {
+      return now
+    }
+    if (rawTimestampMs >= 100_000_000_000_000_000) {
+      return rawTimestampMs / 1_000_000
+    }
+    if (rawTimestampMs >= 100_000_000_000_000) {
+      return rawTimestampMs / 1_000
+    }
+    if (rawTimestampMs < 10_000_000_000) {
+      return rawTimestampMs * 1_000
+    }
+    return rawTimestampMs
+  }
 
   private data class FailureState(
     val reasonCode: String,

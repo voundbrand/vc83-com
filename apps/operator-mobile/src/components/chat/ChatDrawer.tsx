@@ -282,7 +282,7 @@ export function ChatDrawer({
                 paddingBottom={12}
                 alignItems="center"
               >
-                <Text color="$color" fontSize={28} fontWeight="700" letterSpacing={-0.5}>
+                <Text color="$color" fontSize={28} fontWeight="600" letterSpacing={1.5} textTransform="uppercase">
                   SevenLayers
                 </Text>
               </XStack>

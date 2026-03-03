@@ -10,7 +10,7 @@ const devServerCommand = isCI
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["**/mobile-shell.spec.ts"],
+  testMatch: ["**/mobile-shell.spec.ts", "**/mobile-voice-chaos.spec.ts"],
   timeout: 60_000,
   expect: {
     timeout: 10_000,

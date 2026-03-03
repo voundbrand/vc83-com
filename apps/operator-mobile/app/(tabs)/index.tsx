@@ -22,7 +22,7 @@ import {
   useTheme,
   Circle,
 } from 'tamagui';
-import { ArrowUp, Ghost, Menu, Mic, Plus, Sparkles } from '@tamagui/lucide-icons';
+import { ArrowUp, AudioWaveform, Ghost, Menu, Mic, Plus, Sparkles } from '@tamagui/lucide-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -45,9 +45,19 @@ import {
 import { ModelSelector, type RuntimeModelAvailability } from '../../src/components/chat/ModelSelector';
 import { ENV } from '../../src/config/env';
 import { useAppPreferences } from '../../src/contexts/AppPreferencesContext';
+import type { TranslationKey } from '../../src/i18n/translations';
 import { l4yercak3Client } from '../../src/api/client';
 import { useMobileVoiceRuntime } from '../../src/hooks/useMobileVoiceRuntime';
-import { shouldBargeInInterruptPlayback } from '../../src/lib/voice/lifecycle';
+import { useMobileVideoRuntime } from '../../src/hooks/useMobileVideoRuntime';
+import {
+  CONVERSATION_CONTRACT_VERSION,
+  type ConversationEventType,
+  type ConversationReasonCode,
+  type ConversationSessionState,
+  inferConversationReasonCode,
+  shouldBargeInInterruptPlayback,
+} from '../../src/lib/voice/lifecycle';
+import { shouldCloseVoiceSessionForConversationSwitch } from '../../src/lib/voice/continuity';
 import {
   createMobileAvSourceRegistry,
   createNodeCommandGatePolicy,
@@ -58,11 +68,17 @@ import {
   buildMetaBridgeDiagnostics,
   createDefaultMetaBridgeSnapshot,
   evaluateVisionSourceReadiness,
+  mapVisionReadinessReasonToConversationReason,
+  negotiateVisionSource,
   metaBridge,
   type VisionSourceMode,
   type MetaBridgeConnectionState,
   type MetaBridgeSnapshot,
 } from '../../src/lib/av';
+import {
+  buildMobileToolBoundaryIntakeKickoff,
+  shouldShowMobileToolBoundaryCta,
+} from '../../src/lib/chat/frontlineFeatureIntake';
 
 const getGreetingKey = () => {
   const hour = new Date().getHours();
@@ -77,9 +93,7 @@ export default function ConversationScreen() {
   const {
     t,
     resolvedTheme,
-    resolvedLanguage,
     agentName,
-    agentAvatar,
     agentVoiceId,
     autoSpeakReplies,
   } = useAppPreferences();
@@ -99,6 +113,7 @@ export default function ConversationScreen() {
     setSelectedModel,
     setIncognitoMode,
     getCurrentConversation,
+    getConversationById,
     syncConversations,
     loadConversation,
     sendMessageToBackend,
@@ -116,6 +131,13 @@ export default function ConversationScreen() {
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
   const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
   const [isVoiceModeOpen, setIsVoiceModeOpen] = useState(false);
+  const [conversationMode, setConversationMode] = useState<'voice' | 'voice_with_eyes'>('voice');
+  const [conversationEyesSource, setConversationEyesSource] = useState<'iphone' | 'meta_glasses'>('iphone');
+  const [hasConversationStarted, setHasConversationStarted] = useState(false);
+  const [isConversationEnding, setIsConversationEnding] = useState(false);
+  const [conversationState, setConversationState] = useState<ConversationSessionState>('idle');
+  const [conversationReasonCode, setConversationReasonCode] =
+    useState<ConversationReasonCode | undefined>(undefined);
   const [availableModels, setAvailableModels] = useState<RuntimeModelAvailability[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -127,6 +149,10 @@ export default function ConversationScreen() {
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const awaitingAssistantSpeechRef = useRef(false);
   const lastSpokenAssistantMessageIdRef = useRef<string | null>(null);
+  const endConversationInFlightRef = useRef(false);
+  const starterKickoffPendingRef = useRef(false);
+  const starterKickoffInFlightRef = useRef(false);
+  const starterKickoffCompletedRef = useRef(false);
   const liveSessionIdRef = useRef(`mobile_live_${Date.now().toString(36)}`);
   const avRegistryRef = useRef(createMobileAvSourceRegistry());
   const cameraSourceIdRef = useRef<string>('');
@@ -179,12 +205,17 @@ export default function ConversationScreen() {
           | 'chat.greeting.afternoon'
           | 'chat.greeting.evening'
       ),
-    [resolvedLanguage, t]
+    [t]
   );
   const welcomeText = useMemo(() => {
     const options = [t('chat.welcome.one'), t('chat.welcome.two'), t('chat.welcome.three')];
     return options[Math.floor(Math.random() * options.length)] || t('chat.welcome.one');
-  }, [resolvedLanguage, t]);
+  }, [t]);
+  const conversationStarterText = useMemo(() => {
+    const firstName = user?.firstName?.trim();
+    const greetingLine = firstName ? `${greeting}, ${firstName}.` : `${greeting}.`;
+    return `${greetingLine} I am ${agentName}. I am live and listening. What would you like to work on first?`;
+  }, [agentName, greeting, user?.firstName]);
   const isDark = resolvedTheme === 'dark';
   const chromeSurface = isDark ? 'rgba(20, 20, 21, 0.82)' : 'rgba(255, 255, 255, 0.82)';
   const chromeBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(23, 23, 24, 0.08)';
@@ -283,6 +314,22 @@ export default function ConversationScreen() {
 
   const isMetaBridgeConnected = visionSourceMode !== 'meta_glasses'
     || metaBridgeConnectionState === 'connected';
+  const metaVisionReadiness = useMemo(() => evaluateVisionSourceReadiness({
+    sourceMode: 'meta_glasses',
+    bridge: metaBridgeStatus,
+  }), [metaBridgeStatus]);
+  const isMetaVisionConfigured =
+    metaBridge.isNativeAvailable()
+    && metaBridgeStatus.datSdkAvailable
+    && metaVisionReadiness.ready;
+
+  const formatVisionReadinessMessage = useCallback((reasonCode: string): string => {
+    const mappedReasonCode = mapVisionReadinessReasonToConversationReason(reasonCode);
+    if (mappedReasonCode === 'dat_sdk_unavailable') {
+      return 'Meta glasses require a DAT-enabled native build and are unavailable on this simulator/build. Switch to iPhone source.';
+    }
+    return `Meta glasses bridge unavailable (${reasonCode}). Connect bridge first or switch to iPhone source.`;
+  }, []);
 
   const ensureVisionSourceReady = useCallback(() => {
     const readiness = evaluateVisionSourceReadiness({
@@ -292,29 +339,10 @@ export default function ConversationScreen() {
     if (readiness.ready) {
       return true;
     }
-    setPolicyError(
-      `Meta glasses bridge unavailable (${readiness.reasonCode}). Connect bridge first or switch to iPhone source.`
-    );
+    setConversationReasonCode(mapVisionReadinessReasonToConversationReason(readiness.reasonCode));
+    setPolicyError(formatVisionReadinessMessage(readiness.reasonCode));
     return false;
-  }, [metaBridgeStatus, visionSourceMode]);
-
-  const handleConnectMetaBridge = useCallback(async () => {
-    setPolicyError(null);
-    const status = await metaBridge.connect();
-    setMetaBridgeStatus(status);
-    const readiness = evaluateVisionSourceReadiness({
-      sourceMode: 'meta_glasses',
-      bridge: status,
-    });
-    if (!readiness.ready) {
-      setPolicyError(`Meta glasses bridge connect failed (${readiness.reasonCode}).`);
-    }
-  }, []);
-
-  const handleDisconnectMetaBridge = useCallback(async () => {
-    const status = await metaBridge.disconnect();
-    setMetaBridgeStatus(status);
-  }, []);
+  }, [formatVisionReadinessMessage, metaBridgeStatus, visionSourceMode]);
 
   useEffect(() => {
     if (visionSourceMode !== 'meta_glasses') {
@@ -325,11 +353,9 @@ export default function ConversationScreen() {
       bridge: metaBridgeStatus,
     });
     if (!readiness.ready) {
-      setPolicyError(
-        `Meta glasses bridge unavailable (${readiness.reasonCode}). Connect bridge first or switch to iPhone source.`
-      );
+      setPolicyError(formatVisionReadinessMessage(readiness.reasonCode));
     }
-  }, [metaBridgeStatus, visionSourceMode]);
+  }, [formatVisionReadinessMessage, metaBridgeStatus, visionSourceMode]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -389,14 +415,230 @@ export default function ConversationScreen() {
     liveSessionId: liveSessionIdRef.current,
     requestedProviderId: 'elevenlabs',
     requestedVoiceId: agentVoiceId || undefined,
+    sourceMode: visionSourceMode,
+    sourceRuntime: (() => {
+      const activeVoiceSourceId = getActiveVoiceSourceId();
+      const activeVoiceSource = activeVoiceSourceId
+        ? avRegistryRef.current.getSource(activeVoiceSourceId)
+        : null;
+      const metaActiveDevice = metaBridgeStatus.activeDevice;
+      return {
+        sourceId:
+          visionSourceMode === 'meta_glasses'
+            ? (metaActiveDevice?.sourceId || activeVoiceSource?.sourceId)
+            : (activeVoiceSource?.sourceId || undefined),
+        sourceClass:
+          visionSourceMode === 'meta_glasses'
+            ? (metaActiveDevice?.sourceClass || 'meta_glasses')
+            : activeVoiceSource?.sourceClass,
+        providerId:
+          visionSourceMode === 'meta_glasses'
+            ? (metaActiveDevice?.providerId || activeVoiceSource?.providerId)
+            : activeVoiceSource?.providerId,
+        sourceScope: activeVoiceSource?.scope || avSourceScope,
+      };
+    })(),
+    avObservability: {
+      bridgeConnectionState: metaBridgeConnectionState,
+      ingressSurface: 'operator_mobile_voice_mode',
+    },
   });
+  const mobileVideoRuntime = useMobileVideoRuntime({
+    conversationId: currentConversationId || undefined,
+    liveSessionId: liveSessionIdRef.current,
+  });
+  const stopVoicePlayback = mobileVoiceRuntime.stopPlayback;
+  const closeVoiceSession = mobileVoiceRuntime.closeSession;
+  const suspendVoiceSession = mobileVoiceRuntime.suspendSession;
+  const openVoiceSession = mobileVoiceRuntime.openSession;
+  const getActiveVoiceSession = mobileVoiceRuntime.getActiveSession;
+  const closeVoiceSessionRef = useRef(closeVoiceSession);
+  const stopVoicePlaybackRef = useRef(stopVoicePlayback);
+  const isVoiceModeOpenRef = useRef(isVoiceModeOpen);
+  const hasConversationStartedRef = useRef(hasConversationStarted);
+  const isConversationEndingRef = useRef(isConversationEnding);
+  const currentConversationIdRef = useRef<string | null>(currentConversationId);
+  const closedModeSuspendIssuedRef = useRef(false);
+  const shouldSpeakReplies = autoSpeakReplies || isVoiceModeOpen;
+  const liveHudStatusLabel = t(`chat.conversation.state.${conversationState}` as TranslationKey);
+  const lastConversationEventRef = useRef<string>('');
+  const logVoiceLifecycle = useCallback((event: string, details?: Record<string, unknown>) => {
+    console.info('[VoiceLifecycle]', {
+      event,
+      timestampMs: Date.now(),
+      liveSessionId: liveSessionIdRef.current,
+      conversationId: currentConversationIdRef.current || undefined,
+      isVoiceModeOpen: isVoiceModeOpenRef.current,
+      hasConversationStarted: hasConversationStartedRef.current,
+      isConversationEnding: isConversationEndingRef.current,
+      ...(details || {}),
+    });
+  }, []);
+  const emitConversationEvent = useCallback((
+    eventType: ConversationEventType,
+    eventPayload?: Record<string, unknown>,
+    reasonCodeOverride?: ConversationReasonCode
+  ) => {
+    const envelope = {
+      contractVersion: CONVERSATION_CONTRACT_VERSION,
+      eventType,
+      timestampMs: Date.now(),
+      liveSessionId: liveSessionIdRef.current,
+      conversationId: currentConversationId || undefined,
+      state: conversationState,
+      reasonCode: reasonCodeOverride || conversationReasonCode,
+      payload: eventPayload,
+    };
+    const eventKey = `${envelope.eventType}:${envelope.state}:${envelope.reasonCode || 'none'}:${visionSourceMode}`;
+    if (lastConversationEventRef.current === eventKey && !envelope.payload) {
+      return;
+    }
+    lastConversationEventRef.current = eventKey;
+    console.info('[conversation_event]', envelope);
+  }, [conversationReasonCode, conversationState, currentConversationId, visionSourceMode]);
+
+  useEffect(() => {
+    const transportMode =
+      (mobileVoiceRuntime.transportRuntime as { mode?: string })?.mode ?? 'chunked_fallback';
+    const realtimeConnected = Boolean(
+      (mobileVoiceRuntime.transportRuntime as { realtimeConnected?: boolean })?.realtimeConnected
+    );
+    const requiresRealtimeTransport = transportMode === 'websocket' || transportMode === 'webrtc';
+    const transportReady = requiresRealtimeTransport ? realtimeConnected : true;
+    const nextState: ConversationSessionState =
+      !isVoiceModeOpen
+        ? 'idle'
+        : isConversationEnding
+          ? 'ending'
+          : !hasConversationStarted
+            ? 'idle'
+            : policyError || mobileVoiceRuntime.lastSessionErrorReason
+              ? 'error'
+              : isLoading || isTranscribing || mobileVoiceRuntime.isSessionOpening
+                ? 'connecting'
+                : transportReady
+                  ? 'live'
+                  : 'reconnecting';
+
+    let nextReasonCode: ConversationReasonCode | undefined = undefined;
+    if (nextState === 'error') {
+      nextReasonCode = inferConversationReasonCode(policyError || mobileVoiceRuntime.lastSessionErrorReason);
+    } else if (nextState === 'reconnecting') {
+      nextReasonCode = 'transport_failed';
+    }
+
+    setConversationState((current) => (current === nextState ? current : nextState));
+    setConversationReasonCode((current) => (current === nextReasonCode ? current : nextReasonCode));
+  }, [
+    hasConversationStarted,
+    isConversationEnding,
+    isLoading,
+    isTranscribing,
+    isVoiceModeOpen,
+    mobileVoiceRuntime.isSessionOpening,
+    mobileVoiceRuntime.lastSessionErrorReason,
+    mobileVoiceRuntime.transportRuntime,
+    policyError,
+  ]);
+
+  useEffect(() => {
+    if (conversationState === 'idle') {
+      return;
+    }
+    if (conversationState === 'connecting') {
+      emitConversationEvent('conversation_connecting');
+      return;
+    }
+    if (conversationState === 'live') {
+      emitConversationEvent('conversation_live');
+      return;
+    }
+    if (conversationState === 'reconnecting') {
+      emitConversationEvent('conversation_reconnecting');
+      return;
+    }
+    if (conversationState === 'ending') {
+      emitConversationEvent('conversation_ending');
+      return;
+    }
+    if (conversationState === 'ended') {
+      emitConversationEvent('conversation_ended');
+      return;
+    }
+    emitConversationEvent('conversation_error');
+    if (conversationReasonCode === 'permission_denied_mic' || conversationReasonCode === 'permission_denied_camera') {
+      emitConversationEvent('conversation_permission_denied');
+    }
+  }, [conversationReasonCode, conversationState, emitConversationEvent]);
+
+  useEffect(() => {
+    if (
+      !isVoiceModeOpen
+      || !hasConversationStarted
+      || conversationMode !== 'voice_with_eyes'
+    ) {
+      return;
+    }
+    const readiness = evaluateVisionSourceReadiness({
+      sourceMode: visionSourceMode,
+      bridge: metaBridgeStatus,
+    });
+    if (readiness.ready) {
+      return;
+    }
+    const reasonCode = mapVisionReadinessReasonToConversationReason(readiness.reasonCode);
+    setConversationMode('voice');
+    setVisionSourceMode('iphone');
+    setConversationEyesSource('iphone');
+    setConversationReasonCode(reasonCode);
+    setPolicyError(formatVisionReadinessMessage(readiness.reasonCode));
+    emitConversationEvent(
+      'conversation_degraded_to_voice',
+      {
+        fromSourceMode: visionSourceMode,
+        readinessReasonCode: readiness.reasonCode,
+      },
+      reasonCode
+    );
+  }, [
+    conversationMode,
+    emitConversationEvent,
+    formatVisionReadinessMessage,
+    hasConversationStarted,
+    isVoiceModeOpen,
+    metaBridgeStatus,
+    visionSourceMode,
+  ]);
+  useEffect(() => {
+    closeVoiceSessionRef.current = closeVoiceSession;
+    stopVoicePlaybackRef.current = stopVoicePlayback;
+    isVoiceModeOpenRef.current = isVoiceModeOpen;
+    hasConversationStartedRef.current = hasConversationStarted;
+    isConversationEndingRef.current = isConversationEnding;
+    currentConversationIdRef.current = currentConversationId;
+  }, [
+    closeVoiceSession,
+    currentConversationId,
+    hasConversationStarted,
+    isConversationEnding,
+    isVoiceModeOpen,
+    stopVoicePlayback,
+  ]);
+
   useEffect(() => {
     return () => {
-      void mobileVoiceRuntime.stopPlayback();
-      void mobileVoiceRuntime.closeSession('screen_unmount');
+      logVoiceLifecycle('screen_unmount_cleanup');
+      void stopVoicePlaybackRef.current();
+      void closeVoiceSessionRef.current('screen_unmount');
       setIsAssistantSpeaking(false);
     };
-  }, [mobileVoiceRuntime]);
+  }, [logVoiceLifecycle]);
+
+  useEffect(() => {
+    return () => {
+      closedModeSuspendIssuedRef.current = false;
+    };
+  }, []);
 
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -453,11 +695,15 @@ export default function ConversationScreen() {
     const lastAssistantMessage =
       [...messages].reverse().find((message) => message.role === 'assistant') || null;
     lastSpokenAssistantMessageIdRef.current = lastAssistantMessage?.id || null;
-    awaitingAssistantSpeechRef.current = false;
+    console.info('[VoiceReply] conversation_context_updated', {
+      conversationId: currentConversationId || undefined,
+      lastAssistantMessageId: lastAssistantMessage?.id || undefined,
+      awaitingAssistantSpeech: awaitingAssistantSpeechRef.current,
+    });
   }, [currentConversationId]);
 
   useEffect(() => {
-    if (!autoSpeakReplies || !awaitingAssistantSpeechRef.current) {
+    if (!shouldSpeakReplies || !awaitingAssistantSpeechRef.current) {
       return;
     }
     const lastAssistantMessage =
@@ -469,22 +715,24 @@ export default function ConversationScreen() {
       return;
     }
 
+    console.info('[VoiceReply] autospeak_from_messages', {
+      messageId: lastAssistantMessage.id,
+      awaitingAssistantSpeech: awaitingAssistantSpeechRef.current,
+    });
     setIsAssistantSpeaking(true);
     void (async () => {
       try {
         await mobileVoiceRuntime.synthesizeAndPlay(lastAssistantMessage.content);
       } catch {
         Speech.stop();
-        Speech.speak(lastAssistantMessage.content, {
-          voice: agentVoiceId || undefined,
-        });
+        Speech.speak(lastAssistantMessage.content);
       } finally {
         setIsAssistantSpeaking(false);
         lastSpokenAssistantMessageIdRef.current = lastAssistantMessage.id;
       }
     })();
     awaitingAssistantSpeechRef.current = false;
-  }, [agentVoiceId, autoSpeakReplies, messages, mobileVoiceRuntime]);
+  }, [agentVoiceId, messages, mobileVoiceRuntime, shouldSpeakReplies]);
 
   const runCommandGate = useCallback(
     (command: string, sourceId?: string) => {
@@ -525,9 +773,68 @@ export default function ConversationScreen() {
     });
   }, []);
 
+  const resolveImageAttachmentDimensions = useCallback(async (
+    attachment: { type: 'image' | 'file'; uri: string; width?: number; height?: number }
+  ) => {
+    if (attachment.type !== 'image') {
+      return undefined;
+    }
+    if (
+      typeof attachment.width === 'number'
+      && attachment.width > 0
+      && typeof attachment.height === 'number'
+      && attachment.height > 0
+    ) {
+      return {
+        width: Math.floor(attachment.width),
+        height: Math.floor(attachment.height),
+      };
+    }
+    return await new Promise<{ width: number; height: number } | undefined>((resolve) => {
+      Image.getSize(
+        attachment.uri,
+        (width, height) => {
+          if (width > 0 && height > 0) {
+            resolve({
+              width: Math.floor(width),
+              height: Math.floor(height),
+            });
+            return;
+          }
+          resolve(undefined);
+        },
+        () => resolve(undefined),
+      );
+    });
+  }, []);
+
+  const resolveAttachmentPayloadBase64 = useCallback(async (
+    attachment: { type: 'image' | 'file'; uri: string }
+  ) => {
+    if (attachment.type !== 'image') {
+      return undefined;
+    }
+    try {
+      const response = await fetch(attachment.uri);
+      const blob = await response.blob();
+      return await new Promise<string | undefined>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = typeof reader.result === 'string' ? reader.result : '';
+          const payload = result.includes(',') ? result.split(',', 2)[1] || '' : result;
+          resolve(payload.trim() || undefined);
+        };
+        reader.onerror = () => resolve(undefined);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
+
   const sendTextMessage = useCallback(async (
     messageText: string,
-    options?: { restoreInputOnFail?: boolean }
+    options?: { restoreInputOnFail?: boolean; bypassCommandGate?: boolean }
   ) => {
     if (!messageText.trim() || isLoading) return false;
 
@@ -539,12 +846,13 @@ export default function ConversationScreen() {
       : 'preview_meeting_concierge';
     const activeCameraSourceId = getActiveCameraSourceId();
     const activeVoiceSourceId = getActiveVoiceSourceId();
-
-    if (
-      !runCommandGate('assemble_concierge_payload', activeCameraSourceId) ||
-      !runCommandGate(conciergeCommand, activeCameraSourceId)
-    ) {
-      return false;
+    if (!options?.bypassCommandGate) {
+      if (
+        !runCommandGate('assemble_concierge_payload', activeCameraSourceId) ||
+        !runCommandGate(conciergeCommand, activeCameraSourceId)
+      ) {
+        return false;
+      }
     }
 
     setIsLoading(true);
@@ -668,6 +976,7 @@ export default function ConversationScreen() {
         voiceSourceId: activeVoiceSourceId || undefined,
       },
       voiceTransportRuntime: mobileVoiceRuntime.transportRuntime,
+      videoTransportRuntime: mobileVideoRuntime.transportRuntime,
       observability: {
         liveSessionId: liveSessionIdRef.current,
         fallbackReason:
@@ -677,6 +986,11 @@ export default function ConversationScreen() {
           attachmentCount: pendingAttachments.length,
           imageAttachmentCount: pendingAttachments.filter((attachment) => attachment.type === 'image').length,
           policyError: policyError || undefined,
+          videoSessionId: mobileVideoRuntime.runtimeSnapshot.videoSessionId,
+          videoPacketSequence: mobileVideoRuntime.runtimeSnapshot.packetSequence,
+          videoAcceptedFrames: mobileVideoRuntime.runtimeSnapshot.acceptedFrames,
+          videoDroppedFrames: mobileVideoRuntime.runtimeSnapshot.droppedFrames,
+          videoFallbackReason: mobileVideoRuntime.runtimeSnapshot.fallbackReason,
           ...(visionSourceMode === 'meta_glasses'
             ? { bridgeDiagnostics }
             : {}),
@@ -698,6 +1012,7 @@ export default function ConversationScreen() {
       transport: mobileVoiceRuntime.transportSelection.effectiveMode,
       requestedTransport: mobileVoiceRuntime.transportSelection.requestedMode,
       transportFallbackReason: mobileVoiceRuntime.transportSelection.fallbackReason,
+      videoRuntime: mobileVideoRuntime.transportRuntime,
       ...(visionSourceMode === 'meta_glasses'
         ? { bridgeDiagnostics }
         : {}),
@@ -729,7 +1044,7 @@ export default function ConversationScreen() {
       return false;
     }
 
-    awaitingAssistantSpeechRef.current = autoSpeakReplies;
+    awaitingAssistantSpeechRef.current = shouldSpeakReplies;
     setPendingAttachments([]);
     setCameraRuntime(undefined);
     setIsLoading(false);
@@ -750,8 +1065,9 @@ export default function ConversationScreen() {
     visionSourceMode,
     metaBridgeConnectionState,
     metaBridgeStatus,
-    autoSpeakReplies,
+    shouldSpeakReplies,
     mobileVoiceRuntime,
+    mobileVideoRuntime,
     t,
   ]);
 
@@ -762,15 +1078,50 @@ export default function ConversationScreen() {
     await sendTextMessage(messageText);
   }, [inputText, isLoading, sendTextMessage]);
 
+  const handleStartToolBoundaryIntake = useCallback(async () => {
+    const kickoff = buildMobileToolBoundaryIntakeKickoff({
+      policyError,
+      lastUserMessage: latestUserMessage || inputText,
+    });
+    if (!kickoff || isLoading) {
+      return;
+    }
+
+    const sent = await sendTextMessage(kickoff, {
+      restoreInputOnFail: false,
+      bypassCommandGate: true,
+    });
+    if (sent) {
+      setPolicyError(null);
+      setInputText('');
+    }
+  }, [inputText, isLoading, latestUserMessage, policyError, sendTextMessage]);
+
   const handleNewChat = () => {
-    liveSessionIdRef.current = `mobile_live_${Date.now().toString(36)}`;
+    void closeVoiceSession('new_chat');
+    const nextLiveSessionId = `mobile_live_${Date.now().toString(36)}`;
+    liveSessionIdRef.current = nextLiveSessionId;
+    mobileVideoRuntime.resetSession(nextLiveSessionId);
     setPendingAttachments([]);
     setCameraRuntime(undefined);
     setVoiceRuntime(undefined);
     if (isIncognitoMode) {
       setCurrentConversation(null);
     } else {
-      createConversation();
+      void (async () => {
+        try {
+          if (l4yercak3Client.hasAuth()) {
+            const created = await l4yercak3Client.ai.createConversation();
+            if (created.success && created.conversationId) {
+              await loadConversation(created.conversationId, { allowUnknownId: true });
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to create backend conversation, falling back to local draft:', error);
+        }
+        createConversation();
+      })();
     }
     setIsRightDrawerOpen(false);
   };
@@ -785,45 +1136,294 @@ export default function ConversationScreen() {
   const handleOpenVoiceMode = () => {
     setIsRightDrawerOpen(false);
     setTimeout(() => {
+      logVoiceLifecycle('voice_mode_open');
+      setHasConversationStarted(false);
       setIsVoiceModeOpen(true);
     }, 120);
   };
 
+  const handleStartConversation = useCallback(() => {
+    emitConversationEvent('conversation_start_requested');
+    if (conversationMode === 'voice_with_eyes') {
+      const preferredSourceMode: VisionSourceMode =
+        conversationEyesSource === 'meta_glasses'
+          ? 'meta_glasses'
+          : (metaVisionReadiness.ready ? 'meta_glasses' : 'iphone');
+      const negotiation = negotiateVisionSource({
+        preferredSourceMode,
+        bridge: metaBridgeStatus,
+      });
+      if (!negotiation.ready || !negotiation.selectedSourceMode) {
+        const reasonCode = negotiation.conversationReasonCode || 'session_open_failed';
+        setConversationReasonCode(reasonCode);
+        setConversationState('error');
+        setPolicyError(formatVisionReadinessMessage(negotiation.readinessReasonCode));
+        emitConversationEvent(
+          'conversation_error',
+          {
+            sourceMode: preferredSourceMode,
+            readinessReasonCode: negotiation.readinessReasonCode,
+          },
+          reasonCode
+        );
+        return;
+      }
+
+      setVisionSourceMode(negotiation.selectedSourceMode);
+      if (negotiation.selectedSourceMode !== conversationEyesSource) {
+        setConversationEyesSource(negotiation.selectedSourceMode);
+        emitConversationEvent('conversation_eyes_source_changed', {
+          from: conversationEyesSource,
+          to: negotiation.selectedSourceMode,
+        });
+      }
+    } else {
+      setVisionSourceMode('iphone');
+    }
+    setIsConversationEnding(false);
+    setPolicyError(null);
+    setConversationReasonCode(undefined);
+    starterKickoffPendingRef.current = true;
+    starterKickoffInFlightRef.current = false;
+    starterKickoffCompletedRef.current = false;
+    setHasConversationStarted(true);
+  }, [
+    conversationEyesSource,
+    conversationMode,
+    emitConversationEvent,
+    formatVisionReadinessMessage,
+    metaBridgeStatus,
+    metaVisionReadiness.ready,
+  ]);
+
+  const handleEndConversation = useCallback((reason: string = 'explicit_stop') => {
+    if (endConversationInFlightRef.current) {
+      logVoiceLifecycle('conversation_end_ignored_duplicate', { reason });
+      return;
+    }
+    endConversationInFlightRef.current = true;
+    const activeConversationId =
+      getActiveVoiceSession()?.conversationId || currentConversationId || undefined;
+    logVoiceLifecycle('conversation_end_requested', {
+      reason,
+      activeConversationId,
+    });
+    setIsConversationEnding(true);
+    setHasConversationStarted(false);
+    void (async () => {
+      try {
+        await closeVoiceSession(`conversation_end:${reason}`);
+        await stopVoicePlayback();
+        setIsAssistantSpeaking(false);
+        if (activeConversationId) {
+          if (activeConversationId !== currentConversationId) {
+            setCurrentConversation(activeConversationId);
+          }
+          await loadConversation(activeConversationId, { allowUnknownId: true });
+        } else {
+          await syncConversations();
+        }
+        setConversationState('ended');
+        setConversationReasonCode(undefined);
+        logVoiceLifecycle('conversation_end_completed', { reason, activeConversationId });
+      } catch (error) {
+        const reasonText = error instanceof Error ? error.message : 'conversation_end_failed';
+        setConversationReasonCode(inferConversationReasonCode(reasonText));
+        setConversationState('error');
+        console.warn('[VoiceLifecycle] conversation_end_failed', { reason, reasonText });
+      } finally {
+        starterKickoffPendingRef.current = false;
+        starterKickoffInFlightRef.current = false;
+        starterKickoffCompletedRef.current = true;
+        endConversationInFlightRef.current = false;
+        setIsConversationEnding(false);
+      }
+    })();
+  }, [
+    closeVoiceSession,
+    currentConversationId,
+    getActiveVoiceSession,
+    logVoiceLifecycle,
+    loadConversation,
+    setCurrentConversation,
+    stopVoicePlayback,
+    syncConversations,
+  ]);
+
   useEffect(() => {
     if (!isVoiceModeOpen) {
-      void mobileVoiceRuntime.closeSession('voice_mode_closed');
+      if (closedModeSuspendIssuedRef.current) {
+        return;
+      }
+      closedModeSuspendIssuedRef.current = true;
+      logVoiceLifecycle('voice_session_suspend_trigger', {
+        reason: 'voice_mode_closed',
+      });
+      void suspendVoiceSession();
+      return;
+    }
+    closedModeSuspendIssuedRef.current = false;
+    if (!hasConversationStarted) {
+      logVoiceLifecycle('voice_session_suspend_skipped', {
+        reason: 'conversation_not_started_but_modal_open',
+      });
+      return;
+    }
+    const activeSession = getActiveVoiceSession();
+    if (
+      activeSession?.voiceSessionId
+      && (!currentConversationId || activeSession.conversationId === currentConversationId)
+    ) {
       return;
     }
     void (async () => {
       try {
-        const opened = await mobileVoiceRuntime.openSession();
+        logVoiceLifecycle('voice_session_open_start');
+        const opened = await openVoiceSession();
+        logVoiceLifecycle('voice_session_open_ok', {
+          openedConversationId: opened.conversationId,
+          voiceSessionId: opened.voiceSessionId,
+        });
         if (opened.conversationId && opened.conversationId !== currentConversationId) {
           setCurrentConversation(opened.conversationId);
         }
       } catch (error) {
         console.warn('Voice session open failed:', error);
+        const reasonText = error instanceof Error ? error.message : 'voice_session_open_failed';
+        const retryAfterMatch = reasonText.match(/voice_session_open_rate_limited:(\d+)/i);
+        const retryAfterMs = retryAfterMatch ? Number(retryAfterMatch[1]) : 0;
+        if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+          setPolicyError(
+            `Voice session is cooling down. Retry in ${Math.max(1, Math.ceil(retryAfterMs / 1000))}s.`
+          );
+        }
+        logVoiceLifecycle('voice_session_open_failed', {
+          reasonText,
+          retryAfterMs,
+        });
+        setConversationReasonCode(inferConversationReasonCode(reasonText));
+        setConversationState('error');
+        setHasConversationStarted(false);
       }
     })();
-    return () => {
-      void mobileVoiceRuntime.closeSession('voice_mode_closed');
-    };
-  }, [currentConversationId, isVoiceModeOpen, mobileVoiceRuntime, setCurrentConversation]);
+  }, [
+    currentConversationId,
+    getActiveVoiceSession,
+    hasConversationStarted,
+    isVoiceModeOpen,
+    logVoiceLifecycle,
+    openVoiceSession,
+    setCurrentConversation,
+    suspendVoiceSession,
+  ]);
 
-  const handleAttachment = async (attachment: { type: 'image' | 'file'; uri: string; name?: string; mimeType?: string }) => {
+  useEffect(() => {
+    if (
+      !isVoiceModeOpen
+      || !hasConversationStarted
+      || isConversationEnding
+      || !shouldSpeakReplies
+      || !starterKickoffPendingRef.current
+      || starterKickoffInFlightRef.current
+      || starterKickoffCompletedRef.current
+    ) {
+      return;
+    }
+    const activeSession = getActiveVoiceSession();
+    if (!activeSession?.voiceSessionId) {
+      return;
+    }
+    starterKickoffInFlightRef.current = true;
+    void (async () => {
+      console.info('[VoiceReply] starter_kickoff_begin', {
+        conversationId: activeSession.conversationId,
+        voiceSessionId: activeSession.voiceSessionId,
+      });
+      setIsAssistantSpeaking(true);
+      try {
+        await mobileVoiceRuntime.synthesizeAndPlay(conversationStarterText);
+        console.info('[VoiceReply] starter_kickoff_spoken');
+      } catch (error) {
+        console.warn('[VoiceReply] starter_kickoff_fallback', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        Speech.stop();
+        Speech.speak(conversationStarterText);
+      } finally {
+        setIsAssistantSpeaking(false);
+        starterKickoffInFlightRef.current = false;
+        starterKickoffPendingRef.current = false;
+        starterKickoffCompletedRef.current = true;
+      }
+    })();
+  }, [
+    conversationStarterText,
+    getActiveVoiceSession,
+    hasConversationStarted,
+    isConversationEnding,
+    isVoiceModeOpen,
+    mobileVoiceRuntime,
+    shouldSpeakReplies,
+  ]);
+
+  useEffect(() => {
+    if (isVoiceModeOpen && hasConversationStarted) {
+      logVoiceLifecycle('voice_session_close_for_switch_skipped', {
+        reason: 'active_voice_mode',
+      });
+      return;
+    }
+    const activeSession = getActiveVoiceSession();
+    if (shouldCloseVoiceSessionForConversationSwitch({
+      activeConversationId: activeSession?.conversationId,
+      currentConversationId: currentConversationId || undefined,
+    })) {
+      logVoiceLifecycle('voice_session_close_for_switch', {
+        activeConversationId: activeSession?.conversationId,
+        currentConversationId: currentConversationId || undefined,
+      });
+      void closeVoiceSession('conversation_switched');
+    }
+  }, [
+    closeVoiceSession,
+    currentConversationId,
+    getActiveVoiceSession,
+    hasConversationStarted,
+    isVoiceModeOpen,
+    logVoiceLifecycle,
+  ]);
+
+  const handleAttachment = async (
+    attachment: {
+      type: 'image' | 'file';
+      uri: string;
+      name?: string;
+      mimeType?: string;
+      width?: number;
+      height?: number;
+    }
+  ) => {
     if (!ensureVisionSourceReady()) {
       return;
     }
     const activeCameraSourceId = getActiveCameraSourceId();
+    const activeCameraSource = activeCameraSourceId
+      ? avRegistryRef.current.getSource(activeCameraSourceId)
+      : null;
     if (!runCommandGate('capture_frame', activeCameraSourceId)) {
       return;
     }
 
+    const imageDimensions = await resolveImageAttachmentDimensions(attachment);
+    const framePayloadBase64 = await resolveAttachmentPayloadBase64(attachment);
     const nextAttachment: Attachment = {
       type: attachment.type,
       uri: attachment.uri,
       name: attachment.name,
       mimeType: attachment.mimeType,
       sourceId: activeCameraSourceId || undefined,
+      width: imageDimensions?.width,
+      height: imageDimensions?.height,
     };
     if (visionSourceMode === 'meta_glasses') {
       const status = await metaBridge.recordFrameIngress({
@@ -841,6 +1441,7 @@ export default function ConversationScreen() {
       return {
         ...(prev || {}),
         sourceId: activeCameraSourceId || undefined,
+        videoSessionId: mobileVideoRuntime.runtimeSnapshot.videoSessionId,
         sourceMode: visionSourceMode,
         bridgeConnectionState: metaBridgeConnectionState,
         sourceScope: avSourceScope,
@@ -849,6 +1450,7 @@ export default function ConversationScreen() {
         frameCaptureCount,
         lastFrameCapturedAt: Date.now(),
         captureMode: 'camera_attachment',
+        resolution: imageDimensions,
         ...(visionSourceMode === 'meta_glasses'
           ? {
               bridgeDiagnostics: buildMetaBridgeDiagnostics(metaBridgeStatus),
@@ -858,6 +1460,25 @@ export default function ConversationScreen() {
           : {}),
       };
     });
+    if (attachment.type === 'image' && activeCameraSourceId) {
+      const voiceTransportRuntime = mobileVoiceRuntime.transportRuntime as {
+        realtimeConnected?: boolean;
+      };
+      void mobileVideoRuntime.ingestCapturedFrame({
+        sourceId: activeCameraSourceId,
+        sourceProviderId: activeCameraSource?.providerId || 'ios_avfoundation',
+        sourceMode: visionSourceMode,
+        voiceTransportSelection: mobileVoiceRuntime.transportSelection,
+        voiceRealtimeConnected: Boolean(voiceTransportRuntime.realtimeConnected),
+        interviewSessionId: mobileVoiceRuntime.getActiveSession()?.interviewSessionId,
+        mimeType: attachment.mimeType,
+        framePayloadBase64,
+        width: imageDimensions?.width,
+        height: imageDimensions?.height,
+        policyRestricted: Boolean(policyError),
+        deviceAvailable: isMetaBridgeConnected,
+      });
+    }
   };
 
   const handleVoiceRecording = async (
@@ -990,23 +1611,32 @@ export default function ConversationScreen() {
     }
 
     const startedAt = Date.now() - frame.durationMs;
-    await mobileVoiceRuntime.ingestStreamingFrame({
-      uri: frame.uri,
-      mimeType: 'audio/m4a',
-      frameDurationMs: frame.durationMs,
-      sequence: frame.sequence,
-      onPartial: (partial) => {
-        setVoiceRuntime((prev) => ({
-          ...(prev || {}),
-          partialTranscript: partial,
-          sessionState: 'streaming',
-          frameSequence: frame.sequence,
-          frameDurationMs: frame.durationMs,
-          startedAt,
-          stoppedAt: Date.now(),
-        }));
-      },
-    });
+    let ingestResult: Awaited<ReturnType<typeof mobileVoiceRuntime.ingestStreamingFrame>> | null = null;
+    try {
+      ingestResult = await mobileVoiceRuntime.ingestStreamingFrame({
+        uri: frame.uri,
+        mimeType: 'audio/m4a',
+        frameDurationMs: frame.durationMs,
+        sequence: frame.sequence,
+        isFinal: frame.isFinal,
+        onPartial: (partial) => {
+          setVoiceRuntime((prev) => ({
+            ...(prev || {}),
+            partialTranscript: partial,
+            sessionState: 'streaming',
+            frameSequence: frame.sequence,
+            frameDurationMs: frame.durationMs,
+            startedAt,
+            stoppedAt: Date.now(),
+          }));
+        },
+      });
+    } catch (error) {
+      console.warn('Live voice frame ingest failed:', error);
+      if (!frame.isFinal) {
+        return;
+      }
+    }
 
     const activeVoiceSession = mobileVoiceRuntime.getActiveSession();
     if (
@@ -1042,19 +1672,124 @@ export default function ConversationScreen() {
           }
         : {}),
     }));
+
+    if (frame.isFinal) {
+      const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
+        sequence: frame.sequence,
+      });
+      if (finalization?.text) {
+        setVoiceRuntime((prev) => ({
+          ...(prev || {}),
+          transcript: finalization.text,
+          partialTranscript: finalization.text,
+          sessionState: 'stream_committed',
+          finalizedSequence: finalization.sequence,
+          committedAt: Date.now(),
+        }));
+        if (ingestResult?.orchestration?.status === 'triggered') {
+          const realtimeAssistantText = ingestResult.orchestration.assistantText?.trim();
+          const resolvedConversationId =
+            activeVoiceSession?.conversationId || currentConversationId || undefined;
+          console.info('[VoiceReply] orchestration_triggered', {
+            hasInlineAssistantText: Boolean(realtimeAssistantText),
+            resolvedConversationId,
+          });
+          if (shouldSpeakReplies && realtimeAssistantText) {
+            setIsAssistantSpeaking(true);
+            try {
+              await mobileVoiceRuntime.synthesizeAndPlay(realtimeAssistantText);
+            } catch {
+              Speech.stop();
+              Speech.speak(realtimeAssistantText);
+            } finally {
+              setIsAssistantSpeaking(false);
+            }
+          }
+          if (shouldSpeakReplies && !realtimeAssistantText) {
+            awaitingAssistantSpeechRef.current = true;
+            console.info('[VoiceReply] awaiting_assistant_text_refresh', {
+              resolvedConversationId,
+            });
+          }
+          try {
+            if (resolvedConversationId) {
+              await loadConversation(resolvedConversationId, { allowUnknownId: true });
+            } else {
+              await syncConversations();
+            }
+            if (shouldSpeakReplies && !realtimeAssistantText && resolvedConversationId) {
+              const refreshedConversation = getConversationById(resolvedConversationId);
+              const refreshedAssistantMessage =
+                [...(refreshedConversation?.messages || [])]
+                  .reverse()
+                  .find((message) => message.role === 'assistant') || null;
+              const refreshedAssistantText = refreshedAssistantMessage?.content?.trim() || '';
+              if (refreshedAssistantText) {
+                console.info('[VoiceReply] autospeak_from_refreshed_conversation', {
+                  resolvedConversationId,
+                  messageId: refreshedAssistantMessage?.id || undefined,
+                });
+                setIsAssistantSpeaking(true);
+                try {
+                  await mobileVoiceRuntime.synthesizeAndPlay(refreshedAssistantText);
+                } catch {
+                  Speech.stop();
+                  Speech.speak(refreshedAssistantText);
+                } finally {
+                  setIsAssistantSpeaking(false);
+                  awaitingAssistantSpeechRef.current = false;
+                  if (refreshedAssistantMessage?.id) {
+                    lastSpokenAssistantMessageIdRef.current = refreshedAssistantMessage.id;
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to refresh conversation after realtime voice turn:', error);
+          }
+          return;
+        }
+        if (frame.isFinal && !ingestResult) {
+          await sendTextMessage(finalization.text);
+          return;
+        }
+        await sendTextMessage(finalization.text);
+      }
+    }
   }, [
     isAssistantSpeaking,
     mobileVoiceRuntime,
     ensureVisionSourceReady,
     getActiveVoiceSourceId,
+    getConversationById,
     runCommandGate,
     currentConversationId,
+    loadConversation,
     setCurrentConversation,
+    syncConversations,
     visionSourceMode,
     metaBridgeConnectionState,
     avSourceScope,
     metaBridgeStatus,
+    shouldSpeakReplies,
+    sendTextMessage,
   ]);
+
+  const handleBeforeVoiceCapture = useCallback(async () => {
+    logVoiceLifecycle('voice_capture_before_start');
+    if (!mobileVoiceRuntime.getActiveSession()) {
+      await openVoiceSession();
+    }
+    if (
+      shouldBargeInInterruptPlayback({
+        isAssistantSpeaking,
+        isUserCaptureStarting: true,
+      })
+    ) {
+      await mobileVoiceRuntime.stopPlayback();
+      setIsAssistantSpeaking(false);
+    }
+  }, [isAssistantSpeaking, logVoiceLifecycle, mobileVoiceRuntime, openVoiceSession]);
 
   const handleApprovePending = useCallback(async (executionId: string) => {
     setApprovalActionId(executionId);
@@ -1115,6 +1850,7 @@ export default function ConversationScreen() {
           >
             <Image
               source={{ uri: attachment.uri }}
+              alt={attachment.name || t('chat.imageAttachment')}
               style={{ width: '100%', height: 156 }}
               resizeMode="cover"
             />
@@ -1227,7 +1963,7 @@ export default function ConversationScreen() {
                   justifyContent="center"
                 >
                   <Text color="white" fontSize={10} lineHeight={12}>
-                    {agentAvatar}
+                    ✨
                   </Text>
                 </Circle>
                 <Text color="$colorTertiary" fontSize="$2" fontWeight="600">
@@ -1295,6 +2031,7 @@ export default function ConversationScreen() {
       <YStack flex={1} justifyContent="center" alignItems="center" paddingHorizontal="$6" paddingBottom="$10">
         <Image
           source={require('../../assets/splash-icon.png')}
+          alt="Operator mobile logo"
           style={{ width: 36, height: 36, marginBottom: 14, opacity: 0.95 }}
           resizeMode="contain"
         />
@@ -1355,6 +2092,7 @@ export default function ConversationScreen() {
             <XStack flex={1} alignItems="center" justifyContent="center">
               <Image
                 source={require('../../assets/splash-icon.png')}
+                alt="Operator mobile logo"
                 style={{ width: 30, height: 30, borderRadius: 15, opacity: 0.98 }}
                 resizeMode="contain"
               />
@@ -1409,17 +2147,47 @@ export default function ConversationScreen() {
             )}
 
             {policyError && (
-              <XStack
+              <YStack
                 backgroundColor="rgba(239, 68, 68, 0.12)"
                 paddingVertical={8}
                 paddingHorizontal={16}
-                alignItems="center"
-                justifyContent="center"
+                gap="$2"
               >
-                <Text color="$error" fontSize={12} fontWeight="600">
-                  {policyError}
-                </Text>
-              </XStack>
+                <XStack alignItems="center" justifyContent="center">
+                  <Text color="$error" fontSize={12} fontWeight="600">
+                    {policyError}
+                  </Text>
+                </XStack>
+                {shouldShowMobileToolBoundaryCta(policyError) ? (
+                  <XStack alignItems="center" justifyContent="center">
+                    <Pressable
+                      onPress={() => {
+                        void handleStartToolBoundaryIntake();
+                      }}
+                      disabled={isLoading}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <View
+                        style={{
+                          borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: chromeBorder,
+                          backgroundColor: isLoading
+                            ? (theme.surface4?.val || chromeBorder)
+                            : (theme.primary?.val || chromeBorder),
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          opacity: isLoading ? 0.7 : 1,
+                        }}
+                      >
+                        <Text color="white" fontSize={12} fontWeight="700">
+                          {t('chat.toolBoundaryCta')}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </XStack>
+                ) : null}
+              </YStack>
             )}
 
             {pendingAttachments.length > 0 && (
@@ -1432,6 +2200,24 @@ export default function ConversationScreen() {
               >
                 <Text color="$info" fontSize={12} fontWeight="500">
                   {t('chat.attachmentsQueued', { count: pendingAttachments.length })}
+                </Text>
+              </XStack>
+            )}
+
+            {isVoiceModeOpen && (
+              <XStack
+                backgroundColor="rgba(229, 149, 78, 0.12)"
+                paddingVertical={8}
+                paddingHorizontal={16}
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$2"
+              >
+                <Text color="$color" fontSize="$2" fontWeight="700">
+                  Conversation {hasConversationStarted ? 'live' : 'idle'}
+                </Text>
+                <Text color="$colorTertiary" fontSize="$2">
+                  {conversationMode === 'voice_with_eyes' ? 'Voice + Eyes' : 'Voice only'} • {liveHudStatusLabel}
                 </Text>
               </XStack>
             )}
@@ -1532,6 +2318,11 @@ export default function ConversationScreen() {
                       onAttach={handleAttachment}
                       onWebSearch={() => {}}
                       onResearchMode={() => {}}
+                      metaVisionConfigured={isMetaVisionConfigured}
+                      onSelectMetaVisionSource={() => {
+                        setVisionSourceMode('meta_glasses');
+                        setPolicyError(null);
+                      }}
                     />
                     <ModelSelector
                       selectedModel={selectedModel}
@@ -1565,10 +2356,31 @@ export default function ConversationScreen() {
                         </View>
                       </Pressable>
                     ) : (
-                      <VoiceRecorder
-                        onRecordingComplete={handleVoiceRecording}
-                        isTranscribing={isTranscribing}
-                      />
+                      <XStack alignItems="center" gap="$2">
+                        <VoiceRecorder
+                          onRecordingComplete={handleVoiceRecording}
+                          isTranscribing={isTranscribing}
+                        />
+                        <Pressable
+                          onPress={handleOpenVoiceMode}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <View
+                            style={{
+                              width: 46,
+                              height: 46,
+                              borderRadius: 23,
+                              borderWidth: 1,
+                              borderColor: chromeBorder,
+                              backgroundColor: theme.surface?.val || composerSurface,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <AudioWaveform size={20} color={theme.color?.val || '#f3efe7'} />
+                          </View>
+                        </Pressable>
+                      </XStack>
                     )}
                   </XStack>
                 </XStack>
@@ -1636,76 +2448,6 @@ export default function ConversationScreen() {
                   onValueChange={(value) => setIncognitoMode(value)}
                 />
               </XStack>
-              <XStack alignItems="center" justifyContent="space-between">
-                <XStack alignItems="center" gap="$2">
-                  <Text color="$color" fontSize="$4" fontWeight="600">
-                    Use Meta glasses source
-                  </Text>
-                </XStack>
-                <Switch
-                  value={visionSourceMode === 'meta_glasses'}
-                  onValueChange={(value) => {
-                    setVisionSourceMode(value ? 'meta_glasses' : 'iphone');
-                    if (!value) {
-                      setPolicyError(null);
-                    }
-                  }}
-                />
-              </XStack>
-              <YStack
-                borderWidth={1}
-                borderColor="$glassBorder"
-                borderRadius="$3"
-                backgroundColor="$background"
-                padding="$2"
-                gap="$2"
-              >
-                <Text color="$colorTertiary" fontSize="$2">
-                  Active source: {visionSourceMode === 'meta_glasses' ? 'Meta glasses' : 'iPhone camera + mic'}
-                </Text>
-                <Text color="$colorTertiary" fontSize="$2">
-                  Bridge: {visionSourceMode === 'meta_glasses' ? metaBridgeConnectionState : 'n/a'}
-                </Text>
-                {visionSourceMode === 'meta_glasses' && metaBridgeStatus.activeDevice ? (
-                  <Text color="$colorTertiary" fontSize="$2">
-                    Device: {metaBridgeStatus.activeDevice.deviceLabel} ({metaBridgeStatus.activeDevice.deviceId})
-                  </Text>
-                ) : null}
-                {visionSourceMode === 'meta_glasses' ? (
-                  <Text color="$colorTertiary" fontSize="$2">
-                    Ingress: {metaBridgeStatus.frameIngress.fps.toFixed(1)}fps / {metaBridgeStatus.audioIngress.packetCount} audio packets
-                  </Text>
-                ) : null}
-                {visionSourceMode === 'meta_glasses' ? (
-                  <Pressable
-                    onPress={
-                      metaBridgeConnectionState === 'connected'
-                        ? () => {
-                            void handleDisconnectMetaBridge();
-                          }
-                        : () => {
-                            void handleConnectMetaBridge();
-                          }
-                    }
-                  >
-                    <YStack
-                      borderWidth={1}
-                      borderColor="$glassBorder"
-                      borderRadius="$3"
-                      backgroundColor="$surface"
-                      padding="$2"
-                    >
-                      <Text color="$color" fontSize="$3" fontWeight="600">
-                        {metaBridgeConnectionState === 'connected'
-                          ? 'Disconnect bridge'
-                          : metaBridgeConnectionState === 'connecting'
-                            ? 'Connecting...'
-                            : 'Connect bridge'}
-                      </Text>
-                    </YStack>
-                  </Pressable>
-                ) : null}
-              </YStack>
             </YStack>
 
             <Pressable onPress={handleOpenSettings}>
@@ -1733,7 +2475,7 @@ export default function ConversationScreen() {
                 <XStack alignItems="center" gap="$2">
                   <Mic size={16} color="$color" />
                   <Text color="$color" fontSize="$4" fontWeight="600">
-                    Voice mode
+                    Conversation
                   </Text>
                 </XStack>
               </YStack>
@@ -1759,9 +2501,30 @@ export default function ConversationScreen() {
       <VoiceModeModal
         isOpen={isVoiceModeOpen}
         onClose={() => {
+          logVoiceLifecycle('voice_modal_on_close');
+          handleEndConversation('modal_request_close');
+          setIsVoiceModeOpen(false);
+          setHasConversationStarted(false);
+          mobileVoiceRuntime.clearPartialTranscript();
+        }}
+        conversationMode={conversationMode}
+        onConversationModeChange={setConversationMode}
+        eyesSource={conversationEyesSource}
+        onEyesSourceChange={setConversationEyesSource}
+        metaGlassesAvailable={isMetaVisionConfigured}
+        metaGlassesReason={
+          isMetaVisionConfigured
+            ? undefined
+            : mapVisionReadinessReasonToConversationReason(metaVisionReadiness.reasonCode)
+        }
+        conversationStarted={hasConversationStarted}
+        onStartConversation={handleStartConversation}
+        onEndConversation={() => {
+          handleEndConversation('orb_stop_control');
           setIsVoiceModeOpen(false);
           mobileVoiceRuntime.clearPartialTranscript();
         }}
+        hudStatusLabel={liveHudStatusLabel}
         onRecordingComplete={(uri, duration) => {
           void handleVoiceRecording(uri, duration, { autoSend: true });
         }}
@@ -1771,22 +2534,11 @@ export default function ConversationScreen() {
         isTranscribing={isTranscribing}
         isLoading={isLoading}
         agentName={agentName}
-        agentAvatar={agentAvatar}
         latestUserMessage={latestUserMessage}
         latestAssistantMessage={latestAssistantMessage}
         partialTranscript={mobileVoiceRuntime.partialTranscript}
         isAssistantSpeaking={isAssistantSpeaking}
-        onBeforeCapture={() => {
-          if (
-            shouldBargeInInterruptPlayback({
-              isAssistantSpeaking,
-              isUserCaptureStarting: true,
-            })
-          ) {
-            void mobileVoiceRuntime.stopPlayback();
-            setIsAssistantSpeaking(false);
-          }
-        }}
+        onBeforeCapture={handleBeforeVoiceCapture}
       />
 
       {/* Message Actions */}

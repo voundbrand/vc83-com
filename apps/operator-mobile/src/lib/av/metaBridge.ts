@@ -2,10 +2,6 @@ import {
   createDefaultMetaBridgeSnapshot,
   type MetaBridgeSnapshot,
 } from './metaBridge-contracts';
-import {
-  NativeEventEmitter as ReactNativeEventEmitter,
-  NativeModules as ReactNativeNativeModules,
-} from 'react-native';
 
 type FrameIngressInput = {
   timestampMs?: number;
@@ -47,9 +43,30 @@ function resolveReactNativeAdapter(): ReactNativeMetaBridgeAdapter {
   if (globalThis.__META_BRIDGE_RN__) {
     return globalThis.__META_BRIDGE_RN__;
   }
+  try {
+    const reactNativeModule = require('react-native') as {
+      NativeEventEmitter?: ReactNativeMetaBridgeAdapter['NativeEventEmitter'];
+      NativeModules?: Record<string, unknown>;
+    };
+    if (reactNativeModule.NativeEventEmitter && reactNativeModule.NativeModules) {
+      return {
+        NativeEventEmitter: reactNativeModule.NativeEventEmitter,
+        NativeModules: reactNativeModule.NativeModules,
+      };
+    }
+  } catch {
+    // Ignore non-RN runtimes.
+  }
+
+  class NoopNativeEventEmitter {
+    addListener() {
+      return { remove: () => {} };
+    }
+  }
+
   return {
-    NativeEventEmitter: ReactNativeEventEmitter as unknown as ReactNativeMetaBridgeAdapter['NativeEventEmitter'],
-    NativeModules: ReactNativeNativeModules as unknown as Record<string, unknown>,
+    NativeEventEmitter: NoopNativeEventEmitter as unknown as ReactNativeMetaBridgeAdapter['NativeEventEmitter'],
+    NativeModules: {},
   };
 }
 
@@ -61,8 +78,37 @@ const nativeBridge: NativeMetaGlassesBridge | undefined =
 // Native DAT integrations should publish runtime events via platform hooks:
 // Android -> MetaGlassesBridgeRuntimeHooks, iOS -> MetaGlassesBridgeRuntime.
 
-function fallbackSnapshot(reasonCode: string): MetaBridgeSnapshot {
+function normalizeSnapshot(snapshot: Partial<MetaBridgeSnapshot> | null | undefined): MetaBridgeSnapshot {
+  const base = createDefaultMetaBridgeSnapshot();
+  if (!snapshot) {
+    return {
+      ...base,
+      datSdkAvailable: Boolean(nativeBridge),
+    };
+  }
+
   return {
+    ...base,
+    ...snapshot,
+    datSdkAvailable:
+      typeof snapshot.datSdkAvailable === 'boolean'
+        ? snapshot.datSdkAvailable
+        : Boolean(nativeBridge),
+    activeDevice: snapshot.activeDevice ?? null,
+    frameIngress: {
+      ...base.frameIngress,
+      ...(snapshot.frameIngress || {}),
+    },
+    audioIngress: {
+      ...base.audioIngress,
+      ...(snapshot.audioIngress || {}),
+    },
+    failure: snapshot.failure ?? null,
+  };
+}
+
+function fallbackSnapshot(reasonCode: string): MetaBridgeSnapshot {
+  return normalizeSnapshot({
     ...createDefaultMetaBridgeSnapshot(),
     failure: {
       reasonCode,
@@ -70,7 +116,7 @@ function fallbackSnapshot(reasonCode: string): MetaBridgeSnapshot {
       recoverable: true,
       atMs: Date.now(),
     },
-  };
+  });
 }
 
 async function callNative(
@@ -81,10 +127,10 @@ async function callNative(
   }
 
   try {
-    return await runner(nativeBridge);
+    return normalizeSnapshot(await runner(nativeBridge));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return {
+    return normalizeSnapshot({
       ...fallbackSnapshot('native_bridge_call_failed'),
       failure: {
         reasonCode: 'native_bridge_call_failed',
@@ -92,7 +138,7 @@ async function callNative(
         recoverable: true,
         atMs: Date.now(),
       },
-    };
+    });
   }
 }
 
@@ -129,8 +175,8 @@ export const metaBridge = {
     const emitter = new NativeEventEmitter(nativeBridge as never);
     const subscription = emitter.addListener(
       STATUS_EVENT_NAME,
-      (snapshot: MetaBridgeSnapshot) => {
-        listener(snapshot);
+      (snapshot: Partial<MetaBridgeSnapshot>) => {
+        listener(normalizeSnapshot(snapshot));
       },
     );
 

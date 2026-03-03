@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable } from 'react-native';
+import { AudioModule, setAudioModeAsync } from 'expo-audio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Circle, Text, XStack, YStack } from 'tamagui';
-import { X } from '@tamagui/lucide-icons';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -12,35 +12,55 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { VoiceRecorder, VoiceRecorderFrame, VoiceRecorderHandle } from './VoiceRecorder';
+import { resolveMobileVoiceLiveDuplexSegmentDurationMs } from '../../lib/voice/runtimePolicy';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedYStack = Animated.createAnimatedComponent(YStack);
+const LIVE_DUPLEX_FRAME_DURATION_MS = resolveMobileVoiceLiveDuplexSegmentDurationMs('elevenlabs');
 
 type VoiceModeModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  conversationMode: 'voice' | 'voice_with_eyes';
+  onConversationModeChange: (mode: 'voice' | 'voice_with_eyes') => void;
+  eyesSource: 'iphone' | 'meta_glasses';
+  onEyesSourceChange: (source: 'iphone' | 'meta_glasses') => void;
+  metaGlassesAvailable: boolean;
+  metaGlassesReason?: string;
+  conversationStarted: boolean;
+  onStartConversation: () => void;
+  onEndConversation: () => void;
+  hudStatusLabel: string;
   onRecordingComplete: (uri: string, duration: number) => void;
   onAudioFrame: (frame: VoiceRecorderFrame) => Promise<void> | void;
   isTranscribing: boolean;
   isLoading: boolean;
   agentName: string;
-  agentAvatar: string;
   latestUserMessage?: string;
   latestAssistantMessage?: string;
   partialTranscript?: string;
   isAssistantSpeaking?: boolean;
-  onBeforeCapture?: () => void;
+  onBeforeCapture?: () => Promise<void> | void;
 };
 
 export function VoiceModeModal({
   isOpen,
   onClose,
+  conversationMode,
+  onConversationModeChange,
+  eyesSource,
+  onEyesSourceChange,
+  metaGlassesAvailable,
+  metaGlassesReason,
+  conversationStarted,
+  onStartConversation,
+  onEndConversation,
+  hudStatusLabel,
   onRecordingComplete,
   onAudioFrame,
   isTranscribing,
   isLoading,
   agentName,
-  agentAvatar,
   latestUserMessage,
   latestAssistantMessage,
   partialTranscript,
@@ -49,7 +69,9 @@ export function VoiceModeModal({
 }: VoiceModeModalProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [liveDuplexEnabled, setLiveDuplexEnabled] = useState(true);
+  const [startError, setStartError] = useState<string | null>(null);
   const recorderRef = useRef<VoiceRecorderHandle | null>(null);
+  const autoStartInFlightRef = useRef(false);
   const pulse = useSharedValue(1);
   const rotate = useSharedValue(0);
 
@@ -61,8 +83,8 @@ export function VoiceModeModal({
 
   useEffect(() => {
     pulse.value = isActive
-      ? withRepeat(withSequence(withTiming(1.12, { duration: 360 }), withTiming(1, { duration: 360 })), -1, false)
-      : withTiming(1, { duration: 240 });
+      ? withRepeat(withSequence(withTiming(1.1, { duration: 760 }), withTiming(1, { duration: 760 })), -1, false)
+      : withTiming(1, { duration: 320 });
   }, [isActive, pulse]);
 
   const orbStyle = useAnimatedStyle(() => ({
@@ -74,19 +96,121 @@ export function VoiceModeModal({
   }));
 
   const statusText = useMemo(() => {
+    if (!conversationStarted) return 'Tap orb to start';
     if (isRecording) return liveDuplexEnabled ? 'Streaming...' : 'Listening...';
     if (isTranscribing) return 'Transcribing...';
     if (isLoading) return 'Thinking...';
     return liveDuplexEnabled ? 'Live duplex ready' : 'Tap to talk';
-  }, [isLoading, isRecording, isTranscribing, liveDuplexEnabled]);
+  }, [conversationStarted, isLoading, isRecording, isTranscribing, liveDuplexEnabled]);
 
-  useEffect(() => {
-    if (!isOpen || !liveDuplexEnabled || isRecording || isTranscribing || isLoading || isAssistantSpeaking) {
+  const orbState = useMemo(() => {
+    if (!conversationStarted) {
+      return {
+        label: 'START',
+        background: 'rgba(34, 197, 94, 0.26)',
+        border: 'rgba(34, 197, 94, 0.72)',
+        core: 'rgba(34, 197, 94, 0.3)',
+      };
+    }
+    if (isRecording) {
+      return {
+        label: 'REC',
+        background: 'rgba(59, 130, 246, 0.3)',
+        border: 'rgba(59, 130, 246, 0.78)',
+        core: 'rgba(59, 130, 246, 0.36)',
+      };
+    }
+    if (isAssistantSpeaking) {
+      return {
+        label: 'TALK',
+        background: 'rgba(147, 51, 234, 0.32)',
+        border: 'rgba(167, 87, 255, 0.76)',
+        core: 'rgba(147, 51, 234, 0.38)',
+      };
+    }
+    if (isTranscribing || isLoading) {
+      return {
+        label: 'WAIT',
+        background: 'rgba(138, 105, 76, 0.34)',
+        border: 'rgba(180, 132, 88, 0.72)',
+        core: 'rgba(160, 119, 82, 0.3)',
+      };
+    }
+    return {
+      label: 'STOP',
+      background: 'rgba(220, 38, 38, 0.28)',
+      border: 'rgba(220, 38, 38, 0.72)',
+      core: 'rgba(220, 38, 38, 0.36)',
+    };
+  }, [conversationStarted, isAssistantSpeaking, isLoading, isRecording, isTranscribing]);
+
+  const handleOrbPress = () => {
+    if (!conversationStarted) {
+      void (async () => {
+        setStartError(null);
+        const permission = await AudioModule.requestRecordingPermissionsAsync();
+        if (!permission.granted) {
+          setStartError('Microphone permission is required to start conversation.');
+          return;
+        }
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        onStartConversation();
+      })();
       return;
     }
-    onBeforeCapture?.();
-    void recorderRef.current?.start();
+    void (async () => {
+      try {
+        if (recorderRef.current?.isRecording()) {
+          await recorderRef.current.stop();
+        }
+      } catch (error) {
+        console.warn('Voice recorder stop before end failed:', error);
+      } finally {
+        onEndConversation();
+      }
+    })();
+  };
+
+  useEffect(() => {
+    if (
+      !isOpen
+      || !conversationStarted
+      || !liveDuplexEnabled
+      || isRecording
+      || isTranscribing
+      || isLoading
+      || isAssistantSpeaking
+    ) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      if (autoStartInFlightRef.current) {
+        return;
+      }
+      autoStartInFlightRef.current = true;
+      try {
+        await onBeforeCapture?.();
+        if (cancelled) return;
+        if (!recorderRef.current?.isRecording()) {
+          await recorderRef.current?.start();
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStartError(error instanceof Error ? error.message : 'voice_capture_start_failed');
+        }
+      } finally {
+        autoStartInFlightRef.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
+    conversationStarted,
     isAssistantSpeaking,
     isLoading,
     isOpen,
@@ -107,56 +231,154 @@ export function VoiceModeModal({
     <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#111113' }}>
         <YStack flex={1} backgroundColor="#111113" paddingHorizontal="$5" paddingTop="$3" paddingBottom="$5">
-          <XStack justifyContent="space-between" alignItems="center">
-            <Text color="#f3efe7" fontSize="$6" fontWeight="700">
-              Voice Mode
-            </Text>
-            <XStack gap="$2" alignItems="center">
-              <Pressable onPress={() => setLiveDuplexEnabled((prev) => !prev)}>
-                <Circle size={36} backgroundColor={liveDuplexEnabled ? 'rgba(229,149,78,0.28)' : 'rgba(255,255,255,0.08)'} alignItems="center" justifyContent="center">
-                  <Text color="#f3efe7" fontSize="$2" fontWeight="700">
-                    LIVE
-                  </Text>
-                </Circle>
-              </Pressable>
-              <Pressable onPress={onClose}>
-                <Circle size={36} backgroundColor="rgba(255,255,255,0.08)" alignItems="center" justifyContent="center">
-                  <X size={18} color="#f3efe7" />
-                </Circle>
-              </Pressable>
-            </XStack>
-          </XStack>
-
           <YStack flex={1} justifyContent="center" alignItems="center" gap="$5">
-            <AnimatedYStack
-              width={260}
-              height={260}
-              alignItems="center"
-              justifyContent="center"
-              style={particlesStyle}
-            >
-              <Circle size={10} backgroundColor="rgba(229, 149, 78, 0.4)" position="absolute" top={16} left={124} />
-              <Circle size={8} backgroundColor="rgba(229, 149, 78, 0.34)" position="absolute" top={44} right={32} />
-              <Circle size={6} backgroundColor="rgba(229, 149, 78, 0.28)" position="absolute" top={122} right={8} />
-              <Circle size={9} backgroundColor="rgba(229, 149, 78, 0.32)" position="absolute" bottom={34} right={36} />
-              <Circle size={7} backgroundColor="rgba(229, 149, 78, 0.28)" position="absolute" bottom={18} left={118} />
-              <Circle size={8} backgroundColor="rgba(229, 149, 78, 0.34)" position="absolute" top={120} left={8} />
-              <Circle size={6} backgroundColor="rgba(229, 149, 78, 0.24)" position="absolute" top={40} left={34} />
-            </AnimatedYStack>
-
-            <AnimatedCircle
-              size={160}
-              backgroundColor={isActive ? 'rgba(229,149,78,0.24)' : 'rgba(255,255,255,0.08)'}
+            <YStack
+              width="100%"
               borderWidth={1}
-              borderColor={isActive ? 'rgba(229,149,78,0.65)' : 'rgba(255,255,255,0.22)'}
-              alignItems="center"
-              justifyContent="center"
-              style={orbStyle}
+              borderColor="rgba(255,255,255,0.12)"
+              borderRadius="$4"
+              padding="$3"
+              gap="$2"
             >
-              <Text color="#f3efe7" fontSize={40}>
-                {agentAvatar}
+              <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                Mode
               </Text>
-            </AnimatedCircle>
+              <XStack gap="$2">
+                <Pressable onPress={() => onConversationModeChange('voice')} style={{ flex: 1 }}>
+                  <YStack
+                    borderWidth={1}
+                    borderColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                    borderRadius="$4"
+                    minHeight={64}
+                    justifyContent="center"
+                    paddingHorizontal="$3"
+                    paddingVertical="$3"
+                    backgroundColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                  >
+                    <Text color="#f3efe7" fontSize="$4" fontWeight="700">
+                      Voice only
+                    </Text>
+                  </YStack>
+                </Pressable>
+                <Pressable onPress={() => onConversationModeChange('voice_with_eyes')} style={{ flex: 1 }}>
+                  <YStack
+                    borderWidth={1}
+                    borderColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                    borderRadius="$4"
+                    minHeight={64}
+                    justifyContent="center"
+                    paddingHorizontal="$3"
+                    paddingVertical="$3"
+                    backgroundColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                  >
+                    <Text color="#f3efe7" fontSize="$4" fontWeight="700">
+                      Voice + Eyes
+                    </Text>
+                  </YStack>
+                </Pressable>
+              </XStack>
+
+              {conversationMode === 'voice_with_eyes' ? (
+                <YStack gap="$2">
+                  <Text color="rgba(243,239,231,0.72)" fontSize="$2">
+                    Eyes source
+                  </Text>
+                  <XStack gap="$2">
+                    <Pressable onPress={() => onEyesSourceChange('iphone')} style={{ flex: 1 }}>
+                      <YStack
+                        borderWidth={1}
+                        borderColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                        borderRadius="$4"
+                        minHeight={58}
+                        justifyContent="center"
+                        paddingHorizontal="$3"
+                        paddingVertical="$2.5"
+                        backgroundColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                      >
+                        <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                          iPhone Camera
+                        </Text>
+                      </YStack>
+                    </Pressable>
+                    <Pressable
+                      disabled={!metaGlassesAvailable}
+                      onPress={() => onEyesSourceChange('meta_glasses')}
+                      style={{ flex: 1, opacity: metaGlassesAvailable ? 1 : 0.55 }}
+                    >
+                      <YStack
+                        borderWidth={1}
+                        borderColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                        borderRadius="$4"
+                        minHeight={58}
+                        justifyContent="center"
+                        paddingHorizontal="$3"
+                        paddingVertical="$2.5"
+                        backgroundColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                      >
+                        <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                          Meta Glasses
+                        </Text>
+                      </YStack>
+                    </Pressable>
+                  </XStack>
+                  {!metaGlassesAvailable ? (
+                    <Text color="rgba(243,239,231,0.62)" fontSize="$2">
+                      {metaGlassesReason || 'Meta glasses unavailable on this build.'}
+                    </Text>
+                  ) : null}
+                </YStack>
+              ) : null}
+
+              <YStack gap="$2">
+                <Text color="rgba(243,239,231,0.72)" fontSize="$2">
+                  Live HUD: {hudStatusLabel}
+                </Text>
+              </YStack>
+            </YStack>
+
+            <YStack width={260} height={260} alignItems="center" justifyContent="center">
+              <AnimatedYStack
+                width={260}
+                height={260}
+                position="absolute"
+                alignItems="center"
+                justifyContent="center"
+                style={particlesStyle}
+              >
+                <Circle size={9} backgroundColor="rgba(229, 149, 78, 0.4)" position="absolute" top={22} left={126} />
+                <Circle size={7} backgroundColor="rgba(229, 149, 78, 0.34)" position="absolute" top={52} right={48} />
+                <Circle size={6} backgroundColor="rgba(229, 149, 78, 0.3)" position="absolute" top={126} right={24} />
+                <Circle size={8} backgroundColor="rgba(229, 149, 78, 0.34)" position="absolute" bottom={50} right={48} />
+                <Circle size={7} backgroundColor="rgba(229, 149, 78, 0.3)" position="absolute" bottom={22} left={126} />
+                <Circle size={8} backgroundColor="rgba(229, 149, 78, 0.34)" position="absolute" top={126} left={24} />
+                <Circle size={6} backgroundColor="rgba(229, 149, 78, 0.24)" position="absolute" top={52} left={48} />
+              </AnimatedYStack>
+
+              <Pressable onPress={handleOrbPress}>
+                <AnimatedCircle
+                  size={166}
+                  backgroundColor={orbState.background}
+                  borderWidth={1}
+                  borderColor={orbState.border}
+                  alignItems="center"
+                  justifyContent="center"
+                  style={orbStyle}
+                >
+                  <Circle
+                    size={74}
+                    backgroundColor={orbState.core}
+                    borderWidth={1}
+                    borderColor={orbState.border}
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                      {orbState.label}
+                    </Text>
+                  </Circle>
+                </AnimatedCircle>
+              </Pressable>
+            </YStack>
 
             <Text color="#f3efe7" fontSize="$5" fontWeight="600">
               {agentName}
@@ -165,40 +387,35 @@ export function VoiceModeModal({
               {statusText}
             </Text>
 
-            <VoiceRecorder
-              ref={(instance) => {
-                recorderRef.current = instance;
-              }}
-              onRecordingComplete={onRecordingComplete}
-              onAudioFrame={onAudioFrame}
-              streamWhileRecording={liveDuplexEnabled}
-              frameDurationMs={720}
-              isTranscribing={isTranscribing}
-              size={78}
-              iconSize={30}
-              onRecordingStateChange={setIsRecording}
-              maxDurationMs={liveDuplexEnabled ? undefined : 2800}
-            />
+            {conversationStarted ? (
+              <YStack width={1} height={1} opacity={0} overflow="hidden" pointerEvents="none">
+                <VoiceRecorder
+                  ref={(instance) => {
+                    recorderRef.current = instance;
+                  }}
+                  onRecordingComplete={onRecordingComplete}
+                  onAudioFrame={onAudioFrame}
+                  onUserStopRecording={() => {
+                    // Keep conversation session active after manual stop so
+                    // triggered assistant replies can synthesize/play before teardown.
+                  }}
+                  streamWhileRecording={liveDuplexEnabled}
+                  frameDurationMs={LIVE_DUPLEX_FRAME_DURATION_MS}
+                  isTranscribing={isTranscribing}
+                  size={1}
+                  iconSize={0}
+                  onRecordingStateChange={setIsRecording}
+                  maxDurationMs={liveDuplexEnabled ? undefined : 2800}
+                />
+              </YStack>
+            ) : null}
+            {startError ? (
+              <Text color="#fca5a5" fontSize="$2">
+                {startError}
+              </Text>
+            ) : null}
           </YStack>
 
-          <YStack gap="$2">
-            <YStack borderWidth={1} borderColor="rgba(255,255,255,0.12)" borderRadius="$4" padding="$3">
-              <Text color="rgba(243,239,231,0.6)" fontSize="$2">
-                You
-              </Text>
-              <Text color="#f3efe7" numberOfLines={2}>
-                {partialTranscript || latestUserMessage || '...'}
-              </Text>
-            </YStack>
-            <YStack borderWidth={1} borderColor="rgba(229,149,78,0.34)" borderRadius="$4" padding="$3">
-              <Text color="rgba(243,239,231,0.6)" fontSize="$2">
-                {agentName}
-              </Text>
-              <Text color="#f3efe7" numberOfLines={3}>
-                {latestAssistantMessage || '...'}
-              </Text>
-            </YStack>
-          </YStack>
         </YStack>
       </SafeAreaView>
     </Modal>

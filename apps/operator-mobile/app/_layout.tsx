@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts, Jost_400Regular, Jost_500Medium, Jost_600SemiBold, Jost_700Bold, Jost_800ExtraBold } from '@expo-google-fonts/jost';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider, Theme } from 'tamagui';
@@ -22,6 +23,13 @@ configureGoogleSignIn();
 function RootLayoutContent() {
   const { resolvedTheme } = useAppPreferences();
   const [isReady, setIsReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    Jost_400Regular,
+    Jost_500Medium,
+    Jost_600SemiBold,
+    Jost_700Bold,
+    Jost_800ExtraBold,
+  });
 
   useEffect(() => {
     // Initialize app state before revealing the root view.
@@ -38,7 +46,7 @@ function RootLayoutContent() {
     }
   }, [isReady]);
 
-  if (!isReady) {
+  if (!isReady || !fontsLoaded) {
     return null;
   }
 

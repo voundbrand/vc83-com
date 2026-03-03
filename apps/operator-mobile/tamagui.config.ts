@@ -1,5 +1,4 @@
-import { createTamagui } from 'tamagui';
-import { createInterFont } from '@tamagui/font-inter';
+import { createFont, createTamagui } from 'tamagui';
 import { shorthands } from '@tamagui/shorthands';
 import { themes, tokens } from '@tamagui/themes';
 import { createMedia } from '@tamagui/react-native-media-driver';
@@ -42,7 +41,8 @@ const animations = createAnimations({
   },
 });
 
-const headingFont = createInterFont({
+const headingFont = createFont({
+  family: 'Jost_700Bold',
   size: {
     1: 12,
     2: 14,
@@ -74,31 +74,54 @@ const headingFont = createInterFont({
     6: -1,
     7: -1.5,
   },
+  face: {
+    400: { normal: 'Jost_400Regular' },
+    500: { normal: 'Jost_500Medium' },
+    600: { normal: 'Jost_600SemiBold' },
+    700: { normal: 'Jost_700Bold' },
+    800: { normal: 'Jost_800ExtraBold' },
+  },
 });
 
-const bodyFont = createInterFont(
-  {
-    size: {
-      1: 11,
-      2: 12,
-      3: 13,
-      4: 14,
-      5: 15,
-      6: 16,
-      7: 18,
-      8: 20,
-      9: 22,
-      10: 24,
-    },
-    weight: {
-      1: '400',
-      2: '500',
-      3: '600',
-      4: '700',
-    },
+const bodyFont = createFont({
+  family: 'Jost_400Regular',
+  size: {
+    1: 11,
+    2: 12,
+    3: 13,
+    4: 14,
+    5: 15,
+    6: 16,
+    7: 18,
+    8: 20,
+    9: 22,
+    10: 24,
   },
-  { sizeLineHeight: (size) => size + 8 }
-);
+  lineHeight: {
+    1: 19,
+    2: 20,
+    3: 21,
+    4: 22,
+    5: 23,
+    6: 24,
+    7: 26,
+    8: 28,
+    9: 30,
+    10: 32,
+  },
+  weight: {
+    1: '400',
+    2: '500',
+    3: '600',
+    4: '700',
+  },
+  face: {
+    400: { normal: 'Jost_400Regular' },
+    500: { normal: 'Jost_500Medium' },
+    600: { normal: 'Jost_600SemiBold' },
+    700: { normal: 'Jost_700Bold' },
+  },
+});
 
 // Mirrors the main app token contract (Midnight + Daylight)
 const glassColors = {

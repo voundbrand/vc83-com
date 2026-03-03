@@ -10,6 +10,13 @@ import * as SecureStore from 'expo-secure-store';
 
 const SESSION_KEY = 'l4yercak3_session';
 
+export type OperatorVoiceCatalogEntry = {
+  id: string;
+  name: string;
+  labels?: Record<string, string>;
+  previewUrl?: string;
+};
+
 class L4yercak3APIClient {
   private baseUrl: string;
   private sessionId: string | null = null;
@@ -132,13 +139,16 @@ class L4yercak3APIClient {
       ...options,
       headers,
     });
-
-    const data = await response.json();
+    const rawBody = await response.text();
+    const data = this.parseJsonResponse(rawBody);
+    const textSnippet =
+      rawBody.length > 0 ? rawBody.slice(0, 240).replace(/\s+/g, " ").trim() : "";
 
     if (!response.ok) {
       const errorMessage =
         (typeof data?.error === 'string' && data.error) ||
         (typeof data?.message === 'string' && data.message) ||
+        textSnippet ||
         `Request failed: ${response.status}`;
 
       // Common after switching environments: stale session tokens keep failing every request.
@@ -155,7 +165,24 @@ class L4yercak3APIClient {
       throw new Error(errorMessage);
     }
 
+    if (rawBody.length > 0 && data === null) {
+      throw new Error(
+        `Expected JSON response from ${endpoint}, received non-JSON payload: ${textSnippet || "<empty>"}`
+      );
+    }
+
     return data as T;
+  }
+
+  private parseJsonResponse(rawBody: string): Record<string, unknown> | null {
+    if (rawBody.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(rawBody) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -518,13 +545,42 @@ class L4yercak3APIClient {
     },
 
     voice: {
+      listCatalog: async () => {
+        return this.request<{
+          success: boolean;
+          voices: OperatorVoiceCatalogEntry[];
+          selectedVoiceId: string | null;
+          provider: 'elevenlabs';
+          providerStatus: 'healthy' | 'degraded';
+          warning?: string;
+        }>('/api/v1/ai/voice/catalog');
+      },
+
+      updatePreferences: async (data: { agentVoiceId: string | null }) => {
+        return this.request<{
+          success: boolean;
+          agentVoiceId: string | null;
+          provider: 'elevenlabs';
+        }>('/api/v1/ai/voice/preferences', {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
       resolveSession: async (data: {
         conversationId?: string;
+        liveSessionId?: string;
+        sourceMode?: string;
+        voiceRuntime?: Record<string, unknown>;
       }) => {
         return this.request<{
           success: boolean;
           conversationId: string;
           interviewSessionId: string;
+          sessionOpenAttestationProof?: {
+            token: string;
+            expiresAt: number;
+          } | null;
         }>('/api/v1/ai/voice/session/resolve', {
           method: 'POST',
           body: JSON.stringify(data),
@@ -537,6 +593,12 @@ class L4yercak3APIClient {
         requestedProviderId?: 'browser' | 'elevenlabs';
         requestedVoiceId?: string;
         voiceSessionId?: string;
+        liveSessionId?: string;
+        sourceMode?: string;
+        voiceRuntime?: Record<string, unknown>;
+        transportRuntime?: Record<string, unknown>;
+        avObservability?: Record<string, unknown>;
+        attestationProofToken?: string;
       }) => {
         return this.request<{
           success: boolean;
@@ -602,6 +664,48 @@ class L4yercak3APIClient {
         });
       },
 
+      ingestVoiceFrame: async (data: {
+        conversationId?: string;
+        interviewSessionId?: string;
+        requestedProviderId?: 'browser' | 'elevenlabs';
+        conversationRuntime?: Record<string, unknown>;
+        voiceRuntime?: Record<string, unknown>;
+        transportRuntime?: Record<string, unknown>;
+        avObservability?: Record<string, unknown>;
+        envelope: Record<string, unknown>;
+      }) => {
+        return this.request<{
+          success: boolean;
+          conversationId?: string;
+          interviewSessionId?: string;
+          idempotent?: boolean;
+          persistedFinalTranscript?: boolean;
+          ordering?: {
+            decision: 'accepted' | 'duplicate_replay' | 'gap_detected';
+            expectedSequence: number;
+            lastAcceptedSequence: number;
+          };
+          relayEvents?: Array<Record<string, unknown>>;
+          orchestration?: {
+            shouldTriggerAssistantTurn: boolean;
+            interrupted: boolean;
+            reason: string;
+            transcriptText?: string | null;
+            turn?: {
+              status: 'triggered' | 'suppressed' | 'failed';
+              reason: string;
+              transcriptText?: string;
+              assistantText?: string;
+              conversationId?: string;
+              toolCallCount?: number;
+            };
+          };
+        }>('/api/v1/ai/voice/audio/frame', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
       synthesize: async (data: {
         conversationId?: string;
         interviewSessionId?: string;
@@ -624,6 +728,40 @@ class L4yercak3APIClient {
           conversationId?: string;
           interviewSessionId?: string;
         }>('/api/v1/ai/voice/synthesize', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      ingestVideoFrame: async (data: {
+        conversationId?: string;
+        interviewSessionId?: string;
+        mediaSessionEnvelope: Record<string, unknown>;
+        maxFramesPerWindow?: number;
+        windowMs?: number;
+      }) => {
+        return this.request<{
+          success: boolean;
+          conversationId?: string;
+          interviewSessionId?: string;
+          liveSessionId: string;
+          videoSessionId: string;
+          ordering?: {
+            decision: 'accepted' | 'duplicate_replay' | 'gap_detected' | 'rate_limited';
+            expectedSequence: number;
+            receivedSequence: number;
+            lastAcceptedSequence: number;
+          };
+          rateControl?: {
+            frameCountInWindow: number;
+            windowStartMs: number;
+            retryAfterMs: number;
+          };
+          relay?: {
+            accepted: boolean;
+            reason: string;
+          };
+        }>('/api/v1/ai/voice/video/frame', {
           method: 'POST',
           body: JSON.stringify(data),
         });

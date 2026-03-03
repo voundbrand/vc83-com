@@ -64,6 +64,18 @@ This verifies:
 - Type safety for `apps/operator-mobile`.
 - iOS icon readiness: both required 1024x1024 icons exist and have no alpha channel.
 
+## Lane-K fail-closed readiness gate (`LOC-044`)
+
+Before any live Option A rehearsal/signoff claim, require the `LOC-044` sanity ledger to be current and explicit:
+
+- `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover/IPHONE_GTM_CI_IMPLEMENTATION.md`
+
+Fail closed rule:
+
+- if any ledger row is `NO_GO`, stage status remains `NO_GO`,
+- each `NO_GO` must include file-level evidence, owner, and unblock date,
+- only `LOC-045` can close or carry forward these drifts.
+
 ### Fast path (build + submit)
 
 ```bash

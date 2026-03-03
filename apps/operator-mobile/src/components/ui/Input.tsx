@@ -85,7 +85,9 @@ type InputProps = GetProps<typeof StyledInput> & {
   rightIcon?: React.ReactNode;
 };
 
-export const Input = React.forwardRef<any, InputProps>(function Input(
+type InputRef = React.ElementRef<typeof TamaguiInput>;
+
+export const Input = React.forwardRef<InputRef, InputProps>(function Input(
   {
     label,
     error,
@@ -129,7 +131,7 @@ type PasswordInputProps = Omit<InputProps, 'secureTextEntry' | 'rightIcon'> & {
   disableStrongPasswordAssist?: boolean;
 };
 
-export const PasswordInput = React.forwardRef<any, PasswordInputProps>(function PasswordInput(
+export const PasswordInput = React.forwardRef<InputRef, PasswordInputProps>(function PasswordInput(
   { disableStrongPasswordAssist, ...props },
   ref
 ) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable } from 'react-native';
+import { Alert, Modal, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -56,47 +56,109 @@ type AttachmentType = {
   uri: string;
   name?: string;
   mimeType?: string;
+  width?: number;
+  height?: number;
 };
 
 type AttachmentMenuProps = {
   onAttach: (attachment: AttachmentType) => void;
   onWebSearch?: () => void;
   onResearchMode?: () => void;
+  metaVisionConfigured?: boolean;
+  onSelectMetaVisionSource?: () => void;
 };
 
-export function AttachmentMenu({ onAttach, onWebSearch, onResearchMode }: AttachmentMenuProps) {
+export function AttachmentMenu({
+  onAttach,
+  onWebSearch,
+  onResearchMode,
+  metaVisionConfigured = false,
+  onSelectMetaVisionSource,
+}: AttachmentMenuProps) {
   const { t } = useAppPreferences();
   const [isOpen, setIsOpen] = useState(false);
 
+  const showPermissionAlert = (title: string, body: string) => {
+    Alert.alert(title, body);
+  };
+
   const handleCamera = async () => {
+    setIsOpen(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
+      showPermissionAlert(
+        t('attachment.camera'),
+        'Camera permission is required to capture vision input.'
+      );
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-      allowsEditing: true,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      onAttach({
-        type: 'image',
-        uri: result.assets[0].uri,
-        mimeType: result.assets[0].mimeType,
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: true,
       });
+
+      if (!result.canceled && result.assets[0]) {
+        onAttach({
+          type: 'image',
+          uri: result.assets[0].uri,
+          mimeType: result.assets[0].mimeType,
+          width: result.assets[0].width,
+          height: result.assets[0].height,
+        });
+      }
+    } catch (error) {
+      showPermissionAlert(
+        t('attachment.vision'),
+        error instanceof Error ? error.message : 'Failed to open camera.'
+      );
     }
-    setIsOpen(false);
   };
 
   const handleVision = async () => {
+    if (metaVisionConfigured && onSelectMetaVisionSource) {
+      Alert.alert(
+        t('attachment.vision'),
+        'Choose vision source',
+        [
+          {
+            text: 'iPhone camera',
+            onPress: () => {
+              void handleCamera();
+            },
+          },
+          {
+            text: 'Meta glasses',
+            onPress: () => {
+              onSelectMetaVisionSource();
+              setIsOpen(false);
+            },
+          },
+          {
+            text: t('common.cancel'),
+            style: 'cancel',
+            onPress: () => {
+              setIsOpen(false);
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
     await handleCamera();
   };
 
   const handlePhotos = async () => {
+    setIsOpen(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
+      showPermissionAlert(
+        t('attachment.photos'),
+        'Photos permission is required to choose an image.'
+      );
       return;
     }
 
@@ -111,12 +173,14 @@ export function AttachmentMenu({ onAttach, onWebSearch, onResearchMode }: Attach
         type: 'image',
         uri: result.assets[0].uri,
         mimeType: result.assets[0].mimeType,
+        width: result.assets[0].width,
+        height: result.assets[0].height,
       });
     }
-    setIsOpen(false);
   };
 
   const handleFiles = async () => {
+    setIsOpen(false);
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: true,
@@ -130,7 +194,6 @@ export function AttachmentMenu({ onAttach, onWebSearch, onResearchMode }: Attach
         mimeType: result.assets[0].mimeType,
       });
     }
-    setIsOpen(false);
   };
 
   const handleWebSearch = () => {

@@ -25,6 +25,7 @@ export function buildVoiceTransportRuntime(args: {
   activeSession?: VoiceTransportRuntimeSession | null;
   isRealtimeConnected: boolean;
   partialTranscript?: string;
+  telemetry?: Record<string, unknown>;
 }): Record<string, unknown> {
   return {
     mode: args.selection.effectiveMode,
@@ -38,6 +39,7 @@ export function buildVoiceTransportRuntime(args: {
     voiceSessionId: args.activeSession?.voiceSessionId,
     sessionState: args.activeSession ? 'open' : 'idle',
     partialTranscript: args.partialTranscript || undefined,
+    telemetry: args.telemetry || undefined,
   };
 }
 

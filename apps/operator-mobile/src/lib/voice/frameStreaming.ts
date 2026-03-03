@@ -16,6 +16,7 @@ export type VoiceAudioFrameEnvelope = {
     channels: number;
     frameDurationMs: number;
   };
+  transcriptionMimeType?: string;
   audioChunkBase64: string;
   transcriptText?: string;
 };
@@ -27,11 +28,13 @@ export function buildVoiceAudioFrameEnvelope(args: {
   sequence: number;
   audioChunkBase64: string;
   frameDurationMs: number;
+  transcriptionMimeType?: string;
   transcriptText?: string;
+  transportMode?: 'webrtc' | 'websocket';
 }): VoiceAudioFrameEnvelope {
   return {
     contractVersion: 'voice_transport_v1',
-    transportMode: 'websocket',
+    transportMode: args.transportMode === 'webrtc' ? 'webrtc' : 'websocket',
     eventType: 'audio_chunk',
     liveSessionId: args.liveSessionId,
     voiceSessionId: args.voiceSessionId,
@@ -45,6 +48,7 @@ export function buildVoiceAudioFrameEnvelope(args: {
       channels: 1,
       frameDurationMs: Math.max(20, Math.floor(args.frameDurationMs || 20)),
     },
+    transcriptionMimeType: args.transcriptionMimeType?.trim() || undefined,
     audioChunkBase64: args.audioChunkBase64,
     transcriptText: args.transcriptText?.trim() || undefined,
   };
@@ -75,11 +79,12 @@ export function mergeTranscriptFrame(
 export function resolveFrameStreamingPolicy(args: {
   transportMode: EffectiveVoiceTransportMode;
   isRealtimeConnected: boolean;
+  isFinalFrame: boolean;
 }) {
   if (args.transportMode === 'websocket' && args.isRealtimeConnected) {
     return {
       shouldSendRealtimeEnvelope: true,
-      shouldUseHttpTranscription: true,
+      shouldUseHttpTranscription: args.isFinalFrame,
     };
   }
   if (args.transportMode === 'webrtc') {
@@ -94,12 +99,12 @@ export function resolveFrameStreamingPolicy(args: {
   };
 }
 
-export function createDeterministicFrameQueue<TArgs>(
-  handler: (args: TArgs) => Promise<void>
+export function createDeterministicFrameQueue<TArgs, TResult = void>(
+  handler: (args: TArgs) => Promise<TResult>
 ) {
-  let chain: Promise<void> = Promise.resolve();
+  let chain: Promise<unknown> = Promise.resolve();
   return (args: TArgs) => {
-    const task = chain.then(() => handler(args));
+    const task = chain.then(() => handler(args)) as Promise<TResult>;
     chain = task.catch(() => undefined);
     return task;
   };

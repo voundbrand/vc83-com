@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Hourglass } from '@tamagui/lucide-icons';
+import { useRouter } from 'expo-router';
 import { Text, YStack } from 'tamagui';
 
 import { useAuth } from '../../src/hooks/useAuth';
@@ -9,9 +10,11 @@ import { useAppPreferences } from '../../src/contexts/AppPreferencesContext';
 import { Button } from '../../src/components/ui';
 
 export default function PendingApprovalScreen() {
+  const router = useRouter();
   const { user, signOut, refreshUser } = useAuth();
   const { t, resolvedTheme } = useAppPreferences();
   const [isChecking, setIsChecking] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const isStillPending = user?.betaAccessStatus === 'pending';
 
@@ -30,6 +33,19 @@ export default function PendingApprovalScreen() {
       setLastCheckedAt(Date.now());
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) {
+      return;
+    }
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      router.replace('/(auth)/sign-in');
+      setIsSigningOut(false);
     }
   };
 
@@ -87,7 +103,15 @@ export default function PendingApprovalScreen() {
           >
             Check approval status
           </Button>
-          <Button variant="secondary" onPress={signOut} fullWidth>
+          <Button
+            variant="secondary"
+            onPress={() => {
+              void handleSignOut();
+            }}
+            loading={isSigningOut}
+            loadingText={t('pending.signOut')}
+            fullWidth
+          >
             {t('pending.signOut')}
           </Button>
         </YStack>

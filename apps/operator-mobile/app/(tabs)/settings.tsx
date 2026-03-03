@@ -1,10 +1,22 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, TextInput } from 'react-native';
 import Constants from 'expo-constants';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronLeft, Languages, LogOut, Moon, Palette, Sun, UserRound } from '@tamagui/lucide-icons';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  Languages,
+  LogOut,
+  Moon,
+  Palette,
+  Sun,
+  UserRound,
+} from '@tamagui/lucide-icons';
 import { Circle, Switch, Text, XStack, YStack } from 'tamagui';
 
 import { useAuth } from '../../src/hooks/useAuth';
@@ -13,6 +25,12 @@ import {
   LanguagePreference,
   useAppPreferences,
 } from '../../src/contexts/AppPreferencesContext';
+import { l4yercak3Client, type OperatorVoiceCatalogEntry } from '../../src/api/client';
+import {
+  createDefaultMetaBridgeSnapshot,
+  type MetaBridgeSnapshot,
+} from '../../src/lib/av/metaBridge-contracts';
+import { metaBridge } from '../../src/lib/av/metaBridge';
 
 function OptionRow({
   label,
@@ -58,21 +76,27 @@ export default function SettingsScreen() {
     appearancePreference,
     languagePreference,
     agentName,
-    agentAvatar,
     agentVoiceId,
     autoSpeakReplies,
     setAppearancePreference,
     setLanguagePreference,
     setAgentName,
-    setAgentAvatar,
     setAgentVoiceId,
     setAutoSpeakReplies,
   } = useAppPreferences();
   const [agentNameDraft, setAgentNameDraft] = useState(agentName);
-  const [availableVoices, setAvailableVoices] = useState<Speech.Voice[]>([]);
+  const [availableVoices, setAvailableVoices] = useState<OperatorVoiceCatalogEntry[]>([]);
+  const [isVoiceAccordionOpen, setIsVoiceAccordionOpen] = useState(false);
+  const [isVoiceLoading, setIsVoiceLoading] = useState(false);
   const [voiceLoadError, setVoiceLoadError] = useState<string | null>(null);
-
-  const avatarOptions = useMemo(() => ['✨', '🧠', '🎯', '🚀', '🎙️', '💼'], []);
+  const [voicePreferenceError, setVoicePreferenceError] = useState<string | null>(null);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const [isPreviewingVoiceId, setIsPreviewingVoiceId] = useState<string | null>(null);
+  const [metaBridgeStatus, setMetaBridgeStatus] = useState<MetaBridgeSnapshot>(
+    createDefaultMetaBridgeSnapshot()
+  );
+  const previewPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const hydratedVoiceFromBackendRef = useRef(false);
 
   const handleSignOut = () => {
     Alert.alert(t('settings.signOutTitle'), t('settings.signOutConfirm'), [
@@ -122,19 +146,22 @@ export default function SettingsScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setIsVoiceLoading(true);
       try {
-        const voices = await Speech.getAvailableVoicesAsync();
-        if (!cancelled) {
-          setAvailableVoices(
-            voices
-              .filter((voice) => typeof voice.identifier === 'string' && voice.identifier.length > 0)
-              .slice(0, 24)
-          );
-          setVoiceLoadError(null);
+        const response = await l4yercak3Client.ai.voice.listCatalog();
+        if (cancelled) return;
+        setAvailableVoices(response.voices || []);
+        if (!hydratedVoiceFromBackendRef.current && agentVoiceId === null && response.selectedVoiceId) {
+          hydratedVoiceFromBackendRef.current = true;
+          setAgentVoiceId(response.selectedVoiceId);
         }
+        setVoiceLoadError(response.warning || null);
       } catch (error) {
+        if (cancelled) return;
+        setVoiceLoadError(error instanceof Error ? error.message : 'voice_load_failed');
+      } finally {
         if (!cancelled) {
-          setVoiceLoadError(error instanceof Error ? error.message : 'voice_load_failed');
+          setIsVoiceLoading(false);
         }
       }
     })();
@@ -142,7 +169,164 @@ export default function SettingsScreen() {
     return () => {
       cancelled = true;
     };
+  }, [agentVoiceId, setAgentVoiceId]);
+
+  useEffect(() => {
+    const unsubscribe = metaBridge.subscribe((snapshot) => {
+      setMetaBridgeStatus(snapshot);
+    });
+    void (async () => {
+      const status = await metaBridge.getStatus();
+      setMetaBridgeStatus(status);
+    })();
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  const handleConnectMetaBridge = useCallback(async () => {
+    const status = await metaBridge.connect();
+    setMetaBridgeStatus(status);
+  }, []);
+
+  const handleDisconnectMetaBridge = useCallback(async () => {
+    const status = await metaBridge.disconnect();
+    setMetaBridgeStatus(status);
+  }, []);
+  const stopPreviewPlayback = useCallback(() => {
+    const player = previewPlayerRef.current;
+    previewPlayerRef.current = null;
+    if (!player) return;
+    try {
+      player.pause();
+    } catch {
+      // Ignore preview pause errors.
+    }
+    try {
+      player.release();
+    } catch {
+      // Ignore preview release errors.
+    }
+  }, []);
+  const persistVoicePreference = useCallback(async (nextVoiceId: string | null) => {
+    setVoicePreferenceError(null);
+    try {
+      await l4yercak3Client.ai.voice.updatePreferences({
+        agentVoiceId: nextVoiceId,
+      });
+    } catch (error) {
+      setVoicePreferenceError(
+        error instanceof Error ? error.message : 'Failed to sync operator voice preference.'
+      );
+    }
+  }, []);
+  const previewVoice = useCallback(async (voice: OperatorVoiceCatalogEntry) => {
+    setVoicePreviewError(null);
+    setIsPreviewingVoiceId(voice.id);
+    stopPreviewPlayback();
+
+    const previewText = `hello this is ${voice.name} of voice`;
+    let openedSession:
+      | {
+          conversationId?: string;
+          interviewSessionId: string;
+          voiceSessionId: string;
+          providerId: 'browser' | 'elevenlabs';
+        }
+      | null = null;
+
+    try {
+      const resolved = await l4yercak3Client.ai.voice.resolveSession({});
+      const opened = await l4yercak3Client.ai.voice.openSession({
+        conversationId: resolved.conversationId,
+        interviewSessionId: resolved.interviewSessionId,
+        requestedProviderId: 'elevenlabs',
+        requestedVoiceId: voice.id,
+      });
+
+      if (!opened.success) {
+        throw new Error(opened.error || 'Failed to open ElevenLabs preview session.');
+      }
+
+      openedSession = {
+        conversationId: opened.conversationId,
+        interviewSessionId: opened.interviewSessionId,
+        voiceSessionId: opened.voiceSessionId,
+        providerId: opened.providerId,
+      };
+
+      const synthesis = await l4yercak3Client.ai.voice.synthesize({
+        conversationId: opened.conversationId,
+        interviewSessionId: opened.interviewSessionId,
+        voiceSessionId: opened.voiceSessionId,
+        text: previewText,
+        requestedProviderId: 'elevenlabs',
+        requestedVoiceId: voice.id,
+      });
+
+      if (!synthesis.success) {
+        throw new Error(synthesis.error || 'Voice preview failed.');
+      }
+      if (synthesis.providerId !== 'elevenlabs') {
+        throw new Error('ElevenLabs preview unavailable: provider fallback in effect.');
+      }
+      if (!synthesis.audioBase64 || !synthesis.mimeType) {
+        throw new Error('ElevenLabs preview returned no playable audio.');
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+      const player = createAudioPlayer({
+        uri: `data:${synthesis.mimeType};base64,${synthesis.audioBase64}`,
+      });
+      player.volume = 1;
+      previewPlayerRef.current = player;
+      player.play();
+    } catch (error) {
+      Speech.stop();
+      Speech.speak(previewText);
+      setVoicePreviewError(
+        error instanceof Error ? error.message : 'Failed to preview selected voice.'
+      );
+    } finally {
+      if (openedSession) {
+        try {
+          await l4yercak3Client.ai.voice.closeSession({
+            conversationId: openedSession.conversationId,
+            interviewSessionId: openedSession.interviewSessionId,
+            voiceSessionId: openedSession.voiceSessionId,
+            activeProviderId: openedSession.providerId,
+            reason: 'settings_voice_preview',
+          });
+        } catch (error) {
+          console.warn('Failed to close voice preview session:', error);
+        }
+      }
+      setIsPreviewingVoiceId(null);
+    }
+  }, [stopPreviewPlayback]);
+  useEffect(() => {
+    return () => {
+      stopPreviewPlayback();
+    };
+  }, [stopPreviewPlayback]);
+  const selectedVoice =
+    agentVoiceId === null ? null : availableVoices.find((voice) => voice.id === agentVoiceId) || null;
+  const selectedVoiceLabel =
+    selectedVoice?.name || (agentVoiceId ? `Operator voice (${agentVoiceId})` : 'One-of-One default (ElevenLabs)');
+  const isDatSdkAvailable = metaBridgeStatus.datSdkAvailable;
+  const bridgeFailureLabel = (() => {
+    const reasonCode = metaBridgeStatus.failure?.reasonCode;
+    if (!reasonCode) {
+      return null;
+    }
+    if (reasonCode === 'dat_sdk_unavailable') {
+      return 'DAT SDK is unavailable in this build (expected on simulator and non-DAT targets).';
+    }
+    return reasonCode;
+  })();
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
@@ -234,49 +418,81 @@ export default function SettingsScreen() {
 
                 <YStack gap="$2">
                   <Text color="$colorSecondary" fontSize="$3">
-                    {t('settings.agentAvatar')}
-                  </Text>
-                  <XStack flexWrap="wrap" gap="$2">
-                    {avatarOptions.map((option) => (
-                      <Pressable key={option} onPress={() => setAgentAvatar(option)}>
-                        <Circle
-                          size={40}
-                          backgroundColor={agentAvatar === option ? '$primary' : '$glass'}
-                          borderWidth={1}
-                          borderColor={agentAvatar === option ? '$primary' : '$glassBorder'}
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <Text fontSize="$5" color={agentAvatar === option ? 'white' : '$color'}>
-                            {option}
-                          </Text>
-                        </Circle>
-                      </Pressable>
-                    ))}
-                  </XStack>
-                </YStack>
-
-                <YStack gap="$2">
-                  <Text color="$colorSecondary" fontSize="$3">
                     {t('settings.agentVoice')}
                   </Text>
-                  <OptionRow
-                    label={t('common.system')}
-                    selected={agentVoiceId === null}
-                    onPress={() => setAgentVoiceId(null)}
-                  />
-                  {availableVoices.map((voice) => (
-                    <OptionRow
-                      key={voice.identifier}
-                      label={voice.name || voice.identifier}
-                      selected={agentVoiceId === voice.identifier}
-                      onPress={() => setAgentVoiceId(voice.identifier)}
-                    />
-                  ))}
-                  {voiceLoadError ? (
-                    <Text color="$error" fontSize="$2">
-                      {voiceLoadError}
-                    </Text>
+                  <Pressable onPress={() => setIsVoiceAccordionOpen((open) => !open)}>
+                    <XStack
+                      alignItems="center"
+                      justifyContent="space-between"
+                      paddingHorizontal="$4"
+                      paddingVertical="$3"
+                      borderRadius="$3"
+                      borderWidth={1}
+                      borderColor="$borderColor"
+                    >
+                      <YStack flex={1} gap="$1">
+                        <Text color="$color" fontSize="$4" fontWeight="600" numberOfLines={1}>
+                          {selectedVoiceLabel}
+                        </Text>
+                        <Text color="$colorTertiary" fontSize="$2">
+                          One-of-One operator voice. Tap a voice to hear: hello this is [name] of voice
+                        </Text>
+                      </YStack>
+                      {isVoiceAccordionOpen ? (
+                        <ChevronUp size={18} color="$colorTertiary" />
+                      ) : (
+                        <ChevronDown size={18} color="$colorTertiary" />
+                      )}
+                    </XStack>
+                  </Pressable>
+                  {isVoiceAccordionOpen ? (
+                    <YStack gap="$1" paddingTop="$1">
+                      <OptionRow
+                        label="One-of-One default (ElevenLabs)"
+                        selected={agentVoiceId === null}
+                        onPress={() => {
+                          setAgentVoiceId(null);
+                          void persistVoicePreference(null);
+                        }}
+                      />
+                      {isVoiceLoading ? (
+                        <Text color="$colorTertiary" fontSize="$2">
+                          Loading ElevenLabs voices...
+                        </Text>
+                      ) : null}
+                      {availableVoices.map((voice) => (
+                        <OptionRow
+                          key={voice.id}
+                          label={isPreviewingVoiceId === voice.id ? `${voice.name} (previewing...)` : voice.name}
+                          selected={agentVoiceId === voice.id}
+                          onPress={() => {
+                            setAgentVoiceId(voice.id);
+                            void persistVoicePreference(voice.id);
+                            void previewVoice(voice);
+                          }}
+                        />
+                      ))}
+                      {!isVoiceLoading && availableVoices.length === 0 && !voiceLoadError ? (
+                        <Text color="$colorTertiary" fontSize="$2">
+                          No ElevenLabs voices are available for this organization.
+                        </Text>
+                      ) : null}
+                      {voiceLoadError ? (
+                        <Text color="$error" fontSize="$2">
+                          {voiceLoadError}
+                        </Text>
+                      ) : null}
+                      {voicePreferenceError ? (
+                        <Text color="$error" fontSize="$2">
+                          {voicePreferenceError}
+                        </Text>
+                      ) : null}
+                      {voicePreviewError ? (
+                        <Text color="$error" fontSize="$2">
+                          {voicePreviewError}
+                        </Text>
+                      ) : null}
+                    </YStack>
                   ) : null}
                 </YStack>
 
@@ -323,6 +539,70 @@ export default function SettingsScreen() {
                 icon={<Sun size={18} color="$colorTertiary" />}
               />
             </YStack>
+            </YStack>
+
+            <YStack borderBottomWidth={1} borderColor="$borderColor" paddingHorizontal="$4" paddingVertical="$4" gap="$2">
+              <Text color="$colorTertiary" fontSize="$2" textTransform="uppercase" letterSpacing={0.8}>
+                Vision Source
+              </Text>
+              <Text color="$colorSecondary" fontSize="$3">
+                Native module: {metaBridge.isNativeAvailable() ? 'available' : 'not available'}
+              </Text>
+              <Text color="$colorSecondary" fontSize="$3">
+                DAT SDK: {isDatSdkAvailable ? 'available' : 'not available'}
+              </Text>
+              <Text color="$colorSecondary" fontSize="$3">
+                Bridge status: {metaBridgeStatus.connectionState}
+              </Text>
+              {metaBridgeStatus.activeDevice ? (
+                <Text color="$colorSecondary" fontSize="$3">
+                  Device: {metaBridgeStatus.activeDevice.deviceLabel} ({metaBridgeStatus.activeDevice.deviceId})
+                </Text>
+              ) : null}
+              {bridgeFailureLabel ? (
+                <Text color="$error" fontSize="$2">
+                  {bridgeFailureLabel}
+                </Text>
+              ) : null}
+              <XStack gap="$2" paddingTop="$2">
+                <Pressable
+                  disabled={!isDatSdkAvailable}
+                  onPress={() => {
+                    void handleConnectMetaBridge();
+                  }}
+                >
+                  <XStack
+                    backgroundColor="$glass"
+                    borderWidth={1}
+                    borderColor="$glassBorder"
+                    borderRadius="$3"
+                    paddingHorizontal="$3"
+                    paddingVertical="$2"
+                    opacity={isDatSdkAvailable ? 1 : 0.5}
+                  >
+                    <Text color="$color" fontSize="$3" fontWeight="600">
+                      Connect bridge
+                    </Text>
+                  </XStack>
+                </Pressable>
+                <Pressable onPress={() => { void handleDisconnectMetaBridge(); }}>
+                  <XStack
+                    backgroundColor="$glass"
+                    borderWidth={1}
+                    borderColor="$glassBorder"
+                    borderRadius="$3"
+                    paddingHorizontal="$3"
+                    paddingVertical="$2"
+                  >
+                    <Text color="$color" fontSize="$3" fontWeight="600">
+                      Disconnect bridge
+                    </Text>
+                  </XStack>
+                </Pressable>
+              </XStack>
+              <Text color="$colorTertiary" fontSize="$2">
+                In chat, use + then Vision to choose iPhone camera or Meta glasses.
+              </Text>
             </YStack>
 
             <YStack borderBottomWidth={1} borderColor="$borderColor" paddingVertical="$3">

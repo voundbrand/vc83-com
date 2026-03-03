@@ -10,10 +10,14 @@ private final class MetaDatRuntimeConnector {
   private var started = false
   private var activeDeviceTask: Task<Void, Never>?
   private var streamSession: StreamSession?
+  private var streamGeneration = 0
   private var stateListenerToken: AnyListenerToken?
   private var videoFrameListenerToken: AnyListenerToken?
+  private var audioIngressListenerToken: Any?
   private var errorListenerToken: AnyListenerToken?
-  private var audioFailurePublished = false
+  private var callbackHealthCheckTask: Task<Void, Never>?
+  private var didReceiveVideoIngress = false
+  private var didReceiveAudioIngress = false
 #endif
 
   func start() {
@@ -26,6 +30,7 @@ private final class MetaDatRuntimeConnector {
     do {
       try Wearables.configure()
     } catch {
+      started = false
       MetaGlassesBridgeRuntime.publishFailure(
         "dat_sdk_configure_failed",
         message: "Failed to configure DAT SDK: \(error.localizedDescription)",
@@ -66,6 +71,9 @@ private final class MetaDatRuntimeConnector {
     )
     let session = StreamSession(streamSessionConfig: sessionConfig, deviceSelector: selector)
     streamSession = session
+    streamGeneration += 1
+    didReceiveVideoIngress = false
+    didReceiveAudioIngress = false
 
     stateListenerToken = session.statePublisher.listen { state in
       switch state {
@@ -78,10 +86,27 @@ private final class MetaDatRuntimeConnector {
       }
     }
 
-    videoFrameListenerToken = session.videoFramePublisher.listen { _ in
+    videoFrameListenerToken = session.videoFramePublisher.listen { frame in
+      self.didReceiveVideoIngress = true
       MetaGlassesBridgeRuntime.publishFrameIngress(
-        NSNumber(value: Date().timeIntervalSince1970 * 1_000),
-        droppedFrames: NSNumber(value: 0)
+        NSNumber(value: self.resolveNormalizedTimestampMs(from: frame)),
+        droppedFrames: NSNumber(value: self.resolveDroppedFrames(from: frame))
+      )
+      MetaGlassesBridgeRuntime.publishCallbackSurfaceDiagnostics(
+        "video",
+        status: "healthy",
+        reasonCode: nil,
+        message: nil
+      )
+    }
+
+    audioIngressListenerToken = bindAudioIngressListener(session: session)
+    if audioIngressListenerToken == nil {
+      MetaGlassesBridgeRuntime.publishCallbackSurfaceDiagnostics(
+        "audio",
+        status: "unavailable",
+        reasonCode: "dat_audio_callback_surface_unavailable",
+        message: "StreamSession audio ingress callback surface is unavailable on this SDK build."
       )
     }
 
@@ -93,18 +118,32 @@ private final class MetaDatRuntimeConnector {
       )
     }
 
-    if !audioFailurePublished {
-      audioFailurePublished = true
-      // TODO(meta-dat-sdk): Bind DAT-native audio packet callbacks when SDK surface is available.
-      MetaGlassesBridgeRuntime.publishFailure(
-        "dat_audio_ingress_listener_unavailable",
-        message: "DAT video stream is connected but DAT audio packet listener is unavailable in this target.",
-        recoverable: NSNumber(booleanLiteral: true)
-      )
-    }
-
     Task {
       await session.start()
+    }
+
+    let generationAtStart = streamGeneration
+    callbackHealthCheckTask = Task { [weak self] in
+      try? await Task.sleep(nanoseconds: 5_000_000_000)
+      guard let self, self.started, self.streamGeneration == generationAtStart else {
+        return
+      }
+      if !self.didReceiveVideoIngress {
+        MetaGlassesBridgeRuntime.publishCallbackSurfaceDiagnostics(
+          "video",
+          status: "degraded",
+          reasonCode: "dat_video_callback_stalled",
+          message: "No DAT video ingress callbacks observed after stream start."
+        )
+      }
+      if self.audioIngressListenerToken != nil && !self.didReceiveAudioIngress {
+        MetaGlassesBridgeRuntime.publishCallbackSurfaceDiagnostics(
+          "audio",
+          status: "degraded",
+          reasonCode: "dat_audio_callback_stalled",
+          message: "No DAT audio ingress callbacks observed after stream start."
+        )
+      }
     }
 #endif
   }
@@ -115,11 +154,17 @@ private final class MetaDatRuntimeConnector {
       return
     }
     started = false
+    streamGeneration += 1
     activeDeviceTask?.cancel()
     activeDeviceTask = nil
+    callbackHealthCheckTask?.cancel()
+    callbackHealthCheckTask = nil
     stateListenerToken = nil
     videoFrameListenerToken = nil
+    audioIngressListenerToken = nil
     errorListenerToken = nil
+    didReceiveVideoIngress = false
+    didReceiveAudioIngress = false
     if let streamSession {
       Task {
         await streamSession.stop()
@@ -161,6 +206,207 @@ private final class MetaDatRuntimeConnector {
       return "dat_stream_unknown_error"
     }
   }
+
+  private func bindAudioIngressListener(session: StreamSession) -> Any? {
+    for publisher in resolveAudioIngressPublishers(session: session) {
+      if let token = bindGenericListener(
+        on: publisher,
+        handler: { payload in
+          self.didReceiveAudioIngress = true
+          MetaGlassesBridgeRuntime.publishAudioIngress(
+            NSNumber(value: self.resolveNormalizedTimestampMs(from: payload)),
+            sampleRate: NSNumber(value: self.resolveSampleRate(from: payload)),
+            packetDelta: NSNumber(value: self.resolvePacketDelta(from: payload))
+          )
+          MetaGlassesBridgeRuntime.publishCallbackSurfaceDiagnostics(
+            "audio",
+            status: "healthy",
+            reasonCode: nil,
+            message: nil
+          )
+        }
+      ) {
+        return token
+      }
+    }
+
+    return nil
+  }
+
+  private func resolveAudioIngressPublishers(session: StreamSession) -> [Any] {
+    let selectorCandidates = [
+      "audioPacketPublisher",
+      "audioFramePublisher",
+      "audioPublisher",
+      "audioDataPublisher",
+      "audioSamplePublisher",
+    ]
+    var publishers: [Any] = []
+
+    if let sessionObject = session as? NSObject {
+      for selectorName in selectorCandidates {
+        let selector = NSSelectorFromString(selectorName)
+        guard sessionObject.responds(to: selector),
+          let publisher = sessionObject.perform(selector)?.takeUnretainedValue()
+        else {
+          continue
+        }
+        publishers.append(publisher)
+      }
+    }
+
+    let mirror = Mirror(reflecting: session)
+    for child in mirror.children {
+      guard let label = child.label else {
+        continue
+      }
+      if selectorCandidates.contains(label) {
+        publishers.append(child.value)
+      }
+    }
+
+    return publishers
+  }
+
+  private func bindGenericListener(on publisher: Any, handler: @escaping (Any?) -> Void) -> Any? {
+    guard let publisherObject = publisher as? NSObject else {
+      return nil
+    }
+    let listenerSelectors = [
+      "listen:",
+      "listenWithListener:",
+      "addListener:",
+      "addObserver:",
+    ]
+    for selectorName in listenerSelectors {
+      let selector = NSSelectorFromString(selectorName)
+      guard publisherObject.responds(to: selector) else {
+        continue
+      }
+      let block: @convention(block) (Any?) -> Void = { payload in
+        handler(payload)
+      }
+      let blockObject = unsafeBitCast(block, to: AnyObject.self)
+      if let token = publisherObject.perform(selector, with: blockObject)?.takeUnretainedValue() {
+        return token
+      }
+      return publisherObject
+    }
+    return nil
+  }
+
+  private func resolveNormalizedTimestampMs(from payload: Any?) -> Double {
+    let rawTimestamp = resolveNumericField(
+      payload: payload,
+      keys: [
+        "timestampMs",
+        "timestamp",
+        "timestampNs",
+        "timestampNanos",
+        "timestampUs",
+        "timestampMicros",
+        "captureTimestamp",
+      ]
+    )
+    return normalizeEpochTimestampMs(rawTimestamp)
+  }
+
+  private func resolveDroppedFrames(from payload: Any?) -> Int {
+    let value = resolveNumericField(
+      payload: payload,
+      keys: [
+        "droppedFrames",
+        "droppedFrameCount",
+        "dropCount",
+      ]
+    )
+    return max(0, Int(value ?? 0))
+  }
+
+  private func resolveSampleRate(from payload: Any?) -> Int {
+    let value = resolveNumericField(
+      payload: payload,
+      keys: [
+        "sampleRate",
+        "sampleRateHz",
+        "audioSampleRate",
+      ]
+    )
+    return max(8_000, Int(value ?? 16_000))
+  }
+
+  private func resolvePacketDelta(from payload: Any?) -> Int {
+    let value = resolveNumericField(
+      payload: payload,
+      keys: [
+        "packetDelta",
+        "packetCount",
+        "packets",
+        "frameCount",
+      ]
+    )
+    return max(1, Int(value ?? 1))
+  }
+
+  private func resolveNumericField(payload: Any?, keys: [String]) -> Double? {
+    guard let payload else {
+      return nil
+    }
+
+    if let dictionary = payload as? [String: Any] {
+      for key in keys {
+        if let number = resolveDouble(dictionary[key]) {
+          return number
+        }
+      }
+    }
+
+    let mirror = Mirror(reflecting: payload)
+    for child in mirror.children {
+      guard let label = child.label, keys.contains(label) else {
+        continue
+      }
+      if let number = resolveDouble(child.value) {
+        return number
+      }
+    }
+
+    return nil
+  }
+
+  private func resolveDouble(_ value: Any?) -> Double? {
+    switch value {
+    case let number as NSNumber:
+      return number.doubleValue
+    case let value as Double:
+      return value
+    case let value as Float:
+      return Double(value)
+    case let value as Int:
+      return Double(value)
+    case let value as UInt:
+      return Double(value)
+    default:
+      return nil
+    }
+  }
+
+  private func normalizeEpochTimestampMs(_ rawTimestamp: Double?) -> Double {
+    let now = Date().timeIntervalSince1970 * 1_000
+    guard let rawTimestamp, rawTimestamp.isFinite, rawTimestamp > 0 else {
+      return now
+    }
+    if rawTimestamp >= 100_000_000_000_000_000 {
+      return rawTimestamp / 1_000_000
+    }
+    if rawTimestamp >= 100_000_000_000_000 {
+      return rawTimestamp / 1_000
+    }
+    if rawTimestamp < 10_000_000_000 {
+      return rawTimestamp * 1_000
+    }
+    return rawTimestamp
+  }
 #endif
 }
 
@@ -173,6 +419,7 @@ class MetaGlassesBridgeRuntime: NSObject {
   static let frameIngressNotification = Notification.Name("\(notificationPrefix).frameIngress")
   static let audioIngressNotification = Notification.Name("\(notificationPrefix).audioIngress")
   static let failureNotification = Notification.Name("\(notificationPrefix).failure")
+  static let callbackSurfaceNotification = Notification.Name("\(notificationPrefix).callbackSurface")
 
   @objc static func publishDeviceConnected(
     _ sourceId: String,
@@ -242,6 +489,24 @@ class MetaGlassesBridgeRuntime: NSObject {
       ]
     )
   }
+
+  @objc static func publishCallbackSurfaceDiagnostics(
+    _ surface: String,
+    status: String,
+    reasonCode: String?,
+    message: String?
+  ) {
+    NotificationCenter.default.post(
+      name: callbackSurfaceNotification,
+      object: nil,
+      userInfo: [
+        "surface": surface,
+        "status": status,
+        "reasonCode": reasonCode as Any,
+        "message": message as Any,
+      ]
+    )
+  }
 }
 
 @objc(MetaGlassesBridge)
@@ -251,6 +516,7 @@ class MetaGlassesBridge: RCTEventEmitter {
   private var hasListeners = false
   private var connectionState = "disconnected"
   private var fallbackReason: String?
+  private var callbackSurfaceFallbackReason: String?
   private var failure: [String: Any]?
 
   private var sourceId: String?
@@ -314,6 +580,7 @@ class MetaGlassesBridge: RCTEventEmitter {
     connectionState = "connecting"
     failure = nil
     fallbackReason = nil
+    callbackSurfaceFallbackReason = nil
     emitStatus()
 
     if !isDatSdkAvailable() {
@@ -350,12 +617,14 @@ class MetaGlassesBridge: RCTEventEmitter {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
+    datRuntimeConnector.stop()
     connectionState = "disconnected"
     sourceId = nil
     deviceId = nil
     deviceLabel = nil
     connectedAtMs = nil
     fallbackReason = nil
+    callbackSurfaceFallbackReason = nil
     failure = nil
 
     emitStatus()
@@ -423,7 +692,7 @@ class MetaGlassesBridge: RCTEventEmitter {
         self.connectedAtMs = payload["connectedAtMs"] as? Double ?? self.nowMs()
         self.connectionState = "connected"
         self.failure = nil
-        self.fallbackReason = nil
+        self.fallbackReason = self.callbackSurfaceFallbackReason
         self.emitStatus()
       }
     )
@@ -441,6 +710,7 @@ class MetaGlassesBridge: RCTEventEmitter {
         self.deviceId = nil
         self.deviceLabel = nil
         self.connectedAtMs = nil
+        self.callbackSurfaceFallbackReason = nil
         self.emitStatus()
       }
     )
@@ -497,6 +767,30 @@ class MetaGlassesBridge: RCTEventEmitter {
         )
       }
     )
+
+    runtimeObservers.append(
+      center.addObserver(
+        forName: MetaGlassesBridgeRuntime.callbackSurfaceNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] notification in
+        guard let self else { return }
+        let payload = notification.userInfo ?? [:]
+        let status = payload["status"] as? String ?? "unavailable"
+        let surface = payload["surface"] as? String ?? "unknown"
+        let explicitReason = payload["reasonCode"] as? String
+        if status == "healthy" {
+          self.callbackSurfaceFallbackReason = nil
+        } else {
+          self.callbackSurfaceFallbackReason =
+            explicitReason ?? "dat_\(surface)_callback_\(status)"
+        }
+        if self.failure == nil {
+          self.fallbackReason = self.callbackSurfaceFallbackReason
+        }
+        self.emitStatus()
+      }
+    )
   }
 
   private func ingestFrame(timestampMs: Double, dropped: Int) {
@@ -512,9 +806,9 @@ class MetaGlassesBridge: RCTEventEmitter {
 
     totalFrames += 1
     droppedFrames += max(0, dropped)
-    lastFrameTs = timestampMs
+    lastFrameTs = normalizeTimestampMs(timestampMs)
     failure = nil
-    fallbackReason = nil
+    fallbackReason = callbackSurfaceFallbackReason
 
     emitStatus()
   }
@@ -532,9 +826,9 @@ class MetaGlassesBridge: RCTEventEmitter {
 
     packetCount += max(1, packetDelta)
     sampleRate = max(8_000, sampleRateValue)
-    lastPacketTs = timestampMs
+    lastPacketTs = normalizeTimestampMs(timestampMs)
     failure = nil
-    fallbackReason = nil
+    fallbackReason = callbackSurfaceFallbackReason
 
     emitStatus()
   }
@@ -564,8 +858,12 @@ class MetaGlassesBridge: RCTEventEmitter {
   }
 
   private func isDatSdkAvailable() -> Bool {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    return true
+#else
     return NSClassFromString("Wearables") != nil
       || NSClassFromString("MetaWearables.Wearables") != nil
+#endif
   }
 
   private func emitStatus() {
@@ -597,6 +895,7 @@ class MetaGlassesBridge: RCTEventEmitter {
 
     var snapshot: [String: Any] = [
       "connectionState": connectionState,
+      "datSdkAvailable": isDatSdkAvailable(),
       "frameIngress": frameIngress,
       "audioIngress": audioIngress,
       "updatedAtMs": now,
@@ -607,8 +906,8 @@ class MetaGlassesBridge: RCTEventEmitter {
     if let failure {
       snapshot["failure"] = failure
     }
-    if let fallbackReason {
-      snapshot["fallbackReason"] = fallbackReason
+    if let resolvedFallbackReason = callbackSurfaceFallbackReason ?? fallbackReason {
+      snapshot["fallbackReason"] = resolvedFallbackReason
     }
 
     return snapshot
@@ -646,5 +945,22 @@ class MetaGlassesBridge: RCTEventEmitter {
 
   private func nowMs() -> Double {
     Date().timeIntervalSince1970 * 1_000
+  }
+
+  private func normalizeTimestampMs(_ rawTimestampMs: Double?) -> Double {
+    let now = nowMs()
+    guard let rawTimestampMs, rawTimestampMs.isFinite, rawTimestampMs > 0 else {
+      return now
+    }
+    if rawTimestampMs >= 100_000_000_000_000_000 {
+      return rawTimestampMs / 1_000_000
+    }
+    if rawTimestampMs >= 100_000_000_000_000 {
+      return rawTimestampMs / 1_000
+    }
+    if rawTimestampMs < 10_000_000_000 {
+      return rawTimestampMs * 1_000
+    }
+    return rawTimestampMs
   }
 }

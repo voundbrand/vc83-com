@@ -1,6 +1,11 @@
 import { forwardRef, useState, useEffect, useRef, useImperativeHandle, useCallback } from 'react';
 import { Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import { Circle, useTheme } from 'tamagui';
 import { Mic } from '@tamagui/lucide-icons';
 import Animated, {
@@ -33,6 +38,7 @@ type VoiceRecorderProps = {
   onRecordingComplete: (uri: string, duration: number) => void;
   onAudioFrame?: (frame: VoiceRecorderFrame) => Promise<void> | void;
   onCancel?: () => void;
+  onUserStopRecording?: () => void;
   isTranscribing?: boolean;
   size?: number;
   iconSize?: number;
@@ -46,6 +52,7 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   {
     onRecordingComplete,
     onAudioFrame,
+    onUserStopRecording,
     isTranscribing = false,
     size = 44,
     iconSize = 20,
@@ -60,8 +67,10 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   const { t } = useAppPreferences();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const streamRecordingRef = useRef<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const streamRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const streamRecordingActiveRef = useRef(false);
+  const primaryRecordingActiveRef = useRef(false);
   const streamSequenceRef = useRef(0);
   const streamTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamOpRef = useRef<Promise<void>>(Promise.resolve());
@@ -118,23 +127,25 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   }, []);
 
   const startStreamSegment = useCallback(async () => {
-    const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    streamRecordingRef.current = recording;
+    await streamRecorder.prepareToRecordAsync();
+    streamRecorder.record();
+    streamRecordingActiveRef.current = true;
+    console.info('[VoiceFrame] stream segment started');
     streamTimerRef.current = setTimeout(() => {
       void enqueueStreamOperation(async () => {
-        if (!streamRecordingRef.current || stopRequestedRef.current) {
+        if (!streamRecordingActiveRef.current || stopRequestedRef.current) {
           return;
         }
-        const activeRecording = streamRecordingRef.current;
-        streamRecordingRef.current = null;
-        const statusBeforeStop = await activeRecording.getStatusAsync();
-        await activeRecording.stopAndUnloadAsync();
-        const uri = activeRecording.getURI();
+        await streamRecorder.stop();
+        streamRecordingActiveRef.current = false;
+        const uri = streamRecorder.uri;
         const sequence = streamSequenceRef.current++;
         if (uri) {
+          const durationMs = Math.max(250, frameDurationMs);
+          console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} final=false`);
           await onAudioFrame?.({
             uri,
-            durationMs: typeof statusBeforeStop.durationMillis === 'number' ? statusBeforeStop.durationMillis : 0,
+            durationMs,
             sequence,
             isFinal: false,
           });
@@ -144,19 +155,19 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
         }
       });
     }, Math.max(250, frameDurationMs));
-  }, [enqueueStreamOperation, frameDurationMs, onAudioFrame]);
+  }, [enqueueStreamOperation, frameDurationMs, onAudioFrame, streamRecorder]);
 
   const startRecording = useCallback(async () => {
     try {
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(t('voice.permissionTitle'), t('voice.permissionBody'));
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
       stopRequestedRef.current = false;
@@ -179,8 +190,9 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
         return;
       }
 
-      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      recordingRef.current = recording;
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      primaryRecordingActiveRef.current = true;
     } catch (error) {
       console.error('Failed to start recording:', error);
       setRecordingState(false);
@@ -189,6 +201,7 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   }, [
     maxDurationMs,
     onAudioFrame,
+    recorder,
     setRecordingState,
     startStreamSegment,
     streamWhileRecording,
@@ -199,29 +212,36 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     stopRequestedRef.current = true;
     clearTrackingTimers();
     await enqueueStreamOperation(async () => {
-      const activeRecording = streamRecordingRef.current;
-      streamRecordingRef.current = null;
-      if (!activeRecording) {
+      if (!streamRecordingActiveRef.current) {
         return;
       }
-      const statusBeforeStop = await activeRecording.getStatusAsync();
-      await activeRecording.stopAndUnloadAsync();
-      const uri = activeRecording.getURI();
+      await streamRecorder.stop();
+      streamRecordingActiveRef.current = false;
+      const uri = streamRecorder.uri;
       const sequence = streamSequenceRef.current++;
       if (uri) {
+        const durationMs = Math.max(250, frameDurationMs);
+        console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} final=true`);
         await onAudioFrame?.({
           uri,
-          durationMs: typeof statusBeforeStop.durationMillis === 'number' ? statusBeforeStop.durationMillis : 0,
+          durationMs,
           sequence,
           isFinal: true,
         });
       }
     });
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
+    await setAudioModeAsync({
+      allowsRecording: false,
     });
     setRecordingState(false);
-  }, [clearTrackingTimers, enqueueStreamOperation, onAudioFrame, setRecordingState]);
+  }, [
+    clearTrackingTimers,
+    enqueueStreamOperation,
+    frameDurationMs,
+    onAudioFrame,
+    setRecordingState,
+    streamRecorder,
+  ]);
 
   const stopRecording = useCallback(async () => {
     if (streamWhileRecording && onAudioFrame) {
@@ -229,17 +249,17 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
       return;
     }
 
-    if (!recordingRef.current) return;
+    if (!primaryRecordingActiveRef.current) return;
 
     try {
       clearTrackingTimers();
-      await recordingRef.current.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+      await recorder.stop();
+      primaryRecordingActiveRef.current = false;
+      await setAudioModeAsync({
+        allowsRecording: false,
       });
 
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      const uri = recorder.uri;
       setRecordingState(false);
 
       if (uri) {
@@ -254,6 +274,7 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     duration,
     onAudioFrame,
     onRecordingComplete,
+    recorder,
     setRecordingState,
     stopStreamingRecording,
     streamWhileRecording,
@@ -278,7 +299,10 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   const handlePress = () => {
     if (isTranscribing) return;
     if (isRecording) {
-      void stopRecording();
+      void (async () => {
+        await stopRecording();
+        onUserStopRecording?.();
+      })();
     } else {
       void startRecording();
     }

@@ -3,3 +3,5 @@ export * from './command-gate';
 export * from './source-attestation';
 export * from './metaBridge-contracts';
 export * from './metaBridge';
+export * from './voiceTelemetry';
+export * from './videoTransport';
