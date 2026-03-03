@@ -18,6 +18,7 @@ import { action } from "../_generated/server";
 import { v } from "convex/values";
 import Stripe from "stripe";
 import { resolvePublicAppUrl } from "./platformCheckout";
+import { STORE_COMMERCIAL_CATALOG_VERSION } from "./stripePrices";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -276,6 +277,13 @@ export const createCreditCheckoutSession = action({
       metadata: {
         organizationId: args.organizationId,
         type: "credit-purchase",
+        offerCode: "credits_pack",
+        intentCode: "credits_pack_buy_credits",
+        offer_code: "credits_pack",
+        intent_code: "credits_pack_buy_credits",
+        surface: "store",
+        routing_hint: "samantha_lead_capture",
+        catalogVersion: STORE_COMMERCIAL_CATALOG_VERSION,
         credits: credits.toString(),
         amountEur: args.amountEur.toString(),
         platform: "l4yercak3",
@@ -293,6 +301,13 @@ export const createCreditCheckoutSession = action({
         metadata: {
           organizationId: args.organizationId,
           type: "credit-purchase",
+          offerCode: "credits_pack",
+          intentCode: "credits_pack_buy_credits",
+          offer_code: "credits_pack",
+          intent_code: "credits_pack_buy_credits",
+          surface: "store",
+          routing_hint: "samantha_lead_capture",
+          catalogVersion: STORE_COMMERCIAL_CATALOG_VERSION,
           credits: credits.toString(),
           amountEur: args.amountEur.toString(),
           platform: "l4yercak3",

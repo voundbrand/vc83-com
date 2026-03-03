@@ -163,6 +163,7 @@ interface StorePlanCardsProps {
   isLoadingStatus: boolean;
   onCancelPendingChange: () => Promise<void>;
   isCancelingPending: boolean;
+  legacySalesMode: "hidden" | "compatibility" | "super_admin_override" | "rollback_public";
 }
 
 export function StorePlanCards({
@@ -177,6 +178,7 @@ export function StorePlanCards({
   isLoadingStatus,
   onCancelPendingChange,
   isCancelingPending,
+  legacySalesMode,
 }: StorePlanCardsProps) {
   const { t } = useNamespaceTranslations("ui.store");
   const tx: TranslateWithFallback = (key, fallback, params) => {
@@ -185,6 +187,7 @@ export function StorePlanCards({
   };
   const [isAnnual, setIsAnnual] = useState(true);
   const plans = buildPlans(tx, trialEligible);
+  const showLegacySalesCards = legacySalesMode !== "hidden";
 
   const getDisplayPrice = (plan: Plan) => {
     if (plan.monthlyPrice <= 0) return plan.monthlyPrice;
@@ -203,66 +206,86 @@ export function StorePlanCards({
       {/* Header */}
       <div className="text-center mb-6">
         <h3 className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
-          {tx("ui.store.plan_cards.header.title", "Choose Your Plan")}
+          {tx("ui.store.plan_cards.header.title_v2", "Subscription plans")}
         </h3>
         <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
-          {tx("ui.store.plan_cards.header.subtitle", "Scale your business with the right tools")}
+          {legacySalesMode === "compatibility"
+            ? tx(
+              "ui.store.plan_cards.header.subtitle_v2_compatibility",
+              "These plans are available because your workspace has an existing subscription."
+            )
+            : legacySalesMode === "super_admin_override"
+              ? tx(
+                "ui.store.plan_cards.header.subtitle_v2_override",
+                "These plans have been made visible by an administrator."
+              )
+              : legacySalesMode === "rollback_public"
+                ? tx(
+                  "ui.store.plan_cards.header.subtitle_v2_rollback",
+                  "These plans are temporarily available while we resolve a service issue."
+                )
+            : tx(
+              "ui.store.plan_cards.header.subtitle_v2_hidden",
+              "Subscription plans are available through the options above."
+            )}
         </p>
 
-        {/* Billing Toggle */}
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <button
-            type="button"
-            className="cursor-pointer border-0 bg-transparent p-0 text-xs font-medium transition-colors"
-            style={{ color: !isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
-            onClick={() => setIsAnnual(false)}
-            aria-pressed={!isAnnual}
-          >
-            {tx("ui.store.plan_cards.billing.monthly", "Monthly")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAnnual(!isAnnual)}
-            className="relative w-12 h-6 rounded-full transition-colors focus:outline-none"
-            aria-label={tx(
-              "ui.store.plan_cards.billing.switch_aria_label",
-              "Switch billing cycle. Currently {cycle}.",
-              {
-                cycle: isAnnual
-                  ? tx("ui.store.plan_cards.billing.cycle_annual", "annual")
-                  : tx("ui.store.plan_cards.billing.cycle_monthly", "monthly"),
-              }
-            )}
-            aria-pressed={isAnnual}
-            style={{
-              background: isAnnual ? ACCENT_BACKGROUND : "var(--window-document-border)",
-            }}
-          >
-            <span
-              className="absolute top-0.5 h-5 w-5 rounded-full shadow-md transition-all duration-200 ease-in-out"
-              style={{
-                left: isAnnual ? "calc(100% - 22px)" : "2px",
-                background: "var(--window-document-bg)",
-                border: "1px solid var(--window-document-border)",
-              }}
-            />
-          </button>
-          <button
-            type="button"
-            className="flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium transition-colors"
-            style={{ color: isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
-            onClick={() => setIsAnnual(true)}
-            aria-pressed={isAnnual}
-          >
-            {tx("ui.store.plan_cards.billing.annual", "Annual")}
-            <span
-              className="px-1.5 py-0.5 text-[10px] font-bold rounded"
-              style={{ background: "var(--success-bg)", color: "var(--success)" }}
+        {showLegacySalesCards ? (
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button
+              type="button"
+              className="cursor-pointer border-0 bg-transparent p-0 text-xs font-medium transition-colors"
+              style={{ color: !isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
+              onClick={() => setIsAnnual(false)}
+              aria-pressed={!isAnnual}
             >
-              {tx("ui.store.plan_cards.billing.save_badge", "Save ~17%")}
-            </span>
-          </button>
-        </div>
+              {tx("ui.store.plan_cards.billing.monthly", "Monthly")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAnnual(!isAnnual)}
+              className="relative w-12 h-6 rounded-full transition-colors focus:outline-none"
+              aria-label={tx(
+                "ui.store.plan_cards.billing.switch_aria_label",
+                "Switch billing cycle. Currently {cycle}.",
+                {
+                  cycle: isAnnual
+                    ? tx("ui.store.plan_cards.billing.cycle_annual", "annual")
+                    : tx("ui.store.plan_cards.billing.cycle_monthly", "monthly"),
+                }
+              )}
+              aria-pressed={isAnnual}
+              style={{
+                background: isAnnual ? ACCENT_BACKGROUND : "var(--window-document-border)",
+              }}
+            >
+              <span
+                className="absolute top-0.5 h-5 w-5 rounded-full transition-[left] duration-200 ease-in-out"
+                style={{
+                  left: isAnnual ? "calc(100% - 1.375rem)" : "0.125rem",
+                  background: "var(--window-document-bg)",
+                  borderWidth: 1,
+                  borderColor: "var(--window-document-border)",
+                }}
+              />
+            </button>
+            <button
+              type="button"
+              className="flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-xs font-medium transition-colors"
+              style={{ color: isAnnual ? "var(--window-document-text)" : "var(--desktop-menu-text-muted)" }}
+              onClick={() => setIsAnnual(true)}
+              aria-pressed={isAnnual}
+            >
+              {tx("ui.store.plan_cards.billing.annual", "Annual")}
+              <span
+                className="px-1.5 py-0.5 text-xs font-bold rounded"
+                style={{ background: "var(--success-bg)", color: "var(--success)" }}
+              >
+                {tx("ui.store.plan_cards.billing.save_badge", "Save ~17%")}
+              </span>
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* Subscription Status Banner */}
@@ -276,41 +299,79 @@ export function StorePlanCards({
         />
       )}
 
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan.id}
-            plan={plan}
-            currentPlan={currentPlan}
-            hasActiveSubscription={hasActiveSubscription}
-            isAnnual={isAnnual}
-            displayPrice={formatPrice(getDisplayPrice(plan))}
-            savingsText={
-              plan.monthlyPrice > 0 && isAnnual
-                ? tx("ui.store.plan_cards.pricing.save_percent_billed_yearly", "Save {percent}% • Billed {price}/yr", {
-                    percent: Math.round((1 - plan.annualPrice / (plan.monthlyPrice * 12)) * 100),
-                    price: formatPrice(plan.annualPrice),
-                  })
-                : plan.monthlyPrice > 0
-                  ? tx("ui.store.plan_cards.pricing.billed_monthly", "Billed monthly")
-                  : undefined
-            }
-            isManagingSubscription={isManagingSubscription}
-            onCheckout={() => onCheckout(plan.id === "agency" ? "scale" : "pro", isAnnual ? "annual" : "monthly")}
-            onSubscriptionChange={(tier) => onSubscriptionChange(tier, isAnnual ? "annual" : "monthly")}
-            onContactSales={onContactSales}
-            tx={tx}
-          />
-        ))}
-      </div>
+      {showLegacySalesCards ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {plans.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                currentPlan={currentPlan}
+                hasActiveSubscription={hasActiveSubscription}
+                isAnnual={isAnnual}
+                displayPrice={formatPrice(getDisplayPrice(plan))}
+                savingsText={
+                  plan.monthlyPrice > 0 && isAnnual
+                    ? tx("ui.store.plan_cards.pricing.save_percent_billed_yearly", "Save {percent}% • Billed {price}/yr", {
+                      percent: Math.round((1 - plan.annualPrice / (plan.monthlyPrice * 12)) * 100),
+                      price: formatPrice(plan.annualPrice),
+                    })
+                    : plan.monthlyPrice > 0
+                      ? tx("ui.store.plan_cards.pricing.billed_monthly", "Billed monthly")
+                      : undefined
+                }
+                isManagingSubscription={isManagingSubscription}
+                onCheckout={() => onCheckout(plan.id === "agency" ? "scale" : "pro", isAnnual ? "annual" : "monthly")}
+                onSubscriptionChange={(tier) => onSubscriptionChange(tier, isAnnual ? "annual" : "monthly")}
+                onContactSales={onContactSales}
+                tx={tx}
+              />
+            ))}
+          </div>
 
-      <p className="text-center text-[10px] mt-6" style={{ color: "var(--desktop-menu-text-muted)" }}>
-        {tx(
-          "ui.store.plan_cards.footer.vat_note",
-          "Store plan pricing is VAT-inclusive in EUR estimates. Final invoice tax is calculated at checkout."
-        )}
-      </p>
+          <p className="mt-6 text-center text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+            {tx(
+              "ui.store.plan_cards.footer.vat_note",
+              "Store plan pricing is VAT-inclusive in EUR estimates. Final invoice tax is calculated at checkout."
+            )}
+          </p>
+        </>
+      ) : (
+        <div
+          className="rounded-lg border p-3"
+          style={{
+            borderColor: "var(--window-document-border)",
+            background: "var(--window-document-bg)",
+          }}
+        >
+          <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+            {tx(
+              "ui.store.plan_cards.compatibility_notice.title_v2",
+              "Your existing subscription is safe"
+            )}
+          </p>
+          <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+            <li>
+              {tx(
+                "ui.store.plan_cards.compatibility_notice.line_1_v2",
+                "New plans are available through the diagnostic, consulting, and implementation options above."
+              )}
+            </li>
+            <li>
+              {tx(
+                "ui.store.plan_cards.compatibility_notice.line_2_v2",
+                "If you already have a Pro or Scale plan, it continues to work as normal."
+              )}
+            </li>
+            <li>
+              {tx(
+                "ui.store.plan_cards.compatibility_notice.line_3_v2",
+                "Your credits, billing, and account settings are fully preserved."
+              )}
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

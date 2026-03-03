@@ -1,4 +1,7 @@
-import { STORE_PRICING_SOURCE_HIERARCHY } from "@/lib/credit-pricing";
+import {
+  STORE_COMMERCIAL_MIGRATION_CONTRACT_V1,
+  STORE_PRICING_SOURCE_HIERARCHY,
+} from "@/lib/credit-pricing";
 
 export type StorePublicTier = "free" | "pro" | "scale" | "enterprise";
 export type StoreRuntimeTier = "free" | "pro" | "agency" | "enterprise";
@@ -81,6 +84,19 @@ export interface StorePricingContractSnapshot {
     answer: string;
     source: string;
   }>;
+  migration: {
+    contractVersion: string;
+    migrationMode: "coexistence";
+    legacySubscriptionOffers: string[];
+    legacyCreditOffer: string;
+    layerOffersPlanned: string[];
+    rollbackPolicy: {
+      preserveCreditBalances: boolean;
+      preserveActiveSubscriptions: boolean;
+      preserveAttributionMetadata: boolean;
+    };
+    source: string;
+  };
 }
 
 export const DEFAULT_STORE_PRICING_CONTRACT: StorePricingContractSnapshot = {
@@ -96,7 +112,7 @@ export const DEFAULT_STORE_PRICING_CONTRACT: StorePricingContractSnapshot = {
       runtimeTier: "free",
       publicTier: "free",
       displayTier: "Free",
-      description: "EUR0 - Lead capture, template users",
+      description: "EUR0 - Diagnostic lead qualification (no implementation delivery)",
       supportLevel: "docs",
       supportLabel: "Community docs",
       pricing: {
@@ -298,12 +314,12 @@ export const DEFAULT_STORE_PRICING_CONTRACT: StorePricingContractSnapshot = {
       {
         tier: "pro",
         durationDays: 14,
-        summary: "New customers on Free can try Pro for 14 days before billing starts.",
+        summary: "Legacy Free users can try Pro for 14 days before billing starts.",
       },
       {
         tier: "scale",
         durationDays: 14,
-        summary: "New customers on Free can try Scale for 14 days before billing starts.",
+        summary: "Legacy Free users can try Scale for 14 days before billing starts.",
       },
     ],
     source: "convex/stripe/platformCheckout.ts",
@@ -345,6 +361,22 @@ export const DEFAULT_STORE_PRICING_CONTRACT: StorePricingContractSnapshot = {
       source: "convex/stripe/byokCommercialPolicy.ts",
     },
   ],
+  migration: {
+    contractVersion: STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.contractVersion,
+    migrationMode: STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.migrationMode,
+    legacySubscriptionOffers: [...STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.legacySubscriptionOffers],
+    legacyCreditOffer: STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.legacyCreditOffer,
+    layerOffersPlanned: [...STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.layerOffersPlanned],
+    rollbackPolicy: {
+      preserveCreditBalances:
+        STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.rollbackPolicy.preserveCreditBalances,
+      preserveActiveSubscriptions:
+        STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.rollbackPolicy.preserveActiveSubscriptions,
+      preserveAttributionMetadata:
+        STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.rollbackPolicy.preserveAttributionMetadata,
+    },
+    source: STORE_COMMERCIAL_MIGRATION_CONTRACT_V1.source,
+  },
 };
 
 export function getStoreTierByPublicTier(
@@ -377,5 +409,8 @@ export function normalizeStorePricingContract(
     return DEFAULT_STORE_PRICING_CONTRACT;
   }
 
-  return value;
+  return {
+    ...value,
+    migration: value.migration ?? DEFAULT_STORE_PRICING_CONTRACT.migration,
+  };
 }

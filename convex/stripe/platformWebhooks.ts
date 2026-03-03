@@ -95,21 +95,53 @@ function normalizeFunnelChannel(
   return "unknown";
 }
 
-function extractFunnelCampaign(metadata?: Record<string, string | undefined>) {
+export function readFirstMetadataValue(
+  metadata: Record<string, string | undefined> | undefined,
+  keys: string[]
+): string | undefined {
+  if (!metadata) return undefined;
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+export function extractFunnelCampaign(metadata?: Record<string, string | undefined>) {
   if (!metadata) return undefined;
 
   const campaign = {
-    source: metadata.utmSource,
-    medium: metadata.utmMedium,
-    campaign: metadata.utmCampaign,
-    content: metadata.utmContent,
-    term: metadata.utmTerm,
-    referrer: metadata.funnelReferrer,
-    landingPath: metadata.funnelLandingPath,
+    source: readFirstMetadataValue(metadata, ["utm_source", "utmSource"]),
+    medium: readFirstMetadataValue(metadata, ["utm_medium", "utmMedium"]),
+    campaign: readFirstMetadataValue(metadata, ["utm_campaign", "utmCampaign"]),
+    content: readFirstMetadataValue(metadata, ["utm_content", "utmContent"]),
+    term: readFirstMetadataValue(metadata, ["utm_term", "utmTerm"]),
+    referrer: readFirstMetadataValue(metadata, ["referrer", "funnelReferrer"]),
+    landingPath: readFirstMetadataValue(metadata, ["landingPath", "funnelLandingPath"]),
   };
 
   const hasSignal = Object.values(campaign).some((value) => typeof value === "string" && value.length > 0);
   return hasSignal ? campaign : undefined;
+}
+
+export function extractCommercialMetadataEnvelope(
+  metadata: Record<string, string | undefined> | undefined
+): {
+  offerCode: string | undefined;
+  intentCode: string | undefined;
+  surface: string | undefined;
+  routingHint: string | undefined;
+  catalogVersion: string | undefined;
+} {
+  return {
+    offerCode: readFirstMetadataValue(metadata, ["offer_code", "offerCode"]),
+    intentCode: readFirstMetadataValue(metadata, ["intent_code", "intentCode"]),
+    surface: readFirstMetadataValue(metadata, ["surface"]),
+    routingHint: readFirstMetadataValue(metadata, ["routing_hint", "routingHint"]),
+    catalogVersion: readFirstMetadataValue(metadata, ["catalog_version", "catalogVersion"]),
+  };
 }
 
 export function isSubscriptionPaymentConfirmed(status: string): boolean {
@@ -205,10 +237,18 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
 
   const organizationId = metadata?.organizationId as Id<"organizations">;
   const tier = metadata?.tier || "free";
+  const commercialMetadata = extractCommercialMetadataEnvelope(metadata);
+  const offerCode = commercialMetadata.offerCode;
+  const intentCode = commercialMetadata.intentCode;
+  const surface = commercialMetadata.surface;
+  const routingHint = commercialMetadata.routingHint;
+  const catalogVersion = commercialMetadata.catalogVersion;
   const billingPeriod = metadata?.billingPeriod || "monthly";
   const isB2B = metadata?.isB2B === "true";
   const checkoutType = metadata?.type; // "platform-tier", "platform-trial", or "credit-purchase"
-  const funnelChannel = normalizeFunnelChannel(metadata?.funnelChannel);
+  const funnelChannel = normalizeFunnelChannel(
+    readFirstMetadataValue(metadata, ["funnelChannel", "onboardingChannel"])
+  );
   const funnelCampaign = extractFunnelCampaign(metadata);
 
   if (!organizationId) {
@@ -221,6 +261,10 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   console.log(`  - Tier: ${tier}`);
   console.log(`  - Billing Period: ${billingPeriod}`);
   console.log(`  - B2B: ${isB2B}`);
+  if (offerCode) {
+    console.log(`  - Offer: ${offerCode}`);
+    console.log(`  - Intent: ${intentCode || "n/a"}`);
+  }
 
   // Extract billing information from Stripe
   const customerEmail = customer_details?.email;
@@ -265,7 +309,7 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
   }
 
   // Send confirmation emails for platform tier purchases
-  if (checkoutType === "platform-tier") {
+  if (checkoutType === "platform-tier" || checkoutType === "commercial-offer") {
     try {
       // Get organization details
       const org = await (ctx as any).runQuery(generatedApi.internal.stripe.platformWebhooks.getOrganizationInternal, {
@@ -290,6 +334,18 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
           billingPeriod,
           subscriptionId: subscription,
           isB2B: isB2B.toString(),
+          ...(offerCode ? { offerCode } : {}),
+          ...(intentCode ? { intentCode } : {}),
+          ...(surface ? { surface } : {}),
+          ...(routingHint ? { routingHint } : {}),
+          ...(catalogVersion ? { catalogVersion } : {}),
+          ...(funnelCampaign?.source ? { utm_source: funnelCampaign.source } : {}),
+          ...(funnelCampaign?.medium ? { utm_medium: funnelCampaign.medium } : {}),
+          ...(funnelCampaign?.campaign ? { utm_campaign: funnelCampaign.campaign } : {}),
+          ...(funnelCampaign?.content ? { utm_content: funnelCampaign.content } : {}),
+          ...(funnelCampaign?.term ? { utm_term: funnelCampaign.term } : {}),
+          ...(funnelCampaign?.referrer ? { referrer: funnelCampaign.referrer } : {}),
+          ...(funnelCampaign?.landingPath ? { landingPath: funnelCampaign.landingPath } : {}),
         },
       });
 
@@ -311,9 +367,25 @@ async function handleCheckoutCompleted(ctx: ActionCtx, session: StripeCheckoutSe
           checkoutSessionId: (session as any).id,
           subscriptionId: subscription,
           tier,
+          offerCode,
+          intentCode,
+          offer_code: offerCode,
+          intent_code: intentCode,
+          surface,
+          routingHint,
+          routing_hint: routingHint,
+          catalogVersion,
+          catalog_version: catalogVersion,
           billingPeriod,
           amountTotal: amount_total || 0,
           currency: currency || "eur",
+          ...(funnelCampaign?.source ? { utm_source: funnelCampaign.source } : {}),
+          ...(funnelCampaign?.medium ? { utm_medium: funnelCampaign.medium } : {}),
+          ...(funnelCampaign?.campaign ? { utm_campaign: funnelCampaign.campaign } : {}),
+          ...(funnelCampaign?.content ? { utm_content: funnelCampaign.content } : {}),
+          ...(funnelCampaign?.term ? { utm_term: funnelCampaign.term } : {}),
+          ...(funnelCampaign?.referrer ? { referrer: funnelCampaign.referrer } : {}),
+          ...(funnelCampaign?.landingPath ? { landingPath: funnelCampaign.landingPath } : {}),
         },
       });
     } catch (funnelError) {

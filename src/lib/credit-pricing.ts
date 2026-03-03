@@ -37,6 +37,27 @@ export const STORE_PRICING_SOURCE_HIERARCHY = [
   { order: 6, key: "tax_policy_truth", source: "docs/reference_docs/billing/tax-system.md" },
 ] as const;
 
+export const STORE_COMMERCIAL_MIGRATION_CONTRACT_V1 = {
+  contractVersion: "cpmu_v1",
+  migrationMode: "coexistence",
+  legacySubscriptionOffers: ["plan_pro_subscription", "plan_scale_subscription"] as const,
+  legacyCreditOffer: "credits_pack" as const,
+  layerOffersPlanned: [
+    "layer1_foundation",
+    "layer2_dream_team",
+    "layer3_sovereign",
+    "layer3_sovereign_pro",
+    "layer3_sovereign_max",
+    "layer4_nvidia_private",
+  ] as const,
+  rollbackPolicy: {
+    preserveCreditBalances: true,
+    preserveActiveSubscriptions: true,
+    preserveAttributionMetadata: true,
+  },
+  source: "docs/reference_docs/topic_collections/implementation/commercial-pricing-motion-unification/MASTER_PLAN.md",
+} as const;
+
 export const STORE_TAX_DISPLAY_MODE = "vat_included" as const;
 
 export const STORE_SCALE_TRIAL_POLICY = {

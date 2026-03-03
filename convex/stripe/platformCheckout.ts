@@ -18,6 +18,11 @@ import {
   resolveByokCommercialPolicyForTier,
   resolveByokCommercialPolicyFromMetadata,
 } from "./byokCommercialPolicy";
+import {
+  COMMERCIAL_OFFER_CATALOG,
+  STORE_COMMERCIAL_CATALOG_VERSION,
+  type CommercialOfferCode,
+} from "./stripePrices";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
 
@@ -106,6 +111,38 @@ type FunnelAttribution = {
   };
 };
 
+export type CommercialSurface = "store" | "one_of_one_landing" | "webchat_widget";
+export type CommercialRoutingHint = "samantha_lead_capture" | "founder_bridge" | "enterprise_sales";
+
+type CommercialMetadataArgs = {
+  offerCode: CommercialOfferCode;
+  intentCode: string;
+  surface: CommercialSurface;
+  routingHint: CommercialRoutingHint;
+  funnelChannel?: FunnelAttribution["channel"];
+  funnelCampaign?: FunnelAttribution["campaign"];
+};
+
+export function buildCommercialMetadata(args: CommercialMetadataArgs): Record<string, string> {
+  return {
+    offerCode: args.offerCode,
+    offer_code: args.offerCode,
+    intentCode: args.intentCode,
+    intent_code: args.intentCode,
+    surface: args.surface,
+    routingHint: args.routingHint,
+    routing_hint: args.routingHint,
+    ...(args.funnelChannel ? { funnelChannel: args.funnelChannel } : {}),
+    ...(args.funnelCampaign?.source ? { source: args.funnelCampaign.source, utm_source: args.funnelCampaign.source, utmSource: args.funnelCampaign.source } : {}),
+    ...(args.funnelCampaign?.medium ? { medium: args.funnelCampaign.medium, utm_medium: args.funnelCampaign.medium, utmMedium: args.funnelCampaign.medium } : {}),
+    ...(args.funnelCampaign?.campaign ? { campaign: args.funnelCampaign.campaign, utm_campaign: args.funnelCampaign.campaign, utmCampaign: args.funnelCampaign.campaign } : {}),
+    ...(args.funnelCampaign?.content ? { content: args.funnelCampaign.content, utm_content: args.funnelCampaign.content, utmContent: args.funnelCampaign.content } : {}),
+    ...(args.funnelCampaign?.term ? { term: args.funnelCampaign.term, utm_term: args.funnelCampaign.term, utmTerm: args.funnelCampaign.term } : {}),
+    ...(args.funnelCampaign?.referrer ? { referrer: args.funnelCampaign.referrer, funnelReferrer: args.funnelCampaign.referrer } : {}),
+    ...(args.funnelCampaign?.landingPath ? { landingPath: args.funnelCampaign.landingPath, funnelLandingPath: args.funnelCampaign.landingPath } : {}),
+  };
+}
+
 function mapRuntimeTierToPublicStoreTier(
   tier: string | undefined | null
 ): "free" | "pro" | "scale" | "enterprise" {
@@ -164,6 +201,63 @@ export const getByokCommercialPolicyTable = query({
   args: {},
   handler: async () => {
     return getByokCommercialPolicyRuleTable();
+  },
+});
+
+export const getCommercialOfferCatalog = query({
+  args: {},
+  handler: async () => {
+    return {
+      contractVersion: STORE_COMMERCIAL_CATALOG_VERSION,
+      offers: COMMERCIAL_OFFER_CATALOG.map((offer) => ({
+        ...offer,
+        checkoutConfigured: offer.motion === "checkout_now" ? Boolean(offer.stripePriceId) : false,
+      })),
+    };
+  },
+});
+
+function isStoreCommercialOfferCode(offerCode: CommercialOfferCode): boolean {
+  return offerCode.startsWith("layer") || offerCode.startsWith("consult");
+}
+
+function getCommercialOfferEnvKey(offerCode: CommercialOfferCode): string | null {
+  switch (offerCode) {
+    case "layer1_foundation":
+      return "STRIPE_LAYER1_FOUNDATION_SETUP_PRICE_ID";
+    case "consult_done_with_you":
+      return "STRIPE_CONSULT_DONE_WITH_YOU_PRICE_ID";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Readiness report for Store commercial offer checkout configuration.
+ * Flags offers that are intended for direct checkout but missing Stripe price IDs.
+ */
+export const getCommercialCheckoutReadiness = query({
+  args: {},
+  handler: async () => {
+    const checkedOffers = COMMERCIAL_OFFER_CATALOG.filter((offer) =>
+      isStoreCommercialOfferCode(offer.offerCode)
+    );
+    const mismatches = checkedOffers
+      .filter((offer) => offer.motion === "checkout_now" && !offer.stripePriceId)
+      .map((offer) => ({
+        offerCode: offer.offerCode,
+        label: offer.label,
+        motion: offer.motion,
+        expectedEnvKey: getCommercialOfferEnvKey(offer.offerCode),
+      }));
+
+    return {
+      contractVersion: STORE_COMMERCIAL_CATALOG_VERSION,
+      checkedOffers: checkedOffers.length,
+      checkoutNowOffers: checkedOffers.filter((offer) => offer.motion === "checkout_now").length,
+      hasMismatches: mismatches.length > 0,
+      mismatches,
+    };
   },
 });
 
@@ -396,6 +490,198 @@ export const createPlatformCheckoutSession = action({
     return {
       checkoutUrl: session.url!,
       sessionId: session.id,
+    };
+  },
+});
+
+/**
+ * CREATE COMMERCIAL OFFER CHECKOUT SESSION
+ *
+ * Additive checkout path for CPMU layer/consult offers.
+ * Keeps existing platform-tier and credit checkout routes unchanged.
+ */
+export const createCommercialOfferCheckoutSession = action({
+  args: {
+    organizationId: v.id("organizations"),
+    organizationName: v.string(),
+    email: v.string(),
+    offerCode: v.union(
+      v.literal("layer1_foundation"),
+      v.literal("layer2_dream_team"),
+      v.literal("layer3_sovereign"),
+      v.literal("layer3_sovereign_pro"),
+      v.literal("layer3_sovereign_max"),
+      v.literal("layer4_nvidia_private"),
+      v.literal("consult_done_with_you"),
+      v.literal("consult_full_build_scoping"),
+      v.literal("plan_pro_subscription"),
+      v.literal("plan_scale_subscription"),
+      v.literal("credits_pack"),
+    ),
+    intentCode: v.string(),
+    surface: v.union(
+      v.literal("store"),
+      v.literal("one_of_one_landing"),
+      v.literal("webchat_widget"),
+    ),
+    routingHint: v.union(
+      v.literal("samantha_lead_capture"),
+      v.literal("founder_bridge"),
+      v.literal("enterprise_sales"),
+    ),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+    isB2B: v.optional(v.boolean()),
+    funnelChannel: v.optional(
+      v.union(
+        v.literal("webchat"),
+        v.literal("native_guest"),
+        v.literal("telegram"),
+        v.literal("platform_web"),
+        v.literal("unknown")
+      )
+    ),
+    funnelCampaign: v.optional(
+      v.object({
+        source: v.optional(v.string()),
+        medium: v.optional(v.string()),
+        campaign: v.optional(v.string()),
+        content: v.optional(v.string()),
+        term: v.optional(v.string()),
+        referrer: v.optional(v.string()),
+        landingPath: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const offer = COMMERCIAL_OFFER_CATALOG.find((entry) => entry.offerCode === args.offerCode);
+    if (!offer) {
+      throw new Error(`Unsupported commercial offer code: ${args.offerCode}`);
+    }
+
+    const commercialMetadata = buildCommercialMetadata({
+      offerCode: args.offerCode,
+      intentCode: args.intentCode,
+      surface: args.surface,
+      routingHint: args.routingHint,
+      funnelChannel: args.funnelChannel,
+      funnelCampaign: args.funnelCampaign,
+    });
+
+    if (offer.motion !== "checkout_now" || !offer.stripePriceId) {
+      return {
+        mode: "inquiry_first" as const,
+        offerCode: args.offerCode,
+        intentCode: args.intentCode,
+        routingHint: args.routingHint,
+        metadata: {
+          ...commercialMetadata,
+          catalog_version: STORE_COMMERCIAL_CATALOG_VERSION,
+          type: "commercial-offer-inquiry",
+        },
+      };
+    }
+
+    const stripe = getStripe();
+    const org = await (ctx as any).runQuery(generatedApi.api.organizations.get, { id: args.organizationId });
+    const billingDetails = await (ctx as any).runQuery(
+      generatedApi.internal.stripe.platformCheckout.getOrganizationBillingDetails,
+      { organizationId: args.organizationId }
+    );
+
+    const customerData: Stripe.CustomerCreateParams = {
+      name: billingDetails?.billingName || args.organizationName,
+      email: billingDetails?.billingEmail || args.email,
+      metadata: {
+        organizationId: args.organizationId,
+        userEmail: args.email,
+        platform: "l4yercak3",
+        isB2B: args.isB2B ? "true" : "false",
+      },
+      ...(billingDetails?.billingAddress && {
+        address: {
+          line1: billingDetails.billingAddress.line1,
+          line2: billingDetails.billingAddress.line2 || undefined,
+          city: billingDetails.billingAddress.city,
+          state: billingDetails.billingAddress.state || undefined,
+          postal_code: billingDetails.billingAddress.postalCode,
+          country: billingDetails.billingAddress.country,
+        },
+      }),
+    };
+
+    let customerId: string;
+    if (org?.stripeCustomerId) {
+      try {
+        const existing = await stripe.customers.retrieve(org.stripeCustomerId);
+        if (existing.deleted) throw new Error("Customer deleted");
+        customerId = org.stripeCustomerId;
+      } catch {
+        const customer = await stripe.customers.create(customerData);
+        customerId = customer.id;
+        await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
+          organizationId: args.organizationId,
+          stripeCustomerId: customer.id,
+        });
+      }
+    } else {
+      const customer = await stripe.customers.create(customerData);
+      customerId = customer.id;
+      await (ctx as any).runMutation(generatedApi.internal.organizations.updateStripeCustomer, {
+        organizationId: args.organizationId,
+        stripeCustomerId: customer.id,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "payment",
+      line_items: [{ price: offer.stripePriceId, quantity: 1 }],
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      allow_promotion_codes: true,
+      billing_address_collection: "required",
+      customer_update: {
+        address: "auto",
+        name: "auto",
+      },
+      automatic_tax: {
+        enabled: true,
+      },
+      tax_id_collection: {
+        enabled: true,
+      },
+      metadata: {
+        organizationId: args.organizationId,
+        type: "commercial-offer",
+        offerCode: args.offerCode,
+        intentCode: args.intentCode,
+        catalogVersion: STORE_COMMERCIAL_CATALOG_VERSION,
+        ...commercialMetadata,
+      },
+      payment_intent_data: {
+        metadata: {
+          organizationId: args.organizationId,
+          type: "commercial-offer",
+          offerCode: args.offerCode,
+          intentCode: args.intentCode,
+          catalogVersion: STORE_COMMERCIAL_CATALOG_VERSION,
+          ...commercialMetadata,
+        },
+      },
+    });
+
+    return {
+      mode: "checkout_now" as const,
+      checkoutUrl: session.url!,
+      sessionId: session.id,
+      offerCode: args.offerCode,
+      intentCode: args.intentCode,
+      metadata: {
+        ...commercialMetadata,
+        catalog_version: STORE_COMMERCIAL_CATALOG_VERSION,
+        type: "commercial-offer",
+      },
     };
   },
 });

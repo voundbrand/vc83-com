@@ -59,6 +59,141 @@ export const STORE_PLATFORM_PRICE_FALLBACKS = {
   currency: "eur",
 } as const;
 
+export const STORE_COMMERCIAL_CATALOG_VERSION = "cpmu_v1" as const;
+
+export const STORE_SUBSCRIPTION_COEXISTENCE_OFFERS = {
+  pro: "plan_pro_subscription",
+  scale: "plan_scale_subscription",
+  credits: "credits_pack",
+} as const;
+
+export type CommercialOfferCode =
+  | "layer1_foundation"
+  | "layer2_dream_team"
+  | "layer3_sovereign"
+  | "layer3_sovereign_pro"
+  | "layer3_sovereign_max"
+  | "layer4_nvidia_private"
+  | "consult_done_with_you"
+  | "consult_full_build_scoping"
+  | "plan_pro_subscription"
+  | "plan_scale_subscription"
+  | "credits_pack";
+
+export type CommercialOfferMotion = "checkout_now" | "inquiry_first" | "invoice_only";
+
+export const COMMERCIAL_OFFER_CATALOG: ReadonlyArray<{
+  offerCode: CommercialOfferCode;
+  label: string;
+  motion: CommercialOfferMotion;
+  setupFeeCents: number | null;
+  monthlyPlatformFeeCents: number | null;
+  stripePriceId: string | null;
+}> = [
+  {
+    offerCode: "layer1_foundation",
+    label: "Layer 1 Foundation",
+    motion: "checkout_now",
+    setupFeeCents: 700_000,
+    monthlyPlatformFeeCents: 49_900,
+    stripePriceId: process.env.STRIPE_LAYER1_FOUNDATION_SETUP_PRICE_ID || null,
+  },
+  {
+    offerCode: "layer2_dream_team",
+    label: "Layer 2 Dream Team",
+    motion: "inquiry_first",
+    setupFeeCents: 3_500_000,
+    monthlyPlatformFeeCents: 99_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "layer3_sovereign",
+    label: "Layer 3 Sovereign",
+    motion: "inquiry_first",
+    setupFeeCents: 13_500_000,
+    monthlyPlatformFeeCents: 199_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "layer3_sovereign_pro",
+    label: "Layer 3 Sovereign Pro",
+    motion: "inquiry_first",
+    setupFeeCents: 16_500_000,
+    monthlyPlatformFeeCents: 249_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "layer3_sovereign_max",
+    label: "Layer 3 Sovereign Max",
+    motion: "inquiry_first",
+    setupFeeCents: 19_500_000,
+    monthlyPlatformFeeCents: 299_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "layer4_nvidia_private",
+    label: "Layer 4 NVIDIA Private",
+    motion: "invoice_only",
+    setupFeeCents: 25_000_000,
+    monthlyPlatformFeeCents: null,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "consult_done_with_you",
+    label: "Consulting Sprint (Strategy & Scope)",
+    motion: "checkout_now",
+    setupFeeCents: 350_000,
+    monthlyPlatformFeeCents: null,
+    stripePriceId: process.env.STRIPE_CONSULT_DONE_WITH_YOU_PRICE_ID || null,
+  },
+  {
+    offerCode: "consult_full_build_scoping",
+    label: "Implementation Start Scoping",
+    motion: "inquiry_first",
+    setupFeeCents: 700_000,
+    monthlyPlatformFeeCents: null,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "plan_pro_subscription",
+    label: "Pro Subscription",
+    motion: "checkout_now",
+    setupFeeCents: null,
+    monthlyPlatformFeeCents: 2_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "plan_scale_subscription",
+    label: "Scale Subscription",
+    motion: "checkout_now",
+    setupFeeCents: null,
+    monthlyPlatformFeeCents: 29_900,
+    stripePriceId: null,
+  },
+  {
+    offerCode: "credits_pack",
+    label: "Credits Pack",
+    motion: "checkout_now",
+    setupFeeCents: null,
+    monthlyPlatformFeeCents: null,
+    stripePriceId: null,
+  },
+] as const;
+
+export const STRIPE_COMMERCIAL_METADATA_CONTINUITY_KEYS = [
+  "offer_code",
+  "intent_code",
+  "surface",
+  "routing_hint",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "referrer",
+  "landingPath",
+] as const;
+
 export type StorePublicStripeTier = "pro" | "scale";
 export type StoreRuntimeStripeTier = "pro" | "agency";
 

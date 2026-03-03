@@ -16,6 +16,23 @@ type ByokCommercialPolicyTableRow = {
   summary: string;
 };
 
+type StoreCommercialOfferSnapshot = {
+  offerCode: string;
+  label: string;
+  motion: "checkout_now" | "inquiry_first" | "invoice_only";
+  setupFeeCents: number | null;
+  monthlyPlatformFeeCents: number | null;
+  stripePriceId: string | null;
+  checkoutConfigured?: boolean;
+};
+
+export type StoreCommercialOfferSelection = {
+  offerCode: string;
+  intentCode: string;
+  routingHint: "samantha_lead_capture" | "founder_bridge" | "enterprise_sales";
+  action: "checkout" | "chat_handoff";
+};
+
 const LIMIT_ROWS: Array<{
   key: keyof StorePricingContractSnapshot["tiers"][number]["limitLabels"];
   label: string;
@@ -69,6 +86,197 @@ function SourceLine({ source }: { source: string }) {
         Source: <code>{source}</code>
       </span>
     </p>
+  );
+}
+
+function formatFee(value: number | null, suffix: "one_time" | "monthly"): string {
+  if (value === null) {
+    return suffix === "monthly" ? "Custom quote" : "Quote-based";
+  }
+  const formatted = formatEuroFromCents(value);
+  return suffix === "monthly" ? `${formatted}/month` : `${formatted} one-time`;
+}
+
+function resolveOfferVisual(offerCode: string): { glyph: string; hardware: string } {
+  if (offerCode === "layer1_foundation") return { glyph: "CLOUD", hardware: "Shared cloud — great for getting started" };
+  if (offerCode === "layer2_dream_team") return { glyph: "TEAM", hardware: "Dedicated cloud — reliable for growing teams" };
+  if (offerCode === "layer3_sovereign") return { glyph: "APPLE", hardware: "On-premise Apple hardware (Mac Studio class)" };
+  if (offerCode === "layer3_sovereign_pro") return { glyph: "HYBRID", hardware: "Hybrid setup: Apple + NVIDIA DGX Spark" };
+  if (offerCode === "layer3_sovereign_max") return { glyph: "MAX", hardware: "High-performance local hardware (512 GB class)" };
+  if (offerCode === "layer4_nvidia_private") return { glyph: "NVIDIA", hardware: "Private NVIDIA GPU stack (A100 / H100 / RTX)" };
+  if (offerCode === "consult_done_with_you") return { glyph: "GUIDE", hardware: "Guided strategy — we advise, you execute" };
+  if (offerCode === "consult_full_build_scoping") return { glyph: "SCOPE", hardware: "Full project scoping before any build work" };
+  return { glyph: "OFFER", hardware: "Custom option" };
+}
+
+function resolveMotionLabel(motion: StoreCommercialOfferSnapshot["motion"]): string {
+  if (motion === "checkout_now") return "Buy online";
+  if (motion === "invoice_only") return "Custom quote";
+  return "Talk to us first";
+}
+
+const COMMERCIAL_OFFER_ORDER = [
+  "layer1_foundation",
+  "layer2_dream_team",
+  "layer3_sovereign",
+  "layer3_sovereign_pro",
+  "layer3_sovereign_max",
+  "layer4_nvidia_private",
+  "consult_done_with_you",
+  "consult_full_build_scoping",
+] as const;
+
+export function StoreCommercialArchitectureCards({
+  offers,
+  onSelectOffer,
+}: {
+  offers: StoreCommercialOfferSnapshot[];
+  onSelectOffer?: (selection: StoreCommercialOfferSelection) => void;
+}) {
+  const sortedOffers = [...offers].sort((left, right) => {
+    const leftIndex = COMMERCIAL_OFFER_ORDER.indexOf(left.offerCode as (typeof COMMERCIAL_OFFER_ORDER)[number]);
+    const rightIndex = COMMERCIAL_OFFER_ORDER.indexOf(right.offerCode as (typeof COMMERCIAL_OFFER_ORDER)[number]);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
+
+  const layerOffers = sortedOffers.filter((offer) => offer.offerCode.startsWith("layer"));
+  const consultingOffers = sortedOffers.filter((offer) => offer.offerCode.startsWith("consult"));
+
+  const buildSelection = (offer: StoreCommercialOfferSnapshot): StoreCommercialOfferSelection => {
+    const isCheckoutReady = offer.motion === "checkout_now" && Boolean(offer.checkoutConfigured);
+
+    if (offer.offerCode.startsWith("consult")) {
+      return {
+        offerCode: offer.offerCode,
+        intentCode: offer.offerCode === "consult_done_with_you"
+          ? "consulting_sprint_scope_only"
+          : "diagnostic_scope_intake",
+        routingHint: "samantha_lead_capture",
+        action: isCheckoutReady ? "checkout" : "chat_handoff",
+      };
+    }
+
+    return {
+      offerCode: offer.offerCode,
+      intentCode: offer.offerCode === "layer1_foundation"
+        ? "implementation_start_layer1"
+        : "implementation_layer_upgrade",
+      routingHint: offer.offerCode === "layer1_foundation"
+        ? "founder_bridge"
+        : "enterprise_sales",
+      action: isCheckoutReady ? "checkout" : "chat_handoff",
+    };
+  };
+
+  const resolveCtaLabel = (selection: StoreCommercialOfferSelection): string =>
+    selection.action === "checkout" ? "Buy now" : "Get started";
+
+  const renderOfferCard = (offer: StoreCommercialOfferSnapshot) => {
+    const visual = resolveOfferVisual(offer.offerCode);
+    const selection = buildSelection(offer);
+    return (
+      <article
+        key={offer.offerCode}
+        className="rounded-xl border p-3"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
+      >
+        <div
+          className="mb-3 rounded-lg border px-3 py-2"
+          style={{
+            borderColor: "var(--tone-accent-strong)",
+            background:
+              "linear-gradient(135deg, var(--tone-accent) 0%, color-mix(in srgb, var(--tone-accent) 55%, var(--window-document-bg)) 100%)",
+            color: "var(--shell-on-accent)",
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide">{visual.glyph}</p>
+          <p className="mt-0.5 text-xs">{visual.hardware}</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+            {offer.label}
+          </h4>
+          <span
+            className="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide"
+            style={{
+              borderColor: "var(--window-document-border)",
+              color: "var(--window-document-text-muted)",
+              background: "var(--window-document-bg-elevated)",
+            }}
+          >
+            {resolveMotionLabel(offer.motion)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-1 gap-2 text-xs">
+          <div className="rounded border px-2 py-1.5" style={{ borderColor: "var(--window-document-border)" }}>
+            <dt style={{ color: "var(--window-document-text-muted)" }}>One-time setup</dt>
+            <dd className="font-semibold" style={{ color: "var(--window-document-text)" }}>
+              {formatFee(offer.setupFeeCents, "one_time")}
+            </dd>
+          </div>
+          <div className="rounded border px-2 py-1.5" style={{ borderColor: "var(--window-document-border)" }}>
+            <dt style={{ color: "var(--window-document-text-muted)" }}>Monthly fee</dt>
+            <dd className="font-semibold" style={{ color: "var(--window-document-text)" }}>
+              {formatFee(offer.monthlyPlatformFeeCents, "monthly")}
+            </dd>
+          </div>
+        </dl>
+        {onSelectOffer ? (
+          <button
+            type="button"
+            onClick={() => onSelectOffer(selection)}
+            className="mt-3 w-full rounded-md border px-2 py-2 text-xs font-semibold transition-colors"
+            style={{
+              borderColor: "var(--tone-accent-strong)",
+              background: "var(--tone-accent)",
+              color: "var(--shell-on-accent)",
+            }}
+          >
+            {resolveCtaLabel(selection)}
+          </button>
+        ) : null}
+      </article>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+          Implementation packages
+        </h3>
+        <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {layerOffers.map(renderOfferCard)}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
+          Consulting options
+        </h3>
+        <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {consultingOffers.map(renderOfferCard)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StoreCreditsApplicabilityCard() {
+  return (
+    <div
+      className="mt-4 rounded-lg border p-3"
+      style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
+    >
+      <h3 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+        What credits cover
+      </h3>
+      <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+        <li>Credits pay for AI interactions, automations, and platform usage.</li>
+        <li>Credits cannot be applied to setup fees, consulting, or hardware.</li>
+        <li>Monthly credits included in your plan renew each billing cycle.</li>
+        <li>Purchased credits are added on top and never expire.</li>
+      </ul>
+    </div>
   );
 }
 
@@ -180,13 +388,13 @@ export function StoreTrialPolicyCard({
   return (
     <div className="rounded-lg border p-3" style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}>
       <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
-        Available plan trials
+        Free trial availability
       </p>
       <ul className="mt-2 space-y-2">
         {trialOffers.map((offer) => (
           <li key={offer.tier} className="rounded border px-3 py-2" style={{ borderColor: "var(--window-document-border)" }}>
             <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
-              {offer.tier === "pro" ? "Pro" : "Scale"}: {offer.durationDays}-day trial
+              {offer.tier === "pro" ? "Pro (legacy)" : "Scale (legacy)"}: {offer.durationDays}-day trial
             </p>
             <p className="mt-0.5 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
               {offer.summary}
@@ -313,7 +521,7 @@ export function StorePricingTransparencyTable({
           </tr>
           <tr className="border-t" style={{ borderColor: "var(--window-document-border)" }}>
             <td className="px-3 py-2 font-medium" style={{ color: "var(--window-document-text)" }}>
-              Trial availability
+              Free trial
             </td>
             {tierSnapshots.map((tier) => {
               const trial =
@@ -334,7 +542,7 @@ export function StorePricingTransparencyTable({
           </tr>
           <tr className="border-t" style={{ borderColor: "var(--window-document-border)" }}>
             <td className="px-3 py-2 font-medium" style={{ color: "var(--window-document-text)" }}>
-              BYOK access
+              Bring your own API key
             </td>
             {tierSnapshots.map((tier) => {
               const explicitEligibility = byokEligibilityByTier.get(tier.publicTier);
@@ -342,7 +550,7 @@ export function StorePricingTransparencyTable({
               const label = eligible
                 ? "Available"
                 : tier.publicTier === "free"
-                  ? "Not included (starts on Pro)"
+                  ? "Not included (legacy Free)"
                   : "Not included";
               return (
                 <td key={`byok-${tier.publicTier}`} className="px-3 py-2" style={{ color: "var(--window-document-text)" }}>
@@ -375,7 +583,7 @@ export function StorePricingTransparencyTable({
           ))}
           <tr className="border-t" style={{ borderColor: "var(--window-document-border)" }}>
             <td className="px-3 py-2 font-medium" style={{ color: "var(--window-document-text)" }}>
-              Scale sub-org add-on
+              Sub-organization add-on
             </td>
             {tierSnapshots.map((tier) => (
               <td key={`addon-scale-sub-org-${tier.publicTier}`} className="px-3 py-2" style={{ color: "var(--window-document-text)" }}>

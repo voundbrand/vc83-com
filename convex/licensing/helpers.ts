@@ -1019,6 +1019,27 @@ export const getStorePricingContract = query({
           source: "convex/stripe/byokCommercialPolicy.ts",
         },
       ],
+      migration: {
+        contractVersion: "cpmu_v1",
+        migrationMode: "coexistence",
+        legacySubscriptionOffers: ["plan_pro_subscription", "plan_scale_subscription"],
+        legacyCreditOffer: "credits_pack",
+        layerOffersPlanned: [
+          "layer1_foundation",
+          "layer2_dream_team",
+          "layer3_sovereign",
+          "layer3_sovereign_pro",
+          "layer3_sovereign_max",
+          "layer4_nvidia_private",
+        ],
+        rollbackPolicy: {
+          preserveCreditBalances: true,
+          preserveActiveSubscriptions: true,
+          preserveAttributionMetadata: true,
+        },
+        source:
+          "docs/reference_docs/topic_collections/implementation/commercial-pricing-motion-unification/MASTER_PLAN.md",
+      },
     };
   },
 });

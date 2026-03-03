@@ -3,6 +3,7 @@
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
+import { resolveOperatorCollaborationShellResolution } from "@/lib/operator-collaboration-cutover";
 import { useQuery, useAction } from "convex/react";
 import { Id } from "../../../convex/_generated/dataModel";
 import {
@@ -27,6 +28,9 @@ import { BenefitsWindow } from "./benefits-window";
 import {
   StoreAddOnsList,
   StoreBillingSemanticsList,
+  StoreCommercialArchitectureCards,
+  type StoreCommercialOfferSelection,
+  StoreCreditsApplicabilityCard,
   StoreFaqList,
   StoreLimitsMatrix,
   StorePricingTransparencyTable,
@@ -40,11 +44,17 @@ import {
   type StorePricingContractSnapshot,
 } from "@/lib/store-pricing-contract";
 import {
+  resolveLegacyPublicCutoverMode,
+  shouldShowLegacyCards,
+} from "@/lib/commercial-cutover";
+import {
   InteriorHeader,
   InteriorRoot,
   InteriorSubtitle,
   InteriorTitle,
 } from "@/components/window-content/shared/interior-primitives";
+import { AIChatWindow } from "@/components/window-content/ai-chat-window";
+import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
 
 const PurchaseResultWindow = lazy(() =>
   import("@/components/window-content/purchase-result-window").then(m => ({ default: m.PurchaseResultWindow }))
@@ -53,10 +63,10 @@ const PurchaseResultWindow = lazy(() =>
 /**
  * PLATFORM STORE WINDOW v3
  *
- * Simplified layout:
- * - Plan cards: Free, Pro (€29/mo), Scale (€299/mo), Enterprise (custom)
- * - Credit purchase section with tiered pricing
- * - Subscription management (upgrade/downgrade/cancel)
+ * Commercial motion layout:
+ * - Free Diagnostic (lead qualification only)
+ * - Consulting Sprint (strategy/scope only)
+ * - Implementation Start (Layer 1 and above)
  *
  * All Stripe checkout logic lives in the backend.
  */
@@ -73,8 +83,11 @@ const managePlatformSubscriptionAction = apiRefs.stripe.platformCheckout.manageP
 const getSubscriptionStatusAction = apiRefs.stripe.platformCheckout.getSubscriptionStatus;
 const cancelPendingDowngradeAction = apiRefs.stripe.platformCheckout.cancelPendingDowngrade;
 const createPlatformCheckoutAction = apiRefs.stripe.platformCheckout.createPlatformCheckoutSession;
+const createCommercialOfferCheckoutAction = apiRefs.stripe.platformCheckout.createCommercialOfferCheckoutSession;
 const createCreditCheckoutAction = apiRefs.stripe.creditCheckout.createCreditCheckoutSession;
 const getByokCommercialPolicyTableQuery = apiRefs.stripe.platformCheckout.getByokCommercialPolicyTable;
+const getCommercialOfferCatalogQuery = apiRefs.stripe.platformCheckout.getCommercialOfferCatalog;
+const getCommercialCheckoutReadinessQuery = apiRefs.stripe.platformCheckout.getCommercialCheckoutReadiness;
 
 type CheckoutTier = "pro" | "scale";
 type BillingPeriod = "monthly" | "annual";
@@ -99,6 +112,57 @@ type ByokCommercialPolicyTableRow = {
   bundledInTier: boolean;
   migrationDefault: boolean;
   summary: string;
+};
+
+type CommercialOfferCatalogSnapshot = {
+  contractVersion: string;
+  offers: Array<{
+    offerCode: string;
+    label: string;
+    motion: "checkout_now" | "inquiry_first" | "invoice_only";
+    setupFeeCents: number | null;
+    monthlyPlatformFeeCents: number | null;
+    stripePriceId: string | null;
+    checkoutConfigured?: boolean;
+  }>;
+};
+
+type CommercialCheckoutReadinessSnapshot = {
+  contractVersion: string;
+  checkedOffers: number;
+  checkoutNowOffers: number;
+  hasMismatches: boolean;
+  mismatches: Array<{
+    offerCode: string;
+    label: string;
+    motion: "checkout_now";
+    expectedEnvKey: string | null;
+  }>;
+};
+
+type CommercialOfferCode =
+  | "layer1_foundation"
+  | "layer2_dream_team"
+  | "layer3_sovereign"
+  | "layer3_sovereign_pro"
+  | "layer3_sovereign_max"
+  | "layer4_nvidia_private"
+  | "consult_done_with_you"
+  | "consult_full_build_scoping"
+  | "plan_pro_subscription"
+  | "plan_scale_subscription"
+  | "credits_pack";
+
+type CommercialRoutingHint = "samantha_lead_capture" | "founder_bridge" | "enterprise_sales";
+
+type CommercialAttributionCampaign = {
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+  referrer?: string;
+  landingPath?: string;
 };
 
 type StoreCreditsHistoryEntry = {
@@ -150,6 +214,10 @@ const normalizeStoreSectionAlias = (value: StoreSectionAlias | null): StoreSecti
   return isStoreSection(value) ? value : null;
 };
 
+const LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY = "storeLegacyPricingManualReveal";
+const ONBOARDING_ATTRIBUTION_STORAGE_KEY = "l4yercak3_onboarding_attribution";
+const STORE_COMMERCIAL_HANDOFF_CONTEXT = "store_commercial_handoff";
+
 export function StoreWindow({ fullScreen = false, initialSection = "plans" }: StoreWindowProps = {}) {
   const { t } = useNamespaceTranslations("ui.store");
   const tx = useCallback((key: string, fallback: string, params?: Record<string, string | number>): string => {
@@ -191,6 +259,14 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
     getByokCommercialPolicyTableQuery,
     {}
   ) as ByokCommercialPolicyTableRow[] | undefined;
+  const commercialOfferCatalog = useQuery(
+    getCommercialOfferCatalogQuery,
+    {}
+  ) as CommercialOfferCatalogSnapshot | undefined;
+  const commercialCheckoutReadiness = useQuery(
+    getCommercialCheckoutReadinessQuery,
+    {}
+  ) as CommercialCheckoutReadinessSnapshot | undefined;
   const pricingContract = useMemo(
     () => normalizeStorePricingContract(pricingContractQuery),
     [pricingContractQuery]
@@ -203,6 +279,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
   const getSubscriptionStatus = useAction(getSubscriptionStatusAction);
   const cancelPendingDowngrade = useAction(cancelPendingDowngradeAction);
   const createPlatformCheckout = useAction(createPlatformCheckoutAction);
+  const createCommercialOfferCheckout = useAction(createCommercialOfferCheckoutAction);
   const createCreditCheckout = useAction(createCreditCheckoutAction);
 
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
@@ -241,49 +318,110 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
     faq: null,
   });
   const hasActiveSubscription = subscriptionStatus?.hasSubscription || !!organization?.stripeSubscriptionId;
+  const normalizedCurrentPlan = typeof currentPlan === "string" ? currentPlan.toLowerCase() : "free";
+  const hasLegacyPlanAccess =
+    hasActiveSubscription ||
+    normalizedCurrentPlan === "pro" ||
+    normalizedCurrentPlan === "agency" ||
+    normalizedCurrentPlan === "scale" ||
+    normalizedCurrentPlan === "enterprise" ||
+    normalizedCurrentPlan === "starter" ||
+    normalizedCurrentPlan === "professional" ||
+    normalizedCurrentPlan === "community";
+  const legacyPricingManualRevealEnabled = Boolean(
+    ((license as { features?: Record<string, unknown> } | undefined)?.features ?? {})[
+      LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY
+    ]
+  );
+  const legacyPublicCutoverMode = resolveLegacyPublicCutoverMode();
+  const legacySalesCardsVisible = shouldShowLegacyCards({
+    mode: legacyPublicCutoverMode,
+    hasLegacyPlanAccess,
+    legacyPricingManualRevealEnabled,
+  });
+  const legacySalesMode:
+    | "hidden"
+    | "compatibility"
+    | "super_admin_override"
+    | "rollback_public" =
+    legacyPublicCutoverMode === "rollback_show_legacy_public"
+      ? "rollback_public"
+      : legacySalesCardsVisible
+        ? hasLegacyPlanAccess
+          ? "compatibility"
+          : "super_admin_override"
+        : "hidden";
+  const showLegacyCompatibilitySections = legacySalesMode !== "hidden";
   const isCompactViewport = useIsDesktopShellFallback();
-  const storeSections = useMemo<Array<{ id: StoreSection; label: string; description: string }>>(() => ([
-    {
-      id: "plans",
-      label: tx("ui.store.sections.plans.label", "Plans"),
-      description: tx("ui.store.sections.plans.description", "Monthly and annual subscriptions for each plan."),
-    },
-    {
-      id: "credits",
-      label: tx("ui.store.sections.credits.label", "Credit system"),
-      description: tx("ui.store.sections.credits.description", "One-time credit packs and usage top-ups."),
-    },
-    {
-      id: "limits",
-      label: tx("ui.store.sections.limits.label", "Limits"),
-      description: tx("ui.store.sections.limits.description", "Compare limits across Free, Pro, Scale, and Enterprise."),
-    },
-    {
-      id: "addons",
-      label: tx("ui.store.sections.addons.label", "Add-ons"),
-      description: tx("ui.store.sections.addons.description", "Optional extras for scaling your workspace."),
-    },
-    {
-      id: "billing",
-      label: tx("ui.store.sections.billing.label", "Billing semantics"),
-      description: tx("ui.store.sections.billing.description", "How annual billing, proration, and VAT-inclusive pricing work."),
-    },
-    {
-      id: "trial",
-      label: tx("ui.store.sections.trial.label", "Trial policy"),
-      description: tx("ui.store.sections.trial.description", "Free trial availability and what happens next."),
-    },
-    {
-      id: "transparency",
-      label: tx("ui.store.sections.transparency.label", "Pricing transparency"),
-      description: tx("ui.store.sections.transparency.description", "Full feature-by-feature comparison across all plans."),
-    },
-    {
-      id: "faq",
-      label: tx("ui.store.sections.faq.label", "FAQ"),
-      description: tx("ui.store.sections.faq.description", "Quick answers to common pricing questions."),
-    },
-  ]), [tx]);
+  const storeSections = useMemo<Array<{ id: StoreSection; label: string; description: string }>>(() => {
+    const sections: Array<{ id: StoreSection; label: string; description: string }> = [
+      {
+        id: "plans",
+        label: tx("ui.store.sections.plans.label_v2", "Plans"),
+        description: tx(
+          "ui.store.sections.plans.description_v2",
+          "Choose from free diagnostics, consulting, or full implementation."
+        ),
+      },
+      {
+        id: "credits",
+        label: tx("ui.store.sections.credits.label", "Credits"),
+        description: tx("ui.store.sections.credits.description", "Buy extra usage credits when you need them."),
+      },
+    ];
+
+    if (showLegacyCompatibilitySections) {
+      sections.push(
+        {
+          id: "limits",
+          label: tx("ui.store.sections.limits.label_v2", "Plan limits"),
+          description: tx(
+            "ui.store.sections.limits.description_v2",
+            "See what's included in each plan tier."
+          ),
+        },
+        {
+          id: "addons",
+          label: tx("ui.store.sections.addons.label_v2", "Add-ons"),
+          description: tx(
+            "ui.store.sections.addons.description_v2",
+            "Optional extras you can add to your plan."
+          ),
+        },
+        {
+          id: "billing",
+          label: tx("ui.store.sections.billing.label_v2", "Billing"),
+          description: tx(
+            "ui.store.sections.billing.description_v2",
+            "How billing cycles, proration, and VAT work."
+          ),
+        },
+        {
+          id: "trial",
+          label: tx("ui.store.sections.trial.label_v2", "Free trials"),
+          description: tx(
+            "ui.store.sections.trial.description_v2",
+            "How free trials work for Pro and Scale plans."
+          ),
+        },
+        {
+          id: "transparency",
+          label: tx("ui.store.sections.transparency.label_v2", "Full comparison"),
+          description: tx(
+            "ui.store.sections.transparency.description_v2",
+            "Side-by-side comparison of all plan features and pricing."
+          ),
+        },
+        {
+          id: "faq",
+          label: tx("ui.store.sections.faq.label_v2", "FAQ"),
+          description: tx("ui.store.sections.faq.description_v2", "Common questions about billing, plans, and upgrades."),
+        }
+      );
+    }
+
+    return sections;
+  }, [showLegacyCompatibilitySections, tx]);
   const activeSectionMetadata =
     storeSections.find((section) => section.id === activeSection) ?? storeSections[0];
   const isCreditsHistoryLoading = Boolean(organizationId) && creditsHistoryEnvelope === undefined;
@@ -716,6 +854,242 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
   const formatHistoryAmount = (value: number) =>
     `${value > 0 ? "+" : ""}${value.toLocaleString()}`;
 
+  const commercialAttributionCampaign = useMemo<CommercialAttributionCampaign>(() => {
+    if (typeof window === "undefined") {
+      return {};
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const campaign: CommercialAttributionCampaign = {
+      source: params.get("source") || params.get("utm_source") || params.get("utmSource") || undefined,
+      medium: params.get("medium") || params.get("utm_medium") || params.get("utmMedium") || undefined,
+      campaign: params.get("campaign") || params.get("utm_campaign") || params.get("utmCampaign") || undefined,
+      content: params.get("content") || params.get("utm_content") || params.get("utmContent") || undefined,
+      term: params.get("term") || params.get("utm_term") || params.get("utmTerm") || undefined,
+      referrer: params.get("referrer") || undefined,
+      landingPath: params.get("landingPath") || undefined,
+    };
+
+    const hasCampaign = Object.values(campaign).some((value) => typeof value === "string" && value.length > 0);
+    if (hasCampaign) {
+      return campaign;
+    }
+
+    try {
+      const rawAttribution = window.localStorage.getItem("l4yercak3_onboarding_attribution");
+      if (!rawAttribution) {
+        return {};
+      }
+      const parsed = JSON.parse(rawAttribution) as { campaign?: CommercialAttributionCampaign };
+      return parsed?.campaign ?? {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const buildCommercialQueryParams = useCallback((selection: {
+    offerCode: string;
+    intentCode: string;
+    routingHint: CommercialRoutingHint;
+  }) => {
+    const params = new URLSearchParams({
+      offer_code: selection.offerCode,
+      intent_code: selection.intentCode,
+      surface: "store",
+      routing_hint: selection.routingHint,
+    });
+
+    if (commercialAttributionCampaign.source) {
+      params.set("source", commercialAttributionCampaign.source);
+      params.set("utm_source", commercialAttributionCampaign.source);
+    }
+    if (commercialAttributionCampaign.medium) {
+      params.set("medium", commercialAttributionCampaign.medium);
+      params.set("utm_medium", commercialAttributionCampaign.medium);
+    }
+    if (commercialAttributionCampaign.campaign) {
+      params.set("campaign", commercialAttributionCampaign.campaign);
+      params.set("utm_campaign", commercialAttributionCampaign.campaign);
+    }
+    if (commercialAttributionCampaign.content) {
+      params.set("content", commercialAttributionCampaign.content);
+      params.set("utm_content", commercialAttributionCampaign.content);
+    }
+    if (commercialAttributionCampaign.term) {
+      params.set("term", commercialAttributionCampaign.term);
+      params.set("utm_term", commercialAttributionCampaign.term);
+    }
+    if (commercialAttributionCampaign.referrer) {
+      params.set("referrer", commercialAttributionCampaign.referrer);
+    }
+    if (commercialAttributionCampaign.landingPath) {
+      params.set("landingPath", commercialAttributionCampaign.landingPath);
+    }
+
+    return params;
+  }, [commercialAttributionCampaign]);
+
+  const persistStoreCommercialIntentAttribution = useCallback((selection: {
+    offerCode: string;
+    intentCode: string;
+    routingHint: CommercialRoutingHint;
+  }) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const campaign = {
+      source: commercialAttributionCampaign.source,
+      medium: commercialAttributionCampaign.medium,
+      campaign: commercialAttributionCampaign.campaign,
+      content: commercialAttributionCampaign.content,
+      term: commercialAttributionCampaign.term,
+      referrer: commercialAttributionCampaign.referrer,
+      landingPath: commercialAttributionCampaign.landingPath,
+    };
+    const hasCampaign = Object.values(campaign).some(
+      (value) => typeof value === "string" && value.length > 0
+    );
+
+    window.localStorage.setItem(
+      ONBOARDING_ATTRIBUTION_STORAGE_KEY,
+      JSON.stringify({
+        channel: "platform_web",
+        campaign: hasCampaign ? campaign : undefined,
+        commercialIntent: {
+          offerCode: selection.offerCode,
+          intentCode: selection.intentCode,
+          surface: "store",
+          routingHint: selection.routingHint,
+        },
+        capturedAt: Date.now(),
+      })
+    );
+  }, [commercialAttributionCampaign]);
+
+  const routeStoreCommercialIntentToChat = useCallback((selection: {
+    offerCode: string;
+    intentCode: string;
+    routingHint: CommercialRoutingHint;
+  }) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    persistStoreCommercialIntentAttribution(selection);
+
+    // Full-screen /store has no desktop window manager surface, so route to
+    // desktop shell with AI Assistant window deep link.
+    if (fullScreen) {
+      const params = new URLSearchParams({
+        app: "ai-assistant",
+        context: STORE_COMMERCIAL_HANDOFF_CONTEXT,
+      });
+      window.location.href = `/?${params.toString()}`;
+      return;
+    }
+
+    const organizationId = currentOrganization?.id ? String(currentOrganization.id) : undefined;
+    const shellResolution = resolveOperatorCollaborationShellResolution({
+      organizationId,
+      requestedLayoutMode: "slick",
+    });
+    const windowContract = getVoiceAssistantWindowContract("ai-assistant");
+    const launchNonce = `store-commercial-${Date.now()}`;
+
+    openWindow(
+      windowContract.windowId,
+      windowContract.title,
+      <AIChatWindow
+        key={launchNonce}
+        initialLayoutMode={shellResolution.resolvedLayoutMode}
+        openContext={STORE_COMMERCIAL_HANDOFF_CONTEXT}
+        sourceOrganizationId={organizationId}
+      />,
+      windowContract.position,
+      windowContract.size,
+      windowContract.titleKey,
+      windowContract.iconId,
+      {
+        deepLinkNonce: launchNonce,
+        initialLayoutMode: shellResolution.resolvedLayoutMode,
+        operatorCollaborationShellEnabled: shellResolution.collaborationShellEnabled,
+        operatorCollaborationCutoverReason: shellResolution.reason,
+        operatorCollaborationCohortBucket: shellResolution.cohortBucket,
+        openContext: STORE_COMMERCIAL_HANDOFF_CONTEXT,
+        sourceOrganizationId: organizationId,
+      }
+    );
+  }, [currentOrganization?.id, fullScreen, openWindow, persistStoreCommercialIntentAttribution]);
+
+  const handleCommercialOfferSelection = useCallback(async (selection: StoreCommercialOfferSelection) => {
+    if (selection.action === "chat_handoff") {
+      routeStoreCommercialIntentToChat(selection);
+      return;
+    }
+
+    if (!isSignedIn) {
+      redirectToLoginForStore("plans");
+      return;
+    }
+
+    if (!currentOrganization?.id) {
+      setSubscriptionMessage({ type: "error", text: "We are still loading your workspace. Please try again in a moment." });
+      return;
+    }
+
+    setIsManagingSubscription(true);
+    try {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const queryParams = buildCommercialQueryParams(selection);
+      const result = await createCommercialOfferCheckout({
+        organizationId: currentOrganization.id as Id<"organizations">,
+        organizationName: organization?.name || currentOrganization.name || "Organization",
+        email: organization?.email || user?.email || "",
+        offerCode: selection.offerCode as CommercialOfferCode,
+        intentCode: selection.intentCode,
+        surface: "store",
+        routingHint: selection.routingHint,
+        successUrl: `${baseUrl}/?purchase=success&type=plan&${queryParams.toString()}`,
+        cancelUrl: `${baseUrl}/?purchase=canceled&type=plan&${queryParams.toString()}`,
+        funnelChannel: "platform_web",
+        funnelCampaign: {
+          source: commercialAttributionCampaign.source,
+          medium: commercialAttributionCampaign.medium,
+          campaign: commercialAttributionCampaign.campaign,
+          content: commercialAttributionCampaign.content,
+          term: commercialAttributionCampaign.term,
+          referrer: commercialAttributionCampaign.referrer,
+          landingPath: commercialAttributionCampaign.landingPath,
+        },
+      });
+
+      if (result.mode === "checkout_now" && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+
+      routeStoreCommercialIntentToChat(selection);
+    } catch (error) {
+      console.error("Commercial offer checkout error:", error);
+      setSubscriptionMessage({ type: "error", text: "Failed to route commercial intent. Please try again." });
+    } finally {
+      setIsManagingSubscription(false);
+    }
+  }, [
+    isSignedIn,
+    currentOrganization?.id,
+    currentOrganization?.name,
+    organization?.name,
+    organization?.email,
+    user?.email,
+    commercialAttributionCampaign,
+    buildCommercialQueryParams,
+    createCommercialOfferCheckout,
+    redirectToLoginForStore,
+    routeStoreCommercialIntentToChat,
+  ]);
+
   return (
     <>
       <InteriorRoot className="h-full flex flex-col">
@@ -768,6 +1142,34 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
           </div>
         )}
 
+        {isSuperAdmin && commercialCheckoutReadiness?.hasMismatches && (
+          <div
+            className="mx-4 mt-2 rounded p-3 text-xs"
+            role="status"
+            aria-live="polite"
+            style={{
+              background: "var(--error-bg)",
+              color: "var(--error)",
+              border: "1px solid var(--error)",
+            }}
+          >
+            <p className="font-semibold">
+              Stripe readiness warning: some commercial checkout offers are missing price IDs.
+            </p>
+            <p className="mt-1" style={{ color: "var(--window-document-text)" }}>
+              These offers will route to chat/inquiry instead of Stripe checkout until configured.
+            </p>
+            <ul className="mt-2 space-y-1" style={{ color: "var(--window-document-text)" }}>
+              {commercialCheckoutReadiness.mismatches.map((mismatch) => (
+                <li key={mismatch.offerCode}>
+                  {mismatch.label} ({mismatch.offerCode})
+                  {mismatch.expectedEnvKey ? ` - set ${mismatch.expectedEnvKey}` : " - missing Stripe price mapping"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Content */}
         <div
           ref={contentScrollRef}
@@ -814,15 +1216,116 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
               >
                 <div className="mb-4">
                   <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.plans.title", "Plans")}
+                    {tx("ui.store.plans.title_v2", "Choose your plan")}
                   </h2>
                   <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
                     {tx(
-                      "ui.store.plans.description",
-                      "Compare active subscriptions and manage billing with VAT-inclusive price display."
+                      "ui.store.plans.description_v2",
+                      "Start free, get expert advice, or jump straight into implementation."
                     )}
                   </p>
                 </div>
+
+                <div
+                  className="mb-4 rounded-lg border p-3"
+                  style={{
+                    background: "var(--window-document-bg)",
+                    borderColor: "var(--window-document-border)",
+                  }}
+                >
+                  <h3 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                    {tx("ui.store.motion_contract.title_v2", "How our pricing works")}
+                  </h3>
+                  <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                    <li>
+                      {tx(
+                        "ui.store.motion_contract.free_v2",
+                        "Free Diagnostic — Explore the platform and see what's possible. No credit card needed."
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.store.motion_contract.consult_v2",
+                        "Consulting Sprint (€3,500) — Get a tailored strategy and project scope. Consulting only, no build work included."
+                      )}
+                    </li>
+                    <li>
+                      {tx(
+                        "ui.store.motion_contract.implementation_v2",
+                        "Implementation Start (from €7,000) — Launch your first production environment. Includes Layer 1 Foundation setup and above."
+                      )}
+                    </li>
+                  </ul>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        routeStoreCommercialIntentToChat({
+                          offerCode: "consult_full_build_scoping",
+                          intentCode: "diagnostic_qualification",
+                          routingHint: "samantha_lead_capture",
+                        })
+                      }
+                      className="w-full rounded-md border px-2 py-2 text-xs font-semibold transition-colors"
+                      style={{
+                        borderColor: "var(--tone-accent-strong)",
+                        background: "var(--tone-accent)",
+                        color: "var(--shell-on-accent)",
+                      }}
+                    >
+                      Start free diagnostic
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className="mb-4 rounded-lg border p-3"
+                  style={{
+                    background: "var(--window-document-bg)",
+                    borderColor: "var(--tone-accent-strong)",
+                  }}
+                >
+                  <h3 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+                    {tx("ui.store.commercial_architecture.title", "Plans and pricing overview")}
+                  </h3>
+                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                    {tx(
+                      "ui.store.commercial_architecture.description_v2",
+                      "Browse setup fees, monthly platform fees, and consulting options below. Existing Pro/Scale subscribers keep full access during the transition."
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                    {tx(
+                      "ui.store.commercial_architecture.coexistence_notice_v2",
+                      "Your existing billing and credit balances are safe. New customers start with the options shown above."
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                    {legacyPublicCutoverMode === "cutover_hide_legacy"
+                      ? tx(
+                        "ui.store.commercial_architecture.cutover_mode_v2",
+                        "Previous Pro/Scale plans are hidden. Admins can reveal them if needed."
+                      )
+                      : legacyPublicCutoverMode === "rollback_show_legacy_public"
+                        ? tx(
+                          "ui.store.commercial_architecture.rollback_mode_v2",
+                          "Previous Pro/Scale plans are temporarily visible while we resolve a service issue."
+                        )
+                        : tx(
+                          "ui.store.commercial_architecture.compatibility_mode_v2",
+                          "Previous Pro/Scale plans are shown because this workspace has an existing subscription."
+                        )}
+                  </p>
+                  {commercialOfferCatalog?.offers?.length ? (
+                    <div className="mt-3">
+                      <StoreCommercialArchitectureCards
+                        offers={commercialOfferCatalog.offers}
+                        onSelectOffer={handleCommercialOfferSelection}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
                 <StorePlanCards
                   currentPlan={currentPlan}
                   hasActiveSubscription={hasActiveSubscription}
@@ -838,6 +1341,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                   isLoadingStatus={isLoadingStatus}
                   onCancelPendingChange={handleCancelPendingChange}
                   isCancelingPending={isCancelingPending}
+                  legacySalesMode={legacySalesMode}
                 />
               </section>
 
@@ -894,12 +1398,12 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
               >
                 <div className="mb-4">
                   <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.credits.title", "Credit system")}
+                    {tx("ui.store.credits.title", "Credits")}
                   </h2>
                   <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
                     {tx(
                       "ui.store.credits.description",
-                      "Buy usage credits when you need extra capacity, with clear volume pricing."
+                      "Need more capacity? Buy credits anytime — the more you buy, the more you save."
                     )}
                   </p>
                 </div>
@@ -907,6 +1411,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                   onPurchase={handleCreditPurchase}
                   isProcessing={isCreditProcessing}
                 />
+                <StoreCreditsApplicabilityCard />
 
                 <div
                   className="mt-4 rounded-lg border p-3"
@@ -1010,154 +1515,161 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                 </div>
               </section>
 
-              <section
-                id="store-section-limits"
-                ref={setSectionRef("limits")}
-                data-store-section="limits"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.limits.title", "Limits matrix")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.limits.description",
-                      "See exactly what each plan includes across seats, projects, credits, and storage."
-                    )}
-                  </p>
-                </div>
-                <StoreLimitsMatrix contract={pricingContract} />
-              </section>
+              {showLegacyCompatibilitySections ? (
+                <>
+                  <section
+                    id="store-section-limits"
+                    ref={setSectionRef("limits")}
+                    data-store-section="limits"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.limits.title_v2", "Plan limits")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.limits.description_v2",
+                          "Users, projects, credits, and storage included in each plan."
+                        )}
+                      </p>
+                    </div>
+                    <StoreLimitsMatrix contract={pricingContract} />
+                  </section>
 
-              <section
-                id="store-section-addons"
-                ref={setSectionRef("addons")}
-                data-store-section="addons"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.addons.title", "Add-ons")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx("ui.store.addons.description", "Expand your plan with optional extras when your team grows.")}
-                  </p>
-                </div>
-                <StoreAddOnsList contract={pricingContract} showInternalDetails={isSuperAdmin} />
-              </section>
+                  <section
+                    id="store-section-addons"
+                    ref={setSectionRef("addons")}
+                    data-store-section="addons"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.addons.title_v2", "Add-ons")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.addons.description_v2",
+                          "Optional extras to extend your plan capacity."
+                        )}
+                      </p>
+                    </div>
+                    <StoreAddOnsList contract={pricingContract} showInternalDetails={isSuperAdmin} />
+                  </section>
 
-              <section
-                id="store-section-billing"
-                ref={setSectionRef("billing")}
-                data-store-section="billing"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.billing.title", "Billing semantics")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.billing.description",
-                      "Understand monthly vs annual billing, proration, and VAT-inclusive pricing."
-                    )}
-                  </p>
-                </div>
-                <StoreBillingSemanticsList contract={pricingContract} showInternalDetails={isSuperAdmin} />
-              </section>
+                  <section
+                    id="store-section-billing"
+                    ref={setSectionRef("billing")}
+                    data-store-section="billing"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.billing.title_v2", "Billing details")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.billing.description_v2",
+                          "How monthly and annual billing cycles, proration, and VAT work."
+                        )}
+                      </p>
+                    </div>
+                    <StoreBillingSemanticsList contract={pricingContract} showInternalDetails={isSuperAdmin} />
+                  </section>
 
-              <section
-                id="store-section-trial"
-                ref={setSectionRef("trial")}
-                data-store-section="trial"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.trial.title", "Trial policy")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.trial.description",
-                      "Trial options for Pro and Scale, plus what to expect when a trial ends."
-                    )}
-                  </p>
-                </div>
-                <StoreTrialPolicyCard contract={pricingContract} showInternalDetails={isSuperAdmin} />
-              </section>
+                  <section
+                    id="store-section-trial"
+                    ref={setSectionRef("trial")}
+                    data-store-section="trial"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.trial.title_v2", "Free trial policy")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.trial.description_v2",
+                          "Try Pro or Scale free before you commit. Here's how trials work."
+                        )}
+                      </p>
+                    </div>
+                    <StoreTrialPolicyCard contract={pricingContract} showInternalDetails={isSuperAdmin} />
+                  </section>
 
-              <section
-                id="store-section-transparency"
-                ref={setSectionRef("transparency")}
-                data-store-section="transparency"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.transparency.title", "Pricing transparency")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.transparency.description",
-                      "Full plan-by-plan breakdown of pricing, features, trials, and availability."
+                  <section
+                    id="store-section-transparency"
+                    ref={setSectionRef("transparency")}
+                    data-store-section="transparency"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.transparency.title_v2", "Full plan comparison")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.transparency.description_v2",
+                          "Side-by-side view of pricing, features, and what's included in every plan."
+                        )}
+                      </p>
+                    </div>
+                    <StorePricingTransparencyTable
+                      contract={pricingContract}
+                      byokCommercialPolicyTable={byokCommercialPolicyTable}
+                    />
+                    {isSuperAdmin && (
+                      <div className="mt-4">
+                        <StoreSourceAttribution contract={pricingContract} showInternalDetails />
+                      </div>
                     )}
-                  </p>
-                </div>
-                <StorePricingTransparencyTable
-                  contract={pricingContract}
-                  byokCommercialPolicyTable={byokCommercialPolicyTable}
-                />
-                {isSuperAdmin && (
-                  <div className="mt-4">
-                    <StoreSourceAttribution contract={pricingContract} showInternalDetails />
-                  </div>
-                )}
-              </section>
+                  </section>
 
-              <section
-                id="store-section-faq"
-                ref={setSectionRef("faq")}
-                data-store-section="faq"
-                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
-                style={{
-                  background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--window-document-border)",
-                }}
-              >
-                <div className="mb-4">
-                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.faq.title", "FAQ")}
-                  </h2>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.faq.description",
-                      "Quick answers to common purchase, billing, and trial questions."
-                    )}
-                  </p>
-                </div>
-                <StoreFaqList contract={pricingContract} showInternalDetails={isSuperAdmin} />
-              </section>
+                  <section
+                    id="store-section-faq"
+                    ref={setSectionRef("faq")}
+                    data-store-section="faq"
+                    className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                    style={{
+                      background: "var(--window-document-bg-elevated)",
+                      borderColor: "var(--window-document-border)",
+                    }}
+                  >
+                    <div className="mb-4">
+                      <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                        {tx("ui.store.faq.title_v2", "Frequently asked questions")}
+                      </h2>
+                      <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                        {tx(
+                          "ui.store.faq.description_v2",
+                          "Answers to common questions about billing, plans, and upgrades."
+                        )}
+                      </p>
+                    </div>
+                    <StoreFaqList contract={pricingContract} showInternalDetails={isSuperAdmin} />
+                  </section>
+                </>
+              ) : null}
             </div>
 
             <aside
