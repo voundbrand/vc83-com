@@ -28,6 +28,23 @@ function getInternal(): any {
   return _internalCache;
 }
 
+function resolveTelegramWebhookBaseUrl(): string {
+  const candidates = [
+    process.env.CONVEX_SITE_URL,
+    process.env.NEXT_PUBLIC_API_ENDPOINT_URL,
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = candidate?.trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "https://agreeable-lion-828.convex.site";
+}
+
 /**
  * Build plain Telegram-safe CTA copy without markdown links.
  * Telegram/webhook delivery paths can safely render this as plain text.
@@ -83,7 +100,7 @@ export const getTelegramIntegrationStatus = query({
       .first();
 
     const customProps = customBotSettings?.customProperties as Record<string, unknown> | undefined;
-    const siteUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL || "https://aromatic-akita-723.convex.site";
+    const siteUrl = resolveTelegramWebhookBaseUrl();
 
     const customBot = {
       deployed: !!customBotSettings,

@@ -29,6 +29,25 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function resolveTelegramWebhookBaseUrl(): string {
+  const candidates = [
+    process.env.CONVEX_SITE_URL,
+    process.env.NEXT_PUBLIC_API_ENDPOINT_URL,
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeOptionalString(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  throw new Error(
+    "Missing webhook base URL env var. Set CONVEX_SITE_URL (preferred) or NEXT_PUBLIC_API_ENDPOINT_URL."
+  );
+}
+
 /**
  * Validate a Telegram bot token by calling getMe.
  * Returns bot info or null if invalid.
@@ -256,7 +275,7 @@ export const deployBot = internalAction({
       .join("");
 
     // 3. Build webhook URL
-    const siteUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL || "https://aromatic-akita-723.convex.site";
+    const siteUrl = resolveTelegramWebhookBaseUrl();
     const webhookUrl = `${siteUrl}/telegram-webhook`;
 
     // 4. Register webhook with Telegram
@@ -320,9 +339,7 @@ export const registerPlatformWebhook = internalAction({
   args: {},
   handler: async () => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const siteUrl =
-      process.env.NEXT_PUBLIC_API_ENDPOINT_URL ||
-      "https://aromatic-akita-723.convex.site";
+    const siteUrl = resolveTelegramWebhookBaseUrl();
     if (!botToken) {
       throw new Error("Missing TELEGRAM_BOT_TOKEN env var");
     }
