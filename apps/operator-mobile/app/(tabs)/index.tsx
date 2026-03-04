@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   Alert,
+  Linking,
   TextInput,
   View,
   Image,
@@ -86,6 +87,24 @@ const getGreetingKey = () => {
   if (hour < 18) return 'chat.greeting.afternoon';
   return 'chat.greeting.evening';
 };
+
+function resolveCreditActionUrl(actionUrl: string | undefined): string | null {
+  if (typeof actionUrl !== 'string' || actionUrl.trim().length === 0) {
+    return null;
+  }
+
+  const normalized = actionUrl.trim();
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  const appBase = ENV.L4YERCAK3_APP_URL.replace(/\/$/, '');
+  if (normalized.startsWith('/')) {
+    return `${appBase}${normalized}`;
+  }
+
+  return `${appBase}/${normalized}`;
+}
 
 export default function ConversationScreen() {
   const router = useRouter();
@@ -1039,7 +1058,27 @@ export default function ConversationScreen() {
         setInputText(messageText);
       }
       awaitingAssistantSpeechRef.current = false;
-      Alert.alert(t('chat.sendFailedTitle'), sendResult.error || t('chat.sendFailedBody'));
+      const alertMessage = sendResult.error || t('chat.sendFailedBody');
+      const creditActionUrl = resolveCreditActionUrl(sendResult.actionUrl);
+      if (creditActionUrl) {
+        Alert.alert(
+          t('chat.sendFailedTitle'),
+          alertMessage,
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: sendResult.actionLabel || 'Buy Credits',
+              onPress: () => {
+                void Linking.openURL(creditActionUrl).catch((error) => {
+                  console.warn('Failed to open credit purchase URL:', error);
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(t('chat.sendFailedTitle'), alertMessage);
+      }
       setIsLoading(false);
       return false;
     }

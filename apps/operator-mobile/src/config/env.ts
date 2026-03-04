@@ -12,6 +12,11 @@ const GOOGLE_IOS_CLIENT_ID_FALLBACK =
 export const ENV = {
   // L4yercak3 API
   L4YERCAK3_API_URL: process.env.EXPO_PUBLIC_L4YERCAK3_API_URL || 'https://agreeable-lion-828.convex.site',
+  L4YERCAK3_APP_URL:
+    process.env.EXPO_PUBLIC_L4YERCAK3_APP_URL ||
+    process.env.EXPO_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://app.l4yercak3.com',
   L4YERCAK3_ORGANIZATION_ID: process.env.EXPO_PUBLIC_L4YERCAK3_ORGANIZATION_ID || '',
 
   // OAuth - Google

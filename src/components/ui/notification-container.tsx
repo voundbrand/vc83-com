@@ -18,6 +18,8 @@ export function NotificationContainer() {
               title={notification.title}
               message={notification.message}
               type={notification.type}
+              actionLabel={notification.actionLabel}
+              onAction={notification.onAction}
               onClose={() => removeNotification(notification.id)}
               autoClose={notification.autoClose}
               autoCloseDelay={notification.autoCloseDelay}

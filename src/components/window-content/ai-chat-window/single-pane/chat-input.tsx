@@ -14,6 +14,10 @@ import {
   VOICE_AGENT_HANDOFF_EVENT,
 } from "@/lib/voice-assistant/agent-co-creation-handoff"
 import { buildFrontlineFeatureIntakeKickoff } from "@/lib/ai/frontline-feature-intake"
+import {
+  getCreditRecoveryAction,
+  openCreditRecoveryAction,
+} from "@/lib/credits/credit-recovery"
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../../convex/_generated/api") as { api: any }
@@ -462,14 +466,18 @@ export function ChatInput() {
 
       // Parse error message for user-friendly feedback
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      const creditRecovery = getCreditRecoveryAction(error)
 
-      if (
-        errorMessage.includes("CREDITS_EXHAUSTED") ||
-        (errorMessage.toLowerCase().includes("not enough") && errorMessage.toLowerCase().includes("credit"))
-      ) {
+      if (creditRecovery) {
         notification.error(
           "No Credits Available",
-          "You are out of credits. Open the Store to top up credits and continue chatting."
+          "You are out of credits. Re-up now to keep the conversation going.",
+          {
+            action: {
+              label: creditRecovery.actionLabel,
+              onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+            },
+          }
         )
       } else if (errorMessage.includes("budget") || errorMessage.includes("limit")) {
         notification.error(
@@ -517,6 +525,20 @@ export function ChatInput() {
       )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+      const creditRecovery = getCreditRecoveryAction(error)
+      if (creditRecovery) {
+        notification.error(
+          "No Credits Available",
+          "You are out of credits. Re-up now to keep the conversation going.",
+          {
+            action: {
+              label: creditRecovery.actionLabel,
+              onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+            },
+          }
+        )
+        return
+      }
       notification.error(
         "Unable to Start Intake",
         errorMessage.length > 100 ? "Please try again." : errorMessage

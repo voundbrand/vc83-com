@@ -44,6 +44,10 @@ import {
 } from "@/lib/voice-assistant/runtime-policy"
 import { buildFrontlineFeatureIntakeKickoff } from "@/lib/ai/frontline-feature-intake"
 import {
+  getCreditRecoveryAction,
+  openCreditRecoveryAction,
+} from "@/lib/credits/credit-recovery"
+import {
   CONVERSATION_CONTRACT_VERSION,
   type ConversationEventType,
   type ConversationReasonCode,
@@ -2152,10 +2156,24 @@ export function SlickChatInput({
       }
 
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-      notification.error(
-        "Failed to Send Message",
-        errorMessage.length > 120 ? "An error occurred. Please try again." : errorMessage
-      )
+      const creditRecovery = getCreditRecoveryAction(error)
+      if (creditRecovery) {
+        notification.error(
+          "No Credits Available",
+          "You are out of credits. Re-up now to keep the conversation going.",
+          {
+            action: {
+              label: creditRecovery.actionLabel,
+              onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+            },
+          }
+        )
+      } else {
+        notification.error(
+          "Failed to Send Message",
+          errorMessage.length > 120 ? "An error occurred. Please try again." : errorMessage
+        )
+      }
       setMessage(messageToSend)
       setReferenceUrls(previousReferences.urls)
       setImageAttachments(previousReferences.imageAttachments)
@@ -2202,10 +2220,24 @@ export function SlickChatInput({
       )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
-      notification.error(
-        "Unable to Start Intake",
-        errorMessage.length > 120 ? "Please retry in a moment." : errorMessage
-      )
+      const creditRecovery = getCreditRecoveryAction(error)
+      if (creditRecovery) {
+        notification.error(
+          "No Credits Available",
+          "You are out of credits. Re-up now to keep the conversation going.",
+          {
+            action: {
+              label: creditRecovery.actionLabel,
+              onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+            },
+          }
+        )
+      } else {
+        notification.error(
+          "Unable to Start Intake",
+          errorMessage.length > 120 ? "Please retry in a moment." : errorMessage
+        )
+      }
     } finally {
       setIsSending(false)
       abortController.current = null

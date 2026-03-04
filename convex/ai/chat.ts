@@ -2604,6 +2604,8 @@ export const sendMessage = action({
         throw new ConvexError({
           code: "CREDITS_EXHAUSTED",
           message: "CREDITS_EXHAUSTED: Not enough credits for this request.",
+          actionLabel: "Buy Credits",
+          actionUrl: "/?openWindow=store&panel=credits&context=credit_exhausted",
         });
       }
       if (agentResult.status === "rate_limited") {
@@ -3221,6 +3223,8 @@ export const sendMessage = action({
         message: `CREDITS_EXHAUSTED: Not enough credits (have ${creditCheck.totalCredits}, need ${messageCreditCost}).`,
         creditsRequired: messageCreditCost,
         creditsAvailable: creditCheck.totalCredits,
+        actionLabel: "Buy Credits",
+        actionUrl: "/?openWindow=store&panel=credits&context=credit_exhausted",
       });
     }
 

@@ -7,6 +7,8 @@ interface RetroNotificationProps {
   title: string;
   message: string;
   type?: "success" | "error" | "info";
+  actionLabel?: string;
+  onAction?: () => void;
   onClose: () => void;
   autoClose?: boolean;
   autoCloseDelay?: number;
@@ -16,6 +18,8 @@ export function RetroNotification({
   title,
   message,
   type = "info",
+  actionLabel,
+  onAction,
   onClose,
   autoClose = true,
   autoCloseDelay = 5000,
@@ -57,6 +61,17 @@ export function RetroNotification({
       {/* Content */}
       <div className="p-4">
         <p className="leading-relaxed">{message}</p>
+        {actionLabel && onAction ? (
+          <button
+            onClick={() => {
+              onAction();
+              onClose();
+            }}
+            className="mt-3 inline-flex items-center justify-center rounded border-2 border-current px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-opacity hover:opacity-80"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
       </div>
 
       {/* Progress bar for auto-close */}

@@ -100,7 +100,13 @@ type ChatState = {
     conversationId: string,
     options?: { allowUnknownId?: boolean }
   ) => Promise<void>;
-  sendMessageToBackend: (payload: SendMessagePayload) => Promise<{ success: boolean; error?: string }>;
+  sendMessageToBackend: (payload: SendMessagePayload) => Promise<{
+    success: boolean;
+    error?: string;
+    errorCode?: string;
+    actionLabel?: string;
+    actionUrl?: string;
+  }>;
   approvePendingTool: (executionId: string, dontAskAgain?: boolean) => Promise<{ success: boolean; error?: string }>;
   rejectPendingTool: (executionId: string) => Promise<{ success: boolean; error?: string }>;
   archiveConversation: (conversationId: string) => Promise<void>;
@@ -179,6 +185,68 @@ function mapAttachmentForApi(
     width: attachment.width,
     height: attachment.height,
   };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function resolveCreditRecoveryFromError(error: unknown): {
+  errorCode: string;
+  actionLabel: string;
+  actionUrl: string;
+} | null {
+  const defaultAction = {
+    errorCode: 'CREDITS_EXHAUSTED',
+    actionLabel: 'Buy Credits',
+    actionUrl: '/?openWindow=store&panel=credits&context=credit_exhausted',
+  };
+
+  const errorRecord = asRecord(error);
+  const errorData = errorRecord ? asRecord(errorRecord.data) : null;
+  const code = asNonEmptyString(errorData?.code);
+
+  if (
+    code === 'CREDITS_EXHAUSTED'
+    || code === 'CHILD_CREDIT_CAP_REACHED'
+    || code === 'SHARED_POOL_EXHAUSTED'
+  ) {
+    return {
+      errorCode: code,
+      actionLabel: asNonEmptyString(errorData?.actionLabel) || defaultAction.actionLabel,
+      actionUrl: asNonEmptyString(errorData?.actionUrl) || defaultAction.actionUrl,
+    };
+  }
+
+  const message =
+    (error instanceof Error ? error.message : undefined)
+    || asNonEmptyString(errorData?.error)
+    || asNonEmptyString(errorData?.message)
+    || asNonEmptyString(errorRecord?.message);
+  if (!message) {
+    return null;
+  }
+
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes('credits_exhausted')
+    || (normalized.includes('not enough') && normalized.includes('credit'))
+  ) {
+    return defaultAction;
+  }
+
+  return null;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -503,13 +571,18 @@ export const useChatStore = create<ChatState>()(
           return { success: true };
         } catch (error) {
           console.error('Failed to send message:', error);
+          const creditRecovery = resolveCreditRecoveryFromError(error);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
           set({
             isLoading: false,
-            lastSyncError: error instanceof Error ? error.message : 'Failed to send message',
+            lastSyncError: errorMessage,
           });
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to send message',
+            error: errorMessage,
+            errorCode: creditRecovery?.errorCode,
+            actionLabel: creditRecovery?.actionLabel,
+            actionUrl: creditRecovery?.actionUrl,
           };
         }
       },

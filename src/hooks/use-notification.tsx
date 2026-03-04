@@ -2,6 +2,11 @@
 
 import { create } from "zustand";
 
+interface NotificationAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -9,6 +14,8 @@ interface Notification {
   type: "success" | "error" | "info";
   autoClose?: boolean;
   autoCloseDelay?: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 interface NotificationStore {
@@ -31,15 +38,48 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
     })),
 }));
 
+type NotificationOptions = {
+  autoClose?: boolean;
+  autoCloseDelay?: number;
+  action?: NotificationAction;
+};
+
+type NotificationConfig = boolean | NotificationOptions | undefined;
+
+function normalizeNotificationOptions(config: NotificationConfig): NotificationOptions {
+  if (typeof config === "boolean") {
+    return { autoClose: config };
+  }
+  return config || {};
+}
+
 export function useNotification() {
   const { addNotification } = useNotificationStore();
 
+  const pushNotification = (
+    type: "success" | "error" | "info",
+    title: string,
+    message: string,
+    config?: NotificationConfig
+  ) => {
+    const options = normalizeNotificationOptions(config);
+    addNotification({
+      title,
+      message,
+      type,
+      autoClose: options.autoClose ?? (options.action ? false : true),
+      autoCloseDelay: options.autoCloseDelay,
+      actionLabel: options.action?.label,
+      onAction: options.action?.onClick,
+    });
+  };
+
   return {
-    success: (title: string, message: string, autoClose = true) =>
-      addNotification({ title, message, type: "success", autoClose }),
-    error: (title: string, message: string, autoClose = true) =>
-      addNotification({ title, message, type: "error", autoClose }),
-    info: (title: string, message: string, autoClose = true) =>
-      addNotification({ title, message, type: "info", autoClose }),
+    success: (title: string, message: string, config?: NotificationConfig) =>
+      pushNotification("success", title, message, config),
+    error: (title: string, message: string, config?: NotificationConfig) =>
+      pushNotification("error", title, message, config),
+    info: (title: string, message: string, config?: NotificationConfig) =>
+      pushNotification("info", title, message, config),
   };
 }
