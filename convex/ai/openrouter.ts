@@ -396,7 +396,10 @@ export class OpenRouterClient {
     const providerConfig = getProviderConfig(this.providerId);
     const extraBody = sanitizeExtraRequestBody(params.extraBody);
     const requestBody = providerConfig.requestProtocol === "anthropic_messages"
-      ? this.buildAnthropicRequestBody(params)
+      ? {
+          ...this.buildAnthropicRequestBody(params),
+          ...(extraBody ?? {}),
+        }
       : {
           model: normalizeModelForProvider(this.providerId, params.model),
           messages: params.messages,

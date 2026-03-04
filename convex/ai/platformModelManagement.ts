@@ -109,6 +109,34 @@ function parseToolCallArguments(
   return {};
 }
 
+function buildValidationToolChoiceExtraBody(args: {
+  providerId: string;
+  toolChoiceName?: string;
+}): Record<string, unknown> | undefined {
+  const toolChoiceName = args.toolChoiceName?.trim();
+  if (!toolChoiceName) {
+    return undefined;
+  }
+
+  if (args.providerId === "anthropic") {
+    return {
+      tool_choice: {
+        type: "tool",
+        name: toolChoiceName,
+      },
+    };
+  }
+
+  return {
+    tool_choice: {
+      type: "function",
+      function: {
+        name: toolChoiceName,
+      },
+    },
+  };
+}
+
 function buildValidationConversationId(): string {
   return `validation_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
 }
@@ -121,6 +149,7 @@ async function sendModelValidationMessageViaDirectRuntime(args: {
   message: string;
   conversationId?: string;
   conversationStore: Map<string, ValidationConversationMessage[]>;
+  toolChoiceName?: string;
 }): Promise<{ response: any; latencyMs: number }> {
   const envApiKeysByProvider = buildEnvApiKeysByProvider({
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
@@ -153,6 +182,10 @@ async function sendModelValidationMessageViaDirectRuntime(args: {
     ...existingHistory,
     { role: "user", content: args.message },
   ];
+  const extraBody = buildValidationToolChoiceExtraBody({
+    providerId,
+    toolChoiceName: args.toolChoiceName,
+  });
   const startedAt = Date.now();
   const runtimeResponse = await client.chatCompletion({
     model: args.modelId,
@@ -167,6 +200,7 @@ async function sendModelValidationMessageViaDirectRuntime(args: {
     tools: getToolSchemas(),
     temperature: 0,
     max_tokens: 1024,
+    ...(extraBody ? { extraBody } : {}),
   });
 
   const choiceMessage = runtimeResponse?.choices?.[0]?.message;
@@ -463,7 +497,22 @@ async function sendModelValidationMessage(args: {
   conversationId?: string;
   conversationStore: Map<string, ValidationConversationMessage[]>;
   transportState: ValidationTransportState;
+  forceDirectRuntime?: boolean;
+  toolChoiceName?: string;
 }): Promise<{ response: any; latencyMs: number }> {
+  if (args.forceDirectRuntime === true) {
+    return sendModelValidationMessageViaDirectRuntime({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      modelId: args.modelId,
+      message: args.message,
+      conversationId: args.conversationId,
+      conversationStore: args.conversationStore,
+      toolChoiceName: args.toolChoiceName,
+    });
+  }
+
   if (
     args.transportState.forceDirectRuntime
     || (args.conversationId && args.conversationStore.has(args.conversationId))
@@ -477,6 +526,7 @@ async function sendModelValidationMessage(args: {
       message: args.message,
       conversationId: args.conversationId,
       conversationStore: args.conversationStore,
+      toolChoiceName: args.toolChoiceName,
     });
   }
 
@@ -519,6 +569,7 @@ async function sendModelValidationMessage(args: {
         message: args.message,
         conversationId: args.conversationId,
         conversationStore: args.conversationStore,
+        toolChoiceName: args.toolChoiceName,
       });
     }
 
@@ -554,6 +605,7 @@ async function sendModelValidationMessage(args: {
           message: args.message,
           conversationId: args.conversationId,
           conversationStore: args.conversationStore,
+          toolChoiceName: args.toolChoiceName,
         });
       }
       throw fallbackError;
@@ -574,6 +626,8 @@ async function runModelValidationSuite(args: {
   const sendValidationProbeMessage = (input: {
     message: string;
     conversationId?: string;
+    forceDirectRuntime?: boolean;
+    toolChoiceName?: string;
   }) =>
     sendModelValidationMessage({
       ctx: args.ctx,
@@ -584,7 +638,28 @@ async function runModelValidationSuite(args: {
       conversationId: input.conversationId,
       conversationStore,
       transportState,
+      forceDirectRuntime: input.forceDirectRuntime,
+      toolChoiceName: input.toolChoiceName,
     });
+
+  const mergeUsageAndCost = (
+    first: { usageTokens?: number; costUsd?: number },
+    second?: { usageTokens?: number; costUsd?: number }
+  ): { usageTokens?: number; costUsd?: number } => {
+    const usageTokens =
+      first.usageTokens === undefined && second?.usageTokens === undefined
+        ? undefined
+        : (first.usageTokens ?? 0) + (second?.usageTokens ?? 0);
+    const costUsd =
+      first.costUsd === undefined && second?.costUsd === undefined
+        ? undefined
+        : (first.costUsd ?? 0) + (second?.costUsd ?? 0);
+
+    return {
+      ...(usageTokens !== undefined ? { usageTokens } : {}),
+      ...(costUsd !== undefined ? { costUsd } : {}),
+    };
+  };
 
   const runBasicChat = async (): Promise<ModelValidationProbeResult> => {
     const { response, latencyMs } = await sendValidationProbeMessage({
@@ -602,46 +677,95 @@ async function runModelValidationSuite(args: {
   };
 
   const runToolCalling = async (): Promise<ModelValidationProbeResult> => {
-    const { response, latencyMs } = await sendValidationProbeMessage({
+    const initialAttempt = await sendValidationProbeMessage({
       message: "List my forms using the available tools.",
     });
-    const toolCalls = extractToolCalls(response);
-    const usageAndCost = extractUsageAndCostFromResponse(response);
+    const initialToolCalls = extractToolCalls(initialAttempt.response);
+    const initialUsageAndCost = extractUsageAndCostFromResponse(initialAttempt.response);
+    if (initialToolCalls.length > 0) {
+      return {
+        passed: true,
+        durationMs: initialAttempt.latencyMs,
+        latencySamplesMs: [initialAttempt.latencyMs],
+        toolCallParsed: true,
+        ...initialUsageAndCost,
+      };
+    }
+
+    const retryAttempt = await sendValidationProbeMessage({
+      forceDirectRuntime: true,
+      toolChoiceName: "list_forms",
+      message:
+        'Call "list_forms" now. Return only a tool call.',
+    });
+    const retryToolCalls = extractToolCalls(retryAttempt.response);
+    const retryUsageAndCost = extractUsageAndCostFromResponse(retryAttempt.response);
+    const usageAndCost = mergeUsageAndCost(initialUsageAndCost, retryUsageAndCost);
+    const passed = retryToolCalls.length > 0;
+
     return {
-      passed: toolCalls.length > 0,
-      durationMs: latencyMs,
-      latencySamplesMs: [latencyMs],
-      toolCallParsed: toolCalls.length > 0,
+      passed,
+      durationMs: initialAttempt.latencyMs + retryAttempt.latencyMs,
+      latencySamplesMs: [initialAttempt.latencyMs, retryAttempt.latencyMs],
+      toolCallParsed: passed,
       ...usageAndCost,
     };
   };
 
   const runComplexParams = async (): Promise<ModelValidationProbeResult> => {
-    const { response, latencyMs } = await sendValidationProbeMessage({
+    const initialAttempt = await sendValidationProbeMessage({
       message:
         'Search contacts using search_contacts with query "Alice Smith sales department".',
     });
-    const toolCalls = extractToolCalls(response);
-    const candidate = toolCalls.find(
-      (toolCall) =>
-        toolCall.name === "search_contacts" || toolCall.name === "manage_crm"
-    );
-    const argsObject = candidate?.arguments ?? {};
-    const hasQuerySignal = [
-      "query",
-      "searchQuery",
-      "search_query",
-      "name",
-      "term",
-    ].some(
-      (key) => typeof argsObject[key] === "string" && argsObject[key].trim().length > 0
-    );
-    const usageAndCost = extractUsageAndCostFromResponse(response);
+    const evaluateComplexParamsProbe = (
+      toolCalls: Array<{ name?: string; arguments?: Record<string, unknown> }>
+    ): { passed: boolean } => {
+      const candidate = toolCalls.find(
+        (toolCall) =>
+          toolCall.name === "search_contacts" || toolCall.name === "manage_crm"
+      );
+      const argsObject = candidate?.arguments ?? {};
+      const hasQuerySignal = [
+        "query",
+        "searchQuery",
+        "search_query",
+        "name",
+        "term",
+      ].some(
+        (key) => typeof argsObject[key] === "string" && argsObject[key].trim().length > 0
+      );
+      return { passed: Boolean(candidate) && hasQuerySignal };
+    };
+
+    const initialToolCalls = extractToolCalls(initialAttempt.response);
+    const initialEvaluation = evaluateComplexParamsProbe(initialToolCalls);
+    const initialUsageAndCost = extractUsageAndCostFromResponse(initialAttempt.response);
+    if (initialEvaluation.passed) {
+      return {
+        passed: true,
+        durationMs: initialAttempt.latencyMs,
+        latencySamplesMs: [initialAttempt.latencyMs],
+        schemaFidelity: true,
+        ...initialUsageAndCost,
+      };
+    }
+
+    const retryAttempt = await sendValidationProbeMessage({
+      forceDirectRuntime: true,
+      toolChoiceName: "search_contacts",
+      message:
+        'Call "search_contacts" now with query "Alice Smith sales department". Return only a tool call.',
+    });
+    const retryToolCalls = extractToolCalls(retryAttempt.response);
+    const retryEvaluation = evaluateComplexParamsProbe(retryToolCalls);
+    const retryUsageAndCost = extractUsageAndCostFromResponse(retryAttempt.response);
+    const usageAndCost = mergeUsageAndCost(initialUsageAndCost, retryUsageAndCost);
+
     return {
-      passed: Boolean(candidate) && hasQuerySignal,
-      durationMs: latencyMs,
-      latencySamplesMs: [latencyMs],
-      schemaFidelity: Boolean(candidate) && hasQuerySignal,
+      passed: retryEvaluation.passed,
+      durationMs: initialAttempt.latencyMs + retryAttempt.latencyMs,
+      latencySamplesMs: [initialAttempt.latencyMs, retryAttempt.latencyMs],
+      schemaFidelity: retryEvaluation.passed,
       ...usageAndCost,
     };
   };

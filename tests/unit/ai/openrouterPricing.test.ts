@@ -93,4 +93,71 @@ describe("OpenRouter pricing fallback", () => {
       effort: "high",
     });
   });
+
+  it("passes sanitized extra request fields into anthropic payload", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [
+          {
+            type: "text",
+            text: "ok",
+          },
+        ],
+        usage: {
+          input_tokens: 11,
+          output_tokens: 7,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const client = new OpenRouterClient("test-api-key", {
+      providerId: "anthropic",
+      baseUrl: "https://mock.anthropic.local/v1",
+    });
+
+    await client.chatCompletion({
+      model: "anthropic/claude-sonnet-4.5",
+      messages: [
+        {
+          role: "user",
+          content: "List my forms",
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "list_forms",
+            description: "List forms",
+            parameters: {
+              type: "object",
+              properties: {},
+            },
+          },
+        },
+      ],
+      max_tokens: 512,
+      extraBody: {
+        tool_choice: {
+          type: "tool",
+          name: "list_forms",
+        },
+        max_tokens: 1,
+      },
+    });
+
+    const requestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? "");
+    const requestInit = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(requestInit.body));
+
+    expect(requestUrl).toContain("/messages");
+    expect(body.model).toBe("claude-sonnet-4.5");
+    expect(body.max_tokens).toBe(512);
+    expect(body.tool_choice).toEqual({
+      type: "tool",
+      name: "list_forms",
+    });
+  });
 });
