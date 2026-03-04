@@ -249,6 +249,34 @@ function resolveCreditRecoveryFromError(error: unknown): {
   return null;
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  return new Promise<T>((resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+    promise
+      .then((value) => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        resolve(value);
+      })
+      .catch((error) => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        reject(error);
+      });
+  });
+}
+
+let lastConversationSyncStartedAtMs = 0;
+
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
@@ -395,6 +423,16 @@ export const useChatStore = create<ChatState>()(
       },
 
       syncConversations: async () => {
+        const now = Date.now();
+        const currentState = get();
+        if (currentState.isSyncing) {
+          return;
+        }
+        if (now - lastConversationSyncStartedAtMs < 1200) {
+          return;
+        }
+        lastConversationSyncStartedAtMs = now;
+
         set({ isSyncing: true, lastSyncError: null });
 
         if (!l4yercak3Client.hasAuth()) {
@@ -403,7 +441,11 @@ export const useChatStore = create<ChatState>()(
         }
 
         try {
-          const response = await l4yercak3Client.ai.listConversations(50);
+          const response = await withTimeout(
+            l4yercak3Client.ai.listConversations(50),
+            12_000,
+            'conversation_sync_timeout'
+          );
 
           if (response.success) {
             set((state) => {
@@ -445,9 +487,13 @@ export const useChatStore = create<ChatState>()(
           set({ isSyncing: false });
         } catch (error) {
           console.error('Failed to sync conversations:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to sync';
           set({
             isSyncing: false,
-            lastSyncError: error instanceof Error ? error.message : 'Failed to sync',
+            lastSyncError:
+              errorMessage === 'conversation_sync_timeout'
+                ? 'Conversation sync timed out. Please retry.'
+                : errorMessage,
           });
         }
       },

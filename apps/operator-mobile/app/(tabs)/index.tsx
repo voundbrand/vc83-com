@@ -169,6 +169,7 @@ export default function ConversationScreen() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [cameraRuntime, setCameraRuntime] = useState<Record<string, unknown> | undefined>(undefined);
   const [voiceRuntime, setVoiceRuntime] = useState<Record<string, unknown> | undefined>(undefined);
   const [policyError, setPolicyError] = useState<string | null>(null);
@@ -181,6 +182,7 @@ export default function ConversationScreen() {
   const starterKickoffInFlightRef = useRef(false);
   const starterKickoffCompletedRef = useRef(false);
   const lastVisionReadinessAlertCodeRef = useRef<string | null>(null);
+  const syncInFlightRef = useRef(false);
   const liveSessionIdRef = useRef(`mobile_live_${Date.now().toString(36)}`);
   const avRegistryRef = useRef(createMobileAvSourceRegistry());
   const cameraSourceIdRef = useRef<string>('');
@@ -217,6 +219,28 @@ export default function ConversationScreen() {
       }),
     [currentConversation?.messages]
   );
+  const guardedSyncConversations = useCallback(async () => {
+    if (syncInFlightRef.current) {
+      return;
+    }
+    syncInFlightRef.current = true;
+    try {
+      await syncConversations();
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, [syncConversations]);
+
+  useEffect(() => {
+    if (!isSyncing) {
+      setShowSyncBanner(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setShowSyncBanner(true);
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [isSyncing]);
   const latestUserMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'user')?.content || '',
     [messages]
@@ -415,8 +439,8 @@ export default function ConversationScreen() {
     if (!isAuthenticated) {
       return;
     }
-    void syncConversations();
-  }, [isAuthenticated, syncConversations]);
+    void guardedSyncConversations();
+  }, [guardedSyncConversations, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !currentConversationId) {
@@ -758,7 +782,7 @@ export default function ConversationScreen() {
         return;
       }
 
-      void syncConversations();
+      void guardedSyncConversations();
       if (currentConversationId) {
         void loadConversation(currentConversationId);
       }
@@ -771,7 +795,7 @@ export default function ConversationScreen() {
       }, 500);
 
       return () => clearTimeout(timer);
-    }, [isAuthenticated, currentConversationId, loadConversation, syncConversations])
+    }, [guardedSyncConversations, isAuthenticated, currentConversationId, loadConversation])
   );
 
   useEffect(() => {
@@ -1360,7 +1384,7 @@ export default function ConversationScreen() {
           }
           await loadConversation(activeConversationId, { allowUnknownId: true });
         } else {
-          await syncConversations();
+          await guardedSyncConversations();
         }
         setConversationState('ended');
         setConversationReasonCode(undefined);
@@ -1386,7 +1410,7 @@ export default function ConversationScreen() {
     loadConversation,
     setCurrentConversation,
     stopVoicePlayback,
-    syncConversations,
+    guardedSyncConversations,
   ]);
 
   useEffect(() => {
@@ -1855,7 +1879,7 @@ export default function ConversationScreen() {
             if (resolvedConversationId) {
               await loadConversation(resolvedConversationId, { allowUnknownId: true });
             } else {
-              await syncConversations();
+              await guardedSyncConversations();
             }
             if (shouldSpeakReplies && !realtimeAssistantText && resolvedConversationId) {
               const refreshedConversation = getConversationById(resolvedConversationId);
@@ -1905,7 +1929,7 @@ export default function ConversationScreen() {
     currentConversationId,
     loadConversation,
     setCurrentConversation,
-    syncConversations,
+    guardedSyncConversations,
     visionSourceMode,
     metaBridgeConnectionState,
     avSourceScope,
@@ -2273,7 +2297,7 @@ export default function ConversationScreen() {
             </XStack>
           )}
 
-            {isSyncing && (
+            {showSyncBanner && (
               <XStack
                 backgroundColor="rgba(20, 184, 166, 0.12)"
                 paddingVertical={8}
