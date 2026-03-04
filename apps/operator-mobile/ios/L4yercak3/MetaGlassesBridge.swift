@@ -63,7 +63,29 @@ private final class MetaDatRuntimeConnector {
         }
       }
     }
+    Task { @MainActor in
+      self.configureStreamSession(selector: selector)
+    }
+#endif
+  }
 
+  func stop() {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    guard started else {
+      return
+    }
+    started = false
+    activeDeviceTask?.cancel()
+    activeDeviceTask = nil
+    Task { @MainActor in
+      await self.teardownStreamSession()
+    }
+#endif
+  }
+
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+  @MainActor
+  private func configureStreamSession(selector: AutoDeviceSelector) {
     let sessionConfig = StreamSessionConfig(
       videoCodec: .raw,
       resolution: .low,
@@ -145,18 +167,11 @@ private final class MetaDatRuntimeConnector {
         )
       }
     }
-#endif
   }
 
-  func stop() {
-#if canImport(MWDATCore) && canImport(MWDATCamera)
-    guard started else {
-      return
-    }
-    started = false
+  @MainActor
+  private func teardownStreamSession() async {
     streamGeneration += 1
-    activeDeviceTask?.cancel()
-    activeDeviceTask = nil
     callbackHealthCheckTask?.cancel()
     callbackHealthCheckTask = nil
     stateListenerToken = nil
@@ -166,15 +181,11 @@ private final class MetaDatRuntimeConnector {
     didReceiveVideoIngress = false
     didReceiveAudioIngress = false
     if let streamSession {
-      Task {
-        await streamSession.stop()
-      }
+      await streamSession.stop()
     }
     streamSession = nil
-#endif
   }
 
-#if canImport(MWDATCore) && canImport(MWDATCamera)
   private func sanitizeToken(_ value: String) -> String {
     let normalized = value
       .trimmingCharacters(in: .whitespacesAndNewlines)
