@@ -79,3 +79,7 @@ apps/operator-mobile/ios/Pods/
 # local screenshot exports
 /screenshot-*.png
 /nothing-homepage-full.png
+
+# local docs reference repos (not part of product source)
+docs/reference_projects/*
+!docs/reference_projects/README.md
