@@ -32,6 +32,13 @@ const PROVIDER_ALIASES: Record<string, string> = {
   "openai-compatible": "openai_compatible",
 };
 
+const CREDITS_REUP_ACTION_URL = "/?openWindow=store&panel=credits&context=credit_exhausted";
+const PUBLIC_APP_BASE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL
+  || process.env.APP_URL
+  || ""
+).trim().replace(/\/+$/, "");
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -100,10 +107,11 @@ async function validateSessionFromRequest(
 function errorResponse(
   error: string,
   status: number,
-  origin: string | null
+  origin: string | null,
+  details?: Record<string, unknown>
 ): Response {
   return new Response(
-    JSON.stringify({ success: false, error }),
+    JSON.stringify({ success: false, error, ...(details || {}) }),
     {
       status,
       headers: {
@@ -112,6 +120,172 @@ function errorResponse(
       },
     }
   );
+}
+
+type ChatSendErrorDetails = {
+  code?: string;
+  message?: string;
+  creditsRequired?: number;
+  creditsAvailable?: number;
+  actionLabel?: string;
+  actionUrl?: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toPublicAppUrl(pathOrUrl: string | undefined): string | undefined {
+  const normalized = asNonEmptyString(pathOrUrl);
+  if (!normalized) {
+    return undefined;
+  }
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+  if (!PUBLIC_APP_BASE_URL) {
+    return normalized;
+  }
+  if (normalized.startsWith("/")) {
+    return `${PUBLIC_APP_BASE_URL}${normalized}`;
+  }
+  return `${PUBLIC_APP_BASE_URL}/${normalized}`;
+}
+
+function parseJsonObjectFromMessage(message: string): Record<string, unknown> | null {
+  const candidates: string[] = [];
+  const trimmed = message.trim();
+  if (trimmed.length > 0) {
+    candidates.push(trimmed);
+  }
+
+  const marker = "ConvexError:";
+  const markerIndex = trimmed.indexOf(marker);
+  if (markerIndex >= 0) {
+    const afterMarker = trimmed.slice(markerIndex + marker.length).trim();
+    if (afterMarker.length > 0) {
+      candidates.push(afterMarker);
+    }
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(trimmed.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      const asObj = asRecord(parsed);
+      if (asObj) {
+        return asObj;
+      }
+    } catch {
+      // Ignore parse errors and continue trying fallback payload candidates.
+    }
+  }
+  return null;
+}
+
+function parseChatSendErrorDetails(error: unknown): ChatSendErrorDetails | null {
+  const candidates: Record<string, unknown>[] = [];
+  const errorRecord = asRecord(error);
+  if (errorRecord) {
+    candidates.push(errorRecord);
+    const dataRecord = asRecord(errorRecord.data);
+    if (dataRecord) {
+      candidates.push(dataRecord);
+    }
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : asNonEmptyString(errorRecord?.message);
+  if (message) {
+    const parsedFromMessage = parseJsonObjectFromMessage(message);
+    if (parsedFromMessage) {
+      candidates.push(parsedFromMessage);
+    }
+  }
+
+  for (const candidate of candidates) {
+    const code = asNonEmptyString(candidate.code);
+    if (!code) {
+      continue;
+    }
+    return {
+      code,
+      message: asNonEmptyString(candidate.message),
+      creditsRequired:
+        typeof candidate.creditsRequired === "number" ? candidate.creditsRequired : undefined,
+      creditsAvailable:
+        typeof candidate.creditsAvailable === "number" ? candidate.creditsAvailable : undefined,
+      actionLabel: asNonEmptyString(candidate.actionLabel),
+      actionUrl: asNonEmptyString(candidate.actionUrl),
+    };
+  }
+
+  return null;
+}
+
+function mapChatSendErrorToHttp(error: unknown): {
+  status: number;
+  error: string;
+  details?: Record<string, unknown>;
+} {
+  const fallbackMessage =
+    error instanceof Error ? error.message : "Failed to send message";
+  const details = parseChatSendErrorDetails(error);
+  const code = details?.code;
+
+  if (
+    code === "CREDITS_EXHAUSTED"
+    || code === "CHILD_CREDIT_CAP_REACHED"
+    || code === "SHARED_POOL_EXHAUSTED"
+  ) {
+    return {
+      status: 402,
+      error: details?.message || fallbackMessage,
+      details: {
+        code,
+        creditsRequired: details?.creditsRequired,
+        creditsAvailable: details?.creditsAvailable,
+        actionLabel: details?.actionLabel || "Buy Credits",
+        actionUrl:
+          toPublicAppUrl(details?.actionUrl)
+          || toPublicAppUrl(CREDITS_REUP_ACTION_URL)
+          || CREDITS_REUP_ACTION_URL,
+      },
+    };
+  }
+
+  const normalizedMessage = (details?.message || fallbackMessage).toLowerCase();
+  if (code === "RATE_LIMITED" || normalizedMessage.includes("rate limit")) {
+    return {
+      status: 429,
+      error: details?.message || fallbackMessage,
+      details: code ? { code } : undefined,
+    };
+  }
+
+  return {
+    status: 500,
+    error: details?.message || fallbackMessage,
+    details: code ? { code } : undefined,
+  };
 }
 
 /**
@@ -178,6 +352,97 @@ function parseRequestedVoiceProviderId(
     return undefined;
   }
   return value;
+}
+
+type VoiceLanguageComparable = {
+  language?: string;
+  labels?: Record<string, string>;
+};
+
+const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
+  american: "en",
+  arabic: "ar",
+  brazilian: "pt",
+  british: "en",
+  chinese: "zh",
+  deutsch: "de",
+  dutch: "nl",
+  english: "en",
+  french: "fr",
+  german: "de",
+  hindi: "hi",
+  italian: "it",
+  japanese: "ja",
+  korean: "ko",
+  mandarin: "zh",
+  polish: "pl",
+  portuguese: "pt",
+  russian: "ru",
+  spanish: "es",
+  turkish: "tr",
+};
+
+function normalizeVoiceLanguageCode(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  if (!normalized) {
+    return undefined;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
+    return LANGUAGE_ALIAS_TO_CODE[normalized];
+  }
+  const cleaned = normalized
+    .replace(/[^a-z0-9 -]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) {
+    return undefined;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
+    return LANGUAGE_ALIAS_TO_CODE[cleaned];
+  }
+  const primarySegment = cleaned.split("-", 1)[0]?.trim();
+  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
+    return primarySegment;
+  }
+  return undefined;
+}
+
+function collectVoiceLanguageCodes(voice: VoiceLanguageComparable): Set<string> {
+  const codes = new Set<string>();
+  const labelValues = voice.labels && typeof voice.labels === "object"
+    ? voice.labels
+    : {};
+  const candidates = [
+    voice.language,
+    labelValues.language,
+    labelValues.locale,
+    labelValues.accent,
+  ];
+  for (const candidate of candidates) {
+    const code = normalizeVoiceLanguageCode(candidate);
+    if (code) {
+      codes.add(code);
+    }
+  }
+  return codes;
+}
+
+function isVoiceCompatibleWithLanguage(
+  voice: VoiceLanguageComparable,
+  language: string | undefined,
+): boolean {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language);
+  if (!normalizedLanguage) {
+    return true;
+  }
+  const voiceLanguageCodes = collectVoiceLanguageCodes(voice);
+  if (voiceLanguageCodes.size === 0) {
+    return true;
+  }
+  return voiceLanguageCodes.has(normalizedLanguage);
 }
 
 function classifyVoiceSessionOpenError(error: unknown): {
@@ -622,11 +887,8 @@ export const sendMessage = httpAction(async (ctx, request) => {
     }, origin);
   } catch (error) {
     console.error("[AI Chat API] Send message error:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Failed to send message",
-      500,
-      origin
-    );
+    const mappedError = mapChatSendErrorToHttp(error);
+    return errorResponse(mappedError.error, mappedError.status, origin, mappedError.details);
   }
 });
 
@@ -1249,6 +1511,7 @@ type MobileElevenLabsVoiceEntry = {
   name: string;
   labels?: Record<string, string>;
   previewUrl?: string;
+  language?: string;
 };
 
 /**
@@ -1279,6 +1542,7 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
       voices?: Array<{
         voiceId?: string;
         name?: string;
+        language?: string;
         labels?: Record<string, string>;
         previewUrl?: string;
       }>;
@@ -1294,6 +1558,9 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
               typeof voice.name === "string" && voice.name.trim().length > 0
                 ? voice.name
                 : (voice.voiceId as string),
+            ...(typeof voice.language === "string" && voice.language.trim().length > 0
+              ? { language: voice.language }
+              : {}),
             ...(voice.labels && typeof voice.labels === "object" ? { labels: voice.labels } : {}),
             ...(typeof voice.previewUrl === "string" ? { previewUrl: voice.previewUrl } : {}),
           }))
@@ -1350,21 +1617,69 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
     const body = await request.json().catch(() => ({}));
     const parsedBody = body as {
       agentVoiceId?: unknown;
+      language?: unknown;
     };
     const parsedAgentVoiceId = parseOptionalNullableString(parsedBody.agentVoiceId);
+    const parsedLanguage = parseOptionalString(parsedBody.language);
     if (parsedAgentVoiceId === undefined) {
       return errorResponse("agentVoiceId must be a string or null", 400, origin);
+    }
+
+    if (parsedAgentVoiceId) {
+      const result = await (ctx as any).runAction(
+        generatedApi.api.integrations.elevenlabs.listElevenLabsVoices,
+        {
+          sessionId: auth.sessionId,
+          organizationId: auth.organizationId,
+          pageSize: 100,
+        }
+      ) as {
+        success: boolean;
+        voices?: Array<{
+          voiceId?: string;
+          language?: string;
+          labels?: Record<string, string>;
+        }>;
+        reason?: string;
+      };
+
+      if (!result.success) {
+        return errorResponse(
+          result.reason || "Unable to validate ElevenLabs voice selection right now.",
+          503,
+          origin
+        );
+      }
+
+      const selectedVoice = (Array.isArray(result.voices) ? result.voices : [])
+        .find((voice) => voice?.voiceId === parsedAgentVoiceId);
+      if (!selectedVoice) {
+        return errorResponse(
+          "Selected ElevenLabs voice is unavailable in the current catalog.",
+          400,
+          origin
+        );
+      }
+      if (!isVoiceCompatibleWithLanguage(selectedVoice, parsedLanguage)) {
+        return errorResponse(
+          `Selected ElevenLabs voice does not match the requested language (${parsedLanguage}).`,
+          400,
+          origin
+        );
+      }
     }
 
     await (ctx as any).runMutation(generatedApi.api.userPreferences.update, {
       sessionId: auth.sessionId,
       voiceRuntimeProviderId: "elevenlabs",
       voiceRuntimeVoiceId: parsedAgentVoiceId ?? "",
+      ...(parsedLanguage ? { language: parsedLanguage } : {}),
     });
 
     return successResponse(
       {
         agentVoiceId: parsedAgentVoiceId,
+        language: parsedLanguage ?? null,
         provider: "elevenlabs",
       },
       origin

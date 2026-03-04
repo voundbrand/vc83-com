@@ -13,6 +13,7 @@ const SESSION_KEY = 'l4yercak3_session';
 export type OperatorVoiceCatalogEntry = {
   id: string;
   name: string;
+  language?: string;
   labels?: Record<string, string>;
   previewUrl?: string;
 };
@@ -162,7 +163,13 @@ class L4yercak3APIClient {
         throw new Error('Session expired. Please sign in again.');
       }
 
-      throw new Error(errorMessage);
+      const requestError = new Error(errorMessage) as Error & {
+        status?: number;
+        data?: Record<string, unknown> | null;
+      };
+      requestError.status = response.status;
+      requestError.data = data;
+      throw requestError;
     }
 
     if (rawBody.length > 0 && data === null) {
@@ -556,10 +563,11 @@ class L4yercak3APIClient {
         }>('/api/v1/ai/voice/catalog');
       },
 
-      updatePreferences: async (data: { agentVoiceId: string | null }) => {
+      updatePreferences: async (data: { agentVoiceId: string | null; language?: string }) => {
         return this.request<{
           success: boolean;
           agentVoiceId: string | null;
+          language?: string | null;
           provider: 'elevenlabs';
         }>('/api/v1/ai/voice/preferences', {
           method: 'PATCH',
