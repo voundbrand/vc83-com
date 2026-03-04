@@ -594,6 +594,17 @@ class MetaGlassesBridge: RCTEventEmitter {
       return
     }
 
+    if let datConfigurationIssue = resolveDatConfigurationIssue() {
+      applyFailure(
+        reasonCode: "dat_configuration_invalid",
+        message: datConfigurationIssue,
+        recoverable: true,
+        fallback: "dat_configuration_invalid"
+      )
+      resolve(buildSnapshot())
+      return
+    }
+
     if hasActiveDevice() {
       connectionState = "connected"
       failure = nil
@@ -855,6 +866,95 @@ class MetaGlassesBridge: RCTEventEmitter {
     }
 
     return !sourceId.isEmpty && !deviceId.isEmpty && !deviceLabel.isEmpty
+  }
+
+  private func resolveDatConfigurationIssue() -> String? {
+    guard let infoDictionary = Bundle.main.infoDictionary else {
+      return "Info.plist is unavailable at runtime."
+    }
+
+    guard let datConfig = infoDictionary["MWDAT"] as? [String: Any] else {
+      return "Info.plist is missing MWDAT configuration."
+    }
+
+    let requiredKeys = ["AppLinkURLScheme", "MetaAppID", "ClientToken", "TeamID"]
+    var issues: [String] = []
+    for key in requiredKeys {
+      guard let rawValue = datConfig[key] as? String else {
+        issues.append("MWDAT.\(key) missing")
+        continue
+      }
+      let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+      if value.isEmpty {
+        issues.append("MWDAT.\(key) empty")
+        continue
+      }
+      if value.hasPrefix("$(") && value.hasSuffix(")") {
+        issues.append("MWDAT.\(key) unresolved")
+      }
+    }
+
+    if let rawScheme = datConfig["AppLinkURLScheme"] as? String {
+      let normalizedScheme = normalizeDatUrlScheme(rawScheme)
+      if normalizedScheme.isEmpty {
+        issues.append("MWDAT.AppLinkURLScheme invalid")
+      } else if !isUrlSchemeDeclared(normalizedScheme, infoDictionary: infoDictionary) {
+        issues.append("CFBundleURLTypes missing scheme \(normalizedScheme)")
+      }
+    }
+
+    let backgroundModes = Set(
+      (infoDictionary["UIBackgroundModes"] as? [String] ?? [])
+        .map { $0.lowercased() }
+    )
+    if !backgroundModes.contains("bluetooth-peripheral") {
+      issues.append("UIBackgroundModes missing bluetooth-peripheral")
+    }
+    if !backgroundModes.contains("external-accessory") {
+      issues.append("UIBackgroundModes missing external-accessory")
+    }
+
+    let accessoryProtocols = Set(
+      (infoDictionary["UISupportedExternalAccessoryProtocols"] as? [String] ?? [])
+        .map { $0.lowercased() }
+    )
+    if !accessoryProtocols.contains("com.meta.ar.wearable") {
+      issues.append("UISupportedExternalAccessoryProtocols missing com.meta.ar.wearable")
+    }
+
+    guard !issues.isEmpty else {
+      return nil
+    }
+
+    return "DAT configuration invalid: \(issues.joined(separator: "; "))."
+  }
+
+  private func normalizeDatUrlScheme(_ value: String) -> String {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      return ""
+    }
+    let withoutSuffix =
+      trimmed.hasSuffix("://")
+        ? String(trimmed.dropLast(3))
+        : trimmed
+    return withoutSuffix.lowercased()
+  }
+
+  private func isUrlSchemeDeclared(_ scheme: String, infoDictionary: [String: Any]) -> Bool {
+    guard let urlTypes = infoDictionary["CFBundleURLTypes"] as? [[String: Any]] else {
+      return false
+    }
+
+    for entry in urlTypes {
+      guard let schemes = entry["CFBundleURLSchemes"] as? [String] else {
+        continue
+      }
+      if schemes.contains(where: { $0.caseInsensitiveCompare(scheme) == .orderedSame }) {
+        return true
+      }
+    }
+    return false
   }
 
   private func isDatSdkAvailable() -> Bool {

@@ -1,6 +1,10 @@
+import Foundation
 import Expo
 import React
 import ReactAppDependencyProvider
+#if canImport(MWDATCore)
+import MWDATCore
+#endif
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -38,7 +42,10 @@ public class AppDelegate: ExpoAppDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    return super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)
+    let datHandled = handleDatCallback(url: url)
+    return datHandled
+      || super.application(app, open: url, options: options)
+      || RCTLinkingManager.application(app, open: url, options: options)
   }
 
   // Universal Links
@@ -49,6 +56,28 @@ public class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
+  }
+
+  private func handleDatCallback(url: URL) -> Bool {
+#if canImport(MWDATCore)
+    guard
+      let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+      components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+    else {
+      return false
+    }
+
+    Task {
+      do {
+        _ = try await Wearables.shared.handleUrl(url)
+      } catch {
+        NSLog("[MetaGlassesBridge] DAT callback handling failed: %@", error.localizedDescription)
+      }
+    }
+    return true
+#else
+    return false
+#endif
   }
 }
 

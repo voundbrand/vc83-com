@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.l4yercak3.app"],
+        "components": [
+          {
+            "/": "/dat-callback/*"
+          }
+        ]
+      }
+    ]
+  }
+}

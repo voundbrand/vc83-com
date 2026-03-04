@@ -16,15 +16,37 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.l4yercak3.app",
+      "associatedDomains": [
+        "applinks:links.sevenlayers.io"
+      ],
       "buildNumber": "1",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to let you control your business with voice commands.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for voice commands.",
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to Meta glasses.",
+        "UIBackgroundModes": [
+          "bluetooth-peripheral",
+          "external-accessory"
+        ],
+        "UISupportedExternalAccessoryProtocols": [
+          "com.meta.ar.wearable"
+        ],
+        "MWDAT": {
+          "AppLinkURLScheme": "l4yercak3://",
+          "MetaAppID": "$(META_APP_ID)",
+          "ClientToken": "$(CLIENT_TOKEN)",
+          "TeamID": "$(DEVELOPMENT_TEAM)"
+        },
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.19450024372-6c594u7djuj6kb0no2bfac9ibmbd0s9a"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "l4yercak3"
             ]
           }
         ]
