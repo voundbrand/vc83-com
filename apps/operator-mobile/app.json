@@ -36,7 +36,7 @@
           "AppLinkURLScheme": "l4yercak3://",
           "MetaAppID": "$(META_APP_ID)",
           "ClientToken": "$(CLIENT_TOKEN)",
-          "TeamID": "$(DEVELOPMENT_TEAM)"
+          "TeamID": "A89SWGVT26"
         },
         "CFBundleURLTypes": [
           {
