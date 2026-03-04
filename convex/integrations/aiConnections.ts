@@ -396,17 +396,24 @@ export const getAIConnectionCatalog = query({
   },
   handler: async (ctx, args) => {
     const authenticated = await requireAuthenticatedUser(ctx, args.sessionId);
+    const organizationId = authenticated.organizationId;
     if (authenticated.organizationId !== args.organizationId) {
-      throw new Error("Organization mismatch while loading AI connections.");
+      console.warn(
+        "[integrations.aiConnections.getAIConnectionCatalog] Requested organization did not match session organization; using session organization.",
+        {
+          requestedOrganizationId: args.organizationId,
+          sessionOrganizationId: authenticated.organizationId,
+        }
+      );
     }
 
     const settings = await ctx.db
       .query("organizationAiSettings")
-      .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
       .first();
     const providerProfiles = getProviderAuthProfiles(settings);
 
-    const license = await getLicenseInternal(ctx, args.organizationId);
+    const license = await getLicenseInternal(ctx, organizationId);
     const flags = resolveByokFeatureFlags({
       features: license.features as Record<string, unknown>,
       planTier: license.planTier,

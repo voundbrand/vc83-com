@@ -639,14 +639,22 @@ export const getCurrentUser = query({
     );
     const activeOrganizations = validOrganizations.filter((org) => org.isActive);
 
-    // Prefer the persisted default, but fall back to an active organization if needed.
+    // Keep frontend org context aligned with the session org used by backend auth checks.
+    const sessionScopedOrg = validOrganizations.find(
+      (org) => org.id === session.organizationId
+    );
+    // Prefer persisted default when it is active and session-scoped org is unavailable.
     const preferredOrg = user.defaultOrgId
       ? validOrganizations.find((org) => org?.id === user.defaultOrgId)
       : activeOrganizations[0] || validOrganizations[0];
-    const currentOrg =
+    const fallbackOrg =
       preferredOrg && preferredOrg.isActive
         ? preferredOrg
         : activeOrganizations[0] || preferredOrg;
+    const currentOrg =
+      sessionScopedOrg && sessionScopedOrg.isActive
+        ? sessionScopedOrg
+        : fallbackOrg;
 
     return {
       id: user._id,
