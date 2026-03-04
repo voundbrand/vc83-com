@@ -8,6 +8,7 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 
 import {
   compareCatalogCards,
+  getCatalogAgentProductContext,
   getClonePreflight,
   listCatalogCards,
 } from "../../../convex/ai/agentStoreCatalog";
@@ -140,6 +141,8 @@ function seedCatalogEntry(db: FakeDb, overrides: Partial<FakeRow>) {
     specialistAccessModes: ["invisible"],
     autonomyDefault: "supervised",
     runtimeStatus: "live",
+    catalogStatus: "done",
+    published: true,
     seedStatus: "full",
     intentTags: ["platform_operations"],
     keywordAliases: ["operations"],
@@ -384,6 +387,48 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
     expect(preflight.noFitEscalation.onboarding).toBe(
       "includes 90-minute onboarding with engineer",
     );
+  });
+
+  it("returns structured catalog product context payload for Ask AI handoff", async () => {
+    const db = new FakeDb();
+    seedOrgAccess(db);
+    seedCatalogEntry(db, {
+      catalogAgentNumber: 11,
+      name: "Operations Copilot",
+      category: "core",
+      subtype: "general",
+      toolProfile: "operations",
+      requiredIntegrations: ["slack"],
+      published: true,
+    });
+    seedToolRequirement(db, {
+      catalogAgentNumber: 11,
+      toolName: "message_routing",
+      requirementLevel: "required",
+      implementationStatus: "implemented",
+      source: "registry",
+      integrationDependency: "slack",
+    });
+    seedSeedRow(db, {
+      catalogAgentNumber: 11,
+      systemTemplateAgentId: "objects_template_1",
+    });
+    seedTemplate(db);
+
+    const result = await (getCatalogAgentProductContext as any)._handler(createCtx(db), {
+      sessionId: "sessions_1",
+      organizationId: ORG_ID,
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: 11,
+    });
+
+    expect(result.card.displayName).toBe("Operations Copilot");
+    expect(result.productPage.entry.published).toBe(true);
+    expect(result.productPage.requirements.requiredTools).toContain("message_routing");
+    expect(result.askAiContextPayload).toMatchObject({
+      catalogAgentNumber: 11,
+      templateReady: true,
+    });
   });
 
   it("fails closed when store compatibility flag is disabled", async () => {

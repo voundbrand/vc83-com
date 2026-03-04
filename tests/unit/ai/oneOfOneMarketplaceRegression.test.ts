@@ -26,7 +26,7 @@ describe("one-of-one marketplace regression guards", () => {
 
     expect(source).toContain("const openPrimaryOperatorCreation = () => {");
     expect(source).toContain("openAgentCreationAssistant(\"agent_creation:primary_operator\")");
-    expect(source).toContain("onCreateNew={openPrimaryOperatorCreation}");
+    expect(source).toContain("onOpenCatalog={openAgentCatalog}");
     expect(source).toContain("onOpenPrimaryOperatorCreation={openPrimaryOperatorCreation}");
   });
 

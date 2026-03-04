@@ -20,7 +20,7 @@ import {
   Terminal,
 } from "lucide-react";
 import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -31,6 +31,7 @@ import type { AgentTab } from "./agents/types";
 import { AgentListPanel } from "./agents/agent-list-panel";
 import { AgentDetailPanel } from "./agents/agent-detail-panel";
 import { AgentCreateForm } from "./agents/agent-create-form";
+import { AgentStorePanel, type AgentCatalogCard } from "./agents/agent-store-panel";
 import {
   AGENT_NEED_OUTCOME_OPTIONS,
   SPECIALIST_ROLE_CONTRACTS,
@@ -73,6 +74,9 @@ interface AgentsWindowApi {
     };
   };
   ai: {
+    agentStoreCatalog: {
+      getCatalogAgentProductContext: unknown;
+    };
     agentSessions: {
       getAgentStats: unknown;
       getControlCenterThreadRows: unknown;
@@ -347,6 +351,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const { sessionId, isSuperAdmin } = useAuth();
   const { t } = useNamespaceTranslations("ui.agents_window");
   const currentOrg = useCurrentOrganization();
+  const convex = useConvex();
   const { openWindow } = useWindowManager();
   const tx = (
     key: string,
@@ -361,6 +366,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<Id<"objects"> | null>(null);
   const [showAgentOps, setShowAgentOps] = useState(true);
+  const [showCatalog, setShowCatalog] = useState(false);
   const [opsScopeMode, setOpsScopeMode] = useState<AgentOpsScopeMode>("org");
   const [opsScopeOrganizationId, setOpsScopeOrganizationId] = useState<Id<"organizations"> | null>(null);
   const [incidentActionMessage, setIncidentActionMessage] = useState<string | null>(null);
@@ -776,6 +782,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     setSelectedAgentId(agentId);
     setShowCreate(false);
     setEditingAgentId(null);
+    setShowCatalog(false);
     setShowAgentOps(false);
     setActiveTab("trust");
   };
@@ -784,8 +791,16 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     setSelectedAgentId(null);
     setShowCreate(false);
     setEditingAgentId(null);
+    setShowCatalog(false);
     setShowAgentOps(true);
     setActiveTab("trust");
+  };
+
+  const openAgentCatalog = () => {
+    setShowCreate(false);
+    setEditingAgentId(null);
+    setShowAgentOps(false);
+    setShowCatalog(true);
   };
 
   const openAgentCreationAssistant = (openContext: string) => {
@@ -820,10 +835,51 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     );
   };
 
+  const openCatalogAssistant = async (card: AgentCatalogCard) => {
+    let payload: Record<string, unknown> = {
+      catalogAgentNumber: card.catalogAgentNumber,
+      displayName: card.displayName,
+      category: card.verticalCategory,
+      tier: card.tier,
+      runtimeAvailability: card.runtimeAvailability,
+      autonomyDefault: card.autonomyDefault,
+      published: card.published,
+      templateReady: card.templateAvailability.hasTemplate,
+      supportedAccessModes: card.supportedAccessModes,
+      channelAffinity: card.channelAffinity,
+      abilityTags: card.abilityTags,
+      toolTags: card.toolTags.map((tag) => `${tag.key}:${tag.status}:${tag.requirementLevel}`),
+      frameworkTags: card.frameworkTags,
+      integrationTags: card.integrationTags.map((tag) => `${tag.key}:${tag.status}`),
+    };
+
+    if (sessionId && currentOrg?.id) {
+      try {
+        const productContext = await convex.query(
+          apiAny.ai.agentStoreCatalog.getCatalogAgentProductContext as any,
+          {
+            sessionId,
+            organizationId: currentOrg.id,
+            catalogAgentNumber: card.catalogAgentNumber,
+          },
+        ) as { askAiContextPayload?: Record<string, unknown> } | null;
+        if (productContext?.askAiContextPayload) {
+          payload = productContext.askAiContextPayload;
+        }
+      } catch {
+        // Keep fallback payload so Ask AI remains non-blocking if the query fails.
+      }
+    }
+
+    const openContextPayload = encodeURIComponent(JSON.stringify(payload));
+    openAgentCreationAssistant(`agent_catalog:${openContextPayload}`);
+  };
+
   const openPrimaryOperatorCreation = () => {
     setShowCreate(false);
     setSelectedAgentId(null);
     setEditingAgentId(null);
+    setShowCatalog(false);
     setShowAgentOps(true);
     openAgentCreationAssistant("agent_creation:primary_operator");
   };
@@ -930,6 +986,19 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             <Activity size={14} />
             {tx("header.agent_ops", "Agent Ops")}
           </button>
+          <button
+            onClick={openAgentCatalog}
+            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: showCatalog ? "var(--desktop-shell-accent)" : "var(--win95-button-face)",
+              color: "var(--win95-text)",
+            }}
+            title={tx("header.open_agent_catalog", "Open Agent Catalog")}
+          >
+            <Sparkles size={14} />
+            {tx("header.agent_catalog", "Agent Catalog")}
+          </button>
           {creditBalance && !hasZeroCredits && (
             <CreditBalance
               dailyCredits={creditBalance.dailyCredits}
@@ -978,10 +1047,11 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             setSelectedAgentId(id);
             setShowCreate(false);
             setEditingAgentId(null);
+            setShowCatalog(false);
             setShowAgentOps(false);
             setActiveTab("trust");
           }}
-          onCreateNew={openPrimaryOperatorCreation}
+          onOpenCatalog={openAgentCatalog}
           sessionId={sessionId}
         />
 
@@ -994,6 +1064,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               editingAgentId={editingAgentId}
               onSaved={(agentId) => {
                 setShowCreate(false);
+                setShowCatalog(false);
                 if (agentId) {
                   setSelectedAgentId(agentId);
                   setShowAgentOps(false);
@@ -1009,7 +1080,16 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               }}
             />
           )}
-          {!showCreate && showAgentOps && (
+          {!showCreate && showCatalog && (
+            <AgentStorePanel
+              sessionId={sessionId}
+              organizationId={organizationId}
+              onBack={openAgentOpsDashboard}
+              onOpenAssistant={openCatalogAssistant}
+              onRequestCustomOrder={() => openAgentCreationAssistant("agent_catalog:custom_concierge")}
+            />
+          )}
+          {!showCreate && !showCatalog && showAgentOps && (
             <AgentOpsSection
               agents={agents || []}
               activeThreadCount={activeThreadCount}
@@ -1049,20 +1129,22 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               tx={tx}
             />
           )}
-          {!showCreate && !showAgentOps && selectedAgentId && (
+          {!showCreate && !showCatalog && !showAgentOps && selectedAgentId && (
             <AgentDetailPanel
               agentId={selectedAgentId}
               sessionId={sessionId}
               organizationId={organizationId}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              onOpenAgentOps={openAgentOpsDashboard}
+              onOpenAgentCatalog={openAgentCatalog}
               onEdit={() => {
                 setEditingAgentId(selectedAgentId);
                 setShowCreate(true);
               }}
             />
           )}
-          {!showCreate && !showAgentOps && !selectedAgentId && (
+          {!showCreate && !showCatalog && !showAgentOps && !selectedAgentId && (
             <div className="h-full flex flex-col items-center justify-center gap-4">
               <Bot size={64} className="opacity-20" />
               <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>

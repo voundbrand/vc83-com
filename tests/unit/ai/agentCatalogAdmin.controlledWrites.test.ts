@@ -5,7 +5,12 @@ vi.mock("../../../convex/rbacHelpers", () => ({
   getUserContext: vi.fn(),
 }));
 
-import { setAgentBlocker, setSeedStatusOverride } from "../../../convex/ai/agentCatalogAdmin";
+import {
+  backfillCatalogPublishedFlags,
+  setAgentBlocker,
+  setCatalogPublishedStatus,
+  setSeedStatusOverride,
+} from "../../../convex/ai/agentCatalogAdmin";
 import { getUserContext, requireAuthenticatedUser } from "../../../convex/rbacHelpers";
 
 type FakeRow = Record<string, any> & { _id: string };
@@ -126,6 +131,8 @@ function seedAgentEntry(db: FakeDb, overrides: Partial<FakeRow> = {}) {
     _id: "agent_catalog_entry_1",
     datasetVersion: DEFAULT_DATASET,
     catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+    catalogStatus: "done",
+    runtimeStatus: "live",
     blockers: [],
     seedStatus: "skeleton",
     updatedAt: 0,
@@ -185,6 +192,25 @@ async function invokeSetSeedStatusOverride(
       seedStatus: "full",
       reason: "Manual validation",
     },
+    ...overrides,
+  });
+}
+
+async function invokeSetCatalogPublishedStatus(
+  db: FakeDb,
+  overrides: Partial<{
+    datasetVersion: string;
+    catalogAgentNumber: number;
+    published: boolean;
+    reason: string;
+  }> = {},
+) {
+  return await (setCatalogPublishedStatus as any)._handler(createCtx(db), {
+    sessionId: "sessions_super",
+    datasetVersion: DEFAULT_DATASET,
+    catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+    published: true,
+    reason: "Release readiness complete.",
     ...overrides,
   });
 }
@@ -393,5 +419,60 @@ describe("agent catalog controlled writes: setSeedStatusOverride", () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+});
+
+describe("agent catalog controlled writes: setCatalogPublishedStatus + backfill", () => {
+  it("updates explicit published flag and records agent_catalog.* audit action", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db, {
+      published: false,
+      runtimeStatus: "live",
+      catalogStatus: "done",
+    });
+
+    const result = await invokeSetCatalogPublishedStatus(db, {
+      published: true,
+      reason: "Ready for storefront release",
+    });
+
+    expect(result.published).toBe(true);
+    const storedEntry = db.rows("agentCatalogEntries")[0];
+    expect(storedEntry?.published).toBe(true);
+    const objectActions = db.rows("objectActions");
+    expect(objectActions[0]?.actionType).toBe("agent_catalog.published_set");
+  });
+
+  it("backfills missing published fields using legacy inference and writes audit action", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db, {
+      _id: "agent_catalog_entry_legacy_live",
+      catalogAgentNumber: 41,
+      published: undefined,
+      runtimeStatus: "live",
+      catalogStatus: "done",
+    });
+    seedAgentEntry(db, {
+      _id: "agent_catalog_entry_legacy_hidden",
+      catalogAgentNumber: 52,
+      published: undefined,
+      runtimeStatus: "template_only",
+      catalogStatus: "pending",
+    });
+
+    const result = await (backfillCatalogPublishedFlags as any)._handler(createCtx(db), {
+      sessionId: "sessions_super",
+      datasetVersion: DEFAULT_DATASET,
+      dryRun: false,
+    });
+
+    expect(result.updatedCount).toBe(2);
+    const entries = db.rows("agentCatalogEntries");
+    const live = entries.find((row) => row.catalogAgentNumber === 41);
+    const hidden = entries.find((row) => row.catalogAgentNumber === 52);
+    expect(live?.published).toBe(true);
+    expect(hidden?.published).toBe(false);
+    const actionTypes = db.rows("objectActions").map((row) => row.actionType);
+    expect(actionTypes).toContain("agent_catalog.published_backfill");
   });
 });

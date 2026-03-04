@@ -7,6 +7,8 @@
 
 import { useState } from "react";
 import {
+  Activity,
+  Sparkles,
   Crown,
   Play, Pause, Settings, Trash2, CheckCircle, XCircle,
   Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle, Bug,
@@ -39,6 +41,8 @@ interface AgentDetailPanelProps {
   activeTab: AgentTab;
   onTabChange: (tab: AgentTab) => void;
   onEdit: () => void;
+  onOpenAgentOps?: () => void;
+  onOpenAgentCatalog?: () => void;
 }
 
 const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
@@ -59,6 +63,8 @@ export function AgentDetailPanel({
   activeTab,
   onTabChange,
   onEdit,
+  onOpenAgentOps,
+  onOpenAgentCatalog,
 }: AgentDetailPanelProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agent = useQuery(apiAny.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
@@ -132,6 +138,26 @@ export function AgentDetailPanel({
 
         {/* Header actions */}
         <div className="flex items-center gap-1.5">
+          {onOpenAgentOps && (
+            <button
+              onClick={onOpenAgentOps}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              title="Open Agent Ops"
+            >
+              <Activity size={10} /> Agent Ops
+            </button>
+          )}
+          {onOpenAgentCatalog && (
+            <button
+              onClick={onOpenAgentCatalog}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              title="Open Agent Catalog"
+            >
+              <Sparkles size={10} /> Agent Catalog
+            </button>
+          )}
           {agent.status === "active" ? (
             <button
               onClick={() => {

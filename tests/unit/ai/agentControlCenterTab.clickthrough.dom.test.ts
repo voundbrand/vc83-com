@@ -50,6 +50,7 @@ const OVERVIEW_RESPONSE = {
     seedsFull: 0,
     runtimeLive: 0,
     toolsMissing: 1,
+    published: 0,
     blockedAgents: 1,
   },
   drift: {
@@ -76,6 +77,7 @@ const LIST_AGENTS_RESPONSE = {
       toolProfile: "sales",
       seedStatus: "skeleton",
       runtimeStatus: "template_only",
+      published: false,
       specialistAccessModes: ["invisible"],
       implementationPhase: 2,
       blockersCount: 1,
@@ -149,6 +151,8 @@ let triggerCatalogSyncMock: ReturnType<typeof vi.fn>;
 let setAgentBlockerMock: ReturnType<typeof vi.fn>;
 let setSeedStatusOverrideMock: ReturnType<typeof vi.fn>;
 let setSeedTemplateBindingMock: ReturnType<typeof vi.fn>;
+let setCatalogPublishedStatusMock: ReturnType<typeof vi.fn>;
+let backfillCatalogPublishedFlagsMock: ReturnType<typeof vi.fn>;
 let submitToolFoundryPromotionDecisionMock: ReturnType<typeof vi.fn>;
 
 const TOOL_FOUNDRY_PENDING_PROPOSALS = [
@@ -202,6 +206,8 @@ beforeEach(() => {
   setAgentBlockerMock = vi.fn().mockResolvedValue({ success: true });
   setSeedStatusOverrideMock = vi.fn().mockResolvedValue({ success: true });
   setSeedTemplateBindingMock = vi.fn().mockResolvedValue({ success: true });
+  setCatalogPublishedStatusMock = vi.fn().mockResolvedValue({ success: true });
+  backfillCatalogPublishedFlagsMock = vi.fn().mockResolvedValue({ success: true, updatedCount: 0 });
   submitToolFoundryPromotionDecisionMock = vi.fn().mockResolvedValue({ success: true });
 
   useAuthMock.mockReturnValue({
@@ -218,6 +224,8 @@ beforeEach(() => {
       setAgentBlockerMock,
       setSeedStatusOverrideMock,
       setSeedTemplateBindingMock,
+      setCatalogPublishedStatusMock,
+      backfillCatalogPublishedFlagsMock,
       submitToolFoundryPromotionDecisionMock,
     ];
     const handler = handlers[mutationCallIndex % handlers.length];

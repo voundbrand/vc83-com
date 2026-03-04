@@ -52,6 +52,12 @@ export type ConfirmAction =
       catalogAgentNumber: number;
       templateAgentId?: string;
       reason: string;
+    }
+  | {
+      type: "set_published";
+      catalogAgentNumber: number;
+      published: boolean;
+      reason: string;
     };
 
 type OverviewResponse = {
@@ -64,6 +70,7 @@ type OverviewResponse = {
     seedsFull: number;
     runtimeLive: number;
     toolsMissing: number;
+    published: number;
     blockedAgents: number;
   };
   drift: {
@@ -86,6 +93,7 @@ type AgentListRow = {
   toolProfile: string;
   seedStatus: string;
   runtimeStatus: string;
+  published: boolean;
   seedStatusOverride?: SeedStatusOverrideState;
   specialistAccessModes: string[];
   implementationPhase: number;
@@ -286,6 +294,9 @@ export function buildAgentControlConfirmationMessage(action: ConfirmAction, data
     const operation = action.templateAgentId ? "set seed template binding" : "clear seed template binding";
     return `Confirm Agent Control write action.\n\nDataset: ${datasetVersion}\nAgent: #${action.catalogAgentNumber}\nOperation: ${operation}\nTemplate agent id: ${nextTemplate}\nReason: ${action.reason}\nAudit event: agent_catalog.seed_template_binding_set`;
   }
+  if (action.type === "set_published") {
+    return `Confirm Agent Control write action.\n\nDataset: ${datasetVersion}\nAgent: #${action.catalogAgentNumber}\nOperation: ${action.published ? "publish catalog entry" : "unpublish catalog entry"}\nReason: ${action.reason}\nAudit event: agent_catalog.published_set`;
+  }
   return `Confirm Agent Control write action.\n\nDataset: ${datasetVersion}\nAgent: #${action.catalogAgentNumber}\nOperation: apply seed override\nOverride status: ${action.seedStatus}\nReason: ${action.reason}\nAudit event: agent_catalog.seed_override_set\n\nComputed seed status remains read-only.`;
 }
 
@@ -337,11 +348,14 @@ export function AgentControlCenterTab() {
   const [seedOverrideReason, setSeedOverrideReason] = useState<string>("");
   const [seedTemplateBindingAgentId, setSeedTemplateBindingAgentId] = useState<string>("");
   const [seedTemplateBindingReason, setSeedTemplateBindingReason] = useState<string>("");
+  const [publishReason, setPublishReason] = useState<string>("");
 
   const triggerCatalogSync = useMutation(api.ai.agentCatalogAdmin.triggerCatalogSync);
   const setAgentBlocker = useMutation(api.ai.agentCatalogAdmin.setAgentBlocker);
   const setSeedStatusOverride = useMutation(api.ai.agentCatalogAdmin.setSeedStatusOverride);
   const setSeedTemplateBinding = useMutation(api.ai.agentCatalogAdmin.setSeedTemplateBinding);
+  const setCatalogPublishedStatus = useMutation(api.ai.agentCatalogAdmin.setCatalogPublishedStatus);
+  const backfillCatalogPublishedFlags = useMutation(api.ai.agentCatalogAdmin.backfillCatalogPublishedFlags);
   const submitToolFoundryPromotionDecision = useMutation(
     api.ai.toolFoundry.proposalBacklog.submitProposalPromotionDecision,
   );
@@ -445,6 +459,7 @@ export function AgentControlCenterTab() {
     setSeedOverrideReason("");
     setSeedTemplateBindingAgentId("");
     setSeedTemplateBindingReason("");
+    setPublishReason("");
   }, [datasetVersion]);
 
   useEffect(() => {
@@ -460,6 +475,7 @@ export function AgentControlCenterTab() {
     setSeedOverrideReason("");
     setSeedTemplateBindingAgentId(agentDetails.seed?.systemTemplateAgentId ?? "");
     setSeedTemplateBindingReason("");
+    setPublishReason("");
   }, [agentDetails]);
 
   const driftTone = driftBadgeTone(overview?.drift.status ?? "registry_drift");
@@ -487,6 +503,32 @@ export function AgentControlCenterTab() {
       setAuditMessage({ type: "error", text: message });
     } finally {
       setIsRunningAudit(false);
+    }
+  };
+
+  const handlePublishedBackfill = async () => {
+    if (!sessionId || isSubmittingWrite) {
+      return;
+    }
+    setIsSubmittingWrite(true);
+    setWriteMessage(null);
+    try {
+      const result = await backfillCatalogPublishedFlags({
+        sessionId,
+        datasetVersion,
+        dryRun: false,
+      });
+      const updatedCount =
+        typeof result?.updatedCount === "number" ? result.updatedCount : 0;
+      setWriteMessage({
+        type: "success",
+        text: `Published-flag backfill completed (${updatedCount} rows updated).`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Published-flag backfill failed.";
+      setWriteMessage({ type: "error", text: message });
+    } finally {
+      setIsSubmittingWrite(false);
     }
   };
 
@@ -578,6 +620,21 @@ export function AgentControlCenterTab() {
           text: action.templateAgentId
             ? `Set template binding for agent #${action.catalogAgentNumber}.`
             : `Cleared template binding for agent #${action.catalogAgentNumber}.`,
+        });
+      } else if (action.type === "set_published") {
+        await setCatalogPublishedStatus({
+          sessionId,
+          datasetVersion,
+          catalogAgentNumber: action.catalogAgentNumber,
+          published: action.published,
+          reason: action.reason,
+        });
+        setPublishReason("");
+        setWriteMessage({
+          type: "success",
+          text: action.published
+            ? `Published agent #${action.catalogAgentNumber} to catalog.`
+            : `Unpublished agent #${action.catalogAgentNumber} from catalog.`,
         });
       } else {
         await setSeedStatusOverride({
@@ -680,6 +737,24 @@ export function AgentControlCenterTab() {
 
               <button
                 type="button"
+                onClick={handlePublishedBackfill}
+                disabled={isSubmittingWrite}
+                className="px-2 py-1 text-xs border rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  color: "var(--window-document-text)",
+                  opacity: isSubmittingWrite ? 0.6 : 1,
+                }}
+                title={tx(
+                  "controls.backfill_published_title",
+                  "Populate missing explicit published flags using legacy inference rule.",
+                )}
+              >
+                {tx("controls.backfill_published", "Backfill Published Flags")}
+              </button>
+
+              <button
+                type="button"
                 disabled
                 className="px-2 py-1 text-xs border rounded"
                 style={{
@@ -733,7 +808,7 @@ export function AgentControlCenterTab() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
             <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
               <div className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                 {tx("summary.total_agents", "Total agents")}
@@ -764,6 +839,14 @@ export function AgentControlCenterTab() {
               </div>
               <div className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
                 {overview.summary.runtimeLive}
+              </div>
+            </div>
+            <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+              <div className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                {tx("summary.published", "Published")}
+              </div>
+              <div className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                {overview.summary.published}
               </div>
             </div>
             <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
@@ -910,6 +993,7 @@ export function AgentControlCenterTab() {
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.tool_coverage", "Tool coverage")}</th>
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.seed", "Seed")}</th>
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.runtime", "Runtime")}</th>
+                <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.published", "Published")}</th>
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.access_modes", "Access modes")}</th>
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.phase", "Phase")}</th>
                 <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>{tx("table.blockers", "Blockers")}</th>
@@ -918,7 +1002,7 @@ export function AgentControlCenterTab() {
             <tbody>
               {listAgents.agents.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  <td colSpan={11} className="px-3 py-8 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     {tx("table.empty", "No agents found for current filters.")}
                   </td>
                 </tr>
@@ -964,6 +1048,17 @@ export function AgentControlCenterTab() {
                       <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
                         <span className="px-1 py-0.5 rounded" style={{ color: runtimeTone.color, background: runtimeTone.bg }}>
                           {compactCell(agent.runtimeStatus)}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                        <span
+                          className="px-1 py-0.5 rounded"
+                          style={{
+                            color: agent.published ? "#166534" : "#9a3412",
+                            background: agent.published ? "#f0fdf4" : "#fff7ed",
+                          }}
+                        >
+                          {agent.published ? "yes" : "no"}
                         </span>
                       </td>
                       <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
@@ -1393,8 +1488,99 @@ export function AgentControlCenterTab() {
               {drawerTab === "runtime" && (
                 <div className="space-y-2">
                   <DetailRow label={tx("details.runtime.status", "Runtime status")} value={agentDetails.agent.runtimeStatus} />
+                  <DetailRow
+                    label={tx("details.runtime.published", "Published")}
+                    value={agentDetails.agent.published ? "yes" : "no"}
+                  />
                   <DetailRow label={tx("details.runtime.access_modes", "Access modes")} value={agentDetails.agent.specialistAccessModes.join(", ")} />
                   <DetailRow label={tx("details.runtime.channel_affinity", "Channel affinity")} value={agentDetails.agent.channelAffinity.join(", ")} />
+                  <div
+                    className="border rounded p-2 space-y-2"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                  >
+                    <p className="font-semibold">
+                      {tx("details.runtime.catalog_release", "Catalog release status")}
+                    </p>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      {tx(
+                        "details.runtime.catalog_release_help",
+                        "Toggle explicit catalog visibility. This controls whether Agent Catalog storefront users can discover this entry.",
+                      )}
+                    </p>
+                    <label className="text-[11px] flex flex-col gap-1">
+                      {tx("details.runtime.required_reason", "Required reason")}
+                      <textarea
+                        value={publishReason}
+                        onChange={(event) => setPublishReason(event.target.value)}
+                        rows={2}
+                        className="px-2 py-1 text-xs border rounded bg-transparent"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        placeholder={tx(
+                          "details.runtime.required_reason_placeholder",
+                          "Explain why this publish state is changing.",
+                        )}
+                        disabled={isSubmittingWrite}
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs border rounded"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          opacity:
+                            !agentDetails.agent.published
+                            && publishReason.trim().length > 0
+                            && !isSubmittingWrite
+                              ? 1
+                              : 0.6,
+                        }}
+                        disabled={
+                          agentDetails.agent.published
+                          || publishReason.trim().length === 0
+                          || isSubmittingWrite
+                        }
+                        onClick={() => {
+                          setPendingConfirmAction({
+                            type: "set_published",
+                            catalogAgentNumber: agentDetails.agent.catalogAgentNumber,
+                            published: true,
+                            reason: publishReason.trim(),
+                          });
+                        }}
+                      >
+                        {tx("details.runtime.publish", "Publish to catalog")}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs border rounded"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          opacity:
+                            agentDetails.agent.published
+                            && publishReason.trim().length > 0
+                            && !isSubmittingWrite
+                              ? 1
+                              : 0.6,
+                        }}
+                        disabled={
+                          !agentDetails.agent.published
+                          || publishReason.trim().length === 0
+                          || isSubmittingWrite
+                        }
+                        onClick={() => {
+                          setPendingConfirmAction({
+                            type: "set_published",
+                            catalogAgentNumber: agentDetails.agent.catalogAgentNumber,
+                            published: false,
+                            reason: publishReason.trim(),
+                          });
+                        }}
+                      >
+                        {tx("details.runtime.unpublish", "Unpublish from catalog")}
+                      </button>
+                    </div>
+                  </div>
                   <div
                     className="border rounded p-2"
                     style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}

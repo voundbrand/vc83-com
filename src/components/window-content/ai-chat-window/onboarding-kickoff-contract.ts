@@ -9,6 +9,28 @@ interface CoverageSpecialistHint {
   focus: string;
 }
 
+interface CatalogAgentHint {
+  catalogAgentNumber: number | null;
+  displayName: string;
+  category: string;
+  tier: string;
+  runtimeAvailability: string;
+  autonomyDefault: string;
+  published: string;
+  supportedAccessModes: string[];
+  channelAffinity: string[];
+  abilityTags: string[];
+  toolTags: string[];
+  frameworkTags: string[];
+  integrationTags: string[];
+  requiredIntegrations: string[];
+  requiredTools: string[];
+  requiredCapabilities: string[];
+  capabilitySnapshotAvailableNow: string[];
+  capabilitySnapshotBlocked: string[];
+  templateReady: string;
+}
+
 const COVERAGE_SPECIALIST_HINTS: Record<SpecialistRoleId, CoverageSpecialistHint> = {
   appointment_booking_specialist: {
     roleName: SPECIALIST_ROLE_CONTRACTS.appointment_booking_specialist.roleName,
@@ -70,6 +92,93 @@ function resolveCoverageSpecialistHint(openContext?: string): CoverageSpecialist
   };
 }
 
+function sanitizeKickoffValue(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function asList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => (typeof entry === "string" ? sanitizeKickoffValue(entry) : ""))
+    .filter((entry) => entry.length > 0);
+}
+
+function resolveCatalogAgentHint(openContext?: string): CatalogAgentHint | null {
+  if (!openContext || !openContext.startsWith("agent_catalog:")) {
+    return null;
+  }
+
+  const payloadToken = openContext.slice("agent_catalog:".length).trim();
+  if (!payloadToken) {
+    return null;
+  }
+
+  try {
+    const decoded = decodeURIComponent(payloadToken);
+    const parsed = JSON.parse(decoded) as Record<string, unknown>;
+    const numberValue = parsed.catalogAgentNumber;
+    const catalogAgentNumber =
+      typeof numberValue === "number" && Number.isFinite(numberValue)
+        ? Math.floor(numberValue)
+        : null;
+
+    const displayName =
+      typeof parsed.displayName === "string" && parsed.displayName.trim().length > 0
+        ? sanitizeKickoffValue(parsed.displayName)
+        : "Unknown agent";
+    const category =
+      typeof parsed.category === "string" && parsed.category.trim().length > 0
+        ? sanitizeKickoffValue(parsed.category)
+        : "unknown";
+    const tier =
+      typeof parsed.tier === "string" && parsed.tier.trim().length > 0
+        ? sanitizeKickoffValue(parsed.tier)
+        : "unknown";
+    const runtimeAvailability =
+      typeof parsed.runtimeAvailability === "string" && parsed.runtimeAvailability.trim().length > 0
+        ? sanitizeKickoffValue(parsed.runtimeAvailability)
+        : "unknown";
+    const autonomyDefault =
+      typeof parsed.autonomyDefault === "string" && parsed.autonomyDefault.trim().length > 0
+        ? sanitizeKickoffValue(parsed.autonomyDefault)
+        : "unknown";
+    const published =
+      typeof parsed.published === "boolean"
+        ? (parsed.published ? "true" : "false")
+        : "unknown";
+    const templateReady =
+      typeof parsed.templateReady === "boolean"
+        ? (parsed.templateReady ? "true" : "false")
+        : "unknown";
+
+    return {
+      catalogAgentNumber,
+      displayName,
+      category,
+      tier,
+      runtimeAvailability,
+      autonomyDefault,
+      published,
+      supportedAccessModes: asList(parsed.supportedAccessModes),
+      channelAffinity: asList(parsed.channelAffinity),
+      abilityTags: asList(parsed.abilityTags),
+      toolTags: asList(parsed.toolTags),
+      frameworkTags: asList(parsed.frameworkTags),
+      integrationTags: asList(parsed.integrationTags),
+      requiredIntegrations: asList(parsed.requiredIntegrations),
+      requiredTools: asList(parsed.requiredTools),
+      requiredCapabilities: asList(parsed.requiredCapabilities),
+      capabilitySnapshotAvailableNow: asList(parsed.capabilitySnapshotAvailableNow),
+      capabilitySnapshotBlocked: asList(parsed.capabilitySnapshotBlocked),
+      templateReady,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function buildPlatformAgentCreationKickoff(args: {
   openContext?: string;
   sourceSessionId?: string;
@@ -83,12 +192,38 @@ export function buildPlatformAgentCreationKickoff(args: {
     ? `source_organization_id=${args.sourceOrganizationId}`
     : "source_organization_id=unknown";
   const coverageSpecialistHint = resolveCoverageSpecialistHint(args.openContext);
+  const catalogAgentHint = resolveCatalogAgentHint(args.openContext);
   const coverageHintLines = coverageSpecialistHint
     ? [
       "entry_source=agent_coverage",
       `recommended_specialist_role=${coverageSpecialistHint.roleName}`,
       `recommended_specialist_subtype=${coverageSpecialistHint.subtype}`,
       `recommended_specialist_focus=${coverageSpecialistHint.focus}`,
+    ]
+    : [];
+  const catalogHintLines = catalogAgentHint
+    ? [
+      "entry_source=agent_catalog",
+      `catalog_agent_number=${catalogAgentHint.catalogAgentNumber ?? "unknown"}`,
+      `catalog_agent_name=${catalogAgentHint.displayName}`,
+      `catalog_category=${catalogAgentHint.category}`,
+      `catalog_tier=${catalogAgentHint.tier}`,
+      `catalog_runtime_availability=${catalogAgentHint.runtimeAvailability}`,
+      `catalog_autonomy_default=${catalogAgentHint.autonomyDefault}`,
+      `catalog_published=${catalogAgentHint.published}`,
+      `catalog_template_ready=${catalogAgentHint.templateReady}`,
+      `catalog_supported_access_modes=${catalogAgentHint.supportedAccessModes.join(",") || "unknown"}`,
+      `catalog_channel_affinity=${catalogAgentHint.channelAffinity.join(",") || "unknown"}`,
+      `catalog_ability_tags=${catalogAgentHint.abilityTags.join(",") || "none"}`,
+      `catalog_tool_tags=${catalogAgentHint.toolTags.join(",") || "none"}`,
+      `catalog_framework_tags=${catalogAgentHint.frameworkTags.join(",") || "none"}`,
+      `catalog_integration_tags=${catalogAgentHint.integrationTags.join(",") || "none"}`,
+      `catalog_required_integrations=${catalogAgentHint.requiredIntegrations.join(",") || "none"}`,
+      `catalog_required_tools=${catalogAgentHint.requiredTools.join(",") || "none"}`,
+      `catalog_required_capabilities=${catalogAgentHint.requiredCapabilities.join(",") || "none"}`,
+      `catalog_capability_snapshot_available_now=${catalogAgentHint.capabilitySnapshotAvailableNow.join(",") || "none"}`,
+      `catalog_capability_snapshot_blocked=${catalogAgentHint.capabilitySnapshotBlocked.join(",") || "none"}`,
+      "catalog_goal=answer operator questions and recommend activation readiness",
     ]
     : [];
 
@@ -99,6 +234,7 @@ export function buildPlatformAgentCreationKickoff(args: {
     sourceSessionLine,
     sourceOrgLine,
     ...coverageHintLines,
+    ...catalogHintLines,
     "creation_mode=catalog_clone_only",
     "direct_free_form_create=blocked_by_default",
     "activation_sequence=catalog_match -> capability_snapshot -> clone_activation",

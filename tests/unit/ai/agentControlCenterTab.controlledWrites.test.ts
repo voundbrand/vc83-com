@@ -85,7 +85,7 @@ describe("Agent Control Center tab controlled-write contracts", () => {
     ).toBe(false);
   });
 
-  it("produces deterministic confirmation modal copy for blocker, seed override, and template binding writes", () => {
+  it("produces deterministic confirmation modal copy for blocker, seed override, template binding, and publish writes", () => {
     const datasetVersion = "agp_v1";
 
     expect(
@@ -154,6 +154,20 @@ describe("Agent Control Center tab controlled-write contracts", () => {
       ),
     ).toBe(
       "Confirm Agent Control write action.\n\nDataset: agp_v1\nAgent: #7\nOperation: clear seed template binding\nTemplate agent id: <clear>\nReason: Unbind deprecated seed mapping\nAudit event: agent_catalog.seed_template_binding_set",
+    );
+
+    expect(
+      buildAgentControlConfirmationMessage(
+        {
+          type: "set_published",
+          catalogAgentNumber: 7,
+          published: true,
+          reason: "Release approved",
+        },
+        datasetVersion,
+      ),
+    ).toBe(
+      "Confirm Agent Control write action.\n\nDataset: agp_v1\nAgent: #7\nOperation: publish catalog entry\nReason: Release approved\nAudit event: agent_catalog.published_set",
     );
   });
 

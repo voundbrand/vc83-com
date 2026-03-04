@@ -31,7 +31,7 @@ interface AgentListPanelProps {
   }>;
   selectedAgentId: Id<"objects"> | null;
   onSelect: (id: Id<"objects">) => void;
-  onCreateNew: () => void;
+  onOpenCatalog: () => void;
   sessionId: string;
 }
 
@@ -40,7 +40,7 @@ export function AgentListPanel({
   stats,
   selectedAgentId,
   onSelect,
-  onCreateNew,
+  onOpenCatalog,
   sessionId,
 }: AgentListPanelProps) {
   const activateAgent = useMutation(api.agentOntology.activateAgent);
@@ -65,7 +65,7 @@ export function AgentListPanel({
           Agents
         </span>
         <button
-          onClick={onCreateNew}
+          onClick={onOpenCatalog}
           className="retro-button flex items-center gap-1 px-2 py-1 text-[10px] font-medium transition-colors"
           style={{
             borderColor: "var(--win95-border-light)",
@@ -74,7 +74,7 @@ export function AgentListPanel({
           }}
         >
           <Sparkles size={10} style={{ color: "var(--warning)" }} />
-          Store
+          Agent Catalog
         </button>
       </div>
 

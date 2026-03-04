@@ -26,6 +26,7 @@ const LIST_RESPONSE = {
     {
       cardId: "agent:1",
       catalogAgentNumber: 1,
+      published: true,
       displayName: "Appointment Booking Specialist",
       verticalCategory: "core",
       tier: "foundation",
@@ -53,6 +54,7 @@ const LIST_RESPONSE = {
     {
       cardId: "agent:2",
       catalogAgentNumber: 2,
+      published: true,
       displayName: "Provider Outreach Specialist",
       verticalCategory: "agency",
       tier: "dream_team",
@@ -115,10 +117,50 @@ const PREFLIGHT_RESPONSE = {
   noFitEscalation: LIST_RESPONSE.noFitEscalation,
 };
 
+const PRODUCT_CONTEXT_RESPONSE = {
+  card: LIST_RESPONSE.cards[1],
+  productPage: {
+    entry: {
+      name: "Provider Outreach Specialist",
+      category: "agency",
+      tier: "dream_team",
+      subtype: "sales_assistant",
+      toolProfile: "support",
+      runtimeStatus: "live",
+      catalogStatus: "done",
+      published: true,
+      autonomyDefault: "supervised",
+    },
+    requirements: {
+      requiredIntegrations: ["activecampaign"],
+      requiredTools: ["message_routing"],
+      requiredCapabilities: ["tool:message_routing", "integration:activecampaign"],
+      supportedAccessModes: ["direct"],
+      channelAffinity: ["telegram"],
+    },
+    capabilitySnapshot: PREFLIGHT_RESPONSE.capabilitySnapshot,
+    tools: [
+      {
+        toolName: "message_routing",
+        requirementLevel: "recommended",
+        implementationStatus: "missing",
+        source: "proposed_new",
+      },
+    ],
+    template: {
+      hasTemplate: true,
+      templateAgentId: "objects_template_2",
+      seedCoverage: "full",
+      requiresSoulBuild: false,
+    },
+  },
+};
+
 describe("AgentStorePanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as any).React = React;
+    let singleAgentQueryCount = 0;
     useActionMock.mockReturnValue(vi.fn().mockResolvedValue({
       status: "success",
       cloneAgentId: "objects_clone_1",
@@ -138,7 +180,10 @@ describe("AgentStorePanel", () => {
         return COMPARE_RESPONSE;
       }
       if (args && typeof args === "object" && "catalogAgentNumber" in args) {
-        return PREFLIGHT_RESPONSE;
+        singleAgentQueryCount += 1;
+        return singleAgentQueryCount % 2 === 1
+          ? PREFLIGHT_RESPONSE
+          : PRODUCT_CONTEXT_RESPONSE;
       }
       return LIST_RESPONSE;
     });
@@ -150,15 +195,15 @@ describe("AgentStorePanel", () => {
         sessionId: "sessions_test",
         organizationId: "org_123" as any,
         onBack: vi.fn(),
-        onStartCloneHandoff: vi.fn(),
+        onOpenAssistant: vi.fn(),
         onRequestCustomOrder: vi.fn(),
       })
     );
 
-    expect(screen.getByText("Agent Store")).toBeTruthy();
+    expect(screen.getByText("Agent Catalog")).toBeTruthy();
     expect(screen.getByText("Appointment Booking Specialist")).toBeTruthy();
     expect(screen.getByText("Provider Outreach Specialist")).toBeTruthy();
-    expect(screen.getByText(/Clone-first catalog birthing only/i)).toBeTruthy();
+    expect(screen.getByText(/Browse published platform agents/i)).toBeTruthy();
     expect(screen.getAllByText(/Capability limits:/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Can't find the right mix\?/i)).toBeTruthy();
     expect(screen.getByText(/Custom-agent concierge is purchase-only/i)).toBeTruthy();
@@ -170,7 +215,7 @@ describe("AgentStorePanel", () => {
         sessionId: "sessions_test",
         organizationId: "org_123" as any,
         onBack: vi.fn(),
-        onStartCloneHandoff: vi.fn(),
+        onOpenAssistant: vi.fn(),
         onRequestCustomOrder: vi.fn(),
       })
     );
@@ -192,7 +237,7 @@ describe("AgentStorePanel", () => {
         sessionId: "sessions_test",
         organizationId: "org_123" as any,
         onBack: vi.fn(),
-        onStartCloneHandoff: vi.fn(),
+        onOpenAssistant: vi.fn(),
         onRequestCustomOrder: vi.fn(),
       })
     );
@@ -200,7 +245,7 @@ describe("AgentStorePanel", () => {
     const preflightButtons = screen.getAllByRole("button", { name: "View capability limits" });
     fireEvent.click(preflightButtons[1]);
 
-    expect(await screen.findByText("Capability limits")).toBeTruthy();
+    expect(await screen.findByText("Catalog detail")).toBeTruthy();
     expect((await screen.findAllByText(/Appointment booking/i)).length).toBeGreaterThan(0);
     expect(
       await screen.findByText(/Multi.?channel outreach · Integration missing \(Activecampaign\)/i)

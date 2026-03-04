@@ -12,6 +12,7 @@ interface AgentStorePanelApi {
       listCatalogCards: unknown;
       compareCatalogCards: unknown;
       getClonePreflight: unknown;
+      getCatalogAgentProductContext: unknown;
     };
     agentExecution: {
       spawn_use_case_agent: unknown;
@@ -24,6 +25,7 @@ const apiAny = require("../../../../convex/_generated/api").api as AgentStorePan
 type StoreCard = {
   cardId: string;
   catalogAgentNumber: number;
+  published: boolean;
   displayName: string;
   verticalCategory: string;
   tier: string;
@@ -53,6 +55,8 @@ type StoreCard = {
     templateAgentId?: Id<"objects">;
   };
 };
+
+export type AgentCatalogCard = StoreCard;
 
 type ListCatalogCardsResult = {
   cards: StoreCard[];
@@ -100,6 +104,44 @@ type ClonePreflightResult = {
     minimum: string;
     deposit: string;
     onboarding: string;
+  };
+};
+
+type CatalogProductContextResult = {
+  card: StoreCard;
+  productPage: {
+    entry: {
+      name: string;
+      category: string;
+      tier: string;
+      subtype: string;
+      toolProfile: string;
+      runtimeStatus: string;
+      catalogStatus: string;
+      published: boolean;
+      autonomyDefault: string;
+    };
+    requirements: {
+      requiredIntegrations: string[];
+      requiredTools: string[];
+      requiredCapabilities: string[];
+      supportedAccessModes: string[];
+      channelAffinity: string[];
+    };
+    capabilitySnapshot: ClonePreflightResult["capabilitySnapshot"];
+    tools: Array<{
+      toolName: string;
+      requirementLevel: "required" | "recommended" | "optional";
+      implementationStatus: "implemented" | "missing";
+      source: "registry" | "interview_tools" | "proposed_new";
+      integrationDependency?: string | null;
+    }>;
+    template: {
+      hasTemplate: boolean;
+      templateAgentId?: Id<"objects">;
+      seedCoverage: "full" | "skeleton" | "missing";
+      requiresSoulBuild: boolean;
+    };
   };
 };
 
@@ -153,16 +195,24 @@ const SORT_OPTIONS = [
   { value: "tier", label: "Tier" },
   { value: "newest", label: "Newest" },
 ] as const;
+const DETAIL_TABS: Array<{ id: CatalogDetailTab; label: string }> = [
+  { id: "summary", label: "Summary" },
+  { id: "tools", label: "Tools" },
+  { id: "runtime", label: "Runtime" },
+  { id: "dependencies", label: "Dependencies" },
+  { id: "capability", label: "Capability limits" },
+];
 
 type CategoryFilter = (typeof CATEGORY_OPTIONS)[number]["value"];
 type AccessModeFilter = (typeof ACCESS_MODE_OPTIONS)[number]["value"];
 type SortMode = (typeof SORT_OPTIONS)[number]["value"];
+type CatalogDetailTab = "summary" | "tools" | "runtime" | "dependencies" | "capability";
 
 interface AgentStorePanelProps {
   sessionId: string;
   organizationId: Id<"organizations">;
   onBack: () => void;
-  onStartCloneHandoff: (catalogAgentNumber: number) => void;
+  onOpenAssistant: (card: AgentCatalogCard) => void;
   onRequestCustomOrder: () => void;
 }
 
@@ -241,7 +291,7 @@ export function AgentStorePanel({
   sessionId,
   organizationId,
   onBack,
-  onStartCloneHandoff,
+  onOpenAssistant,
   onRequestCustomOrder,
 }: AgentStorePanelProps) {
   const { t } = useNamespaceTranslations("ui.agents");
@@ -265,6 +315,7 @@ export function AgentStorePanel({
   const [sort, setSort] = useState<SortMode>("recommended");
   const [compareNumbers, setCompareNumbers] = useState<number[]>([]);
   const [selectedCatalogNumber, setSelectedCatalogNumber] = useState<number | null>(null);
+  const [detailTab, setDetailTab] = useState<CatalogDetailTab>("summary");
   const [cloneMessage, setCloneMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -344,6 +395,12 @@ export function AgentStorePanel({
     }
   }, [cards, compareNumbers, selectedCatalogNumber]);
 
+  useEffect(() => {
+    if (selectedCatalogNumber === null) {
+      setDetailTab("summary");
+    }
+  }, [selectedCatalogNumber]);
+
   const compareArgs = useMemo(() => {
     if (compareNumbers.length < 2) {
       return "skip";
@@ -376,10 +433,32 @@ export function AgentStorePanel({
     preflightArgs
   ) as ClonePreflightResult | undefined;
 
+  const productContextArgs = useMemo(() => {
+    if (selectedCatalogNumber === null) {
+      return "skip";
+    }
+    return {
+      sessionId,
+      organizationId,
+      catalogAgentNumber: selectedCatalogNumber,
+    };
+  }, [organizationId, selectedCatalogNumber, sessionId]);
+
+  const productContext = unsafeUseQuery(
+    apiAny.ai.agentStoreCatalog.getCatalogAgentProductContext,
+    productContextArgs
+  ) as CatalogProductContextResult | undefined;
+
   const noFitEscalation =
     preflightResult?.noFitEscalation
     || listResult?.noFitEscalation
     || DEFAULT_NO_FIT_ESCALATION;
+  const detailProductContext = productContext && typeof productContext === "object" && "productPage" in productContext
+    ? productContext
+    : undefined;
+  const detailCapabilitySnapshot =
+    preflightResult?.capabilitySnapshot
+    || detailProductContext?.productPage?.capabilitySnapshot;
 
   const toggleCompare = (catalogAgentNumber: number) => {
     setCompareNumbers((previous) => {
@@ -395,7 +474,7 @@ export function AgentStorePanel({
     if (!templateAgentId) {
       setCloneMessage({
         type: "error",
-        text: `Clone blocked for #${card.catalogAgentNumber}: no protected template binding found.`,
+        text: `Activation blocked for #${card.catalogAgentNumber}: no protected template binding found.`,
       });
       setSelectedCatalogNumber(card.catalogAgentNumber);
       return;
@@ -413,12 +492,12 @@ export function AgentStorePanel({
         useCase: card.displayName,
         requestedAccessMode: resolvePreferredAccessMode(card.supportedAccessModes),
         requestedChannel: card.channelAffinity[0],
-        spawnReason: "agent_store_clone_now",
+        spawnReason: "agent_catalog_activate",
         reuseExisting: true,
       })) as CloneNowResult;
 
       if (result.status === "success") {
-        const verb = result.reused ? "Reused" : "Cloned";
+        const verb = result.reused ? "Reused" : "Activated";
         const primaryLabel = result.isPrimary ? " Primary assigned." : "";
         setCloneMessage({
           type: "success",
@@ -429,13 +508,13 @@ export function AgentStorePanel({
 
       setCloneMessage({
         type: "error",
-        text: `Clone blocked for #${card.catalogAgentNumber}: ${result.message}`,
+        text: `Activation blocked for #${card.catalogAgentNumber}: ${result.message}`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Clone failed.";
+      const message = error instanceof Error ? error.message : "Activation failed.";
       setCloneMessage({
         type: "error",
-        text: `Clone failed for #${card.catalogAgentNumber}: ${message}`,
+        text: `Activation failed for #${card.catalogAgentNumber}: ${message}`,
       });
     } finally {
       setCloningCatalogNumber(null);
@@ -458,12 +537,12 @@ export function AgentStorePanel({
               style={{ color: "var(--window-document-text)" }}
             >
               <Sparkles size={13} />
-              {tx("ui.agents.store.title", "Agent Store")}
+              {tx("ui.agents.store.title", "Agent Catalog")}
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
               {tx(
                 "ui.agents.store.description",
-                "Clone-first catalog birthing only. Direct free-form creation is disabled by default. Compare specialists, review capability limits, then start activation through the protected clone lifecycle.",
+                "Browse published platform agents, compare capability limits, and activate the right specialist into your operator stack.",
               )}
             </p>
           </div>
@@ -477,7 +556,7 @@ export function AgentStorePanel({
             }}
           >
             <ArrowLeft size={12} />
-            {tx("ui.agents.shared.back", "Back")}
+            {tx("ui.agents.shared.back_to_ops", "Agent Ops")}
           </button>
         </div>
 
@@ -614,7 +693,7 @@ export function AgentStorePanel({
       >
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-            {tx("ui.agents.store.catalog_cards", "Catalog cards")}
+            {tx("ui.agents.store.catalog_cards", "Catalog agents")}
           </div>
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
             {tx("ui.agents.store.compare_selected", "Compare {count} selected", {
@@ -755,16 +834,34 @@ export function AgentStorePanel({
                     }
                     title={
                       card.templateAvailability.hasTemplate
-                        ? tx("ui.agents.store.clone_now_title", "Clone now using protected template lifecycle")
-                        : tx("ui.agents.store.clone_blocked_title", "Template binding missing for this card")
+                        ? tx("ui.agents.store.clone_now_title", "Activate now using protected template lifecycle")
+                        : tx("ui.agents.store.clone_blocked_title", "Template binding missing for this published agent")
                     }
                   >
                     {cloningCatalogNumber === card.catalogAgentNumber
-                      ? tx("ui.agents.store.cloning", "Cloning...")
-                      : tx("ui.agents.store.clone_now", "Clone now")}
+                      ? tx("ui.agents.store.activating", "Activating...")
+                      : tx("ui.agents.store.activate_now", "Activate")}
                   </button>
                   <button
-                    onClick={() => setSelectedCatalogNumber(card.catalogAgentNumber)}
+                    onClick={() => onOpenAssistant(card)}
+                    className="border px-2 py-1 text-xs font-medium"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      color: "var(--window-document-text)",
+                      background: "var(--window-document-card-bg, var(--window-document-bg))",
+                    }}
+                    title={tx(
+                      "ui.agents.store.ask_ai_title",
+                      "Ask AI about this agent before activation",
+                    )}
+                  >
+                    {tx("ui.agents.store.ask_ai", "Ask AI")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCatalogNumber(card.catalogAgentNumber);
+                      setDetailTab("capability");
+                    }}
                     className="border px-2 py-1 text-xs font-medium"
                     style={{
                       borderColor: "var(--window-document-border)",
@@ -773,17 +870,6 @@ export function AgentStorePanel({
                     }}
                   >
                     {tx("ui.agents.store.view_capability_limits", "View capability limits")}
-                  </button>
-                  <button
-                    onClick={() => onStartCloneHandoff(card.catalogAgentNumber)}
-                    className="border px-2 py-1 text-xs font-medium"
-                    style={{
-                      borderColor: "var(--window-document-border)",
-                      color: "var(--window-document-text)",
-                      background: "var(--window-document-card-bg, var(--window-document-bg))",
-                    }}
-                  >
-                    {tx("ui.agents.store.start_clone_handoff", "Start clone activation handoff")}
                   </button>
                 </div>
               </article>
@@ -867,7 +953,7 @@ export function AgentStorePanel({
         >
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
-              {tx("ui.agents.store.capability_limits_short", "Capability limits")}
+              {tx("ui.agents.store.catalog_detail", "Catalog detail")}
             </div>
             {preflightResult ? (
               <span
@@ -888,61 +974,183 @@ export function AgentStorePanel({
             )}
           </div>
 
-          {preflightResult && (
-            <div className="grid gap-3 md:grid-cols-2">
-              <div
-                className="border p-2"
-                style={{
-                  borderColor: "var(--tone-success)",
-                  background: "color-mix(in srgb, var(--tone-success) 8%, transparent)",
-                }}
-              >
-                <div className="text-xs font-medium" style={{ color: "var(--tone-success)" }}>
-                  {tx("ui.agents.store.available_now_with_count", "Available now ({count})", {
-                    count: preflightResult.capabilitySnapshot.availableNow.length,
-                  })}
-                </div>
-                {preflightResult.capabilitySnapshot.availableNow.length === 0 ? (
-                  <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {tx("ui.agents.store.no_capabilities_available", "No capabilities currently available.")}
-                  </div>
-                ) : (
-                  <ul className="mt-1 list-disc pl-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {preflightResult.capabilitySnapshot.availableNow.map((capability) => (
-                      <li key={capability.capabilityId}>{capability.label}</li>
-                    ))}
-                  </ul>
-                )}
+          {!detailProductContext ? (
+            <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+              {tx("ui.agents.store.loading_catalog_details", "Loading catalog details...")}
+            </div>
+          ) : (
+            <>
+              <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                #{detailProductContext.card.catalogAgentNumber} · {detailProductContext.card.displayName}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {DETAIL_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className="px-2 py-1 text-[11px] border rounded"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background:
+                        detailTab === tab.id
+                          ? "var(--window-document-card-bg, var(--window-document-bg))"
+                          : "transparent",
+                      color:
+                        detailTab === tab.id
+                          ? "var(--window-document-text)"
+                          : "var(--neutral-gray)",
+                    }}
+                    onClick={() => setDetailTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div
-                className="border p-2"
-                style={{
-                  borderColor: "var(--tone-warning)",
-                  background: "color-mix(in srgb, var(--tone-warning) 8%, transparent)",
-                }}
-              >
-                <div className="text-xs font-medium" style={{ color: "var(--tone-warning)" }}>
-                  {tx("ui.agents.store.blocked_with_count", "Blocked ({count})", {
-                    count: preflightResult.capabilitySnapshot.blocked.length,
-                  })}
+              {detailTab === "summary" && (
+                <div className="grid gap-2 md:grid-cols-2 text-xs" style={{ color: "var(--window-document-text)" }}>
+                  <div>Category: {humanizeToken(detailProductContext.productPage.entry.category)}</div>
+                  <div>Tier: {humanizeToken(detailProductContext.productPage.entry.tier)}</div>
+                  <div>Subtype: {humanizeToken(detailProductContext.productPage.entry.subtype)}</div>
+                  <div>Tool profile: {humanizeToken(detailProductContext.productPage.entry.toolProfile)}</div>
+                  <div>Published: {detailProductContext.productPage.entry.published ? "yes" : "no"}</div>
+                  <div>Template ready: {detailProductContext.productPage.template.hasTemplate ? "yes" : "no"}</div>
                 </div>
-                {preflightResult.capabilitySnapshot.blocked.length === 0 ? (
-                  <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {tx("ui.agents.store.no_blocked_capabilities", "No blocked capabilities.")}
+              )}
+
+              {detailTab === "tools" && (
+                <div className="space-y-2">
+                  {detailProductContext.productPage.tools.length === 0 ? (
+                    <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {tx("ui.agents.store.none", "None")}
+                    </div>
+                  ) : (
+                    detailProductContext.productPage.tools.map((tool) => (
+                      <div
+                        key={`${tool.toolName}:${tool.requirementLevel}`}
+                        className="border rounded p-2 text-xs"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span style={{ color: "var(--window-document-text)" }}>
+                            {humanizeToken(tool.toolName)}
+                          </span>
+                          <span style={{ color: "var(--neutral-gray)" }}>
+                            {tool.requirementLevel} · {tool.implementationStatus}
+                          </span>
+                        </div>
+                        <div style={{ color: "var(--neutral-gray)" }}>
+                          {tool.source}
+                          {tool.integrationDependency
+                            ? ` · ${humanizeToken(tool.integrationDependency)}`
+                            : ""}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {detailTab === "runtime" && (
+                <div className="grid gap-2 md:grid-cols-2 text-xs" style={{ color: "var(--window-document-text)" }}>
+                  <div>Runtime status: {humanizeToken(detailProductContext.productPage.entry.runtimeStatus)}</div>
+                  <div>Runtime availability: {humanizeToken(detailProductContext.card.runtimeAvailability)}</div>
+                  <div>Autonomy default: {humanizeToken(detailProductContext.productPage.entry.autonomyDefault)}</div>
+                  <div>
+                    Supported access modes:{" "}
+                    {detailProductContext.productPage.requirements.supportedAccessModes.length > 0
+                      ? detailProductContext.productPage.requirements.supportedAccessModes.map(humanizeToken).join(", ")
+                      : tx("ui.agents.store.none", "None")}
                   </div>
-                ) : (
-                  <ul className="mt-1 list-disc pl-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
-                    {preflightResult.capabilitySnapshot.blocked.map((capability) => (
-                      <li key={capability.capabilityId}>
-                        {capability.label} · {humanizeBlockerType(capability.blockerType)}
-                        {capability.blockerKey ? ` (${humanizeToken(capability.blockerKey)})` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+                  <div className="md:col-span-2">
+                    Channel affinity:{" "}
+                    {detailProductContext.productPage.requirements.channelAffinity.length > 0
+                      ? detailProductContext.productPage.requirements.channelAffinity.map(humanizeToken).join(", ")
+                      : tx("ui.agents.store.none", "None")}
+                  </div>
+                </div>
+              )}
+
+              {detailTab === "dependencies" && (
+                <div className="space-y-2 text-xs" style={{ color: "var(--window-document-text)" }}>
+                  <div>
+                    Required integrations:{" "}
+                    {detailProductContext.productPage.requirements.requiredIntegrations.length > 0
+                      ? detailProductContext.productPage.requirements.requiredIntegrations.map(humanizeToken).join(", ")
+                      : tx("ui.agents.store.none", "None")}
+                  </div>
+                  <div>
+                    Required tools:{" "}
+                    {detailProductContext.productPage.requirements.requiredTools.length > 0
+                      ? detailProductContext.productPage.requirements.requiredTools.map(humanizeToken).join(", ")
+                      : tx("ui.agents.store.none", "None")}
+                  </div>
+                  <div>
+                    Required capabilities:{" "}
+                    {detailProductContext.productPage.requirements.requiredCapabilities.length > 0
+                      ? detailProductContext.productPage.requirements.requiredCapabilities.map(humanizeToken).join(", ")
+                      : tx("ui.agents.store.none", "None")}
+                  </div>
+                </div>
+              )}
+
+              {detailTab === "capability" && detailCapabilitySnapshot && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div
+                    className="border p-2"
+                    style={{
+                      borderColor: "var(--tone-success)",
+                      background: "color-mix(in srgb, var(--tone-success) 8%, transparent)",
+                    }}
+                  >
+                    <div className="text-xs font-medium" style={{ color: "var(--tone-success)" }}>
+                      {tx("ui.agents.store.available_now_with_count", "Available now ({count})", {
+                        count: detailCapabilitySnapshot.availableNow.length,
+                      })}
+                    </div>
+                    {detailCapabilitySnapshot.availableNow.length === 0 ? (
+                      <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {tx("ui.agents.store.no_capabilities_available", "No capabilities currently available.")}
+                      </div>
+                    ) : (
+                      <ul className="mt-1 list-disc pl-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {detailCapabilitySnapshot.availableNow.map((capability) => (
+                          <li key={capability.capabilityId}>{capability.label}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div
+                    className="border p-2"
+                    style={{
+                      borderColor: "var(--tone-warning)",
+                      background: "color-mix(in srgb, var(--tone-warning) 8%, transparent)",
+                    }}
+                  >
+                    <div className="text-xs font-medium" style={{ color: "var(--tone-warning)" }}>
+                      {tx("ui.agents.store.blocked_with_count", "Blocked ({count})", {
+                        count: detailCapabilitySnapshot.blocked.length,
+                      })}
+                    </div>
+                    {detailCapabilitySnapshot.blocked.length === 0 ? (
+                      <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {tx("ui.agents.store.no_blocked_capabilities", "No blocked capabilities.")}
+                      </div>
+                    ) : (
+                      <ul className="mt-1 list-disc pl-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {detailCapabilitySnapshot.blocked.map((capability) => (
+                          <li key={capability.capabilityId}>
+                            {capability.label} · {humanizeBlockerType(capability.blockerType)}
+                            {capability.blockerKey ? ` (${humanizeToken(capability.blockerKey)})` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
