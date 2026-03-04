@@ -3264,13 +3264,94 @@ export const processInboundMessage = action({
       }
     );
 
-    // 1. Load agent config (with worker pool fallback for system bot)
-    let agent = await ctx.runQuery(getInternal().agentOntology.getActiveAgentForOrg, {
-      organizationId: args.organizationId,
-      channel: args.channel,
-      routeSelectors: inboundDispatchRouteSelectors,
-    });
-    recordSamanthaRouterSelectionStage("router_lookup", "active_agent_lookup", agent);
+    const explicitInboundAgentId = firstInboundString(
+      inboundMetadata.agentId,
+      inboundMetadata.resolvedAgentId,
+      inboundMetadata.publicAgentId
+    ) as Id<"objects"> | undefined;
+
+    // 1. Load agent config.
+    // For public-channel ingress, honor explicit agentId when present and valid.
+    let agent = null;
+    if (explicitInboundAgentId) {
+      const explicitAgent = await ctx.runQuery(getInternal().agentOntology.getAgentInternal, {
+        agentId: explicitInboundAgentId,
+      });
+
+      const explicitAgentRecord = explicitAgent as
+        | (typeof explicitAgent & {
+            deletedAt?: number;
+            customProperties?: Record<string, unknown>;
+          })
+        | null;
+      const explicitAgentProps =
+        (explicitAgentRecord?.customProperties || {}) as Record<string, unknown>;
+      const normalizedChannel = normalizeInboundRouteString(args.channel)?.toLowerCase();
+      const requiresWebchatBinding =
+        normalizedChannel === "native_guest" || normalizedChannel === "webchat";
+      const requiredPublicChannels =
+        normalizedChannel === "native_guest"
+          ? ["native_guest", "webchat"]
+          : normalizedChannel === "webchat"
+            ? ["webchat"]
+            : [];
+      const explicitChannelBindings = Array.isArray(explicitAgentProps.channelBindings)
+        ? explicitAgentProps.channelBindings
+        : [];
+      const explicitAgentSupportsChannel = !requiresWebchatBinding
+        || requiredPublicChannels.some((requiredChannel) =>
+          explicitChannelBindings.some((entry) => {
+            if (!entry || typeof entry !== "object") {
+              return false;
+            }
+            const record = entry as Record<string, unknown>;
+            const boundChannel = normalizeInboundRouteString(record.channel)?.toLowerCase();
+            return boundChannel === requiredChannel && record.enabled === true;
+          })
+        );
+      const explicitAgentEligible = Boolean(
+        explicitAgent &&
+        String(explicitAgent.organizationId) === String(args.organizationId) &&
+        (explicitAgent.type === "org_agent" || explicitAgent.type === "agent") &&
+        !explicitAgentRecord?.deletedAt &&
+        explicitAgentSupportsChannel
+      );
+
+      if (explicitAgentEligible && explicitAgent) {
+        agent = explicitAgent;
+        recordSamanthaRouterSelectionStage(
+          "router_explicit_agent_id",
+          "metadata_agent_id_override",
+          agent
+        );
+      } else {
+        recordSamanthaDispatchEvent({
+          stage: "router_explicit_agent_id",
+          status: "skip",
+          reasonCode: "metadata_agent_id_unusable",
+          detail: {
+            explicitInboundAgentId: String(explicitInboundAgentId),
+            exists: Boolean(explicitAgent),
+            channelSupported: explicitAgentSupportsChannel,
+          },
+        });
+      }
+    } else {
+      recordSamanthaDispatchEvent({
+        stage: "router_explicit_agent_id",
+        status: "skip",
+        reasonCode: "metadata_agent_id_missing",
+      });
+    }
+
+    if (!agent) {
+      agent = await ctx.runQuery(getInternal().agentOntology.getActiveAgentForOrg, {
+        organizationId: args.organizationId,
+        channel: args.channel,
+        routeSelectors: inboundDispatchRouteSelectors,
+      });
+      recordSamanthaRouterSelectionStage("router_lookup", "active_agent_lookup", agent);
+    }
 
     if (!agent) {
       // No active agent — check if this org has a template agent (worker pool model).
