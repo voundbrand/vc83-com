@@ -102,7 +102,7 @@ function resolveDocsSnapshotHookState(args: {
   mode: SyncMode;
   includeDocsSnapshotExport: boolean;
 }) {
-  const hookEnabled = isTruthyFlag(process.env.AGENT_CATALOG_DOCS_SNAPSHOT_EXPORT_ENABLED);
+  const hookEnabled = isTruthyFlag(process.env.AGENT_CAT_SNAP_EXPORT_ON);
 
   if (!args.includeDocsSnapshotExport) {
     return {
@@ -123,7 +123,7 @@ function resolveDocsSnapshotHookState(args: {
       enabled: false,
       status: "gated_off" as const,
       message:
-        "Docs snapshot export hook is intentionally gated off. Set AGENT_CATALOG_DOCS_SNAPSHOT_EXPORT_ENABLED=true to enable future wiring.",
+        "Docs snapshot export hook is intentionally gated off. Set AGENT_CAT_SNAP_EXPORT_ON=true to enable future wiring.",
     };
   }
 

@@ -70,6 +70,8 @@ type CatalogEntryRow = {
   keywordAliases?: string[];
   recommendationMetadata?: AgentRecommendationMetadata;
   runtimeStatus: string;
+  catalogStatus?: string;
+  published?: boolean;
   seedStatus: string;
   updatedAt: number;
 };
@@ -163,6 +165,7 @@ type StoreCard = {
   cardId: string;
   agentId: string;
   catalogAgentNumber: number;
+  published: boolean;
   displayName: string;
   verticalCategory: string;
   tier: string;
@@ -434,6 +437,21 @@ function normalizeIntegrationKey(value: string): string {
 
 function resolveRuntimeAvailability(runtimeStatus: string): "available_now" | "planned" {
   return normalizeToken(runtimeStatus) === "live" ? "available_now" : "planned";
+}
+
+function inferLegacyPublishedState(entry: CatalogEntryRow): boolean {
+  const runtimeStatus = normalizeOptionalString(entry.runtimeStatus) || "";
+  const catalogStatus = normalizeOptionalString(entry.catalogStatus) || "done";
+  return normalizeToken(runtimeStatus) === "live"
+    && normalizeToken(catalogStatus) === "done";
+}
+
+function isPublishedCatalogEntry(entry: CatalogEntryRow): boolean {
+  if (typeof entry.published === "boolean") {
+    return entry.published;
+  }
+  // Rollout compatibility: honor legacy rows before explicit published backfill completes.
+  return inferLegacyPublishedState(entry);
 }
 
 function resolveTierWeight(tier: string): number {
@@ -790,6 +808,7 @@ function resolveStoreCard(args: {
     cardId: `agent:${args.entry.catalogAgentNumber}`,
     agentId: String(args.entry.catalogAgentNumber),
     catalogAgentNumber: args.entry.catalogAgentNumber,
+    published: isPublishedCatalogEntry(args.entry),
     displayName: args.entry.name,
     verticalCategory: normalizeToken(args.entry.category),
     tier: args.entry.tier,
@@ -815,6 +834,44 @@ function resolveStoreCard(args: {
     },
     recommendationMetadata,
     templateAvailability: availability,
+  };
+}
+
+function buildAskAiCatalogContextPayload(args: {
+  card: StoreCard;
+  entry: CatalogEntryRow;
+  requiredTools: string[];
+  requiredCapabilities: string[];
+  capabilitySnapshot: CapabilitySnapshot;
+}): Record<string, unknown> {
+  return {
+    catalogAgentNumber: args.card.catalogAgentNumber,
+    displayName: args.card.displayName,
+    category: args.card.verticalCategory,
+    tier: args.card.tier,
+    runtimeAvailability: args.card.runtimeAvailability,
+    autonomyDefault: args.card.autonomyDefault,
+    published: args.card.published,
+    supportedAccessModes: args.card.supportedAccessModes,
+    channelAffinity: args.card.channelAffinity,
+    abilityTags: args.card.abilityTags,
+    toolTags: args.card.toolTags.map(
+      (tag) => `${tag.key}:${tag.status}:${tag.requirementLevel}`,
+    ),
+    frameworkTags: args.card.frameworkTags,
+    integrationTags: args.card.integrationTags.map((tag) => `${tag.key}:${tag.status}`),
+    requiredIntegrations: normalizeTokenArray(args.entry.requiredIntegrations ?? []),
+    requiredTools: args.requiredTools,
+    requiredCapabilities: args.requiredCapabilities,
+    capabilitySnapshotAvailableNow: args.capabilitySnapshot.availableNow.map(
+      (row) => `${row.capabilityId}:${normalizeToken(row.label)}`,
+    ),
+    capabilitySnapshotBlocked: args.capabilitySnapshot.blocked.map(
+      (row) =>
+        `${row.capabilityId}:${row.blockerType}:${normalizeToken(row.blockerKey || "")}:${normalizeToken(row.label)}`,
+    ),
+    templateReady: args.card.templateAvailability.hasTemplate,
+    seedCoverage: args.card.templateAvailability.seedCoverage,
   };
 }
 
@@ -1041,7 +1098,8 @@ function buildCompatibilityDisabledCard(catalogAgentNumber: number): StoreCard {
     cardId: `agent:${catalogAgentNumber}`,
     agentId: String(catalogAgentNumber),
     catalogAgentNumber,
-    displayName: "Agent Store compatibility is disabled",
+    published: false,
+    displayName: "Agent Catalog compatibility is disabled",
     verticalCategory: "core",
     tier: "foundation",
     abilityTags: [],
@@ -1125,9 +1183,10 @@ export const listCatalogCards = query({
     const connectedIntegrations = await loadConnectedIntegrationKeys(ctx, access.organizationId);
     const { entries, toolsByAgentNumber, seedByAgentNumber, candidateByAgentNumber } =
       await loadCatalogRows(ctx, datasetVersion);
+    const publishedEntries = entries.filter((entry) => isPublishedCatalogEntry(entry));
 
     const cards = resolveStoreCards({
-      entries,
+      entries: publishedEntries,
       toolsByAgentNumber,
       seedByAgentNumber,
       candidateByAgentNumber,
@@ -1254,8 +1313,9 @@ export const compareCatalogCards = query({
     const connectedIntegrations = await loadConnectedIntegrationKeys(ctx, access.organizationId);
     const { entries, toolsByAgentNumber, seedByAgentNumber, candidateByAgentNumber } =
       await loadCatalogRows(ctx, datasetVersion);
+    const publishedEntries = entries.filter((entry) => isPublishedCatalogEntry(entry));
     const cards = resolveStoreCards({
-      entries,
+      entries: publishedEntries,
       toolsByAgentNumber,
       seedByAgentNumber,
       candidateByAgentNumber,
@@ -1300,6 +1360,132 @@ export const compareCatalogCards = query({
         sharedFrameworkTags: Array.from(sharedFrameworkTags).sort((a, b) => a.localeCompare(b)),
         missingIntegrationsByCard,
       },
+      noFitEscalation: NO_FIT_CONCIERGE_TERMS,
+      compatibility,
+    };
+  },
+});
+
+export const getCatalogAgentProductContext = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.optional(v.id("organizations")),
+    datasetVersion: v.optional(v.string()),
+    catalogAgentNumber: v.number(),
+    requestedAccessMode: v.optional(accessModeValidator),
+    requestedChannel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStoreAccess(ctx, {
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+    const datasetVersion = normalizeDatasetVersion(args.datasetVersion);
+    const compatibilityDecision = resolveStoreCompatibilityDecision();
+    const compatibility = buildStoreCompatibilityPayload(compatibilityDecision);
+    if (!compatibilityDecision.enabled) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Agent catalog compatibility endpoints are disabled.",
+      });
+    }
+
+    const connectedIntegrations = await loadConnectedIntegrationKeys(ctx, access.organizationId);
+    const {
+      entryByAgentNumber,
+      toolsByAgentNumber,
+      seedByAgentNumber,
+      candidateByAgentNumber,
+    } = await loadCatalogRows(ctx, datasetVersion);
+    const catalogAgentNumber = Math.floor(args.catalogAgentNumber);
+    const entry = entryByAgentNumber.get(catalogAgentNumber);
+
+    if (!entry || !isPublishedCatalogEntry(entry)) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: `Published catalog entry ${catalogAgentNumber} not found for dataset '${datasetVersion}'.`,
+      });
+    }
+
+    const toolRows = toolsByAgentNumber.get(catalogAgentNumber) ?? [];
+    const requiredTools = toolRows.filter((row) => row.requirementLevel === "required");
+    const requiredScope = deriveRequiredSpecialistScopeContract({
+      entry,
+      requiredTools,
+    });
+    const seedRow = seedByAgentNumber.get(catalogAgentNumber) ?? null;
+    const candidate = candidateByAgentNumber.get(catalogAgentNumber);
+    const card = resolveStoreCard({
+      entry,
+      toolRows,
+      seedRow,
+      candidate,
+      connectedIntegrationKeys: connectedIntegrations,
+    });
+    const capabilitySnapshot = deriveCapabilitySnapshot({
+      entry,
+      intentTags: deriveIntentTags(entry),
+      requiredTools,
+      connectedIntegrationKeys: connectedIntegrations,
+      requestedAccessMode: args.requestedAccessMode,
+      requestedChannel: args.requestedChannel,
+    });
+
+    return {
+      datasetVersion,
+      organizationId: access.organizationId,
+      catalogAgentNumber,
+      published: card.published,
+      card,
+      productPage: {
+        entry: {
+          name: entry.name,
+          category: normalizeToken(entry.category),
+          tier: entry.tier,
+          subtype: normalizeToken(entry.subtype),
+          toolProfile: normalizeToken(entry.toolProfile),
+          runtimeStatus: normalizeToken(entry.runtimeStatus),
+          catalogStatus: normalizeToken(entry.catalogStatus || "done"),
+          published: card.published,
+          autonomyDefault: normalizeToken(entry.autonomyDefault),
+        },
+        requirements: {
+          requiredIntegrations: normalizeTokenArray(entry.requiredIntegrations ?? []),
+          requiredTools: requiredScope.requiredTools,
+          requiredCapabilities: requiredScope.requiredCapabilities,
+          supportedAccessModes: card.supportedAccessModes,
+          channelAffinity: card.channelAffinity,
+        },
+        capabilitySnapshot,
+        tools: [...toolRows]
+          .sort((a, b) => {
+            const rank: Record<string, number> = {
+              required: 0,
+              recommended: 1,
+              optional: 2,
+            };
+            const levelDiff = (rank[a.requirementLevel] ?? 9) - (rank[b.requirementLevel] ?? 9);
+            if (levelDiff !== 0) {
+              return levelDiff;
+            }
+            return a.toolName.localeCompare(b.toolName);
+          })
+          .map((row) => ({
+            toolName: normalizeToken(row.toolName),
+            requirementLevel: row.requirementLevel,
+            implementationStatus: row.implementationStatus,
+            source: row.source,
+            integrationDependency: normalizeOptionalString(row.integrationDependency),
+          })),
+        template: card.templateAvailability,
+      },
+      askAiContextPayload: buildAskAiCatalogContextPayload({
+        card,
+        entry,
+        requiredTools: requiredScope.requiredTools,
+        requiredCapabilities: requiredScope.requiredCapabilities,
+        capabilitySnapshot,
+      }),
       noFitEscalation: NO_FIT_CONCIERGE_TERMS,
       compatibility,
     };
@@ -1392,10 +1578,10 @@ export const getClonePreflight = query({
     } = await loadCatalogRows(ctx, datasetVersion);
 
     const entry = entryByAgentNumber.get(catalogAgentNumber);
-    if (!entry) {
+    if (!entry || !isPublishedCatalogEntry(entry)) {
       throw new ConvexError({
         code: "NOT_FOUND",
-        message: `Catalog entry ${catalogAgentNumber} not found for dataset '${datasetVersion}'.`,
+        message: `Published catalog entry ${catalogAgentNumber} not found for dataset '${datasetVersion}'.`,
       });
     }
 

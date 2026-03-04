@@ -79,6 +79,9 @@ export const agentCatalogEntries = defineTable({
     v.literal("template_only"),
     v.literal("not_deployed"),
   ),
+  // Explicit release control for catalog visibility. Optional during rollout to support
+  // existing rows until a backfill migration populates this field.
+  published: v.optional(v.boolean()),
   seedStatusOverride: v.optional(
     v.object({
       seedStatus: v.union(
@@ -105,6 +108,7 @@ export const agentCatalogEntries = defineTable({
   .index("by_dataset_agent", ["datasetVersion", "catalogAgentNumber"])
   .index("by_dataset_category", ["datasetVersion", "category"])
   .index("by_dataset_runtime_status", ["datasetVersion", "runtimeStatus"])
+  .index("by_dataset_published", ["datasetVersion", "published"])
   .index("by_dataset_seed_status", ["datasetVersion", "seedStatus"]);
 
 export const agentCatalogToolRequirements = defineTable({

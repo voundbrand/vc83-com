@@ -94,6 +94,7 @@ type CatalogEntryRow = {
   toolCoverageStatus: string;
   seedStatus: string;
   runtimeStatus: string;
+  published?: boolean;
   seedStatusOverride?: {
     seedStatus: "full" | "skeleton" | "missing";
     reason: string;
@@ -237,6 +238,17 @@ function normalizeToken(value: string): string {
 
 function normalizeAndDedupeTokens(values: Iterable<string>): string[] {
   return normalizeAndDedupeRecommendationTokens(values);
+}
+
+function inferLegacyPublishedState(entry: CatalogEntryRow): boolean {
+  return entry.runtimeStatus === "live" && entry.catalogStatus === "done";
+}
+
+function resolveEntryPublished(entry: CatalogEntryRow): boolean {
+  if (typeof entry.published === "boolean") {
+    return entry.published;
+  }
+  return inferLegacyPublishedState(entry);
 }
 
 function tokenizeSearchInput(value: string): string[] {
@@ -590,6 +602,7 @@ function buildSummary(entries: CatalogEntryRow[], toolRequirements: ToolRequirem
     seedsFull: resolvedEntries.filter((row) => row.seedStatus === "full").length,
     runtimeLive: resolvedEntries.filter((row) => row.runtimeStatus === "live").length,
     toolsMissing,
+    published: resolvedEntries.filter((row) => resolveEntryPublished(row)).length,
     blockedAgents: resolvedEntries.filter((row) => row.blockers.length > 0).length,
     recommendationTagged: resolvedEntries.filter((row) => row.intentTags.length > 0).length,
     recommendationMetadataStored: entries.filter((row) => Boolean(row.recommendationMetadata)).length,
@@ -647,6 +660,7 @@ function buildHashes(args: {
           t: row.toolCoverageStatus,
           s: row.seedStatus,
           r: row.runtimeStatus,
+          p: resolveEntryPublished(row) ? 1 : 0,
           b: row.blockers.length,
         }))
         .sort((a, b) => a.n - b.n),
@@ -756,6 +770,7 @@ export const listAgents = query({
       v.object({
         category: v.optional(categoryValidator),
         runtimeStatus: v.optional(runtimeStatusValidator),
+        published: v.optional(v.boolean()),
         seedStatus: v.optional(seedStatusValidator),
         toolCoverageStatus: v.optional(toolCoverageStatusValidator),
         implementationPhase: v.optional(v.number()),
@@ -801,6 +816,12 @@ export const listAgents = query({
           return false;
         }
         if (args.filters?.runtimeStatus && entry.runtimeStatus !== args.filters.runtimeStatus) {
+          return false;
+        }
+        if (
+          typeof args.filters?.published === "boolean"
+          && resolveEntryPublished(entry) !== args.filters.published
+        ) {
           return false;
         }
         if (args.filters?.seedStatus && entry.seedStatus !== args.filters.seedStatus) {
@@ -865,6 +886,7 @@ export const listAgents = query({
         const seed = seedByAgentNumber.get(entry.catalogAgentNumber);
         return {
           ...entry,
+          published: resolveEntryPublished(entry),
           blockersCount: entry.blockers.length,
           toolCoverageCounts: coverage,
           seedTemplateRole: seed?.templateRole ?? null,
@@ -1051,7 +1073,10 @@ export const getAgentDetails = query({
 
     return {
       datasetVersion,
-      agent: resolveCatalogEntryRecommendationFields(entry),
+      agent: {
+        ...resolveCatalogEntryRecommendationFields(entry),
+        published: resolveEntryPublished(entry),
+      },
       tools: tools.sort((a, b) => {
         if (a.requirementLevel !== b.requirementLevel) {
           const rank: Record<string, number> = { required: 0, recommended: 1, optional: 2 };
@@ -1343,6 +1368,141 @@ export const setSeedStatusOverride = mutation({
       catalogAgentNumber: args.catalogAgentNumber,
       computedSeedStatus: entry.seedStatus,
       seedStatusOverride: overrideState,
+    };
+  },
+});
+
+export const setCatalogPublishedStatus = mutation({
+  args: {
+    sessionId: v.string(),
+    datasetVersion: v.optional(v.string()),
+    catalogAgentNumber: v.number(),
+    published: v.boolean(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, organizationId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const datasetVersion = normalizeDatasetVersion(args.datasetVersion);
+    const reason = args.reason.trim();
+    if (reason.length === 0) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Publish/unpublish reason is required.",
+      });
+    }
+
+    const entry = await loadCatalogEntryByNumber(ctx, datasetVersion, args.catalogAgentNumber);
+    if (!entry) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: `Catalog agent ${args.catalogAgentNumber} was not found in dataset '${datasetVersion}'.`,
+      });
+    }
+
+    const previousPublished = resolveEntryPublished(entry);
+    const nextPublished = args.published;
+    const changed =
+      previousPublished !== nextPublished
+      || typeof entry.published !== "boolean";
+    const now = Date.now();
+
+    if (changed) {
+      const dbAny = ctx.db as any;
+      await dbAny.patch(entry._id, {
+        published: nextPublished,
+        updatedAt: now,
+      });
+    }
+
+    await writeAgentCatalogAuditAction({
+      ctx,
+      organizationId,
+      userId,
+      actionType: "agent_catalog.published_set",
+      datasetVersion,
+      catalogAgentNumber: args.catalogAgentNumber,
+      actionData: {
+        reason,
+        changed,
+        previousPublished,
+        nextPublished,
+        explicitFieldPresentBefore: typeof entry.published === "boolean",
+      },
+      objectType: "agent_catalog_publish_update",
+    });
+
+    return {
+      success: true,
+      datasetVersion,
+      catalogAgentNumber: args.catalogAgentNumber,
+      changed,
+      previousPublished,
+      published: nextPublished,
+    };
+  },
+});
+
+export const backfillCatalogPublishedFlags = mutation({
+  args: {
+    sessionId: v.string(),
+    datasetVersion: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, organizationId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const datasetVersion = normalizeDatasetVersion(args.datasetVersion);
+    const dryRun = args.dryRun === true;
+    const entries = await loadDatasetEntries(ctx, datasetVersion);
+    const dbAny = ctx.db as any;
+    const now = Date.now();
+
+    const updates: Array<{
+      catalogAgentNumber: number;
+      published: boolean;
+      reason: "legacy_inference";
+    }> = [];
+
+    for (const entry of entries) {
+      if (typeof entry.published === "boolean") {
+        continue;
+      }
+      const inferredPublished = inferLegacyPublishedState(entry);
+      updates.push({
+        catalogAgentNumber: entry.catalogAgentNumber,
+        published: inferredPublished,
+        reason: "legacy_inference",
+      });
+      if (!dryRun) {
+        await dbAny.patch(entry._id, {
+          published: inferredPublished,
+          updatedAt: now,
+        });
+      }
+    }
+
+    await writeAgentCatalogAuditAction({
+      ctx,
+      organizationId,
+      userId,
+      actionType: "agent_catalog.published_backfill",
+      datasetVersion,
+      actionData: {
+        dryRun,
+        scannedCount: entries.length,
+        updatedCount: updates.length,
+        legacyInferenceRule: "runtimeStatus=live && catalogStatus=done",
+      },
+      objectType: "agent_catalog_publish_backfill",
+    });
+
+    return {
+      success: true,
+      datasetVersion,
+      dryRun,
+      scannedCount: entries.length,
+      updatedCount: updates.length,
+      unchangedCount: entries.length - updates.length,
+      updates,
     };
   },
 });
