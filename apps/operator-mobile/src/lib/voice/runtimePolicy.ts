@@ -10,7 +10,11 @@ const LIVE_DUPLEX_SEGMENT_DURATION_MS: Record<MobileVoicePolicyProviderId, numbe
   browser: 1000,
 };
 
-export const MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES = 1600;
+export const MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES = 12000;
+export const MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_BYTES = 8000;
+export const MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_DURATION_MS = 450;
+export const MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_DURATION_MS = 500;
+export const MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS = 48;
 
 function normalizeProviderId(
   providerId?: MobileVoicePolicyProviderId | null

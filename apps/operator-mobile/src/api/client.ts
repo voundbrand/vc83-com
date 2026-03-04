@@ -14,6 +14,7 @@ export type OperatorVoiceCatalogEntry = {
   id: string;
   name: string;
   language?: string;
+  languages?: string[];
   labels?: Record<string, string>;
   previewUrl?: string;
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, TextInput } from 'react-native';
+import { Alert, Pressable, ScrollView, Switch, TextInput } from 'react-native';
 import Constants from 'expo-constants';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
@@ -17,7 +17,7 @@ import {
   Sun,
   UserRound,
 } from '@tamagui/lucide-icons';
-import { Circle, Switch, Text, XStack, YStack } from 'tamagui';
+import { Circle, Text, XStack, YStack, useTheme } from 'tamagui';
 
 import { useAuth } from '../../src/hooks/useAuth';
 import { useChatStore } from '../../src/stores/chat';
@@ -43,6 +43,7 @@ import {
   isVoiceCompatibleWithLanguage,
   resolveVoiceLanguagePreference,
 } from '../../src/lib/voice/catalogLanguage';
+import { getNativeSwitchColors } from '../../src/theme/tokens';
 
 function OptionRow({
   label,
@@ -79,6 +80,7 @@ function OptionRow({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { user, signOut, currentOrganization, switchOrganization } = useAuth();
   const syncConversations = useChatStore((state) => state.syncConversations);
   const {
@@ -163,11 +165,16 @@ export default function SettingsScreen() {
     router.replace('/(tabs)');
   };
   const isDark = resolvedTheme === 'dark';
+  const screenBackgroundColor = String(theme.background?.val || (isDark ? '#111113' : '#f5efe4'));
   const normalizedVoiceLanguage = resolvedAgentVoiceLanguage;
   const normalizedVoiceLanguageLabel = formatVoiceLanguageLabel(normalizedVoiceLanguage);
   const inputBorder = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(23,23,24,0.18)';
   const inputBackground = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.92)';
   const inputColor = isDark ? '#f5efe4' : '#191713';
+  const autoSpeakSwitchColors = getNativeSwitchColors({
+    isDark,
+    isEnabled: autoSpeakReplies,
+  });
 
   const resolveVoiceLanguageForPreference = useCallback(
     (value: AgentVoiceLanguagePreference) =>
@@ -567,9 +574,12 @@ export default function SettingsScreen() {
   }, [currentOrganization?.id, isSwitchingOrganization, switchOrganization, syncConversations, t]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }} edges={['left', 'right', 'bottom']}>
       <YStack flex={1} backgroundColor="$background">
-        <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+        <ScrollView
+          style={{ backgroundColor: screenBackgroundColor }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24), flexGrow: 1 }}
+        >
           <YStack paddingTop={insets.top + 8}>
             <XStack paddingHorizontal="$4" paddingBottom="$3" alignItems="center">
               <Pressable onPress={handleBackToChat}>
@@ -850,8 +860,9 @@ export default function SettingsScreen() {
                     {t('settings.autoSpeakReplies')}
                   </Text>
                   <Switch
-                    checked={autoSpeakReplies}
-                    onCheckedChange={setAutoSpeakReplies}
+                    value={autoSpeakReplies}
+                    onValueChange={setAutoSpeakReplies}
+                    {...autoSpeakSwitchColors}
                   />
                 </XStack>
               </YStack>

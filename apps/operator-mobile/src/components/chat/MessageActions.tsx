@@ -58,6 +58,8 @@ type MessageActionsProps = {
   messageRole: 'user' | 'assistant';
   onFeedback?: (type: 'positive' | 'negative') => void;
   onRegenerate?: () => void;
+  onSpeak?: (text: string) => Promise<void> | void;
+  onStopSpeak?: () => Promise<void> | void;
 };
 
 export function MessageActions({
@@ -67,6 +69,8 @@ export function MessageActions({
   messageRole,
   onFeedback,
   onRegenerate,
+  onSpeak,
+  onStopSpeak,
 }: MessageActionsProps) {
   const { t, agentVoiceId } = useAppPreferences();
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -89,18 +93,31 @@ export function MessageActions({
     onClose();
   };
 
-  const handleSpeak = () => {
+  const handleSpeak = async () => {
     if (isSpeaking) {
+      try {
+        await onStopSpeak?.();
+      } catch {
+        // Best effort stop.
+      }
       Speech.stop();
       setIsSpeaking(false);
     } else {
+      setIsSpeaking(true);
+      if (onSpeak) {
+        try {
+          await onSpeak(messageContent);
+        } finally {
+          setIsSpeaking(false);
+        }
+        return;
+      }
       Speech.speak(messageContent, {
         voice: agentVoiceId || undefined,
         onDone: () => setIsSpeaking(false),
         onStopped: () => setIsSpeaking(false),
         onError: () => setIsSpeaking(false),
       });
-      setIsSpeaking(true);
     }
   };
 
@@ -180,7 +197,7 @@ export function MessageActions({
                   </ActionButton>
                 </Pressable>
 
-                <Pressable onPress={handleSpeak}>
+                <Pressable onPress={() => { void handleSpeak(); }}>
                   <ActionButton>
                     <Circle
                       size={44}

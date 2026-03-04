@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -48,6 +49,7 @@ import { ModelSelector, type RuntimeModelAvailability } from '../../src/componen
 import { ENV } from '../../src/config/env';
 import { useAppPreferences } from '../../src/contexts/AppPreferencesContext';
 import type { TranslationKey } from '../../src/i18n/translations';
+import { getNativeSwitchColors } from '../../src/theme/tokens';
 import { l4yercak3Client } from '../../src/api/client';
 import { useMobileVoiceRuntime } from '../../src/hooks/useMobileVoiceRuntime';
 import { useMobileVideoRuntime } from '../../src/hooks/useMobileVideoRuntime';
@@ -275,6 +277,10 @@ export default function ConversationScreen() {
   const assistantCard = isDark ? 'rgba(10, 10, 11, 0.28)' : 'rgba(255, 255, 255, 0.5)';
   const composerSurface = isDark ? 'rgba(18, 18, 20, 0.92)' : 'rgba(255, 255, 255, 0.9)';
   const menuIconColor = isDark ? '#f5efe4' : '#191713';
+  const incognitoSwitchColors = getNativeSwitchColors({
+    isDark,
+    isEnabled: isIncognitoMode,
+  });
 
   useEffect(() => {
     const registry = avRegistryRef.current;
@@ -562,12 +568,30 @@ export default function ConversationScreen() {
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
+        interruptionMode: 'doNotMix',
+        interruptionModeAndroid: 'doNotMix',
+        shouldRouteThroughEarpiece: false,
       });
     } catch {
       // Best effort; continue to speech synthesis.
     }
     Speech.stop();
-    Speech.speak(spokenText, { volume: 1 });
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finalize = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve();
+      };
+      Speech.speak(spokenText, {
+        volume: 1,
+        onDone: finalize,
+        onStopped: finalize,
+        onError: finalize,
+      });
+    });
   }, []);
   const logVoiceLifecycle = useCallback((event: string, details?: Record<string, unknown>) => {
     console.info('[VoiceLifecycle]', {
@@ -1200,6 +1224,8 @@ export default function ConversationScreen() {
   const handleSend = useCallback(async () => {
     const messageText = inputText.trim();
     if (!messageText || isLoading) return;
+    inputRef.current?.blur();
+    Keyboard.dismiss();
     setInputText('');
     await sendTextMessage(messageText);
   }, [inputText, isLoading, sendTextMessage]);
@@ -1346,12 +1372,14 @@ export default function ConversationScreen() {
     starterKickoffPendingRef.current = true;
     starterKickoffInFlightRef.current = false;
     starterKickoffCompletedRef.current = false;
+    mobileVoiceRuntime.clearPartialTranscript('conversation_started');
     setHasConversationStarted(true);
   }, [
     conversationEyesSource,
     conversationMode,
     emitConversationEvent,
     formatVisionReadinessMessage,
+    mobileVoiceRuntime,
     metaBridgeStatus,
     metaVisionReadiness.ready,
   ]);
@@ -1754,6 +1782,21 @@ export default function ConversationScreen() {
   };
 
   const handleLiveVoiceFrame = useCallback(async (frame: VoiceRecorderFrame) => {
+    if (frame.isFinal && isAssistantSpeaking) {
+      logVoiceLifecycle('voice_frame_final_dropped_assistant_speaking', {
+        sequence: frame.sequence,
+        durationMs: frame.durationMs,
+      });
+      mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_final_frame_drop');
+      setVoiceRuntime((prev) => ({
+        ...(prev || {}),
+        sessionState: 'stream_final_ignored',
+        frameSequence: frame.sequence,
+        frameDurationMs: frame.durationMs,
+        droppedReason: 'assistant_speaking',
+      }));
+      return;
+    }
     if (
       shouldBargeInInterruptPlayback({
         isAssistantSpeaking,
@@ -1839,6 +1882,13 @@ export default function ConversationScreen() {
     }));
 
     if (frame.isFinal) {
+      if (isAssistantSpeaking) {
+        logVoiceLifecycle('voice_frame_finalize_skipped_assistant_speaking', {
+          sequence: frame.sequence,
+        });
+        mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_finalize_skip');
+        return;
+      }
       const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
         sequence: frame.sequence,
       });
@@ -1942,6 +1992,7 @@ export default function ConversationScreen() {
 
   const handleBeforeVoiceCapture = useCallback(async () => {
     logVoiceLifecycle('voice_capture_before_start');
+    mobileVoiceRuntime.clearPartialTranscript('before_voice_capture');
     if (!mobileVoiceRuntime.getActiveSession()) {
       await openVoiceSession();
     }
@@ -1979,6 +2030,17 @@ export default function ConversationScreen() {
       updateMessageFeedback(currentConversationId, selectedMessage.id, type);
     }
   };
+  const handleMessageActionSpeak = useCallback(async (content: string) => {
+    try {
+      await mobileVoiceRuntime.synthesizeAndPlay(content);
+    } catch {
+      await speakWithSystemFallback(content);
+    }
+  }, [mobileVoiceRuntime, speakWithSystemFallback]);
+  const handleMessageActionStopSpeak = useCallback(async () => {
+    await mobileVoiceRuntime.stopPlayback();
+    Speech.stop();
+  }, [mobileVoiceRuntime]);
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -2611,6 +2673,7 @@ export default function ConversationScreen() {
                 <Switch
                   value={isIncognitoMode}
                   onValueChange={(value) => setIncognitoMode(value)}
+                  {...incognitoSwitchColors}
                 />
               </XStack>
             </YStack>
@@ -2719,6 +2782,8 @@ export default function ConversationScreen() {
         messageContent={selectedMessage?.content || ''}
         messageRole={selectedMessage?.role === 'system' ? 'assistant' : (selectedMessage?.role || 'user')}
         onFeedback={handleMessageFeedback}
+        onSpeak={handleMessageActionSpeak}
+        onStopSpeak={handleMessageActionStopSpeak}
       />
     </>
   );

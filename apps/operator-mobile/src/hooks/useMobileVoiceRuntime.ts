@@ -16,8 +16,15 @@ import {
   mergeTranscriptFrame,
   resolveFrameStreamingPolicy,
 } from '../lib/voice/frameStreaming';
+import { sanitizeTranscriptForVoiceTurn } from '../lib/voice/transcriptGuard';
 import { buildSignedMobileSourceAttestation } from '../lib/av/source-attestation';
-import { MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES } from '../lib/voice/runtimePolicy';
+import {
+  MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS,
+  MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_BYTES,
+  MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_DURATION_MS,
+  MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES,
+  MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_DURATION_MS,
+} from '../lib/voice/runtimePolicy';
 
 type VoiceProviderId = 'browser' | 'elevenlabs';
 type ResolvedVoiceIdSource =
@@ -79,6 +86,22 @@ type StreamFrameIngestResult = {
   };
 };
 
+type EncodedAudioPayload = {
+  base64Payload: string;
+  byteLength: number;
+  headerHex: string;
+  hasHeaderInspection: boolean;
+  hasMp4FtypHeader: boolean;
+};
+
+type FrameTranscriptionGateDecision = {
+  shouldTranscribe: boolean;
+  reason?: string;
+  minBytes: number;
+  minDurationMs: number;
+  durationGateBypassed?: boolean;
+};
+
 function isLikelyBackendConversationId(value: string | null | undefined): value is string {
   if (typeof value !== 'string') {
     return false;
@@ -90,10 +113,46 @@ function isLikelyBackendConversationId(value: string | null | undefined): value 
   return !/^\d+$/.test(trimmed);
 }
 
-async function fileUriToBase64(uri: string): Promise<string> {
-  const response = await fetch(uri);
-  const blob = await response.blob();
+function emitVoiceTelemetry(event: string, details?: Record<string, unknown>) {
+  console.info('[VoiceTelemetry]', {
+    event,
+    timestampMs: Date.now(),
+    telemetryWindowHours: MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS,
+    ...(details || {}),
+  });
+}
 
+function normalizeTranscriptionMimeType(value: string | undefined): string {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!normalized) {
+    return 'audio/webm';
+  }
+  const canonical = normalized.split(';', 1)[0]?.trim() ?? normalized;
+  if (canonical === 'audio/m4a' || canonical === 'audio/x-m4a') {
+    return 'audio/mp4';
+  }
+  return canonical;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function hasMp4FtypHeader(bytes: Uint8Array): boolean {
+  if (bytes.length < 8) {
+    return false;
+  }
+  return (
+    bytes[4] === 0x66 // f
+    && bytes[5] === 0x74 // t
+    && bytes[6] === 0x79 // y
+    && bytes[7] === 0x70 // p
+  );
+}
+
+async function blobToBase64Payload(blob: Blob): Promise<string> {
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -108,6 +167,95 @@ async function fileUriToBase64(uri: string): Promise<string> {
     reader.onerror = () => reject(new Error('Failed to read local audio payload.'));
     reader.readAsDataURL(blob);
   });
+}
+
+async function readEncodedAudioPayload(uri: string): Promise<EncodedAudioPayload> {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const byteLength = typeof blob.size === 'number' ? Math.max(0, Math.floor(blob.size)) : 0;
+  let headerBytes = new Uint8Array(0);
+  let hasHeaderInspection = false;
+  try {
+    const buffer = await blob.slice(0, 16).arrayBuffer();
+    headerBytes = new Uint8Array(buffer);
+    hasHeaderInspection = true;
+  } catch {
+    headerBytes = new Uint8Array(0);
+  }
+
+  return {
+    base64Payload: await blobToBase64Payload(blob),
+    byteLength,
+    headerHex: bytesToHex(headerBytes),
+    hasHeaderInspection,
+    hasMp4FtypHeader: hasMp4FtypHeader(headerBytes),
+  };
+}
+
+function evaluateFrameTranscriptionGate(args: {
+  frameArgs: StreamFrameArgs;
+  mimeType: string;
+  estimatedAudioBytes: number;
+  hasHeaderInspection: boolean;
+  hasMp4FtypHeader: boolean;
+}): FrameTranscriptionGateDecision {
+  const isFinalFrame = Boolean(args.frameArgs.isFinal);
+  const minBytes = isFinalFrame
+    ? MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_BYTES
+    : MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES;
+  const minDurationMs = isFinalFrame
+    ? MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_DURATION_MS
+    : MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_DURATION_MS;
+  const frameDurationMs = Number.isFinite(args.frameArgs.frameDurationMs)
+    ? Math.max(0, Math.floor(args.frameArgs.frameDurationMs || 0))
+    : 0;
+
+  if (args.estimatedAudioBytes < minBytes) {
+    return {
+      shouldTranscribe: false,
+      reason: 'frame_bytes_below_threshold',
+      minBytes,
+      minDurationMs,
+    };
+  }
+  if (frameDurationMs > 0 && frameDurationMs < minDurationMs) {
+    // iOS HAL occasionally reports short final frame durations despite large payload bytes.
+    // Keep the final transcription attempt when payload size indicates substantial audio.
+    const canBypassFinalDurationGate = isFinalFrame
+      && args.estimatedAudioBytes >= Math.max(minBytes * 4, 32_000);
+    if (canBypassFinalDurationGate) {
+      return {
+        shouldTranscribe: true,
+        minBytes,
+        minDurationMs,
+        durationGateBypassed: true,
+      };
+    }
+    return {
+      shouldTranscribe: false,
+      reason: 'frame_duration_below_threshold',
+      minBytes,
+      minDurationMs,
+    };
+  }
+  if (
+    args.hasHeaderInspection
+    && (args.mimeType === 'audio/mp4' || args.mimeType === 'audio/m4a')
+    && !args.hasMp4FtypHeader
+  ) {
+    return {
+      shouldTranscribe: false,
+      reason: 'invalid_mp4_container_header',
+      minBytes,
+      minDurationMs,
+    };
+  }
+
+  return {
+    shouldTranscribe: true,
+    minBytes,
+    minDurationMs,
+  };
 }
 
 function supportsWebRtc(): boolean {
@@ -175,6 +323,149 @@ function isRecoverableFrameTranscriptionMessage(message: string): boolean {
     isNoTranscriptTextMessage(message) ||
     (normalized.includes('elevenlabs transcription failed') && normalized.includes('(400'))
   );
+}
+
+function disposeAudioPlayer(player: ReturnType<typeof createAudioPlayer> | null) {
+  if (!player) {
+    return;
+  }
+  try {
+    player.pause();
+  } catch {
+    // Ignore stop errors during interruption.
+  }
+  try {
+    if (typeof (player as { remove?: () => void }).remove === 'function') {
+      (player as { remove: () => void }).remove();
+      return;
+    }
+  } catch {
+    // Ignore remove errors.
+  }
+  try {
+    const legacyRelease = (player as { release?: () => void }).release;
+    if (typeof legacyRelease === 'function') {
+      legacyRelease.call(player);
+    }
+  } catch {
+    // Ignore legacy release errors.
+  }
+}
+
+async function setPlaybackAudioMode() {
+  try {
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      interruptionMode: 'doNotMix',
+      interruptionModeAndroid: 'doNotMix',
+      shouldRouteThroughEarpiece: false,
+    });
+  } catch {
+    // Continue with playback best effort.
+  }
+}
+
+async function speakWithSystemFallbackVoice(text: string) {
+  const fallbackText = text.trim();
+  if (!fallbackText) {
+    return;
+  }
+  await setPlaybackAudioMode();
+  Speech.stop();
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finalize = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve();
+    };
+    Speech.speak(fallbackText, {
+      volume: 1,
+      onDone: finalize,
+      onStopped: finalize,
+      onError: finalize,
+    });
+  });
+}
+
+async function waitForAudioPlayerCompletion(
+  player: ReturnType<typeof createAudioPlayer>,
+) {
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    let sawPlayback = false;
+    let statusSubscription: { remove?: () => void } | null = null;
+    let pollHandle: ReturnType<typeof setInterval> | null = null;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const finalize = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (statusSubscription?.remove) {
+        try {
+          statusSubscription.remove();
+        } catch {
+          // Ignore listener cleanup errors.
+        }
+      }
+      if (pollHandle) {
+        clearInterval(pollHandle);
+      }
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+      resolve();
+    };
+
+    timeoutHandle = setTimeout(finalize, 45_000);
+
+    try {
+      statusSubscription = (
+        player as unknown as {
+          addListener?: (
+            event: 'playbackStatusUpdate',
+            listener: (status: {
+              playing?: boolean;
+              didJustFinish?: boolean;
+            }) => void,
+          ) => { remove?: () => void };
+        }
+      ).addListener?.('playbackStatusUpdate', (status) => {
+        if (status.playing) {
+          sawPlayback = true;
+        }
+        if (status.didJustFinish || (sawPlayback && status.playing === false)) {
+          finalize();
+        }
+      }) ?? null;
+    } catch {
+      statusSubscription = null;
+    }
+
+    if (!statusSubscription) {
+      pollHandle = setInterval(() => {
+        const isPlaying = Boolean(
+          (player as unknown as { playing?: boolean }).playing,
+        );
+        if (isPlaying) {
+          sawPlayback = true;
+        }
+        if (sawPlayback && !isPlaying) {
+          finalize();
+        }
+      }, 120);
+    }
+
+    try {
+      player.play();
+    } catch {
+      finalize();
+    }
+  });
 }
 
 export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
@@ -333,18 +624,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     Speech.stop();
     const player = playbackRef.current;
     playbackRef.current = null;
-    if (player) {
-      try {
-        player.pause();
-      } catch {
-        // Ignore stop errors during interruption.
-      }
-      try {
-        player.release();
-      } catch {
-        // Ignore release errors during interruption.
-      }
-    }
+    disposeAudioPlayer(player);
   }, []);
 
   const resolveRequestedVoiceId = useCallback(async (): Promise<string | undefined> => {
@@ -666,7 +946,41 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     partialTranscriptRef.current = 'Listening...';
     transcribeArgs.onPartial?.('Listening...');
 
-    const audioBase64 = await fileUriToBase64(transcribeArgs.uri);
+    const transcriptionMimeType = normalizeTranscriptionMimeType(
+      transcribeArgs.mimeType || 'audio/m4a'
+    );
+    const encodedPayload = await readEncodedAudioPayload(transcribeArgs.uri);
+    const estimatedAudioBytes = encodedPayload.byteLength > 0
+      ? encodedPayload.byteLength
+      : estimateBase64ByteLength(encodedPayload.base64Payload);
+    if (estimatedAudioBytes < MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_BYTES) {
+      emitVoiceTelemetry('recording_transcription_rejected', {
+        reason: 'frame_bytes_below_threshold',
+        bytes: estimatedAudioBytes,
+        minBytes: MOBILE_VOICE_TRANSCRIBE_MIN_FINAL_FRAME_BYTES,
+        mimeType: transcriptionMimeType,
+      });
+      throw new Error('Voice recording too short to transcribe reliably.');
+    }
+    if (
+      transcriptionMimeType === 'audio/mp4'
+      && encodedPayload.hasHeaderInspection
+      && !encodedPayload.hasMp4FtypHeader
+    ) {
+      emitVoiceTelemetry('recording_transcription_rejected', {
+        reason: 'invalid_mp4_container_header',
+        bytes: estimatedAudioBytes,
+        mimeType: transcriptionMimeType,
+        headerHex: encodedPayload.headerHex,
+      });
+      throw new Error('Voice recording container is invalid. Please retry.');
+    }
+    emitVoiceTelemetry('recording_transcription_ready', {
+      voiceSessionId: active.voiceSessionId,
+      bytes: estimatedAudioBytes,
+      mimeType: transcriptionMimeType,
+    });
+    const audioBase64 = encodedPayload.base64Payload;
 
     if (
       transportSelection.effectiveMode === 'websocket' &&
@@ -718,21 +1032,62 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const ingestStreamingFrame = useCallback(async (frameArgs: StreamFrameArgs): Promise<StreamFrameIngestResult> => {
     if (!frameIngestQueueRef.current) {
       frameIngestQueueRef.current = createDeterministicFrameQueue<StreamFrameArgs, StreamFrameIngestResult>(async (queueFrameArgs) => {
+        if (queueFrameArgs.sequence === 0) {
+          transcriptFramesRef.current.clear();
+          setPartialTranscript('');
+          partialTranscriptRef.current = '';
+          emitVoiceTelemetry('utterance_boundary_started', {
+            sequence: queueFrameArgs.sequence,
+          });
+        }
         const active = await openSession();
-        const audioBase64 = await fileUriToBase64(queueFrameArgs.uri);
-        const estimatedAudioBytes = estimateBase64ByteLength(audioBase64);
+        const encodedPayload = await readEncodedAudioPayload(queueFrameArgs.uri);
+        const normalizedMimeType = normalizeTranscriptionMimeType(
+          queueFrameArgs.mimeType || 'audio/m4a'
+        );
+        const audioBase64 = encodedPayload.base64Payload;
+        const estimatedAudioBytes = encodedPayload.byteLength > 0
+          ? encodedPayload.byteLength
+          : estimateBase64ByteLength(audioBase64);
         console.info(
           `[VoiceFrame] queue seq=${queueFrameArgs.sequence} bytes=${estimatedAudioBytes} final=${Boolean(queueFrameArgs.isFinal)}`
         );
-        if (estimatedAudioBytes < MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES) {
+        const gate = evaluateFrameTranscriptionGate({
+          frameArgs: queueFrameArgs,
+          mimeType: normalizedMimeType,
+          estimatedAudioBytes,
+          hasHeaderInspection: encodedPayload.hasHeaderInspection,
+          hasMp4FtypHeader: encodedPayload.hasMp4FtypHeader,
+        });
+        if (!gate.shouldTranscribe) {
+          emitVoiceTelemetry('frame_transcription_rejected', {
+            sequence: queueFrameArgs.sequence,
+            isFinal: Boolean(queueFrameArgs.isFinal),
+            reason: gate.reason,
+            bytes: estimatedAudioBytes,
+            minBytes: gate.minBytes,
+            durationMs: queueFrameArgs.frameDurationMs,
+            minDurationMs: gate.minDurationMs,
+            mimeType: normalizedMimeType,
+            headerHex: encodedPayload.headerHex,
+          });
           console.warn(
-            `Skipping short/silent voice frame seq=${queueFrameArgs.sequence} bytes=${estimatedAudioBytes}.`
+            `Skipping voice frame seq=${queueFrameArgs.sequence} reason=${gate.reason || 'rejected'} bytes=${estimatedAudioBytes}.`
           );
           return {
             sequence: queueFrameArgs.sequence,
             relayEventCount: 0,
           };
         }
+        emitVoiceTelemetry('frame_transcription_ready', {
+          voiceSessionId: active.voiceSessionId,
+          sequence: queueFrameArgs.sequence,
+          isFinal: Boolean(queueFrameArgs.isFinal),
+          bytes: estimatedAudioBytes,
+          durationMs: queueFrameArgs.frameDurationMs,
+          mimeType: normalizedMimeType,
+          durationGateBypassed: Boolean(gate.durationGateBypassed),
+        });
         const policy = resolveFrameStreamingPolicy({
           transportMode: transportSelection.effectiveMode,
           isRealtimeConnected,
@@ -811,9 +1166,11 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
             const eventType = typeof relayEvent.eventType === 'string'
               ? relayEvent.eventType
               : undefined;
-            const transcriptText = typeof relayEvent.transcriptText === 'string'
-              ? relayEvent.transcriptText
-              : '';
+            const transcriptText = sanitizeTranscriptForVoiceTurn(
+              typeof relayEvent.transcriptText === 'string'
+                ? relayEvent.transcriptText
+                : undefined
+            );
             if (!transcriptText) {
               continue;
             }
@@ -861,6 +1218,13 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         let transcribeResult;
         try {
           console.info(`[VoiceFrame] transcribe start seq=${queueFrameArgs.sequence}`);
+          emitVoiceTelemetry('frame_transcribe_attempt', {
+            voiceSessionId: active.voiceSessionId,
+            sequence: queueFrameArgs.sequence,
+            isFinal: Boolean(queueFrameArgs.isFinal),
+            bytes: estimatedAudioBytes,
+            mimeType: normalizedMimeType,
+          });
           transcribeResult = await l4yercak3Client.ai.voice.transcribe({
             conversationId: active.conversationId,
             interviewSessionId: active.interviewSessionId,
@@ -874,6 +1238,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         } catch (error) {
           const message = error instanceof Error ? error.message : 'voice_frame_transcription_failed';
           if (isRecoverableFrameTranscriptionMessage(message)) {
+            emitVoiceTelemetry('frame_transcribe_recoverable_error', {
+              voiceSessionId: active.voiceSessionId,
+              sequence: queueFrameArgs.sequence,
+              isFinal: Boolean(queueFrameArgs.isFinal),
+              reason: message,
+            });
             console.warn(
               `Skipping transcription frame seq=${queueFrameArgs.sequence} due to recoverable transcription error: ${message}`
             );
@@ -889,6 +1259,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
 
         if (!transcribeResult.success) {
           if (isRecoverableFrameTranscriptionMessage(transcribeResult.error || '')) {
+            emitVoiceTelemetry('frame_transcribe_recoverable_response_error', {
+              voiceSessionId: active.voiceSessionId,
+              sequence: queueFrameArgs.sequence,
+              isFinal: Boolean(queueFrameArgs.isFinal),
+              reason: transcribeResult.error || 'voice_frame_transcription_failed',
+            });
             console.warn(
               `Skipping transcription frame seq=${queueFrameArgs.sequence} due to recoverable transcription response error.`
             );
@@ -904,12 +1280,31 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         console.info(
           `[VoiceFrame] transcribe ok seq=${queueFrameArgs.sequence} text=${(transcribeResult.text || '').length}`
         );
+        emitVoiceTelemetry('frame_transcribe_ok', {
+          voiceSessionId: active.voiceSessionId,
+          sequence: queueFrameArgs.sequence,
+          isFinal: Boolean(queueFrameArgs.isFinal),
+          textLength: (transcribeResult.text || '').length,
+          providerId: transcribeResult.providerId,
+        });
 
-        if (transcribeResult.text) {
+        const sanitizedTranscriptText = sanitizeTranscriptForVoiceTurn(transcribeResult.text);
+        if (!sanitizedTranscriptText && transcribeResult.text?.trim()) {
+          emitVoiceTelemetry('frame_transcribe_ambient_filtered', {
+            voiceSessionId: active.voiceSessionId,
+            sequence: queueFrameArgs.sequence,
+            rawTextLength: transcribeResult.text.trim().length,
+          });
+          console.info(
+            `[VoiceFrame] transcribe ignored seq=${queueFrameArgs.sequence} reason=ambient_non_speech`
+          );
+        }
+
+        if (sanitizedTranscriptText) {
           const merged = mergeTranscriptFrame(
             transcriptFramesRef.current,
             queueFrameArgs.sequence,
-            transcribeResult.text
+            sanitizedTranscriptText
           );
           if (merged) {
             setPartialTranscript(merged);
@@ -920,14 +1315,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         if (!policy.shouldSendRealtimeEnvelope) {
           const transcriptText = (
             queueFrameArgs.isFinal
-              ? (partialTranscriptRef.current || transcribeResult.text || '').trim()
-              : (transcribeResult.text || '').trim()
+              ? (partialTranscriptRef.current || sanitizedTranscriptText || '').trim()
+              : (sanitizedTranscriptText || '').trim()
           );
           if (transcriptText) {
-            const shouldForceFinalTranscript =
-              transportSelection.effectiveMode === 'chunked_fallback' && !queueFrameArgs.isFinal;
             const transcriptEventType =
-              queueFrameArgs.isFinal || shouldForceFinalTranscript
+              queueFrameArgs.isFinal
                 ? 'final_transcript'
                 : 'partial_transcript';
             const transcriptSequence = transcriptIngestSequenceRef.current;
@@ -948,8 +1341,15 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
             };
             try {
               console.info(
-                `[VoiceFrame] ingest transcript start seq=${queueFrameArgs.sequence} transportSeq=${transcriptSequence} type=${transcriptEnvelope.eventType} forcedFinal=${shouldForceFinalTranscript}`
+                `[VoiceFrame] ingest transcript start seq=${queueFrameArgs.sequence} transportSeq=${transcriptSequence} type=${transcriptEnvelope.eventType}`
               );
+              emitVoiceTelemetry('frame_transcript_ingest_attempt', {
+                voiceSessionId: active.voiceSessionId,
+                sequence: queueFrameArgs.sequence,
+                transcriptSequence,
+                eventType: transcriptEnvelope.eventType,
+                transcriptLength: transcriptText.length,
+              });
               const transcriptIngest = await ingestEnvelope(transcriptEnvelope);
               const relayEvents = Array.isArray(transcriptIngest.relayEvents)
                 ? transcriptIngest.relayEvents
@@ -959,6 +1359,13 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
               console.info(
                 `[VoiceFrame] ingest transcript ok seq=${queueFrameArgs.sequence} transportSeq=${transcriptSequence} relayEvents=${relayEvents.length} status=${orchestrationTurn?.status || 'none'}`
               );
+              emitVoiceTelemetry('frame_transcript_ingest_ok', {
+                voiceSessionId: active.voiceSessionId,
+                sequence: queueFrameArgs.sequence,
+                transcriptSequence,
+                relayEvents: relayEvents.length,
+                orchestrationStatus: orchestrationTurn?.status || 'none',
+              });
               realtimeIngestResult = {
                 sequence: queueFrameArgs.sequence,
                 relayEventCount:
@@ -982,6 +1389,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
               const message =
                 error instanceof Error ? error.message : 'voice_frame_ingest_failed';
               if (isRecoverableFrameTranscriptionMessage(message)) {
+                emitVoiceTelemetry('frame_transcript_ingest_recoverable_error', {
+                  voiceSessionId: active.voiceSessionId,
+                  sequence: queueFrameArgs.sequence,
+                  transcriptSequence,
+                  reason: message,
+                });
                 console.warn(
                   `Skipping transcript ingest seq=${queueFrameArgs.sequence} due to recoverable ingest error: ${message}`
                 );
@@ -994,7 +1407,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         return {
           sequence: queueFrameArgs.sequence,
           relayEventCount: realtimeIngestResult?.relayEventCount ?? 0,
-          finalTranscriptText: transcribeResult.text ?? realtimeIngestResult?.finalTranscriptText,
+          finalTranscriptText: sanitizedTranscriptText ?? realtimeIngestResult?.finalTranscriptText,
           orchestration: realtimeIngestResult?.orchestration,
         };
       });
@@ -1063,35 +1476,29 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
 
     if (synthesis.audioBase64 && synthesis.mimeType) {
+      let player: ReturnType<typeof createAudioPlayer> | null = null;
       try {
-        await setAudioModeAsync({
-          allowsRecording: false,
-          playsInSilentMode: true,
-        });
-        const player = createAudioPlayer({
+        await setPlaybackAudioMode();
+        player = createAudioPlayer({
           uri: `data:${synthesis.mimeType};base64,${synthesis.audioBase64}`,
         });
         player.volume = 1;
         playbackRef.current = player;
-        player.play();
+        await waitForAudioPlayerCompletion(player);
         console.info('[VoiceTTS] playback started provider_audio');
         return;
       } catch (error) {
         console.warn('Provider audio playback failed, falling back to speech synthesis:', error);
+      } finally {
+        if (player && playbackRef.current === player) {
+          playbackRef.current = null;
+        }
+        disposeAudioPlayer(player);
       }
     }
 
     const fallbackText = synthesis.fallbackText || text;
-    try {
-      await setAudioModeAsync({
-        allowsRecording: false,
-        playsInSilentMode: true,
-      });
-    } catch {
-      // Continue with system speech fallback even if audio mode update fails.
-    }
-    Speech.stop();
-    Speech.speak(fallbackText, { volume: 1 });
+    await speakWithSystemFallbackVoice(fallbackText);
     console.info('[VoiceTTS] playback started system_fallback');
   }, [args.requestedProviderId, openSession, resolveRequestedVoiceId, stopPlayback]);
 
@@ -1107,6 +1514,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   }, [args.liveSessionId, isRealtimeConnected, partialTranscript, transportSelection]);
 
   const getActiveSession = useCallback(() => activeSessionRef.current, []);
+  const clearPartialTranscript = useCallback((reason: string = 'manual') => {
+    transcriptFramesRef.current.clear();
+    setPartialTranscript('');
+    partialTranscriptRef.current = '';
+    emitVoiceTelemetry('utterance_boundary_cleared', { reason });
+  }, []);
 
   return {
     openSession,
@@ -1120,11 +1533,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     partialTranscript,
     isSessionOpening,
     lastSessionErrorReason,
-    clearPartialTranscript: () => {
-      transcriptFramesRef.current.clear();
-      setPartialTranscript('');
-      partialTranscriptRef.current = '';
-    },
+    clearPartialTranscript,
     suspendSession: async () => closeSession('voice_mode_suspend'),
     finalizeStreamingUtterance: (args: { sequence: number }) => {
       const mergedText = Array.from(transcriptFramesRef.current.entries())
@@ -1134,6 +1543,11 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         .join(' ')
         .trim();
       const text = mergedText || partialTranscriptRef.current.trim();
+      clearPartialTranscript('finalize_streaming_utterance');
+      emitVoiceTelemetry('utterance_boundary_finalized', {
+        sequence: args.sequence,
+        textLength: text.length,
+      });
       return text
         ? {
             sequence: args.sequence,

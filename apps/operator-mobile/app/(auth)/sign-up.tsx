@@ -20,6 +20,7 @@ import { isAppleSignInAvailable } from '../../src/lib/oauth';
 import type { OAuthProvider } from '../../src/lib/oauth';
 import { ENV } from '../../src/config/env';
 import { Button, Input, OAuthButton, PasswordInput } from '../../src/components/ui';
+import { getNativeSwitchColors } from '../../src/theme/tokens';
 
 export default function SignUpScreen() {
   const { signUp, signInWithOAuth } = useAuth();
@@ -130,6 +131,11 @@ export default function SignUpScreen() {
   };
 
   const isAnyLoading = isLoading || oauthLoading !== null;
+  const isDark = resolvedTheme === 'dark';
+  const termsSwitchColors = getNativeSwitchColors({
+    isDark,
+    isEnabled: agreedToTerms,
+  });
 
   return (
     <>
@@ -343,6 +349,7 @@ export default function SignUpScreen() {
                     value={agreedToTerms}
                     onValueChange={setAgreedToTerms}
                     disabled={isAnyLoading}
+                    {...termsSwitchColors}
                   />
                   <Text flex={1} fontSize="$2" color="$colorSecondary">
                     {t('signup.agreeToTerms')}
