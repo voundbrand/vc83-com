@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID,
   VOICE_RUNTIME_SESSION_FSM_STATE_VALUES,
+  isLikelyAmbientTranscriptText,
   isAllowedVoiceRuntimeSessionTransition,
   isVoiceRuntimeSessionStale,
   resolveBrowserFallbackTranscriptText,
@@ -148,6 +149,15 @@ describe("voice runtime session fsm", () => {
       reason: "final_transcript_eou",
       transcriptText: "hello world",
     });
+  });
+
+  it("filters ambient bracketed transcripts from turn orchestration input", () => {
+    expect(
+      isLikelyAmbientTranscriptText(
+        "(fan humming) (traffic noise in background)",
+      ),
+    ).toBe(true);
+    expect(isLikelyAmbientTranscriptText("hello operator")).toBe(false);
   });
 
   it("suppresses realtime assistant turn on non-EOU, replay, and barge-in events", () => {

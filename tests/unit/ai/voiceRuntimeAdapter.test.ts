@@ -182,6 +182,47 @@ describe("voiceRuntimeAdapter", () => {
     expect(transcription.usage?.providerRequestId).toBe("req_voice_123");
   });
 
+  it("retries transcription as mp4 when webm hint is rejected as invalid_audio", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            detail: {
+              code: "invalid_audio",
+              message: "File 'voice-input.webm' is corrupted.",
+            },
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ text: "retry success", duration_seconds: 1.5 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+    const adapter = createElevenLabsVoiceRuntimeAdapter({
+      apiKey: "secret-key",
+      fetchFn,
+    });
+
+    const transcription = await adapter.transcribe({
+      voiceSessionId: "voice-session-retry-1",
+      audioBytes: Uint8Array.from([1, 2, 3, 4, 5, 6]),
+      mimeType: "audio/webm;codecs=opus",
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(transcription.text).toBe("retry success");
+    expect(transcription.providerId).toBe("elevenlabs");
+    expect(transcription.usage?.metadata?.mimeType).toBe("audio/mp4");
+  });
+
   it("derives deterministic PCM websocket mime type for transcription relay", () => {
     expect(
       resolvePcmTranscriptionMimeType({

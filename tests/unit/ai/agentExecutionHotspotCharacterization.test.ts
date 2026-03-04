@@ -4,6 +4,11 @@ import {
   mapSemanticChunksToKnowledgeDocuments,
   resolveKnowledgeRetrieval,
 } from "../../../convex/ai/agentExecution";
+import {
+  createInboundRuntimeKernelHooks,
+  enterInboundRuntimeKernelStage,
+  INBOUND_RUNTIME_KERNEL_STAGE_ORDER,
+} from "../../../convex/ai/agentTurnOrchestration";
 
 describe("agent execution hotspot characterization", () => {
   it("preserves prompt section ordering across resume, handoff, and degraded mode blocks", () => {
@@ -87,5 +92,78 @@ describe("agent execution hotspot characterization", () => {
     expect(docs[0].filename).toBe("terms.md");
     expect(docs[0].citationId).toBe("KB-1");
     expect(docs[0].retrievalMethod).toBe("semantic_chunk_index");
+  });
+
+  it("exposes canonical inbound kernel stage hooks for ingress-routing-tool-delivery", async () => {
+    const events: string[] = [];
+    const hooks = createInboundRuntimeKernelHooks({
+      onStage: ({ stage }) => {
+        events.push(`shared:${stage}`);
+      },
+      ingress: ({ stage }) => {
+        events.push(`stage:${stage}`);
+      },
+      routing: ({ stage }) => {
+        events.push(`stage:${stage}`);
+      },
+      toolDispatch: ({ stage }) => {
+        events.push(`stage:${stage}`);
+      },
+      delivery: ({ stage }) => {
+        events.push(`stage:${stage}`);
+      },
+    });
+
+    for (const stage of INBOUND_RUNTIME_KERNEL_STAGE_ORDER) {
+      await enterInboundRuntimeKernelStage({
+        stage,
+        hooks,
+        context: {
+          organizationId: "org_test" as any,
+          channel: "webchat",
+          externalContactIdentifier: "contact_test",
+        },
+      });
+    }
+
+    expect(events).toEqual([
+      "shared:ingress",
+      "stage:ingress",
+      "shared:routing",
+      "stage:routing",
+      "shared:tool_dispatch",
+      "stage:tool_dispatch",
+      "shared:delivery",
+      "stage:delivery",
+    ]);
+  });
+
+  it("treats kernel hook failures as non-blocking seam behavior", async () => {
+    const observedErrors: string[] = [];
+    const hooks = createInboundRuntimeKernelHooks({
+      onStage: () => {
+        throw new Error("shared_hook_failed");
+      },
+      routing: ({ stage }) => {
+        observedErrors.push(`stage:${stage}`);
+      },
+    });
+
+    await expect(
+      enterInboundRuntimeKernelStage({
+        stage: "routing",
+        hooks,
+        context: {
+          organizationId: "org_test" as any,
+          channel: "webchat",
+          externalContactIdentifier: "contact_test",
+        },
+        onHookError: ({ hookScope, stage }) => {
+          observedErrors.push(`${hookScope}:${stage}`);
+        },
+      })
+    ).resolves.toBeUndefined();
+
+    expect(observedErrors).toEqual(["onStage:routing", "stage:routing"]);
   });
 });

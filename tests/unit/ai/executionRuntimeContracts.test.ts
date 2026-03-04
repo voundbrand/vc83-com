@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  createAgentRuntimeHooks,
   buildRuntimeCapabilityGapBlockedResponse,
   formatRuntimeCapabilityGapBlockedMessage,
+  invokeAgentRuntimeHook,
   issueCollaborationSyncCheckpointContract,
   parseCollaborationSyncCheckpointToken,
   resolveActionCompletionContractEnforcement,
@@ -10,11 +12,14 @@ import {
   resolveInboundCollaborationSyncCheckpointToken,
   resolveNativeGuestRequiredToolInvariant,
   resolveInboundRuntimeContracts,
+  validateAgentRuntimeHookExecutionOrder,
+  validateAgentRuntimeHookPayload,
   shouldAllowScopePayloadHashReplayMatch,
 } from "../../../convex/ai/agentExecution";
 import {
   TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE,
   buildCapabilityGapBlockedPayload,
+  validateAgentRuntimeToolHookPayload,
 } from "../../../convex/ai/agentToolOrchestration";
 
 const ORG_ID = "org_1" as Id<"organizations">;
@@ -87,6 +92,103 @@ describe("execution runtime contracts", () => {
       "replay_previous_result"
     );
     expect(contracts.idempotencyContract.payloadHash).toBe("payload_123");
+  });
+});
+
+describe("agent runtime hook contracts", () => {
+  it("accepts deterministic hook order including repeated preTool/postTool pairs", () => {
+    const validation = validateAgentRuntimeHookExecutionOrder([
+      "preRoute",
+      "preLLM",
+      "postLLM",
+      "preTool",
+      "postTool",
+      "preTool",
+      "postTool",
+      "completionPolicy",
+    ]);
+    expect(validation).toEqual({
+      valid: true,
+      reasonCode: "ok",
+    });
+  });
+
+  it("fails deterministic hook order check on out-of-sequence payloads", () => {
+    const validation = validateAgentRuntimeHookExecutionOrder([
+      "preRoute",
+      "postLLM",
+    ]);
+    expect(validation.valid).toBe(false);
+    expect(validation.reasonCode).toBe("unexpected_hook");
+    expect(validation.index).toBe(1);
+    expect(validation.expectedHooks).toEqual(["preLLM"]);
+  });
+
+  it("fails closed when runtime hook payload contract is invalid", async () => {
+    await expect(
+      invokeAgentRuntimeHook({
+        hooks: createAgentRuntimeHooks({
+          preRoute: () => {
+            throw new Error("should_not_run_on_invalid_payload");
+          },
+        }),
+        hookName: "preRoute",
+        payload: {
+          organizationId: "",
+          channel: "webchat",
+          externalContactIdentifier: "contact-1",
+        },
+      })
+    ).rejects.toThrow("agent_runtime_hook_payload_invalid");
+  });
+
+  it("validates tool hook payload contract fields deterministically", () => {
+    const validPayload = validateAgentRuntimeToolHookPayload({
+      contractVersion: "agent_runtime_tool_hooks_v1",
+      hookName: "preTool",
+      organizationId: "org_1",
+      agentId: "agent_1",
+      sessionId: "session_1",
+      toolName: "manage_bookings",
+      occurredAt: Date.now(),
+      toolArgs: { action: "preview" },
+    });
+    expect(validPayload).toEqual({
+      valid: true,
+      reasonCode: "ok",
+    });
+
+    const invalidPayload = validateAgentRuntimeToolHookPayload({
+      contractVersion: "agent_runtime_tool_hooks_v1",
+      hookName: "postTool",
+      organizationId: "org_1",
+      agentId: "",
+      sessionId: "session_1",
+      toolName: "manage_bookings",
+      occurredAt: Date.now(),
+      status: "success",
+    });
+    expect(invalidPayload.valid).toBe(false);
+    expect(invalidPayload.reasonCode).toBe("missing_required_field");
+    expect(invalidPayload.field).toBe("agentId");
+  });
+
+  it("keeps runtime hook payload validator fail-closed for completion policy context", () => {
+    const validation = validateAgentRuntimeHookPayload({
+      contractVersion: "agent_runtime_hooks_v1",
+      hookName: "completionPolicy",
+      organizationId: "org_1",
+      channel: "webchat",
+      externalContactIdentifier: "contact_1",
+      occurredAt: Date.now(),
+      sessionId: "session_1",
+      turnId: "turn_1",
+      agentId: "agent_1",
+    });
+    expect(validation).toEqual({
+      valid: true,
+      reasonCode: "ok",
+    });
   });
 });
 
