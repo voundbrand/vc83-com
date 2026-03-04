@@ -33,6 +33,10 @@ export const metadata: Metadata = {
     description:
       "One operator. Yours alone. Built on everything you know.",
   },
+  icons: {
+    icon: [{ url: "/images/sevenlayers-logo.png", type: "image/png" }],
+    apple: [{ url: "/images/sevenlayers-logo.png", type: "image/png" }],
+  },
 }
 
 export const viewport: Viewport = {

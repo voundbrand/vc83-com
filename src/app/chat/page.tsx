@@ -114,8 +114,8 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-900" />}>
-      <div className="min-h-screen bg-zinc-900">
+    <Suspense fallback={<div className="h-dvh overflow-hidden bg-zinc-900" />}>
+      <div className="h-dvh overflow-hidden bg-zinc-900">
         <AIChatWindow fullScreen />
       </div>
     </Suspense>

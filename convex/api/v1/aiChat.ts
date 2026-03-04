@@ -382,6 +382,37 @@ const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
   turkish: "tr",
 };
 
+const LANGUAGE_CODE_TO_LABEL: Record<string, string> = {
+  ar: "Arabic",
+  cs: "Czech",
+  da: "Danish",
+  de: "German",
+  el: "Greek",
+  en: "English",
+  es: "Spanish",
+  fi: "Finnish",
+  fr: "French",
+  he: "Hebrew",
+  hi: "Hindi",
+  id: "Indonesian",
+  it: "Italian",
+  ja: "Japanese",
+  ko: "Korean",
+  ms: "Malay",
+  nl: "Dutch",
+  no: "Norwegian",
+  pl: "Polish",
+  pt: "Portuguese",
+  ro: "Romanian",
+  ru: "Russian",
+  sv: "Swedish",
+  th: "Thai",
+  tr: "Turkish",
+  uk: "Ukrainian",
+  vi: "Vietnamese",
+  zh: "Chinese",
+};
+
 function normalizeVoiceLanguageCode(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -428,6 +459,44 @@ function collectVoiceLanguageCodes(voice: VoiceLanguageComparable): Set<string> 
     }
   }
   return codes;
+}
+
+function formatVoiceLanguageLabel(code: string): string {
+  const normalizedCode = normalizeVoiceLanguageCode(code);
+  if (!normalizedCode) {
+    const fallback = code.trim().toUpperCase();
+    return fallback.length > 0 ? fallback : "Unknown";
+  }
+  return LANGUAGE_CODE_TO_LABEL[normalizedCode] ?? normalizedCode.toUpperCase();
+}
+
+type VoiceLanguageCatalogEntry = {
+  code: string;
+  label: string;
+  voiceCount: number;
+};
+
+function buildVoiceLanguageCatalog(
+  voices: VoiceLanguageComparable[],
+): VoiceLanguageCatalogEntry[] {
+  const counts = new Map<string, number>();
+  for (const voice of voices) {
+    const voiceCodes = collectVoiceLanguageCodes(voice);
+    for (const code of voiceCodes) {
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(counts.entries())
+    .map(([code, voiceCount]) => ({
+      code,
+      label: formatVoiceLanguageLabel(code),
+      voiceCount,
+    }))
+    .sort((left, right) => {
+      const byLabel = left.label.localeCompare(right.label);
+      return byLabel !== 0 ? byLabel : left.code.localeCompare(right.code);
+    });
 }
 
 function isVoiceCompatibleWithLanguage(
@@ -1514,6 +1583,12 @@ type MobileElevenLabsVoiceEntry = {
   language?: string;
 };
 
+type MobileElevenLabsLanguageEntry = {
+  code: string;
+  label: string;
+  voiceCount: number;
+};
+
 /**
  * GET /api/v1/ai/voice/catalog
  *
@@ -1565,21 +1640,28 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
             ...(typeof voice.previewUrl === "string" ? { previewUrl: voice.previewUrl } : {}),
           }))
       : [];
+    const languages: MobileElevenLabsLanguageEntry[] = buildVoiceLanguageCatalog(voices);
 
     const preferences = await (ctx as any).runQuery(generatedApi.api.userPreferences.get, {
       sessionId: auth.sessionId,
     }) as {
       voiceRuntimeVoiceId?: string;
       voiceRuntimeProviderId?: "browser" | "elevenlabs";
+      language?: string;
     } | null;
 
     return successResponse(
       {
         voices,
+        languages,
         selectedVoiceId:
           typeof preferences?.voiceRuntimeVoiceId === "string" &&
           preferences.voiceRuntimeVoiceId.trim().length > 0
             ? preferences.voiceRuntimeVoiceId
+            : null,
+        selectedLanguage:
+          typeof preferences?.language === "string"
+            ? normalizeVoiceLanguageCode(preferences.language) ?? null
             : null,
         provider: "elevenlabs",
         providerStatus: result.success ? "healthy" : "degraded",
@@ -1621,6 +1703,8 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
     };
     const parsedAgentVoiceId = parseOptionalNullableString(parsedBody.agentVoiceId);
     const parsedLanguage = parseOptionalString(parsedBody.language);
+    const normalizedLanguage =
+      normalizeVoiceLanguageCode(parsedLanguage) ?? parsedLanguage;
     if (parsedAgentVoiceId === undefined) {
       return errorResponse("agentVoiceId must be a string or null", 400, origin);
     }
@@ -1660,9 +1744,9 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
           origin
         );
       }
-      if (!isVoiceCompatibleWithLanguage(selectedVoice, parsedLanguage)) {
+      if (!isVoiceCompatibleWithLanguage(selectedVoice, normalizedLanguage)) {
         return errorResponse(
-          `Selected ElevenLabs voice does not match the requested language (${parsedLanguage}).`,
+          `Selected ElevenLabs voice does not match the requested language (${normalizedLanguage}).`,
           400,
           origin
         );
@@ -1673,13 +1757,13 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
       sessionId: auth.sessionId,
       voiceRuntimeProviderId: "elevenlabs",
       voiceRuntimeVoiceId: parsedAgentVoiceId ?? "",
-      ...(parsedLanguage ? { language: parsedLanguage } : {}),
+      ...(normalizedLanguage ? { language: normalizedLanguage } : {}),
     });
 
     return successResponse(
       {
         agentVoiceId: parsedAgentVoiceId,
-        language: parsedLanguage ?? null,
+        language: normalizedLanguage ?? null,
         provider: "elevenlabs",
       },
       origin

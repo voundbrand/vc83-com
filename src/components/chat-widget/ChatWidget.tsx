@@ -950,7 +950,7 @@ export function ChatWidget({
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 bg-gray-50">
             {/* Welcome message */}
             {messages.length === 0 && effectiveConfig.welcomeMessage && (
               <div className="flex gap-3">
@@ -964,7 +964,9 @@ export function ChatWidget({
                   className="rounded-2xl rounded-tl-md px-4 py-2 max-w-[80%] bg-white shadow-sm"
                   style={{ border: `1px solid ${brandColor}10` }}
                 >
-                  <p className="text-sm text-gray-700">{effectiveConfig.welcomeMessage}</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {effectiveConfig.welcomeMessage}
+                  </p>
                 </div>
               </div>
             )}
@@ -973,7 +975,7 @@ export function ChatWidget({
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                className={`flex min-w-0 gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <div
                   className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
@@ -992,7 +994,7 @@ export function ChatWidget({
                   )}
                 </div>
                 <div
-                  className={`rounded-2xl px-4 py-2 max-w-[80%] ${
+                  className={`min-w-0 max-w-[80%] rounded-2xl px-4 py-2 ${
                     message.role === "user"
                       ? "rounded-tr-md text-white"
                       : "rounded-tl-md bg-white shadow-sm"
@@ -1003,7 +1005,11 @@ export function ChatWidget({
                       : { border: `1px solid ${brandColor}10` }
                   }
                 >
-                  <p className={`text-sm ${message.role === "user" ? "text-white" : "text-gray-700"}`}>
+                  <p
+                    className={`text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
+                      message.role === "user" ? "text-white" : "text-gray-700"
+                    }`}
+                  >
                     {message.content}
                   </p>
                   {message.role === "assistant" && message.actions && message.actions.length > 0 && (

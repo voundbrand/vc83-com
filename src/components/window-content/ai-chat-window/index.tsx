@@ -646,7 +646,7 @@ export function AIChatWindow({
   return (
     <AIChatProvider superAdminQaMode={superAdminQaMode}>
       <LayoutModeProvider initialMode={shellResolution.resolvedLayoutMode}>
-        <div className="h-full flex flex-col relative">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
           {superAdminQaMode?.enabled ? (
             <div
               className="mx-3 mt-3 rounded-lg border px-3 py-2 text-xs"
