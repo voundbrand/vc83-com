@@ -7149,6 +7149,11 @@ export const processInboundMessage = action({
       .filter((message) => message.role === "user")
       .slice(-120)
       .map((message) => message.content);
+    const priorMissingFieldRecoveryCount = countTrailingSamanthaMissingFieldRecoveryMessages(
+      sessionHistorySnapshot
+    );
+    const samanthaMissingFieldRecoveryAttemptCount = priorMissingFieldRecoveryCount + 1;
+    let samanthaMissingFieldRecoveryLogged = false;
     const preflightAuditLookupTarget = resolveSamanthaAuditLookupTarget(
       samanthaAuditSourceContext
     );
@@ -7431,6 +7436,29 @@ export const processInboundMessage = action({
           },
         });
       }
+      const recordMissingFieldRecoveryAttempt = (
+        enforcementPayload: ActionCompletionContractEnforcementPayload | null | undefined
+      ) => {
+        if (
+          samanthaMissingFieldRecoveryLogged
+          || !samanthaAuditAutoDispatchPlan?.eligible
+          || enforcementPayload?.reasonCode !== "claim_tool_not_observed"
+          || enforcementPayload?.preflightReasonCode !== "missing_required_fields"
+        ) {
+          return;
+        }
+        samanthaAuditRecoveryAttempted = true;
+        samanthaMissingFieldRecoveryLogged = true;
+        recordSamanthaDispatchEvent({
+          stage: "samantha_missing_fields_recovery",
+          status: "pass",
+          reasonCode: "recovery_attempted_missing_required_fields",
+          detail: {
+            recoveryAttemptCount: samanthaMissingFieldRecoveryAttemptCount,
+            missingRequiredFields: enforcementPayload.preflightMissingRequiredFields || [],
+          },
+        });
+      };
       let actionCompletionEnforcement = resolveAuditDeliverableInvocationGuardrail({
         authorityConfig: actionCompletionAuthorityConfig,
         inboundMessage,
@@ -7442,9 +7470,11 @@ export const processInboundMessage = action({
         capturedName: preflightAuditSession?.capturedName,
         contactMemory,
         auditSessionWorkflowRecommendation: preflightAuditSession?.workflowRecommendation,
+        recoveryAttemptCount: samanthaMissingFieldRecoveryAttemptCount,
         turnId: String(runtimeTurnId),
       });
       actionCompletionEnforcementPayload = actionCompletionEnforcement.payload;
+      recordMissingFieldRecoveryAttempt(actionCompletionEnforcementPayload);
       samanthaClaimRecoveryDecision = resolveSamanthaClaimRecoveryDecision({
         plan: samanthaAuditAutoDispatchPlan,
         alreadyAttempted: samanthaAuditAutoDispatchAttempted,
@@ -7471,9 +7501,11 @@ export const processInboundMessage = action({
           capturedName: preflightAuditSession?.capturedName,
           contactMemory,
           auditSessionWorkflowRecommendation: preflightAuditSession?.workflowRecommendation,
+          recoveryAttemptCount: samanthaMissingFieldRecoveryAttemptCount,
           turnId: String(runtimeTurnId),
         });
         actionCompletionEnforcementPayload = actionCompletionEnforcement.payload;
+        recordMissingFieldRecoveryAttempt(actionCompletionEnforcementPayload);
       }
       samanthaAuditDispatchDecision = resolveSamanthaAuditDispatchDecision({
         plan: samanthaAuditAutoDispatchPlan,
@@ -7511,6 +7543,7 @@ export const processInboundMessage = action({
       if (
         actionCompletionRewriteApplied
         && actionCompletionEnforcement.payload.reasonCode === "claim_tool_not_observed"
+        && actionCompletionEnforcement.payload.preflightReasonCode === "tool_not_observed"
         && samanthaAuditAutoDispatchPlan?.eligible
       ) {
         const priorFailClosedCount = countTrailingSamanthaFailClosedAssistantMessages(
@@ -7544,6 +7577,7 @@ export const processInboundMessage = action({
       if (
         actionCompletionRewriteApplied
         && actionCompletionEnforcement.payload.reasonCode === "claim_tool_not_observed"
+        && actionCompletionEnforcement.payload.preflightReasonCode === "tool_not_observed"
         && samanthaAuditAutoDispatchPlan?.eligible
       ) {
         console.warn("[AgentExecution] Samantha fail-closed rewrite diagnostics", {
@@ -12436,6 +12470,15 @@ function isSamanthaFailClosedRefusalContent(content: string): boolean {
     );
 }
 
+function isSamanthaMissingFieldRecoveryContent(content: string): boolean {
+  const normalized = normalizeSamanthaToken(content);
+  return normalized.includes("i captured these details so far")
+    || normalized.includes("to send your pdf i still need")
+    || normalized.includes("ich habe bisher folgende angaben erfasst")
+    || normalized.includes("fur den pdf-versand brauche ich nur noch")
+    || normalized.includes("fur den pdf versand brauche ich nur noch");
+}
+
 function countTrailingSamanthaFailClosedAssistantMessages(
   sessionHistory: Array<{ role: string; content: string }>
 ): number {
@@ -12446,6 +12489,23 @@ function countTrailingSamanthaFailClosedAssistantMessages(
       continue;
     }
     if (!isSamanthaFailClosedRefusalContent(message.content || "")) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function countTrailingSamanthaMissingFieldRecoveryMessages(
+  sessionHistory: Array<{ role: string; content: string }>
+): number {
+  let count = 0;
+  for (let index = sessionHistory.length - 1; index >= 0; index -= 1) {
+    const message = sessionHistory[index];
+    if (message.role !== "assistant") {
+      continue;
+    }
+    if (!isSamanthaMissingFieldRecoveryContent(message.content || "")) {
       break;
     }
     count += 1;
@@ -12481,7 +12541,7 @@ function isLikelyAuditDeliverableInvocationRequest(
   if (!mentionsDeliverableTarget) {
     return false;
   }
-  return /\b(generate|generer|g[eé]n[eé]rer|erstell|send|senden|envoyer|create|c[ré]er|export|bereitstell|download|telecharger|t[eé]l[eé]charger)\b/i.test(
+  return /\b(generate|generer|g[eé]n[eé]rer|erstell(?:e|en|t|st)?|send|senden|envoyer|create|c[ré]er|export|bereitstell(?:e|en|t|st)?|download|telecharger|t[eé]l[eé]charger)\b/i.test(
     normalized,
   );
 }
@@ -13066,6 +13126,35 @@ const SAMANTHA_PHONE_DIRECT_INPUT_PATTERN = /^[+()\d.\-\s]{8,28}$/;
 const SAMANTHA_PHONE_CONTEXT_HINT_PATTERN =
   /\b(?:phone|phone number|contact number|my number|number|mobile|telephone|tel|call|text|sms|whatsapp|telefon|telefonnummer|handy|nummer)\b/i;
 const SAMANTHA_PHONE_EMBEDDED_PATTERN = /(?:\+?\d[\d().\-\s]{6,24}\d)/g;
+const SAMANTHA_FALLBACK_NAME_SEGMENT_SPLIT_PATTERN = /[\n,;|/]+/g;
+const SAMANTHA_FALLBACK_NAME_STOPWORD_TOKENS = new Set([
+  "and",
+  "or",
+  "email",
+  "mail",
+  "phone",
+  "telefon",
+  "telefonnummer",
+  "nummer",
+  "contact",
+  "kontakt",
+  "founder",
+  "budget",
+  "umsatz",
+  "revenue",
+  "industry",
+  "branche",
+  "company",
+  "firma",
+  "ki",
+  "ai",
+  "yes",
+  "no",
+  "ja",
+  "nein",
+]);
+const SAMANTHA_FOUNDER_CONTACT_PERMISSION_PATTERN =
+  /\b(?:contact me|reach me|reach out to me|call me|text me|email me|can contact me|can call me|kann mich kontaktieren|mich kontaktieren|mich anrufen|mich erreichen|me contacter|peut me contacter)\b/i;
 
 function normalizeSamanthaToken(value: string): string {
   return value
@@ -13088,6 +13177,58 @@ function normalizeSamanthaPhoneCandidate(
     return undefined;
   }
   return `${hasLeadingPlus ? "+" : ""}${digits}`;
+}
+
+function resolveFallbackSamanthaPreferredName(messages: string[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = normalizeExecutionString(messages[index]);
+    if (!message) {
+      continue;
+    }
+    const candidates: string[] = [];
+    const segments = message
+      .split(SAMANTHA_FALLBACK_NAME_SEGMENT_SPLIT_PATTERN)
+      .map((segment) => normalizeExecutionString(segment))
+      .filter((segment): segment is string => Boolean(segment));
+    if (segments.length > 0) {
+      candidates.push(segments[0]);
+    }
+    const messageEmailMatch = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    if (messageEmailMatch?.index && messageEmailMatch.index > 0) {
+      const beforeEmail = message
+        .slice(0, messageEmailMatch.index)
+        .split(SAMANTHA_FALLBACK_NAME_SEGMENT_SPLIT_PATTERN)
+        .map((segment) => normalizeExecutionString(segment))
+        .filter((segment): segment is string => Boolean(segment));
+      if (beforeEmail.length > 0) {
+        candidates.push(beforeEmail[beforeEmail.length - 1]);
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (!candidate || candidate.includes("@") || /\d/.test(candidate)) {
+        continue;
+      }
+      const rawTokens = candidate.split(/\s+/g);
+      const normalizedTokens = rawTokens
+        .map((token) => normalizeSamanthaNamePart(token))
+        .filter((token): token is string => Boolean(token));
+      if (normalizedTokens.length < 2 || normalizedTokens.length > 4) {
+        continue;
+      }
+      if (rawTokens.length !== normalizedTokens.length) {
+        continue;
+      }
+      const hasStopword = normalizedTokens.some((token) =>
+        SAMANTHA_FALLBACK_NAME_STOPWORD_TOKENS.has(normalizeSamanthaToken(token))
+      );
+      if (hasStopword) {
+        continue;
+      }
+      return normalizedTokens.join(" ");
+    }
+  }
+  return undefined;
 }
 
 function extractSamanthaStructuredRows(message: string): Array<{ label: string; value: string }> {
@@ -13265,11 +13406,26 @@ interface SamanthaFounderContactResolution {
 }
 
 function extractFounderContactInlineSegments(message: string): string[] {
-  return message
+  const sentenceSegments = message
     .split(/[\n\r.!?;]+/g)
     .map((segment) => normalizeExecutionString(segment))
-    .filter((segment): segment is string => Boolean(segment))
-    .filter((segment) => isFounderContactLabel(segment));
+    .filter((segment): segment is string => Boolean(segment));
+  const matchedSegments: string[] = [];
+  for (const sentenceSegment of sentenceSegments) {
+    const clauseSegments = sentenceSegment
+      .split(/[,]+/g)
+      .map((segment) => normalizeExecutionString(segment))
+      .filter((segment): segment is string => Boolean(segment));
+    for (const clause of clauseSegments) {
+      if (
+        isFounderContactLabel(clause)
+        || SAMANTHA_FOUNDER_CONTACT_PERMISSION_PATTERN.test(clause)
+      ) {
+        matchedSegments.push(clause);
+      }
+    }
+  }
+  return matchedSegments;
 }
 
 function resolveFounderContactPreference(messages: string[]): SamanthaFounderContactResolution {
@@ -13377,17 +13533,20 @@ function resolveFallbackSamanthaPhone(messages: string[]): string | undefined {
       }
     }
 
-    if (!SAMANTHA_PHONE_CONTEXT_HINT_PATTERN.test(message)) {
-      continue;
-    }
-
     const embeddedMatches = message.match(SAMANTHA_PHONE_EMBEDDED_PATTERN);
     if (!embeddedMatches || embeddedMatches.length === 0) {
       continue;
     }
     for (let matchIndex = embeddedMatches.length - 1; matchIndex >= 0; matchIndex -= 1) {
-      const phone = normalizeSamanthaPhoneCandidate(embeddedMatches[matchIndex], 8);
+      const rawMatch = embeddedMatches[matchIndex];
+      const phone = normalizeSamanthaPhoneCandidate(rawMatch, 8);
       if (phone) {
+        const explicitPhoneContext =
+          SAMANTHA_PHONE_CONTEXT_HINT_PATTERN.test(message)
+          || rawMatch.trim().startsWith("+");
+        if (!explicitPhoneContext) {
+          continue;
+        }
         return phone;
       }
     }
@@ -13446,8 +13605,10 @@ function resolveSamanthaAuditLeadData(args: {
       extractedByField.set(candidate.field, normalized);
     }
   }
+  const fallbackPreferredName = resolveFallbackSamanthaPreferredName(candidateMessages);
   const resolvedName =
     extractedByField.get("preferred_name")
+    || fallbackPreferredName
     || resolveFirstSessionContactMemoryValue(args.contactMemory, "preferred_name")
     || normalizeExecutionString(args.capturedName)
     || undefined;
@@ -13501,15 +13662,154 @@ function resolveSamanthaAuditLeadData(args: {
   };
 }
 
-function resolveSamanthaAuditMissingRequiredFields(args: {
-  inboundMessage: string;
-  recentUserMessages: string[];
-  capturedEmail?: string | null;
-  capturedName?: string | null;
-  contactMemory?: SessionContactMemoryRecord[];
-  auditSessionWorkflowRecommendation?: string | null;
-}): SamanthaAuditRequiredField[] {
-  return resolveSamanthaAuditLeadData(args).missingRequiredFields;
+function buildSamanthaResolvedLeadSummaryLines(args: {
+  leadData: SamanthaAuditResolvedLeadData;
+  language: ActionCompletionResponseLanguage;
+}): string[] {
+  const lines: string[] = [];
+  const name = [args.leadData.firstName, args.leadData.lastName]
+    .filter((token): token is string => Boolean(token))
+    .join(" ")
+    .trim();
+  if (name) {
+    lines.push(`- ${args.language === "de" ? "Name" : "Name"}: ${name}`);
+  }
+  if (args.leadData.email) {
+    lines.push(`- ${args.language === "de" ? "E-Mail" : "Email"}: ${args.leadData.email}`);
+  }
+  if (args.leadData.phone) {
+    lines.push(`- ${args.language === "de" ? "Telefon" : "Phone"}: ${args.leadData.phone}`);
+  }
+  if (typeof args.leadData.founderContactRequested === "boolean") {
+    lines.push(
+      `- ${args.language === "de" ? "Founder-Kontakt" : "Founder contact"}: ${args.leadData.founderContactRequested
+        ? (args.language === "de" ? "Ja" : "Yes")
+        : (args.language === "de" ? "Nein" : "No")}`
+    );
+  }
+  return lines;
+}
+
+function buildSamanthaMissingFieldRecoveryPrompts(args: {
+  leadData: SamanthaAuditResolvedLeadData;
+  language: ActionCompletionResponseLanguage;
+}): string[] {
+  const missing = new Set(args.leadData.missingRequiredFields);
+  const prompts: string[] = [];
+
+  if (
+    args.leadData.ambiguousName
+    || (missing.has("first_name") && missing.has("last_name"))
+  ) {
+    prompts.push(
+      args.language === "de"
+        ? "Bitte bestaetigen Sie Ihren vollstaendigen Namen (Vor- und Nachname)."
+        : "Please confirm your full name (first and last name)."
+    );
+  } else if (missing.has("first_name")) {
+    prompts.push(
+      args.language === "de"
+        ? "Bitte senden Sie nur Ihren Vornamen."
+        : "Please share your first name."
+    );
+  } else if (missing.has("last_name")) {
+    prompts.push(
+      args.language === "de"
+        ? "Bitte senden Sie nur Ihren Nachnamen."
+        : "Please share your last name."
+    );
+  }
+
+  if (missing.has("email")) {
+    prompts.push(
+      args.language === "de"
+        ? "Bitte bestaetigen Sie Ihre E-Mail-Adresse."
+        : "Please confirm your email address."
+    );
+  }
+  if (missing.has("phone")) {
+    prompts.push(
+      args.language === "de"
+        ? "Bitte bestaetigen Sie Ihre Telefonnummer."
+        : "Please confirm your phone number."
+    );
+  }
+
+  if (args.leadData.ambiguousFounderContact) {
+    prompts.push(
+      args.language === "de"
+        ? "Ich habe widerspruechliche Founder-Kontakt-Signale erkannt. Bitte antworten Sie klar mit Ja oder Nein."
+        : "I detected conflicting founder-contact signals. Please answer clearly with yes or no."
+    );
+  } else if (missing.has("founder_contact_preference")) {
+    prompts.push(
+      args.language === "de"
+        ? "Darf der Founder Sie direkt kontaktieren? (Ja/Nein)"
+        : "May the founder contact you directly? (yes/no)"
+    );
+  }
+  return prompts;
+}
+
+function buildSamanthaMissingFieldRecoveryMessage(args: {
+  leadData: SamanthaAuditResolvedLeadData;
+  language: ActionCompletionResponseLanguage;
+  recoveryAttemptCount: number;
+}): string {
+  const attemptCount = Math.max(1, Math.floor(args.recoveryAttemptCount));
+  const capturedLines = buildSamanthaResolvedLeadSummaryLines({
+    leadData: args.leadData,
+    language: args.language,
+  });
+  const promptLines = buildSamanthaMissingFieldRecoveryPrompts({
+    leadData: args.leadData,
+    language: args.language,
+  });
+
+  const lines: string[] = [];
+  if (args.language === "de") {
+    lines.push("Ich habe bisher folgende Angaben erfasst:");
+    if (capturedLines.length > 0) {
+      lines.push(...capturedLines);
+    } else {
+      lines.push("- Noch keine bestaetigten Kontaktdaten.");
+    }
+    if (promptLines.length > 0) {
+      lines.push("");
+      lines.push("Fuer den PDF-Versand brauche ich nur noch:");
+      lines.push(...promptLines.map((prompt) => `- ${prompt}`));
+    }
+    lines.push("");
+    if (attemptCount >= 3) {
+      lines.push(
+        "Falls es schneller ist: Antworten Sie in einer Zeile oder schreiben Sie \"manuelles follow-up\", dann leite ich es direkt an das Team weiter."
+      );
+    } else {
+      lines.push("Sie koennen frei, kurz oder stichpunktartig antworten.");
+    }
+  } else {
+    lines.push("I captured these details so far:");
+    if (capturedLines.length > 0) {
+      lines.push(...capturedLines);
+    } else {
+      lines.push("- No confirmed contact details yet.");
+    }
+    if (promptLines.length > 0) {
+      lines.push("");
+      lines.push("To send your PDF, I still need:");
+      lines.push(...promptLines.map((prompt) => `- ${prompt}`));
+    }
+    lines.push("");
+    if (attemptCount >= 3) {
+      lines.push(
+        "If it is easier, reply in one line or say \"manual follow-up\" and I will route this directly to the team."
+      );
+    } else {
+      lines.push("You can reply in freeform, shorthand, or bullets.");
+    }
+  }
+
+  return lines.join("\n");
 }
 
 export interface SamanthaAuditAutoDispatchToolArgs {
@@ -13555,6 +13855,7 @@ export type SamanthaAutoDispatchSkipReasonCode =
 export type SamanthaAuditDispatchDecision =
   | "auto_dispatch_executed_pdf"
   | "auto_dispatch_executed_docx"
+  | "recovery_attempted_missing_required_fields"
   | "blocked_ambiguous_name"
   | "blocked_ambiguous_founder_contact"
   | "blocked_missing_required_fields"
@@ -13764,7 +14065,7 @@ function resolveSamanthaAuditDispatchDecision(args: {
     return "blocked_ambiguous_founder_contact";
   }
   if (args.plan.missingRequiredFields.length > 0) {
-    return "blocked_missing_required_fields";
+    return "recovery_attempted_missing_required_fields";
   }
   if (args.enforcementPayload?.reasonCode === "claim_tool_not_observed") {
     return "blocked_tool_not_observed";
@@ -13932,6 +14233,7 @@ export function resolveAuditDeliverableInvocationGuardrail(args: {
   capturedName?: string | null;
   contactMemory?: SessionContactMemoryRecord[];
   auditSessionWorkflowRecommendation?: string | null;
+  recoveryAttemptCount?: number;
   turnId?: string;
 }): {
   enforced: boolean;
@@ -13988,7 +14290,7 @@ export function resolveAuditDeliverableInvocationGuardrail(args: {
     turnId: args.turnId,
   });
 
-  const missingRequiredFields = resolveSamanthaAuditMissingRequiredFields({
+  const leadData = resolveSamanthaAuditLeadData({
     inboundMessage: args.inboundMessage,
     recentUserMessages: args.recentUserMessages ?? [],
     capturedEmail: args.capturedEmail,
@@ -13996,7 +14298,12 @@ export function resolveAuditDeliverableInvocationGuardrail(args: {
     contactMemory: args.contactMemory,
     auditSessionWorkflowRecommendation: args.auditSessionWorkflowRecommendation,
   });
+  const missingRequiredFields = leadData.missingRequiredFields;
   const sessionContextFailure = resolveSamanthaAuditSessionContextFailure(args.toolResults);
+  const recoveryAttemptCount =
+    typeof args.recoveryAttemptCount === "number" && Number.isFinite(args.recoveryAttemptCount)
+      ? Math.max(1, Math.floor(args.recoveryAttemptCount))
+      : 1;
 
   let preflightReasonCode: SamanthaPreflightReasonCode | undefined;
   if (decision.payload.reasonCode === "claim_tool_unavailable") {
@@ -14040,6 +14347,18 @@ export function resolveAuditDeliverableInvocationGuardrail(args: {
   });
   const isSamanthaRuntime = isSamanthaLeadCaptureRuntime(args.authorityConfig);
   if (
+    decision.enforced
+    && decision.payload.reasonCode === "claim_tool_not_observed"
+    && preflightReasonCode === "missing_required_fields"
+    && isSamanthaDeliverableOutcome
+    && isSamanthaRuntime
+  ) {
+    assistantContent = buildSamanthaMissingFieldRecoveryMessage({
+      leadData,
+      language: responseLanguage,
+      recoveryAttemptCount,
+    });
+  } else if (
     decision.enforced
     && decision.payload.reasonCode === "claim_tool_not_observed"
     && preflightReasonCode === "tool_not_observed"

@@ -36,6 +36,7 @@ export interface ActionCompletionQaDiagnostics {
   dispatchDecision?:
     | "auto_dispatch_executed_pdf"
     | "auto_dispatch_executed_docx"
+    | "recovery_attempted_missing_required_fields"
     | "blocked_ambiguous_name"
     | "blocked_ambiguous_founder_contact"
     | "blocked_missing_required_fields"
@@ -154,6 +155,8 @@ export function buildActionCompletionQaDiagnostics(value: unknown): ActionComple
   let dispatchDecision: ActionCompletionQaDiagnostics["dispatchDecision"];
   if (autoDispatchDecisionRaw === "blocked_missing_required_fields") {
     dispatchDecision = "blocked_missing_required_fields";
+  } else if (autoDispatchDecisionRaw === "recovery_attempted_missing_required_fields") {
+    dispatchDecision = "recovery_attempted_missing_required_fields";
   } else if (autoDispatchDecisionRaw === "blocked_missing_audit_session_context") {
     dispatchDecision = "blocked_missing_audit_session_context";
   } else if (autoDispatchDecisionRaw === "blocked_audit_session_not_found") {
@@ -186,7 +189,7 @@ export function buildActionCompletionQaDiagnostics(value: unknown): ActionComple
   }
   if (!dispatchDecision) {
     if (blockedReason === "missing_required_fields") {
-      dispatchDecision = "blocked_missing_required_fields";
+      dispatchDecision = "recovery_attempted_missing_required_fields";
     } else if (blockedReason === "missing_audit_session_context") {
       dispatchDecision = "blocked_missing_audit_session_context";
     } else if (blockedReason === "audit_session_not_found") {

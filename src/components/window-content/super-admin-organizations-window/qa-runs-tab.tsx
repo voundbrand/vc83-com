@@ -55,6 +55,7 @@ type QaRunListItem = {
   dispatchDecisionCounts: {
     auto_dispatch_executed_pdf: number;
     auto_dispatch_executed_docx: number;
+    recovery_attempted_missing_required_fields: number;
     blocked_missing_required_fields: number;
     blocked_missing_audit_session_context: number;
     blocked_audit_session_not_found: number;
@@ -600,6 +601,7 @@ export function QaRunsTab() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                   <div>auto_dispatch_executed_pdf: {run.dispatchDecisionCounts.auto_dispatch_executed_pdf}</div>
                   <div>auto_dispatch_executed_docx: {run.dispatchDecisionCounts.auto_dispatch_executed_docx}</div>
+                  <div>recovery_attempted_missing_required_fields: {run.dispatchDecisionCounts.recovery_attempted_missing_required_fields}</div>
                   <div>blocked_missing_required_fields: {run.dispatchDecisionCounts.blocked_missing_required_fields}</div>
                   <div>blocked_missing_audit_session_context: {run.dispatchDecisionCounts.blocked_missing_audit_session_context}</div>
                   <div>blocked_audit_session_not_found: {run.dispatchDecisionCounts.blocked_audit_session_not_found}</div>

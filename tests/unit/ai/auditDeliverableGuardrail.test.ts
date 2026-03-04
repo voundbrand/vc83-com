@@ -110,6 +110,33 @@ describe("audit deliverable invocation guardrail", () => {
     ]);
   });
 
+  it("builds targeted Samantha recovery prompt for partially parsed freeform payloads", () => {
+    const result = resolveAuditDeliverableInvocationGuardrail({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: "Generate my workflow report now.",
+      assistantContent: `Generating now.\n\n${buildClaim("completed")}`,
+      toolResults: [],
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      recentUserMessages: [
+        "Franziska Splettstoesser, info@apothekevital.de, ja Remington kann mich kontaktieren.",
+      ],
+      capturedEmail: null,
+      capturedName: null,
+    });
+
+    expect(result.enforced).toBe(true);
+    expect(result.reason).toBe("missing_required_fields");
+    expect(result.payload.preflightMissingRequiredFields).toEqual(["phone"]);
+    expect(result.assistantContent).toContain("I captured these details so far:");
+    expect(result.assistantContent).toContain("Name: Franziska Splettstoesser");
+    expect(result.assistantContent).toContain("Email: info@apothekevital.de");
+    expect(result.assistantContent).toContain("Founder contact: Yes");
+    expect(result.assistantContent).toContain("Please confirm your phone number.");
+    expect(result.assistantContent).not.toContain("Please confirm your email address.");
+  });
+
   it("does not flag first/last name as missing when provided as explicit split fields", () => {
     const result = resolveAuditDeliverableInvocationGuardrail({
       authorityConfig: {

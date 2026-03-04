@@ -1823,6 +1823,7 @@ export const qaRuns = defineTable({
   dispatchDecisionCounts: v.optional(v.object({
     auto_dispatch_executed_pdf: v.number(),
     auto_dispatch_executed_docx: v.number(),
+    recovery_attempted_missing_required_fields: v.optional(v.number()),
     blocked_missing_required_fields: v.number(),
     blocked_missing_audit_session_context: v.optional(v.number()),
     blocked_audit_session_not_found: v.optional(v.number()),

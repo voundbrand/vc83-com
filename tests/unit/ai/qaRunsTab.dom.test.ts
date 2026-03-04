@@ -65,7 +65,8 @@ const LIST_RUNS_RESPONSE = {
       dispatchDecisionCounts: {
         auto_dispatch_executed_pdf: 0,
         auto_dispatch_executed_docx: 0,
-        blocked_missing_required_fields: 1,
+        recovery_attempted_missing_required_fields: 1,
+        blocked_missing_required_fields: 0,
         blocked_missing_audit_session_context: 0,
         blocked_audit_session_not_found: 0,
         blocked_ambiguous_name: 0,
@@ -169,7 +170,7 @@ describe("QaRunsTab DOM behavior", () => {
     expect(await screen.findByText(/"contractVersion": "super_admin_agent_qa_incident_bundle_v1"/)).toBeTruthy();
     expect(screen.getByText(/"blockedReason": "missing_required_fields"/)).toBeTruthy();
     expect(screen.getByText(/"requiredTools": \[/)).toBeTruthy();
-    expect(screen.getByText(/blocked_missing_required_fields: 1/)).toBeTruthy();
+    expect(screen.getByText(/recovery_attempted_missing_required_fields: 1/)).toBeTruthy();
     expect(screen.getByText(/^ambiguous_founder_contact: 0$/)).toBeTruthy();
   });
 });

@@ -72,7 +72,7 @@ describe("qaModeContracts", () => {
       enforcementMode: "enforce",
       rewriteApplied: true,
       templateRole: "one_of_one_template",
-      dispatchDecision: "blocked_missing_required_fields",
+      dispatchDecision: "recovery_attempted_missing_required_fields",
       blockedReason: "missing_required_fields",
       blockedDetail: "missing_required_fields: deliverable.pdf, deliverable.summary",
     });

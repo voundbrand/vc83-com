@@ -73,6 +73,36 @@ describe("Samantha audit auto-dispatch planner", () => {
     });
   });
 
+  it("parses comma-delimited freeform intake payloads and keeps dispatch eligible", () => {
+    const plan = resolveSamanthaAuditAutoDispatchPlan({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: [
+        "Franziska Splettstoesser, info@apothekevital.de, +49 151 40427103,",
+        "Apotheke, 6million, nein ki, ja ich habe budget, ja Remington kann mich kontaktieren.",
+        "Bitte jetzt den PDF Report erstellen.",
+      ].join(" "),
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      toolResults: [],
+      recentUserMessages: [],
+      capturedEmail: null,
+      capturedName: null,
+      contactMemory: [],
+    });
+
+    expect(plan.shouldDispatch).toBe(true);
+    expect(plan.missingRequiredFields).toEqual([]);
+    expect(plan.ambiguousFounderContact).toBe(false);
+    expect(plan.toolArgs).toMatchObject({
+      firstName: "Franziska",
+      lastName: "Splettstoesser",
+      email: "info@apothekevital.de",
+      phone: "+4915140427103",
+      founderContactRequested: true,
+    });
+  });
+
   it("supports mononym payloads deterministically by duplicating into split name fields", () => {
     const plan = resolveSamanthaAuditAutoDispatchPlan({
       authorityConfig: {
@@ -349,7 +379,7 @@ describe("Samantha audit auto-dispatch planner", () => {
     expect(plan.shouldDispatch).toBe(true);
   });
 
-  it("retries auto-dispatch when a prior in-turn attempt returned without any tool result", () => {
+  it("does not retry auto-dispatch when a prior in-turn attempt is pending approval", () => {
     const plan = resolveSamanthaAuditAutoDispatchPlan({
       authorityConfig: {
         templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
@@ -376,10 +406,10 @@ describe("Samantha audit auto-dispatch planner", () => {
     });
 
     expect(plan.alreadyAttempted).toBe(true);
-    expect(plan.preexistingInvocationStatus).toBe("attempted_without_result");
-    expect(plan.retryEligibleAfterFailure).toBe(true);
-    expect(plan.skipReasonCodes).not.toContain("tool_already_attempted");
-    expect(plan.shouldDispatch).toBe(true);
+    expect(plan.preexistingInvocationStatus).toBe("queued_pending_approval");
+    expect(plan.retryEligibleAfterFailure).toBe(false);
+    expect(plan.skipReasonCodes).toContain("tool_already_attempted");
+    expect(plan.shouldDispatch).toBe(false);
   });
 
   it("treats model-selected deliverable tool as request detection for confirmation replies", () => {

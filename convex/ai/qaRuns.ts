@@ -137,6 +137,7 @@ function resolveBlockedReasonKey(value: unknown): BlockedReasonKey {
 type DispatchDecisionKey =
   | "auto_dispatch_executed_pdf"
   | "auto_dispatch_executed_docx"
+  | "recovery_attempted_missing_required_fields"
   | "blocked_missing_required_fields"
   | "blocked_missing_audit_session_context"
   | "blocked_audit_session_not_found"
@@ -152,6 +153,9 @@ function resolveDispatchDecisionKey(value: unknown): DispatchDecisionKey {
   }
   if (value === "auto_dispatch_executed_docx") {
     return "auto_dispatch_executed_docx";
+  }
+  if (value === "recovery_attempted_missing_required_fields") {
+    return "recovery_attempted_missing_required_fields";
   }
   if (value === "blocked_missing_required_fields") {
     return "blocked_missing_required_fields";
@@ -360,6 +364,7 @@ export const upsertQaRunTurnInternal = internalMutation({
       const dispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
         auto_dispatch_executed_pdf: 0,
         auto_dispatch_executed_docx: 0,
+        recovery_attempted_missing_required_fields: 0,
         blocked_missing_required_fields: 0,
         blocked_missing_audit_session_context: 0,
         blocked_audit_session_not_found: 0,
@@ -456,6 +461,8 @@ export const upsertQaRunTurnInternal = internalMutation({
     const nextDispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
       auto_dispatch_executed_pdf: existing.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
       auto_dispatch_executed_docx: existing.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+      recovery_attempted_missing_required_fields:
+        existing.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
       blocked_missing_required_fields: existing.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
       blocked_missing_audit_session_context:
         existing.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
@@ -720,17 +727,22 @@ export const listQaRuns = query({
           ambiguous_founder_contact: row.blockedReasonCounts?.ambiguous_founder_contact ?? 0,
           unknown: row.blockedReasonCounts?.unknown ?? 0,
         },
-        dispatchDecisionCounts: row.dispatchDecisionCounts || {
-          auto_dispatch_executed_pdf: 0,
-          auto_dispatch_executed_docx: 0,
-          blocked_missing_required_fields: 0,
-          blocked_missing_audit_session_context: 0,
-          blocked_audit_session_not_found: 0,
-          blocked_ambiguous_name: 0,
-          blocked_ambiguous_founder_contact: 0,
-          blocked_tool_unavailable: 0,
-          blocked_tool_not_observed: 0,
-          unknown: 0,
+        dispatchDecisionCounts: {
+          auto_dispatch_executed_pdf: row.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
+          auto_dispatch_executed_docx: row.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+          recovery_attempted_missing_required_fields:
+            row.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
+          blocked_missing_required_fields: row.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
+          blocked_missing_audit_session_context:
+            row.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
+          blocked_audit_session_not_found:
+            row.dispatchDecisionCounts?.blocked_audit_session_not_found ?? 0,
+          blocked_ambiguous_name: row.dispatchDecisionCounts?.blocked_ambiguous_name ?? 0,
+          blocked_ambiguous_founder_contact:
+            row.dispatchDecisionCounts?.blocked_ambiguous_founder_contact ?? 0,
+          blocked_tool_unavailable: row.dispatchDecisionCounts?.blocked_tool_unavailable ?? 0,
+          blocked_tool_not_observed: row.dispatchDecisionCounts?.blocked_tool_not_observed ?? 0,
+          unknown: row.dispatchDecisionCounts?.unknown ?? 0,
         },
         reasonCodeCounts: row.reasonCodeCounts || {},
         preflightReasonCodeCounts: row.preflightReasonCodeCounts || {},
@@ -891,17 +903,22 @@ export const exportQaRunIncidentBundle = query({
           ambiguous_founder_contact: run.blockedReasonCounts?.ambiguous_founder_contact ?? 0,
           unknown: run.blockedReasonCounts?.unknown ?? 0,
         },
-        dispatchDecisionCounts: run.dispatchDecisionCounts || {
-          auto_dispatch_executed_pdf: 0,
-          auto_dispatch_executed_docx: 0,
-          blocked_missing_required_fields: 0,
-          blocked_missing_audit_session_context: 0,
-          blocked_audit_session_not_found: 0,
-          blocked_ambiguous_name: 0,
-          blocked_ambiguous_founder_contact: 0,
-          blocked_tool_unavailable: 0,
-          blocked_tool_not_observed: 0,
-          unknown: 0,
+        dispatchDecisionCounts: {
+          auto_dispatch_executed_pdf: run.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
+          auto_dispatch_executed_docx: run.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+          recovery_attempted_missing_required_fields:
+            run.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
+          blocked_missing_required_fields: run.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
+          blocked_missing_audit_session_context:
+            run.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
+          blocked_audit_session_not_found:
+            run.dispatchDecisionCounts?.blocked_audit_session_not_found ?? 0,
+          blocked_ambiguous_name: run.dispatchDecisionCounts?.blocked_ambiguous_name ?? 0,
+          blocked_ambiguous_founder_contact:
+            run.dispatchDecisionCounts?.blocked_ambiguous_founder_contact ?? 0,
+          blocked_tool_unavailable: run.dispatchDecisionCounts?.blocked_tool_unavailable ?? 0,
+          blocked_tool_not_observed: run.dispatchDecisionCounts?.blocked_tool_not_observed ?? 0,
+          unknown: run.dispatchDecisionCounts?.unknown ?? 0,
         },
         reasonCodeCounts: run.reasonCodeCounts || {},
         preflightReasonCodeCounts: run.preflightReasonCodeCounts || {},

@@ -21,7 +21,7 @@ describe("super-admin QA telemetry envelope contract", () => {
         observedTools: ["send_email"],
         missingRequiredFields: ["deliverable.summary"],
         enforcementMode: "enforce",
-        dispatchDecision: "blocked_missing_required_fields",
+        dispatchDecision: "recovery_attempted_missing_required_fields",
         blockedReason: "missing_required_fields",
         blockedDetail: "missing_required_fields: deliverable.summary",
       },
@@ -40,7 +40,7 @@ describe("super-admin QA telemetry envelope contract", () => {
       availableTools: ["send_email"],
       preflightMissingRequiredFields: ["deliverable.summary"],
       actionCompletionEnforcementMode: "enforce",
-      dispatchDecision: "blocked_missing_required_fields",
+      dispatchDecision: "recovery_attempted_missing_required_fields",
       blockedReason: "missing_required_fields",
       blockedDetail: "missing_required_fields: deliverable.summary",
     });
