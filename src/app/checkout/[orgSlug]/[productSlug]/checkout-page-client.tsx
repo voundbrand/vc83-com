@@ -263,7 +263,7 @@ export function CheckoutPageClient({ orgSlug, slug }: CheckoutPageClientProps) {
   return (
     <TranslationProvider forceLocale={defaultLanguage}>
       <div
-        className="min-h-screen w-full max-w-full overflow-x-hidden"
+        className="checkout-isolation min-h-screen w-full max-w-full overflow-x-hidden"
         style={{
           ...themeStyles,
           background: theme?.colors.background || "#ffffff",

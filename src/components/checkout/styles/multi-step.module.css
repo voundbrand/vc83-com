@@ -9,6 +9,7 @@
 .checkoutContainer {
   min-height: 100vh;
   background: var(--color-background);
+  color-scheme: light;
   padding: var(--spacing-xl);
   display: flex;
   flex-direction: column;

@@ -2513,15 +2513,21 @@ body {
 
 /* ==========================================================================
    CHECKOUT ISOLATION STYLES
-   These reset admin window styles for public checkout forms.
-   The checkout UI should NOT inherit the backend admin theme.
+   Keep public checkout rendering stable while isolating admin preview styles.
+   The reset rules are intentionally scoped to .manage-window-modern only.
    ========================================================================== */
-.behavior-driven-checkout input,
-.behavior-driven-checkout textarea,
-.behavior-driven-checkout select,
-.checkout-isolation input,
-.checkout-isolation textarea,
-.checkout-isolation select {
+/* Public checkout pages should always render light form controls */
+.behavior-driven-checkout,
+.checkout-isolation {
+  color-scheme: light;
+}
+
+.manage-window-modern .behavior-driven-checkout input,
+.manage-window-modern .behavior-driven-checkout textarea,
+.manage-window-modern .behavior-driven-checkout select,
+.manage-window-modern .checkout-isolation input,
+.manage-window-modern .checkout-isolation textarea,
+.manage-window-modern .checkout-isolation select {
   /* Reset admin styling - use the component's own Tailwind classes */
   background-color: revert !important;
   color: revert !important;
@@ -2530,31 +2536,31 @@ body {
   box-shadow: revert !important;
 }
 
-.behavior-driven-checkout input:focus,
-.behavior-driven-checkout textarea:focus,
-.behavior-driven-checkout select:focus,
-.checkout-isolation input:focus,
-.checkout-isolation textarea:focus,
-.checkout-isolation select:focus {
+.manage-window-modern .behavior-driven-checkout input:focus,
+.manage-window-modern .behavior-driven-checkout textarea:focus,
+.manage-window-modern .behavior-driven-checkout select:focus,
+.manage-window-modern .checkout-isolation input:focus,
+.manage-window-modern .checkout-isolation textarea:focus,
+.manage-window-modern .checkout-isolation select:focus {
   outline: revert !important;
   outline-offset: revert !important;
   border-color: revert !important;
 }
 
-.behavior-driven-checkout input:disabled,
-.behavior-driven-checkout textarea:disabled,
-.behavior-driven-checkout select:disabled,
-.checkout-isolation input:disabled,
-.checkout-isolation textarea:disabled,
-.checkout-isolation select:disabled {
+.manage-window-modern .behavior-driven-checkout input:disabled,
+.manage-window-modern .behavior-driven-checkout textarea:disabled,
+.manage-window-modern .behavior-driven-checkout select:disabled,
+.manage-window-modern .checkout-isolation input:disabled,
+.manage-window-modern .checkout-isolation textarea:disabled,
+.manage-window-modern .checkout-isolation select:disabled {
   background-color: revert !important;
   color: revert !important;
   opacity: revert !important;
 }
 
 /* Checkout buttons should use their own styling, not admin retro-button styles */
-.behavior-driven-checkout button:not(.retro-button):not(.desktop-shell-button),
-.checkout-isolation button:not(.retro-button):not(.desktop-shell-button) {
+.manage-window-modern .behavior-driven-checkout button:not(.retro-button):not(.desktop-shell-button),
+.manage-window-modern .checkout-isolation button:not(.retro-button):not(.desktop-shell-button) {
   border: revert !important;
   border-color: revert !important;
   background: revert !important;
