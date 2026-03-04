@@ -97,6 +97,10 @@ export function evaluateVisionSourceReadiness(args: {
     return { ready: true, reasonCode: 'iphone_source_ready' };
   }
 
+  if (!args.bridge.datSdkAvailable) {
+    return { ready: false, reasonCode: 'meta_bridge_dat_sdk_unavailable' };
+  }
+
   if (args.bridge.connectionState !== 'connected') {
     return { ready: false, reasonCode: 'meta_bridge_not_connected' };
   }
@@ -107,10 +111,6 @@ export function evaluateVisionSourceReadiness(args: {
 
   if (args.bridge.activeDevice.sourceClass !== 'meta_glasses') {
     return { ready: false, reasonCode: 'meta_bridge_source_class_mismatch' };
-  }
-
-  if (!args.bridge.datSdkAvailable) {
-    return { ready: false, reasonCode: 'meta_bridge_dat_sdk_unavailable' };
   }
 
   if (args.bridge.failure) {

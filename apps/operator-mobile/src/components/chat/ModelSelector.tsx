@@ -39,6 +39,13 @@ type ModelSelectorProps = {
   availableModels?: RuntimeModelAvailability[];
 };
 
+function normalizeModelId(value: string | undefined | null): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
 const IconComponent = ({ icon, color, size = 16 }: { icon: Model['icon']; color: string; size?: number }) => {
   switch (icon) {
     case 'zap':
@@ -72,17 +79,18 @@ function buildRuntimeModels(models: RuntimeModelAvailability[] | undefined): Mod
   }
 
   return models.map((item, index) => {
-    const known = getModelById(item.modelId);
-    const normalizedProvider = item.provider?.trim() || item.modelId.split('/')[0] || 'unknown';
-    const displayName = item.customLabel || item.name || known?.name || item.modelId;
+    const normalizedModelId = normalizeModelId(item.modelId);
+    const known = getModelById(normalizedModelId);
+    const normalizedProvider = item.provider?.trim() || normalizedModelId.split('/')[0] || 'unknown';
+    const displayName = item.customLabel || item.name || known?.name || normalizedModelId;
     return {
-      id: item.modelId,
+      id: normalizedModelId,
       name: displayName,
       provider: normalizedProvider,
       contextLength: known?.contextLength || 200000,
       pricing: known?.pricing || { prompt: 0, completion: 0 },
       description: known?.description || `${normalizedProvider} runtime model`,
-      icon: known?.icon || inferIcon(item.modelId, normalizedProvider),
+      icon: known?.icon || inferIcon(normalizedModelId, normalizedProvider),
       isPrimary: index < 3 || item.isDefault,
     };
   });
@@ -98,8 +106,12 @@ export function ModelSelector({
   const [showMoreModels, setShowMoreModels] = useState(false);
 
   const runtimeModels = useMemo(() => buildRuntimeModels(availableModels), [availableModels]);
+  const normalizedSelectedModel = useMemo(
+    () => normalizeModelId(selectedModel),
+    [selectedModel]
+  );
   const defaultRuntimeModelId = useMemo(
-    () => availableModels?.find((model) => model.isDefault)?.modelId,
+    () => normalizeModelId(availableModels?.find((model) => model.isDefault)?.modelId),
     [availableModels]
   );
   const sortedRuntimeModels = useMemo(() => {
@@ -123,16 +135,16 @@ export function ModelSelector({
 
   const currentModel = useMemo(
     () =>
-      runtimeModels.find((model) => model.id === selectedModel)
-      || getModelById(selectedModel)
+      runtimeModels.find((model) => model.id === normalizedSelectedModel)
+      || getModelById(normalizedSelectedModel)
       || primaryModels[0]
       || runtimeModels[0]
       || DEFAULT_MODEL,
-    [runtimeModels, selectedModel, primaryModels]
+    [runtimeModels, normalizedSelectedModel, primaryModels]
   );
 
   const handleSelect = (modelId: string) => {
-    onSelectModel(modelId);
+    onSelectModel(normalizeModelId(modelId));
     setIsOpen(false);
     setShowMoreModels(false);
   };
@@ -166,7 +178,7 @@ export function ModelSelector({
   };
 
   const renderModelItem = (model: Model) => {
-    const isSelected = model.id === selectedModel;
+    const isSelected = model.id === normalizedSelectedModel;
     const isFree = model.pricing.prompt === 0 && model.pricing.completion === 0;
 
     return (

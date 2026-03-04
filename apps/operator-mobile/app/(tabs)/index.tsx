@@ -13,6 +13,7 @@ import {
   Switch,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -106,6 +107,13 @@ function resolveCreditActionUrl(actionUrl: string | undefined): string | null {
   return `${appBase}/${normalized}`;
 }
 
+function normalizeModelId(value: string | undefined | null): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
 export default function ConversationScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -114,7 +122,7 @@ export default function ConversationScreen() {
     resolvedTheme,
     agentName,
     agentVoiceId,
-    autoSpeakReplies,
+    resolvedAgentVoiceLanguage,
   } = useAppPreferences();
   const insets = useSafeAreaInsets();
   const { isAuthenticated, user, currentOrganization } = useAuth();
@@ -172,6 +180,7 @@ export default function ConversationScreen() {
   const starterKickoffPendingRef = useRef(false);
   const starterKickoffInFlightRef = useRef(false);
   const starterKickoffCompletedRef = useRef(false);
+  const lastVisionReadinessAlertCodeRef = useRef<string | null>(null);
   const liveSessionIdRef = useRef(`mobile_live_${Date.now().toString(36)}`);
   const avRegistryRef = useRef(createMobileAvSourceRegistry());
   const cameraSourceIdRef = useRef<string>('');
@@ -356,10 +365,36 @@ export default function ConversationScreen() {
       bridge: metaBridgeStatus,
     });
     if (readiness.ready) {
+      lastVisionReadinessAlertCodeRef.current = null;
       return true;
     }
-    setConversationReasonCode(mapVisionReadinessReasonToConversationReason(readiness.reasonCode));
-    setPolicyError(formatVisionReadinessMessage(readiness.reasonCode));
+    const reasonCode = mapVisionReadinessReasonToConversationReason(readiness.reasonCode);
+    const readinessMessage = formatVisionReadinessMessage(readiness.reasonCode);
+    setConversationReasonCode(reasonCode);
+    if (visionSourceMode === 'meta_glasses') {
+      const iphoneFallback = evaluateVisionSourceReadiness({
+        sourceMode: 'iphone',
+        bridge: metaBridgeStatus,
+      });
+      if (iphoneFallback.ready) {
+        setVisionSourceMode('iphone');
+        setConversationEyesSource('iphone');
+        setPolicyError(readinessMessage);
+        if (lastVisionReadinessAlertCodeRef.current !== readiness.reasonCode) {
+          lastVisionReadinessAlertCodeRef.current = readiness.reasonCode;
+          Alert.alert(
+            'Vision source unavailable',
+            `${readinessMessage} Switched to iPhone source.`
+          );
+        }
+        return true;
+      }
+    }
+    setPolicyError(readinessMessage);
+    if (lastVisionReadinessAlertCodeRef.current !== readiness.reasonCode) {
+      lastVisionReadinessAlertCodeRef.current = readiness.reasonCode;
+      Alert.alert('Vision source unavailable', readinessMessage);
+    }
     return false;
   }, [formatVisionReadinessMessage, metaBridgeStatus, visionSourceMode]);
 
@@ -401,33 +436,46 @@ export default function ConversationScreen() {
       try {
         const response = await l4yercak3Client.ai.getModels();
         if (!response.success || cancelled) {
-          if (!cancelled) {
-            setSelectedModel('');
-          }
           return;
         }
-        setAvailableModels(response.models);
-
-        const selectedIsAvailable = response.models.some((model) => model.modelId === selectedModel);
-        if (!selectedIsAvailable) {
-          const fallbackModelId = response.models.find((model) => model.isDefault)?.modelId || response.models[0]?.modelId;
-          if (fallbackModelId) {
-            setSelectedModel(fallbackModelId);
-          }
-        }
+        setAvailableModels(
+          response.models.map((model) => ({
+            ...model,
+            modelId: normalizeModelId(model.modelId),
+          }))
+        );
       } catch (error) {
         console.warn('Failed to load model availability:', error);
-        if (!cancelled) {
-          // Defer to backend routing fallback when model availability cannot be resolved locally.
-          setSelectedModel('');
-        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, selectedModel, setSelectedModel]);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || availableModels.length === 0) {
+      return;
+    }
+
+    const normalizedSelectedModel = normalizeModelId(selectedModel);
+    const selectedIsAvailable =
+      normalizedSelectedModel.length > 0
+      && availableModels.some(
+        (model) => normalizeModelId(model.modelId) === normalizedSelectedModel
+      );
+    if (selectedIsAvailable) {
+      return;
+    }
+
+    const fallbackModelId =
+      availableModels.find((model) => model.isDefault)?.modelId
+      || availableModels[0]?.modelId;
+    if (fallbackModelId && fallbackModelId !== normalizedSelectedModel) {
+      setSelectedModel(fallbackModelId);
+    }
+  }, [availableModels, isAuthenticated, selectedModel, setSelectedModel]);
 
   const mobileVoiceRuntime = useMobileVoiceRuntime({
     conversationId: currentConversationId || undefined,
@@ -478,9 +526,25 @@ export default function ConversationScreen() {
   const isConversationEndingRef = useRef(isConversationEnding);
   const currentConversationIdRef = useRef<string | null>(currentConversationId);
   const closedModeSuspendIssuedRef = useRef(false);
-  const shouldSpeakReplies = autoSpeakReplies || isVoiceModeOpen;
+  const shouldSpeakReplies = isVoiceModeOpen;
   const liveHudStatusLabel = t(`chat.conversation.state.${conversationState}` as TranslationKey);
   const lastConversationEventRef = useRef<string>('');
+  const speakWithSystemFallback = useCallback(async (text: string) => {
+    const spokenText = text.trim();
+    if (!spokenText) {
+      return;
+    }
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+    } catch {
+      // Best effort; continue to speech synthesis.
+    }
+    Speech.stop();
+    Speech.speak(spokenText, { volume: 1 });
+  }, []);
   const logVoiceLifecycle = useCallback((event: string, details?: Record<string, unknown>) => {
     console.info('[VoiceLifecycle]', {
       event,
@@ -743,15 +807,14 @@ export default function ConversationScreen() {
       try {
         await mobileVoiceRuntime.synthesizeAndPlay(lastAssistantMessage.content);
       } catch {
-        Speech.stop();
-        Speech.speak(lastAssistantMessage.content);
+        await speakWithSystemFallback(lastAssistantMessage.content);
       } finally {
         setIsAssistantSpeaking(false);
         lastSpokenAssistantMessageIdRef.current = lastAssistantMessage.id;
       }
     })();
     awaitingAssistantSpeechRef.current = false;
-  }, [agentVoiceId, messages, mobileVoiceRuntime, shouldSpeakReplies]);
+  }, [agentVoiceId, messages, mobileVoiceRuntime, shouldSpeakReplies, speakWithSystemFallback]);
 
   const runCommandGate = useCallback(
     (command: string, sourceId?: string) => {
@@ -1136,6 +1199,40 @@ export default function ConversationScreen() {
     }
   }, [inputText, isLoading, latestUserMessage, policyError, sendTextMessage]);
 
+  const handleAttachmentMenuWebSearch = useCallback(() => {
+    setPolicyError(null);
+    setInputText((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) {
+        return 'Use web search to find current information about: ';
+      }
+      if (/^use web search\b/i.test(trimmed)) {
+        return current;
+      }
+      return `Use web search and cite current sources for: ${trimmed}`;
+    });
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 80);
+  }, []);
+
+  const handleAttachmentMenuResearchMode = useCallback(() => {
+    setPolicyError(null);
+    setInputText((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) {
+        return 'Run deep research on this topic and return a structured brief: ';
+      }
+      if (/^run deep research\b/i.test(trimmed)) {
+        return current;
+      }
+      return `Run deep research on: ${trimmed}. Include assumptions, options, and recommended next steps.`;
+    });
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 80);
+  }, []);
+
   const handleNewChat = () => {
     void closeVoiceSession('new_chat');
     const nextLiveSessionId = `mobile_live_${Date.now().toString(36)}`;
@@ -1247,6 +1344,9 @@ export default function ConversationScreen() {
       reason,
       activeConversationId,
     });
+    awaitingAssistantSpeechRef.current = false;
+    setIsAssistantSpeaking(false);
+    void stopVoicePlayback();
     setIsConversationEnding(true);
     setHasConversationStarted(false);
     void (async () => {
@@ -1386,8 +1486,7 @@ export default function ConversationScreen() {
         console.warn('[VoiceReply] starter_kickoff_fallback', {
           error: error instanceof Error ? error.message : String(error),
         });
-        Speech.stop();
-        Speech.speak(conversationStarterText);
+        await speakWithSystemFallback(conversationStarterText);
       } finally {
         setIsAssistantSpeaking(false);
         starterKickoffInFlightRef.current = false;
@@ -1402,6 +1501,7 @@ export default function ConversationScreen() {
     isConversationEnding,
     isVoiceModeOpen,
     mobileVoiceRuntime,
+    speakWithSystemFallback,
     shouldSpeakReplies,
   ]);
 
@@ -1559,6 +1659,7 @@ export default function ConversationScreen() {
       const result = await mobileVoiceRuntime.transcribeRecording({
         uri,
         mimeType: 'audio/m4a',
+        language: resolvedAgentVoiceLanguage,
         onPartial: (partial) => {
           setVoiceRuntime((prev) => ({
             ...(prev || {}),
@@ -1655,6 +1756,7 @@ export default function ConversationScreen() {
       ingestResult = await mobileVoiceRuntime.ingestStreamingFrame({
         uri: frame.uri,
         mimeType: 'audio/m4a',
+        language: resolvedAgentVoiceLanguage,
         frameDurationMs: frame.durationMs,
         sequence: frame.sequence,
         isFinal: frame.isFinal,
@@ -1738,8 +1840,7 @@ export default function ConversationScreen() {
             try {
               await mobileVoiceRuntime.synthesizeAndPlay(realtimeAssistantText);
             } catch {
-              Speech.stop();
-              Speech.speak(realtimeAssistantText);
+              await speakWithSystemFallback(realtimeAssistantText);
             } finally {
               setIsAssistantSpeaking(false);
             }
@@ -1772,8 +1873,7 @@ export default function ConversationScreen() {
                 try {
                   await mobileVoiceRuntime.synthesizeAndPlay(refreshedAssistantText);
                 } catch {
-                  Speech.stop();
-                  Speech.speak(refreshedAssistantText);
+                  await speakWithSystemFallback(refreshedAssistantText);
                 } finally {
                   setIsAssistantSpeaking(false);
                   awaitingAssistantSpeechRef.current = false;
@@ -1810,7 +1910,9 @@ export default function ConversationScreen() {
     metaBridgeConnectionState,
     avSourceScope,
     metaBridgeStatus,
+    speakWithSystemFallback,
     shouldSpeakReplies,
+    resolvedAgentVoiceLanguage,
     sendTextMessage,
   ]);
 
@@ -2355,8 +2457,8 @@ export default function ConversationScreen() {
                   <XStack alignItems="center" gap="$2" flex={1}>
                     <AttachmentMenu
                       onAttach={handleAttachment}
-                      onWebSearch={() => {}}
-                      onResearchMode={() => {}}
+                      onWebSearch={handleAttachmentMenuWebSearch}
+                      onResearchMode={handleAttachmentMenuResearchMode}
                       metaVisionConfigured={isMetaVisionConfigured}
                       onSelectMetaVisionSource={() => {
                         setVisionSourceMode('meta_glasses');
@@ -2541,6 +2643,9 @@ export default function ConversationScreen() {
         isOpen={isVoiceModeOpen}
         onClose={() => {
           logVoiceLifecycle('voice_modal_on_close');
+          awaitingAssistantSpeechRef.current = false;
+          void mobileVoiceRuntime.stopPlayback();
+          setIsAssistantSpeaking(false);
           handleEndConversation('modal_request_close');
           setIsVoiceModeOpen(false);
           setHasConversationStarted(false);
@@ -2559,6 +2664,9 @@ export default function ConversationScreen() {
         conversationStarted={hasConversationStarted}
         onStartConversation={handleStartConversation}
         onEndConversation={() => {
+          awaitingAssistantSpeechRef.current = false;
+          void mobileVoiceRuntime.stopPlayback();
+          setIsAssistantSpeaking(false);
           handleEndConversation('orb_stop_control');
           setIsVoiceModeOpen(false);
           mobileVoiceRuntime.clearPartialTranscript();

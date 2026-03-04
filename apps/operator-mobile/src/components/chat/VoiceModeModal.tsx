@@ -227,6 +227,19 @@ export function VoiceModeModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !isAssistantSpeaking || !recorderRef.current?.isRecording()) {
+      return;
+    }
+    void (async () => {
+      try {
+        await recorderRef.current?.stop();
+      } catch (error) {
+        console.warn('Failed to pause recorder while assistant speech is active:', error);
+      }
+    })();
+  }, [isAssistantSpeaking, isOpen]);
+
   return (
     <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#111113' }}>

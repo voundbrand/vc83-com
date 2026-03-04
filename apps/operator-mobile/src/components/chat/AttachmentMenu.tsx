@@ -83,17 +83,17 @@ export function AttachmentMenu({
   };
 
   const handleCamera = async () => {
-    setIsOpen(false);
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      showPermissionAlert(
-        t('attachment.camera'),
-        'Camera permission is required to capture vision input.'
-      );
-      return;
-    }
-
     try {
+      setIsOpen(false);
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        showPermissionAlert(
+          t('attachment.camera'),
+          'Camera permission is required to capture vision input.'
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         quality: 0.8,
@@ -152,58 +152,100 @@ export function AttachmentMenu({
   };
 
   const handlePhotos = async () => {
-    setIsOpen(false);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    try {
+      setIsOpen(false);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        showPermissionAlert(
+          t('attachment.photos'),
+          'Photos permission is required to choose an image.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        onAttach({
+          type: 'image',
+          uri: result.assets[0].uri,
+          mimeType: result.assets[0].mimeType,
+          width: result.assets[0].width,
+          height: result.assets[0].height,
+        });
+      }
+    } catch (error) {
       showPermissionAlert(
         t('attachment.photos'),
-        'Photos permission is required to choose an image.'
+        error instanceof Error ? error.message : 'Failed to open photo library.'
       );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-      allowsMultipleSelection: false,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      onAttach({
-        type: 'image',
-        uri: result.assets[0].uri,
-        mimeType: result.assets[0].mimeType,
-        width: result.assets[0].width,
-        height: result.assets[0].height,
-      });
     }
   };
 
   const handleFiles = async () => {
-    setIsOpen(false);
-    const result = await DocumentPicker.getDocumentAsync({
-      type: '*/*',
-      copyToCacheDirectory: true,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      onAttach({
-        type: 'file',
-        uri: result.assets[0].uri,
-        name: result.assets[0].name,
-        mimeType: result.assets[0].mimeType,
+    try {
+      setIsOpen(false);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
       });
+
+      if (!result.canceled && result.assets[0]) {
+        onAttach({
+          type: 'file',
+          uri: result.assets[0].uri,
+          name: result.assets[0].name,
+          mimeType: result.assets[0].mimeType,
+        });
+      }
+    } catch (error) {
+      showPermissionAlert(
+        t('attachment.files'),
+        error instanceof Error ? error.message : 'Failed to open file picker.'
+      );
     }
   };
 
   const handleWebSearch = () => {
-    onWebSearch?.();
     setIsOpen(false);
+    if (!onWebSearch) {
+      showPermissionAlert(
+        t('attachment.webSearch'),
+        'Web search is not configured in this build.'
+      );
+      return;
+    }
+    try {
+      onWebSearch();
+    } catch (error) {
+      showPermissionAlert(
+        t('attachment.webSearch'),
+        error instanceof Error ? error.message : 'Failed to start web search.'
+      );
+    }
   };
 
   const handleResearchMode = () => {
-    onResearchMode?.();
     setIsOpen(false);
+    if (!onResearchMode) {
+      showPermissionAlert(
+        t('attachment.researchMode'),
+        'Research mode is not configured in this build.'
+      );
+      return;
+    }
+    try {
+      onResearchMode();
+    } catch (error) {
+      showPermissionAlert(
+        t('attachment.researchMode'),
+        error instanceof Error ? error.message : 'Failed to start research mode.'
+      );
+    }
   };
 
   return (

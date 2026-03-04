@@ -627,6 +627,14 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     transcriptFramesRef.current.clear();
     transcriptIngestSequenceRef.current = 0;
     await stopPlayback();
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+    } catch {
+      // Best-effort session teardown for playback routing reset.
+    }
     if (!active) {
       return;
     }
@@ -1074,8 +1082,16 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
 
     const fallbackText = synthesis.fallbackText || text;
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+    } catch {
+      // Continue with system speech fallback even if audio mode update fails.
+    }
     Speech.stop();
-    Speech.speak(fallbackText);
+    Speech.speak(fallbackText, { volume: 1 });
     console.info('[VoiceTTS] playback started system_fallback');
   }, [args.requestedProviderId, openSession, resolveRequestedVoiceId, stopPlayback]);
 

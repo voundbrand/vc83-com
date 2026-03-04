@@ -4,26 +4,38 @@ import * as SecureStore from 'expo-secure-store';
 import { getLocales } from 'expo-localization';
 
 import { SupportedLanguage, TranslationKey, translate } from '../i18n/translations';
-import { l4yercak3Client, type OperatorVoiceCatalogEntry } from '../api/client';
+import { l4yercak3Client } from '../api/client';
+import {
+  isVoiceCompatibleWithLanguage,
+  normalizeVoiceLanguageCode,
+  normalizeVoiceLanguagePreference,
+  resolveVoiceLanguagePreference,
+  type AgentVoiceLanguagePreference as SharedAgentVoiceLanguagePreference,
+} from '../lib/voice/catalogLanguage';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 export type LanguagePreference = 'system' | SupportedLanguage;
 export type ResolvedTheme = 'light' | 'dark';
 export type AgentVoicePreference = string | null;
+export type AgentVoiceLanguagePreference = SharedAgentVoiceLanguagePreference;
 
 type AppPreferencesContextType = {
   appearancePreference: AppearancePreference;
   languagePreference: LanguagePreference;
   agentName: string;
   agentVoiceId: AgentVoicePreference;
+  agentVoiceLanguage: AgentVoiceLanguagePreference;
   autoSpeakReplies: boolean;
   deviceLanguage: SupportedLanguage;
+  deviceVoiceLanguage: string;
   resolvedTheme: ResolvedTheme;
   resolvedLanguage: SupportedLanguage;
+  resolvedAgentVoiceLanguage: string;
   setAppearancePreference: (value: AppearancePreference) => void;
   setLanguagePreference: (value: LanguagePreference) => void;
   setAgentName: (value: string) => void;
   setAgentVoiceId: (value: AgentVoicePreference) => void;
+  setAgentVoiceLanguage: (value: AgentVoiceLanguagePreference) => void;
   setAutoSpeakReplies: (value: boolean) => void;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   isReady: boolean;
@@ -34,6 +46,7 @@ type StoredPreferences = {
   languagePreference: LanguagePreference;
   agentName: string;
   agentVoiceId: AgentVoicePreference;
+  agentVoiceLanguage: AgentVoiceLanguagePreference;
   autoSpeakReplies: boolean;
 };
 
@@ -54,77 +67,17 @@ function normalizeAgentVoicePreference(value: unknown): AgentVoicePreference {
   return normalized.length > 0 ? normalized : null;
 }
 
-const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
-  american: 'en',
-  british: 'en',
-  deutsch: 'de',
-  english: 'en',
-  german: 'de',
-};
-
-function normalizeVoiceLanguageCode(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase().replace(/_/g, '-');
-  if (!normalized) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
-    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
-  }
-  const cleaned = normalized
-    .replace(/[^a-z0-9 -]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!cleaned) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
-    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
-  }
-  const primarySegment = cleaned.split('-', 1)[0]?.trim();
-  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
-    return primarySegment;
-  }
-  return null;
-}
-
-function extractVoiceLanguageCodes(voice: OperatorVoiceCatalogEntry): Set<string> {
-  const codes = new Set<string>();
-  const labels = voice.labels || {};
-  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
-  for (const candidate of candidates) {
-    const code = normalizeVoiceLanguageCode(candidate);
-    if (code) {
-      codes.add(code);
-    }
-  }
-  return codes;
-}
-
-function isVoiceCompatibleWithLanguage(
-  voice: OperatorVoiceCatalogEntry,
-  language: SupportedLanguage
-): boolean {
-  const normalizedLanguage = normalizeVoiceLanguageCode(language);
-  if (!normalizedLanguage) {
-    return true;
-  }
-  const voiceCodes = extractVoiceLanguageCodes(voice);
-  if (voiceCodes.size === 0) {
-    return true;
-  }
-  return voiceCodes.has(normalizedLanguage);
-}
-
-function getDeviceLanguage(): SupportedLanguage {
+function getDeviceVoiceLanguage(): string {
   const locale = getLocales()[0];
   const languageCode =
     locale?.languageCode?.toLowerCase() ??
     locale?.languageTag?.split('-')[0]?.toLowerCase() ??
     'en';
-  return languageCode === 'de' ? 'de' : 'en';
+  return normalizeVoiceLanguageCode(languageCode) || 'en';
+}
+
+function getDeviceLanguage(): SupportedLanguage {
+  return getDeviceVoiceLanguage() === 'de' ? 'de' : 'en';
 }
 
 export function AppPreferencesProvider({ children }: { children: React.ReactNode }) {
@@ -134,8 +87,11 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
   const [languagePreference, setLanguagePreferenceState] = useState<LanguagePreference>('system');
   const [agentName, setAgentNameState] = useState(DEFAULT_AGENT_NAME);
   const [agentVoiceId, setAgentVoiceIdState] = useState<AgentVoicePreference>(null);
+  const [agentVoiceLanguage, setAgentVoiceLanguageState] =
+    useState<AgentVoiceLanguagePreference>('system');
   const [autoSpeakReplies, setAutoSpeakRepliesState] = useState(true);
 
+  const deviceVoiceLanguage = getDeviceVoiceLanguage();
   const deviceLanguage = getDeviceLanguage();
 
   const resolvedTheme: ResolvedTheme =
@@ -147,6 +103,10 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
 
   const resolvedLanguage: SupportedLanguage =
     languagePreference === 'system' ? deviceLanguage : languagePreference;
+  const resolvedAgentVoiceLanguage = resolveVoiceLanguagePreference(
+    agentVoiceLanguage,
+    deviceVoiceLanguage
+  );
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -154,6 +114,8 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       let nextLanguagePreference: LanguagePreference = 'system';
       let nextAgentName = DEFAULT_AGENT_NAME;
       let nextAgentVoiceId: AgentVoicePreference = null;
+      let nextAgentVoiceLanguage: AgentVoiceLanguagePreference = 'system';
+      let hasStoredAgentVoiceLanguage = false;
       let nextAutoSpeakReplies = true;
 
       try {
@@ -180,6 +142,10 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
           if (parsed.agentVoiceId === null || typeof parsed.agentVoiceId === 'string') {
             nextAgentVoiceId = normalizeAgentVoicePreference(parsed.agentVoiceId);
           }
+          if (typeof parsed.agentVoiceLanguage === 'string') {
+            nextAgentVoiceLanguage = normalizeVoiceLanguagePreference(parsed.agentVoiceLanguage);
+            hasStoredAgentVoiceLanguage = true;
+          }
           if (typeof parsed.autoSpeakReplies === 'boolean') {
             nextAutoSpeakReplies = parsed.autoSpeakReplies;
           }
@@ -204,18 +170,23 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
 
           const voiceCatalog = await l4yercak3Client.ai.voice.listCatalog();
           nextAgentVoiceId = normalizeAgentVoicePreference(voiceCatalog.selectedVoiceId);
-          const bootstrapLanguage: SupportedLanguage =
-            nextLanguagePreference === 'system' ? getDeviceLanguage() : nextLanguagePreference;
+          if (!hasStoredAgentVoiceLanguage && typeof voiceCatalog.selectedLanguage === 'string') {
+            nextAgentVoiceLanguage = normalizeVoiceLanguagePreference(voiceCatalog.selectedLanguage);
+          }
+          const bootstrapVoiceLanguage = resolveVoiceLanguagePreference(
+            nextAgentVoiceLanguage,
+            getDeviceVoiceLanguage()
+          );
           if (nextAgentVoiceId) {
             const selectedVoice = (voiceCatalog.voices || []).find(
               (voice) => voice.id === nextAgentVoiceId
             );
-            if (selectedVoice && !isVoiceCompatibleWithLanguage(selectedVoice, bootstrapLanguage)) {
+            if (selectedVoice && !isVoiceCompatibleWithLanguage(selectedVoice, bootstrapVoiceLanguage)) {
               nextAgentVoiceId = null;
               try {
                 await l4yercak3Client.ai.voice.updatePreferences({
                   agentVoiceId: null,
-                  language: bootstrapLanguage,
+                  language: bootstrapVoiceLanguage,
                 });
               } catch (error) {
                 console.warn('Failed to clear incompatible operator voice preference:', error);
@@ -228,6 +199,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
             languagePreference: nextLanguagePreference,
             agentName: nextAgentName,
             agentVoiceId: nextAgentVoiceId,
+            agentVoiceLanguage: nextAgentVoiceLanguage,
             autoSpeakReplies: nextAutoSpeakReplies,
           };
           await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(mergedPayload));
@@ -243,6 +215,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         setLanguagePreferenceState(nextLanguagePreference);
         setAgentNameState(nextAgentName);
         setAgentVoiceIdState(nextAgentVoiceId);
+        setAgentVoiceLanguageState(nextAgentVoiceLanguage);
         setAutoSpeakRepliesState(nextAutoSpeakReplies);
         setIsReady(true);
       }
@@ -257,6 +230,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       nextLanguage: LanguagePreference,
       nextAgentName: string,
       nextAgentVoiceId: AgentVoicePreference,
+      nextAgentVoiceLanguage: AgentVoiceLanguagePreference,
       nextAutoSpeakReplies: boolean
     ) => {
       const payload: StoredPreferences = {
@@ -264,6 +238,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         languagePreference: nextLanguage,
         agentName: nextAgentName,
         agentVoiceId: nextAgentVoiceId,
+        agentVoiceLanguage: nextAgentVoiceLanguage,
         autoSpeakReplies: nextAutoSpeakReplies,
       };
 
@@ -279,43 +254,94 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
   const setAppearancePreference = useCallback(
     (value: AppearancePreference) => {
       setAppearancePreferenceState(value);
-      void persist(value, languagePreference, agentName, agentVoiceId, autoSpeakReplies);
+      void persist(
+        value,
+        languagePreference,
+        agentName,
+        agentVoiceId,
+        agentVoiceLanguage,
+        autoSpeakReplies
+      );
     },
-    [agentName, agentVoiceId, autoSpeakReplies, languagePreference, persist]
+    [agentName, agentVoiceId, agentVoiceLanguage, autoSpeakReplies, languagePreference, persist]
   );
 
   const setLanguagePreference = useCallback(
     (value: LanguagePreference) => {
       setLanguagePreferenceState(value);
-      void persist(appearancePreference, value, agentName, agentVoiceId, autoSpeakReplies);
+      void persist(
+        appearancePreference,
+        value,
+        agentName,
+        agentVoiceId,
+        agentVoiceLanguage,
+        autoSpeakReplies
+      );
     },
-    [agentName, agentVoiceId, autoSpeakReplies, appearancePreference, persist]
+    [agentName, agentVoiceId, agentVoiceLanguage, autoSpeakReplies, appearancePreference, persist]
   );
 
   const setAgentName = useCallback(
     (value: string) => {
       const nextValue = value.trim().slice(0, 40) || DEFAULT_AGENT_NAME;
       setAgentNameState(nextValue);
-      void persist(appearancePreference, languagePreference, nextValue, agentVoiceId, autoSpeakReplies);
+      void persist(
+        appearancePreference,
+        languagePreference,
+        nextValue,
+        agentVoiceId,
+        agentVoiceLanguage,
+        autoSpeakReplies
+      );
     },
-    [agentVoiceId, autoSpeakReplies, appearancePreference, languagePreference, persist]
+    [agentVoiceId, agentVoiceLanguage, autoSpeakReplies, appearancePreference, languagePreference, persist]
   );
 
   const setAgentVoiceId = useCallback(
     (value: AgentVoicePreference) => {
       const normalizedValue = normalizeAgentVoicePreference(value);
       setAgentVoiceIdState(normalizedValue);
-      void persist(appearancePreference, languagePreference, agentName, normalizedValue, autoSpeakReplies);
+      void persist(
+        appearancePreference,
+        languagePreference,
+        agentName,
+        normalizedValue,
+        agentVoiceLanguage,
+        autoSpeakReplies
+      );
     },
-    [agentName, autoSpeakReplies, appearancePreference, languagePreference, persist]
+    [agentName, agentVoiceLanguage, autoSpeakReplies, appearancePreference, languagePreference, persist]
+  );
+
+  const setAgentVoiceLanguage = useCallback(
+    (value: AgentVoiceLanguagePreference) => {
+      const normalizedValue = normalizeVoiceLanguagePreference(value);
+      setAgentVoiceLanguageState(normalizedValue);
+      void persist(
+        appearancePreference,
+        languagePreference,
+        agentName,
+        agentVoiceId,
+        normalizedValue,
+        autoSpeakReplies
+      );
+    },
+    [agentName, agentVoiceId, autoSpeakReplies, appearancePreference, languagePreference, persist]
   );
 
   const setAutoSpeakReplies = useCallback(
     (value: boolean) => {
       setAutoSpeakRepliesState(value);
-      void persist(appearancePreference, languagePreference, agentName, agentVoiceId, value);
+      void persist(
+        appearancePreference,
+        languagePreference,
+        agentName,
+        agentVoiceId,
+        agentVoiceLanguage,
+        value
+      );
     },
-    [agentName, agentVoiceId, appearancePreference, languagePreference, persist]
+    [agentName, agentVoiceId, agentVoiceLanguage, appearancePreference, languagePreference, persist]
   );
 
   useEffect(() => {
@@ -332,7 +358,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         const selectedVoice = (voiceCatalog.voices || []).find(
           (voice) => voice.id === agentVoiceId
         );
-        if (!selectedVoice || isVoiceCompatibleWithLanguage(selectedVoice, resolvedLanguage)) {
+        if (!selectedVoice || isVoiceCompatibleWithLanguage(selectedVoice, resolvedAgentVoiceLanguage)) {
           return;
         }
         setAgentVoiceIdState(null);
@@ -341,11 +367,12 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
           languagePreference,
           agentName,
           null,
+          agentVoiceLanguage,
           autoSpeakReplies
         );
         await l4yercak3Client.ai.voice.updatePreferences({
           agentVoiceId: null,
-          language: resolvedLanguage,
+          language: resolvedAgentVoiceLanguage,
         });
       } catch (error) {
         if (!cancelled) {
@@ -359,12 +386,13 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
   }, [
     agentName,
     agentVoiceId,
+    agentVoiceLanguage,
     appearancePreference,
     autoSpeakReplies,
     isReady,
     languagePreference,
     persist,
-    resolvedLanguage,
+    resolvedAgentVoiceLanguage,
   ]);
 
   const t = useCallback(
@@ -380,14 +408,18 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       languagePreference,
       agentName,
       agentVoiceId,
+      agentVoiceLanguage,
       autoSpeakReplies,
       deviceLanguage,
+      deviceVoiceLanguage,
       resolvedTheme,
       resolvedLanguage,
+      resolvedAgentVoiceLanguage,
       setAppearancePreference,
       setLanguagePreference,
       setAgentName,
       setAgentVoiceId,
+      setAgentVoiceLanguage,
       setAutoSpeakReplies,
       t,
       isReady,
@@ -397,14 +429,18 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       languagePreference,
       agentName,
       agentVoiceId,
+      agentVoiceLanguage,
       autoSpeakReplies,
       deviceLanguage,
+      deviceVoiceLanguage,
       resolvedTheme,
       resolvedLanguage,
+      resolvedAgentVoiceLanguage,
       setAppearancePreference,
       setLanguagePreference,
       setAgentName,
       setAgentVoiceId,
+      setAgentVoiceLanguage,
       setAutoSpeakReplies,
       t,
       isReady,

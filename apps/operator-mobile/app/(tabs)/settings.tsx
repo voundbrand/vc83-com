@@ -20,17 +20,29 @@ import {
 import { Circle, Switch, Text, XStack, YStack } from 'tamagui';
 
 import { useAuth } from '../../src/hooks/useAuth';
+import { useChatStore } from '../../src/stores/chat';
 import {
   AppearancePreference,
+  AgentVoiceLanguagePreference,
   LanguagePreference,
   useAppPreferences,
 } from '../../src/contexts/AppPreferencesContext';
-import { l4yercak3Client, type OperatorVoiceCatalogEntry } from '../../src/api/client';
+import {
+  l4yercak3Client,
+  type OperatorVoiceCatalogEntry,
+  type OperatorVoiceLanguageCatalogEntry,
+} from '../../src/api/client';
 import {
   createDefaultMetaBridgeSnapshot,
   type MetaBridgeSnapshot,
 } from '../../src/lib/av/metaBridge-contracts';
 import { metaBridge } from '../../src/lib/av/metaBridge';
+import {
+  buildVoiceLanguageCatalogFromVoices,
+  formatVoiceLanguageLabel,
+  isVoiceCompatibleWithLanguage,
+  resolveVoiceLanguagePreference,
+} from '../../src/lib/voice/catalogLanguage';
 
 function OptionRow({
   label,
@@ -65,92 +77,40 @@ function OptionRow({
   );
 }
 
-const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
-  american: 'en',
-  british: 'en',
-  deutsch: 'de',
-  english: 'en',
-  german: 'de',
-};
-
-function normalizeVoiceLanguageCode(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase().replace(/_/g, '-');
-  if (!normalized) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
-    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
-  }
-  const cleaned = normalized
-    .replace(/[^a-z0-9 -]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!cleaned) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
-    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
-  }
-  const primarySegment = cleaned.split('-', 1)[0]?.trim();
-  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
-    return primarySegment;
-  }
-  return null;
-}
-
-function extractVoiceLanguageCodes(voice: OperatorVoiceCatalogEntry): Set<string> {
-  const codes = new Set<string>();
-  const labels = voice.labels || {};
-  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
-  for (const candidate of candidates) {
-    const code = normalizeVoiceLanguageCode(candidate);
-    if (code) {
-      codes.add(code);
-    }
-  }
-  return codes;
-}
-
-function isVoiceCompatibleWithLanguage(
-  voice: OperatorVoiceCatalogEntry,
-  language: string
-): boolean {
-  const normalizedLanguage = normalizeVoiceLanguageCode(language);
-  if (!normalizedLanguage) {
-    return true;
-  }
-  const voiceLanguageCodes = extractVoiceLanguageCodes(voice);
-  if (voiceLanguageCodes.size === 0) {
-    return true;
-  }
-  return voiceLanguageCodes.has(normalizedLanguage);
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, signOut, currentOrganization } = useAuth();
+  const { user, signOut, currentOrganization, switchOrganization } = useAuth();
+  const syncConversations = useChatStore((state) => state.syncConversations);
   const {
     t,
     deviceLanguage,
+    deviceVoiceLanguage,
     resolvedLanguage,
+    resolvedAgentVoiceLanguage,
     resolvedTheme,
     appearancePreference,
     languagePreference,
     agentName,
     agentVoiceId,
+    agentVoiceLanguage,
     autoSpeakReplies,
     setAppearancePreference,
     setLanguagePreference,
     setAgentName,
     setAgentVoiceId,
+    setAgentVoiceLanguage,
     setAutoSpeakReplies,
   } = useAppPreferences();
   const [agentNameDraft, setAgentNameDraft] = useState(agentName);
+  const [isOrganizationAccordionOpen, setIsOrganizationAccordionOpen] = useState(false);
+  const [isSwitchingOrganization, setIsSwitchingOrganization] = useState(false);
+  const [organizationSwitchError, setOrganizationSwitchError] = useState<string | null>(null);
   const [availableVoices, setAvailableVoices] = useState<OperatorVoiceCatalogEntry[]>([]);
+  const [availableVoiceLanguages, setAvailableVoiceLanguages] = useState<
+    OperatorVoiceLanguageCatalogEntry[]
+  >([]);
   const [isVoiceAccordionOpen, setIsVoiceAccordionOpen] = useState(false);
+  const [isLanguageAccordionOpen, setIsLanguageAccordionOpen] = useState(false);
   const [isVoiceLoading, setIsVoiceLoading] = useState(false);
   const [voiceLoadError, setVoiceLoadError] = useState<string | null>(null);
   const [voicePreferenceError, setVoicePreferenceError] = useState<string | null>(null);
@@ -194,15 +154,26 @@ export default function SettingsScreen() {
     if (value === 'en') return t('common.english');
     return t('common.system');
   };
+  const selectedAppLanguageLabel =
+    languagePreference === 'system'
+      ? `${t('common.system')} (${languageLabel(deviceLanguage)})`
+      : languageLabel(languagePreference);
 
   const handleBackToChat = () => {
     router.replace('/(tabs)');
   };
   const isDark = resolvedTheme === 'dark';
-  const normalizedVoiceLanguage = normalizeVoiceLanguageCode(resolvedLanguage) || 'en';
+  const normalizedVoiceLanguage = resolvedAgentVoiceLanguage;
+  const normalizedVoiceLanguageLabel = formatVoiceLanguageLabel(normalizedVoiceLanguage);
   const inputBorder = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(23,23,24,0.18)';
   const inputBackground = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.92)';
   const inputColor = isDark ? '#f5efe4' : '#191713';
+
+  const resolveVoiceLanguageForPreference = useCallback(
+    (value: AgentVoiceLanguagePreference) =>
+      resolveVoiceLanguagePreference(value, deviceVoiceLanguage),
+    [deviceVoiceLanguage]
+  );
 
   useEffect(() => {
     setAgentNameDraft(agentName);
@@ -215,10 +186,21 @@ export default function SettingsScreen() {
       try {
         const response = await l4yercak3Client.ai.voice.listCatalog();
         if (cancelled) return;
-        setAvailableVoices(response.voices || []);
-        if (!hydratedVoiceFromBackendRef.current && agentVoiceId === null && response.selectedVoiceId) {
+        const voices = response.voices || [];
+        setAvailableVoices(voices);
+        const catalogLanguages =
+          Array.isArray(response.languages) && response.languages.length > 0
+            ? response.languages
+            : (buildVoiceLanguageCatalogFromVoices(voices) as OperatorVoiceLanguageCatalogEntry[]);
+        setAvailableVoiceLanguages(catalogLanguages);
+        if (!hydratedVoiceFromBackendRef.current) {
           hydratedVoiceFromBackendRef.current = true;
-          setAgentVoiceId(response.selectedVoiceId);
+          if (agentVoiceId === null && response.selectedVoiceId) {
+            setAgentVoiceId(response.selectedVoiceId);
+          }
+          if (agentVoiceLanguage === 'system' && response.selectedLanguage) {
+            setAgentVoiceLanguage(response.selectedLanguage);
+          }
         }
         setVoiceLoadError(response.warning || null);
       } catch (error) {
@@ -234,7 +216,7 @@ export default function SettingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [agentVoiceId, setAgentVoiceId]);
+  }, [agentVoiceId, agentVoiceLanguage, setAgentVoiceId, setAgentVoiceLanguage]);
 
   useEffect(() => {
     const unsubscribe = metaBridge.subscribe((snapshot) => {
@@ -252,11 +234,29 @@ export default function SettingsScreen() {
   const handleConnectMetaBridge = useCallback(async () => {
     const status = await metaBridge.connect();
     setMetaBridgeStatus(status);
+    if (status.connectionState === 'connected') {
+      return;
+    }
+    if (!status.datSdkAvailable) {
+      Alert.alert(
+        'DAT SDK unavailable',
+        'This build does not include the DAT SDK. Install a DAT-enabled iPhone build to connect Meta glasses.'
+      );
+      return;
+    }
+    if (status.failure?.message) {
+      Alert.alert('Bridge unavailable', status.failure.message);
+      return;
+    }
+    Alert.alert('Bridge unavailable', 'Meta bridge is not connected yet. Check glasses connection and try again.');
   }, []);
 
   const handleDisconnectMetaBridge = useCallback(async () => {
     const status = await metaBridge.disconnect();
     setMetaBridgeStatus(status);
+    if (status.connectionState !== 'disconnected' && status.failure?.message) {
+      Alert.alert('Bridge disconnect failed', status.failure.message);
+    }
   }, []);
   const stopPreviewPlayback = useCallback(() => {
     const player = previewPlayerRef.current;
@@ -303,19 +303,22 @@ export default function SettingsScreen() {
       avObservability,
     };
   }, []);
-  const persistVoicePreference = useCallback(async (nextVoiceId: string | null) => {
+  const persistVoicePreference = useCallback(async (
+    nextVoiceId: string | null,
+    nextLanguage: string
+  ) => {
     setVoicePreferenceError(null);
     try {
       await l4yercak3Client.ai.voice.updatePreferences({
         agentVoiceId: nextVoiceId,
-        language: normalizedVoiceLanguage,
+        language: nextLanguage,
       });
     } catch (error) {
       setVoicePreferenceError(
         error instanceof Error ? error.message : 'Failed to sync operator voice preference.'
       );
     }
-  }, [normalizedVoiceLanguage]);
+  }, []);
   useEffect(() => {
     if (!agentVoiceId) {
       return;
@@ -329,7 +332,7 @@ export default function SettingsScreen() {
     }
     setAgentVoiceId(null);
     setVoicePreferenceError(
-      `Selected voice does not match ${normalizedVoiceLanguage.toUpperCase()} and was reset to default.`
+      `Selected voice does not match ${normalizedVoiceLanguageLabel} and was reset to default.`
     );
     void (async () => {
       try {
@@ -349,6 +352,7 @@ export default function SettingsScreen() {
     agentVoiceId,
     availableVoices,
     normalizedVoiceLanguage,
+    normalizedVoiceLanguageLabel,
     setAgentVoiceId,
   ]);
   const previewVoice = useCallback(async (voice: OperatorVoiceCatalogEntry) => {
@@ -454,6 +458,59 @@ export default function SettingsScreen() {
       stopPreviewPlayback();
     };
   }, [stopPreviewPlayback]);
+  const resolvedLanguageForPersistence = useMemo(
+    () => resolveVoiceLanguageForPreference(agentVoiceLanguage),
+    [agentVoiceLanguage, resolveVoiceLanguageForPreference]
+  );
+  const voiceLanguageOptions = useMemo(() => {
+    const options = new Map<string, OperatorVoiceLanguageCatalogEntry>();
+    for (const language of availableVoiceLanguages) {
+      const key = language.code.trim().toLowerCase();
+      if (!key) {
+        continue;
+      }
+      options.set(key, {
+        code: key,
+        label: language.label || formatVoiceLanguageLabel(key),
+        voiceCount: language.voiceCount || 0,
+      });
+    }
+    if (!options.has(normalizedVoiceLanguage)) {
+      options.set(normalizedVoiceLanguage, {
+        code: normalizedVoiceLanguage,
+        label: normalizedVoiceLanguageLabel,
+        voiceCount: 0,
+      });
+    }
+    return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [availableVoiceLanguages, normalizedVoiceLanguage, normalizedVoiceLanguageLabel]);
+  const handleSelectVoiceLanguage = useCallback((nextPreference: AgentVoiceLanguagePreference) => {
+    const nextResolvedLanguage = resolveVoiceLanguageForPreference(nextPreference);
+    setAgentVoiceLanguage(nextPreference);
+    const selectedVoice = agentVoiceId
+      ? availableVoices.find((voice) => voice.id === agentVoiceId) || null
+      : null;
+    const nextVoiceId =
+      selectedVoice && isVoiceCompatibleWithLanguage(selectedVoice, nextResolvedLanguage)
+        ? selectedVoice.id
+        : null;
+    if (nextVoiceId !== agentVoiceId) {
+      setAgentVoiceId(nextVoiceId);
+      if (selectedVoice && nextVoiceId === null) {
+        setVoicePreferenceError(
+          `Selected voice does not match ${formatVoiceLanguageLabel(nextResolvedLanguage)} and was reset to default.`
+        );
+      }
+    }
+    void persistVoicePreference(nextVoiceId, nextResolvedLanguage);
+  }, [
+    agentVoiceId,
+    availableVoices,
+    persistVoicePreference,
+    resolveVoiceLanguageForPreference,
+    setAgentVoiceId,
+    setAgentVoiceLanguage,
+  ]);
   const languageCompatibleVoices = useMemo(
     () => availableVoices.filter((voice) => isVoiceCompatibleWithLanguage(voice, normalizedVoiceLanguage)),
     [availableVoices, normalizedVoiceLanguage]
@@ -461,10 +518,24 @@ export default function SettingsScreen() {
   const displayedVoices = languageCompatibleVoices;
   const selectedVoice =
     agentVoiceId === null ? null : availableVoices.find((voice) => voice.id === agentVoiceId) || null;
+  const selectedVoiceLanguageLabel =
+    agentVoiceLanguage === 'system'
+      ? `System (${formatVoiceLanguageLabel(deviceVoiceLanguage)})`
+      : normalizedVoiceLanguageLabel;
   const selectedVoiceLabel =
     selectedVoice?.name || (agentVoiceId ? `Operator voice (${agentVoiceId})` : 'One-of-One default (ElevenLabs)');
   const isDatSdkAvailable = metaBridgeStatus.datSdkAvailable;
+  const canConnectMetaBridge =
+    metaBridgeStatus.connectionState !== 'connected'
+    && metaBridgeStatus.connectionState !== 'connecting';
+  const canDisconnectMetaBridge =
+    metaBridgeStatus.connectionState === 'connected'
+    || metaBridgeStatus.connectionState === 'connecting';
+  const organizations = user?.organizations || [];
   const bridgeFailureLabel = (() => {
+    if (metaBridgeStatus.failure?.message) {
+      return metaBridgeStatus.failure.message;
+    }
     const reasonCode = metaBridgeStatus.failure?.reasonCode;
     if (!reasonCode) {
       return null;
@@ -474,6 +545,26 @@ export default function SettingsScreen() {
     }
     return reasonCode;
   })();
+  const handleOrganizationSwitch = useCallback(async (organizationId: string) => {
+    if (!organizationId || organizationId === currentOrganization?.id || isSwitchingOrganization) {
+      return;
+    }
+
+    setOrganizationSwitchError(null);
+    setIsSwitchingOrganization(true);
+
+    try {
+      await switchOrganization(organizationId);
+      await syncConversations();
+      setIsOrganizationAccordionOpen(false);
+    } catch (error) {
+      setOrganizationSwitchError(
+        error instanceof Error ? error.message : t('settings.organizationSwitchFailed')
+      );
+    } finally {
+      setIsSwitchingOrganization(false);
+    }
+  }, [currentOrganization?.id, isSwitchingOrganization, switchOrganization, syncConversations, t]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
@@ -528,10 +619,93 @@ export default function SettingsScreen() {
               <Text color="$colorTertiary" fontSize="$3">
                 {currentOrganization?.role?.name || t('settings.member')}
               </Text>
-              {user?.organizations && user.organizations.length > 1 ? (
-                <Text color="$primary" fontSize="$3">
-                  {t('settings.organizationsAvailable', { count: user.organizations.length })}
-                </Text>
+              {organizations.length > 1 ? (
+                <YStack gap="$2" paddingTop="$1">
+                  <Text color="$primary" fontSize="$3">
+                    {t('settings.organizationsAvailable', { count: organizations.length })}
+                  </Text>
+                  <Pressable
+                    disabled={isSwitchingOrganization}
+                    onPress={() => setIsOrganizationAccordionOpen((open) => !open)}
+                  >
+                    <XStack
+                      alignItems="center"
+                      justifyContent="space-between"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2"
+                      borderRadius="$3"
+                      borderWidth={1}
+                      borderColor="$borderColor"
+                      opacity={isSwitchingOrganization ? 0.6 : 1}
+                    >
+                      <Text color="$color" fontSize="$3" fontWeight="600">
+                        {isSwitchingOrganization
+                          ? t('settings.switchingOrganization')
+                          : t('settings.switchOrganization')}
+                      </Text>
+                      {isOrganizationAccordionOpen ? (
+                        <ChevronUp size={16} color="$colorTertiary" />
+                      ) : (
+                        <ChevronDown size={16} color="$colorTertiary" />
+                      )}
+                    </XStack>
+                  </Pressable>
+                  {isOrganizationAccordionOpen ? (
+                    <YStack
+                      borderWidth={1}
+                      borderColor="$borderColor"
+                      borderRadius="$3"
+                      overflow="hidden"
+                    >
+                      {organizations.map((organization) => {
+                        const isSelected = organization.id === currentOrganization?.id;
+                        const organizationRole =
+                          organization.role?.name?.trim() || t('settings.member');
+
+                        return (
+                          <Pressable
+                            key={organization.id}
+                            disabled={isSwitchingOrganization || isSelected}
+                            onPress={() => {
+                              void handleOrganizationSwitch(organization.id);
+                            }}
+                          >
+                            <XStack
+                              alignItems="center"
+                              justifyContent="space-between"
+                              paddingHorizontal="$3"
+                              paddingVertical="$2"
+                              backgroundColor={isSelected ? '$glass' : 'transparent'}
+                              opacity={isSwitchingOrganization && !isSelected ? 0.6 : 1}
+                            >
+                              <YStack flex={1}>
+                                <Text color="$color" fontSize="$3" fontWeight={isSelected ? '600' : '500'}>
+                                  {organization.name}
+                                </Text>
+                                <Text color="$colorTertiary" fontSize="$2">
+                                  {organizationRole}
+                                </Text>
+                              </YStack>
+                              {isSelected ? (
+                                <XStack alignItems="center" gap="$2">
+                                  <Text color="$primary" fontSize="$2" fontWeight="600">
+                                    {t('settings.currentOrganizationBadge')}
+                                  </Text>
+                                  <Check size={16} color="$primary" />
+                                </XStack>
+                              ) : null}
+                            </XStack>
+                          </Pressable>
+                        );
+                      })}
+                    </YStack>
+                  ) : null}
+                  {organizationSwitchError ? (
+                    <Text color="$error" fontSize="$2">
+                      {organizationSwitchError}
+                    </Text>
+                  ) : null}
+                </YStack>
               ) : null}
             </YStack>
 
@@ -594,12 +768,35 @@ export default function SettingsScreen() {
                   </Pressable>
                   {isVoiceAccordionOpen ? (
                     <YStack gap="$1" paddingTop="$1">
+                      <Text color="$colorSecondary" fontSize="$2" fontWeight="600" paddingHorizontal="$4">
+                        Voice language
+                      </Text>
+                      <OptionRow
+                        label={`System (${formatVoiceLanguageLabel(deviceVoiceLanguage)})`}
+                        selected={agentVoiceLanguage === 'system'}
+                        onPress={() => {
+                          handleSelectVoiceLanguage('system');
+                        }}
+                      />
+                      {voiceLanguageOptions.map((languageOption) => (
+                        <OptionRow
+                          key={languageOption.code}
+                          label={`${languageOption.label} (${languageOption.code.toUpperCase()})`}
+                          selected={agentVoiceLanguage !== 'system' && normalizedVoiceLanguage === languageOption.code}
+                          onPress={() => {
+                            handleSelectVoiceLanguage(languageOption.code);
+                          }}
+                        />
+                      ))}
+                      <Text color="$colorSecondary" fontSize="$2" fontWeight="600" paddingHorizontal="$4" paddingTop="$1">
+                        Voice
+                      </Text>
                       <OptionRow
                         label="One-of-One default (ElevenLabs)"
                         selected={agentVoiceId === null}
                         onPress={() => {
                           setAgentVoiceId(null);
-                          void persistVoicePreference(null);
+                          void persistVoicePreference(null, resolvedLanguageForPersistence);
                         }}
                       />
                       {isVoiceLoading ? (
@@ -609,7 +806,7 @@ export default function SettingsScreen() {
                       ) : null}
                       {!isVoiceLoading ? (
                         <Text color="$colorTertiary" fontSize="$2">
-                          Showing voices for language: {normalizedVoiceLanguage.toUpperCase()}
+                          Showing voices for language: {selectedVoiceLanguageLabel}
                         </Text>
                       ) : null}
                       {displayedVoices.map((voice) => (
@@ -619,14 +816,14 @@ export default function SettingsScreen() {
                           selected={agentVoiceId === voice.id}
                           onPress={() => {
                             setAgentVoiceId(voice.id);
-                            void persistVoicePreference(voice.id);
+                            void persistVoicePreference(voice.id, resolvedLanguageForPersistence);
                             void previewVoice(voice);
                           }}
                         />
                       ))}
                       {!isVoiceLoading && displayedVoices.length === 0 && !voiceLoadError ? (
                         <Text color="$colorTertiary" fontSize="$2">
-                          No ElevenLabs voices match {normalizedVoiceLanguage.toUpperCase()} for this organization.
+                          No ElevenLabs voices match {selectedVoiceLanguageLabel} for this organization.
                         </Text>
                       ) : null}
                       {voiceLoadError ? (
@@ -718,7 +915,7 @@ export default function SettingsScreen() {
               ) : null}
               <XStack gap="$2" paddingTop="$2">
                 <Pressable
-                  disabled={!isDatSdkAvailable}
+                  disabled={!canConnectMetaBridge}
                   onPress={() => {
                     void handleConnectMetaBridge();
                   }}
@@ -730,14 +927,17 @@ export default function SettingsScreen() {
                     borderRadius="$3"
                     paddingHorizontal="$3"
                     paddingVertical="$2"
-                    opacity={isDatSdkAvailable ? 1 : 0.5}
+                    opacity={canConnectMetaBridge ? 1 : 0.5}
                   >
                     <Text color="$color" fontSize="$3" fontWeight="600">
                       Connect bridge
                     </Text>
                   </XStack>
                 </Pressable>
-                <Pressable onPress={() => { void handleDisconnectMetaBridge(); }}>
+                <Pressable
+                  disabled={!canDisconnectMetaBridge}
+                  onPress={() => { void handleDisconnectMetaBridge(); }}
+                >
                   <XStack
                     backgroundColor="$glass"
                     borderWidth={1}
@@ -745,6 +945,7 @@ export default function SettingsScreen() {
                     borderRadius="$3"
                     paddingHorizontal="$3"
                     paddingVertical="$2"
+                    opacity={canDisconnectMetaBridge ? 1 : 0.5}
                   >
                     <Text color="$color" fontSize="$3" fontWeight="600">
                       Disconnect bridge
@@ -773,21 +974,57 @@ export default function SettingsScreen() {
                 </Text>
               </YStack>
 
-              <OptionRow
-                label={t('common.system')}
-                selected={languagePreference === 'system'}
-                onPress={() => setLanguagePreference('system')}
-              />
-              <OptionRow
-                label={t('common.english')}
-                selected={languagePreference === 'en'}
-                onPress={() => setLanguagePreference('en')}
-              />
-              <OptionRow
-                label={t('common.german')}
-                selected={languagePreference === 'de'}
-                onPress={() => setLanguagePreference('de')}
-              />
+              <YStack paddingHorizontal="$4">
+                <Pressable onPress={() => setIsLanguageAccordionOpen((open) => !open)}>
+                  <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    paddingHorizontal="$4"
+                    paddingVertical="$3"
+                    borderRadius="$3"
+                    borderWidth={1}
+                    borderColor="$borderColor"
+                  >
+                    <Text color="$color" fontSize="$4" fontWeight="600" numberOfLines={1}>
+                      {selectedAppLanguageLabel}
+                    </Text>
+                    {isLanguageAccordionOpen ? (
+                      <ChevronUp size={18} color="$colorTertiary" />
+                    ) : (
+                      <ChevronDown size={18} color="$colorTertiary" />
+                    )}
+                  </XStack>
+                </Pressable>
+              </YStack>
+
+              {isLanguageAccordionOpen ? (
+                <YStack gap="$1" paddingTop="$1">
+                  <OptionRow
+                    label={`${t('common.system')} (${languageLabel(deviceLanguage)})`}
+                    selected={languagePreference === 'system'}
+                    onPress={() => {
+                      setLanguagePreference('system');
+                      setIsLanguageAccordionOpen(false);
+                    }}
+                  />
+                  <OptionRow
+                    label={t('common.english')}
+                    selected={languagePreference === 'en'}
+                    onPress={() => {
+                      setLanguagePreference('en');
+                      setIsLanguageAccordionOpen(false);
+                    }}
+                  />
+                  <OptionRow
+                    label={t('common.german')}
+                    selected={languagePreference === 'de'}
+                    onPress={() => {
+                      setLanguagePreference('de');
+                      setIsLanguageAccordionOpen(false);
+                    }}
+                  />
+                </YStack>
+              ) : null}
             </YStack>
 
             <YStack borderBottomWidth={1} borderColor="$borderColor" paddingHorizontal="$4" paddingVertical="$4" gap="$2">

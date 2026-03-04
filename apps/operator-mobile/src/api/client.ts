@@ -18,6 +18,12 @@ export type OperatorVoiceCatalogEntry = {
   previewUrl?: string;
 };
 
+export type OperatorVoiceLanguageCatalogEntry = {
+  code: string;
+  label: string;
+  voiceCount: number;
+};
+
 class L4yercak3APIClient {
   private baseUrl: string;
   private sessionId: string | null = null;
@@ -556,7 +562,9 @@ class L4yercak3APIClient {
         return this.request<{
           success: boolean;
           voices: OperatorVoiceCatalogEntry[];
+          languages: OperatorVoiceLanguageCatalogEntry[];
           selectedVoiceId: string | null;
+          selectedLanguage: string | null;
           provider: 'elevenlabs';
           providerStatus: 'healthy' | 'degraded';
           warning?: string;
