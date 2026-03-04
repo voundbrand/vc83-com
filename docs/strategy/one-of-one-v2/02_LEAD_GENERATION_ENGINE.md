@@ -4,8 +4,6 @@
 **Date:** 2026-03-03
 **Classification:** Internal — Founder's Eyes Only
 
-**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
-
 ---
 
 ## The Core Insight
@@ -80,7 +78,7 @@ After Diagnostic or Demo:
     → Beta code / 7-day trial (AI continues learning their business)
     → Day 3: curiosity check-in ("Your agent learned X about your business. What do you think?")
     → Day 7: founder-led close call ("Your 7-day access ends today. Want to keep what it learned?")
-    → Close: Foundation (€7K excl. VAT) or Consulting Sprint (€3.5K excl. VAT) if they need more time
+    → Close: Foundation (€7K) or Consulting Sprint (€3.5K) if they need more time
 ```
 
 ---
@@ -109,15 +107,11 @@ The diagnostic captures leads through progressive disclosure:
 2. **After question 3:** Samantha naturally asks for a name (conversational, not a form).
 3. **After recommendation:** CTA to "continue with your operator" — requires email/Google sign-in.
 4. **Handoff links:** Three options presented after diagnostic:
-   - "Continue the conversation" (resume chat in the platform, free path)
-   - "Consulting sprint — scope only" (€3,500 excl. VAT, checkout-first)
-   - "Full implementation" (from €7,000 excl. VAT Foundation, checkout-first)
+   - "Continue the conversation" (resume chat in the platform)
+   - "Consulting sprint — scope only" (€3,500 entry)
+   - "Full implementation" (from €7,000 Foundation)
 
-The handoff system is already built. See [handoff.ts](../../apps/one-of-one-landing/lib/handoff.ts) for the commercial intent routing. The €3,500 excl. VAT CTA maps to `consult_done_with_you`; the €7,000 excl. VAT CTA maps to `layer1_foundation`; both route to Store checkout first and then Stripe. Paid-product CTAs in the landing commercial flow do not deep-link to chat.
-
-In the detailed pricing accordion:
-- Stripe-checkout-capable rows route to checkout-first URLs.
-- Non-Stripe / not-configured rows open a localized prefilled email to `remington@sevenlayers.io` (with offer details and source metadata).
+The handoff system is already built. See [handoff.ts](../../apps/one-of-one-landing/lib/handoff.ts) for the commercial intent routing. Each CTA carries offer codes, intent codes, and attribution data through to the platform.
 
 ---
 
