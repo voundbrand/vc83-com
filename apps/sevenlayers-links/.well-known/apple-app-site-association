@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.l4yercak3.app"],
+        "appIDs": ["A89SWGVT26.com.l4yercak3.app"],
         "components": [
           {
             "/": "/dat-callback/*"
