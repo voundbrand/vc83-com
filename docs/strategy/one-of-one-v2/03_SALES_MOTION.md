@@ -4,6 +4,8 @@
 **Date:** 2026-03-03
 **Classification:** Internal — Founder's Eyes Only
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## The Non-Negotiable: Rule of 100
@@ -62,8 +64,8 @@ Day 7: Founder-led close call
      your business. Want to keep what it learned?"
     ↓
 CLOSE
-    ├── Foundation (€7,000–€34,999 + €499/mo)   ← primary target
-    ├── Consulting Sprint (€3,500)       ← if they need more time
+    ├── Foundation (€7,000–€34,999 excl. VAT + €499/mo)   ← primary target
+    ├── Consulting Sprint (€3,500 excl. VAT)       ← if they need more time
     └── Dream Team / Sovereign           ← if scope warrants it
 ```
 
@@ -88,7 +90,7 @@ CLOSE
 >
 > "Our Sovereign tier at €195,000 is the sweet spot for established businesses — you get a 4-node private compute cluster with a terabyte of memory, your own AI operator with custom specialists, on-site installation, and a full year of managed support. Your data never leaves your building."
 >
-> "For most businesses at your stage, Foundation is the right starting point. Starting at €7,000 to set up your operator, €499 a month to keep it running and learning. That's less than a part-time hire and it works 24/7."
+> "For most businesses at your stage, Foundation is the right starting point. Starting at €7,000 excl. VAT to set up your operator, €499 a month to keep it running and learning. That's less than a part-time hire and it works 24/7."
 >
 > "And here's what I love about how we built this — when you need data sovereignty down the road, we just add a module. Your operator stays the same; we plug in private infrastructure underneath. It's not a separate project."
 >
@@ -102,13 +104,13 @@ They'll say Foundation. That's the plan. But you've planted two seeds: the Sover
 
 | Objection | Response |
 |---|---|
-| **"€7,000 is a lot"** | "How much does your current bottleneck cost you per month? If your operator captures just 2–3 extra leads a month at your average deal size, it pays for itself in the first quarter. And it never takes a sick day." |
+| **"€7,000 (excl. VAT) is a lot"** | "How much does your current bottleneck cost you per month? If your operator captures just 2–3 extra leads a month at your average deal size, it pays for itself in the first quarter. And it never takes a sick day." |
 | **"Can I just use ChatGPT?"** | "ChatGPT forgets you every session. Your operator has 7 layers of memory that make it permanently yours. You talked to it for 7 days — it knows your business, your customers, your voice. ChatGPT starts from zero every time." |
 | **"I need to think about it"** | "Completely understand. Your operator has learned a lot about your business this week. I can extend your trial another 7 days if you want more time. But everything it learned so far — that stays only if you continue." |
 | **"My IT person can build this"** | "They probably could — in 6–12 months, for €100K+ in salary and infrastructure. I'll have it running in 2 weeks. And it'll be learning from every conversation from day one." |
 | **"We're not tech-savvy"** | "That's exactly who this is for. You had a conversation with Samantha on the landing page — that's the entire user experience. If you can talk, you can use it." |
 | **"What if it doesn't work?"** | "You already saw it work. You've been using it for 7 days. The question isn't if it works — it's how much more it can do with full implementation behind it." |
-| **"Can I start with the consulting sprint?"** | "Absolutely. €3,500 gets you a full scope document — what to automate, what to build, priority sequence, estimated ROI. Most clients use that as their Foundation blueprint." |
+| **"Can I start with the consulting sprint?"** | "Absolutely. €3,500 excl. VAT gets you a full scope document — what to automate, what to build, priority sequence, estimated ROI. Most clients use that as their Foundation blueprint." |
 | **"We can't send data to the cloud"** | "We hear that a lot — especially from law firms and clinics. Your operator can run on your own hardware. We set up a private compute cluster at your office. Same operator, same channels, but the data never leaves your building. We can add that to any tier as a module." |
 | **"Can we use our own AI model?"** | "Absolutely. We support bring-your-own-key today — you can connect your own OpenAI or Anthropic account right now. And when you're ready, we can deploy open-source models on dedicated hardware or cloud GPUs, completely private to you. Your operator works with any inference backend." |
 | **"What about GDPR / data sovereignty?"** | "Three options: BYOK so you control the API relationship, a dedicated GPU in an EU data center so nothing crosses borders, or hardware at your office for absolute sovereignty. All three work with your existing operator — it's modular." |

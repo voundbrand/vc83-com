@@ -54,16 +54,6 @@ next-env.d.ts
 
 .env.local
 
-# documentation folders
-/docs/geschlossene-gesellschaft/
-# reference projects under docs (local-only, not part of product source)
-docs/reference_projects/*
-!docs/reference_projects/README.md
-
-# openclaw idea notes are archived/integrated; keep only folder README
-docs/openclaw_idea/*.md
-!docs/openclaw_idea/README.md
-
 # Expo operator mobile local artifacts (keep ios/android source in VCS; ignore only generated/local outputs)
 apps/operator-mobile/node_modules/
 apps/operator-mobile/.expo/
@@ -76,3 +66,16 @@ apps/operator-mobile/android/.gradle/
 apps/operator-mobile/android/app/build/
 apps/operator-mobile/ios/build/
 apps/operator-mobile/ios/Pods/
+
+# local agent and scratch workspace artifacts
+/.claude/settings.json
+/.claude/worktrees/
+/Library/
+
+# local QA output and temp files
+/test-results/
+/tmp/
+
+# local screenshot exports
+/screenshot-*.png
+/nothing-homepage-full.png

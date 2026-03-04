@@ -5,6 +5,8 @@
 **Classification:** Internal — Founder's Eyes Only
 **Supersedes:** cash-is-king/00_EXECUTIVE_BRIEF.md, life-operator-one-of-one-cutover/MASTER_PLAN.md
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## What This Is
@@ -54,8 +56,8 @@ We do not sell to broke people. We do not sell €49/month subscriptions. We do 
 | Tier | Price | Purpose |
 |---|---|---|
 | **Diagnostic** | €0 | Lead generation. 7-minute AI audit on the landing page. Proves capability. |
-| **Consulting Sprint** | €3,500 | First paid touchpoint. Scope-only engagement. Builds trust. |
-| **Foundation** | €7,000–€34,999 setup + €499/mo | **The primary product we sell in initial GTM.** Full implementation. Scope-dependent pricing. |
+| **Consulting Sprint** | €3,500 excl. VAT | First paid touchpoint. Scope-only engagement. Builds trust. |
+| **Foundation** | €7,000–€34,999 setup (excl. VAT) + €499/mo | **The primary product we sell in initial GTM.** Full implementation. Scope-dependent pricing. |
 | **Dream Team** | €35,000+ setup + €999/mo | Multi-stream implementation. Custom specialist capabilities. |
 | **Sovereign** | €195,000 setup | Full stack: Dream Team operator + 4-node private Mac Studio cluster + on-site installation + Year 1 managed support. The real premium product. |
 | **Enterprise Sovereign** | €250K-350K (custom) | 10-node cluster, 500 users, SSO, compliance. The anchor. |
@@ -118,7 +120,7 @@ See [03_SALES_MOTION.md](./03_SALES_MOTION.md) for the full close sequence, obje
 | Topic | Cash-Is-King Said | One-of-One v2 Says | Why |
 |---|---|---|---|
 | Lead magnet | Beta code → birthing → 7-day trial | Live AI diagnostic on landing page | Built and working. Better conversion. |
-| Entry price | €5,000 Foundation | €0 diagnostic → €3,500 sprint → €7,000–€34,999 foundation | Lower friction entry, scope-dependent pricing. |
+| Entry price | €5,000 Foundation | €0 diagnostic → €3,500 excl. VAT sprint → €7,000–€34,999 excl. VAT foundation | Lower friction entry, scope-dependent pricing. |
 | Anchor | €135K–€195K range | €195K Sovereign (fixed) + Enterprise at €250K-350K (new ceiling) | Double anchor. Sovereign is real and defensible. Enterprise is the new ceiling. |
 | Sovereign content | 1 Mac Studio + SaaS operator | 4 Mac Studios + RDMA cluster + Dream Team operator + Year 1 support + on-site | Defensible to sophisticated buyers. Real infrastructure. 81.5% margin. |
 | Product narrative | "100 AI agents" catalog | "One operator. Yours alone." | Simpler. More powerful. True. |
@@ -133,7 +135,7 @@ Everything that matters:
 - **"Give away the secrets, sell the implementation"** — the free diagnostic does exactly this
 - **"The demo IS the close"** — the embedded chat agent IS the demo
 - **"Sell to the rich, not the broke"** — €1.8M–€4.7M revenue business owners
-- **"Cash margin matters"** — consulting sprint at €3,500 with near-zero COGS
+- **"Cash margin matters"** — consulting sprint at €3,500 excl. VAT with near-zero COGS
 - **"Don't compete for €49/mo"** — no self-serve SaaS tier (Year 2)
 - **Founder-led sales** — Remington is the product, the demo, and the close
 - **BNI as the network asset** — unchanged, still the primary offline channel

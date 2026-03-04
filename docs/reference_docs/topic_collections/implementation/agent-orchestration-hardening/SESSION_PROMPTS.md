@@ -165,3 +165,136 @@ Rules:
 
 Lane G status note: `ARH-G-001` is complete; `ARH-G-002` remains pending on `ARH-F-002`.
 ```
+
+---
+
+## Session H (Lane H: Runtime kernel seam extraction)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane H from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-H-001 (DONE)
+- ARH-H-002 (DONE)
+
+Rules:
+1) Preserve external behavior while extracting kernel boundaries from `processInboundMessage`.
+2) Introduce explicit hook contracts; avoid inline agent-specific branching in core path.
+3) Keep additive contracts fail-closed on invalid payloads.
+4) Run Verify commands exactly as listed in each queue row.
+5) Update TASK_QUEUE.md, MASTER_PLAN.md, and INDEX.md after row transitions.
+
+Lane H status note: Lane H complete. Kernel hook contracts are in place; downstream lanes `I` and `J` are unblocked.
+```
+
+---
+
+## Session I (Lane I: Samantha isolation + parity)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane I from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-I-001 (DONE)
+- ARH-I-002 (READY)
+
+Rules:
+1) Move Samantha-specific logic into module adapter boundaries.
+2) Preserve fail-closed Samantha invariants and trust messaging semantics.
+3) Add characterization parity checks before marking row DONE.
+4) Run Verify commands exactly as listed in each queue row.
+5) Do not relax required-tool or dispatch guardrails.
+
+Lane I status note: `ARH-I-001` completed 2026-03-04 (Samantha runtime adapter seam extracted; decision routing now adapter-backed) and `ARH-I-002` is now the next deterministic pick.
+Lane I gate: `ARH-I-002` parity evidence is required before Lane J runtime promotion (`ARH-J-002`).
+```
+
+---
+
+## Session J (Lane J: Agent module registry + per-agent tool binding)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane J from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-J-001 (READY after `ARH-H-002`; queue order runs after `ARH-I-002`)
+- ARH-J-002 (after ARH-J-001 and ARH-I-002 are DONE)
+
+Rules:
+1) New agents must be declared by module metadata, not monolith edits.
+2) Keep global tool registry as storage; runtime execution scope must resolve per-agent manifests.
+3) Ensure deterministic, machine-readable manifest/tool-resolution output.
+4) Run Verify commands exactly as listed in each queue row.
+5) Keep compatibility shims additive and explicit.
+
+Lane J gate: Lane K cannot start until per-agent manifest resolution is proven in `ARH-J-002`.
+```
+
+---
+
+## Session K (Lane K: Der Terminmacher scaffold + stage contract)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane K from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-K-001 (after ARH-J-002 is DONE)
+- ARH-K-002 (after ARH-K-001 is DONE)
+
+Rules:
+1) Scaffold Der Terminmacher as an agent module without core-kernel edits.
+2) Keep preview-first + explicit-confirm mutation policy fail-closed.
+3) Encode stage outputs as deterministic contracts, not narrative-only strings.
+4) Run Verify commands exactly as listed in each queue row.
+5) Preserve existing mobile/concierge trust constraints.
+
+Lane K gate: Lane L validation starts only after stage contract is in place (`ARH-K-002`).
+```
+
+---
+
+## Session L (Lane L: Tool-chain truth audit + latency contract)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane L from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-L-001 (after ARH-K-002 is DONE)
+- ARH-L-002 (after ARH-L-001 is DONE)
+
+Rules:
+1) Separate inferred capability claims from artifact-backed claims.
+2) Validate CRM + booking + calendar push + confirmation + STT/TTS + OCR paths with explicit evidence.
+3) Enforce `<20s` processing target contract with breach reason taxonomy.
+4) Run Verify commands exactly as listed in each queue row.
+5) Keep evidence paths deterministic and reproducible.
+
+Lane L gate: Lane M cannot publish closure until latency/evidence contract is complete.
+```
+
+---
+
+## Session M (Lane M: Hardware gate + truth-sync closure)
+
+```text
+You are Codex in /Users/foundbrand_001/Development/vc83-com.
+Execute Lane M from TASK_QUEUE.md.
+
+Primary scope:
+- ARH-M-001 (after ARH-L-002 is DONE)
+- ARH-M-002 (after ARH-M-001 is DONE)
+
+Rules:
+1) Keep DAT-native readiness blocked unless ORV-023 physical-device evidence exists.
+2) Remove stale `GO` claims when evidence is absent or outdated.
+3) Publish explicit owner/date for every unresolved blocker.
+4) Run Verify commands exactly as listed in each queue row.
+5) Synchronize TASK_QUEUE.md, MASTER_PLAN.md, INDEX.md, SESSION_PROMPTS.md on every closure step.
+
+Lane M gate: final closeout requires full acceptance-criteria mapping with pass/fail evidence links.
+```

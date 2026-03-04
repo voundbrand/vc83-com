@@ -4,6 +4,8 @@
 **Date:** 2026-03-03
 **Classification:** Internal — Founder's Eyes Only
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## Delivery Framework
@@ -16,7 +18,7 @@
 | Week 1-2 | Onboarding call (2hr) | Client is trained, first real conversation with their operator |
 | Week 2+ | Email check-in (day 7, 14, 30) | Ensure activation, gather feedback, identify upsell opportunities |
 
-**Payment:** 100% upfront (€7,000–€34,999 depending on scope) before work begins. Monthly billing (€499/mo) starts after delivery.
+**Payment:** 100% upfront (€7,000–€34,999 excl. VAT depending on scope) before work begins. Monthly billing (€499/mo) starts after delivery.
 
 **COGS per Foundation client:**
 
@@ -41,7 +43,7 @@
 | Week 1-2 | Analysis + roadmap creation (3-6hr) | Written scope document |
 | Week 2 | Delivery call (1hr) — walk through the scope, answer questions, recommend tier | Scope document delivered + tier recommendation |
 
-**Payment:** 100% upfront (€3,500) before work begins.
+**Payment:** 100% upfront (€3,500 excl. VAT) before work begins.
 
 **Deliverable contents:**
 - Business workflow map (current state)

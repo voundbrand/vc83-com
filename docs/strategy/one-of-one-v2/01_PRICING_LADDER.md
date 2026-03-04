@@ -4,6 +4,8 @@
 **Date:** 2026-03-03
 **Classification:** Internal — Founder's Eyes Only
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## The Ladder
@@ -29,11 +31,11 @@ The diagnostic is not a demo in the traditional sense. The AI asks 5 questions a
 
 ---
 
-### Tier 1: Consulting Sprint (€3,500)
+### Tier 1: Consulting Sprint (€3,500 excl. VAT)
 
 | Attribute | Detail |
 |---|---|
-| **Price** | €3,500 one-time |
+| **Price** | €3,500 excl. VAT one-time |
 | **What it is** | Scope-only engagement. Deep diagnostic + implementation roadmap. |
 | **Duration** | 1–2 weeks |
 | **Deliverable** | Written scope document: what to automate, what to build, priority sequence, estimated ROI |
@@ -49,11 +51,11 @@ The consulting sprint is the bridge between "I'm interested" and "I'm buying." I
 
 ---
 
-### Tier 2: Foundation (€7,000–€34,999 + €499/mo)
+### Tier 2: Foundation (€7,000–€34,999 excl. VAT + €499/mo)
 
 | Attribute | Detail |
 |---|---|
-| **Setup price** | €7,000–€34,999 (scope-dependent) |
+| **Setup price** | €7,000–€34,999 excl. VAT (scope-dependent) |
 | **Monthly** | €499/mo |
 | **What it is** | Full AI operator implementation. Born from a conversation about their business. |
 | **Duration** | 1–2 weeks delivery |
@@ -158,12 +160,12 @@ Full module details, COGS, delivery timelines: see [12_PRIVATE_LLM_PROVIDER_BUSI
 The pricing page displays all tiers plus "Contact us" for Enterprise:
 
 ```
-€0 Diagnostic  →  €3,500 Sprint  →  €7,000–€34,999 Foundation  →  €35,000+ Dream Team  →  €195,000 Sovereign  →  Enterprise: Contact Us
+€0 Diagnostic  →  €3,500 excl. VAT Sprint  →  €7,000–€34,999 excl. VAT Foundation  →  €35,000+ Dream Team  →  €195,000 Sovereign  →  Enterprise: Contact Us
 ```
 
 The anchoring works on two levels now:
 
-1. **€195,000 Sovereign makes €7,000–€34,999 Foundation feel trivial.** "It's 3.5–18% of the full experience."
+1. **€195,000 Sovereign makes €7,000–€34,999 excl. VAT Foundation feel trivial.** "It's 3.5–18% of the full experience."
 2. **Enterprise at €250K+ makes Sovereign feel reasonable.** "€195K gets me 80% of what a €300K deployment would."
 3. **Sovereign is defensible.** 4 Mac Studios, Dream Team operator, on-site, Year 1 support — a sophisticated buyer can itemize it and see real value.
 4. **The modules create a visible expansion path.** Foundation clients see that they can add private inference whenever they're ready. It's not a cliff — it's a ladder.

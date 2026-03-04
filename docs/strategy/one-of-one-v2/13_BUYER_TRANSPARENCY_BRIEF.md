@@ -3,6 +3,8 @@
 **Seven Layers | For Prospective Clients**
 **Last Updated:** March 2026
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## Why We Publish Our Prices
@@ -37,11 +39,11 @@ No PDF. No ebook. No email sequence. Just a live demonstration of what AI can do
 
 ---
 
-### Consulting Sprint — €3,500
+### Consulting Sprint — €3,500 excl. VAT
 
 | | |
 |---|---|
-| **Price** | €3,500 one-time |
+| **Price** | €3,500 excl. VAT one-time |
 | **Duration** | 1–2 weeks |
 | **What you get** | A written scope document: what to automate, what to build, priority sequence, estimated ROI for your specific business |
 
@@ -51,11 +53,11 @@ The Sprint is for you if you want to see the plan before committing to the build
 
 ---
 
-### Foundation — €7,000–€34,999 + €499/mo
+### Foundation — €7,000–€34,999 excl. VAT + €499/mo
 
 | | |
 |---|---|
-| **Setup** | €7,000–€34,999 (scope-dependent) |
+| **Setup** | €7,000–€34,999 excl. VAT (scope-dependent) |
 | **Monthly** | €499/mo |
 | **Delivery** | 1–2 weeks |
 | **What you get** | Your own AI operator on webchat + WhatsApp. Handles customer conversations, books appointments, follows up with leads. Born from a deep conversation about your business. |
@@ -184,7 +186,7 @@ On-Prem includes: hardware procurement, physical installation (we come to you), 
 
 We don't make vague "save millions" claims. Here's the math — plug in your own numbers.
 
-### For Foundation (from €7,000 + €499/mo)
+### For Foundation (from €7,000 excl. VAT + €499/mo)
 
 ```
 Your average deal size:                          €________
@@ -195,11 +197,11 @@ Monthly revenue from operator-captured leads:
   = [leads/mo] × [close rate] × [avg deal size] = €________/mo
 
 Your operator cost:
-  Setup:   €7,000 (one-time)
+  Setup:   €7,000 excl. VAT (one-time)
   Monthly: €499/mo
 
 Payback period:
-  = €7,000 ÷ ([monthly revenue from operator] − €499)
+  = €7,000 excl. VAT ÷ ([monthly revenue from operator] − €499)
   = ________ months
 ```
 
@@ -209,8 +211,8 @@ Payback period:
 Monthly revenue:  3 × 0.30 × €2,500 = €2,250/mo
 Monthly cost:     €499/mo
 Net monthly gain: €1,751/mo
-Payback period:   €7,000 ÷ €1,751 = 4 months
-Year 1 ROI:       (€1,751 × 12 − €7,000) ÷ €7,000 = 200%
+Payback period:   €7,000 excl. VAT ÷ €1,751 = 4 months
+Year 1 ROI:       (€1,751 × 12 − €7,000 excl. VAT) ÷ €7,000 excl. VAT = 200%
 ```
 
 **Your operator works 24/7, never calls in sick, never forgets to follow up, and costs less than a part-time hire.**
@@ -304,8 +306,8 @@ We offer this guarantee because we've never had to honor it. When you build an o
 | Tier | Upfront | Monthly | Payment Terms |
 |---|---|---|---|
 | Diagnostic | €0 | €0 | Free |
-| Consulting Sprint | €3,500 | — | 100% upfront |
-| Foundation | €7,000–€34,999 | €499/mo | Setup: 100% upfront. Monthly starts after delivery. |
+| Consulting Sprint | €3,500 excl. VAT | — | 100% upfront |
+| Foundation | €7,000–€34,999 excl. VAT | €499/mo | Setup: 100% upfront. Monthly starts after delivery. |
 | Dream Team | €35,000+ | €999/mo | Setup: 50% upfront, 50% on delivery. Monthly starts after delivery. |
 | Sovereign | €195,000 | €2,400/mo (after Year 1) | 50/50: €97,500 upfront, €97,500 on delivery. Year 1 support included. |
 | Enterprise Sovereign | Custom | Custom | Custom terms based on scope |
