@@ -21,6 +21,9 @@ interface State {
  * - "Invalid or expired session"
  */
 export class SessionExpiredBoundary extends Component<Props, State> {
+  private static readonly REDIRECT_GUARD_KEY = "session_invalid_redirect_ts";
+  private static readonly REDIRECT_GUARD_WINDOW_MS = 4000;
+
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -53,17 +56,32 @@ export class SessionExpiredBoundary extends Component<Props, State> {
    */
   static handleInvalidSession(): void {
     if (typeof window !== "undefined") {
+      const now = Date.now();
+      const lastRedirectRaw = sessionStorage.getItem(
+        SessionExpiredBoundary.REDIRECT_GUARD_KEY
+      );
+      const lastRedirect = lastRedirectRaw ? Number.parseInt(lastRedirectRaw, 10) : 0;
+      if (
+        Number.isFinite(lastRedirect) &&
+        now - lastRedirect < SessionExpiredBoundary.REDIRECT_GUARD_WINDOW_MS
+      ) {
+        return;
+      }
+
       // Clear the invalid session ID from localStorage
       localStorage.removeItem("convex_session_id");
+      sessionStorage.setItem(
+        SessionExpiredBoundary.REDIRECT_GUARD_KEY,
+        String(now)
+      );
 
       // Store current path to potentially redirect back after login
       const currentPath = window.location.pathname;
       if (currentPath !== "/") {
         sessionStorage.setItem("redirectAfterLogin", currentPath);
+        window.location.href = "/";
       }
-
-      // Redirect to home page where user can sign in
-      window.location.href = "/";
+      // When already on "/", avoid forced reload loops.
     }
   }
 

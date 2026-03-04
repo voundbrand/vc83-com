@@ -30,6 +30,14 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
 
     // Global listener for uncaught session errors from async Convex operations
     const handleSessionError = (message: string) => {
+      // Only trigger invalid-session handling when a session token is actually present.
+      const hasPersistedSession =
+        typeof window !== "undefined" &&
+        Boolean(localStorage.getItem("convex_session_id"));
+      if (!hasPersistedSession) {
+        return false;
+      }
+
       if (SessionExpiredBoundary.isSessionError(message)) {
         console.warn("[Convex] Session error caught globally, redirecting to login:", message);
         SessionExpiredBoundary.handleInvalidSession();
