@@ -594,11 +594,23 @@ function registerProviderPluginManifestsFromEnv(rawPayload?: string) {
   }
 }
 
+function registerProviderPluginManifestsFromEnvSafely(rawPayload?: string) {
+  try {
+    registerProviderPluginManifestsFromEnv(rawPayload);
+  } catch (error) {
+    console.error(
+      `[AiProviderRegistry] Ignoring AI_PROVIDER_PLUGIN_MANIFESTS_JSON due to initialization error: ${
+        error instanceof Error ? error.message : "unknown_error"
+      }`
+    );
+  }
+}
+
 for (const manifest of BUILT_IN_PROVIDER_PLUGIN_MANIFESTS) {
   registerProviderPluginManifest(manifest);
 }
 
-registerProviderPluginManifestsFromEnv(
+registerProviderPluginManifestsFromEnvSafely(
   process.env.AI_PROVIDER_PLUGIN_MANIFESTS_JSON
 );
 

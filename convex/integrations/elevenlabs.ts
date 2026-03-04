@@ -136,6 +136,7 @@ type ElevenLabsVoiceCatalogEntry = {
   category?: string;
   previewUrl?: string;
   language?: string;
+  languages?: string[];
   labels: Record<string, string>;
 };
 
@@ -158,13 +159,66 @@ function normalizeVoiceLabels(value: unknown): Record<string, string> {
   return labels;
 }
 
-function normalizeVoiceLanguage(labels: Record<string, string>): string | undefined {
-  return (
-    normalizeString(labels.language) ??
-    normalizeString(labels.locale) ??
-    normalizeString(labels.accent) ??
-    undefined
-  );
+function appendNormalizedVoiceLanguage(
+  target: string[],
+  seen: Set<string>,
+  value: unknown,
+): void {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return;
+  }
+  const key = normalized.toLowerCase();
+  if (seen.has(key)) {
+    return;
+  }
+  seen.add(key);
+  target.push(normalized);
+}
+
+function collectVoiceLanguages(
+  record: Record<string, unknown>,
+  labels: Record<string, string>,
+): string[] {
+  const languages: string[] = [];
+  const seen = new Set<string>();
+
+  appendNormalizedVoiceLanguage(languages, seen, labels.language);
+  appendNormalizedVoiceLanguage(languages, seen, labels.locale);
+  appendNormalizedVoiceLanguage(languages, seen, labels.accent);
+  appendNormalizedVoiceLanguage(languages, seen, labels.lang);
+  appendNormalizedVoiceLanguage(languages, seen, record.language);
+  appendNormalizedVoiceLanguage(languages, seen, record.locale);
+  appendNormalizedVoiceLanguage(languages, seen, record.accent);
+
+  const appendFromMetadataArray = (value: unknown) => {
+    if (!Array.isArray(value)) {
+      return;
+    }
+    for (const item of value) {
+      if (typeof item === "string") {
+        appendNormalizedVoiceLanguage(languages, seen, item);
+        continue;
+      }
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const metadata = item as Record<string, unknown>;
+      appendNormalizedVoiceLanguage(languages, seen, metadata.language);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.locale);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.accent);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.language_code);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.languageCode);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.name);
+      appendNormalizedVoiceLanguage(languages, seen, metadata.code);
+    }
+  };
+
+  appendFromMetadataArray(record.languages);
+  appendFromMetadataArray(record.verified_languages);
+  appendFromMetadataArray(record.verifiedLanguages);
+
+  return languages;
 }
 
 function normalizeElevenLabsVoiceCatalogEntry(
@@ -183,6 +237,8 @@ function normalizeElevenLabsVoiceCatalogEntry(
   }
 
   const labels = normalizeVoiceLabels(record.labels);
+  const languages = collectVoiceLanguages(record, labels);
+  const primaryLanguage = languages[0];
 
   return {
     voiceId,
@@ -192,7 +248,8 @@ function normalizeElevenLabsVoiceCatalogEntry(
       normalizeString(record.preview_url) ??
       normalizeString(record.previewUrl) ??
       undefined,
-    language: normalizeVoiceLanguage(labels),
+    ...(primaryLanguage ? { language: primaryLanguage } : {}),
+    ...(languages.length > 0 ? { languages } : {}),
     labels,
   };
 }

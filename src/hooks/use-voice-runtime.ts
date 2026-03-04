@@ -58,6 +58,12 @@ interface VoiceRuntimeContextOverride {
   interviewSessionId?: Id<"agentSessions">;
 }
 
+export interface VoiceTranscriptionTelemetry {
+  recorderMimeType?: string;
+  captureChunkCount?: number;
+  captureChunkBytes?: number;
+}
+
 function normalizeProviderId(
   value: VoiceRuntimeProviderId | null | undefined,
 ): VoiceRuntimeProviderId {
@@ -99,6 +105,115 @@ function bytesToBase64(bytes: Uint8Array): string {
 async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   return bytesToBase64(new Uint8Array(buffer));
+}
+
+function shouldRetryTranscriptionAsWav(args: {
+  providerId: VoiceRuntimeProviderId;
+  error?: string;
+}): boolean {
+  if (args.providerId !== "elevenlabs") {
+    return false;
+  }
+  const normalized = (args.error || "").toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return normalized.includes("invalid_audio")
+    || normalized.includes("corrupt")
+    || normalized.includes("unprocessable_audio");
+}
+
+function encodeMonoPcm16Wav(audioBuffer: AudioBuffer): Blob {
+  const sampleRate = audioBuffer.sampleRate;
+  const sampleCount = audioBuffer.length;
+  const channelCount = audioBuffer.numberOfChannels;
+  const bytesPerSample = 2;
+  const blockAlign = bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataByteLength = sampleCount * bytesPerSample;
+  const wavBuffer = new ArrayBuffer(44 + dataByteLength);
+  const view = new DataView(wavBuffer);
+
+  const writeAscii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) {
+      view.setUint8(offset + index, text.charCodeAt(index));
+    }
+  };
+
+  writeAscii(0, "RIFF");
+  view.setUint32(4, 36 + dataByteLength, true);
+  writeAscii(8, "WAVE");
+  writeAscii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, "data");
+  view.setUint32(40, dataByteLength, true);
+
+  const channelData = Array.from({ length: channelCount }, (_, index) =>
+    audioBuffer.getChannelData(index)
+  );
+  let byteOffset = 44;
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    let mixedSample = 0;
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      mixedSample += channelData[channelIndex]?.[sampleIndex] || 0;
+    }
+    mixedSample /= Math.max(1, channelCount);
+    const clamped = Math.max(-1, Math.min(1, mixedSample));
+    const int16 = clamped < 0
+      ? Math.round(clamped * 0x8000)
+      : Math.round(clamped * 0x7fff);
+    view.setInt16(byteOffset, int16, true);
+    byteOffset += bytesPerSample;
+  }
+
+  return new Blob([wavBuffer], { type: "audio/wav" });
+}
+
+async function decodeAudioDataCompat(
+  audioContext: AudioContext,
+  source: ArrayBuffer,
+): Promise<AudioBuffer> {
+  const cloned = source.slice(0);
+  try {
+    return await audioContext.decodeAudioData(cloned);
+  } catch {
+    return await new Promise<AudioBuffer>((resolve, reject) => {
+      const fallbackBuffer = source.slice(0);
+      audioContext.decodeAudioData(fallbackBuffer, resolve, reject);
+    });
+  }
+}
+
+async function transcodeBlobToWav(blob: Blob): Promise<Blob | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const Ctor = (window as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  }).AudioContext || (window as unknown as {
+    webkitAudioContext?: typeof AudioContext;
+  }).webkitAudioContext;
+  if (!Ctor) {
+    return null;
+  }
+
+  const audioContext = new Ctor();
+  try {
+    const sourceBytes = await blob.arrayBuffer();
+    const decoded = await decodeAudioDataCompat(audioContext, sourceBytes);
+    return encodeMonoPcm16Wav(decoded);
+  } catch {
+    return null;
+  } finally {
+    await audioContext.close().catch(() => {});
+  }
 }
 
 function speakBrowserFallback(
@@ -204,20 +319,72 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     requestedProviderId?: VoiceRuntimeProviderId;
     requestedVoiceId?: string;
     language?: string;
+    telemetry?: VoiceTranscriptionTelemetry;
     runtimeContext?: VoiceRuntimeContextOverride;
   }): Promise<TranscribeVoiceResult> => {
     const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
-    const audioBase64 = await blobToBase64(options.blob);
-    return (await transcribeVoiceAudioAction({
-      sessionId: runtimeContext.authSessionId,
-      interviewSessionId: runtimeContext.interviewSessionId,
-      voiceSessionId: options.voiceSessionId,
-      audioBase64,
-      mimeType: options.blob.type,
-      requestedProviderId: normalizeProviderId(options.requestedProviderId),
-      requestedVoiceId: options.requestedVoiceId,
-      language: options.language,
-    })) as TranscribeVoiceResult;
+    const invokeTranscription = async (
+      blob: Blob,
+      mimeTypeOverride?: string,
+      retryPath: "primary" | "client_wav_retry" = "primary",
+    ): Promise<TranscribeVoiceResult> => {
+      const audioBase64 = await blobToBase64(blob);
+      const attemptMimeType = mimeTypeOverride || blob.type || "audio/webm";
+      const transcriptionTelemetry = {
+        recorderMimeType: options.telemetry?.recorderMimeType,
+        captureChunkCount: options.telemetry?.captureChunkCount,
+        captureChunkBytes: options.telemetry?.captureChunkBytes,
+        blobMimeType: attemptMimeType,
+        blobSizeBytes: blob.size,
+        retryPath,
+        sourceBlobMimeType: options.blob.type || undefined,
+        sourceBlobSizeBytes: options.blob.size,
+      };
+      console.info("[VoiceRuntime] transcribe_blob_attempt", transcriptionTelemetry);
+      return (await transcribeVoiceAudioAction({
+        sessionId: runtimeContext.authSessionId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        voiceSessionId: options.voiceSessionId,
+        audioBase64,
+        mimeType: attemptMimeType,
+        requestedProviderId: normalizeProviderId(options.requestedProviderId),
+        requestedVoiceId: options.requestedVoiceId,
+        language: options.language,
+        transcriptionTelemetry,
+      })) as TranscribeVoiceResult;
+    };
+
+    const primaryResult = await invokeTranscription(options.blob, undefined, "primary");
+    if (
+      primaryResult.success
+      || !shouldRetryTranscriptionAsWav({
+        providerId: primaryResult.providerId,
+        error: primaryResult.error,
+      })
+    ) {
+      return primaryResult;
+    }
+
+    const wavBlob = await transcodeBlobToWav(options.blob);
+    if (!wavBlob || wavBlob.size === 0) {
+      return primaryResult;
+    }
+
+    const wavRetryResult = await invokeTranscription(
+      wavBlob,
+      "audio/wav",
+      "client_wav_retry",
+    );
+    if (wavRetryResult.success) {
+      return wavRetryResult;
+    }
+
+    return {
+      ...wavRetryResult,
+      error: wavRetryResult.error
+        ? `${primaryResult.error || "voice_transcription_failed"}; wav_retry_failed: ${wavRetryResult.error}`
+        : primaryResult.error,
+    };
   };
 
   const synthesizePreview = async (options: {

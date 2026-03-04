@@ -24,6 +24,7 @@ import {
 import {
   useVoiceRuntime,
   type VoiceRuntimeProviderId,
+  type VoiceTranscriptionTelemetry,
 } from "@/hooks/use-voice-runtime";
 import {
   Send,
@@ -429,7 +430,11 @@ export function InterviewRunner({
   }, [captureVoiceSessionId, voiceRuntime, voiceProviderId, voiceId]);
 
   const transcribeCapturedAudio = useCallback(
-    async (voiceSessionIdToUse: string, audioBlob: Blob) => {
+    async (
+      voiceSessionIdToUse: string,
+      audioBlob: Blob,
+      telemetry?: VoiceTranscriptionTelemetry,
+    ) => {
       setVoiceCaptureState("transcribing");
       try {
         const result = await voiceRuntime.transcribeAudioBlob({
@@ -437,6 +442,7 @@ export function InterviewRunner({
           blob: audioBlob,
           requestedProviderId: voiceProviderId,
           requestedVoiceId: voiceId.trim() || undefined,
+          telemetry,
         });
 
         if (!result.success || !result.text?.trim()) {
@@ -553,9 +559,19 @@ export function InterviewRunner({
       recorder.onstop = () => {
         releaseVoiceMediaStream();
         mediaRecorderRef.current = null;
+        const recorderMimeType =
+          typeof recorder.mimeType === "string" && recorder.mimeType.trim().length > 0
+            ? recorder.mimeType
+            : "";
         const audioType =
-          captureChunksRef.current[0]?.type
+          recorderMimeType
+          || captureChunksRef.current[0]?.type
           || resolveVoiceCaptureFallbackMimeType(voiceProviderId);
+        const captureChunkCount = captureChunksRef.current.length;
+        const captureChunkBytes = captureChunksRef.current.reduce(
+          (total, chunk) => total + chunk.size,
+          0,
+        );
         const audioBlob = new Blob(captureChunksRef.current, { type: audioType });
         captureChunksRef.current = [];
 
@@ -564,7 +580,11 @@ export function InterviewRunner({
           return;
         }
 
-        void transcribeCapturedAudio(voiceSessionIdForCapture, audioBlob);
+        void transcribeCapturedAudio(voiceSessionIdForCapture, audioBlob, {
+          recorderMimeType: recorderMimeType || undefined,
+          captureChunkCount,
+          captureChunkBytes,
+        });
       };
 
       recorder.start();

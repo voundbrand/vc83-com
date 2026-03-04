@@ -356,48 +356,88 @@ function parseRequestedVoiceProviderId(
 
 type VoiceLanguageComparable = {
   language?: string;
+  languages?: string[];
   labels?: Record<string, string>;
 };
 
 const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
   american: "en",
   arabic: "ar",
+  armenian: "hy",
+  australian: "en",
   brazilian: "pt",
+  bulgarian: "bg",
   british: "en",
+  catalan: "ca",
   chinese: "zh",
+  croatian: "hr",
+  czech: "cs",
+  danish: "da",
   deutsch: "de",
   dutch: "nl",
   english: "en",
+  estonian: "et",
+  filipino: "fil",
+  finnish: "fi",
   french: "fr",
   german: "de",
+  greek: "el",
+  hebrew: "he",
   hindi: "hi",
+  hungarian: "hu",
+  indonesian: "id",
   italian: "it",
   japanese: "ja",
   korean: "ko",
+  latvian: "lv",
+  lithuanian: "lt",
+  malay: "ms",
   mandarin: "zh",
+  norwegian: "no",
+  persian: "fa",
   polish: "pl",
   portuguese: "pt",
+  romanian: "ro",
   russian: "ru",
+  serbian: "sr",
+  slovak: "sk",
+  slovenian: "sl",
   spanish: "es",
+  swedish: "sv",
+  tagalog: "fil",
+  thai: "th",
   turkish: "tr",
+  urdu: "ur",
+  ukrainian: "uk",
+  vietnamese: "vi",
 };
 
 const LANGUAGE_CODE_TO_LABEL: Record<string, string> = {
   ar: "Arabic",
+  bg: "Bulgarian",
+  ca: "Catalan",
   cs: "Czech",
   da: "Danish",
   de: "German",
   el: "Greek",
   en: "English",
   es: "Spanish",
+  et: "Estonian",
+  fa: "Persian",
+  fil: "Filipino",
   fi: "Finnish",
   fr: "French",
   he: "Hebrew",
   hi: "Hindi",
+  hr: "Croatian",
+  hu: "Hungarian",
+  hy: "Armenian",
   id: "Indonesian",
   it: "Italian",
   ja: "Japanese",
   ko: "Korean",
+  lt: "Lithuanian",
+  lv: "Latvian",
   ms: "Malay",
   nl: "Dutch",
   no: "Norwegian",
@@ -421,22 +461,45 @@ function normalizeVoiceLanguageCode(value: unknown): string | undefined {
   if (!normalized) {
     return undefined;
   }
-  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
-    return LANGUAGE_ALIAS_TO_CODE[normalized];
+  const directAlias = LANGUAGE_ALIAS_TO_CODE[normalized];
+  if (directAlias) {
+    return directAlias;
   }
   const cleaned = normalized
+    .replace(/'/g, "")
     .replace(/[^a-z0-9 -]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) {
     return undefined;
   }
-  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
-    return LANGUAGE_ALIAS_TO_CODE[cleaned];
+  const cleanedAlias = LANGUAGE_ALIAS_TO_CODE[cleaned];
+  if (cleanedAlias) {
+    return cleanedAlias;
   }
-  const primarySegment = cleaned.split("-", 1)[0]?.trim();
-  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
-    return primarySegment;
+  const tokenized = cleaned.split(/[\s-]+/g).filter(Boolean);
+  for (const token of tokenized) {
+    const tokenAlias = LANGUAGE_ALIAS_TO_CODE[token];
+    if (tokenAlias) {
+      return tokenAlias;
+    }
+    if (/^[a-z]{2,3}$/.test(token)) {
+      return token;
+    }
+  }
+  const localeLikeTokens = normalized.match(/[a-z]{2,3}(?:-[a-z0-9]{2,8})*/g) ?? [];
+  for (const token of localeLikeTokens) {
+    const primarySegment = token.split("-", 1)[0]?.trim();
+    if (!primarySegment) {
+      continue;
+    }
+    const segmentAlias = LANGUAGE_ALIAS_TO_CODE[primarySegment];
+    if (segmentAlias) {
+      return segmentAlias;
+    }
+    if (/^[a-z]{2,3}$/.test(primarySegment)) {
+      return primarySegment;
+    }
   }
   return undefined;
 }
@@ -446,11 +509,15 @@ function collectVoiceLanguageCodes(voice: VoiceLanguageComparable): Set<string> 
   const labelValues = voice.labels && typeof voice.labels === "object"
     ? voice.labels
     : {};
-  const candidates = [
+  const candidates: Array<unknown> = [
     voice.language,
+    ...(Array.isArray(voice.languages) ? voice.languages : []),
     labelValues.language,
     labelValues.locale,
     labelValues.accent,
+    labelValues.lang,
+    labelValues.language_code,
+    labelValues.dialect,
   ];
   for (const candidate of candidates) {
     const code = normalizeVoiceLanguageCode(candidate);
@@ -1581,6 +1648,7 @@ type MobileElevenLabsVoiceEntry = {
   labels?: Record<string, string>;
   previewUrl?: string;
   language?: string;
+  languages?: string[];
 };
 
 type MobileElevenLabsLanguageEntry = {
@@ -1618,6 +1686,7 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
         voiceId?: string;
         name?: string;
         language?: string;
+        languages?: string[];
         labels?: Record<string, string>;
         previewUrl?: string;
       }>;
@@ -1627,18 +1696,33 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
     const voices: MobileElevenLabsVoiceEntry[] = Array.isArray(result.voices)
       ? result.voices
           .filter((voice) => typeof voice.voiceId === "string" && voice.voiceId.length > 0)
-          .map((voice) => ({
-            id: voice.voiceId as string,
-            name:
-              typeof voice.name === "string" && voice.name.trim().length > 0
-                ? voice.name
-                : (voice.voiceId as string),
-            ...(typeof voice.language === "string" && voice.language.trim().length > 0
-              ? { language: voice.language }
-              : {}),
-            ...(voice.labels && typeof voice.labels === "object" ? { labels: voice.labels } : {}),
-            ...(typeof voice.previewUrl === "string" ? { previewUrl: voice.previewUrl } : {}),
-          }))
+          .map((voice) => {
+            const normalizedLanguages = Array.isArray(voice.languages)
+              ? Array.from(
+                  new Set(
+                    voice.languages
+                      .filter(
+                        (language): language is string =>
+                          typeof language === "string" && language.trim().length > 0,
+                      )
+                      .map((language) => language.trim()),
+                  ),
+                )
+              : [];
+            return {
+              id: voice.voiceId as string,
+              name:
+                typeof voice.name === "string" && voice.name.trim().length > 0
+                  ? voice.name
+                  : (voice.voiceId as string),
+              ...(typeof voice.language === "string" && voice.language.trim().length > 0
+                ? { language: voice.language }
+                : {}),
+              ...(normalizedLanguages.length > 0 ? { languages: normalizedLanguages } : {}),
+              ...(voice.labels && typeof voice.labels === "object" ? { labels: voice.labels } : {}),
+              ...(typeof voice.previewUrl === "string" ? { previewUrl: voice.previewUrl } : {}),
+            };
+          })
       : [];
     const languages: MobileElevenLabsLanguageEntry[] = buildVoiceLanguageCatalog(voices);
 
@@ -1722,6 +1806,7 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
         voices?: Array<{
           voiceId?: string;
           language?: string;
+          languages?: string[];
           labels?: Record<string, string>;
         }>;
         reason?: string;

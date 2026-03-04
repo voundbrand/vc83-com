@@ -74,6 +74,7 @@ const VOICE_RUNTIME_SESSION_STALE_TIMEOUT_MS = 5 * 60 * 1000;
 const VOICE_SESSION_OPEN_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const VOICE_SESSION_OPEN_RATE_LIMIT_MAX_REQUESTS = 6;
 const VOICE_RUNTIME_ATTESTATION_PROOF_TTL_MS = 60 * 1000;
+const VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS = 48;
 const VOICE_SESSION_OPEN_PROTECTED_SOURCE_CLASS_PREFIXES = [
   "iphone_camera",
   "iphone_microphone",
@@ -199,6 +200,87 @@ function normalizeString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+const AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN =
+  /\([^()]+\)|\[[^[\]]+\]|\{[^{}]+\}/g;
+const AMBIENT_TRANSCRIPT_NON_SPEECH_TERMS = [
+  "noise",
+  "background",
+  "humming",
+  "buzzing",
+  "static",
+  "silence",
+  "inaudible",
+  "unintelligible",
+  "clatter",
+  "clattering",
+  "thud",
+  "thudding",
+  "traffic",
+  "engine",
+  "door slam",
+  "door slams",
+  "passing",
+  "wind",
+  "rain",
+  "siren",
+  "footsteps",
+  "coughing",
+  "breathing",
+  "laughter",
+  "applause",
+  "music",
+] as const;
+const AMBIENT_TRANSCRIPT_SPEECH_HINT_PATTERN =
+  /\b(hello|hi|hey|yes|no|please|thanks|thank\s+you|can\s+you|could\s+you|i|we|you)\b/i;
+
+function containsAmbientTerm(text: string, terms: readonly string[]): boolean {
+  return terms.some((term) => text.includes(term));
+}
+
+export function isLikelyAmbientTranscriptText(
+  value: string | null | undefined
+): boolean {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return true;
+  }
+  const lower = normalized.toLowerCase();
+  if (AMBIENT_TRANSCRIPT_SPEECH_HINT_PATTERN.test(lower)) {
+    return false;
+  }
+  const descriptorMatches =
+    lower.match(AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN) ?? [];
+  if (descriptorMatches.length === 0) {
+    return false;
+  }
+  const remainder = lower
+    .replace(AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN, " ")
+    .replace(/[.,!?;:/|\\_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (remainder) {
+    return false;
+  }
+  const descriptorBody = descriptorMatches
+    .map((segment) => segment.slice(1, -1).trim())
+    .join(" ");
+  if (!descriptorBody) {
+    return true;
+  }
+  return containsAmbientTerm(descriptorBody, AMBIENT_TRANSCRIPT_NON_SPEECH_TERMS);
+}
+
+function sanitizeTranscriptForVoiceTurn(value: unknown): string | null {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return null;
+  }
+  if (isLikelyAmbientTranscriptText(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
 function normalizeObject(
   value: unknown,
 ): Record<string, unknown> | undefined {
@@ -206,6 +288,25 @@ function normalizeObject(
     return undefined;
   }
   return value as Record<string, unknown>;
+}
+
+function normalizeTelemetryInteger(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  if (value < 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
+function emitVoiceTelemetry(event: string, details?: Record<string, unknown>) {
+  console.info("[VoiceTelemetry]", {
+    event,
+    timestampMs: Date.now(),
+    telemetryWindowHours: VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS,
+    ...(details ?? {}),
+  });
 }
 
 function normalizeTranscriptionMimeType(value: unknown): string | undefined {
@@ -934,7 +1035,7 @@ export function resolveBrowserFallbackTranscriptText(args: {
   if (args.eventType !== "audio_chunk") {
     return null;
   }
-  return normalizeString(args.transcriptText);
+  return sanitizeTranscriptForVoiceTurn(args.transcriptText);
 }
 
 export interface VoiceAssistantStreamRelayState {
@@ -2878,6 +2979,7 @@ export const transcribeVoiceAudio = action({
     ),
     requestedVoiceId: v.optional(v.string()),
     language: v.optional(v.string()),
+    transcriptionTelemetry: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const runtimeContext = (await ctx.runQuery(
@@ -2903,6 +3005,46 @@ export const transcribeVoiceAudio = action({
       fallbackProviderId: resolved.fallbackFromProviderId ?? null,
       fallbackReason: resolved.health.reason ?? null,
     });
+    const normalizedMimeType = normalizeString(args.mimeType) ?? "audio/webm";
+    const transcriptionTelemetry = normalizeObject(args.transcriptionTelemetry);
+    const recorderMimeType = normalizeString(
+      transcriptionTelemetry?.recorderMimeType,
+    );
+    const blobMimeType = normalizeString(transcriptionTelemetry?.blobMimeType);
+    const blobSizeBytes = normalizeTelemetryInteger(
+      transcriptionTelemetry?.blobSizeBytes,
+    );
+    const retryPath = normalizeString(transcriptionTelemetry?.retryPath);
+    const sourceBlobMimeType = normalizeString(
+      transcriptionTelemetry?.sourceBlobMimeType,
+    );
+    const sourceBlobSizeBytes = normalizeTelemetryInteger(
+      transcriptionTelemetry?.sourceBlobSizeBytes,
+    );
+    const captureChunkCount = normalizeTelemetryInteger(
+      transcriptionTelemetry?.captureChunkCount,
+    );
+    const captureChunkBytes = normalizeTelemetryInteger(
+      transcriptionTelemetry?.captureChunkBytes,
+    );
+    emitVoiceTelemetry("stt_request_received", {
+      voiceSessionId: args.voiceSessionId,
+      interviewSessionId: String(args.interviewSessionId),
+      requestedProviderId,
+      resolvedProviderId: resolved.adapter.providerId,
+      fallbackProviderId: resolved.fallbackFromProviderId ?? null,
+      mimeType: normalizedMimeType,
+      base64Length: args.audioBase64.length,
+      language: normalizeString(args.language) ?? null,
+      recorderMimeType,
+      blobMimeType,
+      blobSizeBytes,
+      retryPath,
+      sourceBlobMimeType,
+      sourceBlobSizeBytes,
+      captureChunkCount,
+      captureChunkBytes,
+    });
     if (resolved.fallbackFromProviderId) {
       await emitVoiceFailoverEvent(ctx, {
         organizationId: runtimeContext.organizationId,
@@ -2917,6 +3059,11 @@ export const transcribeVoiceAudio = action({
     }
 
     if (resolved.adapter.providerId === "browser") {
+      emitVoiceTelemetry("stt_request_rejected_browser_runtime", {
+        voiceSessionId: args.voiceSessionId,
+        requestedProviderId,
+        resolvedProviderId: resolved.adapter.providerId,
+      });
       try {
         await recordVoiceUsage({
           ctx,
@@ -2950,18 +3097,51 @@ export const transcribeVoiceAudio = action({
     }
 
     try {
+      const decodedAudioBytes = decodeBase64Audio(args.audioBase64);
+      const decodedVsBlobSizeDelta =
+        blobSizeBytes !== undefined
+          ? decodedAudioBytes.byteLength - blobSizeBytes
+          : undefined;
+      emitVoiceTelemetry("stt_request_decoded", {
+        voiceSessionId: args.voiceSessionId,
+        mimeType: normalizedMimeType,
+        decodedBytes: decodedAudioBytes.byteLength,
+        decodedVsBlobSizeDelta,
+        decodedMatchesBlobSize:
+          blobSizeBytes !== undefined
+            ? decodedAudioBytes.byteLength === blobSizeBytes
+            : undefined,
+      });
       const transcript = await resolved.adapter.transcribe({
         voiceSessionId: args.voiceSessionId,
-        audioBytes: decodeBase64Audio(args.audioBase64),
-        mimeType: normalizeString(args.mimeType) ?? "audio/webm",
+        audioBytes: decodedAudioBytes,
+        mimeType: normalizedMimeType,
         language: normalizeString(args.language) ?? undefined,
       });
-      const loggedTranscriptText = normalizeString(transcript.text) ?? "";
+      const sanitizedTranscriptText = sanitizeTranscriptForVoiceTurn(
+        transcript.text,
+      );
+      const loggedTranscriptText = sanitizedTranscriptText ?? "";
       if (loggedTranscriptText) {
         console.info(
           `[VoiceRuntime] Transcription result: "${loggedTranscriptText.slice(0, 240)}"`,
         );
+      } else if (normalizeString(transcript.text)) {
+        console.info(
+          `[VoiceRuntime] Ignored ambient transcript session=${args.voiceSessionId}.`,
+        );
       }
+      emitVoiceTelemetry("stt_result_success", {
+        voiceSessionId: args.voiceSessionId,
+        providerId: transcript.providerId,
+        textLength: (transcript.text || "").trim().length,
+        sanitizedTextLength: sanitizedTranscriptText?.length ?? 0,
+        ambientFiltered: Boolean(!sanitizedTranscriptText && normalizeString(transcript.text)),
+        retryPath,
+        recorderMimeType,
+        blobMimeType,
+        blobSizeBytes,
+      });
 
       await emitVoiceTrustEvent(ctx, {
         eventName: "trust.voice.adaptive_flow_decision.v1",
@@ -3010,7 +3190,8 @@ export const transcribeVoiceAudio = action({
 
       return {
         success: true,
-        text: transcript.text,
+        text: sanitizedTranscriptText ?? "",
+        noSpeechDetected: sanitizedTranscriptText ? undefined : true,
         providerId: transcript.providerId,
         requestedProviderId,
         fallbackProviderId: resolved.fallbackFromProviderId ?? null,
@@ -3026,6 +3207,10 @@ export const transcribeVoiceAudio = action({
       };
     } catch (error) {
       if (isNoTranscriptTextError(error)) {
+        emitVoiceTelemetry("stt_result_no_speech", {
+          voiceSessionId: args.voiceSessionId,
+          providerId: resolved.adapter.providerId,
+        });
         console.warn(
           "[VoiceRuntime] Empty transcript from provider; treating frame as no speech.",
         );
@@ -3044,6 +3229,20 @@ export const transcribeVoiceAudio = action({
         error instanceof Error
           ? error.message
           : "Voice transcription failed.";
+      emitVoiceTelemetry("stt_result_failed", {
+        voiceSessionId: args.voiceSessionId,
+        providerId: resolved.adapter.providerId,
+        error: transcriptionError,
+        probableContainerCorruption: transcriptionError.toLowerCase().includes("corrupt"),
+        retryPath,
+        recorderMimeType,
+        blobMimeType,
+        blobSizeBytes,
+        sourceBlobMimeType,
+        sourceBlobSizeBytes,
+        captureChunkCount,
+        captureChunkBytes,
+      });
       try {
         await recordVoiceUsage({
           ctx,
@@ -3103,6 +3302,17 @@ export const ingestVoiceTransportEnvelope = action({
     )) as VoiceRuntimeContext;
     const envelope = args.envelope as VoiceTransportEnvelopeContract;
     assertVoiceTransportEnvelope(envelope);
+    emitVoiceTelemetry("transport_ingest_received", {
+      voiceSessionId: envelope.voiceSessionId,
+      interviewSessionId: envelope.interviewSessionId,
+      eventType: envelope.eventType,
+      sequence: envelope.sequence,
+      transportMode: envelope.transportMode,
+      audioChunkBase64Length:
+        typeof envelope.audioChunkBase64 === "string"
+          ? envelope.audioChunkBase64.length
+          : 0,
+    });
 
     if (
       normalizeString(envelope.interviewSessionId) !==
@@ -3152,6 +3362,7 @@ export const ingestVoiceTransportEnvelope = action({
 
     let relayEvents: VoiceTransportEnvelopeContract[] = [];
     let persistedFinalTranscript = false;
+    let sanitizedFinalTranscriptText: string | null = null;
     let relayErrorMessage: string | null = null;
     let cancellationAssistantMessageId: string | null = null;
 
@@ -3227,7 +3438,7 @@ export const ingestVoiceTransportEnvelope = action({
               audioBytes: decodeBase64Audio(envelope.audioChunkBase64),
               mimeType: transcriptionMimeType,
             });
-            const transcriptText = normalizeString(transcript.text);
+            const transcriptText = sanitizeTranscriptForVoiceTurn(transcript.text);
             if (transcriptText) {
               console.info(
                 `[VoiceRuntime] Transcription result: "${transcriptText.slice(0, 240)}"`,
@@ -3249,6 +3460,11 @@ export const ingestVoiceTransportEnvelope = action({
               };
               assertVoiceTransportEnvelope(partialEnvelope);
               relayEvents.push(partialEnvelope);
+            } else if (normalizeString(transcript.text)) {
+              relayErrorMessage = "voice_non_speech_transcript_filtered";
+              console.info(
+                `[VoiceRuntime] Ignored ambient transcript seq=${envelope.sequence}.`,
+              );
             }
           } catch (error) {
             if (isNoTranscriptTextError(error)) {
@@ -3273,17 +3489,30 @@ export const ingestVoiceTransportEnvelope = action({
           }
         }
       } else if (envelope.eventType === "partial_transcript") {
-        const partialTranscriptText = normalizeString(envelope.transcriptText);
+        const partialTranscriptText = sanitizeTranscriptForVoiceTurn(
+          envelope.transcriptText,
+        );
         if (partialTranscriptText) {
           console.info(
             `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${partialTranscriptText.slice(0, 120)}"`,
           );
+          relayEvents = [{ ...envelope, transcriptText: partialTranscriptText }];
+        } else if (normalizeString(envelope.transcriptText)) {
+          relayErrorMessage = "voice_non_speech_transcript_filtered";
+          relayEvents = [];
+          console.info(
+            `[VoiceRuntime] Ignored ambient partial transcript seq=${envelope.sequence}.`,
+          );
+        } else {
+          relayEvents = [envelope];
         }
-        relayEvents = [envelope];
       } else if (envelope.eventType === "final_transcript") {
-        relayEvents = [envelope];
-        const finalTranscriptText = normalizeString(envelope.transcriptText);
+        const finalTranscriptText = sanitizeTranscriptForVoiceTurn(
+          envelope.transcriptText,
+        );
         if (finalTranscriptText) {
+          sanitizedFinalTranscriptText = finalTranscriptText;
+          relayEvents = [{ ...envelope, transcriptText: finalTranscriptText }];
           console.info(
             `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${finalTranscriptText.slice(0, 120)}"`,
           );
@@ -3296,6 +3525,14 @@ export const ingestVoiceTransportEnvelope = action({
             },
           );
           persistedFinalTranscript = true;
+        } else if (normalizeString(envelope.transcriptText)) {
+          relayErrorMessage = "voice_non_speech_transcript_filtered";
+          relayEvents = [];
+          console.info(
+            `[VoiceRuntime] Ignored ambient final transcript seq=${envelope.sequence}.`,
+          );
+        } else {
+          relayEvents = [envelope];
         }
       } else if (
         envelope.eventType === "assistant_audio_chunk" ||
@@ -3387,7 +3624,7 @@ export const ingestVoiceTransportEnvelope = action({
       sequenceDecision: sequenceDecision.decision,
       eventType: envelope.eventType,
       transcriptText: envelope.eventType === "final_transcript"
-        ? envelope.transcriptText
+        ? (sanitizedFinalTranscriptText ?? undefined)
         : undefined,
       idempotentReplay: writeIdempotentReplay,
       persistedFinalTranscript,
@@ -3505,7 +3742,7 @@ export const ingestVoiceTransportEnvelope = action({
       };
     }
 
-    return {
+    const response = {
       success: sequenceDecision.decision !== "gap_detected",
       ordering: {
         decision: sequenceDecision.decision,
@@ -3526,6 +3763,18 @@ export const ingestVoiceTransportEnvelope = action({
         providerId: requestedProviderId,
       }),
     };
+    emitVoiceTelemetry("transport_ingest_result", {
+      voiceSessionId: envelope.voiceSessionId,
+      eventType: envelope.eventType,
+      sequence: envelope.sequence,
+      orderingDecision: sequenceDecision.decision,
+      relayEventCount: relayEvents.length,
+      persistedFinalTranscript,
+      orchestrationStatus: realtimeTurn?.status ?? "none",
+      orchestrationReason: turnOrchestrationDecision.reason,
+      shouldTriggerAssistantTurn: turnOrchestrationDecision.shouldTriggerAssistantTurn,
+    });
+    return response;
   },
 });
 

@@ -168,6 +168,7 @@ import {
   resolveSupportRuntimeContext,
 } from "./prompts/supportRuntimePolicy";
 import {
+  type AgentRuntimeToolHooks,
   collectSuccessfulToolNames,
   type AgentToolExecutionStatus,
   type AgentToolResult,
@@ -182,9 +183,12 @@ import {
   resolveEscalationAgentName,
 } from "./agentEscalationOrchestration";
 import {
+  createInboundRuntimeKernelHooks,
+  enterInboundRuntimeKernelStage,
   handleTurnLeaseAcquireFailure,
   persistRuntimeTurnArtifacts,
   settleRuntimeTurnLease,
+  type InboundRuntimeKernelStage,
   type TurnLeaseFailArgs,
   type TurnLeaseMutationResult,
   type TurnLeaseReleaseArgs,
@@ -213,13 +217,20 @@ import {
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
   AUDIT_DELIVERABLE_OUTCOME_KEY,
   AUDIT_DELIVERABLE_TOOL_NAME,
+  SAMANTHA_RUNTIME_MODULE_ADAPTER,
   SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
   SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
   SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
   SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+  type SamanthaAuditAutoDispatchPlan,
+  type SamanthaAuditAutoDispatchToolArgs,
+  type SamanthaAuditDispatchDecision,
   type SamanthaAuditRequiredField,
   type SamanthaAuditRoutingAuditChannel,
   type SamanthaAuditSourceContext,
+  type SamanthaAutoDispatchInvocationStatus,
+  type SamanthaAutoDispatchSkipReasonCode,
+  type SamanthaClaimRecoveryDecision,
   type SamanthaPreflightReasonCode,
 } from "./samanthaAuditContract";
 import {
@@ -874,6 +885,346 @@ const DEFAULT_HITL_WAITPOINT_TTL_MS = 10 * 60_000;
 const MIN_HITL_WAITPOINT_TTL_MS = 60_000;
 const MAX_HITL_WAITPOINT_TTL_MS = 60 * 60_000;
 const DUPLICATE_INGRESS_REPLAY_ALERT_THRESHOLD = 3;
+
+export const AGENT_RUNTIME_HOOK_CONTRACT_VERSION =
+  "agent_runtime_hooks_v1" as const;
+export const AGENT_RUNTIME_HOOK_ORDER = [
+  "preRoute",
+  "preLLM",
+  "postLLM",
+  "preTool",
+  "postTool",
+  "completionPolicy",
+] as const;
+export type AgentRuntimeHookName = (typeof AGENT_RUNTIME_HOOK_ORDER)[number];
+
+export interface AgentRuntimeHookPayload {
+  contractVersion: typeof AGENT_RUNTIME_HOOK_CONTRACT_VERSION;
+  hookName: AgentRuntimeHookName;
+  organizationId: string;
+  channel: string;
+  externalContactIdentifier: string;
+  occurredAt: number;
+  sessionId?: string;
+  turnId?: string;
+  agentId?: string;
+  toolName?: string;
+  toolStatus?: AgentToolExecutionStatus;
+  metadata?: Record<string, unknown>;
+}
+
+export type AgentRuntimeHookHandler = (
+  payload: AgentRuntimeHookPayload
+) => Promise<void> | void;
+
+export interface AgentRuntimeHooks {
+  preRoute?: AgentRuntimeHookHandler;
+  preLLM?: AgentRuntimeHookHandler;
+  postLLM?: AgentRuntimeHookHandler;
+  preTool?: AgentRuntimeHookHandler;
+  postTool?: AgentRuntimeHookHandler;
+  completionPolicy?: AgentRuntimeHookHandler;
+}
+
+export interface AgentRuntimeHookPayloadValidationResult {
+  valid: boolean;
+  reasonCode: "ok" | "invalid_hook" | "missing_required_field" | "invalid_occurred_at";
+  field?: string;
+}
+
+export interface AgentRuntimeHookOrderValidationResult {
+  valid: boolean;
+  reasonCode: "ok" | "unexpected_hook" | "hook_after_completion";
+  index?: number;
+  observedHook?: AgentRuntimeHookName;
+  expectedHooks?: AgentRuntimeHookName[];
+}
+
+function isAgentRuntimeHookName(value: unknown): value is AgentRuntimeHookName {
+  return (
+    value === "preRoute"
+    || value === "preLLM"
+    || value === "postLLM"
+    || value === "preTool"
+    || value === "postTool"
+    || value === "completionPolicy"
+  );
+}
+
+function hasRuntimeHookRequiredString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function resolveAgentRuntimeHookHandler(
+  hooks: AgentRuntimeHooks,
+  hookName: AgentRuntimeHookName
+): AgentRuntimeHookHandler | undefined {
+  if (hookName === "preRoute") return hooks.preRoute;
+  if (hookName === "preLLM") return hooks.preLLM;
+  if (hookName === "postLLM") return hooks.postLLM;
+  if (hookName === "preTool") return hooks.preTool;
+  if (hookName === "postTool") return hooks.postTool;
+  return hooks.completionPolicy;
+}
+
+export function createAgentRuntimeHooks(
+  hooks?: AgentRuntimeHooks
+): AgentRuntimeHooks {
+  return hooks ?? {};
+}
+
+export function validateAgentRuntimeHookPayload(
+  payload: AgentRuntimeHookPayload
+): AgentRuntimeHookPayloadValidationResult {
+  if (!isAgentRuntimeHookName(payload.hookName)) {
+    return {
+      valid: false,
+      reasonCode: "invalid_hook",
+      field: "hookName",
+    };
+  }
+  if (!hasRuntimeHookRequiredString(payload.organizationId)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "organizationId",
+    };
+  }
+  if (!hasRuntimeHookRequiredString(payload.channel)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "channel",
+    };
+  }
+  if (!hasRuntimeHookRequiredString(payload.externalContactIdentifier)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "externalContactIdentifier",
+    };
+  }
+  if (
+    typeof payload.occurredAt !== "number"
+    || !Number.isFinite(payload.occurredAt)
+    || payload.occurredAt <= 0
+  ) {
+    return {
+      valid: false,
+      reasonCode: "invalid_occurred_at",
+      field: "occurredAt",
+    };
+  }
+  if (
+    payload.hookName === "preTool"
+    || payload.hookName === "postTool"
+    || payload.hookName === "completionPolicy"
+  ) {
+    if (!hasRuntimeHookRequiredString(payload.sessionId)) {
+      return {
+        valid: false,
+        reasonCode: "missing_required_field",
+        field: "sessionId",
+      };
+    }
+    if (!hasRuntimeHookRequiredString(payload.turnId)) {
+      return {
+        valid: false,
+        reasonCode: "missing_required_field",
+        field: "turnId",
+      };
+    }
+    if (!hasRuntimeHookRequiredString(payload.agentId)) {
+      return {
+        valid: false,
+        reasonCode: "missing_required_field",
+        field: "agentId",
+      };
+    }
+  }
+  if (
+    (payload.hookName === "preTool" || payload.hookName === "postTool")
+    && !hasRuntimeHookRequiredString(payload.toolName)
+  ) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "toolName",
+    };
+  }
+  return {
+    valid: true,
+    reasonCode: "ok",
+  };
+}
+
+export function validateAgentRuntimeHookExecutionOrder(
+  observedHooks: AgentRuntimeHookName[]
+): AgentRuntimeHookOrderValidationResult {
+  let state:
+    | "start"
+    | "after_pre_route"
+    | "after_pre_llm"
+    | "after_post_llm"
+    | "after_pre_tool"
+    | "after_post_tool"
+    | "after_completion" = "start";
+
+  for (let index = 0; index < observedHooks.length; index += 1) {
+    const hook = observedHooks[index];
+    if (state === "start") {
+      if (hook === "preRoute") {
+        state = "after_pre_route";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["preRoute"],
+      };
+    }
+    if (state === "after_pre_route") {
+      if (hook === "preLLM") {
+        state = "after_pre_llm";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["preLLM"],
+      };
+    }
+    if (state === "after_pre_llm") {
+      if (hook === "postLLM") {
+        state = "after_post_llm";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["postLLM"],
+      };
+    }
+    if (state === "after_post_llm") {
+      if (hook === "preTool") {
+        state = "after_pre_tool";
+        continue;
+      }
+      if (hook === "completionPolicy") {
+        state = "after_completion";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["preTool", "completionPolicy"],
+      };
+    }
+    if (state === "after_pre_tool") {
+      if (hook === "postTool") {
+        state = "after_post_tool";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["postTool"],
+      };
+    }
+    if (state === "after_post_tool") {
+      if (hook === "preTool") {
+        state = "after_pre_tool";
+        continue;
+      }
+      if (hook === "completionPolicy") {
+        state = "after_completion";
+        continue;
+      }
+      return {
+        valid: false,
+        reasonCode: "unexpected_hook",
+        index,
+        observedHook: hook,
+        expectedHooks: ["preTool", "completionPolicy"],
+      };
+    }
+    return {
+      valid: false,
+      reasonCode: "hook_after_completion",
+      index,
+      observedHook: hook,
+      expectedHooks: [],
+    };
+  }
+
+  return {
+    valid: true,
+    reasonCode: "ok",
+  };
+}
+
+export async function invokeAgentRuntimeHook(args: {
+  hooks?: AgentRuntimeHooks;
+  hookName: AgentRuntimeHookName;
+  payload: Omit<
+    AgentRuntimeHookPayload,
+    "contractVersion" | "hookName" | "occurredAt"
+  > & { occurredAt?: number };
+  onHookError?: (args: {
+    hookName: AgentRuntimeHookName;
+    error: unknown;
+  }) => void;
+}): Promise<AgentRuntimeHookPayload> {
+  const payload: AgentRuntimeHookPayload = {
+    contractVersion: AGENT_RUNTIME_HOOK_CONTRACT_VERSION,
+    hookName: args.hookName,
+    occurredAt: args.payload.occurredAt ?? Date.now(),
+    organizationId: args.payload.organizationId,
+    channel: args.payload.channel,
+    externalContactIdentifier: args.payload.externalContactIdentifier,
+    sessionId: args.payload.sessionId,
+    turnId: args.payload.turnId,
+    agentId: args.payload.agentId,
+    toolName: args.payload.toolName,
+    toolStatus: args.payload.toolStatus,
+    metadata: args.payload.metadata,
+  };
+  const validation = validateAgentRuntimeHookPayload(payload);
+  if (!validation.valid) {
+    throw new Error(
+      `agent_runtime_hook_payload_invalid:${validation.reasonCode}:${validation.field || "unknown"}`
+    );
+  }
+
+  const hookHandler = resolveAgentRuntimeHookHandler(
+    args.hooks ?? {},
+    args.hookName
+  );
+  if (!hookHandler) {
+    return payload;
+  }
+
+  try {
+    await hookHandler(payload);
+  } catch (error) {
+    args.onHookError?.({
+      hookName: args.hookName,
+      error,
+    });
+  }
+
+  return payload;
+}
 
 export const HITL_WAITPOINT_CHECKPOINT_VALUES = [
   "session_pending",
@@ -3244,6 +3595,78 @@ export const processInboundMessage = action({
         },
       });
     };
+    const inboundRuntimeKernelHooks = createInboundRuntimeKernelHooks();
+    const agentRuntimeHooks = createAgentRuntimeHooks();
+    const observedAgentRuntimeHookOrder: AgentRuntimeHookName[] = [];
+    const enterRuntimeKernelStage = async (
+      stage: InboundRuntimeKernelStage,
+      context: {
+        sessionId?: Id<"agentSessions">;
+        turnId?: Id<"agentTurns">;
+        agentId?: Id<"objects">;
+        correlationId?: string;
+        metadata?: Record<string, unknown>;
+      } = {}
+    ) => {
+      await enterInboundRuntimeKernelStage({
+        stage,
+        hooks: inboundRuntimeKernelHooks,
+        context: {
+          organizationId: args.organizationId,
+          channel: args.channel,
+          externalContactIdentifier: args.externalContactIdentifier,
+          ...context,
+        },
+        onHookError: (hookError) => {
+          console.warn("[AgentExecution] Inbound runtime kernel hook failed", {
+            stage: hookError.stage,
+            hookScope: hookError.hookScope,
+            error:
+              hookError.error instanceof Error
+                ? hookError.error.message
+                : String(hookError.error),
+          });
+        },
+      });
+    };
+    const invokeRuntimeAgentHook = async (
+      hookName: AgentRuntimeHookName,
+      context: {
+        sessionId?: Id<"agentSessions">;
+        turnId?: Id<"agentTurns">;
+        agentId?: Id<"objects">;
+        toolName?: string;
+        toolStatus?: AgentToolExecutionStatus;
+        metadata?: Record<string, unknown>;
+      } = {}
+    ) => {
+      observedAgentRuntimeHookOrder.push(hookName);
+      await invokeAgentRuntimeHook({
+        hooks: agentRuntimeHooks,
+        hookName,
+        payload: {
+          organizationId: String(args.organizationId),
+          channel: args.channel,
+          externalContactIdentifier: args.externalContactIdentifier,
+          sessionId:
+            context.sessionId !== undefined ? String(context.sessionId) : undefined,
+          turnId: context.turnId !== undefined ? String(context.turnId) : undefined,
+          agentId: context.agentId !== undefined ? String(context.agentId) : undefined,
+          toolName: context.toolName,
+          toolStatus: context.toolStatus,
+          metadata: context.metadata,
+        },
+        onHookError: (hookError) => {
+          console.warn("[AgentExecution] Agent runtime hook failed", {
+            hookName: hookError.hookName,
+            error:
+              hookError.error instanceof Error
+                ? hookError.error.message
+                : String(hookError.error),
+          });
+        },
+      });
+    };
     const routeSelectorCount = Object.values(inboundDispatchRouteSelectors || {}).filter(
       (value) => typeof value === "string" && value.trim().length > 0
     ).length;
@@ -3263,6 +3686,8 @@ export const processInboundMessage = action({
         organizationId: args.organizationId,
       }
     );
+    await enterRuntimeKernelStage("routing");
+    await invokeRuntimeAgentHook("preRoute");
 
     const explicitInboundAgentId = firstInboundString(
       inboundMetadata.agentId,
@@ -3643,6 +4068,10 @@ export const processInboundMessage = action({
       metadata: inboundMetadata,
     });
     inboundMetadata.runtimeGovernor = runtimeGovernorContract;
+    await enterRuntimeKernelStage("ingress", {
+      sessionId: session._id,
+      agentId: authorityAgent._id,
+    });
 
     await ctx.runMutation(getInternal().ai.agentSessions.recoverStaleRunningTurns, {
       organizationId: args.organizationId,
@@ -4368,9 +4797,16 @@ export const processInboundMessage = action({
         maxTokens: 4000,
       },
     }) as any;
-    const onboardingEnabledModels =
+    const hasConfiguredEnabledModels =
       Array.isArray(aiSettings?.llm?.enabledModels) &&
-      aiSettings.llm.enabledModels.length > 0
+      aiSettings.llm.enabledModels.length > 0;
+    const hasConfiguredLegacyModel =
+      typeof aiSettings?.llm?.model === "string" &&
+      aiSettings.llm.model.trim().length > 0;
+    const hasConfiguredOrgModelPolicy =
+      hasConfiguredEnabledModels || hasConfiguredLegacyModel;
+    const onboardingEnabledModels =
+      hasConfiguredEnabledModels
         ? aiSettings.llm.enabledModels
         : [
             {
@@ -4912,8 +5348,7 @@ export const processInboundMessage = action({
       typeof config.modelId === "string" && config.modelId.trim().length > 0
         ? config.modelId.trim()
         : undefined;
-    const explicitModelOverride = metadataSelectedModel ?? configuredModelOverride;
-    const hasExplicitModelOverride = Boolean(explicitModelOverride);
+    let explicitModelOverride = metadataSelectedModel ?? configuredModelOverride;
     const platformEnabledModelIds = platformEnabledModels.map(
       (platformModel) => platformModel.id
     );
@@ -4954,28 +5389,37 @@ export const processInboundMessage = action({
         !isFreeTierOrganization &&
         !isModelAllowedForOrg(aiSettings, explicitModelOverride)
       ) {
-        return {
-          status: "error",
-          message: `Model "${explicitModelOverride}" is not enabled for this organization. Select one of the models configured by your organization owner.`,
-          sessionId: session._id,
-          turnId: runtimeTurnId,
-        };
+        const shouldFallbackToPlatformDefault =
+          !hasConfiguredOrgModelPolicy ||
+          explicitModelOverride === ONBOARDING_DEFAULT_MODEL_ID;
+        if (!shouldFallbackToPlatformDefault) {
+          return {
+            status: "error",
+            message: `Model "${explicitModelOverride}" is not enabled for this organization. Select one of the models configured by your organization owner.`,
+            sessionId: session._id,
+            turnId: runtimeTurnId,
+          };
+        }
+        explicitModelOverride = undefined;
       }
 
-      const explicitPlatformModel = selectFirstPlatformEnabledModel(
-        [explicitModelOverride],
-        platformEnabledModelIds
-      );
-      if (!explicitPlatformModel) {
-        return {
-          status: "error",
-          message: `Model "${explicitModelOverride}" is not currently release-ready on this platform. Select a currently enabled model and retry.`,
-          sessionId: session._id,
-          turnId: runtimeTurnId,
-        };
+      if (explicitModelOverride) {
+        const explicitPlatformModel = selectFirstPlatformEnabledModel(
+          [explicitModelOverride],
+          platformEnabledModelIds
+        );
+        if (!explicitPlatformModel) {
+          return {
+            status: "error",
+            message: `Model "${explicitModelOverride}" is not currently release-ready on this platform. Select a currently enabled model and retry.`,
+            sessionId: session._id,
+            turnId: runtimeTurnId,
+          };
+        }
       }
     }
 
+    const hasExplicitModelOverride = Boolean(explicitModelOverride);
     const preferredModel =
       isFreeTierOrganization && effectiveFreeTierModelId
         ? effectiveFreeTierModelId
@@ -6131,6 +6575,14 @@ export const processInboundMessage = action({
 
     const skipLlmExecutionForRequiredScopeFallback =
       requiredScopeDelegationDeliveryOverride !== null;
+    await invokeRuntimeAgentHook("preLLM", {
+      sessionId: session._id,
+      turnId: runtimeTurnId,
+      agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+      metadata: {
+        skipLlmExecutionForRequiredScopeFallback,
+      },
+    });
     if (!skipLlmExecutionForRequiredScopeFallback) {
       // 7.5. Pre-flight credit check
       const estimatedCost = estimateCreditsFromPricing(resolvedModelPricing);
@@ -6548,6 +7000,16 @@ export const processInboundMessage = action({
       }),
     });
     }
+    await invokeRuntimeAgentHook("postLLM", {
+      sessionId: session._id,
+      turnId: runtimeTurnId,
+      agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+      metadata: {
+        usedModel,
+        usedAuthProfileId: usedAuthProfileId ?? null,
+        skipLlmExecutionForRequiredScopeFallback,
+      },
+    });
 
     let assistantContent = choice.message?.content || "";
     if (composerRuntimeControls.mode === "plan_soft" && !skipLlmExecutionForRequiredScopeFallback) {
@@ -6907,6 +7369,47 @@ export const processInboundMessage = action({
         error: event.error,
       });
     };
+    const runtimeToolHooks: AgentRuntimeToolHooks = {
+      preTool: async (payload) => {
+        await invokeRuntimeAgentHook("preTool", {
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+          toolName: payload.toolName,
+          metadata: {
+            toolArgs: payload.toolArgs,
+          },
+        });
+      },
+      postTool: async (payload) => {
+        await invokeRuntimeAgentHook("postTool", {
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+          agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+          toolName: payload.toolName,
+          toolStatus: payload.status,
+          metadata: {
+            error: payload.error,
+          },
+        });
+      },
+      onHookError: (hookError) => {
+        console.warn("[AgentExecution] Agent runtime tool hook failed", {
+          hookName: hookError.hookName,
+          toolName: hookError.toolName,
+          error:
+            hookError.error instanceof Error
+              ? hookError.error.message
+              : String(hookError.error),
+        });
+      },
+    };
+    await enterRuntimeKernelStage("tool_dispatch", {
+      sessionId: session._id,
+      turnId: runtimeTurnId,
+      agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+      correlationId: samanthaDispatchTraceCorrelationId,
+    });
 
     const initialToolExecution = await executeToolCallsWithApproval({
       toolCalls: toolCalls as Array<{ function?: { name?: string; arguments?: unknown } }>,
@@ -6921,6 +7424,7 @@ export const processInboundMessage = action({
       nonDisableableTools: mandatorySamanthaTools,
       createApprovalRequest: createToolApprovalRequest,
       onToolDisabled: handleToolDisabled,
+      runtimeHooks: runtimeToolHooks,
     });
     const toolResults = [...initialToolExecution.toolResults];
     let errorStateDirty = initialToolExecution.errorStateDirty;
@@ -7380,6 +7884,7 @@ export const processInboundMessage = action({
           nonDisableableTools: mandatorySamanthaTools,
           createApprovalRequest: createToolApprovalRequest,
           onToolDisabled: handleToolDisabled,
+          runtimeHooks: runtimeToolHooks,
         });
         if (autoDispatchExecution.errorStateDirty) {
           errorStateDirty = true;
@@ -8182,6 +8687,23 @@ export const processInboundMessage = action({
         }
       }
     }
+    await invokeRuntimeAgentHook("completionPolicy", {
+      sessionId: session._id,
+      turnId: runtimeTurnId,
+      agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+      metadata: {
+        runtimeCapabilityGapBlocked: Boolean(runtimeCapabilityGapBlockedResponse),
+        actionCompletionRewriteApplied,
+      },
+    });
+    const runtimeHookOrderValidation = validateAgentRuntimeHookExecutionOrder(
+      observedAgentRuntimeHookOrder
+    );
+    if (!runtimeHookOrderValidation.valid) {
+      throw new Error(
+        `[AgentExecution] runtime hook order contract violation (${runtimeHookOrderValidation.reasonCode})`
+      );
+    }
 
     // 9.5. Post-LLM escalation checks (uncertainty phrases, response loops)
     // Load last 2 assistant responses + uncertainty counter for this session
@@ -8718,6 +9240,11 @@ export const processInboundMessage = action({
             reasoningProviderId: usedReasoningProviderId,
             reasoningResolution: usedReasoningReason,
           },
+          runtimeHooks: {
+            contractVersion: AGENT_RUNTIME_HOOK_CONTRACT_VERSION,
+            observedOrder: observedAgentRuntimeHookOrder,
+            orderValidation: runtimeHookOrderValidation,
+          },
         },
         meetingConcierge: meetingConciergeIntent.enabled
           ? {
@@ -8830,6 +9357,12 @@ export const processInboundMessage = action({
     // Skip if: metadata.skipOutbound is true (webhook/native endpoint sends reply itself),
     // or channel is "api_test" (testing via API, no delivery needed),
     // or there's no response content.
+    await enterRuntimeKernelStage("delivery", {
+      sessionId: session._id,
+      turnId: runtimeTurnId,
+      agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+      correlationId: samanthaDispatchTraceCorrelationId,
+    });
     const deliveryContent = formatAssistantContentForDelivery(
       args.channel,
       assistantContent,
@@ -13812,57 +14345,14 @@ function buildSamanthaMissingFieldRecoveryMessage(args: {
   return lines.join("\n");
 }
 
-export interface SamanthaAuditAutoDispatchToolArgs {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  founderContactRequested: boolean;
-  sales_call?: boolean;
-  clientName?: string;
-  workflowRecommendation?: string;
-  outputFormats?: ("pdf" | "docx")[];
-  ingressChannel?: string;
-  originSurface?: string;
-  sourceSessionToken?: string;
-  sourceAuditChannel?: SamanthaAuditRoutingAuditChannel;
-}
-
-export interface SamanthaAuditAutoDispatchPlan {
-  eligible: boolean;
-  requestDetected: boolean;
-  toolAvailable: boolean;
-  alreadyAttempted: boolean;
-  preexistingInvocationStatus: SamanthaAutoDispatchInvocationStatus;
-  retryEligibleAfterFailure: boolean;
-  ambiguousName: boolean;
-  ambiguousFounderContact: boolean;
-  missingRequiredFields: SamanthaAuditRequiredField[];
-  skipReasonCodes: SamanthaAutoDispatchSkipReasonCode[];
-  shouldDispatch: boolean;
-  toolArgs?: SamanthaAuditAutoDispatchToolArgs;
-}
-
-export type SamanthaAutoDispatchSkipReasonCode =
-  | "not_samantha_runtime"
-  | "request_not_detected"
-  | "tool_unavailable_in_scope"
-  | "tool_already_attempted"
-  | "ambiguous_name"
-  | "ambiguous_founder_contact"
-  | "missing_required_fields";
-
-export type SamanthaAuditDispatchDecision =
-  | "auto_dispatch_executed_pdf"
-  | "auto_dispatch_executed_docx"
-  | "recovery_attempted_missing_required_fields"
-  | "blocked_ambiguous_name"
-  | "blocked_ambiguous_founder_contact"
-  | "blocked_missing_required_fields"
-  | "blocked_missing_audit_session_context"
-  | "blocked_audit_session_not_found"
-  | "blocked_tool_unavailable"
-  | "blocked_tool_not_observed";
+export type {
+  SamanthaAuditAutoDispatchPlan,
+  SamanthaAuditAutoDispatchToolArgs,
+  SamanthaAuditDispatchDecision,
+  SamanthaAutoDispatchInvocationStatus,
+  SamanthaAutoDispatchSkipReasonCode,
+  SamanthaClaimRecoveryDecision,
+} from "./samanthaAuditContract";
 
 function resolveRequestedDeliverableFormats(messages: string[]): ("pdf" | "docx")[] | undefined {
   const joined = messages.join("\n");
@@ -14033,44 +14523,26 @@ function resolveSamanthaAuditDispatchDecision(args: {
   allToolResults: AgentToolResult[];
   enforcementPayload: ActionCompletionContractEnforcementPayload | null;
 }): SamanthaAuditDispatchDecision | undefined {
-  if (!args.plan || !args.plan.eligible) {
-    return undefined;
+  return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchDecision({
+    plan: args.plan,
+    executionFormat: resolveSamanthaAutoDispatchExecutionFormat(
+      args.autoDispatchToolResults
+    ),
+    sessionContextFailure: resolveSamanthaAuditSessionContextFailure(args.allToolResults),
+    enforcementReasonCode: args.enforcementPayload?.reasonCode,
+  });
+}
+
+function enforcementPayloadTargetsSamanthaAuditDeliverable(
+  payload: ActionCompletionContractEnforcementPayload | null
+): boolean {
+  if (!payload) {
+    return false;
   }
-  const executionFormat = resolveSamanthaAutoDispatchExecutionFormat(args.autoDispatchToolResults);
-  if (executionFormat === "docx") {
-    return "auto_dispatch_executed_docx";
-  }
-  if (executionFormat === "pdf") {
-    return "auto_dispatch_executed_pdf";
-  }
-  if (!args.plan.requestDetected) {
-    return undefined;
-  }
-  const sessionContextFailure = resolveSamanthaAuditSessionContextFailure(
-    args.allToolResults
-  );
-  if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING) {
-    return "blocked_missing_audit_session_context";
-  }
-  if (sessionContextFailure === SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND) {
-    return "blocked_audit_session_not_found";
-  }
-  if (!args.plan.toolAvailable) {
-    return "blocked_tool_unavailable";
-  }
-  if (args.plan.ambiguousName) {
-    return "blocked_ambiguous_name";
-  }
-  if (args.plan.ambiguousFounderContact) {
-    return "blocked_ambiguous_founder_contact";
-  }
-  if (args.plan.missingRequiredFields.length > 0) {
-    return "recovery_attempted_missing_required_fields";
-  }
-  if (args.enforcementPayload?.reasonCode === "claim_tool_not_observed") {
-    return "blocked_tool_not_observed";
-  }
-  return undefined;
+  return isSamanthaAuditDeliverableActionCompletionOutcome({
+    outcome: payload.outcome || "",
+    requiredTools: payload.requiredTools,
+  });
 }
 
 export function shouldAttemptSamanthaClaimRecoveryAutoDispatch(args: {
@@ -14078,22 +14550,13 @@ export function shouldAttemptSamanthaClaimRecoveryAutoDispatch(args: {
   alreadyAttempted: boolean;
   enforcementPayload: ActionCompletionContractEnforcementPayload | null;
 }): boolean {
-  return resolveSamanthaClaimRecoveryDecision(args).shouldAttempt;
-}
-
-export interface SamanthaClaimRecoveryDecision {
-  shouldAttempt: boolean;
-  reasonCode:
-    | "plan_missing"
-    | "already_attempted"
-    | "not_samantha_runtime"
-    | "tool_unavailable_in_scope"
-    | "tool_already_attempted"
-    | "lead_data_incomplete"
-    | "enforcement_reason_not_tool_not_observed"
-    | "enforcement_not_audit_deliverable"
-    | "retry_eligible_after_failure"
-    | "eligible_for_recovery";
+  return SAMANTHA_RUNTIME_MODULE_ADAPTER.shouldAttemptClaimRecoveryAutoDispatch({
+    plan: args.plan,
+    alreadyAttempted: args.alreadyAttempted,
+    enforcementReasonCode: args.enforcementPayload?.reasonCode,
+    enforcementTargetsAuditDeliverable:
+      enforcementPayloadTargetsSamanthaAuditDeliverable(args.enforcementPayload),
+  });
 }
 
 export function resolveSamanthaClaimRecoveryDecision(args: {
@@ -14101,87 +14564,23 @@ export function resolveSamanthaClaimRecoveryDecision(args: {
   alreadyAttempted: boolean;
   enforcementPayload: ActionCompletionContractEnforcementPayload | null;
 }): SamanthaClaimRecoveryDecision {
-  if (!args.plan) {
-    return { shouldAttempt: false, reasonCode: "plan_missing" };
-  }
-  if (args.alreadyAttempted) {
-    return { shouldAttempt: false, reasonCode: "already_attempted" };
-  }
-  if (!args.plan.eligible) {
-    return { shouldAttempt: false, reasonCode: "not_samantha_runtime" };
-  }
-  if (!args.plan.toolAvailable) {
-    return { shouldAttempt: false, reasonCode: "tool_unavailable_in_scope" };
-  }
-  const retryEligibleAfterFailure = args.plan.retryEligibleAfterFailure === true;
-  if (args.plan.alreadyAttempted && !retryEligibleAfterFailure) {
-    return { shouldAttempt: false, reasonCode: "tool_already_attempted" };
-  }
-  if (
-    args.plan.ambiguousName
-    || args.plan.ambiguousFounderContact
-    || args.plan.missingRequiredFields.length > 0
-    || !args.plan.toolArgs
-  ) {
-    return { shouldAttempt: false, reasonCode: "lead_data_incomplete" };
-  }
-  if (args.enforcementPayload?.reasonCode !== "claim_tool_not_observed") {
-    return {
-      shouldAttempt: false,
-      reasonCode: "enforcement_reason_not_tool_not_observed",
-    };
-  }
-  const enforcementTargetsAuditDeliverable = isSamanthaAuditDeliverableActionCompletionOutcome({
-    outcome: args.enforcementPayload.outcome || "",
-    requiredTools: args.enforcementPayload.requiredTools,
+  return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveClaimRecoveryDecision({
+    plan: args.plan,
+    alreadyAttempted: args.alreadyAttempted,
+    enforcementReasonCode: args.enforcementPayload?.reasonCode,
+    enforcementTargetsAuditDeliverable:
+      enforcementPayloadTargetsSamanthaAuditDeliverable(args.enforcementPayload),
   });
-  if (!enforcementTargetsAuditDeliverable) {
-    return {
-      shouldAttempt: false,
-      reasonCode: "enforcement_not_audit_deliverable",
-    };
-  }
-  if (retryEligibleAfterFailure) {
-    return { shouldAttempt: true, reasonCode: "retry_eligible_after_failure" };
-  }
-  return { shouldAttempt: true, reasonCode: "eligible_for_recovery" };
 }
-
-type SamanthaAutoDispatchInvocationStatus =
-  | "not_attempted"
-  | "attempted_without_result"
-  | "queued_pending_approval"
-  | "executed_success"
-  | "executed_error"
-  | "executed_blocked"
-  | "executed_disabled";
 
 function resolveSamanthaAutoDispatchInvocationStatus(args: {
   attempted: boolean;
   toolResults: AgentToolResult[];
 }): SamanthaAutoDispatchInvocationStatus {
-  const dispatchResults = args.toolResults.filter(
-    (result) => normalizeExecutionString(result.tool) === AUDIT_DELIVERABLE_TOOL_NAME
-  );
-  if (!args.attempted) {
-    return "not_attempted";
-  }
-  if (dispatchResults.length === 0) {
-    return "attempted_without_result";
-  }
-  if (dispatchResults.some((result) => result.status === "success")) {
-    return "executed_success";
-  }
-  if (dispatchResults.some((result) => result.status === "pending_approval")) {
-    return "queued_pending_approval";
-  }
-  if (dispatchResults.some((result) => result.status === "blocked")) {
-    return "executed_blocked";
-  }
-  if (dispatchResults.some((result) => result.status === "disabled")) {
-    return "executed_disabled";
-  }
-  return "executed_error";
+  return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveAutoDispatchInvocationStatus({
+    attempted: args.attempted,
+    toolResults: args.toolResults,
+  });
 }
 
 function resolveSamanthaDispatchTerminalReasonCode(args: {
@@ -14192,34 +14591,7 @@ function resolveSamanthaDispatchTerminalReasonCode(args: {
   preflightLookupTargetOk: boolean;
   preflightAuditSessionFound?: boolean;
 }): string {
-  if (args.dispatchDecision) {
-    return args.dispatchDecision;
-  }
-  if (args.runtimeCapabilityGapBlocked) {
-    return "runtime_capability_gap_blocked";
-  }
-  if (!args.plan) {
-    return "auto_dispatch_plan_not_resolved";
-  }
-  if (!args.plan.eligible) {
-    return "not_samantha_runtime";
-  }
-  if (!args.preflightLookupTargetOk) {
-    return "missing_audit_session_context";
-  }
-  if (args.preflightAuditSessionFound === false && args.plan.requestDetected) {
-    return "audit_session_not_found";
-  }
-  if (args.plan.skipReasonCodes.length > 0) {
-    return args.plan.skipReasonCodes[0];
-  }
-  if (args.invocationStatus !== "not_attempted") {
-    return args.invocationStatus;
-  }
-  if (!args.plan.requestDetected) {
-    return "request_not_detected";
-  }
-  return "no_dispatch_reason_resolved";
+  return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchTerminalReasonCode(args);
 }
 
 export function resolveAuditDeliverableInvocationGuardrail(args: {

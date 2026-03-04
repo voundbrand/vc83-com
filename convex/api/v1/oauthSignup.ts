@@ -2,7 +2,7 @@
  * Unified OAuth Account Creation
  * 
  * Handles OAuth-based account creation and login for both Platform UI and CLI.
- * Supports Microsoft, Google, and GitHub OAuth providers.
+ * Supports Apple, Microsoft, Google, and GitHub OAuth providers.
  * 
  * This is separate from the OAuth connection flow (which connects external accounts
  * to existing platform accounts). This flow creates NEW accounts or logs into
@@ -13,6 +13,7 @@ import { ConvexError, v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { buildUserSortFields } from "../../userSortKeys";
+import { SignJWT, importPKCS8 } from "jose";
 const generatedApi: any = require("../../_generated/api");
 
 async function ensureOrgOwnerRoleId(ctx: any): Promise<Id<"roles">> {
@@ -144,6 +145,14 @@ async function ensureOrganizationBootstrapRecords(
 }
 
 type OAuthBetaAccessStatus = "approved" | "pending" | "rejected" | "none";
+type OAuthSignupProvider = "apple" | "microsoft" | "google" | "github";
+
+const oauthSignupProviderValidator = v.union(
+  v.literal("apple"),
+  v.literal("microsoft"),
+  v.literal("google"),
+  v.literal("github")
+);
 
 function normalizeOptionalText(value?: string | null): string | undefined {
   if (typeof value !== "string") {
@@ -168,6 +177,52 @@ function throwBetaCodeValidationError(reason?: string): never {
   });
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    throw new Error("Invalid JWT payload format");
+  }
+
+  const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+  return JSON.parse(atob(padded)) as Record<string, unknown>;
+}
+
+function normalizeApplePrivateKey(privateKey: string | undefined): string | null {
+  if (typeof privateKey !== "string") return null;
+  const normalized = privateKey.replace(/\\n/g, "\n").trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function buildAppleClientSecret(clientId: string): Promise<string> {
+  const staticSecret = process.env.APPLE_OAUTH_CLIENT_SECRET?.trim();
+  if (staticSecret) {
+    return staticSecret;
+  }
+
+  const teamId = process.env.APPLE_OAUTH_TEAM_ID?.trim();
+  const keyId = process.env.APPLE_OAUTH_KEY_ID?.trim();
+  const privateKey = normalizeApplePrivateKey(process.env.APPLE_OAUTH_PRIVATE_KEY);
+
+  if (!teamId || !keyId || !privateKey) {
+    throw new Error(
+      "Apple OAuth not configured: set APPLE_OAUTH_CLIENT_SECRET or APPLE_OAUTH_TEAM_ID, APPLE_OAUTH_KEY_ID, and APPLE_OAUTH_PRIVATE_KEY"
+    );
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const cryptoKey = await importPKCS8(privateKey, "ES256");
+
+  return await new SignJWT({})
+    .setProtectedHeader({ alg: "ES256", kid: keyId })
+    .setIssuer(teamId)
+    .setAudience("https://appleid.apple.com")
+    .setSubject(clientId)
+    .setIssuedAt(nowSeconds)
+    .setExpirationTime(nowSeconds + 5 * 60)
+    .sign(cryptoKey);
+}
+
 /**
  * Exchange OAuth Code for User Info (Internal)
  * 
@@ -175,7 +230,7 @@ function throwBetaCodeValidationError(reason?: string): never {
  */
 export const exchangeOAuthCode = internalAction({
   args: {
-    provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
+    provider: oauthSignupProviderValidator,
     code: v.string(),
     redirectUri: v.string(), // Different for platform vs CLI
   },
@@ -378,6 +433,61 @@ export const exchangeOAuthCode = internalAction({
         refreshToken: tokenData.refresh_token,
         tokenExpiresAt: tokenData.expires_in ? Date.now() + (tokenData.expires_in * 1000) : undefined,
         scopes: tokenData.scope ? tokenData.scope.split(' ') : undefined,
+      };
+    }
+
+    if (args.provider === "apple") {
+      const clientId = process.env.APPLE_OAUTH_CLIENT_ID?.trim();
+      if (!clientId) {
+        throw new Error("Apple OAuth not configured: APPLE_OAUTH_CLIENT_ID environment variable is not set");
+      }
+
+      const clientSecret = await buildAppleClientSecret(clientId);
+      const tokenResponse = await fetch("https://appleid.apple.com/auth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: args.code,
+          redirect_uri: args.redirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error(`Apple token exchange failed: ${await tokenResponse.text()}`);
+      }
+
+      const tokenData = await tokenResponse.json();
+      if (tokenData.error) {
+        throw new Error(`Apple OAuth error: ${tokenData.error_description || tokenData.error}`);
+      }
+
+      if (typeof tokenData.id_token !== "string" || tokenData.id_token.length === 0) {
+        throw new Error("Apple OAuth token exchange did not return id_token");
+      }
+
+      const claims = decodeJwtPayload(tokenData.id_token);
+      const providerAccountId = typeof claims.sub === "string" ? claims.sub : undefined;
+      if (!providerAccountId) {
+        throw new Error("Apple OAuth token did not include a stable user identifier");
+      }
+
+      const claimEmail = typeof claims.email === "string" ? claims.email.toLowerCase().trim() : "";
+      const email = claimEmail || `apple_${providerAccountId}@privaterelay.appleid.com`;
+      const firstName = email.split("@")[0] || "Apple";
+
+      return {
+        email,
+        name: { firstName, lastName: "" },
+        providerAccountId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt: tokenData.expires_in ? Date.now() + (tokenData.expires_in * 1000) : undefined,
+        scopes: tokenData.scope ? String(tokenData.scope).split(" ") : ["name", "email"],
       };
     }
 
@@ -662,14 +772,14 @@ export const findOrCreateUserFromOAuth = internalMutation({
  * Works for both Platform UI and CLI (determined by sessionType).
  * 
  * @param sessionType - "platform" creates platform session, "cli" creates CLI session
- * @param provider - OAuth provider (microsoft, google, github)
+ * @param provider - OAuth provider (apple, microsoft, google, github)
  * @param code - OAuth authorization code
  * @param state - CSRF state token (from oauthSignupStates table)
  */
 export const completeOAuthSignup = action({
   args: {
     sessionType: v.union(v.literal("platform"), v.literal("cli")),
-    provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
+    provider: oauthSignupProviderValidator,
     code: v.string(),
     state: v.string(),
   },
@@ -681,7 +791,7 @@ export const completeOAuthSignup = action({
     organizationId: Id<"organizations">;
     expiresAt: number;
     isNewUser: boolean;
-    provider: "microsoft" | "google" | "github";
+    provider: OAuthSignupProvider;
     identityClaim?: {
       success: boolean;
       alreadyClaimed?: boolean;
@@ -697,7 +807,7 @@ export const completeOAuthSignup = action({
     }) as {
       sessionType: "platform" | "cli";
       callbackUrl: string;
-      provider: "microsoft" | "google" | "github";
+      provider: OAuthSignupProvider;
       organizationName?: string;
       betaCode?: string;
       identityClaimToken?: string;
@@ -775,21 +885,108 @@ export const completeOAuthSignup = action({
       normalizeOptionalText(signupCampaign?.referrer) ||
       `oauth_signup_${args.provider}`;
 
-    // Find or create user
-    const userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
-      email: userInfo.email,
-      firstName: userInfo.name.firstName,
-      lastName: userInfo.name.lastName,
-      organizationName: stateRecord.organizationName,
-      betaCode: stateRecord.betaCode,
-      redemptionChannel: signupChannel,
-      redemptionSource: signupSource,
-      redemptionDeviceType: signupDeviceType,
-      claimedOrganizationId:
-        inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
-          ? inspectedClaim.organizationId
-          : undefined,
-    });
+    type ExistingIdentityLookup = {
+      identity: { _id: Id<"userIdentities"> };
+      user: {
+        _id: Id<"users">;
+        defaultOrgId: Id<"organizations"> | null;
+        email: string;
+        betaAccessStatus?: string;
+      };
+    } | null;
+
+    let existingIdentity: ExistingIdentityLookup = null;
+    if (userInfo.providerAccountId) {
+      existingIdentity = await (ctx as any).runQuery(generatedApi.internal.auth.identity.findByProviderUser, {
+        provider: args.provider,
+        providerUserId: userInfo.providerAccountId,
+      });
+
+      if (existingIdentity?.identity?._id) {
+        await (ctx as any).runMutation(generatedApi.internal.auth.identity.updateLastUsed, {
+          identityId: existingIdentity.identity._id,
+        });
+      }
+    }
+
+    let userResult: {
+      userId: Id<"users">;
+      organizationId: Id<"organizations">;
+      isNewUser: boolean;
+      betaAccessStatus: OAuthBetaAccessStatus;
+      betaCodeApplied: boolean;
+    };
+
+    if (existingIdentity) {
+      if (!existingIdentity.user.defaultOrgId) {
+        throw new Error("Identity exists but user has no default organization");
+      }
+
+      userResult = {
+        userId: existingIdentity.user._id,
+        organizationId: existingIdentity.user.defaultOrgId,
+        isNewUser: false,
+        betaAccessStatus:
+          (existingIdentity.user.betaAccessStatus as OAuthBetaAccessStatus | undefined) || "none",
+        betaCodeApplied: false,
+      };
+    } else {
+      // Find or create user by email.
+      userResult = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.findOrCreateUserFromOAuth, {
+        email: userInfo.email,
+        firstName: userInfo.name.firstName,
+        lastName: userInfo.name.lastName,
+        organizationName: stateRecord.organizationName,
+        betaCode: stateRecord.betaCode,
+        redemptionChannel: signupChannel,
+        redemptionSource: signupSource,
+        redemptionDeviceType: signupDeviceType,
+        claimedOrganizationId:
+          inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
+            ? inspectedClaim.organizationId
+            : undefined,
+      });
+    }
+
+    const resolvedUserEmail =
+      normalizeOptionalText(existingIdentity?.user.email) ||
+      normalizeOptionalText(userInfo.email);
+    if (!resolvedUserEmail) {
+      throw new Error("OAuth provider did not return a usable email");
+    }
+
+    // Keep userIdentities in sync for OAuth sign-ins so future logins can match by provider user ID.
+    if (!existingIdentity && userInfo.providerAccountId) {
+      try {
+        const linkedIdentities = await (ctx as any).runQuery(
+          generatedApi.internal.auth.identity.getLinkedIdentities,
+          { userId: userResult.userId }
+        ) as Array<{ _id: Id<"userIdentities"> }>;
+
+        if (linkedIdentities.length === 0) {
+          await (ctx as any).runMutation(generatedApi.internal.auth.identity.createIdentity, {
+            userId: userResult.userId,
+            provider: args.provider,
+            providerUserId: userInfo.providerAccountId,
+            providerEmail: resolvedUserEmail,
+            isPrimary: true,
+            isApplePrivateRelay: resolvedUserEmail.includes("privaterelay.appleid.com"),
+            metadata: { source: "oauth_signup", provider: args.provider },
+          });
+        } else {
+          await (ctx as any).runMutation(generatedApi.internal.auth.identity.linkIdentity, {
+            userId: userResult.userId,
+            provider: args.provider,
+            providerUserId: userInfo.providerAccountId,
+            providerEmail: resolvedUserEmail,
+            isApplePrivateRelay: resolvedUserEmail.includes("privaterelay.appleid.com"),
+            metadata: { source: "oauth_signup", provider: args.provider },
+          });
+        }
+      } catch (identityError) {
+        console.error("[OAuth Signup] Failed to upsert user identity (non-blocking):", identityError);
+      }
+    }
 
     // For new users, trigger additional onboarding tasks (async, don't block login)
     if (userResult.isNewUser) {
@@ -802,7 +999,7 @@ export const completeOAuthSignup = action({
           // Notify sales team about beta request
           (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.notifySalesOfBetaRequest, {
             userId: userResult.userId,
-            email: userInfo.email,
+            email: resolvedUserEmail,
             firstName: userInfo.name.firstName,
             lastName: userInfo.name.lastName,
             requestReason: "New signup during beta period",
@@ -811,7 +1008,7 @@ export const completeOAuthSignup = action({
           }),
           // Send confirmation to requester
           (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
-            email: userInfo.email,
+            email: resolvedUserEmail,
             firstName: userInfo.name.firstName,
           }),
         ]);
@@ -819,7 +1016,7 @@ export const completeOAuthSignup = action({
         // Beta gating disabled - send normal welcome email
         // Send welcome email (async)
         await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.welcomeEmail.sendWelcomeEmail, {
-          email: userInfo.email,
+          email: resolvedUserEmail,
           firstName: userInfo.name.firstName,
           organizationName: orgName,
           apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
@@ -829,7 +1026,7 @@ export const completeOAuthSignup = action({
         await (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
           eventType: "free_signup",
           user: {
-            email: userInfo.email,
+            email: resolvedUserEmail,
             firstName: userInfo.name.firstName,
             lastName: userInfo.name.lastName,
           },
@@ -845,7 +1042,7 @@ export const completeOAuthSignup = action({
         await (ctx as any).runAction(generatedApi.internal.onboarding.createStripeCustomerForFreeUser, {
           organizationId: userResult.organizationId,
           organizationName: orgName,
-          email: userInfo.email,
+          email: resolvedUserEmail,
         });
       } catch (error) {
         // Log but don't fail signup if Stripe customer creation fails
@@ -968,7 +1165,7 @@ export const completeOAuthSignup = action({
       // createCliSession is now an Action (uses bcrypt for hashing)
       const sessionId = await (ctx as any).runAction(generatedApi.internal.api.v1.cliAuth.createCliSession, {
         userId: userResult.userId,
-        email: userInfo.email,
+        email: resolvedUserEmail,
         organizationId: userResult.organizationId,
         cliToken,
         createdAt: Date.now(),
@@ -986,7 +1183,7 @@ export const completeOAuthSignup = action({
         token: cliToken,
         sessionId,
         userId: userResult.userId,
-        email: userInfo.email,
+        email: resolvedUserEmail,
         organizationId: userResult.organizationId,
         expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
         isNewUser: userResult.isNewUser,
@@ -997,7 +1194,7 @@ export const completeOAuthSignup = action({
       // Create platform session
       const sessionId = await (ctx as any).runMutation(generatedApi.internal.api.v1.oauthSignup.createPlatformSession, {
         userId: userResult.userId,
-        email: userInfo.email,
+        email: resolvedUserEmail,
         organizationId: userResult.organizationId,
       });
 
@@ -1017,7 +1214,13 @@ export const completeOAuthSignup = action({
             : encryptedAccessToken; // Use access token if no refresh token
 
           const tokenExpiresAt = userInfo.tokenExpiresAt || Date.now() + (3600 * 1000); // Default 1 hour
-          const scopes = userInfo.scopes || (args.provider === "github" ? ["read:user", "user:email"] : ["openid", "profile", "email"]);
+          const scopes =
+            userInfo.scopes ||
+            (args.provider === "github"
+              ? ["read:user", "user:email"]
+              : args.provider === "apple"
+                ? ["name", "email"]
+                : ["openid", "profile", "email"]);
 
           // Store connection using provider-specific mutation
           if (args.provider === "google") {
@@ -1026,7 +1229,7 @@ export const completeOAuthSignup = action({
               organizationId: userResult.organizationId,
               provider: "google",
               providerAccountId: userInfo.providerAccountId || "",
-              providerEmail: userInfo.email,
+              providerEmail: resolvedUserEmail,
               connectionType: "personal",
               accessToken: encryptedAccessToken,
               refreshToken: encryptedRefreshToken,
@@ -1040,7 +1243,7 @@ export const completeOAuthSignup = action({
               organizationId: userResult.organizationId,
               provider: "microsoft",
               providerAccountId: userInfo.providerAccountId || "",
-              providerEmail: userInfo.email,
+              providerEmail: resolvedUserEmail,
               connectionType: "personal",
               accessToken: encryptedAccessToken,
               refreshToken: encryptedRefreshToken,
@@ -1053,7 +1256,7 @@ export const completeOAuthSignup = action({
               organizationId: userResult.organizationId,
               provider: "github",
               providerAccountId: userInfo.providerAccountId || "",
-              providerEmail: userInfo.email,
+              providerEmail: resolvedUserEmail,
               connectionType: "personal",
               accessToken: encryptedAccessToken,
               refreshToken: encryptedRefreshToken,
@@ -1080,7 +1283,7 @@ export const completeOAuthSignup = action({
         token: sessionId, // Platform sessions use session ID as token
         sessionId,
         userId: userResult.userId,
-        email: userInfo.email,
+        email: resolvedUserEmail,
         organizationId: userResult.organizationId,
         expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
         isNewUser: userResult.isNewUser,
@@ -1123,7 +1326,7 @@ export const storeOAuthSignupState = action({
     state: v.string(),
     sessionType: v.union(v.literal("platform"), v.literal("cli")),
     callbackUrl: v.string(),
-    provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
+    provider: oauthSignupProviderValidator,
     organizationName: v.optional(v.string()),
     betaCode: v.optional(v.string()),
     identityClaimToken: v.optional(v.string()),
@@ -1165,7 +1368,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
     state: v.string(),
     sessionType: v.union(v.literal("platform"), v.literal("cli")),
     callbackUrl: v.string(),
-    provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")),
+    provider: oauthSignupProviderValidator,
     organizationName: v.optional(v.string()),
     betaCode: v.optional(v.string()),
     identityClaimToken: v.optional(v.string()),
@@ -1210,7 +1413,7 @@ export const getOAuthSignupState = action({
   handler: async (ctx, args): Promise<{
     sessionType: "platform" | "cli";
     callbackUrl: string;
-    provider: "microsoft" | "google" | "github";
+    provider: OAuthSignupProvider;
     organizationName?: string;
     betaCode?: string;
     identityClaimToken?: string;

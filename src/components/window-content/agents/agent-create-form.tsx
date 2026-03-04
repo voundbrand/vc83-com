@@ -18,6 +18,12 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
 import { SUBTYPES, CHANNELS, MODELS, DEFAULT_AGENT_MODEL_ID } from "./types";
 import { FormField } from "./form-field";
+import {
+  buildVoiceLanguageCatalogFromVoices,
+  formatVoiceLanguageLabel,
+  isVoiceCompatibleWithLanguage,
+  normalizeVoiceLanguageCode,
+} from "@/lib/voice/catalog-language";
 
 interface AgentCreateFormProps {
   sessionId: string;
@@ -35,6 +41,7 @@ type ElevenLabsVoiceCatalogEntry = {
   name: string;
   category?: string;
   language?: string;
+  languages?: string[];
   labels?: Record<string, string>;
 };
 
@@ -85,6 +92,7 @@ export function AgentCreateForm({
   const [isVoiceCatalogLoading, setIsVoiceCatalogLoading] = useState(false);
   const [voiceCatalogError, setVoiceCatalogError] = useState<string | null>(null);
   const [voiceCatalogLoaded, setVoiceCatalogLoaded] = useState(false);
+  const [voiceSelectionError, setVoiceSelectionError] = useState<string | null>(null);
   const [brandVoice, setBrandVoice] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [autonomyLevel, setAutonomyLevel] = useState<"supervised" | "autonomous" | "draft_only">("supervised");
@@ -101,12 +109,32 @@ export function AgentCreateForm({
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  const normalizedVoiceLanguage = useMemo(
+    () => normalizeVoiceLanguageCode(voiceLanguage) || normalizeVoiceLanguageCode(language) || "en",
+    [language, voiceLanguage],
+  );
+
+  const voiceLanguageOptions = useMemo(() => {
+    const options = buildVoiceLanguageCatalogFromVoices(voiceCatalog);
+    if (!options.some((option) => option.code === normalizedVoiceLanguage)) {
+      options.push({
+        code: normalizedVoiceLanguage,
+        label: formatVoiceLanguageLabel(normalizedVoiceLanguage),
+        voiceCount: 0,
+      });
+    }
+    return options.sort((left, right) => left.label.localeCompare(right.label));
+  }, [normalizedVoiceLanguage, voiceCatalog]);
+
   const filteredVoiceCatalog = useMemo(() => {
+    const languageMatchedCatalog = voiceCatalog.filter((voice) =>
+      isVoiceCompatibleWithLanguage(voice, normalizedVoiceLanguage),
+    );
     const query = voiceSearchQuery.trim().toLowerCase();
     if (!query) {
-      return voiceCatalog;
+      return languageMatchedCatalog;
     }
-    return voiceCatalog.filter((voice) => {
+    return languageMatchedCatalog.filter((voice) => {
       const labelValues = voice.labels ? Object.values(voice.labels) : [];
       const haystack = [
         voice.name,
@@ -119,7 +147,15 @@ export function AgentCreateForm({
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [voiceCatalog, voiceSearchQuery]);
+  }, [normalizedVoiceLanguage, voiceCatalog, voiceSearchQuery]);
+
+  const selectedVoice = useMemo(
+    () => voiceCatalog.find((voice) => voice.voiceId === elevenLabsVoiceId),
+    [elevenLabsVoiceId, voiceCatalog],
+  );
+  const selectedVoiceLanguageMismatch = Boolean(
+    selectedVoice && !isVoiceCompatibleWithLanguage(selectedVoice, normalizedVoiceLanguage),
+  );
 
   // Populate form when editing
   if (editingAgentId && existingAgent && !initialized) {
@@ -149,6 +185,13 @@ export function AgentCreateForm({
 
   const handleSave = async () => {
     if (!name.trim()) return;
+    setVoiceSelectionError(null);
+    if (selectedVoiceLanguageMismatch) {
+      setVoiceSelectionError(
+        `Selected voice does not match ${formatVoiceLanguageLabel(normalizedVoiceLanguage)} (${normalizedVoiceLanguage.toUpperCase()}).`,
+      );
+      return;
+    }
     setSaving(true);
     try {
       if (editingAgentId) {
@@ -223,6 +266,16 @@ export function AgentCreateForm({
       setVoiceCatalogLoaded(true);
     }
   }, [listElevenLabsVoices, organizationId, sessionId]);
+
+  useEffect(() => {
+    if (!selectedVoiceLanguageMismatch || !selectedVoice) {
+      return;
+    }
+    setElevenLabsVoiceId("");
+    setVoiceSelectionError(
+      `Voice "${selectedVoice.name}" does not match ${formatVoiceLanguageLabel(normalizedVoiceLanguage)} (${normalizedVoiceLanguage.toUpperCase()}) and was reset to org default.`,
+    );
+  }, [normalizedVoiceLanguage, selectedVoice, selectedVoiceLanguageMismatch]);
 
   useEffect(() => {
     if (formSection !== "identity") {
@@ -455,12 +508,29 @@ export function AgentCreateForm({
                   onChange={setLanguage}
                   placeholder={tx("ui.agents.create_form.field.language_placeholder", "en")}
                 />
-                <FormField
-                  label={tx("ui.agents.create_form.field.voice_language", "Voice Language (ElevenLabs)")}
-                  value={voiceLanguage}
-                  onChange={setVoiceLanguage}
-                  placeholder={tx("ui.agents.create_form.field.voice_language_placeholder", "en or en-US")}
-                />
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                    {tx("ui.agents.create_form.field.voice_language", "Voice Language (ElevenLabs)")}
+                  </label>
+                  <select
+                    value={normalizedVoiceLanguage}
+                    onChange={(event) => {
+                      setVoiceSelectionError(null);
+                      setVoiceLanguage(event.target.value);
+                    }}
+                    className="w-full border px-2 py-1 text-xs"
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, var(--window-document-bg))" }}
+                  >
+                    {voiceLanguageOptions.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label} ({option.code.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+                    Languages are sourced from your current ElevenLabs voice catalog.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-medium" style={{ color: "var(--win95-text)" }}>
@@ -496,9 +566,15 @@ export function AgentCreateForm({
                       color: "var(--win95-text)",
                     }}
                   />
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    Showing voices for language: {formatVoiceLanguageLabel(normalizedVoiceLanguage)} ({normalizedVoiceLanguage.toUpperCase()})
+                  </p>
                   <select
                     value={elevenLabsVoiceId}
-                    onChange={(event) => setElevenLabsVoiceId(event.target.value)}
+                    onChange={(event) => {
+                      setVoiceSelectionError(null);
+                      setElevenLabsVoiceId(event.target.value);
+                    }}
                     className="w-full border px-2 py-1 text-xs"
                     style={{
                       borderColor: "var(--win95-border)",
@@ -527,6 +603,11 @@ export function AgentCreateForm({
                         : tx("ui.agents.create_form.voice_picker.no_voices_loaded", "No voices loaded yet. You can still paste a voice ID manually.")}
                     </p>
                   )}
+                  {voiceSelectionError ? (
+                    <p className="text-xs" style={{ color: "var(--error)" }}>
+                      {voiceSelectionError}
+                    </p>
+                  ) : null}
                 </div>
                 <FormField
                   label={tx("ui.agents.create_form.field.elevenlabs_voice_id", "ElevenLabs Voice ID")}

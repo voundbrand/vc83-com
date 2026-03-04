@@ -29,6 +29,7 @@ import {
   Lightbulb,
   Link2,
   Loader2,
+  MessageSquare,
   Mic,
   Plus,
   StopCircle,
@@ -1408,9 +1409,19 @@ export function SlickChatInput({
         releaseVoiceMediaStream()
         voiceRecorderRef.current = null
 
+        const recorderMimeType =
+          typeof recorder.mimeType === "string" && recorder.mimeType.trim().length > 0
+            ? recorder.mimeType
+            : ""
         const audioType =
-          voiceCaptureChunksRef.current[0]?.type
+          recorderMimeType
+          || voiceCaptureChunksRef.current[0]?.type
           || resolveVoiceCaptureFallbackMimeType("elevenlabs")
+        const captureChunkCount = voiceCaptureChunksRef.current.length
+        const captureChunkBytes = voiceCaptureChunksRef.current.reduce(
+          (total, chunk) => total + chunk.size,
+          0,
+        )
         const audioBlob = new Blob(voiceCaptureChunksRef.current, { type: audioType })
         voiceCaptureChunksRef.current = []
         if (!audioBlob.size) {
@@ -1432,6 +1443,11 @@ export function SlickChatInput({
               blob: audioBlob,
               requestedProviderId: "elevenlabs",
               language: voiceInputLanguage,
+              telemetry: {
+                recorderMimeType: recorderMimeType || undefined,
+                captureChunkCount,
+                captureChunkBytes,
+              },
               runtimeContext: {
                 authSessionId: sessionId,
                 interviewSessionId: runtimeSession.agentSessionId,
@@ -3142,7 +3158,14 @@ export function SlickChatInput({
                       void startVoiceCapture()
                     }}
                     disabled={controlDisabled || isVoiceTranscribing}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={
+                      isVoiceTranscribing
+                        ? "Transcribing voice capture"
+                        : isVoiceListening
+                          ? "Stop voice capture"
+                          : "Start voice capture"
+                    }
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       borderColor: "var(--shell-border-soft)",
                       background: "var(--shell-surface)",
@@ -3161,7 +3184,6 @@ export function SlickChatInput({
                     ) : (
                       <Mic size={14} />
                     )}
-                    <span>Dictate</span>
                   </button>
 
                   <button
@@ -3170,7 +3192,8 @@ export function SlickChatInput({
                     aria-expanded={isConversationPickerOpen}
                     onClick={() => setIsConversationPickerOpen((current) => !current)}
                     disabled={controlDisabled || isVoiceTranscribing}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Open conversation settings"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       borderColor: isConversationPickerOpen
                         ? "var(--shell-neutral-active-border)"
@@ -3182,8 +3205,7 @@ export function SlickChatInput({
                     }}
                     title="Choose conversation mode"
                   >
-                    <span>Conversation</span>
-                    <ChevronDown size={14} />
+                    <MessageSquare size={14} />
                   </button>
 
                   {isConversationPickerOpen ? (
@@ -3197,16 +3219,16 @@ export function SlickChatInput({
                       }}
                     >
                       <p className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
-                        Start Conversation
+                        Mode
                       </p>
                       <p className="mt-1 text-xs" style={{ color: "var(--shell-text-dim)" }}>
-                        Choose mode, then press Start.
+                        Choose voice behavior before starting.
                       </p>
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-2 grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setConversationModeSelection("voice")}
-                          className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
+                          className="relative flex min-h-16 items-end rounded-xl border px-2.5 py-2 text-left text-xs"
                           style={{
                             borderColor:
                               conversationModeSelection === "voice"
@@ -3220,12 +3242,16 @@ export function SlickChatInput({
                           }}
                         >
                           <span className="font-semibold">Voice only</span>
-                          {conversationModeSelection === "voice" ? <Check size={14} /> : null}
+                          {conversationModeSelection === "voice" ? (
+                            <span className="absolute right-2 top-2">
+                              <Check size={14} />
+                            </span>
+                          ) : null}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConversationModeSelection("voice_with_eyes")}
-                          className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
+                          className="relative flex min-h-16 items-end rounded-xl border px-2.5 py-2 text-left text-xs"
                           style={{
                             borderColor:
                               conversationModeSelection === "voice_with_eyes"
@@ -3239,51 +3265,76 @@ export function SlickChatInput({
                           }}
                         >
                           <span className="font-semibold">Voice + Eyes</span>
-                          {conversationModeSelection === "voice_with_eyes" ? <Check size={14} /> : null}
+                          {conversationModeSelection === "voice_with_eyes" ? (
+                            <span className="absolute right-2 top-2">
+                              <Check size={14} />
+                            </span>
+                          ) : null}
                         </button>
                       </div>
 
                       {conversationModeSelection === "voice_with_eyes" ? (
-                        <div className="mt-2 space-y-1.5">
+                        <div className="mt-3 space-y-2">
                           <p className="text-xs font-semibold" style={{ color: "var(--shell-text-dim)" }}>
                             Eyes source
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => setConversationEyesSourceSelection("webcam")}
-                            className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs"
-                            style={{
-                              borderColor:
-                                conversationEyesSourceSelection === "webcam"
-                                  ? "var(--shell-neutral-active-border)"
-                                  : "var(--shell-border-soft)",
-                              background: "var(--shell-surface)",
-                              color: "var(--shell-text)",
-                            }}
-                            disabled={!conversationCapabilitySnapshot.capabilities.webcam.available}
-                          >
-                            <span>Webcam</span>
-                            {conversationEyesSourceSelection === "webcam" ? <Check size={14} /> : null}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConversationEyesSourceSelection("meta_glasses")}
-                            className="flex w-full items-center justify-between rounded-xl border px-2.5 py-2 text-left text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                            style={{
-                              borderColor: "var(--shell-border-soft)",
-                              background: "var(--shell-surface)",
-                              color: "var(--shell-text-dim)",
-                            }}
-                            disabled={!conversationCapabilitySnapshot.capabilities.metaGlasses.available}
-                            title={conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode || undefined}
-                          >
-                            <span>Meta Glasses</span>
-                            <span>
-                              {conversationCapabilitySnapshot.capabilities.metaGlasses.available
-                                ? "Available"
-                                : "Unavailable"}
-                            </span>
-                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setConversationEyesSourceSelection("webcam")}
+                              className="relative flex min-h-[58px] items-end rounded-xl border px-2.5 py-2 text-left text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                              style={{
+                                borderColor:
+                                  conversationEyesSourceSelection === "webcam"
+                                    ? "var(--shell-neutral-active-border)"
+                                    : "var(--shell-border-soft)",
+                                background:
+                                  conversationEyesSourceSelection === "webcam"
+                                    ? "var(--shell-neutral-hover-surface)"
+                                    : "var(--shell-surface)",
+                                color: "var(--shell-text)",
+                              }}
+                              disabled={!conversationCapabilitySnapshot.capabilities.webcam.available}
+                            >
+                              <span className="font-semibold">Webcam</span>
+                              {conversationEyesSourceSelection === "webcam" ? (
+                                <span className="absolute right-2 top-2">
+                                  <Check size={14} />
+                                </span>
+                              ) : null}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConversationEyesSourceSelection("meta_glasses")}
+                              className="relative flex min-h-[58px] items-end rounded-xl border px-2.5 py-2 text-left text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                              style={{
+                                borderColor:
+                                  conversationEyesSourceSelection === "meta_glasses"
+                                    ? "var(--shell-neutral-active-border)"
+                                    : "var(--shell-border-soft)",
+                                background:
+                                  conversationEyesSourceSelection === "meta_glasses"
+                                    ? "var(--shell-neutral-hover-surface)"
+                                    : "var(--shell-surface)",
+                                color: "var(--shell-text)",
+                              }}
+                              disabled={!conversationCapabilitySnapshot.capabilities.metaGlasses.available}
+                              title={conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode || undefined}
+                            >
+                              <span className="font-semibold">Meta Glasses</span>
+                              {conversationEyesSourceSelection === "meta_glasses" ? (
+                                <span className="absolute right-2 top-2">
+                                  <Check size={14} />
+                                </span>
+                              ) : null}
+                            </button>
+                          </div>
+                          {!conversationCapabilitySnapshot.capabilities.metaGlasses.available ? (
+                            <p className="text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
+                              {conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode
+                                || "Meta glasses unavailable on this build."}
+                            </p>
+                          ) : null}
                         </div>
                       ) : null}
 

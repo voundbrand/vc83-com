@@ -741,7 +741,7 @@ export const oauthSignupStates = defineTable({
   state: v.string(),                           // UUID for CSRF protection
   sessionType: v.union(v.literal("platform"), v.literal("cli")), // Platform UI or CLI session
   callbackUrl: v.string(),                     // Where to redirect after OAuth
-  provider: v.union(v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
+  provider: v.union(v.literal("apple"), v.literal("microsoft"), v.literal("google"), v.literal("github")), // OAuth provider
   organizationName: v.optional(v.string()),    // Optional organization name for new accounts
   betaCode: v.optional(v.string()),            // Optional beta code to apply during OAuth signup
   identityClaimToken: v.optional(v.string()),  // Optional anonymous/Telegram claim token

@@ -12,6 +12,8 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export function LoginWindow() {
+  type OAuthProvider = "apple" | "microsoft" | "google" | "github";
+
   const [mode, setMode] = useState<"check" | "signin" | "setup" | "signup">("check");
   const [guestSignupHandoffActive, setGuestSignupHandoffActive] = useState(false);
   const [email, setEmail] = useState("");
@@ -97,11 +99,11 @@ export function LoginWindow() {
   }, []);
 
   // Get last used OAuth provider from localStorage
-  const getLastUsedProvider = (): "microsoft" | "google" | "github" | null => {
+  const getLastUsedProvider = (): OAuthProvider | null => {
     if (typeof window === "undefined") return null;
     const lastUsed = localStorage.getItem("l4yercak3_last_oauth_provider");
-    if (lastUsed && ["microsoft", "google", "github"].includes(lastUsed)) {
-      return lastUsed as "microsoft" | "google" | "github";
+    if (lastUsed && ["apple", "microsoft", "google", "github"].includes(lastUsed)) {
+      return lastUsed as OAuthProvider;
     }
     return null;
   };
@@ -115,14 +117,14 @@ export function LoginWindow() {
   };
 
   // Store last used provider
-  const setLastUsedProvider = (provider: "microsoft" | "google" | "github") => {
+  const setLastUsedProvider = (provider: OAuthProvider) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("l4yercak3_last_oauth_provider", provider);
     }
   };
 
   // Handle OAuth login/signup
-  const handleOAuth = (provider: "microsoft" | "google" | "github") => {
+  const handleOAuth = (provider: OAuthProvider) => {
     setLastUsedProvider(provider);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const refcode = getRefCode();
@@ -159,9 +161,9 @@ export function LoginWindow() {
   };
 
   // Get all providers, with last used first
-  const getAllProviders = (): Array<"microsoft" | "google" | "github"> => {
+  const getAllProviders = (): OAuthProvider[] => {
     const lastUsed = getLastUsedProvider();
-    const allProviders: Array<"microsoft" | "google" | "github"> = ["github", "microsoft", "google"];
+    const allProviders: OAuthProvider[] = ["apple", "google", "github", "microsoft"];
     
     if (lastUsed) {
       // Move last used to front
@@ -172,20 +174,25 @@ export function LoginWindow() {
     return allProviders;
   };
 
-  const getProviderButtonClass = (provider: "microsoft" | "google" | "github") => {
+  const getProviderButtonClass = (provider: OAuthProvider) => {
     const base = "w-full flex items-center justify-center gap-2 px-4 py-2 rounded beveled-button transition-colors";
+    if (provider === "apple") return `${base} bg-black hover:bg-[#111] text-white`;
     if (provider === "github") return `${base} bg-[#24292e] hover:bg-[#1a1e22] text-white`;
     if (provider === "microsoft") return `${base} bg-[#0078d4] hover:bg-[#006cbe] text-white`;
     return `${base} bg-white hover:bg-gray-50 text-gray-700 border border-gray-300`;
   };
 
-  const getLastUsedBadgeClass = (provider: "microsoft" | "google" | "github") => {
+  const getLastUsedBadgeClass = (provider: OAuthProvider) => {
+    if (provider === "apple") return "bg-black text-white border-white";
     if (provider === "github") return "bg-[#24292e] text-white border-white";
     if (provider === "microsoft") return "bg-[#0078d4] text-white border-white";
     return "bg-white text-gray-700 border-gray-300";
   };
 
-  const getProviderDisplayName = (provider: "microsoft" | "google" | "github") => {
+  const getProviderDisplayName = (provider: OAuthProvider) => {
+    if (provider === "apple") {
+      return tx("ui.login.provider.apple", "Apple");
+    }
     if (provider === "github") {
       return tx("ui.login.provider.github", "GitHub");
     }
@@ -195,12 +202,44 @@ export function LoginWindow() {
     return tx("ui.login.provider.google", "Google");
   };
 
-  const getContinueWithProviderLabel = (provider: "microsoft" | "google" | "github") => {
+  const getContinueWithProviderLabel = (provider: OAuthProvider) => {
     const providerName = getProviderDisplayName(provider);
     return tx(
       "ui.login.oauth.continue_with",
       `Continue with ${providerName}`,
       { provider: providerName },
+    );
+  };
+
+  const getProviderIcon = (provider: OAuthProvider) => {
+    if (provider === "apple") {
+      return (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16.37 1.43c0 1.13-.42 2.26-1.23 3.08-.84.86-2.17 1.51-3.35 1.47-.15-1.12.43-2.29 1.22-3.11.88-.9 2.3-1.54 3.36-1.44zM20.8 17.3c-.56 1.27-.82 1.84-1.55 2.95-1 1.55-2.42 3.5-4.17 3.51-1.56.02-1.96-1.01-4.08-1.01-2.13.01-2.56 1.04-4.13 1.01-1.74-.02-3.1-1.78-4.1-3.33-2.8-4.29-3.1-9.32-1.36-11.97C2.64 6.56 4.57 5.45 6.4 5.45c1.84 0 3.01 1.02 4.52 1.02 1.48 0 2.37-1.02 4.52-1.02 1.61 0 3.34.88 4.56 2.41-4.01 2.2-3.37 7.93.8 9.44z" />
+        </svg>
+      );
+    }
+    if (provider === "github") {
+      return (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+        </svg>
+      );
+    }
+    if (provider === "microsoft") {
+      return (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
     );
   };
 
@@ -762,24 +801,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProvider)}`}>
                     {t('ui.login.last_used')}
                   </span>
-                  {lastUsedProvider === "github" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  )}
-                  {lastUsedProvider === "microsoft" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                    </svg>
-                  )}
-                  {lastUsedProvider === "google" && (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
+                  {getProviderIcon(lastUsedProvider)}
                   {getContinueWithProviderLabel(lastUsedProvider)}
                 </button>
               </div>
@@ -794,24 +816,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   onClick={() => handleOAuth(provider)}
                   className={getProviderButtonClass(provider)}
                 >
-                  {provider === "github" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  )}
-                  {provider === "microsoft" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                    </svg>
-                  )}
-                  {provider === "google" && (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
+                  {getProviderIcon(provider)}
                   {getContinueWithProviderLabel(provider)}
                 </button>
               ))}
@@ -952,24 +957,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProvider)}`}>
                       {t('ui.login.last_used')}
                     </span>
-                    {lastUsedProvider === "github" && (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                      </svg>
-                    )}
-                    {lastUsedProvider === "microsoft" && (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                      </svg>
-                    )}
-                    {lastUsedProvider === "google" && (
-                      <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                    )}
+                    {getProviderIcon(lastUsedProvider)}
                     {getContinueWithProviderLabel(lastUsedProvider)}
                   </button>
                 </div>
@@ -984,24 +972,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                     onClick={() => handleOAuth(provider)}
                     className={getProviderButtonClass(provider)}
                   >
-                    {provider === "github" && (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                      </svg>
-                    )}
-                    {provider === "microsoft" && (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                      </svg>
-                    )}
-                    {provider === "google" && (
-                      <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                    )}
+                    {getProviderIcon(provider)}
                     {getContinueWithProviderLabel(provider)}
                   </button>
                 ))}
@@ -1388,24 +1359,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   <span className={`absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full border-2 shadow-md ${getLastUsedBadgeClass(lastUsedProviderSignin)}`}>
                     {t('ui.login.last_used')}
                   </span>
-                  {lastUsedProviderSignin === "github" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  )}
-                  {lastUsedProviderSignin === "microsoft" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                    </svg>
-                  )}
-                  {lastUsedProviderSignin === "google" && (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
+                  {getProviderIcon(lastUsedProviderSignin)}
                   {getContinueWithProviderLabel(lastUsedProviderSignin)}
                 </button>
               </div>
@@ -1420,24 +1374,7 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
                   onClick={() => handleOAuth(provider)}
                   className={getProviderButtonClass(provider)}
                 >
-                  {provider === "github" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  )}
-                  {provider === "microsoft" && (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
-                    </svg>
-                  )}
-                  {provider === "google" && (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                  )}
+                  {getProviderIcon(provider)}
                   {getContinueWithProviderLabel(provider)}
                 </button>
               ))}

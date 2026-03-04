@@ -2906,9 +2906,16 @@ export const sendMessage = action({
         maxTokens: 4000,
       },
     }) as any;
-    const onboardingEnabledModels =
+    const hasConfiguredEnabledModels =
       Array.isArray(settings?.llm?.enabledModels) &&
-      settings.llm.enabledModels.length > 0
+      settings.llm.enabledModels.length > 0;
+    const hasConfiguredLegacyModel =
+      typeof settings?.llm?.model === "string" &&
+      settings.llm.model.trim().length > 0;
+    const hasConfiguredOrgModelPolicy =
+      hasConfiguredEnabledModels || hasConfiguredLegacyModel;
+    const onboardingEnabledModels =
+      hasConfiguredEnabledModels
         ? settings.llm.enabledModels
         : [
             {
@@ -2974,7 +2981,7 @@ export const sendMessage = action({
     ) as { planTier?: string } | null;
     const isFreeTierOrganization = licenseSnapshot?.planTier === "free";
 
-    const explicitRequestedModel = normalizeNonEmptyString(args.selectedModel);
+    let explicitRequestedModel = normalizeNonEmptyString(args.selectedModel);
     const platformEnabledModelIds = platformEnabledModels.map(
       (platformModel) => platformModel.id
     );
@@ -3008,19 +3015,27 @@ export const sendMessage = action({
         !isFreeTierOrganization &&
         !isModelAllowedForOrg(settings, explicitRequestedModel)
       ) {
-        throw new Error(
-          `Model "${explicitRequestedModel}" is not enabled for this organization. Select one of the models configured by your organization owner.`
-        );
+        const shouldFallbackToPlatformDefault =
+          !hasConfiguredOrgModelPolicy ||
+          explicitRequestedModel === ONBOARDING_DEFAULT_MODEL_ID;
+        if (!shouldFallbackToPlatformDefault) {
+          throw new Error(
+            `Model "${explicitRequestedModel}" is not enabled for this organization. Select one of the models configured by your organization owner.`
+          );
+        }
+        explicitRequestedModel = undefined;
       }
 
-      const explicitPlatformModel = selectFirstPlatformEnabledModel(
-        [explicitRequestedModel],
-        platformEnabledModelIds
-      );
-      if (!explicitPlatformModel) {
-        throw new Error(
-          `Model "${explicitRequestedModel}" is not currently release-ready on this platform. Select a currently enabled model and retry.`
+      if (explicitRequestedModel) {
+        const explicitPlatformModel = selectFirstPlatformEnabledModel(
+          [explicitRequestedModel],
+          platformEnabledModelIds
         );
+        if (!explicitPlatformModel) {
+          throw new Error(
+            `Model "${explicitRequestedModel}" is not currently release-ready on this platform. Select a currently enabled model and retry.`
+          );
+        }
       }
     }
 

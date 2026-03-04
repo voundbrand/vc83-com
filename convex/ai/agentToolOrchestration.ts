@@ -19,6 +19,48 @@ export type AgentToolExecutionStatus =
   | "pending_approval"
   | "blocked";
 
+export const AGENT_RUNTIME_TOOL_HOOK_CONTRACT_VERSION =
+  "agent_runtime_tool_hooks_v1" as const;
+export type AgentRuntimeToolHookName = "preTool" | "postTool";
+
+export interface AgentRuntimeToolHookPayload {
+  contractVersion: typeof AGENT_RUNTIME_TOOL_HOOK_CONTRACT_VERSION;
+  hookName: AgentRuntimeToolHookName;
+  organizationId: string;
+  agentId: string;
+  sessionId: string;
+  toolName: string;
+  occurredAt: number;
+  toolArgs?: Record<string, unknown>;
+  status?: AgentToolExecutionStatus;
+  error?: string;
+  result?: unknown;
+}
+
+export type AgentRuntimeToolHookHandler = (
+  payload: AgentRuntimeToolHookPayload
+) => Promise<void> | void;
+
+export interface AgentRuntimeToolHooks {
+  preTool?: AgentRuntimeToolHookHandler;
+  postTool?: AgentRuntimeToolHookHandler;
+  onHookError?: (args: {
+    hookName: AgentRuntimeToolHookName;
+    toolName: string;
+    error: unknown;
+  }) => void;
+}
+
+export interface AgentRuntimeToolHookValidationResult {
+  valid: boolean;
+  reasonCode:
+    | "ok"
+    | "invalid_hook"
+    | "missing_required_field"
+    | "invalid_occurred_at";
+  field?: string;
+}
+
 export const TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CONTRACT_VERSION =
   "tool_foundry_runtime_capability_gap_v1" as const;
 export const TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE =
@@ -485,6 +527,117 @@ export function buildToolErrorStatePatch(args: {
   };
 }
 
+function hasRuntimeHookString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function validateAgentRuntimeToolHookPayload(
+  payload: AgentRuntimeToolHookPayload
+): AgentRuntimeToolHookValidationResult {
+  if (payload.hookName !== "preTool" && payload.hookName !== "postTool") {
+    return {
+      valid: false,
+      reasonCode: "invalid_hook",
+      field: "hookName",
+    };
+  }
+  if (!hasRuntimeHookString(payload.organizationId)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "organizationId",
+    };
+  }
+  if (!hasRuntimeHookString(payload.agentId)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "agentId",
+    };
+  }
+  if (!hasRuntimeHookString(payload.sessionId)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "sessionId",
+    };
+  }
+  if (!hasRuntimeHookString(payload.toolName)) {
+    return {
+      valid: false,
+      reasonCode: "missing_required_field",
+      field: "toolName",
+    };
+  }
+  if (
+    typeof payload.occurredAt !== "number"
+    || !Number.isFinite(payload.occurredAt)
+    || payload.occurredAt <= 0
+  ) {
+    return {
+      valid: false,
+      reasonCode: "invalid_occurred_at",
+      field: "occurredAt",
+    };
+  }
+  return {
+    valid: true,
+    reasonCode: "ok",
+  };
+}
+
+async function invokeAgentRuntimeToolHook(args: {
+  runtimeHooks?: AgentRuntimeToolHooks;
+  hookName: AgentRuntimeToolHookName;
+  payload: Omit<
+    AgentRuntimeToolHookPayload,
+    "contractVersion" | "hookName" | "occurredAt"
+  > & { occurredAt?: number };
+}): Promise<{ valid: boolean; error?: string }> {
+  const payload: AgentRuntimeToolHookPayload = {
+    contractVersion: AGENT_RUNTIME_TOOL_HOOK_CONTRACT_VERSION,
+    hookName: args.hookName,
+    organizationId: args.payload.organizationId,
+    agentId: args.payload.agentId,
+    sessionId: args.payload.sessionId,
+    toolName: args.payload.toolName,
+    occurredAt: args.payload.occurredAt ?? Date.now(),
+    toolArgs: args.payload.toolArgs,
+    status: args.payload.status,
+    error: args.payload.error,
+    result: args.payload.result,
+  };
+  const validation = validateAgentRuntimeToolHookPayload(payload);
+  if (!validation.valid) {
+    return {
+      valid: false,
+      error:
+        `agent_runtime_tool_hook_payload_invalid:${validation.reasonCode}:${validation.field || "unknown"}`,
+    };
+  }
+
+  const runtimeHooks = args.runtimeHooks;
+  const hookHandler =
+    args.hookName === "preTool"
+      ? runtimeHooks?.preTool
+      : runtimeHooks?.postTool;
+  if (!hookHandler) {
+    return { valid: true };
+  }
+
+  try {
+    await hookHandler(payload);
+  } catch (error) {
+    runtimeHooks?.onHookError?.({
+      hookName: args.hookName,
+      toolName: payload.toolName,
+      error,
+    });
+  }
+
+  return { valid: true };
+}
+
 export async function executeToolCallsWithApproval(args: {
   toolCalls: ToolCallEnvelope[];
   organizationId: Id<"organizations">;
@@ -501,6 +654,7 @@ export async function executeToolCallsWithApproval(args: {
     actionPayload: Record<string, unknown>;
   }) => Promise<void>;
   onToolDisabled: (args: { toolName: string; error: string }) => Promise<void>;
+  runtimeHooks?: AgentRuntimeToolHooks;
 }): Promise<{
   toolResults: AgentToolResult[];
   errorStateDirty: boolean;
@@ -568,6 +722,59 @@ export async function executeToolCallsWithApproval(args: {
       errorStateDirty = true;
       continue;
     }
+    const preToolHookResult = await invokeAgentRuntimeToolHook({
+      runtimeHooks: args.runtimeHooks,
+      hookName: "preTool",
+      payload: {
+        organizationId: String(args.organizationId),
+        agentId: String(args.agentId),
+        sessionId: String(args.sessionId),
+        toolName,
+        toolArgs: parsedArgsResult.args,
+      },
+    });
+    if (!preToolHookResult.valid) {
+      toolResults.push({
+        tool: toolName,
+        status: "error",
+        error: preToolHookResult.error || "agent_runtime_tool_hook_pre_tool_invalid",
+      });
+      args.failedToolCounts[toolName] = (args.failedToolCounts[toolName] || 0) + 1;
+      errorStateDirty = true;
+      continue;
+    }
+    const applyPostToolHookResult = async (
+      candidate: AgentToolResult,
+      options?: { markFailureOnContractInvalid?: boolean }
+    ): Promise<AgentToolResult> => {
+      const postToolHookResult = await invokeAgentRuntimeToolHook({
+        runtimeHooks: args.runtimeHooks,
+        hookName: "postTool",
+        payload: {
+          organizationId: String(args.organizationId),
+          agentId: String(args.agentId),
+          sessionId: String(args.sessionId),
+          toolName,
+          toolArgs: parsedArgsResult.args,
+          status: candidate.status,
+          error: candidate.error,
+          result: candidate.result,
+        },
+      });
+      if (postToolHookResult.valid) {
+        return candidate;
+      }
+      if (options?.markFailureOnContractInvalid !== false) {
+        args.failedToolCounts[toolName] = (args.failedToolCounts[toolName] || 0) + 1;
+        errorStateDirty = true;
+      }
+      return {
+        tool: toolName,
+        status: "error",
+        error:
+          postToolHookResult.error || "agent_runtime_tool_hook_post_tool_invalid",
+      };
+    };
 
     const conciergePreviewOperation = isMeetingConciergePreviewOperation(
       toolName,
@@ -583,22 +790,22 @@ export async function executeToolCallsWithApproval(args: {
       executeOperation: conciergeExecuteOperation,
     });
     if (commandPolicyBlock) {
-      toolResults.push({
+      toolResults.push(await applyPostToolHookResult({
         tool: toolName,
         status: "error",
         error: commandPolicyBlock,
-      });
+      }));
       continue;
     }
     const conciergeExplicitConfirm =
       args.toolExecutionContext.runtimePolicy?.meetingConcierge?.explicitConfirmDetected === true;
     if (conciergeExecuteOperation && !conciergeExplicitConfirm) {
-      toolResults.push({
+      toolResults.push(await applyPostToolHookResult({
         tool: toolName,
         status: "error",
         error:
           "Meeting concierge execute path requires explicit operator confirmation before mutation.",
-      });
+      }));
       continue;
     }
 
@@ -610,11 +817,11 @@ export async function executeToolCallsWithApproval(args: {
       const violationSummary = Array.isArray(mutationAuthority?.invariantViolations)
         ? mutationAuthority.invariantViolations.join(", ")
         : "unknown_violation";
-      toolResults.push({
+      toolResults.push(await applyPostToolHookResult({
         tool: toolName,
         status: "error",
         error: `Mutating tool execution blocked by authority invariant: ${violationSummary}.`,
-      });
+      }));
       continue;
     }
 
@@ -624,11 +831,11 @@ export async function executeToolCallsWithApproval(args: {
       previewOnlyOperation: conciergePreviewOperation,
     });
     if (nativeEdgeGuard.blockedError) {
-      toolResults.push({
+      toolResults.push(await applyPostToolHookResult({
         tool: toolName,
         status: "error",
         error: nativeEdgeGuard.blockedError,
-      });
+      }, { markFailureOnContractInvalid: false }));
       args.failedToolCounts[toolName] = (args.failedToolCounts[toolName] || 0) + 1;
       errorStateDirty = true;
       continue;
@@ -649,7 +856,10 @@ export async function executeToolCallsWithApproval(args: {
         actionType: toolName,
         actionPayload: parsedArgsResult.args,
       });
-      toolResults.push({ tool: toolName, status: "pending_approval" });
+      toolResults.push(await applyPostToolHookResult({
+        tool: toolName,
+        status: "pending_approval",
+      }));
       continue;
     }
 
@@ -676,12 +886,12 @@ export async function executeToolCallsWithApproval(args: {
       const semanticFailure = resolveSemanticToolFailure(result);
       if (semanticFailure) {
         args.failedToolCounts[toolName] = (args.failedToolCounts[toolName] || 0) + 1;
-        toolResults.push({
+        toolResults.push(await applyPostToolHookResult({
           tool: toolName,
           status: "error",
           result,
           error: semanticFailure,
-        });
+        }, { markFailureOnContractInvalid: false }));
         errorStateDirty = true;
 
         if (
@@ -694,15 +904,19 @@ export async function executeToolCallsWithApproval(args: {
         continue;
       }
 
-      toolResults.push({ tool: toolName, status: "success", result });
+      toolResults.push(await applyPostToolHookResult({
+        tool: toolName,
+        status: "success",
+        result,
+      }));
     } catch (error) {
       args.failedToolCounts[toolName] = (args.failedToolCounts[toolName] || 0) + 1;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      toolResults.push({
+      toolResults.push(await applyPostToolHookResult({
         tool: toolName,
         status: "error",
         error: errorMessage,
-      });
+      }, { markFailureOnContractInvalid: false }));
       errorStateDirty = true;
 
       if (

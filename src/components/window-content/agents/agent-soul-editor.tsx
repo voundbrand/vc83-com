@@ -12,6 +12,12 @@ import type { AgentCustomProps } from "./types";
 import { FormField } from "./form-field";
 import { isPlatformManagedL2Soul } from "./platform-soul-scope";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import {
+  buildVoiceLanguageCatalogFromVoices,
+  formatVoiceLanguageLabel,
+  isVoiceCompatibleWithLanguage,
+  normalizeVoiceLanguageCode,
+} from "@/lib/voice/catalog-language";
 
 // Use require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
@@ -28,76 +34,9 @@ type ElevenLabsVoiceCatalogEntry = {
   name: string;
   category?: string;
   language?: string;
+  languages?: string[];
   labels?: Record<string, string>;
 };
-
-const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
-  american: "en",
-  british: "en",
-  deutsch: "de",
-  english: "en",
-  french: "fr",
-  german: "de",
-  japanese: "ja",
-  polish: "pl",
-  spanish: "es",
-};
-
-function normalizeVoiceLanguageCode(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
-  if (!normalized) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
-    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
-  }
-  const cleaned = normalized
-    .replace(/[^a-z0-9 -]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!cleaned) {
-    return null;
-  }
-  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
-    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
-  }
-  const primarySegment = cleaned.split("-", 1)[0]?.trim();
-  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
-    return primarySegment;
-  }
-  return null;
-}
-
-function extractVoiceLanguageCodes(voice: ElevenLabsVoiceCatalogEntry): Set<string> {
-  const codes = new Set<string>();
-  const labels = voice.labels || {};
-  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
-  for (const candidate of candidates) {
-    const code = normalizeVoiceLanguageCode(candidate);
-    if (code) {
-      codes.add(code);
-    }
-  }
-  return codes;
-}
-
-function isVoiceCompatibleWithLanguage(
-  voice: ElevenLabsVoiceCatalogEntry,
-  language: string,
-): boolean {
-  const normalizedLanguage = normalizeVoiceLanguageCode(language);
-  if (!normalizedLanguage) {
-    return true;
-  }
-  const voiceCodes = extractVoiceLanguageCodes(voice);
-  if (voiceCodes.size === 0) {
-    return true;
-  }
-  return voiceCodes.has(normalizedLanguage);
-}
 
 function resolveVoiceLanguageSelection(
   voiceLanguage: unknown,
@@ -206,16 +145,15 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
   );
 
   const voiceLanguageOptions = useMemo(() => {
-    const optionSet = new Set<string>();
-    for (const voice of voiceCatalog) {
-      for (const code of extractVoiceLanguageCodes(voice)) {
-        optionSet.add(code);
-      }
+    const options = buildVoiceLanguageCatalogFromVoices(voiceCatalog);
+    if (!options.some((option) => option.code === normalizedVoiceLanguage)) {
+      options.push({
+        code: normalizedVoiceLanguage,
+        label: formatVoiceLanguageLabel(normalizedVoiceLanguage),
+        voiceCount: 0,
+      });
     }
-    if (optionSet.size === 0) {
-      optionSet.add(normalizedVoiceLanguage);
-    }
-    return Array.from(optionSet).sort((a, b) => a.localeCompare(b));
+    return options.sort((left, right) => left.label.localeCompare(right.label));
   }, [normalizedVoiceLanguage, voiceCatalog]);
 
   const languageMatchedVoices = useMemo(
@@ -268,6 +206,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
           name: string;
           category?: string;
           language?: string;
+          languages?: string[];
           labels?: Record<string, string>;
         }>;
         reason?: string;
@@ -352,7 +291,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     }
     setElevenLabsVoiceId("");
     setVoiceSelectionError(
-      `Voice "${selectedVoice.name}" does not match ${normalizedVoiceLanguage.toUpperCase()} and was reset to org default.`,
+      `Voice "${selectedVoice.name}" does not match ${formatVoiceLanguageLabel(normalizedVoiceLanguage)} (${normalizedVoiceLanguage.toUpperCase()}) and was reset to org default.`,
     );
   }, [
     normalizedVoiceLanguage,
@@ -365,7 +304,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     setVoiceSelectionError(null);
     if (selectedVoiceLanguageMismatch) {
       setVoiceSelectionError(
-        `Selected voice does not match ${normalizedVoiceLanguage.toUpperCase()}.`,
+        `Selected voice does not match ${formatVoiceLanguageLabel(normalizedVoiceLanguage)} (${normalizedVoiceLanguage.toUpperCase()}).`,
       );
       return;
     }
@@ -438,9 +377,9 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
             className="w-full border-2 px-2 py-1 text-xs"
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
           >
-            {voiceLanguageOptions.map((code) => (
-              <option key={code} value={code}>
-                {code.toUpperCase()}
+            {voiceLanguageOptions.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label} ({option.code.toUpperCase()})
               </option>
             ))}
           </select>
@@ -471,7 +410,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
           />
           <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-            Showing voices for language: {normalizedVoiceLanguage.toUpperCase()}
+            Showing voices for language: {formatVoiceLanguageLabel(normalizedVoiceLanguage)} ({normalizedVoiceLanguage.toUpperCase()})
           </p>
 
           <select

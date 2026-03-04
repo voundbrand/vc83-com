@@ -108,6 +108,20 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function getProviderAuthProfiles(
+  settings: { llm?: unknown } | null | undefined
+): ProviderAuthProfile[] {
+  const llm = asRecord(settings?.llm);
+  const rawProfiles = llm?.providerAuthProfiles;
+  if (!Array.isArray(rawProfiles)) {
+    return [];
+  }
+
+  return rawProfiles.filter(
+    (profile): profile is ProviderAuthProfile => asRecord(profile) !== null
+  );
+}
+
 function sanitizeProfileId(providerId: string, profileId?: string | null): string {
   const normalized = normalizeString(profileId)
     ?.toLowerCase()
@@ -390,8 +404,7 @@ export const getAIConnectionCatalog = query({
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .first();
-    const providerProfiles =
-      (settings?.llm?.providerAuthProfiles as ProviderAuthProfile[] | undefined) ?? [];
+    const providerProfiles = getProviderAuthProfiles(settings);
 
     const license = await getLicenseInternal(ctx, args.organizationId);
     const flags = resolveByokFeatureFlags({
@@ -469,8 +482,7 @@ export const getAuthorizedAIConnection = internalQuery({
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
       .first();
-    const providerProfiles =
-      (settings?.llm?.providerAuthProfiles as ProviderAuthProfile[] | undefined) ?? [];
+    const providerProfiles = getProviderAuthProfiles(settings);
     const profile = findProviderProfile(providerProfiles, args.providerId, args.profileId);
     const provider = getAiProvider(args.providerId);
     const capabilities = resolveProviderCapabilities(profile, args.providerId);
@@ -520,8 +532,7 @@ export const saveAIConnection = mutation({
     }
 
     const settings = await ensureAiSettingsRecord(ctx, args.organizationId);
-    const existingProfiles =
-      (settings.llm.providerAuthProfiles as ProviderAuthProfile[] | undefined) ?? [];
+    const existingProfiles = getProviderAuthProfiles(settings);
     const targetProfileId = sanitizeProfileId(args.providerId, args.profileId);
     const provider = getAiProvider(args.providerId);
 
@@ -644,8 +655,7 @@ export const revokeAIConnection = mutation({
       };
     }
 
-    const existingProfiles =
-      (settings.llm.providerAuthProfiles as ProviderAuthProfile[] | undefined) ?? [];
+    const existingProfiles = getProviderAuthProfiles(settings);
     const targetProfileId = args.profileId
       ? sanitizeProfileId(args.providerId, args.profileId)
       : null;
@@ -715,8 +725,7 @@ export const recordAIConnectionHealthMetadata = internalMutation({
       };
     }
 
-    const existingProfiles =
-      (settings.llm.providerAuthProfiles as ProviderAuthProfile[] | undefined) ?? [];
+    const existingProfiles = getProviderAuthProfiles(settings);
     const targetProfileId = sanitizeProfileId(args.providerId, args.profileId);
     const profileIndex = existingProfiles.findIndex((profile) => {
       return (

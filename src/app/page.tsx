@@ -1042,7 +1042,7 @@ export default function HomePage() {
       if (isNewUser === "true") {
         localStorage.setItem("show_onboarding_tutorial", "true");
       }
-      if (oauthProvider && ["microsoft", "google", "github"].includes(oauthProvider)) {
+      if (oauthProvider && ["apple", "microsoft", "google", "github"].includes(oauthProvider)) {
         localStorage.setItem("l4yercak3_last_oauth_provider", oauthProvider);
       }
       // Clean up the URL (remove query params)
@@ -1053,7 +1053,7 @@ export default function HomePage() {
     }
 
     // Store OAuth provider for "last used" tracking (if not from session callback)
-    if (oauthProvider && ["microsoft", "google", "github"].includes(oauthProvider)) {
+    if (oauthProvider && ["apple", "microsoft", "google", "github"].includes(oauthProvider)) {
       localStorage.setItem("l4yercak3_last_oauth_provider", oauthProvider);
     }
 

@@ -38,7 +38,11 @@ import {
   StoreTrialPolicyCard,
 } from "./store/store-pricing-reference";
 import { useIsDesktopShellFallback } from "@/hooks/use-media-query";
-import { buildStoreAuthReturnPath, getStoreSectionFromQueryParams } from "@/lib/shell/url-state";
+import {
+  buildStoreAuthReturnPath,
+  getStoreSectionFromQueryParams,
+  type StoreCommercialCheckoutIntent,
+} from "@/lib/shell/url-state";
 import {
   normalizeStorePricingContract,
   type StorePricingContractSnapshot,
@@ -197,6 +201,26 @@ const isCheckoutTier = (value: string | null): value is CheckoutTier =>
 const isBillingPeriod = (value: string | null): value is BillingPeriod =>
   value === "monthly" || value === "annual";
 
+const COMMERCIAL_OFFER_CODE_SET: ReadonlySet<CommercialOfferCode> = new Set([
+  "layer1_foundation",
+  "layer2_dream_team",
+  "layer3_sovereign",
+  "layer3_sovereign_pro",
+  "layer3_sovereign_max",
+  "layer4_nvidia_private",
+  "consult_done_with_you",
+  "consult_full_build_scoping",
+  "plan_pro_subscription",
+  "plan_scale_subscription",
+  "credits_pack",
+]);
+
+const isCommercialOfferCode = (value: string | null): value is CommercialOfferCode =>
+  Boolean(value && COMMERCIAL_OFFER_CODE_SET.has(value as CommercialOfferCode));
+
+const isCommercialRoutingHint = (value: string | null): value is CommercialRoutingHint =>
+  value === "samantha_lead_capture" || value === "founder_bridge" || value === "enterprise_sales";
+
 const isStoreSection = (value: string | null): value is StoreSection =>
   value === "plans" ||
   value === "credits" ||
@@ -304,6 +328,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
   const [isRailExpanded, setIsRailExpanded] = useState(true);
   const [isJumpSheetOpen, setIsJumpSheetOpen] = useState(false);
   const hasAutoStartedCheckoutRef = useRef(false);
+  const hasAutoStartedCommercialCheckoutRef = useRef(false);
   const pendingDeepLinkSectionRef = useRef<StoreSection | null>(null);
   const pendingDeepLinkSectionParamRef = useRef<StoreSectionAlias | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
@@ -613,9 +638,18 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
   }, [storeSections]);
 
   const redirectToLoginForStore = useCallback(
-    (section: StoreSection, checkoutIntent?: { tier: CheckoutTier; billingPeriod: BillingPeriod }) => {
+    (
+      section: StoreSection,
+      checkoutIntent?: { tier: CheckoutTier; billingPeriod: BillingPeriod },
+      commercialIntent?: StoreCommercialCheckoutIntent
+    ) => {
       if (typeof window === "undefined") return;
-      const returnPath = buildStoreAuthReturnPath({ fullScreen, section, checkoutIntent });
+      const returnPath = buildStoreAuthReturnPath({
+        fullScreen,
+        section,
+        checkoutIntent,
+        commercialIntent,
+      });
       sessionStorage.setItem("auth_return_url", returnPath);
       window.location.href = "/?openLogin=store";
     },
@@ -1029,7 +1063,11 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
     }
 
     if (!isSignedIn) {
-      redirectToLoginForStore("plans");
+      redirectToLoginForStore("plans", undefined, {
+        offerCode: selection.offerCode,
+        intentCode: selection.intentCode,
+        routingHint: selection.routingHint,
+      });
       return;
     }
 
@@ -1088,6 +1126,67 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
     createCommercialOfferCheckout,
     redirectToLoginForStore,
     routeStoreCommercialIntentToChat,
+  ]);
+
+  // Resume commercial offer checkout intent after auth redirect or deep link.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (hasAutoStartedCommercialCheckoutRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autostartCommercial") !== "1") return;
+
+    const offerParam = params.get("offer_code") || params.get("offerCode");
+    const intentParam = params.get("intent_code") || params.get("intentCode");
+    const routingParam = params.get("routing_hint") || params.get("routingHint");
+
+    if (!isCommercialOfferCode(offerParam) || !intentParam || !isCommercialRoutingHint(routingParam)) {
+      return;
+    }
+
+    const selection: StoreCommercialOfferSelection = {
+      action: "checkout",
+      offerCode: offerParam,
+      intentCode: intentParam,
+      routingHint: routingParam,
+    };
+
+    if (!isSignedIn) {
+      hasAutoStartedCommercialCheckoutRef.current = true;
+      redirectToLoginForStore("plans", undefined, {
+        offerCode: selection.offerCode,
+        intentCode: selection.intentCode,
+        routingHint: selection.routingHint,
+      });
+      return;
+    }
+
+    if (!currentOrganization?.id) {
+      return;
+    }
+
+    hasAutoStartedCommercialCheckoutRef.current = true;
+
+    params.delete("autostartCommercial");
+    params.delete("offer_code");
+    params.delete("offerCode");
+    params.delete("intent_code");
+    params.delete("intentCode");
+    params.delete("routing_hint");
+    params.delete("routingHint");
+    const nextQuery = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`
+    );
+
+    void handleCommercialOfferSelection(selection);
+  }, [
+    currentOrganization?.id,
+    handleCommercialOfferSelection,
+    isSignedIn,
+    redirectToLoginForStore,
   ]);
 
   return (

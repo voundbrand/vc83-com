@@ -271,6 +271,50 @@ function extractErrorMessage(payload: unknown): string | null {
     }
   }
 
+  const nestedDetail = typed.detail;
+  if (typeof nestedDetail === "object" && nestedDetail !== null) {
+    const nestedMessage = normalizeString(
+      (nestedDetail as Record<string, unknown>).message,
+    );
+    if (nestedMessage) {
+      return nestedMessage;
+    }
+  }
+
+  return null;
+}
+
+function extractErrorCode(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const typed = payload as Record<string, unknown>;
+  const direct = normalizeString(typed.code);
+  if (direct) {
+    return direct;
+  }
+
+  const nestedError = typed.error;
+  if (typeof nestedError === "object" && nestedError !== null) {
+    const nestedCode = normalizeString(
+      (nestedError as Record<string, unknown>).code,
+    );
+    if (nestedCode) {
+      return nestedCode;
+    }
+  }
+
+  const nestedDetail = typed.detail;
+  if (typeof nestedDetail === "object" && nestedDetail !== null) {
+    const nestedCode = normalizeString(
+      (nestedDetail as Record<string, unknown>).code,
+    );
+    if (nestedCode) {
+      return nestedCode;
+    }
+  }
+
   return null;
 }
 
@@ -553,97 +597,126 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
   async transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult> {
     const inputByteLength = args.audioBytes.byteLength;
     const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType);
-    const formData = new FormData();
-    const audioBuffer = Uint8Array.from(args.audioBytes).buffer;
-    const blob = new Blob([audioBuffer], {
-      type: normalizedMimeType,
-    });
-    formData.append("file", blob, resolveTranscriptionFilename(normalizedMimeType));
-    formData.append("model_id", this.sttModelId);
+    const transcriptionMimeAttempts =
+      normalizedMimeType === "audio/webm"
+        ? ["audio/webm", "audio/mp4"]
+        : [normalizedMimeType];
     const language = normalizeString(args.language);
-    if (language) {
-      formData.append("language_code", language);
-    }
 
     const endpoint = `${this.baseUrl}/speech-to-text`;
-    const response = await this.fetchFn(endpoint, {
-      method: "POST",
-      headers: {
-        "xi-api-key": this.apiKey,
-      },
-      body: formData,
-    });
+    for (let attemptIndex = 0; attemptIndex < transcriptionMimeAttempts.length; attemptIndex += 1) {
+      const attemptMimeType = transcriptionMimeAttempts[attemptIndex]!;
+      const formData = new FormData();
+      const audioBuffer = Uint8Array.from(args.audioBytes).buffer;
+      const blob = new Blob([audioBuffer], {
+        type: attemptMimeType,
+      });
+      formData.append("file", blob, resolveTranscriptionFilename(attemptMimeType));
+      formData.append("model_id", this.sttModelId);
+      if (language) {
+        formData.append("language_code", language);
+      }
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      const payload = parseJsonSafely(errorBody);
-      const message = extractErrorMessage(payload);
-      throw new Error(
-        message
-          ? `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${normalizedMimeType}: ${message}`
-          : `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${normalizedMimeType}: ${errorBody.trim() || "no response body"}`,
-      );
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    const providerRequestId = readProviderRequestId(response.headers);
-    const text =
-      normalizeString(payload.text) ??
-      normalizeString(payload.transcript) ??
-      "";
-
-    if (!text) {
-      throw new Error("ElevenLabs transcription returned no transcript text.");
-    }
-
-    const headerDurationSeconds =
-      readHeaderNumber(response.headers, [
-        "x-audio-duration-seconds",
-        "x-duration-seconds",
-      ]);
-    const payloadDurationSeconds = readDurationSeconds(payload);
-    const durationSeconds =
-      payloadDurationSeconds ??
-      headerDurationSeconds ??
-      inputByteLength / ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND;
-    const reportedCostUsd =
-      readReportedCostUsd(payload) ??
-      readHeaderNumber(response.headers, ["x-cost-usd", "x-billing-cost-usd"]);
-    const estimatedCostUsd =
-      (durationSeconds / 3600) * ELEVENLABS_ESTIMATED_STT_USD_PER_HOUR;
-    const costUsd = reportedCostUsd ?? estimatedCostUsd;
-    const nativeCostInCents =
-      Number.isFinite(costUsd) && costUsd > 0
-        ? Math.max(0, Math.round(costUsd * 100))
-        : undefined;
-
-    return {
-      text,
-      providerId: this.providerId,
-      usage: {
-        nativeUsageUnit: "audio_seconds",
-        nativeUsageQuantity: roundToThree(durationSeconds),
-        nativeInputUnits: roundToThree(durationSeconds),
-        nativeTotalUnits: roundToThree(durationSeconds),
-        nativeCostInCents,
-        nativeCostCurrency: nativeCostInCents !== undefined ? "USD" : undefined,
-        nativeCostSource:
-          reportedCostUsd !== null ? "provider_reported" : "estimated_unit_pricing",
-        providerRequestId,
-        metadata: {
-          modelId: this.sttModelId,
-          mimeType: normalizedMimeType,
-          inputBytes: inputByteLength,
-          durationSource:
-            payloadDurationSeconds !== null
-              ? "provider_payload"
-              : headerDurationSeconds !== null
-              ? "provider_header"
-              : "byte_estimate",
+      const response = await this.fetchFn(endpoint, {
+        method: "POST",
+        headers: {
+          "xi-api-key": this.apiKey,
         },
-      },
-      raw: payload,
-    };
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        const payload = parseJsonSafely(errorBody);
+        const message = extractErrorMessage(payload);
+        const errorCode = extractErrorCode(payload)?.toLowerCase();
+        const canRetryWithMp4 =
+          attemptMimeType === "audio/webm"
+          && transcriptionMimeAttempts[attemptIndex + 1] === "audio/mp4"
+          && response.status === 400
+          && (
+            errorCode === "invalid_audio"
+            || (message?.toLowerCase().includes("corrupt") ?? false)
+          );
+
+        if (canRetryWithMp4) {
+          console.warn(
+            "[VoiceRuntimeAdapter] ElevenLabs STT rejected webm payload, retrying as mp4 container hint.",
+          );
+          continue;
+        }
+
+        throw new Error(
+          message
+            ? `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${attemptMimeType}: ${message}`
+            : `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${attemptMimeType}: ${errorBody.trim() || "no response body"}`,
+        );
+      }
+
+      const payload = (await response.json()) as Record<string, unknown>;
+      const providerRequestId = readProviderRequestId(response.headers);
+      const text =
+        normalizeString(payload.text) ??
+        normalizeString(payload.transcript) ??
+        "";
+
+      if (!text) {
+        throw new Error("ElevenLabs transcription returned no transcript text.");
+      }
+
+      const headerDurationSeconds =
+        readHeaderNumber(response.headers, [
+          "x-audio-duration-seconds",
+          "x-duration-seconds",
+        ]);
+      const payloadDurationSeconds = readDurationSeconds(payload);
+      const durationSeconds =
+        payloadDurationSeconds ??
+        headerDurationSeconds ??
+        inputByteLength / ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND;
+      const reportedCostUsd =
+        readReportedCostUsd(payload) ??
+        readHeaderNumber(response.headers, ["x-cost-usd", "x-billing-cost-usd"]);
+      const estimatedCostUsd =
+        (durationSeconds / 3600) * ELEVENLABS_ESTIMATED_STT_USD_PER_HOUR;
+      const costUsd = reportedCostUsd ?? estimatedCostUsd;
+      const nativeCostInCents =
+        Number.isFinite(costUsd) && costUsd > 0
+          ? Math.max(0, Math.round(costUsd * 100))
+          : undefined;
+
+      return {
+        text,
+        providerId: this.providerId,
+        usage: {
+          nativeUsageUnit: "audio_seconds",
+          nativeUsageQuantity: roundToThree(durationSeconds),
+          nativeInputUnits: roundToThree(durationSeconds),
+          nativeTotalUnits: roundToThree(durationSeconds),
+          nativeCostInCents,
+          nativeCostCurrency: nativeCostInCents !== undefined ? "USD" : undefined,
+          nativeCostSource:
+            reportedCostUsd !== null ? "provider_reported" : "estimated_unit_pricing",
+          providerRequestId,
+          metadata: {
+            modelId: this.sttModelId,
+            mimeType: attemptMimeType,
+            inputBytes: inputByteLength,
+            durationSource:
+              payloadDurationSeconds !== null
+                ? "provider_payload"
+                : headerDurationSeconds !== null
+                ? "provider_header"
+                : "byte_estimate",
+          },
+        },
+        raw: payload,
+      };
+    }
+
+    throw new Error(
+      `ElevenLabs transcription failed endpoint=${endpoint} model=${this.sttModelId}: exhausted container retries.`,
+    );
   }
 
   async synthesize(args: VoiceSynthesisArgs): Promise<VoiceSynthesisResult> {

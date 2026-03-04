@@ -23,6 +23,12 @@ export interface StoreCheckoutIntent {
   tier: StoreCheckoutTier
   billingPeriod: StoreCheckoutBillingPeriod
 }
+export type StoreCommercialRoutingHint = "samantha_lead_capture" | "founder_bridge" | "enterprise_sales"
+export interface StoreCommercialCheckoutIntent {
+  offerCode: string
+  intentCode: string
+  routingHint: StoreCommercialRoutingHint
+}
 const STORE_SECTION_QUERY_KEY = "section"
 
 export const SHELL_QUERY_KEYS = Object.freeze([
@@ -78,6 +84,7 @@ export function buildStoreAuthReturnPath(options: {
   fullScreen: boolean
   section: StorePanelSection
   checkoutIntent?: StoreCheckoutIntent
+  commercialIntent?: StoreCommercialCheckoutIntent
 }): string {
   const params = new URLSearchParams()
 
@@ -93,6 +100,13 @@ export function buildStoreAuthReturnPath(options: {
     params.set("autostartCheckout", "1")
     params.set("tier", options.checkoutIntent.tier)
     params.set("period", options.checkoutIntent.billingPeriod)
+  }
+
+  if (options.commercialIntent) {
+    params.set("autostartCommercial", "1")
+    params.set("offer_code", options.commercialIntent.offerCode)
+    params.set("intent_code", options.commercialIntent.intentCode)
+    params.set("routing_hint", options.commercialIntent.routingHint)
   }
 
   const pathname = options.fullScreen ? "/store" : "/"

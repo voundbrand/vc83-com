@@ -1,5 +1,113 @@
 import type { Id } from "../_generated/dataModel";
 
+export const INBOUND_RUNTIME_KERNEL_STAGE_ORDER = [
+  "ingress",
+  "routing",
+  "tool_dispatch",
+  "delivery",
+] as const;
+
+export type InboundRuntimeKernelStage =
+  (typeof INBOUND_RUNTIME_KERNEL_STAGE_ORDER)[number];
+
+export interface InboundRuntimeKernelStageContext {
+  organizationId: Id<"organizations">;
+  channel: string;
+  externalContactIdentifier: string;
+  sessionId?: Id<"agentSessions">;
+  turnId?: Id<"agentTurns">;
+  agentId?: Id<"objects">;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface InboundRuntimeKernelStagePayload {
+  stage: InboundRuntimeKernelStage;
+  context: InboundRuntimeKernelStageContext;
+  occurredAt: number;
+}
+
+type InboundRuntimeKernelStageHook = (
+  payload: InboundRuntimeKernelStagePayload
+) => Promise<void> | void;
+
+export interface InboundRuntimeKernelHooks {
+  onStage?: InboundRuntimeKernelStageHook;
+  ingress?: InboundRuntimeKernelStageHook;
+  routing?: InboundRuntimeKernelStageHook;
+  toolDispatch?: InboundRuntimeKernelStageHook;
+  delivery?: InboundRuntimeKernelStageHook;
+}
+
+export interface InboundRuntimeKernelHookErrorArgs {
+  stage: InboundRuntimeKernelStage;
+  hookScope: "onStage" | "stage";
+  error: unknown;
+}
+
+export function createInboundRuntimeKernelHooks(
+  hooks?: InboundRuntimeKernelHooks
+): InboundRuntimeKernelHooks {
+  return hooks ?? {};
+}
+
+function resolveStageHook(
+  stage: InboundRuntimeKernelStage,
+  hooks: InboundRuntimeKernelHooks
+): InboundRuntimeKernelStageHook | undefined {
+  if (stage === "ingress") {
+    return hooks.ingress;
+  }
+  if (stage === "routing") {
+    return hooks.routing;
+  }
+  if (stage === "tool_dispatch") {
+    return hooks.toolDispatch;
+  }
+  return hooks.delivery;
+}
+
+export async function enterInboundRuntimeKernelStage(args: {
+  stage: InboundRuntimeKernelStage;
+  context: InboundRuntimeKernelStageContext;
+  hooks?: InboundRuntimeKernelHooks;
+  onHookError?: (args: InboundRuntimeKernelHookErrorArgs) => void;
+}): Promise<void> {
+  const hooks = args.hooks ?? {};
+  const payload: InboundRuntimeKernelStagePayload = {
+    stage: args.stage,
+    context: args.context,
+    occurredAt: Date.now(),
+  };
+  const stageHook = resolveStageHook(args.stage, hooks);
+
+  if (hooks.onStage) {
+    try {
+      await hooks.onStage(payload);
+    } catch (error) {
+      args.onHookError?.({
+        stage: args.stage,
+        hookScope: "onStage",
+        error,
+      });
+    }
+  }
+
+  if (!stageHook) {
+    return;
+  }
+
+  try {
+    await stageHook(payload);
+  } catch (error) {
+    args.onHookError?.({
+      stage: args.stage,
+      hookScope: "stage",
+      error,
+    });
+  }
+}
+
 export interface TurnTerminalDeliverablePointer {
   pointerType: string;
   pointerId: string;

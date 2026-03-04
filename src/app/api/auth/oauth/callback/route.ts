@@ -1,53 +1,87 @@
 /**
  * Unified OAuth Callback Route
- * 
- * GET /api/auth/oauth/callback
- * 
+ *
+ * GET/POST /api/auth/oauth/callback
+ *
  * Handles OAuth callback for BOTH Platform UI and CLI.
  * Determines session type from state and routes accordingly.
- * 
- * This single callback URL can be used for all OAuth providers (GitHub, Microsoft, Google).
+ *
+ * Apple uses `response_mode=form_post`, so this route supports POST in addition to GET.
+ * This single callback URL can be used for Apple, GitHub, Microsoft, and Google.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
 import { fetchAction } from "convex/nextjs";
+const generatedApi: any = require("@convex/_generated/api");
+
+type OAuthProvider = "apple" | "microsoft" | "google" | "github";
+
+type CallbackParams = {
+  state: string | null;
+  code: string | null;
+  error: string | null;
+  errorDescription: string | null;
+  provider: OAuthProvider | null;
+};
+
+function toStringValue(value: FormDataEntryValue | null): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+async function getCallbackParams(request: NextRequest): Promise<CallbackParams> {
+  if (request.method === "POST") {
+    const formData = await request.formData();
+    return {
+      state: toStringValue(formData.get("state")),
+      code: toStringValue(formData.get("code")),
+      error: toStringValue(formData.get("error")),
+      errorDescription: toStringValue(formData.get("error_description")),
+      provider: toStringValue(formData.get("provider")) as OAuthProvider | null,
+    };
+  }
+
+  const searchParams = request.nextUrl.searchParams;
+  return {
+    state: searchParams.get("state"),
+    code: searchParams.get("code"),
+    error: searchParams.get("error"),
+    errorDescription: searchParams.get("error_description"),
+    provider: searchParams.get("provider") as OAuthProvider | null,
+  };
+}
 
 // Helper to wait for session to be readable (handles Convex eventual consistency)
 // validateCliSession is now an Action (uses bcrypt verification)
 async function waitForSession(token: string, maxAttempts = 5, delayMs = 100): Promise<boolean> {
+  const runAction = fetchAction as any;
   for (let i = 0; i < maxAttempts; i++) {
-    const session = await fetchAction(api.api.v1.cliAuth.validateCliSession, { token });
+    const session = await runAction(generatedApi.api.api.v1.cliAuth.validateCliSession, { token });
     if (session) {
       console.log(`[OAuth Callback] Session verified after ${i + 1} attempt(s)`);
       return true;
     }
     if (i < maxAttempts - 1) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
   console.error(`[OAuth Callback] Session not found after ${maxAttempts} attempts`);
   return false;
 }
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const state = searchParams.get("state");
-  const code = searchParams.get("code");
-  const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
-  const provider = searchParams.get("provider") as "microsoft" | "google" | "github" | null;
+async function handleOAuthCallback(request: NextRequest) {
+  const runAction = fetchAction as any;
+  const { state, code, error, errorDescription, provider } = await getCallbackParams(request);
 
   // Handle OAuth errors
   if (error) {
     console.error("OAuth callback error:", error, errorDescription);
-    
+
     // Try to get state to determine if this is CLI or platform
     try {
       if (state) {
-        const stateRecord = await fetchAction(api.api.v1.oauthSignup.getOAuthSignupState, {
+        const stateRecord = await runAction(generatedApi.api.api.v1.oauthSignup.getOAuthSignupState, {
           state,
         });
-        
+
         if (stateRecord && stateRecord.sessionType === "cli") {
           // CLI error - return JSON
           return NextResponse.json(
@@ -59,7 +93,7 @@ export async function GET(request: NextRequest) {
     } catch {
       // Fall through to platform error handling
     }
-    
+
     // Platform error - redirect to home with error
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     return NextResponse.redirect(
@@ -77,7 +111,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get state record to determine session type and provider
-    const stateRecord = await fetchAction(api.api.v1.oauthSignup.getOAuthSignupState, {
+    const stateRecord = await runAction(generatedApi.api.api.v1.oauthSignup.getOAuthSignupState, {
       state,
     });
 
@@ -88,9 +122,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Determine provider from state or query param
-    const oauthProvider = stateRecord.provider || provider;
-    if (!oauthProvider || !["microsoft", "google", "github"].includes(oauthProvider)) {
+    // Determine provider from state or callback param.
+    const oauthProvider = (stateRecord.provider || provider) as OAuthProvider | null;
+    if (!oauthProvider || !["apple", "microsoft", "google", "github"].includes(oauthProvider)) {
       return NextResponse.json(
         { error: "Invalid OAuth provider" },
         { status: 400 }
@@ -98,9 +132,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Complete OAuth signup (handles both platform and CLI sessions)
-    const result = await fetchAction(api.api.v1.oauthSignup.completeOAuthSignup, {
+    const result = await runAction(generatedApi.api.api.v1.oauthSignup.completeOAuthSignup, {
       sessionType: stateRecord.sessionType,
-      provider: oauthProvider as "microsoft" | "google" | "github",
+      provider: oauthProvider,
       code,
       state,
     });
@@ -108,7 +142,9 @@ export async function GET(request: NextRequest) {
     // Route based on session type
     if (stateRecord.sessionType === "cli") {
       // Debug: Log token details
-      console.log(`[OAuth Callback] CLI result.token: ${result.token.substring(0, 30)}... (length: ${result.token.length})`);
+      console.log(
+        `[OAuth Callback] CLI result.token: ${result.token.substring(0, 30)}... (length: ${result.token.length})`
+      );
 
       // Wait for session to be readable before redirecting (handles Convex eventual consistency)
       const sessionReady = await waitForSession(result.token);
@@ -127,24 +163,24 @@ export async function GET(request: NextRequest) {
 
       // Debug: Log the full redirect URL
       console.log(`[OAuth Callback] Redirect URL: ${redirectUrl.toString()}`);
-      console.log(`[OAuth Callback] Token in URL: ${redirectUrl.searchParams.get("token")?.substring(0, 30)}...`);
+      console.log(
+        `[OAuth Callback] Token in URL: ${redirectUrl.searchParams.get("token")?.substring(0, 30)}...`
+      );
 
-      return NextResponse.redirect(redirectUrl.toString());
-    } else {
-      // Platform: Redirect to platform home with session
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-      const redirectUrl = new URL("/", appUrl);
-      redirectUrl.searchParams.set("session", result.token);
-      redirectUrl.searchParams.set("isNewUser", result.isNewUser ? "true" : "false");
-      redirectUrl.searchParams.set("oauthProvider", oauthProvider); // Store provider for "last used" tracking
       return NextResponse.redirect(redirectUrl.toString());
     }
-  } catch (error: unknown) {
-    console.error("OAuth callback error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Try to determine if this is CLI or platform from error context
-    // For now, return JSON error (CLI-friendly) - platform can handle it
+    // Platform: Redirect to platform home with session
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const redirectUrl = new URL("/", appUrl);
+    redirectUrl.searchParams.set("session", result.token);
+    redirectUrl.searchParams.set("isNewUser", result.isNewUser ? "true" : "false");
+    redirectUrl.searchParams.set("oauthProvider", oauthProvider); // Store provider for "last used" tracking
+    return NextResponse.redirect(redirectUrl.toString());
+  } catch (callbackError: unknown) {
+    console.error("OAuth callback error:", callbackError);
+    const errorMessage = callbackError instanceof Error ? callbackError.message : "Unknown error";
+
     return NextResponse.json(
       { error: "Failed to complete OAuth signup", error_description: errorMessage },
       { status: 500 }
@@ -152,3 +188,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function GET(request: NextRequest) {
+  return handleOAuthCallback(request);
+}
+
+export async function POST(request: NextRequest) {
+  return handleOAuthCallback(request);
+}

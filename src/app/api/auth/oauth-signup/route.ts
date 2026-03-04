@@ -6,7 +6,7 @@
  * Initiates OAuth signup flow for both Platform UI and CLI.
  * 
  * Query params:
- * - provider: "microsoft" | "google" | "github"
+ * - provider: "apple" | "microsoft" | "google" | "github"
  * - sessionType: "platform" | "cli" (defaults to "platform")
  * - callback: Callback URL (required for CLI, optional for platform - defaults to platform home)
  * - organizationName: Optional organization name for new accounts
@@ -49,7 +49,7 @@ function resolveOnboardingDeviceType(request: NextRequest): string | undefined {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const provider = searchParams.get("provider") as "microsoft" | "google" | "github" | null;
+  const provider = searchParams.get("provider") as "apple" | "microsoft" | "google" | "github" | null;
   const sessionType = (searchParams.get("sessionType") as "platform" | "cli") || "platform";
   const callback = searchParams.get("callback");
   const organizationName = searchParams.get("organizationName");
@@ -69,9 +69,9 @@ export async function GET(request: NextRequest) {
   };
   const hasOnboardingCampaign = Object.values(onboardingCampaign).some((value) => typeof value === "string" && value.length > 0);
 
-  if (!provider || !["microsoft", "google", "github"].includes(provider)) {
+  if (!provider || !["apple", "microsoft", "google", "github"].includes(provider)) {
     return NextResponse.json(
-      { error: "Invalid or missing provider. Must be 'microsoft', 'google', or 'github'" },
+      { error: "Invalid or missing provider. Must be 'apple', 'microsoft', 'google', or 'github'" },
       { status: 400 }
     );
   }
@@ -185,6 +185,28 @@ export async function GET(request: NextRequest) {
         state,
       });
       authUrl = `${googleAuthUrl}?${params.toString()}`;
+    } else if (provider === "apple") {
+      const clientId = process.env.APPLE_OAUTH_CLIENT_ID;
+      if (!clientId) {
+        return NextResponse.json(
+          {
+            error: "Apple OAuth not configured",
+            error_description:
+              "APPLE_OAUTH_CLIENT_ID environment variable is not set. Configure your Apple Services ID client ID.",
+          },
+          { status: 500 }
+        );
+      }
+      const appleAuthUrl = "https://appleid.apple.com/auth/authorize";
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri,
+        response_mode: "form_post",
+        scope: "name email",
+        state,
+      });
+      authUrl = `${appleAuthUrl}?${params.toString()}`;
     }
 
     return NextResponse.redirect(authUrl);
