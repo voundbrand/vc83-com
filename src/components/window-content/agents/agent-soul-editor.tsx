@@ -23,6 +23,91 @@ interface AgentSoulEditorProps {
   organizationId: Id<"organizations">;
 }
 
+type ElevenLabsVoiceCatalogEntry = {
+  voiceId: string;
+  name: string;
+  category?: string;
+  language?: string;
+  labels?: Record<string, string>;
+};
+
+const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
+  american: "en",
+  british: "en",
+  deutsch: "de",
+  english: "en",
+  french: "fr",
+  german: "de",
+  japanese: "ja",
+  polish: "pl",
+  spanish: "es",
+};
+
+function normalizeVoiceLanguageCode(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  if (!normalized) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
+    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
+  }
+  const cleaned = normalized
+    .replace(/[^a-z0-9 -]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
+    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
+  }
+  const primarySegment = cleaned.split("-", 1)[0]?.trim();
+  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
+    return primarySegment;
+  }
+  return null;
+}
+
+function extractVoiceLanguageCodes(voice: ElevenLabsVoiceCatalogEntry): Set<string> {
+  const codes = new Set<string>();
+  const labels = voice.labels || {};
+  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
+  for (const candidate of candidates) {
+    const code = normalizeVoiceLanguageCode(candidate);
+    if (code) {
+      codes.add(code);
+    }
+  }
+  return codes;
+}
+
+function isVoiceCompatibleWithLanguage(
+  voice: ElevenLabsVoiceCatalogEntry,
+  language: string,
+): boolean {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language);
+  if (!normalizedLanguage) {
+    return true;
+  }
+  const voiceCodes = extractVoiceLanguageCodes(voice);
+  if (voiceCodes.size === 0) {
+    return true;
+  }
+  return voiceCodes.has(normalizedLanguage);
+}
+
+function resolveVoiceLanguageSelection(
+  voiceLanguage: unknown,
+  fallbackLanguage: unknown,
+): string {
+  return normalizeVoiceLanguageCode(voiceLanguage)
+    || normalizeVoiceLanguageCode(fallbackLanguage)
+    || "en";
+}
+
 export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSoulEditorProps) {
   const { t } = useNamespaceTranslations("ui.agents.soul_editor");
   const tx = (key: string, fallback: string): string => {
@@ -77,20 +162,17 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
 
   const [personality, setPersonality] = useState(props.personality || "");
   const [brandVoice, setBrandVoice] = useState(props.brandVoiceInstructions || "");
-  const [voiceLanguage, setVoiceLanguage] = useState(props.voiceLanguage || props.language || "en");
+  const [voiceLanguage, setVoiceLanguage] = useState(
+    resolveVoiceLanguageSelection(props.voiceLanguage, props.language),
+  );
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState(props.elevenLabsVoiceId || "");
   const [voiceSearchQuery, setVoiceSearchQuery] = useState("");
-  const [voiceCatalog, setVoiceCatalog] = useState<Array<{
-    voiceId: string;
-    name: string;
-    category?: string;
-    language?: string;
-    labels?: Record<string, string>;
-  }>>([]);
+  const [voiceCatalog, setVoiceCatalog] = useState<ElevenLabsVoiceCatalogEntry[]>([]);
   const [isVoiceCatalogLoading, setIsVoiceCatalogLoading] = useState(false);
   const [voiceCatalogError, setVoiceCatalogError] = useState<string | null>(null);
   const [isVoicePreviewLoading, setIsVoicePreviewLoading] = useState(false);
   const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const [voiceSelectionError, setVoiceSelectionError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soulName, setSoulName] = useState(soul.name || "");
   const [tagline, setTagline] = useState(soul.tagline || "");
@@ -107,7 +189,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     const s = p.soul || {};
     setPersonality(p.personality || "");
     setBrandVoice(p.brandVoiceInstructions || "");
-    setVoiceLanguage(p.voiceLanguage || p.language || "en");
+    setVoiceLanguage(resolveVoiceLanguageSelection(p.voiceLanguage, p.language));
     setElevenLabsVoiceId(p.elevenLabsVoiceId || "");
     setSoulName(s.name || "");
     setTagline(s.tagline || "");
@@ -118,12 +200,36 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     setInitialized(true);
   }
 
+  const normalizedVoiceLanguage = useMemo(
+    () => normalizeVoiceLanguageCode(voiceLanguage) || normalizeVoiceLanguageCode(props.language) || "en",
+    [props.language, voiceLanguage],
+  );
+
+  const voiceLanguageOptions = useMemo(() => {
+    const optionSet = new Set<string>();
+    for (const voice of voiceCatalog) {
+      for (const code of extractVoiceLanguageCodes(voice)) {
+        optionSet.add(code);
+      }
+    }
+    if (optionSet.size === 0) {
+      optionSet.add(normalizedVoiceLanguage);
+    }
+    return Array.from(optionSet).sort((a, b) => a.localeCompare(b));
+  }, [normalizedVoiceLanguage, voiceCatalog]);
+
+  const languageMatchedVoices = useMemo(
+    () => voiceCatalog.filter((voice) => isVoiceCompatibleWithLanguage(voice, normalizedVoiceLanguage)),
+    [normalizedVoiceLanguage, voiceCatalog],
+  );
+
   const filteredVoiceCatalog = useMemo(() => {
+    const baseCatalog = languageMatchedVoices;
     const query = voiceSearchQuery.trim().toLowerCase();
     if (!query) {
-      return voiceCatalog;
+      return baseCatalog;
     }
-    return voiceCatalog.filter((voice) => {
+    return baseCatalog.filter((voice) => {
       const labelValues = voice.labels ? Object.values(voice.labels) : [];
       const haystack = [
         voice.name,
@@ -136,7 +242,16 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [voiceCatalog, voiceSearchQuery]);
+  }, [languageMatchedVoices, voiceSearchQuery]);
+
+  const selectedVoice = useMemo(
+    () => voiceCatalog.find((voice) => voice.voiceId === elevenLabsVoiceId),
+    [elevenLabsVoiceId, voiceCatalog],
+  );
+
+  const selectedVoiceLanguageMismatch = Boolean(
+    selectedVoice && !isVoiceCompatibleWithLanguage(selectedVoice, normalizedVoiceLanguage),
+  );
 
   const loadVoiceCatalog = useCallback(async () => {
     setIsVoiceCatalogLoading(true);
@@ -231,8 +346,29 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedVoiceLanguageMismatch || !selectedVoice) {
+      return;
+    }
+    setElevenLabsVoiceId("");
+    setVoiceSelectionError(
+      `Voice "${selectedVoice.name}" does not match ${normalizedVoiceLanguage.toUpperCase()} and was reset to org default.`,
+    );
+  }, [
+    normalizedVoiceLanguage,
+    selectedVoice,
+    selectedVoiceLanguageMismatch,
+  ]);
+
   const handleSave = async () => {
     if (!agent) return;
+    setVoiceSelectionError(null);
+    if (selectedVoiceLanguageMismatch) {
+      setVoiceSelectionError(
+        `Selected voice does not match ${normalizedVoiceLanguage.toUpperCase()}.`,
+      );
+      return;
+    }
     setSaving(true);
     try {
       await updateAgent({
@@ -289,12 +425,26 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
       </Section>
 
       <Section title={tx("sections.voice", "Voice")}>
-        <FormField
-          label={tx("voice.language.label", "Voice Language")}
-          value={voiceLanguage}
-          onChange={setVoiceLanguage}
-          placeholder={tx("voice.language.placeholder", "en or en-US")}
-        />
+        <div>
+          <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+            {tx("voice.language.label", "Voice Language")}
+          </label>
+          <select
+            value={normalizedVoiceLanguage}
+            onChange={(event) => {
+              setVoiceSelectionError(null);
+              setVoiceLanguage(event.target.value);
+            }}
+            className="w-full border-2 px-2 py-1 text-xs"
+            style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
+          >
+            {voiceLanguageOptions.map((code) => (
+              <option key={code} value={code}>
+                {code.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -320,11 +470,15 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
             className="w-full border-2 px-2 py-1 text-xs"
             style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, #fff)" }}
           />
+          <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+            Showing voices for language: {normalizedVoiceLanguage.toUpperCase()}
+          </p>
 
           <select
             value={elevenLabsVoiceId}
             onChange={(event) => {
               const nextVoiceId = event.target.value;
+              setVoiceSelectionError(null);
               setElevenLabsVoiceId(nextVoiceId);
               if (nextVoiceId) {
                 void previewVoice(nextVoiceId);
@@ -365,9 +519,19 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
               {voiceCatalogError}
             </p>
           ) : null}
+          {!isVoiceCatalogLoading && !voiceCatalogError && filteredVoiceCatalog.length === 0 ? (
+            <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+              No ElevenLabs voices match {normalizedVoiceLanguage.toUpperCase()} for this organization.
+            </p>
+          ) : null}
           {voicePreviewError ? (
             <p className="text-[11px]" style={{ color: "var(--error)" }}>
               {voicePreviewError}
+            </p>
+          ) : null}
+          {voiceSelectionError ? (
+            <p className="text-[11px]" style={{ color: "var(--error)" }}>
+              {voiceSelectionError}
             </p>
           ) : null}
         </div>

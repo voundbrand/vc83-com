@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { getLocales } from 'expo-localization';
 
 import { SupportedLanguage, TranslationKey, translate } from '../i18n/translations';
-import { l4yercak3Client } from '../api/client';
+import { l4yercak3Client, type OperatorVoiceCatalogEntry } from '../api/client';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 export type LanguagePreference = 'system' | SupportedLanguage;
@@ -52,6 +52,70 @@ function normalizeAgentVoicePreference(value: unknown): AgentVoicePreference {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
+  american: 'en',
+  british: 'en',
+  deutsch: 'de',
+  english: 'en',
+  german: 'de',
+};
+
+function normalizeVoiceLanguageCode(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/_/g, '-');
+  if (!normalized) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
+    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
+  }
+  const cleaned = normalized
+    .replace(/[^a-z0-9 -]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
+    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
+  }
+  const primarySegment = cleaned.split('-', 1)[0]?.trim();
+  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
+    return primarySegment;
+  }
+  return null;
+}
+
+function extractVoiceLanguageCodes(voice: OperatorVoiceCatalogEntry): Set<string> {
+  const codes = new Set<string>();
+  const labels = voice.labels || {};
+  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
+  for (const candidate of candidates) {
+    const code = normalizeVoiceLanguageCode(candidate);
+    if (code) {
+      codes.add(code);
+    }
+  }
+  return codes;
+}
+
+function isVoiceCompatibleWithLanguage(
+  voice: OperatorVoiceCatalogEntry,
+  language: SupportedLanguage
+): boolean {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language);
+  if (!normalizedLanguage) {
+    return true;
+  }
+  const voiceCodes = extractVoiceLanguageCodes(voice);
+  if (voiceCodes.size === 0) {
+    return true;
+  }
+  return voiceCodes.has(normalizedLanguage);
 }
 
 function getDeviceLanguage(): SupportedLanguage {
@@ -140,6 +204,24 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
 
           const voiceCatalog = await l4yercak3Client.ai.voice.listCatalog();
           nextAgentVoiceId = normalizeAgentVoicePreference(voiceCatalog.selectedVoiceId);
+          const bootstrapLanguage: SupportedLanguage =
+            nextLanguagePreference === 'system' ? getDeviceLanguage() : nextLanguagePreference;
+          if (nextAgentVoiceId) {
+            const selectedVoice = (voiceCatalog.voices || []).find(
+              (voice) => voice.id === nextAgentVoiceId
+            );
+            if (selectedVoice && !isVoiceCompatibleWithLanguage(selectedVoice, bootstrapLanguage)) {
+              nextAgentVoiceId = null;
+              try {
+                await l4yercak3Client.ai.voice.updatePreferences({
+                  agentVoiceId: null,
+                  language: bootstrapLanguage,
+                });
+              } catch (error) {
+                console.warn('Failed to clear incompatible operator voice preference:', error);
+              }
+            }
+          }
 
           const mergedPayload: StoredPreferences = {
             appearancePreference: nextAppearancePreference,
@@ -235,6 +317,55 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
     },
     [agentName, agentVoiceId, appearancePreference, languagePreference, persist]
   );
+
+  useEffect(() => {
+    if (!isReady || !agentVoiceId || !l4yercak3Client.hasAuth()) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const voiceCatalog = await l4yercak3Client.ai.voice.listCatalog();
+        if (cancelled) {
+          return;
+        }
+        const selectedVoice = (voiceCatalog.voices || []).find(
+          (voice) => voice.id === agentVoiceId
+        );
+        if (!selectedVoice || isVoiceCompatibleWithLanguage(selectedVoice, resolvedLanguage)) {
+          return;
+        }
+        setAgentVoiceIdState(null);
+        void persist(
+          appearancePreference,
+          languagePreference,
+          agentName,
+          null,
+          autoSpeakReplies
+        );
+        await l4yercak3Client.ai.voice.updatePreferences({
+          agentVoiceId: null,
+          language: resolvedLanguage,
+        });
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Failed to validate operator voice language compatibility:', error);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    agentName,
+    agentVoiceId,
+    appearancePreference,
+    autoSpeakReplies,
+    isReady,
+    languagePreference,
+    persist,
+    resolvedLanguage,
+  ]);
 
   const t = useCallback(
     (key: TranslationKey, params?: Record<string, string | number>) => {

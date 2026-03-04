@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, TextInput } from 'react-native';
 import Constants from 'expo-constants';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
@@ -63,6 +63,70 @@ function OptionRow({
       </XStack>
     </Pressable>
   );
+}
+
+const LANGUAGE_ALIAS_TO_CODE: Record<string, string> = {
+  american: 'en',
+  british: 'en',
+  deutsch: 'de',
+  english: 'en',
+  german: 'de',
+};
+
+function normalizeVoiceLanguageCode(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/_/g, '-');
+  if (!normalized) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[normalized]) {
+    return LANGUAGE_ALIAS_TO_CODE[normalized] || null;
+  }
+  const cleaned = normalized
+    .replace(/[^a-z0-9 -]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) {
+    return null;
+  }
+  if (LANGUAGE_ALIAS_TO_CODE[cleaned]) {
+    return LANGUAGE_ALIAS_TO_CODE[cleaned] || null;
+  }
+  const primarySegment = cleaned.split('-', 1)[0]?.trim();
+  if (primarySegment && /^[a-z]{2,3}$/.test(primarySegment)) {
+    return primarySegment;
+  }
+  return null;
+}
+
+function extractVoiceLanguageCodes(voice: OperatorVoiceCatalogEntry): Set<string> {
+  const codes = new Set<string>();
+  const labels = voice.labels || {};
+  const candidates = [voice.language, labels.language, labels.locale, labels.accent];
+  for (const candidate of candidates) {
+    const code = normalizeVoiceLanguageCode(candidate);
+    if (code) {
+      codes.add(code);
+    }
+  }
+  return codes;
+}
+
+function isVoiceCompatibleWithLanguage(
+  voice: OperatorVoiceCatalogEntry,
+  language: string
+): boolean {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language);
+  if (!normalizedLanguage) {
+    return true;
+  }
+  const voiceLanguageCodes = extractVoiceLanguageCodes(voice);
+  if (voiceLanguageCodes.size === 0) {
+    return true;
+  }
+  return voiceLanguageCodes.has(normalizedLanguage);
 }
 
 export default function SettingsScreen() {
@@ -135,6 +199,7 @@ export default function SettingsScreen() {
     router.replace('/(tabs)');
   };
   const isDark = resolvedTheme === 'dark';
+  const normalizedVoiceLanguage = normalizeVoiceLanguageCode(resolvedLanguage) || 'en';
   const inputBorder = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(23,23,24,0.18)';
   const inputBackground = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.92)';
   const inputColor = isDark ? '#f5efe4' : '#191713';
@@ -208,18 +273,84 @@ export default function SettingsScreen() {
       // Ignore preview release errors.
     }
   }, []);
+  const buildVoicePreviewRuntimeContext = useCallback(() => {
+    const liveSessionId = `mobile_live_settings_voice_preview_${Date.now().toString(36)}`;
+    const sourceMode = 'iphone' as const;
+    const voiceRuntime = {
+      sourceId: 'settings_voice_preview_source',
+      sourceClass: 'settings_voice_preview_source',
+      providerId: 'settings_voice_preview',
+      sourceMode,
+      liveSessionId,
+    } as const;
+    const transportRuntime = {
+      transport: 'chunked_fallback',
+      requestedTransport: 'chunked_fallback',
+      sourceMode,
+      liveSessionId,
+    } as const;
+    const avObservability = {
+      ingressSurface: 'operator_mobile_settings_voice_preview',
+      sourceMode,
+      liveSessionId,
+    } as const;
+
+    return {
+      liveSessionId,
+      sourceMode,
+      voiceRuntime,
+      transportRuntime,
+      avObservability,
+    };
+  }, []);
   const persistVoicePreference = useCallback(async (nextVoiceId: string | null) => {
     setVoicePreferenceError(null);
     try {
       await l4yercak3Client.ai.voice.updatePreferences({
         agentVoiceId: nextVoiceId,
+        language: normalizedVoiceLanguage,
       });
     } catch (error) {
       setVoicePreferenceError(
         error instanceof Error ? error.message : 'Failed to sync operator voice preference.'
       );
     }
-  }, []);
+  }, [normalizedVoiceLanguage]);
+  useEffect(() => {
+    if (!agentVoiceId) {
+      return;
+    }
+    const selected = availableVoices.find((voice) => voice.id === agentVoiceId);
+    if (!selected) {
+      return;
+    }
+    if (isVoiceCompatibleWithLanguage(selected, normalizedVoiceLanguage)) {
+      return;
+    }
+    setAgentVoiceId(null);
+    setVoicePreferenceError(
+      `Selected voice does not match ${normalizedVoiceLanguage.toUpperCase()} and was reset to default.`
+    );
+    void (async () => {
+      try {
+        await l4yercak3Client.ai.voice.updatePreferences({
+          agentVoiceId: null,
+          language: normalizedVoiceLanguage,
+        });
+      } catch (error) {
+        setVoicePreferenceError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to sync operator voice preference.'
+        );
+      }
+    })();
+  }, [
+    agentVoiceId,
+    availableVoices,
+    normalizedVoiceLanguage,
+    setAgentVoiceId,
+  ]);
   const previewVoice = useCallback(async (voice: OperatorVoiceCatalogEntry) => {
     setVoicePreviewError(null);
     setIsPreviewingVoiceId(voice.id);
@@ -236,12 +367,23 @@ export default function SettingsScreen() {
       | null = null;
 
     try {
-      const resolved = await l4yercak3Client.ai.voice.resolveSession({});
+      const runtimeContext = buildVoicePreviewRuntimeContext();
+      const resolved = await l4yercak3Client.ai.voice.resolveSession({
+        liveSessionId: runtimeContext.liveSessionId,
+        sourceMode: runtimeContext.sourceMode,
+        voiceRuntime: runtimeContext.voiceRuntime,
+      });
       const opened = await l4yercak3Client.ai.voice.openSession({
         conversationId: resolved.conversationId,
         interviewSessionId: resolved.interviewSessionId,
         requestedProviderId: 'elevenlabs',
         requestedVoiceId: voice.id,
+        liveSessionId: runtimeContext.liveSessionId,
+        sourceMode: runtimeContext.sourceMode,
+        voiceRuntime: runtimeContext.voiceRuntime,
+        transportRuntime: runtimeContext.transportRuntime,
+        avObservability: runtimeContext.avObservability,
+        attestationProofToken: resolved.sessionOpenAttestationProof?.token,
       });
 
       if (!opened.success) {
@@ -312,6 +454,11 @@ export default function SettingsScreen() {
       stopPreviewPlayback();
     };
   }, [stopPreviewPlayback]);
+  const languageCompatibleVoices = useMemo(
+    () => availableVoices.filter((voice) => isVoiceCompatibleWithLanguage(voice, normalizedVoiceLanguage)),
+    [availableVoices, normalizedVoiceLanguage]
+  );
+  const displayedVoices = languageCompatibleVoices;
   const selectedVoice =
     agentVoiceId === null ? null : availableVoices.find((voice) => voice.id === agentVoiceId) || null;
   const selectedVoiceLabel =
@@ -460,7 +607,12 @@ export default function SettingsScreen() {
                           Loading ElevenLabs voices...
                         </Text>
                       ) : null}
-                      {availableVoices.map((voice) => (
+                      {!isVoiceLoading ? (
+                        <Text color="$colorTertiary" fontSize="$2">
+                          Showing voices for language: {normalizedVoiceLanguage.toUpperCase()}
+                        </Text>
+                      ) : null}
+                      {displayedVoices.map((voice) => (
                         <OptionRow
                           key={voice.id}
                           label={isPreviewingVoiceId === voice.id ? `${voice.name} (previewing...)` : voice.name}
@@ -472,9 +624,9 @@ export default function SettingsScreen() {
                           }}
                         />
                       ))}
-                      {!isVoiceLoading && availableVoices.length === 0 && !voiceLoadError ? (
+                      {!isVoiceLoading && displayedVoices.length === 0 && !voiceLoadError ? (
                         <Text color="$colorTertiary" fontSize="$2">
-                          No ElevenLabs voices are available for this organization.
+                          No ElevenLabs voices match {normalizedVoiceLanguage.toUpperCase()} for this organization.
                         </Text>
                       ) : null}
                       {voiceLoadError ? (
