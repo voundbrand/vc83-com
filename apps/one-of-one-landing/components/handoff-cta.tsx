@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Apple, Monitor, Globe, MessageCircle, ArrowRight } from "lucide-react";
+import { Apple, Monitor, Globe, CreditCard, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LANDING_AUDIT_STATE_EVENT } from "../lib/audit-chat-client";
 import {
@@ -26,7 +26,7 @@ export interface HandoffTranslations {
   fullBuild: string;
   fullBuildPrice: string;
   fullBuildDesc: string;
-  startConversation: string;
+  startCheckout: string;
 }
 
 const DEFAULT_TRANSLATIONS: HandoffTranslations = {
@@ -34,14 +34,14 @@ const DEFAULT_TRANSLATIONS: HandoffTranslations = {
   startFreeDesc:
     "Run a free diagnostic audit to qualify your highest-leverage workflow before any paid scope.",
   doneWithYou: "Consulting Sprint",
-  doneWithYouPrice: "€3,500 scope-only",
+  doneWithYouPrice: "€3,500 excl. VAT (scope-only)",
   doneWithYouDesc:
     "Strategy and implementation roadmap only. No production build is included in this sprint.",
   fullBuild: "Implementation Start",
-  fullBuildPrice: "€7,000+",
+  fullBuildPrice: "from €7,000 excl. VAT",
   fullBuildDesc:
     "Production implementation starts here, beginning with layer-one foundation and delivery.",
-  startConversation: "Start a conversation",
+  startCheckout: "Checkout",
 };
 
 export function HandoffCta({
@@ -146,7 +146,7 @@ export function HandoffCta({
           className="text-sm text-center mb-6"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          These paths activate after a few audit exchanges so the handoff carries useful context.
+          You can check out directly now. A few audit exchanges simply make the handoff context richer.
         </p>
       )}
 
@@ -280,29 +280,22 @@ export function HandoffCta({
           >
             {t.doneWithYouDesc}
           </p>
-          {handoffState.isAuditReady ? (
-            <Button asChild className="btn-primary text-sm h-9 gap-2">
-              <a
-                href={links.doneWithYouUrl}
-                onClick={() =>
-                  trackCtaClick({
-                    eventName: "onboarding.funnel.upgrade",
-                    ctaId: "done_with_you",
-                    destinationUrl: links.doneWithYouUrl,
-                    ctaGroup: "upgrade",
-                  })
-                }
-              >
-                <MessageCircle className="w-4 h-4" />
-                {t.startConversation}
-              </a>
-            </Button>
-          ) : (
-            <Button className="btn-primary text-sm h-9 gap-2" disabled>
-              <MessageCircle className="w-4 h-4" />
-              {t.startConversation}
-            </Button>
-          )}
+          <Button asChild className="btn-primary text-sm h-9 gap-2">
+            <a
+              href={links.doneWithYouCheckoutUrl}
+              onClick={() =>
+                trackCtaClick({
+                  eventName: "onboarding.funnel.upgrade",
+                  ctaId: "done_with_you_checkout",
+                  destinationUrl: links.doneWithYouCheckoutUrl,
+                  ctaGroup: "upgrade",
+                })
+              }
+            >
+              <CreditCard className="w-4 h-4" />
+              {t.startCheckout}
+            </a>
+          </Button>
         </div>
 
         {/* Full Build */}
@@ -326,31 +319,23 @@ export function HandoffCta({
           >
             {t.fullBuildDesc}
           </p>
-          {handoffState.isAuditReady ? (
-            <Button asChild className="btn-accent text-sm h-9 gap-2">
-              <a
-                href={links.fullBuildUrl}
-                onClick={() =>
-                  trackCtaClick({
-                    eventName: "onboarding.funnel.upgrade",
-                    ctaId: "full_build",
-                    destinationUrl: links.fullBuildUrl,
-                    ctaGroup: "upgrade",
-                  })
-                }
-              >
-                <MessageCircle className="w-4 h-4" />
-                {t.startConversation}
-                <ArrowRight className="w-4 h-4" />
-              </a>
-            </Button>
-          ) : (
-            <Button className="btn-accent text-sm h-9 gap-2" disabled>
-              <MessageCircle className="w-4 h-4" />
-              {t.startConversation}
+          <Button asChild className="btn-accent text-sm h-9 gap-2">
+            <a
+              href={links.fullBuildCheckoutUrl}
+              onClick={() =>
+                trackCtaClick({
+                  eventName: "onboarding.funnel.upgrade",
+                  ctaId: "full_build_checkout",
+                  destinationUrl: links.fullBuildCheckoutUrl,
+                  ctaGroup: "upgrade",
+                })
+              }
+            >
+              <CreditCard className="w-4 h-4" />
+              {t.startCheckout}
               <ArrowRight className="w-4 h-4" />
-            </Button>
-          )}
+            </a>
+          </Button>
         </div>
       </div>
     </div>

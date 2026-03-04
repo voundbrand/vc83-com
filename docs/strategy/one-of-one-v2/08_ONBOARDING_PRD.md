@@ -5,6 +5,8 @@
 **Classification:** Internal — Founder's Eyes Only
 **Purpose:** Play-by-play product requirements for the free diagnostic and beta onboarding experience. Every screen, every message, every moment — sequenced to make the user FEEL the AI and yearn to come back.
 
+**Tax convention:** Consulting Sprint (€3,500) and Foundation setup (from €7,000) are net prices (excl. VAT).
+
 ---
 
 ## The Design Principle
@@ -27,16 +29,18 @@ Visit sevenlayers.io
     -> Samantha greets, asks 5 questions
     -> Delivers personalized highest-leverage workflow recommendation
     -> Presents handoff CTAs:
-        1. "Continue the conversation" (resume in platform)
-        2. "Consulting sprint — scope only" (€3,500)
-        3. "Full implementation" (€7,000+ Foundation)
+        1. "Continue the conversation" (resume in platform, free path)
+        2. "Consulting sprint — scope only" (€3,500 excl. VAT, checkout-first)
+        3. "Full implementation" (from €7,000 excl. VAT Foundation, checkout-first)
     -> CTA click carries session data, claim token, attribution
     -> User creates account (Google OAuth / email)
     -> Operator already knows their business from the diagnostic
     -> 7-day trial begins
 ```
 
-**Technical:** The handoff system routes commercial intent via offer codes and intent codes. See `apps/one-of-one-landing/lib/handoff.ts` for the routing logic. Each CTA carries full attribution (UTM, referrer, landing path) through to the platform.
+**Technical:** The handoff system routes commercial intent via offer codes and intent codes. The €3,500 excl. VAT path maps to `consult_done_with_you`; the €7,000 excl. VAT path maps to `layer1_foundation`; both are checkout-first through Store and then Stripe when configured. Paid commercial CTAs on landing do not deep-link to chat. See `apps/one-of-one-landing/lib/handoff.ts` for routing logic.
+
+**Detailed pricing accordion policy:** Stripe-checkout-capable rows route to checkout-first URLs. Non-Stripe / not-configured rows open a localized prefilled email (`mailto:remington@sevenlayers.io`) containing product, setup, recurring, motion, source, and timestamp.
 
 ### Entry Point B: Beta Code (Events — Outbound)
 

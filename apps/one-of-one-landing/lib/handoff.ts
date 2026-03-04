@@ -31,8 +31,8 @@ export interface LandingAuditHandoffState extends LandingAuditStateSnapshot {
 
 export interface LandingHandoffLinks {
   resumeChatUrl: string;
-  doneWithYouUrl: string;
-  fullBuildUrl: string;
+  doneWithYouCheckoutUrl: string;
+  fullBuildCheckoutUrl: string;
   createAccountUrl: string;
   iphoneDownloadUrl: string | null;
   macosDownloadUrl: string | null;
@@ -139,6 +139,26 @@ function buildLandingCommercialChatUrl(
   params.set("routingHint", intentEnvelope.routingHint);
 
   return `${baseChatUrl}?${params.toString()}`;
+}
+
+function buildLandingCommercialStoreUrl(
+  baseStoreUrl: string,
+  envelope: CommercialIntentEnvelope
+): string {
+  const params = new URLSearchParams({
+    autostartCommercial: "1",
+    offer_code: envelope.offerCode,
+    intent_code: envelope.intentCode,
+    surface: envelope.surface,
+    routing_hint: envelope.routingHint,
+  });
+
+  // Compatibility aliases for downstream readers during migration.
+  params.set("offerCode", envelope.offerCode);
+  params.set("intentCode", envelope.intentCode);
+  params.set("routingHint", envelope.routingHint);
+
+  return `${baseStoreUrl}?${params.toString()}`;
 }
 
 function withOnboardingAttribution(args: {
@@ -262,6 +282,7 @@ export function buildLandingHandoffLinks(
 ): LandingHandoffLinks {
   const appBaseUrl = resolveAppBaseUrl();
   const baseChatUrl = `${appBaseUrl}/chat`;
+  const baseStoreUrl = `${appBaseUrl}/store`;
 
   const resumeChatUrl = withOnboardingAttribution({
     url: buildLandingCommercialChatUrl(baseChatUrl, "resume"),
@@ -270,15 +291,15 @@ export function buildLandingHandoffLinks(
     sessionToken: state.sessionToken,
   });
 
-  const doneWithYouUrl = withOnboardingAttribution({
-    url: buildLandingCommercialChatUrl(baseChatUrl, "done-with-you"),
+  const doneWithYouCheckoutUrl = withOnboardingAttribution({
+    url: buildLandingCommercialStoreUrl(baseStoreUrl, LANDING_LEGACY_INTENT_MAP["done-with-you"]),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,
   });
 
-  const fullBuildUrl = withOnboardingAttribution({
-    url: buildLandingCommercialChatUrl(baseChatUrl, "full-build"),
+  const fullBuildCheckoutUrl = withOnboardingAttribution({
+    url: buildLandingCommercialStoreUrl(baseStoreUrl, LANDING_LEGACY_INTENT_MAP["full-build"]),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,
@@ -286,8 +307,8 @@ export function buildLandingHandoffLinks(
 
   return {
     resumeChatUrl,
-    doneWithYouUrl,
-    fullBuildUrl,
+    doneWithYouCheckoutUrl,
+    fullBuildCheckoutUrl,
     createAccountUrl: buildAccountSignupUrl({
       appBaseUrl,
       callbackUrl: resumeChatUrl,

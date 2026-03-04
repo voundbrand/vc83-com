@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
 import { AuditChatSurface } from "@/components/audit-chat-surface"
 import { HandoffCta, type HandoffTranslations } from "@/components/handoff-cta"
@@ -9,6 +9,12 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher, type Language } from "@/components/language-switcher"
 import { Button } from "@/components/ui/button"
 import { landingTranslations } from "@/content/landing-content"
+import {
+  landingPricingSheets,
+  type LandingPricingCheckoutKey,
+  type LandingPricingRow,
+} from "@/content/pricing-sheet"
+import { trackLandingEvent } from "@/lib/analytics"
 import { resolveLegacyPublicCutoverMode } from "@/lib/commercial-cutover"
 import {
   Apple,
@@ -27,15 +33,199 @@ import {
   Server,
   Cpu,
   Lock,
+  CalendarDays,
+  ArrowRight,
+  CreditCard,
+  User,
 } from "lucide-react"
+
+const FOUNDER_DEMO_URLS: Record<Language, string> = {
+  en: "https://cal.com/voundbrand/sevenlayers-demo-en",
+  de: "https://cal.com/voundbrand/sevenlayers-demo-de",
+}
+const DIAGNOSTIC_SECTION_ID = "diagnostic"
+const REMINGTON_EMAIL = "remington@sevenlayers.io"
+
+const PRICING_EMAIL_TEMPLATES: Record<Language, {
+  subjectPrefix: string;
+  greeting: string;
+  intro: string;
+  productLabel: string;
+  setupLabel: string;
+  recurringLabel: string;
+  sourceLabel: string;
+  timestampLabel: string;
+  requestLabel: string;
+  closeLine: string;
+  signoff: string;
+}> = {
+  en: {
+    subjectPrefix: "One-of-One Offer Request",
+    greeting: "Hi Remington,",
+    intro: "I would like to proceed with the following offer from the One-of-One pricing overview:",
+    productLabel: "Product",
+    setupLabel: "Setup price",
+    recurringLabel: "Recurring price",
+    sourceLabel: "Source",
+    timestampLabel: "Timestamp",
+    requestLabel: "Request",
+    closeLine: "Please share the next steps and preferred checkout path.",
+    signoff: "Best regards,",
+  },
+  de: {
+    subjectPrefix: "One-of-One Angebotsanfrage",
+    greeting: "Hallo Remington,",
+    intro: "ich möchte mit folgendem Angebot aus der One-of-One Preisübersicht fortfahren:",
+    productLabel: "Produkt",
+    setupLabel: "Setup-Preis",
+    recurringLabel: "Laufender Preis",
+    sourceLabel: "Quelle",
+    timestampLabel: "Zeitstempel",
+    requestLabel: "Anfrage",
+    closeLine: "Bitte senden Sie mir die nächsten Schritte und den bevorzugten Checkout-Pfad.",
+    signoff: "Viele Grüße,",
+  },
+}
+
+function resolveLandingStoreBaseUrl(): string {
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "")
+  return appBaseUrl ? `${appBaseUrl}/store` : "/store"
+}
+
+function buildPricingCheckoutUrl(checkoutKey: LandingPricingCheckoutKey): string | null {
+  const storeBaseUrl = resolveLandingStoreBaseUrl()
+
+  if (checkoutKey === "plan_pro_monthly") {
+    return `${storeBaseUrl}?tier=pro&period=monthly&source=one_of_one_landing`
+  }
+  if (checkoutKey === "plan_pro_annual") {
+    return `${storeBaseUrl}?tier=pro&period=annual&source=one_of_one_landing`
+  }
+  if (checkoutKey === "plan_scale_monthly") {
+    return `${storeBaseUrl}?tier=scale&period=monthly&source=one_of_one_landing`
+  }
+  if (checkoutKey === "plan_scale_annual") {
+    return `${storeBaseUrl}?tier=scale&period=annual&source=one_of_one_landing`
+  }
+  if (checkoutKey === "consult_done_with_you") {
+    return `${storeBaseUrl}?autostartCommercial=1&offer_code=consult_done_with_you&intent_code=consulting_sprint_scope_only&routing_hint=samantha_lead_capture&source=one_of_one_landing`
+  }
+  if (checkoutKey === "layer1_foundation") {
+    return `${storeBaseUrl}?autostartCommercial=1&offer_code=layer1_foundation&intent_code=implementation_start_layer1&routing_hint=founder_bridge&source=one_of_one_landing`
+  }
+  if (
+    checkoutKey === "credits"
+    || checkoutKey === "sub_org_monthly"
+    || checkoutKey === "sub_org_annual"
+  ) {
+    return `${storeBaseUrl}?source=one_of_one_landing`
+  }
+
+  return null
+}
+
+function buildPricingInquiryMailtoUrl(language: Language, row: LandingPricingRow): string {
+  const template = PRICING_EMAIL_TEMPLATES[language]
+  const timestampDate = new Date()
+  const localizedTimestamp = timestampDate.toLocaleString(language === "de" ? "de-DE" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+  const timestamp = `${localizedTimestamp} (${timestampDate.toISOString()})`
+  const subject = `${template.subjectPrefix}: ${row.item}`
+  const body = [
+    template.greeting,
+    "",
+    template.intro,
+    "",
+    `${template.productLabel}: ${row.item}`,
+    `${template.setupLabel}: ${row.setup}`,
+    `${template.recurringLabel}: ${row.recurring}`,
+    `${template.sourceLabel}: one_of_one_landing`,
+    `${template.timestampLabel}: ${timestamp}`,
+    `${template.requestLabel}: ${template.closeLine}`,
+    "",
+    template.signoff,
+  ].join("\r\n")
+
+  const encodedSubject = encodeURIComponent(subject)
+  const encodedBody = encodeURIComponent(body)
+  return `mailto:${REMINGTON_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`
+}
 
 export default function LandingPage() {
   const [language, setLanguage] = useState<Language>("en")
   const t = landingTranslations[language]
+  const pricingSheet = landingPricingSheets[language]
+  const founderDemoUrl = FOUNDER_DEMO_URLS[language]
+  const avatarStorageId = process.env.NEXT_PUBLIC_REM_AVATAR_STORAGE_ID
+  const [founderAvatarUrl, setFounderAvatarUrl] = useState<string | null>(null)
+  const [showDetailedPricing, setShowDetailedPricing] = useState(false)
+  const [expandedPricingSections, setExpandedPricingSections] = useState<string[]>([])
   const legacyPublicCutoverMode = resolveLegacyPublicCutoverMode()
 
   const handleLanguageChange = useCallback((lang: Language) => {
     setLanguage(lang)
+  }, [])
+
+  const trackDemoCtaClick = useCallback((ctaId: string, ctaPlacement: string, destinationUrl: string) => {
+    trackLandingEvent({
+      eventName: "onboarding.funnel.activation",
+      metadata: {
+        ctaId,
+        ctaGroup: "book_demo",
+        ctaPlacement,
+        ctaIntent: "founder_demo",
+        destination: destinationUrl,
+      },
+    })
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const resolveAvatar = async () => {
+      if (!avatarStorageId) return
+      try {
+        const response = await fetch(`/api/files/url?storageId=${encodeURIComponent(avatarStorageId)}`)
+        if (!response.ok) return
+        const payload = (await response.json()) as { url?: string | null }
+        if (!cancelled) {
+          setFounderAvatarUrl(payload.url || null)
+        }
+      } catch {
+        if (!cancelled) {
+          setFounderAvatarUrl(null)
+        }
+      }
+    }
+
+    void resolveAvatar()
+    return () => {
+      cancelled = true
+    }
+  }, [avatarStorageId])
+
+  useEffect(() => {
+    if (!showDetailedPricing) return
+    setExpandedPricingSections(pricingSheet.categories.map((category) => category.title))
+  }, [language, pricingSheet, showDetailedPricing])
+
+  const handleDetailedPricingToggle = useCallback(() => {
+    setShowDetailedPricing((current) => {
+      const next = !current
+      if (next) {
+        setExpandedPricingSections(pricingSheet.categories.map((category) => category.title))
+      }
+      return next
+    })
+  }, [pricingSheet])
+
+  const togglePricingCategory = useCallback((categoryTitle: string) => {
+    setExpandedPricingSections((current) => (
+      current.includes(categoryTitle)
+        ? current.filter((title) => title !== categoryTitle)
+        : [...current, categoryTitle]
+    ))
   }, [])
 
   const handoffTranslations: HandoffTranslations = {
@@ -44,17 +234,56 @@ export default function LandingPage() {
       t.startFreeDesc
       ?? "Run a free diagnostic audit to qualify your highest-leverage workflow before any paid scope.",
     doneWithYou: t.doneWithYou ?? "Consulting Sprint",
-    doneWithYouPrice: t.doneWithYouPrice ?? "€3,500 scope-only",
+    doneWithYouPrice: t.doneWithYouPrice ?? "€3,500 excl. VAT (scope-only)",
     doneWithYouDesc:
       t.doneWithYouDesc
       ?? "Strategy and implementation roadmap only. No production build is included in this sprint.",
     fullBuild: t.fullBuild ?? "Implementation Start",
-    fullBuildPrice: t.fullBuildPrice ?? "€7,000+",
+    fullBuildPrice: t.fullBuildPrice ?? "from €7,000 excl. VAT",
     fullBuildDesc:
       t.fullBuildDesc
       ?? "Production implementation starts here, beginning with layer-one foundation and delivery.",
-    startConversation: t.startConversation,
+    startCheckout: t.startCheckout ?? "Checkout",
   }
+
+  const resolvePricingRowAction = useCallback((row: LandingPricingRow) => {
+    if (row.checkoutKey) {
+      const checkoutUrl = buildPricingCheckoutUrl(row.checkoutKey)
+      if (checkoutUrl) {
+        return {
+          type: "checkout" as const,
+          href: checkoutUrl,
+          label: t.pricingCheckoutAction ?? "Go to checkout",
+        }
+      }
+    }
+
+    return {
+      type: "email" as const,
+      href: buildPricingInquiryMailtoUrl(language, row),
+      label: t.pricingEmailAction ?? "Email Remington",
+    }
+  }, [language, t.pricingCheckoutAction, t.pricingEmailAction])
+
+  const trackPricingRowActionClick = useCallback((args: {
+    row: LandingPricingRow;
+    actionType: "checkout" | "email";
+    destinationUrl: string;
+  }) => {
+    trackLandingEvent({
+      eventName: args.actionType === "checkout"
+        ? "onboarding.funnel.upgrade"
+        : "onboarding.funnel.activation",
+      metadata: {
+        ctaId: `pricing_row_${args.actionType}`,
+        ctaGroup: "pricing_sheet",
+        ctaPlacement: "paths_detailed_pricing",
+        ctaIntent: args.actionType === "checkout" ? "checkout_first" : "email_inquiry",
+        pricingOffer: args.row.item,
+        destination: args.destinationUrl,
+      },
+    })
+  }, [])
 
   return (
     <div
@@ -95,8 +324,22 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
-            <Button className="btn-accent text-xs h-8 px-4 hidden sm:inline-flex">
-              {t.ctaButton}
+            <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
+              <a href={`#${DIAGNOSTIC_SECTION_ID}`}>
+                {t.ctaButton}
+              </a>
+            </Button>
+            <Button asChild className="btn-accent text-xs h-8 w-8 sm:w-auto sm:px-3">
+                <a
+                href={founderDemoUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => trackDemoCtaClick("book_demo_header", "header", founderDemoUrl)}
+                aria-label={t.bookDemo}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t.bookDemoShort}</span>
+              </a>
             </Button>
           </div>
         </div>
@@ -123,6 +366,29 @@ export default function LandingPage() {
               style={{ color: "var(--color-accent)" }}
             >
               {t.action}
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button asChild className="btn-primary h-10 px-6 w-full sm:w-auto">
+                <a href={`#${DIAGNOSTIC_SECTION_ID}`}>{t.ctaButton}</a>
+              </Button>
+              <Button asChild className="btn-accent h-10 px-6 w-full sm:w-auto gap-2">
+                <a
+                  href={founderDemoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackDemoCtaClick("book_demo_hero", "hero", founderDemoUrl)}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  {t.bookDemo}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </Button>
+            </div>
+            <p
+              className="mt-3 text-xs md:text-sm max-w-2xl mx-auto"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {t.parallelPathsNote}
             </p>
           </div>
         </section>
@@ -175,6 +441,7 @@ export default function LandingPage() {
 
         {/* Section 4: The Embedded Chat */}
         <section
+          id={DIAGNOSTIC_SECTION_ID}
           className="py-16 md:py-24 px-4 md:px-8"
           style={{ backgroundColor: "var(--color-surface)" }}
         >
@@ -194,6 +461,49 @@ export default function LandingPage() {
               </p>
             </div>
             <AuditChatSurface preferredLanguage={language} />
+            <div className="path-card mt-6 max-w-2xl w-full mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-base md:text-lg font-semibold" style={{ color: "var(--color-text)" }}>
+                  {t.bookDemoHeadline}
+                </h3>
+                <p className="mt-1 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                  {t.bookDemoText}
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div
+                  className="w-[72px] h-[72px] rounded-full overflow-hidden border flex items-center justify-center"
+                  style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-hover)" }}
+                >
+                  {founderAvatarUrl ? (
+                    <Image
+                      src={founderAvatarUrl}
+                      alt="Remington S."
+                      width={72}
+                      height={72}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <User className="w-8 h-8" style={{ color: "var(--color-text-tertiary)" }} />
+                  )}
+                </div>
+                <p className="text-xs font-medium" style={{ color: "var(--color-text)" }}>
+                  Remington S.
+                </p>
+                <Button asChild className="btn-accent text-sm h-9 px-4 gap-2">
+                  <a
+                    href={founderDemoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => trackDemoCtaClick("book_demo_chat_bridge", "chat_bridge", founderDemoUrl)}
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    {t.bookDemoShort}
+                  </a>
+                </Button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -318,6 +628,122 @@ export default function LandingPage() {
               {t.pathsHeadline}
             </h2>
             <HandoffCta translations={handoffTranslations} />
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                className="text-xs underline underline-offset-4 transition-opacity hover:opacity-80"
+                style={{ color: "var(--color-text-secondary)" }}
+                onClick={handleDetailedPricingToggle}
+              >
+                {showDetailedPricing
+                  ? (t.detailedPricingHide ?? "Hide detailed Pricing Overview")
+                  : (t.detailedPricingShow ?? "See detailed Pricing Overview")}
+              </button>
+            </div>
+            {showDetailedPricing && (
+              <div className="mt-6 space-y-4">
+                {pricingSheet.categories.map((category) => {
+                  const isExpanded = expandedPricingSections.includes(category.title)
+                  return (
+                    <div key={category.title} className="path-card p-0 overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full px-5 py-4 border-b text-left flex items-start justify-between gap-4"
+                        style={{ borderColor: "var(--color-border)" }}
+                        onClick={() => togglePricingCategory(category.title)}
+                      >
+                        <div>
+                          <h3 className="text-base md:text-lg font-semibold" style={{ color: "var(--color-text)" }}>
+                            {category.title}
+                          </h3>
+                          {category.note && (
+                            <p className="mt-1 text-xs md:text-sm" style={{ color: "var(--color-text-tertiary)" }}>
+                              {category.note}
+                            </p>
+                          )}
+                        </div>
+                        <ArrowRight
+                          className={`w-4 h-4 mt-1 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                          style={{ color: "var(--color-text-tertiary)" }}
+                        />
+                      </button>
+                      {isExpanded && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead style={{ backgroundColor: "var(--color-surface-hover)" }}>
+                              <tr>
+                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                                  {pricingSheet.offerLabel}
+                                </th>
+                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                                  {pricingSheet.setupLabel}
+                                </th>
+                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                                  {pricingSheet.recurringLabel}
+                                </th>
+                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                                  {pricingSheet.motionLabel}
+                                </th>
+                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                                  {t.pricingActionLabel ?? "Action"}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {category.rows.map((row) => {
+                                const pricingAction = resolvePricingRowAction(row)
+                                const isCheckoutAction = pricingAction.type === "checkout"
+                                return (
+                                  <tr key={`${category.title}-${row.item}`} style={{ borderTop: "1px solid var(--color-border)" }}>
+                                    <td className="px-4 py-3 align-top" style={{ color: row.highlight ? "var(--color-text)" : "var(--color-text-secondary)", fontWeight: row.highlight ? 600 : 500 }}>
+                                      {row.item}
+                                    </td>
+                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text)" }}>
+                                      {row.setup}
+                                    </td>
+                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text)" }}>
+                                      {row.recurring}
+                                    </td>
+                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text-tertiary)" }}>
+                                      {row.motion}
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                      <Button asChild className={`${isCheckoutAction ? "btn-primary" : "btn-secondary"} text-xs h-8 px-3 gap-1.5 whitespace-nowrap`}>
+                                        <a
+                                          href={pricingAction.href}
+                                          onClick={(event) => {
+                                            trackPricingRowActionClick({
+                                              row,
+                                              actionType: pricingAction.type,
+                                              destinationUrl: pricingAction.href,
+                                            })
+                                            if (!isCheckoutAction) {
+                                              event.preventDefault()
+                                              window.location.href = buildPricingInquiryMailtoUrl(language, row)
+                                            }
+                                          }}
+                                        >
+                                          {isCheckoutAction ? (
+                                            <CreditCard className="w-3.5 h-3.5" />
+                                          ) : (
+                                            <Mail className="w-3.5 h-3.5" />
+                                          )}
+                                          {pricingAction.label}
+                                        </a>
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <p
               className="mt-12 text-center text-sm max-w-2xl mx-auto"
               style={{ color: "var(--color-text-secondary)" }}
@@ -557,7 +983,20 @@ export default function LandingPage() {
               <div className="text-[11px] tracking-[0.7em] logo-text-layers">LAYERS</div>
             </div>
           </div>
-          <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>{t.footerTagline}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>{t.footerTagline}</p>
+            <Button asChild className="btn-secondary text-xs h-8 px-3 gap-1.5">
+              <a
+                href={founderDemoUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => trackDemoCtaClick("book_demo_footer", "footer", founderDemoUrl)}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                {t.bookDemoShort}
+              </a>
+            </Button>
+          </div>
         </div>
       </footer>
     </div>
