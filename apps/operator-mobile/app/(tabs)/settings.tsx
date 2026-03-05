@@ -1009,7 +1009,10 @@ export default function SettingsScreen() {
                   <Text color="$colorSecondary" fontSize="$3">
                     {t('settings.agentVoice')}
                   </Text>
-                  <Pressable onPress={() => setIsVoiceAccordionOpen((open) => !open)}>
+                  <Text color="$colorSecondary" fontSize="$2" fontWeight="600">
+                    Voice language
+                  </Text>
+                  <Pressable onPress={() => setIsLanguageAccordionOpen((open) => !open)}>
                     <XStack
                       alignItems="center"
                       justifyContent="space-between"
@@ -1021,24 +1024,21 @@ export default function SettingsScreen() {
                     >
                       <YStack flex={1} gap="$1">
                         <Text color="$color" fontSize="$4" fontWeight="600" numberOfLines={1}>
-                          {selectedVoiceLabel}
+                          {selectedVoiceLanguageLabel}
                         </Text>
                         <Text color="$colorTertiary" fontSize="$2">
-                          One-of-One operator voice. Tap a voice to hear: hello this is [name] of voice
+                          Choose a language to filter available ElevenLabs voices.
                         </Text>
                       </YStack>
-                      {isVoiceAccordionOpen ? (
+                      {isLanguageAccordionOpen ? (
                         <ChevronUp size={18} color="$colorTertiary" />
                       ) : (
                         <ChevronDown size={18} color="$colorTertiary" />
                       )}
                     </XStack>
                   </Pressable>
-                  {isVoiceAccordionOpen ? (
+                  {isLanguageAccordionOpen ? (
                     <YStack gap="$1" paddingTop="$1">
-                      <Text color="$colorSecondary" fontSize="$2" fontWeight="600" paddingHorizontal="$4">
-                        Voice language
-                      </Text>
                       <OptionRow
                         label={`System (${formatVoiceLanguageLabel(deviceVoiceLanguage)})`}
                         selected={agentVoiceLanguage === 'system'}
@@ -1056,9 +1056,39 @@ export default function SettingsScreen() {
                           }}
                         />
                       ))}
-                      <Text color="$colorSecondary" fontSize="$2" fontWeight="600" paddingHorizontal="$4" paddingTop="$1">
-                        Voice
-                      </Text>
+                    </YStack>
+                  ) : null}
+
+                  <Text color="$colorSecondary" fontSize="$2" fontWeight="600" paddingTop="$1">
+                    Voice
+                  </Text>
+                  <Pressable onPress={() => setIsVoiceAccordionOpen((open) => !open)}>
+                    <XStack
+                      alignItems="center"
+                      justifyContent="space-between"
+                      paddingHorizontal="$4"
+                      paddingVertical="$3"
+                      borderRadius="$3"
+                      borderWidth={1}
+                      borderColor="$borderColor"
+                    >
+                      <YStack flex={1} gap="$1">
+                        <Text color="$color" fontSize="$4" fontWeight="600" numberOfLines={1}>
+                          {selectedVoiceLabel}
+                        </Text>
+                        <Text color="$colorTertiary" fontSize="$2">
+                          Showing voices for language: {selectedVoiceLanguageLabel}
+                        </Text>
+                      </YStack>
+                      {isVoiceAccordionOpen ? (
+                        <ChevronUp size={18} color="$colorTertiary" />
+                      ) : (
+                        <ChevronDown size={18} color="$colorTertiary" />
+                      )}
+                    </XStack>
+                  </Pressable>
+                  {isVoiceAccordionOpen ? (
+                    <YStack gap="$1" paddingTop="$1">
                       <OptionRow
                         label="One-of-One default (ElevenLabs)"
                         selected={agentVoiceId === null}
@@ -1070,11 +1100,6 @@ export default function SettingsScreen() {
                       {isVoiceLoading ? (
                         <Text color="$colorTertiary" fontSize="$2">
                           Loading ElevenLabs voices...
-                        </Text>
-                      ) : null}
-                      {!isVoiceLoading ? (
-                        <Text color="$colorTertiary" fontSize="$2">
-                          Showing voices for language: {selectedVoiceLanguageLabel}
                         </Text>
                       ) : null}
                       {displayedVoices.map((voice) => (
