@@ -5064,12 +5064,60 @@ export const processInboundMessage = action({
       metadata,
       inboundMessage,
     });
+    const runtimeRoutingMessage =
+      composerRuntimeControls.cleanedMessage.length > 0
+        ? composerRuntimeControls.cleanedMessage
+        : inboundMessage;
     const authorityConfigRecord =
       authorityConfig as unknown as Record<string, unknown>;
     const authorityRuntimeModuleMetadata =
       resolveAgentRuntimeModuleMetadataFromConfig(authorityConfigRecord);
+    const runtimeModuleIntentRouting = resolveInboundRuntimeModuleIntentRoute({
+      authorityConfig: authorityConfigRecord,
+      message: runtimeRoutingMessage,
+      channel: args.channel,
+      metadata,
+    });
+    const resolvedRuntimeModuleKey =
+      runtimeModuleIntentRouting.selectedModuleKey
+      ?? authorityRuntimeModuleMetadata?.key
+      ?? null;
+    const routedAuthorityConfigRecord =
+      resolvedRuntimeModuleKey
+      && resolvedRuntimeModuleKey !== authorityRuntimeModuleMetadata?.key
+        ? {
+            ...authorityConfigRecord,
+            runtimeModuleKey: resolvedRuntimeModuleKey,
+          }
+        : authorityConfigRecord;
+    const routedAuthorityRuntimeModuleMetadata =
+      resolveAgentRuntimeModuleMetadataFromConfig(routedAuthorityConfigRecord);
     const derTerminmacherRuntimeContract =
-      resolveDerTerminmacherRuntimeContract(authorityConfigRecord);
+      resolvedRuntimeModuleKey === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY
+        ? resolveDerTerminmacherRuntimeContract(routedAuthorityConfigRecord)
+        : null;
+    inboundMetadata.runtimeModuleIntentRouting = runtimeModuleIntentRouting;
+    recordSamanthaDispatchEvent({
+      stage: "runtime_module_intent_router",
+      status:
+        runtimeModuleIntentRouting.decision === "selected"
+          ? "pass"
+          : runtimeModuleIntentRouting.decision === "clarification_required"
+            ? "skip"
+            : "skip",
+      reasonCode:
+        runtimeModuleIntentRouting.decision === "selected"
+          ? "module_selected"
+          : runtimeModuleIntentRouting.decision === "clarification_required"
+            ? "clarification_required"
+            : "default_route",
+      detail: {
+        decision: runtimeModuleIntentRouting.decision,
+        selectedModuleKey: runtimeModuleIntentRouting.selectedModuleKey,
+        confidence: runtimeModuleIntentRouting.confidence,
+        reasonCodes: runtimeModuleIntentRouting.reasonCodes,
+      },
+    });
     const inboundImageAttachments = normalizeInboundImageAttachments(metadata.attachments);
     if (composerRuntimeControls.cleanedMessage.length > 0) {
       inboundMessage = composerRuntimeControls.cleanedMessage;
@@ -5081,7 +5129,7 @@ export const processInboundMessage = action({
       message: inboundMessage,
       runtimeModuleKey:
         derTerminmacherRuntimeContract?.moduleKey
-        ?? authorityRuntimeModuleMetadata?.key
+        ?? routedAuthorityRuntimeModuleMetadata?.key
         ?? null,
     });
     const actionCompletionResponseLanguage = resolveActionCompletionResponseLanguage({
@@ -5099,6 +5147,7 @@ export const processInboundMessage = action({
     });
     const composerRuntimeContextParts = [
       buildInboundComposerRuntimeContext(composerRuntimeControls),
+      buildRuntimeModuleIntentRoutingContext(runtimeModuleIntentRouting),
       buildDerTerminmacherRuntimeContext(derTerminmacherRuntimeContract),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
       buildActionCompletionRuntimeContext(actionCompletionContractConfig),
@@ -5371,6 +5420,83 @@ export const processInboundMessage = action({
         response: holdMessage,
         sessionId: session._id,
         turnId: runtimeTurnId,
+      };
+    }
+
+    if (
+      runtimeModuleIntentRouting.decision === "clarification_required"
+      && typeof runtimeModuleIntentRouting.clarificationQuestion === "string"
+      && runtimeModuleIntentRouting.clarificationQuestion.trim().length > 0
+    ) {
+      const clarificationQuestion = runtimeModuleIntentRouting.clarificationQuestion.trim();
+      await ctx.runMutation(getInternal().ai.agentSessions.recordTurnRunAttempt, {
+        turnId: runtimeTurnId,
+        runAttempt: buildRunAttemptContract({
+          attempts: 0,
+          maxAttempts: LLM_RETRY_POLICY.maxAttempts,
+          delayReason: "none",
+          delayMs: 0,
+          terminalOutcome: "success",
+        }),
+      });
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "user",
+        content: inboundMessage,
+      });
+      await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
+        sessionId: session._id,
+        role: "assistant",
+        content: clarificationQuestion,
+      });
+      await enterRuntimeKernelStage("delivery", {
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+        agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
+        correlationId: samanthaDispatchTraceCorrelationId,
+        metadata: {
+          routeDecision: runtimeModuleIntentRouting.decision,
+          selectedModuleKey: runtimeModuleIntentRouting.selectedModuleKey,
+          confidence: runtimeModuleIntentRouting.confidence,
+        },
+      });
+      const clarificationDeliveryContent = formatAssistantContentForDelivery(
+        args.channel,
+        clarificationQuestion,
+        inboundMetadata,
+      );
+      const clarificationDeliveryResult = await deliverAssistantResponseWithFallback(
+        ctx,
+        {
+          sendMessage: getInternal().channels.router.sendMessage,
+          addToDeadLetterQueue: getInternal().ai.deadLetterQueue.addToDeadLetterQueue,
+        },
+        {
+          organizationId: args.organizationId,
+          channel: args.channel,
+          recipientIdentifier: args.externalContactIdentifier,
+          assistantContent: clarificationDeliveryContent,
+          sessionId: session._id,
+          turnId: runtimeTurnId,
+          receiptId: runtimeReceiptId,
+          metadata: {
+            ...inboundMetadata,
+            turnId: runtimeTurnId,
+          },
+        },
+      );
+      terminalDeliverablePointer = buildTerminalDeliverablePointer({
+        deliveryResult: clarificationDeliveryResult,
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+      });
+      return {
+        status: "clarification_required",
+        message: clarificationQuestion,
+        response: clarificationDeliveryContent,
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+        runtimeModuleIntentRouting,
       };
     }
 
@@ -5972,12 +6098,12 @@ export const processInboundMessage = action({
           optionalTools: derTerminmacherRuntimeContract.toolManifest.optionalTools,
           deniedTools: derTerminmacherRuntimeContract.toolManifest.deniedTools,
         }
-      : authorityRuntimeModuleMetadata
+      : routedAuthorityRuntimeModuleMetadata
         ? {
-            moduleKey: authorityRuntimeModuleMetadata.key,
-            requiredTools: authorityRuntimeModuleMetadata.toolManifest.requiredTools,
-            optionalTools: authorityRuntimeModuleMetadata.toolManifest.optionalTools,
-            deniedTools: authorityRuntimeModuleMetadata.toolManifest.deniedTools,
+            moduleKey: routedAuthorityRuntimeModuleMetadata.key,
+            requiredTools: routedAuthorityRuntimeModuleMetadata.toolManifest.requiredTools,
+            optionalTools: routedAuthorityRuntimeModuleMetadata.toolManifest.optionalTools,
+            deniedTools: routedAuthorityRuntimeModuleMetadata.toolManifest.deniedTools,
           }
         : null;
     const agentToolScopeResolution = resolveAgentToolScopeResolutionContract({
@@ -9397,6 +9523,7 @@ export const processInboundMessage = action({
           estimatedTokensInjected: boundedKnowledgeContext.estimatedTokensUsed,
           tokenBudget: boundedKnowledgeContext.tokenBudget,
         },
+        runtimeModuleRouting: runtimeModuleIntentRouting,
         memory: runtimeMemoryTelemetry,
         knowledgeLoad: systemKnowledgeLoad.telemetry,
         toolScoping: {
@@ -9527,6 +9654,7 @@ export const processInboundMessage = action({
       message: assistantContent,
       response: deliveryContent,
       modelResolution: runtimeModelResolution,
+      runtimeModuleIntentRouting,
       toolResults,
       agentId: authorityAgent._id,
       sessionId: session._id,
@@ -14885,6 +15013,16 @@ const MEETING_CONCIERGE_EMAIL_PATTERN =
   /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const MEETING_CONCIERGE_PHONE_PATTERN =
   /(?:\+?\d{1,2}[\s-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/;
+const DER_TERMINMACHER_INTENT_BOOKING_PATTERN =
+  /\b(termin|termine|terminanfrage|terminplanung|buchen|buche|buchung|appointment|appointments|book|booking|schedule|scheduled|meeting|meetings|calendar|slot|slots)\b/i;
+const DER_TERMINMACHER_INTENT_GERMAN_PATTERN =
+  /\b(auf deutsch|deutsch|bitte deutsch|bitte auf deutsch|german|german-first|terminanfrage|terminvereinbarung)\b/i;
+const DER_TERMINMACHER_INTENT_CLARIFYING_QUESTION =
+  "Quick clarification before I proceed: do you want me to switch into appointment concierge mode and prepare a preview booking plan?";
+const RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD = 0.72;
+const RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD = 0.48;
+export const RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION =
+  "aoh_runtime_module_intent_router_v1" as const;
 export const DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY =
   "der_terminmacher_runtime_module_v1" as const;
 export const DER_TERMINMACHER_PROMPT_CONTRACT_VERSION =
@@ -14893,6 +15031,26 @@ export const DER_TERMINMACHER_TOOL_MANIFEST_CONTRACT_VERSION =
   "aoh_der_terminmacher_tool_manifest_v1" as const;
 export const DER_TERMINMACHER_MUTATION_POLICY_CONTRACT_VERSION =
   "aoh_der_terminmacher_mutation_policy_v1" as const;
+
+export interface RuntimeModuleIntentRoutingCandidate {
+  moduleKey: string;
+  confidence: number;
+  reasonCodes: string[];
+}
+
+export interface RuntimeModuleIntentRoutingDecision {
+  contractVersion: typeof RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION;
+  decision: "selected" | "default" | "clarification_required";
+  selectedModuleKey: string | null;
+  confidence: number;
+  thresholds: {
+    highConfidence: number;
+    ambiguous: number;
+  };
+  clarificationQuestion?: string;
+  reasonCodes: string[];
+  candidates: RuntimeModuleIntentRoutingCandidate[];
+}
 
 export interface DerTerminmacherRuntimeContract {
   contractVersion: typeof DER_TERMINMACHER_PROMPT_CONTRACT_VERSION;
@@ -14927,6 +15085,211 @@ function normalizeLowercaseRuntimeToken(value: unknown): string | null {
   }
   const normalized = value.trim().toLowerCase();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeIntentRoutingConfidence(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, Number(value.toFixed(3))));
+}
+
+function scoreDerTerminmacherIntent(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  message: string;
+  channel: string;
+  metadata: Record<string, unknown>;
+}): RuntimeModuleIntentRoutingCandidate {
+  let confidence = 0;
+  const reasonCodes: string[] = [];
+  const normalizedMessage = args.message.trim();
+  const messageLower = normalizedMessage.toLowerCase();
+
+  const explicitRuntimeModuleKey = normalizeLowercaseRuntimeToken(
+    firstInboundString(
+      args.authorityConfig?.runtimeModuleKey,
+      (args.authorityConfig?.runtimeModule as Record<string, unknown> | undefined)?.key,
+    ),
+  );
+  if (explicitRuntimeModuleKey === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY) {
+    return {
+      moduleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+      confidence: 1,
+      reasonCodes: ["explicit_runtime_module_config"],
+    };
+  }
+
+  const runtimeModuleMetadata = resolveAgentRuntimeModuleMetadataFromConfig(
+    args.authorityConfig,
+  );
+  if (runtimeModuleMetadata?.key === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY) {
+    return {
+      moduleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+      confidence: 1,
+      reasonCodes: ["resolved_runtime_module_metadata"],
+    };
+  }
+
+  const bookingSignal = DER_TERMINMACHER_INTENT_BOOKING_PATTERN.test(messageLower);
+  if (bookingSignal) {
+    confidence += 0.38;
+    reasonCodes.push("booking_intent_signal");
+  }
+
+  const germanSignal = DER_TERMINMACHER_INTENT_GERMAN_PATTERN.test(messageLower);
+  if (germanSignal) {
+    confidence += 0.12;
+    reasonCodes.push("german_language_signal");
+  }
+
+  const contactSignal =
+    MEETING_CONCIERGE_EMAIL_PATTERN.test(normalizedMessage)
+    || MEETING_CONCIERGE_PHONE_PATTERN.test(normalizedMessage);
+  if (contactSignal) {
+    confidence += 0.18;
+    reasonCodes.push("contact_payload_signal");
+  }
+
+  const voiceRuntime = normalizeInboundObjectValue(args.metadata.voiceRuntime);
+  const cameraRuntime = normalizeInboundObjectValue(args.metadata.cameraRuntime);
+  const liveSignal = Boolean(
+    firstInboundString(args.metadata.liveSessionId) || voiceRuntime || cameraRuntime,
+  );
+  if (liveSignal) {
+    confidence += 0.14;
+    reasonCodes.push("live_signal_present");
+  }
+  if (voiceRuntime) {
+    confidence += 0.09;
+    reasonCodes.push("voice_runtime_present");
+  }
+  if (cameraRuntime) {
+    confidence += 0.09;
+    reasonCodes.push("camera_runtime_present");
+  }
+
+  const sourceModeToken = normalizeLowercaseRuntimeToken(
+    firstInboundString(
+      args.metadata.sourceMode,
+      normalizeInboundObjectValue(args.metadata.conversationRuntime)?.sourceMode,
+      cameraRuntime?.sourceClass,
+      voiceRuntime?.sourceClass,
+    ),
+  );
+  if (
+    sourceModeToken === "meta_glasses"
+    || sourceModeToken === "webcam"
+    || sourceModeToken === "camera"
+  ) {
+    confidence += 0.06;
+    reasonCodes.push("eyes_source_signal");
+  }
+
+  const templateRole = normalizeLowercaseRuntimeToken(args.authorityConfig?.templateRole);
+  const displayName = normalizeLowercaseRuntimeToken(
+    firstInboundString(args.authorityConfig?.displayName, args.authorityConfig?.name),
+  );
+  const identityHint =
+    templateRole?.includes("terminmacher")
+    || displayName?.includes("terminmacher");
+  if (identityHint) {
+    confidence += 0.1;
+    reasonCodes.push("identity_hint_terminmacher");
+  }
+
+  if (args.channel === "desktop" || args.channel === "native_guest") {
+    confidence += 0.04;
+    reasonCodes.push("supported_channel_signal");
+  } else {
+    confidence -= 0.08;
+    reasonCodes.push("unsupported_channel_penalty");
+  }
+
+  return {
+    moduleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+    confidence: normalizeIntentRoutingConfidence(confidence),
+    reasonCodes,
+  };
+}
+
+export function resolveInboundRuntimeModuleIntentRoute(args: {
+  authorityConfig: Record<string, unknown> | null | undefined;
+  message: string;
+  channel: string;
+  metadata: Record<string, unknown>;
+}): RuntimeModuleIntentRoutingDecision {
+  const authorityRuntimeModule = resolveAgentRuntimeModuleMetadataFromConfig(
+    args.authorityConfig,
+  );
+  const authorityRuntimeModuleKey = normalizeLowercaseRuntimeToken(
+    authorityRuntimeModule?.key,
+  );
+  if (
+    authorityRuntimeModuleKey
+    && authorityRuntimeModuleKey !== DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY
+  ) {
+    return {
+      contractVersion: RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION,
+      decision: "selected",
+      selectedModuleKey: authorityRuntimeModuleKey,
+      confidence: 1,
+      thresholds: {
+        highConfidence: RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD,
+        ambiguous: RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD,
+      },
+      reasonCodes: ["non_routed_runtime_module_locked"],
+      candidates: [],
+    };
+  }
+
+  const derTerminmacherCandidate = scoreDerTerminmacherIntent(args);
+  const candidates = [derTerminmacherCandidate];
+  if (derTerminmacherCandidate.confidence >= RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD) {
+    return {
+      contractVersion: RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION,
+      decision: "selected",
+      selectedModuleKey: derTerminmacherCandidate.moduleKey,
+      confidence: derTerminmacherCandidate.confidence,
+      thresholds: {
+        highConfidence: RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD,
+        ambiguous: RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD,
+      },
+      reasonCodes: derTerminmacherCandidate.reasonCodes,
+      candidates,
+    };
+  }
+
+  if (derTerminmacherCandidate.confidence >= RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD) {
+    return {
+      contractVersion: RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION,
+      decision: "clarification_required",
+      selectedModuleKey: null,
+      confidence: derTerminmacherCandidate.confidence,
+      thresholds: {
+        highConfidence: RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD,
+        ambiguous: RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD,
+      },
+      clarificationQuestion: DER_TERMINMACHER_INTENT_CLARIFYING_QUESTION,
+      reasonCodes: derTerminmacherCandidate.reasonCodes,
+      candidates,
+    };
+  }
+
+  return {
+    contractVersion: RUNTIME_MODULE_INTENT_ROUTER_CONTRACT_VERSION,
+    decision: "default",
+    selectedModuleKey: authorityRuntimeModuleKey ?? null,
+    confidence: derTerminmacherCandidate.confidence,
+    thresholds: {
+      highConfidence: RUNTIME_MODULE_INTENT_ROUTER_HIGH_CONFIDENCE_THRESHOLD,
+      ambiguous: RUNTIME_MODULE_INTENT_ROUTER_AMBIGUOUS_THRESHOLD,
+    },
+    reasonCodes:
+      derTerminmacherCandidate.reasonCodes.length > 0
+        ? [...derTerminmacherCandidate.reasonCodes, "confidence_below_ambiguity_threshold"]
+        : ["no_strong_runtime_module_signal"],
+    candidates,
+  };
 }
 
 function isDerTerminmacherRuntimeModuleConfig(
@@ -16339,6 +16702,41 @@ export function buildDerTerminmacherRuntimeContext(
     "--- DER TERMINMACHER RUNTIME CONTRACT ---",
     JSON.stringify(contract),
     "--- END DER TERMINMACHER RUNTIME CONTRACT ---",
+  ].join("\n");
+}
+
+export function buildRuntimeModuleIntentRoutingContext(
+  decision: RuntimeModuleIntentRoutingDecision
+): string | null {
+  if (decision.decision === "default" && !decision.selectedModuleKey) {
+    return null;
+  }
+
+  const lines: string[] = [];
+  lines.push(`Decision: ${decision.decision}`);
+  lines.push(`Confidence: ${decision.confidence.toFixed(3)}`);
+  lines.push(`Selected module: ${decision.selectedModuleKey ?? "none"}`);
+  lines.push(
+    `Thresholds: high=${decision.thresholds.highConfidence.toFixed(2)}, ambiguous=${decision.thresholds.ambiguous.toFixed(2)}`,
+  );
+  if (decision.reasonCodes.length > 0) {
+    lines.push(`Reason codes: ${decision.reasonCodes.join(", ")}`);
+  }
+  if (decision.clarificationQuestion) {
+    lines.push(`Clarification question: ${decision.clarificationQuestion}`);
+  }
+  if (decision.candidates.length > 0) {
+    for (const candidate of decision.candidates) {
+      lines.push(
+        `Candidate ${candidate.moduleKey}: confidence=${candidate.confidence.toFixed(3)} reasons=${candidate.reasonCodes.join(", ")}`,
+      );
+    }
+  }
+
+  return [
+    "--- RUNTIME MODULE INTENT ROUTING ---",
+    lines.join("\n"),
+    "--- END RUNTIME MODULE INTENT ROUTING ---",
   ].join("\n");
 }
 

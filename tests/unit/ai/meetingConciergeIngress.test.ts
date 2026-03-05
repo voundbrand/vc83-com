@@ -5,10 +5,12 @@ import {
   buildMeetingConciergeDecisionTelemetry,
   buildDerTerminmacherRuntimeContext,
   buildInboundMeetingConciergeRuntimeContext,
+  buildRuntimeModuleIntentRoutingContext,
   enforceDerTerminmacherPreviewFirstToolPolicy,
   injectAutoPreviewMeetingConciergeToolCall,
   resolveDerTerminmacherRuntimeContract,
   resolveInboundMeetingConciergeIntent,
+  resolveInboundRuntimeModuleIntentRoute,
 } from "../../../convex/ai/agentExecution";
 import {
   buildMobileSourceAttestationChallenge,
@@ -844,6 +846,64 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(context).toContain("german_first");
     expect(context).toContain("manage_crm");
     expect(context).toContain("manage_bookings");
+  });
+
+  it("routes der terminmacher module with high confidence when concierge intent is strong", () => {
+    const decision = resolveInboundRuntimeModuleIntentRoute({
+      authorityConfig: {},
+      message:
+        "Bitte buche einen Termin mit jordan@example.com fuer ein 30 Minuten Meeting morgen.",
+      channel: "desktop",
+      metadata: {
+        liveSessionId: "live_router_high_1",
+        voiceRuntime: {
+          transcript: "Jordan email ist jordan@example.com",
+        },
+        cameraRuntime: {
+          detectedText: "Terminplanung",
+          sourceClass: "meta_glasses",
+        },
+      },
+    });
+
+    expect(decision.decision).toBe("selected");
+    expect(decision.selectedModuleKey).toBe(DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY);
+    expect(decision.confidence).toBeGreaterThanOrEqual(0.72);
+    const context = buildRuntimeModuleIntentRoutingContext(decision);
+    expect(context).toContain("RUNTIME MODULE INTENT ROUTING");
+    expect(context).toContain("der_terminmacher_runtime_module_v1");
+  });
+
+  it("asks one deterministic clarifying question for ambiguous routing confidence", () => {
+    const decision = resolveInboundRuntimeModuleIntentRoute({
+      authorityConfig: {},
+      message: "Kannst du mir einen Termin planen?",
+      channel: "desktop",
+      metadata: {},
+    });
+
+    expect(decision.decision).toBe("clarification_required");
+    expect(decision.selectedModuleKey).toBeNull();
+    expect(decision.clarificationQuestion).toBeTruthy();
+    const question = decision.clarificationQuestion || "";
+    expect(question.includes("?")).toBe(true);
+    expect(question.split("?")).toHaveLength(2);
+  });
+
+  it("honors explicit der terminmacher runtime module config without intent ambiguity", () => {
+    const decision = resolveInboundRuntimeModuleIntentRoute({
+      authorityConfig: {
+        runtimeModuleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+      },
+      message: "hello there",
+      channel: "webchat",
+      metadata: {},
+    });
+
+    expect(decision.decision).toBe("selected");
+    expect(decision.selectedModuleKey).toBe(DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY);
+    expect(decision.confidence).toBe(1);
+    expect(decision.reasonCodes).toContain("explicit_runtime_module_config");
   });
 
   it("enforces preview-first mutation policy for der terminmacher tool calls", () => {

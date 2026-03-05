@@ -32,6 +32,7 @@ import {
   SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
   SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
 } from "../ai/samanthaAuditContract";
+import { SAMANTHA_AGENT_RUNTIME_MODULE_KEY } from "../ai/agentSpecRegistry";
 import {
   TRUST_EVENT_TAXONOMY_VERSION,
   validateTrustEventPayload,
@@ -887,6 +888,7 @@ const SAMANTHA_LEAD_CAPTURE_WORKER_NAME = "Samantha Lead Capture 1";
 const SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME = "Samantha Warm Lead Capture 1";
 const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   displayName: "Samantha",
+  runtimeModuleKey: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
   personality:
     "Sharp, commercially-minded lead capture consultant. Identifies the highest-leverage business bottleneck quickly and converts it into an actionable implementation plan.",
   language: "en",
