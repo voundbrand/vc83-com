@@ -80,6 +80,12 @@ describe('mobile meta bridge contracts', () => {
     expect(mapVisionReadinessReasonToConversationReason(readiness.reasonCode)).toBe('dat_sdk_unavailable');
   });
 
+  it('maps DAT permission failures to camera permission conversation reason', () => {
+    expect(
+      mapVisionReadinessReasonToConversationReason('meta_bridge_failure:dat_permission_denied')
+    ).toBe('permission_denied_camera');
+  });
+
   it('negotiates preferred Meta source and falls back to iPhone when Meta is unavailable', () => {
     const bridge = createDefaultMetaBridgeSnapshot(1_701_000_000_000);
     const negotiation = negotiateVisionSource({

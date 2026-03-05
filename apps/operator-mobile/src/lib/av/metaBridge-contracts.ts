@@ -204,6 +204,21 @@ export function mapVisionReadinessReasonToConversationReason(
     return 'dat_sdk_unavailable';
   }
   if (
+    normalized.includes('dat_permission_denied')
+    || normalized.includes('permission_denied_camera')
+    || normalized.includes('camera')
+  ) {
+    return 'permission_denied_camera';
+  }
+  if (
+    normalized.includes('permission_denied_mic')
+    || normalized.includes('notallowederror')
+    || normalized.includes('microphone')
+    || normalized.includes('mic')
+  ) {
+    return 'permission_denied_mic';
+  }
+  if (
     normalized.includes('meta_bridge_not_connected')
     || normalized.includes('meta_bridge_missing_device')
     || normalized.includes('meta_bridge_source_class_mismatch')
@@ -211,12 +226,6 @@ export function mapVisionReadinessReasonToConversationReason(
     || normalized.includes('meta_bridge_fallback')
   ) {
     return 'device_unavailable';
-  }
-  if (normalized.includes('camera')) {
-    return 'permission_denied_camera';
-  }
-  if (normalized.includes('notallowederror') || normalized.includes('permission') || normalized.includes('mic')) {
-    return 'permission_denied_mic';
   }
   if (normalized.includes('auth')) {
     return 'session_auth_failed';

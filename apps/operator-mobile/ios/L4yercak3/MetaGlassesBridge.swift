@@ -93,6 +93,20 @@ private final class MetaDatRuntimeConnector {
 #endif
   }
 
+  func refreshStreamSession() {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    guard started else {
+      return
+    }
+    Task { @MainActor [weak self] in
+      guard let self, self.started else { return }
+      let selector = AutoDeviceSelector(wearables: Wearables.shared)
+      await self.teardownStreamSession()
+      self.configureStreamSession(selector: selector)
+    }
+#endif
+  }
+
 #if canImport(MWDATCore) && canImport(MWDATCamera)
   @MainActor
   private func configureStreamSession(selector: AutoDeviceSelector) {
@@ -855,7 +869,25 @@ class MetaGlassesBridge: RCTEventEmitter {
       return
     }
 
+    ensureCameraPermissionForConnect { [weak self] granted in
+      guard let self else { return }
+      guard granted else {
+        self.applyFailure(
+          reasonCode: "dat_permission_denied",
+          message: "Camera permission is required for Meta glasses streaming. Enable Camera access in Settings and reconnect.",
+          recoverable: true,
+          fallback: "dat_permission_denied"
+        )
+        resolve(self.buildSnapshot())
+        return
+      }
+      self.performConnect(resolve)
+    }
+  }
+
+  private func performConnect(_ resolve: @escaping RCTPromiseResolveBlock) {
     datRuntimeConnector.start()
+    datRuntimeConnector.refreshStreamSession()
 
     cancelConnectTimeout()
     connectionState = "connecting"
@@ -934,6 +966,57 @@ class MetaGlassesBridge: RCTEventEmitter {
     scheduleConnectTimeout()
     emitStatus()
     resolve(buildSnapshot())
+  }
+
+  private func ensureCameraPermissionForConnect(_ completion: @escaping (Bool) -> Void) {
+    let status = AVCaptureDevice.authorizationStatus(for: .video)
+    switch status {
+    case .authorized:
+      completion(true)
+    case .notDetermined:
+      appendDebugEvent(
+        stage: "handshake",
+        code: "camera_permission_request_started",
+        message: "Requesting camera permission for DAT streaming.",
+        details: gatherConnectionDetails()
+      )
+      AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+        DispatchQueue.main.async {
+          guard let self else {
+            completion(granted)
+            return
+          }
+          self.appendDebugEvent(
+            stage: granted ? "handshake" : "failure",
+            severity: granted ? "info" : "warn",
+            code: granted ? "camera_permission_request_granted" : "camera_permission_request_denied",
+            message: granted
+              ? "Camera permission granted for DAT streaming."
+              : "Camera permission denied for DAT streaming.",
+            details: self.gatherConnectionDetails()
+          )
+          completion(granted)
+        }
+      }
+    case .denied, .restricted:
+      appendDebugEvent(
+        stage: "failure",
+        severity: "warn",
+        code: "camera_permission_denied",
+        message: "Camera permission is denied or restricted.",
+        details: gatherConnectionDetails()
+      )
+      completion(false)
+    @unknown default:
+      appendDebugEvent(
+        stage: "failure",
+        severity: "warn",
+        code: "camera_permission_unknown",
+        message: "Camera permission state is unknown.",
+        details: gatherConnectionDetails()
+      )
+      completion(false)
+    }
   }
 
   @objc(disconnect:rejecter:)
