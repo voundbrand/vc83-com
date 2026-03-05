@@ -525,7 +525,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Type your response..."
           disabled={isSending}
-          className="chat-input flex-1 px-3 py-2 text-sm"
+          className="chat-input flex-1 px-3 py-2 text-base md:text-sm"
         />
         <button
           type="submit"

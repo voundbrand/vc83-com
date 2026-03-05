@@ -379,6 +379,12 @@
     box-shadow: var(--shadow-focus);
   }
 
+  @media (max-width: 768px) {
+    #landing-audit-input {
+      font-size: 16px;
+    }
+  }
+
   /* Card styling */
   .card-surface {
     background-color: var(--color-surface);
