@@ -990,6 +990,14 @@ export const enablePlatformModel = mutation({
       operationalReviewAcknowledgedBy: userId,
     });
 
+    // Schedule org model defaults sync so existing orgs pick up the new model
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
+
     return {
       success: true,
       message: `Model ${model.name} has been enabled platform-wide`,
@@ -1043,6 +1051,14 @@ export const disablePlatformModel = mutation({
       isFreeTierLocked: false,
       lifecycleStatus,
     });
+
+    // Schedule org model defaults sync so existing orgs update stale references
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
 
     return {
       success: true,
@@ -1152,6 +1168,14 @@ export const batchEnableModels = mutation({
       enabledCount++;
     }
 
+    // Schedule org model defaults sync so existing orgs pick up new models
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
+
     return {
       success: true,
       message: `Enabled ${enabledCount} models platform-wide`,
@@ -1213,6 +1237,14 @@ export const batchDisableModels = mutation({
         `Batch disable aborted; unknown model IDs: ${missingModels.join(", ")}`
       );
     }
+
+    // Schedule org model defaults sync so existing orgs update stale references
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
 
     return {
       success: true,
@@ -1292,6 +1324,14 @@ export const setPlatformDefaultModel = mutation({
       lifecycleStatus: nextLifecycleStatus,
     });
 
+    // Schedule org model defaults sync so existing orgs get new default
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
+
     return {
       success: true,
       message:
@@ -1358,6 +1398,14 @@ export const toggleSystemDefault = mutation({
       isSystemDefault: args.isDefault,
       lifecycleStatus,
     });
+
+    // Schedule org model defaults sync so existing orgs pick up default change
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
 
     return {
       success: true,
@@ -1691,6 +1739,40 @@ export const manualRefreshModels = action({
       message: `Successfully refreshed models. Found ${result.models.length} models from provider discovery fanout.`,
       count: result.models.length,
       fetchedAt: result.fetchedAt,
+    };
+  },
+});
+
+/**
+ * Manually trigger org model defaults sync across all organizations.
+ *
+ * Schedules a paginated backfill that calls ensureOrganizationModelDefaultsInternal
+ * for each organization, ensuring their AI settings include current platform models.
+ * Super admin only.
+ */
+export const manualSyncOrgModelDefaults = mutation({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new Error("Insufficient permissions. Super admin access required.");
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      generatedApi.internal.migrations.syncOrgModelDefaults
+        .syncOrgModelDefaultsBatch,
+      {}
+    );
+
+    return {
+      success: true,
+      message:
+        "Organization model defaults sync has been scheduled. All organizations will be updated with current platform-enabled models.",
     };
   },
 });

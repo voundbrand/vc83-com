@@ -410,6 +410,7 @@ import type * as migrateTemplateSubtypes from "../migrateTemplateSubtypes.js";
 import type * as migrations_addOrganizationIdToSessions from "../migrations/addOrganizationIdToSessions.js";
 import type * as migrations_backfillAppReleaseStage from "../migrations/backfillAppReleaseStage.js";
 import type * as migrations_backfillChannelRuntimeIdentity from "../migrations/backfillChannelRuntimeIdentity.js";
+import type * as migrations_backfillSamanthaRuntimeModuleKey from "../migrations/backfillSamanthaRuntimeModuleKey.js";
 import type * as migrations_backfillTransactions from "../migrations/backfillTransactions.js";
 import type * as migrations_backfillUserAppearanceMode from "../migrations/backfillUserAppearanceMode.js";
 import type * as migrations_backfillVirtualFileMetadata from "../migrations/backfillVirtualFileMetadata.js";
@@ -420,6 +421,7 @@ import type * as migrations_cleanupExpiredOAuthStates from "../migrations/cleanu
 import type * as migrations_deleteOldSessions from "../migrations/deleteOldSessions.js";
 import type * as migrations_migratePageTemplates from "../migrations/migratePageTemplates.js";
 import type * as migrations_migratePaymentProviders from "../migrations/migratePaymentProviders.js";
+import type * as migrations_syncOrgModelDefaults from "../migrations/syncOrgModelDefaults.js";
 import type * as migrations_updateExistingHaffForms from "../migrations/updateExistingHaffForms.js";
 import type * as muxWebhookVerify from "../muxWebhookVerify.js";
 import type * as oauth_activecampaign from "../oauth/activecampaign.js";
@@ -1194,6 +1196,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/addOrganizationIdToSessions": typeof migrations_addOrganizationIdToSessions;
   "migrations/backfillAppReleaseStage": typeof migrations_backfillAppReleaseStage;
   "migrations/backfillChannelRuntimeIdentity": typeof migrations_backfillChannelRuntimeIdentity;
+  "migrations/backfillSamanthaRuntimeModuleKey": typeof migrations_backfillSamanthaRuntimeModuleKey;
   "migrations/backfillTransactions": typeof migrations_backfillTransactions;
   "migrations/backfillUserAppearanceMode": typeof migrations_backfillUserAppearanceMode;
   "migrations/backfillVirtualFileMetadata": typeof migrations_backfillVirtualFileMetadata;
@@ -1204,6 +1207,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/deleteOldSessions": typeof migrations_deleteOldSessions;
   "migrations/migratePageTemplates": typeof migrations_migratePageTemplates;
   "migrations/migratePaymentProviders": typeof migrations_migratePaymentProviders;
+  "migrations/syncOrgModelDefaults": typeof migrations_syncOrgModelDefaults;
   "migrations/updateExistingHaffForms": typeof migrations_updateExistingHaffForms;
   muxWebhookVerify: typeof muxWebhookVerify;
   "oauth/activecampaign": typeof oauth_activecampaign;

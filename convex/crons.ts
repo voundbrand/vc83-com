@@ -74,6 +74,29 @@ crons.daily(
 );
 
 /**
+ * Sync Organization AI Model Defaults
+ *
+ * Runs daily at 4:30 AM UTC (after model discovery refresh).
+ * Ensures every organization's AI settings include current
+ * platform-enabled models and a valid default.
+ *
+ * What it does:
+ * 1. Iterates all organizationAiSettings in paginated batches
+ * 2. Calls ensureOrganizationModelDefaultsInternal per org
+ * 3. Adds newly-enabled platform models to orgs with empty/stale lists
+ * 4. Self-schedules next batch until all orgs are processed
+ */
+crons.daily(
+  "Sync organization AI model defaults with platform-enabled models",
+  {
+    hourUTC: 4,
+    minuteUTC: 30,
+  },
+  generatedApi.internal.migrations.syncOrgModelDefaults
+    .syncOrgModelDefaultsBatch
+);
+
+/**
  * Verify API Key Domain Badges (Phase 2: Badge Enforcement)
  *
  * Runs daily at 5 AM UTC to verify badge presence on free tier domains.
