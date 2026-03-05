@@ -1475,9 +1475,11 @@ export const recordMacosCompanionObservabilityTrustEvent = internalMutation({
 
 export const resolveVoiceRuntimeSession = action({
   args: {
+    sessionId: v.optional(v.string()),
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     conversationId: v.optional(v.id("aiConversations")),
+    forcePrimaryAgent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     let conversationId = args.conversationId;
@@ -1506,16 +1508,54 @@ export const resolveVoiceRuntimeSession = action({
       }
     );
 
-    const routedOperatorAgent = await (ctx as any).runQuery(
-      generatedApi.internal.agentOntology.getActiveAgentForOrg,
-      {
-        organizationId: args.organizationId,
-        channel: "desktop",
-        routeSelectors: routing.operatorRouteSelectors,
+    const shouldForcePrimaryAgentRouting = args.forcePrimaryAgent === true;
+    const normalizedSessionId = normalizeNonEmptyString(args.sessionId);
+    let routedOperatorAgent:
+      | {
+          _id?: Id<"objects">;
+          name?: string;
+          customProperties?: Record<string, unknown>;
+          status?: string;
+        }
+      | null = null;
+    if (shouldForcePrimaryAgentRouting) {
+      if (!normalizedSessionId) {
+        throw new Error(
+          "PRIMARY_AGENT_ROUTING_REQUIRED: sessionId is required when forcePrimaryAgent=true."
+        );
       }
-    ) as {
-      _id?: Id<"objects">;
-    } | null;
+      const primaryAgent = await (ctx as any).runQuery(
+        generatedApi.api.agentOntology.getPrimaryAgentForOrg,
+        {
+          sessionId: normalizedSessionId,
+          organizationId: args.organizationId,
+        }
+      ) as {
+        _id?: Id<"objects">;
+        status?: string;
+      } | null;
+      if (!primaryAgent?._id || primaryAgent.status !== "active") {
+        throw new Error(
+          "PRIMARY_AGENT_ROUTING_REQUIRED: active primary agent unavailable."
+        );
+      }
+      routedOperatorAgent = { _id: primaryAgent._id };
+    }
+    if (!routedOperatorAgent?._id) {
+      routedOperatorAgent = await (ctx as any).runQuery(
+        generatedApi.internal.agentOntology.getActiveAgentForOrg,
+        {
+          organizationId: args.organizationId,
+          channel: "desktop",
+          routeSelectors: routing.operatorRouteSelectors,
+        }
+      ) as {
+        _id?: Id<"objects">;
+        name?: string;
+        customProperties?: Record<string, unknown>;
+        status?: string;
+      } | null;
+    }
 
     if (!routedOperatorAgent?._id) {
       throw new Error(
@@ -1539,6 +1579,21 @@ export const resolveVoiceRuntimeSession = action({
         "OPERATOR_SESSION_UNRESOLVED: Failed to resolve desktop operator session."
       );
     }
+
+    const routedAgentCustomProperties =
+      routedOperatorAgent &&
+      typeof routedOperatorAgent.customProperties === "object" &&
+      routedOperatorAgent.customProperties !== null
+        ? (routedOperatorAgent.customProperties as Record<string, unknown>)
+        : {};
+    const routedAgentDisplayName =
+      normalizeNonEmptyString(routedAgentCustomProperties.displayName) ??
+      normalizeNonEmptyString(routedOperatorAgent?.name) ??
+      null;
+    const routedAgentVoiceLanguage =
+      normalizeNonEmptyString(routedAgentCustomProperties.voiceLanguage) ??
+      normalizeNonEmptyString(routedAgentCustomProperties.language) ??
+      null;
 
     const collaborationUpsert = await (ctx as any).runMutation(
       generatedApi.internal.ai.agentSessions.upsertSessionCollaborationContract,
@@ -1600,6 +1655,8 @@ export const resolveVoiceRuntimeSession = action({
     return {
       conversationId,
       agentSessionId: operatorSession._id,
+      agentDisplayName: routedAgentDisplayName,
+      agentVoiceLanguage: routedAgentVoiceLanguage,
       externalContactIdentifier: routing.externalContactIdentifier,
       routeKey: routing.operatorRouteIdentity.routeKey,
       threadId: routing.operatorRoutingThreadId,
@@ -1615,6 +1672,7 @@ export const sendMessage = action({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     sessionId: v.optional(v.string()),
+    forcePrimaryAgent: v.optional(v.boolean()),
     selectedModel: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("auto"), v.literal("plan"), v.literal("plan_soft"))),
     reasoningEffort: v.optional(
@@ -1888,26 +1946,56 @@ export const sendMessage = action({
       | {
           _id?: Id<"objects">;
           customProperties?: Record<string, unknown>;
+          status?: string;
         }
       | null = null;
+    const shouldForcePrimaryAgentRouting = args.forcePrimaryAgent === true;
+    const normalizedAuthSessionId = normalizeNonEmptyString(args.sessionId);
 
     if (!useLegacyPageBuilderFlow) {
+      if (shouldForcePrimaryAgentRouting) {
+        if (!normalizedAuthSessionId) {
+          throw new Error(
+            "PRIMARY_AGENT_ROUTING_REQUIRED: sessionId is required when forcePrimaryAgent=true."
+          );
+        }
+        preflightRoutedOperatorAgent = await (ctx as any).runQuery(
+          generatedApi.api.agentOntology.getPrimaryAgentForOrg,
+          {
+            sessionId: normalizedAuthSessionId,
+            organizationId: args.organizationId,
+          }
+        ) as {
+          _id?: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+          status?: string;
+        } | null;
+        if (!preflightRoutedOperatorAgent?._id || preflightRoutedOperatorAgent.status !== "active") {
+          throw new Error(
+            "PRIMARY_AGENT_ROUTING_REQUIRED: active primary agent unavailable."
+          );
+        }
+      }
+
       const preflightOperatorRouteSelectors = {
         channel: "desktop",
         peer: `desktop:${args.userId}:${conversationId}`,
         channelRef: String(conversationId),
       };
-      preflightRoutedOperatorAgent = await (ctx as any).runQuery(
-        generatedApi.internal.agentOntology.getActiveAgentForOrg,
-        {
-          organizationId: args.organizationId,
-          channel: "desktop",
-          routeSelectors: preflightOperatorRouteSelectors,
-        }
-      ) as {
-        _id?: Id<"objects">;
-        customProperties?: Record<string, unknown>;
-      } | null;
+      if (!preflightRoutedOperatorAgent?._id) {
+        preflightRoutedOperatorAgent = await (ctx as any).runQuery(
+          generatedApi.internal.agentOntology.getActiveAgentForOrg,
+          {
+            organizationId: args.organizationId,
+            channel: "desktop",
+            routeSelectors: preflightOperatorRouteSelectors,
+          }
+        ) as {
+          _id?: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+          status?: string;
+        } | null;
+      }
 
       if (!preflightRoutedOperatorAgent?._id) {
         const ensuredOperatorAgent = await (ctx as any).runMutation(
@@ -1929,6 +2017,7 @@ export const sendMessage = action({
         ) as {
           _id?: Id<"objects">;
           customProperties?: Record<string, unknown>;
+          status?: string;
         } | null;
 
         if (!preflightRoutedOperatorAgent?._id && ensuredOperatorAgent?.agentId) {
@@ -1940,6 +2029,7 @@ export const sendMessage = action({
           ) as {
             _id?: Id<"objects">;
             customProperties?: Record<string, unknown>;
+            status?: string;
           } | null;
         }
       }
@@ -1969,23 +2059,37 @@ export const sendMessage = action({
       }
     }
 
-    // 2. Add user message
-    const userMessageId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
-      conversationId,
-      role: "user",
-      content: args.message,
-      timestamp: Date.now(),
-      collaboration: messageCollaboration,
-    }) as Id<"aiMessages">;
+    let persistedUserMessageId: Id<"aiMessages"> | null = null;
+    const persistInboundUserMessage = async (): Promise<Id<"aiMessages">> => {
+      if (persistedUserMessageId) {
+        return persistedUserMessageId;
+      }
 
-    if (resolvedAttachments.length > 0) {
-      await (ctx as any).runMutation(generatedApi.internal.ai.chatAttachments.linkAttachmentsToMessage, {
-        organizationId: args.organizationId,
-        userId: args.userId,
+      const userMessageId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.addMessage, {
         conversationId,
-        messageId: userMessageId,
-        attachmentIds: resolvedAttachments.map((attachment) => attachment.attachmentId),
-      });
+        role: "user",
+        content: args.message,
+        timestamp: Date.now(),
+        collaboration: messageCollaboration,
+      }) as Id<"aiMessages">;
+
+      if (resolvedAttachments.length > 0) {
+        await (ctx as any).runMutation(generatedApi.internal.ai.chatAttachments.linkAttachmentsToMessage, {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          conversationId,
+          messageId: userMessageId,
+          attachmentIds: resolvedAttachments.map((attachment) => attachment.attachmentId),
+        });
+      }
+
+      persistedUserMessageId = userMessageId;
+      return userMessageId;
+    };
+
+    // Legacy page-builder flow composes against conversation history immediately.
+    if (useLegacyPageBuilderFlow) {
+      await persistInboundUserMessage();
     }
 
     // 3. Get conversation history
@@ -2587,6 +2691,7 @@ export const sendMessage = action({
         || (qaMode?.targetAgentId ? String(qaMode.targetAgentId) : undefined);
 
       if (agentResult.status === "credits_exhausted") {
+        await persistInboundUserMessage();
         await emitMacosCompanionObservabilityTrustEvent(
           MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
           agentResult,
@@ -2609,6 +2714,7 @@ export const sendMessage = action({
         });
       }
       if (agentResult.status === "rate_limited") {
+        await persistInboundUserMessage();
         await emitMacosCompanionObservabilityTrustEvent(
           MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
           agentResult,
@@ -2626,6 +2732,7 @@ export const sendMessage = action({
         throw new Error(agentResult.message || "Rate limit exceeded. Please try again later.");
       }
       if (agentResult.status === "error") {
+        await persistInboundUserMessage();
         await emitMacosCompanionObservabilityTrustEvent(
           MACOS_COMPANION_DELIVERY_FAILED_TRUST_EVENT_NAME,
           agentResult,
@@ -2820,7 +2927,12 @@ export const sendMessage = action({
         agentResult.response ??
         (agentResult.status === "duplicate_acknowledged" ? "" : agentResult.message ?? "")
       ).trim();
-      if (assistantMessage.length > 0) {
+      const isDuplicateAcknowledged = agentResult.status === "duplicate_acknowledged";
+      if (!isDuplicateAcknowledged) {
+        await persistInboundUserMessage();
+      }
+
+      if (!isDuplicateAcknowledged && assistantMessage.length > 0) {
         const executedToolCalls = toolCalls.filter(
           (toolCall): toolCall is ToolCallResult & { status: "success" | "failed" } =>
             toolCall.status === "success" || toolCall.status === "failed"

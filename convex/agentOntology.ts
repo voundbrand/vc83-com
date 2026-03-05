@@ -276,6 +276,7 @@ const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
   "modeChannelBindings",
   "enabledArchetypes",
   "operatorCollaborationDefaults",
+  "soul",
   "escalationPolicy",
 ]);
 
@@ -1291,7 +1292,40 @@ export const getPrimaryAgentForOrg = query({
       )
       .collect();
 
-    return resolvePrimaryAgentForContext(agents, operatorId);
+    const operatorScopedPrimary = resolvePrimaryAgentForContext(agents, operatorId);
+    if (operatorScopedPrimary) {
+      return operatorScopedPrimary;
+    }
+
+    // Legacy compatibility: many existing orgs only have __org_default__ primary assignment.
+    // Fallback keeps routing stable while operator-context backfill catches up.
+    return resolvePrimaryAgentForContext(agents, DEFAULT_OPERATOR_CONTEXT_ID);
+  },
+});
+
+/**
+ * INTERNAL: Repair primary agent flags for all operator contexts in an org.
+ * Idempotent: safe to run repeatedly.
+ */
+export const repairPrimaryAgentContextsForOrgInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    operatorId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const repairs = await applyPrimaryAgentRepairsForOrganization(ctx, {
+      organizationId: String(args.organizationId),
+      operatorId: normalizeOptionalString(args.operatorId),
+    });
+    return {
+      organizationId: args.organizationId,
+      repairedContexts: repairs.length,
+      patchedAgentCount: repairs.reduce(
+        (sum, entry) => sum + entry.patchedAgentIds.length,
+        0
+      ),
+      repairs,
+    };
   },
 });
 
@@ -1602,6 +1636,9 @@ export const updateAgent = mutation({
       operatorCollaborationDefaults: v.optional(
         operatorCollaborationDefaultsValidator
       ),
+      // Soul payload is owner-editable from the Soul editor tab.
+      // Keep this permissive because soul schema evolves independently.
+      soul: v.optional(v.any()),
       // Escalation Policy (per-agent HITL configuration)
       escalationPolicy: v.optional(v.any()),
     }),
@@ -1771,6 +1808,9 @@ export const tuneManagedSpecialistClone = mutation({
       operatorCollaborationDefaults: v.optional(
         operatorCollaborationDefaultsValidator
       ),
+      // Soul payload is owner-editable from the Soul editor tab.
+      // Keep this permissive because soul schema evolves independently.
+      soul: v.optional(v.any()),
       escalationPolicy: v.optional(v.any()),
     }),
   },

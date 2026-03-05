@@ -273,6 +273,13 @@ function mapChatSendErrorToHttp(error: unknown): {
   }
 
   const normalizedMessage = (details?.message || fallbackMessage).toLowerCase();
+  if (fallbackMessage.startsWith("PRIMARY_AGENT_ROUTING_REQUIRED:")) {
+    return {
+      status: 409,
+      error: details?.message || fallbackMessage,
+      details: code ? { code } : undefined,
+    };
+  }
   if (code === "RATE_LIMITED" || normalizedMessage.includes("rate limit")) {
     return {
       status: 429,
@@ -576,9 +583,114 @@ function isVoiceCompatibleWithLanguage(
   }
   const voiceLanguageCodes = collectVoiceLanguageCodes(voice);
   if (voiceLanguageCodes.size === 0) {
-    return true;
+    // Some ElevenLabs voices are missing language metadata. Treat them as
+    // English defaults so non-English preference checks remain strict.
+    return normalizedLanguage === "en";
   }
   return voiceLanguageCodes.has(normalizedLanguage);
+}
+
+type VoiceCatalogPreferenceSnapshot = {
+  voiceRuntimeVoiceId?: unknown;
+  language?: unknown;
+} | null | undefined;
+
+type VoiceCatalogPrimaryAgentSnapshot = {
+  customProperties?: unknown;
+} | null | undefined;
+
+type VoiceCatalogSelection = {
+  selectedVoiceId: string | null;
+  selectedLanguage: string | null;
+  selectedVoiceSource: "user_preferences" | "agent_soul" | "none";
+  selectedLanguageSource: "user_preferences" | "agent_soul" | "none";
+};
+
+function parseAgentCustomProperties(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+export function resolveVoiceCatalogSelection(args: {
+  preferences: VoiceCatalogPreferenceSnapshot;
+  primaryAgent: VoiceCatalogPrimaryAgentSnapshot;
+}): VoiceCatalogSelection {
+  const selectedPreferenceVoiceId =
+    parseOptionalString(args.preferences?.voiceRuntimeVoiceId) ?? null;
+  const selectedPreferenceLanguage =
+    normalizeVoiceLanguageCode(args.preferences?.language) ?? null;
+  const primaryAgentCustomProperties = parseAgentCustomProperties(
+    args.primaryAgent?.customProperties,
+  );
+  const selectedAgentVoiceId =
+    parseOptionalString(primaryAgentCustomProperties?.elevenLabsVoiceId) ?? null;
+  const selectedAgentLanguage =
+    normalizeVoiceLanguageCode(primaryAgentCustomProperties?.voiceLanguage)
+    ?? normalizeVoiceLanguageCode(primaryAgentCustomProperties?.language)
+    ?? null;
+
+  if (selectedPreferenceVoiceId || selectedPreferenceLanguage) {
+    return {
+      selectedVoiceId: selectedPreferenceVoiceId,
+      selectedLanguage: selectedPreferenceLanguage,
+      selectedVoiceSource: selectedPreferenceVoiceId
+        ? "user_preferences"
+        : selectedAgentVoiceId
+          ? "agent_soul"
+          : "none",
+      selectedLanguageSource: selectedPreferenceLanguage
+        ? "user_preferences"
+        : selectedAgentLanguage
+          ? "agent_soul"
+          : "none",
+    };
+  }
+
+  if (selectedAgentVoiceId || selectedAgentLanguage) {
+    return {
+      selectedVoiceId: selectedAgentVoiceId,
+      selectedLanguage: selectedAgentLanguage,
+      selectedVoiceSource: selectedAgentVoiceId ? "agent_soul" : "none",
+      selectedLanguageSource: selectedAgentLanguage ? "agent_soul" : "none",
+    };
+  }
+
+  return {
+    selectedVoiceId: null,
+    selectedLanguage: null,
+    selectedVoiceSource: "none",
+    selectedLanguageSource: "none",
+  };
+}
+
+export function buildPrimaryAgentVoiceSyncUpdates(args: {
+  agentVoiceId: string | null;
+  language?: string;
+}): {
+  voiceLanguage?: string;
+  elevenLabsVoiceId?: string;
+} {
+  const updates: {
+    voiceLanguage?: string;
+    elevenLabsVoiceId?: string;
+  } = {};
+  if (args.agentVoiceId === null) {
+    updates.elevenLabsVoiceId = "";
+  } else {
+    const parsedVoiceId = parseOptionalString(args.agentVoiceId);
+    if (parsedVoiceId) {
+      updates.elevenLabsVoiceId = parsedVoiceId;
+    }
+  }
+  const normalizedLanguage = normalizeVoiceLanguageCode(args.language);
+  if (normalizedLanguage) {
+    updates.voiceLanguage = normalizedLanguage;
+  }
+  return updates;
 }
 
 function classifyVoiceSessionOpenError(error: unknown): {
@@ -623,12 +735,19 @@ function classifyVoiceSessionOpenError(error: unknown): {
       message: `Voice session open rate limited. Retry after ${retryAfterMs}ms.`,
     };
   }
+  if (message.startsWith("PRIMARY_AGENT_ROUTING_REQUIRED:")) {
+    return {
+      status: 409,
+      message,
+    };
+  }
   return fallback;
 }
 
 async function resolveVoiceRuntimeSessionContext(
   ctx: Parameters<Parameters<typeof httpAction>[0]>[0],
   auth: {
+    sessionId: string;
     organizationId: Id<"organizations">;
     userId: Id<"users">;
   },
@@ -637,9 +756,11 @@ async function resolveVoiceRuntimeSessionContext(
   const resolved = await (ctx as any).runAction(
     generatedApi.api.ai.chat.resolveVoiceRuntimeSession,
     {
+      sessionId: auth.sessionId,
       organizationId: auth.organizationId,
       userId: auth.userId,
       conversationId,
+      forcePrimaryAgent: true,
     }
   ) as {
     conversationId: Id<"aiConversations">;
@@ -969,6 +1090,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
 
     const runChatSend = async () =>
       await (ctx as any).runAction(generatedApi.api.ai.chat.sendMessage, {
+        sessionId: auth.sessionId,
         conversationId: inboundConversationId,
         message: normalizedMessage,
         organizationId: auth.organizationId,
@@ -984,6 +1106,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
         avObservability: parsedAvObservability,
         geminiLive: parsedGeminiLive,
         attachments: parsedAttachments,
+        forcePrimaryAgent: true,
       });
 
     let result;
@@ -1369,9 +1492,14 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
     );
   } catch (error) {
     console.error("[AI Chat API] Resolve voice session error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to resolve voice session";
+    const status = message.startsWith("PRIMARY_AGENT_ROUTING_REQUIRED:")
+      ? 409
+      : 500;
     return errorResponse(
-      error instanceof Error ? error.message : "Failed to resolve voice session",
-      500,
+      message,
+      status,
       origin
     );
   }
@@ -1733,20 +1861,37 @@ export const listVoiceCatalog = httpAction(async (ctx, request) => {
       voiceRuntimeProviderId?: "browser" | "elevenlabs";
       language?: string;
     } | null;
+    let primaryAgent: {
+      _id?: Id<"objects">;
+      customProperties?: unknown;
+    } | null = null;
+    try {
+      primaryAgent = await (ctx as any).runQuery(
+        generatedApi.api.agentOntology.getPrimaryAgentForOrg,
+        {
+          sessionId: auth.sessionId,
+          organizationId: auth.organizationId,
+        },
+      ) as {
+        _id?: Id<"objects">;
+        customProperties?: unknown;
+      } | null;
+    } catch (error) {
+      console.warn("[AI Chat API] List voice catalog primary agent resolution failed:", error);
+    }
+    const selection = resolveVoiceCatalogSelection({
+      preferences,
+      primaryAgent,
+    });
 
     return successResponse(
       {
         voices,
         languages,
-        selectedVoiceId:
-          typeof preferences?.voiceRuntimeVoiceId === "string" &&
-          preferences.voiceRuntimeVoiceId.trim().length > 0
-            ? preferences.voiceRuntimeVoiceId
-            : null,
-        selectedLanguage:
-          typeof preferences?.language === "string"
-            ? normalizeVoiceLanguageCode(preferences.language) ?? null
-            : null,
+        selectedVoiceId: selection.selectedVoiceId,
+        selectedLanguage: selection.selectedLanguage,
+        selectedVoiceSource: selection.selectedVoiceSource,
+        selectedLanguageSource: selection.selectedLanguageSource,
         provider: "elevenlabs",
         providerStatus: result.success ? "healthy" : "degraded",
         ...(result.success ? {} : { warning: result.reason || "voice_catalog_unavailable" }),
@@ -1844,12 +1989,69 @@ export const updateVoicePreferences = httpAction(async (ctx, request) => {
       voiceRuntimeVoiceId: parsedAgentVoiceId ?? "",
       ...(normalizedLanguage ? { language: normalizedLanguage } : {}),
     });
+    const primaryAgentSyncUpdates = buildPrimaryAgentVoiceSyncUpdates({
+      agentVoiceId: parsedAgentVoiceId,
+      language: normalizedLanguage,
+    });
+    const hasPrimaryAgentSyncUpdates =
+      typeof primaryAgentSyncUpdates.elevenLabsVoiceId === "string"
+      || typeof primaryAgentSyncUpdates.voiceLanguage === "string";
+    let primaryAgentSync:
+      | {
+          status:
+            | "synced"
+            | "skipped_no_primary_agent"
+            | "skipped_no_updates"
+            | "failed";
+          agentId?: string;
+          reason?: string;
+        }
+      | undefined;
+    if (hasPrimaryAgentSyncUpdates) {
+      try {
+        const primaryAgent = await (ctx as any).runQuery(
+          generatedApi.api.agentOntology.getPrimaryAgentForOrg,
+          {
+            sessionId: auth.sessionId,
+            organizationId: auth.organizationId,
+          },
+        ) as {
+          _id?: Id<"objects">;
+        } | null;
+        if (!primaryAgent?._id) {
+          primaryAgentSync = { status: "skipped_no_primary_agent" };
+        } else {
+          await (ctx as any).runMutation(generatedApi.api.agentOntology.updateAgent, {
+            sessionId: auth.sessionId,
+            agentId: primaryAgent._id,
+            updates: primaryAgentSyncUpdates,
+          });
+          primaryAgentSync = {
+            status: "synced",
+            agentId: String(primaryAgent._id),
+          };
+        }
+      } catch (error) {
+        const reason =
+          error instanceof Error
+            ? error.message
+            : "primary_agent_voice_sync_failed";
+        console.warn("[AI Chat API] Primary agent voice sync failed:", reason);
+        primaryAgentSync = {
+          status: "failed",
+          reason,
+        };
+      }
+    } else {
+      primaryAgentSync = { status: "skipped_no_updates" };
+    }
 
     return successResponse(
       {
         agentVoiceId: parsedAgentVoiceId,
         language: normalizedLanguage ?? null,
         provider: "elevenlabs",
+        primaryAgentSync,
       },
       origin
     );

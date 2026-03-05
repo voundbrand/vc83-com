@@ -3614,6 +3614,30 @@ function clampSessionContactMemoryLimit(value: unknown): number {
   );
 }
 
+export function buildSessionContactMemoryNoEligibleSourcesSkipResult(args?: {
+  extractedCandidateCount?: number;
+  eligibleCandidateCount?: number;
+}) {
+  const extractedCandidateCount =
+    typeof args?.extractedCandidateCount === "number" && Number.isFinite(args.extractedCandidateCount)
+      ? Math.max(0, Math.trunc(args.extractedCandidateCount))
+      : 0;
+  const eligibleCandidateCount =
+    typeof args?.eligibleCandidateCount === "number" && Number.isFinite(args.eligibleCandidateCount)
+      ? Math.max(0, Math.trunc(args.eligibleCandidateCount))
+      : 0;
+  return {
+    success: true as const,
+    skippedReason: "no_eligible_sources" as const,
+    policyVersion: SESSION_CONTACT_MEMORY_POLICY_VERSION,
+    extractedCandidateCount,
+    eligibleCandidateCount,
+    insertedCount: 0,
+    supersededCount: 0,
+    ambiguousFields: [] as string[],
+  };
+}
+
 export interface SessionContactMemoryScopeDecision {
   allowed: boolean;
   reason?:
@@ -3915,11 +3939,10 @@ export const refreshSessionContactMemory = internalMutation({
         toolResults: args.toolResults,
       });
       if (extractedCandidates.length === 0) {
-        return {
-          success: false,
-          error: "blocked_policy" as const,
-          reason: "no_eligible_sources" as const,
-        };
+        return buildSessionContactMemoryNoEligibleSourcesSkipResult({
+          extractedCandidateCount: extractedCandidates.length,
+          eligibleCandidateCount: 0,
+        });
       }
     }
 

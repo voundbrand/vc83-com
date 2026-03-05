@@ -2016,21 +2016,39 @@ async function applyStaleSessionCleanupIfNeeded(
   if (!args.snapshot) {
     return null;
   }
+  if (args.snapshot.state === "closed") {
+    return args.snapshot;
+  }
+  const staleReason = "voice_session_stale_timeout_cleanup";
+  let transitionFrom = args.snapshot.state;
+  if (transitionFrom !== "closing" && transitionFrom !== "error") {
+    await emitVoiceSessionTransitionEvent(ctx, {
+      runtimeContext: args.runtimeContext,
+      voiceSessionId: args.snapshot.voiceSessionId,
+      fromState: transitionFrom,
+      toState: "closing",
+      reason: staleReason,
+      providerId: args.snapshot.providerId,
+      requestedProviderId: args.snapshot.requestedProviderId,
+      fallbackProviderId: null,
+    });
+    transitionFrom = "closing";
+  }
   await emitVoiceSessionTransitionEvent(ctx, {
     runtimeContext: args.runtimeContext,
     voiceSessionId: args.snapshot.voiceSessionId,
-    fromState: args.snapshot.state,
+    fromState: transitionFrom,
     toState: "closed",
-    reason: "voice_session_stale_timeout_cleanup",
+    reason: staleReason,
     providerId: args.snapshot.providerId,
     requestedProviderId: args.snapshot.requestedProviderId,
     fallbackProviderId: null,
   });
   return {
     ...args.snapshot,
-    fromState: args.snapshot.state,
+    fromState: transitionFrom,
     state: "closed",
-    reason: "voice_session_stale_timeout_cleanup",
+    reason: staleReason,
     occurredAt: args.nowMs,
   };
 }
@@ -2055,6 +2073,19 @@ function isNoTranscriptTextError(error: unknown): boolean {
   return (
     message.includes("no transcript text") ||
     message.includes("transcription returned no")
+  );
+}
+
+function isIgnorableVoiceSessionCloseAuthError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("ungültige sitzung") ||
+    message.includes("sitzung abgelaufen") ||
+    message.includes("invalid session") ||
+    message.includes("session expired")
   );
 }
 
@@ -3104,14 +3135,44 @@ export const closeVoiceSession = action({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const runtimeContext = (await ctx.runQuery(
-      generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
-      {
-        sessionId: args.sessionId,
-        interviewSessionId: args.interviewSessionId,
-      },
-    )) as VoiceRuntimeContext;
     const nowMs = Date.now();
+    let runtimeContext: VoiceRuntimeContext;
+    try {
+      runtimeContext = (await ctx.runQuery(
+        generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
+        {
+          sessionId: args.sessionId,
+          interviewSessionId: args.interviewSessionId,
+        },
+      )) as VoiceRuntimeContext;
+    } catch (error) {
+      if (!isIgnorableVoiceSessionCloseAuthError(error)) {
+        throw error;
+      }
+      const requestedProviderId = normalizeVoiceRuntimeProviderId(
+        args.activeProviderId,
+      );
+      return {
+        success: true,
+        providerId: requestedProviderId,
+        health: {
+          providerId: requestedProviderId,
+          status: "healthy",
+          checkedAt: nowMs,
+          reason: "voice_session_close_auth_session_invalid_ignored",
+        },
+        nativeBridge: buildVoiceRuntimeNativeBridgeMetadata({
+          voiceSessionId: args.voiceSessionId,
+          sessionState: "closed",
+          requestedProviderId,
+          providerId: requestedProviderId,
+          fallbackProviderId: null,
+          fallbackReason: "voice_session_close_auth_session_invalid_ignored",
+        }),
+        fsmState: "closed" as const,
+        idempotent: true,
+      };
+    }
     const latestSession = await resolveLatestVoiceRuntimeSessionSnapshot(ctx, {
       organizationId: runtimeContext.organizationId,
       interviewSessionId: runtimeContext.interviewSessionId,
@@ -4031,6 +4092,24 @@ export const ingestVoiceTransportEnvelope = action({
       idempotentReplay: writeIdempotentReplay,
       persistedFinalTranscript,
     });
+    console.info("[VoiceRuntime] realtime_turn_orchestration_decision", {
+      voiceSessionId: envelope.voiceSessionId,
+      liveSessionId: envelope.liveSessionId,
+      eventType: envelope.eventType,
+      sequence: envelope.sequence,
+      orderingDecision: sequenceDecision.decision,
+      expectedSequence: sequenceDecision.expectedSequence,
+      persistedFinalTranscript,
+      idempotentReplay: writeIdempotentReplay,
+      relayEventCount: relayEvents.length,
+      shouldTriggerAssistantTurn:
+        turnOrchestrationDecision.shouldTriggerAssistantTurn,
+      orchestrationReason: turnOrchestrationDecision.reason,
+      conversationId: args.conversationId ?? null,
+      transcriptLength:
+        turnOrchestrationDecision.transcriptText?.length ?? 0,
+      relayErrorMessage: relayErrorMessage ?? null,
+    });
 
     let realtimeTurn:
       | {
@@ -4047,6 +4126,16 @@ export const ingestVoiceTransportEnvelope = action({
         `[VoiceRuntime] Agent response triggered, transcript length=${turnOrchestrationDecision.transcriptText?.length ?? 0}`,
       );
       if (!args.conversationId) {
+        console.warn(
+          "[VoiceRuntime] realtime_turn_suppressed_missing_conversation_id",
+          {
+            voiceSessionId: envelope.voiceSessionId,
+            liveSessionId: envelope.liveSessionId,
+            eventType: envelope.eventType,
+            sequence: envelope.sequence,
+            orchestrationReason: turnOrchestrationDecision.reason,
+          },
+        );
         realtimeTurn = {
           status: "suppressed",
           reason: "missing_conversation_id",
@@ -4054,6 +4143,15 @@ export const ingestVoiceTransportEnvelope = action({
         };
       } else {
         try {
+          console.info("[VoiceRuntime] realtime_turn_send_message_start", {
+            voiceSessionId: envelope.voiceSessionId,
+            liveSessionId: envelope.liveSessionId,
+            eventType: envelope.eventType,
+            sequence: envelope.sequence,
+            conversationId: args.conversationId,
+            transcriptLength:
+              turnOrchestrationDecision.transcriptText?.length ?? 0,
+          });
           const sendMessageResult = await (ctx as any).runAction(
             generatedApi.api.ai.chat.sendMessage,
             {
@@ -4117,6 +4215,13 @@ export const ingestVoiceTransportEnvelope = action({
               ? sendMessageResult.toolCalls.length
               : 0,
           };
+          console.info("[VoiceRuntime] realtime_turn_send_message_success", {
+            voiceSessionId: envelope.voiceSessionId,
+            liveSessionId: envelope.liveSessionId,
+            conversationId: args.conversationId,
+            assistantTextLength: realtimeTurn.assistantText?.length ?? 0,
+            toolCallCount: realtimeTurn.toolCallCount ?? 0,
+          });
           if (realtimeTurn.assistantText) {
             console.info(
               `[VoiceRuntime] Agent LLM response: "${realtimeTurn.assistantText.slice(0, 50)}..."`,
@@ -4134,6 +4239,15 @@ export const ingestVoiceTransportEnvelope = action({
             transcriptText: turnOrchestrationDecision.transcriptText ?? undefined,
             conversationId: args.conversationId,
           };
+          console.error("[VoiceRuntime] realtime_turn_send_message_failed", {
+            voiceSessionId: envelope.voiceSessionId,
+            liveSessionId: envelope.liveSessionId,
+            eventType: envelope.eventType,
+            sequence: envelope.sequence,
+            conversationId: args.conversationId,
+            error:
+              error instanceof Error ? error.message : "unknown_send_message_error",
+          });
         }
       }
     } else {
