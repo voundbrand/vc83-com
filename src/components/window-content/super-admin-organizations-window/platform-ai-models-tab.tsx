@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Cpu, Filter, CheckCircle, XCircle, AlertCircle, RefreshCw, Star, Lock } from "lucide-react";
+import { Cpu, Filter, CheckCircle, XCircle, AlertCircle, RefreshCw, Star, Lock, Users } from "lucide-react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -87,6 +87,8 @@ export function PlatformAiModelsTab() {
     platformModelManagementApi.toggleFreeTierLockedModel
   );
 
+  const syncOrgModelDefaults = useMutation(platformModelManagementApi.manualSyncOrgModelDefaults);
+
   // Actions
   const refreshModels = useAction(platformModelManagementApi.manualRefreshModels);
   const runModelValidation = useAction(platformModelManagementApi.runPlatformModelValidation);
@@ -103,6 +105,7 @@ export function PlatformAiModelsTab() {
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [runningValidationModels, setRunningValidationModels] = useState<Set<string>>(new Set());
+  const [isSyncingOrgs, setIsSyncingOrgs] = useState(false);
 
   // Show status message temporarily
   const showMessage = (message: string, type: "success" | "error") => {
@@ -291,6 +294,27 @@ export function PlatformAiModelsTab() {
     }
   };
 
+  // Handle manual sync of org model defaults
+  const handleSyncOrgDefaults = async () => {
+    if (!sessionId || isSyncingOrgs) return;
+
+    setIsSyncingOrgs(true);
+
+    try {
+      const result = await syncOrgModelDefaults({ sessionId });
+      showMessage(result.message, "success");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to sync org model defaults";
+      showMessage(message, "error");
+      console.error("Sync org model defaults error:", error);
+    } finally {
+      setIsSyncingOrgs(false);
+    }
+  };
+
   // Set platform default model (singular)
   const handleSetPlatformDefault = async (modelId: string) => {
     if (!sessionId) return;
@@ -455,20 +479,38 @@ export function PlatformAiModelsTab() {
         </div>
 
         {/* Manual Refresh Button */}
-        <button
-          onClick={handleManualRefresh}
-          disabled={isRefreshing}
-          className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
-            color: "var(--button-primary-text, #0f0f0f)",
-          }}
-        >
-          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
-          {isRefreshing
-            ? tx("actions.refreshing", "Refreshing...")
-            : tx("actions.refresh_from_openrouter", "Refresh from OpenRouter")}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: "var(--button-primary-bg, var(--tone-accent))",
+              color: "var(--button-primary-text, #0f0f0f)",
+            }}
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            {isRefreshing
+              ? tx("actions.refreshing", "Refreshing...")
+              : tx("actions.refresh_from_openrouter", "Refresh from OpenRouter")}
+          </button>
+
+          {/* Sync Org Model Defaults Button */}
+          <button
+            onClick={handleSyncOrgDefaults}
+            disabled={isSyncingOrgs}
+            className="beveled-button px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: "var(--success)",
+              color: "white",
+            }}
+          >
+            <Users size={16} className={isSyncingOrgs ? "animate-pulse" : ""} />
+            {isSyncingOrgs
+              ? tx("actions.syncing_orgs", "Syncing Organizations...")
+              : tx("actions.sync_org_defaults", "Sync All Org Defaults")}
+          </button>
+        </div>
       </div>
 
       {/* Status Message */}
