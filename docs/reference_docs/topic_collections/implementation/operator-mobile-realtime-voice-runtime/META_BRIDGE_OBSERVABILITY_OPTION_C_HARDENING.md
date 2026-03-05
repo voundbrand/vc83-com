@@ -50,7 +50,10 @@ Behavior:
 - optional API key validation (`META_BRIDGE_LOG_UPLOAD_API_KEY` / fallback env),
 - strict payload parse + validation via shared contract parser,
 - clear `400` contract errors for malformed payloads,
-- `202` acceptance response for valid payloads.
+- persist validated batches through internal Convex mutation (`internal.ai.metaBridgeObservability.persistUploadBatch`),
+- forward each accepted event into normalized persisted `objects` records (`meta_bridge_observability_upload` + `meta_bridge_observability_event`),
+- return `503` on persistence failures so mobile treats them as transient retries,
+- return `202` only after persistence success.
 
 ## Idle Snapshot Strategy + Dedupe
 

@@ -58,6 +58,7 @@ import type * as ai_linearActions from "../ai/linearActions.js";
 import type * as ai_linearClient from "../ai/linearClient.js";
 import type * as ai_manualGrants from "../ai/manualGrants.js";
 import type * as ai_memoryComposer from "../ai/memoryComposer.js";
+import type * as ai_metaBridgeObservability from "../ai/metaBridgeObservability.js";
 import type * as ai_midwifeCatalogComposer from "../ai/midwifeCatalogComposer.js";
 import type * as ai_mobileRuntimeHardening from "../ai/mobileRuntimeHardening.js";
 import type * as ai_modelAdapters from "../ai/modelAdapters.js";
@@ -841,6 +842,7 @@ declare const fullApi: ApiFromModules<{
   "ai/linearClient": typeof ai_linearClient;
   "ai/manualGrants": typeof ai_manualGrants;
   "ai/memoryComposer": typeof ai_memoryComposer;
+  "ai/metaBridgeObservability": typeof ai_metaBridgeObservability;
   "ai/midwifeCatalogComposer": typeof ai_midwifeCatalogComposer;
   "ai/mobileRuntimeHardening": typeof ai_mobileRuntimeHardening;
   "ai/modelAdapters": typeof ai_modelAdapters;
