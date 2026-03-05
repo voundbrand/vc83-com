@@ -27,6 +27,7 @@ export interface HandoffTranslations {
   fullBuildPrice: string;
   fullBuildDesc: string;
   startCheckout: string;
+  createAccountCarryContext: string;
 }
 
 const DEFAULT_TRANSLATIONS: HandoffTranslations = {
@@ -42,6 +43,7 @@ const DEFAULT_TRANSLATIONS: HandoffTranslations = {
   fullBuildDesc:
     "Production implementation starts here, beginning with layer-one foundation and delivery.",
   startCheckout: "Checkout",
+  createAccountCarryContext: "Create account and keep your audit progress",
 };
 
 export function HandoffCta({
@@ -164,7 +166,7 @@ export function HandoffCta({
               })
             }
           >
-            Create account and carry audit context
+            {t.createAccountCarryContext}
           </a>
         </div>
       )}

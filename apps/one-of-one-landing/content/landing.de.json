@@ -33,6 +33,7 @@
   "fullBuildPrice": "ab €7.000 zzgl. MwSt.",
   "fullBuildDesc": "Hier beginnt die Produktionsimplementierung, startend mit dem Layer-1-Fundament und Delivery.",
   "startCheckout": "Zur Kasse",
+  "createAccountCarryContext": "Konto erstellen und Audit-Fortschritt behalten",
   "startConversation": "Gespräch beginnen",
   "detailedPricingShow": "Detaillierte Preisübersicht anzeigen",
   "detailedPricingHide": "Detaillierte Preisübersicht ausblenden",

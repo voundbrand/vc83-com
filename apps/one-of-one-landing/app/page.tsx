@@ -244,6 +244,8 @@ export default function LandingPage() {
       t.fullBuildDesc
       ?? "Production implementation starts here, beginning with layer-one foundation and delivery.",
     startCheckout: t.startCheckout ?? "Checkout",
+    createAccountCarryContext:
+      t.createAccountCarryContext ?? "Create account and keep your audit progress",
   }
 
   const resolvePricingRowAction = useCallback((row: LandingPricingRow) => {
