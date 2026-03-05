@@ -30,6 +30,9 @@ import {
   type VoiceUsageTelemetry,
 } from "./voiceRuntimeAdapter";
 import { resolveMobileSourceAttestationContract } from "./mobileRuntimeHardening";
+import {
+  resolveDeterministicVoiceDefaults,
+} from "./voiceDefaults";
 
 // Dynamic require keeps action contexts ergonomic for internal runQuery/runMutation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +58,8 @@ type VoiceRuntimeContext = {
   organizationId: Id<"organizations">;
   actorId: string;
   interviewSessionId: Id<"agentSessions">;
+  agentVoiceId: string | null;
+  agentVoiceLanguage: string | null;
   elevenLabsBinding: {
     apiKey: string;
     baseUrl?: string;
@@ -2153,6 +2158,19 @@ export const resolveVoiceRuntimeContext = internalQuery({
     if (interviewSession.organizationId !== organizationId) {
       throw new Error("Interview session does not belong to your organization.");
     }
+    const agentRecord = await ctx.db.get(interviewSession.agentId);
+    const agentCustomProperties =
+      agentRecord &&
+      typeof agentRecord.customProperties === "object" &&
+      agentRecord.customProperties !== null
+        ? (agentRecord.customProperties as Record<string, unknown>)
+        : {};
+    const agentVoiceId =
+      normalizeString(agentCustomProperties.elevenLabsVoiceId) ?? null;
+    const agentVoiceLanguage =
+      normalizeString(agentCustomProperties.voiceLanguage)
+      ?? normalizeString(agentCustomProperties.language)
+      ?? null;
 
     const aiSettings = await ctx.db
       .query("organizationAiSettings")
@@ -2193,6 +2211,8 @@ export const resolveVoiceRuntimeContext = internalQuery({
       organizationId,
       actorId: String(userId),
       interviewSessionId: args.interviewSessionId,
+      agentVoiceId,
+      agentVoiceLanguage,
       elevenLabsBinding: elevenLabsBinding
         ? {
             apiKey: elevenLabsBinding.apiKey,
@@ -2868,14 +2888,22 @@ export const openVoiceSession = action({
         `voice_session_open_attestation_failed:${securityDecision.reasonCodes.join(",")}`,
       );
     }
-    const requestedVoiceId = normalizeString(args.requestedVoiceId);
-    const bindingDefaultVoiceId = runtimeContext.elevenLabsBinding?.defaultVoiceId;
-    const voiceId = requestedVoiceId ?? bindingDefaultVoiceId;
+    const voiceResolution = resolveDeterministicVoiceDefaults({
+      requestedVoiceId: args.requestedVoiceId,
+      agentVoiceId: runtimeContext.agentVoiceId,
+      orgDefaultVoiceId: runtimeContext.elevenLabsBinding?.defaultVoiceId,
+    });
+    const agentVoiceLanguage = runtimeContext.agentVoiceLanguage;
     console.info("[VoiceRuntime] open_session_voice_resolution", {
       requestedProviderId,
-      requestedVoiceId: requestedVoiceId ?? null,
-      bindingDefaultVoiceId: bindingDefaultVoiceId ?? null,
-      resolvedVoiceId: voiceId ?? null,
+      requestedVoiceId: voiceResolution.requestedVoiceId,
+      agentVoiceId: voiceResolution.agentVoiceId,
+      agentVoiceLanguage: agentVoiceLanguage ?? null,
+      bindingDefaultVoiceId: voiceResolution.orgDefaultVoiceId,
+      platformDefaultVoiceId: voiceResolution.platformDefaultVoiceId,
+      hardFallbackVoiceId: voiceResolution.hardFallbackVoiceId,
+      resolvedVoiceId: voiceResolution.resolvedVoiceId,
+      voiceResolutionSource: voiceResolution.voiceResolutionSource,
       hasElevenLabsBinding: Boolean(runtimeContext.elevenLabsBinding),
     });
     const voiceSessionId =
@@ -2903,6 +2931,7 @@ export const openVoiceSession = action({
         voiceSessionId,
         providerId: cleanedSession.providerId ?? requestedProviderId,
         requestedProviderId,
+        voiceResolutionSource: voiceResolution.voiceResolutionSource,
         fallbackProviderId: null,
         health: {
           providerId: cleanedSession.providerId ?? requestedProviderId,
@@ -2973,7 +3002,7 @@ export const openVoiceSession = action({
         voiceSessionId,
         organizationId: String(runtimeContext.organizationId),
         interviewSessionId: String(runtimeContext.interviewSessionId),
-        voiceId: voiceId ?? undefined,
+        voiceId: voiceResolution.resolvedVoiceId,
       });
     } catch (error) {
       await emitVoiceSessionTransitionEvent(ctx, {
@@ -4294,23 +4323,31 @@ export const synthesizeVoicePreview = action({
     }
 
     try {
-      const requestedVoiceId = normalizeString(args.requestedVoiceId);
-      const bindingDefaultVoiceId = runtimeContext.elevenLabsBinding?.defaultVoiceId;
-      const resolvedVoiceId = requestedVoiceId ?? bindingDefaultVoiceId;
+      const voiceResolution = resolveDeterministicVoiceDefaults({
+        requestedVoiceId: args.requestedVoiceId,
+        agentVoiceId: runtimeContext.agentVoiceId,
+        orgDefaultVoiceId: runtimeContext.elevenLabsBinding?.defaultVoiceId,
+      });
+      const agentVoiceLanguage = runtimeContext.agentVoiceLanguage;
       console.info("[VoiceRuntime] tts_voice_resolution", {
         requestedProviderId,
-        requestedVoiceId: requestedVoiceId ?? null,
-        bindingDefaultVoiceId: bindingDefaultVoiceId ?? null,
-        resolvedVoiceId: resolvedVoiceId ?? null,
+        requestedVoiceId: voiceResolution.requestedVoiceId,
+        agentVoiceId: voiceResolution.agentVoiceId,
+        agentVoiceLanguage: agentVoiceLanguage ?? null,
+        bindingDefaultVoiceId: voiceResolution.orgDefaultVoiceId,
+        platformDefaultVoiceId: voiceResolution.platformDefaultVoiceId,
+        hardFallbackVoiceId: voiceResolution.hardFallbackVoiceId,
+        resolvedVoiceId: voiceResolution.resolvedVoiceId,
+        voiceResolutionSource: voiceResolution.voiceResolutionSource,
         hasElevenLabsBinding: Boolean(runtimeContext.elevenLabsBinding),
       });
       console.info(
-        `[VoiceRuntime] TTS request: voice_id=${resolvedVoiceId ?? "default"} text_length=${args.text.length}`,
+        `[VoiceRuntime] TTS request: voice_id=${voiceResolution.resolvedVoiceId} text_length=${args.text.length}`,
       );
       const synthesis = await resolved.adapter.synthesize({
         voiceSessionId: args.voiceSessionId,
         text: args.text,
-        voiceId: resolvedVoiceId,
+        voiceId: voiceResolution.resolvedVoiceId,
       });
       const synthesizedBytes = synthesis.audioBase64
         ? Math.floor((synthesis.audioBase64.length * 3) / 4)
@@ -4353,6 +4390,7 @@ export const synthesizeVoicePreview = action({
         success: true,
         providerId: synthesis.providerId,
         requestedProviderId,
+        voiceResolutionSource: voiceResolution.voiceResolutionSource,
         fallbackProviderId: resolved.fallbackFromProviderId ?? null,
         health: resolved.health,
         mimeType: synthesis.mimeType,

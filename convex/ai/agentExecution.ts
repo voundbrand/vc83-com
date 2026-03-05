@@ -123,6 +123,7 @@ import {
   resolveVoiceRuntimeAdapter,
   type VoiceRuntimeProviderId,
 } from "./voiceRuntimeAdapter";
+import { resolveDeterministicVoiceDefaults } from "./voiceDefaults";
 import {
   checkPreLLMEscalation,
   checkPostLLMEscalation,
@@ -2222,6 +2223,13 @@ function normalizeRuntimeCount(value: unknown): number {
   return Math.max(0, Math.trunc(value));
 }
 
+function normalizeRuntimeContactMemorySkipReason(
+  value: unknown
+): "no_eligible_sources" | null {
+  const normalized = normalizeRuntimeNonEmptyString(value);
+  return normalized === "no_eligible_sources" ? normalized : null;
+}
+
 interface RuntimeMemoryRefreshMutationResult {
   success?: boolean;
   reason?: string;
@@ -2230,6 +2238,9 @@ interface RuntimeMemoryRefreshMutationResult {
 
 interface RuntimeContactMemoryRefreshMutationResult
   extends RuntimeMemoryRefreshMutationResult {
+  skippedReason?: string;
+  extractedCandidateCount?: number;
+  eligibleCandidateCount?: number;
   insertedCount?: number;
   supersededCount?: number;
   ambiguousFields?: string[];
@@ -2245,7 +2256,7 @@ export interface RuntimeMemoryLaneTelemetry {
     error?: string;
   };
   contactMemoryRefresh: {
-    status: "success" | "blocked";
+    status: "success" | "skipped" | "blocked";
     reason?: string;
     error?: string;
     insertedCount: number;
@@ -2261,7 +2272,15 @@ export function buildRuntimeMemoryLaneTelemetry(args: {
   contactMemoryRefresh?: RuntimeContactMemoryRefreshMutationResult | null;
 }): RuntimeMemoryLaneTelemetry {
   const rollingStatus = args.rollingMemoryRefresh?.success === true ? "success" : "blocked";
-  const contactStatus = args.contactMemoryRefresh?.success === true ? "success" : "blocked";
+  const legacyNoSourceSkip =
+    args.contactMemoryRefresh?.success !== true
+    && normalizeRuntimeNonEmptyString(args.contactMemoryRefresh?.reason) === "no_eligible_sources";
+  const contactSkipReason =
+    normalizeRuntimeContactMemorySkipReason(args.contactMemoryRefresh?.skippedReason)
+    ?? (legacyNoSourceSkip ? "no_eligible_sources" : null);
+  const contactStatus = contactSkipReason
+    ? "skipped"
+    : (args.contactMemoryRefresh?.success === true ? "success" : "blocked");
 
   const ambiguousFieldSet = new Set<string>();
   for (const field of args.contactMemoryRefresh?.ambiguousFields ?? []) {
@@ -2283,7 +2302,9 @@ export function buildRuntimeMemoryLaneTelemetry(args: {
     },
     contactMemoryRefresh: {
       status: contactStatus,
-      reason: normalizeRuntimeNonEmptyString(args.contactMemoryRefresh?.reason) ?? undefined,
+      reason: contactSkipReason
+        ?? normalizeRuntimeNonEmptyString(args.contactMemoryRefresh?.reason)
+        ?? undefined,
       error: normalizeRuntimeNonEmptyString(args.contactMemoryRefresh?.error) ?? undefined,
       insertedCount: normalizeRuntimeCount(args.contactMemoryRefresh?.insertedCount),
       supersededCount: normalizeRuntimeCount(args.contactMemoryRefresh?.supersededCount),
@@ -7352,12 +7373,12 @@ export const processInboundMessage = action({
             aiSettings?.billingSource ??
             (aiSettings?.billingMode === "byok" ? "byok" : "platform"),
         });
-        const voiceId =
-          resolveVoiceRuntimeVoiceId({
-            inboundVoiceRequest,
-            agentConfig: config,
-            orgDefaultVoiceId: elevenLabsBinding?.defaultVoiceId,
-          });
+        const voiceResolution = resolveDeterministicVoiceDefaults({
+          requestedVoiceId: inboundVoiceRequest.requestedVoiceId,
+          agentVoiceId: config?.elevenLabsVoiceId,
+          orgDefaultVoiceId: elevenLabsBinding?.defaultVoiceId,
+        });
+        const voiceId = voiceResolution.resolvedVoiceId;
 
         try {
           const synthesis = await resolvedVoiceAdapter.adapter.synthesize({
@@ -7396,6 +7417,7 @@ export const processInboundMessage = action({
                   inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                 channel: args.channel,
                 resolvedLanguage: resolvedVoiceLanguage ?? null,
+                voiceResolutionSource: voiceResolution.voiceResolutionSource,
               },
             });
           } catch (error) {
@@ -9104,11 +9126,35 @@ export const processInboundMessage = action({
       success?: boolean;
       error?: string;
       reason?: string;
+      skippedReason?: string;
+      extractedCandidateCount?: number;
+      eligibleCandidateCount?: number;
       insertedCount?: number;
       supersededCount?: number;
       ambiguousFields?: string[];
     } | null;
-    if (!contactMemoryRefresh?.success) {
+    const contactMemorySkippedReason =
+      normalizeRuntimeContactMemorySkipReason(contactMemoryRefresh?.skippedReason)
+      ?? (
+        !contactMemoryRefresh?.success
+        && normalizeRuntimeNonEmptyString(contactMemoryRefresh?.reason) === "no_eligible_sources"
+          ? "no_eligible_sources"
+          : null
+      );
+    if (contactMemorySkippedReason) {
+      console.info("[AgentExecution] Structured contact memory refresh skipped", {
+        organizationId: args.organizationId,
+        sessionId: session._id,
+        turnId: runtimeTurnId,
+        skippedReason: contactMemorySkippedReason,
+        extractedCandidateCount: normalizeRuntimeCount(
+          contactMemoryRefresh?.extractedCandidateCount
+        ),
+        eligibleCandidateCount: normalizeRuntimeCount(
+          contactMemoryRefresh?.eligibleCandidateCount
+        ),
+      });
+    } else if (!contactMemoryRefresh?.success) {
       console.warn("[AgentExecution] Structured contact memory refresh blocked", {
         organizationId: args.organizationId,
         sessionId: session._id,
@@ -18236,12 +18282,12 @@ export function resolveVoiceRuntimeVoiceId(args: {
     elevenLabsVoiceId?: string;
   } | null;
   orgDefaultVoiceId?: string;
-}): string | undefined {
-  return (
-    args.inboundVoiceRequest.requestedVoiceId ??
-    firstInboundString(args.agentConfig?.elevenLabsVoiceId) ??
-    firstInboundString(args.orgDefaultVoiceId)
-  );
+}): string {
+  return resolveDeterministicVoiceDefaults({
+    requestedVoiceId: args.inboundVoiceRequest.requestedVoiceId,
+    agentVoiceId: args.agentConfig?.elevenLabsVoiceId,
+    orgDefaultVoiceId: args.orgDefaultVoiceId,
+  }).resolvedVoiceId;
 }
 
 function resolveInboundIdempotencyKey(args: {

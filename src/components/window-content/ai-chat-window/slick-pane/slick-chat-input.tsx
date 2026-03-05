@@ -65,6 +65,14 @@ import {
   type ConversationCapabilitySnapshot,
 } from "@/lib/av/session/mediaSessionContract"
 import {
+  buildDesktopGeminiLiveMetadata,
+  composeDesktopRuntimeMetadata,
+  evaluateDesktopVisionDegradeGuard,
+  isIntentionalDesktopVisionStopReason,
+  resolveDesktopConversationModeTransition,
+  shouldRecoverBlankDesktopVisionPreview,
+} from "@/lib/ai/desktop-conversation-runtime"
+import {
   DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
   DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
   DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
@@ -87,6 +95,18 @@ function buildRuntimeSessionId(prefix: "voice" | "camera"): string {
   return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`
 }
 
+async function requestVisionCameraStream(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+      },
+    })
+  } catch {
+    return await navigator.mediaDevices.getUserMedia({ video: true })
+  }
+}
+
 function formatModelDisplayName(modelId: string | undefined): string {
   if (!modelId) {
     return "Current model"
@@ -103,6 +123,14 @@ function normalizeModelId(modelId: string | undefined): string | null {
   }
 
   const normalized = modelId.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+  const normalized = value.trim()
   return normalized.length > 0 ? normalized : null
 }
 
@@ -258,6 +286,10 @@ const VISION_FORWARDING_MAX_WIDTH_PX = 960
 const ASSISTANT_PLAYBACK_QUEUE_POLICY = "interruption_safe_serial_queue"
 const TTS_PRIMARY_ROUTE = "websocket_multi_context_primary"
 const TTS_FALLBACK_ROUTE = "batch_synthesize_fallback"
+const CAMERA_PREVIEW_SIGNAL_TIMEOUT_MS = 2500
+const CAMERA_PREVIEW_BLANK_RECOVERY_GRACE_MS = 3200
+const CAMERA_STARTUP_DEGRADE_GRACE_MS = 2500
+const CAMERA_PREVIEW_RECOVERY_RETRY_LIMIT = 1
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ""
@@ -1416,6 +1448,7 @@ export function SlickChatInput({
   const [activeVoiceSessionId, setActiveVoiceSessionId] = useState<string | null>(null)
   const [cameraLiveSession, setCameraLiveSession] = useState<CameraLiveSessionState | null>(null)
   const [cameraVisionError, setCameraVisionError] = useState<string | null>(null)
+  const [hasCameraPreviewSignal, setHasCameraPreviewSignal] = useState(false)
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlInput, setUrlInput] = useState("")
   const [referenceUrls, setReferenceUrls] = useState<string[]>([])
@@ -1436,6 +1469,9 @@ export function SlickChatInput({
   const lastConversationEventRef = useRef<string>("")
   const activeConversationEyesSourceRef = useRef<ConversationEyesSourceSelection | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
+  const cameraPreviewSignalObservedAtRef = useRef<number | null>(null)
+  const cameraPreviewRecoveryInFlightRef = useRef(false)
+  const cameraPreviewRecoveryAttemptsRef = useRef(0)
   const isSendingRef = useRef(false)
   const activeRealtimeTransportRouteRef =
     useRef<VoiceRealtimeTransportRoute>(resolveInitialRealtimeTransportRoute())
@@ -1535,6 +1571,15 @@ export function SlickChatInput({
   } = useAIChatContext()
   const { isAIReady, settings, connectionCatalog, canUseByok } = useAIConfig()
   const { user, sessionId } = useAuth()
+  const userVoicePreferences = useQuery(
+    api.userPreferences.get,
+    sessionId ? { sessionId } : "skip"
+  ) as
+    | {
+        voiceRuntimeVoiceId?: unknown
+      }
+    | null
+    | undefined
   const notification = useNotification()
   const {
     voiceInputLanguage,
@@ -1547,6 +1592,10 @@ export function SlickChatInput({
     authSessionId: sessionId ?? undefined,
     interviewSessionId: resolvedVoiceRuntimeSession?.agentSessionId,
   })
+  const preferredRequestedVoiceId = useMemo(
+    () => normalizeOptionalString(userVoicePreferences?.voiceRuntimeVoiceId) ?? undefined,
+    [userVoicePreferences?.voiceRuntimeVoiceId]
+  )
 
   useEffect(() => {
     isSendingRef.current = isSending
@@ -1744,6 +1793,7 @@ export function SlickChatInput({
   const releaseCameraStream = () => {
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
     cameraStreamRef.current = null
+    setHasCameraPreviewSignal(false)
     if (cameraVideoRef.current) {
       cameraVideoRef.current.srcObject = null
     }
@@ -1814,6 +1864,7 @@ export function SlickChatInput({
       stopVisionStream("operator_toggle_off")
       return false
     }
+    setHasCameraPreviewSignal(false)
 
     if (!navigator.mediaDevices?.getUserMedia) {
       const fallbackReason = "camera_getusermedia_unavailable"
@@ -1835,9 +1886,7 @@ export function SlickChatInput({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      })
+      const stream = await requestVisionCameraStream()
       stream.getVideoTracks().forEach((track) => {
         track.addEventListener("ended", () => {
           if (
@@ -1850,6 +1899,7 @@ export function SlickChatInput({
       })
       cameraStreamRef.current = stream
       if (cameraVideoRef.current) {
+        setHasCameraPreviewSignal(false)
         cameraVideoRef.current.srcObject = stream
         await cameraVideoRef.current.play().catch(() => {})
       }
@@ -2296,6 +2346,7 @@ export function SlickChatInput({
     try {
       openedSession = await voiceRuntime.openSession({
         requestedProviderId: "elevenlabs",
+        requestedVoiceId: preferredRequestedVoiceId,
         voiceSessionId: buildRuntimeSessionId("voice"),
         runtimeContext: {
           authSessionId: sessionId,
@@ -2798,6 +2849,7 @@ export function SlickChatInput({
               voiceSessionId: openedVoiceSession.voiceSessionId,
               blob: payload.audioBlob,
               requestedProviderId: "elevenlabs",
+              requestedVoiceId: preferredRequestedVoiceId,
               language: voiceInputLanguage,
               telemetry: {
                 assistantPlaybackQueuePolicy:
@@ -3626,6 +3678,11 @@ export function SlickChatInput({
             liveSessionId: pendingVoiceRuntime.liveSessionId || normalizedLiveSessionId,
           }
         : undefined
+      const geminiLive = buildWebGeminiLiveMetadata({
+        conversationModeSelection,
+        eyesSourceSelection: conversationEyesSourceSelection,
+        cameraLiveSession,
+      })
 
       setMessage("")
       clearReferences()
@@ -3674,6 +3731,7 @@ export function SlickChatInput({
         liveSessionId: normalizedLiveSessionId,
         cameraRuntime,
         voiceRuntime,
+        geminiLive,
         conversationRuntime: {
           contractVersion: CONVERSATION_CONTRACT_VERSION,
           state: conversationState,
@@ -3736,7 +3794,14 @@ export function SlickChatInput({
         setCurrentConversationId(result.conversationId)
       }
 
-      if (cameraLiveSession?.sessionState === "capturing") {
+      const keepVisionStreamForLiveConversation =
+        conversationModeSelection === "voice_with_eyes"
+        && (
+          conversationState === "connecting"
+          || conversationState === "live"
+          || conversationState === "reconnecting"
+        )
+      if (cameraLiveSession?.sessionState === "capturing" && !keepVisionStreamForLiveConversation) {
         stopVisionStream("message_sent")
       }
 
@@ -4159,6 +4224,8 @@ export function SlickChatInput({
       || cameraLiveSession?.stopReason === "conversation_voice_only_selected"
       || cameraLiveSession?.stopReason === "operator_toggle_off"
       || cameraLiveSession?.stopReason === "operator_stop"
+      || cameraLiveSession?.stopReason === "message_sent"
+      || cameraLiveSession?.stopReason === "capture_backpressure"
     ) {
       return
     }
@@ -4415,13 +4482,33 @@ export function SlickChatInput({
                     : ""}
                 </div>
               </div>
-              <video
-                ref={cameraVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="h-44 w-full rounded-xl object-cover"
-              />
+              <div
+                className="relative h-44 w-full overflow-hidden rounded-xl"
+                style={{ background: "var(--shell-surface-elevated)" }}
+              >
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedData={() => setHasCameraPreviewSignal(true)}
+                  onPlaying={() => setHasCameraPreviewSignal(true)}
+                  onEmptied={() => setHasCameraPreviewSignal(false)}
+                  onEnded={() => setHasCameraPreviewSignal(false)}
+                  onError={() => setHasCameraPreviewSignal(false)}
+                  className="h-full w-full object-cover"
+                />
+                {!hasCameraPreviewSignal ? (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs"
+                    style={{ color: "var(--shell-text-dim)" }}
+                  >
+                    {cameraLiveSession.sessionState === "capturing"
+                      ? "Waiting for camera preview..."
+                      : "Vision stream is stopped. Tap Eyes on to restart."}
+                  </div>
+                ) : null}
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
                   type="button"

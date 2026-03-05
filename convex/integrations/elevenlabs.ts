@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
 import { resolveOrganizationProviderBindingForProvider } from "../ai/providerRegistry";
+import { resolveDeterministicOrgDefaultVoiceId } from "../ai/voiceDefaults";
 import type { Id } from "../_generated/dataModel";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -333,6 +334,10 @@ function buildElevenLabsProfile(args: {
   const nextDefaultVoiceId =
     normalizeString(args.defaultVoiceId) ??
     getDefaultVoiceId(args.existingProfile);
+  const seededDefaultVoiceId =
+    args.enabled && !nextDefaultVoiceId
+      ? resolveDeterministicOrgDefaultVoiceId()
+      : nextDefaultVoiceId;
   const existingMetadata =
     typeof args.existingProfile?.metadata === "object" &&
     args.existingProfile?.metadata !== null
@@ -377,7 +382,7 @@ function buildElevenLabsProfile(args: {
     lastFailureReason: args.existingProfile?.lastFailureReason,
     metadata: {
       ...existingMetadata,
-      ...(nextDefaultVoiceId ? { defaultVoiceId: nextDefaultVoiceId } : {}),
+      ...(seededDefaultVoiceId ? { defaultVoiceId: seededDefaultVoiceId } : {}),
     },
   };
 }
