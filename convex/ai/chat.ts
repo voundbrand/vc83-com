@@ -2878,8 +2878,27 @@ export const sendMessage = action({
         }
       }
       if (!runtimeModelResolution) {
-        throw new Error(
-          "Agent runtime did not return model resolution metadata for desktop chat persistence."
+        const runtimeStatusForResolution =
+          normalizeNonEmptyString(agentResult.status) ?? "unknown_status";
+        const synthesizedModelId =
+          conversationPinnedModel ??
+          normalizeNonEmptyString(args.selectedModel) ??
+          SAFE_FALLBACK_MODEL_ID;
+        runtimeModelResolution = buildModelResolutionPayload({
+          requestedModel: normalizeNonEmptyString(args.selectedModel),
+          selectedModel: synthesizedModelId,
+          usedModel: synthesizedModelId,
+          selectionSource: `runtime_missing_model_resolution_${runtimeStatusForResolution}`,
+          selectedAuthProfileId: conversationPinnedAuthProfileId,
+          usedAuthProfileId: conversationPinnedAuthProfileId,
+        });
+        console.warn(
+          "[AI Chat] Missing model resolution metadata from agent runtime; synthesized fallback for persistence.",
+          {
+            conversationId: String(conversationId),
+            status: runtimeStatusForResolution,
+            selectedModel: synthesizedModelId,
+          }
         );
       }
       const runtimeUsedModel =
