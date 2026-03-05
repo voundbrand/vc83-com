@@ -6,6 +6,77 @@ import path from "node:path";
 
 const WORKSTREAM_ROOT =
   "docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime";
+const PENDING_FINAL_FRAME_HANDOFF_GATE_CONTRACT_VERSION =
+  "orv_pending_final_frame_handoff_gate_v1";
+const PENDING_FINAL_FRAME_REQUIRED_EVENT_TOKENS = [
+  "voice_frame_final_requires_assistant_cancel",
+  "voice_pending_final_frame_queued",
+  "voice_pending_final_frame_finalizing",
+];
+
+function countMatches(text, expression) {
+  if (!text || !(expression instanceof RegExp)) {
+    return 0;
+  }
+  return (text.match(expression) || []).length;
+}
+
+function evaluatePendingFinalFrameHandoffGate(args) {
+  const logText = typeof args?.logText === "string" ? args.logText : "";
+  const requireDualReleasePaths = Boolean(args?.requireDualReleasePaths);
+  const observedCounts = {
+    assistantCancelSignal: countMatches(
+      logText,
+      /voice_frame_final_requires_assistant_cancel/g,
+    ),
+    queued: countMatches(logText, /voice_pending_final_frame_queued/g),
+    finalizing: countMatches(logText, /voice_pending_final_frame_finalizing/g),
+    releaseAssistantCleared: countMatches(
+      logText,
+      /releaseReason[^a-zA-Z0-9_]{0,16}["']assistant_cleared["']/g,
+    ),
+    releaseTimeout: countMatches(
+      logText,
+      /releaseReason[^a-zA-Z0-9_]{0,16}["']timeout["']/g,
+    ),
+    duplicateIgnored: countMatches(
+      logText,
+      /voice_pending_final_frame_duplicate_ignored/g,
+    ),
+  };
+  const reasonCodes = [];
+  if (observedCounts.assistantCancelSignal === 0) {
+    reasonCodes.push("missing_cancel_signal_event");
+  }
+  if (observedCounts.queued === 0) {
+    reasonCodes.push("missing_pending_queue_event");
+  }
+  if (observedCounts.finalizing === 0) {
+    reasonCodes.push("missing_pending_finalizing_event");
+  }
+  if (
+    observedCounts.releaseAssistantCleared === 0
+    && observedCounts.releaseTimeout === 0
+  ) {
+    reasonCodes.push("missing_pending_release_reason");
+  }
+  if (requireDualReleasePaths && observedCounts.releaseAssistantCleared === 0) {
+    reasonCodes.push("missing_assistant_cleared_release_path");
+  }
+  if (requireDualReleasePaths && observedCounts.releaseTimeout === 0) {
+    reasonCodes.push("missing_timeout_release_path");
+  }
+
+  return {
+    contractVersion: PENDING_FINAL_FRAME_HANDOFF_GATE_CONTRACT_VERSION,
+    status: reasonCodes.length === 0 ? "PASS" : "FAIL",
+    passed: reasonCodes.length === 0,
+    requiredDualReleasePaths: requireDualReleasePaths,
+    requiredEventTokens: PENDING_FINAL_FRAME_REQUIRED_EVENT_TOKENS,
+    observedCounts,
+    reasonCodes,
+  };
+}
 
 function parseArgs(argv) {
   const result = {
@@ -211,10 +282,31 @@ async function runAndroid(args, outputDir, timelineFile) {
       type: "android_plan_only",
       count: planned.length,
     });
+    const pendingFinalFrameHandoffGate = {
+      contractVersion: PENDING_FINAL_FRAME_HANDOFF_GATE_CONTRACT_VERSION,
+      status: "PLANNED",
+      passed: null,
+      requiredDualReleasePaths: false,
+      requiredEventTokens: PENDING_FINAL_FRAME_REQUIRED_EVENT_TOKENS,
+      observedCounts: {
+        assistantCancelSignal: 0,
+        queued: 0,
+        finalizing: 0,
+        releaseAssistantCleared: 0,
+        releaseTimeout: 0,
+        duplicateIgnored: 0,
+      },
+      reasonCodes: [],
+    };
+    writeJson(
+      path.join(outputDir, "pending-final-frame-handoff-gate.json"),
+      pendingFinalFrameHandoffGate,
+    );
     return {
       ok: true,
       reason: "plan_only",
       scenarios: planned,
+      pendingFinalFrameHandoffGate,
     };
   }
 
@@ -317,10 +409,37 @@ async function runAndroid(args, outputDir, timelineFile) {
     });
   }
 
+  const postRunLogcat = runCommand("adb", [...adbPrefix, "logcat", "-d", "-v", "threadtime"]);
+  fs.writeFileSync(
+    path.join(outputDir, "post-run.logcat.txt"),
+    `${postRunLogcat.stdout || ""}\n${postRunLogcat.stderr || ""}`,
+    "utf8",
+  );
+  const pendingFinalFrameHandoffGate = evaluatePendingFinalFrameHandoffGate({
+    logText: `${postRunLogcat.stdout || ""}\n${postRunLogcat.stderr || ""}`,
+    requireDualReleasePaths: false,
+  });
+  writeJson(
+    path.join(outputDir, "pending-final-frame-handoff-gate.json"),
+    pendingFinalFrameHandoffGate,
+  );
+  appendNdjson(timelineFile, {
+    at: new Date().toISOString(),
+    type: "pending_final_frame_handoff_gate",
+    status: pendingFinalFrameHandoffGate.status,
+    reasonCodes: pendingFinalFrameHandoffGate.reasonCodes,
+    observedCounts: pendingFinalFrameHandoffGate.observedCounts,
+  });
+
+  const scenariosOk = results.every((row) => row.errors.length === 0);
+  const handoffGateOk = pendingFinalFrameHandoffGate.passed === true;
   return {
-    ok: results.every((row) => row.errors.length === 0),
-    reason: "",
+    ok: scenariosOk && handoffGateOk,
+    reason: scenariosOk
+      ? (handoffGateOk ? "" : "pending_final_frame_handoff_gate_failed")
+      : "scenario_execution_failed",
     scenarios: results,
+    pendingFinalFrameHandoffGate,
   };
 }
 
@@ -335,11 +454,37 @@ function runIos(outputDir, timelineFile) {
     type: "ios_manual_required",
     count: scenarios.length,
   });
+  const pendingFinalFrameHandoffGate = {
+    contractVersion: PENDING_FINAL_FRAME_HANDOFF_GATE_CONTRACT_VERSION,
+    status: "MANUAL_REQUIRED",
+    passed: null,
+    requiredDualReleasePaths: false,
+    requiredEventTokens: PENDING_FINAL_FRAME_REQUIRED_EVENT_TOKENS,
+    observedCounts: {
+      assistantCancelSignal: 0,
+      queued: 0,
+      finalizing: 0,
+      releaseAssistantCleared: 0,
+      releaseTimeout: 0,
+      duplicateIgnored: 0,
+    },
+    reasonCodes: [],
+    requiredManualEvidence: [
+      "voice_frame_final_requires_assistant_cancel appears in mobile runtime logs",
+      "voice_pending_final_frame_queued appears with sequence + timeout context",
+      "voice_pending_final_frame_finalizing appears after assistant interruption or timeout",
+    ],
+  };
+  writeJson(
+    path.join(outputDir, "pending-final-frame-handoff-gate.json"),
+    pendingFinalFrameHandoffGate,
+  );
   writeJson(path.join(outputDir, "ios-manual-scenarios.json"), scenarios);
   return {
     ok: true,
     reason: "manual_steps_generated",
     scenarios,
+    pendingFinalFrameHandoffGate,
   };
 }
 
@@ -377,6 +522,7 @@ async function main() {
       "liveSessionId and voiceSessionId remain correlated under radio impairment",
       "fallback transition and reconnect telemetry emitted for transport interruption",
       "provider timeout/failure taxonomy remains stable under degraded links",
+      "pending final-frame handoff events are present for assistant interruption -> user finalize continuity",
     ],
   };
   writeJson(path.join(outDir, "manifest.json"), manifest);

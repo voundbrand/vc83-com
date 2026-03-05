@@ -34,6 +34,11 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
     return translated === fullKey ? fallback : translated;
   };
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isRepairingPrimaryRouting, setIsRepairingPrimaryRouting] = useState(false);
+  const [primaryRoutingMessage, setPrimaryRoutingMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Check if API keys are enabled for this organization
   const apiSettings = useQueryAny(
@@ -52,8 +57,58 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
     api.organizations.getById,
     organizationId && sessionId ? { organizationId, sessionId } : "skip"
   );
+  const backfillPrimaryAgentContextsForOrganization = useMutationAny(
+    api.migrations.backfillPrimaryAgentContexts.backfillPrimaryAgentContextsForOrganization
+  );
 
   const isApiKeysEnabled = apiSettings?.apiKeysEnabled ?? false;
+
+  const handleRepairPrimaryRouting = async () => {
+    if (isRepairingPrimaryRouting) {
+      return;
+    }
+
+    const confirmed = confirm(
+      tx(
+        "primary_repair.confirm",
+        "Run primary-agent context backfill for all users in this organization now?"
+      )
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsRepairingPrimaryRouting(true);
+    setPrimaryRoutingMessage(null);
+    try {
+      const result = await backfillPrimaryAgentContextsForOrganization({
+        sessionId,
+        organizationId,
+        dryRun: false,
+      });
+      const patchedAgents =
+        typeof result?.patchedAgents === "number" ? result.patchedAgents : 0;
+      const contextsNeedingPatch =
+        typeof result?.contextsNeedingPatch === "number"
+          ? result.contextsNeedingPatch
+          : 0;
+      const recoveryAction =
+        typeof result?.recoveryAction === "string" ? result.recoveryAction : null;
+      const recoverySuffix = recoveryAction ? ` Recovery: ${recoveryAction}.` : "";
+      setPrimaryRoutingMessage({
+        type: "success",
+        text: `Primary-agent routing backfill completed. Contexts repaired: ${contextsNeedingPatch}. Agents patched: ${patchedAgents}.${recoverySuffix}`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : tx("primary_repair.failed", "Primary-agent routing backfill failed.");
+      setPrimaryRoutingMessage({ type: "error", text: message });
+    } finally {
+      setIsRepairingPrimaryRouting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -121,6 +176,64 @@ export function AdminSecurityTab({ organizationId, sessionId }: AdminSecurityTab
           </div>
         </div>
       )}
+
+      {/* Primary Agent Routing Recovery */}
+      <div
+        className="p-3 border-2"
+        style={{
+          backgroundColor: "var(--window-document-bg-elevated)",
+          borderColor: "var(--window-document-border)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+              {tx("primary_repair.title", "Primary Agent Routing Recovery")}
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--neutral-gray)" }}>
+              {tx(
+                "primary_repair.body",
+                "Repairs active primary-agent context assignments for all users in this organization."
+              )}
+            </p>
+          </div>
+          <button
+            onClick={handleRepairPrimaryRouting}
+            disabled={isRepairingPrimaryRouting}
+            className="beveled-button flex items-center gap-1 px-2 py-1 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: "var(--primary)",
+              color: "var(--button-primary-text, #0f0f0f)",
+            }}
+            title={tx(
+              "primary_repair.button_title",
+              "Backfill primary-agent context assignments for this org"
+            )}
+          >
+            {isRepairingPrimaryRouting ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Shield size={12} />
+            )}
+            {tx("primary_repair.button", "Run Primary Backfill")}
+          </button>
+        </div>
+
+        {primaryRoutingMessage && (
+          <div
+            className="mt-3 p-2 text-xs"
+            style={{
+              background:
+                primaryRoutingMessage.type === "success"
+                  ? "var(--success)"
+                  : "var(--error)",
+              color: "white",
+            }}
+          >
+            {primaryRoutingMessage.text}
+          </div>
+        )}
+      </div>
 
       {/* Header */}
       <div>

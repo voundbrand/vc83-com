@@ -34,6 +34,18 @@ Captured artifacts per scenario include:
 3. `timeline.ndjson`
 4. `manifest.json`
 5. `summary.json`
+6. `pending-final-frame-handoff-gate.json`
+7. `post-run.logcat.txt`
+
+### Pending-final-frame handoff gate (Android `--run`)
+
+When executed with `--run`, the runner now enforces a hard gate for the iPhone/Android voice handoff hardening lifecycle. The run is marked failed when log evidence is missing for:
+
+1. `voice_frame_final_requires_assistant_cancel`
+2. `voice_pending_final_frame_queued`
+3. `voice_pending_final_frame_finalizing`
+
+The gate output is emitted to `pending-final-frame-handoff-gate.json` and referenced in `summary.json`.
 
 ## iOS physical-device execution
 
@@ -62,3 +74,7 @@ For each scenario, include:
    - `reconnect`
    - correlation invariant continuity (`liveSessionId + voiceSessionId`)
 3. Any provider timeout/failure event taxonomy evidence for degraded links.
+4. Pending-final-frame handoff gate evidence:
+   - `voice_frame_final_requires_assistant_cancel`
+   - `voice_pending_final_frame_queued`
+   - `voice_pending_final_frame_finalizing`
