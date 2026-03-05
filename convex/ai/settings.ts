@@ -13,6 +13,7 @@ import {
   aiProviderIdValidator,
 } from "../schemas/coreSchemas";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { evaluateModelReleaseGateSnapshot } from "./modelReleaseGateAudit";
 
 const PROVIDER_AGNOSTIC_SETTINGS_MIGRATION_KEY =
   "provider_agnostic_auth_profiles_v1" as const;
@@ -304,6 +305,52 @@ type EnabledModelSelection = {
   enabledAt: number;
 };
 
+type PlatformModelSyncCandidate = {
+  modelId: string;
+  name: string;
+  provider: string;
+  isPlatformEnabled?: boolean;
+  isSystemDefault?: boolean;
+  lifecycleStatus?: string;
+  validationStatus?: "not_tested" | "validated" | "failed";
+  testResults?: unknown;
+  operationalReviewAcknowledgedAt?: number;
+};
+
+function isReleaseReadyPlatformModel(model: PlatformModelSyncCandidate): boolean {
+  if (model.isPlatformEnabled !== true) {
+    return false;
+  }
+  if (model.lifecycleStatus === "retired") {
+    return false;
+  }
+  return evaluateModelReleaseGateSnapshot({
+    snapshot: {
+      modelId: model.modelId,
+      name: model.name,
+      provider: model.provider,
+      lifecycleStatus: model.lifecycleStatus,
+      isPlatformEnabled: true,
+      validationStatus: model.validationStatus,
+      testResults: model.testResults as any,
+      operationalReviewAcknowledgedAt: model.operationalReviewAcknowledgedAt,
+    },
+  }).releaseReady;
+}
+
+async function listReleaseReadyPlatformModels(
+  ctx: { db: { query: Function } }
+): Promise<PlatformModelSyncCandidate[]> {
+  const models = await (ctx.db as any)
+    .query("aiModels")
+    .withIndex("by_platform_enabled", (q: any) =>
+      q.eq("isPlatformEnabled", true)
+    )
+    .collect();
+
+  return models.filter(isReleaseReadyPlatformModel);
+}
+
 function normalizeEnabledModelSelections(
   value: unknown,
   now: number
@@ -374,51 +421,38 @@ function areEnabledModelSelectionsEqual(
   return true;
 }
 
-async function resolveStarterDefaultModelSelections(
-  ctx: { db: { query: Function } },
-  now: number
-): Promise<{
+function resolveStarterDefaultModelSelections(args: {
+  releaseReadyPlatformModels: PlatformModelSyncCandidate[];
+  now: number;
+}): {
   enabledModels: EnabledModelSelection[];
   defaultModelId: string;
-}> {
-  const onboardingDefaultModel = await (ctx.db as any)
-    .query("aiModels")
-    .withIndex("by_model_id", (q: any) =>
-      q.eq("modelId", ONBOARDING_DEFAULT_MODEL_ID)
-    )
-    .first();
-
-  const systemDefaultsRaw = await (ctx.db as any)
-    .query("aiModels")
-    .withIndex("by_system_default", (q: any) =>
-      q.eq("isSystemDefault", true)
-    )
-    .collect();
-  const systemDefaults = systemDefaultsRaw.filter(
-    (model: { lifecycleStatus?: string }) =>
-      model.lifecycleStatus !== "retired"
+} {
+  const onboardingDefaultModel = args.releaseReadyPlatformModels.find(
+    (model) => model.modelId === ONBOARDING_DEFAULT_MODEL_ID
   );
-  const onboardingDefaultEnabled =
-    onboardingDefaultModel &&
-    onboardingDefaultModel.lifecycleStatus !== "retired";
+  const systemDefaults = args.releaseReadyPlatformModels.filter(
+    (model) =>
+      model.isSystemDefault === true &&
+      model.modelId !== ONBOARDING_DEFAULT_MODEL_ID
+  );
 
-  const prioritizedDefaults = onboardingDefaultEnabled
+  const prioritizedDefaults = onboardingDefaultModel
     ? [
-        onboardingDefaultModel,
-        ...systemDefaults.filter(
-          (model: { modelId: string }) =>
-            model.modelId !== onboardingDefaultModel.modelId
-        ),
-      ]
-    : systemDefaults;
+      onboardingDefaultModel,
+      ...systemDefaults,
+    ]
+    : systemDefaults.length > 0
+      ? systemDefaults
+      : args.releaseReadyPlatformModels;
 
   if (prioritizedDefaults.length > 0) {
     return {
       enabledModels: prioritizedDefaults.map(
-        (model: { modelId: string }, index: number) => ({
+        (model, index: number) => ({
           modelId: model.modelId,
           isDefault: index === 0,
-          enabledAt: now,
+          enabledAt: args.now,
         })
       ),
       defaultModelId: prioritizedDefaults[0].modelId,
@@ -430,7 +464,7 @@ async function resolveStarterDefaultModelSelections(
       {
         modelId: ONBOARDING_DEFAULT_MODEL_ID,
         isDefault: true,
-        enabledAt: now,
+        enabledAt: args.now,
       },
     ],
     defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
@@ -447,7 +481,14 @@ export const ensureOrganizationModelDefaultsInternal = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const starterDefaults = await resolveStarterDefaultModelSelections(ctx as any, now);
+    const releaseReadyPlatformModels = await listReleaseReadyPlatformModels(ctx as any);
+    const releaseReadyPlatformModelIds = new Set(
+      releaseReadyPlatformModels.map((model) => model.modelId)
+    );
+    const starterDefaults = resolveStarterDefaultModelSelections({
+      releaseReadyPlatformModels,
+      now,
+    });
     const settings = await ctx.db
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) =>
@@ -501,8 +542,17 @@ export const ensureOrganizationModelDefaultsInternal = internalMutation({
         ? currentLlm.defaultModelId.trim()
         : undefined;
     let updated = false;
+    const effectiveBillingMode =
+      settings.billingMode === "byok" ? "byok" : "platform";
+    const hasReleaseReadyPlatformMatch = nextEnabledModels.some((model) =>
+      releaseReadyPlatformModelIds.has(model.modelId)
+    );
+    const shouldReseedPlatformDefaults =
+      effectiveBillingMode === "platform" &&
+      nextEnabledModels.length > 0 &&
+      !hasReleaseReadyPlatformMatch;
 
-    if (nextEnabledModels.length === 0) {
+    if (nextEnabledModels.length === 0 || shouldReseedPlatformDefaults) {
       nextEnabledModels = starterDefaults.enabledModels;
       nextDefaultModelId = starterDefaults.defaultModelId;
       updated = true;
