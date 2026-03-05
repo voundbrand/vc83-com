@@ -57,23 +57,28 @@ import { useMobileVideoRuntime } from '../../src/hooks/useMobileVideoRuntime';
 import {
   MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS,
   CONVERSATION_CONTRACT_VERSION,
+  MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
   MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
   MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
   type ConversationEventType,
   type ConversationReasonCode,
   type ConversationSessionState,
   type ConversationTurnState,
+  type PendingFinalFrameFinalizePayload,
   type VoiceBargeInState,
   claimAssistantAutospeakTurn,
+  evaluatePendingFinalFrameRelease,
   evaluateFinalFrameFinalizeGuard,
   hasSilenceEndpointElapsed,
   inferConversationReasonCode,
   isSpeechFrameEnergy,
+  queuePendingFinalFrameFinalize,
   reduceVoiceBargeInState,
   reduceConversationTurnState,
   resolveAssistantPlaybackBargeInTransition,
   resolveCaptureStartBargeInTransition,
 } from '../../src/lib/voice/lifecycle';
+import { buildVoiceConversationStarterText } from '../../src/lib/voice/catalogLanguage';
 import { shouldCloseVoiceSessionForConversationSwitch } from '../../src/lib/voice/continuity';
 import {
   createMobileAvSourceRegistry,
@@ -105,6 +110,8 @@ const getGreetingKey = () => {
   return 'chat.greeting.evening';
 };
 
+const MOBILE_VAD_MIN_ACTIVE_SPEECH_MS = 650;
+
 function resolveCreditActionUrl(actionUrl: string | undefined): string | null {
   if (typeof actionUrl !== 'string' || actionUrl.trim().length === 0) {
     return null;
@@ -129,6 +136,10 @@ function normalizeModelId(value: string | undefined | null): string {
   }
   return value.trim();
 }
+
+type OptimisticMessage = Message & {
+  optimisticConversationId: string | null;
+};
 
 const MOBILE_CONVERSATION_TURN_HUD_LABELS: Record<ConversationTurnState, string> = {
   idle: 'IDLE',
@@ -205,6 +216,7 @@ export default function ConversationScreen() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isVoiceCaptureActive, setIsVoiceCaptureActive] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [optimisticMessages, setOptimisticMessages] = useState<OptimisticMessage[]>([]);
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [cameraRuntime, setCameraRuntime] = useState<Record<string, unknown> | undefined>(undefined);
   const [voiceRuntime, setVoiceRuntime] = useState<Record<string, unknown> | undefined>(undefined);
@@ -213,6 +225,7 @@ export default function ConversationScreen() {
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const [conversationTurnState, setConversationTurnState] = useState<ConversationTurnState>('idle');
   const [voiceCaptureStopSignal, setVoiceCaptureStopSignal] = useState(0);
+  const optimisticMessageSequenceRef = useRef(0);
   const awaitingAssistantSpeechRef = useRef(false);
   const awaitingAssistantSpeechTurnTokenRef = useRef<number | null>(null);
   const assistantAutospeakTurnTokenRef = useRef(0);
@@ -227,10 +240,12 @@ export default function ConversationScreen() {
   const vadStateRef = useRef<{
     speechDetected: boolean;
     lastSpeechDetectedAtMs: number | null;
+    firstSpeechDetectedAtMs: number | null;
     endpointQueued: boolean;
   }>({
     speechDetected: false,
     lastSpeechDetectedAtMs: null,
+    firstSpeechDetectedAtMs: null,
     endpointQueued: false,
   });
   const lastSpokenAssistantMessageIdRef = useRef<string | null>(null);
@@ -267,7 +282,7 @@ export default function ConversationScreen() {
     };
   }, [currentOrganization?.id]);
 
-  const messages = useMemo(
+  const conversationMessages = useMemo(
     () =>
       (currentConversation?.messages || []).filter((message) => {
         const hasContent = message.content.trim().length > 0;
@@ -275,6 +290,24 @@ export default function ConversationScreen() {
         return hasContent || hasAttachments || message.role === 'system';
       }),
     [currentConversation?.messages]
+  );
+  const visibleOptimisticMessages = useMemo(
+    () =>
+      optimisticMessages
+        .filter((message) => message.optimisticConversationId === (currentConversationId || null))
+        .map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          timestamp: message.timestamp,
+          attachments: message.attachments,
+          feedback: message.feedback,
+        })),
+    [currentConversationId, optimisticMessages]
+  );
+  const messages = useMemo(
+    () => [...conversationMessages, ...visibleOptimisticMessages],
+    [conversationMessages, visibleOptimisticMessages]
   );
   const guardedSyncConversations = useCallback(async () => {
     if (syncInFlightRef.current) {
@@ -321,10 +354,11 @@ export default function ConversationScreen() {
     return options[Math.floor(Math.random() * options.length)] || t('chat.welcome.one');
   }, [t]);
   const conversationStarterText = useMemo(() => {
-    const firstName = user?.firstName?.trim();
-    const greetingLine = firstName ? `${greeting}, ${firstName}.` : `${greeting}.`;
-    return `${greetingLine} I am ${agentName}. I am live and listening. What would you like to work on first?`;
-  }, [agentName, greeting, user?.firstName]);
+    return buildVoiceConversationStarterText(
+      resolvedAgentVoiceLanguage,
+      user?.firstName
+    );
+  }, [resolvedAgentVoiceLanguage, user?.firstName]);
   const isDark = resolvedTheme === 'dark';
   const chromeSurface = isDark ? 'rgba(20, 20, 21, 0.82)' : 'rgba(255, 255, 255, 0.82)';
   const chromeBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(23, 23, 24, 0.08)';
@@ -570,6 +604,7 @@ export default function ConversationScreen() {
     liveSessionId: liveSessionIdRef.current,
     requestedProviderId: 'elevenlabs',
     requestedVoiceId: agentVoiceId || undefined,
+    language: resolvedAgentVoiceLanguage,
     sourceMode: visionSourceMode,
     sourceRuntime: (() => {
       const activeVoiceSourceId = getActiveVoiceSourceId();
@@ -607,6 +642,14 @@ export default function ConversationScreen() {
   const suspendVoiceSession = mobileVoiceRuntime.suspendSession;
   const openVoiceSession = mobileVoiceRuntime.openSession;
   const getActiveVoiceSession = mobileVoiceRuntime.getActiveSession;
+  type StreamingFrameIngestResult = Awaited<
+    ReturnType<typeof mobileVoiceRuntime.ingestStreamingFrame>
+  >;
+  type PendingFinalFrameState = PendingFinalFrameFinalizePayload & {
+    ingestResult: StreamingFrameIngestResult | null;
+  };
+  const pendingFinalFrameRef = useRef<PendingFinalFrameState | null>(null);
+  const pendingFinalFrameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeVoiceSessionRef = useRef(closeVoiceSession);
   const stopVoicePlaybackRef = useRef(stopVoicePlayback);
   const isVoiceModeOpenRef = useRef(isVoiceModeOpen);
@@ -669,10 +712,28 @@ export default function ConversationScreen() {
       ...(details || {}),
     });
   }, []);
+  const clearPendingFinalFrameTimer = useCallback(() => {
+    if (pendingFinalFrameTimerRef.current) {
+      clearTimeout(pendingFinalFrameTimerRef.current);
+      pendingFinalFrameTimerRef.current = null;
+    }
+  }, []);
+  const clearPendingFinalFrame = useCallback((reason: string) => {
+    const pending = pendingFinalFrameRef.current;
+    clearPendingFinalFrameTimer();
+    pendingFinalFrameRef.current = null;
+    if (pending) {
+      logVoiceLifecycle('voice_pending_final_frame_cleared', {
+        reason,
+        sequence: pending.sequence,
+      });
+    }
+  }, [clearPendingFinalFrameTimer, logVoiceLifecycle]);
   const resetVadState = useCallback((reason: string) => {
     vadStateRef.current = {
       speechDetected: false,
       lastSpeechDetectedAtMs: null,
+      firstSpeechDetectedAtMs: null,
       endpointQueued: false,
     };
     logVoiceLifecycle('voice_vad_state_reset', { reason });
@@ -688,7 +749,9 @@ export default function ConversationScreen() {
       reason,
       timestampMs,
       lastSpeechDetectedAtMs: vad.lastSpeechDetectedAtMs,
+      firstSpeechDetectedAtMs: vad.firstSpeechDetectedAtMs,
       endpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+      minActiveSpeechMs: MOBILE_VAD_MIN_ACTIVE_SPEECH_MS,
     });
   }, [isVoiceCaptureActive, logVoiceLifecycle]);
   const reserveAssistantAutospeakTurn = useCallback((reason: string): number => {
@@ -887,6 +950,9 @@ export default function ConversationScreen() {
       const speechOnset = !vad.speechDetected;
       vad.speechDetected = true;
       vad.lastSpeechDetectedAtMs = timestampMs;
+      if (!vad.firstSpeechDetectedAtMs) {
+        vad.firstSpeechDetectedAtMs = timestampMs;
+      }
       vad.endpointQueued = false;
       if (speechOnset && (conversationTurnState === 'agent_speaking' || isAssistantSpeaking)) {
         void handleCaptureStartBargeIn('vad_speech_onset');
@@ -903,6 +969,8 @@ export default function ConversationScreen() {
         nowMs: timestampMs,
         endpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
       })
+      && Boolean(vad.firstSpeechDetectedAtMs)
+      && timestampMs - (vad.firstSpeechDetectedAtMs || timestampMs) >= MOBILE_VAD_MIN_ACTIVE_SPEECH_MS
     ) {
       requestVadEndpointStop(
         source === 'meter' ? 'vad_meter_silence_timeout' : 'vad_frame_silence_timeout',
@@ -992,6 +1060,10 @@ export default function ConversationScreen() {
       resetVadState('voice_mode_inactive');
     }
   }, [hasConversationStarted, isVoiceModeOpen, resetVadState]);
+
+  useEffect(() => () => {
+    clearPendingFinalFrameTimer();
+  }, [clearPendingFinalFrameTimer]);
 
   useEffect(() => {
     const transportMode =
@@ -1349,6 +1421,27 @@ export default function ConversationScreen() {
       }
     }
 
+    const trimmedMessageText = messageText.trim();
+    const optimisticMessageId = `mobile_optimistic_${Date.now().toString(36)}_${(optimisticMessageSequenceRef.current += 1).toString(36)}`;
+    const optimisticConversationId = currentConversationId || null;
+    setOptimisticMessages((current) => [
+      ...current,
+      {
+        id: optimisticMessageId,
+        role: 'user',
+        content: trimmedMessageText,
+        timestamp: new Date(),
+        attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined,
+        optimisticConversationId,
+      },
+    ]);
+
+    const clearOptimisticMessage = () => {
+      setOptimisticMessages((current) =>
+        current.filter((message) => message.id !== optimisticMessageId)
+      );
+    };
+
     setIsLoading(true);
     const cameraSource = avRegistryRef.current.getSource(activeCameraSourceId);
     const voiceSource = avRegistryRef.current.getSource(activeVoiceSourceId);
@@ -1427,6 +1520,7 @@ export default function ConversationScreen() {
           ? (metaActiveDevice?.providerId || voiceSource?.providerId)
           : voiceSource?.providerId,
       sourceMode: visionSourceMode,
+      language: resolvedAgentVoiceLanguage,
       bridgeConnectionState: metaBridgeConnectionState,
       sourceScope: voiceSource?.scope || sourceScope,
       liveSessionId: liveSessionIdRef.current,
@@ -1529,8 +1623,9 @@ export default function ConversationScreen() {
     });
 
     if (!sendResult.success) {
+      clearOptimisticMessage();
       if (options?.restoreInputOnFail !== false) {
-        setInputText(messageText);
+        setInputText(trimmedMessageText);
       }
       awaitingAssistantSpeechRef.current = false;
       awaitingAssistantSpeechTurnTokenRef.current = null;
@@ -1559,6 +1654,7 @@ export default function ConversationScreen() {
       return false;
     }
 
+    clearOptimisticMessage();
     if (canRunAssistantAutospeak()) {
       const turnToken = reserveAssistantAutospeakTurn('chat_send');
       armAwaitingAssistantSpeech(turnToken, 'chat_send');
@@ -1583,6 +1679,8 @@ export default function ConversationScreen() {
     buildSourceAttestation,
     getActiveCameraSourceId,
     getActiveVoiceSourceId,
+    currentConversationId,
+    resolvedAgentVoiceLanguage,
     visionSourceMode,
     metaBridgeConnectionState,
     metaBridgeStatus,
@@ -1661,6 +1759,7 @@ export default function ConversationScreen() {
     const nextLiveSessionId = `mobile_live_${Date.now().toString(36)}`;
     liveSessionIdRef.current = nextLiveSessionId;
     mobileVideoRuntime.resetSession(nextLiveSessionId);
+    setOptimisticMessages([]);
     setPendingAttachments([]);
     setCameraRuntime(undefined);
     setVoiceRuntime(undefined);
@@ -1747,6 +1846,7 @@ export default function ConversationScreen() {
     awaitingAssistantSpeechRef.current = false;
     awaitingAssistantSpeechTurnTokenRef.current = null;
     consumedAssistantAutospeakTurnTokenRef.current = null;
+    clearPendingFinalFrame('conversation_started');
     finalFrameFinalizeMutexRef.current = false;
     lastFinalizedFrameSequenceRef.current = null;
     starterKickoffPendingRef.current = true;
@@ -1765,6 +1865,7 @@ export default function ConversationScreen() {
     metaBridgeStatus,
     metaVisionReadiness.ready,
     resetVadState,
+    clearPendingFinalFrame,
   ]);
 
   const handleEndConversation = useCallback((reason: string = 'explicit_stop') => {
@@ -1792,6 +1893,7 @@ export default function ConversationScreen() {
     setIsLoading(false);
     setIsAssistantSpeaking(false);
     clearPendingAssistantSpeechEffects(`conversation_end:${reason}`);
+    clearPendingFinalFrame(`conversation_end:${reason}`);
     finalFrameFinalizeMutexRef.current = false;
     lastFinalizedFrameSequenceRef.current = null;
     bargeInStateRef.current = 'idle';
@@ -1832,6 +1934,7 @@ export default function ConversationScreen() {
   }, [
     closeVoiceSession,
     cancelAssistantSpeech,
+    clearPendingFinalFrame,
     clearPendingAssistantSpeechEffects,
     currentConversationId,
     getActiveVoiceSession,
@@ -2180,6 +2283,211 @@ export default function ConversationScreen() {
     }
   };
 
+  const finalizeLiveVoiceFrame = useCallback(async (args: {
+    frameSequence: number;
+    ingestResult: StreamingFrameIngestResult | null;
+    source: string;
+    bypassAssistantSpeakingGuard?: boolean;
+  }) => {
+    const assistantSpeakingForFinalize = args.bypassAssistantSpeakingGuard
+      ? false
+      : (isAssistantSpeaking || conversationTurnState === 'agent_speaking');
+    const finalizeGuard = evaluateFinalFrameFinalizeGuard({
+      isFinalFrame: true,
+      frameSequence: args.frameSequence,
+      isAssistantSpeaking: assistantSpeakingForFinalize,
+      finalizeInFlight: finalFrameFinalizeMutexRef.current,
+      lastFinalizedSequence: lastFinalizedFrameSequenceRef.current,
+    });
+    if (!finalizeGuard.allowFinalize) {
+      if (finalizeGuard.reason === 'assistant_speaking') {
+        logVoiceLifecycle('voice_frame_finalize_skipped_assistant_speaking', {
+          sequence: args.frameSequence,
+          source: args.source,
+        });
+        mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_finalize_skip');
+        return;
+      }
+      logVoiceLifecycle('voice_frame_finalize_guard_blocked', {
+        sequence: args.frameSequence,
+        source: args.source,
+        reason: finalizeGuard.reason,
+      });
+      return;
+    }
+
+    finalFrameFinalizeMutexRef.current = true;
+    lastFinalizedFrameSequenceRef.current = args.frameSequence;
+    try {
+      const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
+        sequence: args.frameSequence,
+      });
+      if (finalization?.text) {
+        setVoiceRuntime((prev) => ({
+          ...(prev || {}),
+          transcript: finalization.text,
+          partialTranscript: finalization.text,
+          sessionState: 'stream_committed',
+          finalizedSequence: finalization.sequence,
+          committedAt: Date.now(),
+        }));
+        if (args.ingestResult?.orchestration?.status === 'triggered') {
+          const realtimeAssistantText = args.ingestResult.orchestration.assistantText?.trim();
+          const activeVoiceSession = mobileVoiceRuntime.getActiveSession();
+          const resolvedConversationId =
+            activeVoiceSession?.conversationId || currentConversationId || undefined;
+          const assistantAutospeakTurnToken = reserveAssistantAutospeakTurn('realtime_orchestration');
+          const autospeakAllowed = canRunAssistantAutospeak();
+          console.info('[VoiceReply] orchestration_triggered', {
+            hasInlineAssistantText: Boolean(realtimeAssistantText),
+            resolvedConversationId,
+            assistantAutospeakTurnToken,
+            autospeakAllowed,
+          });
+          if (autospeakAllowed && realtimeAssistantText) {
+            consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnToken;
+            awaitingAssistantSpeechRef.current = false;
+            awaitingAssistantSpeechTurnTokenRef.current = null;
+            await synthesizeAssistantReply(
+              realtimeAssistantText,
+              'realtime_inline_orchestration'
+            );
+          } else if (autospeakAllowed) {
+            armAwaitingAssistantSpeech(
+              assistantAutospeakTurnToken,
+              'realtime_orchestration_refresh'
+            );
+            console.info('[VoiceReply] awaiting_assistant_text_refresh', {
+              resolvedConversationId,
+              assistantAutospeakTurnToken,
+            });
+          } else {
+            awaitingAssistantSpeechRef.current = false;
+            awaitingAssistantSpeechTurnTokenRef.current = null;
+          }
+          try {
+            if (resolvedConversationId) {
+              await loadConversation(resolvedConversationId, { allowUnknownId: true });
+            } else {
+              await guardedSyncConversations();
+            }
+            if (canRunAssistantAutospeak() && !realtimeAssistantText && resolvedConversationId) {
+              const refreshedConversation = getConversationById(resolvedConversationId);
+              const refreshedAssistantMessage =
+                [...(refreshedConversation?.messages || [])]
+                  .reverse()
+                  .find((message) => message.role === 'assistant') || null;
+              const refreshedAssistantText = refreshedAssistantMessage?.content?.trim() || '';
+              if (refreshedAssistantText) {
+                console.info('[VoiceReply] autospeak_from_refreshed_conversation', {
+                  resolvedConversationId,
+                  messageId: refreshedAssistantMessage?.id || undefined,
+                  assistantAutospeakTurnToken,
+                });
+                const claimedTurnToken = claimAwaitingAssistantSpeechTurn(
+                  'realtime_refreshed_conversation'
+                );
+                if (claimedTurnToken) {
+                  await synthesizeAssistantReply(
+                    refreshedAssistantText,
+                    'realtime_refreshed_conversation'
+                  );
+                  if (refreshedAssistantMessage?.id) {
+                    lastSpokenAssistantMessageIdRef.current = refreshedAssistantMessage.id;
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to refresh conversation after realtime voice turn:', error);
+          }
+          return;
+        }
+        if (!args.ingestResult) {
+          await sendTextMessage(finalization.text);
+          return;
+        }
+        await sendTextMessage(finalization.text);
+      }
+    } finally {
+      finalFrameFinalizeMutexRef.current = false;
+    }
+  }, [
+    conversationTurnState,
+    isAssistantSpeaking,
+    armAwaitingAssistantSpeech,
+    canRunAssistantAutospeak,
+    claimAwaitingAssistantSpeechTurn,
+    currentConversationId,
+    getConversationById,
+    guardedSyncConversations,
+    loadConversation,
+    logVoiceLifecycle,
+    mobileVoiceRuntime,
+    reserveAssistantAutospeakTurn,
+    sendTextMessage,
+    synthesizeAssistantReply,
+  ]);
+
+  const flushPendingFinalFrame = useCallback(async (
+    trigger: 'assistant_cleared' | 'timeout',
+    expectedSequence?: number
+  ) => {
+    const pending = pendingFinalFrameRef.current;
+    if (!pending) {
+      return;
+    }
+    if (
+      Number.isFinite(expectedSequence)
+      && pending.sequence !== Number(expectedSequence)
+    ) {
+      return;
+    }
+    const release = evaluatePendingFinalFrameRelease({
+      pendingFinalFrame: pending,
+      nowMs: Date.now(),
+      isAssistantSpeaking,
+      turnState: conversationTurnState,
+    });
+    if (!release.allowFinalize) {
+      return;
+    }
+    if (trigger === 'assistant_cleared' && release.reason !== 'assistant_cleared') {
+      return;
+    }
+    if (trigger === 'timeout' && release.reason !== 'timeout') {
+      return;
+    }
+    clearPendingFinalFrameTimer();
+    pendingFinalFrameRef.current = null;
+    logVoiceLifecycle('voice_pending_final_frame_finalizing', {
+      sequence: pending.sequence,
+      trigger,
+      releaseReason: release.reason,
+      queuedAtMs: pending.queuedAtMs,
+      timeoutAtMs: pending.timeoutAtMs,
+    });
+    await finalizeLiveVoiceFrame({
+      frameSequence: pending.sequence,
+      ingestResult: pending.ingestResult,
+      source: `pending_${release.reason}`,
+      bypassAssistantSpeakingGuard: release.reason === 'timeout',
+    });
+  }, [
+    clearPendingFinalFrameTimer,
+    conversationTurnState,
+    finalizeLiveVoiceFrame,
+    isAssistantSpeaking,
+    logVoiceLifecycle,
+  ]);
+
+  useEffect(() => {
+    if (!pendingFinalFrameRef.current) {
+      return;
+    }
+    void flushPendingFinalFrame('assistant_cleared');
+  }, [conversationTurnState, flushPendingFinalFrame, isAssistantSpeaking]);
+
   const handleLiveVoiceFrame = useCallback(async (frame: VoiceRecorderFrame) => {
     const frameTimestampMs = Number.isFinite(frame.timestampMs) ? frame.timestampMs : Date.now();
     const frameEnergyRms = Number.isFinite(frame.energyRms) ? frame.energyRms : 0;
@@ -2204,23 +2512,6 @@ export default function ConversationScreen() {
       return;
     }
 
-    if (frame.isFinal && isAssistantSpeaking) {
-      logVoiceLifecycle('voice_frame_final_dropped_assistant_speaking', {
-        sequence: frame.sequence,
-        durationMs: frame.durationMs,
-        energyRms: frameEnergyRms,
-      });
-      mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_final_frame_drop');
-      setVoiceRuntime((prev) => ({
-        ...(prev || {}),
-        sessionState: 'stream_final_ignored',
-        frameSequence: frame.sequence,
-        frameDurationMs: frame.durationMs,
-        frameEnergyRms,
-        droppedReason: 'assistant_speaking',
-      }));
-      return;
-    }
     if (!ensureVisionSourceReady()) {
       return;
     }
@@ -2301,149 +2592,91 @@ export default function ConversationScreen() {
     }));
 
     if (frame.isFinal) {
-      const finalizeGuard = evaluateFinalFrameFinalizeGuard({
-        isFinalFrame: frame.isFinal,
-        frameSequence: frame.sequence,
-        isAssistantSpeaking: isAssistantSpeaking || conversationTurnState === 'agent_speaking',
-        finalizeInFlight: finalFrameFinalizeMutexRef.current,
-        lastFinalizedSequence: lastFinalizedFrameSequenceRef.current,
-      });
-      if (!finalizeGuard.allowFinalize) {
-        if (finalizeGuard.reason === 'assistant_speaking') {
-          logVoiceLifecycle('voice_frame_finalize_skipped_assistant_speaking', {
+      const assistantSpeakingForFinalize =
+        isAssistantSpeaking || conversationTurnState === 'agent_speaking';
+      if (assistantSpeakingForFinalize) {
+        const existingPending = pendingFinalFrameRef.current;
+        if (existingPending && frame.sequence <= existingPending.sequence) {
+          logVoiceLifecycle('voice_pending_final_frame_duplicate_ignored', {
             sequence: frame.sequence,
+            pendingSequence: existingPending.sequence,
           });
-          mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_finalize_skip');
           return;
         }
-        logVoiceLifecycle('voice_frame_finalize_guard_blocked', {
+        if (existingPending) {
+          logVoiceLifecycle('voice_pending_final_frame_replaced', {
+            previousSequence: existingPending.sequence,
+            sequence: frame.sequence,
+          });
+        }
+        logVoiceLifecycle('voice_frame_final_requires_assistant_cancel', {
           sequence: frame.sequence,
-          reason: finalizeGuard.reason,
+          durationMs: frame.durationMs,
+          energyRms: frameEnergyRms,
         });
+        const queuedPending = queuePendingFinalFrameFinalize({
+          sequence: frame.sequence,
+          nowMs: Date.now(),
+          timeoutMs: MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
+        });
+        clearPendingFinalFrameTimer();
+        pendingFinalFrameRef.current = {
+          ...queuedPending,
+          ingestResult,
+        };
+        const timeoutDelayMs = Math.max(0, queuedPending.timeoutAtMs - Date.now());
+        const queuedSequence = queuedPending.sequence;
+        pendingFinalFrameTimerRef.current = setTimeout(() => {
+          void flushPendingFinalFrame('timeout', queuedSequence);
+        }, timeoutDelayMs);
+        logVoiceLifecycle('voice_pending_final_frame_queued', {
+          sequence: queuedPending.sequence,
+          queuedAtMs: queuedPending.queuedAtMs,
+          timeoutAtMs: queuedPending.timeoutAtMs,
+          timeoutMs: MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
+        });
+        try {
+          await handleCaptureStartBargeIn('frame_boundary_speech');
+        } catch (error) {
+          console.warn('Failed to trigger barge-in for pending final frame:', error);
+          try {
+            await cancelAssistantSpeech('pending_final_frame_cancel_fallback');
+          } catch (cancelError) {
+            console.warn('Failed to cancel assistant speech for pending final frame:', cancelError);
+          }
+        }
         return;
       }
 
-      finalFrameFinalizeMutexRef.current = true;
-      lastFinalizedFrameSequenceRef.current = frame.sequence;
-      try {
-        const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
-          sequence: frame.sequence,
-        });
-        if (finalization?.text) {
-          setVoiceRuntime((prev) => ({
-            ...(prev || {}),
-            transcript: finalization.text,
-            partialTranscript: finalization.text,
-            sessionState: 'stream_committed',
-            finalizedSequence: finalization.sequence,
-            committedAt: Date.now(),
-          }));
-          if (ingestResult?.orchestration?.status === 'triggered') {
-            const realtimeAssistantText = ingestResult.orchestration.assistantText?.trim();
-            const resolvedConversationId =
-              activeVoiceSession?.conversationId || currentConversationId || undefined;
-            const assistantAutospeakTurnToken = reserveAssistantAutospeakTurn('realtime_orchestration');
-            const autospeakAllowed = canRunAssistantAutospeak();
-            console.info('[VoiceReply] orchestration_triggered', {
-              hasInlineAssistantText: Boolean(realtimeAssistantText),
-              resolvedConversationId,
-              assistantAutospeakTurnToken,
-              autospeakAllowed,
-            });
-            if (autospeakAllowed && realtimeAssistantText) {
-              consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnToken;
-              awaitingAssistantSpeechRef.current = false;
-              awaitingAssistantSpeechTurnTokenRef.current = null;
-              await synthesizeAssistantReply(
-                realtimeAssistantText,
-                'realtime_inline_orchestration'
-              );
-            } else if (autospeakAllowed) {
-              armAwaitingAssistantSpeech(
-                assistantAutospeakTurnToken,
-                'realtime_orchestration_refresh'
-              );
-              console.info('[VoiceReply] awaiting_assistant_text_refresh', {
-                resolvedConversationId,
-                assistantAutospeakTurnToken,
-              });
-            } else {
-              awaitingAssistantSpeechRef.current = false;
-              awaitingAssistantSpeechTurnTokenRef.current = null;
-            }
-            try {
-              if (resolvedConversationId) {
-                await loadConversation(resolvedConversationId, { allowUnknownId: true });
-              } else {
-                await guardedSyncConversations();
-              }
-              if (canRunAssistantAutospeak() && !realtimeAssistantText && resolvedConversationId) {
-                const refreshedConversation = getConversationById(resolvedConversationId);
-                const refreshedAssistantMessage =
-                  [...(refreshedConversation?.messages || [])]
-                    .reverse()
-                    .find((message) => message.role === 'assistant') || null;
-                const refreshedAssistantText = refreshedAssistantMessage?.content?.trim() || '';
-                if (refreshedAssistantText) {
-                  console.info('[VoiceReply] autospeak_from_refreshed_conversation', {
-                    resolvedConversationId,
-                    messageId: refreshedAssistantMessage?.id || undefined,
-                    assistantAutospeakTurnToken,
-                  });
-                  const claimedTurnToken = claimAwaitingAssistantSpeechTurn(
-                    'realtime_refreshed_conversation'
-                  );
-                  if (claimedTurnToken) {
-                    await synthesizeAssistantReply(
-                      refreshedAssistantText,
-                      'realtime_refreshed_conversation'
-                    );
-                    if (refreshedAssistantMessage?.id) {
-                      lastSpokenAssistantMessageIdRef.current = refreshedAssistantMessage.id;
-                    }
-                  }
-                }
-              }
-            } catch (error) {
-              console.warn('Failed to refresh conversation after realtime voice turn:', error);
-            }
-            return;
-          }
-          if (!ingestResult) {
-            await sendTextMessage(finalization.text);
-            return;
-          }
-          await sendTextMessage(finalization.text);
-        }
-      } finally {
-        finalFrameFinalizeMutexRef.current = false;
-      }
+      await finalizeLiveVoiceFrame({
+        frameSequence: frame.sequence,
+        ingestResult,
+        source: 'frame_final',
+      });
     }
   }, [
     conversationTurnState,
     isAssistantSpeaking,
-    armAwaitingAssistantSpeech,
-    claimAwaitingAssistantSpeechTurn,
+    cancelAssistantSpeech,
+    clearPendingFinalFrameTimer,
+    finalizeLiveVoiceFrame,
+    flushPendingFinalFrame,
     handleVoiceEnergySample,
+    handleCaptureStartBargeIn,
     logVoiceLifecycle,
     mobileVoiceRuntime,
+    pendingFinalFrameRef,
     ensureVisionSourceReady,
     getActiveVoiceSourceId,
-    getConversationById,
     runCommandGate,
     currentConversationId,
-    loadConversation,
     setCurrentConversation,
-    guardedSyncConversations,
     visionSourceMode,
     metaBridgeConnectionState,
     avSourceScope,
     metaBridgeStatus,
-    canRunAssistantAutospeak,
+    queuePendingFinalFrameFinalize,
     resolvedAgentVoiceLanguage,
-    reserveAssistantAutospeakTurn,
-    sendTextMessage,
-    synthesizeAssistantReply,
   ]);
 
   const handleBeforeVoiceCapture = useCallback(async () => {
@@ -2458,6 +2691,7 @@ export default function ConversationScreen() {
       return;
     }
     logVoiceLifecycle('voice_capture_before_start');
+    clearPendingFinalFrame('capture_start_requested');
     finalFrameFinalizeMutexRef.current = false;
     resetVadState('capture_start_requested');
     mobileVoiceRuntime.clearPartialTranscript('before_voice_capture');
@@ -2467,6 +2701,7 @@ export default function ConversationScreen() {
     }
   }, [
     handleCaptureStartBargeIn,
+    clearPendingFinalFrame,
     logVoiceLifecycle,
     mobileVoiceRuntime,
     openVoiceSession,
@@ -2922,7 +3157,7 @@ export default function ConversationScreen() {
             />
 
             <YStack flex={1}>
-              {messages.length === 0 ? (
+              {messages.length === 0 && !isLoading ? (
                 <WelcomeScreen />
               ) : (
                 <FlatList

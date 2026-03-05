@@ -16,6 +16,7 @@ export const MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS = 320;
 export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MIN_MS = 200;
 export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MAX_MS = 500;
 export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS = 320;
+export const MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS = 500;
 
 export type ConversationTurnStateEvent =
   | {
@@ -118,6 +119,23 @@ export type FinalFrameFinalizeGuardReason =
 export type FinalFrameFinalizeGuardDecision = {
   allowFinalize: boolean;
   reason: FinalFrameFinalizeGuardReason;
+};
+
+export type PendingFinalFrameFinalizePayload = {
+  sequence: number;
+  queuedAtMs: number;
+  timeoutAtMs: number;
+};
+
+export type PendingFinalFrameReleaseReason =
+  | 'pending_frame_missing'
+  | 'assistant_still_speaking'
+  | 'assistant_cleared'
+  | 'timeout';
+
+export type PendingFinalFrameReleaseDecision = {
+  allowFinalize: boolean;
+  reason: PendingFinalFrameReleaseReason;
 };
 
 export type AssistantAutospeakClaimDecision = {
@@ -268,6 +286,53 @@ export function evaluateFinalFrameFinalizeGuard(args: {
   return {
     allowFinalize: true,
     reason: 'ready',
+  };
+}
+
+export function queuePendingFinalFrameFinalize(args: {
+  sequence: number;
+  nowMs: number;
+  timeoutMs?: number;
+}): PendingFinalFrameFinalizePayload {
+  const nowMs = Number.isFinite(args.nowMs) ? Number(args.nowMs) : Date.now();
+  const timeoutMs = Number.isFinite(args.timeoutMs)
+    ? Math.max(1, Math.floor(Number(args.timeoutMs)))
+    : MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS;
+  return {
+    sequence: Math.max(0, Math.floor(Number(args.sequence))),
+    queuedAtMs: nowMs,
+    timeoutAtMs: nowMs + timeoutMs,
+  };
+}
+
+export function evaluatePendingFinalFrameRelease(args: {
+  pendingFinalFrame: PendingFinalFrameFinalizePayload | null;
+  nowMs: number;
+  isAssistantSpeaking: boolean;
+  turnState: ConversationTurnState;
+}): PendingFinalFrameReleaseDecision {
+  if (!args.pendingFinalFrame) {
+    return {
+      allowFinalize: false,
+      reason: 'pending_frame_missing',
+    };
+  }
+  const nowMs = Number.isFinite(args.nowMs) ? Number(args.nowMs) : Date.now();
+  if (nowMs >= args.pendingFinalFrame.timeoutAtMs) {
+    return {
+      allowFinalize: true,
+      reason: 'timeout',
+    };
+  }
+  if (args.isAssistantSpeaking || args.turnState === 'agent_speaking') {
+    return {
+      allowFinalize: false,
+      reason: 'assistant_still_speaking',
+    };
+  }
+  return {
+    allowFinalize: true,
+    reason: 'assistant_cleared',
   };
 }
 

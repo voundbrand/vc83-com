@@ -881,7 +881,25 @@ class MetaGlassesBridge: RCTEventEmitter {
         resolve(self.buildSnapshot())
         return
       }
-      self.performConnect(resolve)
+      let registrationState = self.resolveRegistrationState()
+      guard self.isRegistrationStateReadyForStreaming(registrationState) else {
+        self.performConnect(resolve)
+        return
+      }
+      self.ensureDatCameraPermissionForConnect { datGranted, failureMessage in
+        guard datGranted else {
+          self.applyFailure(
+            reasonCode: "dat_permission_denied",
+            message: failureMessage
+              ?? "Meta glasses camera permission is required in DAT. Approve it in Meta AI and reconnect.",
+            recoverable: true,
+            fallback: "dat_permission_denied"
+          )
+          resolve(self.buildSnapshot())
+          return
+        }
+        self.performConnect(resolve)
+      }
     }
   }
 
@@ -1017,6 +1035,91 @@ class MetaGlassesBridge: RCTEventEmitter {
       )
       completion(false)
     }
+  }
+
+  private func ensureDatCameraPermissionForConnect(_ completion: @escaping (Bool, String?) -> Void) {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    Task { @MainActor [weak self] in
+      guard let self else {
+        completion(false, "Meta DAT bridge unavailable while checking camera permission.")
+        return
+      }
+      let permission = Permission.camera
+      do {
+        let status = try await Wearables.shared.checkPermissionStatus(permission)
+        let statusDescription = String(describing: status)
+        self.appendDebugEvent(
+          stage: "handshake",
+          code: "dat_camera_permission_status_resolved",
+          message: "Resolved DAT camera permission status.",
+          details: [
+            "status": statusDescription,
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+        if self.isDatPermissionGranted(status) {
+          completion(true, nil)
+          return
+        }
+        if self.isDatPermissionDenied(status) {
+          completion(false, "Meta glasses camera permission is denied in DAT. Grant access in Meta AI.")
+          return
+        }
+
+        self.appendDebugEvent(
+          stage: "handshake",
+          code: "dat_camera_permission_request_started",
+          message: "Requesting DAT camera permission.",
+          details: [
+            "status": statusDescription,
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+
+        let requestStatus = try await Wearables.shared.requestPermission(permission)
+        let requestStatusDescription = String(describing: requestStatus)
+        let requestGranted = self.isDatPermissionGranted(requestStatus)
+        self.appendDebugEvent(
+          stage: requestGranted ? "handshake" : "failure",
+          severity: requestGranted ? "info" : "warn",
+          code: requestGranted
+            ? "dat_camera_permission_request_granted"
+            : "dat_camera_permission_request_denied",
+          message: requestGranted
+            ? "DAT camera permission granted."
+            : "DAT camera permission denied.",
+          details: [
+            "status": requestStatusDescription,
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+        if requestGranted {
+          completion(true, nil)
+          return
+        }
+        completion(
+          false,
+          "Meta glasses camera permission is required in DAT. Approve permission in Meta AI and reconnect."
+        )
+      } catch {
+        self.appendDebugEvent(
+          stage: "failure",
+          severity: "warn",
+          code: "dat_camera_permission_request_failed",
+          message: "DAT camera permission check failed: \(error.localizedDescription)",
+          details: [
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+        completion(
+          false,
+          "Unable to verify DAT camera permission: \(error.localizedDescription)"
+        )
+      }
+    }
+#else
+    completion(true, nil)
+#endif
   }
 
   @objc(disconnect:rejecter:)
@@ -1362,25 +1465,26 @@ class MetaGlassesBridge: RCTEventEmitter {
   private func maybeStartRegistrationIfNeeded() {
 #if canImport(MWDATCore) && canImport(MWDATCamera)
     let registrationState = resolveRegistrationState()
-    let normalized = registrationState.lowercased()
-    if normalized.contains("registered") {
+    if isRegistrationStateReadyForStreaming(registrationState) {
       appendDebugEvent(
         stage: "handshake",
         code: "registration_already_complete",
         message: "DAT registration already completed.",
         details: [
           "registrationState": registrationState,
+          "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
         ]
       )
       return
     }
-    if normalized.contains("registering") {
+    if isRegistrationStateRegistering(registrationState) {
       appendDebugEvent(
         stage: "handshake",
         code: "registration_in_progress",
         message: "DAT registration already in progress.",
         details: [
           "registrationState": registrationState,
+          "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
         ]
       )
       return
@@ -1392,6 +1496,7 @@ class MetaGlassesBridge: RCTEventEmitter {
       message: "Starting DAT registration flow.",
       details: [
         "registrationState": registrationState,
+        "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
       ]
     )
 
@@ -1436,6 +1541,62 @@ class MetaGlassesBridge: RCTEventEmitter {
       message: "DAT registration unavailable because DAT SDK is not linked."
     )
 #endif
+  }
+
+  private func isRegistrationStateReadyForStreaming(_ registrationState: String) -> Bool {
+    let normalized = registrationState.lowercased()
+    if normalized.contains("registered")
+      && !normalized.contains("unregistered")
+      && !normalized.contains("not_registered")
+      && !normalized.contains("registering")
+    {
+      return true
+    }
+    if let rawValue = resolveRegistrationStateRawValue(from: registrationState) {
+      return rawValue == 3
+    }
+    return false
+  }
+
+  private func isRegistrationStateRegistering(_ registrationState: String) -> Bool {
+    let normalized = registrationState.lowercased()
+    if normalized.contains("registering") && !normalized.contains("unregistering") {
+      return true
+    }
+    if let rawValue = resolveRegistrationStateRawValue(from: registrationState) {
+      return rawValue == 1
+    }
+    return false
+  }
+
+  private func resolveRegistrationStateRawValue(from registrationState: String) -> Int? {
+    let lowercased = registrationState.lowercased()
+    guard let markerRange = lowercased.range(of: "rawvalue:") else {
+      return nil
+    }
+    let suffix = lowercased[markerRange.upperBound...]
+    let digits = suffix.prefix { character in
+      character.isNumber || character == "-" || character == " "
+    }
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !digits.isEmpty else {
+      return nil
+    }
+    return Int(digits)
+  }
+
+  private func isDatPermissionGranted(_ status: Any) -> Bool {
+    let normalized = String(describing: status).lowercased()
+    return normalized.contains("granted")
+      || normalized.contains("authorized")
+      || normalized.contains("allowed")
+  }
+
+  private func isDatPermissionDenied(_ status: Any) -> Bool {
+    let normalized = String(describing: status).lowercased()
+    return normalized.contains("denied")
+      || normalized.contains("restricted")
+      || normalized.contains("forbidden")
   }
 
   private func appendDebugEvent(

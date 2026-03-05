@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable } from 'react-native';
 import { AudioModule, setAudioModeAsync } from 'expo-audio';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Text, XStack, YStack } from 'tamagui';
 import Animated, {
   useAnimatedStyle,
@@ -176,6 +176,7 @@ export function VoiceModeModal({
   captureStopSignal = 0,
   recorderAutoStartDebounceMs = MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS,
 }: VoiceModeModalProps) {
+  const insets = useSafeAreaInsets();
   const [isRecording, setIsRecording] = useState(false);
   const liveDuplexEnabled = LIVE_DUPLEX_ENABLED;
   const [startError, setStartError] = useState<string | null>(null);
@@ -434,112 +435,119 @@ export function VoiceModeModal({
 
   return (
     <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#111113' }}>
-        <YStack flex={1} backgroundColor="#111113" paddingHorizontal="$5" paddingTop="$3" paddingBottom="$5">
-          <YStack flex={1} justifyContent="center" alignItems="center" gap="$5">
-            <YStack
-              width="100%"
-              borderWidth={1}
-              borderColor="rgba(255,255,255,0.12)"
-              borderRadius="$4"
-              padding="$3"
-              gap="$2"
-            >
-              <Text color="#f3efe7" fontSize="$3" fontWeight="700">
-                Mode
-              </Text>
-              <XStack gap="$2">
-                <Pressable onPress={() => onConversationModeChange('voice')} style={{ flex: 1 }}>
-                  <YStack
-                    borderWidth={1}
-                    borderColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
-                    borderRadius="$4"
-                    minHeight={64}
-                    justifyContent="center"
-                    paddingHorizontal="$3"
-                    paddingVertical="$3"
-                    backgroundColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
-                  >
-                    <Text color="#f3efe7" fontSize="$4" fontWeight="700">
-                      Voice only
-                    </Text>
-                  </YStack>
-                </Pressable>
-                <Pressable onPress={() => onConversationModeChange('voice_with_eyes')} style={{ flex: 1 }}>
-                  <YStack
-                    borderWidth={1}
-                    borderColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
-                    borderRadius="$4"
-                    minHeight={64}
-                    justifyContent="center"
-                    paddingHorizontal="$3"
-                    paddingVertical="$3"
-                    backgroundColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
-                  >
-                    <Text color="#f3efe7" fontSize="$4" fontWeight="700">
-                      Voice + Eyes
-                    </Text>
-                  </YStack>
-                </Pressable>
-              </XStack>
-
-              {conversationMode === 'voice_with_eyes' ? (
-                <YStack gap="$2">
-                  <Text color="rgba(243,239,231,0.72)" fontSize="$2">
-                    Eyes source
+      <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: '#111113' }}>
+        <YStack
+          flex={1}
+          backgroundColor="#111113"
+          paddingHorizontal="$5"
+          paddingTop={Math.max(insets.top + 10, 24)}
+          paddingBottom={Math.max(insets.bottom + 12, 20)}
+        >
+          <YStack
+            width="100%"
+            borderWidth={1}
+            borderColor="rgba(255,255,255,0.12)"
+            borderRadius="$4"
+            padding="$3"
+            gap="$2"
+          >
+            <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+              Mode
+            </Text>
+            <XStack gap="$2">
+              <Pressable onPress={() => onConversationModeChange('voice')} style={{ flex: 1 }}>
+                <YStack
+                  borderWidth={1}
+                  borderColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                  borderRadius="$4"
+                  minHeight={64}
+                  justifyContent="center"
+                  paddingHorizontal="$3"
+                  paddingVertical="$3"
+                  backgroundColor={conversationMode === 'voice' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                >
+                  <Text color="#f3efe7" fontSize="$4" fontWeight="700">
+                    Voice only
                   </Text>
-                  <XStack gap="$2">
-                    <Pressable onPress={() => onEyesSourceChange('iphone')} style={{ flex: 1 }}>
-                      <YStack
-                        borderWidth={1}
-                        borderColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
-                        borderRadius="$4"
-                        minHeight={58}
-                        justifyContent="center"
-                        paddingHorizontal="$3"
-                        paddingVertical="$2.5"
-                        backgroundColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
-                      >
-                        <Text color="#f3efe7" fontSize="$3" fontWeight="700">
-                          iPhone Camera
-                        </Text>
-                      </YStack>
-                    </Pressable>
-                    <Pressable
-                      disabled={!metaGlassesAvailable}
-                      onPress={() => onEyesSourceChange('meta_glasses')}
-                      style={{ flex: 1, opacity: metaGlassesAvailable ? 1 : 0.55 }}
-                    >
-                      <YStack
-                        borderWidth={1}
-                        borderColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
-                        borderRadius="$4"
-                        minHeight={58}
-                        justifyContent="center"
-                        paddingHorizontal="$3"
-                        paddingVertical="$2.5"
-                        backgroundColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
-                      >
-                        <Text color="#f3efe7" fontSize="$3" fontWeight="700">
-                          Meta Glasses
-                        </Text>
-                      </YStack>
-                    </Pressable>
-                  </XStack>
-                  {!metaGlassesAvailable ? (
-                    <Text color="rgba(243,239,231,0.62)" fontSize="$2">
-                      {metaGlassesReason || 'Meta glasses unavailable on this build.'}
-                    </Text>
-                  ) : null}
                 </YStack>
-              ) : null}
+              </Pressable>
+              <Pressable onPress={() => onConversationModeChange('voice_with_eyes')} style={{ flex: 1 }}>
+                <YStack
+                  borderWidth={1}
+                  borderColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                  borderRadius="$4"
+                  minHeight={64}
+                  justifyContent="center"
+                  paddingHorizontal="$3"
+                  paddingVertical="$3"
+                  backgroundColor={conversationMode === 'voice_with_eyes' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                >
+                  <Text color="#f3efe7" fontSize="$4" fontWeight="700">
+                    Voice + Eyes
+                  </Text>
+                </YStack>
+              </Pressable>
+            </XStack>
 
+            {conversationMode === 'voice_with_eyes' ? (
               <YStack gap="$2">
                 <Text color="rgba(243,239,231,0.72)" fontSize="$2">
-                  Live HUD: {hudStatusLabel}
+                  Eyes source
                 </Text>
+                <XStack gap="$2">
+                  <Pressable onPress={() => onEyesSourceChange('iphone')} style={{ flex: 1 }}>
+                    <YStack
+                      borderWidth={1}
+                      borderColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                      borderRadius="$4"
+                      minHeight={58}
+                      justifyContent="center"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2.5"
+                      backgroundColor={eyesSource === 'iphone' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                    >
+                      <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                        iPhone Camera
+                      </Text>
+                    </YStack>
+                  </Pressable>
+                  <Pressable
+                    disabled={!metaGlassesAvailable}
+                    onPress={() => onEyesSourceChange('meta_glasses')}
+                    style={{ flex: 1, opacity: metaGlassesAvailable ? 1 : 0.55 }}
+                  >
+                    <YStack
+                      borderWidth={1}
+                      borderColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.7)' : 'rgba(255,255,255,0.16)'}
+                      borderRadius="$4"
+                      minHeight={58}
+                      justifyContent="center"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2.5"
+                      backgroundColor={eyesSource === 'meta_glasses' ? 'rgba(229,149,78,0.18)' : 'rgba(255,255,255,0.06)'}
+                    >
+                      <Text color="#f3efe7" fontSize="$3" fontWeight="700">
+                        Meta Glasses
+                      </Text>
+                    </YStack>
+                  </Pressable>
+                </XStack>
+                {!metaGlassesAvailable ? (
+                  <Text color="rgba(243,239,231,0.62)" fontSize="$2">
+                    {metaGlassesReason || 'Meta glasses unavailable on this build.'}
+                  </Text>
+                ) : null}
               </YStack>
+            ) : null}
+
+            <YStack gap="$2">
+              <Text color="rgba(243,239,231,0.72)" fontSize="$2">
+                Live HUD: {hudStatusLabel}
+              </Text>
             </YStack>
+          </YStack>
+
+          <YStack flex={1} justifyContent="center" alignItems="center" gap="$5">
 
             <YStack width={260} height={260} alignItems="center" justifyContent="center">
               <AnimatedYStack
@@ -624,7 +632,6 @@ export function VoiceModeModal({
               </Text>
             ) : null}
           </YStack>
-
         </YStack>
         {conversationStarted && !conversationEnding ? (
           <Pressable
@@ -640,7 +647,7 @@ export function VoiceModeModal({
               alignItems="center"
               justifyContent="center"
             >
-              <Text color="#fecaca" fontSize="$1" fontWeight="800">
+              <Text color="#fecaca" fontSize="$3" fontWeight="800">
                 STOP
               </Text>
             </Circle>

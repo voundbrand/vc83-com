@@ -45,6 +45,7 @@ import {
   type MetaBridgeObservabilityStatus,
 } from '../../src/lib/av/metaBridge-observability';
 import {
+  buildVoicePreviewSampleText,
   buildVoiceLanguageCatalogFromVoices,
   formatVoiceLanguageLabel,
   isVoiceCompatibleWithLanguage,
@@ -119,7 +120,8 @@ export default function SettingsScreen() {
     OperatorVoiceLanguageCatalogEntry[]
   >([]);
   const [isVoiceAccordionOpen, setIsVoiceAccordionOpen] = useState(false);
-  const [isLanguageAccordionOpen, setIsLanguageAccordionOpen] = useState(false);
+  const [isVoiceLanguageAccordionOpen, setIsVoiceLanguageAccordionOpen] = useState(false);
+  const [isAppLanguageAccordionOpen, setIsAppLanguageAccordionOpen] = useState(false);
   const [isVoiceLoading, setIsVoiceLoading] = useState(false);
   const [voiceLoadError, setVoiceLoadError] = useState<string | null>(null);
   const [voicePreferenceError, setVoicePreferenceError] = useState<string | null>(null);
@@ -418,7 +420,7 @@ export default function SettingsScreen() {
     setIsPreviewingVoiceId(voice.id);
     stopPreviewPlayback();
 
-    const previewText = `hello this is ${voice.name} of voice`;
+    const previewText = buildVoicePreviewSampleText(normalizedVoiceLanguage, voice.name);
     let openedSession:
       | {
           conversationId?: string;
@@ -510,7 +512,7 @@ export default function SettingsScreen() {
       }
       setIsPreviewingVoiceId(null);
     }
-  }, [stopPreviewPlayback]);
+  }, [buildVoicePreviewRuntimeContext, normalizedVoiceLanguage, stopPreviewPlayback]);
   useEffect(() => {
     return () => {
       stopPreviewPlayback();
@@ -545,6 +547,7 @@ export default function SettingsScreen() {
   const handleSelectVoiceLanguage = useCallback((nextPreference: AgentVoiceLanguagePreference) => {
     const nextResolvedLanguage = resolveVoiceLanguageForPreference(nextPreference);
     setAgentVoiceLanguage(nextPreference);
+    setIsVoiceLanguageAccordionOpen(false);
     const selectedVoice = agentVoiceId
       ? availableVoices.find((voice) => voice.id === agentVoiceId) || null
       : null;
@@ -832,13 +835,13 @@ export default function SettingsScreen() {
   }, [currentOrganization?.id, isSwitchingOrganization, switchOrganization, syncConversations, t]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }} edges={['top', 'left', 'right', 'bottom']}>
       <YStack flex={1} backgroundColor="$background">
         <ScrollView
           style={{ backgroundColor: screenBackgroundColor }}
           contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24), flexGrow: 1 }}
         >
-          <YStack paddingTop={insets.top + 8}>
+          <YStack paddingTop="$2">
             <XStack paddingHorizontal="$4" paddingBottom="$3" alignItems="center">
               <Pressable onPress={handleBackToChat}>
                 <XStack alignItems="center" gap="$2">
@@ -1012,7 +1015,7 @@ export default function SettingsScreen() {
                   <Text color="$colorSecondary" fontSize="$2" fontWeight="600">
                     Voice language
                   </Text>
-                  <Pressable onPress={() => setIsLanguageAccordionOpen((open) => !open)}>
+                  <Pressable onPress={() => setIsVoiceLanguageAccordionOpen((open) => !open)}>
                     <XStack
                       alignItems="center"
                       justifyContent="space-between"
@@ -1030,14 +1033,14 @@ export default function SettingsScreen() {
                           Choose a language to filter available ElevenLabs voices.
                         </Text>
                       </YStack>
-                      {isLanguageAccordionOpen ? (
+                      {isVoiceLanguageAccordionOpen ? (
                         <ChevronUp size={18} color="$colorTertiary" />
                       ) : (
                         <ChevronDown size={18} color="$colorTertiary" />
                       )}
                     </XStack>
                   </Pressable>
-                  {isLanguageAccordionOpen ? (
+                  {isVoiceLanguageAccordionOpen ? (
                     <YStack gap="$1" paddingTop="$1">
                       <OptionRow
                         label={`System (${formatVoiceLanguageLabel(deviceVoiceLanguage)})`}
@@ -1507,7 +1510,7 @@ export default function SettingsScreen() {
               </YStack>
 
               <YStack paddingHorizontal="$4">
-                <Pressable onPress={() => setIsLanguageAccordionOpen((open) => !open)}>
+                <Pressable onPress={() => setIsAppLanguageAccordionOpen((open) => !open)}>
                   <XStack
                     alignItems="center"
                     justifyContent="space-between"
@@ -1520,7 +1523,7 @@ export default function SettingsScreen() {
                     <Text color="$color" fontSize="$4" fontWeight="600" numberOfLines={1}>
                       {selectedAppLanguageLabel}
                     </Text>
-                    {isLanguageAccordionOpen ? (
+                    {isAppLanguageAccordionOpen ? (
                       <ChevronUp size={18} color="$colorTertiary" />
                     ) : (
                       <ChevronDown size={18} color="$colorTertiary" />
@@ -1529,14 +1532,14 @@ export default function SettingsScreen() {
                 </Pressable>
               </YStack>
 
-              {isLanguageAccordionOpen ? (
+              {isAppLanguageAccordionOpen ? (
                 <YStack gap="$1" paddingTop="$1">
                   <OptionRow
                     label={`${t('common.system')} (${languageLabel(deviceLanguage)})`}
                     selected={languagePreference === 'system'}
                     onPress={() => {
                       setLanguagePreference('system');
-                      setIsLanguageAccordionOpen(false);
+                      setIsAppLanguageAccordionOpen(false);
                     }}
                   />
                   <OptionRow
@@ -1544,7 +1547,7 @@ export default function SettingsScreen() {
                     selected={languagePreference === 'en'}
                     onPress={() => {
                       setLanguagePreference('en');
-                      setIsLanguageAccordionOpen(false);
+                      setIsAppLanguageAccordionOpen(false);
                     }}
                   />
                   <OptionRow
@@ -1552,7 +1555,7 @@ export default function SettingsScreen() {
                     selected={languagePreference === 'de'}
                     onPress={() => {
                       setLanguagePreference('de');
-                      setIsLanguageAccordionOpen(false);
+                      setIsAppLanguageAccordionOpen(false);
                     }}
                   />
                 </YStack>

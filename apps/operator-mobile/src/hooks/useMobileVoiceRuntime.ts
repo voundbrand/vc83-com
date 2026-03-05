@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 
@@ -25,12 +25,17 @@ import {
   MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_BYTES,
   MOBILE_VOICE_TRANSCRIBE_MIN_FRAME_DURATION_MS,
 } from '../lib/voice/runtimePolicy';
+import {
+  isVoiceCompatibleWithLanguage,
+  normalizeVoiceLanguageCode,
+} from '../lib/voice/catalogLanguage';
 
 type VoiceProviderId = 'browser' | 'elevenlabs';
 type ResolvedVoiceIdSource =
   | 'requested_voice_id'
   | 'env_expo_public'
   | 'catalog_selected'
+  | 'catalog_language_match'
   | 'catalog_first_voice';
 
 type UseMobileVoiceRuntimeArgs = {
@@ -38,6 +43,7 @@ type UseMobileVoiceRuntimeArgs = {
   liveSessionId?: string;
   requestedVoiceId?: string;
   requestedProviderId?: VoiceProviderId;
+  language?: string;
   sourceMode?: 'iphone' | 'meta_glasses';
   sourceRuntime?: {
     sourceId?: string;
@@ -485,6 +491,9 @@ async function waitForAudioPlayerCompletion(
 export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const initialRequestedVoiceId = normalizeOptionalToken(args.requestedVoiceId);
   const initialEnvVoiceId = normalizeOptionalToken(ENV.ELEVENLABS_VOICE_ID);
+  const normalizedRequestedVoiceId = normalizeOptionalToken(args.requestedVoiceId);
+  const normalizedConfiguredLanguage =
+    normalizeVoiceLanguageCode(args.language) || undefined;
   const [transportSelection, setTransportSelection] = useState<VoiceTransportSelection>(() =>
     resolveVoiceTransportSelection({
       configuredMode: ENV.VOICE_TRANSPORT_MODE,
@@ -518,6 +527,10 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const voiceCatalogLookupPromiseRef = useRef<Promise<string | undefined> | null>(
     null
   );
+  const requestedVoiceIdRef = useRef<string | undefined>(normalizedRequestedVoiceId);
+  const resolvedRequestedVoiceLanguageRef = useRef<string | undefined>(
+    normalizedConfiguredLanguage
+  );
   const sessionOpenPromiseRef = useRef<Promise<ActiveVoiceSession> | null>(null);
   const sessionOpenCooldownUntilRef = useRef(0);
   const sessionOpenAttestationProofRef = useRef<{
@@ -528,6 +541,43 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     sourceClass: string;
     providerId: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (requestedVoiceIdRef.current === normalizedRequestedVoiceId) {
+      return;
+    }
+    const previousRequestedVoiceId = requestedVoiceIdRef.current;
+    requestedVoiceIdRef.current = normalizedRequestedVoiceId;
+    if (normalizedRequestedVoiceId) {
+      resolvedRequestedVoiceIdRef.current = normalizedRequestedVoiceId;
+      resolvedRequestedVoiceSourceRef.current = 'requested_voice_id';
+      voiceCatalogLookupPromiseRef.current = null;
+      return;
+    }
+    if (previousRequestedVoiceId) {
+      resolvedRequestedVoiceIdRef.current = undefined;
+      resolvedRequestedVoiceSourceRef.current = undefined;
+      voiceCatalogLookupPromiseRef.current = null;
+    }
+  }, [normalizedRequestedVoiceId]);
+
+  useEffect(() => {
+    if (resolvedRequestedVoiceLanguageRef.current === normalizedConfiguredLanguage) {
+      return;
+    }
+    const previousLanguage = resolvedRequestedVoiceLanguageRef.current;
+    resolvedRequestedVoiceLanguageRef.current = normalizedConfiguredLanguage;
+    if (normalizedRequestedVoiceId) {
+      return;
+    }
+    resolvedRequestedVoiceIdRef.current = undefined;
+    resolvedRequestedVoiceSourceRef.current = undefined;
+    voiceCatalogLookupPromiseRef.current = null;
+    console.info('[VoiceRuntime] invalidate_cached_voice_on_language_change', {
+      previousLanguage: previousLanguage || null,
+      nextLanguage: normalizedConfiguredLanguage || null,
+    });
+  }, [normalizedConfiguredLanguage, normalizedRequestedVoiceId]);
 
   const applyTransportDowngrade = useCallback(
     (
@@ -676,7 +726,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       return voiceId;
     };
 
-    const explicitVoiceId = normalizeOptionalToken(args.requestedVoiceId);
+    const explicitVoiceId = normalizedRequestedVoiceId;
     if (explicitVoiceId) {
       return commitResolvedVoiceId(explicitVoiceId, 'requested_voice_id');
     }
@@ -706,27 +756,63 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     const lookupPromise = (async () => {
       try {
         const catalog = await l4yercak3Client.ai.voice.listCatalog();
+        const configuredLanguage = normalizedConfiguredLanguage;
+        const preferenceLanguage = normalizeVoiceLanguageCode(
+          catalog.selectedLanguage ?? undefined
+        );
+        const effectiveLanguage = configuredLanguage || preferenceLanguage || undefined;
         const selectedVoiceId = normalizeOptionalToken(catalog.selectedVoiceId ?? undefined);
         const voices = Array.isArray(catalog.voices) ? catalog.voices : [];
+        const selectedVoice =
+          selectedVoiceId
+            ? voices.find((voice) => normalizeOptionalToken(voice?.id) === selectedVoiceId) || null
+            : null;
+        const selectedVoiceMatchesLanguage = Boolean(
+          selectedVoice && isVoiceCompatibleWithLanguage(selectedVoice, effectiveLanguage)
+        );
+        const languageMatchedVoiceId = voices
+          .map((voice) => ({
+            voiceId: normalizeOptionalToken(voice?.id),
+            voice,
+          }))
+          .find(
+            (entry): entry is { voiceId: string; voice: (typeof voices)[number] } =>
+              Boolean(entry.voiceId)
+              && isVoiceCompatibleWithLanguage(entry.voice, effectiveLanguage)
+          )?.voiceId;
         const firstVoiceId = voices
           .map((voice) => normalizeOptionalToken(voice?.id))
           .find((voiceId): voiceId is string => Boolean(voiceId));
         console.info('[VoiceRuntime] voice_catalog_snapshot', {
           provider: catalog.provider,
           providerStatus: catalog.providerStatus,
+          configuredLanguage: configuredLanguage || null,
+          preferenceLanguage: preferenceLanguage || null,
+          effectiveLanguage: effectiveLanguage || null,
           selectedVoiceId: selectedVoiceId || null,
+          selectedVoiceMatchesLanguage,
           voicesCount: voices.length,
+          languageMatchedVoiceId: languageMatchedVoiceId || null,
           firstVoiceId: firstVoiceId || null,
           warning: catalog.warning || null,
         });
-        const resolved = selectedVoiceId || firstVoiceId;
+        const resolved = selectedVoiceMatchesLanguage
+          ? selectedVoiceId
+          : languageMatchedVoiceId || firstVoiceId;
         if (resolved) {
           return commitResolvedVoiceId(
             resolved,
-            selectedVoiceId ? 'catalog_selected' : 'catalog_first_voice'
+            selectedVoiceMatchesLanguage
+              ? 'catalog_selected'
+              : languageMatchedVoiceId
+                ? 'catalog_language_match'
+                : 'catalog_first_voice'
           );
         }
         console.warn('[VoiceRuntime] resolve_elevenlabs_voice_id_empty_catalog', {
+          configuredLanguage: configuredLanguage || null,
+          preferenceLanguage: preferenceLanguage || null,
+          effectiveLanguage: effectiveLanguage || null,
           selectedVoiceId: selectedVoiceId || null,
           voicesCount: voices.length,
           warning: catalog.warning || null,
@@ -747,7 +833,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         voiceCatalogLookupPromiseRef.current = null;
       }
     }
-  }, [args.requestedVoiceId]);
+  }, [normalizedConfiguredLanguage, normalizedRequestedVoiceId]);
 
   const openSession = useCallback(async () => {
     const existing = activeSessionRef.current;
@@ -788,6 +874,15 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
           : undefined;
       let attestationProofToken = normalizeOptionalToken(args.attestationProofToken);
       const requestedVoiceId = await resolveRequestedVoiceId();
+      console.info('[VoiceRuntime] mobile_open_session_outbound_request', {
+        requestedProviderId: args.requestedProviderId,
+        requestedVoiceId: requestedVoiceId || null,
+        requestedVoiceSource:
+          requestedVoiceId
+            ? (resolvedRequestedVoiceSourceRef.current || 'unknown')
+            : 'backend_resolution',
+        configuredLanguage: normalizedConfiguredLanguage || null,
+      });
       if (!attestationProofToken && liveSessionId && sourceId && sourceClass && providerId) {
         const cachedProof = sessionOpenAttestationProofRef.current;
         const proofStillValid = Boolean(
@@ -972,6 +1067,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
 
   const transcribeRecording = useCallback(async (transcribeArgs: TranscribeArgs) => {
     const active = await openSession();
+    const requestedVoiceId = await resolveRequestedVoiceId();
     setPartialTranscript('Listening...');
     partialTranscriptRef.current = 'Listening...';
     transcribeArgs.onPartial?.('Listening...');
@@ -1038,7 +1134,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       audioBase64,
       mimeType: transcribeArgs.mimeType || 'audio/m4a',
       requestedProviderId: args.requestedProviderId,
-      requestedVoiceId: args.requestedVoiceId,
+      requestedVoiceId,
       language: transcribeArgs.language,
     });
 
@@ -1057,7 +1153,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       nativeBridge: transcribeResult.nativeBridge,
       health: transcribeResult.health,
     };
-  }, [args.requestedProviderId, args.requestedVoiceId, openSession, transportSelection.effectiveMode]);
+  }, [args.requestedProviderId, openSession, resolveRequestedVoiceId, transportSelection.effectiveMode]);
 
   const ingestStreamingFrame = useCallback(async (frameArgs: StreamFrameArgs): Promise<StreamFrameIngestResult> => {
     if (!frameIngestQueueRef.current) {
@@ -1247,6 +1343,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
 
         let transcribeResult;
         try {
+          const requestedVoiceId = await resolveRequestedVoiceId();
           console.info(`[VoiceFrame] transcribe start seq=${queueFrameArgs.sequence}`);
           emitVoiceTelemetry('frame_transcribe_attempt', {
             voiceSessionId: active.voiceSessionId,
@@ -1262,7 +1359,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
             audioBase64,
             mimeType: queueFrameArgs.mimeType || 'audio/m4a',
             requestedProviderId: args.requestedProviderId,
-            requestedVoiceId: args.requestedVoiceId,
+            requestedVoiceId,
             language: queueFrameArgs.language,
           });
         } catch (error) {
@@ -1461,15 +1558,16 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
   }, [
     args.avObservability,
+    args.language,
     args.liveSessionId,
     args.requestedProviderId,
-    args.requestedVoiceId,
     args.sourceMode,
     args.sourceRuntime?.providerId,
     args.sourceRuntime?.sourceClass,
     args.sourceRuntime?.sourceId,
     isRealtimeConnected,
     openSession,
+    resolveRequestedVoiceId,
     transportSelection.effectiveMode,
     transportSelection.fallbackReason,
     transportSelection.requestedMode,
@@ -1482,9 +1580,9 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     const active = await openSession();
     const requestedVoiceId = await resolveRequestedVoiceId();
     if (!requestedVoiceId) {
-      throw new Error(
-        'No ElevenLabs voice ID configured. Set an operator voice in Settings or configure organization defaultVoiceId.'
-      );
+      emitVoiceTelemetry('tts_requested_voice_missing_backend_resolution', {
+        voiceSessionId: active.voiceSessionId,
+      });
     }
     await stopPlayback();
     const synthController = typeof AbortController === 'function'
