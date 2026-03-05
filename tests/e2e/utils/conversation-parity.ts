@@ -14,12 +14,15 @@ import {
   CONVERSATION_REASON_CODES as IPHONE_REASON_CODES,
   CONVERSATION_SESSION_STATES as IPHONE_SESSION_STATES,
   CONVERSATION_TURN_STATES,
+  MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
   MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
   MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
   evaluateFinalFrameFinalizeGuard,
+  evaluatePendingFinalFrameRelease,
   hasSilenceEndpointElapsed,
   inferConversationReasonCode as inferIphoneConversationReasonCode,
   isSpeechFrameEnergy,
+  queuePendingFinalFrameFinalize,
   reduceConversationTurnState,
   reduceVoiceBargeInState,
   resolveAssistantPlaybackBargeInTransition,
@@ -177,6 +180,55 @@ export interface MobileTurnStateCloseoutEvidence {
       reason: string;
     };
     allowAfterBargeInCancel: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+  };
+  parityImpact: "none";
+}
+
+export interface MobilePendingFinalFrameHandoffEvidence {
+  contractVersion: typeof IPHONE_CONTRACT_VERSION;
+  timeoutMs: number;
+  assistantClearPath: {
+    queuedEvent: "voice_pending_final_frame_queued";
+    finalizingEvent: "voice_pending_final_frame_finalizing";
+    sequence: number;
+    queuedAtMs: number;
+    timeoutAtMs: number;
+    blockedWhileAssistantSpeaking: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+    bargeInCommand: {
+      interruptLocalPlayback: boolean;
+      sendRemoteCancel: boolean;
+      resetPlaybackQueue: boolean;
+    };
+    releaseDecision: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+    finalizeGuardBeforeCommit: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+    duplicateGuardAfterCommit: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+  };
+  timeoutFallbackPath: {
+    queuedEvent: "voice_pending_final_frame_queued";
+    finalizingEvent: "voice_pending_final_frame_finalizing";
+    sequence: number;
+    queuedAtMs: number;
+    timeoutAtMs: number;
+    releaseDecision: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+    finalizeGuardBeforeCommit: {
       allowFinalize: boolean;
       reason: string;
     };
@@ -513,6 +565,94 @@ export function buildMobileTurnStateCloseoutEvidence(): MobileTurnStateCloseoutE
     finalizeGuard: {
       blockedWhileAssistantSpeaking,
       allowAfterBargeInCancel,
+    },
+    parityImpact: "none",
+  };
+}
+
+export function buildMobilePendingFinalFrameHandoffEvidence(): MobilePendingFinalFrameHandoffEvidence {
+  const assistantClearSequence = 32;
+  const assistantClearQueued = queuePendingFinalFrameFinalize({
+    sequence: assistantClearSequence,
+    nowMs: 12_000,
+    timeoutMs: MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
+  });
+  const blockedWhileAssistantSpeaking = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: assistantClearSequence,
+    isAssistantSpeaking: true,
+    finalizeInFlight: false,
+    lastFinalizedSequence: assistantClearSequence - 1,
+  });
+  const bargeInTransition = resolveCaptureStartBargeInTransition({
+    state: "assistant_playing",
+    turnState: "agent_speaking",
+    isAssistantSpeaking: true,
+  });
+  const assistantClearedDecision = evaluatePendingFinalFrameRelease({
+    pendingFinalFrame: assistantClearQueued,
+    nowMs: assistantClearQueued.queuedAtMs + 120,
+    isAssistantSpeaking: false,
+    turnState: "thinking",
+  });
+  const finalizeGuardBeforeCommit = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: assistantClearSequence,
+    isAssistantSpeaking: false,
+    finalizeInFlight: false,
+    lastFinalizedSequence: assistantClearSequence - 1,
+  });
+  const duplicateGuardAfterCommit = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: assistantClearSequence,
+    isAssistantSpeaking: false,
+    finalizeInFlight: false,
+    lastFinalizedSequence: assistantClearSequence,
+  });
+
+  const timeoutSequence = 33;
+  const timeoutQueued = queuePendingFinalFrameFinalize({
+    sequence: timeoutSequence,
+    nowMs: 15_000,
+    timeoutMs: MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
+  });
+  const timeoutDecision = evaluatePendingFinalFrameRelease({
+    pendingFinalFrame: timeoutQueued,
+    nowMs: timeoutQueued.timeoutAtMs + 1,
+    isAssistantSpeaking: true,
+    turnState: "agent_speaking",
+  });
+  const finalizeAfterTimeout = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: timeoutSequence,
+    isAssistantSpeaking: false,
+    finalizeInFlight: false,
+    lastFinalizedSequence: assistantClearSequence,
+  });
+
+  return {
+    contractVersion: IPHONE_CONTRACT_VERSION,
+    timeoutMs: MOBILE_PENDING_FINAL_FRAME_TIMEOUT_MS,
+    assistantClearPath: {
+      queuedEvent: "voice_pending_final_frame_queued",
+      finalizingEvent: "voice_pending_final_frame_finalizing",
+      sequence: assistantClearSequence,
+      queuedAtMs: assistantClearQueued.queuedAtMs,
+      timeoutAtMs: assistantClearQueued.timeoutAtMs,
+      blockedWhileAssistantSpeaking,
+      bargeInCommand: bargeInTransition.command,
+      releaseDecision: assistantClearedDecision,
+      finalizeGuardBeforeCommit,
+      duplicateGuardAfterCommit,
+    },
+    timeoutFallbackPath: {
+      queuedEvent: "voice_pending_final_frame_queued",
+      finalizingEvent: "voice_pending_final_frame_finalizing",
+      sequence: timeoutSequence,
+      queuedAtMs: timeoutQueued.queuedAtMs,
+      timeoutAtMs: timeoutQueued.timeoutAtMs,
+      releaseDecision: timeoutDecision,
+      finalizeGuardBeforeCommit: finalizeAfterTimeout,
     },
     parityImpact: "none",
   };

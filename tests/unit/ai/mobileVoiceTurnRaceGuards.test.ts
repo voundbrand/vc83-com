@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   claimAssistantAutospeakTurn,
   evaluateFinalFrameFinalizeGuard,
+  evaluatePendingFinalFrameRelease,
   normalizeRecorderAutoStartDebounceMs,
+  queuePendingFinalFrameFinalize,
 } from "../../../apps/operator-mobile/src/lib/voice/lifecycle";
 
 describe("mobile voice turn race guards", () => {
@@ -56,6 +58,103 @@ describe("mobile voice turn race guards", () => {
         isAssistantSpeaking: false,
         finalizeInFlight: false,
         lastFinalizedSequence: 11,
+      })
+    ).toEqual({
+      allowFinalize: false,
+      reason: "duplicate_sequence",
+    });
+  });
+
+  it("buffers a final frame during assistant speech and releases finalize when speech clears", () => {
+    const pendingFinalFrame = queuePendingFinalFrameFinalize({
+      sequence: 21,
+      nowMs: 10_000,
+      timeoutMs: 400,
+    });
+    expect(
+      evaluateFinalFrameFinalizeGuard({
+        isFinalFrame: true,
+        frameSequence: 21,
+        isAssistantSpeaking: true,
+        finalizeInFlight: false,
+        lastFinalizedSequence: 20,
+      })
+    ).toEqual({
+      allowFinalize: false,
+      reason: "assistant_speaking",
+    });
+    expect(
+      evaluatePendingFinalFrameRelease({
+        pendingFinalFrame,
+        nowMs: 10_120,
+        isAssistantSpeaking: true,
+        turnState: "agent_speaking",
+      })
+    ).toEqual({
+      allowFinalize: false,
+      reason: "assistant_still_speaking",
+    });
+    expect(
+      evaluatePendingFinalFrameRelease({
+        pendingFinalFrame,
+        nowMs: 10_150,
+        isAssistantSpeaking: false,
+        turnState: "thinking",
+      })
+    ).toEqual({
+      allowFinalize: true,
+      reason: "assistant_cleared",
+    });
+    expect(
+      evaluateFinalFrameFinalizeGuard({
+        isFinalFrame: true,
+        frameSequence: 21,
+        isAssistantSpeaking: false,
+        finalizeInFlight: false,
+        lastFinalizedSequence: 20,
+      })
+    ).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+  });
+
+  it("prevents duplicate finalize after pending-frame timeout release for the same sequence", () => {
+    const pendingFinalFrame = queuePendingFinalFrameFinalize({
+      sequence: 33,
+      nowMs: 20_000,
+      timeoutMs: 300,
+    });
+    expect(
+      evaluatePendingFinalFrameRelease({
+        pendingFinalFrame,
+        nowMs: 20_350,
+        isAssistantSpeaking: true,
+        turnState: "agent_speaking",
+      })
+    ).toEqual({
+      allowFinalize: true,
+      reason: "timeout",
+    });
+    expect(
+      evaluateFinalFrameFinalizeGuard({
+        isFinalFrame: true,
+        frameSequence: 33,
+        isAssistantSpeaking: false,
+        finalizeInFlight: false,
+        lastFinalizedSequence: 32,
+      })
+    ).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(
+      evaluateFinalFrameFinalizeGuard({
+        isFinalFrame: true,
+        frameSequence: 33,
+        isAssistantSpeaking: false,
+        finalizeInFlight: false,
+        lastFinalizedSequence: 33,
       })
     ).toEqual({
       allowFinalize: false,

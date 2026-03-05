@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  buildSessionContactMemoryNoEligibleSourcesSkipResult,
   evaluateSessionContactMemoryWriteProvenance,
   evaluateSessionContactMemoryWriteScope,
 } from "../../../convex/ai/agentSessions";
@@ -73,5 +74,20 @@ describe("session contact memory L4 contracts", () => {
     expect(allowed.allowed).toBe(true);
     expect(invalidTrustEvent.allowed).toBe(false);
     expect(invalidTrustEvent.reason).toBe("invalid_trust_event");
+  });
+
+  it("treats no eligible extraction sources as a successful skip with deterministic counts", () => {
+    const skipResult = buildSessionContactMemoryNoEligibleSourcesSkipResult();
+
+    expect(skipResult).toEqual({
+      success: true,
+      skippedReason: "no_eligible_sources",
+      policyVersion: "session_contact_memory_policy_v1",
+      extractedCandidateCount: 0,
+      eligibleCandidateCount: 0,
+      insertedCount: 0,
+      supersededCount: 0,
+      ambiguousFields: [],
+    });
   });
 });

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   CANONICAL_CONVERSATION_MODES,
   buildCrossSurfaceConversationParityGate,
+  buildMobilePendingFinalFrameHandoffEvidence,
   buildMobileTurnStateCloseoutEvidence,
 } from "./utils/conversation-parity";
 import {
@@ -255,5 +256,54 @@ test.describe("Mobile Voice Chaos Probe", () => {
       reason: "ready",
     });
     expect(closeoutEvidence.parityImpact).toBe("none");
+  });
+
+  test("locks iPhone pending-final-frame handoff timing for assistant interruption and timeout fallback", async () => {
+    const handoffEvidence = buildMobilePendingFinalFrameHandoffEvidence();
+
+    expect(handoffEvidence.contractVersion).toBe("conversation_interaction_v1");
+    expect(handoffEvidence.timeoutMs).toBe(500);
+
+    expect(handoffEvidence.assistantClearPath.queuedEvent).toBe("voice_pending_final_frame_queued");
+    expect(handoffEvidence.assistantClearPath.finalizingEvent).toBe("voice_pending_final_frame_finalizing");
+    expect(handoffEvidence.assistantClearPath.timeoutAtMs - handoffEvidence.assistantClearPath.queuedAtMs).toBe(
+      500
+    );
+    expect(handoffEvidence.assistantClearPath.blockedWhileAssistantSpeaking).toEqual({
+      allowFinalize: false,
+      reason: "assistant_speaking",
+    });
+    expect(handoffEvidence.assistantClearPath.bargeInCommand).toEqual({
+      interruptLocalPlayback: true,
+      sendRemoteCancel: true,
+      resetPlaybackQueue: true,
+    });
+    expect(handoffEvidence.assistantClearPath.releaseDecision).toEqual({
+      allowFinalize: true,
+      reason: "assistant_cleared",
+    });
+    expect(handoffEvidence.assistantClearPath.finalizeGuardBeforeCommit).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(handoffEvidence.assistantClearPath.duplicateGuardAfterCommit).toEqual({
+      allowFinalize: false,
+      reason: "duplicate_sequence",
+    });
+
+    expect(handoffEvidence.timeoutFallbackPath.queuedEvent).toBe("voice_pending_final_frame_queued");
+    expect(handoffEvidence.timeoutFallbackPath.finalizingEvent).toBe("voice_pending_final_frame_finalizing");
+    expect(handoffEvidence.timeoutFallbackPath.timeoutAtMs - handoffEvidence.timeoutFallbackPath.queuedAtMs).toBe(
+      500
+    );
+    expect(handoffEvidence.timeoutFallbackPath.releaseDecision).toEqual({
+      allowFinalize: true,
+      reason: "timeout",
+    });
+    expect(handoffEvidence.timeoutFallbackPath.finalizeGuardBeforeCommit).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(handoffEvidence.parityImpact).toBe("none");
   });
 });

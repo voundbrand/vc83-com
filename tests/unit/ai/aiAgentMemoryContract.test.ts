@@ -85,4 +85,24 @@ describe("aiAgentMemory runtime contract", () => {
     expect(telemetry.contactMemoryRefresh.ambiguousFieldCount).toBe(2);
     expect(telemetry.contactMemoryRefresh.ambiguousFields).toEqual(["email", "phone"]);
   });
+
+  it("labels no-source contact memory refresh as skipped instead of blocked", () => {
+    const telemetry = buildRuntimeMemoryLaneTelemetry({
+      aiAgentMemoryContract: evaluateAiAgentMemoryRuntimeContract(BASE_SCOPE),
+      rollingMemoryRefresh: {
+        success: true,
+      },
+      contactMemoryRefresh: {
+        success: true,
+        skippedReason: "no_eligible_sources",
+        extractedCandidateCount: 0,
+        eligibleCandidateCount: 0,
+      },
+    });
+
+    expect(telemetry.contactMemoryRefresh.status).toBe("skipped");
+    expect(telemetry.contactMemoryRefresh.reason).toBe("no_eligible_sources");
+    expect(telemetry.contactMemoryRefresh.insertedCount).toBe(0);
+    expect(telemetry.contactMemoryRefresh.supersededCount).toBe(0);
+  });
 });

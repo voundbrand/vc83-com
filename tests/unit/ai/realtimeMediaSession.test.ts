@@ -8,6 +8,7 @@ import {
   createRealtimeMediaSession,
   detectVadSpeechFrame,
   resolveRealtimeEchoCancellationSelection,
+  shouldTriggerConversationVadEndpoint,
   shouldThrottleRealtimeVisionForwarding,
 } from "../../../src/lib/av/runtime/realtimeMediaSession";
 import {
@@ -543,6 +544,35 @@ describe("realtime media session runtime", () => {
     expect(
       detectVadSpeechFrame({
         samples: speechFrame,
+      })
+    ).toBe(true);
+  });
+
+  it("requires detected speech before VAD endpoint silence can close a turn", () => {
+    expect(
+      shouldTriggerConversationVadEndpoint({
+        hasDetectedSpeechSinceCaptureStart: false,
+        consecutiveSilentFrames: 20,
+        frameDurationMs: 20,
+        vadPolicy: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldTriggerConversationVadEndpoint({
+        hasDetectedSpeechSinceCaptureStart: true,
+        consecutiveSilentFrames: 10,
+        frameDurationMs: 20,
+        vadPolicy: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
+      })
+    ).toBe(false);
+
+    expect(
+      shouldTriggerConversationVadEndpoint({
+        hasDetectedSpeechSinceCaptureStart: true,
+        consecutiveSilentFrames: 16,
+        frameDurationMs: 20,
+        vadPolicy: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
       })
     ).toBe(true);
   });
