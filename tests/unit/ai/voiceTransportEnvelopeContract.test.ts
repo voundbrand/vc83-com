@@ -40,7 +40,7 @@ describe("voice transport envelope contract", () => {
       eventType: "audio_chunk",
       pcm: {
         encoding: "pcm_s16le",
-        sampleRateHz: 16_000,
+        sampleRateHz: 24_000,
         channels: 1,
         frameDurationMs: 20,
       },
@@ -56,7 +56,7 @@ describe("voice transport envelope contract", () => {
       eventType: "audio_chunk",
       pcm: {
         encoding: "pcm_s16le",
-        sampleRateHz: 16_000,
+        sampleRateHz: 24_000,
         channels: 1,
         frameDurationMs: 20,
       },
@@ -109,5 +109,24 @@ describe("voice transport envelope contract", () => {
       assistantMessageId: "assistant_msg_1",
     } as unknown as VoiceTransportEnvelopeContract;
     expect(() => assertVoiceTransportEnvelope(invalidPcmEnvelope)).toThrow(/pcm/);
+  });
+
+  it("rejects non-contract pcm sampleRateHz values for voice_transport_v1 envelopes", () => {
+    const nonContractSampleRateEnvelope = {
+      ...baseEnvelope,
+      eventType: "assistant_audio_chunk",
+      pcm: {
+        encoding: "pcm_s16le",
+        sampleRateHz: 16_000,
+        channels: 1,
+        frameDurationMs: 20,
+      },
+      audioChunkBase64: "AAAABBBB",
+      assistantMessageId: "assistant_msg_2",
+    } as unknown as VoiceTransportEnvelopeContract;
+
+    expect(() => assertVoiceTransportEnvelope(nonContractSampleRateEnvelope)).toThrow(
+      /sampleRateHz=24000/
+    );
   });
 });

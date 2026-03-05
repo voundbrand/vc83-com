@@ -29,6 +29,122 @@ export const DEFAULT_REALTIME_SESSION_BUFFER_STEP_MS = 20;
 export const DEFAULT_REALTIME_SESSION_LEASE_TIMEOUT_MS = 15_000;
 export const DEFAULT_REALTIME_SESSION_RECONNECT_GAP_MS = 2_500;
 export const DEFAULT_REALTIME_SESSION_REPLAY_CACHE_LIMIT = 512;
+export const DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS = 1_250;
+export const DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS = 10_000;
+export const DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW = 8;
+
+export interface RealtimeConversationVadPolicy {
+  mode: "client_energy_gate";
+  frameDurationMs: 20;
+  energyThresholdRms: number;
+  minSpeechFrames: number;
+  endpointSilenceMs: number;
+}
+
+export const DEFAULT_REALTIME_CONVERSATION_VAD_POLICY: RealtimeConversationVadPolicy =
+  Object.freeze({
+    mode: "client_energy_gate",
+    frameDurationMs: 20,
+    energyThresholdRms: 0.015,
+    minSpeechFrames: 2,
+    endpointSilenceMs: 320,
+  });
+
+export interface RealtimeVisionForwardingThrottleResolution {
+  cadenceMs: number;
+  throttled: boolean;
+  retryAfterMs?: number;
+}
+
+export type RealtimeEchoCancellationStrategy =
+  | "hardware_aec_capture_path"
+  | "mute_mic_during_tts";
+
+export type RealtimeEchoCancellationReason =
+  | "hardware_aec_enabled"
+  | "hardware_aec_not_enabled"
+  | "operator_forced_mute";
+
+export interface RealtimeEchoCancellationSelection {
+  strategy: RealtimeEchoCancellationStrategy;
+  reason: RealtimeEchoCancellationReason;
+  hardwareAecSupported: boolean;
+  hardwareAecEnabled: boolean;
+}
+
+export function resolveRealtimeEchoCancellationSelection(args: {
+  hardwareAecSupported?: boolean;
+  hardwareAecEnabled?: boolean;
+  forceMuteDuringTts?: boolean;
+}): RealtimeEchoCancellationSelection {
+  const hardwareAecSupported = args.hardwareAecSupported === true;
+  const hardwareAecEnabled = args.hardwareAecEnabled === true;
+  if (args.forceMuteDuringTts === true) {
+    return {
+      strategy: "mute_mic_during_tts",
+      reason: "operator_forced_mute",
+      hardwareAecSupported,
+      hardwareAecEnabled,
+    };
+  }
+  if (hardwareAecSupported && hardwareAecEnabled) {
+    return {
+      strategy: "hardware_aec_capture_path",
+      reason: "hardware_aec_enabled",
+      hardwareAecSupported: true,
+      hardwareAecEnabled: true,
+    };
+  }
+  return {
+    strategy: "mute_mic_during_tts",
+    reason: "hardware_aec_not_enabled",
+    hardwareAecSupported,
+    hardwareAecEnabled,
+  };
+}
+
+export function computePcm16FrameRms(samples: Int16Array): number {
+  if (!samples.length) {
+    return 0;
+  }
+  let sumSquares = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const normalizedSample = (samples[index] ?? 0) / 32768;
+    sumSquares += normalizedSample * normalizedSample;
+  }
+  return Math.sqrt(sumSquares / samples.length);
+}
+
+export function detectVadSpeechFrame(args: {
+  samples: Int16Array;
+  vadPolicy?: RealtimeConversationVadPolicy;
+}): boolean {
+  const policy = args.vadPolicy ?? DEFAULT_REALTIME_CONVERSATION_VAD_POLICY;
+  return computePcm16FrameRms(args.samples) >= policy.energyThresholdRms;
+}
+
+export function shouldThrottleRealtimeVisionForwarding(args: {
+  nowMs: number;
+  lastForwardAtMs?: number;
+  cadenceMs?: number;
+}): RealtimeVisionForwardingThrottleResolution {
+  const cadenceMs = Math.max(
+    100,
+    Math.floor(args.cadenceMs ?? DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS),
+  );
+  if (typeof args.lastForwardAtMs !== "number") {
+    return { cadenceMs, throttled: false };
+  }
+  const elapsedMs = Math.max(0, Math.floor(args.nowMs - args.lastForwardAtMs));
+  if (elapsedMs >= cadenceMs) {
+    return { cadenceMs, throttled: false };
+  }
+  return {
+    cadenceMs,
+    throttled: true,
+    retryAfterMs: Math.max(1, cadenceMs - elapsedMs),
+  };
+}
 
 export type RealtimeMediaSessionStatus = "idle" | "running" | "stopped";
 

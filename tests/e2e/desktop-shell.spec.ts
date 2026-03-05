@@ -2,12 +2,19 @@ import { expect, test } from "@playwright/test";
 import {
   CANONICAL_CONVERSATION_MODES,
   buildCrossSurfaceConversationParityGate,
+  buildMobileTurnStateCloseoutEvidence,
 } from "./utils/conversation-parity";
 import {
   createShellNavigationRetryTracker,
   finalizeShellNavigationRetries,
   gotoShellWithRetry,
 } from "./utils/shell-navigation";
+import {
+  DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
+  DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
+  DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
+  DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS,
+} from "../../src/lib/av/runtime/realtimeMediaSession";
 
 const DESKTOP_CONTEXT = "desktop_shell_e2e";
 
@@ -107,5 +114,37 @@ test.describe("Desktop Shell", () => {
       mcpEnabled: true,
       handoffSupported: true,
     });
+  });
+
+  test("locks ORV-042 duplex VAD and JPEG forwarding policy defaults", async () => {
+    expect(DEFAULT_REALTIME_CONVERSATION_VAD_POLICY).toEqual({
+      mode: "client_energy_gate",
+      frameDurationMs: 20,
+      energyThresholdRms: 0.015,
+      minSpeechFrames: 2,
+      endpointSilenceMs: 320,
+    });
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1250);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW).toBe(8);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS).toBe(10000);
+  });
+
+  test("confirms lane-M closeout reports no web/desktop parity impact", async () => {
+    const closeoutEvidence = buildMobileTurnStateCloseoutEvidence();
+
+    expect(closeoutEvidence.contractVersion).toBe("conversation_interaction_v1");
+    expect(closeoutEvidence.vadPolicy.webDesktop).toEqual({
+      speechThresholdRms: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.energyThresholdRms,
+      endpointSilenceMs: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.endpointSilenceMs,
+    });
+    expect(closeoutEvidence.vadPolicy.parity).toEqual({
+      speechThresholdMatches: true,
+      endpointSilenceMatches: true,
+    });
+    expect(closeoutEvidence.finalizeGuard.allowAfterBargeInCancel).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(closeoutEvidence.parityImpact).toBe("none");
   });
 });

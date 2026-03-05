@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   CANONICAL_CONVERSATION_MODES,
   buildCrossSurfaceConversationParityGate,
+  buildMobileTurnStateCloseoutEvidence,
 } from "./utils/conversation-parity";
 import {
   createShellNavigationRetryTracker,
@@ -165,5 +166,94 @@ test.describe("Mobile Voice Chaos Probe", () => {
     expect(parityGate.executionLaneInvariantBySurface.iphone.voice_with_eyes.handoffSupported).toBe(
       true
     );
+  });
+
+  test("locks lane-M closeout turn-state + vad + barge-in behavior with no parity impact drift", async () => {
+    const closeoutEvidence = buildMobileTurnStateCloseoutEvidence();
+
+    expect(closeoutEvidence.contractVersion).toBe("conversation_interaction_v1");
+    expect(closeoutEvidence.turnStateTaxonomy).toEqual([
+      "idle",
+      "listening",
+      "thinking",
+      "agent_speaking",
+    ]);
+    expect(closeoutEvidence.turnStateTimeline).toEqual([
+      { step: "conversation_baseline", turnState: "idle" },
+      { step: "capture_start_listening", turnState: "listening" },
+      { step: "capture_finalize_thinking", turnState: "thinking" },
+      { step: "assistant_playback_started", turnState: "agent_speaking" },
+      { step: "barge_in_user_capture", turnState: "listening" },
+      { step: "vad_endpoint_finalize_thinking", turnState: "thinking" },
+      { step: "assistant_replay_agent_speaking", turnState: "agent_speaking" },
+      { step: "conversation_end_idle", turnState: "idle" },
+    ]);
+    expect(closeoutEvidence.bargeInTimeline).toEqual([
+      {
+        step: "assistant_playback_started",
+        state: "assistant_playing",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "capture_start_interrupt",
+        state: "interrupting",
+        command: {
+          interruptLocalPlayback: true,
+          sendRemoteCancel: true,
+          resetPlaybackQueue: true,
+        },
+      },
+      {
+        step: "remote_cancel_ack",
+        state: "capturing_user",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "capture_stopped_recovering",
+        state: "recovering",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "barge_in_reset_idle",
+        state: "idle",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+    ]);
+
+    expect(closeoutEvidence.vadPolicy.mobile.speechThresholdRms).toBe(0.015);
+    expect(closeoutEvidence.vadPolicy.mobile.endpointSilenceMs).toBe(320);
+    expect(closeoutEvidence.vadPolicy.mobile.speechDetected).toBe(true);
+    expect(closeoutEvidence.vadPolicy.mobile.endpointBeforeThreshold).toBe(false);
+    expect(closeoutEvidence.vadPolicy.mobile.endpointAtThreshold).toBe(true);
+    expect(closeoutEvidence.vadPolicy.parity).toEqual({
+      speechThresholdMatches: true,
+      endpointSilenceMatches: true,
+    });
+
+    expect(closeoutEvidence.finalizeGuard.blockedWhileAssistantSpeaking).toEqual({
+      allowFinalize: false,
+      reason: "assistant_speaking",
+    });
+    expect(closeoutEvidence.finalizeGuard.allowAfterBargeInCancel).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(closeoutEvidence.parityImpact).toBe("none");
   });
 });

@@ -2,6 +2,37 @@ export type VoiceSessionLifecycleState = 'idle' | 'opening' | 'open' | 'closing'
 
 export const CONVERSATION_CONTRACT_VERSION = 'conversation_interaction_v1' as const;
 
+export const CONVERSATION_TURN_STATES = [
+  'idle',
+  'listening',
+  'thinking',
+  'agent_speaking',
+] as const;
+
+export type ConversationTurnState = (typeof CONVERSATION_TURN_STATES)[number];
+
+export const MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD = 0.015;
+export const MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS = 320;
+export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MIN_MS = 200;
+export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MAX_MS = 500;
+export const MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS = 320;
+
+export type ConversationTurnStateEvent =
+  | {
+      type: 'reset';
+    }
+  | {
+      type: 'sync';
+      activity: ConversationTurnStateActivity;
+    };
+
+export type ConversationTurnStateActivity = {
+  conversationStarted: boolean;
+  isRecording: boolean;
+  isThinking: boolean;
+  isAssistantSpeaking: boolean;
+};
+
 export const CONVERSATION_REASON_CODES = [
   'permission_denied_mic',
   'permission_denied_camera',
@@ -77,6 +108,23 @@ export type VoiceBargeInTransition = {
   command: VoiceBargeInCommand;
 };
 
+export type FinalFrameFinalizeGuardReason =
+  | 'ready'
+  | 'not_final_frame'
+  | 'assistant_speaking'
+  | 'finalize_mutex_locked'
+  | 'duplicate_sequence';
+
+export type FinalFrameFinalizeGuardDecision = {
+  allowFinalize: boolean;
+  reason: FinalFrameFinalizeGuardReason;
+};
+
+export type AssistantAutospeakClaimDecision = {
+  claimed: boolean;
+  nextConsumedTurnToken: number | null;
+};
+
 export function transitionVoiceSessionLifecycle(
   current: VoiceSessionLifecycleState,
   event: 'open_request' | 'open_success' | 'open_failed' | 'close_request' | 'close_success'
@@ -96,14 +144,186 @@ export function transitionVoiceSessionLifecycle(
   return 'closed';
 }
 
+export function resolveConversationTurnState(activity: ConversationTurnStateActivity): ConversationTurnState {
+  if (!activity.conversationStarted) {
+    return 'idle';
+  }
+  if (activity.isRecording) {
+    return 'listening';
+  }
+  if (activity.isAssistantSpeaking) {
+    return 'agent_speaking';
+  }
+  if (activity.isThinking) {
+    return 'thinking';
+  }
+  return 'idle';
+}
+
+export function reduceConversationTurnState(args: {
+  state: ConversationTurnState;
+  event: ConversationTurnStateEvent;
+}): ConversationTurnState {
+  if (args.event.type === 'reset') {
+    return 'idle';
+  }
+  const nextState = resolveConversationTurnState(args.event.activity);
+  return nextState === args.state ? args.state : nextState;
+}
+
 export function shouldBargeInInterruptPlayback(args: {
-  isAssistantSpeaking: boolean;
+  turnState: ConversationTurnState;
   isUserCaptureStarting: boolean;
+  isAssistantSpeaking?: boolean;
 }): boolean {
+  const effectiveTurnState =
+    args.turnState === 'agent_speaking' || args.isAssistantSpeaking ? 'agent_speaking' : args.turnState;
   return reduceVoiceBargeInState({
-    state: args.isAssistantSpeaking ? 'assistant_playing' : 'idle',
+    state: effectiveTurnState === 'agent_speaking' ? 'assistant_playing' : 'idle',
     event: args.isUserCaptureStarting ? 'user_capture_started' : 'reset',
   }).command.interruptLocalPlayback;
+}
+
+export function normalizeFrameEnergyRms(energyRms: number | null | undefined): number {
+  if (!Number.isFinite(energyRms)) {
+    return 0;
+  }
+  return Math.max(0, Number(energyRms));
+}
+
+export function isSpeechFrameEnergy(args: {
+  energyRms: number | null | undefined;
+  speechThresholdRms?: number;
+}): boolean {
+  const threshold = Number.isFinite(args.speechThresholdRms)
+    ? Math.max(0, Number(args.speechThresholdRms))
+    : MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD;
+  return normalizeFrameEnergyRms(args.energyRms) >= threshold;
+}
+
+export function hasSilenceEndpointElapsed(args: {
+  lastSpeechDetectedAtMs: number | null | undefined;
+  nowMs: number;
+  endpointSilenceMs?: number;
+}): boolean {
+  if (!Number.isFinite(args.lastSpeechDetectedAtMs) || !Number.isFinite(args.nowMs)) {
+    return false;
+  }
+  const endpointSilenceMs = Number.isFinite(args.endpointSilenceMs)
+    ? Math.max(1, Math.floor(Number(args.endpointSilenceMs)))
+    : MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS;
+  const lastSpeechDetectedAtMs = Number(args.lastSpeechDetectedAtMs);
+  return args.nowMs - lastSpeechDetectedAtMs >= endpointSilenceMs;
+}
+
+export function normalizeRecorderAutoStartDebounceMs(
+  debounceMs: number | null | undefined
+): number {
+  if (!Number.isFinite(debounceMs)) {
+    return MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS;
+  }
+  return Math.min(
+    MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MAX_MS,
+    Math.max(
+      MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_MIN_MS,
+      Math.floor(Number(debounceMs))
+    )
+  );
+}
+
+export function evaluateFinalFrameFinalizeGuard(args: {
+  isFinalFrame: boolean;
+  frameSequence: number;
+  isAssistantSpeaking: boolean;
+  finalizeInFlight: boolean;
+  lastFinalizedSequence: number | null;
+}): FinalFrameFinalizeGuardDecision {
+  if (!args.isFinalFrame) {
+    return {
+      allowFinalize: false,
+      reason: 'not_final_frame',
+    };
+  }
+  if (args.isAssistantSpeaking) {
+    return {
+      allowFinalize: false,
+      reason: 'assistant_speaking',
+    };
+  }
+  if (args.finalizeInFlight) {
+    return {
+      allowFinalize: false,
+      reason: 'finalize_mutex_locked',
+    };
+  }
+  if (
+    Number.isFinite(args.lastFinalizedSequence)
+    && args.frameSequence <= Number(args.lastFinalizedSequence)
+  ) {
+    return {
+      allowFinalize: false,
+      reason: 'duplicate_sequence',
+    };
+  }
+  return {
+    allowFinalize: true,
+    reason: 'ready',
+  };
+}
+
+export function claimAssistantAutospeakTurn(args: {
+  activeTurnToken: number | null;
+  candidateTurnToken: number | null;
+  consumedTurnToken: number | null;
+}): AssistantAutospeakClaimDecision {
+  if (!Number.isFinite(args.activeTurnToken) || !Number.isFinite(args.candidateTurnToken)) {
+    return {
+      claimed: false,
+      nextConsumedTurnToken: args.consumedTurnToken,
+    };
+  }
+  const activeTurnToken = Number(args.activeTurnToken);
+  const candidateTurnToken = Number(args.candidateTurnToken);
+  if (candidateTurnToken !== activeTurnToken || args.consumedTurnToken === candidateTurnToken) {
+    return {
+      claimed: false,
+      nextConsumedTurnToken: args.consumedTurnToken,
+    };
+  }
+  return {
+    claimed: true,
+    nextConsumedTurnToken: candidateTurnToken,
+  };
+}
+
+export function resolveCaptureStartBargeInTransition(args: {
+  state: VoiceBargeInState;
+  turnState: ConversationTurnState;
+  isAssistantSpeaking?: boolean;
+}): VoiceBargeInTransition {
+  const shouldInterrupt = shouldBargeInInterruptPlayback({
+    turnState: args.turnState,
+    isUserCaptureStarting: true,
+    isAssistantSpeaking: args.isAssistantSpeaking,
+  });
+  const baselineState =
+    shouldInterrupt && (args.state === 'idle' || args.state === 'recovering')
+      ? 'assistant_playing'
+      : args.state;
+  return reduceVoiceBargeInState({
+    state: baselineState,
+    event: 'user_capture_started',
+  });
+}
+
+export function resolveAssistantPlaybackBargeInTransition(args: {
+  state: VoiceBargeInState;
+  isAssistantSpeaking: boolean;
+}): VoiceBargeInTransition {
+  return reduceVoiceBargeInState({
+    state: args.state,
+    event: args.isAssistantSpeaking ? 'assistant_playback_started' : 'assistant_playback_stopped',
+  });
 }
 
 export function inferConversationReasonCode(reason: string | null | undefined): ConversationReasonCode {

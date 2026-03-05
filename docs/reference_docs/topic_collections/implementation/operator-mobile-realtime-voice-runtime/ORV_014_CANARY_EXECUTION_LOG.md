@@ -127,6 +127,27 @@ Status: `DONE` (2026-03-03)
 | `npm run test:e2e:mobile` | `PASS` | `16 passed` (`mobile-voice-chaos` + `mobile-shell` suites), `EXIT_CODE=0` |
 | `npm run docs:guard` | `PASS` | `Docs guard passed.`, `EXIT_CODE=0` |
 
+## ORV-036 True live media-plane ingest closure evidence (lane K)
+
+Status: `DONE` (2026-03-05)
+
+### ORV-036 verify command evidence (closure rerun)
+
+| Command | Result | Evidence |
+|---|---|---|
+| `npm run mobile:typecheck` | `PASS` | `tsc --noEmit` completed with `EXIT_CODE=0` |
+| `npm run typecheck` | `PASS` | `tsc --noEmit` completed with `EXIT_CODE=0` |
+| `npm run test:unit` | `PASS` | `232 passed`, `4 skipped` test files (`1262 passed`, `80 skipped` tests), `EXIT_CODE=0` |
+| `npm run test:integration` | `PASS` | `35 passed`, `2 skipped` test files (`114 passed`, `22 skipped` tests), `EXIT_CODE=0` |
+| `npm run test:e2e:mobile` | `PASS` | `16 passed`, no sandbox `EPERM` retry required, `EXIT_CODE=0` |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.`, `EXIT_CODE=0` |
+
+### Compatibility and gate posture
+
+1. `/api/v1/ai/voice/*` compatibility preserved.
+2. Fail-closed deterministic sequence/backpressure/degrade semantics preserved.
+3. DAT-native production readiness remains blocked by `ORV-023` physical-device validation evidence requirements.
+
 ## ORV-038 Multimodal live-session execution lane evidence (lane K)
 
 Status: `DONE` (2026-03-03)
@@ -163,3 +184,65 @@ Status: `DONE` (2026-03-03)
 2. Fail-closed deterministic sequence/degrade semantics preserved.
 3. Non-bypassable approval invariants remain enforced.
 4. DAT-native production readiness remains blocked by `ORV-023` physical-device validation evidence requirements.
+
+## ORV-044 Corruption-remediation + realtime parity evidence bundle (lane L)
+
+Status: `DONE` (2026-03-05)  
+Decision: `GO` after closure rerun cleared non-`agentExecution.ts` verify blockers.
+
+### Non-negotiable acceptance matrix (lane L)
+
+| Vector | Result | Evidence |
+|---|---|---|
+| 1. Fixed PCM capture (`AudioWorkletNode` + `ScriptProcessorNode`, `24kHz/20ms/960-byte`) | `PASS` | `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx` PCM capture path + `tests/unit/ai/webVoiceRuntimePolicy.test.ts` |
+| 2. Persistent transport dual-path precedence (`websocket_primary`, `webrtc_fallback`) | `PASS` | `src/lib/voice-assistant/runtime-policy.ts`; `tests/unit/ai/webVoiceRuntimePolicy.test.ts` |
+| 3. STT dual-provider precedence (`scribe_v2_realtime_primary`, `gemini_native_audio_failover`) | `PASS` | `src/lib/voice-assistant/runtime-policy.ts`; `convex/ai/voiceRuntime.ts`; `tests/unit/ai/webVoiceRuntimePolicy.test.ts` |
+| 4. TTS ElevenLabs WS multi-context primary | `PASS` | `convex/ai/voiceRuntimeAdapter.ts`; `tests/unit/ai/voiceRuntimeAdapter.test.ts` (`websocket_multi_context_primary` + HTTP fallback assertion) |
+| 5. True duplex + deterministic interrupt detection | `PASS` | `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx` (`persistent_streaming_primary` + realtime interruption flow); `tests/e2e/desktop-shell.spec.ts` |
+| 6. Throttled JPEG forwarding over same transport channel | `PASS` | `src/lib/av/runtime/realtimeMediaSession.ts` defaults + throttling helpers; `tests/unit/ai/realtimeMediaSession.test.ts`; `tests/e2e/desktop-shell.spec.ts` |
+| 7. Explicit VAD policy | `PASS` | `src/lib/av/runtime/realtimeMediaSession.ts` (`client_energy_gate` policy lock); `tests/unit/ai/realtimeMediaSession.test.ts`; `tests/e2e/desktop-shell.spec.ts` |
+| 8. Explicit echo-cancellation strategy | `PASS` | `src/lib/av/runtime/realtimeMediaSession.ts` (`hardware_aec_capture_path`/`mute_mic_during_tts`); `tests/unit/ai/realtimeMediaSession.test.ts`; runtime metadata in `slick-chat-input.tsx`/`use-voice-runtime.ts` |
+
+### Container-corruption elimination proof
+
+1. Baseline mismatch (ORV-039): legacy web path used container-first `audio/webm` stop-and-upload semantics.
+2. Remediated path (ORV-040 through ORV-043): PCM-first capture and realtime ingestion are primary for web/desktop.
+3. Fallback taxonomy remains explicit (non-silent): container hints stay resilience-only with deterministic retries (`tests/unit/ai/voiceRuntimeAdapter.test.ts` invalid-audio retry contract).
+
+### ORV-044 required verify stack evidence (initial `NO_GO` run, 2026-03-05)
+
+| Command | Result | Key failure/signal |
+|---|---|---|
+| `npm run typecheck` | `FAIL` | `convex/ai/agentExecution.ts` redeclare/type errors (`authorityConfigRecord` + union mismatch) |
+| `npm run test:unit` | `FAIL` | Shared baseline failures: `mobileMetaBridgeContracts`, `onboarding/audit-deliverable`, `pdf/audit-template-registry`; ORV lane suites passed |
+| `npm run test:integration` | `FAIL` | esbuild transform blocked by same `convex/ai/agentExecution.ts` redeclare regression |
+| `npm run test:e2e:desktop` | `FAIL` | In-sandbox: `listen EPERM 127.0.0.1:3000`; escalated rerun: unrelated `tests/e2e/onboarding-audit-handoff.spec.ts` assertion failure; `desktop-shell.spec.ts` passed |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.` |
+
+### ORV-044 required verify stack evidence (closure rerun, 2026-03-05)
+
+| Command | Result | Key signal |
+|---|---|---|
+| `npm run typecheck` | `PASS` | `EXIT_CODE=0` |
+| `npm run test:unit` | `PASS` | `232 passed`, `4 skipped` test files (`1262 passed`, `80 skipped` tests) |
+| `npm run test:integration` | `PASS` | `35 passed`, `2 skipped` test files (`114 passed`, `22 skipped` tests) |
+| `npm run test:e2e:desktop` | `PASS` | `4 passed` (`desktop-shell` + `onboarding-audit-handoff`) |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.` |
+
+### ORV-044 required verify stack evidence (post-closure stability rerun, 2026-03-05)
+
+| Command | Result | Key signal |
+|---|---|---|
+| `npm run typecheck` | `PASS` | `EXIT_CODE=0` |
+| `npm run test:unit` | `PASS` | `232 passed`, `4 skipped` test files (`1262 passed`, `80 skipped` tests) |
+| `npm run test:integration` | `PASS` | `35 passed`, `2 skipped` test files (`114 passed`, `22 skipped` tests) |
+| `npm run test:e2e:desktop` | `PASS` | `4 passed` after hardening `onboarding-audit-handoff` send-flow retries and create-account CTA label selector parity |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.` |
+
+### Go/No-Go bundle
+
+1. Lane-L acceptance vectors: complete (`8/8` with explicit evidence).
+2. Initial verify stack run: `NO_GO` (`1/5` commands passing).
+3. Closure + post-closure verify stack reruns: green (`5/5` commands passing in each rerun).
+4. Runtime/API compatibility posture: `/api/v1/ai/voice/*` compatibility preserved.
+5. Final decision: `GO`; `ORV-044` is `DONE`.

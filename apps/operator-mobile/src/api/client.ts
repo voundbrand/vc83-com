@@ -730,7 +730,7 @@ class L4yercak3APIClient {
         text: string;
         requestedProviderId?: 'browser' | 'elevenlabs';
         requestedVoiceId?: string;
-      }) => {
+      }, options?: { signal?: AbortSignal }) => {
         return this.request<{
           success: boolean;
           providerId: 'browser' | 'elevenlabs';
@@ -747,6 +747,7 @@ class L4yercak3APIClient {
         }>('/api/v1/ai/voice/synthesize', {
           method: 'POST',
           body: JSON.stringify(data),
+          signal: options?.signal,
         });
       },
 

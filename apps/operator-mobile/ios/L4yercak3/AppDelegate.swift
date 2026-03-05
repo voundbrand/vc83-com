@@ -54,15 +54,18 @@ public class AppDelegate: ExpoAppDelegate {
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
   ) -> Bool {
+    let datHandled = handleDatCallback(url: userActivity.webpageURL)
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
-    return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
+    return datHandled || super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
 
-  private func handleDatCallback(url: URL) -> Bool {
+  private func handleDatCallback(url: URL?) -> Bool {
 #if canImport(MWDATCore)
+    guard let url else {
+      return false
+    }
     guard
-      let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-      components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+      isDatCallbackURL(url)
     else {
       return false
     }
@@ -78,6 +81,24 @@ public class AppDelegate: ExpoAppDelegate {
 #else
     return false
 #endif
+  }
+
+  private func isDatCallbackURL(_ url: URL) -> Bool {
+    if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+      components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+    {
+      return true
+    }
+
+    let normalizedHost = url.host?.lowercased() ?? ""
+    let normalizedPath = url.path.lowercased()
+    if normalizedHost == "links.sevenlayers.io",
+      normalizedPath.contains("dat-callback")
+    {
+      return true
+    }
+
+    return false
   }
 }
 

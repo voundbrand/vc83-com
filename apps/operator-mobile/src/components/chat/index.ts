@@ -1,7 +1,7 @@
 export { AttachmentMenu } from './AttachmentMenu';
 export { MessageActions } from './MessageActions';
 export { VoiceRecorder } from './VoiceRecorder';
-export type { VoiceRecorderFrame } from './VoiceRecorder';
+export type { VoiceRecorderEnergySample, VoiceRecorderFrame } from './VoiceRecorder';
 export { ChatDrawer } from './ChatDrawer';
 export { ModelSelector } from './ModelSelector';
 export { PendingApprovalsPanel } from './PendingApprovalsPanel';

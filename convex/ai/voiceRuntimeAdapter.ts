@@ -112,6 +112,7 @@ export interface ResolveVoiceRuntimeAdapterArgs {
   requestedProviderId?: VoiceRuntimeProviderId | AiProviderId | string | null;
   elevenLabsBinding?: ElevenLabsBinding | null;
   fetchFn?: typeof fetch;
+  webSocketFactory?: VoiceRuntimeWebSocketFactory;
   now?: () => number;
 }
 
@@ -129,21 +130,43 @@ export interface ElevenLabsVoiceRuntimeAdapterOptions {
   sttModelId?: string;
   ttsModelId?: string;
   fetchFn?: typeof fetch;
+  webSocketFactory?: VoiceRuntimeWebSocketFactory;
   now?: () => number;
 }
 
 type FetchLike = typeof fetch;
+interface VoiceRuntimeWebSocketLike {
+  readyState: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  addEventListener(
+    event: "open" | "message" | "error" | "close",
+    listener: (event: unknown) => void,
+  ): void;
+  removeEventListener(
+    event: "open" | "message" | "error" | "close",
+    listener: (event: unknown) => void,
+  ): void;
+}
+export type VoiceRuntimeWebSocketFactory = (
+  url: string,
+) => VoiceRuntimeWebSocketLike;
 type NonBrowserVoiceRuntimeProviderId = Exclude<
   VoiceRuntimeProviderId,
   "browser"
 >;
 
 const ELEVENLABS_DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
-const ELEVENLABS_DEFAULT_STT_MODEL = "scribe_v1";
+const ELEVENLABS_DEFAULT_STT_MODEL = "scribe_v2";
 const ELEVENLABS_DEFAULT_TTS_MODEL = "eleven_multilingual_v2";
 const ELEVENLABS_ESTIMATED_STT_USD_PER_HOUR = 0.4;
 const ELEVENLABS_ESTIMATED_TTS_USD_PER_1K_CHAR = 0.3;
 const ELEVENLABS_STT_ESTIMATED_BYTES_PER_SECOND = 4_000;
+const ELEVENLABS_TTS_WS_INACTIVITY_TIMEOUT_SECONDS = 300;
+const ELEVENLABS_TTS_WS_OUTPUT_FORMAT = "mp3_44100_128";
+const ELEVENLABS_TTS_WS_OPEN_TIMEOUT_MS = 7_500;
+const ELEVENLABS_TTS_WS_MIN_RECEIVE_TIMEOUT_MS = 8_000;
+const ELEVENLABS_TTS_WS_MAX_RECEIVE_TIMEOUT_MS = 45_000;
 const BROWSER_ADAPTER_UNSUPPORTED_REASON =
   "browser_runtime_requires_client_side_voice_processing";
 const BASE64_ALPHABET =
@@ -171,6 +194,31 @@ function encodeBytesToBase64(bytes: Uint8Array): string {
   return encoded;
 }
 
+function decodeBase64ToBytes(value: string): Uint8Array {
+  const normalized = value.trim();
+  if (!normalized) {
+    return new Uint8Array(0);
+  }
+  const globalScope = globalThis as {
+    Buffer?: {
+      from(input: string, encoding: string): Uint8Array;
+    };
+    atob?: (input: string) => string;
+  };
+  if (globalScope.Buffer?.from) {
+    return Uint8Array.from(globalScope.Buffer.from(normalized, "base64"));
+  }
+  if (typeof globalScope.atob === "function") {
+    const binary = globalScope.atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+  throw new Error("Base64 decoding is unavailable in this runtime.");
+}
+
 export interface VoicePcmContractLike {
   encoding: "pcm_s16le" | "pcm_f32le";
   sampleRateHz: number;
@@ -196,6 +244,14 @@ function normalizeTranscriptionMimeType(value: unknown): string {
     return "audio/mp4";
   }
   return canonical;
+}
+
+function resolveElevenLabsSpeechToTextModelId(modelId: string): string {
+  const normalizedModelId = modelId.trim().toLowerCase();
+  if (normalizedModelId === "scribe_v2_realtime") {
+    return "scribe_v2";
+  }
+  return modelId;
 }
 
 function resolveTranscriptionFilename(mimeType: string): string {
@@ -236,6 +292,74 @@ function normalizeBaseUrl(value: string | undefined): string {
   return (normalized ?? ELEVENLABS_DEFAULT_BASE_URL).replace(/\/+$/, "");
 }
 
+function resolveWebSocketBaseUrl(httpBaseUrl: string): string {
+  return httpBaseUrl.replace(/^https:\/\//i, "wss://").replace(/^http:\/\//i, "ws://");
+}
+
+function resolveDefaultWebSocketFactory():
+  | VoiceRuntimeWebSocketFactory
+  | null {
+  const globalScope = globalThis as {
+    WebSocket?: new (url: string) => VoiceRuntimeWebSocketLike;
+  };
+  if (typeof globalScope.WebSocket !== "function") {
+    return null;
+  }
+  return (url: string) => new globalScope.WebSocket!(url);
+}
+
+function createTtsContextId(voiceSessionId: string): string {
+  const sessionSuffix = voiceSessionId.replace(/[^a-zA-Z0-9]/g, "").slice(-12);
+  const randomSuffix = Math.random().toString(36).slice(2, 10);
+  return `${sessionSuffix || "session"}${randomSuffix}`.slice(0, 24);
+}
+
+function splitSynthesisTextIntoChunks(text: string): string[] {
+  const normalized = text.trim();
+  if (!normalized) {
+    return [];
+  }
+  if (normalized.length <= 320) {
+    return [normalized];
+  }
+  const segments = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (segments.length === 0) {
+    return [normalized];
+  }
+
+  const chunks: string[] = [];
+  let buffer = "";
+  for (const segment of segments) {
+    if (!buffer) {
+      buffer = segment;
+      continue;
+    }
+    if ((buffer.length + 1 + segment.length) <= 320) {
+      buffer = `${buffer} ${segment}`;
+      continue;
+    }
+    chunks.push(buffer);
+    buffer = segment;
+  }
+  if (buffer) {
+    chunks.push(buffer);
+  }
+  return chunks;
+}
+
+function resolveTtsWebSocketReceiveTimeoutMs(textLength: number): number {
+  const estimated = Math.floor(
+    ELEVENLABS_TTS_WS_MIN_RECEIVE_TIMEOUT_MS + Math.max(0, textLength) * 45,
+  );
+  return Math.max(
+    ELEVENLABS_TTS_WS_MIN_RECEIVE_TIMEOUT_MS,
+    Math.min(ELEVENLABS_TTS_WS_MAX_RECEIVE_TIMEOUT_MS, estimated),
+  );
+}
+
 function normalizeRequestedProviderId(
   value: ResolveVoiceRuntimeAdapterArgs["requestedProviderId"],
 ): VoiceRuntimeProviderId {
@@ -262,6 +386,12 @@ function extractErrorMessage(payload: unknown): string | null {
   }
 
   const nestedError = typed.error;
+  if (typeof nestedError === "string") {
+    const nestedErrorMessage = normalizeString(nestedError);
+    if (nestedErrorMessage) {
+      return nestedErrorMessage;
+    }
+  }
   if (typeof nestedError === "object" && nestedError !== null) {
     const nestedMessage = normalizeString(
       (nestedError as Record<string, unknown>).message,
@@ -519,6 +649,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
   private readonly sttModelId: string;
   private readonly ttsModelId: string;
   private readonly fetchFn: FetchLike;
+  private readonly webSocketFactory: VoiceRuntimeWebSocketFactory | null;
   private readonly now: () => number;
 
   constructor(options: ElevenLabsVoiceRuntimeAdapterOptions) {
@@ -535,6 +666,8 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     this.ttsModelId =
       normalizeString(options.ttsModelId) ?? ELEVENLABS_DEFAULT_TTS_MODEL;
     this.fetchFn = ensureFetch(options.fetchFn);
+    this.webSocketFactory =
+      options.webSocketFactory ?? resolveDefaultWebSocketFactory();
     this.now = options.now ?? Date.now;
   }
 
@@ -597,6 +730,11 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
   async transcribe(args: VoiceTranscriptionArgs): Promise<VoiceTranscriptionResult> {
     const inputByteLength = args.audioBytes.byteLength;
     const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType);
+    const requestModelId = resolveElevenLabsSpeechToTextModelId(this.sttModelId);
+    const modelDebugValue =
+      requestModelId === this.sttModelId
+        ? requestModelId
+        : `${this.sttModelId}->${requestModelId}`;
     const transcriptionMimeAttempts =
       normalizedMimeType === "audio/webm"
         ? ["audio/webm", "audio/mp4"]
@@ -612,7 +750,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
         type: attemptMimeType,
       });
       formData.append("file", blob, resolveTranscriptionFilename(attemptMimeType));
-      formData.append("model_id", this.sttModelId);
+      formData.append("model_id", requestModelId);
       if (language) {
         formData.append("language_code", language);
       }
@@ -648,8 +786,8 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
 
         throw new Error(
           message
-            ? `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${attemptMimeType}: ${message}`
-            : `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${this.sttModelId} mimeType=${attemptMimeType}: ${errorBody.trim() || "no response body"}`,
+            ? `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${modelDebugValue} mimeType=${attemptMimeType}: ${message}`
+            : `ElevenLabs transcription failed (${response.status}) endpoint=${endpoint} model=${modelDebugValue} mimeType=${attemptMimeType}: ${errorBody.trim() || "no response body"}`,
         );
       }
 
@@ -699,7 +837,9 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
             reportedCostUsd !== null ? "provider_reported" : "estimated_unit_pricing",
           providerRequestId,
           metadata: {
-            modelId: this.sttModelId,
+            modelId: requestModelId,
+            configuredModelId:
+              this.sttModelId !== requestModelId ? this.sttModelId : undefined,
             mimeType: attemptMimeType,
             inputBytes: inputByteLength,
             durationSource:
@@ -715,20 +855,196 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     }
 
     throw new Error(
-      `ElevenLabs transcription failed endpoint=${endpoint} model=${this.sttModelId}: exhausted container retries.`,
+      `ElevenLabs transcription failed endpoint=${endpoint} model=${modelDebugValue}: exhausted container retries.`,
     );
   }
 
-  async synthesize(args: VoiceSynthesisArgs): Promise<VoiceSynthesisResult> {
-    const voiceId = normalizeString(args.voiceId) ?? this.defaultVoiceId;
-    if (!voiceId) {
-      throw new Error(
-        "No ElevenLabs voice ID provided for TTS synthesis.",
-      );
+  private async synthesizeViaWebSocket(args: {
+    voiceSessionId: string;
+    voiceId: string;
+    text: string;
+  }): Promise<{
+    audioBytes: Uint8Array;
+    contextId: string;
+    outputFormat: string;
+  }> {
+    if (!this.webSocketFactory) {
+      throw new Error("elevenlabs_tts_ws_unavailable");
+    }
+    const contextId = createTtsContextId(args.voiceSessionId);
+    const wsBaseUrl = resolveWebSocketBaseUrl(this.baseUrl);
+    const wsUrl = `${wsBaseUrl}/text-to-speech/${encodeURIComponent(args.voiceId)}/multi-stream-input`
+      + `?model_id=${encodeURIComponent(this.ttsModelId)}`
+      + `&output_format=${encodeURIComponent(ELEVENLABS_TTS_WS_OUTPUT_FORMAT)}`
+      + `&inactivity_timeout=${ELEVENLABS_TTS_WS_INACTIVITY_TIMEOUT_SECONDS}`;
+    const ws = this.webSocketFactory(wsUrl);
+    const frameChunks: Uint8Array[] = [];
+    const receiveTimeoutMs = resolveTtsWebSocketReceiveTimeoutMs(args.text.length);
+
+    const openPromise = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const openTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error("elevenlabs_tts_ws_open_timeout"));
+        }
+      }, ELEVENLABS_TTS_WS_OPEN_TIMEOUT_MS);
+      const settle = (handler: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(openTimeout);
+        handler();
+      };
+      ws.addEventListener("open", () => settle(resolve));
+      ws.addEventListener("error", () =>
+        settle(() => reject(new Error("elevenlabs_tts_ws_open_failed"))));
+      ws.addEventListener("close", () =>
+        settle(() => reject(new Error("elevenlabs_tts_ws_closed_during_open"))));
+    });
+    await openPromise;
+
+    const completionPromise = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error("elevenlabs_tts_ws_receive_timeout"));
+        }
+      }, receiveTimeoutMs);
+      const settleResolve = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      };
+      const settleReject = (reason: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        reject(reason);
+      };
+
+      const handleMessage = (event: unknown) => {
+        const payloadText = normalizeString(
+          (event as { data?: unknown })?.data,
+        );
+        if (!payloadText) {
+          return;
+        }
+        const payload = parseJsonSafely(payloadText);
+        if (typeof payload !== "object" || payload === null) {
+          return;
+        }
+        const payloadRecord = payload as Record<string, unknown>;
+        const payloadContextId =
+          normalizeString(payloadRecord.contextId)
+          ?? normalizeString(payloadRecord.context_id);
+        if (payloadContextId && payloadContextId !== contextId) {
+          return;
+        }
+        const errorMessage = extractErrorMessage(payloadRecord);
+        if (errorMessage) {
+          settleReject(new Error(
+            `ElevenLabs websocket synthesis failed: ${errorMessage}`,
+          ));
+          return;
+        }
+        const audioBase64 = normalizeString(payloadRecord.audio);
+        if (audioBase64) {
+          const decoded = decodeBase64ToBytes(audioBase64);
+          if (decoded.byteLength > 0) {
+            frameChunks.push(decoded);
+          }
+        }
+        const isFinal =
+          payloadRecord.isFinal === true
+          || payloadRecord.is_final === true
+          || payloadRecord.final === true;
+        if (isFinal) {
+          settleResolve();
+        }
+      };
+      const handleError = () => {
+        settleReject(new Error("elevenlabs_tts_ws_transport_error"));
+      };
+      const handleClose = () => {
+        if (frameChunks.length > 0) {
+          settleResolve();
+          return;
+        }
+        settleReject(new Error("elevenlabs_tts_ws_closed_before_audio"));
+      };
+
+      ws.addEventListener("message", handleMessage);
+      ws.addEventListener("error", handleError);
+      ws.addEventListener("close", handleClose);
+    });
+
+    try {
+      ws.send(JSON.stringify({
+        context_id: contextId,
+        text: " ",
+      }));
+      const chunks = splitSynthesisTextIntoChunks(args.text);
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+        const chunkText = chunks[chunkIndex];
+        if (!chunkText) {
+          continue;
+        }
+        const isLastChunk = chunkIndex === chunks.length - 1;
+        ws.send(JSON.stringify({
+          context_id: contextId,
+          text: `${chunkText} `,
+          flush: isLastChunk,
+        }));
+      }
+      ws.send(JSON.stringify({
+        context_id: contextId,
+        close_context: true,
+      }));
+      await completionPromise;
+    } finally {
+      if (ws.readyState <= 1) {
+        ws.close(1000, "voice_runtime_tts_complete");
+      }
     }
 
+    if (frameChunks.length === 0) {
+      throw new Error("ElevenLabs websocket synthesis returned empty audio.");
+    }
+    const totalBytes = frameChunks.reduce(
+      (sum, chunk) => sum + chunk.byteLength,
+      0,
+    );
+    const merged = new Uint8Array(totalBytes);
+    let writeOffset = 0;
+    for (const chunk of frameChunks) {
+      merged.set(chunk, writeOffset);
+      writeOffset += chunk.byteLength;
+    }
+
+    return {
+      audioBytes: merged,
+      contextId,
+      outputFormat: ELEVENLABS_TTS_WS_OUTPUT_FORMAT,
+    };
+  }
+
+  private async synthesizeViaHttp(args: {
+    voiceId: string;
+    text: string;
+  }): Promise<{
+    response: Response;
+    audioBytes: Uint8Array;
+  }> {
     const response = await this.fetchFn(
-      `${this.baseUrl}/text-to-speech/${encodeURIComponent(voiceId)}`,
+      `${this.baseUrl}/text-to-speech/${encodeURIComponent(args.voiceId)}`,
       {
         method: "POST",
         headers: {
@@ -756,18 +1072,67 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
     if (audioBytes.byteLength === 0) {
       throw new Error("ElevenLabs synthesis returned empty audio.");
     }
+    return { response, audioBytes };
+  }
 
-    const providerRequestId = readProviderRequestId(response.headers);
-    const inputCharacterCount = Math.max(0, args.text.length);
+  async synthesize(args: VoiceSynthesisArgs): Promise<VoiceSynthesisResult> {
+    const voiceId = normalizeString(args.voiceId) ?? this.defaultVoiceId;
+    if (!voiceId) {
+      throw new Error(
+        "No ElevenLabs voice ID provided for TTS synthesis.",
+      );
+    }
+    const text = normalizeString(args.text);
+    if (!text) {
+      throw new Error("ElevenLabs synthesis requires non-empty text.");
+    }
+
+    let audioBytes: Uint8Array | null = null;
+    let mimeType = "audio/mpeg";
+    let providerRequestId: string | undefined;
+    let ttsRoute: "websocket_multi_context_primary" | "batch_synthesize_fallback" =
+      "websocket_multi_context_primary";
+    let websocketContextId: string | undefined;
+    let websocketFallbackReason: string | null = null;
+
+    if (this.webSocketFactory) {
+      try {
+        const websocketSynthesis = await this.synthesizeViaWebSocket({
+          voiceSessionId: args.voiceSessionId,
+          voiceId,
+          text,
+        });
+        audioBytes = websocketSynthesis.audioBytes;
+        websocketContextId = websocketSynthesis.contextId;
+      } catch (error) {
+        websocketFallbackReason =
+          error instanceof Error
+            ? error.message
+            : "elevenlabs_tts_ws_fallback";
+        ttsRoute = "batch_synthesize_fallback";
+      }
+    } else {
+      websocketFallbackReason = "elevenlabs_tts_ws_unavailable";
+      ttsRoute = "batch_synthesize_fallback";
+    }
+
+    if (!audioBytes) {
+      const httpSynthesis = await this.synthesizeViaHttp({
+        voiceId,
+        text,
+      });
+      audioBytes = httpSynthesis.audioBytes;
+      providerRequestId = readProviderRequestId(httpSynthesis.response.headers);
+      mimeType = httpSynthesis.response.headers.get("content-type") ?? "audio/mpeg";
+      if (!websocketFallbackReason) {
+        websocketFallbackReason = "elevenlabs_tts_ws_fallback";
+      }
+    }
+
+    const inputCharacterCount = Math.max(0, text.length);
     const reportedCharacterCount =
-      readHeaderNumber(response.headers, [
-        "x-characters-used",
-        "x-character-count",
-      ]) ?? parseNonNegativeNumber(inputCharacterCount);
-    const reportedCostUsd = readHeaderNumber(response.headers, [
-      "x-cost-usd",
-      "x-billing-cost-usd",
-    ]);
+      parseNonNegativeNumber(inputCharacterCount);
+    const reportedCostUsd = null;
     const estimatedCostUsd =
       ((reportedCharacterCount ?? inputCharacterCount) / 1000) *
       ELEVENLABS_ESTIMATED_TTS_USD_PER_1K_CHAR;
@@ -780,7 +1145,7 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
 
     return {
       providerId: this.providerId,
-      mimeType: response.headers.get("content-type") ?? "audio/mpeg",
+      mimeType,
       audioBase64: encodeBytesToBase64(audioBytes),
       usage: {
         nativeUsageUnit: "characters",
@@ -795,10 +1160,18 @@ class ElevenLabsVoiceRuntimeAdapter implements VoiceRuntimeAdapter {
         metadata: {
           modelId: this.ttsModelId,
           voiceId,
+          ttsRoute,
+          websocketContextId,
+          websocketFallbackReason: websocketFallbackReason ?? undefined,
           responseBytes: audioBytes.byteLength,
         },
       },
-      raw: { voiceId },
+      raw: {
+        voiceId,
+        ttsRoute,
+        websocketContextId,
+        websocketFallbackReason: websocketFallbackReason ?? undefined,
+      },
     };
   }
 
@@ -853,6 +1226,7 @@ const VOICE_RUNTIME_PROVIDER_FACTORIES: Record<
         baseUrl: args.elevenLabsBinding?.baseUrl,
         defaultVoiceId: args.elevenLabsBinding?.defaultVoiceId,
         fetchFn: args.fetchFn,
+        webSocketFactory: args.webSocketFactory,
         now: args.now,
       });
     },

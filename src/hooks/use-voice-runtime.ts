@@ -9,6 +9,17 @@ const { api } = require("../../convex/_generated/api") as { api: any };
 
 export type VoiceRuntimeProviderId = "browser" | "elevenlabs";
 export type VoiceProviderHealthStatus = "healthy" | "degraded" | "offline";
+export type VoiceRealtimeTransportRoute =
+  | "websocket_primary"
+  | "webrtc_fallback";
+export type VoiceRealtimeSttRoute =
+  | "scribe_v2_realtime_primary"
+  | "gemini_native_audio_failover";
+export type VoiceTransportEnvelopeEventType =
+  | "audio_chunk"
+  | "partial_transcript"
+  | "final_transcript"
+  | "barge_in";
 
 export interface VoiceProviderHealth {
   providerId: VoiceRuntimeProviderId;
@@ -48,6 +59,33 @@ interface ProbeVoiceHealthResult {
   health: VoiceProviderHealth;
 }
 
+interface VoiceTransportEnvelopeRelayEvent {
+  eventType?: string;
+  sequence?: number;
+  transcriptText?: string;
+}
+
+interface VoiceRealtimeIngestResult {
+  success: boolean;
+  ordering?: {
+    decision?: string;
+    expectedSequence?: number;
+    lastAcceptedSequence?: number | null;
+  };
+  idempotent?: boolean;
+  persistedFinalTranscript?: boolean;
+  relayEvents?: VoiceTransportEnvelopeRelayEvent[];
+  orchestration?: {
+    shouldTriggerAssistantTurn?: boolean;
+    reason?: string;
+    turn?: {
+      status?: "triggered" | "suppressed" | "failed";
+      reason?: string;
+      transcriptText?: string;
+    };
+  };
+}
+
 interface UseVoiceRuntimeArgs {
   authSessionId?: string;
   interviewSessionId?: Id<"agentSessions">;
@@ -58,16 +96,76 @@ interface VoiceRuntimeContextOverride {
   interviewSessionId?: Id<"agentSessions">;
 }
 
+interface VoiceRealtimeEnvelopePcmContract {
+  encoding: "pcm_s16le";
+  sampleRateHz: number;
+  channels: 1;
+  frameDurationMs: number;
+}
+
+interface IngestRealtimeEnvelopeOptions {
+  voiceSessionId: string;
+  conversationId?: Id<"aiConversations">;
+  liveSessionId: string;
+  sequence: number;
+  transportRoute: VoiceRealtimeTransportRoute;
+  sttRoute?: VoiceRealtimeSttRoute;
+  requestedProviderId?: VoiceRuntimeProviderId;
+  runtimeContext?: VoiceRuntimeContextOverride;
+  eventType?: VoiceTransportEnvelopeEventType;
+  transcriptText?: string;
+  audioChunkBase64?: string;
+  transcriptionMimeType?: string;
+  pcm?: VoiceRealtimeEnvelopePcmContract;
+  conversationRuntime?: Record<string, unknown>;
+  voiceRuntime?: Record<string, unknown>;
+  transportRuntime?: Record<string, unknown>;
+  avObservability?: Record<string, unknown>;
+}
+
 export interface VoiceTranscriptionTelemetry {
   recorderMimeType?: string;
   captureChunkCount?: number;
   captureChunkBytes?: number;
+  captureMethod?:
+    | "pcm_audio_worklet"
+    | "pcm_script_processor"
+    | "media_recorder_fallback";
+  frameDurationMs?: number;
+  sampleRateHz?: number;
+  frameCount?: number;
+  frameBytes?: number;
+  realtimeFrameCount?: number;
+  realtimeFrameBytes?: number;
+  realtimeTransportRoute?: string;
+  realtimeTransportRoutePrecedence?: readonly string[];
+  realtimeSttRoutePrecedence?: readonly string[];
+  realtimeFallbackReason?: string;
+  interruptCount?: number;
+  vadMode?: string;
+  vadEnergyThresholdRms?: number;
+  vadMinSpeechFrames?: number;
+  vadEndpointSilenceMs?: number;
+  echoCancellationStrategy?: string;
+  echoCancellationReason?: string;
+  echoCancellationHardwareAecSupported?: boolean;
+  echoCancellationHardwareAecEnabled?: boolean;
+  assistantPlaybackQueuePolicy?: string;
+  assistantPlaybackQueueDepth?: number;
+  assistantPlaybackQueueInterruptCount?: number;
+  assistantPlaybackQueueInterrupted?: boolean;
 }
 
 function normalizeProviderId(
   value: VoiceRuntimeProviderId | null | undefined,
 ): VoiceRuntimeProviderId {
   return value === "elevenlabs" ? "elevenlabs" : "browser";
+}
+
+function resolveEnvelopeTransportMode(
+  route: VoiceRealtimeTransportRoute,
+): "websocket" | "webrtc" {
+  return route === "webrtc_fallback" ? "webrtc" : "websocket";
 }
 
 function requireRuntimeContext(
@@ -121,6 +219,11 @@ function shouldRetryTranscriptionAsWav(args: {
   return normalized.includes("invalid_audio")
     || normalized.includes("corrupt")
     || normalized.includes("unprocessable_audio");
+}
+
+function isWavMimeType(mimeType: string | undefined): boolean {
+  const normalized = (mimeType || "").toLowerCase();
+  return normalized.includes("audio/wav") || normalized.includes("audio/x-wav");
 }
 
 function encodeMonoPcm16Wav(audioBuffer: AudioBuffer): Blob {
@@ -266,6 +369,9 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
   const probeVoiceProviderHealthAction = useAction(
     api.ai.voiceRuntime.probeVoiceProviderHealth as any,
   );
+  const ingestVoiceTransportEnvelopeAction = useAction(
+    api.ai.voiceRuntime.ingestVoiceTransportEnvelope as any,
+  );
 
   const openSession = async (
     options?: {
@@ -329,11 +435,47 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       retryPath: "primary" | "client_wav_retry" = "primary",
     ): Promise<TranscribeVoiceResult> => {
       const audioBase64 = await blobToBase64(blob);
-      const attemptMimeType = mimeTypeOverride || blob.type || "audio/webm";
+      const attemptMimeType = mimeTypeOverride
+        || blob.type
+        || (normalizeProviderId(options.requestedProviderId) === "elevenlabs"
+          ? "audio/wav"
+          : "audio/webm");
       const transcriptionTelemetry = {
         recorderMimeType: options.telemetry?.recorderMimeType,
         captureChunkCount: options.telemetry?.captureChunkCount,
         captureChunkBytes: options.telemetry?.captureChunkBytes,
+        captureMethod: options.telemetry?.captureMethod,
+        frameDurationMs: options.telemetry?.frameDurationMs,
+        sampleRateHz: options.telemetry?.sampleRateHz,
+        frameCount: options.telemetry?.frameCount,
+        frameBytes: options.telemetry?.frameBytes,
+        realtimeFrameCount: options.telemetry?.realtimeFrameCount,
+        realtimeFrameBytes: options.telemetry?.realtimeFrameBytes,
+        realtimeTransportRoute: options.telemetry?.realtimeTransportRoute,
+        realtimeTransportRoutePrecedence:
+          options.telemetry?.realtimeTransportRoutePrecedence,
+        realtimeSttRoutePrecedence:
+          options.telemetry?.realtimeSttRoutePrecedence,
+        realtimeFallbackReason: options.telemetry?.realtimeFallbackReason,
+        interruptCount: options.telemetry?.interruptCount,
+        vadMode: options.telemetry?.vadMode,
+        vadEnergyThresholdRms: options.telemetry?.vadEnergyThresholdRms,
+        vadMinSpeechFrames: options.telemetry?.vadMinSpeechFrames,
+        vadEndpointSilenceMs: options.telemetry?.vadEndpointSilenceMs,
+        echoCancellationStrategy: options.telemetry?.echoCancellationStrategy,
+        echoCancellationReason: options.telemetry?.echoCancellationReason,
+        echoCancellationHardwareAecSupported:
+          options.telemetry?.echoCancellationHardwareAecSupported,
+        echoCancellationHardwareAecEnabled:
+          options.telemetry?.echoCancellationHardwareAecEnabled,
+        assistantPlaybackQueuePolicy:
+          options.telemetry?.assistantPlaybackQueuePolicy,
+        assistantPlaybackQueueDepth:
+          options.telemetry?.assistantPlaybackQueueDepth,
+        assistantPlaybackQueueInterruptCount:
+          options.telemetry?.assistantPlaybackQueueInterruptCount,
+        assistantPlaybackQueueInterrupted:
+          options.telemetry?.assistantPlaybackQueueInterrupted,
         blobMimeType: attemptMimeType,
         blobSizeBytes: blob.size,
         retryPath,
@@ -357,6 +499,7 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     const primaryResult = await invokeTranscription(options.blob, undefined, "primary");
     if (
       primaryResult.success
+      || isWavMimeType(options.blob.type)
       || !shouldRetryTranscriptionAsWav({
         providerId: primaryResult.providerId,
         error: primaryResult.error,
@@ -385,6 +528,72 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
         ? `${primaryResult.error || "voice_transcription_failed"}; wav_retry_failed: ${wavRetryResult.error}`
         : primaryResult.error,
     };
+  };
+
+  const ingestRealtimeEnvelope = async (
+    options: IngestRealtimeEnvelopeOptions,
+  ): Promise<VoiceRealtimeIngestResult> => {
+    const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
+    const eventType = options.eventType ?? "audio_chunk";
+    const normalizedRequestedProviderId = normalizeProviderId(
+      options.requestedProviderId,
+    );
+    const transportMode = resolveEnvelopeTransportMode(options.transportRoute);
+    const now = Date.now();
+
+    const envelopeBase = {
+      contractVersion: "voice_transport_v1" as const,
+      transportMode,
+      eventType,
+      liveSessionId: options.liveSessionId,
+      voiceSessionId: options.voiceSessionId,
+      interviewSessionId: String(runtimeContext.interviewSessionId),
+      sequence: options.sequence,
+      previousSequence: options.sequence > 0 ? options.sequence - 1 : undefined,
+      timestampMs: now,
+    };
+
+    const envelope =
+      eventType === "audio_chunk"
+        ? {
+            ...envelopeBase,
+            audioChunkBase64: options.audioChunkBase64 || "",
+            transcriptionMimeType: options.transcriptionMimeType,
+            pcm: options.pcm ?? {
+              encoding: "pcm_s16le",
+              sampleRateHz: 24_000,
+              channels: 1 as const,
+              frameDurationMs: 20,
+            },
+          }
+        : {
+            ...envelopeBase,
+            transcriptText: options.transcriptText,
+          };
+
+    return (await ingestVoiceTransportEnvelopeAction({
+      sessionId: runtimeContext.authSessionId,
+      interviewSessionId: runtimeContext.interviewSessionId,
+      conversationId: options.conversationId,
+      requestedProviderId: normalizedRequestedProviderId,
+      conversationRuntime: options.conversationRuntime,
+      voiceRuntime: {
+        ...(options.voiceRuntime ?? {}),
+        realtimeSttRoute:
+          options.sttRoute ?? "scribe_v2_realtime_primary",
+        realtimeSttRouteFallback:
+          options.sttRoute === "gemini_native_audio_failover"
+            ? "gemini_native_audio_failover"
+            : undefined,
+      },
+      transportRuntime: {
+        ...(options.transportRuntime ?? {}),
+        realtimeTransportRoute: options.transportRoute,
+        realtimeTransportMode: transportMode,
+      },
+      avObservability: options.avObservability,
+      envelope,
+    })) as VoiceRealtimeIngestResult;
   };
 
   const synthesizePreview = async (options: {
@@ -448,6 +657,7 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     closeSession,
     probeProviderHealth,
     transcribeAudioBlob,
+    ingestRealtimeEnvelope,
     synthesizePreview,
   };
 }

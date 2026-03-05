@@ -23,6 +23,7 @@ describe("mobile voice frame streaming runtime", () => {
     expect(envelope.transportMode).toBe("websocket");
     expect(envelope.sequence).toBe(3);
     expect(envelope.previousSequence).toBe(2);
+    expect(envelope.pcm.sampleRateHz).toBe(24_000);
     expect(envelope.pcm.frameDurationMs).toBe(40);
   });
 

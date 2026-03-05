@@ -713,6 +713,7 @@ import type * as translations_seedLogin_03_Buttons from "../translations/seedLog
 import type * as translations_seedLogin_03a_Buttons from "../translations/seedLogin_03a_Buttons.js";
 import type * as translations_seedLogin_03b_Errors from "../translations/seedLogin_03b_Errors.js";
 import type * as translations_seedLogin_04_Passkeys from "../translations/seedLogin_04_Passkeys.js";
+import type * as translations_seedLogin_05_ExtendedAuthWindow from "../translations/seedLogin_05_ExtendedAuthWindow.js";
 import type * as translations_seedManage_01_MainWindow from "../translations/seedManage_01_MainWindow.js";
 import type * as translations_seedManage_02_Organization from "../translations/seedManage_02_Organization.js";
 import type * as translations_seedManage_03_Users from "../translations/seedManage_03_Users.js";
@@ -1495,6 +1496,7 @@ declare const fullApi: ApiFromModules<{
   "translations/seedLogin_03a_Buttons": typeof translations_seedLogin_03a_Buttons;
   "translations/seedLogin_03b_Errors": typeof translations_seedLogin_03b_Errors;
   "translations/seedLogin_04_Passkeys": typeof translations_seedLogin_04_Passkeys;
+  "translations/seedLogin_05_ExtendedAuthWindow": typeof translations_seedLogin_05_ExtendedAuthWindow;
   "translations/seedManage_01_MainWindow": typeof translations_seedManage_01_MainWindow;
   "translations/seedManage_02_Organization": typeof translations_seedManage_02_Organization;
   "translations/seedManage_03_Users": typeof translations_seedManage_03_Users;

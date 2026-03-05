@@ -90,6 +90,17 @@ export const TRANSLATIONS = {
     'settings.build': 'Build',
     'settings.signOut': 'Sign Out',
     'settings.unknownUser': 'Unknown user',
+    'settings.metaBridgeDatSdkUnavailableTitle': 'DAT SDK unavailable',
+    'settings.metaBridgeDatSdkUnavailableBody':
+      'This build does not include the DAT SDK. Install a DAT-enabled iPhone build to connect Meta glasses.',
+    'settings.metaBridgeUnavailableTitle': 'Meta glasses unavailable',
+    'settings.metaBridgeConnectInMetaAi':
+      'Meta glasses are not connected to this iPhone yet. Open the Meta AI app, connect your glasses there, then return and try again.',
+    'settings.metaBridgeUnavailableFallback':
+      'Meta glasses are currently unavailable. Open the Meta AI app, confirm your glasses are connected, then try again.',
+    'settings.metaBridgeDisconnectFailedTitle': 'Bridge disconnect failed',
+    'settings.metaBridgeConnectAction': 'Connect Meta glasses',
+    'settings.metaBridgeDisconnectAction': 'Disconnect Meta glasses',
 
     'contacts.title': 'Contacts',
     'contacts.searchPlaceholder': 'Search contacts...',
@@ -113,6 +124,14 @@ export const TRANSLATIONS = {
     'chat.sendFailedBody': 'Failed to send message to concierge runtime.',
     'chat.transcriptionFailedTitle': 'Transcription failed',
     'chat.transcriptionFailedBody': 'Unable to transcribe voice recording.',
+    'chat.visionSourceUnavailableTitle': 'Vision source unavailable',
+    'chat.metaBridgeDatSdkUnavailable':
+      'Meta glasses require a DAT-enabled iPhone build and are unavailable on this build. Switch to iPhone camera.',
+    'chat.metaBridgeConnectInMetaAi':
+      'Meta glasses are not connected to this iPhone yet. Open the Meta AI app, connect your glasses there, then return and try again.',
+    'chat.metaBridgeUnavailableFallback':
+      'Meta glasses are currently unavailable. Connect your glasses in the Meta AI app, or switch to iPhone camera.',
+    'chat.metaBridgeSwitchedToIphone': 'Switched to iPhone camera.',
     'chat.policyBlocked': 'Command "{command}" blocked ({reason}). Runtime stays fail-closed.',
     'chat.toolBoundaryCta': 'Start feature intake',
     'chat.imageAttachment': 'Image attachment',
@@ -288,6 +307,17 @@ export const TRANSLATIONS = {
     'settings.build': 'Build',
     'settings.signOut': 'Abmelden',
     'settings.unknownUser': 'Unbekannter Benutzer',
+    'settings.metaBridgeDatSdkUnavailableTitle': 'DAT SDK nicht verfuegbar',
+    'settings.metaBridgeDatSdkUnavailableBody':
+      'Dieser Build enthaelt kein DAT SDK. Installieren Sie einen DAT-faehigen iPhone-Build, um Meta-Brillen zu verbinden.',
+    'settings.metaBridgeUnavailableTitle': 'Meta-Brille nicht verfuegbar',
+    'settings.metaBridgeConnectInMetaAi':
+      'Die Meta-Brille ist noch nicht mit diesem iPhone verbunden. Oeffnen Sie die Meta AI App, verbinden Sie die Brille dort, und versuchen Sie es dann erneut.',
+    'settings.metaBridgeUnavailableFallback':
+      'Meta-Brillen sind derzeit nicht verfuegbar. Oeffnen Sie die Meta AI App, pruefen Sie die Verbindung, und versuchen Sie es erneut.',
+    'settings.metaBridgeDisconnectFailedTitle': 'Bridge-Trennung fehlgeschlagen',
+    'settings.metaBridgeConnectAction': 'Meta-Brille verbinden',
+    'settings.metaBridgeDisconnectAction': 'Meta-Brille trennen',
 
     'contacts.title': 'Kontakte',
     'contacts.searchPlaceholder': 'Kontakte durchsuchen...',
@@ -311,6 +341,14 @@ export const TRANSLATIONS = {
     'chat.sendFailedBody': 'Nachricht konnte nicht an die Concierge-Laufzeit gesendet werden.',
     'chat.transcriptionFailedTitle': 'Transkription fehlgeschlagen',
     'chat.transcriptionFailedBody': 'Sprachaufnahme konnte nicht transkribiert werden.',
+    'chat.visionSourceUnavailableTitle': 'Vision-Quelle nicht verfuegbar',
+    'chat.metaBridgeDatSdkUnavailable':
+      'Meta-Brillen benoetigen einen DAT-faehigen iPhone-Build und sind in diesem Build nicht verfuegbar. Wechseln Sie zur iPhone-Kamera.',
+    'chat.metaBridgeConnectInMetaAi':
+      'Die Meta-Brille ist noch nicht mit diesem iPhone verbunden. Oeffnen Sie die Meta AI App, verbinden Sie die Brille dort, und versuchen Sie es dann erneut.',
+    'chat.metaBridgeUnavailableFallback':
+      'Meta-Brillen sind derzeit nicht verfuegbar. Verbinden Sie die Brille in der Meta AI App oder wechseln Sie zur iPhone-Kamera.',
+    'chat.metaBridgeSwitchedToIphone': 'Zur iPhone-Kamera gewechselt.',
     'chat.policyBlocked': 'Befehl "{command}" blockiert ({reason}). Laufzeit bleibt fail-closed.',
     'chat.toolBoundaryCta': 'Feature Intake starten',
     'chat.imageAttachment': 'Bildanhang',

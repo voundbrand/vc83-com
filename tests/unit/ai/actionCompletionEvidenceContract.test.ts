@@ -161,4 +161,74 @@ describe("action completion evidence contract", () => {
       },
     ]);
   });
+
+  it("keeps required-tool invariant matrix deterministic for pass/unavailable/not_observed outcomes", () => {
+    const requiredTools = [
+      "generate_audit_workflow_deliverable",
+      "request_audit_deliverable_email",
+    ];
+    const matrix = [
+      {
+        label: "all_required_tools_observed",
+        availableToolNames: [...requiredTools],
+        toolResults: [
+          { tool: "generate_audit_workflow_deliverable", status: "success" as const },
+          { tool: "request_audit_deliverable_email", status: "success" as const },
+        ],
+      },
+      {
+        label: "required_tool_unavailable",
+        availableToolNames: ["generate_audit_workflow_deliverable"],
+        toolResults: [
+          { tool: "generate_audit_workflow_deliverable", status: "success" as const },
+        ],
+      },
+      {
+        label: "required_tool_not_observed",
+        availableToolNames: [...requiredTools],
+        toolResults: [
+          { tool: "generate_audit_workflow_deliverable", status: "success" as const },
+          {
+            tool: "request_audit_deliverable_email",
+            status: "error" as const,
+            error: "delivery_failed",
+          },
+        ],
+      },
+    ].map((scenario, index) => {
+      const evidence = buildActionCompletionEvidenceContract({
+        outcomeKey: "audit_workflow_deliverable_pdf",
+        requiredTools,
+        toolResults: scenario.toolResults,
+        turnId: `turn_matrix_${index + 1}`,
+      });
+      const verdict = verifyActionCompletionEvidenceContract({
+        evidence,
+        availableToolNames: scenario.availableToolNames,
+      });
+      return {
+        label: scenario.label,
+        passed: verdict.passed,
+        failureCode: verdict.failureCode,
+      };
+    });
+
+    expect(matrix).toEqual([
+      {
+        label: "all_required_tools_observed",
+        passed: true,
+        failureCode: undefined,
+      },
+      {
+        label: "required_tool_unavailable",
+        passed: false,
+        failureCode: "claim_tool_unavailable",
+      },
+      {
+        label: "required_tool_not_observed",
+        passed: false,
+        failureCode: "claim_tool_not_observed",
+      },
+    ]);
+  });
 });

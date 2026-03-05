@@ -270,7 +270,7 @@ describe("onboarding audit deliverable failure modes", () => {
     expect(result).toEqual({
       success: false,
       errorCode: "missing_template",
-      message: "Template 'leadmagnet_audit_workflow_report_v1' is not available in template registry.",
+      message: "Template 'audit_recommendation_v1' is not available in template registry.",
     });
     expect(db.tableRows("onboardingFunnelEvents")).toHaveLength(0);
   });
@@ -341,7 +341,7 @@ describe("onboarding audit deliverable failure modes", () => {
     ]);
     expect(generatePdfMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        templateCode: "leadmagnet_audit_workflow_report_v1",
+        templateCode: "audit_recommendation_v1",
         paperSize: "Letter",
       }),
     );

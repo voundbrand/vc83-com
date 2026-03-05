@@ -18,6 +18,7 @@ import { useNotification } from "@/hooks/use-notification"
 import { useAIChatVoiceInputLanguage } from "@/hooks/use-ai-chat-voice-input-language"
 import {
   useVoiceRuntime,
+  type VoiceRealtimeTransportRoute,
   type VoiceRuntimeProviderId,
 } from "@/hooks/use-voice-runtime"
 import {
@@ -42,6 +43,9 @@ import {
 import {
   resolveVoiceCaptureFallbackMimeType,
   resolveVoiceCapturePreferredMimeTypes,
+  resolveVoicePcmCaptureContract,
+  resolveVoiceRealtimeSttRoutePrecedence,
+  resolveVoiceRealtimeTransportRoutePrecedence,
 } from "@/lib/voice-assistant/runtime-policy"
 import { buildFrontlineFeatureIntakeKickoff } from "@/lib/ai/frontline-feature-intake"
 import {
@@ -60,10 +64,21 @@ import {
   mapConversationCapabilityReasonCode,
   type ConversationCapabilitySnapshot,
 } from "@/lib/av/session/mediaSessionContract"
+import {
+  DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
+  DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
+  DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
+  DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS,
+  computePcm16FrameRms,
+  detectVadSpeechFrame,
+  resolveRealtimeEchoCancellationSelection,
+  shouldThrottleRealtimeVisionForwarding,
+} from "@/lib/av/runtime/realtimeMediaSession"
 import type {
   CollaborationSurfaceSelection,
   OperatorCollaborationContextPayload,
 } from "./operator-collaboration-types"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../../convex/_generated/api") as { api: any }
@@ -194,6 +209,642 @@ const PROVIDER_ALIASES: Record<string, string> = {
   "google-ai-studio": "gemini",
   xai: "grok",
   "openai-compatible": "openai_compatible",
+}
+
+type VoiceCaptureMethod =
+  | "pcm_audio_worklet"
+  | "pcm_script_processor"
+  | "media_recorder_fallback"
+
+interface VoiceCapturePayload {
+  audioBlob: Blob
+  recorderMimeType?: string
+  captureChunkCount: number
+  captureChunkBytes: number
+  captureMethod: VoiceCaptureMethod
+  frameDurationMs?: number
+  sampleRateHz?: number
+  frameCount?: number
+  frameBytes?: number
+}
+
+interface VoiceCaptureFramePayload {
+  sequence: number
+  sampleRateHz: number
+  frameDurationMs: number
+  frameBytes: number
+  samples: Int16Array
+}
+
+interface VoiceCaptureController {
+  method: VoiceCaptureMethod
+  stop: () => void
+  cancel: () => void
+}
+
+type BrowserAudioContextCtor = new (
+  contextOptions?: AudioContextOptions
+) => AudioContext
+
+const REALTIME_TRANSPORT_ROUTE_PRECEDENCE = resolveVoiceRealtimeTransportRoutePrecedence()
+const REALTIME_STT_ROUTE_PRECEDENCE = resolveVoiceRealtimeSttRoutePrecedence()
+const CONVERSATION_VAD_POLICY = DEFAULT_REALTIME_CONVERSATION_VAD_POLICY
+const VISION_FORWARDING_CADENCE_MS = DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS
+const VISION_FORWARDING_WINDOW_MS = DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS
+const VISION_FORWARDING_MAX_FRAMES_PER_WINDOW =
+  DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW
+const VISION_FORWARDING_JPEG_QUALITY = 0.72
+const VISION_FORWARDING_MAX_WIDTH_PX = 960
+const ASSISTANT_PLAYBACK_QUEUE_POLICY = "interruption_safe_serial_queue"
+const TTS_PRIMARY_ROUTE = "websocket_multi_context_primary"
+const TTS_FALLBACK_ROUTE = "batch_synthesize_fallback"
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ""
+  const chunkSize = 0x8000
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+  return btoa(binary)
+}
+
+function encodeInt16FrameToBase64(frame: Int16Array): string {
+  return bytesToBase64(new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength))
+}
+
+function buildRealtimeVideoSessionId(liveSessionId: string): string {
+  return `web_video:${liveSessionId}`
+}
+
+function resolveRealtimeMediaSessionAuthorityInvariant() {
+  return {
+    nativePolicyPrecedence: "vc83_runtime_policy" as const,
+    mutatingIntentGate: "native_tool_registry" as const,
+    approvalInvariant: "non_bypassable" as const,
+    directDeviceMutation: "fail_closed" as const,
+  }
+}
+
+function resolveJpegFrameSize(args: { width: number; height: number }): {
+  width: number
+  height: number
+} {
+  const normalizedWidth = Math.max(1, Math.floor(args.width || 1))
+  const normalizedHeight = Math.max(1, Math.floor(args.height || 1))
+  if (normalizedWidth <= VISION_FORWARDING_MAX_WIDTH_PX) {
+    return { width: normalizedWidth, height: normalizedHeight }
+  }
+  const scale = VISION_FORWARDING_MAX_WIDTH_PX / normalizedWidth
+  return {
+    width: VISION_FORWARDING_MAX_WIDTH_PX,
+    height: Math.max(1, Math.floor(normalizedHeight * scale)),
+  }
+}
+
+function resolveInitialRealtimeTransportRoute(): VoiceRealtimeTransportRoute {
+  return REALTIME_TRANSPORT_ROUTE_PRECEDENCE[0] || "websocket_primary"
+}
+
+function resolveFallbackRealtimeTransportRoute(): VoiceRealtimeTransportRoute {
+  return REALTIME_TRANSPORT_ROUTE_PRECEDENCE[1] || "webrtc_fallback"
+}
+
+function resolveRealtimeTransportModeFromRoute(
+  route: VoiceRealtimeTransportRoute,
+): "websocket" | "webrtc" {
+  return route === "webrtc_fallback" ? "webrtc" : "websocket"
+}
+
+function resolveConstrainBooleanValue(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined
+  }
+  const typed = value as Record<string, unknown>
+  if (typeof typed.exact === "boolean") {
+    return typed.exact
+  }
+  if (typeof typed.ideal === "boolean") {
+    return typed.ideal
+  }
+  return undefined
+}
+
+function resolveHardwareAecSupport(): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+  return navigator.mediaDevices?.getSupportedConstraints?.().echoCancellation === true
+}
+
+function resolveHardwareAecEnabled(audioTrack: MediaStreamTrack | null): boolean {
+  if (!audioTrack) {
+    return false
+  }
+  const settingValue = audioTrack.getSettings?.().echoCancellation
+  if (typeof settingValue === "boolean") {
+    return settingValue
+  }
+  const constraintValue = resolveConstrainBooleanValue(
+    audioTrack.getConstraints?.().echoCancellation
+  )
+  return constraintValue === true
+}
+
+function extractOrderedTranscriptEvent(args: {
+  relayEvents?: Array<{ eventType?: string; sequence?: number; transcriptText?: string }>
+  eventType: "partial_transcript" | "final_transcript"
+}): string | null {
+  const candidates = (args.relayEvents || [])
+    .filter((event) => event.eventType === args.eventType)
+    .sort((left, right) => (left.sequence || 0) - (right.sequence || 0))
+  const latest = candidates[candidates.length - 1]
+  if (!latest?.transcriptText || typeof latest.transcriptText !== "string") {
+    return null
+  }
+  const normalized = latest.transcriptText.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function resolveAudioContextCtor(): BrowserAudioContextCtor | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+  const win = window as unknown as {
+    AudioContext?: BrowserAudioContextCtor
+    webkitAudioContext?: BrowserAudioContextCtor
+  }
+  return win.AudioContext || win.webkitAudioContext || null
+}
+
+function supportsPcmVoiceCapture(): boolean {
+  const audioContextCtor = resolveAudioContextCtor()
+  if (!audioContextCtor) {
+    return false
+  }
+  const hasWorkletNode = typeof AudioWorkletNode !== "undefined"
+  const hasScriptProcessor =
+    typeof audioContextCtor.prototype?.createScriptProcessor === "function"
+  return hasWorkletNode || hasScriptProcessor
+}
+
+function supportsMediaRecorderVoiceCapture(): boolean {
+  return typeof window !== "undefined" && typeof window.MediaRecorder !== "undefined"
+}
+
+function supportsAnyVoiceCapture(): boolean {
+  if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return false
+  }
+  return supportsPcmVoiceCapture() || supportsMediaRecorderVoiceCapture()
+}
+
+function encodeMonoPcm16Wav(args: {
+  samples: Int16Array
+  sampleRateHz: number
+}): Blob {
+  const sampleRateHz = Math.max(8000, Math.floor(args.sampleRateHz || 16000))
+  const bytesPerSample = 2
+  const blockAlign = bytesPerSample
+  const byteRate = sampleRateHz * blockAlign
+  const dataByteLength = args.samples.length * bytesPerSample
+  const wavBuffer = new ArrayBuffer(44 + dataByteLength)
+  const view = new DataView(wavBuffer)
+
+  const writeAscii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) {
+      view.setUint8(offset + index, text.charCodeAt(index))
+    }
+  }
+
+  writeAscii(0, "RIFF")
+  view.setUint32(4, 36 + dataByteLength, true)
+  writeAscii(8, "WAVE")
+  writeAscii(12, "fmt ")
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRateHz, true)
+  view.setUint32(28, byteRate, true)
+  view.setUint16(32, blockAlign, true)
+  view.setUint16(34, 16, true)
+  writeAscii(36, "data")
+  view.setUint32(40, dataByteLength, true)
+
+  let byteOffset = 44
+  for (let index = 0; index < args.samples.length; index += 1) {
+    view.setInt16(byteOffset, args.samples[index] || 0, true)
+    byteOffset += bytesPerSample
+  }
+  return new Blob([wavBuffer], { type: "audio/wav" })
+}
+
+function convertMonoFloatToInt16(data: Float32Array): Int16Array {
+  const output = new Int16Array(data.length)
+  for (let index = 0; index < data.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, data[index] || 0))
+    output[index] = sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff)
+  }
+  return output
+}
+
+function buildMonoChunkFromInputBuffer(inputBuffer: AudioBuffer): Float32Array {
+  const channelCount = Math.max(1, inputBuffer.numberOfChannels || 1)
+  const sampleCount = inputBuffer.length
+  const mono = new Float32Array(sampleCount)
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    let mixed = 0
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      mixed += inputBuffer.getChannelData(channelIndex)?.[sampleIndex] || 0
+    }
+    mono[sampleIndex] = mixed / channelCount
+  }
+  return mono
+}
+
+async function startPcmVoiceCapture(args: {
+  stream: MediaStream
+  requestedSampleRateHz: number
+  frameDurationMs: number
+  onFrame?: (frame: VoiceCaptureFramePayload) => void | Promise<void>
+  onCaptured: (payload: VoiceCapturePayload) => void
+  onError: (error: unknown) => void
+}): Promise<VoiceCaptureController> {
+  const audioContextCtor = resolveAudioContextCtor()
+  if (!audioContextCtor) {
+    throw new Error("audio_context_unavailable")
+  }
+
+  let audioContext: AudioContext | null = null
+  let sourceNode: MediaStreamAudioSourceNode | null = null
+  let sinkGainNode: GainNode | null = null
+  let scriptProcessorNode: ScriptProcessorNode | null = null
+  let workletNode: AudioWorkletNode | null = null
+  let workletUrl: string | null = null
+  let isCompleted = false
+  let pendingSamples: number[] = []
+  const frameBuffers: Int16Array[] = []
+  let frameSequence = 0
+  const targetSampleRateHz = Math.max(
+    8000,
+    Math.floor(args.requestedSampleRateHz || 24000),
+  )
+  let captureMethod: VoiceCaptureMethod = "pcm_script_processor"
+  let sourceSampleRateHz = targetSampleRateHz
+  let resamplePosition = 0
+  let resampleSourceSamples: number[] = []
+
+  const frameSampleCount = Math.max(
+    1,
+    Math.round(targetSampleRateHz * (args.frameDurationMs / 1000)),
+  )
+  const frameByteLength = frameSampleCount * 2
+
+  const cleanup = () => {
+    if (sourceNode) {
+      sourceNode.disconnect()
+      sourceNode = null
+    }
+    if (workletNode) {
+      workletNode.port.onmessage = null
+      workletNode.disconnect()
+      workletNode = null
+    }
+    if (scriptProcessorNode) {
+      scriptProcessorNode.onaudioprocess = null
+      scriptProcessorNode.disconnect()
+      scriptProcessorNode = null
+    }
+    if (sinkGainNode) {
+      sinkGainNode.disconnect()
+      sinkGainNode = null
+    }
+    if (workletUrl) {
+      URL.revokeObjectURL(workletUrl)
+      workletUrl = null
+    }
+    if (audioContext) {
+      void audioContext.close().catch(() => {})
+      audioContext = null
+    }
+  }
+
+  const emitFrame = (frame: Int16Array) => {
+    frameBuffers.push(frame)
+    if (args.onFrame) {
+      const framePayload: VoiceCaptureFramePayload = {
+        sequence: frameSequence,
+        sampleRateHz: targetSampleRateHz,
+        frameDurationMs: args.frameDurationMs,
+        frameBytes: frame.byteLength,
+        samples: frame,
+      }
+      void Promise.resolve(args.onFrame(framePayload)).catch((error) => {
+        args.onError(error)
+      })
+    }
+    frameSequence += 1
+  }
+
+  const finalizeFrames = (): VoiceCapturePayload => {
+    if (pendingSamples.length > 0) {
+      const padded = new Int16Array(frameSampleCount)
+      for (let index = 0; index < frameSampleCount; index += 1) {
+        padded[index] = pendingSamples[index] || 0
+      }
+      emitFrame(padded)
+      pendingSamples = []
+    }
+
+    if (frameBuffers.length === 0) {
+      return {
+        audioBlob: new Blob([], { type: "audio/wav" }),
+        recorderMimeType: "audio/wav",
+        captureChunkCount: 0,
+        captureChunkBytes: 0,
+        captureMethod,
+        frameDurationMs: args.frameDurationMs,
+        sampleRateHz: targetSampleRateHz,
+        frameCount: 0,
+        frameBytes: frameByteLength,
+      }
+    }
+
+    const totalSamples = frameBuffers.reduce(
+      (total, frameBuffer) => total + frameBuffer.length,
+      0,
+    )
+    const merged = new Int16Array(totalSamples)
+    let writeOffset = 0
+    for (const frameBuffer of frameBuffers) {
+      merged.set(frameBuffer, writeOffset)
+      writeOffset += frameBuffer.length
+    }
+    const frameBytes = merged.length * 2
+    return {
+      audioBlob: encodeMonoPcm16Wav({
+        samples: merged,
+        sampleRateHz: targetSampleRateHz,
+      }),
+      recorderMimeType: "audio/wav",
+      captureChunkCount: frameBuffers.length,
+      captureChunkBytes: frameBytes,
+      captureMethod,
+      frameDurationMs: args.frameDurationMs,
+      sampleRateHz: targetSampleRateHz,
+      frameCount: frameBuffers.length,
+      frameBytes: frameByteLength,
+    }
+  }
+
+  const completeWithCapture = () => {
+    if (isCompleted) {
+      return
+    }
+    isCompleted = true
+    const payload = finalizeFrames()
+    cleanup()
+    args.onCaptured(payload)
+  }
+
+  try {
+    audioContext = new audioContextCtor({
+      sampleRate: args.requestedSampleRateHz,
+    })
+  } catch {
+    audioContext = new audioContextCtor()
+  }
+
+  sourceSampleRateHz = Math.max(
+    8000,
+    Math.floor(audioContext.sampleRate || targetSampleRateHz),
+  )
+
+  const resampleChunkToTarget = (chunk: Float32Array): Float32Array => {
+    if (sourceSampleRateHz === targetSampleRateHz) {
+      return chunk
+    }
+
+    const step = sourceSampleRateHz / targetSampleRateHz
+    if (!Number.isFinite(step) || step <= 0) {
+      return chunk
+    }
+
+    for (let index = 0; index < chunk.length; index += 1) {
+      resampleSourceSamples.push(chunk[index] || 0)
+    }
+
+    const output: number[] = []
+    while (resamplePosition + 1 < resampleSourceSamples.length) {
+      const baseIndex = Math.floor(resamplePosition)
+      const nextIndex = baseIndex + 1
+      const ratio = resamplePosition - baseIndex
+      const baseSample = resampleSourceSamples[baseIndex] || 0
+      const nextSample = resampleSourceSamples[nextIndex] || baseSample
+      output.push(baseSample + (nextSample - baseSample) * ratio)
+      resamplePosition += step
+    }
+
+    const consumed = Math.floor(resamplePosition)
+    if (consumed > 0) {
+      resampleSourceSamples = resampleSourceSamples.slice(consumed)
+      resamplePosition -= consumed
+    }
+
+    return Float32Array.from(output)
+  }
+
+  const appendChunk = (chunk: Float32Array) => {
+    if (isCompleted) {
+      return
+    }
+    const normalizedChunk = resampleChunkToTarget(chunk)
+    const int16Chunk = convertMonoFloatToInt16(normalizedChunk)
+    for (let index = 0; index < int16Chunk.length; index += 1) {
+      pendingSamples.push(int16Chunk[index] || 0)
+      if (pendingSamples.length >= frameSampleCount) {
+        const frame = Int16Array.from(
+          pendingSamples.slice(0, frameSampleCount),
+        )
+        emitFrame(frame)
+        pendingSamples = pendingSamples.slice(frameSampleCount)
+      }
+    }
+  }
+
+  try {
+    sourceNode = audioContext.createMediaStreamSource(args.stream)
+    sinkGainNode = audioContext.createGain()
+    sinkGainNode.gain.value = 0
+    const supportsWorklet =
+      typeof AudioWorkletNode !== "undefined" && Boolean(audioContext.audioWorklet)
+
+    if (supportsWorklet) {
+      const processorName = `vc83-pcm-capture-${Math.random().toString(36).slice(2, 10)}`
+      const processorCode = `
+class VC83PcmCaptureProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const input = inputs[0]
+    if (!input || input.length === 0) {
+      return true
+    }
+    const channelCount = input.length
+    const sampleCount = input[0]?.length || 0
+    if (sampleCount === 0) {
+      return true
+    }
+    const mono = new Float32Array(sampleCount)
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+      let mixed = 0
+      for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+        mixed += input[channelIndex]?.[sampleIndex] || 0
+      }
+      mono[sampleIndex] = mixed / Math.max(1, channelCount)
+    }
+    this.port.postMessage(mono, [mono.buffer])
+    return true
+  }
+}
+registerProcessor("${processorName}", VC83PcmCaptureProcessor)
+`
+      workletUrl = URL.createObjectURL(
+        new Blob([processorCode], { type: "application/javascript" }),
+      )
+      await audioContext.audioWorklet.addModule(workletUrl)
+      workletNode = new AudioWorkletNode(audioContext, processorName)
+      workletNode.port.onmessage = (event) => {
+        const value = event.data
+        if (value instanceof Float32Array) {
+          appendChunk(value)
+          return
+        }
+        if (value instanceof ArrayBuffer) {
+          appendChunk(new Float32Array(value))
+          return
+        }
+        if (Array.isArray(value)) {
+          appendChunk(Float32Array.from(value))
+        }
+      }
+      sourceNode.connect(workletNode)
+      workletNode.connect(sinkGainNode)
+      sinkGainNode.connect(audioContext.destination)
+      captureMethod = "pcm_audio_worklet"
+    } else if (typeof audioContext.createScriptProcessor === "function") {
+      scriptProcessorNode = audioContext.createScriptProcessor(4096, 1, 1)
+      scriptProcessorNode.onaudioprocess = (event) => {
+        appendChunk(buildMonoChunkFromInputBuffer(event.inputBuffer))
+      }
+      sourceNode.connect(scriptProcessorNode)
+      scriptProcessorNode.connect(sinkGainNode)
+      sinkGainNode.connect(audioContext.destination)
+      captureMethod = "pcm_script_processor"
+    } else {
+      throw new Error("pcm_capture_path_unavailable")
+    }
+
+    await audioContext.resume().catch(() => {})
+  } catch (error) {
+    if (!isCompleted) {
+      cleanup()
+    }
+    throw error
+  }
+
+  return {
+    method: captureMethod,
+    stop: () => completeWithCapture(),
+    cancel: () => {
+      if (isCompleted) {
+        return
+      }
+      isCompleted = true
+      cleanup()
+    },
+  }
+}
+
+function startMediaRecorderVoiceCapture(args: {
+  stream: MediaStream
+  preferredMimeTypes: readonly string[]
+  fallbackMimeType: string
+  onCaptured: (payload: VoiceCapturePayload) => void
+  onError: (error: unknown) => void
+}): VoiceCaptureController {
+  const canConstructWithMimeType = typeof window.MediaRecorder?.isTypeSupported === "function"
+  const mimeType = canConstructWithMimeType
+    ? args.preferredMimeTypes.find((value) => window.MediaRecorder.isTypeSupported(value))
+    : undefined
+  const recorder = mimeType
+    ? new window.MediaRecorder(args.stream, { mimeType })
+    : new window.MediaRecorder(args.stream)
+  const chunks: Blob[] = []
+  let isCompleted = false
+
+  recorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      chunks.push(event.data)
+    }
+  }
+
+  recorder.onerror = (event) => {
+    if (isCompleted) {
+      return
+    }
+    isCompleted = true
+    args.onError((event as Event & { error?: Error }).error || new Error("voice_capture_recorder_error"))
+  }
+
+  recorder.onstop = () => {
+    if (isCompleted) {
+      return
+    }
+    isCompleted = true
+    const recorderMimeType =
+      typeof recorder.mimeType === "string" && recorder.mimeType.trim().length > 0
+        ? recorder.mimeType
+        : ""
+    const audioType =
+      recorderMimeType
+      || chunks[0]?.type
+      || args.fallbackMimeType
+    const captureChunkBytes = chunks.reduce(
+      (total, chunk) => total + chunk.size,
+      0,
+    )
+    args.onCaptured({
+      audioBlob: new Blob(chunks, { type: audioType }),
+      recorderMimeType: recorderMimeType || undefined,
+      captureChunkCount: chunks.length,
+      captureChunkBytes,
+      captureMethod: "media_recorder_fallback",
+    })
+  }
+
+  recorder.start()
+  return {
+    method: "media_recorder_fallback",
+    stop: () => {
+      if (recorder.state !== "inactive") {
+        recorder.stop()
+      }
+    },
+    cancel: () => {
+      if (isCompleted) {
+        return
+      }
+      isCompleted = true
+      recorder.onstop = null
+      recorder.ondataavailable = null
+      recorder.onerror = null
+      if (recorder.state !== "inactive") {
+        recorder.stop()
+      }
+    },
+  }
 }
 
 interface ComposerImageAttachment {
@@ -778,14 +1429,23 @@ export function SlickChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const imageAttachmentsRef = useRef<ComposerImageAttachment[]>([])
-  const voiceRecorderRef = useRef<MediaRecorder | null>(null)
+  const voiceCaptureControllerRef = useRef<VoiceCaptureController | null>(null)
   const voiceStreamRef = useRef<MediaStream | null>(null)
-  const voiceCaptureChunksRef = useRef<Blob[]>([])
   const conversationPickerRef = useRef<HTMLDivElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const lastConversationEventRef = useRef<string>("")
   const activeConversationEyesSourceRef = useRef<ConversationEyesSourceSelection | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
+  const isSendingRef = useRef(false)
+  const activeRealtimeTransportRouteRef =
+    useRef<VoiceRealtimeTransportRoute>(resolveInitialRealtimeTransportRoute())
+  const activeRealtimeLiveSessionIdRef = useRef<string | null>(null)
+  const activeRealtimeVoiceSessionIdRef = useRef<string | null>(null)
+  const activeRealtimeInterviewSessionIdRef = useRef<string | null>(null)
+  const realtimeVisionPacketSequenceRef = useRef(0)
+  const lastRealtimeVisionForwardAtMsRef = useRef<number | undefined>(undefined)
+  const realtimeVisionForwardInFlightRef = useRef(false)
+  const conversationInterruptCountRef = useRef(0)
   const useQueryUntyped = useQuery as (query: unknown, args?: unknown) => unknown
   const useActionUntyped = useAction as (action: unknown) => unknown
   const useMutationUntyped = useMutation as (mutation: unknown) => unknown
@@ -795,6 +1455,22 @@ export function SlickChatInput({
   const fetchUrlContent = useActionUntyped(api.ai.webReader.fetchUrlContent) as (args: {
     url: string
   }) => Promise<UrlFetchResult>
+  const ingestVideoFrameEnvelopeAction = useActionUntyped(
+    api.ai.voiceRuntime.ingestVideoFrameEnvelope
+  ) as (args: {
+    sessionId: string
+    interviewSessionId: Id<"agentSessions">
+    envelope: Record<string, unknown>
+    maxFramesPerWindow?: number
+    windowMs?: number
+  }) => Promise<{
+    ordering?: {
+      decision?: "accepted" | "duplicate_replay" | "gap_detected" | "rate_limited"
+    }
+    rateControl?: {
+      retryAfterMs?: number
+    }
+  }>
   const generateAttachmentUploadUrl = useMutationUntyped(
     api.ai.chatAttachments.generateUploadUrl
   ) as (args: {
@@ -873,6 +1549,10 @@ export function SlickChatInput({
   })
 
   useEffect(() => {
+    isSendingRef.current = isSending
+  }, [isSending])
+
+  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
@@ -880,11 +1560,7 @@ export function SlickChatInput({
   }, [message])
 
   useEffect(() => {
-    setVoiceCaptureSupported(
-      typeof window !== "undefined"
-      && typeof window.MediaRecorder !== "undefined"
-      && Boolean(navigator.mediaDevices?.getUserMedia)
-    )
+    setVoiceCaptureSupported(supportsAnyVoiceCapture())
   }, [])
 
   useEffect(() => {
@@ -937,15 +1613,18 @@ export function SlickChatInput({
           },
         }).catch(() => {})
       }
-      if (voiceRecorderRef.current && voiceRecorderRef.current.state !== "inactive") {
-        voiceRecorderRef.current.stop()
-      }
-      voiceRecorderRef.current = null
+      voiceCaptureControllerRef.current?.cancel()
+      voiceCaptureControllerRef.current = null
       voiceStreamRef.current?.getTracks().forEach((track) => track.stop())
       voiceStreamRef.current = null
-      voiceCaptureChunksRef.current = []
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
       cameraStreamRef.current = null
+      activeRealtimeLiveSessionIdRef.current = null
+      activeRealtimeVoiceSessionIdRef.current = null
+      activeRealtimeInterviewSessionIdRef.current = null
+      realtimeVisionPacketSequenceRef.current = 0
+      lastRealtimeVisionForwardAtMsRef.current = undefined
+      conversationInterruptCountRef.current = 0
     }
   }, [activeVoiceSessionId, resolvedVoiceRuntimeSession, sessionId, voiceRuntime])
 
@@ -1019,10 +1698,8 @@ export function SlickChatInput({
         },
       }).catch(() => {})
     }
-    if (voiceRecorderRef.current && voiceRecorderRef.current.state !== "inactive") {
-      voiceRecorderRef.current.stop()
-    }
-    voiceRecorderRef.current = null
+    voiceCaptureControllerRef.current?.cancel()
+    voiceCaptureControllerRef.current = null
     releaseVoiceMediaStream()
     releaseCameraStream()
     setVoiceCaptureState("idle")
@@ -1037,6 +1714,13 @@ export function SlickChatInput({
     setIsConversationEnding(false)
     setConversationState("idle")
     setConversationReasonCode(undefined)
+    activeRealtimeLiveSessionIdRef.current = null
+    activeRealtimeVoiceSessionIdRef.current = null
+    activeRealtimeInterviewSessionIdRef.current = null
+    activeRealtimeTransportRouteRef.current = resolveInitialRealtimeTransportRoute()
+    realtimeVisionPacketSequenceRef.current = 0
+    lastRealtimeVisionForwardAtMsRef.current = undefined
+    conversationInterruptCountRef.current = 0
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentConversationId])
 
@@ -1047,8 +1731,14 @@ export function SlickChatInput({
   }, [selectedSurface.kind])
 
   const releaseVoiceMediaStream = () => {
+    voiceCaptureControllerRef.current?.cancel()
+    voiceCaptureControllerRef.current = null
     voiceStreamRef.current?.getTracks().forEach((track) => track.stop())
     voiceStreamRef.current = null
+    activeRealtimeLiveSessionIdRef.current = null
+    activeRealtimeVoiceSessionIdRef.current = null
+    activeRealtimeInterviewSessionIdRef.current = null
+    activeRealtimeTransportRouteRef.current = resolveInitialRealtimeTransportRoute()
   }
 
   const releaseCameraStream = () => {
@@ -1061,6 +1751,9 @@ export function SlickChatInput({
 
   const stopVisionStream = (reason: string = "operator_stop") => {
     releaseCameraStream()
+    if (reason !== "capture_backpressure") {
+      lastRealtimeVisionForwardAtMsRef.current = undefined
+    }
     setCameraLiveSession((current) => {
       if (!current) {
         return current
@@ -1193,6 +1886,239 @@ export function SlickChatInput({
     }
   }
 
+  const captureJpegFrameForRealtimeTransport = async (): Promise<{
+    frameBlob: Blob
+    width: number
+    height: number
+  } | null> => {
+    const video = cameraVideoRef.current
+    if (!video || !cameraStreamRef.current) {
+      return null
+    }
+    const sourceWidth = Math.max(1, video.videoWidth || 1280)
+    const sourceHeight = Math.max(1, video.videoHeight || 720)
+    const { width, height } = resolveJpegFrameSize({
+      width: sourceWidth,
+      height: sourceHeight,
+    })
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext("2d")
+    if (!context) {
+      return null
+    }
+    context.drawImage(video, 0, 0, width, height)
+    const frameBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", VISION_FORWARDING_JPEG_QUALITY)
+    })
+    if (!frameBlob) {
+      return null
+    }
+    return {
+      frameBlob,
+      width,
+      height,
+    }
+  }
+
+  const forwardVisionFrameToRealtimeTransport = async (args?: {
+    force?: boolean
+    source?: "interval" | "manual_capture"
+  }) => {
+    if (
+      !sessionId
+      || !resolvedVoiceRuntimeSession
+      || !activeVoiceSessionId
+      || !cameraStreamRef.current
+    ) {
+      return
+    }
+    const liveSessionId =
+      activeRealtimeLiveSessionIdRef.current
+      || cameraLiveSession?.liveSessionId
+      || pendingVoiceRuntime?.liveSessionId
+    if (!liveSessionId) {
+      return
+    }
+
+    const forwardSource = args?.source || "interval"
+    const nowMs = Date.now()
+    const throttle = shouldThrottleRealtimeVisionForwarding({
+      nowMs,
+      lastForwardAtMs: lastRealtimeVisionForwardAtMsRef.current,
+      cadenceMs: VISION_FORWARDING_CADENCE_MS,
+    })
+    if (throttle.throttled && !args?.force && forwardSource !== "manual_capture") {
+      setCameraLiveSession((current) =>
+        current
+          ? {
+              ...current,
+              sessionState: "capturing",
+              fallbackReason: "capture_backpressure",
+              frameCadenceMs: throttle.cadenceMs,
+            }
+          : current
+      )
+      return
+    }
+
+    const captureResult = await captureJpegFrameForRealtimeTransport()
+    if (!captureResult) {
+      return
+    }
+
+    const framePayloadBase64 = bytesToBase64(
+      new Uint8Array(await captureResult.frameBlob.arrayBuffer())
+    )
+    const packetSequence = realtimeVisionPacketSequenceRef.current
+    realtimeVisionPacketSequenceRef.current += 1
+
+    const activeRoute = activeRealtimeTransportRouteRef.current
+    const transportMode = resolveRealtimeTransportModeFromRoute(activeRoute)
+    const frameRate = Number((1000 / throttle.cadenceMs).toFixed(2))
+    const fallbackReason =
+      activeRoute === "webrtc_fallback" ? "network_degraded" : "none"
+    const videoSessionId = buildRealtimeVideoSessionId(liveSessionId)
+
+    const envelope = {
+      contractVersion: "avr_media_session_ingress_v1",
+      liveSessionId,
+      ingressTimestampMs: nowMs,
+      cameraRuntime: {
+        provider: "browser_getusermedia",
+        sourceClass: "webcam",
+        sourceId: conversationEyesSourceSelection,
+        frameTimestampMs: nowMs,
+        sequence: packetSequence,
+        transport: transportMode,
+        frameRate,
+        resolution: {
+          width: captureResult.width,
+          height: captureResult.height,
+        },
+      },
+      voiceRuntime: {
+        voiceSessionId: activeVoiceSessionId,
+        requestedProviderId: "elevenlabs",
+        providerId: "elevenlabs",
+        mimeType: "audio/L16;rate=24000;channels=1",
+        language: voiceInputLanguage,
+        sampleRateHz: 24_000,
+        packetSequence,
+        packetTimestampMs: nowMs,
+      },
+      videoRuntime: {
+        videoSessionId,
+        requestedProviderId: "browser_getusermedia",
+        providerId: "browser_getusermedia",
+        mimeType: "image/jpeg",
+        codec: "jpeg",
+        frameRate,
+        width: captureResult.width,
+        height: captureResult.height,
+        packetSequence,
+        packetTimestampMs: nowMs,
+        framePayloadBase64,
+      },
+      captureRuntime: {
+        sourceClass: "webcam",
+        sourceId: conversationEyesSourceSelection,
+        captureMode: "stream",
+        captureTimestampMs: nowMs,
+        frameTimestampMs: nowMs,
+        sequence: packetSequence,
+        frameRate,
+        resolution: {
+          width: captureResult.width,
+          height: captureResult.height,
+        },
+        diagnostics: {
+          captureToIngressLatencyMs: 0,
+        },
+      },
+      transportRuntime: {
+        mode: "realtime",
+        fallbackReason,
+        ingressTimestampMs: nowMs,
+        transportId: activeVoiceSessionId,
+        protocol: transportMode,
+        diagnostics: {
+          reconnectCount: activeRoute === "webrtc_fallback" ? 1 : 0,
+          fallbackTransitionCount: activeRoute === "webrtc_fallback" ? 1 : 0,
+        },
+      },
+      authority: resolveRealtimeMediaSessionAuthorityInvariant(),
+    }
+
+    try {
+      const ingestResult = await ingestVideoFrameEnvelopeAction({
+        sessionId,
+        interviewSessionId: resolvedVoiceRuntimeSession.agentSessionId,
+        envelope,
+        maxFramesPerWindow: VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
+        windowMs: VISION_FORWARDING_WINDOW_MS,
+      })
+      const decision = ingestResult.ordering?.decision
+      if (
+        decision === "accepted"
+        || decision === "duplicate_replay"
+        || typeof decision === "undefined"
+      ) {
+        lastRealtimeVisionForwardAtMsRef.current = nowMs
+      }
+      setCameraLiveSession((current) => {
+        if (!current) {
+          return current
+        }
+        const frameCaptureCount =
+          current.frameCaptureCount
+          + (decision === "gap_detected" || decision === "rate_limited" ? 0 : 1)
+        const frameCadenceMs = current.lastFrameCapturedAt
+          ? Math.max(1, nowMs - current.lastFrameCapturedAt)
+          : throttle.cadenceMs
+        return {
+          ...current,
+          sessionState: "capturing",
+          frameCaptureCount,
+          lastFrameCapturedAt: nowMs,
+          frameCadenceMs,
+          frameCadenceFps:
+            typeof frameCadenceMs === "number"
+              ? Number((1000 / frameCadenceMs).toFixed(2))
+              : current.frameCadenceFps,
+          fallbackReason:
+            decision === "rate_limited"
+              ? "capture_backpressure"
+              : fallbackReason === "none"
+                ? undefined
+                : fallbackReason,
+        }
+      })
+      if (decision !== "rate_limited") {
+        setCameraVisionError(null)
+      }
+    } catch (error) {
+      setCameraLiveSession((current) =>
+        current
+          ? {
+              ...current,
+              sessionState: "error",
+              fallbackReason:
+                error instanceof Error
+                  ? error.message
+                  : "vision_frame_transport_failed",
+            }
+          : current
+      )
+      setCameraVisionError(
+        error instanceof Error
+          ? error.message
+          : "vision_frame_transport_failed"
+      )
+    }
+  }
+
   const captureVisionFrame = async () => {
     const video = cameraVideoRef.current
     if (!video || !cameraStreamRef.current || !cameraLiveSession) {
@@ -1265,6 +2191,10 @@ export function SlickChatInput({
       }
     })
     setCameraVisionError(null)
+    void forwardVisionFrameToRealtimeTransport({
+      force: true,
+      source: "manual_capture",
+    })
   }
 
   const resolveVoiceRuntimeSessionContext = async (): Promise<AIChatVoiceRuntimeSessionResolution> => {
@@ -1306,8 +2236,8 @@ export function SlickChatInput({
   }
 
   const stopVoiceCapture = () => {
-    const recorder = voiceRecorderRef.current
-    if (!recorder) {
+    const controller = voiceCaptureControllerRef.current
+    if (!controller) {
       releaseVoiceMediaStream()
       if (voiceCaptureState !== "transcribing") {
         setVoiceCaptureState("idle")
@@ -1315,9 +2245,7 @@ export function SlickChatInput({
       return
     }
 
-    if (recorder.state !== "inactive") {
-      recorder.stop()
-    }
+    controller.stop()
   }
 
   const startVoiceCapture = async () => {
@@ -1328,14 +2256,17 @@ export function SlickChatInput({
       notification.error("Voice Capture Unavailable", "Authentication session missing. Reload and try again.")
       return
     }
-    if (
-      typeof window === "undefined"
-      || typeof window.MediaRecorder === "undefined"
-      || !navigator.mediaDevices?.getUserMedia
-    ) {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       notification.error(
         "Voice Capture Unavailable",
-        "MediaRecorder is required for runtime voice capture on this device."
+        "Voice capture requires getUserMedia support on this device."
+      )
+      return
+    }
+    if (!supportsAnyVoiceCapture()) {
+      notification.error(
+        "Voice Capture Unavailable",
+        "This browser does not support PCM capture and has no MediaRecorder fallback."
       )
       return
     }
@@ -1376,6 +2307,327 @@ export function SlickChatInput({
       }
       const openedVoiceSession = openedSession
       const liveSessionId = cameraLiveSession?.liveSessionId || buildRuntimeSessionId("voice")
+      const baseMessageBeforeVoiceCapture = message.trim()
+      const primarySttRoute =
+        REALTIME_STT_ROUTE_PRECEDENCE[0] || "scribe_v2_realtime_primary"
+      const fallbackSttRoute =
+        REALTIME_STT_ROUTE_PRECEDENCE[1] || "gemini_native_audio_failover"
+      let realtimeTransportRoute = resolveInitialRealtimeTransportRoute()
+      let realtimeTransportFallbackApplied = false
+      let realtimeIngestFailedReason: string | null = null
+      let latestRealtimeTranscript: string | null = null
+      let queuedFrameCount = 0
+      let queuedFrameBytes = 0
+      let realtimeFrameQueue: Promise<void> = Promise.resolve()
+      let realtimeEnvelopeSequence = 0
+      let consecutiveSpeechFrames = 0
+      let consecutiveSilentFrames = 0
+      let interruptionIssuedWhileSending = false
+      let bargeInCount = 0
+      let assistantPlaybackQueueInterruptCount = 0
+      let assistantPlaybackQueueInterrupted = false
+      let assistantPlaybackQueueLastInterruptAtMs: number | undefined
+      let echoCancellationSelection = resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported: resolveHardwareAecSupport(),
+        hardwareAecEnabled: false,
+        forceMuteDuringTts: isConversationMicMuted,
+      })
+
+      activeRealtimeLiveSessionIdRef.current = liveSessionId
+      activeRealtimeVoiceSessionIdRef.current = openedVoiceSession.voiceSessionId
+      activeRealtimeInterviewSessionIdRef.current = String(runtimeSession.agentSessionId)
+      activeRealtimeTransportRouteRef.current = realtimeTransportRoute
+      realtimeVisionPacketSequenceRef.current = 0
+      lastRealtimeVisionForwardAtMsRef.current = undefined
+      conversationInterruptCountRef.current = 0
+
+      const nextRealtimeEnvelopeSequence = () => {
+        const sequence = realtimeEnvelopeSequence
+        realtimeEnvelopeSequence += 1
+        return sequence
+      }
+
+      const applyTranscriptToComposer = (transcript: string) => {
+        const normalizedTranscript = transcript.trim()
+        if (!normalizedTranscript) {
+          return
+        }
+        setMessage(
+          baseMessageBeforeVoiceCapture.length > 0
+            ? `${baseMessageBeforeVoiceCapture} ${normalizedTranscript}`
+            : normalizedTranscript,
+        )
+      }
+
+      const buildAssistantPlaybackQueueSnapshot = () => ({
+        queuePolicy: ASSISTANT_PLAYBACK_QUEUE_POLICY,
+        queueDepth: isSendingRef.current ? 1 : 0,
+        interrupted: assistantPlaybackQueueInterrupted,
+        interruptCount: assistantPlaybackQueueInterruptCount,
+        interruptSource: assistantPlaybackQueueInterrupted
+          ? "client_vad_barge_in"
+          : undefined,
+        lastInterruptAtMs: assistantPlaybackQueueLastInterruptAtMs,
+      })
+
+      const buildEchoCancellationTelemetry = () => ({
+        echoCancellationStrategy: echoCancellationSelection.strategy,
+        echoCancellationReason: echoCancellationSelection.reason,
+        echoCancellationHardwareAecSupported:
+          echoCancellationSelection.hardwareAecSupported,
+        echoCancellationHardwareAecEnabled:
+          echoCancellationSelection.hardwareAecEnabled,
+        ttsPrimaryRoute: TTS_PRIMARY_ROUTE,
+        ttsFallbackRoute: TTS_FALLBACK_ROUTE,
+      })
+
+      const buildRealtimeTransportRuntime = (): Record<string, unknown> => {
+        const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
+        const echoTelemetry = buildEchoCancellationTelemetry()
+        return {
+          ...echoTelemetry,
+          assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+          assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+          assistantPlaybackQueueInterrupted: playbackQueueSnapshot.interrupted,
+          assistantPlaybackQueueInterruptCount: playbackQueueSnapshot.interruptCount,
+          assistantPlaybackQueueInterruptSource: playbackQueueSnapshot.interruptSource,
+          assistantPlaybackQueueLastInterruptAtMs: playbackQueueSnapshot.lastInterruptAtMs,
+          requestedTransport: "websocket",
+          transport: resolveRealtimeTransportModeFromRoute(realtimeTransportRoute),
+          mode: resolveRealtimeTransportModeFromRoute(realtimeTransportRoute),
+          fallbackReason: realtimeTransportFallbackApplied
+            ? "websocket_primary_failed"
+            : "none",
+          realtimeTransportRoute,
+          realtimeTransportRoutePrecedence: REALTIME_TRANSPORT_ROUTE_PRECEDENCE,
+          realtimeSttRoutePrecedence: REALTIME_STT_ROUTE_PRECEDENCE,
+          realtimeSttPrimaryRoute: primarySttRoute,
+          realtimeSttFallbackRoute: fallbackSttRoute,
+          duplexPolicy: "persistent_streaming_primary",
+          interruptDetectionPolicy: "client_vad_barge_in",
+          vadMode: CONVERSATION_VAD_POLICY.mode,
+          vadEnergyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+          vadMinSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+          vadEndpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+        }
+      }
+
+      const queueRealtimePcmFrameIngest = (frame: VoiceCaptureFramePayload) => {
+        const processFrame = async () => {
+          if (realtimeIngestFailedReason) {
+            return
+          }
+
+          const frameRms = computePcm16FrameRms(frame.samples)
+          const speechDetected = detectVadSpeechFrame({
+            samples: frame.samples,
+            vadPolicy: CONVERSATION_VAD_POLICY,
+          })
+          if (speechDetected) {
+            consecutiveSpeechFrames += 1
+            consecutiveSilentFrames = 0
+          } else {
+            consecutiveSpeechFrames = 0
+            consecutiveSilentFrames += 1
+          }
+          const endpointDetected = !speechDetected
+            && (consecutiveSilentFrames * frame.frameDurationMs)
+              >= CONVERSATION_VAD_POLICY.endpointSilenceMs
+
+          if (!isSendingRef.current) {
+            interruptionIssuedWhileSending = false
+          }
+
+          const sendBargeIn = async (route: VoiceRealtimeTransportRoute) => {
+            const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
+            const echoTelemetry = buildEchoCancellationTelemetry()
+            await voiceRuntime.ingestRealtimeEnvelope({
+              voiceSessionId: openedVoiceSession.voiceSessionId,
+              conversationId: runtimeSession.conversationId,
+              liveSessionId,
+              sequence: nextRealtimeEnvelopeSequence(),
+              transportRoute: route,
+              sttRoute: primarySttRoute,
+              requestedProviderId: "elevenlabs",
+              eventType: "barge_in",
+              voiceRuntime: {
+                liveSessionId,
+                captureMethod: "pcm_fixed_frame_streaming",
+                sttPrimaryRoute: primarySttRoute,
+                sttFallbackRoute: fallbackSttRoute,
+                assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                assistantPlaybackQueueInterrupted:
+                  playbackQueueSnapshot.interrupted,
+                assistantPlaybackQueueInterruptCount:
+                  playbackQueueSnapshot.interruptCount,
+                interruptDetectionPolicy: "client_vad_barge_in",
+                vadMode: CONVERSATION_VAD_POLICY.mode,
+                vadEnergyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                vadMinSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                vadEndpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+                ...echoTelemetry,
+              },
+              transportRuntime: {
+                ...buildRealtimeTransportRuntime(),
+                interruptDetected: true,
+                bargeInCount,
+              },
+              avObservability: {
+                liveSessionId,
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                interviewSessionId: String(runtimeSession.agentSessionId),
+                bargeInCount,
+                assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                assistantPlaybackQueueInterrupted:
+                  playbackQueueSnapshot.interrupted,
+                assistantPlaybackQueueInterruptCount:
+                  playbackQueueSnapshot.interruptCount,
+                ...echoTelemetry,
+              },
+              runtimeContext: {
+                authSessionId: sessionId,
+                interviewSessionId: runtimeSession.agentSessionId,
+              },
+            })
+          }
+
+          const sendFrame = async (route: VoiceRealtimeTransportRoute) => {
+            const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
+            const echoTelemetry = buildEchoCancellationTelemetry()
+            return await voiceRuntime.ingestRealtimeEnvelope({
+              voiceSessionId: openedVoiceSession.voiceSessionId,
+              conversationId: runtimeSession.conversationId,
+              liveSessionId,
+              sequence: nextRealtimeEnvelopeSequence(),
+              transportRoute: route,
+              sttRoute: primarySttRoute,
+              requestedProviderId: "elevenlabs",
+              eventType: "audio_chunk",
+              audioChunkBase64: encodeInt16FrameToBase64(frame.samples),
+              transcriptionMimeType: "audio/L16;rate=24000;channels=1",
+              pcm: {
+                encoding: "pcm_s16le",
+                sampleRateHz: frame.sampleRateHz,
+                channels: 1,
+                frameDurationMs: frame.frameDurationMs,
+              },
+              voiceRuntime: {
+                liveSessionId,
+                captureMethod: "pcm_fixed_frame_streaming",
+                sttPrimaryRoute: primarySttRoute,
+                sttFallbackRoute: fallbackSttRoute,
+                assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                assistantPlaybackQueueInterrupted:
+                  playbackQueueSnapshot.interrupted,
+                assistantPlaybackQueueInterruptCount:
+                  playbackQueueSnapshot.interruptCount,
+                vadMode: CONVERSATION_VAD_POLICY.mode,
+                vadEnergyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                vadMinSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                vadEndpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+                vadSpeechFrameDetected: speechDetected,
+                vadFrameRms: Number(frameRms.toFixed(5)),
+                ...echoTelemetry,
+              },
+              transportRuntime: {
+                ...buildRealtimeTransportRuntime(),
+                frameBytes: frame.frameBytes,
+                frameSequence: frame.sequence,
+                frameRms: Number(frameRms.toFixed(5)),
+                speechDetected,
+                endpointDetected,
+                bargeInCount,
+              },
+              avObservability: {
+                liveSessionId,
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                interviewSessionId: String(runtimeSession.agentSessionId),
+                frameSequence: frame.sequence,
+                frameBytes: frame.frameBytes,
+                sttRoute: primarySttRoute,
+                frameRms: Number(frameRms.toFixed(5)),
+                speechDetected,
+                assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                ...echoTelemetry,
+              },
+              runtimeContext: {
+                authSessionId: sessionId,
+                interviewSessionId: runtimeSession.agentSessionId,
+              },
+            })
+          }
+
+          if (
+            speechDetected
+            && consecutiveSpeechFrames >= CONVERSATION_VAD_POLICY.minSpeechFrames
+            && isSendingRef.current
+            && !interruptionIssuedWhileSending
+          ) {
+            interruptionIssuedWhileSending = true
+            bargeInCount += 1
+            assistantPlaybackQueueInterruptCount += 1
+            assistantPlaybackQueueInterrupted = true
+            assistantPlaybackQueueLastInterruptAtMs = Date.now()
+            conversationInterruptCountRef.current = bargeInCount
+            stopCurrentRequest()
+            try {
+              await sendBargeIn(realtimeTransportRoute)
+            } catch {
+              // Keep local interrupt deterministic even if relay path fails.
+            }
+          }
+
+          try {
+            const frameResult = await sendFrame(realtimeTransportRoute)
+            const partialTranscript = extractOrderedTranscriptEvent({
+              relayEvents: frameResult.relayEvents,
+              eventType: "partial_transcript",
+            })
+            if (partialTranscript) {
+              latestRealtimeTranscript = partialTranscript
+              applyTranscriptToComposer(partialTranscript)
+            }
+            return
+          } catch (error) {
+            if (
+              realtimeTransportRoute === "websocket_primary"
+              && !realtimeTransportFallbackApplied
+            ) {
+              realtimeTransportRoute = resolveFallbackRealtimeTransportRoute()
+              activeRealtimeTransportRouteRef.current = realtimeTransportRoute
+              realtimeTransportFallbackApplied = true
+              const fallbackResult = await sendFrame(realtimeTransportRoute)
+              const fallbackPartialTranscript = extractOrderedTranscriptEvent({
+                relayEvents: fallbackResult.relayEvents,
+                eventType: "partial_transcript",
+              })
+              if (fallbackPartialTranscript) {
+                latestRealtimeTranscript = fallbackPartialTranscript
+                applyTranscriptToComposer(fallbackPartialTranscript)
+              }
+              return
+            }
+            realtimeIngestFailedReason =
+              error instanceof Error
+                ? error.message
+                : "voice_realtime_ingest_failed"
+          }
+        }
+
+        queuedFrameCount += 1
+        queuedFrameBytes += frame.frameBytes
+        realtimeFrameQueue = realtimeFrameQueue.then(processFrame).catch((error) => {
+          realtimeIngestFailedReason =
+            error instanceof Error
+              ? error.message
+              : "voice_realtime_ingest_queue_failed"
+        })
+      }
+
       setActiveVoiceSessionId(openedVoiceSession.voiceSessionId)
 
       if (openedVoiceSession.fallbackProviderId) {
@@ -1387,44 +2639,16 @@ export function SlickChatInput({
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       voiceStreamRef.current = stream
-      voiceCaptureChunksRef.current = []
+      const audioTrack = stream.getAudioTracks()[0] || null
+      echoCancellationSelection = resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported: resolveHardwareAecSupport(),
+        hardwareAecEnabled: resolveHardwareAecEnabled(audioTrack),
+        forceMuteDuringTts: isConversationMicMuted,
+      })
 
-      const preferredMimeTypes = resolveVoiceCapturePreferredMimeTypes("elevenlabs")
-      const mimeType = preferredMimeTypes.find((value) => window.MediaRecorder.isTypeSupported(value))
-      const recorder = mimeType
-        ? new window.MediaRecorder(stream, { mimeType })
-        : new window.MediaRecorder(stream)
-      voiceRecorderRef.current = recorder
-
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          voiceCaptureChunksRef.current.push(event.data)
-        }
-      }
-      recorder.onerror = () => {
-        setVoiceCaptureError("voice_capture_recorder_error")
-        setVoiceCaptureState("idle")
-      }
-      recorder.onstop = () => {
+      const handleCapturedAudio = (payload: VoiceCapturePayload) => {
         releaseVoiceMediaStream()
-        voiceRecorderRef.current = null
-
-        const recorderMimeType =
-          typeof recorder.mimeType === "string" && recorder.mimeType.trim().length > 0
-            ? recorder.mimeType
-            : ""
-        const audioType =
-          recorderMimeType
-          || voiceCaptureChunksRef.current[0]?.type
-          || resolveVoiceCaptureFallbackMimeType("elevenlabs")
-        const captureChunkCount = voiceCaptureChunksRef.current.length
-        const captureChunkBytes = voiceCaptureChunksRef.current.reduce(
-          (total, chunk) => total + chunk.size,
-          0,
-        )
-        const audioBlob = new Blob(voiceCaptureChunksRef.current, { type: audioType })
-        voiceCaptureChunksRef.current = []
-        if (!audioBlob.size) {
+        if (!payload.audioBlob.size) {
           setVoiceCaptureState("idle")
           closeVoiceRuntimeSession({
             voiceSessionId: openedVoiceSession.voiceSessionId,
@@ -1438,15 +2662,178 @@ export function SlickChatInput({
         void (async () => {
           setVoiceCaptureState("transcribing")
           try {
+            await realtimeFrameQueue
+            if (latestRealtimeTranscript?.trim() && !realtimeIngestFailedReason) {
+              try {
+                const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
+                const echoTelemetry = buildEchoCancellationTelemetry()
+                const finalIngest = await voiceRuntime.ingestRealtimeEnvelope({
+                  voiceSessionId: openedVoiceSession.voiceSessionId,
+                  conversationId: runtimeSession.conversationId,
+                  liveSessionId,
+                  sequence: nextRealtimeEnvelopeSequence(),
+                  transportRoute: realtimeTransportRoute,
+                  sttRoute: primarySttRoute,
+                  requestedProviderId: "elevenlabs",
+                  eventType: "final_transcript",
+                  transcriptText: latestRealtimeTranscript,
+                  voiceRuntime: {
+                    liveSessionId,
+                    captureMethod: "pcm_fixed_frame_streaming",
+                    sttPrimaryRoute: primarySttRoute,
+                    sttFallbackRoute: fallbackSttRoute,
+                    transcriptFinalizationSource: "realtime_partial_merge",
+                    interruptCount: bargeInCount,
+                    assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                    assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                    assistantPlaybackQueueInterrupted:
+                      playbackQueueSnapshot.interrupted,
+                    assistantPlaybackQueueInterruptCount:
+                      playbackQueueSnapshot.interruptCount,
+                    ...echoTelemetry,
+                  },
+                  transportRuntime: {
+                    ...buildRealtimeTransportRuntime(),
+                    frameCount: queuedFrameCount,
+                    frameBytes: queuedFrameBytes,
+                    finalizationPath: "persistent_realtime",
+                    bargeInCount,
+                  },
+                  avObservability: {
+                    liveSessionId,
+                    voiceSessionId: openedVoiceSession.voiceSessionId,
+                    interviewSessionId: String(runtimeSession.agentSessionId),
+                    frameCount: queuedFrameCount,
+                    frameBytes: queuedFrameBytes,
+                    assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                    assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                    assistantPlaybackQueueInterrupted:
+                      playbackQueueSnapshot.interrupted,
+                    assistantPlaybackQueueInterruptCount:
+                      playbackQueueSnapshot.interruptCount,
+                    ...echoTelemetry,
+                  },
+                  runtimeContext: {
+                    authSessionId: sessionId,
+                    interviewSessionId: runtimeSession.agentSessionId,
+                  },
+                })
+                const finalizedTranscript = extractOrderedTranscriptEvent({
+                  relayEvents: finalIngest.relayEvents,
+                  eventType: "final_transcript",
+                })
+                if (finalizedTranscript) {
+                  latestRealtimeTranscript = finalizedTranscript
+                }
+              } catch (error) {
+                realtimeIngestFailedReason =
+                  error instanceof Error
+                    ? error.message
+                    : "voice_realtime_finalization_failed"
+              }
+            }
+
+            const realtimeTranscript = latestRealtimeTranscript?.trim() || null
+            if (realtimeTranscript && !realtimeIngestFailedReason) {
+              const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
+              const echoTelemetry = buildEchoCancellationTelemetry()
+              setPendingVoiceRuntime({
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                requestedProviderId: openedVoiceSession.requestedProviderId,
+                providerId: openedVoiceSession.providerId,
+                fallbackProviderId: openedVoiceSession.fallbackProviderId ?? null,
+                language: voiceInputLanguage,
+                transcribeStatus: "success",
+                fallbackReason: realtimeTransportFallbackApplied
+                  ? "websocket_primary_failed"
+                  : null,
+                liveSessionId,
+                sessionState: "transcribed",
+                runtimeAuthorityPrecedence: "vc83_runtime_policy",
+                routeTarget: "vc83_voice_runtime",
+                bridgeSource: "useVoiceRuntime",
+                captureMethod: payload.captureMethod,
+                frameDurationMs: payload.frameDurationMs,
+                sampleRateHz: payload.sampleRateHz,
+                frameCount: payload.frameCount,
+                frameBytes: payload.frameBytes,
+                realtimeFrameCount: queuedFrameCount,
+                realtimeFrameBytes: queuedFrameBytes,
+                realtimeTransportRoute,
+                realtimeTransportRoutePrecedence: REALTIME_TRANSPORT_ROUTE_PRECEDENCE,
+                realtimeSttRoutePrecedence: REALTIME_STT_ROUTE_PRECEDENCE,
+                realtimeSttRoute: primarySttRoute,
+                duplexPolicy: "persistent_streaming_primary",
+                interruptDetectionPolicy: "client_vad_barge_in",
+                interruptCount: bargeInCount,
+                assistantPlaybackQueuePolicy: playbackQueueSnapshot.queuePolicy,
+                assistantPlaybackQueueDepth: playbackQueueSnapshot.queueDepth,
+                assistantPlaybackQueueInterrupted:
+                  playbackQueueSnapshot.interrupted,
+                assistantPlaybackQueueInterruptCount:
+                  playbackQueueSnapshot.interruptCount,
+                echoCancellation: {
+                  strategy: echoCancellationSelection.strategy,
+                  reason: echoCancellationSelection.reason,
+                  hardwareAecSupported:
+                    echoCancellationSelection.hardwareAecSupported,
+                  hardwareAecEnabled:
+                    echoCancellationSelection.hardwareAecEnabled,
+                },
+                ...echoTelemetry,
+                vadPolicy: {
+                  mode: CONVERSATION_VAD_POLICY.mode,
+                  frameDurationMs: CONVERSATION_VAD_POLICY.frameDurationMs,
+                  energyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                  minSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                  endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+                },
+              })
+              applyTranscriptToComposer(realtimeTranscript)
+              setVoiceCaptureError(null)
+              return
+            }
+
             const transcribeResult = await voiceRuntime.transcribeAudioBlob({
               voiceSessionId: openedVoiceSession.voiceSessionId,
-              blob: audioBlob,
+              blob: payload.audioBlob,
               requestedProviderId: "elevenlabs",
               language: voiceInputLanguage,
               telemetry: {
-                recorderMimeType: recorderMimeType || undefined,
-                captureChunkCount,
-                captureChunkBytes,
+                assistantPlaybackQueuePolicy:
+                  buildAssistantPlaybackQueueSnapshot().queuePolicy,
+                assistantPlaybackQueueDepth:
+                  buildAssistantPlaybackQueueSnapshot().queueDepth,
+                assistantPlaybackQueueInterruptCount:
+                  buildAssistantPlaybackQueueSnapshot().interruptCount,
+                assistantPlaybackQueueInterrupted:
+                  buildAssistantPlaybackQueueSnapshot().interrupted,
+                recorderMimeType: payload.recorderMimeType,
+                captureChunkCount: payload.captureChunkCount,
+                captureChunkBytes: payload.captureChunkBytes,
+                captureMethod: payload.captureMethod,
+                frameDurationMs: payload.frameDurationMs,
+                sampleRateHz: payload.sampleRateHz,
+                frameCount: payload.frameCount,
+                frameBytes: payload.frameBytes,
+                realtimeFrameCount: queuedFrameCount,
+                realtimeFrameBytes: queuedFrameBytes,
+                realtimeTransportRoute,
+                realtimeTransportRoutePrecedence: REALTIME_TRANSPORT_ROUTE_PRECEDENCE,
+                realtimeSttRoutePrecedence: REALTIME_STT_ROUTE_PRECEDENCE,
+                realtimeFallbackReason:
+                  realtimeIngestFailedReason || "realtime_transcript_unavailable",
+                interruptCount: bargeInCount,
+                vadMode: CONVERSATION_VAD_POLICY.mode,
+                vadEnergyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                vadMinSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                vadEndpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+                echoCancellationStrategy: echoCancellationSelection.strategy,
+                echoCancellationReason: echoCancellationSelection.reason,
+                echoCancellationHardwareAecSupported:
+                  echoCancellationSelection.hardwareAecSupported,
+                echoCancellationHardwareAecEnabled:
+                  echoCancellationSelection.hardwareAecEnabled,
               },
               runtimeContext: {
                 authSessionId: sessionId,
@@ -1469,6 +2856,39 @@ export function SlickChatInput({
               runtimeAuthorityPrecedence: "vc83_runtime_policy",
               routeTarget: "vc83_voice_runtime",
               bridgeSource: "useVoiceRuntime",
+              realtimeTransportRoute,
+              realtimeTransportRoutePrecedence: REALTIME_TRANSPORT_ROUTE_PRECEDENCE,
+              realtimeSttRoutePrecedence: REALTIME_STT_ROUTE_PRECEDENCE,
+              realtimeSttRoute: primarySttRoute,
+              realtimeFallbackReason:
+                realtimeIngestFailedReason || "realtime_transcript_unavailable",
+              duplexPolicy: "persistent_streaming_primary",
+              interruptDetectionPolicy: "client_vad_barge_in",
+              interruptCount: bargeInCount,
+              assistantPlaybackQueuePolicy:
+                buildAssistantPlaybackQueueSnapshot().queuePolicy,
+              assistantPlaybackQueueDepth:
+                buildAssistantPlaybackQueueSnapshot().queueDepth,
+              assistantPlaybackQueueInterrupted:
+                buildAssistantPlaybackQueueSnapshot().interrupted,
+              assistantPlaybackQueueInterruptCount:
+                buildAssistantPlaybackQueueSnapshot().interruptCount,
+              echoCancellation: {
+                strategy: echoCancellationSelection.strategy,
+                reason: echoCancellationSelection.reason,
+                hardwareAecSupported:
+                  echoCancellationSelection.hardwareAecSupported,
+                hardwareAecEnabled:
+                  echoCancellationSelection.hardwareAecEnabled,
+              },
+              ...buildEchoCancellationTelemetry(),
+              vadPolicy: {
+                mode: CONVERSATION_VAD_POLICY.mode,
+                frameDurationMs: CONVERSATION_VAD_POLICY.frameDurationMs,
+                energyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                minSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+              },
             }
             setPendingVoiceRuntime(runtimeMetadata)
 
@@ -1480,9 +2900,7 @@ export function SlickChatInput({
             }
 
             const transcript = transcribeResult.text.trim()
-            setMessage((current) =>
-              current.trim().length > 0 ? `${current.trim()} ${transcript}` : transcript
-            )
+            applyTranscriptToComposer(transcript)
             setVoiceCaptureError(null)
           } catch (error) {
             const errorMessage =
@@ -1501,10 +2919,41 @@ export function SlickChatInput({
               runtimeAuthorityPrecedence: "vc83_runtime_policy",
               routeTarget: "vc83_voice_runtime",
               bridgeSource: "useVoiceRuntime",
+              duplexPolicy: "persistent_streaming_primary",
+              interruptDetectionPolicy: "client_vad_barge_in",
+              interruptCount: bargeInCount,
+              assistantPlaybackQueuePolicy:
+                buildAssistantPlaybackQueueSnapshot().queuePolicy,
+              assistantPlaybackQueueDepth:
+                buildAssistantPlaybackQueueSnapshot().queueDepth,
+              assistantPlaybackQueueInterrupted:
+                buildAssistantPlaybackQueueSnapshot().interrupted,
+              assistantPlaybackQueueInterruptCount:
+                buildAssistantPlaybackQueueSnapshot().interruptCount,
+              echoCancellation: {
+                strategy: echoCancellationSelection.strategy,
+                reason: echoCancellationSelection.reason,
+                hardwareAecSupported:
+                  echoCancellationSelection.hardwareAecSupported,
+                hardwareAecEnabled:
+                  echoCancellationSelection.hardwareAecEnabled,
+              },
+              ...buildEchoCancellationTelemetry(),
+              vadPolicy: {
+                mode: CONVERSATION_VAD_POLICY.mode,
+                frameDurationMs: CONVERSATION_VAD_POLICY.frameDurationMs,
+                energyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+                minSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+                endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+              },
             })
             notification.error("Voice Capture Failed", errorMessage)
           } finally {
             setVoiceCaptureState("idle")
+            activeRealtimeLiveSessionIdRef.current = null
+            activeRealtimeVoiceSessionIdRef.current = null
+            activeRealtimeInterviewSessionIdRef.current = null
+            activeRealtimeTransportRouteRef.current = resolveInitialRealtimeTransportRoute()
             closeVoiceRuntimeSession({
               voiceSessionId: openedVoiceSession.voiceSessionId,
               providerId: openedVoiceSession.providerId,
@@ -1515,11 +2964,79 @@ export function SlickChatInput({
         })()
       }
 
-      recorder.start()
+      const handleCaptureError = (error: unknown) => {
+        releaseVoiceMediaStream()
+        const errorMessage =
+          error instanceof Error ? error.message : "voice_capture_runtime_error"
+        setVoiceCaptureState("idle")
+        setVoiceCaptureError(errorMessage)
+        activeRealtimeLiveSessionIdRef.current = null
+        activeRealtimeVoiceSessionIdRef.current = null
+        activeRealtimeInterviewSessionIdRef.current = null
+        activeRealtimeTransportRouteRef.current = resolveInitialRealtimeTransportRoute()
+        notification.error("Voice Capture Failed", errorMessage)
+        closeVoiceRuntimeSession({
+          voiceSessionId: openedVoiceSession.voiceSessionId,
+          providerId: openedVoiceSession.providerId,
+          runtimeSession,
+          reason: "chat_voice_capture_failed_to_start",
+        })
+      }
+
+      let controller: VoiceCaptureController | null = null
+      if (supportsPcmVoiceCapture()) {
+        const pcmContract = resolveVoicePcmCaptureContract("elevenlabs")
+        try {
+          controller = await startPcmVoiceCapture({
+            stream,
+            requestedSampleRateHz: pcmContract.sampleRateHz,
+            frameDurationMs: pcmContract.frameDurationMs,
+            onFrame: (framePayload) => {
+              if (
+                framePayload.sampleRateHz !== pcmContract.sampleRateHz
+                || framePayload.frameDurationMs !== pcmContract.frameDurationMs
+                || framePayload.frameBytes !== pcmContract.frameBytes
+              ) {
+                realtimeIngestFailedReason = "voice_pcm_contract_mismatch"
+                return
+              }
+              queueRealtimePcmFrameIngest(framePayload)
+            },
+            onCaptured: handleCapturedAudio,
+            onError: handleCaptureError,
+          })
+        } catch {
+          controller = null
+        }
+      }
+
+      if (!controller) {
+        if (!supportsMediaRecorderVoiceCapture()) {
+          throw new Error("voice_pcm_capture_unavailable_no_fallback")
+        }
+        controller = startMediaRecorderVoiceCapture({
+          stream,
+          preferredMimeTypes: resolveVoiceCapturePreferredMimeTypes("elevenlabs"),
+          fallbackMimeType: resolveVoiceCaptureFallbackMimeType("elevenlabs"),
+          onCaptured: handleCapturedAudio,
+          onError: handleCaptureError,
+        })
+        notification.info(
+          "Voice Capture Fallback",
+          "PCM capture unsupported; using container fallback for this browser."
+        )
+        realtimeIngestFailedReason = "pcm_capture_unavailable_media_recorder_fallback"
+      }
+
+      voiceCaptureControllerRef.current = controller
       setVoiceCaptureState("listening")
     } catch (error) {
       releaseVoiceMediaStream()
       setVoiceCaptureState("idle")
+      activeRealtimeLiveSessionIdRef.current = null
+      activeRealtimeVoiceSessionIdRef.current = null
+      activeRealtimeInterviewSessionIdRef.current = null
+      activeRealtimeTransportRouteRef.current = resolveInitialRealtimeTransportRoute()
       const errorMessage =
         error instanceof Error ? error.message : "Unable to start runtime voice capture."
       setVoiceCaptureError(errorMessage)
@@ -2127,6 +3644,25 @@ export function SlickChatInput({
               surface: "group" as const,
             }
         : undefined
+      const conversationEchoSelection = resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported:
+          pendingVoiceRuntime?.echoCancellationHardwareAecSupported === true,
+        hardwareAecEnabled:
+          pendingVoiceRuntime?.echoCancellationHardwareAecEnabled === true,
+        forceMuteDuringTts: isConversationMicMuted,
+      })
+      const conversationPlaybackQueuePolicy =
+        (typeof pendingVoiceRuntime?.assistantPlaybackQueuePolicy === "string"
+          ? pendingVoiceRuntime.assistantPlaybackQueuePolicy
+          : ASSISTANT_PLAYBACK_QUEUE_POLICY)
+      const conversationPlaybackQueueDepth = Math.max(
+        0,
+        Number(pendingVoiceRuntime?.assistantPlaybackQueueDepth || 0)
+      )
+      const conversationPlaybackQueueInterruptCount = Math.max(
+        0,
+        Number(pendingVoiceRuntime?.assistantPlaybackQueueInterruptCount || 0)
+      )
 
       const result = await chat.sendMessage(outboundMessage, currentConversationId, {
         mode: composerMode,
@@ -2142,6 +3678,47 @@ export function SlickChatInput({
           contractVersion: CONVERSATION_CONTRACT_VERSION,
           state: conversationState,
           reasonCode: conversationReasonCode,
+          duplexPolicy: {
+            mode: "persistent_streaming_primary",
+            interruptDetection: "client_vad_barge_in",
+            interruptStopAssistantOnSpeech: true,
+          },
+          vadPolicy: {
+            mode: CONVERSATION_VAD_POLICY.mode,
+            frameDurationMs: CONVERSATION_VAD_POLICY.frameDurationMs,
+            energyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+            minSpeechFrames: CONVERSATION_VAD_POLICY.minSpeechFrames,
+            endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
+          },
+          videoForwardingPolicy: {
+            mode: "persistent_transport_jpeg_throttled",
+            frameMimeType: "image/jpeg",
+            cadenceMs: VISION_FORWARDING_CADENCE_MS,
+            maxFramesPerWindow: VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
+            windowMs: VISION_FORWARDING_WINDOW_MS,
+          },
+          ttsPolicy: {
+            primaryRoute: TTS_PRIMARY_ROUTE,
+            fallbackRoute: TTS_FALLBACK_ROUTE,
+            queuePolicy: conversationPlaybackQueuePolicy,
+            interruptPolicy: "barge_in_flush_active_and_pending",
+          },
+          echoCancellationPolicy: {
+            strategy: pendingVoiceRuntime?.echoCancellationStrategy
+              || conversationEchoSelection.strategy,
+            reason: pendingVoiceRuntime?.echoCancellationReason
+              || conversationEchoSelection.reason,
+            hardwareAecSupported: conversationEchoSelection.hardwareAecSupported,
+            hardwareAecEnabled: conversationEchoSelection.hardwareAecEnabled,
+          },
+          assistantPlaybackQueue: {
+            policy: conversationPlaybackQueuePolicy,
+            queueDepth: conversationPlaybackQueueDepth,
+            interrupted:
+              pendingVoiceRuntime?.assistantPlaybackQueueInterrupted === true,
+            interruptCount: conversationPlaybackQueueInterruptCount,
+          },
+          interruptCount: conversationInterruptCountRef.current,
           mode: conversationModeSelection,
           requestedEyesSource:
             conversationModeSelection === "voice_with_eyes"
@@ -2591,6 +4168,54 @@ export function SlickChatInput({
     )
   }, [cameraLiveSession, cameraVisionError, conversationModeSelection, conversationState])
 
+  useEffect(() => {
+    if (conversationModeSelection !== "voice_with_eyes") {
+      return
+    }
+    if (conversationState !== "live" && conversationState !== "reconnecting") {
+      return
+    }
+    if (voiceCaptureState !== "listening" || isConversationMicMuted) {
+      return
+    }
+    if (cameraLiveSession?.sessionState !== "capturing") {
+      return
+    }
+    if (!sessionId || !resolvedVoiceRuntimeSession || !activeVoiceSessionId) {
+      return
+    }
+
+    let cancelled = false
+    const runForwardingTick = () => {
+      if (cancelled || realtimeVisionForwardInFlightRef.current) {
+        return
+      }
+      realtimeVisionForwardInFlightRef.current = true
+      void forwardVisionFrameToRealtimeTransport({
+        source: "interval",
+      }).finally(() => {
+        realtimeVisionForwardInFlightRef.current = false
+      })
+    }
+
+    runForwardingTick()
+    const intervalId = window.setInterval(runForwardingTick, VISION_FORWARDING_CADENCE_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeVoiceSessionId,
+    cameraLiveSession?.sessionState,
+    conversationModeSelection,
+    conversationState,
+    isConversationMicMuted,
+    resolvedVoiceRuntimeSession,
+    sessionId,
+    voiceCaptureState,
+  ])
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -2698,6 +4323,10 @@ export function SlickChatInput({
                   {conversationState}
                   {conversationReasonCode ? ` • ${conversationReasonCode}` : ""}
                 </div>
+              </div>
+              <div className="mb-1 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
+                duplex: persistent_streaming_primary • vad: {CONVERSATION_VAD_POLICY.mode}
+                ({CONVERSATION_VAD_POLICY.energyThresholdRms.toFixed(3)}) • jpeg cadence: {VISION_FORWARDING_CADENCE_MS}ms
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button

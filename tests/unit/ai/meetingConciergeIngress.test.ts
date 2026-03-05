@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
   buildMeetingConciergeDecisionTelemetry,
+  buildDerTerminmacherRuntimeContext,
   buildInboundMeetingConciergeRuntimeContext,
+  enforceDerTerminmacherPreviewFirstToolPolicy,
   injectAutoPreviewMeetingConciergeToolCall,
+  resolveDerTerminmacherRuntimeContract,
   resolveInboundMeetingConciergeIntent,
 } from "../../../convex/ai/agentExecution";
 import {
@@ -12,12 +16,67 @@ import {
   MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
   MOBILE_SOURCE_ATTESTATION_CONTRACT_VERSION,
 } from "../../../convex/ai/mobileRuntimeHardening";
+import {
+  MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+  MEETING_CONCIERGE_STAGE_SEQUENCE,
+} from "../../../convex/ai/tools/bookingTool";
 
 const ORG_ID = "org_1" as Id<"organizations">;
 const PREVIEW_COMMAND_POLICY = {
   contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
   attemptedCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
 };
+
+function buildStageContractForTest(args: {
+  mode: "preview" | "execute";
+  terminalStage: (typeof MEETING_CONCIERGE_STAGE_SEQUENCE)[number];
+  terminalOutcome: "success" | "blocked";
+  terminalOutcomeCode: string;
+}) {
+  return {
+    contractVersion: MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+    mode: args.mode,
+    flow: [...MEETING_CONCIERGE_STAGE_SEQUENCE],
+    terminalStage: args.terminalStage,
+    terminalOutcome: args.terminalOutcome,
+    stages: MEETING_CONCIERGE_STAGE_SEQUENCE.map((stage) => {
+      if (stage === args.terminalStage) {
+        return {
+          stage,
+          status: args.terminalOutcome === "success" ? "success" : "blocked",
+          outcomeCode: args.terminalOutcomeCode,
+          failClosed: args.terminalOutcome !== "success",
+        };
+      }
+      if (args.mode === "preview" && (stage === "booking" || stage === "invite")) {
+        return {
+          stage,
+          status: "skipped",
+          outcomeCode: "preview_mode_deferred",
+          failClosed: false,
+        };
+      }
+      if (
+        args.terminalOutcome === "blocked" &&
+        MEETING_CONCIERGE_STAGE_SEQUENCE.indexOf(stage) >
+          MEETING_CONCIERGE_STAGE_SEQUENCE.indexOf(args.terminalStage)
+      ) {
+        return {
+          stage,
+          status: "skipped",
+          outcomeCode: `blocked_upstream_${args.terminalStage}`,
+          failClosed: true,
+        };
+      }
+      return {
+        stage,
+        status: "success",
+        outcomeCode: `${stage}_success`,
+        failClosed: false,
+      };
+    }),
+  };
+}
 
 describe("mobile meeting concierge ingress intent", () => {
   it("assembles preview payload from voice/camera context with deterministic idempotency", () => {
@@ -254,7 +313,18 @@ describe("mobile meeting concierge ingress intent", () => {
         {
           tool: "manage_bookings",
           status: "success",
-          result: { mode: "preview" },
+          result: {
+            action: "run_meeting_concierge_demo",
+            mode: "preview",
+            data: {
+              stageContract: buildStageContractForTest({
+                mode: "preview",
+                terminalStage: "contact_capture",
+                terminalOutcome: "success",
+                terminalOutcomeCode: "contact_capture_preview_reuse",
+              }),
+            },
+          },
         },
       ],
       latencyTargetMs: 60_000,
@@ -262,6 +332,8 @@ describe("mobile meeting concierge ingress intent", () => {
 
     expect(telemetry.decision).toBe("preview_success");
     expect(telemetry.toolInvocation.success).toBe(true);
+    expect(telemetry.stageContract.valid).toBe(true);
+    expect(telemetry.stageContract.terminalStage).toBe("contact_capture");
     expect(telemetry.ingestLatencyMs).toBe(2_500);
     expect(telemetry.endToEndLatencyMs).toBe(3_500);
     expect(telemetry.latencyTargetBreached).toBe(false);
@@ -326,6 +398,182 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(telemetry.toolInvocation.success).toBe(false);
   });
 
+  it("keeps concierge decision fail-closed when success payload is missing stage contract", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Please preview a booking for jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_stage_contract_missing",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Use jordan@example.com",
+        },
+      },
+      now: 1_701_300_010_000,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 600,
+      toolResults: [
+        {
+          tool: "manage_bookings",
+          status: "success",
+          result: {
+            action: "run_meeting_concierge_demo",
+            mode: "preview",
+            data: {},
+          },
+        },
+      ],
+    });
+
+    expect(telemetry.decision).toBe("blocked_unknown");
+    expect(telemetry.stageContract.valid).toBe(false);
+    expect(telemetry.decisionReasonCodes).toContain(
+      "stage_contract:missing_stage_contract"
+    );
+  });
+
+  it("emits stage-blocked reason code when concierge stage contract terminates blocked", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Please preview a booking for jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_stage_contract_blocked",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Use jordan@example.com",
+        },
+      },
+      now: 1_701_300_020_000,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 900,
+      toolResults: [
+        {
+          tool: "manage_bookings",
+          status: "error",
+          error: "Confirmation delivery failed",
+          result: {
+            action: "run_meeting_concierge_demo",
+            mode: "execute",
+            data: {
+              stageContract: buildStageContractForTest({
+                mode: "execute",
+                terminalStage: "invite",
+                terminalOutcome: "blocked",
+                terminalOutcomeCode: "invite_delivery_failed",
+              }),
+            },
+          },
+        },
+      ],
+    });
+
+    expect(telemetry.stageContract.present).toBe(true);
+    expect(telemetry.stageContract.terminalOutcome).toBe("blocked");
+    expect(telemetry.decisionReasonCodes).toContain(
+      "stage_blocked:invite:invite_delivery_failed"
+    );
+  });
+
+  it("builds execute-success telemetry when booking flow reaches invite delivery stage", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Book it now with jordan@example.com",
+      metadata: {
+        liveSessionId: "live_session_execute_success",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Jordan email is jordan@example.com.",
+        },
+      },
+      now: 1_701_300_030_000,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 1_250,
+      toolResults: [
+        {
+          tool: "manage_bookings",
+          status: "success",
+          result: {
+            action: "run_meeting_concierge_demo",
+            mode: "execute",
+            data: {
+              stageContract: buildStageContractForTest({
+                mode: "execute",
+                terminalStage: "invite",
+                terminalOutcome: "success",
+                terminalOutcomeCode: "invite_sent",
+              }),
+            },
+          },
+        },
+      ],
+    });
+
+    expect(telemetry.decision).toBe("execute_success");
+    expect(telemetry.toolInvocation.success).toBe(true);
+    expect(telemetry.stageContract.valid).toBe(true);
+    expect(telemetry.stageContract.terminalStage).toBe("invite");
+    expect(telemetry.stageContract.terminalOutcome).toBe("success");
+  });
+
+  it("emits stage-blocked reason code for CRM lookup/create failures", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Preview booking for jordan@example.com",
+      metadata: {
+        liveSessionId: "live_session_crm_stage_blocked",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Jordan email is jordan@example.com.",
+        },
+      },
+      now: 1_701_300_040_000,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 600,
+      toolResults: [
+        {
+          tool: "manage_bookings",
+          status: "error",
+          error: "CRM lookup failed",
+          result: {
+            action: "run_meeting_concierge_demo",
+            mode: "preview",
+            data: {
+              stageContract: buildStageContractForTest({
+                mode: "preview",
+                terminalStage: "crm_lookup_create",
+                terminalOutcome: "blocked",
+                terminalOutcomeCode: "crm_lookup_failed",
+              }),
+            },
+          },
+        },
+      ],
+    });
+
+    expect(telemetry.stageContract.present).toBe(true);
+    expect(telemetry.stageContract.terminalStage).toBe("crm_lookup_create");
+    expect(telemetry.stageContract.terminalOutcome).toBe("blocked");
+    expect(telemetry.decisionReasonCodes).toContain(
+      "stage_blocked:crm_lookup_create:crm_lookup_failed"
+    );
+  });
+
   it("fails closed when command policy contract is missing for live ingress", () => {
     const intent = resolveInboundMeetingConciergeIntent({
       organizationId: ORG_ID,
@@ -374,6 +622,33 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(intent.fallbackReasons).toContain("source_metadata_quarantined");
     expect(intent.fallbackReasons).toContain("source_attestation:missing_attestation");
     expect(intent.extractedPayloadReady).toBe(false);
+  });
+
+  it("extracts concierge payload from OCR-only camera ingress", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Preview booking details from camera context.",
+      metadata: {
+        liveSessionId: "live_session_ocr_only_ingress",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        cameraRuntime: {
+          ocrText:
+            "This is Jordan Lee from Northstar. Reach me at jordan.lee@northstar.com and +1 (415) 555-1234.",
+          detectedText: "Networking badge scan",
+        },
+      },
+      now: 1_701_360_005_000,
+    });
+
+    expect(intent.enabled).toBe(true);
+    expect(intent.extractedPayloadReady).toBe(true);
+    expect(intent.fallbackReasons).not.toContain("source_metadata_quarantined");
+    expect(intent.payload).toMatchObject({
+      personEmail: "jordan.lee@northstar.com",
+      personPhone: "+1 (415) 555-1234",
+    });
+    expect(intent.payload?.personName).toContain("Jordan Lee");
   });
 
   it("keeps payload extraction fail-closed when transport/session attestation fails", () => {
@@ -500,5 +775,101 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(intent.sourceAttestation.verified).toBe(true);
     expect(intent.fallbackReasons).not.toContain("source_metadata_quarantined");
     expect(intent.extractedPayloadReady).toBe(true);
+  });
+
+  it("resolves der terminmacher runtime contract with german-first prompt and crm+booking tools", () => {
+    const contract = resolveDerTerminmacherRuntimeContract({
+      displayName: "Der Terminmacher",
+      templateRole: "one_of_one_der_terminmacher_template",
+    });
+
+    expect(contract).toBeTruthy();
+    expect(contract?.moduleKey).toBe(DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY);
+    expect(contract?.languagePolicy).toEqual({
+      primary: "de",
+      fallback: "en",
+      responseMode: "german_first",
+    });
+    expect(contract?.toolManifest.requiredTools).toEqual([
+      "manage_bookings",
+      "manage_crm",
+    ]);
+  });
+
+  it("enables concierge ingress on native_guest only when der terminmacher runtime module is active", () => {
+    const disabled = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "native_guest",
+      message: "Bitte plane einen Termin mit jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_terminmacher_disabled",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Jordan email ist jordan@example.com",
+        },
+      },
+      now: 1_701_370_000_000,
+    });
+    expect(disabled.enabled).toBe(false);
+
+    const enabled = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "native_guest",
+      message: "Bitte plane einen Termin mit jordan@example.com.",
+      runtimeModuleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+      metadata: {
+        liveSessionId: "live_session_terminmacher_enabled",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "Jordan email ist jordan@example.com",
+        },
+      },
+      now: 1_701_370_000_001,
+    });
+
+    expect(enabled.enabled).toBe(true);
+    expect(enabled.runtimeModuleKey).toBe(DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY);
+    expect(enabled.fallbackReasons).toContain(
+      "der_terminmacher_assumption_vision_missing"
+    );
+  });
+
+  it("builds machine-readable der terminmacher runtime context block", () => {
+    const contract = resolveDerTerminmacherRuntimeContract({
+      displayName: "Der Terminmacher",
+    });
+    const context = buildDerTerminmacherRuntimeContext(contract);
+
+    expect(context).toContain("DER TERMINMACHER RUNTIME CONTRACT");
+    expect(context).toContain("german_first");
+    expect(context).toContain("manage_crm");
+    expect(context).toContain("manage_bookings");
+  });
+
+  it("enforces preview-first mutation policy for der terminmacher tool calls", () => {
+    const runtimeContract = resolveDerTerminmacherRuntimeContract({
+      displayName: "Der Terminmacher",
+    });
+    const guardedToolCalls = enforceDerTerminmacherPreviewFirstToolPolicy({
+      runtimeContract,
+      explicitConfirmDetected: false,
+      toolCalls: [
+        {
+          id: "crm_execute_1",
+          type: "function",
+          function: {
+            name: "manage_crm",
+            arguments: JSON.stringify({
+              action: "create_contact",
+              mode: "execute",
+              email: "jordan@example.com",
+            }),
+          },
+        },
+      ],
+    });
+    const firstCall = guardedToolCalls[0] as { function?: { arguments?: string } };
+    const firstArgs = JSON.parse(firstCall.function?.arguments || "{}") as Record<string, unknown>;
+    expect(firstArgs.mode).toBe("preview");
   });
 });

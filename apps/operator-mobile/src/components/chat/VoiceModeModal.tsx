@@ -11,12 +11,113 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { VoiceRecorder, VoiceRecorderFrame, VoiceRecorderHandle } from './VoiceRecorder';
+import {
+  VoiceRecorder,
+  type VoiceRecorderEnergySample,
+  VoiceRecorderFrame,
+  VoiceRecorderHandle,
+} from './VoiceRecorder';
 import { resolveMobileVoiceLiveDuplexSegmentDurationMs } from '../../lib/voice/runtimePolicy';
+import {
+  type ConversationTurnState,
+  MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS,
+  normalizeRecorderAutoStartDebounceMs,
+} from '../../lib/voice/lifecycle';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedYStack = Animated.createAnimatedComponent(YStack);
 const LIVE_DUPLEX_FRAME_DURATION_MS = resolveMobileVoiceLiveDuplexSegmentDurationMs('elevenlabs');
+const LIVE_DUPLEX_ENABLED = true;
+
+type VoiceModeTurnVisualState = {
+  label: string;
+  statusText: string;
+  background: string;
+  border: string;
+  core: string;
+  pulseScale: number;
+  pulseDurationMs: number;
+  rotateDurationMs: number;
+};
+
+const VOICE_MODE_TURN_VISUAL_STATE_MAP: Record<ConversationTurnState, VoiceModeTurnVisualState> = {
+  idle: {
+    label: 'IDLE',
+    statusText: 'Live duplex ready',
+    background: 'rgba(16, 185, 129, 0.28)',
+    border: 'rgba(16, 185, 129, 0.76)',
+    core: 'rgba(16, 185, 129, 0.34)',
+    pulseScale: 1.04,
+    pulseDurationMs: 1200,
+    rotateDurationMs: 8400,
+  },
+  listening: {
+    label: 'REC',
+    statusText: 'Listening...',
+    background: 'rgba(59, 130, 246, 0.3)',
+    border: 'rgba(59, 130, 246, 0.78)',
+    core: 'rgba(59, 130, 246, 0.36)',
+    pulseScale: 1.12,
+    pulseDurationMs: 620,
+    rotateDurationMs: 3600,
+  },
+  thinking: {
+    label: 'WAIT',
+    statusText: 'Thinking...',
+    background: 'rgba(245, 158, 11, 0.3)',
+    border: 'rgba(245, 158, 11, 0.72)',
+    core: 'rgba(245, 158, 11, 0.34)',
+    pulseScale: 1.08,
+    pulseDurationMs: 900,
+    rotateDurationMs: 5600,
+  },
+  agent_speaking: {
+    label: 'TALK',
+    statusText: 'Agent speaking...',
+    background: 'rgba(168, 85, 247, 0.32)',
+    border: 'rgba(168, 85, 247, 0.78)',
+    core: 'rgba(168, 85, 247, 0.38)',
+    pulseScale: 1.1,
+    pulseDurationMs: 700,
+    rotateDurationMs: 4200,
+  },
+};
+
+const VOICE_MODE_PRESTART_VISUAL_STATE: VoiceModeTurnVisualState = {
+  label: 'START',
+  statusText: 'Tap orb to start',
+  background: 'rgba(34, 197, 94, 0.26)',
+  border: 'rgba(34, 197, 94, 0.72)',
+  core: 'rgba(34, 197, 94, 0.3)',
+  pulseScale: 1,
+  pulseDurationMs: 320,
+  rotateDurationMs: 9000,
+};
+
+const VOICE_MODE_ENDING_VISUAL_STATE: VoiceModeTurnVisualState = {
+  label: 'END',
+  statusText: 'Ending conversation...',
+  background: 'rgba(220, 38, 38, 0.28)',
+  border: 'rgba(220, 38, 38, 0.72)',
+  core: 'rgba(220, 38, 38, 0.36)',
+  pulseScale: 1,
+  pulseDurationMs: 320,
+  rotateDurationMs: 9000,
+};
+
+function resolveVoiceModeVisualState(args: {
+  conversationStarted: boolean;
+  conversationEnding: boolean;
+  conversationTurnState: ConversationTurnState;
+}): VoiceModeTurnVisualState {
+  if (!args.conversationStarted) {
+    return VOICE_MODE_PRESTART_VISUAL_STATE;
+  }
+  if (args.conversationEnding) {
+    return VOICE_MODE_ENDING_VISUAL_STATE;
+  }
+  return VOICE_MODE_TURN_VISUAL_STATE_MAP[args.conversationTurnState];
+}
 
 type VoiceModeModalProps = {
   isOpen: boolean;
@@ -28,19 +129,23 @@ type VoiceModeModalProps = {
   metaGlassesAvailable: boolean;
   metaGlassesReason?: string;
   conversationStarted: boolean;
+  conversationEnding: boolean;
   onStartConversation: () => void;
   onEndConversation: () => void;
   hudStatusLabel: string;
   onRecordingComplete: (uri: string, duration: number) => void;
   onAudioFrame: (frame: VoiceRecorderFrame) => Promise<void> | void;
+  onAudioEnergySample?: (sample: VoiceRecorderEnergySample) => void;
   isTranscribing: boolean;
-  isLoading: boolean;
+  conversationTurnState: ConversationTurnState;
+  onRecordingStateChange?: (isRecording: boolean) => void;
   agentName: string;
   latestUserMessage?: string;
   latestAssistantMessage?: string;
   partialTranscript?: string;
-  isAssistantSpeaking?: boolean;
   onBeforeCapture?: () => Promise<void> | void;
+  captureStopSignal?: number;
+  recorderAutoStartDebounceMs?: number;
 };
 
 export function VoiceModeModal({
@@ -53,39 +158,92 @@ export function VoiceModeModal({
   metaGlassesAvailable,
   metaGlassesReason,
   conversationStarted,
+  conversationEnding,
   onStartConversation,
   onEndConversation,
   hudStatusLabel,
   onRecordingComplete,
   onAudioFrame,
+  onAudioEnergySample,
   isTranscribing,
-  isLoading,
+  conversationTurnState,
+  onRecordingStateChange,
   agentName,
   latestUserMessage,
   latestAssistantMessage,
   partialTranscript,
-  isAssistantSpeaking = false,
   onBeforeCapture,
+  captureStopSignal = 0,
+  recorderAutoStartDebounceMs = MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS,
 }: VoiceModeModalProps) {
   const [isRecording, setIsRecording] = useState(false);
-  const [liveDuplexEnabled, setLiveDuplexEnabled] = useState(true);
+  const liveDuplexEnabled = LIVE_DUPLEX_ENABLED;
   const [startError, setStartError] = useState<string | null>(null);
   const recorderRef = useRef<VoiceRecorderHandle | null>(null);
   const autoStartInFlightRef = useRef(false);
+  const autoStartDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousTurnStateRef = useRef<ConversationTurnState>(conversationTurnState);
+  const assistantPlaybackStoppedAtRef = useRef<number | null>(null);
+  const handledCaptureStopSignalRef = useRef(0);
   const pulse = useSharedValue(1);
   const rotate = useSharedValue(0);
-
-  const isActive = isRecording || isTranscribing || isLoading;
+  const normalizedAutoStartDebounceMs = useMemo(
+    () => normalizeRecorderAutoStartDebounceMs(recorderAutoStartDebounceMs),
+    [recorderAutoStartDebounceMs]
+  );
+  const voiceModeVisualState = useMemo(
+    () =>
+      resolveVoiceModeVisualState({
+        conversationStarted,
+        conversationEnding,
+        conversationTurnState,
+      }),
+    [conversationEnding, conversationStarted, conversationTurnState]
+  );
 
   useEffect(() => {
-    rotate.value = withRepeat(withTiming(360, { duration: 9000 }), -1, false);
-  }, [rotate]);
+    rotate.value = withRepeat(
+      withTiming(360, { duration: voiceModeVisualState.rotateDurationMs }),
+      -1,
+      false
+    );
+  }, [rotate, voiceModeVisualState.rotateDurationMs]);
 
   useEffect(() => {
-    pulse.value = isActive
-      ? withRepeat(withSequence(withTiming(1.1, { duration: 760 }), withTiming(1, { duration: 760 })), -1, false)
-      : withTiming(1, { duration: 320 });
-  }, [isActive, pulse]);
+    if (voiceModeVisualState.pulseScale <= 1) {
+      pulse.value = withTiming(1, { duration: voiceModeVisualState.pulseDurationMs });
+      return;
+    }
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(voiceModeVisualState.pulseScale, { duration: voiceModeVisualState.pulseDurationMs }),
+        withTiming(1, { duration: voiceModeVisualState.pulseDurationMs })
+      ),
+      -1,
+      false
+    );
+  }, [pulse, voiceModeVisualState.pulseDurationMs, voiceModeVisualState.pulseScale]);
+
+  useEffect(() => {
+    const previousTurnState = previousTurnStateRef.current;
+    if (
+      previousTurnState === 'agent_speaking'
+      && conversationTurnState !== 'agent_speaking'
+    ) {
+      assistantPlaybackStoppedAtRef.current = Date.now();
+    }
+    previousTurnStateRef.current = conversationTurnState;
+  }, [conversationTurnState]);
+
+  useEffect(
+    () => () => {
+      if (autoStartDebounceTimeoutRef.current) {
+        clearTimeout(autoStartDebounceTimeoutRef.current);
+        autoStartDebounceTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 
   const orbStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
@@ -95,56 +253,21 @@ export function VoiceModeModal({
     transform: [{ rotate: `${rotate.value}deg` }],
   }));
 
-  const statusText = useMemo(() => {
-    if (!conversationStarted) return 'Tap orb to start';
-    if (isRecording) return liveDuplexEnabled ? 'Streaming...' : 'Listening...';
-    if (isTranscribing) return 'Transcribing...';
-    if (isLoading) return 'Thinking...';
-    return liveDuplexEnabled ? 'Live duplex ready' : 'Tap to talk';
-  }, [conversationStarted, isLoading, isRecording, isTranscribing, liveDuplexEnabled]);
+  const statusText = voiceModeVisualState.statusText;
 
   const orbState = useMemo(() => {
-    if (!conversationStarted) {
-      return {
-        label: 'START',
-        background: 'rgba(34, 197, 94, 0.26)',
-        border: 'rgba(34, 197, 94, 0.72)',
-        core: 'rgba(34, 197, 94, 0.3)',
-      };
-    }
-    if (isRecording) {
-      return {
-        label: 'REC',
-        background: 'rgba(59, 130, 246, 0.3)',
-        border: 'rgba(59, 130, 246, 0.78)',
-        core: 'rgba(59, 130, 246, 0.36)',
-      };
-    }
-    if (isAssistantSpeaking) {
-      return {
-        label: 'TALK',
-        background: 'rgba(147, 51, 234, 0.32)',
-        border: 'rgba(167, 87, 255, 0.76)',
-        core: 'rgba(147, 51, 234, 0.38)',
-      };
-    }
-    if (isTranscribing || isLoading) {
-      return {
-        label: 'WAIT',
-        background: 'rgba(138, 105, 76, 0.34)',
-        border: 'rgba(180, 132, 88, 0.72)',
-        core: 'rgba(160, 119, 82, 0.3)',
-      };
-    }
     return {
-      label: 'STOP',
-      background: 'rgba(220, 38, 38, 0.28)',
-      border: 'rgba(220, 38, 38, 0.72)',
-      core: 'rgba(220, 38, 38, 0.36)',
+      label: voiceModeVisualState.label,
+      background: voiceModeVisualState.background,
+      border: voiceModeVisualState.border,
+      core: voiceModeVisualState.core,
     };
-  }, [conversationStarted, isAssistantSpeaking, isLoading, isRecording, isTranscribing]);
+  }, [voiceModeVisualState]);
 
   const handleOrbPress = () => {
+    if (conversationEnding) {
+      return;
+    }
     if (!conversationStarted) {
       void (async () => {
         setStartError(null);
@@ -178,11 +301,10 @@ export function VoiceModeModal({
     if (
       !isOpen
       || !conversationStarted
+      || conversationEnding
       || !liveDuplexEnabled
       || isRecording
-      || isTranscribing
-      || isLoading
-      || isAssistantSpeaking
+      || conversationTurnState !== 'idle'
     ) {
       return;
     }
@@ -193,6 +315,22 @@ export function VoiceModeModal({
       }
       autoStartInFlightRef.current = true;
       try {
+        const assistantPlaybackStoppedAtMs = assistantPlaybackStoppedAtRef.current;
+        if (Number.isFinite(assistantPlaybackStoppedAtMs)) {
+          const elapsedSinceAssistantStop = Date.now() - Number(assistantPlaybackStoppedAtMs);
+          const remainingDebounceMs = normalizedAutoStartDebounceMs - elapsedSinceAssistantStop;
+          if (remainingDebounceMs > 0) {
+            await new Promise<void>((resolve) => {
+              autoStartDebounceTimeoutRef.current = setTimeout(() => {
+                autoStartDebounceTimeoutRef.current = null;
+                resolve();
+              }, remainingDebounceMs);
+            });
+          }
+        }
+        if (cancelled) {
+          return;
+        }
         await onBeforeCapture?.();
         if (cancelled) return;
         if (!recorderRef.current?.isRecording()) {
@@ -208,18 +346,43 @@ export function VoiceModeModal({
     })();
     return () => {
       cancelled = true;
+      if (autoStartDebounceTimeoutRef.current) {
+        clearTimeout(autoStartDebounceTimeoutRef.current);
+        autoStartDebounceTimeoutRef.current = null;
+      }
     };
   }, [
+    conversationTurnState,
+    conversationEnding,
     conversationStarted,
-    isAssistantSpeaking,
-    isLoading,
     isOpen,
     isRecording,
-    isTranscribing,
     liveDuplexEnabled,
+    normalizedAutoStartDebounceMs,
     onBeforeCapture,
     recorderRef,
   ]);
+
+  useEffect(() => {
+    if (!conversationEnding) {
+      return;
+    }
+    if (autoStartDebounceTimeoutRef.current) {
+      clearTimeout(autoStartDebounceTimeoutRef.current);
+      autoStartDebounceTimeoutRef.current = null;
+    }
+    autoStartInFlightRef.current = false;
+    if (!recorderRef.current?.isRecording()) {
+      return;
+    }
+    void (async () => {
+      try {
+        await recorderRef.current?.stop();
+      } catch (error) {
+        console.warn('Failed to stop recorder while conversation is ending:', error);
+      }
+    })();
+  }, [conversationEnding]);
 
   useEffect(() => {
     if (!isOpen && recorderRef.current?.isRecording()) {
@@ -228,7 +391,29 @@ export function VoiceModeModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !isAssistantSpeaking || !recorderRef.current?.isRecording()) {
+    if (captureStopSignal <= 0 || captureStopSignal === handledCaptureStopSignalRef.current) {
+      return;
+    }
+    if (!isOpen || !conversationStarted) {
+      handledCaptureStopSignalRef.current = captureStopSignal;
+      return;
+    }
+    if (!recorderRef.current?.isRecording()) {
+      handledCaptureStopSignalRef.current = captureStopSignal;
+      return;
+    }
+    handledCaptureStopSignalRef.current = captureStopSignal;
+    void (async () => {
+      try {
+        await recorderRef.current?.stop();
+      } catch (error) {
+        console.warn('Failed to stop recorder from capture stop signal:', error);
+      }
+    })();
+  }, [captureStopSignal, conversationStarted, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || conversationTurnState !== 'agent_speaking' || !recorderRef.current?.isRecording()) {
       return;
     }
     void (async () => {
@@ -238,7 +423,7 @@ export function VoiceModeModal({
         console.warn('Failed to pause recorder while assistant speech is active:', error);
       }
     })();
-  }, [isAssistantSpeaking, isOpen]);
+  }, [conversationTurnState, isOpen]);
 
   return (
     <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
@@ -408,17 +593,21 @@ export function VoiceModeModal({
                   }}
                   onRecordingComplete={onRecordingComplete}
                   onAudioFrame={onAudioFrame}
+                  onAudioEnergySample={onAudioEnergySample}
                   onUserStopRecording={() => {
                     // Keep conversation session active after manual stop so
                     // triggered assistant replies can synthesize/play before teardown.
                   }}
-                  streamWhileRecording={liveDuplexEnabled}
+                  streamWhileRecording={LIVE_DUPLEX_ENABLED}
                   frameDurationMs={LIVE_DUPLEX_FRAME_DURATION_MS}
                   isTranscribing={isTranscribing}
                   size={1}
                   iconSize={0}
-                  onRecordingStateChange={setIsRecording}
-                  maxDurationMs={liveDuplexEnabled ? undefined : 2800}
+                  onRecordingStateChange={(nextIsRecording) => {
+                    setIsRecording(nextIsRecording);
+                    onRecordingStateChange?.(nextIsRecording);
+                  }}
+                  maxDurationMs={LIVE_DUPLEX_ENABLED ? undefined : 2800}
                 />
               </YStack>
             ) : null}

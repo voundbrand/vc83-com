@@ -1,7 +1,11 @@
 import {
+  createDefaultMetaBridgeDiagnostics,
   createDefaultMetaBridgeSnapshot,
+  type MetaBridgeDebugEvent,
+  type MetaBridgeRuntimeDiagnostics,
   type MetaBridgeSnapshot,
 } from './metaBridge-contracts';
+import { metaBridgeObservability } from './metaBridge-observability';
 
 type FrameIngressInput = {
   timestampMs?: number;
@@ -78,6 +82,61 @@ const nativeBridge: NativeMetaGlassesBridge | undefined =
 // Native DAT integrations should publish runtime events via platform hooks:
 // Android -> MetaGlassesBridgeRuntimeHooks, iOS -> MetaGlassesBridgeRuntime.
 
+function normalizeDiagnostics(
+  diagnostics: Partial<MetaBridgeRuntimeDiagnostics> | null | undefined,
+): MetaBridgeRuntimeDiagnostics {
+  const base = createDefaultMetaBridgeDiagnostics();
+  if (!diagnostics) {
+    return base;
+  }
+  return {
+    ...base,
+    ...diagnostics,
+    permissions: {
+      ...(base.permissions || {}),
+      ...((diagnostics.permissions as Record<string, unknown> | undefined) || {}),
+    },
+    discoveredDevices: Array.isArray(diagnostics.discoveredDevices)
+      ? diagnostics.discoveredDevices
+      : [],
+    pairedDevices: Array.isArray(diagnostics.pairedDevices)
+      ? diagnostics.pairedDevices
+      : [],
+  };
+}
+
+function normalizeDebugEvents(events: unknown): MetaBridgeDebugEvent[] {
+  if (!Array.isArray(events)) {
+    return [];
+  }
+  const now = Date.now();
+  return events
+    .map((event, index): MetaBridgeDebugEvent | null => {
+      if (!event || typeof event !== 'object') {
+        return null;
+      }
+      const payload = event as Record<string, unknown>;
+      const atMs = typeof payload.atMs === 'number' ? payload.atMs : now;
+      return {
+        id: typeof payload.id === 'string' ? payload.id : `meta_bridge_debug_${atMs}_${index}`,
+        atMs,
+        stage: typeof payload.stage === 'string' ? payload.stage as MetaBridgeDebugEvent['stage'] : 'status',
+        severity:
+          payload.severity === 'warn' || payload.severity === 'error'
+            ? payload.severity
+            : 'info',
+        code: typeof payload.code === 'string' ? payload.code : 'event',
+        message: typeof payload.message === 'string' ? payload.message : 'Meta bridge event',
+        details:
+          payload.details && typeof payload.details === 'object'
+            ? payload.details as Record<string, unknown>
+            : undefined,
+      };
+    })
+    .filter((event): event is MetaBridgeDebugEvent => event !== null)
+    .slice(-250);
+}
+
 function normalizeSnapshot(snapshot: Partial<MetaBridgeSnapshot> | null | undefined): MetaBridgeSnapshot {
   const base = createDefaultMetaBridgeSnapshot();
   if (!snapshot) {
@@ -104,6 +163,8 @@ function normalizeSnapshot(snapshot: Partial<MetaBridgeSnapshot> | null | undefi
       ...(snapshot.audioIngress || {}),
     },
     failure: snapshot.failure ?? null,
+    diagnostics: normalizeDiagnostics(snapshot.diagnostics),
+    debugEvents: normalizeDebugEvents(snapshot.debugEvents),
   };
 }
 
@@ -119,18 +180,25 @@ function fallbackSnapshot(reasonCode: string): MetaBridgeSnapshot {
   });
 }
 
+function captureObservedSnapshot(snapshot: MetaBridgeSnapshot): MetaBridgeSnapshot {
+  void metaBridgeObservability.recordSnapshot(snapshot).catch(() => {
+    // Observability failures should never affect bridge behavior.
+  });
+  return snapshot;
+}
+
 async function callNative(
   runner: (module: NativeMetaGlassesBridge) => Promise<MetaBridgeSnapshot>,
 ): Promise<MetaBridgeSnapshot> {
   if (!nativeBridge) {
-    return fallbackSnapshot('native_module_unavailable');
+    return captureObservedSnapshot(fallbackSnapshot('native_module_unavailable'));
   }
 
   try {
-    return normalizeSnapshot(await runner(nativeBridge));
+    return captureObservedSnapshot(normalizeSnapshot(await runner(nativeBridge)));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return normalizeSnapshot({
+    return captureObservedSnapshot(normalizeSnapshot({
       ...fallbackSnapshot('native_bridge_call_failed'),
       failure: {
         reasonCode: 'native_bridge_call_failed',
@@ -138,7 +206,7 @@ async function callNative(
         recoverable: true,
         atMs: Date.now(),
       },
-    });
+    }));
   }
 }
 
@@ -176,7 +244,7 @@ export const metaBridge = {
     const subscription = emitter.addListener(
       STATUS_EVENT_NAME,
       (snapshot: Partial<MetaBridgeSnapshot>) => {
-        listener(normalizeSnapshot(snapshot));
+        listener(captureObservedSnapshot(normalizeSnapshot(snapshot)));
       },
     );
 

@@ -13,6 +13,7 @@ import {
   AUDIT_DELIVERABLE_OUTCOME_KEY,
   AUDIT_DELIVERABLE_TOOL_NAME,
   SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  SAMANTHA_RUNTIME_MODULE_ADAPTER,
 } from "../../../convex/ai/samanthaAuditContract";
 
 describe("Samantha audit auto-dispatch planner", () => {
@@ -823,5 +824,388 @@ describe("Samantha audit auto-dispatch planner", () => {
 
     expect(decision.shouldAttempt).toBe(true);
     expect(decision.reasonCode).toBe("retry_eligible_after_failure");
+  });
+
+  it("keeps auto-dispatch invocation status parity between runtime adapter and planner matrix", () => {
+    const scenarios: Array<{
+      label: string;
+      toolResults: Array<{
+        tool: string;
+        status: "success" | "pending_approval" | "blocked" | "disabled" | "error";
+        error?: string;
+      }>;
+      expectedStatus:
+        | "not_attempted"
+        | "queued_pending_approval"
+        | "executed_success"
+        | "executed_error"
+        | "executed_blocked"
+        | "executed_disabled";
+    }> = [
+      {
+        label: "not_attempted",
+        toolResults: [],
+        expectedStatus: "not_attempted",
+      },
+      {
+        label: "executed_success",
+        toolResults: [{ tool: AUDIT_DELIVERABLE_TOOL_NAME, status: "success" }],
+        expectedStatus: "executed_success",
+      },
+      {
+        label: "queued_pending_approval",
+        toolResults: [{ tool: AUDIT_DELIVERABLE_TOOL_NAME, status: "pending_approval" }],
+        expectedStatus: "queued_pending_approval",
+      },
+      {
+        label: "executed_blocked",
+        toolResults: [{ tool: AUDIT_DELIVERABLE_TOOL_NAME, status: "blocked" }],
+        expectedStatus: "executed_blocked",
+      },
+      {
+        label: "executed_disabled",
+        toolResults: [{ tool: AUDIT_DELIVERABLE_TOOL_NAME, status: "disabled" }],
+        expectedStatus: "executed_disabled",
+      },
+      {
+        label: "executed_error",
+        toolResults: [
+          {
+            tool: AUDIT_DELIVERABLE_TOOL_NAME,
+            status: "error",
+            error: "deliverable_generation_failed",
+          },
+        ],
+        expectedStatus: "executed_error",
+      },
+    ];
+
+    const matrix = scenarios.map((scenario) => {
+      const attempted = scenario.toolResults.length > 0;
+      const adapterStatus = SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveAutoDispatchInvocationStatus({
+        attempted,
+        toolResults: scenario.toolResults,
+      });
+      const plan = resolveSamanthaAuditAutoDispatchPlan({
+        authorityConfig: {
+          templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+        },
+        inboundMessage: [
+          "first_name: Ava",
+          "last_name: Rivers",
+          "email: ava@example.com",
+          "phone: +1 415 555 1212",
+          "founder contact preference: yes",
+          "Generate PDF now.",
+        ].join("\n"),
+        availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+        toolResults: scenario.toolResults,
+        recentUserMessages: [],
+        capturedEmail: null,
+        capturedName: null,
+        contactMemory: [],
+      });
+      return {
+        label: scenario.label,
+        adapterStatus,
+        plannerStatus: plan.preexistingInvocationStatus,
+        expectedStatus: scenario.expectedStatus,
+      };
+    });
+
+    expect(matrix).toEqual([
+      {
+        label: "not_attempted",
+        adapterStatus: "not_attempted",
+        plannerStatus: "not_attempted",
+        expectedStatus: "not_attempted",
+      },
+      {
+        label: "executed_success",
+        adapterStatus: "executed_success",
+        plannerStatus: "executed_success",
+        expectedStatus: "executed_success",
+      },
+      {
+        label: "queued_pending_approval",
+        adapterStatus: "queued_pending_approval",
+        plannerStatus: "queued_pending_approval",
+        expectedStatus: "queued_pending_approval",
+      },
+      {
+        label: "executed_blocked",
+        adapterStatus: "executed_blocked",
+        plannerStatus: "executed_blocked",
+        expectedStatus: "executed_blocked",
+      },
+      {
+        label: "executed_disabled",
+        adapterStatus: "executed_disabled",
+        plannerStatus: "executed_disabled",
+        expectedStatus: "executed_disabled",
+      },
+      {
+        label: "executed_error",
+        adapterStatus: "executed_error",
+        plannerStatus: "executed_error",
+        expectedStatus: "executed_error",
+      },
+    ]);
+  });
+
+  it("keeps claim-recovery decision parity matrix between wrapper and runtime adapter", () => {
+    const basePlan = resolveSamanthaAuditAutoDispatchPlan({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: [
+        "first_name: Ava",
+        "last_name: Rivers",
+        "email: ava@example.com",
+        "phone: +1 415 555 1212",
+        "founder contact preference: yes",
+        "Generate PDF now.",
+      ].join("\n"),
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      toolResults: [],
+      recentUserMessages: [],
+      capturedEmail: null,
+      capturedName: null,
+      contactMemory: [],
+    });
+
+    const buildPayload = (args: {
+      reasonCode?: "claim_tool_not_observed" | "claim_tool_unavailable";
+      outcome?: string;
+      requiredTools?: string[];
+    }) => {
+      if (!args.reasonCode) {
+        return null;
+      }
+      return {
+        contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
+        status: "enforced" as const,
+        enforcementMode: "enforce" as const,
+        observedViolation: true,
+        reasonCode: args.reasonCode,
+        outcome: args.outcome || AUDIT_DELIVERABLE_OUTCOME_KEY,
+        requiredTools: args.requiredTools || [AUDIT_DELIVERABLE_TOOL_NAME],
+        observedTools: [],
+        availableTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+        malformedClaimCount: 0,
+      };
+    };
+
+    const scenarios: Array<{
+      label: string;
+      plan: typeof basePlan | null;
+      alreadyAttempted: boolean;
+      enforcementPayload: ReturnType<typeof buildPayload>;
+      expectedReasonCode:
+        | "plan_missing"
+        | "already_attempted"
+        | "not_samantha_runtime"
+        | "tool_unavailable_in_scope"
+        | "tool_already_attempted"
+        | "lead_data_incomplete"
+        | "enforcement_reason_not_tool_not_observed"
+        | "enforcement_not_audit_deliverable"
+        | "retry_eligible_after_failure"
+        | "eligible_for_recovery";
+      expectedShouldAttempt: boolean;
+    }> = [
+      {
+        label: "plan_missing",
+        plan: null,
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "plan_missing",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "already_attempted_flag",
+        plan: basePlan,
+        alreadyAttempted: true,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "already_attempted",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "not_samantha_runtime",
+        plan: { ...basePlan, eligible: false },
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "not_samantha_runtime",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "tool_unavailable",
+        plan: { ...basePlan, toolAvailable: false },
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "tool_unavailable_in_scope",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "tool_already_attempted",
+        plan: {
+          ...basePlan,
+          alreadyAttempted: true,
+          retryEligibleAfterFailure: false,
+        },
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "tool_already_attempted",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "lead_data_incomplete",
+        plan: {
+          ...basePlan,
+          toolArgs: undefined,
+          missingRequiredFields: ["phone"],
+        },
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "lead_data_incomplete",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "enforcement_reason_mismatch",
+        plan: basePlan,
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_unavailable" }),
+        expectedReasonCode: "enforcement_reason_not_tool_not_observed",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "enforcement_not_audit_deliverable",
+        plan: basePlan,
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({
+          reasonCode: "claim_tool_not_observed",
+          outcome: "other_outcome",
+          requiredTools: ["other_tool"],
+        }),
+        expectedReasonCode: "enforcement_not_audit_deliverable",
+        expectedShouldAttempt: false,
+      },
+      {
+        label: "retry_eligible_after_failure",
+        plan: { ...basePlan, retryEligibleAfterFailure: true },
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "retry_eligible_after_failure",
+        expectedShouldAttempt: true,
+      },
+      {
+        label: "eligible_for_recovery",
+        plan: basePlan,
+        alreadyAttempted: false,
+        enforcementPayload: buildPayload({ reasonCode: "claim_tool_not_observed" }),
+        expectedReasonCode: "eligible_for_recovery",
+        expectedShouldAttempt: true,
+      },
+    ];
+
+    const matrix = scenarios.map((scenario) => {
+      const wrapperDecision = resolveSamanthaClaimRecoveryDecision({
+        plan: scenario.plan,
+        alreadyAttempted: scenario.alreadyAttempted,
+        enforcementPayload: scenario.enforcementPayload,
+      });
+      const adapterDecision = SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveClaimRecoveryDecision({
+        plan: scenario.plan,
+        alreadyAttempted: scenario.alreadyAttempted,
+        enforcementReasonCode: scenario.enforcementPayload?.reasonCode,
+        enforcementTargetsAuditDeliverable: Boolean(
+          scenario.enforcementPayload
+          && scenario.enforcementPayload.outcome === AUDIT_DELIVERABLE_OUTCOME_KEY
+          && scenario.enforcementPayload.requiredTools.includes(
+            AUDIT_DELIVERABLE_TOOL_NAME
+          )
+        ),
+      });
+      const wrapperShouldAttempt = shouldAttemptSamanthaClaimRecoveryAutoDispatch({
+        plan: scenario.plan,
+        alreadyAttempted: scenario.alreadyAttempted,
+        enforcementPayload: scenario.enforcementPayload,
+      });
+      const adapterShouldAttempt =
+        SAMANTHA_RUNTIME_MODULE_ADAPTER.shouldAttemptClaimRecoveryAutoDispatch({
+          plan: scenario.plan,
+          alreadyAttempted: scenario.alreadyAttempted,
+          enforcementReasonCode: scenario.enforcementPayload?.reasonCode,
+          enforcementTargetsAuditDeliverable: Boolean(
+            scenario.enforcementPayload
+            && scenario.enforcementPayload.outcome === AUDIT_DELIVERABLE_OUTCOME_KEY
+            && scenario.enforcementPayload.requiredTools.includes(
+              AUDIT_DELIVERABLE_TOOL_NAME
+            )
+          ),
+        });
+
+      expect(wrapperDecision).toEqual(adapterDecision);
+      expect(wrapperShouldAttempt).toBe(adapterShouldAttempt);
+
+      return {
+        label: scenario.label,
+        reasonCode: wrapperDecision.reasonCode,
+        shouldAttempt: wrapperDecision.shouldAttempt,
+      };
+    });
+
+    expect(matrix).toEqual([
+      {
+        label: "plan_missing",
+        reasonCode: "plan_missing",
+        shouldAttempt: false,
+      },
+      {
+        label: "already_attempted_flag",
+        reasonCode: "already_attempted",
+        shouldAttempt: false,
+      },
+      {
+        label: "not_samantha_runtime",
+        reasonCode: "not_samantha_runtime",
+        shouldAttempt: false,
+      },
+      {
+        label: "tool_unavailable",
+        reasonCode: "tool_unavailable_in_scope",
+        shouldAttempt: false,
+      },
+      {
+        label: "tool_already_attempted",
+        reasonCode: "tool_already_attempted",
+        shouldAttempt: false,
+      },
+      {
+        label: "lead_data_incomplete",
+        reasonCode: "lead_data_incomplete",
+        shouldAttempt: false,
+      },
+      {
+        label: "enforcement_reason_mismatch",
+        reasonCode: "enforcement_reason_not_tool_not_observed",
+        shouldAttempt: false,
+      },
+      {
+        label: "enforcement_not_audit_deliverable",
+        reasonCode: "enforcement_not_audit_deliverable",
+        shouldAttempt: false,
+      },
+      {
+        label: "retry_eligible_after_failure",
+        reasonCode: "retry_eligible_after_failure",
+        shouldAttempt: true,
+      },
+      {
+        label: "eligible_for_recovery",
+        reasonCode: "eligible_for_recovery",
+        shouldAttempt: true,
+      },
+    ]);
   });
 });

@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentSystemPrompt } from "../../../convex/ai/agentExecution";
+import {
+  buildAgentSystemPrompt,
+  resolveAuditDeliverableInvocationGuardrail,
+} from "../../../convex/ai/agentExecution";
 import {
   buildModelResolutionPayload,
   resolveChatToolApprovalPolicy,
 } from "../../../convex/ai/chat";
+import {
+  ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+  ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+  AUDIT_DELIVERABLE_OUTCOME_KEY,
+  AUDIT_DELIVERABLE_TOOL_NAME,
+  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+} from "../../../convex/ai/samanthaAuditContract";
 
 describe("runtime hotspot characterization", () => {
   it("uses legacy handoff contextSummary when summary is absent", () => {
@@ -51,5 +61,138 @@ describe("runtime hotspot characterization", () => {
 
     expect(policy.autonomyLevel).toBe("autonomous");
     expect(policy.requireApprovalFor).toEqual([]);
+  });
+
+  it("keeps Samantha fail-closed rewrite characterization matrix stable after adapter extraction", () => {
+    const enforcementContract = {
+      contractVersion: ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
+      mode: "enforce" as const,
+      outcomes: [
+        {
+          outcome: AUDIT_DELIVERABLE_OUTCOME_KEY,
+          requiredTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+          unavailableMessage: "tool unavailable",
+          notObservedMessage: "tool not observed",
+        },
+      ],
+    };
+    const completionClaim = [
+      "```action_completion_claim",
+      JSON.stringify({
+        contractVersion: ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
+        outcome: AUDIT_DELIVERABLE_OUTCOME_KEY,
+        status: "completed",
+      }),
+      "```",
+    ].join("\n");
+
+    const matrix = [
+      {
+        label: "tool_unavailable",
+        result: resolveAuditDeliverableInvocationGuardrail({
+          authorityConfig: {
+            templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+            actionCompletionContract: enforcementContract,
+          },
+          inboundMessage: "Generate the workflow report now.",
+          assistantContent: `Running now.\n\n${completionClaim}`,
+          toolResults: [],
+          availableToolNames: [],
+        }),
+      },
+      {
+        label: "tool_not_observed",
+        result: resolveAuditDeliverableInvocationGuardrail({
+          authorityConfig: {
+            templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+            actionCompletionContract: enforcementContract,
+          },
+          inboundMessage: [
+            "first_name: Ava",
+            "last_name: Rivers",
+            "email: ava@example.com",
+            "phone: +1 415 555 1212",
+            "founder contact preference: yes",
+            "Generate the workflow report now.",
+          ].join("\n"),
+          assistantContent: `Running now.\n\n${completionClaim}`,
+          toolResults: [],
+          availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+          recentUserMessages: [
+            "first_name: Ava",
+            "last_name: Rivers",
+            "email: ava@example.com",
+            "phone: +1 415 555 1212",
+            "founder contact preference: yes",
+          ],
+          capturedEmail: null,
+          capturedName: null,
+          contactMemory: [],
+        }),
+      },
+      {
+        label: "missing_required_fields",
+        result: resolveAuditDeliverableInvocationGuardrail({
+          authorityConfig: {
+            templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+            actionCompletionContract: enforcementContract,
+          },
+          inboundMessage: "Generate the workflow report now.",
+          assistantContent: `Running now.\n\n${completionClaim}`,
+          toolResults: [],
+          availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+          recentUserMessages: ["Need this today."],
+          capturedEmail: null,
+          capturedName: null,
+        }),
+      },
+    ].map((entry) => ({
+      label: entry.label,
+      enforced: entry.result.enforced,
+      reason: entry.result.reason,
+      reasonCode: entry.result.payload.reasonCode,
+      preflightReasonCode: entry.result.payload.preflightReasonCode || null,
+      rewriteSnippet:
+        entry.label === "tool_unavailable"
+          ? (
+              entry.result.assistantContent?.includes(
+                "not available yet in runtime scope"
+              )
+              || entry.result.assistantContent?.includes(
+                "not available yet in the current runtime scope"
+              )
+            )
+            || false
+          : entry.label === "tool_not_observed"
+            ? entry.result.assistantContent?.includes("retry delivery") || false
+            : entry.result.assistantContent?.includes("I captured these details so far:") || false,
+    }));
+
+    expect(matrix).toEqual([
+      {
+        label: "tool_unavailable",
+        enforced: true,
+        reason: "tool_unavailable",
+        reasonCode: "claim_tool_unavailable",
+        preflightReasonCode: "tool_unavailable",
+        rewriteSnippet: true,
+      },
+      {
+        label: "tool_not_observed",
+        enforced: true,
+        reason: "tool_not_invoked",
+        reasonCode: "claim_tool_not_observed",
+        preflightReasonCode: "tool_not_observed",
+        rewriteSnippet: true,
+      },
+      {
+        label: "missing_required_fields",
+        enforced: true,
+        reason: "missing_required_fields",
+        reasonCode: "claim_tool_not_observed",
+        preflightReasonCode: "missing_required_fields",
+        rewriteSnippet: true,
+      },
+    ]);
   });
 });

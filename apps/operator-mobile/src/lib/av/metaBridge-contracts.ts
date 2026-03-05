@@ -35,6 +35,56 @@ export type MetaBridgeAudioIngressStats = {
   lastPacketTs?: number;
 };
 
+export type MetaBridgeLifecycleStage =
+  | 'status'
+  | 'initiated'
+  | 'discovering'
+  | 'connecting'
+  | 'handshake'
+  | 'success'
+  | 'failure'
+  | 'disconnecting'
+  | 'disconnected';
+
+export type MetaBridgeDebugSeverity = 'info' | 'warn' | 'error';
+
+export type MetaBridgeDebugEvent = {
+  id: string;
+  atMs: number;
+  stage: MetaBridgeLifecycleStage;
+  severity: MetaBridgeDebugSeverity;
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+export type MetaBridgeDeviceListEntry = {
+  deviceId: string;
+  deviceLabel: string;
+  sourceClass?: string;
+  providerId?: string;
+  connected?: boolean;
+};
+
+export type MetaBridgePermissionSnapshot = {
+  bluetooth?: string;
+  camera?: string;
+  microphone?: string;
+  location?: string;
+  bluetoothConnect?: string;
+  bluetoothScan?: string;
+};
+
+export type MetaBridgeRuntimeDiagnostics = {
+  platform: 'ios' | 'android' | 'unknown';
+  registrationState?: string;
+  bluetoothAdapterState?: string;
+  bluetoothAuthorization?: string;
+  permissions?: MetaBridgePermissionSnapshot;
+  discoveredDevices?: MetaBridgeDeviceListEntry[];
+  pairedDevices?: MetaBridgeDeviceListEntry[];
+};
+
 export type MetaBridgeSnapshot = {
   connectionState: MetaBridgeConnectionState;
   datSdkAvailable: boolean;
@@ -43,6 +93,8 @@ export type MetaBridgeSnapshot = {
   audioIngress: MetaBridgeAudioIngressStats;
   failure: MetaBridgeFailure | null;
   fallbackReason?: string;
+  diagnostics: MetaBridgeRuntimeDiagnostics;
+  debugEvents: MetaBridgeDebugEvent[];
   updatedAtMs: number;
 };
 
@@ -68,7 +120,16 @@ export type VisionSourceNegotiation = {
   conversationReasonCode?: ConversationCapabilityReasonCode;
 };
 
-const DEFAULT_SAMPLE_RATE = 16_000;
+const DEFAULT_SAMPLE_RATE = 24_000;
+
+export function createDefaultMetaBridgeDiagnostics(): MetaBridgeRuntimeDiagnostics {
+  return {
+    platform: 'unknown',
+    permissions: {},
+    discoveredDevices: [],
+    pairedDevices: [],
+  };
+}
 
 export function createDefaultMetaBridgeSnapshot(nowMs: number = Date.now()): MetaBridgeSnapshot {
   return {
@@ -85,6 +146,8 @@ export function createDefaultMetaBridgeSnapshot(nowMs: number = Date.now()): Met
       packetCount: 0,
     },
     failure: null,
+    diagnostics: createDefaultMetaBridgeDiagnostics(),
+    debugEvents: [],
     updatedAtMs: nowMs,
   };
 }
@@ -170,6 +233,26 @@ export function mapVisionReadinessReasonToConversationReason(
   return 'session_open_failed';
 }
 
+export function requiresMetaAiAppConnection(reasonCode: string | null | undefined): boolean {
+  if (typeof reasonCode !== 'string' || reasonCode.trim().length === 0) {
+    return false;
+  }
+
+  const normalized = reasonCode.trim().toLowerCase();
+  const connectionReasons = [
+    'meta_bridge_not_connected',
+    'meta_bridge_missing_device',
+    'dat_device_identity_unavailable',
+    'awaiting_dat_device_identity',
+    'dat_device_not_connected',
+    'dat_device_disconnected',
+    'dat_device_not_found',
+    'bridge_unavailable',
+  ];
+
+  return connectionReasons.some((reason) => normalized.includes(reason));
+}
+
 export function negotiateVisionSource(args: {
   preferredSourceMode: VisionSourceMode;
   bridge: MetaBridgeSnapshot;
@@ -229,6 +312,8 @@ export function buildMetaBridgeDiagnostics(bridge: MetaBridgeSnapshot): Record<s
     },
     failure: bridge.failure || undefined,
     fallbackReason: bridge.fallbackReason,
+    runtime: bridge.diagnostics,
+    recentDebugEvents: bridge.debugEvents.slice(-40),
     updatedAtMs: bridge.updatedAtMs,
   };
 }

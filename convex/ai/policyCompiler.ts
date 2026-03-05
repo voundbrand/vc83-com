@@ -1,4 +1,9 @@
-import type { AgentSpecV1 } from "./agentSpecRegistry";
+import {
+  resolveAgentRuntimeModuleCapabilities,
+  resolveAgentRuntimeModuleToolManifest,
+  type AgentSpecCapabilityV1,
+  type AgentSpecV1,
+} from "./agentSpecRegistry";
 import { normalizeDeterministicToolNames } from "./toolScoping";
 
 export const RUNTIME_CAPABILITY_MANIFEST_CONTRACT_VERSION =
@@ -169,9 +174,11 @@ function resolveToolDecisions(args: {
     }, {});
 }
 
-function resolveOutcomeContracts(spec: AgentSpecV1): RuntimeCapabilityManifestV1["outcomeContracts"] {
+function resolveOutcomeContracts(
+  capabilities: AgentSpecCapabilityV1[],
+): RuntimeCapabilityManifestV1["outcomeContracts"] {
   const entries: RuntimeCapabilityManifestV1["outcomeContracts"] = {};
-  for (const capability of spec.agent.capabilities) {
+  for (const capability of capabilities) {
     for (const outcome of capability.outcomes) {
       entries[outcome.outcomeKey] = {
         requiredTools: normalizeDeterministicToolNames(outcome.requiredTools),
@@ -198,10 +205,19 @@ export function compileRuntimeCapabilityManifest(
   const channelDeniedTools = normalizeDeterministicToolNames(
     input.channelPolicyProfile.deniedTools ?? [],
   );
+  const runtimeCapabilities = resolveAgentRuntimeModuleCapabilities(input.agentSpec);
+  const runtimeToolManifest = resolveAgentRuntimeModuleToolManifest(input.agentSpec);
+  const moduleManifestTools = normalizeDeterministicToolNames([
+    ...(runtimeToolManifest?.requiredTools ?? []),
+    ...(runtimeToolManifest?.optionalTools ?? []),
+  ]);
 
   const requiredTools = normalizeDeterministicToolNames(
-    input.agentSpec.agent.capabilities.flatMap((capability) =>
-      capability.outcomes.flatMap((outcome) => outcome.requiredTools)),
+    [
+      ...moduleManifestTools,
+      ...runtimeCapabilities.flatMap((capability) =>
+        capability.outcomes.flatMap((outcome) => outcome.requiredTools)),
+    ],
   );
 
   const channelDecisions = resolveChannelDecisions({
@@ -214,7 +230,7 @@ export function compileRuntimeCapabilityManifest(
     orgDenied: orgDeniedTools,
     channelDenied: channelDeniedTools,
   });
-  const outcomeContracts = resolveOutcomeContracts(input.agentSpec);
+  const outcomeContracts = resolveOutcomeContracts(runtimeCapabilities);
   const decisionDenials = Object.values(toolDecisions).flatMap(
     (decision) => decision.denials,
   );

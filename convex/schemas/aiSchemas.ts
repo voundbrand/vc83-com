@@ -862,6 +862,8 @@ export const voiceTransportPcmEncodingValidator = v.union(
   v.literal("pcm_f32le"),
 );
 
+export const VOICE_TRANSPORT_PCM_CONTRACT_SAMPLE_RATE_HZ = 24_000 as const;
+
 export interface VoiceTransportPcmContract {
   encoding: VoiceTransportPcmEncoding;
   sampleRateHz: number;
@@ -1222,14 +1224,14 @@ export function assertVoiceTransportEnvelope(contract: VoiceTransportEnvelopeCon
   if (contract.pcm) {
     if (
       !Number.isFinite(contract.pcm.sampleRateHz) ||
-      contract.pcm.sampleRateHz <= 0 ||
+      contract.pcm.sampleRateHz !== VOICE_TRANSPORT_PCM_CONTRACT_SAMPLE_RATE_HZ ||
       !Number.isFinite(contract.pcm.channels) ||
       contract.pcm.channels <= 0 ||
       !Number.isFinite(contract.pcm.frameDurationMs) ||
       contract.pcm.frameDurationMs <= 0
     ) {
       throw new Error(
-        "Voice transport envelope pcm requires positive sampleRateHz, channels, and frameDurationMs."
+        `Voice transport envelope pcm requires sampleRateHz=${VOICE_TRANSPORT_PCM_CONTRACT_SAMPLE_RATE_HZ}, positive channels, and positive frameDurationMs.`
       );
     }
   }

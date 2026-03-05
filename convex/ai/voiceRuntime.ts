@@ -40,6 +40,11 @@ export const VOICE_EDGE_BRIDGE_CONTRACT_VERSION =
   "tcg_voice_edge_bridge_v1" as const;
 export const VOICE_EDGE_RUNTIME_AUTHORITY_PRECEDENCE =
   "vc83_runtime_policy" as const;
+const VOICE_REALTIME_STT_PRIMARY_ROUTE =
+  "scribe_v2_realtime_primary" as const;
+const VOICE_REALTIME_STT_FAILOVER_ROUTE =
+  "gemini_native_audio_failover" as const;
+const GEMINI_NATIVE_AUDIO_TRANSCRIBE_MODEL = "gemini-2.0-flash";
 
 type VoiceTrustEventName =
   | "trust.voice.session_transition.v1"
@@ -54,6 +59,12 @@ type VoiceRuntimeContext = {
     apiKey: string;
     baseUrl?: string;
     defaultVoiceId?: string;
+    profileId: string;
+    billingSource: "platform" | "byok" | "private";
+  } | null;
+  geminiBinding: {
+    apiKey: string;
+    baseUrl?: string;
     profileId: string;
     billingSource: "platform" | "byok" | "private";
   } | null;
@@ -315,6 +326,168 @@ function normalizeTranscriptionMimeType(value: unknown): string | undefined {
     return undefined;
   }
   return normalized;
+}
+
+type VoiceRealtimeSttRoute =
+  | typeof VOICE_REALTIME_STT_PRIMARY_ROUTE
+  | typeof VOICE_REALTIME_STT_FAILOVER_ROUTE;
+
+interface RealtimeSttTranscriptionResult {
+  transcriptText: string;
+  providerId: VoiceRuntimeProviderId;
+  usage?: VoiceUsageTelemetry;
+  route: VoiceRealtimeSttRoute;
+  routeProvider: "elevenlabs" | "gemini";
+}
+
+function resolveTranscriptionFilenameForMimeType(mimeType: string): string {
+  const canonical = mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? mimeType;
+  switch (canonical) {
+    case "audio/mp4":
+    case "audio/m4a":
+      return "voice-input.m4a";
+    case "audio/mpeg":
+    case "audio/mp3":
+      return "voice-input.mp3";
+    case "audio/wav":
+    case "audio/x-wav":
+      return "voice-input.wav";
+    case "audio/webm":
+      return "voice-input.webm";
+    case "audio/ogg":
+      return "voice-input.ogg";
+    case "audio/flac":
+      return "voice-input.flac";
+    default:
+      return "voice-input.audio";
+  }
+}
+
+function resolveGeminiNativeAudioTranscriptionEndpoint(baseUrl?: string): string {
+  const normalizedBaseUrl =
+    normalizeString(baseUrl)?.replace(/\/+$/, "")
+    || "https://generativelanguage.googleapis.com/v1beta/openai";
+  return `${normalizedBaseUrl}/audio/transcriptions`;
+}
+
+function extractTranscriptionTextFromGeminiPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const typed = payload as Record<string, unknown>;
+  const directText = normalizeString(typed.text);
+  if (directText) {
+    return directText;
+  }
+  const directTranscript = normalizeString(typed.transcript);
+  if (directTranscript) {
+    return directTranscript;
+  }
+  const choices = typed.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  const firstChoice = choices[0];
+  if (!firstChoice || typeof firstChoice !== "object") {
+    return null;
+  }
+  const message = (firstChoice as Record<string, unknown>).message;
+  if (!message || typeof message !== "object") {
+    return null;
+  }
+  return normalizeString((message as Record<string, unknown>).content);
+}
+
+function extractErrorMessageFromTranscriptionPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const typed = payload as Record<string, unknown>;
+  const direct = normalizeString(typed.message);
+  if (direct) {
+    return direct;
+  }
+  const error = typed.error;
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+  return normalizeString((error as Record<string, unknown>).message);
+}
+
+async function transcribeWithGeminiNativeAudioFailover(args: {
+  voiceSessionId: string;
+  binding: NonNullable<VoiceRuntimeContext["geminiBinding"]>;
+  audioBytes: Uint8Array;
+  mimeType: string;
+  language?: string;
+}): Promise<RealtimeSttTranscriptionResult> {
+  const endpoint = resolveGeminiNativeAudioTranscriptionEndpoint(
+    args.binding.baseUrl,
+  );
+  const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType)
+    ?? "audio/wav";
+  const formData = new FormData();
+  formData.append(
+    "file",
+    new Blob([Uint8Array.from(args.audioBytes).buffer], {
+      type: normalizedMimeType,
+    }),
+    resolveTranscriptionFilenameForMimeType(normalizedMimeType),
+  );
+  formData.append("model", GEMINI_NATIVE_AUDIO_TRANSCRIBE_MODEL);
+  const normalizedLanguage = normalizeString(args.language);
+  if (normalizedLanguage) {
+    formData.append("language", normalizedLanguage);
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.binding.apiKey}`,
+    },
+    body: formData,
+  });
+
+  const rawResponseText = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = rawResponseText ? JSON.parse(rawResponseText) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const responseError =
+      extractErrorMessageFromTranscriptionPayload(payload)
+      || normalizeString(rawResponseText)
+      || `gemini_native_audio_transcription_http_${response.status}`;
+    throw new Error(responseError);
+  }
+
+  const transcriptText = extractTranscriptionTextFromGeminiPayload(payload);
+  if (!transcriptText) {
+    throw new Error("Gemini native audio failover returned no transcript text.");
+  }
+
+  return {
+    transcriptText,
+    providerId: "elevenlabs",
+    route: VOICE_REALTIME_STT_FAILOVER_ROUTE,
+    routeProvider: "gemini",
+    usage: {
+      nativeUsageUnit: "requests",
+      nativeUsageQuantity: 1,
+      nativeInputUnits: args.audioBytes.byteLength,
+      nativeTotalUnits: args.audioBytes.byteLength,
+      nativeCostSource: "not_available",
+      metadata: {
+        sttRoute: VOICE_REALTIME_STT_FAILOVER_ROUTE,
+        sttProvider: "gemini",
+        modelId: GEMINI_NATIVE_AUDIO_TRANSCRIBE_MODEL,
+        endpoint,
+      },
+    },
+  };
 }
 
 function normalizeSourceClassToken(value: unknown): string | undefined {
@@ -746,6 +919,27 @@ function decodeBase64Audio(payload: string): Uint8Array {
     ? payload.split(",", 2)[1] ?? ""
     : payload;
   return decodeBase64(base64Payload);
+}
+
+const FIXED_PCM_SAMPLE_RATE_HZ = 24_000;
+const FIXED_PCM_FRAME_DURATION_MS = 20;
+const FIXED_PCM_FRAME_BYTES = 960;
+
+function hasFixedPcmCaptureContract(args: {
+  pcm?: VoiceTransportEnvelopeContract["pcm"];
+  decodedAudioBytes: Uint8Array;
+}): boolean {
+  const pcm = args.pcm;
+  if (!pcm) {
+    return false;
+  }
+  return (
+    pcm.encoding === "pcm_s16le"
+    && pcm.sampleRateHz === FIXED_PCM_SAMPLE_RATE_HZ
+    && pcm.channels === 1
+    && pcm.frameDurationMs === FIXED_PCM_FRAME_DURATION_MS
+    && args.decodedAudioBytes.byteLength === FIXED_PCM_FRAME_BYTES
+  );
 }
 
 export const VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID =
@@ -1859,6 +2053,88 @@ function isNoTranscriptTextError(error: unknown): boolean {
   );
 }
 
+async function transcribeWithRealtimeSttPrecedence(args: {
+  voiceSessionId: string;
+  resolvedAdapter: Awaited<ReturnType<typeof resolveVoiceRuntimeAdapter>>;
+  audioBytes: Uint8Array;
+  mimeType: string;
+  language?: string;
+  geminiBinding: VoiceRuntimeContext["geminiBinding"];
+}): Promise<RealtimeSttTranscriptionResult> {
+  const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType)
+    ?? "audio/wav";
+  try {
+    const primaryTranscription = await args.resolvedAdapter.adapter.transcribe({
+      voiceSessionId: args.voiceSessionId,
+      audioBytes: args.audioBytes,
+      mimeType: normalizedMimeType,
+      language: normalizeString(args.language) ?? undefined,
+    });
+    return {
+      transcriptText: primaryTranscription.text,
+      providerId: primaryTranscription.providerId,
+      route: VOICE_REALTIME_STT_PRIMARY_ROUTE,
+      routeProvider: "elevenlabs",
+      usage: primaryTranscription.usage
+        ? {
+            ...primaryTranscription.usage,
+            metadata: {
+              ...(typeof primaryTranscription.usage.metadata === "object"
+                ? (primaryTranscription.usage.metadata as Record<string, unknown>)
+                : {}),
+              sttRoute: VOICE_REALTIME_STT_PRIMARY_ROUTE,
+              sttProvider: "elevenlabs",
+            },
+          }
+        : {
+            nativeUsageUnit: "requests",
+            nativeUsageQuantity: 1,
+            nativeInputUnits: args.audioBytes.byteLength,
+            nativeTotalUnits: args.audioBytes.byteLength,
+            nativeCostSource: "not_available",
+            metadata: {
+              sttRoute: VOICE_REALTIME_STT_PRIMARY_ROUTE,
+              sttProvider: "elevenlabs",
+            },
+          },
+    };
+  } catch (primaryError) {
+    if (isNoTranscriptTextError(primaryError)) {
+      throw primaryError;
+    }
+    if (!args.geminiBinding) {
+      const primaryErrorMessage =
+        primaryError instanceof Error
+          ? primaryError.message
+          : "scribe_v2_realtime_primary_failed";
+      throw new Error(
+        `${primaryErrorMessage}; failover_unavailable=gemini_binding_missing`,
+      );
+    }
+    try {
+      return await transcribeWithGeminiNativeAudioFailover({
+        voiceSessionId: args.voiceSessionId,
+        binding: args.geminiBinding,
+        audioBytes: args.audioBytes,
+        mimeType: normalizedMimeType,
+        language: args.language,
+      });
+    } catch (failoverError) {
+      const primaryErrorMessage =
+        primaryError instanceof Error
+          ? primaryError.message
+          : "scribe_v2_realtime_primary_failed";
+      const failoverErrorMessage =
+        failoverError instanceof Error
+          ? failoverError.message
+          : "gemini_native_audio_failover_failed";
+      throw new Error(
+        `${VOICE_REALTIME_STT_PRIMARY_ROUTE}=${primaryErrorMessage}; ${VOICE_REALTIME_STT_FAILOVER_ROUTE}=${failoverErrorMessage}`,
+      );
+    }
+  }
+}
+
 export const resolveVoiceRuntimeContext = internalQuery({
   args: {
     sessionId: v.string(),
@@ -1885,7 +2161,7 @@ export const resolveVoiceRuntimeContext = internalQuery({
       )
       .first();
 
-    const binding = aiSettings?.llm
+    const elevenLabsBinding = aiSettings?.llm
       ? resolveOrganizationProviderBindingForProvider({
           providerId: "elevenlabs",
           llmSettings: aiSettings.llm,
@@ -1895,11 +2171,21 @@ export const resolveVoiceRuntimeContext = internalQuery({
           now: Date.now(),
         })
       : null;
+    const geminiBinding = aiSettings?.llm
+      ? resolveOrganizationProviderBindingForProvider({
+          providerId: "gemini",
+          llmSettings: aiSettings.llm,
+          defaultBillingSource:
+            aiSettings.billingSource ??
+            (aiSettings.billingMode === "byok" ? "byok" : "platform"),
+          now: Date.now(),
+        })
+      : null;
 
-    const defaultVoiceId = binding?.profileId
+    const defaultVoiceId = elevenLabsBinding?.profileId
       ? extractDefaultVoiceId(
           aiSettings?.llm?.providerAuthProfiles,
-          binding.profileId,
+          elevenLabsBinding.profileId,
         )
       : undefined;
 
@@ -1907,13 +2193,21 @@ export const resolveVoiceRuntimeContext = internalQuery({
       organizationId,
       actorId: String(userId),
       interviewSessionId: args.interviewSessionId,
-      elevenLabsBinding: binding
+      elevenLabsBinding: elevenLabsBinding
         ? {
-            apiKey: binding.apiKey,
-            baseUrl: binding.baseUrl,
+            apiKey: elevenLabsBinding.apiKey,
+            baseUrl: elevenLabsBinding.baseUrl,
             defaultVoiceId,
-            profileId: binding.profileId,
-            billingSource: binding.billingSource,
+            profileId: elevenLabsBinding.profileId,
+            billingSource: elevenLabsBinding.billingSource,
+          }
+        : null,
+      geminiBinding: geminiBinding
+        ? {
+            apiKey: geminiBinding.apiKey,
+            baseUrl: geminiBinding.baseUrl,
+            profileId: geminiBinding.profileId,
+            billingSource: geminiBinding.billingSource,
           }
         : null,
     };
@@ -3027,6 +3321,18 @@ export const transcribeVoiceAudio = action({
     const captureChunkBytes = normalizeTelemetryInteger(
       transcriptionTelemetry?.captureChunkBytes,
     );
+    const realtimeFrameCount = normalizeTelemetryInteger(
+      transcriptionTelemetry?.realtimeFrameCount,
+    );
+    const realtimeFrameBytes = normalizeTelemetryInteger(
+      transcriptionTelemetry?.realtimeFrameBytes,
+    );
+    const realtimeTransportRoute = normalizeString(
+      transcriptionTelemetry?.realtimeTransportRoute,
+    );
+    const realtimeFallbackReason = normalizeString(
+      transcriptionTelemetry?.realtimeFallbackReason,
+    );
     emitVoiceTelemetry("stt_request_received", {
       voiceSessionId: args.voiceSessionId,
       interviewSessionId: String(args.interviewSessionId),
@@ -3044,6 +3350,14 @@ export const transcribeVoiceAudio = action({
       sourceBlobSizeBytes,
       captureChunkCount,
       captureChunkBytes,
+      realtimeFrameCount,
+      realtimeFrameBytes,
+      realtimeTransportRoute,
+      realtimeFallbackReason,
+      sttRoutePrecedence: [
+        VOICE_REALTIME_STT_PRIMARY_ROUTE,
+        VOICE_REALTIME_STT_FAILOVER_ROUTE,
+      ],
     });
     if (resolved.fallbackFromProviderId) {
       await emitVoiceFailoverEvent(ctx, {
@@ -3112,21 +3426,23 @@ export const transcribeVoiceAudio = action({
             ? decodedAudioBytes.byteLength === blobSizeBytes
             : undefined,
       });
-      const transcript = await resolved.adapter.transcribe({
+      const transcript = await transcribeWithRealtimeSttPrecedence({
         voiceSessionId: args.voiceSessionId,
+        resolvedAdapter: resolved,
+        geminiBinding: runtimeContext.geminiBinding,
         audioBytes: decodedAudioBytes,
         mimeType: normalizedMimeType,
         language: normalizeString(args.language) ?? undefined,
       });
       const sanitizedTranscriptText = sanitizeTranscriptForVoiceTurn(
-        transcript.text,
+        transcript.transcriptText,
       );
       const loggedTranscriptText = sanitizedTranscriptText ?? "";
       if (loggedTranscriptText) {
         console.info(
           `[VoiceRuntime] Transcription result: "${loggedTranscriptText.slice(0, 240)}"`,
         );
-      } else if (normalizeString(transcript.text)) {
+      } else if (normalizeString(transcript.transcriptText)) {
         console.info(
           `[VoiceRuntime] Ignored ambient transcript session=${args.voiceSessionId}.`,
         );
@@ -3134,13 +3450,21 @@ export const transcribeVoiceAudio = action({
       emitVoiceTelemetry("stt_result_success", {
         voiceSessionId: args.voiceSessionId,
         providerId: transcript.providerId,
-        textLength: (transcript.text || "").trim().length,
+        textLength: (transcript.transcriptText || "").trim().length,
         sanitizedTextLength: sanitizedTranscriptText?.length ?? 0,
-        ambientFiltered: Boolean(!sanitizedTranscriptText && normalizeString(transcript.text)),
+        ambientFiltered: Boolean(
+          !sanitizedTranscriptText && normalizeString(transcript.transcriptText)
+        ),
         retryPath,
         recorderMimeType,
         blobMimeType,
         blobSizeBytes,
+        sttRoute: transcript.route,
+        sttRouteProvider: transcript.routeProvider,
+        sttRoutePrecedence: [
+          VOICE_REALTIME_STT_PRIMARY_ROUTE,
+          VOICE_REALTIME_STT_FAILOVER_ROUTE,
+        ],
       });
 
       await emitVoiceTrustEvent(ctx, {
@@ -3155,6 +3479,8 @@ export const transcribeVoiceAudio = action({
           adaptive_decision: "provider_transcription",
           adaptive_confidence: 1,
           consent_checkpoint_id: "cp0_capture_notice",
+          stt_route: transcript.route,
+          stt_route_provider: transcript.routeProvider,
         },
       });
 
@@ -3182,6 +3508,8 @@ export const transcribeVoiceAudio = action({
             fallbackProviderId: resolved.fallbackFromProviderId ?? null,
             healthStatus: resolved.health.status,
             nativeBridge: transcriptBridge,
+            sttRoute: transcript.route,
+            sttRouteProvider: transcript.routeProvider,
           },
         });
       } catch (recordError) {
@@ -3204,6 +3532,8 @@ export const transcribeVoiceAudio = action({
           fallbackProviderId: resolved.fallbackFromProviderId ?? null,
           fallbackReason: resolved.health.reason ?? null,
         }),
+        sttRoute: transcript.route,
+        sttRouteProvider: transcript.routeProvider,
       };
     } catch (error) {
       if (isNoTranscriptTextError(error)) {
@@ -3242,6 +3572,10 @@ export const transcribeVoiceAudio = action({
         sourceBlobSizeBytes,
         captureChunkCount,
         captureChunkBytes,
+        sttRoutePrecedence: [
+          VOICE_REALTIME_STT_PRIMARY_ROUTE,
+          VOICE_REALTIME_STT_FAILOVER_ROUTE,
+        ],
       });
       try {
         await recordVoiceUsage({
@@ -3430,41 +3764,80 @@ export const ingestVoiceTransportEnvelope = action({
             const transcriptionMimeType =
               normalizeTranscriptionMimeType(envelope.transcriptionMimeType) ??
               resolvePcmTranscriptionMimeType(envelope.pcm);
-            console.info(
-              `[VoiceRuntime] Realtime frame transcription seq=${envelope.sequence} provider=${resolved.adapter.providerId} mimeType=${transcriptionMimeType}`,
-            );
-            const transcript = await resolved.adapter.transcribe({
-              voiceSessionId: envelope.voiceSessionId,
-              audioBytes: decodeBase64Audio(envelope.audioChunkBase64),
-              mimeType: transcriptionMimeType,
-            });
-            const transcriptText = sanitizeTranscriptForVoiceTurn(transcript.text);
-            if (transcriptText) {
-              console.info(
-                `[VoiceRuntime] Transcription result: "${transcriptText.slice(0, 240)}"`,
+            const decodedAudioBytes = decodeBase64Audio(envelope.audioChunkBase64);
+            const enforceFixedPcmContract =
+              normalizeString(normalizedVoiceRuntime?.captureMethod)
+                === "pcm_fixed_frame_streaming"
+              || Boolean(
+                normalizeString(normalizedTransportRuntime?.realtimeTransportRoute),
               );
-              console.info(
-                `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${transcriptText.slice(0, 120)}"`,
+            if (
+              enforceFixedPcmContract
+              && !hasFixedPcmCaptureContract({
+                pcm: envelope.pcm,
+                decodedAudioBytes,
+              })
+            ) {
+              relayErrorMessage =
+                "voice_pcm_contract_mismatch_expected_24khz_20ms_960b_int16_mono";
+              relayEvents.push(
+                buildVoiceTransportErrorEnvelope({
+                  sourceEnvelope: envelope,
+                  code: "vt_upstream_provider_error",
+                  message:
+                    "Voice PCM capture contract mismatch. Expected Int16 mono 24kHz 20ms 960-byte frames.",
+                  retryable: false,
+                }),
               );
-              const partialEnvelope: VoiceTransportEnvelopeContract = {
-                contractVersion: VOICE_TRANSPORT_ENVELOPE_CONTRACT_VERSION,
-                transportMode: envelope.transportMode,
-                eventType: "partial_transcript",
-                liveSessionId: envelope.liveSessionId,
+              emitVoiceTelemetry("transport_ingest_pcm_contract_mismatch", {
                 voiceSessionId: envelope.voiceSessionId,
-                interviewSessionId: envelope.interviewSessionId,
                 sequence: envelope.sequence,
-                previousSequence: envelope.previousSequence,
-                timestampMs: Date.now(),
-                transcriptText,
-              };
-              assertVoiceTransportEnvelope(partialEnvelope);
-              relayEvents.push(partialEnvelope);
-            } else if (normalizeString(transcript.text)) {
-              relayErrorMessage = "voice_non_speech_transcript_filtered";
+                frameBytes: decodedAudioBytes.byteLength,
+                sampleRateHz: envelope.pcm?.sampleRateHz,
+                frameDurationMs: envelope.pcm?.frameDurationMs,
+                channels: envelope.pcm?.channels,
+              });
+            } else {
               console.info(
-                `[VoiceRuntime] Ignored ambient transcript seq=${envelope.sequence}.`,
+                `[VoiceRuntime] Realtime frame transcription seq=${envelope.sequence} provider=${resolved.adapter.providerId} mimeType=${transcriptionMimeType}`,
               );
+              const transcript = await transcribeWithRealtimeSttPrecedence({
+                voiceSessionId: envelope.voiceSessionId,
+                resolvedAdapter: resolved,
+                geminiBinding: runtimeContext.geminiBinding,
+                audioBytes: decodedAudioBytes,
+                mimeType: transcriptionMimeType,
+              });
+              const transcriptText = sanitizeTranscriptForVoiceTurn(
+                transcript.transcriptText,
+              );
+              if (transcriptText) {
+                console.info(
+                  `[VoiceRuntime] Transcription result: "${transcriptText.slice(0, 240)}"`,
+                );
+                console.info(
+                  `[VoiceRuntime] Frame processed seq=${envelope.sequence} transcript="${transcriptText.slice(0, 120)}" route=${transcript.route}`,
+                );
+                const partialEnvelope: VoiceTransportEnvelopeContract = {
+                  contractVersion: VOICE_TRANSPORT_ENVELOPE_CONTRACT_VERSION,
+                  transportMode: envelope.transportMode,
+                  eventType: "partial_transcript",
+                  liveSessionId: envelope.liveSessionId,
+                  voiceSessionId: envelope.voiceSessionId,
+                  interviewSessionId: envelope.interviewSessionId,
+                  sequence: envelope.sequence,
+                  previousSequence: envelope.previousSequence,
+                  timestampMs: Date.now(),
+                  transcriptText,
+                };
+                assertVoiceTransportEnvelope(partialEnvelope);
+                relayEvents.push(partialEnvelope);
+              } else if (normalizeString(transcript.transcriptText)) {
+                relayErrorMessage = "voice_non_speech_transcript_filtered";
+                console.info(
+                  `[VoiceRuntime] Ignored ambient transcript seq=${envelope.sequence}.`,
+                );
+              }
             }
           } catch (error) {
             if (isNoTranscriptTextError(error)) {

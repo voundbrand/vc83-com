@@ -1,4 +1,11 @@
 export type VoiceRuntimePolicyProviderId = "browser" | "elevenlabs";
+export type VoiceRuntimePcmEncoding = "pcm_s16le";
+export type VoiceRealtimeTransportRoute =
+  | "websocket_primary"
+  | "webrtc_fallback";
+export type VoiceRealtimeSttRoute =
+  | "scribe_v2_realtime_primary"
+  | "gemini_native_audio_failover";
 
 export const VOICE_RUNTIME_POLICY_VERSION = "voice_runtime_policy_v1" as const;
 
@@ -45,6 +52,46 @@ const MIN_TRANSCRIPTION_DURATION_MS: Record<
   browser: 500,
 };
 
+export interface VoiceRuntimePcmCaptureContract {
+  encoding: VoiceRuntimePcmEncoding;
+  sampleRateHz: number;
+  channels: 1;
+  frameDurationMs: number;
+  frameBytes: number;
+  samplesPerFrame: number;
+}
+
+const PCM_CAPTURE_CONTRACT: Record<
+  VoiceRuntimePolicyProviderId,
+  VoiceRuntimePcmCaptureContract
+> = {
+  // ORV-041 lock: Int16 mono, 24kHz, 20ms, 960-byte frames.
+  elevenlabs: {
+    encoding: "pcm_s16le",
+    sampleRateHz: 24000,
+    channels: 1,
+    frameDurationMs: 20,
+    frameBytes: 960,
+    samplesPerFrame: 480,
+  },
+  browser: {
+    encoding: "pcm_s16le",
+    sampleRateHz: 24000,
+    channels: 1,
+    frameDurationMs: 20,
+    frameBytes: 960,
+    samplesPerFrame: 480,
+  },
+};
+
+const REALTIME_TRANSPORT_ROUTE_PRECEDENCE: readonly VoiceRealtimeTransportRoute[] =
+  Object.freeze(["websocket_primary", "webrtc_fallback"]);
+const REALTIME_STT_ROUTE_PRECEDENCE: readonly VoiceRealtimeSttRoute[] =
+  Object.freeze([
+    "scribe_v2_realtime_primary",
+    "gemini_native_audio_failover",
+  ]);
+
 function normalizeProviderId(
   providerId?: VoiceRuntimePolicyProviderId | null,
 ): VoiceRuntimePolicyProviderId {
@@ -73,4 +120,18 @@ export function resolveVoiceMinimumTranscriptionDurationMs(
   providerId?: VoiceRuntimePolicyProviderId | null,
 ): number {
   return MIN_TRANSCRIPTION_DURATION_MS[normalizeProviderId(providerId)];
+}
+
+export function resolveVoicePcmCaptureContract(
+  providerId?: VoiceRuntimePolicyProviderId | null,
+): VoiceRuntimePcmCaptureContract {
+  return PCM_CAPTURE_CONTRACT[normalizeProviderId(providerId)];
+}
+
+export function resolveVoiceRealtimeTransportRoutePrecedence(): readonly VoiceRealtimeTransportRoute[] {
+  return REALTIME_TRANSPORT_ROUTE_PRECEDENCE;
+}
+
+export function resolveVoiceRealtimeSttRoutePrecedence(): readonly VoiceRealtimeSttRoute[] {
+  return REALTIME_STT_ROUTE_PRECEDENCE;
 }

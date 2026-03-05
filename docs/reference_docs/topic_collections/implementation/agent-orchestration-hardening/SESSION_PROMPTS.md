@@ -198,7 +198,7 @@ Execute Lane I from TASK_QUEUE.md.
 
 Primary scope:
 - ARH-I-001 (DONE)
-- ARH-I-002 (READY)
+- ARH-I-002 (DONE)
 
 Rules:
 1) Move Samantha-specific logic into module adapter boundaries.
@@ -207,8 +207,8 @@ Rules:
 4) Run Verify commands exactly as listed in each queue row.
 5) Do not relax required-tool or dispatch guardrails.
 
-Lane I status note: `ARH-I-001` completed 2026-03-04 (Samantha runtime adapter seam extracted; decision routing now adapter-backed) and `ARH-I-002` is now the next deterministic pick.
-Lane I gate: `ARH-I-002` parity evidence is required before Lane J runtime promotion (`ARH-J-002`).
+Lane I status note: `ARH-I-001` and `ARH-I-002` are complete (2026-03-04). Samantha adapter extraction parity is now covered by deterministic matrices for required-tool invariants, auto-dispatch statuses, and fail-closed rewrite behavior.
+Lane I gate status: satisfied (`ARH-I-002` DONE); Lane J runtime promotion gate for `ARH-J-002` is now unblocked on this dependency.
 ```
 
 ---
@@ -220,8 +220,8 @@ You are Codex in /Users/foundbrand_001/Development/vc83-com.
 Execute Lane J from TASK_QUEUE.md.
 
 Primary scope:
-- ARH-J-001 (READY after `ARH-H-002`; queue order runs after `ARH-I-002`)
-- ARH-J-002 (after ARH-J-001 and ARH-I-002 are DONE)
+- ARH-J-001 (DONE)
+- ARH-J-002 (DONE)
 
 Rules:
 1) New agents must be declared by module metadata, not monolith edits.
@@ -230,7 +230,8 @@ Rules:
 4) Run Verify commands exactly as listed in each queue row.
 5) Keep compatibility shims additive and explicit.
 
-Lane J gate: Lane K cannot start until per-agent manifest resolution is proven in `ARH-J-002`.
+Lane J gate: satisfied. Lane K is now unblocked because per-agent manifest resolution is proven in `ARH-J-002`.
+Lane J status note: `ARH-J-001` and `ARH-J-002` are complete (2026-03-04). `ARH-J-002` replaced the global-hardcoded fallback path with deterministic per-agent runtime-module tool-manifest resolution while retaining additive legacy compatibility.
 ```
 
 ---
@@ -252,7 +253,7 @@ Rules:
 4) Run Verify commands exactly as listed in each queue row.
 5) Preserve existing mobile/concierge trust constraints.
 
-Lane K gate: Lane L validation starts only after stage contract is in place (`ARH-K-002`).
+Lane K gate: `ARH-K-001` and `ARH-K-002` are complete (2026-03-05). Lane L and lane M closure rows are complete (`ARH-L-001`, `ARH-L-002`, `ARH-M-001`, `ARH-M-002` DONE); no promotable READY rows remain in lanes `K`/`L`/`M`.
 ```
 
 ---
@@ -264,8 +265,8 @@ You are Codex in /Users/foundbrand_001/Development/vc83-com.
 Execute Lane L from TASK_QUEUE.md.
 
 Primary scope:
-- ARH-L-001 (after ARH-K-002 is DONE)
-- ARH-L-002 (after ARH-L-001 is DONE)
+- ARH-L-001 (DONE 2026-03-05)
+- ARH-L-002 (DONE 2026-03-05; latency contract closed)
 
 Rules:
 1) Separate inferred capability claims from artifact-backed claims.
@@ -274,7 +275,7 @@ Rules:
 4) Run Verify commands exactly as listed in each queue row.
 5) Keep evidence paths deterministic and reproducible.
 
-Lane L gate: Lane M cannot publish closure until latency/evidence contract is complete.
+Lane L gate: complete. `ARH-L-002` closed with deterministic `meeting_concierge_latency_contract_v1` telemetry (`<60s`) plus demo-outcome (`<20s`) reconciliation and explicit breach-reason taxonomy. Verification evidence (2026-03-05): `npm run typecheck` ✅, `npx tsc -p convex/tsconfig.json --noEmit` ✅, `npx vitest run tests/integration/ai/avDeviceMatrixLatency.integration.test.ts` ✅, `npm run demo:fnd-007` ✅, `npm run demo:founder` ✅. Lane M dependency gate is now unblocked.
 ```
 
 ---
@@ -286,8 +287,8 @@ You are Codex in /Users/foundbrand_001/Development/vc83-com.
 Execute Lane M from TASK_QUEUE.md.
 
 Primary scope:
-- ARH-M-001 (after ARH-L-002 is DONE)
-- ARH-M-002 (after ARH-M-001 is DONE)
+- ARH-M-001 (DONE 2026-03-05; cross-workstream blocker ledger synchronized)
+- ARH-M-002 (DONE 2026-03-05; acceptance-criteria mapping + closeout ownership synchronized)
 
 Rules:
 1) Keep DAT-native readiness blocked unless ORV-023 physical-device evidence exists.
@@ -296,5 +297,5 @@ Rules:
 4) Run Verify commands exactly as listed in each queue row.
 5) Synchronize TASK_QUEUE.md, MASTER_PLAN.md, INDEX.md, SESSION_PROMPTS.md on every closure step.
 
-Lane M gate: final closeout requires full acceptance-criteria mapping with pass/fail evidence links.
+Lane M gate: complete. `ARH-M-001` and `ARH-M-002` are `DONE` with synchronized DAT-native fail-closed blocker ledger (`ORV-023` remains `BLOCKED`/`NO_GO` until physical iOS+Android artifacts exist), acceptance-criteria mapping, preserved ORV-044 closure evidence notes, and unresolved-risk ownership links.
 ```

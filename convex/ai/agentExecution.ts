@@ -16,10 +16,16 @@ import { v } from "convex/values";
 import { OpenRouterClient } from "./openrouter";
 import {
   getAllToolDefinitions,
-  getToolSchemas,
+  getToolSchemasForNames,
 } from "./tools/registry";
 import type { ToolExecutionContext } from "./tools/registry";
-import { buildVacationDecisionResponse } from "./tools/bookingTool";
+import {
+  buildVacationDecisionResponse,
+  DER_TERMINMACHER_BOOKING_TOOL_MANIFEST,
+  MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+  MEETING_CONCIERGE_STAGE_SEQUENCE,
+} from "./tools/bookingTool";
+import { DER_TERMINMACHER_CRM_TOOL_MANIFEST } from "./tools/crmTool";
 import type { Id } from "../_generated/dataModel";
 import { getToolCreditCost } from "../credits/index";
 import { composeKnowledgeContract } from "./systemKnowledge/index";
@@ -43,10 +49,13 @@ import {
   type TurnQueueContract,
 } from "../schemas/aiSchemas";
 import {
+  AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION,
   getPlatformBlockedTools,
+  resolveAgentToolScopeResolutionContract,
   resolveActiveToolsWithAudit,
   validateRequiredSpecialistScopeContract,
   TOOL_PROFILES,
+  type AgentToolScopeResolutionContract,
   type RequiredSpecialistScopeContract,
   type RequiredSpecialistScopeGap,
   SUBTYPE_DEFAULT_PROFILES,
@@ -213,6 +222,10 @@ import {
 } from "./trustEvents";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
 import {
+  SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
+  resolveAgentRuntimeModuleMetadataFromConfig,
+} from "./agentSpecRegistry";
+import {
   ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
   AUDIT_DELIVERABLE_OUTCOME_KEY,
@@ -220,8 +233,6 @@ import {
   SAMANTHA_RUNTIME_MODULE_ADAPTER,
   SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING,
   SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND,
-  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
-  SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
   type SamanthaAuditAutoDispatchPlan,
   type SamanthaAuditAutoDispatchToolArgs,
   type SamanthaAuditDispatchDecision,
@@ -1455,6 +1466,17 @@ export interface RequiredScopeToolManifestContract {
   contractVersion: "aoh_required_scope_tool_manifest_v1";
   manifestHash: string;
   finalToolNames: string[];
+  agentToolResolution: {
+    contractVersion: typeof AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION;
+    source: AgentToolScopeResolutionContract["source"];
+    moduleKey: string | null;
+    agentProfile: string | null;
+    enabledTools: string[];
+    disabledTools: string[];
+    manifestRequiredTools: string[];
+    manifestOptionalTools: string[];
+    manifestDeniedTools: string[];
+  };
   removedByLayer: {
     platform: string[];
     orgAllow: string[];
@@ -1911,6 +1933,17 @@ function computeDeterministicScopeManifestHash(input: string): string {
 
 export function buildRequiredScopeToolManifestContract(args: {
   finalToolNames: string[];
+  agentToolResolution?: {
+    contractVersion?: typeof AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION;
+    source?: AgentToolScopeResolutionContract["source"];
+    moduleKey?: string | null;
+    agentProfile?: string | null;
+    enabledTools?: string[];
+    disabledTools?: string[];
+    manifestRequiredTools?: string[];
+    manifestOptionalTools?: string[];
+    manifestDeniedTools?: string[];
+  };
   removedByLayer: {
     platform: string[];
     orgAllow: string[];
@@ -1924,9 +1957,41 @@ export function buildRequiredScopeToolManifestContract(args: {
     channel: string[];
   };
 }): RequiredScopeToolManifestContract {
+  const agentToolResolution = {
+    contractVersion: AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION,
+    source:
+      args.agentToolResolution?.source
+      ?? ("legacy_profile_fallback" as AgentToolScopeResolutionContract["source"]),
+    moduleKey:
+      typeof args.agentToolResolution?.moduleKey === "string"
+      && args.agentToolResolution.moduleKey.trim().length > 0
+        ? args.agentToolResolution.moduleKey.trim()
+        : null,
+    agentProfile:
+      typeof args.agentToolResolution?.agentProfile === "string"
+      && args.agentToolResolution.agentProfile.trim().length > 0
+        ? args.agentToolResolution.agentProfile.trim()
+        : null,
+    enabledTools: normalizeDeterministicRuntimeStringArray(
+      args.agentToolResolution?.enabledTools,
+    ),
+    disabledTools: normalizeDeterministicRuntimeStringArray(
+      args.agentToolResolution?.disabledTools,
+    ),
+    manifestRequiredTools: normalizeDeterministicRuntimeStringArray(
+      args.agentToolResolution?.manifestRequiredTools,
+    ),
+    manifestOptionalTools: normalizeDeterministicRuntimeStringArray(
+      args.agentToolResolution?.manifestOptionalTools,
+    ),
+    manifestDeniedTools: normalizeDeterministicRuntimeStringArray(
+      args.agentToolResolution?.manifestDeniedTools,
+    ),
+  };
   const manifest = {
     contractVersion: "aoh_required_scope_tool_manifest_v1" as const,
     finalToolNames: [...args.finalToolNames].sort((left, right) => left.localeCompare(right)),
+    agentToolResolution,
     removedByLayer: {
       platform: [...args.removedByLayer.platform].sort((left, right) => left.localeCompare(right)),
       orgAllow: [...args.removedByLayer.orgAllow].sort((left, right) => left.localeCompare(right)),
@@ -1945,6 +2010,7 @@ export function buildRequiredScopeToolManifestContract(args: {
   const manifestHash = computeDeterministicScopeManifestHash(
     JSON.stringify({
       finalToolNames: manifest.finalToolNames,
+      agentToolResolution: manifest.agentToolResolution,
       removedByLayer: manifest.removedByLayer,
     })
   );
@@ -3590,6 +3656,7 @@ export const processInboundMessage = action({
           agentId: snapshot.agentId,
           displayName: snapshot.displayName,
           templateRole: snapshot.templateRole,
+          runtimeModuleKey: snapshot.runtimeModuleKey,
           isSamanthaRuntime: snapshot.isSamanthaRuntime,
           subtype: snapshot.subtype,
         },
@@ -4832,6 +4899,10 @@ export const processInboundMessage = action({
 
     if (inboundVoiceRequest) {
       const elevenLabsBinding = resolveElevenLabsRuntimeBinding({ aiSettings });
+      const resolvedVoiceLanguage = resolveVoiceRuntimeLanguage({
+        inboundVoiceRequest,
+        agentConfig: config,
+      });
       try {
         const resolvedVoiceAdapter = await resolveVoiceRuntimeAdapter({
           requestedProviderId: inboundVoiceRequest.requestedProviderId,
@@ -4851,6 +4922,7 @@ export const processInboundMessage = action({
           fallbackProviderId: resolvedVoiceAdapter.fallbackFromProviderId ?? null,
           healthStatus: resolvedVoiceAdapter.health.status,
           healthReason: resolvedVoiceAdapter.health.reason ?? null,
+          resolvedLanguage: resolvedVoiceLanguage ?? null,
         };
 
         if (inboundVoiceRequest.audioBase64) {
@@ -4863,10 +4935,7 @@ export const processInboundMessage = action({
                 inboundVoiceRequest.audioBase64
               ),
               mimeType: inboundVoiceRequest.mimeType ?? "audio/webm",
-              language: resolveVoiceRuntimeLanguage({
-                inboundVoiceRequest,
-                agentConfig: config,
-              }),
+              language: resolvedVoiceLanguage,
             });
             const transcriptText = transcription.text.trim();
             if (transcriptText.length > 0) {
@@ -4896,6 +4965,7 @@ export const processInboundMessage = action({
                   voiceSessionId:
                     inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                   channel: args.channel,
+                  resolvedLanguage: resolvedVoiceLanguage ?? null,
                 },
               });
             } catch (error) {
@@ -4929,6 +4999,7 @@ export const processInboundMessage = action({
                   voiceSessionId:
                     inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                   channel: args.channel,
+                  resolvedLanguage: resolvedVoiceLanguage ?? null,
                 },
               });
             } catch (recordError) {
@@ -4946,6 +5017,7 @@ export const processInboundMessage = action({
           requestedProviderId: inboundVoiceRequest.requestedProviderId,
           transcribeSuccess: false,
           synthesisSuccess: false,
+          resolvedLanguage: resolvedVoiceLanguage ?? null,
           runtimeError,
         };
         if (inboundVoiceRequest.audioBase64) {
@@ -4975,6 +5047,7 @@ export const processInboundMessage = action({
                 voiceSessionId:
                   inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                 channel: args.channel,
+                resolvedLanguage: resolvedVoiceLanguage ?? null,
               },
             });
           } catch (recordError) {
@@ -4991,6 +5064,12 @@ export const processInboundMessage = action({
       metadata,
       inboundMessage,
     });
+    const authorityConfigRecord =
+      authorityConfig as unknown as Record<string, unknown>;
+    const authorityRuntimeModuleMetadata =
+      resolveAgentRuntimeModuleMetadataFromConfig(authorityConfigRecord);
+    const derTerminmacherRuntimeContract =
+      resolveDerTerminmacherRuntimeContract(authorityConfigRecord);
     const inboundImageAttachments = normalizeInboundImageAttachments(metadata.attachments);
     if (composerRuntimeControls.cleanedMessage.length > 0) {
       inboundMessage = composerRuntimeControls.cleanedMessage;
@@ -5000,9 +5079,13 @@ export const processInboundMessage = action({
       channel: args.channel,
       metadata,
       message: inboundMessage,
+      runtimeModuleKey:
+        derTerminmacherRuntimeContract?.moduleKey
+        ?? authorityRuntimeModuleMetadata?.key
+        ?? null,
     });
     const actionCompletionResponseLanguage = resolveActionCompletionResponseLanguage({
-      authorityConfig: authorityConfig as unknown as Record<string, unknown>,
+      authorityConfig: authorityConfigRecord,
       inboundMessage,
       metadata,
     });
@@ -5011,11 +5094,12 @@ export const processInboundMessage = action({
         inboundMessage,
       });
     const actionCompletionContractConfig = resolveActionCompletionContractsForRuntime({
-      authorityConfig: authorityConfig as unknown as Record<string, unknown>,
+      authorityConfig: authorityConfigRecord,
       preferredLanguage: actionCompletionResponseLanguage,
     });
     const composerRuntimeContextParts = [
       buildInboundComposerRuntimeContext(composerRuntimeControls),
+      buildDerTerminmacherRuntimeContext(derTerminmacherRuntimeContract),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
       buildActionCompletionRuntimeContext(actionCompletionContractConfig),
     ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
@@ -5877,13 +5961,33 @@ export const processInboundMessage = action({
       policyObjectId?: string;
     };
 
-    // Resolve agent's effective tool profile
-    const agentProfile = delegationAuthorityContract.authorityToolProfile;
-
     const mandatorySamanthaTools = resolveNativeGuestMandatoryActionCompletionTools({
       channel: args.channel,
       actionCompletionContractConfig,
     });
+    const effectiveRuntimeModuleManifest = derTerminmacherRuntimeContract
+      ? {
+          moduleKey: derTerminmacherRuntimeContract.moduleKey,
+          requiredTools: derTerminmacherRuntimeContract.toolManifest.requiredTools,
+          optionalTools: derTerminmacherRuntimeContract.toolManifest.optionalTools,
+          deniedTools: derTerminmacherRuntimeContract.toolManifest.deniedTools,
+        }
+      : authorityRuntimeModuleMetadata
+        ? {
+            moduleKey: authorityRuntimeModuleMetadata.key,
+            requiredTools: authorityRuntimeModuleMetadata.toolManifest.requiredTools,
+            optionalTools: authorityRuntimeModuleMetadata.toolManifest.optionalTools,
+            deniedTools: authorityRuntimeModuleMetadata.toolManifest.deniedTools,
+          }
+        : null;
+    const agentToolScopeResolution = resolveAgentToolScopeResolutionContract({
+      agentProfile: delegationAuthorityContract.authorityToolProfile,
+      agentEnabled: delegationAuthorityContract.authorityEnabledTools,
+      agentDisabled: delegationAuthorityContract.authorityDisabledTools,
+      mandatoryTools: mandatorySamanthaTools,
+      runtimeModuleManifest: effectiveRuntimeModuleManifest,
+    });
+    const agentProfile = agentToolScopeResolution.agentProfile ?? undefined;
 
     const scopedOrgEnabledTools =
       orgToolPolicy.orgEnabled.length > 0
@@ -5893,28 +5997,8 @@ export const processInboundMessage = action({
       orgToolPolicy.orgDisabled,
       mandatorySamanthaTools,
     );
-    const scopedAgentEnabledTools = (() => {
-      if (mandatorySamanthaTools.length === 0) {
-        return delegationAuthorityContract.authorityEnabledTools;
-      }
-      if (delegationAuthorityContract.authorityEnabledTools.length > 0) {
-        return mergeRuntimeMandatoryTools(
-          delegationAuthorityContract.authorityEnabledTools,
-          mandatorySamanthaTools,
-        );
-      }
-      const profileTools =
-        delegationAuthorityContract.authorityToolProfile
-        && TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile]
-        && !TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile].includes("*")
-          ? TOOL_PROFILES[delegationAuthorityContract.authorityToolProfile]
-          : [];
-      return mergeRuntimeMandatoryTools(profileTools, mandatorySamanthaTools);
-    })();
-    const scopedAgentDisabledTools = removeRuntimeMandatoryTools(
-      delegationAuthorityContract.authorityDisabledTools,
-      mandatorySamanthaTools,
-    );
+    const scopedAgentEnabledTools = agentToolScopeResolution.enabledTools;
+    const scopedAgentDisabledTools = agentToolScopeResolution.disabledTools;
 
     // Session-level disabled tools (from degraded mode / error state)
     const sessionDisabledTools = removeRuntimeMandatoryTools(
@@ -5971,6 +6055,17 @@ export const processInboundMessage = action({
       agentEnabledCount: scopedAgentEnabledTools.length,
       agentDisabledCount: scopedAgentDisabledTools.length,
       sessionDisabledCount: sessionDisabledTools.length,
+      agentToolResolution: {
+        contractVersion: agentToolScopeResolution.contractVersion,
+        source: agentToolScopeResolution.source,
+        moduleKey: agentToolScopeResolution.moduleKey,
+        agentProfile: agentToolScopeResolution.agentProfile,
+        enabledTools: agentToolScopeResolution.enabledTools,
+        disabledTools: agentToolScopeResolution.disabledTools,
+        manifestRequiredTools: agentToolScopeResolution.manifestRequiredTools,
+        manifestOptionalTools: agentToolScopeResolution.manifestOptionalTools,
+        manifestDeniedTools: agentToolScopeResolution.manifestDeniedTools,
+      },
       runtimeMandatoryTools: mandatorySamanthaTools,
       soulMode: soulModeRuntime.mode,
       soulModeSource: soulModeRuntime.source,
@@ -6045,7 +6140,7 @@ export const processInboundMessage = action({
     }
     const harnessToolNames = effectiveExecutableToolNames;
     const activeToolNames = new Set(harnessToolNames);
-    let toolSchemas = getToolSchemas().filter((schema) => activeToolNames.has(schema.function.name));
+    let toolSchemas = getToolSchemasForNames([...activeToolNames]);
     if (disableAllToolsForMode || isPlanMode(composerRuntimeControls.mode)) {
       toolSchemas = [];
     }
@@ -6054,6 +6149,7 @@ export const processInboundMessage = action({
       : [];
     const requiredScopeManifest = buildRequiredScopeToolManifestContract({
       finalToolNames: disableAllToolsForMode ? [] : toolScopingAudit.finalToolNames,
+      agentToolResolution: toolScopingAudit.agentToolResolution,
       removedByLayer: {
         platform: toolScopingAudit.removedByPlatform,
         orgAllow: toolScopingAudit.removedByOrgAllow,
@@ -7048,6 +7144,11 @@ export const processInboundMessage = action({
       ? choice.message.tool_calls as Array<Record<string, unknown>>
       : [];
     if (!skipLlmExecutionForRequiredScopeFallback) {
+      toolCalls = enforceDerTerminmacherPreviewFirstToolPolicy({
+        toolCalls,
+        runtimeContract: derTerminmacherRuntimeContract,
+        explicitConfirmDetected: meetingConciergeIntent.explicitConfirmDetected,
+      });
       toolCalls = injectAutoPreviewMeetingConciergeToolCall({
         toolCalls,
         meetingConciergeIntent,
@@ -7108,6 +7209,10 @@ export const processInboundMessage = action({
     if (inboundVoiceRequest?.synthesizeResponse) {
       const requestedProviderId = inboundVoiceRequest.requestedProviderId;
       const elevenLabsBinding = resolveElevenLabsRuntimeBinding({ aiSettings });
+      const resolvedVoiceLanguage = resolveVoiceRuntimeLanguage({
+        inboundVoiceRequest,
+        agentConfig: config,
+      });
       try {
         const resolvedVoiceAdapter = await resolveVoiceRuntimeAdapter({
           requestedProviderId,
@@ -7164,6 +7269,7 @@ export const processInboundMessage = action({
                 voiceSessionId:
                   inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                 channel: args.channel,
+                resolvedLanguage: resolvedVoiceLanguage ?? null,
               },
             });
           } catch (error) {
@@ -7201,6 +7307,7 @@ export const processInboundMessage = action({
                 voiceSessionId:
                   inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
                 channel: args.channel,
+                resolvedLanguage: resolvedVoiceLanguage ?? null,
               },
             });
           } catch (recordError) {
@@ -7216,6 +7323,7 @@ export const processInboundMessage = action({
           synthesizeSuccess: voiceSynthesisResult.success,
           synthesizeProviderId: voiceSynthesisResult.providerId,
           synthesizeFallbackProviderId: voiceSynthesisResult.fallbackProviderId,
+          resolvedSynthesisLanguage: resolvedVoiceLanguage ?? null,
         };
       } catch (error) {
         const runtimeError =
@@ -7232,6 +7340,7 @@ export const processInboundMessage = action({
         voiceRuntimeMetadata = {
           ...voiceRuntimeMetadata,
           synthesizeSuccess: false,
+          resolvedSynthesisLanguage: resolvedVoiceLanguage ?? null,
           runtimeError,
         };
         const fallbackBillingSource = resolveVoiceRuntimeBillingSource({
@@ -7260,6 +7369,7 @@ export const processInboundMessage = action({
               voiceSessionId:
                 inboundVoiceRequest.voiceSessionId ?? `voice-turn:${runtimeTurnId}`,
               channel: args.channel,
+              resolvedLanguage: resolvedVoiceLanguage ?? null,
             },
           });
         } catch (recordError) {
@@ -8538,8 +8648,6 @@ export const processInboundMessage = action({
         invocationStatus: samanthaAutoDispatchInvocationStatus,
       },
     });
-    const authorityConfigRecord =
-      authorityConfig as unknown as Record<string, unknown> | undefined;
     const actionCompletionTelemetry = {
       contractVersion: ACTION_COMPLETION_ENFORCEMENT_CONTRACT_VERSION,
       templateContractVersion: actionCompletionContractConfig.contractVersion,
@@ -9161,6 +9269,8 @@ export const processInboundMessage = action({
       toolResults,
       runtimeElapsedMs,
       latencyTargetMs: 60_000,
+      demoOutcomeTargetMs: 20_000,
+      demoOutcomeIngestBudgetMs: 4_000,
     });
 
     await ctx.runMutation(getInternal().ai.agentSessions.updateSessionStats, {
@@ -9249,6 +9359,7 @@ export const processInboundMessage = action({
         meetingConcierge: meetingConciergeIntent.enabled
           ? {
               enabled: true,
+              runtimeModuleKey: meetingConciergeIntent.runtimeModuleKey ?? null,
               extractedPayloadReady: meetingConciergeIntent.extractedPayloadReady,
               autoTriggerPreview: meetingConciergeIntent.autoTriggerPreview,
               explicitConfirmDetected: meetingConciergeIntent.explicitConfirmDetected,
@@ -12626,24 +12737,8 @@ function normalizeExecutionStringList(value: unknown): string[] {
 }
 
 function isSamanthaLeadCaptureRuntime(config: Record<string, unknown> | null | undefined): boolean {
-  if (!config || typeof config !== "object") {
-    return false;
-  }
-
-  const templateRole = normalizeExecutionString(config.templateRole);
-  if (
-    templateRole === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
-    || templateRole === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
-  ) {
-    return true;
-  }
-
-  const displayName = normalizeExecutionString(config.displayName)?.toLowerCase();
-  const enabledTools = new Set(
-    normalizeExecutionStringList(config.enabledTools).map((tool) => tool.toLowerCase())
-  );
-  return Boolean(displayName?.includes("samantha"))
-    && enabledTools.has(AUDIT_DELIVERABLE_TOOL_NAME);
+  const runtimeModule = resolveAgentRuntimeModuleMetadataFromConfig(config);
+  return runtimeModule?.key === SAMANTHA_AGENT_RUNTIME_MODULE_KEY;
 }
 
 function resolveSamanthaRoutingAgentSnapshot(
@@ -12654,6 +12749,7 @@ function resolveSamanthaRoutingAgentSnapshot(
   displayName: string | null;
   templateRole: string | null;
   subtype: string | null;
+  runtimeModuleKey: string | null;
   isSamanthaRuntime: boolean;
 } {
   if (!agent || typeof agent !== "object") {
@@ -12662,6 +12758,7 @@ function resolveSamanthaRoutingAgentSnapshot(
       displayName: null,
       templateRole: null,
       subtype: null,
+      runtimeModuleKey: null,
       isSamanthaRuntime: false,
     };
   }
@@ -12674,11 +12771,13 @@ function resolveSamanthaRoutingAgentSnapshot(
     || normalizeExecutionString(agent.name)
     || null;
   const templateRole = normalizeExecutionString(customProperties?.templateRole);
+  const runtimeModule = resolveAgentRuntimeModuleMetadataFromConfig(customProperties);
   return {
     agentId: normalizeExecutionString(agent._id),
     displayName,
     templateRole,
     subtype: normalizeExecutionString(agent.subtype),
+    runtimeModuleKey: runtimeModule?.key ?? null,
     isSamanthaRuntime: isSamanthaLeadCaptureRuntime(customProperties),
   };
 }
@@ -14786,6 +14885,133 @@ const MEETING_CONCIERGE_EMAIL_PATTERN =
   /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const MEETING_CONCIERGE_PHONE_PATTERN =
   /(?:\+?\d{1,2}[\s-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/;
+export const DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY =
+  "der_terminmacher_runtime_module_v1" as const;
+export const DER_TERMINMACHER_PROMPT_CONTRACT_VERSION =
+  "aoh_der_terminmacher_prompt_contract_v1" as const;
+export const DER_TERMINMACHER_TOOL_MANIFEST_CONTRACT_VERSION =
+  "aoh_der_terminmacher_tool_manifest_v1" as const;
+export const DER_TERMINMACHER_MUTATION_POLICY_CONTRACT_VERSION =
+  "aoh_der_terminmacher_mutation_policy_v1" as const;
+
+export interface DerTerminmacherRuntimeContract {
+  contractVersion: typeof DER_TERMINMACHER_PROMPT_CONTRACT_VERSION;
+  moduleKey: typeof DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY;
+  languagePolicy: {
+    primary: "de";
+    fallback: "en";
+    responseMode: "german_first";
+  };
+  ingressAssumptions: {
+    allowedChannels: Array<"desktop" | "native_guest">;
+    requireLiveSignal: true;
+    preferredSurfaces: Array<"voice" | "camera">;
+  };
+  toolManifest: {
+    contractVersion: typeof DER_TERMINMACHER_TOOL_MANIFEST_CONTRACT_VERSION;
+    requiredTools: string[];
+    optionalTools: string[];
+    deniedTools: string[];
+  };
+  mutationPolicy: {
+    contractVersion: typeof DER_TERMINMACHER_MUTATION_POLICY_CONTRACT_VERSION;
+    modeDefault: "preview";
+    previewFirst: true;
+    executeRequiresExplicitConfirmation: true;
+  };
+}
+
+function normalizeLowercaseRuntimeToken(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isDerTerminmacherRuntimeModuleConfig(
+  config: Record<string, unknown> | null | undefined
+): boolean {
+  if (!config || typeof config !== "object") {
+    return false;
+  }
+  const runtimeModule = resolveAgentRuntimeModuleMetadataFromConfig(config);
+  if (runtimeModule?.key === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY) {
+    return true;
+  }
+
+  const explicitRuntimeModuleKey = normalizeLowercaseRuntimeToken(
+    firstInboundString(
+      config.runtimeModuleKey,
+      (config.runtimeModule as Record<string, unknown> | undefined)?.key,
+    )
+  );
+  if (explicitRuntimeModuleKey === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY) {
+    return true;
+  }
+
+  const templateRole = normalizeLowercaseRuntimeToken(config.templateRole);
+  if (
+    templateRole?.includes("der_terminmacher")
+    || templateRole?.includes("terminmacher")
+  ) {
+    return true;
+  }
+
+  const displayName = normalizeLowercaseRuntimeToken(
+    firstInboundString(config.displayName, config.name)
+  );
+  return Boolean(displayName?.includes("terminmacher"));
+}
+
+export function resolveDerTerminmacherRuntimeContract(
+  config: Record<string, unknown> | null | undefined
+): DerTerminmacherRuntimeContract | null {
+  if (!isDerTerminmacherRuntimeModuleConfig(config)) {
+    return null;
+  }
+
+  const runtimeModule =
+    config ? resolveAgentRuntimeModuleMetadataFromConfig(config) : null;
+  const requiredTools = normalizeDeterministicRuntimeStringArray([
+    DER_TERMINMACHER_BOOKING_TOOL_MANIFEST.toolName,
+    DER_TERMINMACHER_CRM_TOOL_MANIFEST.toolName,
+    ...(runtimeModule?.toolManifest.requiredTools ?? []),
+  ]);
+  const optionalTools = normalizeDeterministicRuntimeStringArray([
+    "query_org_data",
+    ...(runtimeModule?.toolManifest.optionalTools ?? []),
+  ]).filter((toolName) => !requiredTools.includes(toolName));
+
+  return {
+    contractVersion: DER_TERMINMACHER_PROMPT_CONTRACT_VERSION,
+    moduleKey: DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+    languagePolicy: {
+      primary: "de",
+      fallback: "en",
+      responseMode: "german_first",
+    },
+    ingressAssumptions: {
+      allowedChannels: ["desktop", "native_guest"],
+      requireLiveSignal: true,
+      preferredSurfaces: ["voice", "camera"],
+    },
+    toolManifest: {
+      contractVersion: DER_TERMINMACHER_TOOL_MANIFEST_CONTRACT_VERSION,
+      requiredTools,
+      optionalTools,
+      deniedTools: normalizeDeterministicRuntimeStringArray(
+        runtimeModule?.toolManifest.deniedTools ?? [],
+      ),
+    },
+    mutationPolicy: {
+      contractVersion: DER_TERMINMACHER_MUTATION_POLICY_CONTRACT_VERSION,
+      modeDefault: "preview",
+      previewFirst: true,
+      executeRequiresExplicitConfirmation: true,
+    },
+  };
+}
 const COMPOSER_REFERENCE_STOP_WORDS = new Set([
   "a",
   "an",
@@ -14833,6 +15059,7 @@ interface MeetingConciergeExtractedPayload {
 
 export interface InboundMeetingConciergeIntent {
   enabled: boolean;
+  runtimeModuleKey?: string;
   extractedPayloadReady: boolean;
   autoTriggerPreview: boolean;
   explicitConfirmDetected: boolean;
@@ -15192,6 +15419,7 @@ export function resolveInboundMeetingConciergeIntent(args: {
   channel: string;
   metadata: Record<string, unknown>;
   message: string;
+  runtimeModuleKey?: string | null;
   now?: number;
 }): InboundMeetingConciergeIntent {
   const now = typeof args.now === "number" ? args.now : Date.now();
@@ -15202,12 +15430,18 @@ export function resolveInboundMeetingConciergeIntent(args: {
   const transportSessionAttestation = resolveInboundTransportSessionAttestationContract({
     metadata: args.metadata,
   });
+  const runtimeModuleKey = normalizeConciergeOptionalString(args.runtimeModuleKey);
+  const derTerminmacherRuntimeActive =
+    runtimeModuleKey === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY;
   const liveSignal = Boolean(
     firstInboundString(args.metadata.liveSessionId)
     || normalizeInboundObjectValue(args.metadata.cameraRuntime)
     || normalizeInboundObjectValue(args.metadata.voiceRuntime)
   );
-  const enabled = args.channel === "desktop" && liveSignal;
+  const enabled = (
+    args.channel === "desktop"
+    || (derTerminmacherRuntimeActive && args.channel === "native_guest")
+  ) && liveSignal;
   const messageLower = args.message.toLowerCase();
   const explicitConfirmDetected =
     MEETING_CONCIERGE_CONFIRM_PATTERN.test(messageLower)
@@ -15253,6 +15487,7 @@ export function resolveInboundMeetingConciergeIntent(args: {
   if (!enabled) {
     return {
       enabled: false,
+      runtimeModuleKey,
       extractedPayloadReady: false,
       autoTriggerPreview: false,
       explicitConfirmDetected,
@@ -15356,6 +15591,14 @@ export function resolveInboundMeetingConciergeIntent(args: {
   if (!commandPolicy.allowed) {
     fallbackReasons.push(`command_policy_blocked:${commandPolicy.reasonCode}`);
   }
+  if (derTerminmacherRuntimeActive) {
+    if (!normalizeInboundObjectValue(args.metadata.voiceRuntime)) {
+      fallbackReasons.push("der_terminmacher_assumption_voice_missing");
+    }
+    if (!normalizeInboundObjectValue(args.metadata.cameraRuntime)) {
+      fallbackReasons.push("der_terminmacher_assumption_vision_missing");
+    }
+  }
 
   const payloadReady =
     missingRequiredFields.length === 0
@@ -15371,6 +15614,7 @@ export function resolveInboundMeetingConciergeIntent(args: {
 
   return {
     enabled: true,
+    runtimeModuleKey,
     extractedPayloadReady: payloadReady,
     autoTriggerPreview: payloadReady && commandPolicy.allowed,
     explicitConfirmDetected,
@@ -16085,6 +16329,75 @@ export function buildInboundComposerRuntimeContext(
   ].join("\n");
 }
 
+export function buildDerTerminmacherRuntimeContext(
+  contract: DerTerminmacherRuntimeContract | null | undefined
+): string | null {
+  if (!contract) {
+    return null;
+  }
+  return [
+    "--- DER TERMINMACHER RUNTIME CONTRACT ---",
+    JSON.stringify(contract),
+    "--- END DER TERMINMACHER RUNTIME CONTRACT ---",
+  ].join("\n");
+}
+
+export function enforceDerTerminmacherPreviewFirstToolPolicy(args: {
+  toolCalls: Array<Record<string, unknown>>;
+  runtimeContract: DerTerminmacherRuntimeContract | null | undefined;
+  explicitConfirmDetected: boolean;
+}): Array<Record<string, unknown>> {
+  if (!args.runtimeContract || args.toolCalls.length === 0) {
+    return args.toolCalls;
+  }
+  const previewFirstTools: Set<string> = new Set(
+    args.runtimeContract.toolManifest.requiredTools.filter(
+      (toolName) =>
+        toolName === DER_TERMINMACHER_BOOKING_TOOL_MANIFEST.toolName
+        || toolName === DER_TERMINMACHER_CRM_TOOL_MANIFEST.toolName,
+    )
+  );
+  if (previewFirstTools.size === 0) {
+    return args.toolCalls;
+  }
+
+  return args.toolCalls.map((toolCall) => {
+    const functionRecord =
+      toolCall.function && typeof toolCall.function === "object"
+        ? (toolCall.function as Record<string, unknown>)
+        : null;
+    const toolName = normalizeConciergeOptionalString(functionRecord?.name);
+    if (!toolName || !previewFirstTools.has(toolName)) {
+      return toolCall;
+    }
+    const rawArguments = functionRecord?.arguments;
+    if (typeof rawArguments !== "string") {
+      return toolCall;
+    }
+
+    try {
+      const parsedArgs = JSON.parse(rawArguments) as Record<string, unknown>;
+      const mode = normalizeConciergeOptionalString(parsedArgs.mode);
+      if (args.explicitConfirmDetected && mode === "execute") {
+        return toolCall;
+      }
+      if (mode === "preview") {
+        return toolCall;
+      }
+      parsedArgs.mode = "preview";
+      return {
+        ...toolCall,
+        function: {
+          ...functionRecord,
+          arguments: JSON.stringify(parsedArgs),
+        },
+      };
+    } catch {
+      return toolCall;
+    }
+  });
+}
+
 export function buildInboundMeetingConciergeRuntimeContext(
   intent: InboundMeetingConciergeIntent
 ): string | null {
@@ -16092,8 +16405,18 @@ export function buildInboundMeetingConciergeRuntimeContext(
     return null;
   }
 
+  const derTerminmacherRuntimeActive =
+    intent.runtimeModuleKey === DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY;
   const lines: string[] = [];
   lines.push("Mobile live concierge context detected (voice/camera ingress).");
+  if (derTerminmacherRuntimeActive) {
+    lines.push(
+      "Der Terminmacher runtime active: respond in German first, fall back to English only when explicitly requested."
+    );
+    lines.push(
+      "Ingress assumptions: live voice+camera metadata is preferred; missing channels must be treated as degraded context."
+    );
+  }
   lines.push("Guardrail: run preview first before any mutating booking execution.");
   lines.push(
     "Guardrail: execute mode requires explicit user confirmation and approval-gated mutation."
@@ -16144,11 +16467,255 @@ export function buildInboundMeetingConciergeRuntimeContext(
   ].join("\n");
 }
 
+interface MeetingConciergeStageContractTelemetry {
+  present: boolean;
+  valid: boolean;
+  contractVersion: string | null;
+  mode: "preview" | "execute" | null;
+  terminalStage: string | null;
+  terminalOutcome: "success" | "blocked" | null;
+  validationError: string | null;
+  stages: Array<{
+    stage: string;
+    status: string;
+    outcomeCode: string;
+    failClosed: boolean;
+  }>;
+}
+
+function resolveMeetingConciergeStageContractTelemetry(
+  meetingToolResult: AgentToolResult | null
+): MeetingConciergeStageContractTelemetry {
+  const emptyTelemetry: MeetingConciergeStageContractTelemetry = {
+    present: false,
+    valid: false,
+    contractVersion: null,
+    mode: null,
+    terminalStage: null,
+    terminalOutcome: null,
+    validationError: null,
+    stages: [],
+  };
+  if (
+    !meetingToolResult?.result ||
+    typeof meetingToolResult.result !== "object" ||
+    Array.isArray(meetingToolResult.result)
+  ) {
+    return emptyTelemetry;
+  }
+
+  const resultRecord = meetingToolResult.result as Record<string, unknown>;
+  if (
+    normalizeConciergeOptionalString(resultRecord.action) !==
+    "run_meeting_concierge_demo"
+  ) {
+    return emptyTelemetry;
+  }
+
+  const dataRecord =
+    resultRecord.data &&
+    typeof resultRecord.data === "object" &&
+    !Array.isArray(resultRecord.data)
+      ? (resultRecord.data as Record<string, unknown>)
+      : null;
+  const stageContractRecord =
+    dataRecord?.stageContract &&
+    typeof dataRecord.stageContract === "object" &&
+    !Array.isArray(dataRecord.stageContract)
+      ? (dataRecord.stageContract as Record<string, unknown>)
+      : null;
+  if (!stageContractRecord) {
+    return {
+      ...emptyTelemetry,
+      validationError: "missing_stage_contract",
+    };
+  }
+
+  const contractVersion =
+    normalizeConciergeOptionalString(stageContractRecord.contractVersion) ?? null;
+  const contractMode = normalizeConciergeOptionalString(stageContractRecord.mode);
+  const normalizedMode =
+    contractMode === "preview" || contractMode === "execute" ? contractMode : null;
+  const terminalStage =
+    normalizeConciergeOptionalString(stageContractRecord.terminalStage) ?? null;
+  const terminalOutcomeRaw = normalizeConciergeOptionalString(
+    stageContractRecord.terminalOutcome
+  );
+  const terminalOutcome =
+    terminalOutcomeRaw === "success" || terminalOutcomeRaw === "blocked"
+      ? terminalOutcomeRaw
+      : null;
+  const stageEntries = Array.isArray(stageContractRecord.stages)
+    ? stageContractRecord.stages
+    : [];
+  const normalizedStages = stageEntries
+    .map((stageEntry) => {
+      if (!stageEntry || typeof stageEntry !== "object" || Array.isArray(stageEntry)) {
+        return null;
+      }
+      const stageRecord = stageEntry as Record<string, unknown>;
+      const stageName = normalizeConciergeOptionalString(stageRecord.stage);
+      const status = normalizeConciergeOptionalString(stageRecord.status);
+      const outcomeCode = normalizeConciergeOptionalString(stageRecord.outcomeCode);
+      if (!stageName || !status || !outcomeCode) {
+        return null;
+      }
+      return {
+        stage: stageName,
+        status,
+        outcomeCode,
+        failClosed: stageRecord.failClosed === true,
+      };
+    })
+    .filter(
+      (
+        stage
+      ): stage is {
+        stage: string;
+        status: string;
+        outcomeCode: string;
+        failClosed: boolean;
+      } => Boolean(stage)
+    );
+  const expectedStages = [...MEETING_CONCIERGE_STAGE_SEQUENCE];
+  const flowEntries = Array.isArray(stageContractRecord.flow)
+    ? stageContractRecord.flow
+        .map((stage) => normalizeConciergeOptionalString(stage))
+        .filter((stage): stage is string => Boolean(stage))
+    : [];
+  const flowValid =
+    flowEntries.length === expectedStages.length &&
+    flowEntries.every((stage, index) => stage === expectedStages[index]);
+  const stageOrderValid =
+    normalizedStages.length === expectedStages.length &&
+    normalizedStages.every(
+      (stage, index) =>
+        stage.stage === expectedStages[index] &&
+        (stage.status === "success" ||
+          stage.status === "blocked" ||
+          stage.status === "skipped")
+    );
+
+  if (contractVersion !== MEETING_CONCIERGE_STAGE_CONTRACT_VERSION) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "contract_version_mismatch",
+    };
+  }
+  if (!normalizedMode) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "mode_invalid",
+    };
+  }
+  if (!flowValid) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "flow_invalid",
+    };
+  }
+  if (!stageOrderValid) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "stage_order_invalid",
+    };
+  }
+  if (!terminalStage || !expectedStages.includes(terminalStage as typeof expectedStages[number])) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "terminal_stage_invalid",
+    };
+  }
+  if (!terminalOutcome) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      stages: normalizedStages,
+      validationError: "terminal_outcome_invalid",
+    };
+  }
+
+  const terminalStageRecord =
+    normalizedStages.find((stage) => stage.stage === terminalStage) ?? null;
+  if (!terminalStageRecord) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "terminal_stage_missing",
+    };
+  }
+  if (
+    (terminalOutcome === "success" && terminalStageRecord.status !== "success") ||
+    (terminalOutcome === "blocked" && terminalStageRecord.status !== "blocked")
+  ) {
+    return {
+      ...emptyTelemetry,
+      present: true,
+      contractVersion,
+      mode: normalizedMode,
+      terminalStage,
+      terminalOutcome,
+      stages: normalizedStages,
+      validationError: "terminal_status_mismatch",
+    };
+  }
+
+  return {
+    present: true,
+    valid: true,
+    contractVersion,
+    mode: normalizedMode,
+    terminalStage,
+    terminalOutcome,
+    validationError: null,
+    stages: normalizedStages,
+  };
+}
+
 export function buildMeetingConciergeDecisionTelemetry(args: {
   intent: InboundMeetingConciergeIntent;
   toolResults: AgentToolResult[];
   runtimeElapsedMs: number;
   latencyTargetMs?: number;
+  demoOutcomeTargetMs?: number;
+  demoOutcomeIngestBudgetMs?: number;
 }): {
   decision:
     | "not_applicable"
@@ -16166,6 +16733,29 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
   endToEndLatencyMs: number | null;
   latencyTargetMs: number;
   latencyTargetBreached: boolean | null;
+  demoOutcomeTargetMs: number;
+  demoOutcomeTargetBreached: boolean | null;
+  demoOutcomeBreachReasons: Array<
+    | "demo_outcome_target_exceeded"
+    | "demo_outcome_ingest_budget_exceeded"
+    | "demo_outcome_runtime_budget_exceeded"
+    | "demo_outcome_ingest_latency_missing"
+  >;
+  latencyContract: {
+    contractVersion: "meeting_concierge_latency_contract_v1";
+    telemetryTargetMs: number;
+    telemetryTargetBreached: boolean | null;
+    demoOutcomeTargetMs: number;
+    demoOutcomeIngestBudgetMs: number;
+    demoOutcomeRuntimeBudgetMs: number;
+    demoOutcomeTargetBreached: boolean | null;
+    demoOutcomeBreachReasons: Array<
+      | "demo_outcome_target_exceeded"
+      | "demo_outcome_ingest_budget_exceeded"
+      | "demo_outcome_runtime_budget_exceeded"
+      | "demo_outcome_ingest_latency_missing"
+    >;
+  };
   payloadFieldCoverage: {
     requiredTotal: number;
     requiredPresent: number;
@@ -16178,11 +16768,21 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
     mode: "preview" | "execute" | null;
     error: string | null;
   };
+  stageContract: MeetingConciergeStageContractTelemetry;
 } {
-  const latencyTargetMs =
+  const telemetryLatencyTargetMs =
     typeof args.latencyTargetMs === "number" && Number.isFinite(args.latencyTargetMs)
       ? Math.max(1, Math.floor(args.latencyTargetMs))
       : 60_000;
+  const demoOutcomeTargetMs =
+    typeof args.demoOutcomeTargetMs === "number" && Number.isFinite(args.demoOutcomeTargetMs)
+      ? Math.max(1, Math.floor(args.demoOutcomeTargetMs))
+      : 20_000;
+  const demoOutcomeIngestBudgetMs =
+    typeof args.demoOutcomeIngestBudgetMs === "number"
+      && Number.isFinite(args.demoOutcomeIngestBudgetMs)
+      ? Math.max(1, Math.floor(args.demoOutcomeIngestBudgetMs))
+      : 4_000;
   const normalizedRuntimeElapsedMs = Math.max(
     0,
     Number.isFinite(args.runtimeElapsedMs) ? Math.floor(args.runtimeElapsedMs) : 0
@@ -16195,8 +16795,47 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
     ingestLatencyMs === null
       ? null
       : ingestLatencyMs + normalizedRuntimeElapsedMs;
+  const normalizedDemoOutcomeIngestBudgetMs = Math.min(
+    demoOutcomeTargetMs,
+    demoOutcomeIngestBudgetMs
+  );
+  const normalizedDemoOutcomeRuntimeBudgetMs = Math.max(
+    1,
+    demoOutcomeTargetMs - normalizedDemoOutcomeIngestBudgetMs
+  );
   const latencyTargetBreached =
-    endToEndLatencyMs === null ? null : endToEndLatencyMs > latencyTargetMs;
+    endToEndLatencyMs === null
+      ? null
+      : endToEndLatencyMs > telemetryLatencyTargetMs;
+  const demoOutcomeTargetBreached =
+    endToEndLatencyMs === null ? null : endToEndLatencyMs > demoOutcomeTargetMs;
+  const demoOutcomeBreachReasons: Array<
+    | "demo_outcome_target_exceeded"
+    | "demo_outcome_ingest_budget_exceeded"
+    | "demo_outcome_runtime_budget_exceeded"
+    | "demo_outcome_ingest_latency_missing"
+  > = [];
+  if (demoOutcomeTargetBreached) {
+    demoOutcomeBreachReasons.push("demo_outcome_target_exceeded");
+    if (ingestLatencyMs === null) {
+      demoOutcomeBreachReasons.push("demo_outcome_ingest_latency_missing");
+    } else if (ingestLatencyMs > normalizedDemoOutcomeIngestBudgetMs) {
+      demoOutcomeBreachReasons.push("demo_outcome_ingest_budget_exceeded");
+    }
+    if (normalizedRuntimeElapsedMs > normalizedDemoOutcomeRuntimeBudgetMs) {
+      demoOutcomeBreachReasons.push("demo_outcome_runtime_budget_exceeded");
+    }
+  }
+  const latencyContract = {
+    contractVersion: "meeting_concierge_latency_contract_v1" as const,
+    telemetryTargetMs: telemetryLatencyTargetMs,
+    telemetryTargetBreached: latencyTargetBreached,
+    demoOutcomeTargetMs,
+    demoOutcomeIngestBudgetMs: normalizedDemoOutcomeIngestBudgetMs,
+    demoOutcomeRuntimeBudgetMs: normalizedDemoOutcomeRuntimeBudgetMs,
+    demoOutcomeTargetBreached,
+    demoOutcomeBreachReasons,
+  };
 
   const requiredTotal = 1;
   const requiredPresent =
@@ -16226,11 +16865,24 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
     rawMode === "preview" || rawMode === "execute"
       ? rawMode
       : null;
+  const stageContractTelemetry =
+    resolveMeetingConciergeStageContractTelemetry(meetingToolResult);
 
   const decisionReasonCodes = Array.from(
     new Set([
       ...args.intent.fallbackReasons,
       ...args.intent.missingRequiredFields.map((field) => `missing:${field}`),
+      ...(stageContractTelemetry.validationError
+        ? [`stage_contract:${stageContractTelemetry.validationError}`]
+        : []),
+      ...(stageContractTelemetry.terminalOutcome === "blocked" &&
+          stageContractTelemetry.terminalStage
+        ? [
+            `stage_blocked:${stageContractTelemetry.terminalStage}:${stageContractTelemetry.stages.find(
+              (stage) => stage.stage === stageContractTelemetry.terminalStage
+            )?.outcomeCode || "unknown"}`,
+          ]
+        : []),
     ])
   );
 
@@ -16256,8 +16908,12 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
       ingestLatencyMs,
       runtimeLatencyMs: normalizedRuntimeElapsedMs,
       endToEndLatencyMs,
-      latencyTargetMs,
+      latencyTargetMs: telemetryLatencyTargetMs,
       latencyTargetBreached,
+      demoOutcomeTargetMs,
+      demoOutcomeTargetBreached,
+      demoOutcomeBreachReasons,
+      latencyContract,
       payloadFieldCoverage: { requiredTotal, requiredPresent, optionalPresent },
       toolInvocation: {
         attempted: false,
@@ -16266,6 +16922,7 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
         mode: null,
         error: null,
       },
+      stageContract: stageContractTelemetry,
     };
   }
 
@@ -16278,9 +16935,12 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
     | "blocked_explicit_confirmation"
     | "blocked_source_attestation"
     | "blocked_unknown";
-  if (toolSuccess && mode === "execute") {
+  const stageContractSuccess =
+    stageContractTelemetry.valid &&
+    stageContractTelemetry.terminalOutcome === "success";
+  if (toolSuccess && mode === "execute" && stageContractSuccess) {
     decision = "execute_success";
-  } else if (toolSuccess) {
+  } else if (toolSuccess && stageContractSuccess) {
     decision = "preview_success";
   } else if (toolStatus === "pending_approval") {
     decision = "pending_approval";
@@ -16302,8 +16962,12 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
     ingestLatencyMs,
     runtimeLatencyMs: normalizedRuntimeElapsedMs,
     endToEndLatencyMs,
-    latencyTargetMs,
+    latencyTargetMs: telemetryLatencyTargetMs,
     latencyTargetBreached,
+    demoOutcomeTargetMs,
+    demoOutcomeTargetBreached,
+    demoOutcomeBreachReasons,
+    latencyContract,
     payloadFieldCoverage: { requiredTotal, requiredPresent, optionalPresent },
     toolInvocation: {
       attempted: meetingToolResult !== null,
@@ -16312,6 +16976,7 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
       mode,
       error: toolError,
     },
+    stageContract: stageContractTelemetry,
   };
 }
 

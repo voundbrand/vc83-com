@@ -40,6 +40,34 @@ export interface ResolveActiveToolsParams {
   channel: string;
 }
 
+export const AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION =
+  "aoh_agent_tool_scope_resolution_v1" as const;
+
+export type AgentToolScopeResolutionSource =
+  | "legacy_profile_fallback"
+  | "explicit_enabled_tools"
+  | "runtime_module_manifest"
+  | "runtime_module_manifest_plus_enabled_tools";
+
+export interface AgentToolScopeManifestInput {
+  moduleKey?: string | null;
+  requiredTools?: string[];
+  optionalTools?: string[];
+  deniedTools?: string[];
+}
+
+export interface AgentToolScopeResolutionContract {
+  contractVersion: typeof AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION;
+  source: AgentToolScopeResolutionSource;
+  moduleKey: string | null;
+  agentProfile: string | null;
+  enabledTools: string[];
+  disabledTools: string[];
+  manifestRequiredTools: string[];
+  manifestOptionalTools: string[];
+  manifestDeniedTools: string[];
+}
+
 // ============================================================================
 // INTEGRATION REQUIREMENTS
 // Tools that require a specific integration to be connected.
@@ -474,6 +502,102 @@ function normalizeDeterministicTools(toolNames: string[]): string[] {
 
 export function normalizeDeterministicToolNames(toolNames: string[]): string[] {
   return normalizeDeterministicTools(toolNames);
+}
+
+function normalizeOptionalToken(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function resolveAgentToolScopeResolutionContract(args: {
+  agentProfile?: string;
+  agentEnabled: string[];
+  agentDisabled: string[];
+  mandatoryTools?: string[];
+  runtimeModuleManifest?: AgentToolScopeManifestInput | null;
+}): AgentToolScopeResolutionContract {
+  const explicitEnabledTools = normalizeDeterministicTools(args.agentEnabled);
+  const agentDisabledTools = normalizeDeterministicTools(args.agentDisabled);
+  const mandatoryTools = normalizeDeterministicTools(args.mandatoryTools ?? []);
+  const mandatoryToolSet = new Set(mandatoryTools);
+
+  const moduleKey = normalizeOptionalToken(args.runtimeModuleManifest?.moduleKey ?? null);
+  const manifestRequiredTools = normalizeDeterministicTools(
+    args.runtimeModuleManifest?.requiredTools ?? [],
+  );
+  const manifestOptionalTools = normalizeDeterministicTools(
+    args.runtimeModuleManifest?.optionalTools ?? [],
+  );
+  const manifestDeniedTools = normalizeDeterministicTools(
+    args.runtimeModuleManifest?.deniedTools ?? [],
+  );
+  const manifestScopedTools = normalizeDeterministicTools([
+    ...manifestRequiredTools,
+    ...manifestOptionalTools,
+  ]);
+  const hasRuntimeModuleManifest =
+    moduleKey !== null
+    || manifestScopedTools.length > 0
+    || manifestDeniedTools.length > 0;
+
+  let source: AgentToolScopeResolutionSource = "legacy_profile_fallback";
+  let resolvedAgentProfile = normalizeOptionalToken(args.agentProfile);
+  let enabledTools: string[] = [];
+
+  if (hasRuntimeModuleManifest) {
+    resolvedAgentProfile = null;
+    if (explicitEnabledTools.length > 0) {
+      source = "runtime_module_manifest_plus_enabled_tools";
+      enabledTools = normalizeDeterministicTools([
+        ...explicitEnabledTools,
+        ...manifestScopedTools,
+        ...mandatoryTools,
+      ]);
+    } else {
+      source = "runtime_module_manifest";
+      enabledTools = normalizeDeterministicTools([
+        ...manifestScopedTools,
+        ...mandatoryTools,
+      ]);
+    }
+  } else if (explicitEnabledTools.length > 0) {
+    source = "explicit_enabled_tools";
+    enabledTools = normalizeDeterministicTools([
+      ...explicitEnabledTools,
+      ...mandatoryTools,
+    ]);
+  } else if (mandatoryTools.length > 0) {
+    const profileTools =
+      resolvedAgentProfile
+      && TOOL_PROFILES[resolvedAgentProfile]
+      && !TOOL_PROFILES[resolvedAgentProfile].includes("*")
+        ? TOOL_PROFILES[resolvedAgentProfile]
+        : [];
+    enabledTools = normalizeDeterministicTools([
+      ...profileTools,
+      ...mandatoryTools,
+    ]);
+  }
+
+  const disabledTools = normalizeDeterministicTools([
+    ...agentDisabledTools,
+    ...manifestDeniedTools,
+  ]).filter((toolName) => !mandatoryToolSet.has(toolName));
+
+  return {
+    contractVersion: AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION,
+    source,
+    moduleKey,
+    agentProfile: resolvedAgentProfile,
+    enabledTools,
+    disabledTools,
+    manifestRequiredTools,
+    manifestOptionalTools,
+    manifestDeniedTools,
+  };
 }
 
 export function resolveRequiredSpecialistScopeContract(args: {

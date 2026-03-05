@@ -12,7 +12,12 @@ import {
   MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
   MOBILE_SOURCE_ATTESTATION_CONTRACT_VERSION,
 } from "../../../convex/ai/mobileRuntimeHardening";
+import {
+  MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+  MEETING_CONCIERGE_STAGE_SEQUENCE,
+} from "../../../convex/ai/tools/bookingTool";
 import { TOOL_REGISTRY, type AITool } from "../../../convex/ai/tools/registry";
+import { buildMobileTurnStateCloseoutEvidence } from "../../e2e/utils/conversation-parity";
 
 const ORG_ID = "org_1" as Id<"organizations">;
 const AGENT_ID = "agent_1" as Id<"objects">;
@@ -30,6 +35,32 @@ afterEach(() => {
 
 function registerTool(name: string, tool: AITool) {
   TOOL_REGISTRY[name] = tool;
+}
+
+function buildPreviewStageContract() {
+  return {
+    contractVersion: MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+    mode: "preview" as const,
+    flow: [...MEETING_CONCIERGE_STAGE_SEQUENCE],
+    terminalStage: "contact_capture" as const,
+    terminalOutcome: "success" as const,
+    stages: MEETING_CONCIERGE_STAGE_SEQUENCE.map((stage) => {
+      if (stage === "booking" || stage === "invite") {
+        return {
+          stage,
+          status: "skipped",
+          outcomeCode: "preview_mode_deferred",
+          failClosed: false,
+        };
+      }
+      return {
+        stage,
+        status: "success",
+        outcomeCode: `${stage}_success`,
+        failClosed: false,
+      };
+    }),
+  };
 }
 
 describe("mobile runtime hardening integration", () => {
@@ -71,7 +102,14 @@ describe("mobile runtime hardening integration", () => {
       now,
     });
 
-    const executeMock = vi.fn(async () => ({ mode: "preview", status: "ok" }));
+    const executeMock = vi.fn(async () => ({
+      action: "run_meeting_concierge_demo",
+      mode: "preview",
+      success: true,
+      data: {
+        stageContract: buildPreviewStageContract(),
+      },
+    }));
     registerTool(MANAGE_BOOKINGS_TOOL, {
       name: MANAGE_BOOKINGS_TOOL,
       description: "test manage bookings concierge tool",
@@ -134,19 +172,55 @@ describe("mobile runtime hardening integration", () => {
 
   it("emits concierge decision telemetry for successful preview path within latency budget", async () => {
     const now = 1_701_900_100_000;
+    const liveSessionId = "mobile_live_preview_success_1";
+    const sourceId = "iphone_microphone:ios_avfoundation:primary_mic";
+    const sourceClass = "iphone_microphone";
+    const providerId = "ios_avfoundation";
+    const nonce = "nonce_preview_success_1";
+    const challenge = buildMobileSourceAttestationChallenge({
+      liveSessionId,
+      sourceId,
+      nonce,
+    });
+    const signature = computeMobileSourceAttestationSignature({
+      secret: "local_dev_av_attestation_secret_v1",
+      challenge,
+      nonce,
+      issuedAtMs: now - 1_200,
+      liveSessionId,
+      sourceId,
+      sourceClass,
+      providerId,
+    });
     const metadata = {
-      liveSessionId: "mobile_live_preview_success_1",
+      liveSessionId,
       timestamp: now - 1_200,
       commandPolicy: {
         contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
         attemptedCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
       },
       voiceRuntime: {
-        sourceId: "iphone_microphone:ios_avfoundation:primary_mic",
-        sourceClass: "iphone_microphone",
-        providerId: "ios_avfoundation",
+        liveSessionId,
+        sourceId,
+        sourceClass,
+        providerId,
         transcript: "Please preview a meeting with jordan@example.com.",
         stoppedAt: now - 1_200,
+        sourceAttestation: {
+          contractVersion: MOBILE_SOURCE_ATTESTATION_CONTRACT_VERSION,
+          challenge,
+          nonce,
+          signature,
+          issuedAtMs: now - 1_200,
+          sourceId,
+          sourceClass,
+          providerId,
+        },
+      },
+      transportRuntime: {
+        mode: "websocket_preferred",
+        protocol: "https",
+        fallbackReason: "none",
       },
     } as const;
 
@@ -158,7 +232,14 @@ describe("mobile runtime hardening integration", () => {
       now,
     });
 
-    const executeMock = vi.fn(async () => ({ mode: "preview", status: "ok" }));
+    const executeMock = vi.fn(async () => ({
+      action: "run_meeting_concierge_demo",
+      mode: "preview",
+      success: true,
+      data: {
+        stageContract: buildPreviewStageContract(),
+      },
+    }));
     registerTool(MANAGE_BOOKINGS_TOOL, {
       name: MANAGE_BOOKINGS_TOOL,
       description: "test manage bookings concierge tool",
@@ -221,6 +302,7 @@ describe("mobile runtime hardening integration", () => {
     expect(result.toolResults[0]?.status).toBe("success");
     expect(telemetry.decision).toBe("preview_success");
     expect(telemetry.toolInvocation.success).toBe(true);
+    expect(telemetry.stageContract.valid).toBe(true);
     expect(telemetry.endToEndLatencyMs).toBe(1_900);
     expect(telemetry.latencyTargetBreached).toBe(false);
     expect(executeMock).toHaveBeenCalledTimes(1);
@@ -473,6 +555,13 @@ describe("mobile runtime hardening integration", () => {
         sourceClass: "iphone_microphone",
         providerId: "ios_avfoundation",
         transcript: "Please preview a meeting with jordan@example.com.",
+        assistantSpeechCancel: {
+          contractVersion: "mobile_voice_tts_cancel_guard_v1",
+          mode: "client_http_request_abort_fail_closed",
+          httpSynthesizeAbortSupported: true,
+          serverSideSynthesizeAbortSupported: false,
+          cancelledThroughSequence: 7,
+        },
       },
       transportRuntime: {
         mode: "websocket_preferred",
@@ -507,5 +596,84 @@ describe("mobile runtime hardening integration", () => {
     expect(envelope.authority.invariantViolations).toContain(
       "transport_session_attestation_verification_failed",
     );
+  });
+
+  it("captures ORV-052 closeout evidence for mobile turn-state, VAD endpointing, and proactive barge-in", () => {
+    const closeoutEvidence = buildMobileTurnStateCloseoutEvidence();
+
+    expect(closeoutEvidence.contractVersion).toBe("conversation_interaction_v1");
+    expect(closeoutEvidence.turnStateTimeline.map((step) => step.turnState)).toEqual([
+      "idle",
+      "listening",
+      "thinking",
+      "agent_speaking",
+      "listening",
+      "thinking",
+      "agent_speaking",
+      "idle",
+    ]);
+    expect(closeoutEvidence.bargeInTimeline).toEqual([
+      {
+        step: "assistant_playback_started",
+        state: "assistant_playing",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "capture_start_interrupt",
+        state: "interrupting",
+        command: {
+          interruptLocalPlayback: true,
+          sendRemoteCancel: true,
+          resetPlaybackQueue: true,
+        },
+      },
+      {
+        step: "remote_cancel_ack",
+        state: "capturing_user",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "capture_stopped_recovering",
+        state: "recovering",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+      {
+        step: "barge_in_reset_idle",
+        state: "idle",
+        command: {
+          interruptLocalPlayback: false,
+          sendRemoteCancel: false,
+          resetPlaybackQueue: false,
+        },
+      },
+    ]);
+    expect(closeoutEvidence.vadPolicy.mobile).toEqual({
+      speechThresholdRms: 0.015,
+      endpointSilenceMs: 320,
+      speechDetected: true,
+      endpointBeforeThreshold: false,
+      endpointAtThreshold: true,
+    });
+    expect(closeoutEvidence.finalizeGuard.blockedWhileAssistantSpeaking).toEqual({
+      allowFinalize: false,
+      reason: "assistant_speaking",
+    });
+    expect(closeoutEvidence.finalizeGuard.allowAfterBargeInCancel).toEqual({
+      allowFinalize: true,
+      reason: "ready",
+    });
+    expect(closeoutEvidence.parityImpact).toBe("none");
   });
 });

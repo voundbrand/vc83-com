@@ -15,6 +15,50 @@ import { Id } from "../../_generated/dataModel";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
 
+export const DER_TERMINMACHER_BOOKING_TOOL_MANIFEST_CONTRACT_VERSION =
+  "aoh_der_terminmacher_booking_tool_manifest_v1" as const;
+
+export const DER_TERMINMACHER_BOOKING_TOOL_MANIFEST = {
+  contractVersion: DER_TERMINMACHER_BOOKING_TOOL_MANIFEST_CONTRACT_VERSION,
+  toolName: "manage_bookings" as const,
+  requiredActions: ["run_meeting_concierge_demo"] as const,
+  modeDefault: "preview" as const,
+  previewFirst: true as const,
+  executeRequiresExplicitConfirmation: true as const,
+};
+
+export const MEETING_CONCIERGE_STAGE_CONTRACT_VERSION =
+  "aoh_meeting_concierge_stage_contract_v1" as const;
+export const MEETING_CONCIERGE_STAGE_SEQUENCE = [
+  "identify",
+  "crm_lookup_create",
+  "slot_parse",
+  "contact_capture",
+  "booking",
+  "invite",
+] as const;
+
+export type MeetingConciergeStageName =
+  typeof MEETING_CONCIERGE_STAGE_SEQUENCE[number];
+export type MeetingConciergeStageStatus = "success" | "blocked" | "skipped";
+export type MeetingConciergeFlowMode = "preview" | "execute";
+
+export interface MeetingConciergeStageResult {
+  stage: MeetingConciergeStageName;
+  status: MeetingConciergeStageStatus;
+  outcomeCode: string;
+  failClosed: boolean;
+}
+
+export interface MeetingConciergeStageContract {
+  contractVersion: typeof MEETING_CONCIERGE_STAGE_CONTRACT_VERSION;
+  mode: MeetingConciergeFlowMode;
+  flow: MeetingConciergeStageName[];
+  terminalStage: MeetingConciergeStageName;
+  terminalOutcome: "success" | "blocked";
+  stages: MeetingConciergeStageResult[];
+}
+
 type VacationDecisionVerdict = "approved" | "conflict" | "denied" | "blocked";
 
 export interface VacationDecisionAlternativeWindow {
@@ -1626,6 +1670,109 @@ function formatMeetingWindowForMessage(args: {
   }
 }
 
+type MeetingConciergeStageState = Record<
+  MeetingConciergeStageName,
+  MeetingConciergeStageResult
+>;
+
+function createMeetingConciergeStageState(
+  mode: MeetingConciergeFlowMode
+): MeetingConciergeStageState {
+  const state = {} as MeetingConciergeStageState;
+  for (const stage of MEETING_CONCIERGE_STAGE_SEQUENCE) {
+    const previewDeferred =
+      mode === "preview" && (stage === "booking" || stage === "invite");
+    state[stage] = {
+      stage,
+      status: "skipped",
+      outcomeCode: previewDeferred ? "preview_mode_deferred" : "not_started",
+      failClosed: false,
+    };
+  }
+  return state;
+}
+
+function setMeetingConciergeStageResult(args: {
+  stageState: MeetingConciergeStageState;
+  stage: MeetingConciergeStageName;
+  status: MeetingConciergeStageStatus;
+  outcomeCode: string;
+  failClosed?: boolean;
+}) {
+  args.stageState[args.stage] = {
+    stage: args.stage,
+    status: args.status,
+    outcomeCode: args.outcomeCode,
+    failClosed: args.failClosed === true,
+  };
+}
+
+function buildMeetingConciergeStageContract(args: {
+  mode: MeetingConciergeFlowMode;
+  stageState: MeetingConciergeStageState;
+  terminalStage: MeetingConciergeStageName;
+  terminalOutcome: "success" | "blocked";
+}): MeetingConciergeStageContract {
+  const terminalIndex = MEETING_CONCIERGE_STAGE_SEQUENCE.indexOf(args.terminalStage);
+  const stages = MEETING_CONCIERGE_STAGE_SEQUENCE.map((stage, index) => {
+    const current = args.stageState[stage];
+    if (
+      args.terminalOutcome === "blocked"
+      && index > terminalIndex
+      && current.status === "skipped"
+      && current.outcomeCode === "not_started"
+    ) {
+      return {
+        ...current,
+        outcomeCode: `blocked_upstream_${args.terminalStage}`,
+        failClosed: true,
+      };
+    }
+    return { ...current };
+  });
+  return {
+    contractVersion: MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+    mode: args.mode,
+    flow: [...MEETING_CONCIERGE_STAGE_SEQUENCE],
+    terminalStage: args.terminalStage,
+    terminalOutcome: args.terminalOutcome,
+    stages,
+  };
+}
+
+function buildMeetingConciergeDemoResponse(args: {
+  success: boolean;
+  mode: MeetingConciergeFlowMode;
+  stageState: MeetingConciergeStageState;
+  terminalStage: MeetingConciergeStageName;
+  terminalOutcome: "success" | "blocked";
+  data?: Record<string, unknown>;
+  error?: string;
+  message?: string;
+}) {
+  const stageContract = buildMeetingConciergeStageContract({
+    mode: args.mode,
+    stageState: args.stageState,
+    terminalStage: args.terminalStage,
+    terminalOutcome: args.terminalOutcome,
+  });
+  return {
+    success: args.success,
+    action: "run_meeting_concierge_demo" as const,
+    mode: args.mode,
+    data: {
+      ...(args.data || {}),
+      stageContract,
+    },
+    ...(typeof args.error === "string" && args.error.length > 0
+      ? { error: args.error }
+      : {}),
+    ...(typeof args.message === "string" && args.message.length > 0
+      ? { message: args.message }
+      : {}),
+  };
+}
+
 /**
  * Fast-path concierge flow for live glasses demo:
  * 1) CRM lookup/create/update, 2) overlap-aware slot pick, 3) booking create,
@@ -1656,19 +1803,40 @@ async function runMeetingConciergeDemo(
     jobTitle?: string;
   }
 ) {
-  const mode = args.mode === "preview" ? "preview" : "execute";
+  const mode: MeetingConciergeFlowMode =
+    args.mode === "preview" ? "preview" : "execute";
+  const stageState = createMeetingConciergeStageState(mode);
   const windowStartTs = toTimestamp(args.schedulingWindowStart);
   const windowEndTs = toTimestamp(args.schedulingWindowEnd);
   if (!windowStartTs || !windowEndTs || windowEndTs <= windowStartTs) {
-    return {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "identify",
+      status: "blocked",
+      outcomeCode: "identify_invalid_scheduling_window",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
       success: false,
-      action: "run_meeting_concierge_demo",
       mode,
+      stageState,
+      terminalStage: "identify",
+      terminalOutcome: "blocked",
       error: "Invalid scheduling window",
       message:
         "schedulingWindowStart and schedulingWindowEnd are required in ISO format and end must be after start.",
-    };
+      data: {
+        schedulingWindowStart: args.schedulingWindowStart || null,
+        schedulingWindowEnd: args.schedulingWindowEnd || null,
+      },
+    });
   }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "identify",
+    status: "success",
+    outcomeCode: "identify_payload_ready",
+  });
 
   const durationMinutes =
     typeof args.meetingDurationMinutes === "number" &&
@@ -1676,40 +1844,52 @@ async function runMeetingConciergeDemo(
       ? Math.max(15, Math.min(180, Math.round(args.meetingDurationMinutes)))
       : 30;
 
-  const resource = await resolveConciergeResource({
-    ctx,
-    organizationId,
-    resourceId: args.resourceId,
-  });
-  if (!resource) {
-    return {
-      success: false,
-      action: "run_meeting_concierge_demo",
-      mode,
-      error: "No bookable resource available",
-      message:
-        args.resourceId
-          ? `Resource ${args.resourceId} is unavailable or inaccessible.`
-          : "No active bookable product found. Provide resourceId or activate a bookable product.",
-    };
-  }
-
   const lookupQuery =
     normalizeOptionalString(args.personEmail) ||
     normalizeOptionalString(args.personName);
 
-  const candidateContacts = await (ctx as any).runQuery(
-    generatedApi.internal.ai.tools.internalToolMutations.internalSearchContacts,
-    {
-      organizationId,
-      searchQuery: lookupQuery,
-      limit: 25,
-    }
-  ) as Array<{
+  let candidateContacts: Array<{
     _id: Id<"objects">;
     name?: string;
     customProperties?: unknown;
-  }>;
+  }> = [];
+  try {
+    candidateContacts = await (ctx as any).runQuery(
+      generatedApi.internal.ai.tools.internalToolMutations.internalSearchContacts,
+      {
+        organizationId,
+        searchQuery: lookupQuery,
+        limit: 25,
+      }
+    ) as Array<{
+      _id: Id<"objects">;
+      name?: string;
+      customProperties?: unknown;
+    }>;
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "crm_lookup_create",
+      status: "blocked",
+      outcomeCode: "crm_lookup_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode,
+      stageState,
+      terminalStage: "crm_lookup_create",
+      terminalOutcome: "blocked",
+      error: "CRM lookup failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Contact lookup failed before CRM stage completion.",
+      data: {
+        lookupQuery: lookupQuery || null,
+      },
+    });
+  }
 
   const matchedContact = selectBestContactMatch({
     contacts: candidateContacts || [],
@@ -1737,14 +1917,27 @@ async function runMeetingConciergeDemo(
     normalizeOptionalString(args.personEmail) ||
     normalizeOptionalString(matchedNormalized?.email);
   if (!resolvedEmail) {
-    return {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "crm_lookup_create",
+      status: "blocked",
+      outcomeCode: "crm_missing_attendee_email",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
       success: false,
-      action: "run_meeting_concierge_demo",
       mode,
+      stageState,
+      terminalStage: "crm_lookup_create",
+      terminalOutcome: "blocked",
       error: "Missing attendee email",
       message:
         "Attendee email is required for CRM + booking flow. Provide personEmail or match an existing CRM contact with email.",
-    };
+      data: {
+        contactLookupMatched: Boolean(matchedContact),
+        personName: resolvedName,
+      },
+    });
   }
 
   const resolvedPhone =
@@ -1787,53 +1980,89 @@ async function runMeetingConciergeDemo(
     updatedFields.push("email");
   }
 
-  let contactId: Id<"objects"> | undefined = matchedContact?._id;
-  if (mode === "execute") {
-    if (matchedContact && updatedFields.length > 0) {
-      await (ctx as any).runMutation(
-        generatedApi.internal.ai.tools.internalToolMutations.internalUpdateContact,
-        {
-          organizationId,
-          userId,
-          contactId: matchedContact._id,
-          email: resolvedEmail,
-          phone: resolvedPhone,
-          company: resolvedCompany,
-          jobTitle: resolvedJobTitle,
-        }
-      );
-    }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "crm_lookup_create",
+    status: "success",
+    outcomeCode:
+      matchedContact
+        ? updatedFields.length > 0
+          ? "crm_contact_reuse_update_required"
+          : "crm_contact_reuse"
+        : "crm_contact_create_required",
+  });
 
-    if (!matchedContact) {
-      const createdContactId = await (ctx as any).runMutation(
-        generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact,
-        {
-          organizationId,
-          userId,
-          subtype: "customer",
-          firstName: resolvedFirstName,
-          lastName: resolvedLastName,
-          email: resolvedEmail,
-          phone: resolvedPhone,
-          company: resolvedCompany,
-          jobTitle: resolvedJobTitle,
-        }
-      ) as Id<"objects">;
-      contactId = createdContactId;
-    }
+  const resource = await resolveConciergeResource({
+    ctx,
+    organizationId,
+    resourceId: args.resourceId,
+  });
+  if (!resource) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_resource_unavailable",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode,
+      stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "No bookable resource available",
+      message:
+        args.resourceId
+          ? `Resource ${args.resourceId} is unavailable or inaccessible.`
+          : "No active bookable product found. Provide resourceId or activate a bookable product.",
+      data: {
+        requestedResourceId: args.resourceId || null,
+      },
+    });
   }
 
-  const allSlots = await (ctx as any).runQuery(
-    generatedApi.internal.availabilityOntology.getAvailableSlotsInternal,
-    {
-      organizationId,
-      resourceId: resource.id,
-      startDate: windowStartTs,
-      endDate: windowEndTs,
-      duration: durationMinutes,
-      timezone: normalizeOptionalString(args.timezone),
-    }
-  ) as Array<{ startDateTime?: number; endDateTime?: number }>;
+  let allSlots: Array<{ startDateTime?: number; endDateTime?: number }> = [];
+  try {
+    allSlots = await (ctx as any).runQuery(
+      generatedApi.internal.availabilityOntology.getAvailableSlotsInternal,
+      {
+        organizationId,
+        resourceId: resource.id,
+        startDate: windowStartTs,
+        endDate: windowEndTs,
+        duration: durationMinutes,
+        timezone: normalizeOptionalString(args.timezone),
+      }
+    ) as Array<{ startDateTime?: number; endDateTime?: number }>;
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_lookup_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode,
+      stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "Slot lookup failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Slot parsing failed before a shared meeting window could be selected.",
+      data: {
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+      },
+    });
+  }
 
   const normalizedSlots: ConciergeSlot[] = (allSlots || [])
     .filter(
@@ -1902,20 +2131,36 @@ async function runMeetingConciergeDemo(
 
   const selectedSlot = filteredSlots[0];
   if (!selectedSlot) {
-    return {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_not_available",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
       success: false,
-      action: "run_meeting_concierge_demo",
       mode,
+      stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "No shared slot found",
+      message:
+        "No mutually available slot found in the requested window. Expand schedulingWindowStart/schedulingWindowEnd or reduce duration.",
       data: {
         resourceId: resource.id,
         connectionSnapshots,
         totalSlotsBeforeConnectionFilters: normalizedSlots.length,
+        totalSlotsAfterConnectionFilters: filteredSlots.length,
       },
-      error: "No shared slot found",
-      message:
-        "No mutually available slot found in the requested window. Expand schedulingWindowStart/schedulingWindowEnd or reduce duration.",
-    };
+    });
   }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "slot_parse",
+    status: "success",
+    outcomeCode: "slot_selected",
+  });
 
   const meetingTitle =
     normalizeOptionalString(args.meetingTitle) ||
@@ -1927,11 +2172,138 @@ async function runMeetingConciergeDemo(
     timezone: args.timezone,
   });
 
+  let contactId: Id<"objects"> | undefined = matchedContact?._id;
+  if (mode === "execute") {
+    if (matchedContact && updatedFields.length > 0) {
+      try {
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.tools.internalToolMutations.internalUpdateContact,
+          {
+            organizationId,
+            userId,
+            contactId: matchedContact._id,
+            email: resolvedEmail,
+            phone: resolvedPhone,
+            company: resolvedCompany,
+            jobTitle: resolvedJobTitle,
+          }
+        );
+      } catch (error) {
+        setMeetingConciergeStageResult({
+          stageState,
+          stage: "contact_capture",
+          status: "blocked",
+          outcomeCode: "contact_capture_update_failed",
+          failClosed: true,
+        });
+        return buildMeetingConciergeDemoResponse({
+          success: false,
+          mode,
+          stageState,
+          terminalStage: "contact_capture",
+          terminalOutcome: "blocked",
+          error: "Contact capture update failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Contact capture update failed before booking mutation.",
+          data: {
+            contactId: String(matchedContact._id),
+            updatedFields,
+          },
+        });
+      }
+    }
+
+    if (!matchedContact) {
+      try {
+        const createdContactId = await (ctx as any).runMutation(
+          generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact,
+          {
+            organizationId,
+            userId,
+            subtype: "customer",
+            firstName: resolvedFirstName,
+            lastName: resolvedLastName,
+            email: resolvedEmail,
+            phone: resolvedPhone,
+            company: resolvedCompany,
+            jobTitle: resolvedJobTitle,
+          }
+        ) as Id<"objects">;
+        contactId = createdContactId;
+      } catch (error) {
+        setMeetingConciergeStageResult({
+          stageState,
+          stage: "contact_capture",
+          status: "blocked",
+          outcomeCode: "contact_capture_create_failed",
+          failClosed: true,
+        });
+        return buildMeetingConciergeDemoResponse({
+          success: false,
+          mode,
+          stageState,
+          terminalStage: "contact_capture",
+          terminalOutcome: "blocked",
+          error: "Contact capture create failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Contact capture creation failed before booking mutation.",
+          data: {
+            personName: resolvedName,
+            personEmail: resolvedEmail,
+          },
+        });
+      }
+    }
+
+    if (!contactId) {
+      setMeetingConciergeStageResult({
+        stageState,
+        stage: "contact_capture",
+        status: "blocked",
+        outcomeCode: "contact_capture_missing_contact_id",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        success: false,
+        mode,
+        stageState,
+        terminalStage: "contact_capture",
+        terminalOutcome: "blocked",
+        error: "Contact capture missing contact id",
+        message:
+          "Contact capture did not produce a contact identifier required for booking mutation.",
+      });
+    }
+  }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "contact_capture",
+    status: "success",
+    outcomeCode:
+      mode === "preview"
+        ? matchedContact
+          ? updatedFields.length > 0
+            ? "contact_capture_preview_update_required"
+            : "contact_capture_preview_reuse"
+          : "contact_capture_preview_create_required"
+        : matchedContact
+          ? updatedFields.length > 0
+            ? "contact_capture_updated"
+            : "contact_capture_reused"
+          : "contact_capture_created",
+  });
+
   if (mode === "preview") {
-    return {
+    return buildMeetingConciergeDemoResponse({
       success: true,
-      action: "run_meeting_concierge_demo",
       mode: "preview",
+      stageState,
+      terminalStage: "contact_capture",
+      terminalOutcome: "success",
       data: {
         contact: {
           operation: matchedContact ? (updatedFields.length > 0 ? "update" : "reuse") : "create",
@@ -1957,7 +2329,7 @@ async function runMeetingConciergeDemo(
         connectionSnapshots,
       },
       message: `Preview ready. Earliest shared slot is ${slotLabel}.`,
-    };
+    });
   }
 
   let replayed = false;
@@ -1965,21 +2337,52 @@ async function runMeetingConciergeDemo(
   const idempotencyKey = normalizeOptionalString(args.conciergeIdempotencyKey);
 
   if (idempotencyKey) {
-    const existing = await (ctx as any).runQuery(
-      generatedApi.internal.bookingOntology.listBookingsInternal,
-      {
-        organizationId,
-        subtype: "appointment",
-        startDate: windowStartTs,
-        endDate: windowEndTs,
-        limit: 200,
-      }
-    ) as {
+    let existing: {
       bookings: Array<{
         _id: Id<"objects">;
         customProperties?: Record<string, unknown>;
       }>;
     };
+    try {
+      existing = await (ctx as any).runQuery(
+        generatedApi.internal.bookingOntology.listBookingsInternal,
+        {
+          organizationId,
+          subtype: "appointment",
+          startDate: windowStartTs,
+          endDate: windowEndTs,
+          limit: 200,
+        }
+      ) as {
+        bookings: Array<{
+          _id: Id<"objects">;
+          customProperties?: Record<string, unknown>;
+        }>;
+      };
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState,
+        stage: "booking",
+        status: "blocked",
+        outcomeCode: "booking_idempotency_lookup_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        success: false,
+        mode: "execute",
+        stageState,
+        terminalStage: "booking",
+        terminalOutcome: "blocked",
+        error: "Booking idempotency lookup failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Idempotency lookup failed before booking mutation.",
+        data: {
+          conciergeIdempotencyKey: idempotencyKey,
+        },
+      });
+    }
     const prior = (existing.bookings || []).find((booking) => {
       const props = (booking.customProperties || {}) as Record<string, unknown>;
       return normalizeOptionalString(props.conciergeIdempotencyKey) === idempotencyKey;
@@ -1991,63 +2394,182 @@ async function runMeetingConciergeDemo(
   }
 
   if (!bookingId) {
-    const createResult = await (ctx as any).runMutation(
-      generatedApi.internal.bookingOntology.createBookingInternal,
-      {
-        organizationId,
-        userId,
-        subtype: "appointment",
-        startDateTime: selectedSlot.startDateTime,
-        endDateTime: selectedSlot.endDateTime,
-        resourceIds: [resource.id],
-        customerId: contactId,
-        customerName: resolvedName,
-        customerEmail: resolvedEmail,
-        customerPhone: resolvedPhone,
-        participants: 2,
-        notes: [
-          meetingNotes,
-          idempotencyKey ? `conciergeIdempotencyKey:${idempotencyKey}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        confirmationRequired: false,
-        isAdminBooking: true,
-      }
-    ) as { bookingId: Id<"objects"> };
-    bookingId = createResult.bookingId;
+    try {
+      const createResult = await (ctx as any).runMutation(
+        generatedApi.internal.bookingOntology.createBookingInternal,
+        {
+          organizationId,
+          userId,
+          subtype: "appointment",
+          startDateTime: selectedSlot.startDateTime,
+          endDateTime: selectedSlot.endDateTime,
+          resourceIds: [resource.id],
+          customerId: contactId,
+          customerName: resolvedName,
+          customerEmail: resolvedEmail,
+          customerPhone: resolvedPhone,
+          participants: 2,
+          notes: [
+            meetingNotes,
+            idempotencyKey ? `conciergeIdempotencyKey:${idempotencyKey}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          confirmationRequired: false,
+          isAdminBooking: true,
+        }
+      ) as { bookingId: Id<"objects"> };
+      bookingId = createResult.bookingId;
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState,
+        stage: "booking",
+        status: "blocked",
+        outcomeCode: "booking_create_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        success: false,
+        mode: "execute",
+        stageState,
+        terminalStage: "booking",
+        terminalOutcome: "blocked",
+        error: "Booking create failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Booking mutation failed before completion.",
+        data: {
+          contactId: contactId ? String(contactId) : null,
+          selectedSlot: {
+            startDateTime: new Date(selectedSlot.startDateTime).toISOString(),
+            endDateTime: new Date(selectedSlot.endDateTime).toISOString(),
+          },
+        },
+      });
+    }
 
     if (idempotencyKey) {
-      const booking = await (ctx as any).runQuery(
-        generatedApi.internal.bookingOntology.getBookingInternal,
-        {
-          bookingId,
-          organizationId,
-        }
-      ) as { customProperties?: Record<string, unknown> } | null;
-      if (booking) {
-        await (ctx as any).runMutation(
-          generatedApi.internal.channels.router.patchObjectInternal,
+      try {
+        const booking = await (ctx as any).runQuery(
+          generatedApi.internal.bookingOntology.getBookingInternal,
           {
-            objectId: bookingId,
-            customProperties: {
-              ...(booking.customProperties || {}),
-              conciergeIdempotencyKey: idempotencyKey,
-            },
-            updatedAt: Date.now(),
+            bookingId,
+            organizationId,
           }
-        );
+        ) as { customProperties?: Record<string, unknown> } | null;
+        if (booking) {
+          await (ctx as any).runMutation(
+            generatedApi.internal.channels.router.patchObjectInternal,
+            {
+              objectId: bookingId,
+              customProperties: {
+                ...(booking.customProperties || {}),
+                conciergeIdempotencyKey: idempotencyKey,
+              },
+              updatedAt: Date.now(),
+            }
+          );
+        }
+      } catch (error) {
+        setMeetingConciergeStageResult({
+          stageState,
+          stage: "booking",
+          status: "blocked",
+          outcomeCode: "booking_idempotency_patch_failed",
+          failClosed: true,
+        });
+        return buildMeetingConciergeDemoResponse({
+          success: false,
+          mode: "execute",
+          stageState,
+          terminalStage: "booking",
+          terminalOutcome: "blocked",
+          error: "Booking idempotency patch failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Booking created but idempotency patch failed.",
+          data: {
+            bookingId: bookingId ? String(bookingId) : null,
+            conciergeIdempotencyKey: idempotencyKey,
+          }
+        });
       }
     }
   }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "booking",
+    status: "success",
+    outcomeCode: replayed ? "booking_replayed" : "booking_created",
+  });
 
-  const calendarPushResult = await (ctx as any).runAction(
-    generatedApi.internal.calendarSyncOntology.pushBookingToCalendar,
-    {
-      bookingId,
-      organizationId,
-    }
-  ) as { success?: boolean; error?: string; pushCount?: number };
+  let calendarPushResult: { success?: boolean; error?: string; pushCount?: number };
+  try {
+    calendarPushResult = await (ctx as any).runAction(
+      generatedApi.internal.calendarSyncOntology.pushBookingToCalendar,
+      {
+        bookingId,
+        organizationId,
+      }
+    ) as { success?: boolean; error?: string; pushCount?: number };
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_calendar_push_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode: "execute",
+      stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Calendar push failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Booking created but calendar push failed.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        slotLabel,
+      },
+    });
+  }
+  if (calendarPushResult?.success !== true) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_calendar_push_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode: "execute",
+      stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Calendar push failed",
+      message:
+        calendarPushResult?.error ||
+        "Booking created but calendar push did not report success.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        slotLabel,
+        calendarPush: {
+          success: false,
+          pushCount: calendarPushResult?.pushCount || 0,
+          error: calendarPushResult?.error,
+        },
+      },
+    });
+  }
 
   const confirmationRoute = resolveConfirmationRouting({
     preferred: args.confirmationChannel,
@@ -2055,6 +2577,34 @@ async function runMeetingConciergeDemo(
     personEmail: resolvedEmail,
     personPhone: resolvedPhone,
   });
+  if (!confirmationRoute.channel || !confirmationRoute.recipient) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_recipient_unavailable",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode: "execute",
+      stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Confirmation recipient unavailable",
+      message:
+        "Booking and calendar push succeeded, but no confirmation channel/recipient was available.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        slotLabel,
+        calendarPush: {
+          success: true,
+          pushCount: calendarPushResult?.pushCount || 0,
+        },
+      },
+    });
+  }
 
   let confirmationResult: {
     attempted: boolean;
@@ -2070,16 +2620,16 @@ async function runMeetingConciergeDemo(
     success: false,
   };
 
-  if (confirmationRoute.channel && confirmationRoute.recipient) {
-    const confirmationText = [
-      `Confirmed: ${meetingTitle}`,
-      `When: ${slotLabel}`,
-      resource.name ? `Where: ${resource.name}` : null,
-      "Reply here if you need to reschedule.",
-    ]
-      .filter(Boolean)
-      .join("\n");
+  const confirmationText = [
+    `Confirmed: ${meetingTitle}`,
+    `When: ${slotLabel}`,
+    resource.name ? `Where: ${resource.name}` : null,
+    "Reply here if you need to reschedule.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
+  try {
     const sendResult = await (ctx as any).runAction(
       generatedApi.internal.channels.router.sendMessage,
       {
@@ -2107,12 +2657,71 @@ async function runMeetingConciergeDemo(
       providerMessageId: sendResult.providerMessageId,
       error: sendResult.success ? undefined : sendResult.error,
     };
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_delivery_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode: "execute",
+      stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Confirmation delivery failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Booking and calendar push succeeded, but confirmation delivery threw.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        slotLabel,
+      },
+    });
   }
+  if (!confirmationResult.success) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_delivery_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode: "execute",
+      stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Confirmation delivery failed",
+      message:
+        confirmationResult.error ||
+        "Booking and calendar push succeeded, but confirmation delivery failed.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        slotLabel,
+        confirmation: confirmationResult,
+      },
+    });
+  }
+  setMeetingConciergeStageResult({
+    stageState,
+    stage: "invite",
+    status: "success",
+    outcomeCode: "invite_sent",
+  });
 
-  return {
+  return buildMeetingConciergeDemoResponse({
     success: true,
-    action: "run_meeting_concierge_demo",
     mode: "execute",
+    stageState,
+    terminalStage: "invite",
+    terminalOutcome: "success",
     data: {
       replayed,
       resource: {
@@ -2142,11 +2751,8 @@ async function runMeetingConciergeDemo(
       },
       confirmation: confirmationResult,
     },
-    message:
-      confirmationResult.success
-        ? `Meeting booked and confirmation sent (${slotLabel}).`
-        : `Meeting booked (${slotLabel}). Confirmation delivery unavailable or failed.`,
-  };
+    message: `Meeting booked and confirmation sent (${slotLabel}).`,
+  });
 }
 
 /**

@@ -1,4 +1,4 @@
-import { forwardRef, useState, useEffect, useRef, useImperativeHandle, useCallback } from 'react';
+import { forwardRef, useState, useEffect, useRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { Pressable, Alert, ActivityIndicator } from 'react-native';
 import {
   AudioModule,
@@ -21,12 +21,30 @@ import { MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS } from '../../lib/voice/
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const DEFAULT_FRAME_DURATION_MS = 750;
+const STREAM_METER_SAMPLE_INTERVAL_MS = 80;
+const METERING_MIN_DB = -160;
+
+function meteringDbToRms(metering: number | null | undefined): number {
+  if (!Number.isFinite(metering)) {
+    return 0;
+  }
+  const clampedDb = Math.max(METERING_MIN_DB, Math.min(0, Number(metering)));
+  return Number((10 ** (clampedDb / 20)).toFixed(6));
+}
+
+export type VoiceRecorderEnergySample = {
+  sequence: number;
+  rms: number;
+  timestampMs: number;
+};
 
 export type VoiceRecorderFrame = {
   uri: string;
   durationMs: number;
   sequence: number;
   isFinal: boolean;
+  energyRms: number;
+  timestampMs: number;
 };
 
 export type VoiceRecorderHandle = {
@@ -47,6 +65,7 @@ type VoiceRecorderProps = {
   maxDurationMs?: number;
   streamWhileRecording?: boolean;
   frameDurationMs?: number;
+  onAudioEnergySample?: (sample: VoiceRecorderEnergySample) => void;
 };
 
 export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>(function VoiceRecorder(
@@ -61,6 +80,7 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     maxDurationMs,
     streamWhileRecording = false,
     frameDurationMs = DEFAULT_FRAME_DURATION_MS,
+    onAudioEnergySample,
   }: VoiceRecorderProps,
   ref
 ) {
@@ -68,14 +88,29 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
   const { t } = useAppPreferences();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const streamRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recordingPreset = useMemo(
+    () => ({
+      ...RecordingPresets.HIGH_QUALITY,
+      isMeteringEnabled: true,
+    }),
+    []
+  );
+  const recorder = useAudioRecorder(recordingPreset);
+  const streamRecorder = useAudioRecorder(recordingPreset);
   const streamRecordingActiveRef = useRef(false);
   const primaryRecordingActiveRef = useRef(false);
   const streamSequenceRef = useRef(0);
   const streamTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamMeterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamOpRef = useRef<Promise<void>>(Promise.resolve());
   const streamSegmentStartedAtRef = useRef<number | null>(null);
+  const streamEnergyStatsRef = useRef({
+    sampleCount: 0,
+    sumRms: 0,
+    peakRms: 0,
+    lastRms: 0,
+  });
+  const onAudioEnergySampleRef = useRef<VoiceRecorderProps['onAudioEnergySample']>(onAudioEnergySample);
   const stopRecordingRef = useRef<(() => Promise<void>) | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,7 +135,15 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
       clearTimeout(streamTimerRef.current);
       streamTimerRef.current = null;
     }
+    if (streamMeterTimerRef.current) {
+      clearInterval(streamMeterTimerRef.current);
+      streamMeterTimerRef.current = null;
+    }
   }, []);
+
+  useEffect(() => {
+    onAudioEnergySampleRef.current = onAudioEnergySample;
+  }, [onAudioEnergySample]);
 
   const setRecordingState = useCallback((next: boolean) => {
     setIsRecording(next);
@@ -136,38 +179,107 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     return Math.max(120, Date.now() - startedAt);
   }, []);
 
+  const resetStreamEnergyStats = useCallback(() => {
+    streamEnergyStatsRef.current = {
+      sampleCount: 0,
+      sumRms: 0,
+      peakRms: 0,
+      lastRms: 0,
+    };
+  }, []);
+
+  const recordStreamEnergySample = useCallback((rms: number, timestampMs: number) => {
+    const normalizedRms = Math.max(0, Number.isFinite(rms) ? Number(rms) : 0);
+    const stats = streamEnergyStatsRef.current;
+    stats.sampleCount += 1;
+    stats.sumRms += normalizedRms;
+    stats.peakRms = Math.max(stats.peakRms, normalizedRms);
+    stats.lastRms = normalizedRms;
+    onAudioEnergySampleRef.current?.({
+      sequence: streamSequenceRef.current,
+      rms: normalizedRms,
+      timestampMs,
+    });
+  }, []);
+
+  const sampleStreamEnergyNow = useCallback(() => {
+    const status = streamRecorder.getStatus();
+    const timestampMs = Date.now();
+    const rms = meteringDbToRms(status.metering);
+    recordStreamEnergySample(rms, timestampMs);
+    return rms;
+  }, [recordStreamEnergySample, streamRecorder]);
+
+  const startStreamMetering = useCallback(() => {
+    if (streamMeterTimerRef.current) {
+      clearInterval(streamMeterTimerRef.current);
+      streamMeterTimerRef.current = null;
+    }
+    resetStreamEnergyStats();
+    sampleStreamEnergyNow();
+    streamMeterTimerRef.current = setInterval(() => {
+      if (!streamRecordingActiveRef.current || stopRequestedRef.current) {
+        return;
+      }
+      sampleStreamEnergyNow();
+    }, STREAM_METER_SAMPLE_INTERVAL_MS);
+  }, [resetStreamEnergyStats, sampleStreamEnergyNow]);
+
+  const stopStreamMetering = useCallback(() => {
+    if (streamMeterTimerRef.current) {
+      clearInterval(streamMeterTimerRef.current);
+      streamMeterTimerRef.current = null;
+    }
+  }, []);
+
+  const resolveStreamSegmentEnergyRms = useCallback(() => {
+    const stats = streamEnergyStatsRef.current;
+    if (stats.sampleCount > 0) {
+      return Number((stats.sumRms / stats.sampleCount).toFixed(6));
+    }
+    return Number(stats.lastRms.toFixed(6));
+  }, []);
+
   const startStreamSegment = useCallback(async function runStreamSegment() {
     await streamRecorder.prepareToRecordAsync();
     streamRecorder.record();
     streamRecordingActiveRef.current = true;
     streamSegmentStartedAtRef.current = Date.now();
+    startStreamMetering();
     console.info('[VoiceFrame] stream segment started');
     streamTimerRef.current = setTimeout(() => {
       void enqueueStreamOperation(async () => {
         if (!streamRecordingActiveRef.current || stopRequestedRef.current) {
           return;
         }
+        sampleStreamEnergyNow();
+        stopStreamMetering();
         await streamRecorder.stop();
         streamRecordingActiveRef.current = false;
         const durationMs = resolveStreamSegmentDurationMs(frameDurationMs);
+        const energyRms = resolveStreamSegmentEnergyRms();
+        const timestampMs = Date.now();
         streamSegmentStartedAtRef.current = null;
         const uri = streamRecorder.uri;
         const sequence = streamSequenceRef.current++;
         if (uri) {
-          console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} final=false`);
+          console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} energyRms=${energyRms} final=false`);
           console.info('[VoiceTelemetry]', {
             event: 'capture_frame_emitted',
             telemetryWindowHours: MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS,
             sequence,
             durationMs,
+            energyRms,
             isFinal: false,
-            timestampMs: Date.now(),
+            timestampMs,
           });
           await onAudioFrame?.({
             uri,
             durationMs,
             sequence,
             isFinal: false,
+            energyRms,
+            timestampMs,
           });
         }
         if (!stopRequestedRef.current) {
@@ -180,6 +292,10 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     frameDurationMs,
     onAudioFrame,
     resolveStreamSegmentDurationMs,
+    resolveStreamSegmentEnergyRms,
+    sampleStreamEnergyNow,
+    startStreamMetering,
+    stopStreamMetering,
     streamRecorder,
   ]);
 
@@ -241,29 +357,37 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     await enqueueStreamOperation(async () => {
       if (!streamRecordingActiveRef.current) {
         streamSegmentStartedAtRef.current = null;
+        stopStreamMetering();
         return;
       }
+      sampleStreamEnergyNow();
+      stopStreamMetering();
       await streamRecorder.stop();
       streamRecordingActiveRef.current = false;
       const durationMs = resolveStreamSegmentDurationMs(frameDurationMs);
+      const energyRms = resolveStreamSegmentEnergyRms();
+      const timestampMs = Date.now();
       streamSegmentStartedAtRef.current = null;
       const uri = streamRecorder.uri;
       const sequence = streamSequenceRef.current++;
       if (uri) {
-        console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} final=true`);
+        console.info(`[VoiceFrame] emit seq=${sequence} durationMs=${durationMs} energyRms=${energyRms} final=true`);
         console.info('[VoiceTelemetry]', {
           event: 'capture_frame_emitted',
           telemetryWindowHours: MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS,
           sequence,
           durationMs,
+          energyRms,
           isFinal: true,
-          timestampMs: Date.now(),
+          timestampMs,
         });
         await onAudioFrame?.({
           uri,
           durationMs,
           sequence,
           isFinal: true,
+          energyRms,
+          timestampMs,
         });
       }
     });
@@ -277,7 +401,10 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     frameDurationMs,
     onAudioFrame,
     resolveStreamSegmentDurationMs,
+    resolveStreamSegmentEnergyRms,
+    sampleStreamEnergyNow,
     setRecordingState,
+    stopStreamMetering,
     streamRecorder,
   ]);
 

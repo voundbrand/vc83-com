@@ -325,6 +325,20 @@ function isRecoverableFrameTranscriptionMessage(message: string): boolean {
   );
 }
 
+function isAbortRequestError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true;
+  }
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const normalizedMessage = error.message.trim().toLowerCase();
+  return normalizedMessage.includes('abort');
+}
+
 function disposeAudioPlayer(player: ReturnType<typeof createAudioPlayer> | null) {
   if (!player) {
     return;
@@ -485,6 +499,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const activeSessionRef = useRef<ActiveVoiceSession | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const playbackRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const synthAbortControllerRef = useRef<AbortController | null>(null);
   const intentionalSocketCloseRef = useRef(false);
   const frameIngestQueueRef = useRef<((frameArgs: StreamFrameArgs) => Promise<StreamFrameIngestResult>) | null>(null);
   const transcriptFramesRef = useRef<Map<number, string>>(new Map());
@@ -620,12 +635,27 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     setIsRealtimeConnected(false);
   }, []);
 
+  const abortInFlightSynthesizeRequest = useCallback((reason: string) => {
+    const controller = synthAbortControllerRef.current;
+    if (!controller) {
+      return false;
+    }
+    synthAbortControllerRef.current = null;
+    if (!controller.signal.aborted) {
+      controller.abort();
+      emitVoiceTelemetry('tts_synthesize_request_aborted', { reason });
+      return true;
+    }
+    return false;
+  }, []);
+
   const stopPlayback = useCallback(async () => {
+    abortInFlightSynthesizeRequest('stop_playback');
     Speech.stop();
     const player = playbackRef.current;
     playbackRef.current = null;
     disposeAudioPlayer(player);
-  }, []);
+  }, [abortInFlightSynthesizeRequest]);
 
   const resolveRequestedVoiceId = useCallback(async (): Promise<string | undefined> => {
     const commitResolvedVoiceId = (
@@ -1457,14 +1487,40 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       );
     }
     await stopPlayback();
-    const synthesis = await l4yercak3Client.ai.voice.synthesize({
-      conversationId: active.conversationId,
-      interviewSessionId: active.interviewSessionId,
-      voiceSessionId: active.voiceSessionId,
-      text,
-      requestedProviderId: args.requestedProviderId,
-      requestedVoiceId,
-    });
+    const synthController = typeof AbortController === 'function'
+      ? new AbortController()
+      : null;
+    if (synthController) {
+      synthAbortControllerRef.current = synthController;
+    }
+    let synthesis: Awaited<ReturnType<typeof l4yercak3Client.ai.voice.synthesize>>;
+    try {
+      synthesis = await l4yercak3Client.ai.voice.synthesize(
+        {
+          conversationId: active.conversationId,
+          interviewSessionId: active.interviewSessionId,
+          voiceSessionId: active.voiceSessionId,
+          text,
+          requestedProviderId: args.requestedProviderId,
+          requestedVoiceId,
+        },
+        synthController ? { signal: synthController.signal } : undefined
+      );
+    } catch (error) {
+      if (isAbortRequestError(error)) {
+        emitVoiceTelemetry('tts_synthesize_request_aborted', { reason: 'request_aborted' });
+        return;
+      }
+      throw error;
+    } finally {
+      if (synthAbortControllerRef.current === synthController) {
+        synthAbortControllerRef.current = null;
+      }
+    }
+    if (synthController?.signal.aborted) {
+      emitVoiceTelemetry('tts_synthesize_request_aborted', { reason: 'response_aborted' });
+      return;
+    }
     console.info(
       `[VoiceTTS] synth result provider=${synthesis.providerId} hasAudio=${Boolean(
         synthesis.audioBase64
@@ -1479,6 +1535,9 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       let player: ReturnType<typeof createAudioPlayer> | null = null;
       try {
         await setPlaybackAudioMode();
+        if (synthController?.signal.aborted) {
+          return;
+        }
         player = createAudioPlayer({
           uri: `data:${synthesis.mimeType};base64,${synthesis.audioBase64}`,
         });
@@ -1498,6 +1557,9 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
 
     const fallbackText = synthesis.fallbackText || text;
+    if (synthController?.signal.aborted) {
+      return;
+    }
     await speakWithSystemFallbackVoice(fallbackText);
     console.info('[VoiceTTS] playback started system_fallback');
   }, [args.requestedProviderId, openSession, resolveRequestedVoiceId, stopPlayback]);

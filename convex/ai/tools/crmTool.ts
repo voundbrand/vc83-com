@@ -31,6 +31,24 @@ import { Id } from "../../_generated/dataModel";
 
 const generatedApi: any = require("../../_generated/api");
 
+export const DER_TERMINMACHER_CRM_TOOL_MANIFEST_CONTRACT_VERSION =
+  "aoh_der_terminmacher_crm_tool_manifest_v1" as const;
+
+export const DER_TERMINMACHER_CRM_TOOL_MANIFEST = {
+  contractVersion: DER_TERMINMACHER_CRM_TOOL_MANIFEST_CONTRACT_VERSION,
+  toolName: "manage_crm" as const,
+  requiredActions: [
+    "search_organizations",
+    "create_organization",
+    "search_contacts",
+    "create_contact",
+    "link_contact_to_org",
+  ] as const,
+  modeDefault: "preview" as const,
+  previewFirst: true as const,
+  executeRequiresExplicitConfirmation: true as const,
+};
+
 const OUTREACH_PREFERRED_CHANNEL_VALUES = [
   "sms",
   "email",

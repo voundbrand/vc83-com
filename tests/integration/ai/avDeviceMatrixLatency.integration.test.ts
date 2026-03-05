@@ -1,10 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  buildMeetingConciergeDecisionTelemetry,
   VC83_NATIVE_TOOL_REGISTRY_ROUTE,
+  resolveInboundMeetingConciergeIntent,
   resolveInboundIngressEnvelope,
 } from "../../../convex/ai/agentExecution";
+import { MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION } from "../../../convex/ai/mobileRuntimeHardening";
 import {
   createDesktopCaptureAdapter,
   type DesktopCaptureProvider,
@@ -47,6 +51,12 @@ interface MetricEvaluation {
 }
 
 type MetricEvaluationMap = Record<LatencyMetricKey, MetricEvaluation>;
+
+const ORG_ID = "org_avr_012" as Id<"organizations">;
+const PREVIEW_COMMAND_POLICY = {
+  contractVersion: MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION,
+  attemptedCommands: ["assemble_concierge_payload", "preview_meeting_concierge"],
+};
 
 interface AvMatrixCaseInput {
   caseId: string;
@@ -577,6 +587,93 @@ describe("AVR-012 device matrix regression and latency validation", () => {
     expect(allHardFailPass).toBe(true);
     expect(results.every((result) => result.fallbackReason === "provider_failover")).toBe(
       true
+    );
+  });
+});
+
+describe("ARH-L-002 meeting concierge demo latency contract", () => {
+  it("reconciles telemetry <60s target with demo-outcome <20s target", () => {
+    const now = 1_701_401_000_000;
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Please preview a booking for jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_arh_l_002_latency_reconcile",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        timestamp: now - 3_000,
+        voiceRuntime: {
+          transcript: "Use jordan@example.com",
+          stoppedAt: now - 3_000,
+        },
+      },
+      now,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 5_000,
+      toolResults: [],
+      latencyTargetMs: 60_000,
+      demoOutcomeTargetMs: 20_000,
+      demoOutcomeIngestBudgetMs: 4_000,
+    });
+
+    expect(telemetry.endToEndLatencyMs).toBe(8_000);
+    expect(telemetry.latencyTargetMs).toBe(60_000);
+    expect(telemetry.latencyTargetBreached).toBe(false);
+    expect(telemetry.demoOutcomeTargetMs).toBe(20_000);
+    expect(telemetry.demoOutcomeTargetBreached).toBe(false);
+    expect(telemetry.demoOutcomeBreachReasons).toEqual([]);
+    expect(telemetry.latencyContract).toEqual({
+      contractVersion: "meeting_concierge_latency_contract_v1",
+      telemetryTargetMs: 60_000,
+      telemetryTargetBreached: false,
+      demoOutcomeTargetMs: 20_000,
+      demoOutcomeIngestBudgetMs: 4_000,
+      demoOutcomeRuntimeBudgetMs: 16_000,
+      demoOutcomeTargetBreached: false,
+      demoOutcomeBreachReasons: [],
+    });
+  });
+
+  it("emits deterministic breach reasons when demo-outcome <20s target is missed", () => {
+    const now = 1_701_402_000_000;
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Please preview a booking for jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_arh_l_002_latency_breach",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        timestamp: now - 7_000,
+        voiceRuntime: {
+          transcript: "Use jordan@example.com",
+          stoppedAt: now - 7_000,
+        },
+      },
+      now,
+    });
+
+    const telemetry = buildMeetingConciergeDecisionTelemetry({
+      intent,
+      runtimeElapsedMs: 18_000,
+      toolResults: [],
+      latencyTargetMs: 60_000,
+      demoOutcomeTargetMs: 20_000,
+      demoOutcomeIngestBudgetMs: 4_000,
+    });
+
+    expect(telemetry.endToEndLatencyMs).toBe(25_000);
+    expect(telemetry.latencyTargetBreached).toBe(false);
+    expect(telemetry.demoOutcomeTargetBreached).toBe(true);
+    expect(telemetry.demoOutcomeBreachReasons).toEqual([
+      "demo_outcome_target_exceeded",
+      "demo_outcome_ingest_budget_exceeded",
+      "demo_outcome_runtime_budget_exceeded",
+    ]);
+    expect(telemetry.latencyContract.demoOutcomeBreachReasons).toEqual(
+      telemetry.demoOutcomeBreachReasons
     );
   });
 });

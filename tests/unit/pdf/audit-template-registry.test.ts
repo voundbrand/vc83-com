@@ -16,10 +16,10 @@ describe("audit workflow lead magnet template registry", () => {
     const template = getTemplateByCode("leadmagnet_audit_workflow_report_v1");
     expect(template).toBeTruthy();
     expect(template?.template.html).toContain("class=\"hero\"");
-    expect(template?.template.html).toContain("class=\"kpi-card\"");
-    expect(template?.template.html).toContain("class=\"cta-card\"");
-    expect(template?.template.css).toContain(".summary-strip");
-    expect(template?.template.css).toContain(".timeline-marker");
+    expect(template?.template.html).toContain("class=\"hero-right\"");
+    expect(template?.template.html).toContain("class=\"next-move\"");
+    expect(template?.template.css).toContain(".kpi-value");
+    expect(template?.template.css).toContain(".timeline-line");
   });
 
   it("keeps required-field validation contract for audit generation", () => {

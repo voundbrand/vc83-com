@@ -1,6 +1,16 @@
 package com.l4yercak3.mobile.metabridge
 
+import android.Manifest.permission.ACCESS_FINE_LOCATION
+import android.Manifest.permission.BLUETOOTH
+import android.Manifest.permission.BLUETOOTH_CONNECT
+import android.Manifest.permission.BLUETOOTH_SCAN
+import android.Manifest.permission.CAMERA
+import android.Manifest.permission.RECORD_AUDIO
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.facebook.react.bridge.Arguments
@@ -11,6 +21,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import androidx.core.content.ContextCompat
 import java.lang.reflect.Proxy
 import kotlin.math.max
 
@@ -769,6 +780,8 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   companion object {
     private const val MODULE_NAME = "MetaGlassesBridge"
     private const val STATUS_EVENT = "metaBridgeStatusDidChange"
+    private const val CONNECT_TIMEOUT_MS = 20_000L
+    private const val MAX_DEBUG_EVENTS = 250
   }
 
   private val mainHandler = Handler(Looper.getMainLooper())
@@ -779,6 +792,9 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   private var fallbackReason: String? = null
   private val callbackSurfaceReasons = mutableMapOf<String, String>()
   private var failure: FailureState? = null
+  private var connectTimeoutRunnable: Runnable? = null
+  private var debugEventSequence = 0
+  private val debugEvents = mutableListOf<DebugEvent>()
 
   private var sourceId: String? = null
   private var providerId = "meta_dat_bridge"
@@ -797,6 +813,14 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   init {
     MetaGlassesBridgeRuntimeHooks.register(this)
     datRuntimeConnector.start()
+    appendDebugEvent(
+      stage = "status",
+      code = "bridge_runtime_initialized",
+      message = "Meta bridge runtime initialized.",
+      details = mapOf(
+        "datSdkAvailable" to isDatSdkAvailable(),
+      ),
+    )
   }
 
   override fun getName(): String = MODULE_NAME
@@ -814,19 +838,48 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   @ReactMethod
   fun connect(promise: Promise) {
     postOnMain {
+      appendDebugEvent(
+        stage = "initiated",
+        code = "connect_requested",
+        message = "Connect Meta glasses requested from React Native.",
+        details = mapOf(
+          "currentState" to connectionState,
+        ),
+      )
+
       if (connectionState == "connected") {
+        appendDebugEvent(
+          stage = "success",
+          code = "already_connected",
+          message = "Meta bridge is already connected.",
+          details = gatherConnectionDetails(),
+        )
         promise.resolve(buildSnapshot())
         return@postOnMain
       }
 
+      cancelConnectTimeout()
       datRuntimeConnector.start()
       connectionState = "connecting"
       failure = null
       fallbackReason = null
       callbackSurfaceReasons.clear()
+      appendDebugEvent(
+        stage = "connecting",
+        code = "connect_invoked",
+        message = "DAT connector started; waiting for bridge readiness.",
+        details = gatherConnectionDetails(),
+      )
       emitStatus()
 
       if (!isDatSdkAvailable()) {
+        appendDebugEvent(
+          stage = "failure",
+          severity = "error",
+          code = "dat_sdk_unavailable",
+          message = "DAT SDK unavailable in this native build.",
+          details = gatherConnectionDetails(),
+        )
         applyFailure(
           reasonCode = "dat_sdk_unavailable",
           message = "Meta DAT SDK not linked in the native target.",
@@ -838,20 +891,31 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       }
 
       if (hasActiveDevice()) {
+        cancelConnectTimeout()
         connectionState = "connected"
         failure = null
         fallbackReason = resolveCallbackSurfaceFallbackReason()
+        appendDebugEvent(
+          stage = "success",
+          code = "device_ready",
+          message = "Active DAT device already available; bridge connected.",
+          details = gatherConnectionDetails(),
+        )
         emitStatus()
         promise.resolve(buildSnapshot())
         return@postOnMain
       }
 
-      applyFailure(
-        reasonCode = "dat_device_identity_unavailable",
+      maybeStartRegistrationIfNeeded()
+      fallbackReason = "awaiting_dat_device_identity"
+      appendDebugEvent(
+        stage = "discovering",
+        code = "awaiting_dat_device_identity",
         message = "Awaiting DAT runtime device identity callback.",
-        recoverable = true,
-        fallback = "awaiting_dat_device_identity",
+        details = gatherConnectionDetails(),
       )
+      scheduleConnectTimeout()
+      emitStatus()
       promise.resolve(buildSnapshot())
     }
   }
@@ -859,6 +923,13 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
   @ReactMethod
   fun disconnect(promise: Promise) {
     postOnMain {
+      appendDebugEvent(
+        stage = "disconnecting",
+        code = "disconnect_requested",
+        message = "Disconnect Meta glasses requested from React Native.",
+        details = gatherConnectionDetails(),
+      )
+      cancelConnectTimeout()
       datRuntimeConnector.stop()
       connectionState = "disconnected"
       fallbackReason = null
@@ -868,6 +939,12 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       deviceId = null
       deviceLabel = null
       connectedAtMs = null
+      appendDebugEvent(
+        stage = "disconnected",
+        code = "bridge_disconnected",
+        message = "Meta bridge disconnected.",
+        details = gatherConnectionDetails(),
+      )
       emitStatus()
       promise.resolve(buildSnapshot())
     }
@@ -917,6 +994,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
 
   override fun onDeviceConnected(device: MetaGlassesBridgeRuntimeHooks.DeviceIdentity) {
     postOnMain {
+      cancelConnectTimeout()
       sourceId = device.sourceId
       providerId = device.providerId
       deviceId = device.deviceId
@@ -925,12 +1003,24 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       connectionState = "connected"
       failure = null
       fallbackReason = resolveCallbackSurfaceFallbackReason()
+      appendDebugEvent(
+        stage = "success",
+        code = "device_connected",
+        message = "DAT runtime reported active Meta glasses device.",
+        details = mapOf(
+          "deviceId" to device.deviceId,
+          "deviceLabel" to device.deviceLabel,
+          "providerId" to device.providerId,
+          "registrationState" to resolveRegistrationState(),
+        ),
+      )
       emitStatus()
     }
   }
 
   override fun onDeviceDisconnected(reasonCode: String?) {
     postOnMain {
+      cancelConnectTimeout()
       connectionState = "disconnected"
       fallbackReason = reasonCode
       callbackSurfaceReasons.clear()
@@ -938,6 +1028,15 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       deviceId = null
       deviceLabel = null
       connectedAtMs = null
+      appendDebugEvent(
+        stage = "disconnected",
+        code = "device_disconnected",
+        message = "DAT runtime reported device disconnection.",
+        details = mapOf(
+          "reasonCode" to (reasonCode ?: "unknown"),
+          "registrationState" to resolveRegistrationState(),
+        ),
+      )
       emitStatus()
     }
   }
@@ -965,15 +1064,26 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     message: String?,
   ) {
     postOnMain {
+      val callbackReason = reasonCode ?: "dat_${surface}_callback_$status"
       if (status == "healthy") {
         callbackSurfaceReasons.remove(surface)
       } else {
-        callbackSurfaceReasons[surface] = reasonCode ?: "dat_${surface}_callback_$status"
+        callbackSurfaceReasons[surface] = callbackReason
       }
 
       if (failure == null) {
         fallbackReason = resolveCallbackSurfaceFallbackReason()
       }
+      appendDebugEvent(
+        stage = if (status == "healthy") "handshake" else "failure",
+        severity = if (status == "healthy") "info" else "warn",
+        code = callbackReason,
+        message = message ?: "DAT callback surface $surface is $status.",
+        details = mapOf(
+          "surface" to surface,
+          "status" to status,
+        ),
+      )
       emitStatus()
     }
   }
@@ -993,6 +1103,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     super.invalidate()
     MetaGlassesBridgeRuntimeHooks.unregister(this)
     datRuntimeConnector.stop()
+    cancelConnectTimeout()
     mainHandler.removeCallbacksAndMessages(null)
   }
 
@@ -1040,6 +1151,7 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     recoverable: Boolean,
     fallback: String,
   ) {
+    cancelConnectTimeout()
     connectionState = "error"
     failure = FailureState(
       reasonCode = reasonCode,
@@ -1048,6 +1160,17 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       atMs = nowMs(),
     )
     fallbackReason = fallback
+    appendDebugEvent(
+      stage = "failure",
+      severity = "error",
+      code = reasonCode,
+      message = message ?: "Meta bridge failure.",
+      details = mapOf(
+        "recoverable" to recoverable,
+        "fallback" to fallback,
+        "registrationState" to resolveRegistrationState(),
+      ),
+    )
     emitStatus()
   }
 
@@ -1057,6 +1180,406 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
 
   private fun resolveCallbackSurfaceFallbackReason(): String? {
     return callbackSurfaceReasons.toSortedMap().values.firstOrNull()
+  }
+
+  private fun scheduleConnectTimeout() {
+    cancelConnectTimeout()
+    val runnable = Runnable {
+      if (connectionState == "connecting" && !hasActiveDevice()) {
+        applyFailure(
+          reasonCode = "dat_device_identity_timeout",
+          message = "Timed out waiting for DAT runtime device identity. Ensure Meta glasses are connected in Meta AI and Bluetooth is enabled.",
+          recoverable = true,
+          fallback = "awaiting_dat_device_identity",
+        )
+      }
+    }
+    connectTimeoutRunnable = runnable
+    mainHandler.postDelayed(runnable, CONNECT_TIMEOUT_MS)
+  }
+
+  private fun cancelConnectTimeout() {
+    connectTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+    connectTimeoutRunnable = null
+  }
+
+  private fun maybeStartRegistrationIfNeeded() {
+    val registrationState = resolveRegistrationState()
+    val normalized = registrationState.lowercase()
+    if (normalized.contains("registered")) {
+      appendDebugEvent(
+        stage = "handshake",
+        code = "registration_already_complete",
+        message = "DAT registration already completed.",
+        details = mapOf(
+          "registrationState" to registrationState,
+        ),
+      )
+      return
+    }
+    if (normalized.contains("registering")) {
+      appendDebugEvent(
+        stage = "handshake",
+        code = "registration_in_progress",
+        message = "DAT registration already in progress.",
+        details = mapOf(
+          "registrationState" to registrationState,
+        ),
+      )
+      return
+    }
+
+    val activity = currentActivity
+    if (activity == null) {
+      appendDebugEvent(
+        stage = "failure",
+        severity = "warn",
+        code = "registration_start_failed_no_activity",
+        message = "Unable to start DAT registration because no foreground activity is available.",
+        details = mapOf(
+          "registrationState" to registrationState,
+        ),
+      )
+      return
+    }
+
+    appendDebugEvent(
+      stage = "handshake",
+      code = "registration_start_requested",
+      message = "Starting DAT registration flow.",
+      details = mapOf(
+        "registrationState" to registrationState,
+      ),
+    )
+
+    val wearablesClass = runCatching {
+      Class.forName("com.meta.wearable.dat.core.Wearables")
+    }.getOrNull()
+    val startRegistration = wearablesClass?.methods?.firstOrNull {
+      it.name == "startRegistration"
+        && it.parameterCount == 1
+        && Activity::class.java.isAssignableFrom(it.parameterTypes.first())
+    }
+
+    if (startRegistration == null) {
+      appendDebugEvent(
+        stage = "failure",
+        severity = "warn",
+        code = "registration_start_unavailable",
+        message = "Unable to find DAT startRegistration(activity) API surface.",
+      )
+      return
+    }
+
+    val startResult = runCatching {
+      startRegistration.isAccessible = true
+      startRegistration.invoke(null, activity)
+    }
+    if (startResult.isSuccess) {
+      appendDebugEvent(
+        stage = "handshake",
+        code = "registration_start_succeeded",
+        message = "DAT registration flow started.",
+        details = mapOf(
+          "registrationState" to resolveRegistrationState(),
+        ),
+      )
+      emitStatus()
+      return
+    }
+
+    val error = startResult.exceptionOrNull()
+    appendDebugEvent(
+      stage = "failure",
+      severity = "warn",
+      code = "registration_start_failed",
+      message = "DAT registration start failed: ${error?.message ?: "unknown error"}",
+      details = mapOf(
+        "registrationState" to resolveRegistrationState(),
+      ),
+    )
+    if (failure == null && connectionState == "connecting") {
+      applyFailure(
+        reasonCode = "dat_registration_start_failed",
+        message = error?.message ?: "Unknown DAT registration error",
+        recoverable = true,
+        fallback = "dat_registration_start_failed",
+      )
+    }
+  }
+
+  private fun appendDebugEvent(
+    stage: String,
+    code: String,
+    message: String,
+    severity: String = "info",
+    details: Map<String, Any?> = emptyMap(),
+  ) {
+    debugEventSequence += 1
+    val event = DebugEvent(
+      id = "android_meta_bridge_$debugEventSequence",
+      atMs = nowMs(),
+      stage = stage,
+      severity = severity,
+      code = code,
+      message = message,
+      details = details,
+    )
+    debugEvents.add(event)
+    if (debugEvents.size > MAX_DEBUG_EVENTS) {
+      debugEvents.subList(0, debugEvents.size - MAX_DEBUG_EVENTS).clear()
+    }
+  }
+
+  private fun gatherConnectionDetails(): Map<String, Any?> {
+    val details = mutableMapOf<String, Any?>(
+      "connectionState" to connectionState,
+      "datSdkAvailable" to isDatSdkAvailable(),
+      "registrationState" to resolveRegistrationState(),
+      "bluetoothAdapterState" to resolveBluetoothAdapterState(),
+      "bluetoothAuthorization" to resolveBluetoothAuthorizationStatus(),
+      "permissions" to buildPermissionSnapshotMap(),
+    )
+    val discovered = resolveWearablesDevices()
+    if (discovered.isNotEmpty()) {
+      details["discoveredDevices"] = discovered
+    }
+    if (hasActiveDevice()) {
+      details["activeDevice"] = mapOf(
+        "sourceId" to sourceId,
+        "providerId" to providerId,
+        "deviceId" to deviceId,
+        "deviceLabel" to deviceLabel,
+      )
+    }
+    return details
+  }
+
+  private fun buildRuntimeDiagnostics(): WritableMap {
+    val diagnostics = Arguments.createMap()
+    val discoveredDevices = resolveWearablesDevices()
+    diagnostics.putString("platform", "android")
+    diagnostics.putString("registrationState", resolveRegistrationState())
+    diagnostics.putString("bluetoothAdapterState", resolveBluetoothAdapterState())
+    diagnostics.putString("bluetoothAuthorization", resolveBluetoothAuthorizationStatus())
+    diagnostics.putMap("permissions", buildPermissionSnapshotWritableMap())
+    diagnostics.putArray("discoveredDevices", toWritableDeviceArray(discoveredDevices))
+    diagnostics.putArray("pairedDevices", toWritableDeviceArray(resolveBluetoothPairedDevices()))
+    return diagnostics
+  }
+
+  private fun buildPermissionSnapshotMap(): Map<String, String> {
+    return mapOf(
+      "camera" to permissionStatus(CAMERA),
+      "microphone" to permissionStatus(RECORD_AUDIO),
+      "bluetooth" to resolveBluetoothAuthorizationStatus(),
+      "bluetoothConnect" to permissionStatus(BLUETOOTH_CONNECT, requiresApi = Build.VERSION_CODES.S),
+      "bluetoothScan" to permissionStatus(BLUETOOTH_SCAN, requiresApi = Build.VERSION_CODES.S),
+      "location" to permissionStatus(ACCESS_FINE_LOCATION),
+    )
+  }
+
+  private fun buildPermissionSnapshotWritableMap(): WritableMap {
+    val map = Arguments.createMap()
+    for ((key, value) in buildPermissionSnapshotMap()) {
+      map.putString(key, value)
+    }
+    return map
+  }
+
+  private fun permissionStatus(permission: String, requiresApi: Int? = null): String {
+    if (requiresApi != null && Build.VERSION.SDK_INT < requiresApi) {
+      return "not_required"
+    }
+    val granted = ContextCompat.checkSelfPermission(reactContext, permission) == PackageManager.PERMISSION_GRANTED
+    return if (granted) "granted" else "denied"
+  }
+
+  private fun resolveBluetoothAuthorizationStatus(): String {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      permissionStatus(BLUETOOTH_CONNECT, requiresApi = Build.VERSION_CODES.S)
+    } else {
+      permissionStatus(BLUETOOTH)
+    }
+  }
+
+  private fun resolveBluetoothAdapterState(): String {
+    val manager = reactContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    val adapter = manager?.adapter ?: runCatching { BluetoothAdapter.getDefaultAdapter() }.getOrNull()
+    if (adapter == null) {
+      return "unsupported"
+    }
+    return if (adapter.isEnabled) "powered_on" else "powered_off"
+  }
+
+  private fun resolveRegistrationState(): String {
+    val wearablesClass = runCatching {
+      Class.forName("com.meta.wearable.dat.core.Wearables")
+    }.getOrNull() ?: return "unavailable"
+
+    val holder =
+      findValueByNoArgMethod(wearablesClass, null, "getRegistrationState")
+        ?: findValueByField(wearablesClass, null, "registrationState")
+        ?: return "unknown"
+    val stateValue = unwrapStateContainerValue(holder)
+    return stateValue?.toString() ?: "unknown"
+  }
+
+  private fun resolveWearablesDevices(): List<Map<String, Any?>> {
+    val wearablesClass = runCatching {
+      Class.forName("com.meta.wearable.dat.core.Wearables")
+    }.getOrNull() ?: return activeDeviceAsList()
+
+    val devicesHolder =
+      findValueByNoArgMethod(wearablesClass, null, "getDevices")
+        ?: findValueByField(wearablesClass, null, "devices")
+        ?: return activeDeviceAsList()
+    val devicesValue = unwrapStateContainerValue(devicesHolder)
+    val candidates = when (devicesValue) {
+      is Set<*> -> devicesValue.toList()
+      is Iterable<*> -> devicesValue.toList()
+      is Array<*> -> devicesValue.toList()
+      else -> emptyList()
+    }
+
+    val entries = candidates.mapNotNull { candidate ->
+      candidate?.let { resolveWearableDeviceEntry(it) }
+    }
+    return if (entries.isNotEmpty()) entries else activeDeviceAsList()
+  }
+
+  private fun resolveWearableDeviceEntry(device: Any): Map<String, Any?> {
+    val rawDeviceId = resolveDeviceString(device, listOf("deviceId", "identifier", "id"))
+      ?: device.toString()
+    val deviceIdValue = sanitizeToken(rawDeviceId)
+    val label = resolveDeviceString(device, listOf("name", "label", "displayName"))
+      ?: "Ray-Ban Meta"
+    return mapOf(
+      "deviceId" to deviceIdValue,
+      "deviceLabel" to label,
+      "sourceClass" to "meta_glasses",
+      "providerId" to providerId,
+      "connected" to (deviceId == deviceIdValue),
+    )
+  }
+
+  private fun resolveBluetoothPairedDevices(): List<Map<String, Any?>> {
+    if (resolveBluetoothAuthorizationStatus() != "granted") {
+      return emptyList()
+    }
+    val manager = reactContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    val adapter = manager?.adapter ?: runCatching { BluetoothAdapter.getDefaultAdapter() }.getOrNull()
+      ?: return emptyList()
+    return runCatching {
+      adapter.bondedDevices.map { device ->
+        mapOf(
+          "deviceId" to sanitizeToken(device.address ?: device.name ?: "unknown"),
+          "deviceLabel" to (device.name ?: "Bluetooth device"),
+          "sourceClass" to "bluetooth",
+          "providerId" to "android_bluetooth",
+          "connected" to false,
+        )
+      }
+    }.getOrDefault(emptyList())
+  }
+
+  private fun activeDeviceAsList(): List<Map<String, Any?>> {
+    if (!hasActiveDevice()) {
+      return emptyList()
+    }
+    return listOf(
+      mapOf(
+        "deviceId" to deviceId,
+        "deviceLabel" to deviceLabel,
+        "sourceClass" to "meta_glasses",
+        "providerId" to providerId,
+        "connected" to true,
+      )
+    )
+  }
+
+  private fun resolveDeviceString(device: Any, keys: List<String>): String? {
+    for (key in keys) {
+      val getter = "get" + key.replaceFirstChar { it.uppercaseChar() }
+      val getterValue = runCatching {
+        val method = device.javaClass.methods.firstOrNull {
+          it.name == getter && it.parameterCount == 0
+        } ?: return@runCatching null
+        method.isAccessible = true
+        method.invoke(device)
+      }.getOrNull()?.toString()?.trim()
+      if (!getterValue.isNullOrEmpty()) {
+        return getterValue
+      }
+
+      val fieldValue = runCatching {
+        val field = device.javaClass.declaredFields.firstOrNull { it.name == key } ?: return@runCatching null
+        field.isAccessible = true
+        field.get(device)
+      }.getOrNull()?.toString()?.trim()
+      if (!fieldValue.isNullOrEmpty()) {
+        return fieldValue
+      }
+    }
+    return null
+  }
+
+  private fun sanitizeToken(value: String): String {
+    val normalized = value
+      .trim()
+      .lowercase()
+      .replace(Regex("[^a-z0-9._-]+"), "_")
+      .replace(Regex("^_+|_+$"), "")
+    return if (normalized.isNotEmpty()) normalized else "unknown"
+  }
+
+  private fun findValueByNoArgMethod(type: Class<*>, receiver: Any?, methodName: String): Any? {
+    val method = type.methods.firstOrNull {
+      it.name == methodName && it.parameterCount == 0
+    } ?: return null
+    return runCatching {
+      method.isAccessible = true
+      method.invoke(receiver)
+    }.getOrNull()
+  }
+
+  private fun findValueByField(type: Class<*>, receiver: Any?, fieldName: String): Any? {
+    val field = type.declaredFields.firstOrNull { it.name == fieldName } ?: return null
+    return runCatching {
+      field.isAccessible = true
+      field.get(receiver)
+    }.getOrNull()
+  }
+
+  private fun unwrapStateContainerValue(holder: Any): Any? {
+    val valueGetter = holder.javaClass.methods.firstOrNull {
+      it.name == "getValue" && it.parameterCount == 0
+    }
+    return if (valueGetter != null) {
+      runCatching {
+        valueGetter.isAccessible = true
+        valueGetter.invoke(holder)
+      }.getOrNull()
+    } else {
+      holder
+    }
+  }
+
+  private fun toWritableDeviceArray(devices: List<Map<String, Any?>>) = Arguments.createArray().apply {
+    devices.forEach { device ->
+      val map = Arguments.createMap()
+      device.forEach { (key, value) ->
+        when (value) {
+          null -> map.putNull(key)
+          is String -> map.putString(key, value)
+          is Boolean -> map.putBoolean(key, value)
+          is Int -> map.putInt(key, value)
+          is Double -> map.putDouble(key, value)
+          else -> map.putString(key, value.toString())
+        }
+      }
+      pushMap(map)
+    }
   }
 
   private fun isDatSdkAvailable(): Boolean {
@@ -1095,6 +1618,11 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     val now = nowMs()
     snapshot.putString("connectionState", connectionState)
     snapshot.putBoolean("datSdkAvailable", isDatSdkAvailable())
+    snapshot.putMap("diagnostics", buildRuntimeDiagnostics())
+
+    val debugEventsArray = Arguments.createArray()
+    debugEvents.forEach { debugEventsArray.pushMap(it.toWritableMap()) }
+    snapshot.putArray("debugEvents", debugEventsArray)
 
     if (sourceId != null && deviceId != null && deviceLabel != null) {
       val activeDevice = Arguments.createMap()
@@ -1145,8 +1673,9 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
       snapshot.putNull("failure")
     }
 
-    if (fallbackReason != null) {
-      snapshot.putString("fallbackReason", fallbackReason)
+    val resolvedFallbackReason = resolveCallbackSurfaceFallbackReason() ?: fallbackReason
+    if (resolvedFallbackReason != null) {
+      snapshot.putString("fallbackReason", resolvedFallbackReason)
     } else {
       snapshot.putNull("fallbackReason")
     }
@@ -1186,4 +1715,41 @@ class MetaGlassesBridgeModule(private val reactContext: ReactApplicationContext)
     val recoverable: Boolean,
     val atMs: Double,
   )
+
+  private data class DebugEvent(
+    val id: String,
+    val atMs: Double,
+    val stage: String,
+    val severity: String,
+    val code: String,
+    val message: String,
+    val details: Map<String, Any?> = emptyMap(),
+  ) {
+    fun toWritableMap(): WritableMap {
+      val map = Arguments.createMap()
+      map.putString("id", id)
+      map.putDouble("atMs", atMs)
+      map.putString("stage", stage)
+      map.putString("severity", severity)
+      map.putString("code", code)
+      map.putString("message", message)
+      if (details.isNotEmpty()) {
+        val detailsMap = Arguments.createMap()
+        details.forEach { (key, value) ->
+          when (value) {
+            null -> detailsMap.putNull(key)
+            is String -> detailsMap.putString(key, value)
+            is Boolean -> detailsMap.putBoolean(key, value)
+            is Int -> detailsMap.putInt(key, value)
+            is Double -> detailsMap.putDouble(key, value)
+            is Long -> detailsMap.putDouble(key, value.toDouble())
+            is Float -> detailsMap.putDouble(key, value.toDouble())
+            else -> detailsMap.putString(key, value.toString())
+          }
+        }
+        map.putMap("details", detailsMap)
+      }
+      return map
+    }
+  }
 }

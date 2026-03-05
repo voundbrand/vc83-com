@@ -864,14 +864,16 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
               <p className="text-xs desktop-shell-text-muted mb-2">
                 {tx("ui.login.check.no_account_prompt", "Don't have an account?")}
               </p>
-              <button
-                onClick={() => setMode("signup")}
-                className="beveled-button beveled-button-sm"
+              <a
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setMode("signup");
+                }}
+                className="font-pixel text-xs underline desktop-shell-text"
               >
-                <span className="font-pixel text-xs">
-                  {tx("ui.login.check.create_free_account", "Create Free Account ->")}
-                </span>
-              </button>
+                {tx("ui.login.check.create_free_account", "Create Free Account")}
+              </a>
             </div>
 
             <div className="mt-6 desktop-shell-note">

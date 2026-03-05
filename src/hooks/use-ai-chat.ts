@@ -169,6 +169,25 @@ export interface AIChatConversationRuntimeMetadata {
     | "error"
   eventType?: string
   reasonCode?: string
+  duplexPolicy?: {
+    mode: "persistent_streaming_primary" | "batch_fallback_only"
+    interruptDetection: "client_vad_barge_in"
+    interruptStopAssistantOnSpeech: boolean
+  }
+  vadPolicy?: {
+    mode: "client_energy_gate" | "server_vad"
+    frameDurationMs?: number
+    energyThresholdRms?: number
+    minSpeechFrames?: number
+    endpointSilenceMs?: number
+  }
+  videoForwardingPolicy?: {
+    mode: "persistent_transport_jpeg_throttled" | "manual_capture_only"
+    frameMimeType?: "image/jpeg"
+    cadenceMs?: number
+    maxFramesPerWindow?: number
+    windowMs?: number
+  }
   [key: string]: unknown
 }
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, Switch, TextInput } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, Switch, TextInput } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import * as Sharing from 'expo-sharing';
 import * as Speech from 'expo-speech';
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,9 +36,14 @@ import {
 } from '../../src/api/client';
 import {
   createDefaultMetaBridgeSnapshot,
+  requiresMetaAiAppConnection,
   type MetaBridgeSnapshot,
 } from '../../src/lib/av/metaBridge-contracts';
 import { metaBridge } from '../../src/lib/av/metaBridge';
+import {
+  metaBridgeObservability,
+  type MetaBridgeObservabilityStatus,
+} from '../../src/lib/av/metaBridge-observability';
 import {
   buildVoiceLanguageCatalogFromVoices,
   formatVoiceLanguageLabel,
@@ -121,6 +128,12 @@ export default function SettingsScreen() {
   const [metaBridgeStatus, setMetaBridgeStatus] = useState<MetaBridgeSnapshot>(
     createDefaultMetaBridgeSnapshot()
   );
+  const [isMetaBridgeDebugPanelOpen, setIsMetaBridgeDebugPanelOpen] = useState(false);
+  const [metaBridgeObservabilityStatus, setMetaBridgeObservabilityStatus] =
+    useState<MetaBridgeObservabilityStatus>(() => metaBridgeObservability.getStatus());
+  const [isExportingMetaBridgeLogs, setIsExportingMetaBridgeLogs] = useState(false);
+  const [isUploadingMetaBridgeLogs, setIsUploadingMetaBridgeLogs] = useState(false);
+  const [isClearingMetaBridgeLogs, setIsClearingMetaBridgeLogs] = useState(false);
   const previewPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const hydratedVoiceFromBackendRef = useRef(false);
 
@@ -174,6 +187,14 @@ export default function SettingsScreen() {
   const autoSpeakSwitchColors = getNativeSwitchColors({
     isDark,
     isEnabled: autoSpeakReplies,
+  });
+  const persistentCaptureSwitchColors = getNativeSwitchColors({
+    isDark,
+    isEnabled: metaBridgeObservabilityStatus.persistentCaptureEnabled,
+  });
+  const remoteUploadSwitchColors = getNativeSwitchColors({
+    isDark,
+    isEnabled: metaBridgeObservabilityStatus.remoteUploadEnabled,
   });
 
   const resolveVoiceLanguageForPreference = useCallback(
@@ -238,6 +259,37 @@ export default function SettingsScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = metaBridgeObservability.subscribe((status) => {
+      setMetaBridgeObservabilityStatus(status);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const resolveMetaBridgeUnavailableMessage = useCallback((status: MetaBridgeSnapshot): string => {
+    if (!status.datSdkAvailable || status.failure?.reasonCode === 'dat_sdk_unavailable') {
+      return t('settings.metaBridgeDatSdkUnavailableBody');
+    }
+
+    const reasonCodes = [status.failure?.reasonCode, status.fallbackReason]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    if (reasonCodes.some((reasonCode) => requiresMetaAiAppConnection(reasonCode))) {
+      return t('settings.metaBridgeConnectInMetaAi');
+    }
+
+    if (status.failure?.message && status.failure.reasonCode === 'dat_configuration_invalid') {
+      return status.failure.message;
+    }
+
+    if (status.failure?.message) {
+      return status.failure.message;
+    }
+
+    return t('settings.metaBridgeUnavailableFallback');
+  }, [t]);
+
   const handleConnectMetaBridge = useCallback(async () => {
     const status = await metaBridge.connect();
     setMetaBridgeStatus(status);
@@ -246,25 +298,24 @@ export default function SettingsScreen() {
     }
     if (!status.datSdkAvailable) {
       Alert.alert(
-        'DAT SDK unavailable',
-        'This build does not include the DAT SDK. Install a DAT-enabled iPhone build to connect Meta glasses.'
+        t('settings.metaBridgeDatSdkUnavailableTitle'),
+        t('settings.metaBridgeDatSdkUnavailableBody')
       );
       return;
     }
-    if (status.failure?.message) {
-      Alert.alert('Bridge unavailable', status.failure.message);
-      return;
-    }
-    Alert.alert('Bridge unavailable', 'Meta bridge is not connected yet. Check glasses connection and try again.');
-  }, []);
+    Alert.alert(
+      t('settings.metaBridgeUnavailableTitle'),
+      resolveMetaBridgeUnavailableMessage(status)
+    );
+  }, [resolveMetaBridgeUnavailableMessage, t]);
 
   const handleDisconnectMetaBridge = useCallback(async () => {
     const status = await metaBridge.disconnect();
     setMetaBridgeStatus(status);
     if (status.connectionState !== 'disconnected' && status.failure?.message) {
-      Alert.alert('Bridge disconnect failed', status.failure.message);
+      Alert.alert(t('settings.metaBridgeDisconnectFailedTitle'), status.failure.message);
     }
-  }, []);
+  }, [t]);
   const stopPreviewPlayback = useCallback(() => {
     const player = previewPlayerRef.current;
     previewPlayerRef.current = null;
@@ -539,19 +590,226 @@ export default function SettingsScreen() {
     metaBridgeStatus.connectionState === 'connected'
     || metaBridgeStatus.connectionState === 'connecting';
   const organizations = user?.organizations || [];
-  const bridgeFailureLabel = (() => {
-    if (metaBridgeStatus.failure?.message) {
-      return metaBridgeStatus.failure.message;
-    }
-    const reasonCode = metaBridgeStatus.failure?.reasonCode;
-    if (!reasonCode) {
+  const bridgeFailureLabel = useMemo(() => {
+    if (!metaBridgeStatus.failure && !metaBridgeStatus.fallbackReason) {
       return null;
     }
-    if (reasonCode === 'dat_sdk_unavailable') {
-      return 'DAT SDK is unavailable in this build (expected on simulator and non-DAT targets).';
+    return resolveMetaBridgeUnavailableMessage(metaBridgeStatus);
+  }, [metaBridgeStatus, resolveMetaBridgeUnavailableMessage]);
+  const metaBridgeDebugEvents = useMemo(
+    () => (Array.isArray(metaBridgeStatus.debugEvents) ? metaBridgeStatus.debugEvents : []),
+    [metaBridgeStatus.debugEvents]
+  );
+  const renderMetaBridgeDeviceList = useCallback((devices: unknown): string => {
+    if (!Array.isArray(devices) || devices.length === 0) {
+      return 'none';
     }
-    return reasonCode;
-  })();
+    return devices
+      .map((entry) => {
+        const device = entry as {
+          deviceId?: string;
+          deviceLabel?: string;
+          connected?: boolean;
+        };
+        const label = device.deviceLabel || 'Unknown device';
+        const id = device.deviceId || 'unknown';
+        const connectedTag = device.connected ? ' [connected]' : '';
+        return `${label} (${id})${connectedTag}`;
+      })
+      .join(', ');
+  }, []);
+  const buildMetaBridgeDebugDump = useCallback(() => JSON.stringify({
+    generatedAtIso: new Date().toISOString(),
+    snapshot: {
+      connectionState: metaBridgeStatus.connectionState,
+      datSdkAvailable: metaBridgeStatus.datSdkAvailable,
+      activeDevice: metaBridgeStatus.activeDevice,
+      failure: metaBridgeStatus.failure,
+      fallbackReason: metaBridgeStatus.fallbackReason,
+      diagnostics: metaBridgeStatus.diagnostics,
+      frameIngress: metaBridgeStatus.frameIngress,
+      audioIngress: metaBridgeStatus.audioIngress,
+      updatedAtMs: metaBridgeStatus.updatedAtMs,
+    },
+    events: metaBridgeDebugEvents,
+  }, null, 2), [metaBridgeDebugEvents, metaBridgeStatus]);
+  const handleCopyMetaBridgeDebugLogs = useCallback(async () => {
+    await Clipboard.setStringAsync(buildMetaBridgeDebugDump());
+    Alert.alert('Copied', 'Meta bridge debug logs copied to clipboard.');
+  }, [buildMetaBridgeDebugDump]);
+  const formatBytes = useCallback((bytes: number): string => {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return '0 B';
+    }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }, []);
+  const formatOptionalDateTime = useCallback((atMs: number | null): string => {
+    if (!atMs || !Number.isFinite(atMs)) {
+      return 'never';
+    }
+    return new Date(atMs).toLocaleString();
+  }, []);
+  const handleTogglePersistentCapture = useCallback(async (value: boolean) => {
+    try {
+      await metaBridgeObservability.setPersistentCaptureEnabled(value);
+    } catch (error) {
+      Alert.alert(
+        'Persistent logs',
+        error instanceof Error ? error.message : 'Failed to update persistent log setting.'
+      );
+    }
+  }, []);
+  const handleToggleRemoteUpload = useCallback(async (value: boolean) => {
+    try {
+      await metaBridgeObservability.setRemoteUploadEnabled(value);
+    } catch (error) {
+      Alert.alert(
+        'Remote upload',
+        error instanceof Error ? error.message : 'Failed to update remote upload setting.'
+      );
+    }
+  }, []);
+  const handleExportMetaBridgeLogs = useCallback(async () => {
+    if (isExportingMetaBridgeLogs) {
+      return;
+    }
+    setIsExportingMetaBridgeLogs(true);
+    try {
+      const result = await metaBridgeObservability.exportLogsWithFallback({
+        tryShareFile: async (file) => {
+          const canShareFile = await Sharing.isAvailableAsync();
+          if (!canShareFile) {
+            return {
+              ok: false,
+              reason: 'File sharing unavailable on this device.',
+            };
+          }
+          try {
+            await Sharing.shareAsync(file.uri, {
+              mimeType: 'application/json',
+              dialogTitle: 'Export Meta bridge logs',
+              UTI: 'public.json',
+            });
+            return {
+              ok: true,
+              reason: 'Bridge logs exported and shared as a JSON file.',
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              reason: error instanceof Error ? error.message : 'Failed to share exported file.',
+            };
+          }
+        },
+        tryShareJson: async (jsonPayload) => {
+          try {
+            const shareResult = await Share.share({
+              message: jsonPayload.payload,
+              title: 'Meta bridge logs',
+            });
+            if (shareResult.action === Share.dismissedAction) {
+              return {
+                ok: false,
+                reason: 'JSON share was dismissed.',
+              };
+            }
+            return {
+              ok: true,
+              reason: 'Bridge logs shared as JSON text.',
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              reason: error instanceof Error ? error.message : 'Failed to share JSON text.',
+            };
+          }
+        },
+        tryClipboard: async (jsonPayload) => {
+          try {
+            await Clipboard.setStringAsync(jsonPayload.payload);
+            return {
+              ok: true,
+              reason: 'Bridge logs copied to clipboard as JSON text.',
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              reason: error instanceof Error ? error.message : 'Failed to copy logs to clipboard.',
+            };
+          }
+        },
+      });
+
+      if (result.ok) {
+        Alert.alert('Export complete', result.reason);
+      } else {
+        Alert.alert('Export failed', result.reason);
+      }
+    } catch (error) {
+      Alert.alert('Export failed', error instanceof Error ? error.message : 'Failed to export bridge logs.');
+    } finally {
+      setIsExportingMetaBridgeLogs(false);
+    }
+  }, [isExportingMetaBridgeLogs]);
+  const handleUploadMetaBridgeLogsNow = useCallback(async () => {
+    if (isUploadingMetaBridgeLogs) {
+      return;
+    }
+    setIsUploadingMetaBridgeLogs(true);
+    try {
+      await metaBridgeObservability.uploadNow();
+      const status = metaBridgeObservability.getStatus();
+      if (status.lastUploadError) {
+        Alert.alert('Upload finished', `Upload did not complete: ${status.lastUploadError}`);
+      } else {
+        Alert.alert('Upload finished', 'Queued bridge logs were uploaded successfully.');
+      }
+    } catch (error) {
+      Alert.alert(
+        'Upload failed',
+        error instanceof Error ? error.message : 'Failed to upload bridge logs.'
+      );
+    } finally {
+      setIsUploadingMetaBridgeLogs(false);
+    }
+  }, [isUploadingMetaBridgeLogs]);
+  const handleClearMetaBridgeLogs = useCallback(() => {
+    if (isClearingMetaBridgeLogs) {
+      return;
+    }
+    Alert.alert(
+      'Clear persisted logs',
+      'This will remove all persisted bridge logs and queued uploads.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            setIsClearingMetaBridgeLogs(true);
+            void (async () => {
+              try {
+                await metaBridgeObservability.clearPersistedLogs();
+              } catch (error) {
+                Alert.alert(
+                  'Clear failed',
+                  error instanceof Error ? error.message : 'Failed to clear bridge logs.'
+                );
+              } finally {
+                setIsClearingMetaBridgeLogs(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }, [isClearingMetaBridgeLogs]);
   const handleOrganizationSwitch = useCallback(async (organizationId: string) => {
     if (!organizationId || organizationId === currentOrganization?.id || isSwitchingOrganization) {
       return;
@@ -941,7 +1199,7 @@ export default function SettingsScreen() {
                     opacity={canConnectMetaBridge ? 1 : 0.5}
                   >
                     <Text color="$color" fontSize="$3" fontWeight="600">
-                      Connect bridge
+                      {t('settings.metaBridgeConnectAction')}
                     </Text>
                   </XStack>
                 </Pressable>
@@ -959,14 +1217,252 @@ export default function SettingsScreen() {
                     opacity={canDisconnectMetaBridge ? 1 : 0.5}
                   >
                     <Text color="$color" fontSize="$3" fontWeight="600">
-                      Disconnect bridge
+                      {t('settings.metaBridgeDisconnectAction')}
                     </Text>
                   </XStack>
                 </Pressable>
               </XStack>
-              <Text color="$colorTertiary" fontSize="$2">
-                In chat, use + then Vision to choose iPhone camera or Meta glasses.
-              </Text>
+              <YStack borderWidth={1} borderColor="$borderColor" borderRadius="$3" overflow="hidden">
+                <Pressable onPress={() => setIsMetaBridgeDebugPanelOpen((open) => !open)}>
+                  <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    paddingHorizontal="$3"
+                    paddingVertical="$2"
+                    backgroundColor="$glass"
+                  >
+                    <Text color="$color" fontSize="$3" fontWeight="600">
+                      Bridge debug logs ({metaBridgeDebugEvents.length})
+                    </Text>
+                    {isMetaBridgeDebugPanelOpen ? (
+                      <ChevronUp size={16} color="$colorTertiary" />
+                    ) : (
+                      <ChevronDown size={16} color="$colorTertiary" />
+                    )}
+                  </XStack>
+                </Pressable>
+                {isMetaBridgeDebugPanelOpen ? (
+                  <YStack paddingHorizontal="$3" paddingVertical="$2" gap="$2" maxHeight={360}>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Bluetooth adapter: {metaBridgeStatus.diagnostics.bluetoothAdapterState || 'unknown'}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Bluetooth permission: {metaBridgeStatus.diagnostics.permissions?.bluetooth || 'unknown'}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Camera permission: {metaBridgeStatus.diagnostics.permissions?.camera || 'unknown'}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Microphone permission: {metaBridgeStatus.diagnostics.permissions?.microphone || 'unknown'}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Registration: {metaBridgeStatus.diagnostics.registrationState || 'unknown'}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Discovered devices: {renderMetaBridgeDeviceList(metaBridgeStatus.diagnostics.discoveredDevices)}
+                    </Text>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Paired devices: {renderMetaBridgeDeviceList(metaBridgeStatus.diagnostics.pairedDevices)}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        void handleCopyMetaBridgeDebugLogs();
+                      }}
+                    >
+                      <XStack
+                        alignSelf="flex-start"
+                        borderWidth={1}
+                        borderColor="$glassBorder"
+                        borderRadius="$3"
+                        paddingHorizontal="$3"
+                        paddingVertical="$2"
+                        backgroundColor="$glass"
+                      >
+                        <Text color="$color" fontSize="$2" fontWeight="600">
+                          Copy logs
+                        </Text>
+                      </XStack>
+                    </Pressable>
+                    {metaBridgeDebugEvents.length === 0 ? (
+                      <Text color="$colorTertiary" fontSize="$2">
+                        No bridge events yet.
+                      </Text>
+                    ) : (
+                      <YStack gap="$1">
+                        {metaBridgeDebugEvents.slice(-80).reverse().map((event) => {
+                          const details =
+                            event.details && Object.keys(event.details).length > 0
+                              ? ` | ${JSON.stringify(event.details)}`
+                              : '';
+                          return (
+                            <Text key={event.id} color="$colorTertiary" fontSize="$1">
+                              [{new Date(event.atMs).toLocaleTimeString()}] [{event.stage}] [{event.code}] {event.message}{details}
+                            </Text>
+                          );
+                        })}
+                      </YStack>
+                    )}
+                  </YStack>
+                ) : null}
+              </YStack>
+              <YStack
+                borderWidth={1}
+                borderColor="$borderColor"
+                borderRadius="$3"
+                paddingHorizontal="$3"
+                paddingVertical="$3"
+                gap="$2"
+              >
+                <Text color="$color" fontSize="$3" fontWeight="600">
+                  Persistent Logs
+                </Text>
+                <XStack alignItems="center" justifyContent="space-between" gap="$3">
+                  <YStack flex={1}>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Enable persistent capture
+                    </Text>
+                    <Text color="$colorTertiary" fontSize="$1">
+                      Keep bridge diagnostics across app restarts.
+                    </Text>
+                  </YStack>
+                  <Switch
+                    value={metaBridgeObservabilityStatus.persistentCaptureEnabled}
+                    onValueChange={(value) => {
+                      void handleTogglePersistentCapture(value);
+                    }}
+                    {...persistentCaptureSwitchColors}
+                  />
+                </XStack>
+                <XStack alignItems="center" justifyContent="space-between" gap="$3">
+                  <YStack flex={1}>
+                    <Text color="$colorSecondary" fontSize="$2">
+                      Enable remote upload
+                    </Text>
+                    <Text color="$colorTertiary" fontSize="$1">
+                      Upload batched, redacted logs to configured endpoint.
+                    </Text>
+                  </YStack>
+                  <Switch
+                    disabled={!metaBridgeObservabilityStatus.remoteUploadConfigured}
+                    value={metaBridgeObservabilityStatus.remoteUploadEnabled}
+                    onValueChange={(value) => {
+                      void handleToggleRemoteUpload(value);
+                    }}
+                    {...remoteUploadSwitchColors}
+                  />
+                </XStack>
+                {!metaBridgeObservabilityStatus.remoteUploadConfigured ? (
+                  <Text color="$colorTertiary" fontSize="$1">
+                    Set `EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT` to enable remote upload.
+                  </Text>
+                ) : null}
+                <XStack flexWrap="wrap" gap="$2" paddingTop="$1">
+                  <Pressable
+                    disabled={isExportingMetaBridgeLogs}
+                    onPress={() => {
+                      void handleExportMetaBridgeLogs();
+                    }}
+                  >
+                    <XStack
+                      borderWidth={1}
+                      borderColor="$glassBorder"
+                      borderRadius="$3"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2"
+                      backgroundColor="$glass"
+                      opacity={isExportingMetaBridgeLogs ? 0.6 : 1}
+                    >
+                      <Text color="$color" fontSize="$2" fontWeight="600">
+                        {isExportingMetaBridgeLogs ? 'Exporting...' : 'Export logs'}
+                      </Text>
+                    </XStack>
+                  </Pressable>
+                  <Pressable
+                    disabled={
+                      !metaBridgeObservabilityStatus.remoteUploadConfigured
+                      || isUploadingMetaBridgeLogs
+                      || metaBridgeObservabilityStatus.queuedUploadCount === 0
+                    }
+                    onPress={() => {
+                      void handleUploadMetaBridgeLogsNow();
+                    }}
+                  >
+                    <XStack
+                      borderWidth={1}
+                      borderColor="$glassBorder"
+                      borderRadius="$3"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2"
+                      backgroundColor="$glass"
+                      opacity={
+                        !metaBridgeObservabilityStatus.remoteUploadConfigured
+                        || isUploadingMetaBridgeLogs
+                        || metaBridgeObservabilityStatus.queuedUploadCount === 0
+                          ? 0.5
+                          : 1
+                      }
+                    >
+                      <Text color="$color" fontSize="$2" fontWeight="600">
+                        {isUploadingMetaBridgeLogs ? 'Uploading...' : 'Upload now'}
+                      </Text>
+                    </XStack>
+                  </Pressable>
+                  <Pressable
+                    disabled={isClearingMetaBridgeLogs}
+                    onPress={handleClearMetaBridgeLogs}
+                  >
+                    <XStack
+                      borderWidth={1}
+                      borderColor="rgba(239, 68, 68, 0.35)"
+                      borderRadius="$3"
+                      paddingHorizontal="$3"
+                      paddingVertical="$2"
+                      backgroundColor="rgba(239, 68, 68, 0.12)"
+                      opacity={isClearingMetaBridgeLogs ? 0.6 : 1}
+                    >
+                      <Text color="$error" fontSize="$2" fontWeight="600">
+                        {isClearingMetaBridgeLogs ? 'Clearing...' : 'Clear logs'}
+                      </Text>
+                    </XStack>
+                  </Pressable>
+                </XStack>
+                <YStack gap="$1" paddingTop="$1">
+                  <Text color="$colorSecondary" fontSize="$2">
+                    Persisted events: {metaBridgeObservabilityStatus.persistedEventCount}
+                  </Text>
+                  <Text color="$colorSecondary" fontSize="$2">
+                    File size: {formatBytes(metaBridgeObservabilityStatus.persistedSizeBytes)}
+                  </Text>
+                  <Text color="$colorSecondary" fontSize="$2">
+                    Queued uploads: {metaBridgeObservabilityStatus.queuedUploadCount}
+                  </Text>
+                  <Text color="$colorSecondary" fontSize="$2">
+                    Upload status: {metaBridgeObservabilityStatus.isUploadInFlight ? 'uploading' : 'idle'}
+                  </Text>
+                  <Text color="$colorSecondary" fontSize="$2">
+                    Last upload: {formatOptionalDateTime(metaBridgeObservabilityStatus.lastUploadAtMs)}
+                  </Text>
+                  {metaBridgeObservabilityStatus.lastUploadError ? (
+                    <Text color="$error" fontSize="$1">
+                      Last upload error: {metaBridgeObservabilityStatus.lastUploadError}
+                    </Text>
+                  ) : (
+                    <Text color="$colorTertiary" fontSize="$1">
+                      Last upload result: {metaBridgeObservabilityStatus.lastUploadAtMs ? 'success' : 'none yet'}
+                    </Text>
+                  )}
+                  {metaBridgeObservabilityStatus.nextRetryAtMs ? (
+                    <Text color="$colorTertiary" fontSize="$1">
+                      Next retry: {formatOptionalDateTime(metaBridgeObservabilityStatus.nextRetryAtMs)}
+                    </Text>
+                  ) : null}
+                  {metaBridgeObservabilityStatus.lastStorageError ? (
+                    <Text color="$error" fontSize="$1">
+                      Storage warning: {metaBridgeObservabilityStatus.lastStorageError}
+                    </Text>
+                  ) : null}
+                </YStack>
+              </YStack>
             </YStack>
 
             <YStack borderBottomWidth={1} borderColor="$borderColor" paddingVertical="$3">

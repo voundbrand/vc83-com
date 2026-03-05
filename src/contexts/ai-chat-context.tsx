@@ -64,6 +64,7 @@ interface AIChatContextType {
   abortController: React.MutableRefObject<AbortController | null>
   stopCurrentRequest: () => void
   latestConversationEvent: ConversationEventEnvelope | null
+  isConversationLive: boolean
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
@@ -163,6 +164,11 @@ export function AIChatProvider({
     }
   }
 
+  const isConversationLive =
+    latestConversationEvent?.state === "connecting"
+    || latestConversationEvent?.state === "live"
+    || latestConversationEvent?.state === "reconnecting"
+
   return (
     <AIChatContext.Provider
       value={{
@@ -186,6 +192,7 @@ export function AIChatProvider({
         abortController,
         stopCurrentRequest,
         latestConversationEvent,
+        isConversationLive,
       }}
     >
       {children}

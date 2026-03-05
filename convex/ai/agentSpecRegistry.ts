@@ -1,10 +1,37 @@
 import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
+import {
+  AUDIT_DELIVERABLE_EMAIL_REQUEST_TOOL_NAME,
+  AUDIT_DELIVERABLE_OUTCOME_KEY,
+  AUDIT_DELIVERABLE_TOOL_NAME,
+  SAMANTHA_AUDIT_REQUIRED_FIELDS,
+  SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+  SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+} from "./samanthaAuditContract";
 import { getAllToolDefinitions } from "./tools/registry";
 
 export const AGENT_SPEC_CONTRACT_VERSION = "agent_spec_v1" as const;
+export const AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION =
+  "agent_runtime_module_metadata_v1" as const;
+export const AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION =
+  "agent_runtime_hooks_v1" as const;
+export const AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION =
+  "agent_runtime_tool_manifest_v1" as const;
+export const AGENT_RUNTIME_MODULE_HOOK_NAMES = [
+  "preRoute",
+  "preLLM",
+  "postLLM",
+  "preTool",
+  "postTool",
+  "completionPolicy",
+] as const;
+export const SAMANTHA_AGENT_RUNTIME_MODULE_KEY =
+  "one_of_one_samantha_runtime_module_v1" as const;
 
 type UnknownRecord = Record<string, unknown>;
+
+export type AgentRuntimeModuleHookName =
+  (typeof AGENT_RUNTIME_MODULE_HOOK_NAMES)[number];
 
 export type AgentSpecOutcomeV1 = {
   outcomeKey: string;
@@ -17,6 +44,32 @@ export type AgentSpecOutcomeV1 = {
 export type AgentSpecCapabilityV1 = {
   key: string;
   outcomes: AgentSpecOutcomeV1[];
+};
+
+export type AgentRuntimeModulePromptMetadataV1 = {
+  profileRef: string;
+  templateRoles: string[];
+};
+
+export type AgentRuntimeModuleHooksMetadataV1 = {
+  contractVersion: typeof AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION;
+  enabled: AgentRuntimeModuleHookName[];
+};
+
+export type AgentRuntimeModuleToolManifestV1 = {
+  contractVersion: typeof AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION;
+  requiredTools: string[];
+  optionalTools: string[];
+  deniedTools: string[];
+};
+
+export type AgentRuntimeModuleMetadataV1 = {
+  contractVersion: typeof AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION;
+  key: string;
+  prompt: AgentRuntimeModulePromptMetadataV1;
+  hooks: AgentRuntimeModuleHooksMetadataV1;
+  toolManifest: AgentRuntimeModuleToolManifestV1;
+  capabilities: AgentSpecCapabilityV1[];
 };
 
 export type AgentSpecV1 = {
@@ -36,12 +89,54 @@ export type AgentSpecV1 = {
       };
     };
     capabilities: AgentSpecCapabilityV1[];
+    runtimeModule?: AgentRuntimeModuleMetadataV1;
     policyProfiles: {
       orgPolicyRef: string;
       channelPolicyRef: string;
       runtimePolicyRef: string;
     };
   };
+};
+
+const BUILTIN_AGENT_RUNTIME_MODULE_REGISTRY: Record<
+  string,
+  AgentRuntimeModuleMetadataV1
+> = {
+  [SAMANTHA_AGENT_RUNTIME_MODULE_KEY]: {
+    contractVersion: AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION,
+    key: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
+    prompt: {
+      profileRef: "samantha_lead_capture_prompt_v1",
+      templateRoles: [
+        SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+        SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
+      ],
+    },
+    hooks: {
+      contractVersion: AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION,
+      enabled: [...AGENT_RUNTIME_MODULE_HOOK_NAMES],
+    },
+    toolManifest: {
+      contractVersion: AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION,
+      requiredTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+      optionalTools: [AUDIT_DELIVERABLE_EMAIL_REQUEST_TOOL_NAME],
+      deniedTools: [],
+    },
+    capabilities: [
+      {
+        key: "audit_delivery",
+        outcomes: [
+          {
+            outcomeKey: AUDIT_DELIVERABLE_OUTCOME_KEY,
+            requiredTools: [AUDIT_DELIVERABLE_TOOL_NAME],
+            preconditions: {
+              requiredFields: [...SAMANTHA_AUDIT_REQUIRED_FIELDS],
+            },
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const KNOWN_ORG_POLICY_PROFILES = new Set([
@@ -112,6 +207,48 @@ function normalizeStringArray(value: unknown, path: string): string[] {
     unique.add(normalizeNonEmptyString(value[index], `${path}[${index}]`));
   }
   return Array.from(unique).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeOptionalStringArray(value: unknown, path: string): string[] {
+  if (typeof value === "undefined") {
+    return [];
+  }
+  return normalizeStringArray(value, path);
+}
+
+function normalizeLooseString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeLooseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const unique = new Set<string>();
+  for (const entry of value) {
+    const normalized = normalizeLooseString(entry);
+    if (normalized) {
+      unique.add(normalized);
+    }
+  }
+  return Array.from(unique).sort((left, right) => left.localeCompare(right));
+}
+
+function isAgentRuntimeModuleHookName(value: string): value is AgentRuntimeModuleHookName {
+  return AGENT_RUNTIME_MODULE_HOOK_NAMES.includes(value as AgentRuntimeModuleHookName);
+}
+
+function normalizeAgentRuntimeHookNames(value: unknown, path: string): AgentRuntimeModuleHookName[] {
+  const hookNames = normalizeStringArray(value, path);
+  const invalidHookName = hookNames.find((hookName) => !isAgentRuntimeModuleHookName(hookName));
+  if (invalidHookName) {
+    throw new Error(`${path} contains unsupported hook name: ${invalidHookName}`);
+  }
+  return hookNames as AgentRuntimeModuleHookName[];
 }
 
 function sortObjectDeep(value: unknown): unknown {
@@ -185,6 +322,104 @@ function normalizeCapability(value: unknown, path: string): AgentSpecCapabilityV
   };
 }
 
+function normalizeCapabilityArray(value: unknown, path: string): AgentSpecCapabilityV1[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${path} must be an array`);
+  }
+  return value
+    .map((entry, index) => normalizeCapability(entry, `${path}[${index}]`))
+    .sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function normalizeAgentRuntimeModuleMetadata(
+  value: unknown,
+  path: string,
+): AgentRuntimeModuleMetadataV1 {
+  const record = asRecord(value, path);
+  assertNoUnknownKeys(
+    record,
+    ["contractVersion", "key", "prompt", "hooks", "toolManifest", "capabilities"],
+    path,
+  );
+  const contractVersion = normalizeNonEmptyString(record.contractVersion, `${path}.contractVersion`);
+  if (contractVersion !== AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION) {
+    throw new Error(
+      `${path}.contractVersion must be ${AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION}`,
+    );
+  }
+
+  const prompt = asRecord(record.prompt, `${path}.prompt`);
+  assertNoUnknownKeys(prompt, ["profileRef", "templateRoles"], `${path}.prompt`);
+  const hooks = asRecord(record.hooks, `${path}.hooks`);
+  assertNoUnknownKeys(hooks, ["contractVersion", "enabled"], `${path}.hooks`);
+  const hooksContractVersion = normalizeNonEmptyString(
+    hooks.contractVersion,
+    `${path}.hooks.contractVersion`,
+  );
+  if (hooksContractVersion !== AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION) {
+    throw new Error(
+      `${path}.hooks.contractVersion must be ${AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION}`,
+    );
+  }
+  const toolManifest = asRecord(record.toolManifest, `${path}.toolManifest`);
+  assertNoUnknownKeys(
+    toolManifest,
+    ["contractVersion", "requiredTools", "optionalTools", "deniedTools"],
+    `${path}.toolManifest`,
+  );
+  const toolManifestContractVersion = normalizeNonEmptyString(
+    toolManifest.contractVersion,
+    `${path}.toolManifest.contractVersion`,
+  );
+  if (toolManifestContractVersion !== AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION) {
+    throw new Error(
+      `${path}.toolManifest.contractVersion must be ${AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION}`,
+    );
+  }
+
+  return {
+    contractVersion: AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION,
+    key: normalizeNonEmptyString(record.key, `${path}.key`),
+    prompt: {
+      profileRef: normalizeNonEmptyString(prompt.profileRef, `${path}.prompt.profileRef`),
+      templateRoles: normalizeOptionalStringArray(
+        prompt.templateRoles,
+        `${path}.prompt.templateRoles`,
+      ),
+    },
+    hooks: {
+      contractVersion: AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION,
+      enabled: normalizeAgentRuntimeHookNames(hooks.enabled, `${path}.hooks.enabled`),
+    },
+    toolManifest: {
+      contractVersion: AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION,
+      requiredTools: normalizeOptionalStringArray(
+        toolManifest.requiredTools,
+        `${path}.toolManifest.requiredTools`,
+      ),
+      optionalTools: normalizeOptionalStringArray(
+        toolManifest.optionalTools,
+        `${path}.toolManifest.optionalTools`,
+      ),
+      deniedTools: normalizeOptionalStringArray(
+        toolManifest.deniedTools,
+        `${path}.toolManifest.deniedTools`,
+      ),
+    },
+    capabilities: normalizeCapabilityArray(record.capabilities, `${path}.capabilities`),
+  };
+}
+
+function normalizeRuntimeModuleMetadataSafely(
+  value: unknown,
+): AgentRuntimeModuleMetadataV1 | null {
+  try {
+    return normalizeAgentRuntimeModuleMetadata(value, "agent_runtime_module");
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeAgentSpecV1(input: unknown): AgentSpecV1 {
   const root = asRecord(input, "agent_spec_v1");
   assertNoUnknownKeys(root, ["contractVersion", "agent"], "agent_spec_v1");
@@ -202,7 +437,7 @@ export function normalizeAgentSpecV1(input: unknown): AgentSpecV1 {
   const agent = asRecord(root.agent, "agent_spec_v1.agent");
   assertNoUnknownKeys(
     agent,
-    ["key", "identity", "channels", "capabilities", "policyProfiles"],
+    ["key", "identity", "channels", "capabilities", "runtimeModule", "policyProfiles"],
     "agent_spec_v1.agent",
   );
 
@@ -233,13 +468,16 @@ export function normalizeAgentSpecV1(input: unknown): AgentSpecV1 {
     "agent_spec_v1.agent.channels.allowed",
   );
 
-  if (!Array.isArray(agent.capabilities)) {
-    throw new Error("agent_spec_v1.agent.capabilities must be an array");
-  }
-  const capabilities = agent.capabilities
-    .map((entry, index) =>
-      normalizeCapability(entry, `agent_spec_v1.agent.capabilities[${index}]`))
-    .sort((left, right) => left.key.localeCompare(right.key));
+  const capabilities = normalizeCapabilityArray(
+    agent.capabilities,
+    "agent_spec_v1.agent.capabilities",
+  );
+  const runtimeModule = typeof agent.runtimeModule === "undefined"
+    ? undefined
+    : normalizeAgentRuntimeModuleMetadata(
+        agent.runtimeModule,
+        "agent_spec_v1.agent.runtimeModule",
+      );
 
   const policyProfiles = asRecord(
     agent.policyProfiles,
@@ -280,6 +518,7 @@ export function normalizeAgentSpecV1(input: unknown): AgentSpecV1 {
         },
       },
       capabilities,
+      ...(runtimeModule ? { runtimeModule } : {}),
       policyProfiles: {
         orgPolicyRef: normalizeNonEmptyString(
           policyProfiles.orgPolicyRef,
@@ -305,6 +544,141 @@ export function computeAgentSpecHash(spec: AgentSpecV1): string {
   return fnv1aHash(stableStringify(spec));
 }
 
+function cloneAgentSpecOutcome(outcome: AgentSpecOutcomeV1): AgentSpecOutcomeV1 {
+  return {
+    outcomeKey: outcome.outcomeKey,
+    requiredTools: [...outcome.requiredTools],
+    ...(outcome.preconditions
+      ? {
+          preconditions: {
+            requiredFields: [...outcome.preconditions.requiredFields],
+          },
+        }
+      : {}),
+  };
+}
+
+function cloneAgentSpecCapability(capability: AgentSpecCapabilityV1): AgentSpecCapabilityV1 {
+  return {
+    key: capability.key,
+    outcomes: capability.outcomes.map((outcome) => cloneAgentSpecOutcome(outcome)),
+  };
+}
+
+function cloneAgentRuntimeModuleMetadata(
+  metadata: AgentRuntimeModuleMetadataV1,
+): AgentRuntimeModuleMetadataV1 {
+  return {
+    contractVersion: metadata.contractVersion,
+    key: metadata.key,
+    prompt: {
+      profileRef: metadata.prompt.profileRef,
+      templateRoles: [...metadata.prompt.templateRoles],
+    },
+    hooks: {
+      contractVersion: metadata.hooks.contractVersion,
+      enabled: [...metadata.hooks.enabled],
+    },
+    toolManifest: {
+      contractVersion: metadata.toolManifest.contractVersion,
+      requiredTools: [...metadata.toolManifest.requiredTools],
+      optionalTools: [...metadata.toolManifest.optionalTools],
+      deniedTools: [...metadata.toolManifest.deniedTools],
+    },
+    capabilities: metadata.capabilities.map((capability) =>
+      cloneAgentSpecCapability(capability)),
+  };
+}
+
+function getBuiltinRuntimeModuleByKey(moduleKey: string): AgentRuntimeModuleMetadataV1 | null {
+  const moduleMetadata = BUILTIN_AGENT_RUNTIME_MODULE_REGISTRY[moduleKey];
+  return moduleMetadata ? cloneAgentRuntimeModuleMetadata(moduleMetadata) : null;
+}
+
+function resolveLegacySamanthaRuntimeModule(
+  config: Record<string, unknown>,
+): AgentRuntimeModuleMetadataV1 | null {
+  const templateRole = normalizeLooseString(config.templateRole);
+  if (
+    templateRole === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+    || templateRole === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
+  ) {
+    return getBuiltinRuntimeModuleByKey(SAMANTHA_AGENT_RUNTIME_MODULE_KEY);
+  }
+  const displayName = normalizeLooseString(config.displayName);
+  const hasSamanthaDisplayName = Boolean(displayName?.toLowerCase().includes("samantha"));
+  if (!hasSamanthaDisplayName) {
+    return null;
+  }
+  const enabledTools = new Set(
+    normalizeLooseStringArray(config.enabledTools)
+      .map((toolName) => toolName.toLowerCase()),
+  );
+  return enabledTools.has(AUDIT_DELIVERABLE_TOOL_NAME)
+    ? getBuiltinRuntimeModuleByKey(SAMANTHA_AGENT_RUNTIME_MODULE_KEY)
+    : null;
+}
+
+export function resolveAgentRuntimeModuleMetadataFromConfig(
+  config: Record<string, unknown> | null | undefined,
+): AgentRuntimeModuleMetadataV1 | null {
+  if (!config || typeof config !== "object") {
+    return null;
+  }
+
+  const runtimeModuleRecord = (
+    config.runtimeModule && typeof config.runtimeModule === "object" && !Array.isArray(config.runtimeModule)
+  )
+    ? (config.runtimeModule as Record<string, unknown>)
+    : null;
+  const explicitModuleKey = typeof config.runtimeModuleKey === "string"
+    ? config.runtimeModuleKey.trim()
+    : "";
+  const runtimeModuleKeyFromRecord = runtimeModuleRecord
+    && typeof runtimeModuleRecord.key === "string"
+    ? runtimeModuleRecord.key.trim()
+    : "";
+  const runtimeModuleKey = explicitModuleKey || runtimeModuleKeyFromRecord;
+
+  if (runtimeModuleRecord) {
+    const normalizedModule = normalizeRuntimeModuleMetadataSafely(runtimeModuleRecord);
+    if (
+      normalizedModule
+      && (!runtimeModuleKey || normalizedModule.key === runtimeModuleKey)
+    ) {
+      return normalizedModule;
+    }
+  }
+
+  if (runtimeModuleKey) {
+    return getBuiltinRuntimeModuleByKey(runtimeModuleKey);
+  }
+
+  return resolveLegacySamanthaRuntimeModule(config);
+}
+
+export function resolveAgentRuntimeModuleCapabilities(spec: AgentSpecV1): AgentSpecCapabilityV1[] {
+  const runtimeModuleCapabilities = spec.agent.runtimeModule?.capabilities;
+  if (runtimeModuleCapabilities && runtimeModuleCapabilities.length > 0) {
+    return runtimeModuleCapabilities.map((capability) => cloneAgentSpecCapability(capability));
+  }
+  return spec.agent.capabilities.map((capability) => cloneAgentSpecCapability(capability));
+}
+
+export function resolveAgentRuntimeModuleToolManifest(
+  spec: AgentSpecV1,
+): AgentRuntimeModuleToolManifestV1 | null {
+  if (!spec.agent.runtimeModule) {
+    return null;
+  }
+  return {
+    contractVersion: spec.agent.runtimeModule.toolManifest.contractVersion,
+    requiredTools: [...spec.agent.runtimeModule.toolManifest.requiredTools],
+    optionalTools: [...spec.agent.runtimeModule.toolManifest.optionalTools],
+    deniedTools: [...spec.agent.runtimeModule.toolManifest.deniedTools],
+  };
+}
+
 function buildScopeKey(organizationId?: string): string {
   return organizationId ? `org:${organizationId}` : "global";
 }
@@ -313,8 +687,13 @@ export function validateAgentSpecReferences(spec: AgentSpecV1) {
   const knownTools = getKnownToolNames();
   const unknownTools = new Set<string>();
   const unknownOutcomes = new Set<string>();
+  const runtimeModule = spec.agent.runtimeModule;
+  const capabilityContracts = [
+    ...spec.agent.capabilities,
+    ...(runtimeModule?.capabilities ?? []),
+  ];
 
-  for (const capability of spec.agent.capabilities) {
+  for (const capability of capabilityContracts) {
     for (const outcome of capability.outcomes) {
       if (!KNOWN_OUTCOME_KEYS.has(outcome.outcomeKey)) {
         unknownOutcomes.add(outcome.outcomeKey);
@@ -323,6 +702,17 @@ export function validateAgentSpecReferences(spec: AgentSpecV1) {
         if (!knownTools.has(requiredTool)) {
           unknownTools.add(requiredTool);
         }
+      }
+    }
+  }
+  if (runtimeModule) {
+    for (const moduleToolRef of [
+      ...runtimeModule.toolManifest.requiredTools,
+      ...runtimeModule.toolManifest.optionalTools,
+      ...runtimeModule.toolManifest.deniedTools,
+    ]) {
+      if (!knownTools.has(moduleToolRef)) {
+        unknownTools.add(moduleToolRef);
       }
     }
   }

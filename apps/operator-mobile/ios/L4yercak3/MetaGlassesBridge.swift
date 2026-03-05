@@ -1,4 +1,6 @@
 import Foundation
+import AVFoundation
+import CoreBluetooth
 import React
 #if canImport(MWDATCore) && canImport(MWDATCamera)
 import MWDATCore
@@ -9,6 +11,8 @@ private final class MetaDatRuntimeConnector {
 #if canImport(MWDATCore) && canImport(MWDATCamera)
   private var started = false
   private var activeDeviceTask: Task<Void, Never>?
+  private var devicePollTask: Task<Void, Never>?
+  private var activeDeviceFingerprint: String?
   private var streamSession: StreamSession?
   private var streamGeneration = 0
   private var stateListenerToken: AnyListenerToken?
@@ -48,21 +52,24 @@ private final class MetaDatRuntimeConnector {
           return
         }
         if let activeDevice = device {
-          let resolvedDeviceId = String(describing: activeDevice)
-          let deviceLabel = resolvedDeviceId.isEmpty ? "Ray-Ban Meta" : resolvedDeviceId
-          let sourceId = "meta_glasses:meta_dat_bridge:\(self.sanitizeToken(deviceLabel))"
-          MetaGlassesBridgeRuntime.publishDeviceConnected(
-            sourceId,
-            providerId: "meta_dat_bridge",
-            deviceId: resolvedDeviceId,
-            deviceLabel: deviceLabel,
-            connectedAtMs: NSNumber(value: Date().timeIntervalSince1970 * 1_000)
+          self.publishResolvedDeviceConnectedIfNeeded(
+            self.resolveDeviceIdentity(from: activeDevice)
           )
         } else {
-          MetaGlassesBridgeRuntime.publishDeviceDisconnected("dat_device_disconnected")
+          self.publishDeviceDisconnectedIfNeeded("dat_device_disconnected")
         }
       }
     }
+
+    devicePollTask?.cancel()
+    devicePollTask = Task { @MainActor [weak self] in
+      guard let self else { return }
+      while self.started {
+        self.publishActiveDeviceFromWearablesSnapshotIfNeeded()
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+      }
+    }
+
     Task { @MainActor in
       self.configureStreamSession(selector: selector)
     }
@@ -77,6 +84,9 @@ private final class MetaDatRuntimeConnector {
     started = false
     activeDeviceTask?.cancel()
     activeDeviceTask = nil
+    devicePollTask?.cancel()
+    devicePollTask = nil
+    activeDeviceFingerprint = nil
     Task { @MainActor in
       await self.teardownStreamSession()
     }
@@ -100,7 +110,7 @@ private final class MetaDatRuntimeConnector {
     stateListenerToken = session.statePublisher.listen { state in
       switch state {
       case .stopped:
-        MetaGlassesBridgeRuntime.publishDeviceDisconnected("dat_stream_stopped")
+        self.publishDeviceDisconnectedIfNeeded("dat_stream_stopped")
       case .waitingForDevice, .starting, .stopping, .paused, .streaming:
         break
       @unknown default:
@@ -184,6 +194,206 @@ private final class MetaDatRuntimeConnector {
       await streamSession.stop()
     }
     streamSession = nil
+  }
+
+  @MainActor
+  private func publishActiveDeviceFromWearablesSnapshotIfNeeded() {
+    guard let resolvedDevice = resolveActiveDeviceFromWearablesSnapshot() else {
+      return
+    }
+    publishResolvedDeviceConnectedIfNeeded(resolvedDevice)
+  }
+
+  private struct ResolvedDatDevice {
+    let sourceId: String
+    let providerId: String
+    let deviceId: String
+    let deviceLabel: String
+  }
+
+  private func publishResolvedDeviceConnectedIfNeeded(_ device: ResolvedDatDevice) {
+    let fingerprint = "\(device.deviceId):\(device.deviceLabel)"
+    guard activeDeviceFingerprint != fingerprint else {
+      return
+    }
+    activeDeviceFingerprint = fingerprint
+    MetaGlassesBridgeRuntime.publishDeviceConnected(
+      device.sourceId,
+      providerId: device.providerId,
+      deviceId: device.deviceId,
+      deviceLabel: device.deviceLabel,
+      connectedAtMs: NSNumber(value: Date().timeIntervalSince1970 * 1_000)
+    )
+  }
+
+  private func publishDeviceDisconnectedIfNeeded(_ reasonCode: String?) {
+    guard activeDeviceFingerprint != nil else {
+      return
+    }
+    activeDeviceFingerprint = nil
+    MetaGlassesBridgeRuntime.publishDeviceDisconnected(reasonCode)
+  }
+
+  private func resolveActiveDeviceFromWearablesSnapshot() -> ResolvedDatDevice? {
+    let wearables: Any = Wearables.shared
+    let holderCandidates = [
+      resolveSelectorValue(on: wearables, selectorName: "devices"),
+      resolveSelectorValue(on: wearables, selectorName: "getDevices"),
+      resolveMirrorChildValue("devices", in: wearables),
+      resolveMirrorChildValue("connectedDevices", in: wearables),
+      resolveMirrorChildValue("activeDevices", in: wearables),
+    ].compactMap { $0 }
+
+    for holder in holderCandidates {
+      guard
+        let deviceCandidate = resolveFirstDevice(from: unwrapStateContainerValue(holder))
+      else {
+        continue
+      }
+      return resolveDeviceIdentity(from: deviceCandidate)
+    }
+
+    return nil
+  }
+
+  private func resolveDeviceIdentity(from device: Any) -> ResolvedDatDevice {
+    let providerId = "meta_dat_bridge"
+    let rawDeviceId =
+      resolveDeviceString(
+        from: device,
+        keys: ["deviceId", "identifier", "id"]
+      )
+      ?? String(describing: device)
+    let normalizedDeviceId = sanitizeToken(rawDeviceId)
+
+    let resolvedLabel =
+      resolveDeviceString(
+        from: device,
+        keys: ["name", "label", "displayName"]
+      )
+      ?? rawDeviceId
+    let normalizedLabel = resolvedLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+    let deviceLabel = normalizedLabel.isEmpty ? "Ray-Ban Meta" : normalizedLabel
+    let sourceId = "meta_glasses:\(providerId):\(sanitizeToken(deviceLabel))"
+
+    return ResolvedDatDevice(
+      sourceId: sourceId,
+      providerId: providerId,
+      deviceId: normalizedDeviceId,
+      deviceLabel: deviceLabel
+    )
+  }
+
+  private func resolveDeviceString(from device: Any, keys: [String]) -> String? {
+    if let dictionary = device as? [String: Any] {
+      for key in keys {
+        if let resolved = resolveString(dictionary[key]) {
+          return resolved
+        }
+      }
+    }
+
+    for key in keys {
+      if let resolved = resolveString(resolveSelectorValue(on: device, selectorName: key)) {
+        return resolved
+      }
+      let getterSelector = "get\(key.prefix(1).uppercased())\(String(key.dropFirst()))"
+      if let resolved = resolveString(resolveSelectorValue(on: device, selectorName: getterSelector)) {
+        return resolved
+      }
+      if let resolved = resolveString(resolveMirrorChildValue(key, in: device)) {
+        return resolved
+      }
+    }
+
+    return nil
+  }
+
+  private func resolveString(_ value: Any?) -> String? {
+    switch value {
+    case let string as String:
+      let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+      return trimmed.isEmpty ? nil : trimmed
+    case let number as NSNumber:
+      let rendered = number.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+      return rendered.isEmpty ? nil : rendered
+    default:
+      guard let value else {
+        return nil
+      }
+      let rendered = String(describing: value).trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !rendered.isEmpty, rendered.lowercased() != "nil" else {
+        return nil
+      }
+      return rendered
+    }
+  }
+
+  private func resolveSelectorValue(on target: Any, selectorName: String) -> Any? {
+    guard let object = target as? NSObject else {
+      return nil
+    }
+    let selector = NSSelectorFromString(selectorName)
+    guard object.responds(to: selector) else {
+      return nil
+    }
+    return object.perform(selector)?.takeUnretainedValue()
+  }
+
+  private func resolveMirrorChildValue(_ key: String, in value: Any) -> Any? {
+    var currentMirror: Mirror? = Mirror(reflecting: value)
+    while let mirror = currentMirror {
+      if let child = mirror.children.first(where: { $0.label == key }) {
+        return child.value
+      }
+      currentMirror = mirror.superclassMirror
+    }
+    return nil
+  }
+
+  private func unwrapStateContainerValue(_ holder: Any) -> Any {
+    let valueCandidates = [
+      resolveSelectorValue(on: holder, selectorName: "value"),
+      resolveSelectorValue(on: holder, selectorName: "getValue"),
+      resolveSelectorValue(on: holder, selectorName: "currentValue"),
+      resolveSelectorValue(on: holder, selectorName: "wrappedValue"),
+      resolveMirrorChildValue("value", in: holder),
+      resolveMirrorChildValue("currentValue", in: holder),
+      resolveMirrorChildValue("wrappedValue", in: holder),
+      resolveMirrorChildValue("state", in: holder),
+    ]
+    for candidate in valueCandidates {
+      if let candidate {
+        return candidate
+      }
+    }
+    return holder
+  }
+
+  private func resolveFirstDevice(from value: Any?) -> Any? {
+    guard let value else {
+      return nil
+    }
+
+    if let array = value as? [Any] {
+      return array.first
+    }
+    if let array = value as? NSArray {
+      return array.firstObject
+    }
+    if let set = value as? NSSet {
+      return set.anyObject()
+    }
+
+    let mirror = Mirror(reflecting: value)
+    switch mirror.displayStyle {
+    case .optional:
+      return resolveFirstDevice(from: mirror.children.first?.value)
+    case .collection, .set:
+      return mirror.children.first?.value
+    default:
+      return nil
+    }
   }
 
   private func sanitizeToken(_ value: String) -> String {
@@ -523,12 +733,46 @@ class MetaGlassesBridgeRuntime: NSObject {
 @objc(MetaGlassesBridge)
 class MetaGlassesBridge: RCTEventEmitter {
   private static let statusEvent = "metaBridgeStatusDidChange"
+  private static let connectTimeoutNs: UInt64 = 20_000_000_000
+  private static let maxDebugEvents = 250
+
+  private struct DebugEvent {
+    let id: String
+    let atMs: Double
+    let stage: String
+    let severity: String
+    let code: String
+    let message: String
+    let details: [String: Any]?
+
+    func payload() -> [String: Any] {
+      var rendered: [String: Any] = [
+        "id": id,
+        "atMs": atMs,
+        "stage": stage,
+        "severity": severity,
+        "code": code,
+        "message": message,
+      ]
+      if let details {
+        rendered["details"] = details
+      }
+      return rendered
+    }
+  }
 
   private var hasListeners = false
   private var connectionState = "disconnected"
   private var fallbackReason: String?
   private var callbackSurfaceFallbackReason: String?
   private var failure: [String: Any]?
+  private var connectTimeoutTask: Task<Void, Never>?
+  private var debugEventSequence = 0
+  private var debugEvents: [DebugEvent] = []
+  private var callbackSurfaceDiagnostics: [String: String] = [:]
+  private lazy var bluetoothManager: CBCentralManager = {
+    CBCentralManager(delegate: nil, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
+  }()
 
   private var sourceId: String?
   private var providerId = "meta_dat_bridge"
@@ -556,9 +800,19 @@ class MetaGlassesBridge: RCTEventEmitter {
     super.init()
     registerRuntimeObservers()
     datRuntimeConnector.start()
+    appendDebugEvent(
+      stage: "status",
+      code: "bridge_runtime_initialized",
+      message: "Meta bridge runtime initialized.",
+      details: [
+        "datSdkAvailable": isDatSdkAvailable(),
+      ]
+    )
   }
 
   deinit {
+    connectTimeoutTask?.cancel()
+    connectTimeoutTask = nil
     datRuntimeConnector.stop()
     runtimeObservers.forEach { NotificationCenter.default.removeObserver($0) }
     runtimeObservers.removeAll()
@@ -581,20 +835,50 @@ class MetaGlassesBridge: RCTEventEmitter {
     _ resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
+    appendDebugEvent(
+      stage: "initiated",
+      code: "connect_requested",
+      message: "Connect Meta glasses requested from React Native.",
+      details: [
+        "currentState": connectionState,
+      ]
+    )
+
     if connectionState == "connected" {
+      appendDebugEvent(
+        stage: "success",
+        code: "already_connected",
+        message: "Meta bridge is already connected.",
+        details: gatherConnectionDetails()
+      )
       resolve(buildSnapshot())
       return
     }
 
     datRuntimeConnector.start()
 
+    cancelConnectTimeout()
     connectionState = "connecting"
     failure = nil
     fallbackReason = nil
     callbackSurfaceFallbackReason = nil
+    callbackSurfaceDiagnostics.removeAll()
+    appendDebugEvent(
+      stage: "connecting",
+      code: "connect_invoked",
+      message: "DAT connector started; waiting for bridge readiness.",
+      details: gatherConnectionDetails()
+    )
     emitStatus()
 
     if !isDatSdkAvailable() {
+      appendDebugEvent(
+        stage: "failure",
+        severity: "error",
+        code: "dat_sdk_unavailable",
+        message: "DAT SDK unavailable in this native build.",
+        details: gatherConnectionDetails()
+      )
       applyFailure(
         reasonCode: "dat_sdk_unavailable",
         message: "Meta DAT SDK not linked in the native target.",
@@ -606,6 +890,13 @@ class MetaGlassesBridge: RCTEventEmitter {
     }
 
     if let datConfigurationIssue = resolveDatConfigurationIssue() {
+      appendDebugEvent(
+        stage: "failure",
+        severity: "error",
+        code: "dat_configuration_invalid",
+        message: datConfigurationIssue,
+        details: gatherConnectionDetails()
+      )
       applyFailure(
         reasonCode: "dat_configuration_invalid",
         message: datConfigurationIssue,
@@ -617,20 +908,31 @@ class MetaGlassesBridge: RCTEventEmitter {
     }
 
     if hasActiveDevice() {
+      cancelConnectTimeout()
       connectionState = "connected"
       failure = nil
-      fallbackReason = nil
+      fallbackReason = resolveCallbackSurfaceFallbackReason()
+      appendDebugEvent(
+        stage: "success",
+        code: "device_ready",
+        message: "Active DAT device already available; bridge connected.",
+        details: gatherConnectionDetails()
+      )
       emitStatus()
       resolve(buildSnapshot())
       return
     }
 
-    applyFailure(
-      reasonCode: "dat_device_identity_unavailable",
+    maybeStartRegistrationIfNeeded()
+    fallbackReason = "awaiting_dat_device_identity"
+    appendDebugEvent(
+      stage: "discovering",
+      code: "awaiting_dat_device_identity",
       message: "Awaiting DAT runtime device identity callback.",
-      recoverable: true,
-      fallback: "awaiting_dat_device_identity"
+      details: gatherConnectionDetails()
     )
+    scheduleConnectTimeout()
+    emitStatus()
     resolve(buildSnapshot())
   }
 
@@ -639,6 +941,13 @@ class MetaGlassesBridge: RCTEventEmitter {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
+    appendDebugEvent(
+      stage: "disconnecting",
+      code: "disconnect_requested",
+      message: "Disconnect Meta glasses requested from React Native.",
+      details: gatherConnectionDetails()
+    )
+    cancelConnectTimeout()
     datRuntimeConnector.stop()
     connectionState = "disconnected"
     sourceId = nil
@@ -648,6 +957,13 @@ class MetaGlassesBridge: RCTEventEmitter {
     fallbackReason = nil
     callbackSurfaceFallbackReason = nil
     failure = nil
+    callbackSurfaceDiagnostics.removeAll()
+    appendDebugEvent(
+      stage: "disconnected",
+      code: "bridge_disconnected",
+      message: "Meta bridge disconnected.",
+      details: gatherConnectionDetails()
+    )
 
     emitStatus()
     resolve(buildSnapshot())
@@ -712,9 +1028,21 @@ class MetaGlassesBridge: RCTEventEmitter {
         self.deviceId = deviceId
         self.deviceLabel = deviceLabel
         self.connectedAtMs = payload["connectedAtMs"] as? Double ?? self.nowMs()
+        self.cancelConnectTimeout()
         self.connectionState = "connected"
         self.failure = nil
-        self.fallbackReason = self.callbackSurfaceFallbackReason
+        self.fallbackReason = self.resolveCallbackSurfaceFallbackReason()
+        self.appendDebugEvent(
+          stage: "success",
+          code: "device_connected",
+          message: "DAT runtime reported active Meta glasses device.",
+          details: [
+            "deviceId": deviceId,
+            "deviceLabel": deviceLabel,
+            "providerId": providerId,
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
         self.emitStatus()
       }
     )
@@ -726,6 +1054,7 @@ class MetaGlassesBridge: RCTEventEmitter {
         queue: .main
       ) { [weak self] notification in
         guard let self else { return }
+        self.cancelConnectTimeout()
         self.connectionState = "disconnected"
         self.fallbackReason = notification.userInfo?["reasonCode"] as? String
         self.sourceId = nil
@@ -733,6 +1062,16 @@ class MetaGlassesBridge: RCTEventEmitter {
         self.deviceLabel = nil
         self.connectedAtMs = nil
         self.callbackSurfaceFallbackReason = nil
+        self.callbackSurfaceDiagnostics.removeAll()
+        self.appendDebugEvent(
+          stage: "disconnected",
+          code: "device_disconnected",
+          message: "DAT runtime reported device disconnection.",
+          details: [
+            "reasonCode": self.fallbackReason ?? "unknown",
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
         self.emitStatus()
       }
     )
@@ -801,15 +1140,28 @@ class MetaGlassesBridge: RCTEventEmitter {
         let status = payload["status"] as? String ?? "unavailable"
         let surface = payload["surface"] as? String ?? "unknown"
         let explicitReason = payload["reasonCode"] as? String
+        let surfaceReason = explicitReason ?? "dat_\(surface)_callback_\(status)"
         if status == "healthy" {
           self.callbackSurfaceFallbackReason = nil
+          self.callbackSurfaceDiagnostics.removeValue(forKey: surface)
         } else {
-          self.callbackSurfaceFallbackReason =
-            explicitReason ?? "dat_\(surface)_callback_\(status)"
+          self.callbackSurfaceFallbackReason = surfaceReason
+          self.callbackSurfaceDiagnostics[surface] = surfaceReason
         }
         if self.failure == nil {
-          self.fallbackReason = self.callbackSurfaceFallbackReason
+          self.fallbackReason = self.resolveCallbackSurfaceFallbackReason()
         }
+        self.appendDebugEvent(
+          stage: status == "healthy" ? "handshake" : "failure",
+          severity: status == "healthy" ? "info" : "warn",
+          code: surfaceReason,
+          message: payload["message"] as? String
+            ?? "DAT callback surface \(surface) is \(status).",
+          details: [
+            "surface": surface,
+            "status": status,
+          ]
+        )
         self.emitStatus()
       }
     )
@@ -830,7 +1182,7 @@ class MetaGlassesBridge: RCTEventEmitter {
     droppedFrames += max(0, dropped)
     lastFrameTs = normalizeTimestampMs(timestampMs)
     failure = nil
-    fallbackReason = callbackSurfaceFallbackReason
+    fallbackReason = resolveCallbackSurfaceFallbackReason()
 
     emitStatus()
   }
@@ -850,12 +1202,13 @@ class MetaGlassesBridge: RCTEventEmitter {
     sampleRate = max(8_000, sampleRateValue)
     lastPacketTs = normalizeTimestampMs(timestampMs)
     failure = nil
-    fallbackReason = callbackSurfaceFallbackReason
+    fallbackReason = resolveCallbackSurfaceFallbackReason()
 
     emitStatus()
   }
 
   private func applyFailure(reasonCode: String, message: String?, recoverable: Bool, fallback: String) {
+    cancelConnectTimeout()
     connectionState = "error"
     failure = [
       "reasonCode": reasonCode,
@@ -864,6 +1217,17 @@ class MetaGlassesBridge: RCTEventEmitter {
       "atMs": nowMs(),
     ]
     fallbackReason = fallback
+    appendDebugEvent(
+      stage: "failure",
+      severity: "error",
+      code: reasonCode,
+      message: message ?? "Meta bridge failure.",
+      details: [
+        "recoverable": recoverable,
+        "fallback": fallback,
+        "registrationState": resolveRegistrationState(),
+      ]
+    )
     emitStatus()
   }
 
@@ -877,6 +1241,429 @@ class MetaGlassesBridge: RCTEventEmitter {
     }
 
     return !sourceId.isEmpty && !deviceId.isEmpty && !deviceLabel.isEmpty
+  }
+
+  private func resolveCallbackSurfaceFallbackReason() -> String? {
+    if callbackSurfaceDiagnostics.isEmpty {
+      return callbackSurfaceFallbackReason
+    }
+    return callbackSurfaceDiagnostics
+      .sorted(by: { $0.key < $1.key })
+      .first?.value
+  }
+
+  private func scheduleConnectTimeout() {
+    cancelConnectTimeout()
+    connectTimeoutTask = Task { [weak self] in
+      try? await Task.sleep(nanoseconds: Self.connectTimeoutNs)
+      await MainActor.run {
+        guard let self else { return }
+        guard self.connectionState == "connecting", !self.hasActiveDevice() else {
+          return
+        }
+        self.applyFailure(
+          reasonCode: "dat_device_identity_timeout",
+          message: "Timed out waiting for DAT runtime device identity. Ensure Meta glasses are connected in Meta AI and Bluetooth is enabled.",
+          recoverable: true,
+          fallback: "awaiting_dat_device_identity"
+        )
+      }
+    }
+  }
+
+  private func cancelConnectTimeout() {
+    connectTimeoutTask?.cancel()
+    connectTimeoutTask = nil
+  }
+
+  private func maybeStartRegistrationIfNeeded() {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    let registrationState = resolveRegistrationState()
+    let normalized = registrationState.lowercased()
+    if normalized.contains("registered") {
+      appendDebugEvent(
+        stage: "handshake",
+        code: "registration_already_complete",
+        message: "DAT registration already completed.",
+        details: [
+          "registrationState": registrationState,
+        ]
+      )
+      return
+    }
+    if normalized.contains("registering") {
+      appendDebugEvent(
+        stage: "handshake",
+        code: "registration_in_progress",
+        message: "DAT registration already in progress.",
+        details: [
+          "registrationState": registrationState,
+        ]
+      )
+      return
+    }
+
+    appendDebugEvent(
+      stage: "handshake",
+      code: "registration_start_requested",
+      message: "Starting DAT registration flow.",
+      details: [
+        "registrationState": registrationState,
+      ]
+    )
+
+    Task { @MainActor [weak self] in
+      guard let self else { return }
+      do {
+        try await Wearables.shared.startRegistration()
+        self.appendDebugEvent(
+          stage: "handshake",
+          code: "registration_start_succeeded",
+          message: "DAT registration flow started.",
+          details: [
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+        self.emitStatus()
+      } catch {
+        self.appendDebugEvent(
+          stage: "failure",
+          severity: "warn",
+          code: "registration_start_failed",
+          message: "DAT registration start failed: \(error.localizedDescription)",
+          details: [
+            "registrationState": self.resolveRegistrationState(),
+          ]
+        )
+        if self.failure == nil && self.connectionState == "connecting" {
+          self.applyFailure(
+            reasonCode: "dat_registration_start_failed",
+            message: error.localizedDescription,
+            recoverable: true,
+            fallback: "dat_registration_start_failed"
+          )
+        }
+      }
+    }
+#else
+    appendDebugEvent(
+      stage: "failure",
+      severity: "warn",
+      code: "registration_unavailable",
+      message: "DAT registration unavailable because DAT SDK is not linked."
+    )
+#endif
+  }
+
+  private func appendDebugEvent(
+    stage: String,
+    severity: String = "info",
+    code: String,
+    message: String,
+    details: [String: Any]? = nil
+  ) {
+    let now = nowMs()
+    debugEventSequence += 1
+    let event = DebugEvent(
+      id: "ios_meta_bridge_\(debugEventSequence)",
+      atMs: now,
+      stage: stage,
+      severity: severity,
+      code: code,
+      message: message,
+      details: details
+    )
+    debugEvents.append(event)
+    if debugEvents.count > Self.maxDebugEvents {
+      debugEvents.removeFirst(debugEvents.count - Self.maxDebugEvents)
+    }
+  }
+
+  private func gatherConnectionDetails() -> [String: Any] {
+    var details: [String: Any] = [
+      "connectionState": connectionState,
+      "datSdkAvailable": isDatSdkAvailable(),
+      "registrationState": resolveRegistrationState(),
+      "bluetoothAdapterState": resolveBluetoothAdapterState(),
+      "bluetoothAuthorization": resolveBluetoothAuthorizationStatus(),
+      "permissions": resolvePermissionSnapshot(),
+    ]
+    if let activeDevice = activeDevicePayload() {
+      details["activeDevice"] = activeDevice
+    }
+    let discovered = resolveWearablesDeviceList()
+    if !discovered.isEmpty {
+      details["discoveredDevices"] = discovered
+    }
+    return details
+  }
+
+  private func buildRuntimeDiagnostics() -> [String: Any] {
+    let discovered = resolveWearablesDeviceList()
+    return [
+      "platform": "ios",
+      "registrationState": resolveRegistrationState(),
+      "bluetoothAdapterState": resolveBluetoothAdapterState(),
+      "bluetoothAuthorization": resolveBluetoothAuthorizationStatus(),
+      "permissions": resolvePermissionSnapshot(),
+      "discoveredDevices": discovered,
+      "pairedDevices": discovered,
+    ]
+  }
+
+  private func resolvePermissionSnapshot() -> [String: Any] {
+    [
+      "camera": resolveCameraPermissionStatus(),
+      "microphone": resolveMicrophonePermissionStatus(),
+      "bluetooth": resolveBluetoothAuthorizationStatus(),
+    ]
+  }
+
+  private func resolveCameraPermissionStatus() -> String {
+    switch AVCaptureDevice.authorizationStatus(for: .video) {
+    case .authorized:
+      return "granted"
+    case .denied, .restricted:
+      return "denied"
+    case .notDetermined:
+      return "not_determined"
+    @unknown default:
+      return "unknown"
+    }
+  }
+
+  private func resolveMicrophonePermissionStatus() -> String {
+    switch AVAudioSession.sharedInstance().recordPermission {
+    case .granted:
+      return "granted"
+    case .denied:
+      return "denied"
+    case .undetermined:
+      return "not_determined"
+    @unknown default:
+      return "unknown"
+    }
+  }
+
+  private func resolveBluetoothAuthorizationStatus() -> String {
+    if #available(iOS 13.1, *) {
+      switch CBManager.authorization {
+      case .allowedAlways:
+        return "granted"
+      case .denied, .restricted:
+        return "denied"
+      case .notDetermined:
+        return "not_determined"
+      @unknown default:
+        return "unknown"
+      }
+    }
+    return "unknown"
+  }
+
+  private func resolveBluetoothAdapterState() -> String {
+    switch bluetoothManager.state {
+    case .poweredOn:
+      return "powered_on"
+    case .poweredOff:
+      return "powered_off"
+    case .resetting:
+      return "resetting"
+    case .unauthorized:
+      return "unauthorized"
+    case .unsupported:
+      return "unsupported"
+    case .unknown:
+      return "unknown"
+    @unknown default:
+      return "unknown"
+    }
+  }
+
+  private func resolveRegistrationState() -> String {
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    return String(describing: Wearables.shared.registrationState)
+#else
+    return "unavailable"
+#endif
+  }
+
+  private func resolveWearablesDeviceList() -> [[String: Any]] {
+    var entries: [[String: Any]] = []
+#if canImport(MWDATCore) && canImport(MWDATCamera)
+    let wearables: Any = Wearables.shared
+    let holders = [
+      resolveSelectorValue(on: wearables, selectorName: "devices"),
+      resolveSelectorValue(on: wearables, selectorName: "getDevices"),
+      resolveMirrorChildValue("devices", in: wearables),
+      resolveMirrorChildValue("connectedDevices", in: wearables),
+      resolveMirrorChildValue("activeDevices", in: wearables),
+    ].compactMap { $0 }
+
+    for holder in holders {
+      let unwrapped = unwrapStateContainerValue(holder)
+      let candidates = resolveDeviceCandidates(from: unwrapped)
+      for candidate in candidates {
+        entries.append(resolveDeviceListEntry(candidate))
+      }
+      if !entries.isEmpty {
+        break
+      }
+    }
+#endif
+
+    if entries.isEmpty, let active = activeDevicePayload() {
+      entries.append([
+        "deviceId": active["deviceId"] as? String ?? "unknown",
+        "deviceLabel": active["deviceLabel"] as? String ?? "Ray-Ban Meta",
+        "sourceClass": "meta_glasses",
+        "providerId": providerId,
+        "connected": true,
+      ])
+    }
+
+    return entries
+  }
+
+  private func resolveDeviceCandidates(from value: Any?) -> [Any] {
+    guard let value else {
+      return []
+    }
+    if let array = value as? [Any] {
+      return array
+    }
+    if let array = value as? NSArray {
+      return array.compactMap { $0 }
+    }
+    if let set = value as? Set<AnyHashable> {
+      return set.map { $0 as Any }
+    }
+    if let set = value as? NSSet {
+      return set.allObjects
+    }
+
+    let mirror = Mirror(reflecting: value)
+    if mirror.displayStyle == .optional {
+      return resolveDeviceCandidates(from: mirror.children.first?.value)
+    }
+    if mirror.displayStyle == .collection || mirror.displayStyle == .set {
+      return mirror.children.map { $0.value }
+    }
+    return []
+  }
+
+  private func resolveDeviceListEntry(_ device: Any) -> [String: Any] {
+    let rawId = resolveDeviceString(
+      from: device,
+      keys: ["deviceId", "identifier", "id"]
+    ) ?? String(describing: device)
+    let normalizedId = sanitizeToken(rawId)
+    let label = resolveDeviceString(
+      from: device,
+      keys: ["name", "label", "displayName"]
+    ) ?? "Ray-Ban Meta"
+    let normalizedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+    return [
+      "deviceId": normalizedId,
+      "deviceLabel": normalizedLabel.isEmpty ? "Ray-Ban Meta" : normalizedLabel,
+      "sourceClass": "meta_glasses",
+      "providerId": providerId,
+      "connected": deviceId == normalizedId,
+    ]
+  }
+
+  private func resolveDeviceString(from device: Any, keys: [String]) -> String? {
+    if let dictionary = device as? [String: Any] {
+      for key in keys {
+        if let resolved = resolveString(dictionary[key]) {
+          return resolved
+        }
+      }
+    }
+
+    for key in keys {
+      if let resolved = resolveString(resolveSelectorValue(on: device, selectorName: key)) {
+        return resolved
+      }
+      let getterSelector = "get\(key.prefix(1).uppercased())\(String(key.dropFirst()))"
+      if let resolved = resolveString(resolveSelectorValue(on: device, selectorName: getterSelector)) {
+        return resolved
+      }
+      if let resolved = resolveString(resolveMirrorChildValue(key, in: device)) {
+        return resolved
+      }
+    }
+    return nil
+  }
+
+  private func resolveString(_ value: Any?) -> String? {
+    switch value {
+    case let string as String:
+      let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+      return trimmed.isEmpty ? nil : trimmed
+    case let number as NSNumber:
+      let rendered = number.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+      return rendered.isEmpty ? nil : rendered
+    default:
+      guard let value else {
+        return nil
+      }
+      let rendered = String(describing: value).trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !rendered.isEmpty, rendered.lowercased() != "nil" else {
+        return nil
+      }
+      return rendered
+    }
+  }
+
+  private func resolveSelectorValue(on target: Any, selectorName: String) -> Any? {
+    guard let object = target as? NSObject else {
+      return nil
+    }
+    let selector = NSSelectorFromString(selectorName)
+    guard object.responds(to: selector) else {
+      return nil
+    }
+    return object.perform(selector)?.takeUnretainedValue()
+  }
+
+  private func resolveMirrorChildValue(_ key: String, in value: Any) -> Any? {
+    var mirror: Mirror? = Mirror(reflecting: value)
+    while let current = mirror {
+      if let child = current.children.first(where: { $0.label == key }) {
+        return child.value
+      }
+      mirror = current.superclassMirror
+    }
+    return nil
+  }
+
+  private func unwrapStateContainerValue(_ holder: Any) -> Any {
+    let valueCandidates = [
+      resolveSelectorValue(on: holder, selectorName: "value"),
+      resolveSelectorValue(on: holder, selectorName: "getValue"),
+      resolveSelectorValue(on: holder, selectorName: "currentValue"),
+      resolveSelectorValue(on: holder, selectorName: "wrappedValue"),
+      resolveMirrorChildValue("value", in: holder),
+      resolveMirrorChildValue("currentValue", in: holder),
+      resolveMirrorChildValue("wrappedValue", in: holder),
+      resolveMirrorChildValue("state", in: holder),
+    ]
+    for candidate in valueCandidates {
+      if let candidate {
+        return candidate
+      }
+    }
+    return holder
+  }
+
+  private func sanitizeToken(_ value: String) -> String {
+    let normalized = value
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+      .replacingOccurrences(of: "[^a-z0-9._-]+", with: "_", options: .regularExpression)
+      .replacingOccurrences(of: "^_+|_+$", with: "", options: .regularExpression)
+    return normalized.isEmpty ? "unknown" : normalized
   }
 
   private func resolveDatConfigurationIssue() -> String? {
@@ -1009,6 +1796,8 @@ class MetaGlassesBridge: RCTEventEmitter {
       "datSdkAvailable": isDatSdkAvailable(),
       "frameIngress": frameIngress,
       "audioIngress": audioIngress,
+      "diagnostics": buildRuntimeDiagnostics(),
+      "debugEvents": debugEvents.map { $0.payload() },
       "updatedAtMs": now,
     ]
     if let activeDevice = activeDevicePayload() {
@@ -1017,7 +1806,7 @@ class MetaGlassesBridge: RCTEventEmitter {
     if let failure {
       snapshot["failure"] = failure
     }
-    if let resolvedFallbackReason = callbackSurfaceFallbackReason ?? fallbackReason {
+    if let resolvedFallbackReason = resolveCallbackSurfaceFallbackReason() ?? fallbackReason {
       snapshot["fallbackReason"] = resolvedFallbackReason
     }
 

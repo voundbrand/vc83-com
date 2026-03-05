@@ -11,6 +11,11 @@ import {
   shouldRequireToolApproval,
   type ToolApprovalAutonomyLevel,
 } from "./escalation";
+import {
+  MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
+  MEETING_CONCIERGE_STAGE_SEQUENCE,
+  type MeetingConciergeFlowMode,
+} from "./tools/bookingTool";
 
 export type AgentToolExecutionStatus =
   | "success"
@@ -177,12 +182,152 @@ function normalizeToolResultString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function resolveMeetingConciergeStageContractFailure(
+  record: Record<string, unknown>
+): string | null {
+  const action = normalizeToolResultString(record.action);
+  if (action !== "run_meeting_concierge_demo") {
+    return null;
+  }
+
+  const mode = normalizeToolResultString(record.mode)?.toLowerCase();
+  if (mode !== "preview" && mode !== "execute") {
+    return "meeting_concierge_stage_contract_invalid_mode";
+  }
+
+  const data =
+    record.data && typeof record.data === "object" && !Array.isArray(record.data)
+      ? (record.data as Record<string, unknown>)
+      : null;
+  const stageContract =
+    data?.stageContract &&
+    typeof data.stageContract === "object" &&
+    !Array.isArray(data.stageContract)
+      ? (data.stageContract as Record<string, unknown>)
+      : null;
+  if (!stageContract) {
+    return "meeting_concierge_stage_contract_missing";
+  }
+  if (
+    normalizeToolResultString(stageContract.contractVersion) !==
+    MEETING_CONCIERGE_STAGE_CONTRACT_VERSION
+  ) {
+    return "meeting_concierge_stage_contract_version_invalid";
+  }
+
+  const contractMode = normalizeToolResultString(stageContract.mode)?.toLowerCase();
+  if (contractMode !== mode) {
+    return "meeting_concierge_stage_contract_mode_mismatch";
+  }
+  const normalizedContractMode = contractMode as MeetingConciergeFlowMode;
+
+  const expectedFlow = [...MEETING_CONCIERGE_STAGE_SEQUENCE];
+  const flow = Array.isArray(stageContract.flow)
+    ? stageContract.flow
+        .map((entry) => normalizeToolResultString(entry))
+        .filter((entry): entry is string => Boolean(entry))
+    : [];
+  if (
+    flow.length !== expectedFlow.length ||
+    flow.some((stage, index) => stage !== expectedFlow[index])
+  ) {
+    return "meeting_concierge_stage_contract_flow_invalid";
+  }
+
+  const stages = Array.isArray(stageContract.stages)
+    ? stageContract.stages
+    : [];
+  if (stages.length !== expectedFlow.length) {
+    return "meeting_concierge_stage_contract_stage_count_invalid";
+  }
+  const stageEntries = stages.map((entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? (entry as Record<string, unknown>)
+      : null
+  );
+
+  for (let index = 0; index < expectedFlow.length; index += 1) {
+    const expectedStage = expectedFlow[index];
+    const stageEntry = stageEntries[index];
+    if (!stageEntry) {
+      return "meeting_concierge_stage_contract_stage_entry_invalid";
+    }
+    const stageName = normalizeToolResultString(stageEntry.stage);
+    if (stageName !== expectedStage) {
+      return "meeting_concierge_stage_contract_stage_order_invalid";
+    }
+    const stageStatus = normalizeToolResultString(stageEntry.status)?.toLowerCase();
+    if (
+      stageStatus !== "success" &&
+      stageStatus !== "blocked" &&
+      stageStatus !== "skipped"
+    ) {
+      return "meeting_concierge_stage_contract_stage_status_invalid";
+    }
+    if (!normalizeToolResultString(stageEntry.outcomeCode)) {
+      return "meeting_concierge_stage_contract_outcome_missing";
+    }
+    if (typeof stageEntry.failClosed !== "boolean") {
+      return "meeting_concierge_stage_contract_fail_closed_invalid";
+    }
+  }
+
+  const terminalStage = normalizeToolResultString(stageContract.terminalStage);
+  if (!terminalStage || !expectedFlow.includes(terminalStage as typeof expectedFlow[number])) {
+    return "meeting_concierge_stage_contract_terminal_stage_invalid";
+  }
+  const terminalOutcome = normalizeToolResultString(stageContract.terminalOutcome)?.toLowerCase();
+  if (terminalOutcome !== "success" && terminalOutcome !== "blocked") {
+    return "meeting_concierge_stage_contract_terminal_outcome_invalid";
+  }
+  const terminalEntry = stageEntries.find(
+    (entry) => normalizeToolResultString(entry?.stage) === terminalStage
+  );
+  if (!terminalEntry) {
+    return "meeting_concierge_stage_contract_terminal_entry_missing";
+  }
+  const terminalStatus = normalizeToolResultString(terminalEntry.status)?.toLowerCase();
+  if (terminalOutcome === "success" && terminalStatus !== "success") {
+    return "meeting_concierge_stage_contract_terminal_status_mismatch";
+  }
+  if (terminalOutcome === "blocked" && terminalStatus !== "blocked") {
+    return "meeting_concierge_stage_contract_terminal_blocked_status_invalid";
+  }
+
+  if (terminalOutcome === "blocked") {
+    const terminalOutcomeCode =
+      normalizeToolResultString(terminalEntry.outcomeCode) || "unknown";
+    return `meeting_concierge_stage_blocked:${terminalStage}:${terminalOutcomeCode}`;
+  }
+
+  if (normalizedContractMode === "preview") {
+    const bookingStage = stageEntries.find(
+      (entry) => normalizeToolResultString(entry?.stage) === "booking"
+    );
+    const inviteStage = stageEntries.find(
+      (entry) => normalizeToolResultString(entry?.stage) === "invite"
+    );
+    const previewStagesValid =
+      normalizeToolResultString(bookingStage?.status)?.toLowerCase() === "skipped" &&
+      normalizeToolResultString(inviteStage?.status)?.toLowerCase() === "skipped";
+    if (!previewStagesValid) {
+      return "meeting_concierge_stage_contract_preview_tail_invalid";
+    }
+  }
+
+  return null;
+}
+
 function resolveSemanticToolFailure(result: unknown): string | null {
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     return null;
   }
 
   const record = result as Record<string, unknown>;
+  const stageContractFailure = resolveMeetingConciergeStageContractFailure(record);
+  if (stageContractFailure) {
+    return stageContractFailure;
+  }
   if (record.success === false) {
     return (
       normalizeToolResultString(record.message)

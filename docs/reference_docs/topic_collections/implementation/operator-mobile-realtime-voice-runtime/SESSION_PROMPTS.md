@@ -25,6 +25,8 @@ Queue:
 11. iPhone parity rollout executes in lane `J` after `ORV-024` and may run concurrently with lane `I` (one active row per lane).
 12. Do not promote final smoke evidence rows until cross-surface parity checkpoint row `ORV-035` is `DONE`.
 13. True live AV + multimodal agentic runtime work executes only in lane `K` after `ORV-030` and `ORV-035`; DAT-native production acceptance remains gated by `ORV-023` physical-device evidence.
+14. Web/desktop PCM corruption-remediation and realtime parity work executes only in lane `L` after `ORV-038`; do not claim DAT-native parity from lane `L` work alone.
+15. Mobile post-audit corrective work executes only in lane `M` after `ORV-044`; preserve ORV-010 through ORV-044 invariants, keep `/api/v1/ai/voice/*` compatibility, and do not modify `convex/ai/agentExecution.ts`.
 
 ---
 
@@ -225,4 +227,52 @@ Rules:
 5. Preserve `/api/v1/ai/voice/*` compatibility and ORV-010 through ORV-023 continuity/security/fallback invariants.
 6. `ORV-023` remains required for DAT-native production claims; webcam/camera-first rollout may proceed with explicit DAT limitation notes.
 7. Run row `Verify` commands exactly, then stop when lane `K` has no promotable rows or blockers are documented.
-8. Current lane status (2026-03-03): `ORV-036` through `ORV-038` are `PENDING`; dependencies (`ORV-030`, `ORV-035`) are satisfied but lane `K` remains intentionally unstarted in this execution.
+8. Current lane status (2026-03-05): `ORV-036`, `ORV-037`, and `ORV-038` are `DONE`; no promotable lane-`K` software rows remain, and DAT-native production readiness remains gated by `ORV-023` physical-device evidence.
+
+---
+
+## Session L (Lane L: web/desktop PCM parity migration)
+
+You are Codex in `/Users/foundbrand_001/Development/vc83-com`.
+Execute only lane `L` rows from:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/TASK_QUEUE.md`
+
+Rules:
+
+1. Start with `ORV-039` and keep references explicit to local source files under `docs/reference_projects/VisionClaw/` and `docs/reference_projects/agents/`.
+2. Eliminate container-corruption failure mode first: browser path must stop treating `audio/webm` blobs as primary PCM ingest for ElevenLabs STT.
+3. Implement fixed-frame PCM capture for web/desktop (`AudioWorkletNode` primary, `ScriptProcessorNode` fallback) with hard contract `24kHz`, `20ms`, `960-byte` Int16 mono frame payloads.
+4. Implement persistent realtime audio transport with both paths and fixed precedence (`websocket_primary`, `webrtc_fallback`), plus realtime STT with both providers and fixed precedence (`scribe_v2_realtime_primary`, `gemini_native_audio_failover`) before promoting UX rows.
+5. Implement streaming TTS with ElevenLabs WebSocket multi-context path as primary, preserving interruption-safe playback queue behavior.
+6. Enforce true duplex runtime behavior (simultaneous audio in/out + deterministic interrupt detection), explicit VAD strategy (client or server), and throttled JPEG frame forwarding over the same persistent transport channel.
+7. Enforce explicit echo-cancellation strategy (mute mic during TTS or hardware AEC capability path) and expose the chosen strategy in runtime telemetry.
+8. Preserve `conversation_interaction_v1` state/reason taxonomy and existing `/api/v1/ai/voice/*` compatibility guarantees.
+9. Keep batch transcribe/synthesize APIs as explicit resilience fallback during migration; do not silently remove fallback paths until regression evidence is complete.
+10. Do not mark `ORV-044` `DONE` until all eight non-negotiable vectors are proven in artifacts and verify outputs.
+11. Run row `Verify` commands exactly, then stop when lane `L` has no promotable rows or blockers are documented.
+12. Current lane status (2026-03-05): `ORV-039` through `ORV-044` are `DONE`; lane `L` has no remaining promotable rows.
+13. Use the frozen ORV-039 baseline in `MASTER_PLAN.md` as authoritative reference mapping for `src/hooks/use-voice-runtime.ts`, `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx`, and `convex/ai/voiceRuntimeAdapter.ts` versus local VisionClaw/agents patterns.
+14. ORV-044 closure snapshot (2026-03-05): all eight non-negotiable acceptance vectors remain documented in `ORV_014_CANARY_EXECUTION_LOG.md`, and required verify stack reruns remain green (`typecheck`, `test:unit`, `test:integration`, `test:e2e:desktop`, `docs:guard`) after onboarding handoff e2e send-flow/CTA selector hardening, with lane `L` gates preserved and no edits to `convex/ai/agentExecution.ts` in this row execution.
+
+---
+
+## Session M (Lane M: mobile post-audit corrective closure)
+
+You are Codex in `/Users/foundbrand_001/Development/vc83-com`.
+Execute only lane `M` rows from:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/TASK_QUEUE.md`
+
+Rules:
+
+1. Fix mobile PCM contract drift first (`16_000` -> `24_000`) in frame/envelope/default surfaces and tests before any turn-state behavior refactor rows.
+2. Strengthen `voiceTransportPcmContractValidator` to fail closed for non-contract sample rates in lane `M` scope while preserving existing envelope compatibility (`voice_transport_v1`, `/api/v1/ai/voice/*`).
+3. Introduce unified `ConversationTurnState` (`idle`, `listening`, `thinking`, `agent_speaking`) in `lifecycle.ts` and wire it through `index.tsx` -> `VoiceModeModal.tsx`.
+4. Replace boolean-derived HUD/orb turn-flow derivation with reducer-driven turn-state mapping and keep deterministic status labels.
+5. Add per-frame RMS/energy reporting in `VoiceRecorder.tsx`, then enforce VAD endpointing in `index.tsx` using `0.015` RMS threshold + `320ms` endpoint silence.
+6. Make barge-in proactive: stop playback and cancel in-flight synthesis immediately when user capture starts (tap or VAD speech onset during `agent_speaking`).
+7. Add race guards: final-frame mutex, `200-500ms` recorder auto-start debounce after assistant playback, and a single assistant autospeak path (no dual orchestration + refresh playback).
+8. Ensure mode switch cleanup in `handleEndConversation()` fully resets turn state to `idle`, clears `isTranscribing`/`isLoading`, and cancels pending auto-speak operations.
+9. Keep implementation scoped to audited files and listed tests; avoid widening to unrelated modules.
+10. Preserve ORV-010 through ORV-044 invariants, and do not edit `convex/ai/agentExecution.ts`.
+11. Run row `Verify` commands exactly, then stop when lane `M` has no promotable rows or blockers are documented.
+12. Current lane status (2026-03-05): `ORV-045` through `ORV-052` are `DONE`; lane `M` has no promotable rows; `ORV-023` remains `BLOCKED` and unchanged by lane `M` execution.

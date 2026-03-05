@@ -69,26 +69,43 @@ test.describe("Onboarding Audit Handoff", () => {
     await expect(page.getByRole("heading", { name: /Private AI\. You can Trust\./i })).toBeVisible();
     await expect(page.locator("#landing-audit-input")).toBeEnabled();
 
-    const sendAuditMessage = async (message: string) => {
+    const sendAuditMessage = async (message: string, expectedRequestCount: number) => {
       const input = page.locator("#landing-audit-input");
-      const sendButton = page.getByRole("button", { name: /^Send$/ });
+      const sendButton = page.locator('form:has(#landing-audit-input) button[type="submit"]');
 
-      await input.click();
-      await input.press("Meta+A");
-      await input.press("Backspace");
-      await input.pressSequentially(message, { delay: 8 });
-      await expect(input).toHaveValue(message);
-      await expect.poll(async () => sendButton.isEnabled()).toBe(true);
-      await sendButton.click();
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        await input.click();
+        await input.fill(message);
+        await expect(input).toHaveValue(message);
+
+        if (!(await sendButton.isEnabled())) {
+          if (attempt === 3) {
+            throw new Error("Expected landing audit send button to be enabled after composer fill");
+          }
+          await page.waitForTimeout(250);
+          continue;
+        }
+
+        await sendButton.click();
+        try {
+          await expect.poll(() => auditRequestCount).toBe(expectedRequestCount);
+          return;
+        } catch (error) {
+          if (attempt === 3) {
+            throw error;
+          }
+          await page.waitForTimeout(300);
+        }
+      }
     };
 
-    await sendAuditMessage("We run an accounting firm at roughly $3M ARR.");
+    await sendAuditMessage("We run an accounting firm at roughly $3M ARR.", 1);
     await expect(page.getByText(REHEARSAL_FIRST_RESPONSE)).toBeVisible();
 
-    await sendAuditMessage("Team is 9 people and Monday starts in inbox + cashflow check.");
+    await sendAuditMessage("Team is 9 people and Monday starts in inbox + cashflow check.", 2);
     await expect(page.getByText(REHEARSAL_SECOND_RESPONSE)).toBeVisible();
 
-    await sendAuditMessage("I need quote prep and follow-up ownership off my plate.");
+    await sendAuditMessage("I need quote prep and follow-up ownership off my plate.", 3);
     await expect(page.getByText(REHEARSAL_WORKFLOW_RESPONSE)).toBeVisible();
 
     expect(auditRequestCount).toBe(3);
@@ -105,7 +122,9 @@ test.describe("Onboarding Audit Handoff", () => {
 
     await expect(page.getByText("Claim token captured for handoff.")).toBeVisible();
 
-    const createAccountLink = page.getByRole("link", { name: /Create account and carry audit context/i });
+    const createAccountLink = page.getByRole("link", {
+      name: /Create account and (carry audit context|keep your audit progress)/i,
+    });
     await expect(createAccountLink).toBeVisible();
 
     const createAccountHref = await createAccountLink.getAttribute("href");
@@ -145,25 +164,35 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
 
     const doneWithYouHref = await page
-      .locator('a[href*="intent=done-with-you"]')
+      .locator('a[href*="offer_code=consult_done_with_you"]')
       .first()
       .getAttribute("href");
     if (!doneWithYouHref) {
       throw new Error("Expected Done With You CTA link");
     }
     const doneWithYouUrl = new URL(doneWithYouHref);
-    expect(doneWithYouUrl.searchParams.get("intent")).toBe("done-with-you");
+    expect(doneWithYouUrl.pathname).toBe("/store");
+    expect(doneWithYouUrl.searchParams.get("autostartCommercial")).toBe("1");
+    expect(doneWithYouUrl.searchParams.get("offer_code")).toBe("consult_done_with_you");
+    expect(doneWithYouUrl.searchParams.get("intent_code")).toBe("consulting_sprint_scope_only");
+    expect(doneWithYouUrl.searchParams.get("offerCode")).toBe("consult_done_with_you");
+    expect(doneWithYouUrl.searchParams.get("intentCode")).toBe("consulting_sprint_scope_only");
     expect(doneWithYouUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
 
     const fullBuildHref = await page
-      .locator('a[href*="intent=full-build"]')
+      .locator('a[href*="offer_code=layer1_foundation"]')
       .first()
       .getAttribute("href");
     if (!fullBuildHref) {
       throw new Error("Expected Full Build CTA link");
     }
     const fullBuildUrl = new URL(fullBuildHref);
-    expect(fullBuildUrl.searchParams.get("intent")).toBe("full-build");
+    expect(fullBuildUrl.pathname).toBe("/store");
+    expect(fullBuildUrl.searchParams.get("autostartCommercial")).toBe("1");
+    expect(fullBuildUrl.searchParams.get("offer_code")).toBe("layer1_foundation");
+    expect(fullBuildUrl.searchParams.get("intent_code")).toBe("implementation_start_layer1");
+    expect(fullBuildUrl.searchParams.get("offerCode")).toBe("layer1_foundation");
+    expect(fullBuildUrl.searchParams.get("intentCode")).toBe("implementation_start_layer1");
     expect(fullBuildUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
 
     await Promise.all([

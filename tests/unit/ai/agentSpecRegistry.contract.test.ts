@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   computeAgentSpecHash,
   normalizeAgentSpecV1,
+  resolveAgentRuntimeModuleCapabilities,
+  resolveAgentRuntimeModuleMetadataFromConfig,
+  SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
 } from "../../../convex/ai/agentSpecRegistry";
 
 describe("agent spec registry contract", () => {
@@ -141,5 +144,174 @@ describe("agent spec registry contract", () => {
         },
       }),
     ).toThrow(/unsupported keys/);
+  });
+
+  it("normalizes runtime module metadata deterministically", () => {
+    const normalized = normalizeAgentSpecV1({
+      contractVersion: "agent_spec_v1",
+      agent: {
+        key: "one_of_one_samantha_warm",
+        identity: { displayName: "Samantha", role: "consultant" },
+        channels: {
+          allowed: ["webchat", "native_guest"],
+          defaults: { primary: "native_guest" },
+        },
+        capabilities: [
+          {
+            key: "audit_delivery",
+            outcomes: [
+              {
+                outcomeKey: "audit_workflow_deliverable_pdf",
+                requiredTools: ["generate_audit_workflow_deliverable"],
+              },
+            ],
+          },
+        ],
+        runtimeModule: {
+          contractVersion: "agent_runtime_module_metadata_v1",
+          key: " concierge_runtime_module_v1 ",
+          prompt: {
+            profileRef: " concierge_prompt_v1 ",
+            templateRoles: [" concierge_warm ", "concierge_core", "concierge_warm"],
+          },
+          hooks: {
+            contractVersion: "agent_runtime_hooks_v1",
+            enabled: ["postTool", "preRoute", "preTool"],
+          },
+          toolManifest: {
+            contractVersion: "agent_runtime_tool_manifest_v1",
+            requiredTools: ["send_email_from_template", "generate_audit_workflow_deliverable"],
+            optionalTools: ["generate_audit_workflow_deliverable"],
+            deniedTools: ["request_audit_deliverable_email"],
+          },
+          capabilities: [
+            {
+              key: "delivery_followup",
+              outcomes: [
+                {
+                  outcomeKey: "email_sent",
+                  requiredTools: ["send_email_from_template"],
+                  preconditions: { requiredFields: ["email"] },
+                },
+              ],
+            },
+          ],
+        },
+        policyProfiles: {
+          orgPolicyRef: "org_policy_default_v3",
+          channelPolicyRef: "native_guest_policy_v2",
+          runtimePolicyRef: "runtime_fail_closed_v5",
+        },
+      },
+    });
+
+    expect(normalized.agent.runtimeModule?.key).toBe("concierge_runtime_module_v1");
+    expect(normalized.agent.runtimeModule?.prompt.templateRoles).toEqual([
+      "concierge_core",
+      "concierge_warm",
+    ]);
+    expect(normalized.agent.runtimeModule?.hooks.enabled).toEqual([
+      "postTool",
+      "preRoute",
+      "preTool",
+    ]);
+    expect(normalized.agent.runtimeModule?.toolManifest.requiredTools).toEqual([
+      "generate_audit_workflow_deliverable",
+      "send_email_from_template",
+    ]);
+    expect(resolveAgentRuntimeModuleCapabilities(normalized)).toEqual([
+      {
+        key: "delivery_followup",
+        outcomes: [
+          {
+            outcomeKey: "email_sent",
+            requiredTools: ["send_email_from_template"],
+            preconditions: { requiredFields: ["email"] },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("fails closed on unsupported runtime module hook names", () => {
+    expect(() =>
+      normalizeAgentSpecV1({
+        contractVersion: "agent_spec_v1",
+        agent: {
+          key: "x",
+          identity: { displayName: "S", role: "r" },
+          channels: { allowed: ["webchat"], defaults: { primary: "webchat" } },
+          capabilities: [],
+          runtimeModule: {
+            contractVersion: "agent_runtime_module_metadata_v1",
+            key: "custom_runtime_module_v1",
+            prompt: { profileRef: "custom_prompt_v1", templateRoles: [] },
+            hooks: {
+              contractVersion: "agent_runtime_hooks_v1",
+              enabled: ["beforeEverything"],
+            },
+            toolManifest: {
+              contractVersion: "agent_runtime_tool_manifest_v1",
+              requiredTools: [],
+              optionalTools: [],
+              deniedTools: [],
+            },
+            capabilities: [],
+          },
+          policyProfiles: {
+            orgPolicyRef: "org_policy_default_v3",
+            channelPolicyRef: "webchat_policy_v1",
+            runtimePolicyRef: "runtime_fail_closed_v5",
+          },
+        },
+      }),
+    ).toThrow(/unsupported hook name/);
+  });
+
+  it("resolves runtime module metadata from config declarations and legacy fallback", () => {
+    const fromExplicitKey = resolveAgentRuntimeModuleMetadataFromConfig({
+      runtimeModuleKey: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
+    });
+    expect(fromExplicitKey?.key).toBe(SAMANTHA_AGENT_RUNTIME_MODULE_KEY);
+
+    const fromInlineMetadata = resolveAgentRuntimeModuleMetadataFromConfig({
+      runtimeModule: {
+        contractVersion: "agent_runtime_module_metadata_v1",
+        key: "custom_runtime_module_v1",
+        prompt: { profileRef: "custom_prompt_v1", templateRoles: ["custom_template"] },
+        hooks: {
+          contractVersion: "agent_runtime_hooks_v1",
+          enabled: ["preRoute"],
+        },
+        toolManifest: {
+          contractVersion: "agent_runtime_tool_manifest_v1",
+          requiredTools: ["send_email_from_template"],
+          optionalTools: [],
+          deniedTools: [],
+        },
+        capabilities: [
+          {
+            key: "delivery_followup",
+            outcomes: [
+              {
+                outcomeKey: "email_sent",
+                requiredTools: ["send_email_from_template"],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(fromInlineMetadata?.key).toBe("custom_runtime_module_v1");
+
+    const fromLegacyFallback = resolveAgentRuntimeModuleMetadataFromConfig({
+      templateRole: "one_of_one_lead_capture_consultant_template",
+    });
+    expect(fromLegacyFallback?.key).toBe(SAMANTHA_AGENT_RUNTIME_MODULE_KEY);
+
+    const unknownModule = resolveAgentRuntimeModuleMetadataFromConfig({
+      runtimeModuleKey: "unknown_runtime_module_v1",
+    });
+    expect(unknownModule).toBeNull();
   });
 });

@@ -30,7 +30,7 @@ describe('mobile meta bridge contracts', () => {
     });
 
     expect(readiness.ready).toBe(false);
-    expect(readiness.reasonCode).toBe('meta_bridge_not_connected');
+    expect(readiness.reasonCode).toBe('meta_bridge_dat_sdk_unavailable');
   });
 
   it('requires meta_glasses source class for bridge trust', () => {
@@ -89,7 +89,7 @@ describe('mobile meta bridge contracts', () => {
 
     expect(negotiation.ready).toBe(true);
     expect(negotiation.selectedSourceMode).toBe('iphone');
-    expect(negotiation.conversationReasonCode).toBe('device_unavailable');
+    expect(negotiation.conversationReasonCode).toBe('dat_sdk_unavailable');
   });
 
   it('enriches Gemini metadata with bridge diagnostics only for Meta source mode', () => {
@@ -111,7 +111,7 @@ describe('mobile meta bridge contracts', () => {
         lastFrameTs: 1_701_000_100_000,
       },
       audioIngress: {
-        sampleRate: 16_000,
+        sampleRate: 24_000,
         packetCount: 420,
         lastPacketTs: 1_701_000_100_100,
       },
@@ -134,7 +134,7 @@ describe('mobile meta bridge contracts', () => {
         droppedFrames: 3,
       },
       audioIngress: {
-        sampleRate: 16_000,
+        sampleRate: 24_000,
         packetCount: 420,
       },
     });

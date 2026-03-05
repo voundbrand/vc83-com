@@ -44,7 +44,7 @@ export function buildVoiceAudioFrameEnvelope(args: {
     timestampMs: Date.now(),
     pcm: {
       encoding: 'pcm_s16le',
-      sampleRateHz: 16_000,
+      sampleRateHz: 24_000,
       channels: 1,
       frameDurationMs: Math.max(20, Math.floor(args.frameDurationMs || 20)),
     },

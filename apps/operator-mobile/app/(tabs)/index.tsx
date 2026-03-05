@@ -40,6 +40,7 @@ import {
   AttachmentMenu,
   MessageActions,
   VoiceRecorder,
+  type VoiceRecorderEnergySample,
   type VoiceRecorderFrame,
   VoiceModeModal,
   ChatDrawer,
@@ -54,12 +55,24 @@ import { l4yercak3Client } from '../../src/api/client';
 import { useMobileVoiceRuntime } from '../../src/hooks/useMobileVoiceRuntime';
 import { useMobileVideoRuntime } from '../../src/hooks/useMobileVideoRuntime';
 import {
+  MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS,
   CONVERSATION_CONTRACT_VERSION,
+  MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+  MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
   type ConversationEventType,
   type ConversationReasonCode,
   type ConversationSessionState,
+  type ConversationTurnState,
+  type VoiceBargeInState,
+  claimAssistantAutospeakTurn,
+  evaluateFinalFrameFinalizeGuard,
+  hasSilenceEndpointElapsed,
   inferConversationReasonCode,
-  shouldBargeInInterruptPlayback,
+  isSpeechFrameEnergy,
+  reduceVoiceBargeInState,
+  reduceConversationTurnState,
+  resolveAssistantPlaybackBargeInTransition,
+  resolveCaptureStartBargeInTransition,
 } from '../../src/lib/voice/lifecycle';
 import { shouldCloseVoiceSessionForConversationSwitch } from '../../src/lib/voice/continuity';
 import {
@@ -74,6 +87,7 @@ import {
   evaluateVisionSourceReadiness,
   mapVisionReadinessReasonToConversationReason,
   negotiateVisionSource,
+  requiresMetaAiAppConnection,
   metaBridge,
   type VisionSourceMode,
   type MetaBridgeConnectionState,
@@ -114,6 +128,25 @@ function normalizeModelId(value: string | undefined | null): string {
     return '';
   }
   return value.trim();
+}
+
+const MOBILE_CONVERSATION_TURN_HUD_LABELS: Record<ConversationTurnState, string> = {
+  idle: 'IDLE',
+  listening: 'LISTENING',
+  thinking: 'THINKING',
+  agent_speaking: 'AGENT SPEAKING',
+};
+
+function resolveMobileConversationTurnHudLabel(
+  turnState: ConversationTurnState
+): string {
+  return MOBILE_CONVERSATION_TURN_HUD_LABELS[turnState] ?? MOBILE_CONVERSATION_TURN_HUD_LABELS.idle;
+}
+
+function resolveMobileConversationSourceHudLabel(
+  sourceMode: VisionSourceMode
+): 'iphone' | 'meta_glasses' {
+  return sourceMode === 'meta_glasses' ? 'meta_glasses' : 'iphone';
 }
 
 export default function ConversationScreen() {
@@ -170,6 +203,7 @@ export default function ConversationScreen() {
   const [availableModels, setAvailableModels] = useState<RuntimeModelAvailability[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isVoiceCaptureActive, setIsVoiceCaptureActive] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [cameraRuntime, setCameraRuntime] = useState<Record<string, unknown> | undefined>(undefined);
@@ -177,7 +211,28 @@ export default function ConversationScreen() {
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [approvalActionId, setApprovalActionId] = useState<string | null>(null);
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
+  const [conversationTurnState, setConversationTurnState] = useState<ConversationTurnState>('idle');
+  const [voiceCaptureStopSignal, setVoiceCaptureStopSignal] = useState(0);
   const awaitingAssistantSpeechRef = useRef(false);
+  const awaitingAssistantSpeechTurnTokenRef = useRef<number | null>(null);
+  const assistantAutospeakTurnTokenRef = useRef(0);
+  const consumedAssistantAutospeakTurnTokenRef = useRef<number | null>(null);
+  const assistantSpeechRequestSequenceRef = useRef(0);
+  const assistantSpeechInFlightSequenceRef = useRef<number | null>(null);
+  const assistantSpeechCanceledThroughSequenceRef = useRef(0);
+  const assistantSpeechCancelEpochRef = useRef(0);
+  const finalFrameFinalizeMutexRef = useRef(false);
+  const lastFinalizedFrameSequenceRef = useRef<number | null>(null);
+  const bargeInStateRef = useRef<VoiceBargeInState>('idle');
+  const vadStateRef = useRef<{
+    speechDetected: boolean;
+    lastSpeechDetectedAtMs: number | null;
+    endpointQueued: boolean;
+  }>({
+    speechDetected: false,
+    lastSpeechDetectedAtMs: null,
+    endpointQueued: false,
+  });
   const lastSpokenAssistantMessageIdRef = useRef<string | null>(null);
   const endConversationInFlightRef = useRef(false);
   const starterKickoffPendingRef = useRef(false);
@@ -384,10 +439,13 @@ export default function ConversationScreen() {
   const formatVisionReadinessMessage = useCallback((reasonCode: string): string => {
     const mappedReasonCode = mapVisionReadinessReasonToConversationReason(reasonCode);
     if (mappedReasonCode === 'dat_sdk_unavailable') {
-      return 'Meta glasses require a DAT-enabled native build and are unavailable on this simulator/build. Switch to iPhone source.';
+      return t('chat.metaBridgeDatSdkUnavailable');
     }
-    return `Meta glasses bridge unavailable (${reasonCode}). Connect bridge first or switch to iPhone source.`;
-  }, []);
+    if (requiresMetaAiAppConnection(reasonCode)) {
+      return t('chat.metaBridgeConnectInMetaAi');
+    }
+    return t('chat.metaBridgeUnavailableFallback');
+  }, [t]);
 
   const ensureVisionSourceReady = useCallback(() => {
     const readiness = evaluateVisionSourceReadiness({
@@ -413,8 +471,8 @@ export default function ConversationScreen() {
         if (lastVisionReadinessAlertCodeRef.current !== readiness.reasonCode) {
           lastVisionReadinessAlertCodeRef.current = readiness.reasonCode;
           Alert.alert(
-            'Vision source unavailable',
-            `${readinessMessage} Switched to iPhone source.`
+            t('chat.visionSourceUnavailableTitle'),
+            `${readinessMessage} ${t('chat.metaBridgeSwitchedToIphone')}`
           );
         }
         return true;
@@ -423,10 +481,10 @@ export default function ConversationScreen() {
     setPolicyError(readinessMessage);
     if (lastVisionReadinessAlertCodeRef.current !== readiness.reasonCode) {
       lastVisionReadinessAlertCodeRef.current = readiness.reasonCode;
-      Alert.alert('Vision source unavailable', readinessMessage);
+      Alert.alert(t('chat.visionSourceUnavailableTitle'), readinessMessage);
     }
     return false;
-  }, [formatVisionReadinessMessage, metaBridgeStatus, visionSourceMode]);
+  }, [formatVisionReadinessMessage, metaBridgeStatus, t, visionSourceMode]);
 
   useEffect(() => {
     if (visionSourceMode !== 'meta_glasses') {
@@ -556,9 +614,15 @@ export default function ConversationScreen() {
   const isConversationEndingRef = useRef(isConversationEnding);
   const currentConversationIdRef = useRef<string | null>(currentConversationId);
   const closedModeSuspendIssuedRef = useRef(false);
-  const shouldSpeakReplies = isVoiceModeOpen;
   const liveHudStatusLabel = t(`chat.conversation.state.${conversationState}` as TranslationKey);
+  const liveTurnHudLabel = resolveMobileConversationTurnHudLabel(conversationTurnState);
+  const liveHudSourceLabel = resolveMobileConversationSourceHudLabel(visionSourceMode);
   const lastConversationEventRef = useRef<string>('');
+  const canRunAssistantAutospeak = useCallback(() => (
+    isVoiceModeOpenRef.current
+    && hasConversationStartedRef.current
+    && !isConversationEndingRef.current
+  ), []);
   const speakWithSystemFallback = useCallback(async (text: string) => {
     const spokenText = text.trim();
     if (!spokenText) {
@@ -605,6 +669,253 @@ export default function ConversationScreen() {
       ...(details || {}),
     });
   }, []);
+  const resetVadState = useCallback((reason: string) => {
+    vadStateRef.current = {
+      speechDetected: false,
+      lastSpeechDetectedAtMs: null,
+      endpointQueued: false,
+    };
+    logVoiceLifecycle('voice_vad_state_reset', { reason });
+  }, [logVoiceLifecycle]);
+  const requestVadEndpointStop = useCallback((reason: string, timestampMs: number) => {
+    const vad = vadStateRef.current;
+    if (vad.endpointQueued || !isVoiceCaptureActive) {
+      return;
+    }
+    vad.endpointQueued = true;
+    setVoiceCaptureStopSignal((current) => current + 1);
+    logVoiceLifecycle('voice_vad_endpoint_requested', {
+      reason,
+      timestampMs,
+      lastSpeechDetectedAtMs: vad.lastSpeechDetectedAtMs,
+      endpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+    });
+  }, [isVoiceCaptureActive, logVoiceLifecycle]);
+  const reserveAssistantAutospeakTurn = useCallback((reason: string): number => {
+    const nextTurnToken = assistantAutospeakTurnTokenRef.current + 1;
+    assistantAutospeakTurnTokenRef.current = nextTurnToken;
+    consumedAssistantAutospeakTurnTokenRef.current = null;
+    logVoiceLifecycle('voice_assistant_autospeak_turn_reserved', {
+      reason,
+      turnToken: nextTurnToken,
+    });
+    return nextTurnToken;
+  }, [logVoiceLifecycle]);
+  const armAwaitingAssistantSpeech = useCallback((turnToken: number, reason: string) => {
+    awaitingAssistantSpeechRef.current = true;
+    awaitingAssistantSpeechTurnTokenRef.current = turnToken;
+    logVoiceLifecycle('voice_assistant_autospeak_armed', {
+      reason,
+      turnToken,
+    });
+  }, [logVoiceLifecycle]);
+  const claimAwaitingAssistantSpeechTurn = useCallback((source: string): number | null => {
+    if (!awaitingAssistantSpeechRef.current) {
+      return null;
+    }
+    const decision = claimAssistantAutospeakTurn({
+      activeTurnToken: assistantAutospeakTurnTokenRef.current,
+      candidateTurnToken: awaitingAssistantSpeechTurnTokenRef.current,
+      consumedTurnToken: consumedAssistantAutospeakTurnTokenRef.current,
+    });
+    if (!decision.claimed) {
+      return null;
+    }
+    awaitingAssistantSpeechRef.current = false;
+    awaitingAssistantSpeechTurnTokenRef.current = null;
+    consumedAssistantAutospeakTurnTokenRef.current = decision.nextConsumedTurnToken;
+    logVoiceLifecycle('voice_assistant_autospeak_claimed', {
+      source,
+      turnToken: decision.nextConsumedTurnToken,
+    });
+    return decision.nextConsumedTurnToken;
+  }, [logVoiceLifecycle]);
+  const clearPendingAssistantSpeechEffects = useCallback((reason: string) => {
+    awaitingAssistantSpeechRef.current = false;
+    awaitingAssistantSpeechTurnTokenRef.current = null;
+    consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnTokenRef.current;
+    starterKickoffPendingRef.current = false;
+    starterKickoffInFlightRef.current = false;
+    starterKickoffCompletedRef.current = true;
+    logVoiceLifecycle('voice_assistant_autospeak_cleared', {
+      reason,
+      activeTurnToken: assistantAutospeakTurnTokenRef.current,
+      consumedTurnToken: consumedAssistantAutospeakTurnTokenRef.current,
+    });
+  }, [logVoiceLifecycle]);
+  const cancelAssistantSpeech = useCallback(async (reason: string) => {
+    assistantSpeechCancelEpochRef.current += 1;
+    const cancelEpoch = assistantSpeechCancelEpochRef.current;
+    const inFlightSequence =
+      assistantSpeechInFlightSequenceRef.current ?? assistantSpeechRequestSequenceRef.current;
+    assistantSpeechCanceledThroughSequenceRef.current = Math.max(
+      assistantSpeechCanceledThroughSequenceRef.current,
+      inFlightSequence
+    );
+    awaitingAssistantSpeechRef.current = false;
+    awaitingAssistantSpeechTurnTokenRef.current = null;
+    consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnTokenRef.current;
+    await mobileVoiceRuntime.stopPlayback();
+    Speech.stop();
+    setIsAssistantSpeaking(false);
+    setVoiceRuntime((prev) => ({
+      ...(prev || {}),
+      assistantSpeechCancel: {
+        contractVersion: 'mobile_voice_tts_cancel_guard_v1',
+        mode: 'client_http_request_abort_fail_closed',
+        httpSynthesizeAbortSupported: true,
+        serverSideSynthesizeAbortSupported: false,
+        cancelledThroughSequence: assistantSpeechCanceledThroughSequenceRef.current,
+        cancelEpoch,
+        reason,
+        cancelledAtMs: Date.now(),
+      },
+    }));
+    logVoiceLifecycle('voice_assistant_speech_cancelled', {
+      reason,
+      inFlightSequence,
+      cancelEpoch,
+      cancelContractMode: 'client_http_request_abort_fail_closed',
+      httpSynthesizeAbortSupported: true,
+      serverSideSynthesizeAbortSupported: false,
+      cancelledThroughSequence: assistantSpeechCanceledThroughSequenceRef.current,
+    });
+  }, [logVoiceLifecycle, mobileVoiceRuntime]);
+  const synthesizeAssistantReply = useCallback(async (text: string, source: string) => {
+    const spokenText = text.trim();
+    if (!spokenText) {
+      return;
+    }
+    const sequence = assistantSpeechRequestSequenceRef.current + 1;
+    assistantSpeechRequestSequenceRef.current = sequence;
+    assistantSpeechInFlightSequenceRef.current = sequence;
+    const cancelEpochAtStart = assistantSpeechCancelEpochRef.current;
+    setIsAssistantSpeaking(true);
+
+    const isSequenceCancelled = () =>
+      assistantSpeechCanceledThroughSequenceRef.current >= sequence
+      || assistantSpeechCancelEpochRef.current !== cancelEpochAtStart;
+    const shouldFailClosedStop = () =>
+      isSequenceCancelled()
+      || !isVoiceModeOpenRef.current
+      || !hasConversationStartedRef.current
+      || isConversationEndingRef.current;
+    const enforceFailClosedStop = () => {
+      void mobileVoiceRuntime.stopPlayback();
+      Speech.stop();
+    };
+
+    try {
+      if (shouldFailClosedStop()) {
+        enforceFailClosedStop();
+        return;
+      }
+      try {
+        await mobileVoiceRuntime.synthesizeAndPlay(spokenText);
+      } catch {
+        if (shouldFailClosedStop()) {
+          enforceFailClosedStop();
+          return;
+        }
+        await speakWithSystemFallback(spokenText);
+      }
+      if (shouldFailClosedStop()) {
+        enforceFailClosedStop();
+        return;
+      }
+    } finally {
+      if (assistantSpeechInFlightSequenceRef.current === sequence) {
+        assistantSpeechInFlightSequenceRef.current = null;
+        setIsAssistantSpeaking(false);
+      }
+      const cancelled = isSequenceCancelled();
+      logVoiceLifecycle('voice_assistant_speech_complete', {
+        source,
+        sequence,
+        cancelEpochAtStart,
+        activeCancelEpoch: assistantSpeechCancelEpochRef.current,
+        cancelled,
+        cancelContractMode: 'client_http_request_abort_fail_closed',
+        httpSynthesizeAbortSupported: true,
+        serverSideSynthesizeAbortSupported: false,
+      });
+    }
+  }, [logVoiceLifecycle, mobileVoiceRuntime, speakWithSystemFallback]);
+  const handleCaptureStartBargeIn = useCallback(async (source: 'tap_capture_start' | 'vad_speech_onset' | 'frame_boundary_speech') => {
+    const transition = resolveCaptureStartBargeInTransition({
+      state: bargeInStateRef.current,
+      turnState: conversationTurnState,
+      isAssistantSpeaking,
+    });
+    bargeInStateRef.current = transition.state;
+    if (!transition.command.interruptLocalPlayback) {
+      return;
+    }
+    logVoiceLifecycle('voice_barge_in_triggered', {
+      source,
+      bargeInState: transition.state,
+      sendRemoteCancel: transition.command.sendRemoteCancel,
+      resetPlaybackQueue: transition.command.resetPlaybackQueue,
+    });
+    await cancelAssistantSpeech(`barge_in:${source}`);
+    if (transition.command.sendRemoteCancel) {
+      const ackTransition = reduceVoiceBargeInState({
+        state: bargeInStateRef.current,
+        event: 'remote_cancel_ack',
+      });
+      bargeInStateRef.current = ackTransition.state;
+    }
+  }, [
+    cancelAssistantSpeech,
+    conversationTurnState,
+    isAssistantSpeaking,
+    logVoiceLifecycle,
+  ]);
+  const handleVoiceEnergySample = useCallback((sample: VoiceRecorderEnergySample, source: 'meter' | 'frame') => {
+    if (!isVoiceCaptureActive) {
+      return;
+    }
+    const timestampMs = Number.isFinite(sample.timestampMs) ? sample.timestampMs : Date.now();
+    const energyRms = Number.isFinite(sample.rms) ? sample.rms : 0;
+    const speechDetected = isSpeechFrameEnergy({
+      energyRms,
+      speechThresholdRms: MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
+    });
+    const vad = vadStateRef.current;
+
+    if (speechDetected) {
+      const speechOnset = !vad.speechDetected;
+      vad.speechDetected = true;
+      vad.lastSpeechDetectedAtMs = timestampMs;
+      vad.endpointQueued = false;
+      if (speechOnset && (conversationTurnState === 'agent_speaking' || isAssistantSpeaking)) {
+        void handleCaptureStartBargeIn('vad_speech_onset');
+      }
+      return;
+    }
+
+    if (!vad.speechDetected || !vad.lastSpeechDetectedAtMs) {
+      return;
+    }
+    if (
+      hasSilenceEndpointElapsed({
+        lastSpeechDetectedAtMs: vad.lastSpeechDetectedAtMs,
+        nowMs: timestampMs,
+        endpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+      })
+    ) {
+      requestVadEndpointStop(
+        source === 'meter' ? 'vad_meter_silence_timeout' : 'vad_frame_silence_timeout',
+        timestampMs
+      );
+    }
+  }, [
+    conversationTurnState,
+    handleCaptureStartBargeIn,
+    isAssistantSpeaking,
+    isVoiceCaptureActive,
+    requestVadEndpointStop,
+  ]);
   const emitConversationEvent = useCallback((
     eventType: ConversationEventType,
     eventPayload?: Record<string, unknown>,
@@ -627,6 +938,60 @@ export default function ConversationScreen() {
     lastConversationEventRef.current = eventKey;
     console.info('[conversation_event]', envelope);
   }, [conversationReasonCode, conversationState, currentConversationId, visionSourceMode]);
+
+  useEffect(() => {
+    if (!isVoiceModeOpen || !hasConversationStarted) {
+      setIsVoiceCaptureActive(false);
+    }
+  }, [hasConversationStarted, isVoiceModeOpen]);
+
+  useEffect(() => {
+    setConversationTurnState((current) => reduceConversationTurnState({
+      state: current,
+      event: {
+        type: 'sync',
+        activity: {
+          conversationStarted: isVoiceModeOpen && hasConversationStarted && !isConversationEnding,
+          isRecording: isVoiceCaptureActive,
+          isThinking: isTranscribing || isLoading,
+          isAssistantSpeaking,
+        },
+      },
+    }));
+  }, [
+    hasConversationStarted,
+    isAssistantSpeaking,
+    isConversationEnding,
+    isLoading,
+    isTranscribing,
+    isVoiceCaptureActive,
+    isVoiceModeOpen,
+  ]);
+
+  useEffect(() => {
+    const transition = resolveAssistantPlaybackBargeInTransition({
+      state: bargeInStateRef.current,
+      isAssistantSpeaking,
+    });
+    bargeInStateRef.current = transition.state;
+  }, [isAssistantSpeaking]);
+
+  useEffect(() => {
+    if (isVoiceCaptureActive) {
+      return;
+    }
+    const transition = reduceVoiceBargeInState({
+      state: bargeInStateRef.current,
+      event: 'user_capture_stopped',
+    });
+    bargeInStateRef.current = transition.state;
+  }, [isVoiceCaptureActive]);
+
+  useEffect(() => {
+    if (!isVoiceModeOpen || !hasConversationStarted) {
+      resetVadState('voice_mode_inactive');
+    }
+  }, [hasConversationStarted, isVoiceModeOpen, resetVadState]);
 
   useEffect(() => {
     const transportMode =
@@ -834,7 +1199,7 @@ export default function ConversationScreen() {
   }, [currentConversationId]);
 
   useEffect(() => {
-    if (!shouldSpeakReplies || !awaitingAssistantSpeechRef.current) {
+    if (!canRunAssistantAutospeak() || !awaitingAssistantSpeechRef.current) {
       return;
     }
     const lastAssistantMessage =
@@ -850,19 +1215,18 @@ export default function ConversationScreen() {
       messageId: lastAssistantMessage.id,
       awaitingAssistantSpeech: awaitingAssistantSpeechRef.current,
     });
-    setIsAssistantSpeaking(true);
+    const claimedTurnToken = claimAwaitingAssistantSpeechTurn('messages_autospeak');
+    if (!claimedTurnToken) {
+      return;
+    }
     void (async () => {
       try {
-        await mobileVoiceRuntime.synthesizeAndPlay(lastAssistantMessage.content);
-      } catch {
-        await speakWithSystemFallback(lastAssistantMessage.content);
+        await synthesizeAssistantReply(lastAssistantMessage.content, 'messages_autospeak');
       } finally {
-        setIsAssistantSpeaking(false);
         lastSpokenAssistantMessageIdRef.current = lastAssistantMessage.id;
       }
     })();
-    awaitingAssistantSpeechRef.current = false;
-  }, [agentVoiceId, messages, mobileVoiceRuntime, shouldSpeakReplies, speakWithSystemFallback]);
+  }, [canRunAssistantAutospeak, claimAwaitingAssistantSpeechTurn, messages, synthesizeAssistantReply]);
 
   const runCommandGate = useCallback(
     (command: string, sourceId?: string) => {
@@ -1169,6 +1533,7 @@ export default function ConversationScreen() {
         setInputText(messageText);
       }
       awaitingAssistantSpeechRef.current = false;
+      awaitingAssistantSpeechTurnTokenRef.current = null;
       const alertMessage = sendResult.error || t('chat.sendFailedBody');
       const creditActionUrl = resolveCreditActionUrl(sendResult.actionUrl);
       if (creditActionUrl) {
@@ -1194,7 +1559,13 @@ export default function ConversationScreen() {
       return false;
     }
 
-    awaitingAssistantSpeechRef.current = shouldSpeakReplies;
+    if (canRunAssistantAutospeak()) {
+      const turnToken = reserveAssistantAutospeakTurn('chat_send');
+      armAwaitingAssistantSpeech(turnToken, 'chat_send');
+    } else {
+      awaitingAssistantSpeechRef.current = false;
+      awaitingAssistantSpeechTurnTokenRef.current = null;
+    }
     setPendingAttachments([]);
     setCameraRuntime(undefined);
     setIsLoading(false);
@@ -1215,9 +1586,11 @@ export default function ConversationScreen() {
     visionSourceMode,
     metaBridgeConnectionState,
     metaBridgeStatus,
-    shouldSpeakReplies,
+    canRunAssistantAutospeak,
     mobileVoiceRuntime,
     mobileVideoRuntime,
+    reserveAssistantAutospeakTurn,
+    armAwaitingAssistantSpeech,
     t,
   ]);
 
@@ -1369,9 +1742,18 @@ export default function ConversationScreen() {
     setIsConversationEnding(false);
     setPolicyError(null);
     setConversationReasonCode(undefined);
+    assistantSpeechCancelEpochRef.current += 1;
+    assistantSpeechCanceledThroughSequenceRef.current = assistantSpeechRequestSequenceRef.current;
+    awaitingAssistantSpeechRef.current = false;
+    awaitingAssistantSpeechTurnTokenRef.current = null;
+    consumedAssistantAutospeakTurnTokenRef.current = null;
+    finalFrameFinalizeMutexRef.current = false;
+    lastFinalizedFrameSequenceRef.current = null;
     starterKickoffPendingRef.current = true;
     starterKickoffInFlightRef.current = false;
     starterKickoffCompletedRef.current = false;
+    resetVadState('conversation_started');
+    setVoiceCaptureStopSignal(0);
     mobileVoiceRuntime.clearPartialTranscript('conversation_started');
     setHasConversationStarted(true);
   }, [
@@ -1382,6 +1764,7 @@ export default function ConversationScreen() {
     mobileVoiceRuntime,
     metaBridgeStatus,
     metaVisionReadiness.ready,
+    resetVadState,
   ]);
 
   const handleEndConversation = useCallback((reason: string = 'explicit_stop') => {
@@ -1396,16 +1779,30 @@ export default function ConversationScreen() {
       reason,
       activeConversationId,
     });
-    awaitingAssistantSpeechRef.current = false;
-    setIsAssistantSpeaking(false);
-    void stopVoicePlayback();
+    isVoiceModeOpenRef.current = false;
+    hasConversationStartedRef.current = false;
+    isConversationEndingRef.current = true;
+    setIsVoiceModeOpen(false);
     setIsConversationEnding(true);
     setHasConversationStarted(false);
+    setIsVoiceCaptureActive(false);
+    setVoiceCaptureStopSignal((current) => current + 1);
+    setConversationTurnState('idle');
+    setIsTranscribing(false);
+    setIsLoading(false);
+    setIsAssistantSpeaking(false);
+    clearPendingAssistantSpeechEffects(`conversation_end:${reason}`);
+    finalFrameFinalizeMutexRef.current = false;
+    lastFinalizedFrameSequenceRef.current = null;
+    bargeInStateRef.current = 'idle';
+    resetVadState(`conversation_end_requested:${reason}`);
+    mobileVoiceRuntime.clearPartialTranscript(`conversation_end_requested:${reason}`);
+    const cancelRequestedPromise = cancelAssistantSpeech(`conversation_end_requested:${reason}`);
     void (async () => {
       try {
+        await cancelRequestedPromise;
         await closeVoiceSession(`conversation_end:${reason}`);
-        await stopVoicePlayback();
-        setIsAssistantSpeaking(false);
+        await cancelAssistantSpeech(`conversation_end_closed:${reason}`);
         if (activeConversationId) {
           if (activeConversationId !== currentConversationId) {
             setCurrentConversation(activeConversationId);
@@ -1426,18 +1823,23 @@ export default function ConversationScreen() {
         starterKickoffPendingRef.current = false;
         starterKickoffInFlightRef.current = false;
         starterKickoffCompletedRef.current = true;
+        finalFrameFinalizeMutexRef.current = false;
         endConversationInFlightRef.current = false;
+        isConversationEndingRef.current = false;
         setIsConversationEnding(false);
       }
     })();
   }, [
     closeVoiceSession,
+    cancelAssistantSpeech,
+    clearPendingAssistantSpeechEffects,
     currentConversationId,
     getActiveVoiceSession,
     logVoiceLifecycle,
     loadConversation,
+    mobileVoiceRuntime,
+    resetVadState,
     setCurrentConversation,
-    stopVoicePlayback,
     guardedSyncConversations,
   ]);
 
@@ -1513,7 +1915,7 @@ export default function ConversationScreen() {
       !isVoiceModeOpen
       || !hasConversationStarted
       || isConversationEnding
-      || !shouldSpeakReplies
+      || !canRunAssistantAutospeak()
       || !starterKickoffPendingRef.current
       || starterKickoffInFlightRef.current
       || starterKickoffCompletedRef.current
@@ -1530,17 +1932,13 @@ export default function ConversationScreen() {
         conversationId: activeSession.conversationId,
         voiceSessionId: activeSession.voiceSessionId,
       });
-      setIsAssistantSpeaking(true);
       try {
-        await mobileVoiceRuntime.synthesizeAndPlay(conversationStarterText);
+        if (!canRunAssistantAutospeak()) {
+          return;
+        }
+        await synthesizeAssistantReply(conversationStarterText, 'starter_kickoff');
         console.info('[VoiceReply] starter_kickoff_spoken');
-      } catch (error) {
-        console.warn('[VoiceReply] starter_kickoff_fallback', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        await speakWithSystemFallback(conversationStarterText);
       } finally {
-        setIsAssistantSpeaking(false);
         starterKickoffInFlightRef.current = false;
         starterKickoffPendingRef.current = false;
         starterKickoffCompletedRef.current = true;
@@ -1548,13 +1946,12 @@ export default function ConversationScreen() {
     })();
   }, [
     conversationStarterText,
+    canRunAssistantAutospeak,
     getActiveVoiceSession,
     hasConversationStarted,
     isConversationEnding,
     isVoiceModeOpen,
-    mobileVoiceRuntime,
-    speakWithSystemFallback,
-    shouldSpeakReplies,
+    synthesizeAssistantReply,
   ]);
 
   useEffect(() => {
@@ -1678,14 +2075,16 @@ export default function ConversationScreen() {
     options?: { autoSend?: boolean }
   ) => {
     if (
-      shouldBargeInInterruptPlayback({
-        isAssistantSpeaking,
-        isUserCaptureStarting: true,
-      })
+      !isVoiceModeOpenRef.current
+      || !hasConversationStartedRef.current
+      || isConversationEndingRef.current
     ) {
-      await mobileVoiceRuntime.stopPlayback();
-      setIsAssistantSpeaking(false);
+      logVoiceLifecycle('voice_recording_drop_inactive_conversation', {
+        reason: 'conversation_not_live',
+      });
+      return;
     }
+    await handleCaptureStartBargeIn('tap_capture_start');
     if (!ensureVisionSourceReady()) {
       return;
     }
@@ -1703,7 +2102,7 @@ export default function ConversationScreen() {
       if (visionSourceMode === 'meta_glasses') {
         const bridgeStatus = await metaBridge.recordAudioIngress({
           timestampMs: Date.now(),
-          sampleRate: 16_000,
+          sampleRate: 24_000,
           packets: 1,
         });
         setMetaBridgeStatus(bridgeStatus);
@@ -1782,10 +2181,34 @@ export default function ConversationScreen() {
   };
 
   const handleLiveVoiceFrame = useCallback(async (frame: VoiceRecorderFrame) => {
+    const frameTimestampMs = Number.isFinite(frame.timestampMs) ? frame.timestampMs : Date.now();
+    const frameEnergyRms = Number.isFinite(frame.energyRms) ? frame.energyRms : 0;
+    handleVoiceEnergySample({
+      sequence: frame.sequence,
+      rms: frameEnergyRms,
+      timestampMs: frameTimestampMs,
+    }, 'frame');
+    if (
+      !isVoiceModeOpenRef.current
+      || !hasConversationStartedRef.current
+      || isConversationEndingRef.current
+    ) {
+      if (frame.isFinal) {
+        mobileVoiceRuntime.clearPartialTranscript('conversation_not_live_frame_drop');
+      }
+      logVoiceLifecycle('voice_frame_drop_inactive_conversation', {
+        sequence: frame.sequence,
+        isFinal: frame.isFinal,
+        durationMs: frame.durationMs,
+      });
+      return;
+    }
+
     if (frame.isFinal && isAssistantSpeaking) {
       logVoiceLifecycle('voice_frame_final_dropped_assistant_speaking', {
         sequence: frame.sequence,
         durationMs: frame.durationMs,
+        energyRms: frameEnergyRms,
       });
       mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_final_frame_drop');
       setVoiceRuntime((prev) => ({
@@ -1793,18 +2216,10 @@ export default function ConversationScreen() {
         sessionState: 'stream_final_ignored',
         frameSequence: frame.sequence,
         frameDurationMs: frame.durationMs,
+        frameEnergyRms,
         droppedReason: 'assistant_speaking',
       }));
       return;
-    }
-    if (
-      shouldBargeInInterruptPlayback({
-        isAssistantSpeaking,
-        isUserCaptureStarting: true,
-      })
-    ) {
-      await mobileVoiceRuntime.stopPlayback();
-      setIsAssistantSpeaking(false);
     }
     if (!ensureVisionSourceReady()) {
       return;
@@ -1834,6 +2249,7 @@ export default function ConversationScreen() {
             sessionState: 'streaming',
             frameSequence: frame.sequence,
             frameDurationMs: frame.durationMs,
+            frameEnergyRms,
             startedAt,
             stoppedAt: Date.now(),
           }));
@@ -1866,6 +2282,9 @@ export default function ConversationScreen() {
       partialTranscript: mobileVoiceRuntime.partialTranscript || undefined,
       frameSequence: frame.sequence,
       frameDurationMs: frame.durationMs,
+      frameEnergyRms,
+      vadSpeechGateRms: MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
+      vadEndpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
       startedAt,
       stoppedAt: Date.now(),
       transport: mobileVoiceRuntime.transportSelection.effectiveMode,
@@ -1882,95 +2301,131 @@ export default function ConversationScreen() {
     }));
 
     if (frame.isFinal) {
-      if (isAssistantSpeaking) {
-        logVoiceLifecycle('voice_frame_finalize_skipped_assistant_speaking', {
+      const finalizeGuard = evaluateFinalFrameFinalizeGuard({
+        isFinalFrame: frame.isFinal,
+        frameSequence: frame.sequence,
+        isAssistantSpeaking: isAssistantSpeaking || conversationTurnState === 'agent_speaking',
+        finalizeInFlight: finalFrameFinalizeMutexRef.current,
+        lastFinalizedSequence: lastFinalizedFrameSequenceRef.current,
+      });
+      if (!finalizeGuard.allowFinalize) {
+        if (finalizeGuard.reason === 'assistant_speaking') {
+          logVoiceLifecycle('voice_frame_finalize_skipped_assistant_speaking', {
+            sequence: frame.sequence,
+          });
+          mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_finalize_skip');
+          return;
+        }
+        logVoiceLifecycle('voice_frame_finalize_guard_blocked', {
           sequence: frame.sequence,
+          reason: finalizeGuard.reason,
         });
-        mobileVoiceRuntime.clearPartialTranscript('assistant_speaking_finalize_skip');
         return;
       }
-      const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
-        sequence: frame.sequence,
-      });
-      if (finalization?.text) {
-        setVoiceRuntime((prev) => ({
-          ...(prev || {}),
-          transcript: finalization.text,
-          partialTranscript: finalization.text,
-          sessionState: 'stream_committed',
-          finalizedSequence: finalization.sequence,
-          committedAt: Date.now(),
-        }));
-        if (ingestResult?.orchestration?.status === 'triggered') {
-          const realtimeAssistantText = ingestResult.orchestration.assistantText?.trim();
-          const resolvedConversationId =
-            activeVoiceSession?.conversationId || currentConversationId || undefined;
-          console.info('[VoiceReply] orchestration_triggered', {
-            hasInlineAssistantText: Boolean(realtimeAssistantText),
-            resolvedConversationId,
-          });
-          if (shouldSpeakReplies && realtimeAssistantText) {
-            setIsAssistantSpeaking(true);
-            try {
-              await mobileVoiceRuntime.synthesizeAndPlay(realtimeAssistantText);
-            } catch {
-              await speakWithSystemFallback(realtimeAssistantText);
-            } finally {
-              setIsAssistantSpeaking(false);
-            }
-          }
-          if (shouldSpeakReplies && !realtimeAssistantText) {
-            awaitingAssistantSpeechRef.current = true;
-            console.info('[VoiceReply] awaiting_assistant_text_refresh', {
+
+      finalFrameFinalizeMutexRef.current = true;
+      lastFinalizedFrameSequenceRef.current = frame.sequence;
+      try {
+        const finalization = mobileVoiceRuntime.finalizeStreamingUtterance({
+          sequence: frame.sequence,
+        });
+        if (finalization?.text) {
+          setVoiceRuntime((prev) => ({
+            ...(prev || {}),
+            transcript: finalization.text,
+            partialTranscript: finalization.text,
+            sessionState: 'stream_committed',
+            finalizedSequence: finalization.sequence,
+            committedAt: Date.now(),
+          }));
+          if (ingestResult?.orchestration?.status === 'triggered') {
+            const realtimeAssistantText = ingestResult.orchestration.assistantText?.trim();
+            const resolvedConversationId =
+              activeVoiceSession?.conversationId || currentConversationId || undefined;
+            const assistantAutospeakTurnToken = reserveAssistantAutospeakTurn('realtime_orchestration');
+            const autospeakAllowed = canRunAssistantAutospeak();
+            console.info('[VoiceReply] orchestration_triggered', {
+              hasInlineAssistantText: Boolean(realtimeAssistantText),
               resolvedConversationId,
+              assistantAutospeakTurnToken,
+              autospeakAllowed,
             });
-          }
-          try {
-            if (resolvedConversationId) {
-              await loadConversation(resolvedConversationId, { allowUnknownId: true });
+            if (autospeakAllowed && realtimeAssistantText) {
+              consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnToken;
+              awaitingAssistantSpeechRef.current = false;
+              awaitingAssistantSpeechTurnTokenRef.current = null;
+              await synthesizeAssistantReply(
+                realtimeAssistantText,
+                'realtime_inline_orchestration'
+              );
+            } else if (autospeakAllowed) {
+              armAwaitingAssistantSpeech(
+                assistantAutospeakTurnToken,
+                'realtime_orchestration_refresh'
+              );
+              console.info('[VoiceReply] awaiting_assistant_text_refresh', {
+                resolvedConversationId,
+                assistantAutospeakTurnToken,
+              });
             } else {
-              await guardedSyncConversations();
+              awaitingAssistantSpeechRef.current = false;
+              awaitingAssistantSpeechTurnTokenRef.current = null;
             }
-            if (shouldSpeakReplies && !realtimeAssistantText && resolvedConversationId) {
-              const refreshedConversation = getConversationById(resolvedConversationId);
-              const refreshedAssistantMessage =
-                [...(refreshedConversation?.messages || [])]
-                  .reverse()
-                  .find((message) => message.role === 'assistant') || null;
-              const refreshedAssistantText = refreshedAssistantMessage?.content?.trim() || '';
-              if (refreshedAssistantText) {
-                console.info('[VoiceReply] autospeak_from_refreshed_conversation', {
-                  resolvedConversationId,
-                  messageId: refreshedAssistantMessage?.id || undefined,
-                });
-                setIsAssistantSpeaking(true);
-                try {
-                  await mobileVoiceRuntime.synthesizeAndPlay(refreshedAssistantText);
-                } catch {
-                  await speakWithSystemFallback(refreshedAssistantText);
-                } finally {
-                  setIsAssistantSpeaking(false);
-                  awaitingAssistantSpeechRef.current = false;
-                  if (refreshedAssistantMessage?.id) {
-                    lastSpokenAssistantMessageIdRef.current = refreshedAssistantMessage.id;
+            try {
+              if (resolvedConversationId) {
+                await loadConversation(resolvedConversationId, { allowUnknownId: true });
+              } else {
+                await guardedSyncConversations();
+              }
+              if (canRunAssistantAutospeak() && !realtimeAssistantText && resolvedConversationId) {
+                const refreshedConversation = getConversationById(resolvedConversationId);
+                const refreshedAssistantMessage =
+                  [...(refreshedConversation?.messages || [])]
+                    .reverse()
+                    .find((message) => message.role === 'assistant') || null;
+                const refreshedAssistantText = refreshedAssistantMessage?.content?.trim() || '';
+                if (refreshedAssistantText) {
+                  console.info('[VoiceReply] autospeak_from_refreshed_conversation', {
+                    resolvedConversationId,
+                    messageId: refreshedAssistantMessage?.id || undefined,
+                    assistantAutospeakTurnToken,
+                  });
+                  const claimedTurnToken = claimAwaitingAssistantSpeechTurn(
+                    'realtime_refreshed_conversation'
+                  );
+                  if (claimedTurnToken) {
+                    await synthesizeAssistantReply(
+                      refreshedAssistantText,
+                      'realtime_refreshed_conversation'
+                    );
+                    if (refreshedAssistantMessage?.id) {
+                      lastSpokenAssistantMessageIdRef.current = refreshedAssistantMessage.id;
+                    }
                   }
                 }
               }
+            } catch (error) {
+              console.warn('Failed to refresh conversation after realtime voice turn:', error);
             }
-          } catch (error) {
-            console.warn('Failed to refresh conversation after realtime voice turn:', error);
+            return;
           }
-          return;
-        }
-        if (frame.isFinal && !ingestResult) {
+          if (!ingestResult) {
+            await sendTextMessage(finalization.text);
+            return;
+          }
           await sendTextMessage(finalization.text);
-          return;
         }
-        await sendTextMessage(finalization.text);
+      } finally {
+        finalFrameFinalizeMutexRef.current = false;
       }
     }
   }, [
+    conversationTurnState,
     isAssistantSpeaking,
+    armAwaitingAssistantSpeech,
+    claimAwaitingAssistantSpeechTurn,
+    handleVoiceEnergySample,
+    logVoiceLifecycle,
     mobileVoiceRuntime,
     ensureVisionSourceReady,
     getActiveVoiceSourceId,
@@ -1984,28 +2439,39 @@ export default function ConversationScreen() {
     metaBridgeConnectionState,
     avSourceScope,
     metaBridgeStatus,
-    speakWithSystemFallback,
-    shouldSpeakReplies,
+    canRunAssistantAutospeak,
     resolvedAgentVoiceLanguage,
+    reserveAssistantAutospeakTurn,
     sendTextMessage,
+    synthesizeAssistantReply,
   ]);
 
   const handleBeforeVoiceCapture = useCallback(async () => {
+    if (
+      !isVoiceModeOpenRef.current
+      || !hasConversationStartedRef.current
+      || isConversationEndingRef.current
+    ) {
+      logVoiceLifecycle('voice_capture_before_start_ignored', {
+        reason: 'conversation_not_live',
+      });
+      return;
+    }
     logVoiceLifecycle('voice_capture_before_start');
+    finalFrameFinalizeMutexRef.current = false;
+    resetVadState('capture_start_requested');
     mobileVoiceRuntime.clearPartialTranscript('before_voice_capture');
+    await handleCaptureStartBargeIn('tap_capture_start');
     if (!mobileVoiceRuntime.getActiveSession()) {
       await openVoiceSession();
     }
-    if (
-      shouldBargeInInterruptPlayback({
-        isAssistantSpeaking,
-        isUserCaptureStarting: true,
-      })
-    ) {
-      await mobileVoiceRuntime.stopPlayback();
-      setIsAssistantSpeaking(false);
-    }
-  }, [isAssistantSpeaking, logVoiceLifecycle, mobileVoiceRuntime, openVoiceSession]);
+  }, [
+    handleCaptureStartBargeIn,
+    logVoiceLifecycle,
+    mobileVoiceRuntime,
+    openVoiceSession,
+    resetVadState,
+  ]);
 
   const handleApprovePending = useCallback(async (executionId: string) => {
     setApprovalActionId(executionId);
@@ -2031,16 +2497,11 @@ export default function ConversationScreen() {
     }
   };
   const handleMessageActionSpeak = useCallback(async (content: string) => {
-    try {
-      await mobileVoiceRuntime.synthesizeAndPlay(content);
-    } catch {
-      await speakWithSystemFallback(content);
-    }
-  }, [mobileVoiceRuntime, speakWithSystemFallback]);
+    await synthesizeAssistantReply(content, 'message_action');
+  }, [synthesizeAssistantReply]);
   const handleMessageActionStopSpeak = useCallback(async () => {
-    await mobileVoiceRuntime.stopPlayback();
-    Speech.stop();
-  }, [mobileVoiceRuntime]);
+    await cancelAssistantSpeech('message_action_stop');
+  }, [cancelAssistantSpeech]);
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -2441,10 +2902,10 @@ export default function ConversationScreen() {
                 gap="$2"
               >
                 <Text color="$color" fontSize="$2" fontWeight="700">
-                  Conversation {hasConversationStarted ? 'live' : 'idle'}
+                  Turn {liveTurnHudLabel}
                 </Text>
                 <Text color="$colorTertiary" fontSize="$2">
-                  {conversationMode === 'voice_with_eyes' ? 'Voice + Eyes' : 'Voice only'} • {liveHudStatusLabel}
+                  {conversationMode === 'voice_with_eyes' ? 'Voice + Eyes' : 'Voice only'} • {liveHudStatusLabel} • source:{liveHudSourceLabel}
                 </Text>
               </XStack>
             )}
@@ -2730,13 +3191,7 @@ export default function ConversationScreen() {
         isOpen={isVoiceModeOpen}
         onClose={() => {
           logVoiceLifecycle('voice_modal_on_close');
-          awaitingAssistantSpeechRef.current = false;
-          void mobileVoiceRuntime.stopPlayback();
-          setIsAssistantSpeaking(false);
           handleEndConversation('modal_request_close');
-          setIsVoiceModeOpen(false);
-          setHasConversationStarted(false);
-          mobileVoiceRuntime.clearPartialTranscript();
         }}
         conversationMode={conversationMode}
         onConversationModeChange={setConversationMode}
@@ -2751,28 +3206,29 @@ export default function ConversationScreen() {
         conversationStarted={hasConversationStarted}
         onStartConversation={handleStartConversation}
         onEndConversation={() => {
-          awaitingAssistantSpeechRef.current = false;
-          void mobileVoiceRuntime.stopPlayback();
-          setIsAssistantSpeaking(false);
           handleEndConversation('orb_stop_control');
-          setIsVoiceModeOpen(false);
-          mobileVoiceRuntime.clearPartialTranscript();
         }}
         hudStatusLabel={liveHudStatusLabel}
+        conversationTurnState={conversationTurnState}
+        conversationEnding={isConversationEnding}
+        onRecordingStateChange={setIsVoiceCaptureActive}
         onRecordingComplete={(uri, duration) => {
           void handleVoiceRecording(uri, duration, { autoSend: true });
         }}
         onAudioFrame={(frame) => {
           return handleLiveVoiceFrame(frame);
         }}
+        onAudioEnergySample={(sample) => {
+          handleVoiceEnergySample(sample, 'meter');
+        }}
+        captureStopSignal={voiceCaptureStopSignal}
         isTranscribing={isTranscribing}
-        isLoading={isLoading}
         agentName={agentName}
         latestUserMessage={latestUserMessage}
         latestAssistantMessage={latestAssistantMessage}
         partialTranscript={mobileVoiceRuntime.partialTranscript}
-        isAssistantSpeaking={isAssistantSpeaking}
         onBeforeCapture={handleBeforeVoiceCapture}
+        recorderAutoStartDebounceMs={MOBILE_VOICE_RECORDER_AUTOSTART_DEBOUNCE_DEFAULT_MS}
       />
 
       {/* Message Actions */}

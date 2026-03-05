@@ -1,6 +1,6 @@
 # Operator Mobile Realtime Voice Runtime Master Plan
 
-**Date:** 2026-03-03  
+**Date:** 2026-03-05  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime`
 
 ---
@@ -19,11 +19,29 @@ Then layer video feed integration on the same runtime contract after voice relea
 
 Then implement `conversation_interaction_v1` in the main AI chat UI (web + desktop + iPhone) so agents can be validated quickly with back-and-forth audio/video feed sessions.
 
-Execution snapshot (2026-03-03):
+Then execute post-audit lane `M` to close mobile PCM contract drift and implement unified turn-state/VAD/barge-in/race-cleanup behavior without regressing existing ORV invariants.
+
+Execution snapshot (2026-03-05):
 
 1. `ORV-026` is `DONE` with canonical web/desktop conversation state machine + persistent HUD (`idle`, `connecting`, `live`, `reconnecting`, `ending`, `ended`, `error`) and standardized `conversation_*` events with deterministic reason-code mapping.
 2. `ORV-033` is `DONE` with iPhone canonical state/event parity and shared deterministic reason taxonomy.
-3. `ORV-028`, `ORV-029`, `ORV-035`, and `ORV-030` are now `DONE` (2026-03-03); cross-surface parity gate and final smoke evidence are complete, while lane `K` remains intentionally pending.
+3. `ORV-028`, `ORV-029`, `ORV-035`, and `ORV-030` are `DONE` (2026-03-03); cross-surface parity gate and final smoke evidence are complete.
+4. Lane `K` software hardening is complete: `ORV-036`, `ORV-037`, and `ORV-038` are `DONE`; DAT-native production acceptance remains gated by `ORV-023` physical-device evidence.
+5. Lane `L` baseline + implementation execution is complete: `ORV-039` through `ORV-044` are `DONE` after final regression/go-no-go closure.
+6. Lane `L` non-negotiable gate is now deterministic: transport must implement both `websocket_primary` and `webrtc_fallback` routes; STT must implement both `scribe_v2_realtime_primary` and `gemini_native_audio_failover` routes before `ORV-044` can be `DONE`.
+7. Cross-workstream truth gate (`ARH-M-001`): DAT-native readiness is `NO_GO` until `ORV-023` physical-device artifacts exist for both iOS and Android; existing lane-`L` `GO` evidence is non-DAT scope only.
+8. Lane `M` corrective tranche is complete from the 2026-03-05 audit: `ORV-045` through `ORV-052` are `DONE`.
+9. Lane `M` `P0` gate evidence is complete: mobile PCM defaults are enforced at `24_000 Hz` and `voice_transport_v1` envelope validation now rejects non-contract sample rates fail-closed before behavioral refactor rows.
+10. Lane `M` closeout parity evidence (`ORV-052`) is now complete with explicit web/desktop parity impact `none` after `ORV-050` mode-switch cleanup closure and `ORV-051` state-driven HUD mapping completion.
+
+## Cross-workstream DAT-native blocker ledger (`ARH-M-001` sync)
+
+| Claim scope | Status | Gate | Required artifacts | Owner | Next review date |
+|---|---|---|---|---|---|
+| DAT-native production readiness (iOS + Android Meta DAT callback path) | `NO_GO` | `ORV-023` = `BLOCKED` | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/artifacts/orv-023/physical-device/ios/`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/artifacts/orv-023/physical-device/android/`; canary decision log update in `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/ORV_014_CANARY_EXECUTION_LOG.md` | Lane `H` mobile runtime + device QA owners (`ORV-023`) | `2026-03-12` |
+| Web/desktop realtime PCM migration and non-DAT conversation flows | `GO` | `ORV-044` = `DONE` | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/ORV_014_CANARY_EXECUTION_LOG.md` (`ORV-044` section) | Lane `L` owners (`ORV-044`) | `2026-03-12` |
+
+Stale-claim invalidation rule: any `GO` statement that implies DAT-native readiness without both physical-device artifact bundles is stale and must be interpreted as `NO_GO`.
 
 ---
 
@@ -55,6 +73,21 @@ Execution snapshot (2026-03-03):
 9. Concurrent rollout policy is explicit:
    - lane `I` (web/desktop) and lane `J` (iPhone) can execute in parallel with one active row per lane,
    - final smoke promotion requires cross-surface parity checkpoint completion.
+10. Raw audio truthfulness is explicit:
+   - if an envelope claims PCM metadata, payload bytes must be PCM,
+   - containerized payloads (`webm`/`mp4`) are treated as fallback transport artifacts and cannot be mislabeled as PCM primary path.
+11. Mobile PCM contract parity is explicit in lane `M`:
+   - mobile frame and bridge defaults must align to `24_000 Hz`,
+   - schema validators must reject non-contract sample rates for `voice_transport_v1` envelopes in lane `M` acceptance scope.
+12. Mobile turn flow is explicitly reducer-driven in lane `M`:
+   - canonical turn states are `idle`, `listening`, `thinking`, `agent_speaking`,
+   - UI/HUD rendering and capture/playback transitions derive from reducer state, not distributed boolean heuristics.
+13. Lane `M` cleanup is fail-closed:
+   - mode switch to chat must reset turn state and cancel pending autospeak/synthesis work,
+   - no transcribing/loading bleed is allowed across mode boundaries.
+14. Lane `M` isolation rule:
+   - preserve ORV-010 through ORV-044 invariants and `/api/v1/ai/voice/*` compatibility,
+   - do not modify `convex/ai/agentExecution.ts`.
 
 ---
 
@@ -142,6 +175,23 @@ Execution snapshot (2026-03-03):
 5. Prioritize fast feed validation loops for agent back-and-forth testing (`voice` and `voice_with_eyes`).
 6. Execute iPhone parity in parallel with web/desktop while preserving identical mode/state/reason-code behavior.
 
+### Layer 7: Web/Desktop reference parity remediation (lane `L`)
+
+1. Replace `MediaRecorder` container-first capture with fixed-frame PCM capture for ElevenLabs primary STT path.
+2. Introduce persistent realtime STT session handling (`scribe_v2_realtime`) with partial/final transcript streaming.
+3. Add streaming TTS path parity so web/desktop interruption behavior matches existing realtime lanes.
+4. Keep batch upload and one-shot synthesis routes as explicit resilience fallback until regression evidence confirms promotion.
+
+### Layer 8: Mobile post-audit corrective closure (lane `M`)
+
+1. Enforce mobile PCM parity by aligning frame/bridge defaults and strict envelope validation to frozen `24_000 Hz` contract values.
+2. Add unified `ConversationTurnState` reducer and wire all mobile turn-flow transitions through it (`index.tsx` and `VoiceModeModal.tsx`).
+3. Add per-frame RMS reporting and VAD endpointing (`0.015` threshold, `320ms` silence) to auto-finalize user utterances.
+4. Make barge-in proactive by stopping playback and cancelling in-flight TTS immediately on capture start/speech onset during `agent_speaking`.
+5. Add race/guard controls: final-frame mutex, post-playback recorder debounce (`200-500ms`), and single-path assistant autospeak gating.
+6. Require full mode-switch teardown to `idle` with cancellation/reset semantics before returning to chat mode.
+7. Close with explicit parity verification across mobile and web/desktop conversation contracts.
+
 ---
 
 ## Risks and mitigations
@@ -158,6 +208,12 @@ Execution snapshot (2026-03-03):
    - Mitigation: authenticated session open, source attestation checks, per-session quotas and rate limits.
 6. **Voice regression from late video integration**
    - Mitigation: gated end-layer lane with explicit dependency on voice canary readiness and parity contract reuse.
+7. **Container/audio-contract mismatch risk (`pcm` metadata with non-PCM payloads)**
+   - Mitigation: explicit truthfulness guardrails, raw PCM capture path as primary, and regression checks proving corruption-class error elimination.
+8. **Mobile turn-state divergence risk (boolean drift vs reducer state)**
+   - Mitigation: canonical turn-state reducer + state-driven HUD/orb mapping + deterministic transition tests.
+9. **Lane `M` parity regression risk (mobile fixes diverge from web/desktop behavior)**
+   - Mitigation: lane `M` closeout requires explicit desktop/mobile parity reruns and documented impact report.
 
 ---
 
@@ -175,6 +231,12 @@ Execution snapshot (2026-03-03):
 10. Rapid smoke matrix evidence is published for web + desktop agent feed validation.
 11. iPhone parity lane completes with mobile e2e evidence for both `voice` and `voice_with_eyes`.
 12. Cross-surface parity checkpoint evidence is published before final smoke go/no-go.
+13. Lane `L` promotion evidence proves web/desktop primary capture/transcribe path no longer depends on containerized `audio/webm` uploads for ElevenLabs realtime flow.
+14. Lane `M` `P0` evidence proves mobile `voice_transport_v1` envelopes and bridge defaults use `24_000 Hz`, and schema validation rejects non-contract sample rates.
+15. Lane `M` turn-state evidence proves deterministic `idle -> listening -> thinking -> agent_speaking` loop semantics with no distributed-boolean fallback.
+16. Lane `M` VAD evidence proves auto-finalization at `320ms` endpoint silence after speech onset using per-frame RMS telemetry.
+17. Lane `M` race/guard evidence proves no dual-path autospeak, no final-frame/assistant overlap race, and recorder auto-start debounce stabilization.
+18. Lane `M` closeout evidence explicitly reports web/desktop parity impacts (or confirms none) and preserves DAT-native `NO_GO` status while `ORV-023` is `BLOCKED`.
 
 ---
 
@@ -475,3 +537,153 @@ Reference runbook:
    - `ORV-036`: `npm run mobile:typecheck`, `npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:e2e:mobile`, `npm run docs:guard`,
    - `ORV-037`: `npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:e2e:desktop`, `npm run test:e2e:mobile`, `npm run docs:guard`,
    - `ORV-038`: `npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:e2e:desktop`, `npm run test:e2e:mobile`, `npm run docs:guard`.
+
+## Reference projects vs current codebase gap analysis (ORV-039 baseline, 2026-03-04)
+
+1. ORV-039 execution outcome:
+   - Transition completed: `READY` -> `IN_PROGRESS` -> `DONE` (docs-only baseline freeze).
+   - Compatibility invariant preserved: `/api/v1/ai/voice/*` endpoints remain unchanged during baseline work.
+   - Fallback invariant preserved: existing batch transcribe/synthesize flows remain explicit resilience paths during lane `L` migration.
+2. Reference architecture baseline (local files):
+   - VisionClaw Android captures mono PCM16 and emits fixed ~100 ms chunks (`MIN_SEND_BYTES = 3200`) before sending (`AudioManager.kt` lines 15, 38-44, 87-94).
+   - VisionClaw Android sends `audio/pcm;rate=16000` over a persistent WebSocket realtime channel (`GeminiLiveService.kt` lines 146-159).
+   - Agents ElevenLabs STT uses persistent WebSocket realtime with `model_id = "scribe_v2_realtime"` and buffered chunk forwarding (`stt.py` lines 30, 83-120, 129-170).
+   - Agents ElevenLabs TTS supports WebSocket multi-context streaming (not one-shot only), including context open/flush/close sequencing (`tts.py` lines 40, 130-132, 197-231).
+   - Agents realtime transport uses deterministic PCM frame cadence (`20 ms`, mono) in WebRTC output path (`webrtc_handler.py` lines 31-35, 67-79, 90-130).
+3. Current runtime baseline (required files):
+   - `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx`:
+     - browser capture hard-requires `MediaRecorder` (lines 1332-1339),
+     - primary capture path selects container MIME via `MediaRecorder` (lines 1392-1397),
+     - transcription occurs on stop via accumulated blob upload (lines 1408-1455).
+   - `src/hooks/use-voice-runtime.ts`:
+     - transcription path uploads blob bytes and defaults MIME to `audio/webm` (lines 332-354),
+     - fallback path performs client-side WAV transcode + retry only after failure (lines 357-387).
+   - `convex/ai/voiceRuntimeAdapter.ts`:
+     - STT default model is `scribe_v1` (line 142),
+     - STT path is batch HTTP `/speech-to-text` form upload (lines 606-626),
+     - container relabel retry (`audio/webm` -> `audio/mp4`) is built into primary behavior (lines 600-603, 633-647),
+     - TTS path is one-shot POST synthesis (lines 730-744), not persistent multi-context streaming.
+4. Deterministic gap summary:
+   - Capture gap: containerized browser recording is primary; fixed PCM frame capture is absent.
+   - STT transport gap: batch upload + MIME retry is primary; persistent realtime STT session is absent.
+   - TTS transport gap: one-shot synthesis is primary; streaming multi-context parity is absent.
+   - Session topology gap: turn-based stop/send introduces avoidable latency and corruption-class failure exposure for short recordings.
+5. ORV-040 implementation checkpoint (2026-03-04):
+   - status transition: `READY` -> `IN_PROGRESS` -> `DONE`,
+   - web/desktop chat capture path now attempts PCM-first browser capture (`AudioWorkletNode` primary, `ScriptProcessorNode` fallback) and only uses `MediaRecorder` as explicit unsupported-browser fallback,
+   - `use-voice-runtime` transcribe path now prefers PCM/WAV MIME for ElevenLabs primary attempts and logs fixed-frame telemetry (`captureMethod`, `frameDurationMs`, `sampleRateHz`, `frameCount`, `frameBytes`) while retaining existing fallback semantics.
+6. Verification checkpoint for ORV-040:
+   - `npm run typecheck` passed,
+   - `npm run docs:guard` passed,
+   - `npm run test:unit` currently fails in unrelated audit-template/meta-bridge suites; approved baseline exemption accepted for ORV-040 promotion.
+7. ORV-041 implementation checkpoint (2026-03-04):
+   - status transition: `PENDING` -> `READY` -> `IN_PROGRESS` -> `DONE`,
+   - fixed PCM contract is enforced at ingest (`24kHz`, `20ms`, `960-byte`, Int16 mono frame) for realtime frame streaming paths,
+   - persistent transport route precedence is deterministic and explicit (`websocket_primary` first, `webrtc_fallback` on qualified failure),
+   - realtime STT precedence is deterministic and explicit (`scribe_v2_realtime_primary` first, `gemini_native_audio_failover` on qualified degradation),
+   - `/api/v1/ai/voice/*` compatibility is preserved and batch `/api/v1/ai/voice/transcribe` remains explicit resilience fallback.
+8. Verification checkpoint for ORV-041:
+   - `npm run typecheck` passed,
+   - `npm run test:integration` passed,
+   - `npm run docs:guard` passed,
+   - `npm run test:unit` continues to fail only in unrelated audit-template/meta-bridge suites; approved baseline exemption retained.
+9. ORV-042 implementation checkpoint (2026-03-04):
+   - status transition: `PENDING` -> `READY` -> `IN_PROGRESS` -> `DONE`,
+   - conversation runtime now declares deterministic duplex policy (`persistent_streaming_primary`) and deterministic interrupt policy (`client_vad_barge_in`) for web/desktop voice capture sessions,
+   - explicit client VAD policy is locked (`client_energy_gate`, `20ms` frame duration, `0.015` RMS threshold, `2` min speech frames, `320ms` endpoint silence),
+   - realtime JPEG forwarding now streams over the active live-session transport envelope channel using throttled cadence (`1250ms`) with explicit max-window controls (`8` frames / `10s`),
+   - `conversation_interaction_v1` taxonomy and `/api/v1/ai/voice/*` compatibility remain preserved.
+10. Verification checkpoint for ORV-042:
+   - `npm run typecheck` passed,
+   - `npm run docs:guard` passed,
+   - `npm run test:unit` retains unrelated baseline failures in `audit-template`, `audit-deliverable`, `mobileMetaBridgeContracts`, and `actionCompletionEvidenceContract`,
+   - `npm run test:e2e:desktop` retains unrelated onboarding handoff failure; `desktop-shell` lane assertions (including ORV-042 policy locks) pass.
+11. Dependency state after ORV-042 checkpoint:
+   - `ORV-043` moved to `READY` as the next promotable row; `ORV-044` remained `PENDING`.
+12. ORV-043 implementation checkpoint (2026-03-04):
+   - status transition: `PENDING` -> `READY` -> `IN_PROGRESS` -> `DONE`,
+   - ElevenLabs TTS now uses WebSocket multi-context synthesis as primary path in `convex/ai/voiceRuntimeAdapter.ts` with explicit `batch_synthesize_fallback` semantics preserved as resilience path,
+   - web/desktop runtime metadata now emits deterministic interruption-safe playback queue telemetry (`interruption_safe_serial_queue`) and explicit echo-cancellation strategy selection (`hardware_aec_capture_path` or `mute_mic_during_tts`) in `slick-chat-input.tsx` and `use-voice-runtime.ts`,
+   - ORV-043 echo-strategy policy lock coverage added in `tests/unit/ai/realtimeMediaSession.test.ts`.
+13. Verification checkpoint for ORV-043:
+   - `npm run typecheck` passed,
+   - `npm run test:integration` passed,
+   - `npm run docs:guard` passed,
+   - `npm run test:unit` retains unrelated baseline failures in `mobileMetaBridgeContracts`, `onboarding/audit-deliverable`, and `pdf/audit-template-registry`, while ORV-043 targeted suites (`voiceRuntimeAdapter`, `realtimeMediaSession`) pass.
+14. Dependency state after ORV-043 checkpoint:
+   - `ORV-044` is now `READY` (next promotable row),
+   - `ORV-023` blocker language and DAT-native physical-device evidence gate remain unchanged.
+15. ORV-044 execution checkpoint (2026-03-05):
+   - status transition: `READY` -> `IN_PROGRESS` -> `BLOCKED`,
+   - acceptance evidence for all eight non-negotiables and container-corruption elimination is documented in `ORV_014_CANARY_EXECUTION_LOG.md` (`ORV-044` section),
+   - verify stack was executed exactly (`npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:e2e:desktop`, `npm run docs:guard`) with escalated rerun for desktop e2e after sandbox bind failure.
+16. ORV-044 verify/go-no-go outcome (2026-03-05):
+   - `typecheck`: failed on shared compile regressions in `convex/ai/agentExecution.ts` (`authorityConfigRecord` redeclare + union mismatch),
+   - `test:unit`: failed on shared baseline suites (`mobileMetaBridgeContracts`, `onboarding/audit-deliverable`, `pdf/audit-template-registry`); ORV lane assertions (`voiceRuntimeAdapter`, `realtimeMediaSession`, `webVoiceRuntimePolicy`) remained green,
+   - `test:integration`: failed at esbuild transform due the same `convex/ai/agentExecution.ts` redeclare regression,
+   - `test:e2e:desktop`: failed in sandbox with `listen EPERM 127.0.0.1:3000`; escalated rerun completed and still failed on unrelated `tests/e2e/onboarding-audit-handoff.spec.ts` input-value mismatch while `tests/e2e/desktop-shell.spec.ts` lane assertions passed,
+   - `docs:guard`: passed.
+   - Go/no-go decision: `NO_GO`; row remains `BLOCKED` pending shared verify blocker resolution.
+17. ORV-044 closure checkpoint (2026-03-05):
+   - status transition: `BLOCKED` -> `IN_PROGRESS` -> `DONE`,
+   - non-`agentExecution.ts` verify blockers were cleared via contract-aligned test updates (`mobileMetaBridgeContracts`, `onboarding/audit-deliverable`, `pdf/audit-template-registry`, `onboarding-audit-handoff`),
+   - verify stack reran exactly in required order and passed: `npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:e2e:desktop`, `npm run docs:guard`.
+18. ORV-044 final go/no-go outcome (2026-03-05):
+   - Go/no-go decision: `GO`; `ORV-044` is `DONE`,
+   - this `GO` applies to lane-`L` non-DAT scope only; DAT-native readiness remains `NO_GO` while `ORV-023` is `BLOCKED`,
+   - acceptance evidence for all eight lane-`L` non-negotiables remains intact in `ORV_014_CANARY_EXECUTION_LOG.md`,
+   - preserved ORV-041/ORV-042/ORV-043 gates, `/api/v1/ai/voice/*` compatibility, and explicit batch fallback semantics,
+   - `convex/ai/agentExecution.ts` was not modified in this row execution.
+19. ORV-044 post-closure stability rerun (2026-03-05):
+   - reran required verify stack in-order and remained green after hardening `tests/e2e/onboarding-audit-handoff.spec.ts` send-flow retries plus CTA label selector parity,
+   - `npm run typecheck` passed,
+   - `npm run test:unit` passed (`1262 passed`, `80 skipped`),
+   - `npm run test:integration` passed (`114 passed`, `22 skipped`),
+   - `npm run test:e2e:desktop` passed (`4 passed`),
+   - `npm run docs:guard` passed.
+
+## ORV-039 through ORV-044 web/desktop PCM migration plan (2026-03-04)
+
+1. Phase 1 (`ORV-039`, `ORV-040`): corruption-elimination baseline + browser PCM capture implementation.
+2. Phase 2 (`ORV-041`, `ORV-042`): enforce fixed PCM contract (`24kHz/20ms/960-byte`) and dual-path transport + STT integration with deterministic precedence (`websocket_primary`/`webrtc_fallback`, `scribe_v2_realtime_primary`/`gemini_native_audio_failover`), then promote duplex/VAD/video-stream UX.
+3. Phase 3 (`ORV-043`, `ORV-044`): ElevenLabs WebSocket multi-context TTS + explicit echo strategy, then regression/canary evidence proving all eight non-negotiables.
+4. Dependency rules:
+   - lane `L` starts after `ORV-038`,
+   - lane `L` does not remove fallback APIs until `ORV-044` evidence is complete,
+   - DAT-native production claims still require `ORV-023` physical-device evidence,
+   - `ORV-044` cannot close unless transport and STT dual-route precedence rules are satisfied and evidenced.
+5. Verification requirements:
+   - docs-only row: `npm run docs:guard`,
+   - implementation rows: `npm run typecheck`, `npm run test:unit`, `npm run test:integration`/`npm run test:e2e:desktop` as listed in queue rows.
+
+## ORV-045 through ORV-052 mobile corrective plan (2026-03-05)
+
+1. Phase 1 (`ORV-045`): contract compliance closure.
+   - Update `apps/operator-mobile/src/lib/voice/frameStreaming.ts` and `apps/operator-mobile/src/lib/av/metaBridge-contracts.ts` to `24_000 Hz` defaults.
+   - Align `apps/operator-mobile/app/(tabs)/index.tsx` ingest metadata defaults.
+   - Harden `convex/schemas/aiSchemas.ts` validation to reject non-contract sample rates in `voice_transport_v1` acceptance scope.
+   - Update drifted tests in:
+     - `tests/unit/ai/mobileVoiceFrameStreaming.test.ts`
+     - `tests/unit/ai/mobileMetaBridgeContracts.test.ts`
+     - `tests/unit/ai/voiceTransportEnvelopeContract.test.ts`
+     - `tests/unit/ai/voiceRuntimeSessionFsm.test.ts`
+     - `tests/integration/ai/voiceRuntimeWebsocketIngest.integration.test.ts`
+2. Phase 2 (`ORV-046`, `ORV-047`): unified turn-state + VAD endpointing foundation.
+   - Add reducer-driven `ConversationTurnState` in `apps/operator-mobile/src/lib/voice/lifecycle.ts`.
+   - Rewire turn-state ownership in `apps/operator-mobile/app/(tabs)/index.tsx` and `apps/operator-mobile/src/components/chat/VoiceModeModal.tsx`.
+   - Extend `apps/operator-mobile/src/components/chat/VoiceRecorder.tsx` frame payload to include RMS/energy and apply `0.015` threshold + `320ms` silence endpointing in live frame handling.
+3. Phase 3 (`ORV-048`, `ORV-049`): proactive barge-in and race-proofing.
+   - Stop playback and cancel in-flight synthesis immediately on capture start/speech onset while assistant audio is active.
+   - Add final-frame mutex, auto-start debounce (`200-500ms`), and single-path autospeak guards.
+   - Enforce deterministic client fail-closed cancellation guard rails (`client_http_request_abort_fail_closed`) with in-flight HTTP request abort support for `/api/v1/ai/voice/synthesize` calls, while keeping server-side synth-abort endpoint support explicitly false.
+4. Phase 4 (`ORV-050`, `ORV-051`): mode cleanup + distinct UI mapping (`ORV-050` and `ORV-051` done).
+   - Enforce `handleEndConversation()` full teardown to `idle` with cancellation/reset semantics.
+   - Map each turn-state to unique orb label/color/animation in `VoiceModeModal.tsx`.
+5. Phase 5 (`ORV-052`, done 2026-03-05): closeout verification + parity impact report.
+   - Full lane `M` stack run complete (`mobile:typecheck`, `typecheck`, `test:unit`, `test:integration`, `test:e2e:mobile`, `test:e2e:desktop`, `docs:guard`) with pass results (`test:unit` `1298 passed` / `80 skipped`, `test:integration` `115 passed` / `22 skipped`, `test:e2e:mobile` `18 passed`, `test:e2e:desktop` `5 passed` after clearing a stale local `:3200` listener).
+   - Published explicit parity impact assessment: none (mobile lane `M` closeout preserved web/desktop `conversation_interaction_v1` parity and `/api/v1/ai/voice/*` compatibility); queue artifacts synced.
+6. Lane `M` boundary and non-regression rules:
+   - keep `convex/ai/agentExecution.ts` untouched,
+   - preserve ORV-010 through ORV-044 invariants,
+   - preserve `/api/v1/ai/voice/*` compatibility,
+   - keep `ORV-023` DAT-native physical-device gate unchanged (`BLOCKED`/`NO_GO` until artifacts exist).

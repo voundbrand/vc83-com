@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveAgentToolScopeResolutionContract,
   resolveActiveToolsWithAudit,
   validateRequiredSpecialistScopeContract,
 } from "../../../convex/ai/toolScoping";
@@ -212,5 +213,55 @@ describe("tool scoping org policy audit", () => {
         enforced: false,
       },
     });
+  });
+
+  it("resolves runtime module tool scope deterministically without global profile fallback", () => {
+    const resolutionA = resolveAgentToolScopeResolutionContract({
+      agentProfile: "general",
+      agentEnabled: [],
+      agentDisabled: ["create_ticket"],
+      mandatoryTools: ["request_audit_deliverable_email"],
+      runtimeModuleManifest: {
+        moduleKey: "one_of_one_samantha_runtime_module_v1",
+        requiredTools: ["generate_audit_workflow_deliverable"],
+        optionalTools: ["request_audit_deliverable_email"],
+        deniedTools: ["create_ticket"],
+      },
+    });
+    const resolutionB = resolveAgentToolScopeResolutionContract({
+      agentProfile: "general",
+      agentEnabled: [],
+      agentDisabled: ["create_ticket"],
+      mandatoryTools: ["request_audit_deliverable_email"],
+      runtimeModuleManifest: {
+        moduleKey: "one_of_one_samantha_runtime_module_v1",
+        requiredTools: ["generate_audit_workflow_deliverable"],
+        optionalTools: ["request_audit_deliverable_email"],
+        deniedTools: ["create_ticket"],
+      },
+    });
+
+    expect(resolutionA).toEqual(resolutionB);
+    expect(resolutionA.source).toBe("runtime_module_manifest");
+    expect(resolutionA.agentProfile).toBe(null);
+    expect(resolutionA.enabledTools).toEqual([
+      "generate_audit_workflow_deliverable",
+      "request_audit_deliverable_email",
+    ]);
+    expect(resolutionA.disabledTools).toEqual(["create_ticket"]);
+  });
+
+  it("keeps legacy profile fallback deterministic when runtime module manifest is absent", () => {
+    const resolution = resolveAgentToolScopeResolutionContract({
+      agentProfile: "booking",
+      agentEnabled: [],
+      agentDisabled: [],
+      mandatoryTools: ["request_audit_deliverable_email"],
+      runtimeModuleManifest: null,
+    });
+
+    expect(resolution.source).toBe("legacy_profile_fallback");
+    expect(resolution.agentProfile).toBe("booking");
+    expect(resolution.enabledTools).toContain("request_audit_deliverable_email");
   });
 });

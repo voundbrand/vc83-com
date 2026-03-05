@@ -1,7 +1,7 @@
 # iPhone GTM CI Implementation
 
 **Status:** Active contract (`LOC-037`)  
-**Last updated:** 2026-03-02  
+**Last updated:** 2026-03-05  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover`
 
 ---
@@ -113,3 +113,29 @@ Fail-closed stage status: `GO` for `LOC-044` contract-alignment gates; rehearsal
 | iOS/TestFlight profile and release path are documented | `/Users/foundbrand_001/Development/vc83-com/apps/operator-mobile/DEPLOY_TESTFLIGHT.md` | `GO` | lane `I` release ops | 2026-03-02 |
 
 `LOC-045` closed prior `LOC-044` contract-alignment `NO_GO` rows; remaining lane-`K` blocker is rehearsal checkpoint failure (`FND-007-C3`) captured in `tmp/reports/fnd-007/latest.json` and founder aggregate `tmp/reports/founder-rehearsal/latest.json`.
+
+---
+
+## ARH-L-001 Tool-Chain Truth Audit (2026-03-05)
+
+Fail-closed audit status for `ARH-L-001`: `GO` for deterministic tool-chain contract coverage, with explicit inferred-vs-artifact labels.
+
+| Capability path | Runtime contract evidence | Evidence type | Evidence commands | Status | Notes |
+|---|---|---|---|---|---|
+| CRM lookup/create | `run_meeting_concierge_demo` stage contract emits `crm_lookup_create` with fail-closed outcomes (`crm_lookup_failed`, `crm_contact_create_required`, `contact_capture_create_failed`) in `/Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts` | `artifact-backed` | `rg -n "crm_lookup_create|crm_lookup_failed|crm_contact_create_required|contact_capture_create_failed|internalSearchContacts|internalCreateContact|internalUpdateContact" /Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts` | `PASS` | Unit matrix now includes explicit `stage_blocked:crm_lookup_create:crm_lookup_failed` reason-code assertion. |
+| Booking create | Deterministic booking stage (`booking_created` / `booking_replayed`) in `/Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts` with idempotency patch fail-closed path | `artifact-backed` | `rg -n "booking_created|booking_replayed|booking_create_failed|booking_idempotency_patch_failed|createBookingInternal" /Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts` | `PASS` | Telemetry matrix includes execute-path terminal stage coverage (`invite_sent`) proving booking stage progression into invite stage. |
+| Calendar push | Explicit post-booking calendar mutation via `pushBookingToCalendar` with fail-closed `invite_calendar_push_failed` stage outcome | `artifact-backed` | `rg -n "pushBookingToCalendar|invite_calendar_push_failed|calendarPush" /Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts`; `npx vitest run tests/integration/ai/mobileRuntimeHardening.integration.test.ts tests/integration/ai/avDeviceMatrixLatency.integration.test.ts` | `PASS` | Calendar push is a hard gate before confirmation send; failure keeps terminal outcome `blocked`. |
+| Confirmation send | Deterministic outbound invite routing (`resolveConfirmationRouting` + `channels.router.sendMessage`) with fail-closed `invite_delivery_failed` and success `invite_sent` | `artifact-backed` | `rg -n "resolveConfirmationRouting|sendMessage|invite_delivery_failed|invite_sent" /Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts` | `PASS` | Unit matrix asserts both blocked (`invite_delivery_failed`) and success (`invite_sent`) terminal outcomes. |
+| STT language path | `resolveVoiceRuntimeLanguage` feeds `adapter.transcribe(...language)` and ElevenLabs adapter maps to `language_code` form field | `artifact-backed` | `rg -n "resolveVoiceRuntimeLanguage|adapter\\.transcribe\\(|resolvedLanguage" /Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`; `rg -n "language_code|transcribe\\(" /Users/foundbrand_001/Development/vc83-com/convex/ai/voiceRuntimeAdapter.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts` | `PASS` | STT language selection is deterministic (`inbound -> voiceLanguage -> language`) and now carried in runtime telemetry metadata. |
+| TTS language path | TTS currently consumes assistant text + configured voice id; runtime now records `resolvedSynthesisLanguage` / usage metadata language for audit trail | `inferred` | `rg -n "adapter\\.synthesize\\(|resolveVoiceRuntimeLanguage|resolvedSynthesisLanguage|resolvedLanguage" /Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts` | `PASS_WITH_INFERENCE` | Provider-enforced language selection is not a dedicated synthesize argument in current adapter contract; language control is inferred from generated assistant text + configured language policy. |
+| Vision OCR ingress | Concierge payload extraction ingests `cameraRuntime.detectedText|ocrText|sceneSummary` with attestation gating before extraction | `artifact-backed` | `rg -n "cameraRuntime\\.detectedText|cameraRuntime\\.ocrText|cameraRuntime\\.sceneSummary|collectMeetingConciergeTextCandidates" /Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`; `npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts`; `npx vitest run tests/integration/ai/mobileRuntimeHardening.integration.test.ts tests/integration/ai/avDeviceMatrixLatency.integration.test.ts` | `PASS` | Unit matrix now includes explicit OCR-only ingress extraction evidence; integration suite covers attestation fail-closed behavior. |
+
+Verification bundle for this audit row:
+
+```bash
+npm run typecheck
+npx tsc -p convex/tsconfig.json --noEmit
+npm run test:unit -- tests/unit/ai/meetingConciergeIngress.test.ts tests/unit/ai/agentExecutionVoiceRuntime.test.ts
+npx vitest run tests/integration/ai/mobileRuntimeHardening.integration.test.ts tests/integration/ai/avDeviceMatrixLatency.integration.test.ts
+npm run docs:guard
+```

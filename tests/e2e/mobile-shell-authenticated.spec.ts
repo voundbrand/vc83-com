@@ -42,6 +42,21 @@ async function safeClick(locator: Locator) {
   }
 }
 
+async function expectNoVoiceHudBleed(page: Page) {
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const text = (document.body.textContent || "").toLowerCase();
+        return (
+          !text.includes("agent speaking")
+          && !text.includes("thinking...")
+          && !text.includes("streaming...")
+        );
+      })
+    )
+    .toBe(true);
+}
+
 test.describe("Mobile Shell (Authenticated)", () => {
   test("opens auth-only windows and preserves single-panel behavior while signed in", async ({ page }) => {
     await test.step("all-apps deep-link opens for authenticated user", async () => {
@@ -80,6 +95,10 @@ test.describe("Mobile Shell (Authenticated)", () => {
         const hasUserAccount = headings.some((text) => text.includes("user account"));
         return hasSettings && !hasUserAccount;
       });
+    });
+
+    await test.step("settings view has no lingering voice HUD state labels", async () => {
+      await expectNoVoiceHudBleed(page);
     });
 
     await test.step("control-panel deep-link opens while authenticated", async () => {

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
+  DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
+  DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
+  DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS,
+  computePcm16FrameRms,
   createRealtimeMediaSession,
+  detectVadSpeechFrame,
+  resolveRealtimeEchoCancellationSelection,
+  shouldThrottleRealtimeVisionForwarding,
 } from "../../../src/lib/av/runtime/realtimeMediaSession";
 import {
   createInMemoryTransportAdapter,
@@ -512,5 +520,90 @@ describe("realtime media session runtime", () => {
     expect(snapshot.transportRuntime.mode).toBe("buffered");
     expect(snapshot.transportRuntime.fallbackReason).toBe("capture_backpressure");
     expect(snapshot.transportRuntime.diagnostics.queueDepthP95).toBe(24);
+  });
+
+  it("locks ORV-042 client VAD defaults and speech-frame detection", () => {
+    expect(DEFAULT_REALTIME_CONVERSATION_VAD_POLICY).toEqual({
+      mode: "client_energy_gate",
+      frameDurationMs: 20,
+      energyThresholdRms: 0.015,
+      minSpeechFrames: 2,
+      endpointSilenceMs: 320,
+    });
+
+    const silenceFrame = new Int16Array(480);
+    expect(computePcm16FrameRms(silenceFrame)).toBe(0);
+    expect(
+      detectVadSpeechFrame({
+        samples: silenceFrame,
+      })
+    ).toBe(false);
+
+    const speechFrame = new Int16Array(480).fill(1200);
+    expect(
+      detectVadSpeechFrame({
+        samples: speechFrame,
+      })
+    ).toBe(true);
+  });
+
+  it("locks ORV-042 realtime vision forwarding throttle defaults", () => {
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1250);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW).toBe(8);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS).toBe(10000);
+
+    const throttled = shouldThrottleRealtimeVisionForwarding({
+      nowMs: 10_000,
+      lastForwardAtMs: 9_250,
+      cadenceMs: DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
+    });
+    expect(throttled.throttled).toBe(true);
+    expect(throttled.retryAfterMs).toBe(500);
+
+    const accepted = shouldThrottleRealtimeVisionForwarding({
+      nowMs: 10_600,
+      lastForwardAtMs: 9_250,
+      cadenceMs: DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
+    });
+    expect(accepted.throttled).toBe(false);
+  });
+
+  it("locks ORV-043 explicit echo cancellation strategy resolution", () => {
+    expect(
+      resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported: true,
+        hardwareAecEnabled: true,
+      })
+    ).toEqual({
+      strategy: "hardware_aec_capture_path",
+      reason: "hardware_aec_enabled",
+      hardwareAecSupported: true,
+      hardwareAecEnabled: true,
+    });
+
+    expect(
+      resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported: true,
+        hardwareAecEnabled: false,
+      })
+    ).toEqual({
+      strategy: "mute_mic_during_tts",
+      reason: "hardware_aec_not_enabled",
+      hardwareAecSupported: true,
+      hardwareAecEnabled: false,
+    });
+
+    expect(
+      resolveRealtimeEchoCancellationSelection({
+        hardwareAecSupported: true,
+        hardwareAecEnabled: true,
+        forceMuteDuringTts: true,
+      })
+    ).toEqual({
+      strategy: "mute_mic_during_tts",
+      reason: "operator_forced_mute",
+      hardwareAecSupported: true,
+      hardwareAecEnabled: true,
+    });
   });
 });

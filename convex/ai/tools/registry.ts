@@ -4176,6 +4176,34 @@ export function getAllToolDefinitions(): Array<{ name: string; readOnly?: boolea
   }));
 }
 
+function normalizeDeterministicToolNameList(toolNames: string[]): string[] {
+  return Array.from(
+    new Set(
+      toolNames
+        .map((toolName) => (typeof toolName === "string" ? toolName.trim() : ""))
+        .filter((toolName) => toolName.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+export function getToolDefinitionsForNames(
+  toolNames: string[],
+): Array<{ name: string; readOnly?: boolean }> {
+  const orderedNames = normalizeDeterministicToolNameList(toolNames);
+  const definitions: Array<{ name: string; readOnly?: boolean }> = [];
+  for (const toolName of orderedNames) {
+    const tool = TOOL_REGISTRY[toolName];
+    if (!tool) {
+      continue;
+    }
+    definitions.push({
+      name: tool.name,
+      readOnly: tool.readOnly,
+    });
+  }
+  return definitions;
+}
+
 /**
  * Get tools grouped by status
  */
@@ -4323,6 +4351,38 @@ export function getToolSchemas(builderMode?: BuilderMode): OpenAIFunctionSchema[
       parameters: tool.parameters,
     },
   }));
+}
+
+export function getToolSchemasForNames(
+  toolNames: string[],
+  builderMode?: BuilderMode,
+): OpenAIFunctionSchema[] {
+  const prototypeModeAllowedTools = builderMode === "prototype"
+    ? new Set(PROTOTYPE_MODE_ALLOWED_TOOLS)
+    : null;
+  const orderedNames = normalizeDeterministicToolNameList(toolNames);
+  const schemas: OpenAIFunctionSchema[] = [];
+  for (const toolName of orderedNames) {
+    if (
+      prototypeModeAllowedTools
+      && !prototypeModeAllowedTools.has(toolName)
+    ) {
+      continue;
+    }
+    const tool = TOOL_REGISTRY[toolName];
+    if (!tool) {
+      continue;
+    }
+    schemas.push({
+      type: "function",
+      function: {
+        name: tool.name,
+        description: `${tool.description} [Status: ${tool.status.toUpperCase()}]`,
+        parameters: tool.parameters,
+      },
+    });
+  }
+  return schemas;
 }
 
 function summarizeInvariantViolations(value: unknown): string {

@@ -1,6 +1,6 @@
 # Life Operator One-of-One Cutover Task Queue
 
-**Last updated:** 2026-03-02  
+**Last updated:** 2026-03-05  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/life-operator-one-of-one-cutover`  
 **Source request:** Re-align open workstreams and existing code toward one user-owned primary Life Operator, cut multi-agent marketplace direction, and clean up legacy direction artifacts; then ship a mobile-first (iPhone-first, Meta-glasses-capable) live voice/camera concierge path with world-class parity between mother-repo webchat and iPhone chat.
 
@@ -218,7 +218,16 @@
 - Lane `H` readiness: baseline + parity + hardening rows are `DONE` (`LOC-032`, `LOC-026`, `LOC-027`, `LOC-028`, `LOC-029`, `LOC-030`, `LOC-031`, `LOC-033`, `LOC-034`, `LOC-035`); lane-`H` acceptance stack is fully green.
 - Lane `I` status: `LOC-036` and `LOC-037` are `DONE`; iPhone preflight CI + runbook contract is active.
 - Lane `J` status: `LOC-038`..`LOC-042` are `DONE`; cleanup stabilization lane is complete.
-- Lane `K` status: `LOC-043`..`LOC-049` are `DONE`; final production-demo signoff remains `GO` with post-signoff specialist-path hardening and drift-watch maintenance locked.
+- Lane `K` status: `LOC-043`..`LOC-049` are `DONE`; final production-demo signoff remains `GO` for non-DAT flows, while DAT-native readiness remains `NO_GO` until `ORV-023` physical-device evidence exists.
+
+### Cross-workstream DAT-native blocker ledger (`ARH-M-001` sync)
+
+| Claim scope | Status | Gate | Required artifacts | Owner | Next review date |
+|---|---|---|---|---|---|
+| DAT-native production readiness (iOS + Android Meta DAT callback path) | `NO_GO` | `ORV-023` = `BLOCKED` | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/artifacts/orv-023/physical-device/ios/`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/artifacts/orv-023/physical-device/android/`; update in `ORV_014_CANARY_EXECUTION_LOG.md` | Lane `H` mobile runtime + device QA owners (`ORV-023`) | `2026-03-12` |
+| Founder demo / non-DAT concierge readiness (`LOC-047`..`LOC-049`) | `GO` | `LOC-049` = `DONE` | `/Users/foundbrand_001/Development/vc83-com/tmp/reports/fnd-007/latest.json`; `/Users/foundbrand_001/Development/vc83-com/tmp/reports/founder-rehearsal/latest.json` | Lane `K` owners (`LOC-049`) | `2026-03-12` |
+
+Stale-claim invalidation rule: any `GO` statement in lane `K` docs that implies DAT-native readiness without both iOS and Android physical-device bundles is stale and must be interpreted as `NO_GO`.
 
 ### LOC-026 Closeout Record (2026-02-27)
 

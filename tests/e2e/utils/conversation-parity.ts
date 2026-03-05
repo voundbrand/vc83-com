@@ -13,9 +13,22 @@ import {
   CONVERSATION_EVENT_TYPES as IPHONE_EVENT_TYPES,
   CONVERSATION_REASON_CODES as IPHONE_REASON_CODES,
   CONVERSATION_SESSION_STATES as IPHONE_SESSION_STATES,
+  CONVERSATION_TURN_STATES,
+  MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+  MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
+  evaluateFinalFrameFinalizeGuard,
+  hasSilenceEndpointElapsed,
   inferConversationReasonCode as inferIphoneConversationReasonCode,
+  isSpeechFrameEnergy,
+  reduceConversationTurnState,
+  reduceVoiceBargeInState,
+  resolveAssistantPlaybackBargeInTransition,
+  resolveCaptureStartBargeInTransition,
+  type ConversationTurnState,
+  type VoiceBargeInState,
 } from "../../../apps/operator-mobile/src/lib/voice/lifecycle";
 import { mapVisionReadinessReasonToConversationReason } from "../../../apps/operator-mobile/src/lib/av/metaBridge-contracts";
+import { DEFAULT_REALTIME_CONVERSATION_VAD_POLICY } from "../../../src/lib/av/runtime/realtimeMediaSession";
 
 export const CANONICAL_CONVERSATION_MODES = ["voice", "voice_with_eyes"] as const;
 export type ConversationMode = (typeof CANONICAL_CONVERSATION_MODES)[number];
@@ -119,6 +132,56 @@ export interface CrossSurfaceConversationParityGate {
     webDesktop: Record<ConversationMode, ExecutionLaneInvariant>;
     iphone: Record<ConversationMode, ExecutionLaneInvariant>;
   };
+}
+
+type MobileTurnStateTimelineStep = {
+  step: string;
+  turnState: ConversationTurnState;
+};
+
+type MobileBargeInTimelineStep = {
+  step: string;
+  state: VoiceBargeInState;
+  command: {
+    interruptLocalPlayback: boolean;
+    sendRemoteCancel: boolean;
+    resetPlaybackQueue: boolean;
+  };
+};
+
+export interface MobileTurnStateCloseoutEvidence {
+  contractVersion: typeof IPHONE_CONTRACT_VERSION;
+  turnStateTaxonomy: ReadonlyArray<ConversationTurnState>;
+  turnStateTimeline: ReadonlyArray<MobileTurnStateTimelineStep>;
+  bargeInTimeline: ReadonlyArray<MobileBargeInTimelineStep>;
+  vadPolicy: {
+    mobile: {
+      speechThresholdRms: number;
+      endpointSilenceMs: number;
+      speechDetected: boolean;
+      endpointBeforeThreshold: boolean;
+      endpointAtThreshold: boolean;
+    };
+    webDesktop: {
+      speechThresholdRms: number;
+      endpointSilenceMs: number;
+    };
+    parity: {
+      speechThresholdMatches: boolean;
+      endpointSilenceMatches: boolean;
+    };
+  };
+  finalizeGuard: {
+    blockedWhileAssistantSpeaking: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+    allowAfterBargeInCancel: {
+      allowFinalize: boolean;
+      reason: string;
+    };
+  };
+  parityImpact: "none";
 }
 
 function mapWebReasonCode(definition: ParityScenarioDefinition): string {
@@ -228,5 +291,229 @@ export function buildCrossSurfaceConversationParityGate(): CrossSurfaceConversat
       webDesktop: buildExecutionLaneInvariantByMode(),
       iphone: buildExecutionLaneInvariantByMode(),
     },
+  };
+}
+
+export function buildMobileTurnStateCloseoutEvidence(): MobileTurnStateCloseoutEvidence {
+  let turnState: ConversationTurnState = "idle";
+  const turnStateTimeline: MobileTurnStateTimelineStep[] = [
+    { step: "conversation_baseline", turnState },
+  ];
+  const pushTurnState = (step: string, nextState: ConversationTurnState) => {
+    turnState = nextState;
+    turnStateTimeline.push({ step, turnState });
+  };
+
+  pushTurnState(
+    "capture_start_listening",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: true,
+          isThinking: false,
+          isAssistantSpeaking: false,
+        },
+      },
+    }),
+  );
+  pushTurnState(
+    "capture_finalize_thinking",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: false,
+          isThinking: true,
+          isAssistantSpeaking: false,
+        },
+      },
+    }),
+  );
+  pushTurnState(
+    "assistant_playback_started",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: false,
+          isThinking: false,
+          isAssistantSpeaking: true,
+        },
+      },
+    }),
+  );
+
+  let bargeInTransition = resolveAssistantPlaybackBargeInTransition({
+    state: "idle",
+    isAssistantSpeaking: true,
+  });
+  const bargeInTimeline: MobileBargeInTimelineStep[] = [
+    {
+      step: "assistant_playback_started",
+      state: bargeInTransition.state,
+      command: bargeInTransition.command,
+    },
+  ];
+
+  bargeInTransition = resolveCaptureStartBargeInTransition({
+    state: bargeInTransition.state,
+    turnState,
+    isAssistantSpeaking: true,
+  });
+  bargeInTimeline.push({
+    step: "capture_start_interrupt",
+    state: bargeInTransition.state,
+    command: bargeInTransition.command,
+  });
+
+  bargeInTransition = reduceVoiceBargeInState({
+    state: bargeInTransition.state,
+    event: "remote_cancel_ack",
+  });
+  bargeInTimeline.push({
+    step: "remote_cancel_ack",
+    state: bargeInTransition.state,
+    command: bargeInTransition.command,
+  });
+
+  pushTurnState(
+    "barge_in_user_capture",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: true,
+          isThinking: false,
+          isAssistantSpeaking: false,
+        },
+      },
+    }),
+  );
+
+  const speechDetected = isSpeechFrameEnergy({
+    energyRms: MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
+  });
+  const endpointBeforeThreshold = hasSilenceEndpointElapsed({
+    lastSpeechDetectedAtMs: 10_000,
+    nowMs: 10_000 + MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS - 1,
+  });
+  const endpointAtThreshold = hasSilenceEndpointElapsed({
+    lastSpeechDetectedAtMs: 10_000,
+    nowMs: 10_000 + MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+  });
+
+  bargeInTransition = reduceVoiceBargeInState({
+    state: bargeInTransition.state,
+    event: "user_capture_stopped",
+  });
+  bargeInTimeline.push({
+    step: "capture_stopped_recovering",
+    state: bargeInTransition.state,
+    command: bargeInTransition.command,
+  });
+
+  bargeInTransition = reduceVoiceBargeInState({
+    state: bargeInTransition.state,
+    event: "reset",
+  });
+  bargeInTimeline.push({
+    step: "barge_in_reset_idle",
+    state: bargeInTransition.state,
+    command: bargeInTransition.command,
+  });
+
+  const blockedWhileAssistantSpeaking = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: 12,
+    isAssistantSpeaking: true,
+    finalizeInFlight: false,
+    lastFinalizedSequence: 11,
+  });
+  const allowAfterBargeInCancel = evaluateFinalFrameFinalizeGuard({
+    isFinalFrame: true,
+    frameSequence: 12,
+    isAssistantSpeaking: false,
+    finalizeInFlight: false,
+    lastFinalizedSequence: 11,
+  });
+
+  pushTurnState(
+    "vad_endpoint_finalize_thinking",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: false,
+          isThinking: true,
+          isAssistantSpeaking: false,
+        },
+      },
+    }),
+  );
+  pushTurnState(
+    "assistant_replay_agent_speaking",
+    reduceConversationTurnState({
+      state: turnState,
+      event: {
+        type: "sync",
+        activity: {
+          conversationStarted: true,
+          isRecording: false,
+          isThinking: false,
+          isAssistantSpeaking: true,
+        },
+      },
+    }),
+  );
+  pushTurnState(
+    "conversation_end_idle",
+    reduceConversationTurnState({
+      state: turnState,
+      event: { type: "reset" },
+    }),
+  );
+
+  return {
+    contractVersion: IPHONE_CONTRACT_VERSION,
+    turnStateTaxonomy: CONVERSATION_TURN_STATES,
+    turnStateTimeline,
+    bargeInTimeline,
+    vadPolicy: {
+      mobile: {
+        speechThresholdRms: MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
+        endpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
+        speechDetected,
+        endpointBeforeThreshold,
+        endpointAtThreshold,
+      },
+      webDesktop: {
+        speechThresholdRms: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.energyThresholdRms,
+        endpointSilenceMs: DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.endpointSilenceMs,
+      },
+      parity: {
+        speechThresholdMatches:
+          MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD
+          === DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.energyThresholdRms,
+        endpointSilenceMatches:
+          MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS
+          === DEFAULT_REALTIME_CONVERSATION_VAD_POLICY.endpointSilenceMs,
+      },
+    },
+    finalizeGuard: {
+      blockedWhileAssistantSpeaking,
+      allowAfterBargeInCancel,
+    },
+    parityImpact: "none",
   };
 }

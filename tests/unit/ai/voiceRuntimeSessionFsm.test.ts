@@ -240,7 +240,7 @@ describe("voice runtime session fsm", () => {
       audioChunkBase64: "AAAA",
       pcm: {
         encoding: "pcm_s16le",
-        sampleRateHz: 16000,
+        sampleRateHz: 24000,
         channels: 1,
         frameDurationMs: 20,
       },
@@ -284,7 +284,7 @@ describe("voice runtime session fsm", () => {
       audioChunkBase64: "BBBB",
       pcm: {
         encoding: "pcm_s16le",
-        sampleRateHz: 16000,
+        sampleRateHz: 24000,
         channels: 1,
         frameDurationMs: 20,
       },
@@ -365,7 +365,7 @@ describe("voice runtime session fsm", () => {
             audioChunkBase64: "CCCC",
             pcm: {
               encoding: "pcm_s16le",
-              sampleRateHz: 16000,
+              sampleRateHz: 24000,
               channels: 1,
               frameDurationMs: 20,
             },
@@ -390,7 +390,7 @@ describe("voice runtime session fsm", () => {
         audioChunkBase64: "DDDD",
         pcm: {
           encoding: "pcm_s16le",
-          sampleRateHz: 16000,
+          sampleRateHz: 24000,
           channels: 1,
           frameDurationMs: 20,
         },
@@ -410,7 +410,7 @@ describe("voice runtime session fsm", () => {
             audioChunkBase64: "CCCC",
             pcm: {
               encoding: "pcm_s16le",
-              sampleRateHz: 16000,
+              sampleRateHz: 24000,
               channels: 1,
               frameDurationMs: 20,
             },
@@ -439,7 +439,7 @@ describe("voice runtime session fsm", () => {
         audioChunkBase64: "FFFF",
         pcm: {
           encoding: "pcm_s16le",
-          sampleRateHz: 16000,
+          sampleRateHz: 24000,
           channels: 1,
           frameDurationMs: 20,
         },
@@ -459,7 +459,7 @@ describe("voice runtime session fsm", () => {
             audioChunkBase64: "EEEE",
             pcm: {
               encoding: "pcm_s16le",
-              sampleRateHz: 16000,
+              sampleRateHz: 24000,
               channels: 1,
               frameDurationMs: 20,
             },
@@ -492,7 +492,7 @@ describe("voice runtime session fsm", () => {
             audioChunkBase64: "EEEE",
             pcm: {
               encoding: "pcm_s16le",
-              sampleRateHz: 16000,
+              sampleRateHz: 24000,
               channels: 1,
               frameDurationMs: 20,
             },
