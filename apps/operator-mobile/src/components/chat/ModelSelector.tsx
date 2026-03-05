@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import {
   YStack,
   XStack,
@@ -37,6 +37,7 @@ type ModelSelectorProps = {
   selectedModel: string;
   onSelectModel: (modelId: string) => void;
   availableModels?: RuntimeModelAvailability[];
+  allowStaticFallback?: boolean;
 };
 
 function normalizeModelId(value: string | undefined | null): string {
@@ -73,9 +74,12 @@ function inferIcon(modelId: string, provider: string): Model['icon'] {
   return 'sparkles';
 }
 
-function buildRuntimeModels(models: RuntimeModelAvailability[] | undefined): Model[] {
+function buildRuntimeModels(
+  models: RuntimeModelAvailability[] | undefined,
+  allowStaticFallback: boolean
+): Model[] {
   if (!models || models.length === 0) {
-    return AVAILABLE_MODELS;
+    return allowStaticFallback ? AVAILABLE_MODELS : [];
   }
 
   return models.map((item, index) => {
@@ -100,12 +104,16 @@ export function ModelSelector({
   selectedModel,
   onSelectModel,
   availableModels,
+  allowStaticFallback = true,
 }: ModelSelectorProps) {
   const { t } = useAppPreferences();
   const [isOpen, setIsOpen] = useState(false);
   const [showMoreModels, setShowMoreModels] = useState(false);
 
-  const runtimeModels = useMemo(() => buildRuntimeModels(availableModels), [availableModels]);
+  const runtimeModels = useMemo(
+    () => buildRuntimeModels(availableModels, allowStaticFallback),
+    [allowStaticFallback, availableModels]
+  );
   const normalizedSelectedModel = useMemo(
     () => normalizeModelId(selectedModel),
     [selectedModel]
@@ -132,16 +140,19 @@ export function ModelSelector({
     () => sortedRuntimeModels.slice(primaryModels.length),
     [sortedRuntimeModels, primaryModels.length]
   );
+  const hasSelectableModels = sortedRuntimeModels.length > 0;
 
-  const currentModel = useMemo(
-    () =>
-      runtimeModels.find((model) => model.id === normalizedSelectedModel)
-      || getModelById(normalizedSelectedModel)
-      || primaryModels[0]
-      || runtimeModels[0]
-      || DEFAULT_MODEL,
-    [runtimeModels, normalizedSelectedModel, primaryModels]
-  );
+  const currentModel = useMemo(() => {
+    const selectedRuntimeModel = runtimeModels.find((model) => model.id === normalizedSelectedModel);
+    if (selectedRuntimeModel) {
+      return selectedRuntimeModel;
+    }
+    if (allowStaticFallback) {
+      return getModelById(normalizedSelectedModel) || primaryModels[0] || runtimeModels[0] || DEFAULT_MODEL;
+    }
+    return primaryModels[0] || runtimeModels[0] || null;
+  }, [allowStaticFallback, normalizedSelectedModel, primaryModels, runtimeModels]);
+  const triggerLabel = currentModel ? getModelShortName(currentModel) : t('model.unavailable');
 
   const handleSelect = (modelId: string) => {
     onSelectModel(normalizeModelId(modelId));
@@ -245,8 +256,12 @@ export function ModelSelector({
     <>
       <Pressable
         onPress={() => {
+          if (!hasSelectableModels) {
+            return;
+          }
           setIsOpen(true);
         }}
+        disabled={!hasSelectableModels}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <XStack
@@ -258,9 +273,10 @@ export function ModelSelector({
           borderRadius={20}
           borderWidth={1}
           borderColor="$glassBorder"
+          opacity={hasSelectableModels ? 1 : 0.6}
         >
           <Text color="$color" fontSize={15} fontWeight="500">
-            {getModelShortName(currentModel)}
+            {triggerLabel}
           </Text>
           <ChevronDown size={16} color="$colorTertiary" />
         </XStack>
@@ -272,75 +288,82 @@ export function ModelSelector({
         animationType="fade"
         onRequestClose={handleClose}
       >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
-          onPress={handleClose}
-        >
-          <YStack flex={1} justifyContent="flex-end" paddingHorizontal={16} paddingBottom={140}>
-            <Pressable onPress={(e) => e.stopPropagation()}>
-              <YStack
-                backgroundColor="$background"
-                borderRadius={16}
-                width={320}
-                maxWidth="100%"
-                overflow="hidden"
-                borderWidth={1}
-                borderColor="$borderColor"
-                shadowColor="black"
-                shadowOffset={{ width: 0, height: 8 }}
-                shadowOpacity={0.15}
-                shadowRadius={24}
-                elevation={8}
+        <YStack flex={1} justifyContent="flex-end" paddingHorizontal={16} paddingBottom={140}>
+          <Pressable
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            }}
+            onPress={handleClose}
+          />
+
+          <View>
+            <YStack
+              backgroundColor="$background"
+              borderRadius={16}
+              width={320}
+              maxWidth="100%"
+              overflow="hidden"
+              borderWidth={1}
+              borderColor="$borderColor"
+              shadowColor="black"
+              shadowOffset={{ width: 0, height: 8 }}
+              shadowOpacity={0.15}
+              shadowRadius={24}
+              elevation={8}
+            >
+              <XStack
+                paddingHorizontal={16}
+                paddingVertical={14}
+                borderBottomWidth={1}
+                borderBottomColor="$borderColor"
               >
-                <XStack
-                  paddingHorizontal={16}
-                  paddingVertical={14}
-                  borderBottomWidth={1}
-                  borderBottomColor="$borderColor"
-                >
-                  <Text color="$color" fontSize={15} fontWeight="600">
-                    {t('model.title')}
-                  </Text>
-                </XStack>
+                <Text color="$color" fontSize={15} fontWeight="600">
+                  {t('model.title')}
+                </Text>
+              </XStack>
 
-                <YStack paddingTop={8}>
-                  {primaryModels.map(renderModelItem)}
-                </YStack>
-
-                {moreModels.length > 0 ? (
-                  <Pressable onPress={() => setShowMoreModels(!showMoreModels)}>
-                    <XStack
-                      paddingVertical={14}
-                      paddingHorizontal={16}
-                      alignItems="center"
-                      justifyContent="space-between"
-                      borderTopWidth={1}
-                      borderTopColor="$borderColor"
-                      marginTop={8}
-                    >
-                      <Text color="$colorTertiary" fontSize={14} fontWeight="500">
-                        {t('model.moreModels')}
-                      </Text>
-                      {showMoreModels ? (
-                        <ChevronUp size={18} color="$colorTertiary" />
-                      ) : (
-                        <ChevronDown size={18} color="$colorTertiary" />
-                      )}
-                    </XStack>
-                  </Pressable>
-                ) : null}
-
-                {showMoreModels && moreModels.length > 0 ? (
-                  <ScrollView style={{ maxHeight: 250 }}>
-                    <YStack paddingBottom={8}>
-                      {moreModels.map(renderModelItem)}
-                    </YStack>
-                  </ScrollView>
-                ) : null}
+              <YStack paddingTop={8}>
+                {primaryModels.map(renderModelItem)}
               </YStack>
-            </Pressable>
-          </YStack>
-        </Pressable>
+
+              {moreModels.length > 0 ? (
+                <Pressable onPress={() => setShowMoreModels(!showMoreModels)}>
+                  <XStack
+                    paddingVertical={14}
+                    paddingHorizontal={16}
+                    alignItems="center"
+                    justifyContent="space-between"
+                    borderTopWidth={1}
+                    borderTopColor="$borderColor"
+                    marginTop={8}
+                  >
+                    <Text color="$colorTertiary" fontSize={14} fontWeight="500">
+                      {t('model.moreModels')}
+                    </Text>
+                    {showMoreModels ? (
+                      <ChevronUp size={18} color="$colorTertiary" />
+                    ) : (
+                      <ChevronDown size={18} color="$colorTertiary" />
+                    )}
+                  </XStack>
+                </Pressable>
+              ) : null}
+
+              {showMoreModels && moreModels.length > 0 ? (
+                <ScrollView style={{ maxHeight: 250 }}>
+                  <YStack paddingBottom={8}>
+                    {moreModels.map(renderModelItem)}
+                  </YStack>
+                </ScrollView>
+              ) : null}
+            </YStack>
+          </View>
+        </YStack>
       </Modal>
     </>
   );

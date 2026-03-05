@@ -3016,6 +3016,7 @@ export default function ConversationScreen() {
                       selectedModel={selectedModel}
                       onSelectModel={setSelectedModel}
                       availableModels={availableModels}
+                      allowStaticFallback={!isAuthenticated}
                     />
                   </XStack>
 
