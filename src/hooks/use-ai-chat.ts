@@ -199,6 +199,8 @@ export interface AIChatKickoffContract {
 export interface AIChatVoiceRuntimeSessionResolution {
   conversationId: Id<"aiConversations">
   agentSessionId: Id<"agentSessions">
+  agentDisplayName?: string | null
+  agentVoiceLanguage?: string | null
   externalContactIdentifier: string
   routeKey: string
   threadId: string
@@ -228,6 +230,7 @@ export interface AIChatSendOptions {
   cameraRuntime?: AIChatCameraRuntimeMetadata
   voiceRuntime?: AIChatVoiceRuntimeMetadata
   conversationRuntime?: AIChatConversationRuntimeMetadata
+  geminiLive?: Record<string, unknown>
   kickoffContract?: AIChatKickoffContract
   commandPolicy?: Record<string, unknown>
   transportRuntime?: Record<string, unknown>
@@ -599,6 +602,7 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
   const [error, setError] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [claimToken, setClaimToken] = useState<string | null>(null)
+  const isSendingRef = useRef(false)
   const attribution = useMemo(() => getCampaignAttribution(), [])
 
   useEffect(() => {
@@ -635,11 +639,12 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
           attachment.sizeBytes > 0
       )
 
-      if ((!trimmed && normalizedAttachments.length === 0) || isSending) return
+      if ((!trimmed && normalizedAttachments.length === 0) || isSendingRef.current) return
       if (!config?.organizationId || !config?.agentId) {
         throw new Error("Native guest chat is not configured")
       }
 
+      isSendingRef.current = true
       setIsSending(true)
       setError(null)
 
@@ -656,6 +661,13 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
       try {
         const apiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl)
         const deviceFingerprint = getNativeGuestDeviceFingerprint()
+        const now = Date.now()
+        const idempotencyKey = `ng_send_${config.agentId}_${now.toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 10)}`
+        const requestCorrelationId = `ng_req_${now.toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`
         const response = await fetch(`${apiBaseUrl}/api/v1/native-guest/message`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -663,6 +675,8 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
             organizationId: config.organizationId,
             agentId: config.agentId,
             sessionToken,
+            idempotencyKey,
+            requestCorrelationId,
             message:
               trimmed ||
               `Please analyze the attached image${normalizedAttachments.length > 1 ? "s" : ""}.`,
@@ -709,10 +723,11 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
         const message = sendError instanceof Error ? sendError.message : "Failed to send message"
         setError(message)
       } finally {
+        isSendingRef.current = false
         setIsSending(false)
       }
     },
-    [appendMessage, attribution, claimToken, config, isSending, sessionToken]
+    [appendMessage, attribution, claimToken, config, sessionToken]
   )
 
   const reset = useCallback(() => {
@@ -828,6 +843,7 @@ export function useAIChat(
     cameraRuntime?: AIChatCameraRuntimeMetadata
     voiceRuntime?: AIChatVoiceRuntimeMetadata
     conversationRuntime?: AIChatConversationRuntimeMetadata
+    geminiLive?: Record<string, unknown>
     kickoffContract?: AIChatKickoffContract
     commandPolicy?: Record<string, unknown>
     transportRuntime?: Record<string, unknown>
@@ -910,6 +926,7 @@ export function useAIChat(
           cameraRuntime: options?.cameraRuntime,
           voiceRuntime: options?.voiceRuntime,
           conversationRuntime: options?.conversationRuntime,
+          geminiLive: options?.geminiLive,
           kickoffContract: options?.kickoffContract,
           commandPolicy: options?.commandPolicy,
           transportRuntime: options?.transportRuntime,

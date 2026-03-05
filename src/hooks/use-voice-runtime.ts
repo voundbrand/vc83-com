@@ -109,6 +109,7 @@ interface IngestRealtimeEnvelopeOptions {
   liveSessionId: string;
   sequence: number;
   transportRoute: VoiceRealtimeTransportRoute;
+  attachRealtimeTransportRoute?: boolean;
   sttRoute?: VoiceRealtimeSttRoute;
   requestedProviderId?: VoiceRuntimeProviderId;
   runtimeContext?: VoiceRuntimeContextOverride;
@@ -539,6 +540,8 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       options.requestedProviderId,
     );
     const transportMode = resolveEnvelopeTransportMode(options.transportRoute);
+    const attachRealtimeTransportRoute =
+      options.attachRealtimeTransportRoute !== false;
     const now = Date.now();
 
     const envelopeBase = {
@@ -588,8 +591,12 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       },
       transportRuntime: {
         ...(options.transportRuntime ?? {}),
-        realtimeTransportRoute: options.transportRoute,
-        realtimeTransportMode: transportMode,
+        ...(attachRealtimeTransportRoute
+          ? {
+              realtimeTransportRoute: options.transportRoute,
+              realtimeTransportMode: transportMode,
+            }
+          : {}),
       },
       avObservability: options.avObservability,
       envelope,

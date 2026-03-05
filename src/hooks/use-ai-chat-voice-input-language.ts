@@ -1,6 +1,6 @@
 "use client"
 
-import { useAction } from "convex/react"
+import { useAction, useQuery } from "convex/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { getLocaleLabel, useTranslation } from "@/contexts/translation-context"
@@ -77,10 +77,15 @@ function resolveLanguageLabel(locale: string): string {
 export function useAIChatVoiceInputLanguage() {
   const { sessionId, user } = useAuth()
   const organizationId = user?.currentOrganization?.id
+  const userPreferences = useQuery(
+    apiAny.userPreferences.get,
+    sessionId ? { sessionId } : "skip",
+  ) as { language?: unknown } | null | undefined
   const listElevenLabsVoices = useAction(apiAny.integrations.elevenlabs.listElevenLabsVoices)
   const { locale: appLocale } = useTranslation()
   const appVoiceInputLanguage = useMemo(() => resolveVoiceInputLanguage(appLocale), [appLocale])
   const [manualVoiceInputLanguage, setManualVoiceInputLanguage] = useState<string | null>(null)
+  const [forceAppLanguage, setForceAppLanguage] = useState(false)
   const [catalogLanguageOptions, setCatalogLanguageOptions] = useState<VoiceInputLanguageOption[]>([])
 
   useEffect(() => {
@@ -129,13 +134,20 @@ export function useAIChatVoiceInputLanguage() {
     }
 
     const storedLanguage = window.localStorage.getItem(VOICE_INPUT_LANGUAGE_STORAGE_KEY)
+    if (storedLanguage === APP_LANGUAGE_SELECTION_VALUE) {
+      setForceAppLanguage(true)
+      setManualVoiceInputLanguage(null)
+      return
+    }
     const normalizedStoredLanguage = resolveVoiceInputLanguage(storedLanguage)
     if (isValidLanguageCode(normalizedStoredLanguage)) {
+      setForceAppLanguage(false)
       setManualVoiceInputLanguage(normalizedStoredLanguage)
       return
     }
 
     window.localStorage.removeItem(VOICE_INPUT_LANGUAGE_STORAGE_KEY)
+    setForceAppLanguage(false)
     setManualVoiceInputLanguage(null)
   }, [])
 
@@ -145,7 +157,11 @@ export function useAIChatVoiceInputLanguage() {
     }
 
     if (value === APP_LANGUAGE_SELECTION_VALUE) {
-      window.localStorage.removeItem(VOICE_INPUT_LANGUAGE_STORAGE_KEY)
+      window.localStorage.setItem(
+        VOICE_INPUT_LANGUAGE_STORAGE_KEY,
+        APP_LANGUAGE_SELECTION_VALUE,
+      )
+      setForceAppLanguage(true)
       setManualVoiceInputLanguage(null)
       return
     }
@@ -156,11 +172,24 @@ export function useAIChatVoiceInputLanguage() {
     }
 
     window.localStorage.setItem(VOICE_INPUT_LANGUAGE_STORAGE_KEY, normalized)
+    setForceAppLanguage(false)
     setManualVoiceInputLanguage(normalized)
   }, [])
 
-  const voiceInputLanguage = manualVoiceInputLanguage || appVoiceInputLanguage
-  const selectedLanguageValue = manualVoiceInputLanguage || APP_LANGUAGE_SELECTION_VALUE
+  const persistedVoiceInputLanguage = useMemo(() => {
+    if (!userPreferences || typeof userPreferences.language !== "string") {
+      return null
+    }
+    const normalized = resolveVoiceInputLanguage(userPreferences.language)
+    return isValidLanguageCode(normalized) ? normalized : null
+  }, [userPreferences])
+
+  const voiceInputLanguage = forceAppLanguage
+    ? appVoiceInputLanguage
+    : manualVoiceInputLanguage || persistedVoiceInputLanguage || appVoiceInputLanguage
+  const selectedLanguageValue = forceAppLanguage
+    ? APP_LANGUAGE_SELECTION_VALUE
+    : manualVoiceInputLanguage || persistedVoiceInputLanguage || APP_LANGUAGE_SELECTION_VALUE
   const appLanguageLabel = resolveLanguageLabel(appLocale)
 
   const languageOptions = useMemo<VoiceInputLanguageOption[]>(() => {

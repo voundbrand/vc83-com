@@ -107,6 +107,96 @@ const LANGUAGE_CODE_TO_LABEL: Record<string, string> = {
   zh: "Chinese",
 };
 
+const VOICE_PREVIEW_SAMPLE_BY_LANGUAGE: Record<string, string> = {
+  ar: "Marhaban, ana {name}.",
+  bg: "Zdravey, az sam {name}.",
+  ca: "Hola, soc {name}.",
+  cs: "Ahoj, ja jsem {name}.",
+  da: "Hej, jeg er {name}.",
+  de: "Hallo, ich bin {name}.",
+  el: "Yia sou, eimai o {name}.",
+  en: "Hello, this is {name}.",
+  es: "Hola, soy {name}.",
+  et: "Tere, mina olen {name}.",
+  fa: "Salam, man {name} hastam.",
+  fil: "Kumusta, ako si {name}.",
+  fi: "Hei, olen {name}.",
+  fr: "Bonjour, je suis {name}.",
+  he: "Shalom, ani {name}.",
+  hi: "Namaste, main {name} hoon.",
+  hr: "Bok, ja sam {name}.",
+  hu: "Szia, en {name} vagyok.",
+  hy: "Barev, yes {name} em.",
+  id: "Halo, saya {name}.",
+  it: "Ciao, sono {name}.",
+  ja: "Konnichiwa, watashi wa {name} desu.",
+  ko: "Annyeonghaseyo, jeoneun {name} imnida.",
+  lt: "Labas, as esu {name}.",
+  lv: "Sveiki, es esmu {name}.",
+  ms: "Halo, saya {name}.",
+  nl: "Hallo, ik ben {name}.",
+  no: "Hei, jeg er {name}.",
+  pl: "Czesc, jestem {name}.",
+  pt: "Ola, eu sou {name}.",
+  ro: "Salut, eu sunt {name}.",
+  ru: "Privet, ya {name}.",
+  sk: "Ahoj, ja som {name}.",
+  sl: "Zivjo, jaz sem {name}.",
+  sr: "Zdravo, ja sam {name}.",
+  sv: "Hej, jag ar {name}.",
+  th: "Sawasdee, chan khue {name}.",
+  tr: "Merhaba, ben {name}.",
+  uk: "Pryvit, ya {name}.",
+  ur: "Assalam alaikum, main {name} hoon.",
+  vi: "Xin chao, toi la {name}.",
+  zh: "Ni hao, wo shi {name}.",
+};
+
+const VOICE_PREVIEW_GREETING_ONLY_BY_LANGUAGE: Record<string, string> = {
+  ar: "Marhaban.",
+  bg: "Zdravey.",
+  ca: "Hola.",
+  cs: "Ahoj.",
+  da: "Hej.",
+  de: "Hallo.",
+  el: "Yia sou.",
+  en: "Hello.",
+  es: "Hola.",
+  et: "Tere.",
+  fa: "Salam.",
+  fil: "Kumusta.",
+  fi: "Hei.",
+  fr: "Bonjour.",
+  he: "Shalom.",
+  hi: "Namaste.",
+  hr: "Bok.",
+  hu: "Szia.",
+  hy: "Barev.",
+  id: "Halo.",
+  it: "Ciao.",
+  ja: "Konnichiwa.",
+  ko: "Annyeonghaseyo.",
+  lt: "Labas.",
+  lv: "Sveiki.",
+  ms: "Halo.",
+  nl: "Hallo.",
+  no: "Hei.",
+  pl: "Czesc.",
+  pt: "Ola.",
+  ro: "Salut.",
+  ru: "Privet.",
+  sk: "Ahoj.",
+  sl: "Zivjo.",
+  sr: "Zdravo.",
+  sv: "Hej.",
+  th: "Sawasdee.",
+  tr: "Merhaba.",
+  uk: "Pryvit.",
+  ur: "Assalam alaikum.",
+  vi: "Xin chao.",
+  zh: "Ni hao.",
+};
+
 export function normalizeVoiceLanguageCode(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -199,7 +289,9 @@ export function isVoiceCompatibleWithLanguage(
   }
   const voiceLanguageCodes = extractVoiceLanguageCodes(voice);
   if (voiceLanguageCodes.size === 0) {
-    return true;
+    // ElevenLabs occasionally omits language metadata. Treat those entries as
+    // English defaults so non-English filters stay strict.
+    return normalizedLanguage === "en";
   }
   return voiceLanguageCodes.has(normalizedLanguage);
 }
@@ -225,4 +317,41 @@ export function buildVoiceLanguageCatalogFromVoices(
       const byLabel = left.label.localeCompare(right.label);
       return byLabel !== 0 ? byLabel : left.code.localeCompare(right.code);
     });
+}
+
+export function buildVoicePreviewSampleText(
+  language: string | null | undefined,
+  voiceName: string | null | undefined,
+): string {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language) || "en";
+  const normalizedName = typeof voiceName === "string" && voiceName.trim().length > 0
+    ? voiceName.trim()
+    : null;
+  if (!normalizedName) {
+    return VOICE_PREVIEW_GREETING_ONLY_BY_LANGUAGE[normalizedLanguage]
+      || VOICE_PREVIEW_GREETING_ONLY_BY_LANGUAGE.en;
+  }
+  const template = VOICE_PREVIEW_SAMPLE_BY_LANGUAGE[normalizedLanguage]
+    || VOICE_PREVIEW_SAMPLE_BY_LANGUAGE.en;
+  return template.replace("{name}", normalizedName);
+}
+
+export function buildVoiceConversationStarterText(
+  language: string | null | undefined,
+  userFirstName: string | null | undefined,
+): string {
+  const normalizedLanguage = normalizeVoiceLanguageCode(language) || "en";
+  const baseGreeting = VOICE_PREVIEW_GREETING_ONLY_BY_LANGUAGE[normalizedLanguage]
+    || VOICE_PREVIEW_GREETING_ONLY_BY_LANGUAGE.en;
+  const normalizedFirstName = typeof userFirstName === "string"
+    ? userFirstName.trim()
+    : "";
+  if (!normalizedFirstName) {
+    return baseGreeting;
+  }
+  const greetingWithoutTerminalPunctuation = baseGreeting.replace(/[.!?]+$/g, "").trim();
+  if (!greetingWithoutTerminalPunctuation) {
+    return `${normalizedFirstName}.`;
+  }
+  return `${greetingWithoutTerminalPunctuation}, ${normalizedFirstName}.`;
 }

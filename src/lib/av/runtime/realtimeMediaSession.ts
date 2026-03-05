@@ -123,6 +123,23 @@ export function detectVadSpeechFrame(args: {
   return computePcm16FrameRms(args.samples) >= policy.energyThresholdRms;
 }
 
+export function shouldTriggerConversationVadEndpoint(args: {
+  hasDetectedSpeechSinceCaptureStart: boolean;
+  consecutiveSilentFrames: number;
+  frameDurationMs: number;
+  vadPolicy?: RealtimeConversationVadPolicy;
+}): boolean {
+  if (!args.hasDetectedSpeechSinceCaptureStart) {
+    return false;
+  }
+  const policy = args.vadPolicy ?? DEFAULT_REALTIME_CONVERSATION_VAD_POLICY;
+  const silentDurationMs = Math.max(
+    0,
+    Math.floor(args.consecutiveSilentFrames * args.frameDurationMs),
+  );
+  return silentDurationMs >= policy.endpointSilenceMs;
+}
+
 export function shouldThrottleRealtimeVisionForwarding(args: {
   nowMs: number;
   lastForwardAtMs?: number;
