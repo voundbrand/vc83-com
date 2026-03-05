@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Apple, Monitor, Globe, CreditCard, ArrowRight } from "lucide-react";
+import { Apple, Monitor, Smartphone, Globe, CreditCard, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LANDING_AUDIT_STATE_EVENT } from "../lib/audit-chat-client";
 import {
@@ -187,58 +187,63 @@ export function HandoffCta({
             {t.startFreeDesc}
           </p>
           <div className="flex flex-wrap gap-2">
-            {links.iphoneDownloadUrl ? (
-              <Button
-                asChild
-                className="btn-secondary text-xs h-8 px-3 gap-1.5"
+            <Button
+              asChild
+              className="btn-secondary text-xs h-8 px-3 gap-1.5"
+            >
+              <a
+                href={links.iphoneDownloadUrl || links.webAppUrl}
+                onClick={() =>
+                  trackCtaClick({
+                    eventName: "onboarding.funnel.activation",
+                    ctaId: "start_free_iphone",
+                    destinationUrl: links.iphoneDownloadUrl || links.webAppUrl,
+                    ctaGroup: "start_free",
+                  })
+                }
               >
-                <a
-                  href={links.iphoneDownloadUrl}
-                  onClick={() =>
-                    trackCtaClick({
-                      eventName: "onboarding.funnel.activation",
-                      ctaId: "start_free_iphone",
-                      destinationUrl: links.iphoneDownloadUrl || "",
-                      ctaGroup: "start_free",
-                    })
-                  }
-                >
-                  <Apple className="w-3.5 h-3.5" />
-                  iPhone
-                </a>
-              </Button>
-            ) : (
-              <Button className="btn-secondary text-xs h-8 px-3 gap-1.5" disabled>
                 <Apple className="w-3.5 h-3.5" />
                 iPhone
-              </Button>
-            )}
-            {links.macosDownloadUrl ? (
-              <Button
-                asChild
-                className="btn-secondary text-xs h-8 px-3 gap-1.5"
+              </a>
+            </Button>
+            <Button
+              asChild
+              className="btn-secondary text-xs h-8 px-3 gap-1.5"
+            >
+              <a
+                href={links.macosDownloadUrl || links.webAppUrl}
+                onClick={() =>
+                  trackCtaClick({
+                    eventName: "onboarding.funnel.activation",
+                    ctaId: "start_free_macos",
+                    destinationUrl: links.macosDownloadUrl || links.webAppUrl,
+                    ctaGroup: "start_free",
+                  })
+                }
               >
-                <a
-                  href={links.macosDownloadUrl}
-                  onClick={() =>
-                    trackCtaClick({
-                      eventName: "onboarding.funnel.activation",
-                      ctaId: "start_free_macos",
-                      destinationUrl: links.macosDownloadUrl || "",
-                      ctaGroup: "start_free",
-                    })
-                  }
-                >
-                  <Monitor className="w-3.5 h-3.5" />
-                  macOS
-                </a>
-              </Button>
-            ) : (
-              <Button className="btn-secondary text-xs h-8 px-3 gap-1.5" disabled>
                 <Monitor className="w-3.5 h-3.5" />
                 macOS
-              </Button>
-            )}
+              </a>
+            </Button>
+            <Button
+              asChild
+              className="btn-secondary text-xs h-8 px-3 gap-1.5"
+            >
+              <a
+                href={links.androidDownloadUrl || links.webAppUrl}
+                onClick={() =>
+                  trackCtaClick({
+                    eventName: "onboarding.funnel.activation",
+                    ctaId: "start_free_android",
+                    destinationUrl: links.androidDownloadUrl || links.webAppUrl,
+                    ctaGroup: "start_free",
+                  })
+                }
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                Android
+              </a>
+            </Button>
             <Button
               asChild
               className="btn-secondary text-xs h-8 px-3 gap-1.5"

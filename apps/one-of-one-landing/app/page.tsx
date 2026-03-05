@@ -20,6 +20,7 @@ import { Footer } from "@/components/footer"
 import {
   Apple,
   Monitor,
+  Smartphone,
   Globe,
   Clock,
   TrendingUp,
@@ -86,6 +87,68 @@ const PRICING_EMAIL_TEMPLATES: Record<Language, {
     closeLine: "Bitte senden Sie mir die nächsten Schritte und den bevorzugten Checkout-Pfad.",
     signoff: "Viele Grüße,",
   },
+}
+
+type BetaPlatform = "iPhone" | "macOS" | "Android"
+
+const BETA_EMAIL_TEMPLATES: Record<Language, {
+  subjectPrefix: string;
+  greeting: string;
+  intro: string;
+  platformLabel: string;
+  sourceLabel: string;
+  timestampLabel: string;
+  closeLine: string;
+  signoff: string;
+}> = {
+  en: {
+    subjectPrefix: "Beta Tester Signup",
+    greeting: "Hi Remington,",
+    intro: "I would like to sign up as a beta tester for the sevenlayers native app:",
+    platformLabel: "Platform",
+    sourceLabel: "Source",
+    timestampLabel: "Timestamp",
+    closeLine: "Please let me know when the beta is available and how to get access.",
+    signoff: "Best regards,",
+  },
+  de: {
+    subjectPrefix: "Beta-Tester Anmeldung",
+    greeting: "Hallo Remington,",
+    intro: "ich möchte mich als Beta-Tester für die native sevenlayers-App anmelden:",
+    platformLabel: "Plattform",
+    sourceLabel: "Quelle",
+    timestampLabel: "Zeitstempel",
+    closeLine: "Bitte informieren Sie mich, wenn die Beta verfügbar ist und wie ich Zugang erhalte.",
+    signoff: "Viele Grüße,",
+  },
+}
+
+function buildBetaSignupMailtoUrl(language: Language, platform: BetaPlatform): string {
+  const template = BETA_EMAIL_TEMPLATES[language]
+  const timestampDate = new Date()
+  const localizedTimestamp = timestampDate.toLocaleString(language === "de" ? "de-DE" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+  const timestamp = `${localizedTimestamp} (${timestampDate.toISOString()})`
+  const subject = `${template.subjectPrefix}: ${platform}`
+  const body = [
+    template.greeting,
+    "",
+    template.intro,
+    "",
+    `${template.platformLabel}: ${platform}`,
+    `${template.sourceLabel}: one_of_one_landing`,
+    `${template.timestampLabel}: ${timestamp}`,
+    "",
+    template.closeLine,
+    "",
+    template.signoff,
+  ].join("\r\n")
+
+  const encodedSubject = encodeURIComponent(subject)
+  const encodedBody = encodeURIComponent(body)
+  return `mailto:${REMINGTON_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`
 }
 
 function resolveLandingStoreBaseUrl(): string {
@@ -848,7 +911,7 @@ export default function LandingPage() {
             >
               {t.operatorEverywhereHeadline}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center">
                 <div
                   className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
@@ -857,7 +920,16 @@ export default function LandingPage() {
                   <Apple className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>iPhone</h4>
-                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{t.iphoneDesc}</p>
+                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.iphoneDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "iPhone") }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                >
+                  <Mail className="w-3 h-3" />
+                  {t.joinBeta}
+                </button>
               </div>
               <div className="text-center">
                 <div
@@ -867,7 +939,35 @@ export default function LandingPage() {
                   <Monitor className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>macOS</h4>
-                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{t.macosDesc}</p>
+                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.macosDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "macOS") }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                >
+                  <Mail className="w-3 h-3" />
+                  {t.joinBeta}
+                </button>
+              </div>
+              <div className="text-center">
+                <div
+                  className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
+                  style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
+                >
+                  <Smartphone className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
+                </div>
+                <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>Android</h4>
+                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.androidDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "Android") }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                >
+                  <Mail className="w-3 h-3" />
+                  {t.joinBeta}
+                </button>
               </div>
               <div className="text-center">
                 <div

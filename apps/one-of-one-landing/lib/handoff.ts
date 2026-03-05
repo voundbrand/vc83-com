@@ -36,6 +36,7 @@ export interface LandingHandoffLinks {
   createAccountUrl: string;
   iphoneDownloadUrl: string | null;
   macosDownloadUrl: string | null;
+  androidDownloadUrl: string | null;
   webAppUrl: string;
 }
 
@@ -315,8 +316,9 @@ export function buildLandingHandoffLinks(
       claimToken: state.claimToken,
       attribution,
     }),
-    iphoneDownloadUrl: normalizeOptionalUrl(process.env.NEXT_PUBLIC_ONE_OF_ONE_IPHONE_URL),
+    iphoneDownloadUrl: normalizeOptionalUrl(process.env.NEXT_PUBLIC_ONE_OF_ONE_IPHONE_URL) || "https://testflight.apple.com/join/WQ3G5kcv",
     macosDownloadUrl: normalizeOptionalUrl(process.env.NEXT_PUBLIC_ONE_OF_ONE_MACOS_URL),
+    androidDownloadUrl: normalizeOptionalUrl(process.env.NEXT_PUBLIC_ONE_OF_ONE_ANDROID_URL),
     webAppUrl: resumeChatUrl,
   };
 }
