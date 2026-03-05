@@ -23,7 +23,7 @@ import type { Id } from "../_generated/dataModel";
 import type { AiBillingSource } from "../channels/types";
 import { getLicenseInternal } from "../licensing/helpers";
 import { getNextTierName, type TierName } from "../licensing/tierConfigs";
-import { requireAuthenticatedUser } from "../rbacHelpers";
+import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 import {
   getCreditSharingConfig,
   getChildCreditUsageToday,
@@ -2084,6 +2084,65 @@ export const grantGiftedCredits = internalMutation({
   },
   handler: async (ctx, args) => {
     return await grantGiftedCreditsInternal(ctx, args);
+  },
+});
+
+/**
+ * SUPER ADMIN: Grant Credits to Organization
+ *
+ * Allows super admins to manually grant gifted credits to any organization.
+ * Credits are added to the gifted bucket and never expire.
+ * Recorded in creditTransactions for full audit trail.
+ */
+export const superAdminGrantCredits = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    amount: v.number(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId);
+
+    if (!userContext.isGlobal || userContext.roleName !== "super_admin") {
+      throw new ConvexError({
+        code: "INSUFFICIENT_PERMISSIONS",
+        message: "Super admin access required to grant credits.",
+      });
+    }
+
+    if (!Number.isFinite(args.amount) || args.amount <= 0) {
+      throw new ConvexError({
+        code: "INVALID_CREDIT_AMOUNT",
+        message: "Credit amount must be a positive number.",
+      });
+    }
+
+    if (!args.reason.trim()) {
+      throw new ConvexError({
+        code: "REASON_REQUIRED",
+        message: "A reason is required when granting credits.",
+      });
+    }
+
+    const result = await grantGiftedCreditsInternal(ctx, {
+      organizationId: args.organizationId,
+      userId,
+      amount: args.amount,
+      reason: "gifted_admin_grant",
+      scopeType: "organization",
+    });
+
+    const balance = await getCreditBalanceInternal(ctx, args.organizationId);
+
+    return {
+      success: result.success,
+      grantedAmount: Math.floor(args.amount),
+      newGiftedBalance: result.newGiftedBalance,
+      totalCredits: balance.totalCredits,
+      transactionId: result.transactionId,
+    };
   },
 });
 

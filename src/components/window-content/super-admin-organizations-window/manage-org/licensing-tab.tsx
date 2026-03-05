@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ManualSubscriptionGrant } from "./components/manual-subscription-grant";
 import { TokenPackIssuance } from "./components/token-pack-issuance";
+import { CreditGrantIssuance } from "./components/credit-grant-issuance";
 import { ManualGrantsHistory } from "./components/manual-grants-history";
 import { LicenseOverview } from "../../../licensing/license-overview";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -434,6 +435,12 @@ export function LicensingTab({ organizationId, sessionId }: LicensingTabProps) {
 
       {/* NEW: Token Pack Issuance */}
       <TokenPackIssuance
+        organizationId={organizationId}
+        sessionId={sessionId}
+      />
+
+      {/* Credit Grant Issuance */}
+      <CreditGrantIssuance
         organizationId={organizationId}
         sessionId={sessionId}
       />
