@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import type { CSSProperties } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
+import { CookieBanner } from "@/components/cookie-banner"
 import "./globals.css"
 
 const fontVariableFallbacks: CSSProperties = {
@@ -66,6 +67,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <CookieBanner />
         </ThemeProvider>
       </body>
     </html>

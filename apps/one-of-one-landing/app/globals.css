@@ -420,4 +420,20 @@
     letter-spacing: 0.03em;
     text-transform: uppercase;
   }
+
+  /* Cookie banner slide-in */
+  .cookie-banner-enter {
+    animation: cookie-slide-in var(--duration-slower) var(--easing-out) both;
+  }
+
+  @keyframes cookie-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
