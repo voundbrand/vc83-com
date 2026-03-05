@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useAuth } from "@/hooks/use-auth"
 import { Sparkles } from "lucide-react"
 import { ShellProfileIcon } from "@/components/icons/shell-icons"
 import type { AIChatReasoningEffort } from "@/hooks/use-ai-chat"
@@ -69,65 +70,29 @@ interface SlickChatMessagesProps {
   timelineEvents: OperatorCollaborationTimelineEvent[]
 }
 
-function resolveReasoningLabel(reasoningEffort: AIChatReasoningEffort): string {
-  switch (reasoningEffort) {
-    case "low":
-      return "Low"
-    case "high":
-      return "High"
-    case "extra_high":
-      return "Extra High"
-    default:
-      return "Medium"
-  }
-}
-
 function ThinkingProgress({
   isSending,
-  composerMode,
-  reasoningEffort,
+  composerMode: _composerMode,
+  reasoningEffort: _reasoningEffort,
 }: {
   isSending: boolean
   composerMode: "auto" | "plan" | "plan_soft"
   reasoningEffort: AIChatReasoningEffort
 }) {
-  const [elapsedMs, setElapsedMs] = useState(0)
+  const [activeDotIndex, setActiveDotIndex] = useState(0)
 
   useEffect(() => {
     if (!isSending) {
-      setElapsedMs(0)
+      setActiveDotIndex(0)
       return
     }
 
-    const startedAt = Date.now()
     const timer = window.setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 200)
+      setActiveDotIndex((current) => (current + 1) % 3)
+    }, 220)
 
     return () => window.clearInterval(timer)
   }, [isSending])
-
-  const phaseLabel = useMemo(() => {
-    if (elapsedMs < 1800) {
-      return "Reading recent context"
-    }
-    if (elapsedMs < 4200) {
-      if (composerMode === "plan") {
-        return "Drafting a step-by-step plan"
-      }
-      if (composerMode === "plan_soft") {
-        return "Drafting a plan with feasibility hints"
-      }
-      return "Planning response structure"
-    }
-    if (elapsedMs < 7800) {
-      return "Composing final response"
-    }
-    return "Final quality pass"
-  }, [composerMode, elapsedMs])
-
-  const progressPercent = Math.min(92, Math.round((elapsedMs / 10000) * 100) + 8)
-  const reasoningLabel = resolveReasoningLabel(reasoningEffort)
 
   return (
     <div className="flex justify-start">
@@ -139,53 +104,23 @@ function ThinkingProgress({
         }}
       >
         <div className="flex items-center gap-2">
-          <Sparkles
-            size={15}
-            className="animate-pulse"
-            style={{ color: "var(--shell-accent)" }}
-          />
-          <span
-            className="text-sm font-semibold"
-            style={{
-              color: "transparent",
-              backgroundImage:
-                "linear-gradient(90deg, var(--shell-text-dim) 0%, var(--shell-text) 45%, var(--shell-text-dim) 100%)",
-              backgroundSize: "200% 100%",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              animation: "pulse 1.8s ease-in-out infinite",
-            }}
-          >
+          <Sparkles size={15} className="animate-pulse" style={{ color: "var(--shell-accent)" }} />
+          <span className="text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
             Thinking
           </span>
         </div>
 
-        <div className="mt-1 text-xs" style={{ color: "var(--shell-text-dim)" }}>
-          {phaseLabel}
-        </div>
-
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--shell-border-soft)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{
-              width: `${progressPercent}%`,
-              background: "var(--shell-button-primary-gradient)",
-            }}
-          />
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
-          <span>
-            Mode: {
-              composerMode === "plan"
-                ? "Plan"
-                : composerMode === "plan_soft"
-                  ? "Plan + Hints"
-                  : "Auto"
-            }
-          </span>
-          <span>•</span>
-          <span>Reasoning: {reasoningLabel}</span>
+        <div className="mt-2 flex items-center gap-1.5" style={{ color: "var(--shell-text-dim)" }}>
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="h-1.5 w-1.5 rounded-full transition-opacity duration-150"
+              style={{
+                background: "var(--shell-text-dim)",
+                opacity: activeDotIndex === index ? 1 : 0.35,
+              }}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -268,7 +203,7 @@ function resolveCorrelationBadge(message: ChatMessage): string | null {
 }
 
 export function SlickChatMessages({
-  visualMode,
+  visualMode: _visualMode,
   collaborationContext,
   selectedSurface,
   timelineEvents,
@@ -277,6 +212,7 @@ export function SlickChatMessages({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { t, isLoading: translationsLoading } = useNamespaceTranslations("ui.ai_assistant")
   const { chat, isSending, composerMode, reasoningEffort } = useAIChatContext()
+  const { user } = useAuth()
 
   const messages = useMemo(() => {
     const sourceMessages = (chat.messages || []) as ChatMessage[]
@@ -383,6 +319,20 @@ export function SlickChatMessages({
     }
 
     const specialistLabel = selectedSurface.kind === "dm" ? selectedSurface.specialistLabel : null
+    const greetingHour = new Date().getHours()
+    const greeting =
+      greetingHour < 12
+        ? "Good morning"
+        : greetingHour < 18
+          ? "Good afternoon"
+          : "Good evening"
+    const firstName = user?.firstName?.trim()
+    const welcomeHeadline =
+      selectedSurface.kind === "dm"
+        ? `Start a direct thread with ${specialistLabel || "the specialist"}`
+        : firstName
+          ? `${greeting}, ${firstName}!`
+          : `${greeting}!`
     return (
       <div className="relative z-10 flex-1 flex items-center justify-center px-6 pb-24">
         <div className="text-center max-w-xl">
@@ -393,16 +343,12 @@ export function SlickChatMessages({
             className="mx-auto mb-4 h-10 w-10"
           />
           <h2 className="text-2xl sm:text-3xl font-semibold leading-tight" style={{ color: "var(--shell-text)" }}>
-            {selectedSurface.kind === "dm"
-              ? `Start a direct thread with ${specialistLabel || "the specialist"}`
-              : visualMode === "single"
-                ? "How can I help you today?"
-                : "How can I help you this evening?"}
+            {welcomeHeadline}
           </h2>
           <p className="mt-4 text-sm" style={{ color: "var(--shell-text-dim)" }}>
             {selectedSurface.kind === "dm"
               ? "DM actions are proposal-scoped and visible only to operator, orchestrator, and the addressed specialist."
-              : "Voice-first chat is ready."}
+              : "Voice-first chat is ready. Ask anything or start Voice + Eyes from the composer."}
           </p>
           {showChatDebugMetadata && collaborationContext?.lineageId ? (
             <p className="mt-2 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
@@ -579,7 +525,7 @@ export function SlickChatMessages({
 
           return (
             <div key={key} className="flex min-w-0 justify-start">
-              <div className="max-w-[88%] min-w-0 px-1 py-1 text-[15px] leading-7" style={{ color: "var(--shell-text)" }}>
+              <div className="max-w-[92%] min-w-0 px-1 py-1 text-[15px] leading-7" style={{ color: "var(--shell-text)" }}>
                 <div className="mb-1 flex items-center gap-2 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/splash-icon.png" alt="" className="h-3.5 w-3.5 rounded-full" />
@@ -622,8 +568,16 @@ export function SlickChatMessages({
                     ) : null}
                   </div>
                 ) : null}
-                <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
-                  <div className={CHAT_MESSAGE_TEXT_CLASS}>{content}</div>
+                <div
+                  className="rounded-2xl border px-4 py-3"
+                  style={{
+                    borderColor: "var(--shell-border-soft)",
+                    background: "var(--shell-surface-elevated)",
+                  }}
+                >
+                  <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
+                    <div className={CHAT_MESSAGE_TEXT_CLASS}>{content}</div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -11,9 +11,14 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import { useNotification } from "@/hooks/use-notification"
 import type { AIChatSuperAdminQaMode } from "@/hooks/use-ai-chat"
 import { resolveOperatorCollaborationShellResolution } from "@/lib/operator-collaboration-cutover"
 import { buildPlatformAgentCreationKickoff } from "./onboarding-kickoff-contract"
+import {
+  getCreditRecoveryAction,
+  openCreditRecoveryAction,
+} from "@/lib/credits/credit-recovery"
 
 const ONBOARDING_ATTRIBUTION_STORAGE_KEY = "l4yercak3_onboarding_attribution"
 const LANDING_COMMERCIAL_INTENT_MAX_AGE_MS = 1000 * 60 * 60 * 12
@@ -434,6 +439,7 @@ function AIChatEntryBootstrap({
   superAdminQaEnabled?: boolean
 }) {
   const { chat, currentConversationId, setCurrentConversationId, isSending, setIsSending } = useAIChatContext()
+  const notification = useNotification()
   const seededEntryKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -514,7 +520,21 @@ function AIChatEntryBootstrap({
         }
       })
       .catch((error) => {
-        console.error("[AIChatWindow] Failed to seed creation kickoff:", error)
+        const creditRecovery = getCreditRecoveryAction(error)
+        if (creditRecovery) {
+          notification.error(
+            "No Credits Available",
+            "You are out of credits. Re-up now to keep the conversation going.",
+            {
+              action: {
+                label: creditRecovery.actionLabel,
+                onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+              },
+            }
+          )
+        } else {
+          console.error("[AIChatWindow] Failed to seed creation kickoff:", error)
+        }
         seededEntryKeyRef.current = null
       })
       .finally(() => {
@@ -525,6 +545,7 @@ function AIChatEntryBootstrap({
     currentConversationId,
     initialPanel,
     isSending,
+    notification,
     openContext,
     setCurrentConversationId,
     setIsSending,

@@ -9,6 +9,10 @@ import {
   buildFrontlineFeatureIntakeKickoff,
   summarizeToolBoundaryContext,
 } from "@/lib/ai/frontline-feature-intake"
+import {
+  getCreditRecoveryAction,
+  openCreditRecoveryAction,
+} from "@/lib/credits/credit-recovery"
 import { useQuery, useMutation } from "convex/react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import { useWindowManager } from "@/hooks/use-window-manager"
@@ -841,6 +845,20 @@ export function ToolExecutionPanel({ selectedWorkItem, onSelectWorkItem, selecte
         "The assistant will ask what's missing and what you need, then prepare the feature request draft."
       )
     } catch (error) {
+      const creditRecovery = getCreditRecoveryAction(error)
+      if (creditRecovery) {
+        notification.error(
+          "No Credits Available",
+          "You are out of credits. Re-up now to keep the conversation going.",
+          {
+            action: {
+              label: creditRecovery.actionLabel,
+              onClick: () => openCreditRecoveryAction(creditRecovery.actionUrl),
+            },
+          }
+        )
+        return
+      }
       const errorMessage = error instanceof Error ? error.message : "Unable to start intake."
       notification.error(
         "Unable to Start Intake",

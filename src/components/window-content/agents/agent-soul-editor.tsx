@@ -13,6 +13,7 @@ import { FormField } from "./form-field";
 import { isPlatformManagedL2Soul } from "./platform-soul-scope";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import {
+  buildVoicePreviewSampleText,
   buildVoiceLanguageCatalogFromVoices,
   formatVoiceLanguageLabel,
   isVoiceCompatibleWithLanguage,
@@ -55,6 +56,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
   };
   const agent = useQuery(api.agentOntology.getAgent, { sessionId, agentId });
   const updateAgent = useMutation(api.agentOntology.updateAgent);
+  const updateUserPreferences = useMutation(api.userPreferences.update);
   const listElevenLabsVoices = useAction(
     api.integrations.elevenlabs.listElevenLabsVoices,
   );
@@ -247,7 +249,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
         sessionId,
         organizationId,
         voiceId,
-        text: `hello this is ${previewName}`,
+        text: buildVoicePreviewSampleText(normalizedVoiceLanguage, previewName),
       })) as {
         success: boolean;
         reason?: string;
@@ -270,7 +272,13 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
     } finally {
       setIsVoicePreviewLoading(false);
     }
-  }, [organizationId, sessionId, synthesizeElevenLabsVoiceSample, voiceCatalog]);
+  }, [
+    normalizedVoiceLanguage,
+    organizationId,
+    sessionId,
+    synthesizeElevenLabsVoiceSample,
+    voiceCatalog,
+  ]);
 
   useEffect(() => {
     void loadVoiceCatalog();
@@ -330,6 +338,16 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
           },
         },
       });
+      try {
+        await updateUserPreferences({
+          sessionId,
+          voiceRuntimeProviderId: "elevenlabs",
+          voiceRuntimeVoiceId: elevenLabsVoiceId.trim() || "",
+          language: voiceLanguage.trim() || props.language || "en",
+        });
+      } catch (preferenceSyncError) {
+        console.warn("Saved soul but failed to sync voice runtime preference:", preferenceSyncError);
+      }
     } catch (e) {
       console.error("Failed to save soul:", e);
     } finally {
@@ -429,7 +447,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
             <option value="">{tx("voice.picker.org_default", "Use org default voice")}</option>
             {filteredVoiceCatalog.map((voice) => (
               <option key={voice.voiceId} value={voice.voiceId}>
-                {voice.name} ({voice.voiceId}){voice.language ? ` - ${voice.language}` : ""}
+                {voice.name} ({voice.voiceId})
               </option>
             ))}
           </select>
@@ -449,7 +467,7 @@ export function AgentSoulEditor({ agentId, sessionId, organizationId }: AgentSou
               {isVoicePreviewLoading ? tx("voice.actions.playing", "Playing...") : tx("voice.actions.preview", "Preview")}
             </button>
             <span className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
-              {tx("voice.preview.hint", "Auto-plays: hello this is [name]")}
+              {tx("voice.preview.hint", "Auto-plays a sample in the selected language.")}
             </span>
           </div>
 

@@ -1,10 +1,9 @@
 "use client"
 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { MessageSquare, FolderOpen, Plus, Search, Layers, ExternalLink, PanelLeftClose } from "lucide-react"
+import { MessageSquare, FolderOpen, Plus, Search, PanelLeftClose } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
-import Link from "next/link"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
 interface ConversationHistoryProps {
@@ -32,6 +31,7 @@ export function ConversationHistory({ onClose }: ConversationHistoryProps) {
     try {
       await chat.createConversation()
       setCurrentConversationId(undefined) // Clear selection to start fresh
+      onClose?.()
     } catch (error) {
       console.error("Failed to create new conversation:", error)
     }
@@ -40,25 +40,25 @@ export function ConversationHistory({ onClose }: ConversationHistoryProps) {
   // Handle conversation selection
   const handleSelectConversation = (conversationId: string) => {
     setCurrentConversationId(conversationId as Id<"aiConversations">)
+    onClose?.()
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* SevenLayers Builder Link */}
-      <Link
-        href="/builder"
-        className="flex items-center gap-2 p-3 border-b hover-menu-item transition-colors group"
+      <div
+        className="px-4 pb-3 pt-4 border-b"
         style={{
           borderColor: "var(--shell-border-strong)",
-          color: "var(--shell-text)",
+          background: "var(--shell-surface)",
         }}
       >
-        <Layers className="w-4 h-4" style={{ color: "var(--shell-accent)" }} />
-        <span className="text-sm font-semibold flex-1">
-          SevenLayers Builder
-        </span>
-        <ExternalLink className="w-3 h-3 transition-colors" style={{ color: "var(--shell-text-dim)" }} />
-      </Link>
+        <p
+          className="text-[28px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: "var(--shell-text)" }}
+        >
+          SevenLayers
+        </p>
+      </div>
 
       {/* Conversations Header */}
       <div

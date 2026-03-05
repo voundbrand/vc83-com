@@ -197,11 +197,12 @@ export function ChatInput() {
         return // Don't show error notification for user-initiated stops
       }
 
-      console.error("Failed to send message:", error)
-
       // Parse error message for user-friendly feedback
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
       const creditRecovery = getCreditRecoveryAction(error)
+      if (!creditRecovery) {
+        console.error("Failed to send message:", error)
+      }
 
       if (creditRecovery) {
         notification.error(

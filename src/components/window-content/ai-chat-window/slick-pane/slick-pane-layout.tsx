@@ -97,20 +97,8 @@ export function SlickPaneLayout() {
   return (
     <div
       className="relative flex h-full min-h-0 overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(180deg, var(--shell-surface-elevated) 0%, var(--shell-surface) 100%)",
-      }}
+      style={{ background: "var(--shell-surface)" }}
     >
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(180deg, var(--shell-surface) 0%, var(--shell-accent-soft) 45%, var(--shell-surface) 100%)",
-          opacity: 0.45,
-        }}
-      />
-
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
         <SlickChatHeader
           isLeftDrawerOpen={leftDrawerOpen}
@@ -151,7 +139,7 @@ export function SlickPaneLayout() {
           ) : null}
 
           <aside
-            className={`absolute inset-y-0 left-0 z-30 w-[18rem] border-r transition-transform transition-opacity duration-200 ease-out sm:w-[22rem] ${
+            className={`absolute inset-y-0 left-0 z-30 w-[88%] max-w-[22rem] border-r transition-transform transition-opacity duration-200 ease-out ${
               leftDrawerOpen
                 ? "translate-x-0 opacity-100 pointer-events-auto"
                 : "-translate-x-[calc(100%+1rem)] opacity-0 pointer-events-none"
@@ -167,7 +155,7 @@ export function SlickPaneLayout() {
           </aside>
 
           <aside
-            className={`absolute inset-y-0 right-0 z-30 w-[19rem] border-l transition-transform transition-opacity duration-200 ease-out sm:w-[24rem] ${
+            className={`absolute inset-y-0 right-0 z-30 w-[78%] max-w-[24rem] border-l transition-transform transition-opacity duration-200 ease-out ${
               rightDrawerOpen
                 ? "translate-x-0 opacity-100 pointer-events-auto"
                 : "translate-x-[calc(100%+1rem)] opacity-0 pointer-events-none"

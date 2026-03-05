@@ -1,11 +1,11 @@
 "use client"
 
-import { useWindowManager } from "@/hooks/use-window-manager"
+import { useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import {
   Ghost,
   Menu,
-  Shield,
+  Plus,
 } from "lucide-react"
 import type {
   CollaborationSurfaceSelection,
@@ -28,8 +28,8 @@ export function SlickChatHeader({
   onToggleLeftDrawer,
   onToggleRightDrawer,
 }: SlickChatHeaderProps) {
-  const { openWindow } = useWindowManager()
-  const { privateModeEnabled, setPrivateModeEnabled } = useAIChatContext()
+  const { chat, setCurrentConversationId, privateModeEnabled, setPrivateModeEnabled } = useAIChatContext()
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false)
 
   const getDrawerButtonStyle = (isActive: boolean) => ({
     background: isActive
@@ -48,17 +48,17 @@ export function SlickChatHeader({
     height: 44,
   } as const
 
-  const handleOpenAgentCoverage = () => {
-    import("@/components/window-content/agents-window").then(({ AgentsWindow }) => {
-      const agentsX = typeof window !== "undefined" ? Math.max(120, window.innerWidth - 980) : 220
-      openWindow(
-        "agents-browser",
-        "AI Agents",
-        <AgentsWindow />,
-        { x: agentsX, y: 70 },
-        { width: 980, height: 700 }
-      )
-    })
+  const handleNewChat = async () => {
+    if (isCreatingConversation) {
+      return
+    }
+    setIsCreatingConversation(true)
+    try {
+      await chat.createConversation()
+      setCurrentConversationId(undefined)
+    } finally {
+      setIsCreatingConversation(false)
+    }
   }
 
   return (
@@ -73,53 +73,44 @@ export function SlickChatHeader({
           <Menu size={18} />
         </button>
 
-        <div className="flex flex-col items-center gap-1">
-          <button
-            className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-            style={{
-              ...circularButtonStyle,
-              background: privateModeEnabled
-                ? "var(--shell-accent-soft)"
-                : "var(--shell-surface-elevated)",
-              borderColor: privateModeEnabled
-                ? "var(--shell-active-border)"
-                : "var(--shell-border-soft)",
-              color: "var(--shell-text)",
-            }}
-            onClick={() => setPrivateModeEnabled(!privateModeEnabled)}
-            title={privateModeEnabled ? "Disable private mode" : "Enable private mode"}
-          >
-            <Ghost size={18} />
-          </button>
-          {privateModeEnabled ? (
-            <span className="text-[10px] font-semibold lowercase leading-none" style={{ color: "var(--shell-text-dim)" }}>
-              private
-            </span>
-          ) : null}
-        </div>
-
         <button
           className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
           style={{
             ...circularButtonStyle,
-            background: "var(--shell-surface-elevated)",
+            background: privateModeEnabled ? "var(--shell-accent-soft)" : "var(--shell-surface-elevated)",
+            borderColor: privateModeEnabled ? "var(--shell-active-border)" : "var(--shell-border-soft)",
             color: "var(--shell-text)",
           }}
-          onClick={handleOpenAgentCoverage}
-          title="Open agent coverage and recommendations"
+          onClick={() => setPrivateModeEnabled(!privateModeEnabled)}
+          title={privateModeEnabled ? "Disable private mode" : "Enable private mode"}
         >
-          <Shield size={19} />
+          <Ghost size={17} />
         </button>
 
-        <div className="flex min-h-11 min-w-0 flex-1 items-center" />
+        <div className="flex min-h-11 min-w-0 flex-1" aria-hidden="true" />
 
         <button
           className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-          style={{ ...getDrawerButtonStyle(isRightDrawerOpen), ...circularButtonStyle }}
-          onClick={onToggleRightDrawer}
-          title={isRightDrawerOpen ? "Close workflow drawer" : "Open workflow drawer"}
+          style={{
+            ...getDrawerButtonStyle(isRightDrawerOpen),
+            ...circularButtonStyle,
+            color: "var(--shell-text)",
+          }}
+          onClick={(event) => {
+            if (event.altKey) {
+              onToggleRightDrawer()
+              return
+            }
+            void handleNewChat()
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault()
+            onToggleRightDrawer()
+          }}
+          title="Start new chat (Alt+click or right-click to open workflow drawer)"
+          disabled={isCreatingConversation}
         >
-          <Menu size={18} />
+          <Plus size={18} />
         </button>
       </div>
     </div>

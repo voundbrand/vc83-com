@@ -495,6 +495,12 @@ export function ChatWidget({
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sendInFlightRef = useRef(false);
+  const recentOutboundRef = useRef<{
+    signature: string;
+    idempotencyKey: string;
+    sentAt: number;
+  } | null>(null);
 
   // Derived values
   const effectiveConfig = useMemo<WebchatConfig>(() => {
@@ -624,8 +630,10 @@ export function ChatWidget({
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim() || isSending || !resolvedAgentId) return;
+      const trimmedText = text.trim();
+      if (!trimmedText || sendInFlightRef.current || !resolvedAgentId) return;
 
+      sendInFlightRef.current = true;
       setIsSending(true);
       setError(null);
 
@@ -633,7 +641,7 @@ export function ChatWidget({
       const userMessage: ChatMessage = {
         id: `user_${Date.now()}`,
         role: "user",
-        content: text.trim(),
+        content: trimmedText,
         timestamp: Date.now(),
       };
       setMessages((prev) => {
@@ -659,6 +667,28 @@ export function ChatWidget({
           resolvedChannel === "native_guest"
             ? `${resolvedApiUrl}/native-guest/message`
             : `${resolvedApiUrl}/webchat/message`;
+        const now = Date.now();
+        const outboundSignature = `${resolvedChannel}:${trimmedText}`;
+        const recentOutbound = recentOutboundRef.current;
+        let idempotencyKey = `wc_send_${resolvedChannel}_${resolvedAgentId}_${now.toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        if (
+          recentOutbound &&
+          recentOutbound.signature === outboundSignature &&
+          now - recentOutbound.sentAt < 2500
+        ) {
+          idempotencyKey = recentOutbound.idempotencyKey;
+        } else {
+          recentOutboundRef.current = {
+            signature: outboundSignature,
+            idempotencyKey,
+            sentAt: now,
+          };
+        }
+        const requestCorrelationId = `wc_req_${now.toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
 
         const response = await fetch(messageEndpoint, {
           method: "POST",
@@ -668,8 +698,10 @@ export function ChatWidget({
           body: JSON.stringify({
             agentId: resolvedAgentId,
             organizationId,
-            message: text.trim(),
+            message: trimmedText,
             sessionToken,
+            idempotencyKey,
+            requestCorrelationId,
             deviceFingerprint,
             visitorInfo,
             attribution,
@@ -716,6 +748,7 @@ export function ChatWidget({
         setError(fallbackError || "Failed to send message");
         console.error("[ChatWidget] Send failed:", err);
       } finally {
+        sendInFlightRef.current = false;
         setIsSending(false);
       }
     },
@@ -723,7 +756,6 @@ export function ChatWidget({
       attribution,
       effectiveConfig.collectContactInfo,
       effectiveConfig.offlineMessage,
-      isSending,
       organizationId,
       resolvedAgentId,
       resolvedApiUrl,
