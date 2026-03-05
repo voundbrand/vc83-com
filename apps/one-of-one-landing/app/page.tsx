@@ -163,6 +163,7 @@ export default function LandingPage() {
   const [founderAvatarUrl, setFounderAvatarUrl] = useState<string | null>(null)
   const [showDetailedPricing, setShowDetailedPricing] = useState(false)
   const [expandedPricingSections, setExpandedPricingSections] = useState<string[]>([])
+  const [expandedProofs, setExpandedProofs] = useState<string[]>([])
   const legacyPublicCutoverMode = resolveLegacyPublicCutoverMode()
 
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -226,6 +227,14 @@ export default function LandingPage() {
       current.includes(categoryTitle)
         ? current.filter((title) => title !== categoryTitle)
         : [...current, categoryTitle]
+    ))
+  }, [])
+
+  const toggleProof = useCallback((name: string) => {
+    setExpandedProofs((current) => (
+      current.includes(name)
+        ? current.filter((n) => n !== name)
+        : [...current, name]
     ))
   }, [])
 
@@ -526,7 +535,7 @@ export default function LandingPage() {
                   <div>
                     <p className="font-semibold" style={{ color: "var(--color-text)" }}>Marcus</p>
                     <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      Painting &middot; Stuttgart &middot; &euro;2.4M
+                      {t.marcusDesc}
                     </p>
                   </div>
                   <Clock className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
@@ -547,6 +556,20 @@ export default function LandingPage() {
                     </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("marcus")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("marcus") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("marcus") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("marcus") && (
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                    {t.marcusDetail}
+                  </p>
+                )}
               </div>
 
               {/* Rachel */}
@@ -555,7 +578,7 @@ export default function LandingPage() {
                   <div>
                     <p className="font-semibold" style={{ color: "var(--color-text)" }}>Rachel</p>
                     <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      Consulting &middot; Dublin &middot; &euro;1.8M
+                      {t.rachelDesc}
                     </p>
                   </div>
                   <TrendingUp className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
@@ -567,6 +590,20 @@ export default function LandingPage() {
                     <span className="font-semibold">&rarr; 3.8%</span>
                   </p>
                 </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("rachel")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("rachel") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("rachel") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("rachel") && (
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                    {t.rachelDetail}
+                  </p>
+                )}
               </div>
 
               {/* Jess */}
@@ -575,7 +612,7 @@ export default function LandingPage() {
                   <div>
                     <p className="font-semibold" style={{ color: "var(--color-text)" }}>Jess</p>
                     <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      Skincare &middot; Amsterdam &middot; &euro;3.1M
+                      {t.jessDesc}
                     </p>
                   </div>
                   <Target className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
@@ -587,6 +624,20 @@ export default function LandingPage() {
                     <span className="font-semibold">&rarr; 4.46x</span>
                   </p>
                 </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("jess")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("jess") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("jess") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("jess") && (
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                    {t.jessDetail}
+                  </p>
+                )}
               </div>
 
               {/* Lena */}
@@ -595,7 +646,7 @@ export default function LandingPage() {
                   <div>
                     <p className="font-semibold" style={{ color: "var(--color-text)" }}>Lena</p>
                     <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      E-commerce &middot; Berlin &middot; &euro;4.7M
+                      {t.lenaDesc}
                     </p>
                   </div>
                   <Percent className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
@@ -613,6 +664,20 @@ export default function LandingPage() {
                     <p className="font-semibold" style={{ color: "var(--color-text)" }}>&euro;14.2K</p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("lena")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("lena") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("lena") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("lena") && (
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                    {t.lenaDetail}
+                  </p>
+                )}
               </div>
             </div>
           </div>
