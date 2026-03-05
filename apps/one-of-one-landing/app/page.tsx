@@ -16,6 +16,7 @@ import {
 } from "@/content/pricing-sheet"
 import { trackLandingEvent } from "@/lib/analytics"
 import { resolveLegacyPublicCutoverMode } from "@/lib/commercial-cutover"
+import { Footer } from "@/components/footer"
 import {
   Apple,
   Monitor,
@@ -318,7 +319,7 @@ export default function LandingPage() {
               style={{ color: "var(--color-text)" }}
             >
               <div className="text-[19px] tracking-[0.45em] logo-text-seven">SEVEN</div>
-              <div className="text-[14px] tracking-[0.7em] logo-text-layers">LAYERS</div>
+              <div className="text-[14px] tracking-[0.653em] logo-text-layers">LAYERS</div>
             </div>
           </div>
 
@@ -972,35 +973,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer
-        className="border-t py-8 px-4 md:px-8"
-        style={{ backgroundColor: "var(--color-bg)", borderColor: "var(--color-border)" }}
-      >
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Image src="/images/sevenlayers-logo.png" alt="sevenlayers" width={24} height={24} className="w-6 h-6" />
-            <div className="logo-text leading-[1.1]" style={{ color: "var(--color-text-secondary)" }}>
-              <div className="text-[14px] tracking-[0.45em] logo-text-seven">SEVEN</div>
-              <div className="text-[11px] tracking-[0.7em] logo-text-layers">LAYERS</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>{t.footerTagline}</p>
-            <Button asChild className="btn-secondary text-xs h-8 px-3 gap-1.5">
-              <a
-                href={founderDemoUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => trackDemoCtaClick("book_demo_footer", "footer", founderDemoUrl)}
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                {t.bookDemoShort}
-              </a>
-            </Button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

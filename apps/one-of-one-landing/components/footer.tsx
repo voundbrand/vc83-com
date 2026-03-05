@@ -25,19 +25,19 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
-const productLinks = [
-  { href: "/", label: "Home" },
-  { href: "/docs", label: "Docs" },
-  { href: "/support", label: "Support" },
-]
+const productLinkKeys = [
+  { href: "/", key: "linkHome" },
+  { href: "/docs", key: "linkDocs" },
+  { href: "/support", key: "linkSupport" },
+] as const
 
-const legalLinks = [
-  { href: "/privacy", label: "Privacy" },
-  { href: "/cookies", label: "Cookies" },
-  { href: "/terms", label: "Terms" },
-  { href: "/eula", label: "EULA" },
-  { href: "/data-deletion", label: "Data Deletion" },
-]
+const legalLinkKeys = [
+  { href: "/privacy", key: "linkPrivacy" },
+  { href: "/cookies", key: "linkCookies" },
+  { href: "/terms", key: "linkTerms" },
+  { href: "/eula", key: "linkEula" },
+  { href: "/data-deletion", key: "linkDataDeletion" },
+] as const
 
 const socials = [
   { href: socialLinks.linkedin, icon: Linkedin, label: "LinkedIn" },
@@ -80,7 +80,7 @@ export function Footer({ language = "en" }: FooterProps) {
                 style={{ color: "var(--color-text)" }}
               >
                 <div className="text-[16px] tracking-[0.45em] logo-text-seven">SEVEN</div>
-                <div className="text-[12px] tracking-[0.7em] logo-text-layers">LAYERS</div>
+                <div className="text-[12px] tracking-[0.653em] logo-text-layers">LAYERS</div>
               </div>
             </Link>
             <p
@@ -100,7 +100,7 @@ export function Footer({ language = "en" }: FooterProps) {
               {t.product}
             </h4>
             <nav className="flex flex-col gap-2">
-              {productLinks.map((link) => (
+              {productLinkKeys.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -113,7 +113,7 @@ export function Footer({ language = "en" }: FooterProps) {
                     e.currentTarget.style.color = "var(--color-text-tertiary)"
                   }}
                 >
-                  {link.label}
+                  {t[link.key]}
                 </Link>
               ))}
             </nav>
@@ -128,7 +128,7 @@ export function Footer({ language = "en" }: FooterProps) {
               {t.legal}
             </h4>
             <nav className="flex flex-col gap-2">
-              {legalLinks.map((link) => (
+              {legalLinkKeys.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -141,7 +141,7 @@ export function Footer({ language = "en" }: FooterProps) {
                     e.currentTarget.style.color = "var(--color-text-tertiary)"
                   }}
                 >
-                  {link.label}
+                  {t[link.key]}
                 </Link>
               ))}
             </nav>

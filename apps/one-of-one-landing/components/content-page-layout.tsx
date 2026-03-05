@@ -44,7 +44,7 @@ export function ContentPageLayout({ children, language, onLanguageChange }: Cont
                 style={{ color: "var(--color-text)" }}
               >
                 <div className="text-[19px] tracking-[0.45em] logo-text-seven">SEVEN</div>
-                <div className="text-[14px] tracking-[0.7em] logo-text-layers">LAYERS</div>
+                <div className="text-[14px] tracking-[0.653em] logo-text-layers">LAYERS</div>
               </div>
             </Link>
           </div>
