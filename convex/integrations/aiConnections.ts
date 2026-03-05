@@ -442,6 +442,8 @@ export const getAIConnectionCatalog = query({
         billingSource: profile?.billingSource ?? null,
         cooldownUntil: profile?.cooldownUntil ?? null,
         lastFailureReason: normalizeString(profile?.lastFailureReason),
+        // Catalog "connected" reflects only an org-managed profile. Platform env
+        // fallback (providerRegistry) can still resolve at runtime when this is false.
         isConnected: Boolean(profile?.enabled && apiKey),
         supportedVerificationActions,
         healthStatus: health?.status ?? null,

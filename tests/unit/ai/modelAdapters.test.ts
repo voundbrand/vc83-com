@@ -185,6 +185,29 @@ describe("model adapter normalization", () => {
     expect(envMap.openai_compatible).toBe("compat-key");
   });
 
+  it("prefers GEMINI_API_KEY over Google alias env keys", () => {
+    const envMap = buildEnvApiKeysByProvider({
+      GEMINI_API_KEY: "gemini-primary",
+      GOOGLE_API_KEY: "google-alias",
+      GOOGLE_GENERATIVE_AI_API_KEY: "google-generative-alias",
+    });
+
+    expect(envMap.gemini).toBe("gemini-primary");
+  });
+
+  it("falls back Gemini env key aliases in deterministic order", () => {
+    const googleApiFallback = buildEnvApiKeysByProvider({
+      GOOGLE_API_KEY: "google-alias",
+      GOOGLE_GENERATIVE_AI_API_KEY: "google-generative-alias",
+    });
+    expect(googleApiFallback.gemini).toBe("google-alias");
+
+    const googleGenerativeFallback = buildEnvApiKeysByProvider({
+      GOOGLE_GENERATIVE_AI_API_KEY: "google-generative-alias",
+    });
+    expect(googleGenerativeFallback.gemini).toBe("google-generative-alias");
+  });
+
   it("resolves provider-native reasoning contract metadata", () => {
     const openRouterContract = resolveProviderReasoningContract("openrouter");
     expect(openRouterContract.supportsNativeReasoning).toBe(true);

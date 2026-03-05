@@ -264,6 +264,23 @@ export function VoiceModeModal({
     };
   }, [voiceModeVisualState]);
 
+  const handleManualStop = () => {
+    if (conversationEnding || !conversationStarted) {
+      return;
+    }
+    void (async () => {
+      try {
+        if (recorderRef.current?.isRecording()) {
+          await recorderRef.current.stop();
+        }
+      } catch (error) {
+        console.warn('Voice recorder stop before end failed:', error);
+      } finally {
+        onEndConversation();
+      }
+    })();
+  };
+
   const handleOrbPress = () => {
     if (conversationEnding) {
       return;
@@ -284,17 +301,7 @@ export function VoiceModeModal({
       })();
       return;
     }
-    void (async () => {
-      try {
-        if (recorderRef.current?.isRecording()) {
-          await recorderRef.current.stop();
-        }
-      } catch (error) {
-        console.warn('Voice recorder stop before end failed:', error);
-      } finally {
-        onEndConversation();
-      }
-    })();
+    handleManualStop();
   };
 
   useEffect(() => {
@@ -619,6 +626,26 @@ export function VoiceModeModal({
           </YStack>
 
         </YStack>
+        {conversationStarted && !conversationEnding ? (
+          <Pressable
+            onPress={handleManualStop}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ position: 'absolute', right: 16, bottom: 16 }}
+          >
+            <Circle
+              size={52}
+              backgroundColor="rgba(220, 38, 38, 0.22)"
+              borderWidth={1}
+              borderColor="rgba(248, 113, 113, 0.72)"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text color="#fecaca" fontSize="$1" fontWeight="800">
+                STOP
+              </Text>
+            </Circle>
+          </Pressable>
+        ) : null}
       </SafeAreaView>
     </Modal>
   );

@@ -110,6 +110,52 @@ describe("providerRegistry", () => {
     expect(binding?.apiKey).toBe("newer-key");
   });
 
+  it("keeps org auth profile binding ahead of platform env fallback for the same provider", () => {
+    const binding = resolveOrganizationProviderBindingForProvider({
+      providerId: "gemini",
+      llmSettings: {
+        providerId: "openrouter",
+        providerAuthProfiles: [
+          {
+            profileId: "org-gemini",
+            providerId: "gemini",
+            apiKey: "org-gemini-key",
+            enabled: true,
+            priority: 1,
+            billingSource: "byok",
+          },
+        ],
+      },
+      envApiKeysByProvider: {
+        gemini: "env-gemini-key",
+      },
+    });
+
+    expect(binding).not.toBeNull();
+    expect(binding?.source).toBe("organization_auth_profile");
+    expect(binding?.apiKey).toBe("org-gemini-key");
+    expect(binding?.billingSource).toBe("byok");
+  });
+
+  it("falls back to platform env Gemini binding when org profile is missing", () => {
+    const binding = resolveOrganizationProviderBindingForProvider({
+      providerId: "gemini",
+      llmSettings: {
+        providerId: "openrouter",
+        providerAuthProfiles: [],
+      },
+      envApiKeysByProvider: {
+        gemini: "env-gemini-key",
+      },
+    });
+
+    expect(binding).not.toBeNull();
+    expect(binding?.source).toBe("platform_env");
+    expect(binding?.profileId).toBe("env_gemini_key");
+    expect(binding?.apiKey).toBe("env-gemini-key");
+    expect(binding?.billingSource).toBe("platform");
+  });
+
   it("redacts api keys from binding responses", () => {
     const binding = resolveOrganizationProviderBindingForProvider({
       providerId: "openrouter",
