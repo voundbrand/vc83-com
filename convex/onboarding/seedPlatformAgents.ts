@@ -1051,6 +1051,43 @@ const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
   customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
 };
 
+const SAMANTHA_LEGACY_FILE_DELIVERY_PATTERN = /\b(pdf|docx)\b/i;
+
+function resolveSamanthaLegacyFileDeliveryDrift(
+  customProperties: Record<string, unknown>,
+): {
+  systemPromptHasLegacyFileDeliveryTerms: boolean;
+  actionCompletionMessagesHaveLegacyFileDeliveryTerms: boolean;
+} {
+  const systemPrompt =
+    typeof customProperties.systemPrompt === "string"
+      ? customProperties.systemPrompt
+      : "";
+  const actionCompletion = asRecord(customProperties.actionCompletionContract);
+  const outcomes = Array.isArray(actionCompletion.outcomes)
+    ? actionCompletion.outcomes
+    : [];
+  const contractMessages = outcomes.flatMap((outcome) => {
+    const record = asRecord(outcome);
+    const unavailableMessage =
+      typeof record.unavailableMessage === "string"
+        ? record.unavailableMessage
+        : "";
+    const notObservedMessage =
+      typeof record.notObservedMessage === "string"
+        ? record.notObservedMessage
+        : "";
+    return [unavailableMessage, notObservedMessage];
+  });
+
+  return {
+    systemPromptHasLegacyFileDeliveryTerms:
+      SAMANTHA_LEGACY_FILE_DELIVERY_PATTERN.test(systemPrompt),
+    actionCompletionMessagesHaveLegacyFileDeliveryTerms:
+      contractMessages.some((message) => SAMANTHA_LEGACY_FILE_DELIVERY_PATTERN.test(message)),
+  };
+}
+
 type ProtectedTemplateAgentSeed = {
   name: string;
   subtype: string;
@@ -1950,6 +1987,67 @@ export const seedSamanthaWarmLeadCaptureConsultant = internalMutation({
       workerCreated: workerResult.created,
       templateRole: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
       workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
+    };
+  },
+});
+
+export const inspectSamanthaDeliveryLanguageDrift = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const platformOrgId = getPlatformOrgId();
+    const agents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", platformOrgId).eq("type", "org_agent")
+      )
+      .collect();
+
+    const relevantAgents = agents.filter((agent) => {
+      const props = asRecord(agent.customProperties);
+      const templateRole = typeof props.templateRole === "string" ? props.templateRole : "";
+      const workerPoolRole =
+        typeof props.workerPoolRole === "string" ? props.workerPoolRole : "";
+      return templateRole === SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE
+        || templateRole === SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE
+        || workerPoolRole === "lead_capture_consultant"
+        || workerPoolRole === "lead_capture_consultant_warm";
+    });
+
+    const records = relevantAgents.map((agent) => {
+      const props = asRecord(agent.customProperties);
+      const drift = resolveSamanthaLegacyFileDeliveryDrift(props);
+      const templateRole = typeof props.templateRole === "string" ? props.templateRole : null;
+      const workerPoolRole =
+        typeof props.workerPoolRole === "string" ? props.workerPoolRole : null;
+      const templateAgentId =
+        typeof props.templateAgentId === "string" ? props.templateAgentId : null;
+      const driftDetected =
+        drift.systemPromptHasLegacyFileDeliveryTerms
+        || drift.actionCompletionMessagesHaveLegacyFileDeliveryTerms;
+      return {
+        agentId: agent._id,
+        name: agent.name,
+        status: agent.status,
+        templateRole,
+        workerPoolRole,
+        templateAgentId,
+        driftDetected,
+        systemPromptHasLegacyFileDeliveryTerms:
+          drift.systemPromptHasLegacyFileDeliveryTerms,
+        actionCompletionMessagesHaveLegacyFileDeliveryTerms:
+          drift.actionCompletionMessagesHaveLegacyFileDeliveryTerms,
+      };
+    });
+
+    return {
+      success: true,
+      platformOrgId,
+      records,
+      driftCount: records.filter((record) => record.driftDetected).length,
+      syncPath: [
+        "Run internal.onboarding.seedPlatformAgents.seedSamanthaLeadCaptureConsultant",
+        "Run internal.onboarding.seedPlatformAgents.seedSamanthaWarmLeadCaptureConsultant",
+      ],
     };
   },
 });

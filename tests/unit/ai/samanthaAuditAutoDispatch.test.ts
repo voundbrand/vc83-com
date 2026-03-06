@@ -5,6 +5,7 @@ import {
   resolveSamanthaClaimRecoveryDecision,
   resolveAuditDeliverableInvocationGuardrail,
   resolveSamanthaAuditAutoDispatchPlan,
+  sanitizeSamanthaEmailOnlyAssistantContent,
   shouldAttemptSamanthaClaimRecoveryAutoDispatch,
 } from "../../../convex/ai/agentExecution";
 import {
@@ -102,6 +103,60 @@ describe("Samantha audit auto-dispatch planner", () => {
       phone: "+4915140427103",
       founderContactRequested: true,
     });
+  });
+
+  it("accepts the exact one-line production payload with unlabeled local phone", () => {
+    const plan = resolveSamanthaAuditAutoDispatchPlan({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: "Franziska Splettstoesser, info@apothekevital.de, 015140427103, ja",
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      toolResults: [],
+      recentUserMessages: [],
+      capturedEmail: null,
+      capturedName: null,
+      contactMemory: [],
+    });
+
+    expect(plan.requestDetected).toBe(false);
+    expect(plan.shouldDispatch).toBe(false);
+    expect(plan.missingRequiredFields).toEqual([]);
+    expect(plan.skipReasonCodes).toContain("request_not_detected");
+    expect(plan.toolArgs).toMatchObject({
+      firstName: "Franziska",
+      lastName: "Splettstoesser",
+      email: "info@apothekevital.de",
+      phone: "+4915140427103",
+      founderContactRequested: true,
+    });
+  });
+
+  it("retries after executed_error when exact one-line payload newly makes fields recoverable", () => {
+    const plan = resolveSamanthaAuditAutoDispatchPlan({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: "Franziska Splettstoesser, info@apothekevital.de, 015140427103, ja",
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      toolResults: [
+        {
+          tool: AUDIT_DELIVERABLE_TOOL_NAME,
+          status: "error",
+          error: "missing_required_contact_fields",
+        },
+      ],
+      requestedToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      recentUserMessages: [],
+      capturedEmail: null,
+      capturedName: null,
+      contactMemory: [],
+    });
+
+    expect(plan.preexistingInvocationStatus).toBe("executed_error");
+    expect(plan.retryEligibleAfterFailure).toBe(true);
+    expect(plan.shouldDispatch).toBe(true);
+    expect(plan.skipReasonCodes).toEqual([]);
   });
 
   it("supports mononym payloads deterministically by duplicating into split name fields", () => {
@@ -510,7 +565,7 @@ describe("Samantha audit auto-dispatch planner", () => {
     });
 
     expect(plan.missingRequiredFields).toEqual([]);
-    expect(plan.toolArgs?.phone).toBe("4155551212");
+    expect(plan.toolArgs?.phone).toBe("+14155551212");
     expect(plan.preexistingInvocationStatus).toBe("executed_error");
     expect(plan.retryEligibleAfterFailure).toBe(true);
     expect(plan.shouldDispatch).toBe(true);
@@ -957,6 +1012,55 @@ describe("Samantha audit auto-dispatch planner", () => {
         expectedStatus: "executed_error",
       },
     ]);
+  });
+
+  it("keeps dispatch decision consistent with invocation status for missing-field telemetry", () => {
+    const missingFieldsPlan = resolveSamanthaAuditAutoDispatchPlan({
+      authorityConfig: {
+        templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
+      },
+      inboundMessage: "Generate PDF now. Email: ava@example.com",
+      availableToolNames: [AUDIT_DELIVERABLE_TOOL_NAME],
+      toolResults: [],
+      recentUserMessages: [],
+      capturedEmail: null,
+      capturedName: null,
+      contactMemory: [],
+    });
+
+    const blockedDecision = SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchDecision({
+      plan: missingFieldsPlan,
+      executionSucceeded: false,
+      invocationStatus: "not_attempted",
+      sessionContextFailure: null,
+      enforcementReasonCode: "claim_tool_not_observed",
+    });
+    const recoveryDecision = SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchDecision({
+      plan: missingFieldsPlan,
+      executionSucceeded: false,
+      invocationStatus: "executed_error",
+      sessionContextFailure: null,
+      enforcementReasonCode: "claim_tool_not_observed",
+    });
+
+    expect(blockedDecision).toBe("blocked_missing_required_fields");
+    expect(recoveryDecision).toBe("recovery_attempted_missing_required_fields");
+  });
+
+  it("sanitizes Samantha assistant content to email-only wording", () => {
+    const deSanitized = sanitizeSamanthaEmailOnlyAssistantContent({
+      assistantContent: "Jetzt generiere ich Ihnen den detaillierten Implementierungsplan als PDF.",
+      language: "de",
+    });
+    const enSanitized = sanitizeSamanthaEmailOnlyAssistantContent({
+      assistantContent: "Perfect, I will generate your DOCX report now.",
+      language: "en",
+    });
+
+    expect(deSanitized.assistantContent.toLowerCase()).not.toContain("pdf");
+    expect(enSanitized.assistantContent.toLowerCase()).not.toContain("docx");
+    expect(deSanitized.assistantContent).toContain("E-Mail");
+    expect(enSanitized.assistantContent).toContain("email");
   });
 
   it("keeps claim-recovery decision parity matrix between wrapper and runtime adapter", () => {

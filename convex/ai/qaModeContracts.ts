@@ -186,7 +186,7 @@ export function buildActionCompletionQaDiagnostics(value: unknown): ActionComple
   }
   if (!dispatchDecision) {
     if (blockedReason === "missing_required_fields") {
-      dispatchDecision = "recovery_attempted_missing_required_fields";
+      dispatchDecision = "blocked_missing_required_fields";
     } else if (blockedReason === "missing_audit_session_context") {
       dispatchDecision = "blocked_missing_audit_session_context";
     } else if (blockedReason === "audit_session_not_found") {

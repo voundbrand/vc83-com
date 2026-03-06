@@ -13,6 +13,7 @@
 
 import { action, internalAction, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/max";
 import { OpenRouterClient } from "./openrouter";
 import {
   getAllToolDefinitions,
@@ -8210,15 +8211,22 @@ export const processInboundMessage = action({
         ) {
           return;
         }
-        samanthaAuditRecoveryAttempted = true;
+        const invocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+          attempted: samanthaAuditAutoDispatchAttempted,
+          toolResults: samanthaAuditAutoDispatchToolResults,
+        });
+        const recoveryAttempted = invocationStatus !== "not_attempted";
         samanthaMissingFieldRecoveryLogged = true;
         recordSamanthaDispatchEvent({
           stage: "samantha_missing_fields_recovery",
-          status: "pass",
-          reasonCode: "recovery_attempted_missing_required_fields",
+          status: recoveryAttempted ? "pass" : "skip",
+          reasonCode: recoveryAttempted
+            ? "recovery_attempted_missing_required_fields"
+            : "blocked_missing_required_fields",
           detail: {
             recoveryAttemptCount: samanthaMissingFieldRecoveryAttemptCount,
             missingRequiredFields: enforcementPayload.preflightMissingRequiredFields || [],
+            invocationStatus,
           },
         });
       };
@@ -8270,15 +8278,16 @@ export const processInboundMessage = action({
         actionCompletionEnforcementPayload = actionCompletionEnforcement.payload;
         recordMissingFieldRecoveryAttempt(actionCompletionEnforcementPayload);
       }
+      samanthaAutoDispatchInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
+        attempted: samanthaAuditAutoDispatchAttempted,
+        toolResults: samanthaAuditAutoDispatchToolResults,
+      });
       samanthaAuditDispatchDecision = resolveSamanthaAuditDispatchDecision({
         plan: samanthaAuditAutoDispatchPlan,
         autoDispatchToolResults: samanthaAuditAutoDispatchToolResults,
         allToolResults: toolResults,
         enforcementPayload: actionCompletionEnforcementPayload,
-      });
-      samanthaAutoDispatchInvocationStatus = resolveSamanthaAutoDispatchInvocationStatus({
-        attempted: samanthaAuditAutoDispatchAttempted,
-        toolResults: samanthaAuditAutoDispatchToolResults,
+        invocationStatus: samanthaAutoDispatchInvocationStatus,
       });
       samanthaDispatchTerminalReasonCode = resolveSamanthaDispatchTerminalReasonCode({
         runtimeCapabilityGapBlocked: Boolean(runtimeCapabilityGapBlockedResponse),
@@ -8688,15 +8697,6 @@ export const processInboundMessage = action({
         && !Array.isArray(successfulAuditDeliverableResult.result)
           ? (successfulAuditDeliverableResult.result as Record<string, unknown>)
           : null;
-      const successfulDownloadUrl =
-        normalizeExecutionString(successfulAuditDeliverablePayload?.downloadUrl)
-        || normalizeExecutionString(
-          successfulAuditDeliverablePayload?.cta
-          && typeof successfulAuditDeliverablePayload.cta === "object"
-          && !Array.isArray(successfulAuditDeliverablePayload.cta)
-            ? (successfulAuditDeliverablePayload.cta as Record<string, unknown>).url
-            : undefined
-        );
 
       if (successfulAuditDeliverablePayload) {
         const leadDelivery =
@@ -8715,16 +8715,12 @@ export const processInboundMessage = action({
         const salesEmailSent = salesDelivery?.success === true;
 
         if (actionCompletionResponseLanguage === "de") {
-          assistantContent = successfulDownloadUrl
-            ? `Ihr Workflow-Report wurde erstellt.\nDownload: ${successfulDownloadUrl}`
-            : "Ihr Workflow-Report wurde erstellt.";
+          assistantContent = "Ihre Audit-Ergebnisse werden per E-Mail zugestellt.";
           if (leadEmailSent || salesEmailSent) {
             assistantContent += "\nDie Zustell-E-Mails wurden angestoßen.";
           }
         } else {
-          assistantContent = successfulDownloadUrl
-            ? `Your workflow report is ready.\nDownload: ${successfulDownloadUrl}`
-            : "Your workflow report has been generated.";
+          assistantContent = "Your audit results are being delivered by email.";
           if (leadEmailSent || salesEmailSent) {
             assistantContent += "\nDelivery emails have been triggered.";
           }
@@ -8738,6 +8734,22 @@ export const processInboundMessage = action({
         });
       }
       actionCompletionSanitizationFallbackApplied = true;
+    }
+    if (isSamanthaLeadCaptureRuntime(actionCompletionAuthorityConfig)) {
+      const emailOnlyGuard = sanitizeSamanthaEmailOnlyAssistantContent({
+        assistantContent,
+        language: actionCompletionResponseLanguage,
+      });
+      if (emailOnlyGuard.rewritten) {
+        assistantContent = emailOnlyGuard.assistantContent;
+        recordSamanthaDispatchEvent({
+          stage: "samantha_email_only_output_guard",
+          status: emailOnlyGuard.blocked ? "skip" : "pass",
+          reasonCode: emailOnlyGuard.blocked
+            ? "samantha_email_only_guard_blocked"
+            : "samantha_email_only_guard_rewritten",
+        });
+      }
     }
     const actionCompletionClaimedOutcomes = Array.from(
       new Set(
@@ -13251,6 +13263,53 @@ function buildSamanthaAuditDeliverableGracefulDegradationMessage(
   return "Automatic audit email delivery is still blocked. I am sharing the implementation plan in chat now and flagging a manual follow-up so the team sends the final summary and personal follow-up within 24 hours.";
 }
 
+const SAMANTHA_FILE_FORMAT_PROMISE_PATTERN = /\b(?:pdf|docx)\b/i;
+
+export function sanitizeSamanthaEmailOnlyAssistantContent(args: {
+  assistantContent: string;
+  language: ActionCompletionResponseLanguage;
+}): {
+  assistantContent: string;
+  rewritten: boolean;
+  blocked: boolean;
+} {
+  if (!SAMANTHA_FILE_FORMAT_PROMISE_PATTERN.test(args.assistantContent)) {
+    return {
+      assistantContent: args.assistantContent,
+      rewritten: false,
+      blocked: false,
+    };
+  }
+
+  const emailDeliveryPhrase =
+    args.language === "de" ? "per E-Mail" : "by email";
+  const genericDeliveryLabel =
+    args.language === "de" ? "E-Mail-Zustellung" : "email delivery";
+  let rewritten = args.assistantContent
+    .replace(
+      /\b(?:als|as)\s+(?:eine?\s+|an?\s+)?(?:pdf|docx)(?:-datei|-file)?\b/gi,
+      emailDeliveryPhrase,
+    )
+    .replace(/\b(?:pdf|docx)(?:-datei|-file)?\b/gi, genericDeliveryLabel);
+
+  if (SAMANTHA_FILE_FORMAT_PROMISE_PATTERN.test(rewritten)) {
+    return {
+      assistantContent:
+        args.language === "de"
+          ? "Ich sende die Audit-Ergebnisse ausschliesslich per E-Mail. Bitte bestaetigen Sie bei Bedarf nur Ihre Kontaktdaten."
+          : "I send audit results by email only. If needed, please confirm your contact details.",
+      rewritten: true,
+      blocked: true,
+    };
+  }
+
+  return {
+    assistantContent: rewritten,
+    rewritten: rewritten !== args.assistantContent,
+    blocked: false,
+  };
+}
+
 function isSamanthaFailClosedRefusalContent(content: string): boolean {
   const normalized = content.toLowerCase();
   return normalized.includes(
@@ -13931,6 +13990,26 @@ const SAMANTHA_PHONE_DIRECT_INPUT_PATTERN = /^[+()\d.\-\s]{8,28}$/;
 const SAMANTHA_PHONE_CONTEXT_HINT_PATTERN =
   /\b(?:phone|phone number|contact number|my number|number|mobile|telephone|tel|call|text|sms|whatsapp|telefon|telefonnummer|handy|nummer)\b/i;
 const SAMANTHA_PHONE_EMBEDDED_PATTERN = /(?:\+?\d[\d().\-\s]{6,24}\d)/g;
+const SAMANTHA_COMMA_LEAD_PAYLOAD_SPLIT_PATTERN = /[\n,;|/]+/g;
+const SAMANTHA_NANP_DIGIT_PATTERN = /^(?:1)?\d{10}$/;
+const SAMANTHA_PHONE_GERMAN_CONTEXT_PATTERN =
+  /\b(?:vorname|nachname|telefon|telefonnummer|handy|nummer|kontakt|bitte|ja|nein)\b/i;
+const SAMANTHA_PHONE_ENGLISH_CONTEXT_PATTERN =
+  /\b(?:first name|last name|my number|phone|phone number|call me|text me|yes|no)\b/i;
+const SAMANTHA_PHONE_DEFAULT_COUNTRY_HINTS: CountryCode[] = [
+  "DE",
+  "AT",
+  "CH",
+  "US",
+  "CA",
+  "GB",
+  "FR",
+  "NL",
+  "BE",
+  "IT",
+  "ES",
+  "PT",
+];
 const SAMANTHA_FALLBACK_NAME_SEGMENT_SPLIT_PATTERN = /[\n,;|/]+/g;
 const SAMANTHA_FALLBACK_NAME_STOPWORD_TOKENS = new Set([
   "and",
@@ -13968,20 +14047,95 @@ function normalizeSamanthaToken(value: string): string {
     .toLowerCase();
 }
 
+type SamanthaPhoneConfidence = "high" | "medium";
+
+interface SamanthaPhoneResolution {
+  phone?: string;
+  provisionalPhone?: string;
+  confidence?: SamanthaPhoneConfidence;
+}
+
+function resolveSamanthaPhoneCountryHints(args: {
+  message: string;
+  rawCandidate: string;
+}): CountryCode[] {
+  const digits = args.rawCandidate.replace(/[^\d]/g, "");
+  const hasGermanContext = SAMANTHA_PHONE_GERMAN_CONTEXT_PATTERN.test(args.message);
+  const hasEnglishContext = SAMANTHA_PHONE_ENGLISH_CONTEXT_PATTERN.test(args.message);
+  if (SAMANTHA_NANP_DIGIT_PATTERN.test(digits) && hasEnglishContext && !hasGermanContext) {
+    return [
+      "US",
+      "CA",
+      ...SAMANTHA_PHONE_DEFAULT_COUNTRY_HINTS.filter(
+        (country) => country !== "US" && country !== "CA"
+      ),
+    ];
+  }
+  if (hasGermanContext) {
+    return [
+      "DE",
+      "AT",
+      "CH",
+      ...SAMANTHA_PHONE_DEFAULT_COUNTRY_HINTS.filter(
+        (country) => country !== "DE" && country !== "AT" && country !== "CH"
+      ),
+    ];
+  }
+  return SAMANTHA_PHONE_DEFAULT_COUNTRY_HINTS;
+}
+
 function normalizeSamanthaPhoneCandidate(
-  value: string,
-  minDigits = 8,
+  value: unknown,
+  args?: {
+    minDigits?: number;
+    allowPossible?: boolean;
+    countryHints?: CountryCode[];
+  },
 ): string | undefined {
   const normalized = normalizeExecutionString(value);
   if (!normalized) {
     return undefined;
   }
-  const hasLeadingPlus = normalized.startsWith("+");
   const digits = normalized.replace(/[^\d]/g, "");
+  const minDigits = args?.minDigits ?? 8;
   if (digits.length < minDigits || digits.length > 15) {
     return undefined;
   }
-  return `${hasLeadingPlus ? "+" : ""}${digits}`;
+  const allowPossible = args?.allowPossible ?? false;
+
+  const tryResolvedCandidate = (
+    candidate: ReturnType<typeof parsePhoneNumberFromString> | undefined
+  ): string | undefined => {
+    if (!candidate) {
+      return undefined;
+    }
+    if (candidate.isValid()) {
+      return candidate.number;
+    }
+    if (allowPossible && candidate.isPossible()) {
+      return candidate.number;
+    }
+    return undefined;
+  };
+
+  const directCandidate = tryResolvedCandidate(parsePhoneNumberFromString(normalized));
+  if (directCandidate) {
+    return directCandidate;
+  }
+
+  const countryHints = args?.countryHints && args.countryHints.length > 0
+    ? args.countryHints
+    : SAMANTHA_PHONE_DEFAULT_COUNTRY_HINTS;
+  for (const countryHint of countryHints) {
+    const localizedCandidate = tryResolvedCandidate(
+      parsePhoneNumberFromString(normalized, countryHint)
+    );
+    if (localizedCandidate) {
+      return localizedCandidate;
+    }
+  }
+
+  return undefined;
 }
 
 function resolveFallbackSamanthaPreferredName(messages: string[]): string | undefined {
@@ -14266,6 +14420,46 @@ function resolveFounderContactPreference(messages: string[]): SamanthaFounderCon
       continue;
     }
 
+    const hasExplicitFounderContext =
+      /\b(founder|gruender|grunder|fondateur)\b/i.test(message)
+      || SAMANTHA_FOUNDER_CONTACT_PERMISSION_PATTERN.test(message);
+    if (isLikelyCommaDelimitedLeadPayload(message) && !hasExplicitFounderContext) {
+      const commaSegments = extractSamanthaDelimitedLeadSegments(message);
+      for (let segmentIndex = commaSegments.length - 1; segmentIndex >= 0; segmentIndex -= 1) {
+        const segment = commaSegments[segmentIndex];
+        if (segment.includes("@") || /\d/.test(segment)) {
+          continue;
+        }
+        const normalizedSegment = normalizeSamanthaToken(segment)
+          .replace(/[^a-z0-9\s]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!normalizedSegment) {
+          continue;
+        }
+        const normalizedTokens = normalizedSegment.split(" ");
+        if (normalizedTokens.length > 2) {
+          continue;
+        }
+        const parsedSegment = parseSamanthaBooleanToken(segment);
+        if (parsedSegment.ambiguous) {
+          sawConflictingSignals = true;
+          continue;
+        }
+        if (typeof parsedSegment.parsed === "boolean") {
+          if (typeof resolved === "boolean" && resolved !== parsedSegment.parsed) {
+            sawConflictingSignals = true;
+          }
+          resolved = parsedSegment.parsed;
+          confidence = Math.max(confidence, 0.9);
+          break;
+        }
+      }
+      if (typeof resolved === "boolean" && confidence >= 0.9) {
+        continue;
+      }
+    }
+
     const inlineSegments = extractFounderContactInlineSegments(message);
     for (const segment of inlineSegments) {
       const parsedInline = parseSamanthaBooleanToken(segment);
@@ -14307,6 +14501,7 @@ interface SamanthaAuditResolvedLeadData {
   lastName?: string;
   email?: string;
   phone?: string;
+  provisionalPhone?: string;
   founderContactRequested?: boolean;
   workflowRecommendation?: string;
   ambiguousName: boolean;
@@ -14324,7 +14519,34 @@ function resolveFallbackSamanthaEmail(messages: string[]): string | undefined {
   return undefined;
 }
 
-function resolveFallbackSamanthaPhone(messages: string[]): string | undefined {
+function extractSamanthaDelimitedLeadSegments(message: string): string[] {
+  return message
+    .split(SAMANTHA_COMMA_LEAD_PAYLOAD_SPLIT_PATTERN)
+    .map((segment) => normalizeExecutionString(segment))
+    .filter((segment): segment is string => Boolean(segment));
+}
+
+function isLikelyCommaDelimitedLeadPayload(message: string): boolean {
+  if (!message.includes(",")) {
+    return false;
+  }
+  const segments = extractSamanthaDelimitedLeadSegments(message);
+  if (segments.length < 3) {
+    return false;
+  }
+  const hasEmailSegment = segments.some((segment) => Boolean(extractFirstEmailAddress(segment)));
+  if (!hasEmailSegment) {
+    return false;
+  }
+  const hasFounderPreferenceSignal = segments.some((segment) => {
+    const parsed = parseSamanthaBooleanToken(segment);
+    return !parsed.ambiguous && typeof parsed.parsed === "boolean";
+  });
+  return hasFounderPreferenceSignal;
+}
+
+function resolveFallbackSamanthaPhone(messages: string[]): SamanthaPhoneResolution {
+  let provisionalPhone: string | undefined;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = normalizeExecutionString(messages[index]);
     if (!message) {
@@ -14332,31 +14554,66 @@ function resolveFallbackSamanthaPhone(messages: string[]): string | undefined {
     }
 
     if (SAMANTHA_PHONE_DIRECT_INPUT_PATTERN.test(message)) {
-      const direct = normalizeSamanthaPhoneCandidate(message, 10);
+      const direct = normalizeSamanthaPhoneCandidate(message, {
+        minDigits: 10,
+        countryHints: resolveSamanthaPhoneCountryHints({
+          message,
+          rawCandidate: message,
+        }),
+      });
       if (direct) {
-        return direct;
+        return {
+          phone: direct,
+          confidence: "high",
+        };
       }
     }
 
+    const isCommaDelimitedLeadPayload = isLikelyCommaDelimitedLeadPayload(message);
     const embeddedMatches = message.match(SAMANTHA_PHONE_EMBEDDED_PATTERN);
     if (!embeddedMatches || embeddedMatches.length === 0) {
       continue;
     }
     for (let matchIndex = embeddedMatches.length - 1; matchIndex >= 0; matchIndex -= 1) {
       const rawMatch = embeddedMatches[matchIndex];
-      const phone = normalizeSamanthaPhoneCandidate(rawMatch, 8);
+      const countryHints = resolveSamanthaPhoneCountryHints({
+        message,
+        rawCandidate: rawMatch,
+      });
+      const phone = normalizeSamanthaPhoneCandidate(rawMatch, {
+        minDigits: 8,
+        countryHints,
+      });
       if (phone) {
         const explicitPhoneContext =
           SAMANTHA_PHONE_CONTEXT_HINT_PATTERN.test(message)
           || rawMatch.trim().startsWith("+");
-        if (!explicitPhoneContext) {
-          continue;
+        if (explicitPhoneContext || isCommaDelimitedLeadPayload) {
+          return {
+            phone,
+            confidence: "high",
+          };
         }
-        return phone;
+        if (!provisionalPhone) {
+          const mediumConfidenceCandidate = normalizeSamanthaPhoneCandidate(rawMatch, {
+            minDigits: 8,
+            allowPossible: true,
+            countryHints,
+          });
+          if (mediumConfidenceCandidate) {
+            provisionalPhone = mediumConfidenceCandidate;
+          }
+        }
       }
     }
   }
-  return undefined;
+  if (provisionalPhone) {
+    return {
+      provisionalPhone,
+      confidence: "medium",
+    };
+  }
+  return {};
 }
 
 function resolveSamanthaAuditLeadData(args: {
@@ -14384,7 +14641,13 @@ function resolveSamanthaAuditLeadData(args: {
       ) {
         continue;
       }
-      const normalized = normalizeExecutionString(candidate.value);
+      const normalized =
+        candidate.field === "phone"
+          ? normalizeSamanthaPhoneCandidate(candidate.value, {
+              minDigits: 8,
+              allowPossible: true,
+            })
+          : normalizeExecutionString(candidate.value);
       if (!normalized || extractedByField.has(candidate.field)) {
         continue;
       }
@@ -14405,7 +14668,13 @@ function resolveSamanthaAuditLeadData(args: {
     if (extractedByField.has(candidate.field)) {
       continue;
     }
-    const normalized = normalizeExecutionString(candidate.value);
+    const normalized =
+      candidate.field === "phone"
+        ? normalizeSamanthaPhoneCandidate(candidate.value, {
+            minDigits: 8,
+            allowPossible: true,
+          })
+        : normalizeExecutionString(candidate.value);
     if (normalized) {
       extractedByField.set(candidate.field, normalized);
     }
@@ -14419,7 +14688,8 @@ function resolveSamanthaAuditLeadData(args: {
     || undefined;
   const resolvedNameParts = resolveSamanthaNameParts({ resolvedName });
   const fallbackEmail = resolveFallbackSamanthaEmail(candidateMessages);
-  const fallbackPhone = resolveFallbackSamanthaPhone(candidateMessages);
+  const fallbackPhoneResolution = resolveFallbackSamanthaPhone(candidateMessages);
+  const contactMemoryPhone = resolveFirstSessionContactMemoryValue(args.contactMemory, "phone");
   const email =
     extractedByField.get("email")
     || fallbackEmail
@@ -14427,10 +14697,19 @@ function resolveSamanthaAuditLeadData(args: {
     || extractFirstEmailAddress(args.capturedEmail)
     || undefined;
   const phone =
-    extractedByField.get("phone")
-    || fallbackPhone
-    || resolveFirstSessionContactMemoryValue(args.contactMemory, "phone")
+    normalizeSamanthaPhoneCandidate(extractedByField.get("phone"), {
+      minDigits: 8,
+      allowPossible: true,
+    })
+    || fallbackPhoneResolution.phone
+    || normalizeSamanthaPhoneCandidate(contactMemoryPhone, {
+      minDigits: 8,
+      allowPossible: true,
+    })
     || undefined;
+  const provisionalPhone = !phone
+    ? fallbackPhoneResolution.provisionalPhone
+    : undefined;
   const founderContactResolution = resolveFounderContactPreference(candidateMessages);
   const founderContactRequested = founderContactResolution.founderContactRequested;
 
@@ -14456,6 +14735,7 @@ function resolveSamanthaAuditLeadData(args: {
     lastName: resolvedNameParts.lastName,
     email,
     phone,
+    provisionalPhone,
     founderContactRequested,
     workflowRecommendation:
       normalizeExecutionString(args.auditSessionWorkflowRecommendation) || undefined,
@@ -14533,11 +14813,19 @@ function buildSamanthaMissingFieldRecoveryPrompts(args: {
     );
   }
   if (missing.has("phone")) {
-    prompts.push(
-      args.language === "de"
-        ? "Bitte bestaetigen Sie Ihre Telefonnummer."
-        : "Please confirm your phone number."
-    );
+    if (args.leadData.provisionalPhone) {
+      prompts.push(
+        args.language === "de"
+          ? `Soll ich diese Nummer fuer die Zustellung verwenden: ${args.leadData.provisionalPhone}? (Ja/Nein)`
+          : `Should I use this number for delivery: ${args.leadData.provisionalPhone}? (yes/no)`
+      );
+    } else {
+      prompts.push(
+        args.language === "de"
+          ? "Bitte bestaetigen Sie Ihre Telefonnummer."
+          : "Please confirm your phone number."
+      );
+    }
   }
 
   if (args.leadData.ambiguousFounderContact) {
@@ -14751,6 +15039,7 @@ function resolveSamanthaAuditDispatchDecision(args: {
   autoDispatchToolResults: AgentToolResult[];
   allToolResults: AgentToolResult[];
   enforcementPayload: ActionCompletionContractEnforcementPayload | null;
+  invocationStatus: SamanthaAutoDispatchInvocationStatus;
 }): SamanthaAuditDispatchDecision | undefined {
   return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchDecision({
     plan: args.plan,
@@ -14759,6 +15048,7 @@ function resolveSamanthaAuditDispatchDecision(args: {
     ),
     sessionContextFailure: resolveSamanthaAuditSessionContextFailure(args.allToolResults),
     enforcementReasonCode: args.enforcementPayload?.reasonCode,
+    invocationStatus: args.invocationStatus,
   });
 }
 
@@ -14969,6 +15259,12 @@ export function resolveAuditDeliverableInvocationGuardrail(args: {
     assistantContent = buildSamanthaAuditDeliverableVerificationFallbackMessage(
       responseLanguage
     );
+  }
+  if (isSamanthaRuntime && assistantContent) {
+    assistantContent = sanitizeSamanthaEmailOnlyAssistantContent({
+      assistantContent,
+      language: responseLanguage,
+    }).assistantContent;
   }
 
   return {

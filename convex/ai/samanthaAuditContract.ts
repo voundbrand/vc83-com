@@ -133,6 +133,7 @@ export interface SamanthaDispatchToolResult {
 export interface SamanthaRuntimeDispatchDecisionArgs {
   plan: SamanthaAuditAutoDispatchPlan | null;
   executionSucceeded: boolean;
+  invocationStatus: SamanthaAutoDispatchInvocationStatus;
   sessionContextFailure:
     | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING
     | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND
@@ -239,7 +240,9 @@ function resolveDispatchDecision(
     return "blocked_ambiguous_founder_contact";
   }
   if (args.plan.missingRequiredFields.length > 0) {
-    return "recovery_attempted_missing_required_fields";
+    return args.invocationStatus === "not_attempted"
+      ? "blocked_missing_required_fields"
+      : "recovery_attempted_missing_required_fields";
   }
   if (args.enforcementReasonCode === "claim_tool_not_observed") {
     return "blocked_tool_not_observed";
