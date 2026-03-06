@@ -37,6 +37,8 @@ type LandingCommercialRoutingHint = "samantha_lead_capture" | "founder_bridge" |
 type LandingCommercialSurface = "one_of_one_landing" | "store"
 type LandingCommercialAudienceTemperature = "warm" | "cold"
 
+type LandingCommercialLanguage = "en" | "de"
+
 interface LandingCommercialKickoffPayload {
   offerCode: string
   intentCode: LandingCommercialIntentCode
@@ -44,6 +46,7 @@ interface LandingCommercialKickoffPayload {
   audienceTemperature?: LandingCommercialAudienceTemperature
   routingHint?: LandingCommercialRoutingHint
   channel?: string
+  lang?: LandingCommercialLanguage
   campaign?: {
     source?: string
     medium?: string
@@ -198,6 +201,7 @@ function readLandingCommercialKickoffPayload(): LandingCommercialKickoffPayload 
     const parsed = JSON.parse(raw) as {
       channel?: unknown
       capturedAt?: unknown
+      lang?: unknown
       commercialIntent?: {
         offerCode?: unknown
         intentCode?: unknown
@@ -232,6 +236,9 @@ function readLandingCommercialKickoffPayload(): LandingCommercialKickoffPayload 
       | LandingCommercialRoutingHint
       | undefined
     const channel = cleanOptionalString(parsed?.channel)
+    const rawLang = cleanOptionalString(parsed?.lang)
+    const lang: LandingCommercialLanguage | undefined =
+      rawLang === "de" ? "de" : rawLang === "en" ? "en" : undefined
     const campaign = {
       source: cleanOptionalString(parsed?.campaign?.source),
       medium: cleanOptionalString(parsed?.campaign?.medium),
@@ -265,6 +272,7 @@ function readLandingCommercialKickoffPayload(): LandingCommercialKickoffPayload 
       audienceTemperature: normalizedAudienceTemperature,
       routingHint,
       channel,
+      lang,
       campaign,
     }
   } catch {
@@ -291,6 +299,7 @@ function buildCommercialMotionKickoffContract(
     surface: payload.surface,
     routingHint: payload.routingHint,
     channel: payload.channel,
+    lang: payload.lang,
     campaign: {
       source: payload.campaign?.source,
       medium: payload.campaign?.medium,
@@ -304,13 +313,21 @@ function buildCommercialMotionKickoffContract(
 }
 
 function buildCommercialKickoffStarterMessage(payload: LandingCommercialKickoffPayload): string {
+  const isGerman = payload.lang === "de"
+
   if (payload.intentCode === "diagnostic_qualification") {
-    return "I want to run the free diagnostic and understand the best next workflow step."
+    return isGerman
+      ? "Ich möchte die kostenlose Diagnose durchführen und den besten nächsten Workflow-Schritt verstehen."
+      : "I want to run the free diagnostic and understand the best next workflow step."
   }
   if (payload.intentCode === "consulting_sprint_scope_only") {
-    return "I want to scope a consulting sprint and map the right strategy."
+    return isGerman
+      ? "Ich möchte einen Consulting-Sprint planen und die richtige Strategie erarbeiten."
+      : "I want to scope a consulting sprint and map the right strategy."
   }
-  return "I want to discuss implementation start and confirm readiness for launch."
+  return isGerman
+    ? "Ich möchte den Implementierungsstart besprechen und die Bereitschaft für den Launch bestätigen."
+    : "I want to discuss implementation start and confirm readiness for launch."
 }
 
 function AIChatWindowContent({

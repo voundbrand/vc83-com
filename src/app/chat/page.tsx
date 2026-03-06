@@ -96,6 +96,8 @@ export default function ChatPage() {
       (value) => typeof value === "string" && value.length > 0
     );
 
+    const lang = params.get("lang") || undefined;
+
     if (onboardingChannel || hasOnboardingCampaign || hasCommercialIntent) {
       localStorage.setItem(
         "l4yercak3_onboarding_attribution",
@@ -103,6 +105,7 @@ export default function ChatPage() {
           channel: onboardingChannel || "native_guest",
           campaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
           commercialIntent: hasCommercialIntent ? commercialIntent : undefined,
+          lang,
           capturedAt: Date.now(),
         })
       );

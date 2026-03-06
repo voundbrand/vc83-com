@@ -17,15 +17,14 @@ import {
 import { trackLandingEvent } from "@/lib/analytics"
 import { resolveLegacyPublicCutoverMode } from "@/lib/commercial-cutover"
 import { Footer } from "@/components/footer"
+import Link from "next/link"
 import {
   Apple,
   Monitor,
   Smartphone,
   Globe,
-  Clock,
+  Phone,
   TrendingUp,
-  Target,
-  Percent,
   MessageSquare,
   Mail,
   Zap,
@@ -38,6 +37,7 @@ import {
   CalendarDays,
   ArrowRight,
   CreditCard,
+  Star,
   User,
 } from "lucide-react"
 
@@ -46,6 +46,21 @@ const FOUNDER_DEMO_URLS: Record<Language, string> = {
   de: "https://cal.com/voundbrand/sevenlayers-demo-de",
 }
 const DIAGNOSTIC_SECTION_ID = "diagnostic"
+
+function buildDiagnosticUrl(language: Language): string {
+  const params = new URLSearchParams({
+    offer_code: "consult_full_build_scoping",
+    intent_code: "diagnostic_qualification",
+    surface: "one_of_one_landing",
+    routing_hint: "samantha_lead_capture",
+    handoff: "one-of-one",
+    intent: "resume",
+    onboardingChannel: "native_guest",
+    lang: language,
+    landingPath: "/",
+  })
+  return `https://app.l4yercak3.com/chat?${params.toString()}`
+}
 const REMINGTON_EMAIL = "remington@sevenlayers.io"
 
 const PRICING_EMAIL_TEMPLATES: Record<Language, {
@@ -400,7 +415,7 @@ export default function LandingPage() {
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
             <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <a href={`#${DIAGNOSTIC_SECTION_ID}`}>
+              <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">
                 {t.ctaButton}
               </a>
             </Button>
@@ -444,7 +459,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button asChild className="btn-primary h-10 px-6 w-full sm:w-auto">
-                <a href={`#${DIAGNOSTIC_SECTION_ID}`}>{t.ctaButton}</a>
+                <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">{t.ctaButton}</a>
               </Button>
               <Button asChild className="btn-accent h-10 px-6 w-full sm:w-auto gap-2">
                 <a
@@ -592,30 +607,42 @@ export default function LandingPage() {
               {t.proofHeadline}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Marcus */}
+              {/* Marcus Engel */}
               <div className="proof-block">
                 <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-semibold" style={{ color: "var(--color-text)" }}>Marcus</p>
-                    <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.marcusDesc}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-accent-subtle)",
+                        border: "1.5px solid var(--color-accent)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      ME
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Marcus Engel</p>
+                      <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                        {t.marcusEngelDesc}
+                      </p>
+                    </div>
                   </div>
-                  <Clock className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+                  <Phone className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <div className="flex items-center gap-6">
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.hoursWeek}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>78</span>{" "}
-                      <span className="font-semibold">&rarr; 44</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>34%</span>{" "}
+                      <span className="font-semibold">&rarr; 2%</span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.closeRate}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>22%</span>{" "}
-                      <span className="font-semibold">&rarr; 41%</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4+ hrs</span>{" "}
+                      <span className="font-semibold">&rarr; &lt;3 min</span>
                     </p>
                   </div>
                 </div>
@@ -623,124 +650,241 @@ export default function LandingPage() {
                   type="button"
                   className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
                   style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("marcus")}
+                  onClick={() => toggleProof("marcus-engel")}
                 >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("marcus") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("marcus") ? t.readLess : t.readMore}
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("marcus-engel") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("marcus-engel") ? t.readLess : t.readMore}
                 </button>
-                {expandedProofs.includes("marcus") && (
-                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                    {t.marcusDetail}
-                  </p>
+                {expandedProofs.includes("marcus-engel") && (
+                  <div>
+                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                      {t.marcusEngelDetail}
+                    </p>
+                    <Link
+                      href="/case-studies/marcus-engel"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {t.readFullCaseStudy}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 )}
+                <div className="mt-3 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
+                  ))}
+                </div>
               </div>
 
-              {/* Rachel */}
+              {/* Lutz Splettstößer */}
               <div className="proof-block">
                 <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-semibold" style={{ color: "var(--color-text)" }}>Rachel</p>
-                    <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.rachelDesc}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-accent-subtle)",
+                        border: "1.5px solid var(--color-accent)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      LS
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Lutz Splettstö&szlig;er</p>
+                      <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                        {t.lutzDesc}
+                      </p>
+                    </div>
                   </div>
-                  <TrendingUp className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.websiteConversion}</p>
-                  <p style={{ color: "var(--color-text)" }}>
-                    <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>1.2%</span>{" "}
-                    <span className="font-semibold">&rarr; 3.8%</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("rachel")}
-                >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("rachel") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("rachel") ? t.readLess : t.readMore}
-                </button>
-                {expandedProofs.includes("rachel") && (
-                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                    {t.rachelDetail}
-                  </p>
-                )}
-              </div>
-
-              {/* Jess */}
-              <div className="proof-block">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-semibold" style={{ color: "var(--color-text)" }}>Jess</p>
-                    <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.jessDesc}
-                    </p>
-                  </div>
-                  <Target className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.roas}</p>
-                  <p style={{ color: "var(--color-text)" }}>
-                    <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>1.12x</span>{" "}
-                    <span className="font-semibold">&rarr; 4.46x</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("jess")}
-                >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("jess") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("jess") ? t.readLess : t.readMore}
-                </button>
-                {expandedProofs.includes("jess") && (
-                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                    {t.jessDetail}
-                  </p>
-                )}
-              </div>
-
-              {/* Lena */}
-              <div className="proof-block">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-semibold" style={{ color: "var(--color-text)" }}>Lena</p>
-                    <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.lenaDesc}
-                    </p>
-                  </div>
-                  <Percent className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+                  <Shield className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <div className="flex items-center gap-6">
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.cartRecovery}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4.2%</span>{" "}
-                      <span className="font-semibold">&rarr; 11.8%</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>47/day</span>{" "}
+                      <span className="font-semibold">&rarr; 0&ndash;2</span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.recoveredMo}</p>
-                    <p className="font-semibold" style={{ color: "var(--color-text)" }}>&euro;14.2K</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric2Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>45 min</span>{" "}
+                      <span className="font-semibold">&rarr; &lt;5 min</span>
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
                   style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("lena")}
+                  onClick={() => toggleProof("lutz")}
                 >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("lena") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("lena") ? t.readLess : t.readMore}
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("lutz") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("lutz") ? t.readLess : t.readMore}
                 </button>
-                {expandedProofs.includes("lena") && (
-                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                    {t.lenaDetail}
-                  </p>
+                {expandedProofs.includes("lutz") && (
+                  <div>
+                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                      {t.lutzDetail}
+                    </p>
+                    <Link
+                      href="/case-studies/lutz-splettstosser"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {t.readFullCaseStudy}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 )}
+                <div className="mt-3 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Franziska Splettstößer */}
+              <div className="proof-block">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-accent-subtle)",
+                        border: "1.5px solid var(--color-accent)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      FS
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Franziska Splettstö&szlig;er</p>
+                      <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                        {t.franziskaDesc}
+                      </p>
+                    </div>
+                  </div>
+                  <CalendarDays className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
+                </div>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric1Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>Weekly</span>{" "}
+                      <span className="font-semibold">&rarr; 0</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric2Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>3+ hrs</span>{" "}
+                      <span className="font-semibold">&rarr; 20 min</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("franziska")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("franziska") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("franziska") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("franziska") && (
+                  <div>
+                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                      {t.franziskaDetail}
+                    </p>
+                    <Link
+                      href="/case-studies/franziska-splettstosser"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {t.readFullCaseStudy}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+                <div className="mt-3 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Dirk Linke */}
+              <div className="proof-block">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-accent-subtle)",
+                        border: "1.5px solid var(--color-accent)",
+                        color: "var(--color-accent)",
+                      }}
+                    >
+                      DL
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Dirk Linke</p>
+                      <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                        {t.dirkDesc}
+                      </p>
+                    </div>
+                  </div>
+                  <TrendingUp className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
+                </div>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric1Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>~20</span>{" "}
+                      <span className="font-semibold">&rarr; 200+</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric2Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4+ hrs</span>{" "}
+                      <span className="font-semibold">&rarr; 15 min</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: "var(--color-text-secondary)" }}
+                  onClick={() => toggleProof("dirk")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("dirk") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("dirk") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("dirk") && (
+                  <div>
+                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                      {t.dirkDetail}
+                    </p>
+                    <Link
+                      href="/case-studies/dirk-linke"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                      style={{ color: "var(--color-accent)" }}
+                    >
+                      {t.readFullCaseStudy}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+                <div className="mt-3 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -912,72 +1056,90 @@ export default function LandingPage() {
               {t.operatorEverywhereHeadline}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center">
+              <div className="flex flex-col items-center text-center">
                 <div
-                  className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
+                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
                   style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
                 >
                   <Apple className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>iPhone</h4>
-                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.iphoneDesc}</p>
-                <button
-                  type="button"
-                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "iPhone") }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                >
-                  <Mail className="w-3 h-3" />
-                  {t.joinBeta}
-                </button>
+                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.iphoneDesc}</p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "iPhone") }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                  >
+                    <Mail className="w-3 h-3" />
+                    {t.joinBeta}
+                  </button>
+                </div>
               </div>
-              <div className="text-center">
+              <div className="flex flex-col items-center text-center">
                 <div
-                  className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
+                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
                   style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
                 >
                   <Monitor className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>macOS</h4>
-                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.macosDesc}</p>
-                <button
-                  type="button"
-                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "macOS") }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                >
-                  <Mail className="w-3 h-3" />
-                  {t.joinBeta}
-                </button>
+                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.macosDesc}</p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "macOS") }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                  >
+                    <Mail className="w-3 h-3" />
+                    {t.joinBeta}
+                  </button>
+                </div>
               </div>
-              <div className="text-center">
+              <div className="flex flex-col items-center text-center">
                 <div
-                  className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
+                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
                   style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
                 >
                   <Smartphone className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>Android</h4>
-                <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>{t.androidDesc}</p>
-                <button
-                  type="button"
-                  onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "Android") }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                  style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                >
-                  <Mail className="w-3 h-3" />
-                  {t.joinBeta}
-                </button>
+                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.androidDesc}</p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "Android") }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
+                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                  >
+                    <Mail className="w-3 h-3" />
+                    {t.joinBeta}
+                  </button>
+                </div>
               </div>
-              <div className="text-center">
+              <div className="flex flex-col items-center text-center">
                 <div
-                  className="w-14 h-14 rounded-xl mx-auto mb-4 flex items-center justify-center"
+                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
                   style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
                 >
                   <Globe className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>Web App</h4>
-                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{t.webAppDesc}</p>
+                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.webAppDesc}</p>
+                <div className="mt-4">
+                  <a
+                    href="https://app.l4yercak3.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+                  >
+                    <Globe className="w-3 h-3" />
+                    {t.openApp ?? "Open App"}
+                  </a>
+                </div>
               </div>
             </div>
             <p className="mt-10 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>{t.operatorEverywhereTagline}</p>
