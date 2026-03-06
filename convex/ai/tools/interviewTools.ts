@@ -273,6 +273,483 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+type AuditDeliverableEmailLanguage = "en" | "de";
+
+const FOUNDER_DEMO_URL_BY_LANGUAGE: Record<AuditDeliverableEmailLanguage, string> = {
+  en: "https://cal.com/voundbrand/sevenlayers-demo-en",
+  de: "https://cal.com/voundbrand/sevenlayers-demo-de",
+};
+
+function normalizeAuditDeliverableEmailLanguage(
+  value: unknown
+): AuditDeliverableEmailLanguage | undefined {
+  const cleaned = cleanOptionalString(value)?.toLowerCase();
+  if (!cleaned) {
+    return undefined;
+  }
+  const languageFamily = cleaned.split("-")[0];
+  if (languageFamily === "de" || languageFamily === "en") {
+    return languageFamily;
+  }
+  return undefined;
+}
+
+function detectGermanLanguageSignal(value: string): boolean {
+  if (/[äöüß]/i.test(value)) {
+    return true;
+  }
+  const normalized = ` ${value.toLowerCase()} `;
+  const hints = [
+    " und ",
+    " mit ",
+    " fuer ",
+    " für ",
+    " der ",
+    " die ",
+    " das ",
+    " nicht ",
+    " urlaub",
+    "antrag",
+    " genehmig",
+    " bereitschaft",
+    " schulferien",
+    " apotheke",
+  ];
+  let score = 0;
+  for (const hint of hints) {
+    if (normalized.includes(hint)) {
+      score += 1;
+    }
+  }
+  return score >= 2;
+}
+
+function resolveAuditDeliverableEmailLanguage(args: {
+  requestedLanguage?: string;
+  sessionMetadata?: Record<string, unknown>;
+  workflowRecommendation: string;
+}): AuditDeliverableEmailLanguage {
+  const metadata = args.sessionMetadata || {};
+  const visitorInfo = readMetadataRecord(metadata.visitorInfo);
+  const explicitLanguage =
+    normalizeAuditDeliverableEmailLanguage(args.requestedLanguage)
+    || normalizeAuditDeliverableEmailLanguage(metadata.language)
+    || normalizeAuditDeliverableEmailLanguage(metadata.locale)
+    || normalizeAuditDeliverableEmailLanguage(metadata.detectedLanguage)
+    || normalizeAuditDeliverableEmailLanguage(metadata.preferredLanguage)
+    || normalizeAuditDeliverableEmailLanguage(visitorInfo.language)
+    || normalizeAuditDeliverableEmailLanguage(visitorInfo.locale);
+  if (explicitLanguage) {
+    return explicitLanguage;
+  }
+  return detectGermanLanguageSignal(args.workflowRecommendation) ? "de" : "en";
+}
+
+function normalizeWorkflowWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function splitWorkflowRecommendationSteps(workflowRecommendation: string):
+  | {
+      intro?: string;
+      steps: string[];
+    }
+  | null {
+  const normalized = normalizeWorkflowWhitespace(workflowRecommendation);
+  if (!normalized) {
+    return null;
+  }
+  const markers = Array.from(normalized.matchAll(/(?:\(\d+\)|\d+\))/g))
+    .map((match) => match.index)
+    .filter((index): index is number => typeof index === "number");
+  if (markers.length < 2) {
+    return null;
+  }
+  const intro = markers[0] > 0 ? normalizeWorkflowWhitespace(normalized.slice(0, markers[0])) : undefined;
+  const steps = markers.map((markerIndex, index) => {
+    const nextMarker = index + 1 < markers.length ? markers[index + 1] : normalized.length;
+    return normalizeWorkflowWhitespace(normalized.slice(markerIndex, nextMarker));
+  }).filter((segment) => segment.length > 0);
+  if (steps.length === 0) {
+    return null;
+  }
+  return {
+    intro: intro || undefined,
+    steps,
+  };
+}
+
+function stripWorkflowStepMarker(step: string): string {
+  return step.replace(/^(?:\(\d+\)|\d+\))\s*/, "").trim();
+}
+
+function formatWorkflowRecommendationText(workflowRecommendation: string): string {
+  const normalized = normalizeWorkflowWhitespace(workflowRecommendation);
+  const parsed = splitWorkflowRecommendationSteps(normalized);
+  if (!parsed) {
+    return normalized;
+  }
+  return [parsed.intro, ...parsed.steps]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+}
+
+function formatWorkflowRecommendationHtml(workflowRecommendation: string): string {
+  const normalized = normalizeWorkflowWhitespace(workflowRecommendation);
+  const parsed = splitWorkflowRecommendationSteps(normalized);
+  if (!parsed) {
+    return `<p>${escapeHtml(normalized)}</p>`;
+  }
+  const html: string[] = [];
+  if (parsed.intro) {
+    html.push(`<p>${escapeHtml(parsed.intro)}</p>`);
+  }
+  html.push("<ol>");
+  for (const step of parsed.steps) {
+    html.push(`<li>${escapeHtml(stripWorkflowStepMarker(step))}</li>`);
+  }
+  html.push("</ol>");
+  return html.join("");
+}
+
+type LeadQualificationLevel = "Hot" | "High" | "Medium" | "Low";
+
+type LeadQualificationSnapshot = {
+  level: LeadQualificationLevel;
+  reasons: string[];
+  pricingAskedDuringDiagnostic: boolean;
+  revenueSignalEur?: number;
+  painPointCount: number;
+  highValueQuantification: boolean;
+  moderateValueQuantification: boolean;
+};
+
+const AUDIT_DISPATCH_BOOTSTRAP_ANSWER =
+  "Captured through Samantha dispatch bootstrap.";
+
+function normalizeAuditSignalAnswer(value: unknown): string | undefined {
+  const cleaned = cleanOptionalString(value);
+  if (!cleaned) {
+    return undefined;
+  }
+  if (cleaned === AUDIT_DISPATCH_BOOTSTRAP_ANSWER) {
+    return undefined;
+  }
+  return cleaned;
+}
+
+function readAuditQuestionAnswer(args: {
+  session: Record<string, unknown>;
+  questionId:
+    | "business_revenue"
+    | "team_size"
+    | "monday_priority"
+    | "delegation_gap"
+    | "reclaimed_time";
+}): string | undefined {
+  const questionState = readMetadataRecord(args.session.questionState);
+  const questionEntry = readMetadataRecord(questionState[args.questionId]);
+  return normalizeAuditSignalAnswer(questionEntry.answer);
+}
+
+function parseLocaleNumber(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  let normalized = trimmed.replace(/\s+/g, "");
+  if (normalized.includes(".") && normalized.includes(",")) {
+    normalized = normalized.replace(/,/g, "");
+  } else if (normalized.includes(",")) {
+    normalized = normalized.replace(/,/g, ".");
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function resolveScaledNumericCandidates(raw: string): number[] {
+  const matches = raw.matchAll(
+    /(?:€|\$|£|eur|usd|gbp)?\s*([0-9]+(?:[.,][0-9]+)?)\s*(k|m|b|thousand|million|billion)?/gi
+  );
+  const resolved: number[] = [];
+
+  for (const match of matches) {
+    const numericRaw = match[1];
+    const unitRaw = match[2]?.toLowerCase();
+    const numeric = parseLocaleNumber(numericRaw);
+    if (typeof numeric !== "number") {
+      continue;
+    }
+
+    let multiplier = 1;
+    if (unitRaw === "k" || unitRaw === "thousand") {
+      multiplier = 1_000;
+    } else if (unitRaw === "m" || unitRaw === "million") {
+      multiplier = 1_000_000;
+    } else if (unitRaw === "b" || unitRaw === "billion") {
+      multiplier = 1_000_000_000;
+    }
+
+    resolved.push(numeric * multiplier);
+  }
+
+  return resolved;
+}
+
+function resolveRevenueSignalEur(args: {
+  annualRevenue?: string;
+  businessRevenueAnswer?: string;
+}): number | undefined {
+  const sources = [args.annualRevenue, args.businessRevenueAnswer].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  let maxRevenue = 0;
+
+  for (const source of sources) {
+    const looksRevenueLike =
+      /\b(revenue|arr|mrr|turnover|annual|yearly|per year|umsatz)\b/i.test(source)
+      || /€|\$|£|eur|usd|gbp/i.test(source);
+    const candidates = resolveScaledNumericCandidates(source);
+    for (const candidate of candidates) {
+      if (candidate <= 0) {
+        continue;
+      }
+      const qualifiesAsRevenueSignal = looksRevenueLike || candidate >= 100_000;
+      if (!qualifiesAsRevenueSignal) {
+        continue;
+      }
+      maxRevenue = Math.max(maxRevenue, candidate);
+    }
+  }
+
+  return maxRevenue > 0 ? maxRevenue : undefined;
+}
+
+function asksAboutPricing(value: string): boolean {
+  return /\b(price|pricing|cost|costs|how much|quote|package|tier|fee|fees)\b/i.test(value);
+}
+
+function isLowIntentText(value: string): boolean {
+  return /\b(just curious|curious only|just exploring|just browsing|no clear pain|no real pain|not urgent|no urgency)\b/i.test(
+    value
+  );
+}
+
+function resolvePainPointCount(args: {
+  mondayPriorityAnswer?: string;
+  delegationGapAnswer?: string;
+}): number {
+  const painSources = [args.mondayPriorityAnswer, args.delegationGapAnswer].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  let count = 0;
+
+  for (const source of painSources) {
+    if (isLowIntentText(source)) {
+      continue;
+    }
+    count += 1;
+
+    // Additional pain cues in a single answer ("X and Y", comma-separated, etc.)
+    if (/[;,/]/.test(source) || /\band\b/i.test(source)) {
+      count += 1;
+    }
+  }
+
+  return Math.max(0, Math.min(count, 4));
+}
+
+function resolveValueQuantificationSignals(args: {
+  reclaimedTimeAnswer?: string;
+  annualRevenue?: string;
+}): { high: boolean; moderate: boolean } {
+  const sources = [args.reclaimedTimeAnswer, args.annualRevenue].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  let high = false;
+  let moderate = false;
+
+  for (const source of sources) {
+    const hourMatches = source.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*(hours?|hrs?|h)\b/gi);
+    for (const match of hourMatches) {
+      const hours = parseLocaleNumber(match[1]);
+      if (typeof hours !== "number") {
+        continue;
+      }
+      if (hours >= 20) {
+        high = true;
+      }
+      if (hours >= 5) {
+        moderate = true;
+      }
+    }
+
+    const moneyCandidates = resolveScaledNumericCandidates(source);
+    for (const candidate of moneyCandidates) {
+      if (candidate >= 100_000) {
+        high = true;
+      }
+      if (candidate >= 10_000) {
+        moderate = true;
+      }
+    }
+
+    if (/[0-9]/.test(source)) {
+      moderate = true;
+    }
+  }
+
+  if (high) {
+    moderate = true;
+  }
+
+  return { high, moderate };
+}
+
+function formatRevenueSignalEur(value: number): string {
+  const rounded = Math.round(value);
+  return `EUR ${rounded.toLocaleString("en-US")}`;
+}
+
+function resolveLeadQualificationSnapshot(args: {
+  session: Record<string, unknown>;
+  annualRevenue?: string;
+}): LeadQualificationSnapshot {
+  const businessRevenueAnswer = readAuditQuestionAnswer({
+    session: args.session,
+    questionId: "business_revenue",
+  });
+  const teamSizeAnswer = readAuditQuestionAnswer({
+    session: args.session,
+    questionId: "team_size",
+  });
+  const mondayPriorityAnswer = readAuditQuestionAnswer({
+    session: args.session,
+    questionId: "monday_priority",
+  });
+  const delegationGapAnswer = readAuditQuestionAnswer({
+    session: args.session,
+    questionId: "delegation_gap",
+  });
+  const reclaimedTimeAnswer = readAuditQuestionAnswer({
+    session: args.session,
+    questionId: "reclaimed_time",
+  });
+
+  const diagnosticAnswers = [
+    businessRevenueAnswer,
+    teamSizeAnswer,
+    mondayPriorityAnswer,
+    delegationGapAnswer,
+    reclaimedTimeAnswer,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  const pricingAskedDuringDiagnostic = diagnosticAnswers.some(asksAboutPricing);
+  const painPointCount = resolvePainPointCount({
+    mondayPriorityAnswer,
+    delegationGapAnswer,
+  });
+  const valueQuantification = resolveValueQuantificationSignals({
+    reclaimedTimeAnswer,
+    annualRevenue: args.annualRevenue,
+  });
+  const revenueSignalEur = resolveRevenueSignalEur({
+    annualRevenue: args.annualRevenue,
+    businessRevenueAnswer,
+  });
+  const revenueHigh = typeof revenueSignalEur === "number" && revenueSignalEur >= 1_800_000;
+  const lowIntent =
+    diagnosticAnswers.some(isLowIntentText) && painPointCount === 0;
+
+  const reasons: string[] = [];
+
+  if (pricingAskedDuringDiagnostic) {
+    reasons.push("Asked about pricing during diagnostic.");
+    if (revenueHigh && typeof revenueSignalEur === "number") {
+      reasons.push(`Revenue signal: ${formatRevenueSignalEur(revenueSignalEur)}.`);
+    }
+    return {
+      level: "Hot",
+      reasons,
+      pricingAskedDuringDiagnostic,
+      revenueSignalEur,
+      painPointCount,
+      highValueQuantification: valueQuantification.high,
+      moderateValueQuantification: valueQuantification.moderate,
+    };
+  }
+
+  if (revenueHigh && typeof revenueSignalEur === "number") {
+    reasons.push(`Revenue signal >= EUR 1.8M (${formatRevenueSignalEur(revenueSignalEur)}).`);
+  }
+  if (painPointCount >= 2 && valueQuantification.high) {
+    reasons.push("Multiple pain points with high value quantification.");
+  }
+  if (reasons.length > 0) {
+    return {
+      level: "High",
+      reasons,
+      pricingAskedDuringDiagnostic,
+      revenueSignalEur,
+      painPointCount,
+      highValueQuantification: valueQuantification.high,
+      moderateValueQuantification: valueQuantification.moderate,
+    };
+  }
+
+  if (lowIntent) {
+    reasons.push("Low-intent language captured (just curious / no clear pain).");
+    return {
+      level: "Low",
+      reasons,
+      pricingAskedDuringDiagnostic,
+      revenueSignalEur,
+      painPointCount,
+      highValueQuantification: valueQuantification.high,
+      moderateValueQuantification: valueQuantification.moderate,
+    };
+  }
+
+  if (painPointCount >= 1 && valueQuantification.moderate) {
+    reasons.push("Single or moderate pain signal with moderate quantified value.");
+    return {
+      level: "Medium",
+      reasons,
+      pricingAskedDuringDiagnostic,
+      revenueSignalEur,
+      painPointCount,
+      highValueQuantification: valueQuantification.high,
+      moderateValueQuantification: valueQuantification.moderate,
+    };
+  }
+
+  if (painPointCount === 0) {
+    reasons.push("No clear pain points captured in diagnostic answers.");
+    return {
+      level: "Low",
+      reasons,
+      pricingAskedDuringDiagnostic,
+      revenueSignalEur,
+      painPointCount,
+      highValueQuantification: valueQuantification.high,
+      moderateValueQuantification: valueQuantification.moderate,
+    };
+  }
+
+  reasons.push("Pain signals captured but value quantification remains limited.");
+  return {
+    level: "Medium",
+    reasons,
+    pricingAskedDuringDiagnostic,
+    revenueSignalEur,
+    painPointCount,
+    highValueQuantification: valueQuantification.high,
+    moderateValueQuantification: valueQuantification.moderate,
+  };
+}
+
 async function resolveActiveEmailDomainConfigId(
   ctx: ToolExecutionContext,
   organizationId: Id<"organizations">,
@@ -1458,6 +1935,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       rawArgs: args as unknown as Record<string, unknown>,
       sessionMetadata: readMetadataRecord(session.metadata),
     });
+    const qualification = resolveLeadQualificationSnapshot({
+      session: session as Record<string, unknown>,
+      annualRevenue: cleanOptionalString(args.annualRevenue),
+    });
     const canonicalCommercialSummary = [
       `offer_code=${leadPayloadTags.offer_code || "n/a"}`,
       `intent_code=${leadPayloadTags.intent_code || "n/a"}`,
@@ -1572,6 +2053,36 @@ const generateAuditWorkflowDeliverableTool: AITool = {
     const safeBudgetTimeline = escapeHtml(cleanOptionalString(args.aiBudgetTimeline) || "Not provided");
     const safeDeliveryAddress = escapeHtml(cleanOptionalString(args.deliveryAddress) || "Not provided");
     const safeWorkflow = escapeHtml(workflowRecommendation);
+    const safeQualificationLevel = escapeHtml(qualification.level);
+    const safeQualificationReasons = escapeHtml(qualification.reasons.join(" | "));
+    const revenueSignalSummary =
+      typeof qualification.revenueSignalEur === "number"
+        ? formatRevenueSignalEur(qualification.revenueSignalEur)
+        : "Not detected";
+    const safeRevenueSignalSummary = escapeHtml(revenueSignalSummary);
+    const safeQualificationSnapshot = escapeHtml(
+      [
+        `painPointCount=${qualification.painPointCount}`,
+        `highValueQuantification=${qualification.highValueQuantification ? "yes" : "no"}`,
+        `moderateValueQuantification=${qualification.moderateValueQuantification ? "yes" : "no"}`,
+        `pricingAskedDuringDiagnostic=${qualification.pricingAskedDuringDiagnostic ? "yes" : "no"}`,
+      ].join(" | ")
+    );
+    const sessionMetadata = readMetadataRecord(session.metadata);
+    const resolvedEmailLanguage = resolveAuditDeliverableEmailLanguage({
+      requestedLanguage: args.language,
+      sessionMetadata,
+      workflowRecommendation,
+    });
+    const founderDemoUrl = FOUNDER_DEMO_URL_BY_LANGUAGE[resolvedEmailLanguage];
+    const founderDemoHtmlLine = resolvedEmailLanguage === "de"
+      ? `<p>Oder buchen Sie eine <a href="${founderDemoUrl}">Founder Demo mit Remington S.</a>.</p>`
+      : `<p>Or book a <a href="${founderDemoUrl}">Founder Demo with Remington S.</a>.</p>`;
+    const founderDemoTextLine = resolvedEmailLanguage === "de"
+      ? `Oder buchen Sie eine Founder Demo mit Remington S.: ${founderDemoUrl}`
+      : `Or book a Founder Demo with Remington S.: ${founderDemoUrl}`;
+    const formattedWorkflowText = formatWorkflowRecommendationText(workflowRecommendation);
+    const formattedWorkflowHtml = formatWorkflowRecommendationHtml(workflowRecommendation);
 
     try {
       const leadResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
@@ -1581,7 +2092,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           `<p>Hi ${safeFirstName},</p>`,
           "<p>Thanks for completing your audit. Here is your workflow recommendation summary.</p>",
           "<h3>Recommended workflow</h3>",
-          `<p>${safeWorkflow}</p>`,
+          formattedWorkflowHtml,
           "<h3>Qualification snapshot</h3>",
           "<ul>",
           `<li><strong>Revenue:</strong> ${safeRevenue}</li>`,
@@ -1595,25 +2106,32 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           "<li>Implementation Start (EUR 7,000+): build and rollout support.</li>",
           "</ul>",
           "<p>Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.</p>",
+          founderDemoHtmlLine,
         ].filter((line) => line.length > 0).join(""),
         text: [
           `Hi ${firstName},`,
           "",
-          "Thanks for completing your audit. Here is your workflow recommendation summary:",
-          workflowRecommendation,
+          "Thanks for completing your audit. Here is your workflow recommendation summary.",
           "",
-          "Qualification snapshot:",
-          `- Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
-          `- Team size: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
-          `- Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
-          `- AI project experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+          "Recommended workflow",
           "",
-          "Next step options:",
-          "- Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).",
-          "- Implementation Start (EUR 7,000+): build and rollout support.",
+          formattedWorkflowText,
+          "",
+          "Qualification snapshot",
+          `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+          `Team size: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+          `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+          `AI project experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+          "",
+          "Next step options",
+          "",
+          "Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).",
+          "Implementation Start (EUR 7,000+): build and rollout support.",
           "",
           "Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.",
-        ].filter((line) => line.length > 0).join("\n"),
+          "",
+          founderDemoTextLine,
+        ].join("\n"),
       }));
       leadEmailDelivery = {
         success: Boolean(leadResult?.success),
@@ -1627,7 +2145,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       };
     }
 
-    const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+    const salesInbox = process.env.SALES_EMAIL || "sales@sevenlayers.io";
     try {
       const salesResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
         to: salesInbox,
@@ -1639,6 +2157,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           `<p><strong>Phone:</strong> ${safePhone}</p>`,
           `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
           `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
+          `<p><strong>Qualification Level:</strong> ${safeQualificationLevel}</p>`,
+          `<p><strong>Qualification Reasons:</strong> ${safeQualificationReasons}</p>`,
+          `<p><strong>Revenue Signal:</strong> ${safeRevenueSignalSummary}</p>`,
+          `<p><strong>Qualification Snapshot:</strong> ${safeQualificationSnapshot}</p>`,
           `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
           `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
           `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
@@ -1660,6 +2182,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           `Phone: ${capturedPhone}`,
           `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
           `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
+          `Qualification Level: ${qualification.level}`,
+          `Qualification Reasons: ${qualification.reasons.join(" | ")}`,
+          `Revenue Signal: ${revenueSignalSummary}`,
+          `Qualification Snapshot: painPointCount=${qualification.painPointCount} | highValueQuantification=${qualification.highValueQuantification ? "yes" : "no"} | moderateValueQuantification=${qualification.moderateValueQuantification ? "yes" : "no"} | pricingAskedDuringDiagnostic=${qualification.pricingAskedDuringDiagnostic ? "yes" : "no"}`,
           `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
           `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
           `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
@@ -1795,6 +2321,15 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
       founderContactRequested,
       sales_call: salesCall,
+      qualificationLevel: qualification.level,
+      qualificationReasons: qualification.reasons,
+      qualificationSnapshot: {
+        pricingAskedDuringDiagnostic: qualification.pricingAskedDuringDiagnostic,
+        revenueSignalEur: qualification.revenueSignalEur,
+        painPointCount: qualification.painPointCount,
+        highValueQuantification: qualification.highValueQuantification,
+        moderateValueQuantification: qualification.moderateValueQuantification,
+      },
       leadEmailDelivery,
       salesEmailDelivery,
       founderCallOrchestration,

@@ -78,6 +78,7 @@ export interface SamanthaAuditAutoDispatchToolArgs {
   sales_call?: boolean;
   clientName?: string;
   workflowRecommendation?: string;
+  language?: string;
   ingressChannel?: string;
   originSurface?: string;
   sourceSessionToken?: string;

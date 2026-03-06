@@ -8114,6 +8114,7 @@ export const processInboundMessage = action({
         });
         const sourceAwareToolArgs: SamanthaAuditAutoDispatchToolArgs = {
           ...samanthaAuditAutoDispatchPlan.toolArgs,
+          language: actionCompletionResponseLanguage,
           ingressChannel: samanthaAuditSourceContext.ingressChannel,
           originSurface: samanthaAuditSourceContext.originSurface,
           sourceSessionToken: preflightAuditLookupTarget.ok
