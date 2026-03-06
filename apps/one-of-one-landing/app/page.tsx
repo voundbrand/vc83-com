@@ -175,16 +175,20 @@ function buildPricingCheckoutUrl(checkoutKey: LandingPricingCheckoutKey): string
   const storeBaseUrl = resolveLandingStoreBaseUrl()
 
   if (checkoutKey === "plan_pro_monthly") {
-    return `${storeBaseUrl}?tier=pro&period=monthly&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_PRO_MO_DIRECT
+      || `${storeBaseUrl}?tier=pro&period=monthly&source=one_of_one_landing`
   }
   if (checkoutKey === "plan_pro_annual") {
-    return `${storeBaseUrl}?tier=pro&period=annual&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_PRO_YR_DIRECT
+      || `${storeBaseUrl}?tier=pro&period=annual&source=one_of_one_landing`
   }
   if (checkoutKey === "plan_scale_monthly") {
-    return `${storeBaseUrl}?tier=scale&period=monthly&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_SCALE_MO_DIRECT
+      || `${storeBaseUrl}?tier=scale&period=monthly&source=one_of_one_landing`
   }
   if (checkoutKey === "plan_scale_annual") {
-    return `${storeBaseUrl}?tier=scale&period=annual&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_SCALE_YR_DIRECT
+      || `${storeBaseUrl}?tier=scale&period=annual&source=one_of_one_landing`
   }
   if (checkoutKey === "consult_done_with_you") {
     return process.env.NEXT_PUBLIC_STRIPE_CONSULT_DIRECT
@@ -194,11 +198,15 @@ function buildPricingCheckoutUrl(checkoutKey: LandingPricingCheckoutKey): string
     return process.env.NEXT_PUBLIC_STRIPE_LAYER1_DIRECT
       || `${storeBaseUrl}?autostartCommercial=1&offer_code=layer1_foundation&intent_code=implementation_start_layer1&routing_hint=founder_bridge&source=one_of_one_landing`
   }
-  if (
-    checkoutKey === "credits"
-    || checkoutKey === "sub_org_monthly"
-    || checkoutKey === "sub_org_annual"
-  ) {
+  if (checkoutKey === "sub_org_monthly") {
+    return process.env.NEXT_PUBLIC_AGENCY_SUB_ORG_MO_DIRECT
+      || `${storeBaseUrl}?source=one_of_one_landing`
+  }
+  if (checkoutKey === "sub_org_annual") {
+    return process.env.NEXT_PUBLIC_AGENCY_SUB_ORG_YR_DIRECT
+      || `${storeBaseUrl}?source=one_of_one_landing`
+  }
+  if (checkoutKey === "credits") {
     return `${storeBaseUrl}?source=one_of_one_landing`
   }
 
