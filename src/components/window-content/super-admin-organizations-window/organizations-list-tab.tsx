@@ -5,7 +5,7 @@ import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { Building2, Trash2, Users, Calendar, Loader2, AlertCircle, Archive, Settings, Globe, Search, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ConfirmationModal } from "@/components/confirmation-modal";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { AdminManageWindow } from "./manage-org";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -50,6 +50,11 @@ export function OrganizationsListTab() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState<{ id: Id<"organizations">; name: string } | null>(null);
+  const [bulkArchiveModalOpen, setBulkArchiveModalOpen] = useState(false);
+  const [isBulkArchiving, setIsBulkArchiving] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [selectedOrgIds, setSelectedOrgIds] = useState<Set<Id<"organizations">>>(new Set());
 
   // Query user's organizations (used for regular users and archive safety checks)
   const userOrganizations = unsafeUseQuery(
@@ -119,6 +124,60 @@ export function OrganizationsListTab() {
   const accessibleOrganizations = useMemo(() => {
     return (userOrganizations ?? []).filter((item) => item.organization);
   }, [userOrganizations]);
+
+  const bulkArchivableOrgIds = useMemo(() => {
+    return new Set(
+      (organizations ?? [])
+        .filter(
+          (item): item is typeof item & { organization: NonNullable<typeof item.organization> } =>
+            !!item.organization &&
+            (item.role === "org_owner" || item.role === "super_admin") &&
+            item.organization.isActive === true
+        )
+        .map((item) => item.organization._id)
+    );
+  }, [organizations]);
+
+  const bulkDeletableOrgIds = useMemo(() => {
+    return new Set(
+      (organizations ?? [])
+        .filter(
+          (item): item is typeof item & { organization: NonNullable<typeof item.organization> } =>
+            !!item.organization &&
+            (item.role === "org_owner" || item.role === "super_admin") &&
+            item.organization.isActive === false
+        )
+        .map((item) => item.organization._id)
+    );
+  }, [organizations]);
+
+  const selectableOrgIds = useMemo(() => {
+    return new Set<Id<"organizations">>([...bulkArchivableOrgIds, ...bulkDeletableOrgIds]);
+  }, [bulkArchivableOrgIds, bulkDeletableOrgIds]);
+
+  const selectedActiveCount = useMemo(() => {
+    return [...selectedOrgIds].filter((id) => bulkArchivableOrgIds.has(id)).length;
+  }, [selectedOrgIds, bulkArchivableOrgIds]);
+
+  const selectedInactiveCount = useMemo(() => {
+    return [...selectedOrgIds].filter((id) => bulkDeletableOrgIds.has(id)).length;
+  }, [selectedOrgIds, bulkDeletableOrgIds]);
+
+  const selectedCount = selectedActiveCount + selectedInactiveCount;
+
+  const allListedSelected = selectableOrgIds.size > 0 && selectedCount === selectableOrgIds.size;
+
+  useEffect(() => {
+    setSelectedOrgIds((prev) => {
+      const next = new Set<Id<"organizations">>();
+      for (const id of prev) {
+        if (selectableOrgIds.has(id)) {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  }, [selectableOrgIds]);
 
   // Actions
   const archiveOrganization = unsafeUseAction(apiAny.organizations.deleteOrganization); // This soft-deletes
@@ -309,6 +368,134 @@ export function OrganizationsListTab() {
     }
   };
 
+  const handleToggleSelectOrg = (organizationId: Id<"organizations">) => {
+    if (!selectableOrgIds.has(organizationId)) {
+      return;
+    }
+    setSelectedOrgIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(organizationId)) {
+        next.delete(organizationId);
+      } else {
+        next.add(organizationId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllListed = () => {
+    if (allListedSelected) {
+      setSelectedOrgIds(new Set());
+      return;
+    }
+    setSelectedOrgIds(new Set(selectableOrgIds));
+  };
+
+  const handleBulkDeleteClick = () => {
+    if (selectedInactiveCount === 0) {
+      return;
+    }
+    setBulkDeleteModalOpen(true);
+  };
+
+  const handleBulkArchiveClick = () => {
+    if (selectedActiveCount === 0) {
+      return;
+    }
+    setBulkArchiveModalOpen(true);
+  };
+
+  const handleConfirmBulkArchive = async () => {
+    if (!sessionId || selectedActiveCount === 0) {
+      return;
+    }
+
+    setIsBulkArchiving(true);
+    const idsToArchive = [...selectedOrgIds].filter((id) => bulkArchivableOrgIds.has(id));
+
+    try {
+      // If archiving current org, switch to another active membership org that is not being archived.
+      if (currentOrg?.id && idsToArchive.includes(currentOrg.id as Id<"organizations">)) {
+        const otherActiveOrgs = accessibleOrganizations.filter(
+          (item) =>
+            item.organization &&
+            item.organization.isActive &&
+            item.organization._id !== (currentOrg.id as Id<"organizations">) &&
+            !idsToArchive.includes(item.organization._id),
+        );
+
+        if (!otherActiveOrgs || otherActiveOrgs.length === 0) {
+          throw new Error("Cannot archive your current organization in bulk unless another active organization remains available.");
+        }
+
+        if (otherActiveOrgs[0].organization) {
+          await switchOrganization(otherActiveOrgs[0].organization._id);
+        }
+      }
+
+      const results = await Promise.allSettled(
+        idsToArchive.map((organizationId) =>
+          archiveOrganization({
+            sessionId,
+            organizationId,
+          })
+        )
+      );
+
+      const failed = results.filter((result) => result.status === "rejected");
+      if (failed.length > 0) {
+        const firstReason = failed[0].status === "rejected"
+          ? (failed[0].reason instanceof Error ? failed[0].reason.message : "Unknown error")
+          : "Unknown error";
+        alert(`${t('ui.organizations.error.archive_failed')} ${failed.length} of ${results.length} failed. ${firstReason}`);
+      }
+
+      setBulkArchiveModalOpen(false);
+      setSelectedOrgIds(new Set());
+    } catch (error) {
+      console.error("Failed to bulk archive organizations:", error);
+      alert(t('ui.organizations.error.archive_failed') + " " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsBulkArchiving(false);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (!sessionId || selectedInactiveCount === 0) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    const idsToDelete = [...selectedOrgIds].filter((id) => selectableOrgIds.has(id));
+
+    try {
+      const results = await Promise.allSettled(
+        idsToDelete.map((organizationId) =>
+          permanentlyDeleteOrganization({
+            sessionId,
+            organizationId,
+          })
+        )
+      );
+
+      const failed = results.filter((result) => result.status === "rejected");
+      if (failed.length > 0) {
+        const firstReason = failed[0].status === "rejected"
+          ? (failed[0].reason instanceof Error ? failed[0].reason.message : "Unknown error")
+          : "Unknown error";
+        alert(`${t('ui.organizations.error.delete_failed')} ${failed.length} of ${results.length} failed. ${firstReason}`);
+      }
+
+      setBulkDeleteModalOpen(false);
+      setSelectedOrgIds(new Set());
+    } catch (error) {
+      console.error("Failed to bulk delete organizations:", error);
+      alert(t('ui.organizations.error.delete_failed') + " " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Loading state
   if (organizations === undefined) {
     return (
@@ -428,6 +615,35 @@ export function OrganizationsListTab() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-semibold mr-2" style={{ color: "var(--window-document-text)" }}>
+              <input
+                type="checkbox"
+                checked={allListedSelected}
+                onChange={handleToggleSelectAllListed}
+                disabled={selectableOrgIds.size === 0}
+              />
+              Select all listed
+            </label>
+            <button
+              type="button"
+              onClick={handleBulkArchiveClick}
+              disabled={selectedActiveCount === 0}
+              className="beveled-button px-3 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              style={{ backgroundColor: "var(--warning)", color: "white" }}
+            >
+              <Archive size={12} />
+              Make inactive ({selectedActiveCount})
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDeleteClick}
+              disabled={selectedInactiveCount === 0}
+              className="beveled-button px-3 py-1.5 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+              style={{ backgroundColor: "var(--error)", color: "white" }}
+            >
+              <Trash2 size={12} />
+              Delete selected ({selectedInactiveCount})
+            </button>
             <button
               type="button"
               onClick={handlePreviousPage}
@@ -475,6 +691,13 @@ export function OrganizationsListTab() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrgIds.has(org._id)}
+                      onChange={() => handleToggleSelectOrg(org._id)}
+                      disabled={!selectableOrgIds.has(org._id)}
+                      title={!selectableOrgIds.has(org._id) ? "You do not have bulk action access for this organization" : "Select organization"}
+                    />
                     <Building2 size={18} style={{ color: "var(--primary)" }} />
                     <div className="flex items-center gap-2">
                       <div>
@@ -724,6 +947,34 @@ export function OrganizationsListTab() {
         cancelText={t('ui.organizations.button.cancel')}
         variant="danger"
         isLoading={isDeleting}
+      />
+
+      <ConfirmationModal
+        isOpen={bulkArchiveModalOpen}
+        onClose={() => {
+          setBulkArchiveModalOpen(false);
+        }}
+        onConfirm={handleConfirmBulkArchive}
+        title="Make selected organizations inactive"
+        message={`Archive ${selectedActiveCount} selected active organization${selectedActiveCount === 1 ? "" : "s"}?`}
+        confirmText={t('ui.organizations.archive.confirm_button')}
+        cancelText={t('ui.organizations.button.cancel')}
+        variant="warning"
+        isLoading={isBulkArchiving}
+      />
+
+      <ConfirmationModal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => {
+          setBulkDeleteModalOpen(false);
+        }}
+        onConfirm={handleConfirmBulkDelete}
+        title="Delete selected organizations"
+        message={`Permanently delete ${selectedCount} selected inactive organization${selectedCount === 1 ? "" : "s"}? This cannot be undone.`}
+        confirmText={t('ui.organizations.delete.confirm_button')}
+        cancelText={t('ui.organizations.button.cancel')}
+        variant="danger"
+        isLoading={isBulkDeleting}
       />
     </div>
   );
