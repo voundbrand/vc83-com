@@ -9084,6 +9084,14 @@ export const processInboundMessage = action({
       }
     }
 
+    const runtimeFailureMessageGuard = sanitizeUserFacingRuntimeFailureMessage({
+      assistantContent,
+      language: actionCompletionResponseLanguage,
+    });
+    if (runtimeFailureMessageGuard.rewritten) {
+      assistantContent = runtimeFailureMessageGuard.assistantContent;
+    }
+
     // 10. Save messages
     await ctx.runMutation(getInternal().ai.agentSessions.addSessionMessage, {
       sessionId: session._id,
@@ -13264,6 +13272,76 @@ function buildSamanthaAuditDeliverableGracefulDegradationMessage(
 }
 
 const SAMANTHA_FILE_FORMAT_PROMISE_PATTERN = /\b(?:pdf|docx)\b/i;
+const USER_FACING_RUNTIME_JARGON_PATTERN =
+  /\b(?:claim_tool_unavailable|claim_tool_not_observed|tool_not_observed|missing_required_fields|runtime capability gap|runtime scope|runtime contract|contract payload|tool execution evidence|preflightreasoncode|skipreasons|invocation=|reason=)\b/i;
+
+export function sanitizeUserFacingRuntimeFailureMessage(args: {
+  assistantContent: string;
+  language: ActionCompletionResponseLanguage;
+}): {
+  assistantContent: string;
+  rewritten: boolean;
+} {
+  const original = args.assistantContent;
+  if (!USER_FACING_RUNTIME_JARGON_PATTERN.test(original.toLowerCase())) {
+    return {
+      assistantContent: original,
+      rewritten: false,
+    };
+  }
+
+  const replacements: Array<[RegExp, string]> = args.language === "de"
+    ? [
+        [/\bclaim_tool_unavailable\b/gi, "notwendige Funktion aktuell nicht verfuegbar"],
+        [/\bclaim_tool_not_observed\b/gi, "Schritt konnte noch nicht bestaetigt werden"],
+        [/\btool_not_observed\b/gi, "Schritt wurde noch nicht ausgefuehrt"],
+        [/\bmissing_required_fields\b/gi, "es fehlen noch Angaben"],
+        [/\bruntime capability gap\b/gi, "fehlende Funktion im aktuellen Ablauf"],
+        [/\bruntime scope\b/gi, "aktueller Ablauf"],
+        [/\bruntime contract\b/gi, "Ausfuehrungspruefung"],
+        [/\bcontract payload\b/gi, "Anfragedaten"],
+        [/\btool execution evidence\b/gi, "bestaetigte Ausfuehrung"],
+      ]
+    : [
+        [/\bclaim_tool_unavailable\b/gi, "required capability is currently unavailable"],
+        [/\bclaim_tool_not_observed\b/gi, "step could not be confirmed yet"],
+        [/\btool_not_observed\b/gi, "step did not run yet"],
+        [/\bmissing_required_fields\b/gi, "some details are still missing"],
+        [/\bruntime capability gap\b/gi, "a missing capability in this flow"],
+        [/\bruntime scope\b/gi, "current flow"],
+        [/\bruntime contract\b/gi, "execution check"],
+        [/\bcontract payload\b/gi, "request data"],
+        [/\btool execution evidence\b/gi, "confirmed execution"],
+      ];
+
+  let rewritten = original;
+  for (const [pattern, replacement] of replacements) {
+    rewritten = rewritten.replace(pattern, replacement);
+  }
+
+  rewritten = rewritten
+    .replace(/\b(?:reason|invocation|preflightReasonCode)\s*=\s*[^;\n]+;?/gi, "")
+    .replace(/\bskipReasons=\[[^\]]*\];?/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+
+  const fallback = args.language === "de"
+    ? "Es gab gerade ein Problem bei der Ausfuehrung. Mir fehlen noch Angaben oder ein Schritt wurde nicht erfolgreich abgeschlossen. Bitte bestaetigen Sie kurz die fehlenden Daten, dann versuche ich es sofort erneut."
+    : "There was a delivery problem just now. I still need a few details or one step did not complete successfully. Please confirm the missing information and I will retry right away.";
+
+  if (rewritten.length === 0 || USER_FACING_RUNTIME_JARGON_PATTERN.test(rewritten.toLowerCase())) {
+    return {
+      assistantContent: fallback,
+      rewritten: true,
+    };
+  }
+
+  return {
+    assistantContent: rewritten,
+    rewritten: rewritten !== original,
+  };
+}
 
 export function sanitizeSamanthaEmailOnlyAssistantContent(args: {
   assistantContent: string;
