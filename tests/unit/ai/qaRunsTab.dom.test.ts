@@ -63,8 +63,7 @@ const LIST_RUNS_RESPONSE = {
         unknown: 0,
       },
       dispatchDecisionCounts: {
-        auto_dispatch_executed_pdf: 0,
-        auto_dispatch_executed_docx: 0,
+        auto_dispatch_executed_email: 0,
         recovery_attempted_missing_required_fields: 1,
         blocked_missing_required_fields: 0,
         blocked_missing_audit_session_context: 0,

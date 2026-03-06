@@ -30,7 +30,7 @@ describe("agent spec registry contract", () => {
             key: "audit_delivery",
             outcomes: [
               {
-                outcomeKey: "audit_workflow_deliverable_pdf",
+                outcomeKey: "audit_workflow_deliverable_email",
                 requiredTools: [
                   "generate_audit_workflow_deliverable",
                   "generate_audit_workflow_deliverable",
@@ -82,7 +82,7 @@ describe("agent spec registry contract", () => {
             key: "audit_delivery",
             outcomes: [
               {
-                outcomeKey: "audit_workflow_deliverable_pdf",
+                outcomeKey: "audit_workflow_deliverable_email",
                 requiredTools: ["generate_audit_workflow_deliverable"],
               },
             ],
@@ -108,7 +108,7 @@ describe("agent spec registry contract", () => {
             outcomes: [
               {
                 requiredTools: ["generate_audit_workflow_deliverable"],
-                outcomeKey: "audit_workflow_deliverable_pdf",
+                outcomeKey: "audit_workflow_deliverable_email",
               },
             ],
             key: "audit_delivery",
@@ -161,7 +161,7 @@ describe("agent spec registry contract", () => {
             key: "audit_delivery",
             outcomes: [
               {
-                outcomeKey: "audit_workflow_deliverable_pdf",
+                outcomeKey: "audit_workflow_deliverable_email",
                 requiredTools: ["generate_audit_workflow_deliverable"],
               },
             ],

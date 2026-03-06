@@ -17,7 +17,7 @@ export const AUDIT_DELIVERABLE_EMAIL_REQUEST_TOOL_NAME =
   "request_audit_deliverable_email" as const;
 
 export const AUDIT_DELIVERABLE_OUTCOME_KEY =
-  "audit_workflow_deliverable_pdf" as const;
+  "audit_workflow_deliverable_email" as const;
 
 export const SAMANTHA_AUDIT_REQUIRED_FIELDS = [
   "first_name",
@@ -78,7 +78,6 @@ export interface SamanthaAuditAutoDispatchToolArgs {
   sales_call?: boolean;
   clientName?: string;
   workflowRecommendation?: string;
-  outputFormats?: ("pdf" | "docx")[];
   ingressChannel?: string;
   originSurface?: string;
   sourceSessionToken?: string;
@@ -101,8 +100,7 @@ export interface SamanthaAuditAutoDispatchPlan {
 }
 
 export type SamanthaAuditDispatchDecision =
-  | "auto_dispatch_executed_pdf"
-  | "auto_dispatch_executed_docx"
+  | "auto_dispatch_executed_email"
   | "recovery_attempted_missing_required_fields"
   | "blocked_ambiguous_name"
   | "blocked_ambiguous_founder_contact"
@@ -134,7 +132,7 @@ export interface SamanthaDispatchToolResult {
 
 export interface SamanthaRuntimeDispatchDecisionArgs {
   plan: SamanthaAuditAutoDispatchPlan | null;
-  executionFormat: "pdf" | "docx" | null;
+  executionSucceeded: boolean;
   sessionContextFailure:
     | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_MISSING
     | typeof SAMANTHA_AUDIT_SESSION_CONTEXT_ERROR_NOT_FOUND
@@ -219,11 +217,8 @@ function resolveDispatchDecision(
   if (!args.plan || !args.plan.eligible) {
     return undefined;
   }
-  if (args.executionFormat === "docx") {
-    return "auto_dispatch_executed_docx";
-  }
-  if (args.executionFormat === "pdf") {
-    return "auto_dispatch_executed_pdf";
+  if (args.executionSucceeded) {
+    return "auto_dispatch_executed_email";
   }
   if (!args.plan.requestDetected) {
     return undefined;

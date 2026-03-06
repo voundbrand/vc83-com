@@ -26987,7 +26987,7 @@
       "line": 602,
       "column": 24,
       "kind": "jsx_text",
-      "text": "auto_dispatch_executed_pdf:"
+      "text": "auto_dispatch_executed_email:"
     },
     {
       "scope": "window-content",
@@ -26995,7 +26995,7 @@
       "line": 603,
       "column": 24,
       "kind": "jsx_text",
-      "text": "auto_dispatch_executed_docx:"
+      "text": "auto_dispatch_executed_email:"
     },
     {
       "scope": "window-content",

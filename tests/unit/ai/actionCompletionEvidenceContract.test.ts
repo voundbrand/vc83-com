@@ -9,7 +9,7 @@ import {
 describe("action completion evidence contract", () => {
   it("builds deterministic action_completion_evidence_v1 records", () => {
     const evidence = buildActionCompletionEvidenceContract({
-      outcomeKey: "audit_workflow_deliverable_pdf",
+      outcomeKey: "audit_workflow_deliverable_email",
       requiredTools: ["generate_audit_workflow_deliverable"],
       toolResults: [
         {
@@ -28,7 +28,7 @@ describe("action completion evidence contract", () => {
 
     expect(evidence).toEqual({
       contractVersion: ACTION_COMPLETION_EVIDENCE_CONTRACT_VERSION,
-      outcomeKey: "audit_workflow_deliverable_pdf",
+      outcomeKey: "audit_workflow_deliverable_email",
       requiredTools: ["generate_audit_workflow_deliverable"],
       requiredFields: [],
       observedToolCalls: [
@@ -60,7 +60,7 @@ describe("action completion evidence contract", () => {
 
   it("verifies unavailable-tool failures deterministically", () => {
     const evidence = buildActionCompletionEvidenceContract({
-      outcomeKey: "audit_workflow_deliverable_pdf",
+      outcomeKey: "audit_workflow_deliverable_email",
       requiredTools: ["generate_audit_workflow_deliverable"],
       toolResults: [],
       turnId: "turn_988",
@@ -81,7 +81,7 @@ describe("action completion evidence contract", () => {
 
   it("verifies not-observed failures when required tools do not succeed", () => {
     const evidence = buildActionCompletionEvidenceContract({
-      outcomeKey: "audit_workflow_deliverable_pdf",
+      outcomeKey: "audit_workflow_deliverable_email",
       requiredTools: ["generate_audit_workflow_deliverable"],
       toolResults: [
         {
@@ -114,7 +114,7 @@ describe("action completion evidence contract", () => {
           mode: "enforce",
           outcomes: [
             {
-              outcome: "audit_workflow_deliverable_pdf",
+              outcome: "audit_workflow_deliverable_email",
               requiredTools: ["generate_audit_workflow_deliverable"],
               unavailableMessage: "unavailable",
               notObservedMessage: "not observed",
@@ -125,7 +125,7 @@ describe("action completion evidence contract", () => {
       claims: [
         {
           contractVersion: "aoh_action_completion_claim_v1",
-          outcome: "audit_workflow_deliverable_pdf",
+          outcome: "audit_workflow_deliverable_email",
           status: "completed",
         },
       ],
@@ -145,7 +145,7 @@ describe("action completion evidence contract", () => {
     expect(decision.payload.status).toBe("pass");
     expect(decision.payload.evidence).toMatchObject({
       contractVersion: ACTION_COMPLETION_EVIDENCE_CONTRACT_VERSION,
-      outcomeKey: "audit_workflow_deliverable_pdf",
+      outcomeKey: "audit_workflow_deliverable_email",
       decision: {
         status: "pass",
         failureCode: null,
@@ -197,7 +197,7 @@ describe("action completion evidence contract", () => {
       },
     ].map((scenario, index) => {
       const evidence = buildActionCompletionEvidenceContract({
-        outcomeKey: "audit_workflow_deliverable_pdf",
+        outcomeKey: "audit_workflow_deliverable_email",
         requiredTools,
         toolResults: scenario.toolResults,
         turnId: `turn_matrix_${index + 1}`,

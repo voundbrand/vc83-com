@@ -401,7 +401,7 @@ describe("action-completion fail-closed localization", () => {
       claims: [
         {
           contractVersion: "aoh_action_completion_claim_v1",
-          outcome: "audit_workflow_deliverable_pdf",
+          outcome: "audit_workflow_deliverable_email",
           status: "completed",
         },
       ],

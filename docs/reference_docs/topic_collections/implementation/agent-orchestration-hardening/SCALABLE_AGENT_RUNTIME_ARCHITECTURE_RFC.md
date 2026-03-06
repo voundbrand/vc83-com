@@ -34,7 +34,7 @@ The target operating model is: define what we need, warm it up with deterministi
 - Duplicate ingress replay loops surfaced as `"Duplicate inbound event acknowledged."`.
 - Fail-closed action completion rewrites blocked outcomes with:
   - `reasonCode=claim_tool_unavailable`
-  - `outcome=audit_workflow_deliverable_pdf`
+  - `outcome=audit_workflow_deliverable_email`
   - required tool `generate_audit_workflow_deliverable`
 
 ### 4.2 Evidence in current code
@@ -271,7 +271,7 @@ agent:
   capabilities:
     - key: audit_delivery
       outcomes:
-        - outcomeKey: audit_workflow_deliverable_pdf
+        - outcomeKey: audit_workflow_deliverable_email
           requiredTools:
             - generate_audit_workflow_deliverable
           preconditions:
@@ -342,7 +342,7 @@ JSON equivalent (compact):
     }
   },
   "outcomeContracts": {
-    "audit_workflow_deliverable_pdf": {
+    "audit_workflow_deliverable_email": {
       "requiredTools": ["generate_audit_workflow_deliverable"],
       "requiredFields": [
         "firstName",
@@ -393,7 +393,7 @@ JSON equivalent (compact):
 ```json
 {
   "contractVersion": "action_completion_evidence_v1",
-  "outcomeKey": "audit_workflow_deliverable_pdf",
+  "outcomeKey": "audit_workflow_deliverable_email",
   "requiredTools": ["generate_audit_workflow_deliverable"],
   "requiredFields": [
     "firstName",
@@ -807,7 +807,7 @@ Rollback must preserve idempotency data integrity and not delete receipts.
         "key": "audit_delivery",
         "outcomes": [
           {
-            "outcomeKey": "audit_workflow_deliverable_pdf",
+            "outcomeKey": "audit_workflow_deliverable_email",
             "requiredTools": ["generate_audit_workflow_deliverable"]
           }
         ]
@@ -841,7 +841,7 @@ Rollback must preserve idempotency data integrity and not delete receipts.
 ```json
 {
   "contractVersion": "action_completion_evidence_v1",
-  "outcomeKey": "audit_workflow_deliverable_pdf",
+  "outcomeKey": "audit_workflow_deliverable_email",
   "decision": {
     "status": "fail",
     "failureCode": "tool_unavailable",

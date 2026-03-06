@@ -261,7 +261,7 @@ describe("Samantha audit auto-dispatch planner", () => {
     expect(plan.missingRequiredFields).toContain("founder_contact_preference");
   });
 
-  it("adds deterministic docx request hint to tool args when explicitly requested", () => {
+  it("keeps tool args email-only even when user requests docx", () => {
     const plan = resolveSamanthaAuditAutoDispatchPlan({
       authorityConfig: {
         templateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
@@ -283,7 +283,13 @@ describe("Samantha audit auto-dispatch planner", () => {
     });
 
     expect(plan.shouldDispatch).toBe(true);
-    expect(plan.toolArgs?.outputFormats).toEqual(["pdf", "docx"]);
+    expect(plan.toolArgs).toMatchObject({
+      email: "ava@example.com",
+      firstName: "Ava",
+      lastName: "Rivers",
+      phone: "+14155551212",
+      founderContactRequested: true,
+    });
   });
 
   it("does not treat unrelated boolean fields as founder-contact ambiguity when structured founder row exists", () => {

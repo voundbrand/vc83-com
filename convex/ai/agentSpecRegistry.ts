@@ -153,7 +153,7 @@ const KNOWN_RUNTIME_POLICY_PROFILES = new Set([
 ]);
 
 const KNOWN_OUTCOME_KEYS = new Set([
-  "audit_workflow_deliverable_pdf",
+  "audit_workflow_deliverable_email",
   "pdf_generated",
   "email_sent",
   "booking_created",

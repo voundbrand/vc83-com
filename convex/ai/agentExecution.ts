@@ -8529,13 +8529,13 @@ export const processInboundMessage = action({
         const fallbackLeadLanguage = actionCompletionResponseLanguage;
         const fallbackSubject = fallbackLeadLanguage === "de"
           ? "Update: Ihre One of One Workflow-Anfrage"
-          : "Update: your One of One workflow report request";
+          : "Update: your One of One workflow report email request";
         const fallbackGreeting = fallbackLeadLanguage === "de"
           ? `Hallo ${fallbackLeadName},`
           : `Hi ${fallbackLeadName},`;
         const fallbackMessage = fallbackLeadLanguage === "de"
-          ? "Samantha konnte das Workflow-PDF nicht generieren, weil das Runtime-Delivery-Tool in diesem Scope derzeit nicht verfuegbar ist."
-          : "Samantha could not generate the workflow PDF because the runtime delivery tool is not available in this scope yet.";
+          ? "Samantha konnte die Workflow-Ergebnis-E-Mail nicht senden, weil das Runtime-Delivery-Tool in diesem Scope derzeit nicht verfuegbar ist."
+          : "Samantha could not send the workflow results email because the runtime delivery tool is not available in this scope yet.";
         const fallbackFollowUp = fallbackLeadLanguage === "de"
           ? "Wir haben das intern als Feature-Luecke erfasst und unser Team meldet sich mit dem naechstbesten Deliverable-Pfad direkt bei Ihnen."
           : "We logged this as a tracked feature gap and our team will follow up directly with your next-best deliverable path.";
@@ -8619,7 +8619,7 @@ export const processInboundMessage = action({
                       to: salesInbox,
                       subject: "Samantha capability-gap fallback triggered",
                       html: [
-                        "<h2>Samantha PDF capability gap fallback triggered</h2>",
+                        "<h2>Samantha audit email capability gap fallback triggered</h2>",
                         `<p><strong>Org:</strong> ${String(args.organizationId)}</p>`,
                         `<p><strong>Session:</strong> ${String(session._id)}</p>`,
                         `<p><strong>Turn:</strong> ${String(runtimeTurnId)}</p>`,
@@ -8631,7 +8631,7 @@ export const processInboundMessage = action({
                         `<p><strong>Thread:</strong> <a href="${threadDeepLink}">${threadDeepLink}</a></p>`,
                       ].join(""),
                       text: [
-                        "Samantha PDF capability gap fallback triggered",
+                        "Samantha audit email capability gap fallback triggered",
                         `Org: ${String(args.organizationId)}`,
                         `Session: ${String(session._id)}`,
                         `Turn: ${String(runtimeTurnId)}`,
@@ -13223,32 +13223,32 @@ function buildSamanthaAuditDeliverableActionCompletionMessage(args: {
 }): string {
   if (args.language === "de") {
     if (args.kind === "unavailable") {
-      return "Ich kann Ihren Implementierungsplan als PDF in diesem Schritt nicht erstellen, weil das Zustellungs-Tool im aktuellen Runtime-Umfang noch nicht verfuegbar ist. Ich bestaetige keinen Abschluss ohne echte Tool-Ausfuehrung. Wenn Sie ein Feature-Request-Ticket wuenschen, antworten Sie mit: \"Ticket erstellen\".";
+      return "Ich kann Ihre Audit-Ergebnisse in diesem Schritt nicht per E-Mail senden, weil das Zustellungs-Tool im aktuellen Runtime-Umfang noch nicht verfuegbar ist. Ich bestaetige keinen Abschluss ohne echte Tool-Ausfuehrung. Wenn Sie ein Feature-Request-Ticket wuenschen, antworten Sie mit: \"Ticket erstellen\".";
     }
-    return "Ich kann die PDF-Erstellung noch nicht bestaetigen, weil das Zustellungs-Tool in diesem Schritt nicht ausgefuehrt wurde. Ich bestaetige keinen Abschluss ohne echten Tool-Aufruf. Bitte bestaetigen Sie Vorname, Nachname, E-Mail, Telefonnummer und ob Founder-Kontakt gewuenscht ist (ja/nein), dann fuehre ich es jetzt aus.";
+    return "Ich kann die Audit-E-Mail-Zustellung noch nicht bestaetigen, weil das Zustellungs-Tool in diesem Schritt nicht ausgefuehrt wurde. Ich bestaetige keinen Abschluss ohne echten Tool-Aufruf. Bitte bestaetigen Sie Vorname, Nachname, E-Mail, Telefonnummer und ob Founder-Kontakt gewuenscht ist (ja/nein), dann fuehre ich es jetzt aus.";
   }
   if (args.kind === "unavailable") {
-    return "I can’t generate your implementation PDF in this turn because the delivery tool is not available yet in the current runtime scope. I won’t claim completion without a real tool execution. If you want a feature request ticket, reply with: \"create request\".";
+    return "I can’t send your audit results email in this turn because the delivery tool is not available yet in the current runtime scope. I won’t claim completion without a real tool execution. If you want a feature request ticket, reply with: \"create request\".";
   }
-  return "I can’t confirm PDF generation yet because the delivery tool did not execute in this turn. I won’t claim completion without a real tool call. Please confirm first name, last name, email, phone number, and founder-contact preference (yes/no), and I will run it now.";
+  return "I can’t confirm audit email delivery yet because the delivery tool did not execute in this turn. I won’t claim completion without a real tool call. Please confirm first name, last name, email, phone number, and founder-contact preference (yes/no), and I will run it now.";
 }
 
 function buildSamanthaAuditDeliverableVerificationFallbackMessage(
   language: ActionCompletionResponseLanguage
 ): string {
   if (language === "de") {
-    return "Ich konnte die PDF-Zustellung in diesem Schritt nicht verifizieren, obwohl die Anfrage erkannt wurde. Bitte antworten Sie mit \"erneut zustellen\", dann fuehre ich die Zustellung direkt erneut aus. Alternativ schreibe ich sofort ein manuelles Follow-up an das Team fuer die direkte Zusendung.";
+    return "Ich konnte die Audit-E-Mail-Zustellung in diesem Schritt nicht verifizieren, obwohl die Anfrage erkannt wurde. Bitte antworten Sie mit \"erneut zustellen\", dann fuehre ich die Zustellung direkt erneut aus. Alternativ schreibe ich sofort ein manuelles Follow-up an das Team fuer die direkte Zusendung.";
   }
-  return "I couldn’t verify PDF delivery in this turn even though your request was recognized. Reply with \"retry delivery\" and I’ll rerun it immediately, or I can trigger a manual team follow-up for direct send now.";
+  return "I couldn’t verify audit email delivery in this turn even though your request was recognized. Reply with \"retry delivery\" and I’ll rerun it immediately, or I can trigger a manual team follow-up for direct send now.";
 }
 
 function buildSamanthaAuditDeliverableGracefulDegradationMessage(
   language: ActionCompletionResponseLanguage
 ): string {
   if (language === "de") {
-    return "Die automatische PDF-Zustellung bleibt aktuell blockiert. Ich sende den Plan jetzt direkt im Chat weiter und markiere ein manuelles Follow-up, damit das Team die finale PDF und persoenliche Rueckmeldung innerhalb von 24 Stunden zustellt.";
+    return "Die automatische Audit-E-Mail-Zustellung bleibt aktuell blockiert. Ich sende den Plan jetzt direkt im Chat weiter und markiere ein manuelles Follow-up, damit das Team die finale Zusammenfassung und persoenliche Rueckmeldung innerhalb von 24 Stunden zustellt.";
   }
-  return "Automatic PDF delivery is still blocked. I am sharing the implementation plan in chat now and flagging a manual follow-up so the team sends the final PDF and personal follow-up within 24 hours.";
+  return "Automatic audit email delivery is still blocked. I am sharing the implementation plan in chat now and flagging a manual follow-up so the team sends the final summary and personal follow-up within 24 hours.";
 }
 
 function isSamanthaFailClosedRefusalContent(content: string): boolean {
@@ -13260,29 +13260,28 @@ function isSamanthaFailClosedRefusalContent(content: string): boolean {
       "i couldn't confirm completion in this turn because no verifiable tool execution was observed"
     )
     || normalized.includes(
-      "i can’t confirm pdf generation yet because the delivery tool did not execute in this turn"
+      "i can’t confirm audit email delivery yet because the delivery tool did not execute in this turn"
     )
     || normalized.includes(
-      "i couldn't verify pdf delivery in this turn even though your request was recognized"
+      "i couldn't verify audit email delivery in this turn even though your request was recognized"
     )
     || normalized.includes(
       "ich kann den abschluss in diesem schritt nicht bestaetigen, weil keine verifizierbare tool-ausfuehrung beobachtet wurde"
     )
     || normalized.includes(
-      "ich kann die pdf-erstellung noch nicht bestaetigen, weil das zustellungs-tool in diesem schritt nicht ausgefuehrt wurde"
+      "ich kann die audit-e-mail-zustellung noch nicht bestaetigen, weil das zustellungs-tool in diesem schritt nicht ausgefuehrt wurde"
     )
     || normalized.includes(
-      "ich konnte die pdf-zustellung in diesem schritt nicht verifizieren"
+      "ich konnte die audit-e-mail-zustellung in diesem schritt nicht verifizieren"
     );
 }
 
 function isSamanthaMissingFieldRecoveryContent(content: string): boolean {
   const normalized = normalizeSamanthaToken(content);
   return normalized.includes("i captured these details so far")
-    || normalized.includes("to send your pdf i still need")
+    || normalized.includes("to send your audit results email i still need")
     || normalized.includes("ich habe bisher folgende angaben erfasst")
-    || normalized.includes("fur den pdf-versand brauche ich nur noch")
-    || normalized.includes("fur den pdf versand brauche ich nur noch");
+    || normalized.includes("fur den versand der audit ergebnisse per e mail brauche ich nur noch");
 }
 
 function countTrailingSamanthaFailClosedAssistantMessages(
@@ -13341,7 +13340,7 @@ function isLikelyAuditDeliverableInvocationRequest(
   }
   const mentionsDeliverableTarget =
     /\b(pdf|docx)\b/i.test(normalized)
-    || /\b(implementierungsplan|workflow report|workflow brief|implementation plan|rapport|plan de mise en œuvre|plan de mise en oeuvre)\b/i.test(
+    || /\b(implementierungsplan|workflow report|workflow brief|workflow summary|implementation plan|audit results|results email|report email|rapport|plan de mise en œuvre|plan de mise en oeuvre)\b/i.test(
       normalized,
     );
   if (!mentionsDeliverableTarget) {
@@ -14582,7 +14581,7 @@ function buildSamanthaMissingFieldRecoveryMessage(args: {
     }
     if (promptLines.length > 0) {
       lines.push("");
-      lines.push("Fuer den PDF-Versand brauche ich nur noch:");
+      lines.push("Fuer den Versand der Audit-Ergebnisse per E-Mail brauche ich nur noch:");
       lines.push(...promptLines.map((prompt) => `- ${prompt}`));
     }
     lines.push("");
@@ -14602,7 +14601,7 @@ function buildSamanthaMissingFieldRecoveryMessage(args: {
     }
     if (promptLines.length > 0) {
       lines.push("");
-      lines.push("To send your PDF, I still need:");
+      lines.push("To send your audit results email, I still need:");
       lines.push(...promptLines.map((prompt) => `- ${prompt}`));
     }
     lines.push("");
@@ -14626,22 +14625,6 @@ export type {
   SamanthaAutoDispatchSkipReasonCode,
   SamanthaClaimRecoveryDecision,
 } from "./samanthaAuditContract";
-
-function resolveRequestedDeliverableFormats(messages: string[]): ("pdf" | "docx")[] | undefined {
-  const joined = messages.join("\n");
-  if (!joined.trim()) {
-    return undefined;
-  }
-  const normalized = normalizeSamanthaToken(joined);
-  const docxRequested = /\bdocx\b/i.test(normalized);
-  if (docxRequested) {
-    return ["pdf", "docx"];
-  }
-  if (/\bpdf\b/i.test(normalized)) {
-    return ["pdf"];
-  }
-  return undefined;
-}
 
 export function resolveSamanthaAuditAutoDispatchPlan(args: {
   authorityConfig: Record<string, unknown> | null | undefined;
@@ -14697,10 +14680,6 @@ export function resolveSamanthaAuditAutoDispatchPlan(args: {
     && !leadData.ambiguousName
     && !leadData.ambiguousFounderContact
     && leadData.missingRequiredFields.length === 0;
-  const requestedFormats = resolveRequestedDeliverableFormats([
-    ...(args.recentUserMessages ?? []),
-    args.inboundMessage,
-  ]);
 
   const toolArgs = canAutoDispatchWithLeadData
     && leadData.email
@@ -14717,7 +14696,6 @@ export function resolveSamanthaAuditAutoDispatchPlan(args: {
           sales_call: leadData.founderContactRequested,
           clientName: `${leadData.firstName} ${leadData.lastName}`.trim(),
           workflowRecommendation: leadData.workflowRecommendation,
-          outputFormats: requestedFormats,
         }
       : undefined;
   const shouldDispatch = requestDetected && Boolean(toolArgs);
@@ -14760,34 +14738,12 @@ export function resolveSamanthaAuditAutoDispatchPlan(args: {
   };
 }
 
-function resolveSamanthaAutoDispatchExecutionFormat(toolResults: AgentToolResult[]): "pdf" | "docx" | null {
-  for (const result of toolResults) {
-    if (
-      normalizeExecutionString(result.tool) !== AUDIT_DELIVERABLE_TOOL_NAME
-      || result.status !== "success"
-    ) {
-      continue;
-    }
-    const payload =
-      result.result && typeof result.result === "object" && !Array.isArray(result.result)
-        ? (result.result as Record<string, unknown>)
-        : {};
-    const requestedFormats = Array.isArray(payload.requestedFormats)
-      ? payload.requestedFormats
-      : [];
-    const docxGenerated = requestedFormats.some((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        return false;
-      }
-      const record = entry as Record<string, unknown>;
-      return record.format === "docx" && record.status === "generated";
-    });
-    if (docxGenerated) {
-      return "docx";
-    }
-    return "pdf";
-  }
-  return null;
+function resolveSamanthaAutoDispatchExecutionSucceeded(toolResults: AgentToolResult[]): boolean {
+  return toolResults.some(
+    (result) =>
+      normalizeExecutionString(result.tool) === AUDIT_DELIVERABLE_TOOL_NAME
+      && result.status === "success"
+  );
 }
 
 function resolveSamanthaAuditDispatchDecision(args: {
@@ -14798,7 +14754,7 @@ function resolveSamanthaAuditDispatchDecision(args: {
 }): SamanthaAuditDispatchDecision | undefined {
   return SAMANTHA_RUNTIME_MODULE_ADAPTER.resolveDispatchDecision({
     plan: args.plan,
-    executionFormat: resolveSamanthaAutoDispatchExecutionFormat(
+    executionSucceeded: resolveSamanthaAutoDispatchExecutionSucceeded(
       args.autoDispatchToolResults
     ),
     sessionContextFailure: resolveSamanthaAuditSessionContextFailure(args.allToolResults),

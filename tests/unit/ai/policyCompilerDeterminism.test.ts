@@ -22,7 +22,7 @@ function buildSpecA() {
           key: "audit_delivery",
           outcomes: [
             {
-              outcomeKey: "audit_workflow_deliverable_pdf",
+              outcomeKey: "audit_workflow_deliverable_email",
               requiredTools: ["generate_audit_workflow_deliverable"],
               preconditions: {
                 requiredFields: ["lastName", "firstName", "email"],
@@ -71,7 +71,7 @@ function buildSpecB() {
               preconditions: { requiredFields: ["email"] },
             },
             {
-              outcomeKey: "audit_workflow_deliverable_pdf",
+              outcomeKey: "audit_workflow_deliverable_email",
               requiredTools: ["generate_audit_workflow_deliverable"],
               preconditions: { requiredFields: ["email", "firstName", "lastName"] },
             },

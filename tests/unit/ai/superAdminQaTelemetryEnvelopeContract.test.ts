@@ -77,7 +77,7 @@ describe("super-admin QA telemetry envelope contract", () => {
     });
   });
 
-  it("retains docx execution dispatch decision in envelope", () => {
+  it("retains email execution dispatch decision in envelope", () => {
     const envelope = buildSuperAdminAgentQaTurnTelemetryEnvelope({
       qaRunId: "qa_docx_001",
       sessionId: "sess_docx",
@@ -89,11 +89,11 @@ describe("super-admin QA telemetry envelope contract", () => {
         observedTools: ["generate_audit_workflow_deliverable"],
         missingRequiredFields: [],
         enforcementMode: "enforce",
-        dispatchDecision: "auto_dispatch_executed_docx",
+        dispatchDecision: "auto_dispatch_executed_email",
       },
     });
 
-    expect(envelope.dispatchDecision).toBe("auto_dispatch_executed_docx");
+    expect(envelope.dispatchDecision).toBe("auto_dispatch_executed_email");
     expect(envelope.blockedReason).toBeUndefined();
   });
 });

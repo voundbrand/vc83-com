@@ -148,37 +148,20 @@ describe("qaModeContracts", () => {
     expect(diagnostics.dispatchDecision).toBe("blocked_missing_audit_session_context");
   });
 
-  it("preserves explicit auto_dispatch_executed_pdf diagnostics from runtime telemetry", () => {
+  it("preserves explicit auto_dispatch_executed_email diagnostics from runtime telemetry", () => {
     const diagnostics = buildActionCompletionQaDiagnostics({
       enforcementMode: "enforce",
       payload: {
         requiredTools: ["generate_audit_workflow_deliverable"],
       },
       samanthaAutoDispatch: {
-        dispatchDecision: "auto_dispatch_executed_pdf",
+        dispatchDecision: "auto_dispatch_executed_email",
         attempted: true,
         executed: true,
       },
     });
 
-    expect(diagnostics.dispatchDecision).toBe("auto_dispatch_executed_pdf");
-    expect(diagnostics.blockedReason).toBeUndefined();
-  });
-
-  it("preserves explicit auto_dispatch_executed_docx diagnostics from runtime telemetry", () => {
-    const diagnostics = buildActionCompletionQaDiagnostics({
-      enforcementMode: "enforce",
-      payload: {
-        requiredTools: ["generate_audit_workflow_deliverable"],
-      },
-      samanthaAutoDispatch: {
-        dispatchDecision: "auto_dispatch_executed_docx",
-        attempted: true,
-        executed: true,
-      },
-    });
-
-    expect(diagnostics.dispatchDecision).toBe("auto_dispatch_executed_docx");
+    expect(diagnostics.dispatchDecision).toBe("auto_dispatch_executed_email");
     expect(diagnostics.blockedReason).toBeUndefined();
   });
 

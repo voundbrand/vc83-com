@@ -34,8 +34,7 @@ export interface ActionCompletionQaDiagnostics {
   rewriteApplied?: boolean;
   templateRole?: string;
   dispatchDecision?:
-    | "auto_dispatch_executed_pdf"
-    | "auto_dispatch_executed_docx"
+    | "auto_dispatch_executed_email"
     | "recovery_attempted_missing_required_fields"
     | "blocked_ambiguous_name"
     | "blocked_ambiguous_founder_contact"
@@ -169,10 +168,8 @@ export function buildActionCompletionQaDiagnostics(value: unknown): ActionComple
     dispatchDecision = "blocked_ambiguous_name";
   } else if (autoDispatchDecisionRaw === "blocked_ambiguous_founder_contact") {
     dispatchDecision = "blocked_ambiguous_founder_contact";
-  } else if (autoDispatchDecisionRaw === "auto_dispatch_executed_pdf") {
-    dispatchDecision = "auto_dispatch_executed_pdf";
-  } else if (autoDispatchDecisionRaw === "auto_dispatch_executed_docx") {
-    dispatchDecision = "auto_dispatch_executed_docx";
+  } else if (autoDispatchDecisionRaw === "auto_dispatch_executed_email") {
+    dispatchDecision = "auto_dispatch_executed_email";
   }
 
   let blockedReason: ActionCompletionQaDiagnostics["blockedReason"];

@@ -1024,8 +1024,8 @@ const requestAuditDeliverableEmailTool: AITool = {
       normalizeOptionalNameForResponse(session.capturedName);
 
     const prompt = clientName
-      ? `I will send this as a clean one-page workflow report, ${clientName}. What is the best email for delivery?`
-      : "I will send this as a clean one-page workflow report. What is the best email for delivery?";
+      ? `I will email a clean workflow report summary, ${clientName}. What is the best email for delivery?`
+      : "I will email a clean workflow report summary. What is the best email for delivery?";
 
     return {
       success: true,
@@ -1036,7 +1036,7 @@ const requestAuditDeliverableEmailTool: AITool = {
       workflowRecommendation,
       clientName: clientName || undefined,
       message:
-        "Workflow value has been delivered. Ask for email now and then call generate_audit_workflow_deliverable.",
+        "Workflow value has been delivered. Ask for email now, then call generate_audit_workflow_deliverable to send the audit results email.",
     };
   },
 };
@@ -1044,8 +1044,7 @@ const requestAuditDeliverableEmailTool: AITool = {
 const generateAuditWorkflowDeliverableTool: AITool = {
   name: "generate_audit_workflow_deliverable",
   description:
-    "Generate and persist the One of One audit workflow strategy PDF deliverable after email capture. " +
-    "Runs deterministic/idempotent generation and returns storage/download references. " +
+    "Send a well-formatted One of One audit workflow strategy email deliverable after email capture. " +
     "Minimum qualification data for delivery is firstName, lastName, email, phone, and founderContactRequested.",
   parameters: {
     type: "object",
@@ -1080,7 +1079,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       },
       clientName: {
         type: "string",
-        description: "Optional client name for the PDF cover details.",
+        description: "Optional client name for the report email greeting.",
       },
       deliveryAddress: {
         type: "string",
@@ -1143,21 +1142,12 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       language: {
         type: "string",
         description:
-          "Optional BCP-47 language tag (for example: en, de, fr, es, pl, ja) for PDF labels and defaults.",
+          "Optional BCP-47 language tag (for example: en, de, fr, es, pl, ja) for localized email copy defaults.",
       },
       labels: {
         type: "object",
         description:
           "Optional localized label overrides for template UI copy. Use this for any language-specific section labels.",
-      },
-      outputFormats: {
-        type: "array",
-        description:
-          "Optional ordered format preferences for deliverable output. PDF is always generated; DOCX is only returned when backend rendering is supported.",
-        items: {
-          type: "string",
-          enum: ["pdf", "docx"],
-        },
       },
       weeklyHoursRecovered: {
         type: "number",
@@ -1316,7 +1306,6 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       workflowOutcome?: string;
       language?: string;
       labels?: Record<string, string>;
-      outputFormats?: ("pdf" | "docx")[];
       weeklyHoursRecovered?: number;
       offer_code?: string;
       offerCode?: string;
@@ -1512,7 +1501,7 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         success: false,
         flow: "audit_deliverable_generation",
         error: completionResult?.errorCode || "audit_completion_failed",
-        message: "Could not persist audit workflow recommendation before PDF generation.",
+        message: "Could not persist audit workflow recommendation before email delivery.",
       };
     }
 
@@ -1521,56 +1510,6 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       normalizeOptionalNameForResponse(args.clientName) ||
       fullName ||
       normalizeOptionalNameForResponse(session.capturedName);
-
-    const generationResult = await ctx.runAction(
-      getInternal().onboarding.auditDeliverable.generateAuditWorkflowDeliverable,
-      {
-        organizationId: ctx.organizationId,
-        channel: session.channel,
-        sessionToken: sessionLookup.sessionToken,
-        input: {
-          clientName: clientName || undefined,
-          businessType: cleanOptionalString(args.industry),
-          revenueRange: cleanOptionalString(args.annualRevenue),
-          teamSize: cleanOptionalString(args.employeeCount),
-          workflowSummary: workflowRecommendation,
-          workflowName: cleanOptionalString(args.workflowName),
-          workflowOutcome: cleanOptionalString(args.workflowOutcome),
-          language: cleanOptionalString(args.language),
-          labels:
-            args.labels && typeof args.labels === "object" && !Array.isArray(args.labels)
-              ? (args.labels as Record<string, string>)
-              : undefined,
-          outputFormats: Array.isArray(args.outputFormats)
-            ? args.outputFormats.filter((entry): entry is "pdf" | "docx" =>
-              entry === "pdf" || entry === "docx"
-            )
-            : undefined,
-          weeklyHoursRecovered:
-            typeof args.weeklyHoursRecovered === "number"
-              ? args.weeklyHoursRecovered
-              : undefined,
-        },
-      }
-    );
-
-    if (!generationResult?.success) {
-      return {
-        success: false,
-        flow: "audit_deliverable_generation",
-        error: generationResult?.errorCode || "deliverable_generation_failed",
-        message: generationResult?.message || "Audit deliverable generation failed.",
-      };
-    }
-
-    const downloadUrl = cleanOptionalString(generationResult.downloadUrl);
-    const cta = downloadUrl
-      ? buildChannelSafeUrlCta({
-          label: "Download workflow report",
-          url: downloadUrl,
-          fallbackText: "Open this secure link to download your workflow report.",
-        })
-      : undefined;
 
     let leadEmailDelivery:
       | {
@@ -1602,218 +1541,220 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           conferenceId?: string;
         }
       | undefined;
+    const domainConfigId = await resolveActiveEmailDomainConfigId(ctx, ctx.organizationId);
+    const useDefaultSenderFallback = !domainConfigId;
+    const sendEmailAction = useDefaultSenderFallback
+      ? getInternal().emailDelivery.sendEmailWithDefaultSender
+      : getInternal().emailDelivery.sendEmail;
+    const sendEmailArgs = (payload: {
+      to: string;
+      subject: string;
+      html: string;
+      text: string;
+    }) => (
+        useDefaultSenderFallback
+          ? payload
+          : {
+              ...payload,
+              domainConfigId,
+            }
+      );
 
-    if (downloadUrl) {
-      const domainConfigId = await resolveActiveEmailDomainConfigId(ctx, ctx.organizationId);
-      const useDefaultSenderFallback = !domainConfigId;
-      const sendEmailAction = useDefaultSenderFallback
-        ? getInternal().emailDelivery.sendEmailWithDefaultSender
-        : getInternal().emailDelivery.sendEmail;
-      const sendEmailArgs = (payload: {
-        to: string;
-        subject: string;
-        html: string;
-        text: string;
-      }) => (
-          useDefaultSenderFallback
-            ? payload
-            : {
-                ...payload,
-                domainConfigId,
-              }
-        );
-      {
-        const safeFirstName = escapeHtml(firstName);
-        const safeFullName = escapeHtml(`${firstName} ${lastName}`.trim());
-        const safeDownloadUrl = escapeHtml(downloadUrl);
-        const safePhone = escapeHtml(capturedPhone);
-        const safeRevenue = escapeHtml(cleanOptionalString(args.annualRevenue) || "Not provided");
-        const safeAiExp = escapeHtml(cleanOptionalString(args.aiProjectExperience) || "Not provided");
-        const safeEmployeeCount = escapeHtml(cleanOptionalString(args.employeeCount) || "Not provided");
-        const safeIndustry = escapeHtml(cleanOptionalString(args.industry) || "Not provided");
-        const safeOwnership = escapeHtml(cleanOptionalString(args.ownershipShare) || "Not provided");
-        const safeBudgetStatus = escapeHtml(cleanOptionalString(args.aiBudgetStatus) || "Not provided");
-        const safeBudgetTimeline = escapeHtml(cleanOptionalString(args.aiBudgetTimeline) || "Not provided");
-        const safeDeliveryAddress = escapeHtml(cleanOptionalString(args.deliveryAddress) || "Not provided");
-        const safeWorkflow = escapeHtml(workflowRecommendation);
+    const safeFirstName = escapeHtml(firstName);
+    const safeFullName = escapeHtml(`${firstName} ${lastName}`.trim());
+    const safePhone = escapeHtml(capturedPhone);
+    const safeRevenue = escapeHtml(cleanOptionalString(args.annualRevenue) || "Not provided");
+    const safeAiExp = escapeHtml(cleanOptionalString(args.aiProjectExperience) || "Not provided");
+    const safeEmployeeCount = escapeHtml(cleanOptionalString(args.employeeCount) || "Not provided");
+    const safeIndustry = escapeHtml(cleanOptionalString(args.industry) || "Not provided");
+    const safeOwnership = escapeHtml(cleanOptionalString(args.ownershipShare) || "Not provided");
+    const safeBudgetStatus = escapeHtml(cleanOptionalString(args.aiBudgetStatus) || "Not provided");
+    const safeBudgetTimeline = escapeHtml(cleanOptionalString(args.aiBudgetTimeline) || "Not provided");
+    const safeDeliveryAddress = escapeHtml(cleanOptionalString(args.deliveryAddress) || "Not provided");
+    const safeWorkflow = escapeHtml(workflowRecommendation);
 
-        try {
-          const leadResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
-            to: capturedEmail,
-            subject: "Your One of One workflow strategy report",
-            html: [
-              "<p>Hi " + safeFirstName + ",</p>",
-              "<p>Your workflow strategy report is ready.</p>",
-              "<p><a href=\"" + safeDownloadUrl + "\">Download your report</a></p>",
-              "<p>If you want support with scope planning or implementation readiness, reply to this email and we can set up a call.</p>",
-            ].join(""),
-            text: [
-              `Hi ${firstName},`,
-              "",
-              "Your workflow strategy report is ready.",
-              `Download: ${downloadUrl}`,
-              "",
-              "If you want support with scope planning or implementation readiness, reply to this email and we can set up a call.",
-            ].join("\n"),
-          }));
-          leadEmailDelivery = {
-            success: Boolean(leadResult?.success),
-            messageId: cleanOptionalString(leadResult?.messageId),
-            error: cleanOptionalString(leadResult?.error),
-          };
-        } catch (error) {
-          leadEmailDelivery = {
-            success: false,
-            error: error instanceof Error ? error.message : "lead_email_send_failed",
-          };
-        }
-
-        const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
-        try {
-          const salesResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
-            to: salesInbox,
-            subject: `New audit lead: ${firstName} ${lastName}`,
-            html: [
-              "<h2>New Qualified Audit Lead</h2>",
-              `<p><strong>Name:</strong> ${safeFullName}</p>`,
-              `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
-              `<p><strong>Phone:</strong> ${safePhone}</p>`,
-              `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
-              `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
-              `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
-              `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
-              `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
-              `<p><strong>Industry:</strong> ${safeIndustry}</p>`,
-              `<p><strong>Ownership Share:</strong> ${safeOwnership}</p>`,
-              `<p><strong>AI Budget Status:</strong> ${safeBudgetStatus}</p>`,
-              `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
-              `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
-              `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
-              `<p><strong>Canonical Commercial Intent:</strong> ${escapeHtml(canonicalCommercialSummary)}</p>`,
-              `<p><strong>Canonical Campaign Envelope:</strong> ${escapeHtml(campaignEnvelopeSummary)}</p>`,
-              `<p><strong>Compatibility Aliases:</strong> ${escapeHtml(compatibilitySummary)}</p>`,
-              `<p><a href="${safeDownloadUrl}">Open lead workflow report</a></p>`,
-            ].join(""),
-            text: [
-              "New Qualified Audit Lead",
-              `Name: ${firstName} ${lastName}`,
-              `Email: ${capturedEmail}`,
-              `Phone: ${capturedPhone}`,
-              `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
-              `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
-              `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
-              `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
-              `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
-              `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
-              `Ownership Share: ${cleanOptionalString(args.ownershipShare) || "Not provided"}`,
-              `AI Budget Status: ${cleanOptionalString(args.aiBudgetStatus) || "Not provided"}`,
-              `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
-              `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
-              `Workflow Recommendation: ${workflowRecommendation}`,
-              `Canonical Commercial Intent: ${canonicalCommercialSummary}`,
-              `Canonical Campaign Envelope: ${campaignEnvelopeSummary}`,
-              `Compatibility Aliases: ${compatibilitySummary}`,
-              `Report URL: ${downloadUrl}`,
-            ].join("\n"),
-          }));
-          salesEmailDelivery = {
-            success: Boolean(salesResult?.success),
-            messageId: cleanOptionalString(salesResult?.messageId),
-            error: cleanOptionalString(salesResult?.error),
-          };
-        } catch (error) {
-          salesEmailDelivery = {
-            success: false,
-            error: error instanceof Error ? error.message : "sales_email_send_failed",
-          };
-        }
-
-        if (founderContactRequested) {
-          try {
-            const callResult = await ctx.runAction(getInternal().integrations.infobip.startFounderThreeWayCall, {
-              organizationId: ctx.organizationId,
-              leadPhone: capturedPhone,
-              leadName: `${firstName} ${lastName}`.trim(),
-              founderName: "Remington",
-              notes:
-                "Founder contact requested from Samantha lead capture flow. Owner-first three-way bridge requested.",
-              context: {
-                source: "ai.tools.generate_audit_workflow_deliverable",
-                email: capturedEmail,
-                salesCall: salesCall,
-                founderContactRequested,
-                downloadUrl,
-                annualRevenue: cleanOptionalString(args.annualRevenue),
-                aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
-                employeeCount: cleanOptionalString(args.employeeCount),
-                industry: cleanOptionalString(args.industry),
-                ownershipShare: cleanOptionalString(args.ownershipShare),
-                aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
-                aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
-                deliveryAddress: cleanOptionalString(args.deliveryAddress),
-                commercialTags: leadPayloadTags,
-                canonicalCommercialSummary,
-                campaignEnvelopeSummary,
-                compatibilitySummary,
-              },
-            });
-
-            founderCallOrchestration = {
-              success: Boolean(callResult?.success),
-              skipped: Boolean(callResult?.skipped),
-              reason: cleanOptionalString(callResult?.reason),
-              error: cleanOptionalString(callResult?.error),
-              provider: cleanOptionalString(callResult?.provider),
-              requestAccepted: Boolean(callResult?.requestAccepted),
-              callId: cleanOptionalString(callResult?.callId),
-              conferenceId: cleanOptionalString(callResult?.conferenceId),
-            };
-          } catch (error) {
-            founderCallOrchestration = {
-              success: false,
-              error: error instanceof Error ? error.message : "founder_call_orchestration_failed",
-            };
-          }
-        } else {
-          founderCallOrchestration = {
-            success: false,
-            skipped: true,
-            reason: "founder_contact_not_requested",
-          };
-        }
-      }
-    } else {
+    try {
+      const leadResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
+        to: capturedEmail,
+        subject: "Your audit results and workflow recommendation",
+        html: [
+          `<p>Hi ${safeFirstName},</p>`,
+          "<p>Thanks for completing your audit. Here is your workflow recommendation summary.</p>",
+          "<h3>Recommended workflow</h3>",
+          `<p>${safeWorkflow}</p>`,
+          "<h3>Qualification snapshot</h3>",
+          "<ul>",
+          `<li><strong>Revenue:</strong> ${safeRevenue}</li>`,
+          `<li><strong>Team size:</strong> ${safeEmployeeCount}</li>`,
+          `<li><strong>Industry:</strong> ${safeIndustry}</li>`,
+          `<li><strong>AI project experience:</strong> ${safeAiExp}</li>`,
+          "</ul>",
+          "<h3>Next step options</h3>",
+          "<ul>",
+          "<li>Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).</li>",
+          "<li>Implementation Start (EUR 7,000+): build and rollout support.</li>",
+          "</ul>",
+          "<p>Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.</p>",
+        ].filter((line) => line.length > 0).join(""),
+        text: [
+          `Hi ${firstName},`,
+          "",
+          "Thanks for completing your audit. Here is your workflow recommendation summary:",
+          workflowRecommendation,
+          "",
+          "Qualification snapshot:",
+          `- Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+          `- Team size: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+          `- Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+          `- AI project experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+          "",
+          "Next step options:",
+          "- Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).",
+          "- Implementation Start (EUR 7,000+): build and rollout support.",
+          "",
+          "Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.",
+        ].filter((line) => line.length > 0).join("\n"),
+      }));
+      leadEmailDelivery = {
+        success: Boolean(leadResult?.success),
+        messageId: cleanOptionalString(leadResult?.messageId),
+        error: cleanOptionalString(leadResult?.error),
+      };
+    } catch (error) {
       leadEmailDelivery = {
         success: false,
-        skipped: true,
-        reason: "missing_download_url",
+        error: error instanceof Error ? error.message : "lead_email_send_failed",
       };
+    }
+
+    const salesInbox = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+    try {
+      const salesResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
+        to: salesInbox,
+        subject: `New audit lead: ${firstName} ${lastName}`,
+        html: [
+          "<h2>New Qualified Audit Lead</h2>",
+          `<p><strong>Name:</strong> ${safeFullName}</p>`,
+          `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
+          `<p><strong>Phone:</strong> ${safePhone}</p>`,
+          `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
+          `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
+          `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
+          `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
+          `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
+          `<p><strong>Industry:</strong> ${safeIndustry}</p>`,
+          `<p><strong>Ownership Share:</strong> ${safeOwnership}</p>`,
+          `<p><strong>AI Budget Status:</strong> ${safeBudgetStatus}</p>`,
+          `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
+          `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
+          `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
+          `<p><strong>Canonical Commercial Intent:</strong> ${escapeHtml(canonicalCommercialSummary)}</p>`,
+          `<p><strong>Canonical Campaign Envelope:</strong> ${escapeHtml(campaignEnvelopeSummary)}</p>`,
+          `<p><strong>Compatibility Aliases:</strong> ${escapeHtml(compatibilitySummary)}</p>`,
+          "<p>Delivery mode: email summary only.</p>",
+        ].join(""),
+        text: [
+          "New Qualified Audit Lead",
+          `Name: ${firstName} ${lastName}`,
+          `Email: ${capturedEmail}`,
+          `Phone: ${capturedPhone}`,
+          `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
+          `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
+          `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+          `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+          `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+          `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+          `Ownership Share: ${cleanOptionalString(args.ownershipShare) || "Not provided"}`,
+          `AI Budget Status: ${cleanOptionalString(args.aiBudgetStatus) || "Not provided"}`,
+          `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
+          `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
+          `Workflow Recommendation: ${workflowRecommendation}`,
+          `Canonical Commercial Intent: ${canonicalCommercialSummary}`,
+          `Canonical Campaign Envelope: ${campaignEnvelopeSummary}`,
+          `Compatibility Aliases: ${compatibilitySummary}`,
+          "Delivery mode: email summary only.",
+        ].join("\n"),
+      }));
+      salesEmailDelivery = {
+        success: Boolean(salesResult?.success),
+        messageId: cleanOptionalString(salesResult?.messageId),
+        error: cleanOptionalString(salesResult?.error),
+      };
+    } catch (error) {
       salesEmailDelivery = {
         success: false,
-        skipped: true,
-        reason: "missing_download_url",
+        error: error instanceof Error ? error.message : "sales_email_send_failed",
       };
+    }
+
+    if (founderContactRequested) {
+      try {
+        const callResult = await ctx.runAction(getInternal().integrations.infobip.startFounderThreeWayCall, {
+          organizationId: ctx.organizationId,
+          leadPhone: capturedPhone,
+          leadName: `${firstName} ${lastName}`.trim(),
+          founderName: "Remington",
+          notes:
+            "Founder contact requested from Samantha lead capture flow. Owner-first three-way bridge requested.",
+          context: {
+            source: "ai.tools.generate_audit_workflow_deliverable",
+            email: capturedEmail,
+            salesCall: salesCall,
+            founderContactRequested,
+            annualRevenue: cleanOptionalString(args.annualRevenue),
+            aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
+            employeeCount: cleanOptionalString(args.employeeCount),
+            industry: cleanOptionalString(args.industry),
+            ownershipShare: cleanOptionalString(args.ownershipShare),
+            aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
+            aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
+            deliveryAddress: cleanOptionalString(args.deliveryAddress),
+            commercialTags: leadPayloadTags,
+            canonicalCommercialSummary,
+            campaignEnvelopeSummary,
+            compatibilitySummary,
+          },
+        });
+
+        founderCallOrchestration = {
+          success: Boolean(callResult?.success),
+          skipped: Boolean(callResult?.skipped),
+          reason: cleanOptionalString(callResult?.reason),
+          error: cleanOptionalString(callResult?.error),
+          provider: cleanOptionalString(callResult?.provider),
+          requestAccepted: Boolean(callResult?.requestAccepted),
+          callId: cleanOptionalString(callResult?.callId),
+          conferenceId: cleanOptionalString(callResult?.conferenceId),
+        };
+      } catch (error) {
+        founderCallOrchestration = {
+          success: false,
+          error: error instanceof Error ? error.message : "founder_call_orchestration_failed",
+        };
+      }
+    } else {
       founderCallOrchestration = {
         success: false,
         skipped: true,
-        reason: "missing_download_url",
+        reason: "founder_contact_not_requested",
       };
     }
-    const storageId = cleanOptionalString(generationResult.storageId);
-    const inputFingerprint = cleanOptionalString(generationResult.inputFingerprint);
-    const outputRef = inputFingerprint
-      ? `audit_deliverable:${inputFingerprint}`
-      : storageId
-        ? `storage:${storageId}`
-        : undefined;
+
+    const leadEmailDelivered = leadEmailDelivery?.success === true;
     const salesNotificationDelivered = salesEmailDelivery?.success === true;
-    if (!downloadUrl || !storageId) {
+    const outputRef = cleanOptionalString(leadEmailDelivery?.messageId)
+      || cleanOptionalString(salesEmailDelivery?.messageId)
+      || undefined;
+    if (!leadEmailDelivered) {
       return {
         success: false,
         flow: "audit_deliverable_generation",
-        error: "deliverable_receipt_missing",
+        error:
+          leadEmailDelivery?.error
+          || leadEmailDelivery?.reason
+          || "lead_email_delivery_failed",
         message:
-          "Audit deliverable generation did not produce a verifiable PDF artifact. Retry generate_audit_workflow_deliverable now.",
+          "Audit results email was not confirmed for the lead recipient. Retry generate_audit_workflow_deliverable now.",
         outputRef,
         leadEmailDelivery,
         salesEmailDelivery,
@@ -1828,10 +1769,8 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           || salesEmailDelivery?.reason
           || "sales_notification_delivery_failed",
         message:
-          "Audit report PDF was generated, but sales notification email was not confirmed. Retry generate_audit_workflow_deliverable now.",
+          "Audit results email reached the lead, but sales notification email was not confirmed. Retry generate_audit_workflow_deliverable now.",
         outputRef,
-        storageId,
-        downloadUrl,
         leadEmailDelivery,
         salesEmailDelivery,
       };
@@ -1863,30 +1802,19 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       canonicalCommercialSummary,
       campaignEnvelopeSummary,
       compatibilitySummary,
-      deduped: Boolean(generationResult.deduped),
-      fileName: cleanOptionalString(generationResult.fileName),
-      storageId,
-      downloadUrl: downloadUrl || undefined,
-      sourceDownloadUrl: cleanOptionalString(generationResult.sourceDownloadUrl),
-      templateVersion: cleanOptionalString(generationResult.templateVersion),
-      renderSource: cleanOptionalString(generationResult.renderSource),
-      requestedFormats:
-        Array.isArray(generationResult.requestedFormats)
-          ? generationResult.requestedFormats
-          : undefined,
-      inputFingerprint,
+      emailDeliveryProvider: "resend",
       outputRef,
       executionReceipt: {
         contractVersion: "samantha_audit_delivery_receipt_v1",
-        flow: "audit_deliverable_generation",
+        flow: "audit_deliverable_email_delivery",
         outputRef: outputRef || null,
-        storageId,
-        downloadUrl,
+        leadEmailMessageId: cleanOptionalString(leadEmailDelivery?.messageId) || null,
+        salesEmailMessageId: cleanOptionalString(salesEmailDelivery?.messageId) || null,
+        leadEmailDelivered,
         salesNotificationDelivered,
       },
-      cta,
       message:
-        "Audit workflow report generated. Share the download link now, then offer either Consulting Sprint (€3,500 scope-only, no implementation delivery) or Implementation Start (€7,000+).",
+        "Audit workflow results emailed. Confirm receipt, then offer either Consulting Sprint (EUR 3,500 scope-only, no implementation delivery) or Implementation Start (EUR 7,000+).",
     };
   },
 };

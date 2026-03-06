@@ -135,8 +135,7 @@ function resolveBlockedReasonKey(value: unknown): BlockedReasonKey {
 }
 
 type DispatchDecisionKey =
-  | "auto_dispatch_executed_pdf"
-  | "auto_dispatch_executed_docx"
+  | "auto_dispatch_executed_email"
   | "recovery_attempted_missing_required_fields"
   | "blocked_missing_required_fields"
   | "blocked_missing_audit_session_context"
@@ -148,11 +147,8 @@ type DispatchDecisionKey =
   | "unknown";
 
 function resolveDispatchDecisionKey(value: unknown): DispatchDecisionKey {
-  if (value === "auto_dispatch_executed_pdf") {
-    return "auto_dispatch_executed_pdf";
-  }
-  if (value === "auto_dispatch_executed_docx") {
-    return "auto_dispatch_executed_docx";
+  if (value === "auto_dispatch_executed_email") {
+    return "auto_dispatch_executed_email";
   }
   if (value === "recovery_attempted_missing_required_fields") {
     return "recovery_attempted_missing_required_fields";
@@ -362,8 +358,7 @@ export const upsertQaRunTurnInternal = internalMutation({
         unknown: 0,
       };
       const dispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
-        auto_dispatch_executed_pdf: 0,
-        auto_dispatch_executed_docx: 0,
+        auto_dispatch_executed_email: 0,
         recovery_attempted_missing_required_fields: 0,
         blocked_missing_required_fields: 0,
         blocked_missing_audit_session_context: 0,
@@ -459,8 +454,7 @@ export const upsertQaRunTurnInternal = internalMutation({
       unknown: existing.blockedReasonCounts?.unknown ?? 0,
     };
     const nextDispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
-      auto_dispatch_executed_pdf: existing.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
-      auto_dispatch_executed_docx: existing.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+      auto_dispatch_executed_email: existing.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
       recovery_attempted_missing_required_fields:
         existing.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
       blocked_missing_required_fields: existing.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
@@ -728,8 +722,7 @@ export const listQaRuns = query({
           unknown: row.blockedReasonCounts?.unknown ?? 0,
         },
         dispatchDecisionCounts: {
-          auto_dispatch_executed_pdf: row.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
-          auto_dispatch_executed_docx: row.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+          auto_dispatch_executed_email: row.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
           recovery_attempted_missing_required_fields:
             row.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
           blocked_missing_required_fields: row.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
@@ -904,8 +897,7 @@ export const exportQaRunIncidentBundle = query({
           unknown: run.blockedReasonCounts?.unknown ?? 0,
         },
         dispatchDecisionCounts: {
-          auto_dispatch_executed_pdf: run.dispatchDecisionCounts?.auto_dispatch_executed_pdf ?? 0,
-          auto_dispatch_executed_docx: run.dispatchDecisionCounts?.auto_dispatch_executed_docx ?? 0,
+          auto_dispatch_executed_email: run.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
           recovery_attempted_missing_required_fields:
             run.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
           blocked_missing_required_fields: run.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
