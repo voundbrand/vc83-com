@@ -146,8 +146,49 @@ type DispatchDecisionKey =
   | "blocked_tool_not_observed"
   | "unknown";
 
+type DispatchDecisionCounts = Record<DispatchDecisionKey, number>;
+
+function normalizeDispatchDecisionCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function normalizeDispatchDecisionCounts(value: unknown): DispatchDecisionCounts {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const autoDispatchExecutedCount =
+    normalizeDispatchDecisionCount(record.auto_dispatch_executed_email)
+    + normalizeDispatchDecisionCount(record.auto_dispatch_executed_pdf)
+    + normalizeDispatchDecisionCount(record.auto_dispatch_executed_docx);
+
+  return {
+    auto_dispatch_executed_email: autoDispatchExecutedCount,
+    recovery_attempted_missing_required_fields:
+      normalizeDispatchDecisionCount(record.recovery_attempted_missing_required_fields),
+    blocked_missing_required_fields:
+      normalizeDispatchDecisionCount(record.blocked_missing_required_fields),
+    blocked_missing_audit_session_context:
+      normalizeDispatchDecisionCount(record.blocked_missing_audit_session_context),
+    blocked_audit_session_not_found:
+      normalizeDispatchDecisionCount(record.blocked_audit_session_not_found),
+    blocked_ambiguous_name:
+      normalizeDispatchDecisionCount(record.blocked_ambiguous_name),
+    blocked_ambiguous_founder_contact:
+      normalizeDispatchDecisionCount(record.blocked_ambiguous_founder_contact),
+    blocked_tool_unavailable:
+      normalizeDispatchDecisionCount(record.blocked_tool_unavailable),
+    blocked_tool_not_observed:
+      normalizeDispatchDecisionCount(record.blocked_tool_not_observed),
+    unknown: normalizeDispatchDecisionCount(record.unknown),
+  };
+}
+
 function resolveDispatchDecisionKey(value: unknown): DispatchDecisionKey {
   if (value === "auto_dispatch_executed_email") {
+    return "auto_dispatch_executed_email";
+  }
+  if (value === "auto_dispatch_executed_pdf" || value === "auto_dispatch_executed_docx") {
     return "auto_dispatch_executed_email";
   }
   if (value === "recovery_attempted_missing_required_fields") {
@@ -357,18 +398,7 @@ export const upsertQaRunTurnInternal = internalMutation({
         ambiguous_founder_contact: 0,
         unknown: 0,
       };
-      const dispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
-        auto_dispatch_executed_email: 0,
-        recovery_attempted_missing_required_fields: 0,
-        blocked_missing_required_fields: 0,
-        blocked_missing_audit_session_context: 0,
-        blocked_audit_session_not_found: 0,
-        blocked_ambiguous_name: 0,
-        blocked_ambiguous_founder_contact: 0,
-        blocked_tool_unavailable: 0,
-        blocked_tool_not_observed: 0,
-        unknown: 0,
-      };
+      const dispatchDecisionCounts = normalizeDispatchDecisionCounts(undefined);
       if (args.eventType === "turn" && (args.outcome || "error") === "blocked") {
         blockedReasonCounts[blockedReasonKey] += 1;
       }
@@ -453,21 +483,9 @@ export const upsertQaRunTurnInternal = internalMutation({
       ambiguous_founder_contact: existing.blockedReasonCounts?.ambiguous_founder_contact ?? 0,
       unknown: existing.blockedReasonCounts?.unknown ?? 0,
     };
-    const nextDispatchDecisionCounts: Record<DispatchDecisionKey, number> = {
-      auto_dispatch_executed_email: existing.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
-      recovery_attempted_missing_required_fields:
-        existing.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
-      blocked_missing_required_fields: existing.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
-      blocked_missing_audit_session_context:
-        existing.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
-      blocked_audit_session_not_found:
-        existing.dispatchDecisionCounts?.blocked_audit_session_not_found ?? 0,
-      blocked_ambiguous_name: existing.dispatchDecisionCounts?.blocked_ambiguous_name ?? 0,
-      blocked_ambiguous_founder_contact: existing.dispatchDecisionCounts?.blocked_ambiguous_founder_contact ?? 0,
-      blocked_tool_unavailable: existing.dispatchDecisionCounts?.blocked_tool_unavailable ?? 0,
-      blocked_tool_not_observed: existing.dispatchDecisionCounts?.blocked_tool_not_observed ?? 0,
-      unknown: existing.dispatchDecisionCounts?.unknown ?? 0,
-    };
+    const nextDispatchDecisionCounts = normalizeDispatchDecisionCounts(
+      existing.dispatchDecisionCounts,
+    );
 
     const normalizedOutcome = args.outcome || "error";
     if (args.eventType === "turn" && normalizedOutcome === "blocked") {
@@ -721,22 +739,9 @@ export const listQaRuns = query({
           ambiguous_founder_contact: row.blockedReasonCounts?.ambiguous_founder_contact ?? 0,
           unknown: row.blockedReasonCounts?.unknown ?? 0,
         },
-        dispatchDecisionCounts: {
-          auto_dispatch_executed_email: row.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
-          recovery_attempted_missing_required_fields:
-            row.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
-          blocked_missing_required_fields: row.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
-          blocked_missing_audit_session_context:
-            row.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
-          blocked_audit_session_not_found:
-            row.dispatchDecisionCounts?.blocked_audit_session_not_found ?? 0,
-          blocked_ambiguous_name: row.dispatchDecisionCounts?.blocked_ambiguous_name ?? 0,
-          blocked_ambiguous_founder_contact:
-            row.dispatchDecisionCounts?.blocked_ambiguous_founder_contact ?? 0,
-          blocked_tool_unavailable: row.dispatchDecisionCounts?.blocked_tool_unavailable ?? 0,
-          blocked_tool_not_observed: row.dispatchDecisionCounts?.blocked_tool_not_observed ?? 0,
-          unknown: row.dispatchDecisionCounts?.unknown ?? 0,
-        },
+        dispatchDecisionCounts: normalizeDispatchDecisionCounts(
+          row.dispatchDecisionCounts,
+        ),
         reasonCodeCounts: row.reasonCodeCounts || {},
         preflightReasonCodeCounts: row.preflightReasonCodeCounts || {},
         incidentCount: row.recentIncidents.length,
@@ -896,22 +901,9 @@ export const exportQaRunIncidentBundle = query({
           ambiguous_founder_contact: run.blockedReasonCounts?.ambiguous_founder_contact ?? 0,
           unknown: run.blockedReasonCounts?.unknown ?? 0,
         },
-        dispatchDecisionCounts: {
-          auto_dispatch_executed_email: run.dispatchDecisionCounts?.auto_dispatch_executed_email ?? 0,
-          recovery_attempted_missing_required_fields:
-            run.dispatchDecisionCounts?.recovery_attempted_missing_required_fields ?? 0,
-          blocked_missing_required_fields: run.dispatchDecisionCounts?.blocked_missing_required_fields ?? 0,
-          blocked_missing_audit_session_context:
-            run.dispatchDecisionCounts?.blocked_missing_audit_session_context ?? 0,
-          blocked_audit_session_not_found:
-            run.dispatchDecisionCounts?.blocked_audit_session_not_found ?? 0,
-          blocked_ambiguous_name: run.dispatchDecisionCounts?.blocked_ambiguous_name ?? 0,
-          blocked_ambiguous_founder_contact:
-            run.dispatchDecisionCounts?.blocked_ambiguous_founder_contact ?? 0,
-          blocked_tool_unavailable: run.dispatchDecisionCounts?.blocked_tool_unavailable ?? 0,
-          blocked_tool_not_observed: run.dispatchDecisionCounts?.blocked_tool_not_observed ?? 0,
-          unknown: run.dispatchDecisionCounts?.unknown ?? 0,
-        },
+        dispatchDecisionCounts: normalizeDispatchDecisionCounts(
+          run.dispatchDecisionCounts,
+        ),
         reasonCodeCounts: run.reasonCodeCounts || {},
         preflightReasonCodeCounts: run.preflightReasonCodeCounts || {},
       },
