@@ -292,14 +292,17 @@ export function buildLandingHandoffLinks(
     sessionToken: state.sessionToken,
   });
 
-  const doneWithYouCheckoutUrl = withOnboardingAttribution({
+  const stripeConsultDirect = process.env.NEXT_PUBLIC_STRIPE_CONSULT_DIRECT || "";
+  const stripeLayer1Direct = process.env.NEXT_PUBLIC_STRIPE_LAYER1_DIRECT || "";
+
+  const doneWithYouCheckoutUrl = stripeConsultDirect || withOnboardingAttribution({
     url: buildLandingCommercialStoreUrl(baseStoreUrl, LANDING_LEGACY_INTENT_MAP["done-with-you"]),
     attribution,
     claimToken: state.claimToken,
     sessionToken: state.sessionToken,
   });
 
-  const fullBuildCheckoutUrl = withOnboardingAttribution({
+  const fullBuildCheckoutUrl = stripeLayer1Direct || withOnboardingAttribution({
     url: buildLandingCommercialStoreUrl(baseStoreUrl, LANDING_LEGACY_INTENT_MAP["full-build"]),
     attribution,
     claimToken: state.claimToken,

@@ -187,10 +187,12 @@ function buildPricingCheckoutUrl(checkoutKey: LandingPricingCheckoutKey): string
     return `${storeBaseUrl}?tier=scale&period=annual&source=one_of_one_landing`
   }
   if (checkoutKey === "consult_done_with_you") {
-    return `${storeBaseUrl}?autostartCommercial=1&offer_code=consult_done_with_you&intent_code=consulting_sprint_scope_only&routing_hint=samantha_lead_capture&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_STRIPE_CONSULT_DIRECT
+      || `${storeBaseUrl}?autostartCommercial=1&offer_code=consult_done_with_you&intent_code=consulting_sprint_scope_only&routing_hint=samantha_lead_capture&source=one_of_one_landing`
   }
   if (checkoutKey === "layer1_foundation") {
-    return `${storeBaseUrl}?autostartCommercial=1&offer_code=layer1_foundation&intent_code=implementation_start_layer1&routing_hint=founder_bridge&source=one_of_one_landing`
+    return process.env.NEXT_PUBLIC_STRIPE_LAYER1_DIRECT
+      || `${storeBaseUrl}?autostartCommercial=1&offer_code=layer1_foundation&intent_code=implementation_start_layer1&routing_hint=founder_bridge&source=one_of_one_landing`
   }
   if (
     checkoutKey === "credits"

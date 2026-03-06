@@ -13,6 +13,7 @@ import {
   CASE_STUDY_SLUGS,
   type CaseStudySlug,
 } from "@/content/case-studies"
+import { landingTranslations } from "@/content/landing-content"
 import {
   ArrowLeft,
   ArrowRight,
@@ -38,11 +39,27 @@ const CASE_STUDY_ICONS: Record<CaseStudySlug, typeof Phone> = {
   "dirk-linke": TrendingUp,
 }
 
+function buildDiagnosticUrl(language: Language): string {
+  const params = new URLSearchParams({
+    offer_code: "consult_full_build_scoping",
+    intent_code: "diagnostic_qualification",
+    surface: "one_of_one_landing",
+    routing_hint: "samantha_lead_capture",
+    handoff: "one-of-one",
+    intent: "resume",
+    onboardingChannel: "native_guest",
+    lang: language,
+    landingPath: "/case-studies",
+  })
+  return `https://app.l4yercak3.com/chat?${params.toString()}`
+}
+
 export default function CaseStudyPage() {
   const params = useParams()
   const slug = params?.slug as string
   const [language, setLanguage] = useState<Language>("en")
   const t = caseStudyTranslations[language]
+  const lt = landingTranslations[language]
   const caseStudy = t.caseStudies[slug]
   const founderDemoUrl = FOUNDER_DEMO_URLS[language]
   const avatarStorageId = process.env.NEXT_PUBLIC_REM_AVATAR_STORAGE_ID
@@ -135,6 +152,34 @@ export default function CaseStudyPage() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
+            <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
+              <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">
+                {lt.ctaButton}
+              </a>
+            </Button>
+            <Button asChild className="btn-accent text-xs h-8 w-8 sm:w-auto sm:px-3">
+              <a
+                href={founderDemoUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() =>
+                  trackLandingEvent({
+                    eventName: "onboarding.funnel.activation",
+                    metadata: {
+                      ctaId: "book_demo_case_study_header",
+                      ctaGroup: "book_demo",
+                      ctaPlacement: `case_study_${slug}_header`,
+                      ctaIntent: "founder_demo",
+                      destination: founderDemoUrl,
+                    },
+                  })
+                }
+                aria-label={lt.bookDemo}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{lt.bookDemoShort}</span>
+              </a>
+            </Button>
           </div>
         </div>
       </header>
