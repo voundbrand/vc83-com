@@ -12,6 +12,8 @@
     "mobile:start": "npm --prefix apps/operator-mobile run start",
     "mobile:typecheck": "npm --prefix apps/operator-mobile run typecheck",
     "mobile:lint": "npm --prefix apps/operator-mobile run lint",
+    "mobile:voice-latency:evidence:check": "node scripts/mobile/voice-latency-evidence-refresh-check.mjs --max-age-days 7",
+    "mobile:voice-latency:evidence:check:real": "node scripts/mobile/voice-latency-evidence-refresh-check.mjs --max-age-days 7 --require-real-network",
     "lint": "eslint src/ convex/ scripts/i18n/ --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

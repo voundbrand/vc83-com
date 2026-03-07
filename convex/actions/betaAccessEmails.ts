@@ -41,7 +41,7 @@ export const notifySalesOfBetaRequest = internalAction({
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const salesEmail = process.env.SALES_EMAIL || "sales@l4yercak3.com";
+    const salesEmail = process.env.SALES_EMAIL || "sales@sevenlayers.io";
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
     const backendBaseUrl =
       process.env.CONVEX_SITE_URL

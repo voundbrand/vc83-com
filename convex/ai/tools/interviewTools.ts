@@ -43,6 +43,11 @@ import {
   type SamanthaAuditRoutingAuditChannel,
   type SamanthaAuditSourceContext,
 } from "../samanthaAuditContract";
+import {
+  SAMANTHA_POST_CAPTURE_DISPATCH_INPUT_VERSION,
+  buildSamanthaPostCaptureDispatchCorrelationId,
+  buildSamanthaPostCaptureDispatchIdempotencyKey,
+} from "../postCaptureDispatcherContracts";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1751,6 +1756,40 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         enum: ["webchat", "native_guest"],
         description: "Optional explicit audit channel for source session lookup.",
       },
+      slackChannelId: {
+        type: "string",
+        description:
+          "Optional Slack destination channel ID for hot-lead notifications (dispatcher routing).",
+      },
+      slack_channel_id: {
+        type: "string",
+        description: "Compatibility alias for slackChannelId.",
+      },
+      slackProviderConnectionId: {
+        type: "string",
+        description:
+          "Optional explicit Slack OAuth connection ID for fail-closed dispatcher routing.",
+      },
+      slack_provider_connection_id: {
+        type: "string",
+        description: "Compatibility alias for slackProviderConnectionId.",
+      },
+      slackProviderAccountId: {
+        type: "string",
+        description: "Optional explicit Slack workspace account ID for dispatcher routing.",
+      },
+      slack_provider_account_id: {
+        type: "string",
+        description: "Compatibility alias for slackProviderAccountId.",
+      },
+      slackRouteKey: {
+        type: "string",
+        description: "Optional explicit Slack route key for dispatcher routing.",
+      },
+      slack_route_key: {
+        type: "string",
+        description: "Compatibility alias for slackRouteKey.",
+      },
     },
     required: ["email", "firstName", "lastName", "phone", "founderContactRequested"],
   },
@@ -1814,6 +1853,14 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       originSurface?: string;
       sourceSessionToken?: string;
       sourceAuditChannel?: "webchat" | "native_guest";
+      slackChannelId?: string;
+      slack_channel_id?: string;
+      slackProviderConnectionId?: string;
+      slack_provider_connection_id?: string;
+      slackProviderAccountId?: string;
+      slack_provider_account_id?: string;
+      slackRouteKey?: string;
+      slack_route_key?: string;
     }
   ) {
     const sourceContext = resolveAuditSourceContext({
@@ -2022,24 +2069,20 @@ const generateAuditWorkflowDeliverableTool: AITool = {
           conferenceId?: string;
         }
       | undefined;
+    let slackHotLeadDelivery:
+      | {
+          success: boolean;
+          skipped?: boolean;
+          reason?: string;
+          error?: string;
+          providerMessageId?: string;
+        }
+      | undefined;
+    let dispatchRunId: string | undefined;
+    let dispatchStatus: string | undefined;
+    let dispatchReasonCode: string | undefined;
     const domainConfigId = await resolveActiveEmailDomainConfigId(ctx, ctx.organizationId);
     const useDefaultSenderFallback = !domainConfigId;
-    const sendEmailAction = useDefaultSenderFallback
-      ? getInternal().emailDelivery.sendEmailWithDefaultSender
-      : getInternal().emailDelivery.sendEmail;
-    const sendEmailArgs = (payload: {
-      to: string;
-      subject: string;
-      html: string;
-      text: string;
-    }) => (
-        useDefaultSenderFallback
-          ? payload
-          : {
-              ...payload,
-              domainConfigId,
-            }
-      );
 
     const safeFirstName = escapeHtml(firstName);
     const safeFullName = escapeHtml(`${firstName} ${lastName}`.trim());
@@ -2083,187 +2126,330 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       : `Or book a Founder Demo with Remington S.: ${founderDemoUrl}`;
     const formattedWorkflowText = formatWorkflowRecommendationText(workflowRecommendation);
     const formattedWorkflowHtml = formatWorkflowRecommendationHtml(workflowRecommendation);
-
-    try {
-      const leadResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
-        to: capturedEmail,
-        subject: "Your audit results and workflow recommendation",
-        html: [
-          `<p>Hi ${safeFirstName},</p>`,
-          "<p>Thanks for completing your audit. Here is your workflow recommendation summary.</p>",
-          "<h3>Recommended workflow</h3>",
-          formattedWorkflowHtml,
-          "<h3>Qualification snapshot</h3>",
-          "<ul>",
-          `<li><strong>Revenue:</strong> ${safeRevenue}</li>`,
-          `<li><strong>Team size:</strong> ${safeEmployeeCount}</li>`,
-          `<li><strong>Industry:</strong> ${safeIndustry}</li>`,
-          `<li><strong>AI project experience:</strong> ${safeAiExp}</li>`,
-          "</ul>",
-          "<h3>Next step options</h3>",
-          "<ul>",
-          "<li>Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).</li>",
-          "<li>Implementation Start (EUR 7,000+): build and rollout support.</li>",
-          "</ul>",
-          "<p>Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.</p>",
-          founderDemoHtmlLine,
-        ].filter((line) => line.length > 0).join(""),
-        text: [
-          `Hi ${firstName},`,
-          "",
-          "Thanks for completing your audit. Here is your workflow recommendation summary.",
-          "",
-          "Recommended workflow",
-          "",
-          formattedWorkflowText,
-          "",
-          "Qualification snapshot",
-          `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
-          `Team size: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
-          `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
-          `AI project experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
-          "",
-          "Next step options",
-          "",
-          "Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).",
-          "Implementation Start (EUR 7,000+): build and rollout support.",
-          "",
-          "Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.",
-          "",
-          founderDemoTextLine,
-        ].join("\n"),
-      }));
-      leadEmailDelivery = {
-        success: Boolean(leadResult?.success),
-        messageId: cleanOptionalString(leadResult?.messageId),
-        error: cleanOptionalString(leadResult?.error),
-      };
-    } catch (error) {
-      leadEmailDelivery = {
-        success: false,
-        error: error instanceof Error ? error.message : "lead_email_send_failed",
-      };
-    }
-
     const salesInbox = process.env.SALES_EMAIL || "sales@sevenlayers.io";
-    try {
-      const salesResult = await ctx.runAction(sendEmailAction, sendEmailArgs({
-        to: salesInbox,
-        subject: `New audit lead: ${firstName} ${lastName}`,
-        html: [
-          "<h2>New Qualified Audit Lead</h2>",
-          `<p><strong>Name:</strong> ${safeFullName}</p>`,
-          `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
-          `<p><strong>Phone:</strong> ${safePhone}</p>`,
-          `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
-          `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
-          `<p><strong>Qualification Level:</strong> ${safeQualificationLevel}</p>`,
-          `<p><strong>Qualification Reasons:</strong> ${safeQualificationReasons}</p>`,
-          `<p><strong>Revenue Signal:</strong> ${safeRevenueSignalSummary}</p>`,
-          `<p><strong>Qualification Snapshot:</strong> ${safeQualificationSnapshot}</p>`,
-          `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
-          `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
-          `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
-          `<p><strong>Industry:</strong> ${safeIndustry}</p>`,
-          `<p><strong>Ownership Share:</strong> ${safeOwnership}</p>`,
-          `<p><strong>AI Budget Status:</strong> ${safeBudgetStatus}</p>`,
-          `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
-          `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
-          `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
-          `<p><strong>Canonical Commercial Intent:</strong> ${escapeHtml(canonicalCommercialSummary)}</p>`,
-          `<p><strong>Canonical Campaign Envelope:</strong> ${escapeHtml(campaignEnvelopeSummary)}</p>`,
-          `<p><strong>Compatibility Aliases:</strong> ${escapeHtml(compatibilitySummary)}</p>`,
-          "<p>Delivery mode: email summary only.</p>",
-        ].join(""),
-        text: [
-          "New Qualified Audit Lead",
-          `Name: ${firstName} ${lastName}`,
-          `Email: ${capturedEmail}`,
-          `Phone: ${capturedPhone}`,
-          `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
-          `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
-          `Qualification Level: ${qualification.level}`,
-          `Qualification Reasons: ${qualification.reasons.join(" | ")}`,
-          `Revenue Signal: ${revenueSignalSummary}`,
-          `Qualification Snapshot: painPointCount=${qualification.painPointCount} | highValueQuantification=${qualification.highValueQuantification ? "yes" : "no"} | moderateValueQuantification=${qualification.moderateValueQuantification ? "yes" : "no"} | pricingAskedDuringDiagnostic=${qualification.pricingAskedDuringDiagnostic ? "yes" : "no"}`,
-          `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
-          `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
-          `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
-          `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
-          `Ownership Share: ${cleanOptionalString(args.ownershipShare) || "Not provided"}`,
-          `AI Budget Status: ${cleanOptionalString(args.aiBudgetStatus) || "Not provided"}`,
-          `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
-          `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
-          `Workflow Recommendation: ${workflowRecommendation}`,
-          `Canonical Commercial Intent: ${canonicalCommercialSummary}`,
-          `Canonical Campaign Envelope: ${campaignEnvelopeSummary}`,
-          `Compatibility Aliases: ${compatibilitySummary}`,
-          "Delivery mode: email summary only.",
-        ].join("\n"),
-      }));
-      salesEmailDelivery = {
-        success: Boolean(salesResult?.success),
-        messageId: cleanOptionalString(salesResult?.messageId),
-        error: cleanOptionalString(salesResult?.error),
-      };
-    } catch (error) {
-      salesEmailDelivery = {
-        success: false,
-        error: error instanceof Error ? error.message : "sales_email_send_failed",
-      };
-    }
+    const founderCallContext = {
+      source: "ai.tools.generate_audit_workflow_deliverable",
+      email: capturedEmail,
+      salesCall,
+      founderContactRequested,
+      annualRevenue: cleanOptionalString(args.annualRevenue),
+      aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
+      employeeCount: cleanOptionalString(args.employeeCount),
+      industry: cleanOptionalString(args.industry),
+      ownershipShare: cleanOptionalString(args.ownershipShare),
+      aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
+      aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
+      deliveryAddress: cleanOptionalString(args.deliveryAddress),
+      commercialTags: leadPayloadTags,
+      canonicalCommercialSummary,
+      campaignEnvelopeSummary,
+      compatibilitySummary,
+    } satisfies Record<string, unknown>;
 
-    if (founderContactRequested) {
-      try {
-        const callResult = await ctx.runAction(getInternal().integrations.infobip.startFounderThreeWayCall, {
-          organizationId: ctx.organizationId,
+    const slackRoutingMetadata = readMetadataRecord(
+      sessionMetadata.samanthaSlackRouting ?? sessionMetadata.slackHotLeadRouting
+    );
+    const slackChannelId = cleanOptionalString(
+      args.slackChannelId
+      || args.slack_channel_id
+      || slackRoutingMetadata.channelId
+      || slackRoutingMetadata.channel_id
+      || process.env.SAMANTHA_POST_CAPTURE_SLACK_CHANNEL_ID
+    );
+    const slackProviderConnectionId = cleanOptionalString(
+      args.slackProviderConnectionId
+      || args.slack_provider_connection_id
+      || slackRoutingMetadata.providerConnectionId
+      || slackRoutingMetadata.provider_connection_id
+    );
+    const slackProviderAccountId = cleanOptionalString(
+      args.slackProviderAccountId
+      || args.slack_provider_account_id
+      || slackRoutingMetadata.providerAccountId
+      || slackRoutingMetadata.provider_account_id
+    );
+    const slackRouteKey = cleanOptionalString(
+      args.slackRouteKey
+      || args.slack_route_key
+      || slackRoutingMetadata.routeKey
+      || slackRoutingMetadata.route_key
+    );
+    const slackHotLeadEnabled = Boolean(slackChannelId);
+    const slackHotLeadMessage = [
+      "New Samantha hot lead captured.",
+      `Name: ${firstName} ${lastName}`,
+      `Email: ${capturedEmail}`,
+      `Phone: ${capturedPhone}`,
+      `Qualification: ${qualification.level}`,
+      `Reasons: ${qualification.reasons.join(" | ")}`,
+      `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
+      `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
+      `Workflow Recommendation: ${workflowRecommendation}`,
+      `Commercial: ${canonicalCommercialSummary}`,
+      `Campaign: ${campaignEnvelopeSummary}`,
+    ].join("\n");
+
+    const leadEmailHtml = [
+      `<p>Hi ${safeFirstName},</p>`,
+      "<p>Thanks for completing your audit. Here is your workflow recommendation summary.</p>",
+      "<h3>Recommended workflow</h3>",
+      formattedWorkflowHtml,
+      "<h3>Qualification snapshot</h3>",
+      "<ul>",
+      `<li><strong>Revenue:</strong> ${safeRevenue}</li>`,
+      `<li><strong>Team size:</strong> ${safeEmployeeCount}</li>`,
+      `<li><strong>Industry:</strong> ${safeIndustry}</li>`,
+      `<li><strong>AI project experience:</strong> ${safeAiExp}</li>`,
+      "</ul>",
+      "<h3>Next step options</h3>",
+      "<ul>",
+      "<li>Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).</li>",
+      "<li>Implementation Start (EUR 7,000+): build and rollout support.</li>",
+      "</ul>",
+      "<p>Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.</p>",
+      founderDemoHtmlLine,
+    ].filter((line) => line.length > 0).join("");
+    const leadEmailText = [
+      `Hi ${firstName},`,
+      "",
+      "Thanks for completing your audit. Here is your workflow recommendation summary.",
+      "",
+      "Recommended workflow",
+      "",
+      formattedWorkflowText,
+      "",
+      "Qualification snapshot",
+      `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+      `Team size: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+      `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+      `AI project experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+      "",
+      "Next step options",
+      "",
+      "Consulting Sprint (EUR 3,500): scope-only strategy (no implementation delivery).",
+      "Implementation Start (EUR 7,000+): build and rollout support.",
+      "",
+      "Reply with \"Consulting Sprint\" or \"Implementation Start\" and we will coordinate immediately.",
+      "",
+      founderDemoTextLine,
+    ].join("\n");
+    const salesEmailHtml = [
+      "<h2>New Qualified Audit Lead</h2>",
+      `<p><strong>Name:</strong> ${safeFullName}</p>`,
+      `<p><strong>Email:</strong> ${escapeHtml(capturedEmail)}</p>`,
+      `<p><strong>Phone:</strong> ${safePhone}</p>`,
+      `<p><strong>Sales Call Requested:</strong> ${salesCall ? "Yes" : "No"}</p>`,
+      `<p><strong>Founder Contact Requested:</strong> ${founderContactRequested ? "Yes" : "No"}</p>`,
+      `<p><strong>Qualification Level:</strong> ${safeQualificationLevel}</p>`,
+      `<p><strong>Qualification Reasons:</strong> ${safeQualificationReasons}</p>`,
+      `<p><strong>Revenue Signal:</strong> ${safeRevenueSignalSummary}</p>`,
+      `<p><strong>Qualification Snapshot:</strong> ${safeQualificationSnapshot}</p>`,
+      `<p><strong>Revenue:</strong> ${safeRevenue}</p>`,
+      `<p><strong>AI Projects Experience:</strong> ${safeAiExp}</p>`,
+      `<p><strong>Employee Count:</strong> ${safeEmployeeCount}</p>`,
+      `<p><strong>Industry:</strong> ${safeIndustry}</p>`,
+      `<p><strong>Ownership Share:</strong> ${safeOwnership}</p>`,
+      `<p><strong>AI Budget Status:</strong> ${safeBudgetStatus}</p>`,
+      `<p><strong>AI Budget Timeline:</strong> ${safeBudgetTimeline}</p>`,
+      `<p><strong>Delivery Address:</strong> ${safeDeliveryAddress}</p>`,
+      `<p><strong>Workflow Recommendation:</strong> ${safeWorkflow}</p>`,
+      `<p><strong>Canonical Commercial Intent:</strong> ${escapeHtml(canonicalCommercialSummary)}</p>`,
+      `<p><strong>Canonical Campaign Envelope:</strong> ${escapeHtml(campaignEnvelopeSummary)}</p>`,
+      `<p><strong>Compatibility Aliases:</strong> ${escapeHtml(compatibilitySummary)}</p>`,
+      "<p>Delivery mode: email summary only.</p>",
+    ].join("");
+    const salesEmailText = [
+      "New Qualified Audit Lead",
+      `Name: ${firstName} ${lastName}`,
+      `Email: ${capturedEmail}`,
+      `Phone: ${capturedPhone}`,
+      `Sales Call Requested: ${salesCall ? "Yes" : "No"}`,
+      `Founder Contact Requested: ${founderContactRequested ? "Yes" : "No"}`,
+      `Qualification Level: ${qualification.level}`,
+      `Qualification Reasons: ${qualification.reasons.join(" | ")}`,
+      `Revenue Signal: ${revenueSignalSummary}`,
+      `Qualification Snapshot: painPointCount=${qualification.painPointCount} | highValueQuantification=${qualification.highValueQuantification ? "yes" : "no"} | moderateValueQuantification=${qualification.moderateValueQuantification ? "yes" : "no"} | pricingAskedDuringDiagnostic=${qualification.pricingAskedDuringDiagnostic ? "yes" : "no"}`,
+      `Revenue: ${cleanOptionalString(args.annualRevenue) || "Not provided"}`,
+      `AI Projects Experience: ${cleanOptionalString(args.aiProjectExperience) || "Not provided"}`,
+      `Employee Count: ${cleanOptionalString(args.employeeCount) || "Not provided"}`,
+      `Industry: ${cleanOptionalString(args.industry) || "Not provided"}`,
+      `Ownership Share: ${cleanOptionalString(args.ownershipShare) || "Not provided"}`,
+      `AI Budget Status: ${cleanOptionalString(args.aiBudgetStatus) || "Not provided"}`,
+      `AI Budget Timeline: ${cleanOptionalString(args.aiBudgetTimeline) || "Not provided"}`,
+      `Delivery Address: ${cleanOptionalString(args.deliveryAddress) || "Not provided"}`,
+      `Workflow Recommendation: ${workflowRecommendation}`,
+      `Canonical Commercial Intent: ${canonicalCommercialSummary}`,
+      `Canonical Campaign Envelope: ${campaignEnvelopeSummary}`,
+      `Compatibility Aliases: ${compatibilitySummary}`,
+      "Delivery mode: email summary only.",
+    ].join("\n");
+
+    const maxAttempts = (() => {
+      const parsed = Number.parseInt(process.env.SAMANTHA_POST_CAPTURE_MAX_ATTEMPTS || "", 10);
+      if (!Number.isFinite(parsed)) {
+        return undefined;
+      }
+      return Math.max(1, Math.min(10, parsed));
+    })();
+
+    const dispatchInput = {
+      contractVersion: SAMANTHA_POST_CAPTURE_DISPATCH_INPUT_VERSION,
+      organizationId: ctx.organizationId,
+      auditSessionKey: session.auditSessionKey,
+      idempotencyKey: buildSamanthaPostCaptureDispatchIdempotencyKey({
+        organizationId: ctx.organizationId,
+        auditSessionKey: session.auditSessionKey,
+        leadEmail: capturedEmail,
+        workflowRecommendation,
+      }),
+      correlationId: buildSamanthaPostCaptureDispatchCorrelationId({
+        organizationId: ctx.organizationId,
+        auditSessionKey: session.auditSessionKey,
+        now: Date.now(),
+      }),
+      source: {
+        toolName: "generate_audit_workflow_deliverable" as const,
+        sessionToken: sessionLookup.sessionToken,
+        channel: session.channel === "native_guest" ? "native_guest" : "webchat",
+      },
+      lead: {
+        email: capturedEmail,
+        firstName,
+        lastName,
+        phone: capturedPhone,
+        founderContactRequested,
+        salesCallRequested: salesCall,
+        qualificationLevel: qualification.level,
+        qualificationReasons: qualification.reasons,
+      },
+      commercialContext: {
+        leadPayloadTags,
+        canonicalCommercialSummary,
+        campaignEnvelopeSummary,
+        compatibilitySummary,
+        qualificationSnapshot: {
+          pricingAskedDuringDiagnostic: qualification.pricingAskedDuringDiagnostic,
+          revenueSignalEur: qualification.revenueSignalEur,
+          painPointCount: qualification.painPointCount,
+          highValueQuantification: qualification.highValueQuantification,
+          moderateValueQuantification: qualification.moderateValueQuantification,
+        },
+      },
+      sideEffects: {
+        leadEmail: {
+          to: capturedEmail,
+          subject: "Your audit results and workflow recommendation",
+          html: leadEmailHtml,
+          text: leadEmailText,
+          domainConfigId: domainConfigId || undefined,
+          useDefaultSenderFallback,
+        },
+        salesEmail: {
+          to: salesInbox,
+          subject: `New audit lead: ${firstName} ${lastName}`,
+          html: salesEmailHtml,
+          text: salesEmailText,
+          domainConfigId: domainConfigId || undefined,
+          useDefaultSenderFallback,
+        },
+        founderCall: {
+          enabled: founderContactRequested,
           leadPhone: capturedPhone,
           leadName: `${firstName} ${lastName}`.trim(),
           founderName: "Remington",
           notes:
             "Founder contact requested from Samantha lead capture flow. Owner-first three-way bridge requested.",
-          context: {
-            source: "ai.tools.generate_audit_workflow_deliverable",
-            email: capturedEmail,
-            salesCall: salesCall,
-            founderContactRequested,
-            annualRevenue: cleanOptionalString(args.annualRevenue),
-            aiProjectExperience: cleanOptionalString(args.aiProjectExperience),
-            employeeCount: cleanOptionalString(args.employeeCount),
-            industry: cleanOptionalString(args.industry),
-            ownershipShare: cleanOptionalString(args.ownershipShare),
-            aiBudgetStatus: cleanOptionalString(args.aiBudgetStatus),
-            aiBudgetTimeline: cleanOptionalString(args.aiBudgetTimeline),
-            deliveryAddress: cleanOptionalString(args.deliveryAddress),
-            commercialTags: leadPayloadTags,
-            canonicalCommercialSummary,
-            campaignEnvelopeSummary,
-            compatibilitySummary,
+          context: founderCallContext,
+        },
+        slackHotLead: {
+          enabled: slackHotLeadEnabled,
+          message: slackHotLeadMessage,
+          routing: {
+            providerConnectionId: slackProviderConnectionId,
+            providerAccountId: slackProviderAccountId,
+            routeKey: slackRouteKey,
+            channelId: slackChannelId,
+            failClosed: true,
           },
-        });
+          requireHotLeadQualificationAtLeast: "High" as const,
+        },
+      },
+      policy: {
+        allowSlackHotLead: slackHotLeadEnabled,
+      },
+      maxAttempts,
+    };
 
-        founderCallOrchestration = {
-          success: Boolean(callResult?.success),
-          skipped: Boolean(callResult?.skipped),
-          reason: cleanOptionalString(callResult?.reason),
-          error: cleanOptionalString(callResult?.error),
-          provider: cleanOptionalString(callResult?.provider),
-          requestAccepted: Boolean(callResult?.requestAccepted),
-          callId: cleanOptionalString(callResult?.callId),
-          conferenceId: cleanOptionalString(callResult?.conferenceId),
-        };
-      } catch (error) {
-        founderCallOrchestration = {
-          success: false,
-          error: error instanceof Error ? error.message : "founder_call_orchestration_failed",
-        };
-      }
-    } else {
-      founderCallOrchestration = {
+    try {
+      const dispatchResult = await ctx.runAction(
+        getInternal().ai.postCaptureDispatcher.dispatchSamanthaPostCapture,
+        {
+          input: dispatchInput,
+          processInline: true,
+        }
+      );
+
+      dispatchRunId = cleanOptionalString(dispatchResult?.runId);
+      dispatchStatus = cleanOptionalString(dispatchResult?.status);
+      dispatchReasonCode = cleanOptionalString(dispatchResult?.reasonCode);
+      leadEmailDelivery = dispatchResult?.outputs?.leadEmailDelivery;
+      salesEmailDelivery = dispatchResult?.outputs?.salesEmailDelivery;
+      founderCallOrchestration = dispatchResult?.outputs?.founderCallOrchestration;
+      slackHotLeadDelivery = dispatchResult?.outputs?.slackHotLeadDelivery;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "post_capture_dispatch_action_failed";
+      leadEmailDelivery = {
+        success: false,
+        error: errorMessage,
+      };
+      salesEmailDelivery = {
+        success: false,
+        error: errorMessage,
+      };
+      founderCallOrchestration = founderContactRequested
+        ? {
+            success: false,
+            error: errorMessage,
+          }
+        : {
+            success: false,
+            skipped: true,
+            reason: "founder_contact_not_requested",
+          };
+      slackHotLeadDelivery = {
         success: false,
         skipped: true,
-        reason: "founder_contact_not_requested",
+        reason: "dispatcher_action_failed",
+        error: errorMessage,
       };
+      dispatchStatus = "failed_terminal";
+      dispatchReasonCode = "dispatch_unexpected_error";
+    }
+
+    if (!leadEmailDelivery) {
+      leadEmailDelivery = {
+        success: false,
+        error: "lead_email_delivery_not_recorded",
+      };
+    }
+    if (!salesEmailDelivery) {
+      salesEmailDelivery = {
+        success: false,
+        error: "sales_email_delivery_not_recorded",
+      };
+    }
+    if (!founderCallOrchestration) {
+      founderCallOrchestration = founderContactRequested
+        ? {
+            success: false,
+            error: "founder_call_orchestration_not_recorded",
+          }
+        : {
+            success: false,
+            skipped: true,
+            reason: "founder_contact_not_requested",
+          };
     }
 
     const leadEmailDelivered = leadEmailDelivery?.success === true;
@@ -2284,6 +2470,11 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         outputRef,
         leadEmailDelivery,
         salesEmailDelivery,
+        founderCallOrchestration,
+        slackHotLeadDelivery,
+        dispatchRunId: dispatchRunId || null,
+        dispatchStatus: dispatchStatus || null,
+        dispatchReasonCode: dispatchReasonCode || null,
       };
     }
     if (!salesNotificationDelivered) {
@@ -2299,6 +2490,11 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         outputRef,
         leadEmailDelivery,
         salesEmailDelivery,
+        founderCallOrchestration,
+        slackHotLeadDelivery,
+        dispatchRunId: dispatchRunId || null,
+        dispatchStatus: dispatchStatus || null,
+        dispatchReasonCode: dispatchReasonCode || null,
       };
     }
 
@@ -2333,6 +2529,10 @@ const generateAuditWorkflowDeliverableTool: AITool = {
       leadEmailDelivery,
       salesEmailDelivery,
       founderCallOrchestration,
+      slackHotLeadDelivery,
+      dispatchRunId: dispatchRunId || null,
+      dispatchStatus: dispatchStatus || null,
+      dispatchReasonCode: dispatchReasonCode || null,
       leadPayloadTags,
       canonicalCommercialSummary,
       campaignEnvelopeSummary,
@@ -2347,6 +2547,9 @@ const generateAuditWorkflowDeliverableTool: AITool = {
         salesEmailMessageId: cleanOptionalString(salesEmailDelivery?.messageId) || null,
         leadEmailDelivered,
         salesNotificationDelivered,
+        dispatcherRunId: dispatchRunId || null,
+        dispatcherStatus: dispatchStatus || null,
+        dispatcherReasonCode: dispatchReasonCode || null,
       },
       message:
         "Audit workflow results emailed. Confirm receipt, then offer either Consulting Sprint (EUR 3,500 scope-only, no implementation delivery) or Implementation Start (EUR 7,000+).",

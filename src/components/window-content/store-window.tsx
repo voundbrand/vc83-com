@@ -18,6 +18,7 @@ import {
   Gift,
   History,
   Users,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, lazy, useCallback, useRef, useMemo } from "react";
@@ -28,7 +29,6 @@ import { BenefitsWindow } from "./benefits-window";
 import {
   StoreAddOnsList,
   StoreBillingSemanticsList,
-  StoreCommercialArchitectureCards,
   type StoreCommercialOfferSelection,
   StoreCreditsApplicabilityCard,
   StoreFaqList,
@@ -37,6 +37,7 @@ import {
   StoreSourceAttribution,
   StoreTrialPolicyCard,
 } from "./store/store-pricing-reference";
+import { StoreHeroOffers } from "./store/store-hero-offers";
 import { useIsDesktopShellFallback } from "@/hooks/use-media-query";
 import {
   buildStoreAuthReturnPath,
@@ -1303,6 +1304,44 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                 </div>
               )}
 
+              {/* Diagnostic CTA — top of funnel */}
+              <div
+                className="rounded-xl border p-5"
+                style={{
+                  background: "var(--window-document-bg-elevated)",
+                  borderColor: "var(--window-document-border)",
+                }}
+              >
+                <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                  {tx("ui.store.diagnostic.headline", "See what AI can do for your business \u2014 in 7 minutes")}
+                </h2>
+                <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--window-document-text-muted)" }}>
+                  {tx(
+                    "ui.store.diagnostic.body",
+                    "Answer a few questions about your business. Our AI analyzes your answers in real-time and delivers a specific, actionable recommendation \u2014 unique to your business. No PDF, no ebook, no email sequence. Just a live demonstration of what AI can do for you."
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    routeStoreCommercialIntentToChat({
+                      offerCode: "consult_full_build_scoping",
+                      intentCode: "diagnostic_qualification",
+                      routingHint: "samantha_lead_capture",
+                    });
+                  }}
+                  className="mt-3 w-full rounded-md border px-4 py-2.5 text-xs font-semibold transition-colors hover:opacity-80 sm:w-auto"
+                  style={{
+                    borderColor: "var(--store-cta-border)",
+                    background: "var(--store-cta-bg)",
+                    color: "var(--store-cta-text)",
+                  }}
+                >
+                  {tx("ui.store.diagnostic.cta", "Start free diagnostic")}
+                </button>
+              </div>
+
+              {/* Pricing Ladder */}
               <section
                 id="store-section-plans"
                 ref={setSectionRef("plans")}
@@ -1315,148 +1354,89 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
               >
                 <div className="mb-4">
                   <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.plans.title_v2", "Choose your plan")}
+                    {tx("ui.store.plans.title_v3", "Custom agentic systems")}
                   </h2>
                   <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
                     {tx(
-                      "ui.store.plans.description_v2",
-                      "Start free, get expert advice, or jump straight into implementation."
+                      "ui.store.plans.description_v4",
+                      "Every price is real. Setup fees are fixed. Monthly fees are fixed. If something is scope-dependent, we give you the range."
                     )}
                   </p>
                 </div>
 
-                <div
-                  className="mb-4 rounded-lg border p-3"
-                  style={{
-                    background: "var(--window-document-bg)",
-                    borderColor: "var(--window-document-border)",
-                  }}
-                >
-                  <h3 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.motion_contract.title_v2", "How our pricing works")}
-                  </h3>
-                  <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    <li>
+                {commercialOfferCatalog?.offers?.length ? (
+                  <StoreHeroOffers
+                    offers={commercialOfferCatalog.offers}
+                    onSelectOffer={handleCommercialOfferSelection}
+                  />
+                ) : null}
+              </section>
+
+              {/* 30-day guarantee */}
+              <div
+                className="rounded-xl border p-5"
+                style={{
+                  background: "var(--window-document-bg-elevated)",
+                  borderColor: "var(--window-document-border)",
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: "rgba(34, 197, 94, 0.1)", color: "var(--success)" }}
+                    aria-hidden="true"
+                  >
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                      {tx("ui.store.guarantee.title", "30-day money-back guarantee")}
+                    </h2>
+                    <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--window-document-text-muted)" }}>
                       {tx(
-                        "ui.store.motion_contract.free_v2",
-                        "Free Diagnostic — Explore the platform and see what's possible. No credit card needed."
+                        "ui.store.guarantee.body",
+                        "If your operator hasn\u2019t delivered measurable value within 30 days of going live, we\u2019ll refund your setup fee. No questions. No exit interview. No hard feelings."
                       )}
-                    </li>
-                    <li>
-                      {tx(
-                        "ui.store.motion_contract.consult_v2",
-                        "Consulting Sprint (€3,500) — Get a tailored strategy and project scope. Consulting only, no build work included."
-                      )}
-                    </li>
-                    <li>
-                      {tx(
-                        "ui.store.motion_contract.implementation_v2",
-                        "Implementation Start (from €7,000) — Launch your first production environment. Includes Layer 1 Foundation setup and above."
-                      )}
-                    </li>
-                  </ul>
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        routeStoreCommercialIntentToChat({
-                          offerCode: "consult_full_build_scoping",
-                          intentCode: "diagnostic_qualification",
-                          routingHint: "samantha_lead_capture",
-                        })
-                      }
-                      className="w-full rounded-md border px-2 py-2 text-xs font-semibold transition-colors"
-                      style={{
-                        borderColor: "var(--tone-accent-strong)",
-                        background: "var(--tone-accent)",
-                        color: "var(--shell-on-accent)",
-                      }}
-                    >
-                      Start free diagnostic
-                    </button>
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                          {tx("ui.store.guarantee.covers_title", "What it covers")}
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                          <li>{tx("ui.store.guarantee.covers_1", "Full refund of the one-time setup fee")}</li>
+                          <li>{tx("ui.store.guarantee.covers_2", "Applies to Foundation, Dream Team, and Sovereign tiers")}</li>
+                          <li>{tx("ui.store.guarantee.covers_3", "Success criteria agreed before project kickoff")}</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                          {tx("ui.store.guarantee.excludes_title", "What it does not cover")}
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                          <li>{tx("ui.store.guarantee.excludes_1", "Monthly platform fees for months already used")}</li>
+                          <li>{tx("ui.store.guarantee.excludes_2", "Hardware costs for Sovereign tiers (the hardware is yours)")}</li>
+                          <li>{tx("ui.store.guarantee.excludes_3", "Scope changes requested after the initial build")}</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div
-                  className="mb-4 rounded-lg border p-3"
-                  style={{
-                    background: "var(--window-document-bg)",
-                    borderColor: "var(--tone-accent-strong)",
-                  }}
-                >
-                  <h3 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
-                    {tx("ui.store.commercial_architecture.title", "Plans and pricing overview")}
-                  </h3>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {tx(
-                      "ui.store.commercial_architecture.description_v2",
-                      "Browse setup fees, monthly platform fees, and consulting options below. Existing Pro/Scale subscribers keep full access during the transition."
-                    )}
-                  </p>
-                  <p className="mt-1 text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
-                    {tx(
-                      "ui.store.commercial_architecture.coexistence_notice_v2",
-                      "Your existing billing and credit balances are safe. New customers start with the options shown above."
-                    )}
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
-                    {legacyPublicCutoverMode === "cutover_hide_legacy"
-                      ? tx(
-                        "ui.store.commercial_architecture.cutover_mode_v2",
-                        "Previous Pro/Scale plans are hidden. Admins can reveal them if needed."
-                      )
-                      : legacyPublicCutoverMode === "rollback_show_legacy_public"
-                        ? tx(
-                          "ui.store.commercial_architecture.rollback_mode_v2",
-                          "Previous Pro/Scale plans are temporarily visible while we resolve a service issue."
-                        )
-                        : tx(
-                          "ui.store.commercial_architecture.compatibility_mode_v2",
-                          "Previous Pro/Scale plans are shown because this workspace has an existing subscription."
-                        )}
-                  </p>
-                  {commercialOfferCatalog?.offers?.length ? (
-                    <div className="mt-3">
-                      <StoreCommercialArchitectureCards
-                        offers={commercialOfferCatalog.offers}
-                        onSelectOffer={handleCommercialOfferSelection}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-
-                <StorePlanCards
-                  currentPlan={currentPlan}
-                  hasActiveSubscription={hasActiveSubscription}
-                  trialEligible={subscriptionStatus?.trialEligible ?? subscriptionStatus?.scaleTrialEligible ?? false}
-                  onCheckout={handleCheckout}
-                  onSubscriptionChange={handleSubscriptionChange}
-                  onContactSales={() => {
-                    setModalTitle("Enterprise Platform");
-                    setShowEnterpriseModal(true);
-                  }}
-                  isManagingSubscription={isManagingSubscription}
-                  subscriptionStatus={subscriptionStatus}
-                  isLoadingStatus={isLoadingStatus}
-                  onCancelPendingChange={handleCancelPendingChange}
-                  isCancelingPending={isCancelingPending}
-                  legacySalesMode={legacySalesMode}
-                />
-              </section>
+              </div>
 
               <div
                 className="rounded-xl border p-4 sm:p-5"
                 style={{
                   background: "var(--window-document-bg-elevated)",
-                  borderColor: "var(--tone-accent-strong)",
+                  borderColor: "var(--window-document-border)",
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                     style={{
-                      background: "var(--tone-accent)",
-                      color: "var(--shell-on-accent)",
+                      background: "#1a1a1a",
+                      color: "#ffffff",
                     }}
                     aria-hidden="true"
                   >
@@ -1466,8 +1446,8 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                     <span
                       className="inline-flex rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide"
                       style={{
-                        background: "var(--tone-accent)",
-                        color: "var(--shell-on-accent)",
+                        background: "#1a1a1a",
+                        color: "#ffffff",
                       }}
                     >
                       {t("ui.store.daily_credits.badge")}
@@ -1524,8 +1504,8 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                       <div
                         className="mt-0.5 flex h-7 w-7 items-center justify-center rounded"
                         style={{
-                          background: "var(--tone-accent)",
-                          color: "var(--shell-on-accent)",
+                          background: "var(--desktop-shell-accent)",
+                          color: "var(--window-document-text)",
                         }}
                       >
                         <Users className="h-4 w-4" />
@@ -1612,6 +1592,45 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                     </div>
                   )}
                 </div>
+              </section>
+
+              {/* Platform Subscriptions (legacy — demoted below credits) */}
+              <section
+                className="scroll-mt-24 rounded-xl border p-4 sm:p-5"
+                style={{
+                  background: "var(--window-document-bg-elevated)",
+                  borderColor: "var(--window-document-border)",
+                }}
+              >
+                <div className="mb-4">
+                  <h2 className="font-pixel text-sm" style={{ color: "var(--window-document-text)" }}>
+                    {tx("ui.store.subscriptions.title", "Platform subscriptions")}
+                  </h2>
+                  <p className="mt-1 text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+                    {tx(
+                      "ui.store.subscriptions.description_v2",
+                      "Platform access for teams using the self-serve tools. Custom agents are built through the implementation packages above."
+                    )}
+                  </p>
+                </div>
+
+                <StorePlanCards
+                  currentPlan={currentPlan}
+                  hasActiveSubscription={hasActiveSubscription}
+                  trialEligible={subscriptionStatus?.trialEligible ?? subscriptionStatus?.scaleTrialEligible ?? false}
+                  onCheckout={handleCheckout}
+                  onSubscriptionChange={handleSubscriptionChange}
+                  onContactSales={() => {
+                    setModalTitle("Enterprise Platform");
+                    setShowEnterpriseModal(true);
+                  }}
+                  isManagingSubscription={isManagingSubscription}
+                  subscriptionStatus={subscriptionStatus}
+                  isLoadingStatus={isLoadingStatus}
+                  onCancelPendingChange={handleCancelPendingChange}
+                  isCancelingPending={isCancelingPending}
+                  legacySalesMode={legacySalesMode}
+                />
               </section>
 
               {showLegacyCompatibilitySections ? (
@@ -1810,7 +1829,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                           className="w-full rounded-lg border px-3 py-2 text-left transition-colors"
                           style={{
                             background: isActive ? "var(--desktop-menu-hover)" : "var(--window-document-bg)",
-                            borderColor: isActive ? "var(--tone-accent-strong)" : "var(--window-document-border)",
+                            borderColor: isActive ? "var(--window-document-text)" : "var(--window-document-border)",
                             color: "var(--window-document-text)",
                           }}
                           aria-current={isActive ? "location" : undefined}
@@ -1843,7 +1862,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                             section: section.label,
                           })}
                           style={{
-                            borderColor: isActive ? "var(--tone-accent-strong)" : undefined,
+                            borderColor: isActive ? "var(--window-document-text)" : undefined,
                           }}
                         >
                           {section.label.charAt(0)}
@@ -1905,7 +1924,7 @@ export function StoreWindow({ fullScreen = false, initialSection = "plans" }: St
                     className="w-full rounded-lg border px-3 py-2 text-left transition-colors"
                     style={{
                       background: isActive ? "var(--desktop-menu-hover)" : "var(--window-document-bg)",
-                      borderColor: isActive ? "var(--tone-accent-strong)" : "var(--window-document-border)",
+                      borderColor: isActive ? "var(--window-document-text)" : "var(--window-document-border)",
                       color: "var(--window-document-text)",
                     }}
                     aria-current={isActive ? "location" : undefined}

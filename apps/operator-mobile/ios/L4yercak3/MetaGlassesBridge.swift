@@ -749,6 +749,7 @@ class MetaGlassesBridge: RCTEventEmitter {
   private static let statusEvent = "metaBridgeStatusDidChange"
   private static let connectTimeoutNs: UInt64 = 20_000_000_000
   private static let maxDebugEvents = 250
+  private static let registrationRetryCooldownMs: Double = 10_000
 
   private struct DebugEvent {
     let id: String
@@ -781,6 +782,8 @@ class MetaGlassesBridge: RCTEventEmitter {
   private var callbackSurfaceFallbackReason: String?
   private var failure: [String: Any]?
   private var connectTimeoutTask: Task<Void, Never>?
+  private var registrationStartInFlight = false
+  private var lastRegistrationStartFailureAtMs: Double?
   private var debugEventSequence = 0
   private var debugEvents: [DebugEvent] = []
   private var callbackSurfaceDiagnostics: [String: String] = [:]
@@ -883,7 +886,7 @@ class MetaGlassesBridge: RCTEventEmitter {
       }
       let registrationState = self.resolveRegistrationState()
       guard self.isRegistrationStateReadyForStreaming(registrationState) else {
-        self.performConnect(resolve)
+        self.performConnect(resolve, attemptRegistrationStart: true)
         return
       }
       self.ensureDatCameraPermissionForConnect { datGranted, failureMessage in
@@ -898,12 +901,15 @@ class MetaGlassesBridge: RCTEventEmitter {
           resolve(self.buildSnapshot())
           return
         }
-        self.performConnect(resolve)
+        self.performConnect(resolve, attemptRegistrationStart: false)
       }
     }
   }
 
-  private func performConnect(_ resolve: @escaping RCTPromiseResolveBlock) {
+  private func performConnect(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    attemptRegistrationStart: Bool
+  ) {
     datRuntimeConnector.start()
     datRuntimeConnector.refreshStreamSession()
 
@@ -973,7 +979,20 @@ class MetaGlassesBridge: RCTEventEmitter {
       return
     }
 
-    maybeStartRegistrationIfNeeded()
+    if attemptRegistrationStart {
+      maybeStartRegistrationIfNeeded()
+    } else {
+      let registrationState = resolveRegistrationState()
+      appendDebugEvent(
+        stage: "handshake",
+        code: "registration_start_skipped_ready",
+        message: "Skipping DAT registration start because registration is already ready.",
+        details: [
+          "registrationState": registrationState,
+          "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
+        ]
+      )
+    }
     fallbackReason = "awaiting_dat_device_identity"
     appendDebugEvent(
       stage: "discovering",
@@ -1306,9 +1325,13 @@ class MetaGlassesBridge: RCTEventEmitter {
         guard let reasonCode = payload["reasonCode"] as? String else {
           return
         }
+        let normalizedMessage = self.normalizeFailureMessage(
+          reasonCode: reasonCode,
+          message: payload["message"] as? String
+        )
         self.applyFailure(
           reasonCode: reasonCode,
-          message: payload["message"] as? String,
+          message: normalizedMessage,
           recoverable: payload["recoverable"] as? Bool ?? true,
           fallback: reasonCode
         )
@@ -1489,6 +1512,34 @@ class MetaGlassesBridge: RCTEventEmitter {
       )
       return
     }
+    if registrationStartInFlight {
+      appendDebugEvent(
+        stage: "handshake",
+        code: "registration_start_skipped_in_flight",
+        message: "DAT registration start already in flight.",
+        details: [
+          "registrationState": registrationState,
+          "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
+        ]
+      )
+      return
+    }
+    if let lastFailureAtMs = lastRegistrationStartFailureAtMs {
+      let elapsedMs = nowMs() - lastFailureAtMs
+      if elapsedMs < Self.registrationRetryCooldownMs {
+        appendDebugEvent(
+          stage: "handshake",
+          code: "registration_start_cooldown_active",
+          message: "Skipping DAT registration retry while cooldown is active.",
+          details: [
+            "registrationState": registrationState,
+            "cooldownMs": Self.registrationRetryCooldownMs,
+            "elapsedMs": elapsedMs,
+          ]
+        )
+        return
+      }
+    }
 
     appendDebugEvent(
       stage: "handshake",
@@ -1499,32 +1550,37 @@ class MetaGlassesBridge: RCTEventEmitter {
         "registrationRawValue": resolveRegistrationStateRawValue(from: registrationState) as Any,
       ]
     )
+    registrationStartInFlight = true
 
-    Task { @MainActor [weak self] in
-      guard let self else { return }
+    Task { @MainActor in
+      defer {
+        registrationStartInFlight = false
+      }
       do {
         try await Wearables.shared.startRegistration()
-        self.appendDebugEvent(
+        lastRegistrationStartFailureAtMs = nil
+        appendDebugEvent(
           stage: "handshake",
           code: "registration_start_succeeded",
           message: "DAT registration flow started.",
           details: [
-            "registrationState": self.resolveRegistrationState(),
+            "registrationState": resolveRegistrationState(),
           ]
         )
-        self.emitStatus()
+        emitStatus()
       } catch {
-        self.appendDebugEvent(
+        appendDebugEvent(
           stage: "failure",
           severity: "warn",
           code: "registration_start_failed",
           message: "DAT registration start failed: \(error.localizedDescription)",
           details: [
-            "registrationState": self.resolveRegistrationState(),
+            "registrationState": resolveRegistrationState(),
           ]
         )
-        if self.failure == nil && self.connectionState == "connecting" {
-          self.applyFailure(
+        lastRegistrationStartFailureAtMs = nowMs()
+        if failure == nil && connectionState == "connecting" {
+          applyFailure(
             reasonCode: "dat_registration_start_failed",
             message: error.localizedDescription,
             recoverable: true,
@@ -1571,18 +1627,18 @@ class MetaGlassesBridge: RCTEventEmitter {
 
   private func resolveRegistrationStateRawValue(from registrationState: String) -> Int? {
     let lowercased = registrationState.lowercased()
-    guard let markerRange = lowercased.range(of: "rawvalue:") else {
-      return nil
+    if let markerRange = lowercased.range(of: "rawvalue") {
+      let suffix = lowercased[markerRange.upperBound...]
+      if let rawMatchRange = suffix.range(of: #"-?\d+"#, options: .regularExpression) {
+        return Int(suffix[rawMatchRange])
+      }
     }
-    let suffix = lowercased[markerRange.upperBound...]
-    let digits = suffix.prefix { character in
-      character.isNumber || character == "-" || character == " "
+    if lowercased.contains("registrationstate"),
+      let rawMatchRange = lowercased.range(of: #"-?\d+"#, options: .regularExpression)
+    {
+      return Int(lowercased[rawMatchRange])
     }
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !digits.isEmpty else {
-      return nil
-    }
-    return Int(digits)
+    return nil
   }
 
   private func isDatPermissionGranted(_ status: Any) -> Bool {
@@ -1597,6 +1653,24 @@ class MetaGlassesBridge: RCTEventEmitter {
     return normalized.contains("denied")
       || normalized.contains("restricted")
       || normalized.contains("forbidden")
+  }
+
+  private func normalizeFailureMessage(reasonCode: String, message: String?) -> String? {
+    let normalizedReason = reasonCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if normalizedReason == "dat_permission_denied" {
+      let normalizedMessage = trimmedMessage?.lowercased() ?? ""
+      if normalizedMessage.isEmpty || normalizedMessage == "permissiondenied" {
+        return "Meta glasses camera permission is denied in DAT. Grant access in Meta AI."
+      }
+      return trimmedMessage
+    }
+
+    if let trimmedMessage, !trimmedMessage.isEmpty {
+      return trimmedMessage
+    }
+    return nil
   }
 
   private func appendDebugEvent(

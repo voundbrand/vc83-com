@@ -79,4 +79,42 @@ describe("mobile voice mode hud contract", () => {
     expect(source).toContain("source:{liveHudSourceLabel}");
     expect(source).not.toContain("'webcam'");
   });
+
+  it("wires transport degradation reason visibility from runtime selection into HUD surfaces", () => {
+    const modalSource = readWorkspaceFile(
+      "apps/operator-mobile/src/components/chat/VoiceModeModal.tsx"
+    );
+    const indexSource = readWorkspaceFile(
+      "apps/operator-mobile/app/(tabs)/index.tsx"
+    );
+
+    expect(modalSource).toContain("transportDegradationReasonLabel?: string;");
+    expect(modalSource).toContain("t('chat.voiceLiveHud'");
+    expect(modalSource).toContain("t('chat.voiceTransportFallback'");
+    expect(indexSource).toContain("const liveTransportDegradationLabel =");
+    expect(indexSource).toContain("mobileVoiceRuntime.transportDegradation.reasonLabelKey");
+    expect(indexSource).toContain("const liveTransportDegradationReasonCode =");
+    expect(indexSource).toContain("const liveTransportFallbackReasonCodeLabel =");
+    expect(indexSource).toContain("const liveRealtimeRelayReasonLabel =");
+    expect(indexSource).toContain("chat.voiceRealtimeHealth.");
+    expect(indexSource).toContain("t('chat.voiceTransportReasonCode'");
+    expect(indexSource).toContain(
+      "transportDegradationReasonLabel={liveTransportHealthLabel}"
+    );
+  });
+
+  it("renders docked mini-orb controls with always-visible transcript rail during active conversation", () => {
+    const modalSource = readWorkspaceFile(
+      "apps/operator-mobile/src/components/chat/VoiceModeModal.tsx"
+    );
+
+    expect(modalSource).toContain("const showDockedConversationUi = conversationStarted && !conversationEnding;");
+    expect(modalSource).toContain("transparent={showDockedConversationUi}");
+    expect(modalSource).toContain("Live transcript");
+    expect(modalSource).toContain("interrupt:{liveInterruptionMarker}");
+    expect(modalSource).toContain("USER {liveTranscriptUserText}");
+    expect(modalSource).toContain("AGENT {liveTranscriptAssistantText}");
+    expect(modalSource).toContain("size={84}");
+    expect(modalSource).toContain("size={44}");
+  });
 });

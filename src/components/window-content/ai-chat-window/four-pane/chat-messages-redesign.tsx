@@ -143,11 +143,13 @@ export function ChatMessages() {
   // Get messages from the current conversation
   const messages = chat.messages || []
   const displayMessages = messages.filter((message) => !shouldHideInternalKickoffMessage(message))
+  const lastMessage = displayMessages[displayMessages.length - 1]
+  const lastMessageFingerprint = `${lastMessage?._id ?? "none"}:${lastMessage?.content?.length ?? 0}`
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [displayMessages.length, isSending])
+  }, [displayMessages.length, lastMessageFingerprint, isSending])
 
   // Loading translations - show minimal loading state
   if (translationsLoading) {

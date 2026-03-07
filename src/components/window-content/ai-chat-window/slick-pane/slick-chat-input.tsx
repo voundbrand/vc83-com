@@ -355,10 +355,7 @@ const REALTIME_STT_ROUTE_PRECEDENCE = resolveVoiceRealtimeSttRoutePrecedence()
 const INITIAL_REALTIME_TRANSPORT_ROUTE = resolveInitialDuplexTransportRoute(
   REALTIME_TRANSPORT_ROUTE_PRECEDENCE
 ) as VoiceRealtimeTransportRoute
-const CONVERSATION_VAD_POLICY = {
-  ...DEFAULT_REALTIME_CONVERSATION_VAD_POLICY,
-  endpointSilenceMs: 900,
-}
+const CONVERSATION_VAD_POLICY = DEFAULT_REALTIME_CONVERSATION_VAD_POLICY
 const DESKTOP_VAD_MIN_ACTIVE_SPEECH_MS = 650
 const VISION_FORWARDING_CADENCE_MS = DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS
 const VISION_FORWARDING_WINDOW_MS = DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS
@@ -480,6 +477,14 @@ function supportsAudioWorkletVoiceCapture(): boolean {
   if (!audioContextCtor || typeof AudioWorkletNode === "undefined") {
     return false
   }
+  const win = window as unknown as {
+    BaseAudioContext?: {
+      prototype?: Record<string, unknown>
+    }
+  }
+  if (win.BaseAudioContext?.prototype) {
+    return "audioWorklet" in win.BaseAudioContext.prototype
+  }
   return "audioWorklet" in audioContextCtor.prototype
 }
 
@@ -597,6 +602,7 @@ async function startPcmVoiceCapture(args: {
   let sourceSampleRateHz = targetSampleRateHz
   let resamplePosition = 0
   let resampleSourceSamples: number[] = []
+  let hasLoggedFirstPcmChunk = false
 
   const frameSampleCount = Math.max(
     1,
@@ -761,6 +767,15 @@ async function startPcmVoiceCapture(args: {
   const appendChunk = (chunk: Float32Array) => {
     if (isCompleted) {
       return
+    }
+    if (!hasLoggedFirstPcmChunk) {
+      hasLoggedFirstPcmChunk = true
+      console.info("[VoiceRuntime] web_audio_capture_first_pcm_chunk", {
+        captureMethod,
+        sourceSampleRateHz,
+        targetSampleRateHz,
+        sourceSampleCount: chunk.length,
+      })
     }
     const normalizedChunk = resampleChunkToTarget(chunk)
     const int16Chunk = convertMonoFloatToInt16(normalizedChunk)
@@ -1591,6 +1606,11 @@ export function SlickChatInput({
   const lastRealtimeVisionForwardAtMsRef = useRef<number | undefined>(undefined)
   const realtimeVisionForwardInFlightRef = useRef(false)
   const conversationInterruptCountRef = useRef(0)
+  const activeVoiceSessionIdRef = useRef<string | null>(null)
+  const resolvedVoiceRuntimeSessionRef =
+    useRef<AIChatVoiceRuntimeSessionResolution | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const voiceRuntimeRef = useRef<ReturnType<typeof useVoiceRuntime> | null>(null)
   const useQueryUntyped = useQuery as (query: unknown, args?: unknown) => unknown
   const useActionUntyped = useAction as (action: unknown) => unknown
   const useMutationUntyped = useMutation as (mutation: unknown) => unknown
@@ -1722,6 +1742,22 @@ export function SlickChatInput({
   )
 
   useEffect(() => {
+    activeVoiceSessionIdRef.current = activeVoiceSessionId
+  }, [activeVoiceSessionId])
+
+  useEffect(() => {
+    resolvedVoiceRuntimeSessionRef.current = resolvedVoiceRuntimeSession
+  }, [resolvedVoiceRuntimeSession])
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId ?? null
+  }, [sessionId])
+
+  useEffect(() => {
+    voiceRuntimeRef.current = voiceRuntime
+  }, [voiceRuntime])
+
+  useEffect(() => {
     isSendingRef.current = isSending
   }, [isSending])
 
@@ -1774,8 +1810,11 @@ export function SlickChatInput({
 
   useEffect(() => {
     return () => {
+      const activeVoiceSessionId = activeVoiceSessionIdRef.current
+      const resolvedVoiceRuntimeSession = resolvedVoiceRuntimeSessionRef.current
+      const sessionId = sessionIdRef.current
       if (activeVoiceSessionId && resolvedVoiceRuntimeSession && sessionId) {
-        void voiceRuntime.closeSession({
+        void voiceRuntimeRef.current?.closeSession({
           voiceSessionId: activeVoiceSessionId,
           reason: "chat_unmount_cleanup",
           runtimeContext: {
@@ -1797,7 +1836,7 @@ export function SlickChatInput({
       lastRealtimeVisionForwardAtMsRef.current = undefined
       conversationInterruptCountRef.current = 0
     }
-  }, [activeVoiceSessionId, resolvedVoiceRuntimeSession, sessionId, voiceRuntime])
+  }, [])
 
   useEffect(() => {
     imageAttachmentsRef.current = imageAttachments
@@ -2123,7 +2162,7 @@ export function SlickChatInput({
       reasonCode: conversationReasonCode,
       payload,
     }
-    const eventKey = `${envelope.eventType}:${envelope.state}:${envelope.reasonCode || "none"}`
+    const eventKey = `${envelope.eventType}:${envelope.state}:${envelope.reasonCode || "none"}:${envelope.liveSessionId || "none"}`
     if (eventKey === lastConversationEventRef.current) {
       return
     }
@@ -3936,7 +3975,8 @@ export function SlickChatInput({
               if (conversationSessionActiveRef.current) {
                 const committed = await sendConversationTranscriptTurn(
                   realtimeTranscript,
-                  realtimeRuntimeMetadata
+                  realtimeRuntimeMetadata,
+                  runtimeSession.conversationId
                 )
                 if (committed) {
                   setMessage("")
@@ -4073,7 +4113,8 @@ export function SlickChatInput({
             if (conversationSessionActiveRef.current) {
               const committed = await sendConversationTranscriptTurn(
                 transcript,
-                runtimeMetadata
+                runtimeMetadata,
+                runtimeSession.conversationId
               )
               if (committed) {
                 setMessage("")
@@ -4391,23 +4432,23 @@ export function SlickChatInput({
       }
 
       let controller: VoiceCaptureController | null = null
-      controller = await startScriptProcessorCapture()
-      if (controller?.method === "pcm_script_processor") {
+      controller = await startWorkletCapture()
+      if (controller?.method === "pcm_audio_worklet") {
         rememberCaptureMethodAttempt(controller.method)
       }
-      if (!controller && workletSupported) {
-        if (scriptProcessorSupported) {
-          console.warn("[VoiceRuntime] web_audio_capture_script_primary_start_failed_worklet_retry", {
+      if (!controller && scriptProcessorSupported) {
+        if (workletSupported) {
+          console.warn("[VoiceRuntime] web_audio_capture_worklet_primary_start_failed_script_retry", {
             liveSessionId,
             voiceSessionId: openedVoiceSession.voiceSessionId,
           })
         }
-        controller = await startWorkletCapture()
-        if (controller?.method === "pcm_audio_worklet") {
+        controller = await startScriptProcessorCapture()
+        if (controller?.method === "pcm_script_processor") {
           rememberCaptureMethodAttempt(controller.method)
           realtimeIngestFailedReason =
             realtimeIngestFailedReason
-            || "pcm_script_processor_start_failed_audio_worklet_retry"
+            || "pcm_audio_worklet_start_failed_script_processor_retry"
         }
       }
       if (!controller) {
@@ -5195,11 +5236,28 @@ export function SlickChatInput({
 
   const sendConversationTranscriptTurn = async (
     transcript: string,
-    voiceRuntimeMetadata: AIChatVoiceRuntimeMetadata
+    voiceRuntimeMetadata: AIChatVoiceRuntimeMetadata,
+    conversationIdOverride?: Id<"aiConversations">
   ): Promise<boolean> => {
     const messageToSend = transcript.trim()
-    if (!messageToSend || isSendingRef.current) {
+    if (!messageToSend) {
       return false
+    }
+    if (isSendingRef.current) {
+      stopCurrentRequest()
+      const waitStartedAtMs = Date.now()
+      while (isSendingRef.current && Date.now() - waitStartedAtMs < 2200) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 40)
+        })
+      }
+      if (isSendingRef.current) {
+        notification.info(
+          "Voice Turn Deferred",
+          "Assistant is still responding. Please speak again in a moment."
+        )
+        return false
+      }
     }
     if (!isAIReady) {
       notification.error(
@@ -5213,6 +5271,10 @@ export function SlickChatInput({
     setIsSending(true)
     abortController.current = new AbortController()
     try {
+      const targetConversationId = conversationIdOverride ?? currentConversationId
+      if (targetConversationId && String(targetConversationId) !== String(currentConversationId || "")) {
+        setCurrentConversationId(targetConversationId)
+      }
       const outboundMessage = buildDeterministicOutboundMessage({
         message: messageToSend,
         mode: composerMode,
@@ -5221,7 +5283,7 @@ export function SlickChatInput({
         imageAttachments: [],
       })
       const runtimeMetadata = buildConversationRuntimeMetadataEnvelope(voiceRuntimeMetadata)
-      const result = await chat.sendMessage(outboundMessage, currentConversationId, {
+      const result = await chat.sendMessage(outboundMessage, targetConversationId, {
         mode: composerMode,
         reasoningEffort,
         privacyMode: privateModeEnabled,

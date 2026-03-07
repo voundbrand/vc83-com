@@ -59,7 +59,7 @@ export const ENV = {
     process.env.EXPO_PUBLIC_AV_ATTESTATION_SECRET ||
     'local_dev_av_attestation_secret_v1',
   VOICE_TRANSPORT_MODE:
-    process.env.EXPO_PUBLIC_VOICE_TRANSPORT_MODE || 'chunked_fallback',
+    process.env.EXPO_PUBLIC_VOICE_TRANSPORT_MODE || 'websocket',
   VOICE_WEBSOCKET_URL: process.env.EXPO_PUBLIC_VOICE_WEBSOCKET_URL || '',
   VOICE_CHAOS_ENABLED: process.env.EXPO_PUBLIC_VOICE_CHAOS_ENABLED === 'true',
   VOICE_CHAOS_DROP_EVERY_N: Number(process.env.EXPO_PUBLIC_VOICE_CHAOS_DROP_EVERY_N || 0),

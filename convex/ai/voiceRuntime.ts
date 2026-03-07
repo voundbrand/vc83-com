@@ -223,6 +223,18 @@ const AMBIENT_TRANSCRIPT_NON_SPEECH_TERMS = [
   "background",
   "humming",
   "buzzing",
+  "click",
+  "clicking",
+  "jingle",
+  "outro",
+  "intro",
+  "beep",
+  "beeping",
+  "chime",
+  "ringing",
+  "ringtone",
+  "tone",
+  "ding",
   "static",
   "silence",
   "inaudible",
@@ -283,7 +295,13 @@ export function isLikelyAmbientTranscriptText(
   if (!descriptorBody) {
     return true;
   }
-  return containsAmbientTerm(descriptorBody, AMBIENT_TRANSCRIPT_NON_SPEECH_TERMS);
+  if (containsAmbientTerm(descriptorBody, AMBIENT_TRANSCRIPT_NON_SPEECH_TERMS)) {
+    return true;
+  }
+  const descriptorWordCount = descriptorBody
+    .split(/\s+/)
+    .filter((segment) => segment.length > 0).length;
+  return descriptorWordCount <= 4;
 }
 
 function sanitizeTranscriptForVoiceTurn(value: unknown): string | null {
@@ -926,6 +944,96 @@ function decodeBase64Audio(payload: string): Uint8Array {
   return decodeBase64(base64Payload);
 }
 
+function parsePcmL16ContractFromMimeType(
+  mimeType: string,
+): { sampleRateHz: number; channels: number } | null {
+  const normalized = mimeType.trim().toLowerCase();
+  if (!normalized.startsWith("audio/l16")) {
+    return null;
+  }
+  const sampleRateMatch = normalized.match(/(?:^|[;,\s])rate=(\d+)/);
+  const channelsMatch = normalized.match(/(?:^|[;,\s])channels=(\d+)/);
+  const sampleRateHz = sampleRateMatch
+    ? Math.max(8000, Math.floor(Number(sampleRateMatch[1] ?? "24000")))
+    : 24_000;
+  const channels = channelsMatch
+    ? Math.max(1, Math.floor(Number(channelsMatch[1] ?? "1")))
+    : 1;
+  if (!Number.isFinite(sampleRateHz) || !Number.isFinite(channels)) {
+    return null;
+  }
+  return { sampleRateHz, channels };
+}
+
+function encodePcm16MonoWav(args: {
+  audioBytes: Uint8Array;
+  sampleRateHz: number;
+}): Uint8Array {
+  const dataByteLength = Math.max(0, args.audioBytes.byteLength);
+  const bytesPerSample = 2;
+  const channels = 1;
+  const blockAlign = channels * bytesPerSample;
+  const byteRate = args.sampleRateHz * blockAlign;
+  const wavBuffer = new ArrayBuffer(44 + dataByteLength);
+  const view = new DataView(wavBuffer);
+  const wavBytes = new Uint8Array(wavBuffer);
+
+  const writeAscii = (offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) {
+      view.setUint8(offset + index, text.charCodeAt(index));
+    }
+  };
+
+  writeAscii(0, "RIFF");
+  view.setUint32(4, 36 + dataByteLength, true);
+  writeAscii(8, "WAVE");
+  writeAscii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, args.sampleRateHz, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, "data");
+  view.setUint32(40, dataByteLength, true);
+  wavBytes.set(args.audioBytes, 44);
+  return wavBytes;
+}
+
+function normalizeRealtimeTranscriptionInput(args: {
+  audioBytes: Uint8Array;
+  mimeType: string;
+}): {
+  audioBytes: Uint8Array;
+  mimeType: string;
+  transcodedFromPcmL16: boolean;
+} {
+  const pcmContract = parsePcmL16ContractFromMimeType(args.mimeType);
+  if (!pcmContract || pcmContract.channels !== 1) {
+    return {
+      audioBytes: args.audioBytes,
+      mimeType: args.mimeType,
+      transcodedFromPcmL16: false,
+    };
+  }
+  if (args.audioBytes.byteLength === 0 || args.audioBytes.byteLength % 2 !== 0) {
+    return {
+      audioBytes: args.audioBytes,
+      mimeType: args.mimeType,
+      transcodedFromPcmL16: false,
+    };
+  }
+  return {
+    audioBytes: encodePcm16MonoWav({
+      audioBytes: args.audioBytes,
+      sampleRateHz: pcmContract.sampleRateHz,
+    }),
+    mimeType: "audio/wav",
+    transcodedFromPcmL16: true,
+  };
+}
+
 const FIXED_PCM_SAMPLE_RATE_HZ = 24_000;
 const FIXED_PCM_FRAME_DURATION_MS = 20;
 const FIXED_PCM_FRAME_BYTES = 960;
@@ -959,6 +1067,110 @@ type VoiceTransportSequenceDecision =
   | "accepted"
   | "duplicate_replay"
   | "gap_detected";
+
+export const VOICE_RELAY_QOS_CONTRACT_VERSION =
+  "voice_relay_qos_v1" as const;
+export const VOICE_RELAY_HEARTBEAT_CONTRACT_VERSION =
+  "voice_relay_heartbeat_v1" as const;
+
+export type VoiceRelayHeartbeatStatus =
+  | "acknowledged"
+  | "missing";
+
+export type VoiceRelayQosReasonCode =
+  | "relay_healthy"
+  | "relay_gap_detected"
+  | "relay_duplicate_replay"
+  | "relay_error";
+
+export interface VoiceRelayQosSnapshot {
+  contractVersion: typeof VOICE_RELAY_QOS_CONTRACT_VERSION;
+  observedAtMs: number;
+  healthy: boolean;
+  reasonCode: VoiceRelayQosReasonCode;
+  heartbeat: {
+    contractVersion: typeof VOICE_RELAY_HEARTBEAT_CONTRACT_VERSION;
+    status: VoiceRelayHeartbeatStatus;
+    expectedSequence: number;
+    ackSequence?: number;
+    acknowledgedAtMs?: number;
+  };
+  qos: {
+    orderingDecision: VoiceTransportSequenceDecision;
+    relayEventCount: number;
+    idempotentReplay: boolean;
+    persistedFinalTranscript: boolean;
+  };
+}
+
+export function resolveVoiceRelayQosSnapshot(args: {
+  nowMs: number;
+  sequence: number;
+  expectedSequence: number;
+  sequenceDecision: VoiceTransportSequenceDecision;
+  idempotentReplay: boolean;
+  relayEventCount: number;
+  relayErrorMessage?: string | null;
+  persistedFinalTranscript: boolean;
+  lastAcceptedSequence: number | null;
+}): VoiceRelayQosSnapshot {
+  const normalizedNowMs = Math.max(0, Math.floor(args.nowMs));
+  const normalizedSequence = Math.max(0, Math.floor(args.sequence));
+  const normalizedExpectedSequence = Math.max(
+    0,
+    Math.floor(args.expectedSequence),
+  );
+  const normalizedRelayEventCount = Math.max(
+    0,
+    Math.floor(args.relayEventCount),
+  );
+  const relayErrorMessage = normalizeString(args.relayErrorMessage);
+
+  let reasonCode: VoiceRelayQosReasonCode = "relay_healthy";
+  if (args.sequenceDecision === "gap_detected") {
+    reasonCode = "relay_gap_detected";
+  } else if (
+    args.sequenceDecision === "duplicate_replay"
+    || args.idempotentReplay
+  ) {
+    reasonCode = "relay_duplicate_replay";
+  }
+  if (relayErrorMessage) {
+    reasonCode = "relay_error";
+  }
+
+  const heartbeatStatus: VoiceRelayHeartbeatStatus =
+    args.sequenceDecision === "gap_detected"
+      ? "missing"
+      : "acknowledged";
+
+  const ackSequence = heartbeatStatus === "acknowledged"
+    ? normalizedSequence
+    : typeof args.lastAcceptedSequence === "number"
+      ? Math.max(0, Math.floor(args.lastAcceptedSequence))
+      : undefined;
+
+  return {
+    contractVersion: VOICE_RELAY_QOS_CONTRACT_VERSION,
+    observedAtMs: normalizedNowMs,
+    healthy: reasonCode === "relay_healthy" || reasonCode === "relay_duplicate_replay",
+    reasonCode,
+    heartbeat: {
+      contractVersion: VOICE_RELAY_HEARTBEAT_CONTRACT_VERSION,
+      status: heartbeatStatus,
+      expectedSequence: normalizedExpectedSequence,
+      ackSequence,
+      acknowledgedAtMs:
+        heartbeatStatus === "acknowledged" ? normalizedNowMs : undefined,
+    },
+    qos: {
+      orderingDecision: args.sequenceDecision,
+      relayEventCount: normalizedRelayEventCount,
+      idempotentReplay: args.idempotentReplay,
+      persistedFinalTranscript: args.persistedFinalTranscript,
+    },
+  };
+}
 
 interface VoiceTransportAcceptedReplaySnapshot {
   relayEvents: VoiceTransportEnvelopeContract[];
@@ -2099,11 +2311,17 @@ async function transcribeWithRealtimeSttPrecedence(args: {
 }): Promise<RealtimeSttTranscriptionResult> {
   const normalizedMimeType = normalizeTranscriptionMimeType(args.mimeType)
     ?? "audio/wav";
+  const normalizedInput = normalizeRealtimeTranscriptionInput({
+    audioBytes: args.audioBytes,
+    mimeType: normalizedMimeType,
+  });
+  const transcriptionMimeType = normalizedInput.mimeType;
+  const transcriptionAudioBytes = normalizedInput.audioBytes;
   try {
     const primaryTranscription = await args.resolvedAdapter.adapter.transcribe({
       voiceSessionId: args.voiceSessionId,
-      audioBytes: args.audioBytes,
-      mimeType: normalizedMimeType,
+      audioBytes: transcriptionAudioBytes,
+      mimeType: transcriptionMimeType,
       language: normalizeString(args.language) ?? undefined,
     });
     return {
@@ -2120,17 +2338,21 @@ async function transcribeWithRealtimeSttPrecedence(args: {
                 : {}),
               sttRoute: VOICE_REALTIME_STT_PRIMARY_ROUTE,
               sttProvider: "elevenlabs",
+              sttInputMimeType: transcriptionMimeType,
+              sttInputTranscodedFromPcmL16: normalizedInput.transcodedFromPcmL16,
             },
           }
         : {
             nativeUsageUnit: "requests",
             nativeUsageQuantity: 1,
-            nativeInputUnits: args.audioBytes.byteLength,
-            nativeTotalUnits: args.audioBytes.byteLength,
+            nativeInputUnits: transcriptionAudioBytes.byteLength,
+            nativeTotalUnits: transcriptionAudioBytes.byteLength,
             nativeCostSource: "not_available",
             metadata: {
               sttRoute: VOICE_REALTIME_STT_PRIMARY_ROUTE,
               sttProvider: "elevenlabs",
+              sttInputMimeType: transcriptionMimeType,
+              sttInputTranscodedFromPcmL16: normalizedInput.transcodedFromPcmL16,
             },
           },
     };
@@ -2151,8 +2373,8 @@ async function transcribeWithRealtimeSttPrecedence(args: {
       return await transcribeWithGeminiNativeAudioFailover({
         voiceSessionId: args.voiceSessionId,
         binding: args.geminiBinding,
-        audioBytes: args.audioBytes,
-        mimeType: normalizedMimeType,
+        audioBytes: transcriptionAudioBytes,
+        mimeType: transcriptionMimeType,
         language: args.language,
       });
     } catch (failoverError) {
@@ -4258,6 +4480,21 @@ export const ingestVoiceTransportEnvelope = action({
       };
     }
 
+    const relayQos = resolveVoiceRelayQosSnapshot({
+      nowMs: Date.now(),
+      sequence: envelope.sequence,
+      expectedSequence: sequenceDecision.expectedSequence,
+      sequenceDecision: sequenceDecision.decision,
+      idempotentReplay: writeIdempotentReplay,
+      relayEventCount: relayEvents.length,
+      relayErrorMessage,
+      persistedFinalTranscript,
+      lastAcceptedSequence:
+        sequenceDecision.decision === "accepted" || writeIdempotentReplay
+          ? envelope.sequence
+          : ingestCheckpoint.lastAcceptedSequence,
+    });
+
     const response = {
       success: sequenceDecision.decision !== "gap_detected",
       ordering: {
@@ -4268,6 +4505,7 @@ export const ingestVoiceTransportEnvelope = action({
       idempotent: writeIdempotentReplay,
       persistedFinalTranscript,
       relayEvents,
+      relay: relayQos,
       orchestration: {
         ...turnOrchestrationDecision,
         turn: realtimeTurn,
@@ -4285,6 +4523,8 @@ export const ingestVoiceTransportEnvelope = action({
       sequence: envelope.sequence,
       orderingDecision: sequenceDecision.decision,
       relayEventCount: relayEvents.length,
+      relayQosReasonCode: relayQos.reasonCode,
+      relayHeartbeatStatus: relayQos.heartbeat.status,
       persistedFinalTranscript,
       orchestrationStatus: realtimeTurn?.status ?? "none",
       orchestrationReason: turnOrchestrationDecision.reason,

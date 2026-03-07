@@ -79,12 +79,23 @@ export function mergeTranscriptFrame(
 export function resolveFrameStreamingPolicy(args: {
   transportMode: EffectiveVoiceTransportMode;
   isRealtimeConnected: boolean;
+  isRealtimeRelayHealthy?: boolean;
   isFinalFrame: boolean;
 }) {
-  if (args.transportMode === 'websocket' && args.isRealtimeConnected) {
+  const websocketRealtimeRelayHealthy =
+    args.transportMode === 'websocket'
+    && args.isRealtimeConnected
+    && (args.isRealtimeRelayHealthy ?? true);
+  if (websocketRealtimeRelayHealthy) {
     return {
       shouldSendRealtimeEnvelope: true,
-      shouldUseHttpTranscription: args.isFinalFrame,
+      shouldUseHttpTranscription: false,
+    };
+  }
+  if (args.transportMode === 'websocket') {
+    return {
+      shouldSendRealtimeEnvelope: false,
+      shouldUseHttpTranscription: true,
     };
   }
   if (args.transportMode === 'webrtc') {

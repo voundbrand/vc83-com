@@ -5,6 +5,18 @@ const NON_SPEECH_TERMS = [
   'background',
   'humming',
   'buzzing',
+  'click',
+  'clicking',
+  'jingle',
+  'outro',
+  'intro',
+  'beep',
+  'beeping',
+  'chime',
+  'ringing',
+  'ringtone',
+  'tone',
+  'ding',
   'static',
   'silence',
   'inaudible',
@@ -73,7 +85,13 @@ export function isLikelyAmbientTranscript(value: string | null | undefined): boo
   if (!descriptorBody) {
     return true;
   }
-  return containsAnyTerm(descriptorBody, NON_SPEECH_TERMS);
+  if (containsAnyTerm(descriptorBody, NON_SPEECH_TERMS)) {
+    return true;
+  }
+  const descriptorWordCount = descriptorBody
+    .split(/\s+/)
+    .filter((segment) => segment.length > 0).length;
+  return descriptorWordCount <= 4;
 }
 
 export function sanitizeTranscriptForVoiceTurn(value: string | null | undefined): string | null {

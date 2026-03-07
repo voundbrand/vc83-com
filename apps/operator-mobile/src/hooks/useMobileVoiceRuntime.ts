@@ -8,6 +8,8 @@ import {
   buildVoiceTransportRuntime,
   downgradeVoiceTransportSelection,
   resolveVoiceTransportSelection,
+  resolveVoiceTransportDegradationState,
+  type VoiceTransportDegradationState,
   type VoiceTransportSelection,
 } from '../lib/voice/transport';
 import {
@@ -29,6 +31,11 @@ import {
   isVoiceCompatibleWithLanguage,
   normalizeVoiceLanguageCode,
 } from '../lib/voice/catalogLanguage';
+import {
+  evaluateMobileRealtimeRelayHealth,
+  type MobileRealtimeRelayHealth,
+  type MobileRealtimeRelayServerQosSnapshot,
+} from '../lib/voice/realtimeHealth';
 
 type VoiceProviderId = 'browser' | 'elevenlabs';
 type ResolvedVoiceIdSource =
@@ -107,6 +114,28 @@ type FrameTranscriptionGateDecision = {
   minDurationMs: number;
   durationGateBypassed?: boolean;
 };
+
+const MOBILE_VOICE_RELAY_SERVER_MONITORING_CONTRACT_VERSION =
+  'mobile_voice_relay_server_monitoring_v1' as const;
+
+type MobileVoiceRelayServerMonitoringSnapshot = {
+  monitoringContractVersion: typeof MOBILE_VOICE_RELAY_SERVER_MONITORING_CONTRACT_VERSION;
+  missingPayloadCount: number;
+  qosContractMismatchCount: number;
+  heartbeatContractMismatchCount: number;
+  lastMissingPayloadAtMs?: number;
+  lastQosContractMismatchAtMs?: number;
+  lastHeartbeatContractMismatchAtMs?: number;
+};
+
+function buildInitialRelayServerMonitoringSnapshot(): MobileVoiceRelayServerMonitoringSnapshot {
+  return {
+    monitoringContractVersion: MOBILE_VOICE_RELAY_SERVER_MONITORING_CONTRACT_VERSION,
+    missingPayloadCount: 0,
+    qosContractMismatchCount: 0,
+    heartbeatContractMismatchCount: 0,
+  };
+}
 
 function isLikelyBackendConversationId(value: string | null | undefined): value is string {
   if (typeof value !== 'string') {
@@ -315,6 +344,96 @@ function estimateBase64ByteLength(base64Payload: string): number {
   return Math.max(0, Math.floor((sanitized.length * 3) / 4) - paddingChars);
 }
 
+function parseServerRelayQosSnapshot(
+  value: unknown
+): MobileRealtimeRelayServerQosSnapshot | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const parsed = value as {
+    contractVersion?: unknown;
+    observedAtMs?: unknown;
+    healthy?: unknown;
+    reasonCode?: unknown;
+    heartbeat?: {
+      contractVersion?: unknown;
+      status?: unknown;
+      expectedSequence?: unknown;
+      ackSequence?: unknown;
+      acknowledgedAtMs?: unknown;
+    };
+    qos?: {
+      orderingDecision?: unknown;
+      relayEventCount?: unknown;
+      idempotentReplay?: unknown;
+      persistedFinalTranscript?: unknown;
+    };
+  };
+  const heartbeatStatus = parsed.heartbeat?.status;
+  if (heartbeatStatus !== 'acknowledged' && heartbeatStatus !== 'missing') {
+    return undefined;
+  }
+  const observedAtMs = Number(parsed.observedAtMs);
+  const expectedSequence = Number(parsed.heartbeat?.expectedSequence);
+  if (
+    !Number.isFinite(observedAtMs)
+    || observedAtMs < 0
+    || !Number.isFinite(expectedSequence)
+    || expectedSequence < 0
+  ) {
+    return undefined;
+  }
+  const ackSequence = Number(parsed.heartbeat?.ackSequence);
+  const acknowledgedAtMs = Number(parsed.heartbeat?.acknowledgedAtMs);
+  const relayEventCount = Number(parsed.qos?.relayEventCount);
+  return {
+    contractVersion:
+      typeof parsed.contractVersion === 'string' && parsed.contractVersion.trim().length > 0
+        ? parsed.contractVersion.trim()
+        : 'missing',
+    observedAtMs: Math.floor(observedAtMs),
+    healthy: parsed.healthy === true,
+    reasonCode:
+      typeof parsed.reasonCode === 'string' && parsed.reasonCode.trim().length > 0
+        ? parsed.reasonCode.trim()
+        : 'relay_unknown',
+    heartbeat: {
+      contractVersion:
+        typeof parsed.heartbeat?.contractVersion === 'string'
+          ? parsed.heartbeat.contractVersion.trim()
+          : undefined,
+      status: heartbeatStatus,
+      expectedSequence: Math.max(0, Math.floor(expectedSequence)),
+      ackSequence:
+        Number.isFinite(ackSequence) && ackSequence >= 0
+          ? Math.floor(ackSequence)
+          : undefined,
+      acknowledgedAtMs:
+        Number.isFinite(acknowledgedAtMs) && acknowledgedAtMs >= 0
+          ? Math.floor(acknowledgedAtMs)
+          : undefined,
+    },
+    qos: {
+      orderingDecision:
+        typeof parsed.qos?.orderingDecision === 'string'
+          ? parsed.qos.orderingDecision
+          : undefined,
+      relayEventCount:
+        Number.isFinite(relayEventCount) && relayEventCount >= 0
+          ? Math.floor(relayEventCount)
+          : undefined,
+      idempotentReplay: parsed.qos?.idempotentReplay === true,
+      persistedFinalTranscript: parsed.qos?.persistedFinalTranscript === true,
+    },
+  };
+}
+
+const MOBILE_VOICE_REALTIME_RELAY_ACK_STALE_MS = 2_500;
+const MOBILE_VOICE_REALTIME_RELAY_ACK_GRACE_MS = 3_000;
+const MOBILE_VOICE_REALTIME_RELAY_MAX_CONSECUTIVE_FAILURES = 2;
+const MOBILE_VOICE_REALTIME_SERVER_QOS_GRACE_MS = 3_500;
+const MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALE_MS = 5_000;
+
 function isNoTranscriptTextMessage(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -503,6 +622,11 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   );
   const [partialTranscript, setPartialTranscript] = useState('');
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [realtimeRelayHealth, setRealtimeRelayHealth] = useState<MobileRealtimeRelayHealth>(() =>
+    evaluateMobileRealtimeRelayHealth({
+      isSocketConnected: false,
+    })
+  );
   const [isSessionOpening, setIsSessionOpening] = useState(false);
   const [lastSessionErrorReason, setLastSessionErrorReason] = useState<string | undefined>(undefined);
   const activeSessionRef = useRef<ActiveVoiceSession | null>(null);
@@ -514,6 +638,19 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const transcriptFramesRef = useRef<Map<number, string>>(new Map());
   const transcriptIngestSequenceRef = useRef(0);
   const partialTranscriptRef = useRef('');
+  const lastRealtimeIngestAttemptAtMsRef = useRef<number | undefined>(undefined);
+  const lastRealtimeIngestAckAtMsRef = useRef<number | undefined>(undefined);
+  const consecutiveRealtimeIngestFailuresRef = useRef(0);
+  const latestServerRelayQosRef = useRef<MobileRealtimeRelayServerQosSnapshot | undefined>(
+    undefined
+  );
+  const lastRelayHealthReasonCodeRef = useRef<string | undefined>(undefined);
+  const relayServerMonitoringRef = useRef<MobileVoiceRelayServerMonitoringSnapshot>(
+    buildInitialRelayServerMonitoringSnapshot()
+  );
+  const [relayServerMonitoring, setRelayServerMonitoring] = useState<
+    MobileVoiceRelayServerMonitoringSnapshot
+  >(() => buildInitialRelayServerMonitoringSnapshot());
   const resolvedRequestedVoiceIdRef = useRef<string | undefined>(
     initialRequestedVoiceId ?? initialEnvVoiceId
   );
@@ -579,6 +716,69 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     });
   }, [normalizedConfiguredLanguage, normalizedRequestedVoiceId]);
 
+  const captureRealtimeRelayHealth = useCallback((overrideSocketConnected?: boolean) => {
+    const snapshot = evaluateMobileRealtimeRelayHealth({
+      isSocketConnected:
+        typeof overrideSocketConnected === 'boolean'
+          ? overrideSocketConnected
+          : isRealtimeConnected,
+      lastIngestAttemptAtMs: lastRealtimeIngestAttemptAtMsRef.current,
+      lastIngestAckAtMs: lastRealtimeIngestAckAtMsRef.current,
+      consecutiveIngestFailures: consecutiveRealtimeIngestFailuresRef.current,
+      ackStaleMs: MOBILE_VOICE_REALTIME_RELAY_ACK_STALE_MS,
+      ingestAckGraceMs: MOBILE_VOICE_REALTIME_RELAY_ACK_GRACE_MS,
+      maxConsecutiveFailures: MOBILE_VOICE_REALTIME_RELAY_MAX_CONSECUTIVE_FAILURES,
+      serverRelayQos: latestServerRelayQosRef.current,
+      serverQosGraceMs: MOBILE_VOICE_REALTIME_SERVER_QOS_GRACE_MS,
+      serverHeartbeatStaleMs: MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALE_MS,
+    });
+    const previousReasonCode = lastRelayHealthReasonCodeRef.current;
+    const transitionedReasonCode = previousReasonCode !== snapshot.reasonCode;
+    if (transitionedReasonCode) {
+      lastRelayHealthReasonCodeRef.current = snapshot.reasonCode;
+      let monitoringChanged = false;
+      const nextMonitoring = { ...relayServerMonitoringRef.current };
+      if (snapshot.reasonCode === 'relay_server_qos_missing') {
+        nextMonitoring.missingPayloadCount += 1;
+        nextMonitoring.lastMissingPayloadAtMs = snapshot.evaluatedAtMs;
+        monitoringChanged = true;
+      } else if (snapshot.reasonCode === 'relay_server_qos_contract_mismatch') {
+        nextMonitoring.qosContractMismatchCount += 1;
+        nextMonitoring.lastQosContractMismatchAtMs = snapshot.evaluatedAtMs;
+        monitoringChanged = true;
+      } else if (snapshot.reasonCode === 'relay_server_heartbeat_contract_mismatch') {
+        nextMonitoring.heartbeatContractMismatchCount += 1;
+        nextMonitoring.lastHeartbeatContractMismatchAtMs = snapshot.evaluatedAtMs;
+        monitoringChanged = true;
+      }
+      if (monitoringChanged) {
+        relayServerMonitoringRef.current = nextMonitoring;
+        setRelayServerMonitoring(nextMonitoring);
+        emitVoiceTelemetry('relay_server_contract_monitoring_checkpoint', {
+          reasonCode: snapshot.reasonCode,
+          serverRelayReasonCode: snapshot.serverRelayReasonCode,
+          serverRelayContractVersionStatus: snapshot.serverRelayContractVersionStatus,
+          serverRelayHeartbeatContractVersionStatus:
+            snapshot.serverRelayHeartbeatContractVersionStatus,
+          missingPayloadCount: nextMonitoring.missingPayloadCount,
+          qosContractMismatchCount: nextMonitoring.qosContractMismatchCount,
+          heartbeatContractMismatchCount:
+            nextMonitoring.heartbeatContractMismatchCount,
+        });
+      }
+    }
+    setRealtimeRelayHealth(snapshot);
+    return snapshot;
+  }, [isRealtimeConnected]);
+
+  const captureServerRelayQosFromIngestResult = useCallback((
+    relayPayload: unknown,
+    overrideSocketConnected?: boolean
+  ) => {
+    latestServerRelayQosRef.current = parseServerRelayQosSnapshot(relayPayload);
+    return captureRealtimeRelayHealth(overrideSocketConnected);
+  }, [captureRealtimeRelayHealth]);
+
   const applyTransportDowngrade = useCallback(
     (
       reason:
@@ -595,8 +795,9 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         })
       );
       setIsRealtimeConnected(false);
+      captureRealtimeRelayHealth(false);
     },
-    []
+    [captureRealtimeRelayHealth]
   );
 
   const connectWebsocket = useCallback((session: ActiveVoiceSession) => {
@@ -625,6 +826,8 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       websocketRef.current = socket;
       socket.onopen = () => {
         setIsRealtimeConnected(true);
+        consecutiveRealtimeIngestFailuresRef.current = 0;
+        captureRealtimeRelayHealth(true);
         socket.send(
           JSON.stringify({
             type: 'voice_session_open',
@@ -637,6 +840,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       socket.onclose = () => {
         websocketRef.current = null;
         setIsRealtimeConnected(false);
+        captureRealtimeRelayHealth(false);
         if (!intentionalSocketCloseRef.current) {
           applyTransportDowngrade('websocket_closed');
         }
@@ -644,6 +848,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       socket.onerror = () => {
         websocketRef.current = null;
         setIsRealtimeConnected(false);
+        captureRealtimeRelayHealth(false);
         if (!intentionalSocketCloseRef.current) {
           applyTransportDowngrade('websocket_runtime_error');
         }
@@ -659,11 +864,17 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
           if (payload.type === 'partial_transcript' && typeof payload.partialTranscript === 'string') {
             setPartialTranscript(payload.partialTranscript);
             partialTranscriptRef.current = payload.partialTranscript;
+            lastRealtimeIngestAckAtMsRef.current = Date.now();
+            consecutiveRealtimeIngestFailuresRef.current = 0;
+            captureRealtimeRelayHealth(true);
             return;
           }
           if (payload.eventType === 'partial_transcript' && typeof payload.transcriptText === 'string') {
             setPartialTranscript(payload.transcriptText);
             partialTranscriptRef.current = payload.transcriptText;
+            lastRealtimeIngestAckAtMsRef.current = Date.now();
+            consecutiveRealtimeIngestFailuresRef.current = 0;
+            captureRealtimeRelayHealth(true);
           }
         } catch {
           // Ignore malformed transport payloads.
@@ -673,7 +884,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       console.warn('Voice websocket setup failed:', error);
       applyTransportDowngrade('websocket_connect_failed');
     }
-  }, [applyTransportDowngrade]);
+  }, [applyTransportDowngrade, captureRealtimeRelayHealth]);
 
   const disconnectRealtime = useCallback(() => {
     const socket = websocketRef.current;
@@ -683,7 +894,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       socket.close();
     }
     setIsRealtimeConnected(false);
-  }, []);
+    captureRealtimeRelayHealth(false);
+  }, [captureRealtimeRelayHealth]);
+
+  useEffect(() => {
+    captureRealtimeRelayHealth();
+  }, [captureRealtimeRelayHealth]);
 
   const abortInFlightSynthesizeRequest = useCallback((reason: string) => {
     const controller = synthAbortControllerRef.current;
@@ -973,6 +1189,11 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         };
         sessionOpenCooldownUntilRef.current = 0;
         transcriptIngestSequenceRef.current = 0;
+        lastRealtimeIngestAttemptAtMsRef.current = undefined;
+        lastRealtimeIngestAckAtMsRef.current = undefined;
+        consecutiveRealtimeIngestFailuresRef.current = 0;
+        latestServerRelayQosRef.current = undefined;
+        captureRealtimeRelayHealth(false);
         activeSessionRef.current = nextSession;
         connectWebsocket(nextSession);
         return nextSession;
@@ -1009,6 +1230,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     args.sourceRuntime?.sourceClass,
     args.sourceRuntime?.sourceId,
     args.sourceRuntime?.sourceScope,
+    captureRealtimeRelayHealth,
     connectWebsocket,
     resolveRequestedVoiceId,
     transportSelection.effectiveMode,
@@ -1031,6 +1253,11 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     partialTranscriptRef.current = '';
     transcriptFramesRef.current.clear();
     transcriptIngestSequenceRef.current = 0;
+    lastRealtimeIngestAttemptAtMsRef.current = undefined;
+    lastRealtimeIngestAckAtMsRef.current = undefined;
+    consecutiveRealtimeIngestFailuresRef.current = 0;
+    latestServerRelayQosRef.current = undefined;
+    captureRealtimeRelayHealth(false);
     await stopPlayback();
     try {
       await setAudioModeAsync({
@@ -1063,7 +1290,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  }, [disconnectRealtime, stopPlayback]);
+  }, [captureRealtimeRelayHealth, disconnectRealtime, stopPlayback]);
 
   const transcribeRecording = useCallback(async (transcribeArgs: TranscribeArgs) => {
     const active = await openSession();
@@ -1214,18 +1441,21 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
           mimeType: normalizedMimeType,
           durationGateBypassed: Boolean(gate.durationGateBypassed),
         });
+        const relayHealthAtDecision = captureRealtimeRelayHealth();
         const policy = resolveFrameStreamingPolicy({
           transportMode: transportSelection.effectiveMode,
           isRealtimeConnected,
+          isRealtimeRelayHealthy: relayHealthAtDecision.healthy,
           isFinalFrame: Boolean(queueFrameArgs.isFinal),
         });
         if (!policy.shouldSendRealtimeEnvelope) {
           console.info(
-            `[VoiceFrame] ingest deferred seq=${queueFrameArgs.sequence} mode=${transportSelection.effectiveMode} realtime=${isRealtimeConnected}`
+            `[VoiceFrame] ingest deferred seq=${queueFrameArgs.sequence} mode=${transportSelection.effectiveMode} realtime=${isRealtimeConnected} relayHealthy=${relayHealthAtDecision.healthy} relayReason=${relayHealthAtDecision.reasonCode}`
           );
         }
 
         let realtimeIngestResult: StreamFrameIngestResult | null = null;
+        let forceHttpTranscription = false;
         const liveSessionId = args.liveSessionId || `mobile_live_${active.voiceSessionId}`;
         const ingestEnvelope = async (envelope: Record<string, unknown>) => {
           return await l4yercak3Client.ai.voice.ingestVoiceFrame({
@@ -1270,16 +1500,31 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
             console.info(
               `[VoiceFrame] ingest start seq=${queueFrameArgs.sequence} mode=${transportSelection.effectiveMode}`
             );
+            lastRealtimeIngestAttemptAtMsRef.current = Date.now();
+            captureRealtimeRelayHealth(true);
             ingestResult = await ingestEnvelope(envelope);
+            lastRealtimeIngestAckAtMsRef.current = Date.now();
+            consecutiveRealtimeIngestFailuresRef.current = 0;
+            captureServerRelayQosFromIngestResult(
+              (ingestResult as { relay?: unknown })?.relay,
+              true
+            );
           } catch (error) {
             const message = error instanceof Error ? error.message : 'voice_frame_ingest_failed';
+            consecutiveRealtimeIngestFailuresRef.current += 1;
+            captureRealtimeRelayHealth(true);
             if (isRecoverableFrameTranscriptionMessage(message)) {
               console.warn(
                 `Skipping realtime frame seq=${queueFrameArgs.sequence} due to recoverable ingest error: ${message}`
               );
               ingestResult = { relayEvents: [], orchestration: undefined };
+              forceHttpTranscription = true;
             } else {
-              throw error;
+              console.warn(
+                `Realtime ingest failed seq=${queueFrameArgs.sequence}; falling back to HTTP transcription for this frame: ${message}`
+              );
+              ingestResult = { relayEvents: [], orchestration: undefined };
+              forceHttpTranscription = true;
             }
           }
           const relayEvents = Array.isArray(ingestResult.relayEvents)
@@ -1334,11 +1579,21 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
           };
         }
 
-        if (!policy.shouldUseHttpTranscription) {
+        const shouldUseHttpTranscription =
+          policy.shouldUseHttpTranscription || forceHttpTranscription;
+        if (!shouldUseHttpTranscription) {
           return realtimeIngestResult ?? {
             sequence: queueFrameArgs.sequence,
             relayEventCount: 0,
           };
+        }
+        if (forceHttpTranscription) {
+          emitVoiceTelemetry('frame_transcribe_fallback_from_realtime', {
+            voiceSessionId: active.voiceSessionId,
+            sequence: queueFrameArgs.sequence,
+            relayHealthReasonCode: captureRealtimeRelayHealth(true).reasonCode,
+            consecutiveRealtimeIngestFailures: consecutiveRealtimeIngestFailuresRef.current,
+          });
         }
 
         let transcribeResult;
@@ -1439,7 +1694,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
             queueFrameArgs.onPartial?.(merged);
           }
         }
-        if (!policy.shouldSendRealtimeEnvelope) {
+        if (!policy.shouldSendRealtimeEnvelope || forceHttpTranscription) {
           const transcriptText = (
             queueFrameArgs.isFinal
               ? (partialTranscriptRef.current || sanitizedTranscriptText || '').trim()
@@ -1478,6 +1733,10 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
                 transcriptLength: transcriptText.length,
               });
               const transcriptIngest = await ingestEnvelope(transcriptEnvelope);
+              captureServerRelayQosFromIngestResult(
+                (transcriptIngest as { relay?: unknown })?.relay,
+                true
+              );
               const relayEvents = Array.isArray(transcriptIngest.relayEvents)
                 ? transcriptIngest.relayEvents
                 : [];
@@ -1565,6 +1824,8 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     args.sourceRuntime?.providerId,
     args.sourceRuntime?.sourceClass,
     args.sourceRuntime?.sourceId,
+    captureServerRelayQosFromIngestResult,
+    captureRealtimeRelayHealth,
     isRealtimeConnected,
     openSession,
     resolveRequestedVoiceId,
@@ -1573,9 +1834,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     transportSelection.requestedMode,
   ]);
 
-  const synthesizeAndPlay = useCallback(async (text: string) => {
+  const synthesizeAndPlay = useCallback(async (text: string): Promise<{
+    playbackPath: 'provider_audio' | 'system_fallback' | 'none';
+    playbackStartedAtMs?: number;
+  }> => {
     if (!text.trim()) {
-      return;
+      return { playbackPath: 'none' };
     }
     const active = await openSession();
     const requestedVoiceId = await resolveRequestedVoiceId();
@@ -1607,7 +1871,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     } catch (error) {
       if (isAbortRequestError(error)) {
         emitVoiceTelemetry('tts_synthesize_request_aborted', { reason: 'request_aborted' });
-        return;
+        return { playbackPath: 'none' };
       }
       throw error;
     } finally {
@@ -1617,7 +1881,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
     if (synthController?.signal.aborted) {
       emitVoiceTelemetry('tts_synthesize_request_aborted', { reason: 'response_aborted' });
-      return;
+      return { playbackPath: 'none' };
     }
     console.info(
       `[VoiceTTS] synth result provider=${synthesis.providerId} hasAudio=${Boolean(
@@ -1634,16 +1898,20 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       try {
         await setPlaybackAudioMode();
         if (synthController?.signal.aborted) {
-          return;
+          return { playbackPath: 'none' };
         }
         player = createAudioPlayer({
           uri: `data:${synthesis.mimeType};base64,${synthesis.audioBase64}`,
         });
         player.volume = 1;
         playbackRef.current = player;
+        const playbackStartedAtMs = Date.now();
         await waitForAudioPlayerCompletion(player);
         console.info('[VoiceTTS] playback started provider_audio');
-        return;
+        return {
+          playbackPath: 'provider_audio',
+          playbackStartedAtMs,
+        };
       } catch (error) {
         console.warn('Provider audio playback failed, falling back to speech synthesis:', error);
       } finally {
@@ -1656,10 +1924,15 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
 
     const fallbackText = synthesis.fallbackText || text;
     if (synthController?.signal.aborted) {
-      return;
+      return { playbackPath: 'none' };
     }
+    const playbackStartedAtMs = Date.now();
     await speakWithSystemFallbackVoice(fallbackText);
     console.info('[VoiceTTS] playback started system_fallback');
+    return {
+      playbackPath: 'system_fallback',
+      playbackStartedAtMs,
+    };
   }, [args.requestedProviderId, openSession, resolveRequestedVoiceId, stopPlayback]);
 
   const transportRuntime = useMemo(() => {
@@ -1669,9 +1942,22 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       liveSessionId: args.liveSessionId,
       activeSession: active,
       isRealtimeConnected,
+      realtimeRelayHealth,
+      relayServerMonitoring,
       partialTranscript,
     });
-  }, [args.liveSessionId, isRealtimeConnected, partialTranscript, transportSelection]);
+  }, [
+    args.liveSessionId,
+    isRealtimeConnected,
+    partialTranscript,
+    realtimeRelayHealth,
+    relayServerMonitoring,
+    transportSelection,
+  ]);
+  const transportDegradation = useMemo<VoiceTransportDegradationState>(
+    () => resolveVoiceTransportDegradationState(transportSelection),
+    [transportSelection]
+  );
 
   const getActiveSession = useCallback(() => activeSessionRef.current, []);
   const clearPartialTranscript = useCallback((reason: string = 'manual') => {
@@ -1689,6 +1975,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     synthesizeAndPlay,
     stopPlayback,
     transportSelection,
+    transportDegradation,
     transportRuntime,
     partialTranscript,
     isSessionOpening,

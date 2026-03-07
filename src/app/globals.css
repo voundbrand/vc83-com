@@ -125,6 +125,14 @@
   --btn-accent-text: #ffffff;
   --btn-accent-hover: var(--color-accent-hover);
 
+  /* Store CTA — warm muted accent, moderate contrast for dark surfaces */
+  --store-cta-bg: color-mix(in srgb, var(--tone-accent) 52%, var(--tone-border-soft) 48%);
+  --store-cta-bg-hover: color-mix(in srgb, var(--tone-accent) 60%, var(--tone-border-soft) 40%);
+  --store-cta-text: color-mix(in srgb, var(--tone-text) 90%, var(--tone-accent) 10%);
+  --store-cta-border: var(--store-cta-bg);
+  --store-cta-outlined-border: color-mix(in srgb, var(--tone-accent) 38%, var(--tone-border-soft) 62%);
+  --store-cta-outlined-hover: color-mix(in srgb, var(--tone-accent) 8%, transparent 92%);
+
   --window-bg: #111111;
   --window-border: var(--color-border);
   --titlebar-bg: #0d0d0d;
@@ -408,6 +416,14 @@
   --btn-accent-bg: var(--color-accent);
   --btn-accent-text: #ffffff;
   --btn-accent-hover: var(--color-accent-hover);
+
+  /* Store CTA — warm muted accent, moderate contrast for sepia surfaces */
+  --store-cta-bg: color-mix(in srgb, var(--tone-accent) 62%, var(--tone-text) 38%);
+  --store-cta-bg-hover: color-mix(in srgb, var(--tone-accent) 55%, var(--tone-text) 45%);
+  --store-cta-text: color-mix(in srgb, #ffffff 92%, var(--tone-accent) 8%);
+  --store-cta-border: var(--store-cta-bg);
+  --store-cta-outlined-border: color-mix(in srgb, var(--tone-accent) 48%, var(--tone-text) 52%);
+  --store-cta-outlined-hover: color-mix(in srgb, var(--tone-accent) 5%, transparent 95%);
 
   --window-bg: #ffffff;
   --window-border: var(--color-border);

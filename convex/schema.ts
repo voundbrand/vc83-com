@@ -158,6 +158,9 @@ import {
   onboardingNurtureJourneys,
   onboardingSoulReports,
   onboardingSpecialistPreviewContracts,
+  onboardingPostCaptureDispatchRuns,
+  onboardingPostCaptureDispatchAttempts,
+  onboardingPostCaptureDispatchDeadLetters,
 } from "./schemas/webchatSchemas";
 import {
   betaActivationCodes,
@@ -425,6 +428,9 @@ export default defineSchema({
   onboardingNurtureJourneys, // Day 0-3 nurture lifecycle + first-win SLA state
   onboardingSoulReports,     // Day 3 data-backed soul report lifecycle
   onboardingSpecialistPreviewContracts, // Day 5 specialist preview timer contracts
+  onboardingPostCaptureDispatchRuns, // Samantha post-capture dispatcher run ledger
+  onboardingPostCaptureDispatchAttempts, // Samantha dispatcher leased attempt history
+  onboardingPostCaptureDispatchDeadLetters, // Samantha dispatcher terminal failure triage queue
 
   // 🎟️ BETA ONBOARDING: Access-code lifecycle and redemption audit trail
   betaActivationCodes,       // Admin-created beta activation codes

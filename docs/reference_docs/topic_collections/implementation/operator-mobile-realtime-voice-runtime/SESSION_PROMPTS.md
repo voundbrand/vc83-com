@@ -27,6 +27,7 @@ Queue:
 13. True live AV + multimodal agentic runtime work executes only in lane `K` after `ORV-030` and `ORV-035`; DAT-native production acceptance remains gated by `ORV-023` physical-device evidence.
 14. Web/desktop PCM corruption-remediation and realtime parity work executes only in lane `L` after `ORV-038`; do not claim DAT-native parity from lane `L` work alone.
 15. Mobile post-audit corrective work executes only in lane `M` after `ORV-044`; preserve ORV-010 through ORV-044 invariants, keep `/api/v1/ai/voice/*` compatibility, and do not modify `convex/ai/agentExecution.ts`.
+16. Mobile conversational UX acceleration executes only in lane `N` after `ORV-052`; preserve ORV-010 through ORV-052 invariants, keep `/api/v1/ai/voice/*` compatibility, and do not change `ORV-023` DAT-native gate status without physical-device artifacts.
 
 ---
 
@@ -276,3 +277,25 @@ Rules:
 10. Preserve ORV-010 through ORV-044 invariants, and do not edit `convex/ai/agentExecution.ts`.
 11. Run row `Verify` commands exactly, then stop when lane `M` has no promotable rows or blockers are documented.
 12. Current lane status (2026-03-05): `ORV-045` through `ORV-052` are `DONE`; lane `M` has no promotable rows; `ORV-023` remains `BLOCKED` and unchanged by lane `M` execution.
+
+---
+
+## Session N (Lane N: mobile conversational UX acceleration)
+
+You are Codex in `/Users/foundbrand_001/Development/vc83-com`.
+Execute only lane `N` rows from:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/TASK_QUEUE.md`
+
+Rules:
+
+1. Start with `ORV-053` and freeze `conversation_voice_live_ux_v1` contract targets before code changes.
+2. Enforce realtime-first transport behavior for voice mode and prevent silent fallback drift to `chunked_fallback`.
+3. Prioritize interruption responsiveness: optimize for sub-second user barge-in stop semantics and minimize perceived dead-air between turns.
+4. Reduce capture/turn segmentation latency while preserving sequence/idempotency safety in `voiceRuntime` ingest paths.
+5. Implement compact docked orb controls at composer bottom and avoid full-screen modal dominance during active conversation.
+6. Implement always-visible live transcript rail (`user_partial`, `assistant_partial`, finalized turns) with deterministic interruption markers.
+7. Preserve `conversation_interaction_v1` state/reason taxonomy and same-thread transcript continuity guarantees.
+8. Preserve ORV-010 through ORV-052 invariants and `/api/v1/ai/voice/*` compatibility.
+9. Do not alter `ORV-023` DAT-native blocker status or claim DAT-native `GO` without required physical-device evidence artifacts.
+10. Run row `Verify` commands exactly; lane-`N` rows touching latency evidence must include freshness checks (`mobile:voice-latency:evidence:check` and strict real gate when publishing canary evidence).
+11. Current lane status (2026-03-06): `ORV-053`, `ORV-054`, `ORV-055`, `ORV-056`, and `ORV-057` are `DONE` (including ORV-053 contract freeze, ORV-055 de-risk follow-up, ORV-056 server-backed relay QoS projection + docked mini-orb/transcript rail closeout + real-device p50/p95 evidence publication, and ORV-057 residual-risk monitors/freshness guard automation); strict real-network latency gate is `PASS` on latest evidence (`ios_real_device_network_field_canary`), and `ORV-023` remains `BLOCKED`.

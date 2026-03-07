@@ -16,7 +16,7 @@ type ByokCommercialPolicyTableRow = {
   summary: string;
 };
 
-type StoreCommercialOfferSnapshot = {
+export type StoreCommercialOfferSnapshot = {
   offerCode: string;
   label: string;
   motion: "checkout_now" | "inquiry_first" | "invoice_only";
@@ -47,7 +47,7 @@ const LIMIT_ROWS: Array<{
   { key: "storageGb", label: "Storage (GB)" },
 ];
 
-function formatEuroFromCents(value: number | null): string {
+export function formatEuroFromCents(value: number | null): string {
   if (value === null) {
     return "Custom";
   }
@@ -89,7 +89,7 @@ function SourceLine({ source }: { source: string }) {
   );
 }
 
-function formatFee(value: number | null, suffix: "one_time" | "monthly"): string {
+export function formatFee(value: number | null, suffix: "one_time" | "monthly"): string {
   if (value === null) {
     return suffix === "monthly" ? "Custom quote" : "Quote-based";
   }
@@ -97,7 +97,7 @@ function formatFee(value: number | null, suffix: "one_time" | "monthly"): string
   return suffix === "monthly" ? `${formatted}/month` : `${formatted} one-time`;
 }
 
-function resolveOfferVisual(offerCode: string): { glyph: string; hardware: string } {
+export function resolveOfferVisual(offerCode: string): { glyph: string; hardware: string } {
   if (offerCode === "layer1_foundation") return { glyph: "CLOUD", hardware: "Shared cloud — great for getting started" };
   if (offerCode === "layer2_dream_team") return { glyph: "TEAM", hardware: "Dedicated cloud — reliable for growing teams" };
   if (offerCode === "layer3_sovereign") return { glyph: "APPLE", hardware: "On-premise Apple hardware (Mac Studio class)" };
@@ -109,155 +109,99 @@ function resolveOfferVisual(offerCode: string): { glyph: string; hardware: strin
   return { glyph: "OFFER", hardware: "Custom option" };
 }
 
-function resolveMotionLabel(motion: StoreCommercialOfferSnapshot["motion"]): string {
+export function resolveMotionLabel(motion: StoreCommercialOfferSnapshot["motion"]): string {
   if (motion === "checkout_now") return "Buy online";
   if (motion === "invoice_only") return "Custom quote";
   return "Talk to us first";
 }
 
-const COMMERCIAL_OFFER_ORDER = [
+export const COMMERCIAL_OFFER_ORDER = [
+  "consult_done_with_you",
   "layer1_foundation",
   "layer2_dream_team",
   "layer3_sovereign",
   "layer3_sovereign_pro",
   "layer3_sovereign_max",
   "layer4_nvidia_private",
-  "consult_done_with_you",
   "consult_full_build_scoping",
 ] as const;
 
-export function StoreCommercialArchitectureCards({
-  offers,
-  onSelectOffer,
-}: {
-  offers: StoreCommercialOfferSnapshot[];
-  onSelectOffer?: (selection: StoreCommercialOfferSelection) => void;
-}) {
-  const sortedOffers = [...offers].sort((left, right) => {
+export function buildCommercialOfferSelection(offer: StoreCommercialOfferSnapshot): StoreCommercialOfferSelection {
+  const isCheckoutReady = offer.motion === "checkout_now" && Boolean(offer.checkoutConfigured);
+
+  if (offer.offerCode.startsWith("consult")) {
+    return {
+      offerCode: offer.offerCode,
+      intentCode: offer.offerCode === "consult_done_with_you"
+        ? "consulting_sprint_scope_only"
+        : "diagnostic_scope_intake",
+      routingHint: "samantha_lead_capture",
+      action: isCheckoutReady ? "checkout" : "chat_handoff",
+    };
+  }
+
+  return {
+    offerCode: offer.offerCode,
+    intentCode: offer.offerCode === "layer1_foundation"
+      ? "implementation_start_layer1"
+      : "implementation_layer_upgrade",
+    routingHint: offer.offerCode === "layer1_foundation"
+      ? "founder_bridge"
+      : "enterprise_sales",
+    action: isCheckoutReady ? "checkout" : "chat_handoff",
+  };
+}
+
+export function sortCommercialOffers(offers: StoreCommercialOfferSnapshot[]): StoreCommercialOfferSnapshot[] {
+  return [...offers].sort((left, right) => {
     const leftIndex = COMMERCIAL_OFFER_ORDER.indexOf(left.offerCode as (typeof COMMERCIAL_OFFER_ORDER)[number]);
     const rightIndex = COMMERCIAL_OFFER_ORDER.indexOf(right.offerCode as (typeof COMMERCIAL_OFFER_ORDER)[number]);
     return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
   });
+}
 
-  const layerOffers = sortedOffers.filter((offer) => offer.offerCode.startsWith("layer"));
-  const consultingOffers = sortedOffers.filter((offer) => offer.offerCode.startsWith("consult"));
+export function resolvePaymentTerms(offerCode: string): string {
+  switch (offerCode) {
+    case "consult_done_with_you":
+    case "consult_full_build_scoping":
+    case "layer1_foundation":
+      return "100% upfront";
+    case "layer2_dream_team":
+    case "layer3_sovereign":
+    case "layer3_sovereign_pro":
+    case "layer3_sovereign_max":
+      return "50% upfront, 50% on delivery";
+    case "layer4_nvidia_private":
+      return "Custom terms";
+    default:
+      return "Contact us";
+  }
+}
 
-  const buildSelection = (offer: StoreCommercialOfferSnapshot): StoreCommercialOfferSelection => {
-    const isCheckoutReady = offer.motion === "checkout_now" && Boolean(offer.checkoutConfigured);
+export function resolveDeliveryTimeline(offerCode: string): string {
+  switch (offerCode) {
+    case "consult_done_with_you":
+    case "consult_full_build_scoping":
+    case "layer1_foundation":
+      return "1\u20132 weeks";
+    case "layer2_dream_team":
+      return "3\u20134 weeks";
+    case "layer3_sovereign":
+    case "layer3_sovereign_pro":
+    case "layer3_sovereign_max":
+      return "4\u20136 weeks";
+    case "layer4_nvidia_private":
+      return "6\u20138 weeks";
+    default:
+      return "Custom timeline";
+  }
+}
 
-    if (offer.offerCode.startsWith("consult")) {
-      return {
-        offerCode: offer.offerCode,
-        intentCode: offer.offerCode === "consult_done_with_you"
-          ? "consulting_sprint_scope_only"
-          : "diagnostic_scope_intake",
-        routingHint: "samantha_lead_capture",
-        action: isCheckoutReady ? "checkout" : "chat_handoff",
-      };
-    }
-
-    return {
-      offerCode: offer.offerCode,
-      intentCode: offer.offerCode === "layer1_foundation"
-        ? "implementation_start_layer1"
-        : "implementation_layer_upgrade",
-      routingHint: offer.offerCode === "layer1_foundation"
-        ? "founder_bridge"
-        : "enterprise_sales",
-      action: isCheckoutReady ? "checkout" : "chat_handoff",
-    };
-  };
-
-  const resolveCtaLabel = (selection: StoreCommercialOfferSelection): string =>
-    selection.action === "checkout" ? "Buy now" : "Get started";
-
-  const renderOfferCard = (offer: StoreCommercialOfferSnapshot) => {
-    const visual = resolveOfferVisual(offer.offerCode);
-    const selection = buildSelection(offer);
-    return (
-      <article
-        key={offer.offerCode}
-        className="rounded-xl border p-3"
-        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg)" }}
-      >
-        <div
-          className="mb-3 rounded-lg border px-3 py-2"
-          style={{
-            borderColor: "var(--tone-accent-strong)",
-            background:
-              "linear-gradient(135deg, var(--tone-accent) 0%, color-mix(in srgb, var(--tone-accent) 55%, var(--window-document-bg)) 100%)",
-            color: "var(--shell-on-accent)",
-          }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide">{visual.glyph}</p>
-          <p className="mt-0.5 text-xs">{visual.hardware}</p>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
-            {offer.label}
-          </h4>
-          <span
-            className="inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide"
-            style={{
-              borderColor: "var(--window-document-border)",
-              color: "var(--window-document-text-muted)",
-              background: "var(--window-document-bg-elevated)",
-            }}
-          >
-            {resolveMotionLabel(offer.motion)}
-          </span>
-        </div>
-        <dl className="mt-2 grid grid-cols-1 gap-2 text-xs">
-          <div className="rounded border px-2 py-1.5" style={{ borderColor: "var(--window-document-border)" }}>
-            <dt style={{ color: "var(--window-document-text-muted)" }}>One-time setup</dt>
-            <dd className="font-semibold" style={{ color: "var(--window-document-text)" }}>
-              {formatFee(offer.setupFeeCents, "one_time")}
-            </dd>
-          </div>
-          <div className="rounded border px-2 py-1.5" style={{ borderColor: "var(--window-document-border)" }}>
-            <dt style={{ color: "var(--window-document-text-muted)" }}>Monthly fee</dt>
-            <dd className="font-semibold" style={{ color: "var(--window-document-text)" }}>
-              {formatFee(offer.monthlyPlatformFeeCents, "monthly")}
-            </dd>
-          </div>
-        </dl>
-        {onSelectOffer ? (
-          <button
-            type="button"
-            onClick={() => onSelectOffer(selection)}
-            className="mt-3 w-full rounded-md border px-2 py-2 text-xs font-semibold transition-colors"
-            style={{
-              borderColor: "var(--tone-accent-strong)",
-              background: "var(--tone-accent)",
-              color: "var(--shell-on-accent)",
-            }}
-          >
-            {resolveCtaLabel(selection)}
-          </button>
-        ) : null}
-      </article>
-    );
-  };
-
+export function isGuaranteeEligible(offerCode: string): boolean {
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
-          Implementation packages
-        </h3>
-        <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {layerOffers.map(renderOfferCard)}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--window-document-text)" }}>
-          Consulting options
-        </h3>
-        <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {consultingOffers.map(renderOfferCard)}
-        </div>
-      </div>
-    </div>
+    offerCode === "layer1_foundation" ||
+    offerCode === "layer2_dream_team" ||
+    offerCode.startsWith("layer3_sovereign")
   );
 }
 

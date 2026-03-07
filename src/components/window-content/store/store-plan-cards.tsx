@@ -29,8 +29,8 @@ const TIER_ORDER: Record<string, number> = {
   enterprise: 3,
 };
 
-const ACCENT_BACKGROUND = "var(--tone-accent)";
-const ACCENT_FOREGROUND = "#0f0f0f";
+const ACCENT_BACKGROUND = "var(--store-cta-bg)";
+const ACCENT_FOREGROUND = "var(--store-cta-text)";
 
 interface Plan {
   id: string;
@@ -63,11 +63,11 @@ const buildPlans = (tx: TranslateWithFallback, trialEligible: boolean): Plan[] =
     description: tx("ui.store.plan_cards.plans.free.description", "Perfect for getting started"),
     icon: <Gift className="w-5 h-5" />,
     features: [
+      tx("ui.store.plan_cards.plans.free.features.4", "5 daily credits"),
       tx("ui.store.plan_cards.plans.free.features.0", "1 user"),
       tx("ui.store.plan_cards.plans.free.features.1", "100 contacts"),
       tx("ui.store.plan_cards.plans.free.features.2", "3 projects"),
       tx("ui.store.plan_cards.plans.free.features.3", "Basic templates"),
-      tx("ui.store.plan_cards.plans.free.features.4", "5 daily credits"),
       tx("ui.store.plan_cards.plans.free.features.5", "Community docs"),
     ],
     cta: tx("ui.store.plan_cards.plans.free.cta", "Get Started"),
@@ -80,10 +80,10 @@ const buildPlans = (tx: TranslateWithFallback, trialEligible: boolean): Plan[] =
     description: tx("ui.store.plan_cards.plans.pro.description", "Freelancers & small businesses"),
     icon: <Rocket className="w-5 h-5" />,
     features: [
+      tx("ui.store.plan_cards.plans.pro.features.3", "200 credits/month"),
       tx("ui.store.plan_cards.plans.pro.features.0", "3 users"),
       tx("ui.store.plan_cards.plans.pro.features.1", "2,000 contacts"),
       tx("ui.store.plan_cards.plans.pro.features.2", "20 projects"),
-      tx("ui.store.plan_cards.plans.pro.features.3", "200 credits/month"),
       tx("ui.store.plan_cards.plans.pro.features.4", "500 emails/month"),
       tx("ui.store.plan_cards.plans.pro.features.5", "Email support (48h)"),
     ],
@@ -104,10 +104,10 @@ const buildPlans = (tx: TranslateWithFallback, trialEligible: boolean): Plan[] =
     description: tx("ui.store.plan_cards.plans.agency.description", "Multi-client operators"),
     icon: <Users className="w-5 h-5" />,
     features: [
+      tx("ui.store.plan_cards.plans.agency.features.3", "2,000 credits/month"),
       tx("ui.store.plan_cards.plans.agency.features.0", "15 users"),
       tx("ui.store.plan_cards.plans.agency.features.1", "10,000 contacts"),
       tx("ui.store.plan_cards.plans.agency.features.2", "Sub-organizations"),
-      tx("ui.store.plan_cards.plans.agency.features.3", "2,000 credits/month"),
       tx("ui.store.plan_cards.plans.agency.features.4", "10,000 emails/month"),
       tx("ui.store.plan_cards.plans.agency.features.5", "Priority support (12h)"),
     ],
@@ -188,6 +188,37 @@ export function StorePlanCards({
   const [isAnnual, setIsAnnual] = useState(true);
   const plans = buildPlans(tx, trialEligible);
   const showLegacySalesCards = legacySalesMode !== "hidden";
+
+  // Compact mode: active subscribers in compatibility mode see a minimal card
+  if (legacySalesMode === "compatibility" && subscriptionStatus?.hasSubscription) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center mb-4">
+          <h3 className="font-pixel text-sm mb-2" style={{ color: "var(--window-document-text)" }}>
+            {tx("ui.store.plan_cards.header.title_v2", "Subscription plans")}
+          </h3>
+          <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+            {tx(
+              "ui.store.plan_cards.header.subtitle_v2_compatibility",
+              "These plans are available because your workspace has an existing subscription."
+            )}
+          </p>
+        </div>
+
+        {(subscriptionStatus.hasSubscription || subscriptionStatus.cancelAtPeriodEnd || subscriptionStatus.pendingDowngrade) && (
+          <SubscriptionStatusBanner
+            subscriptionStatus={subscriptionStatus}
+            isLoadingStatus={isLoadingStatus}
+            onCancelPendingChange={onCancelPendingChange}
+            isCancelingPending={isCancelingPending}
+            tx={tx}
+          />
+        )}
+
+        <CompactSubscriptionCard subscriptionStatus={subscriptionStatus} tx={tx} />
+      </div>
+    );
+  }
 
   const getDisplayPrice = (plan: Plan) => {
     if (plan.monthlyPrice <= 0) return plan.monthlyPrice;
@@ -288,6 +319,22 @@ export function StorePlanCards({
         ) : null}
       </div>
 
+      {/* Custom agents not included notice */}
+      <div
+        className="rounded-lg border p-3"
+        style={{
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg)",
+        }}
+      >
+        <p className="text-xs" style={{ color: "var(--window-document-text-muted)" }}>
+          {tx(
+            "ui.store.plan_cards.custom_agents_notice",
+            "These plans give you access to the platform, templates, credits, and support. Custom agentic systems are a separate engagement — see the implementation packages at the top of this page."
+          )}
+        </p>
+      </div>
+
       {/* Subscription Status Banner */}
       {subscriptionStatus && (subscriptionStatus.hasSubscription || subscriptionStatus.cancelAtPeriodEnd || subscriptionStatus.pendingDowngrade) && (
         <SubscriptionStatusBanner
@@ -301,7 +348,7 @@ export function StorePlanCards({
 
       {showLegacySalesCards ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {plans.map((plan) => (
               <PlanCard
                 key={plan.id}
@@ -414,14 +461,14 @@ function PlanCard({
       className="relative rounded-lg overflow-hidden transition-all hover:shadow-lg"
       style={{
         background: plan.highlight ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
-        border: plan.highlight ? "2px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
+        border: plan.highlight ? `2px solid ${ACCENT_BACKGROUND}` : "1px solid var(--window-document-border)",
       }}
     >
       {/* Current Plan Badge */}
       {isCurrentPlan && (
         <div
-          className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold text-white rounded-br"
-          style={{ background: "var(--success)" }}
+          className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold rounded-br"
+          style={{ background: ACCENT_BACKGROUND, color: ACCENT_FOREGROUND }}
         >
           {tx("ui.store.plan_cards.labels.current_plan", "Current Plan")}
         </div>
@@ -430,8 +477,8 @@ function PlanCard({
       {/* Trial Badge */}
       {plan.trialBadge && !isCurrentPlan && (
         <div
-          className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold text-white rounded-br"
-          style={{ background: "var(--success)" }}
+          className="absolute top-0 left-0 px-2 py-1 text-[10px] font-bold rounded-br"
+          style={{ background: ACCENT_BACKGROUND, color: ACCENT_FOREGROUND }}
         >
           {plan.trialBadge}
         </div>
@@ -459,7 +506,7 @@ function PlanCard({
               background: plan.highlight ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
             }}
           >
-            <div style={{ color: plan.highlight ? ACCENT_FOREGROUND : "var(--tone-accent-strong)" }}>
+            <div style={{ color: plan.highlight ? ACCENT_FOREGROUND : "var(--window-document-text)" }}>
               {plan.icon}
             </div>
           </div>
@@ -494,7 +541,7 @@ function PlanCard({
             </p>
           )}
           {plan.subtext && (
-            <p className="text-[10px] mt-0.5" style={{ color: "var(--tone-accent-strong)" }}>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--window-document-text)" }}>
               {plan.subtext}
             </p>
           )}
@@ -504,7 +551,7 @@ function PlanCard({
         <ul className="space-y-2 mb-4">
           {plan.features.map((feature, idx) => (
             <li key={idx} className="flex items-start gap-2 text-[11px]" style={{ color: "var(--window-document-text)" }}>
-              <Check className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
+              <Check className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: "var(--store-cta-bg)" }} />
               <span>{feature}</span>
             </li>
           ))}
@@ -578,7 +625,7 @@ function PlanCTAButton({
         style={{
           background: "var(--window-document-bg)",
           color: "var(--window-document-text)",
-          border: "1px solid var(--tone-accent-strong)",
+          border: `1px solid ${ACCENT_BACKGROUND}`,
         }}
       >
         <Phone className="w-3.5 h-3.5" />
@@ -626,7 +673,7 @@ function PlanCTAButton({
         style={{
           background: plan.highlight ? ACCENT_BACKGROUND : "var(--window-document-bg)",
           color: plan.highlight ? ACCENT_FOREGROUND : "var(--window-document-text)",
-          border: plan.highlight ? "1px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
+          border: plan.highlight ? `1px solid ${ACCENT_BACKGROUND}` : "1px solid var(--window-document-border)",
         }}
       >
         {isManagingSubscription ? (
@@ -656,7 +703,7 @@ function PlanCTAButton({
       style={{
         background: plan.highlight ? ACCENT_BACKGROUND : "var(--window-document-bg)",
         color: plan.highlight ? ACCENT_FOREGROUND : "var(--window-document-text)",
-        border: plan.highlight ? "1px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
+        border: plan.highlight ? `1px solid ${ACCENT_BACKGROUND}` : "1px solid var(--window-document-border)",
       }}
     >
       {plan.cta}
@@ -686,7 +733,7 @@ function SubscriptionStatusBanner({
         aria-live="polite"
         style={{ background: "var(--desktop-shell-accent)", border: "1px solid var(--window-document-border)" }}
       >
-        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--tone-accent-strong)" }} />
+        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--window-document-text)" }} />
         <span className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
           {tx("ui.store.plan_cards.status.loading", "Loading subscription status...")}
         </span>
@@ -808,4 +855,64 @@ function SubscriptionStatusBanner({
   }
 
   return null;
+}
+
+function CompactSubscriptionCard({
+  subscriptionStatus,
+  tx,
+}: {
+  subscriptionStatus: SubscriptionStatus;
+  tx: TranslateWithFallback;
+}) {
+  const tierLabel = (tier: string) => {
+    if (tier === "agency") return tx("ui.store.plan_cards.plans.agency.name", "Scale");
+    return tier.charAt(0).toUpperCase() + tier.slice(1);
+  };
+
+  const formatDate = (timestamp: number) =>
+    new Date(timestamp).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  return (
+    <div
+      className="rounded-lg border p-4"
+      style={{
+        borderColor: "var(--window-document-border)",
+        background: "var(--window-document-bg)",
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <Crown className="h-4 w-4" style={{ color: "var(--success)" }} />
+        <div>
+          <p
+            className="text-xs font-semibold"
+            style={{ color: "var(--window-document-text)" }}
+          >
+            {tierLabel(subscriptionStatus.currentTier)}{" "}
+            {tx("ui.store.plan_cards.status.plan", "plan")}
+          </p>
+          <p
+            className="mt-0.5 text-xs"
+            style={{ color: "var(--window-document-text-muted)" }}
+          >
+            {tx("ui.store.plan_cards.status.billed", "Billed")}{" "}
+            {subscriptionStatus.billingPeriod === "annual"
+              ? tx("ui.store.plan_cards.status.billing_period.annually", "annually")
+              : tx("ui.store.plan_cards.status.billing_period.monthly", "monthly")}
+            {subscriptionStatus.currentPeriodEnd && (
+              <>
+                {" \u00B7 "}
+                {tx("ui.store.plan_cards.compact.next_billing", "Next billing: {date}", {
+                  date: formatDate(subscriptionStatus.currentPeriodEnd),
+                })}
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }

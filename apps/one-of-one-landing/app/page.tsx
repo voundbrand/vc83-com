@@ -46,21 +46,6 @@ const FOUNDER_DEMO_URLS: Record<Language, string> = {
   de: "https://cal.com/voundbrand/sevenlayers-demo-de",
 }
 const DIAGNOSTIC_SECTION_ID = "diagnostic"
-
-function buildDiagnosticUrl(language: Language): string {
-  const params = new URLSearchParams({
-    offer_code: "consult_full_build_scoping",
-    intent_code: "diagnostic_qualification",
-    surface: "one_of_one_landing",
-    routing_hint: "samantha_lead_capture",
-    handoff: "one-of-one",
-    intent: "resume",
-    onboardingChannel: "native_guest",
-    lang: language,
-    landingPath: "/",
-  })
-  return `https://app.l4yercak3.com/chat?${params.toString()}`
-}
 const REMINGTON_EMAIL = "remington@sevenlayers.io"
 
 const PRICING_EMAIL_TEMPLATES: Record<Language, {
@@ -411,7 +396,7 @@ export default function LandingPage() {
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
             <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">
+              <a href="#diagnostic">
                 {t.ctaButton}
               </a>
             </Button>
@@ -455,7 +440,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button asChild className="btn-primary h-10 px-6 w-full sm:w-auto">
-                <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">{t.ctaButton}</a>
+                <a href="#diagnostic">{t.ctaButton}</a>
               </Button>
               <Button asChild className="btn-accent h-10 px-6 w-full sm:w-auto gap-2">
                 <a

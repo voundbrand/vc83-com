@@ -703,6 +703,25 @@ class L4yercak3APIClient {
             lastAcceptedSequence: number;
           };
           relayEvents?: Array<Record<string, unknown>>;
+          relay?: {
+            contractVersion: string;
+            observedAtMs: number;
+            healthy: boolean;
+            reasonCode: string;
+            heartbeat: {
+              contractVersion?: string;
+              status: 'acknowledged' | 'missing';
+              expectedSequence: number;
+              ackSequence?: number;
+              acknowledgedAtMs?: number;
+            };
+            qos?: {
+              orderingDecision?: 'accepted' | 'duplicate_replay' | 'gap_detected';
+              relayEventCount?: number;
+              idempotentReplay?: boolean;
+              persistedFinalTranscript?: boolean;
+            };
+          };
           orchestration?: {
             shouldTriggerAssistantTurn: boolean;
             interrupted: boolean;

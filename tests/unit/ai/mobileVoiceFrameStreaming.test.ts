@@ -49,7 +49,24 @@ describe("mobile voice frame streaming runtime", () => {
       isFinalFrame: true,
     });
     expect(realtimeFinalPolicy.shouldSendRealtimeEnvelope).toBe(true);
-    expect(realtimeFinalPolicy.shouldUseHttpTranscription).toBe(true);
+    expect(realtimeFinalPolicy.shouldUseHttpTranscription).toBe(false);
+
+    const websocketUnhealthyPolicy = resolveFrameStreamingPolicy({
+      transportMode: "websocket",
+      isRealtimeConnected: true,
+      isRealtimeRelayHealthy: false,
+      isFinalFrame: true,
+    });
+    expect(websocketUnhealthyPolicy.shouldSendRealtimeEnvelope).toBe(false);
+    expect(websocketUnhealthyPolicy.shouldUseHttpTranscription).toBe(true);
+
+    const webrtcPolicy = resolveFrameStreamingPolicy({
+      transportMode: "webrtc",
+      isRealtimeConnected: true,
+      isFinalFrame: false,
+    });
+    expect(webrtcPolicy.shouldSendRealtimeEnvelope).toBe(false);
+    expect(webrtcPolicy.shouldUseHttpTranscription).toBe(true);
 
     const fallbackPolicy = resolveFrameStreamingPolicy({
       transportMode: "chunked_fallback",

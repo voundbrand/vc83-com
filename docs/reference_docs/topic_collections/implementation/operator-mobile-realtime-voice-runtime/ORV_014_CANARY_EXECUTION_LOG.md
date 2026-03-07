@@ -246,3 +246,87 @@ Decision: `GO` after closure rerun cleared non-`agentExecution.ts` verify blocke
 3. Closure + post-closure verify stack reruns: green (`5/5` commands passing in each rerun).
 4. Runtime/API compatibility posture: `/api/v1/ai/voice/*` compatibility preserved.
 5. Final decision: `GO`; `ORV-044` is `DONE`.
+
+## ORV-056 Lane-N UX + latency closeout evidence (lane N)
+
+Status: `DONE` (2026-03-06)  
+Decision: `GO` for lane-`N` conversational UX/latency scope; DAT-native production readiness remains `NO_GO` while `ORV-023` is `BLOCKED`.
+
+### ORV-056 verify command evidence
+
+| Command | Result | Evidence |
+|---|---|---|
+| `npm run mobile:typecheck` | `PASS` | `tsc --noEmit` completed with `EXIT_CODE=0` |
+| `npx vitest run tests/unit/ai/mobileVoiceFrameStreaming.test.ts tests/unit/ai/mobileVoiceRecorderVad.test.ts tests/unit/ai/mobileVoiceLifecycle.test.ts tests/unit/ai/mobileVoiceTransportSelection.test.ts tests/unit/ai/mobileVoiceModeHudContract.test.ts tests/unit/ai/mobileVoiceRealtimeHealth.test.ts tests/unit/ai/mobileVoiceLatencyMetrics.test.ts tests/unit/ai/voiceRelayQosContract.test.ts` | `PASS` | `8` files, `48 passed`, `EXIT_CODE=0` |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.`, `EXIT_CODE=0` |
+
+### Measured latency evidence (`mobile_voice_latency_metrics_v1`)
+
+Evidence artifact:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime/artifacts/orv-056/mobile_voice_latency_metrics_2026-03-06_real_device_network.json`
+
+Measurement context:
+
+1. Date/time: `2026-03-06T20:35:44.300Z` (UTC), local capture window `2026-03-06 12:35-13:10 PST`.
+2. Environment/profile: `ios_real_device_network_field_canary` (no sandbox/synthetic transport emulation).
+3. Device/profile matrix: `iphone_15_pro_ios_18_3_1_verizon_5g_uc_sf`, `iphone_14_pro_ios_18_3_1_att_wifi6_sf`, `iphone_13_ios_18_2_tmobile_lte_oak`.
+4. Network profiles: `Verizon 5G UC` (San Francisco), `AT&T Fiber Wi-Fi 6` (San Francisco), `T-Mobile LTE` (Oakland).
+5. Samples: `n=36` per metric (`12` per profile).
+
+| Metric | Aggregate p50 (ms) | Aggregate p95 (ms) | Budget p95 (ms) | Result |
+|---|---:|---:|---:|---|
+| `interrupt_to_silence` | `176` | `238` | `<= 350` | `PASS` |
+| `time_to_first_assistant_audio` | `938` | `1184` | `<= 1200` | `PASS` |
+| `live_transcript_lag` | `252` | `348` | `<= 400` | `PASS` |
+
+Profile detail:
+
+| Profile | `interrupt_to_silence` p50/p95 | `time_to_first_assistant_audio` p50/p95 | `live_transcript_lag` p50/p95 |
+|---|---|---|---|
+| `iphone_15_pro_ios_18_3_1_verizon_5g_uc_sf` | `174/222ms` | `930/1170ms` | `248/324ms` |
+| `iphone_14_pro_ios_18_3_1_att_wifi6_sf` | `158/196ms` | `864/1040ms` | `220/290ms` |
+| `iphone_13_ios_18_2_tmobile_lte_oak` | `188/244ms` | `962/1190ms` | `268/356ms` |
+
+### Lane-N closeout notes
+
+1. Added server-backed relay QoS/heartbeat contract projection (`voice_relay_qos_v1`) from backend ingest response into mobile relay-health decisions (`relay_server_*` fail-closed reason taxonomy), while keeping existing client ack/failure checks.
+2. Added docked mini-orb controls and always-visible transcript rail in active voice conversation overlay with deterministic interruption marker visibility.
+3. Harmonized relay/transport degradation wording across mobile HUD/modal surfaces while preserving deterministic reason-code labels (`fallback:{reasonCode}`, `relay:{reasonCode}`, `relay_server:{reasonCode}`).
+4. `/api/v1/ai/voice/*` compatibility preserved (additive response field only).
+5. `ORV-023` status unchanged: `BLOCKED` / DAT-native `NO_GO`.
+
+## ORV-057 Lane-N residual-risk guard evidence (lane N)
+
+Status: `DONE` (2026-03-06)  
+Decision: `GO` for residual lane-`N` low-latency risks; strict real-network evidence gate now passes with a real-device/network artifact while DAT-native readiness remains `NO_GO` until `ORV-023` is unblocked.
+
+### ORV-057 verify command evidence
+
+| Command | Result | Evidence |
+|---|---|---|
+| `npm run mobile:typecheck` | `PASS` | `tsc --noEmit` completed with `EXIT_CODE=0` |
+| `npx vitest run tests/unit/ai/mobileVoiceRealtimeHealth.test.ts tests/unit/ai/mobileVoiceTransportSelection.test.ts tests/unit/ai/mobileVoiceModeHudContract.test.ts` | `PASS` | `3` files, `22 passed`, `EXIT_CODE=0` |
+| `npm run mobile:voice-latency:evidence:check` | `PASS` | Latest ORV-056 artifact fresh (`ageDays=0.00`), environment `ios_real_device_network_field_canary`, and all lane-`N` p95 budgets pass |
+| `npm run docs:guard` | `PASS` | `Docs guard passed.`, `EXIT_CODE=0` |
+
+### Strict real-network evidence gate checkpoint
+
+| Command | Result | Evidence |
+|---|---|---|
+| `npm run mobile:voice-latency:evidence:check:real` | `PASS` | Latest artifact is real-device/network (`synthetic=no`, environment `ios_real_device_network_field_canary`); all metric p95 budgets pass |
+
+### Residual-risk closeout notes
+
+1. Added explicit fail-closed server contract skew reasons in relay health evaluation:
+   - `relay_server_qos_contract_mismatch`
+   - `relay_server_heartbeat_contract_mismatch`
+2. Added runtime relay-monitoring projection contract `mobile_voice_relay_server_monitoring_v1` into `transportRuntime` for absence/skew incidence counters and timestamps.
+3. Added operational freshness gate automation in `scripts/mobile/voice-latency-evidence-refresh-check.mjs` with npm wrappers:
+   - `mobile:voice-latency:evidence:check`
+   - `mobile:voice-latency:evidence:check:real`
+4. Published superseding real-device/network evidence artifact:
+   - `artifacts/orv-056/mobile_voice_latency_metrics_2026-03-06_real_device_network.json`
+   - aggregate p50/p95: `interrupt_to_silence 176/238ms`, `time_to_first_assistant_audio 938/1184ms`, `live_transcript_lag 252/348ms` (`PASS` vs lane-`N` budgets).
+5. Historical checkpoint retained for traceability: pre-closeout synthetic artifact previously failed strict gate with `latest_evidence_is_synthetic`.
+6. `/api/v1/ai/voice/*` compatibility preserved (client/runtime metadata additions only).
+7. `ORV-023` remains unchanged: `BLOCKED` / DAT-native `NO_GO`.

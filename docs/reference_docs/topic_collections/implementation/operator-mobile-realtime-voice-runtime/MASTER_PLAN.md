@@ -1,6 +1,6 @@
 # Operator Mobile Realtime Voice Runtime Master Plan
 
-**Date:** 2026-03-05  
+**Date:** 2026-03-06  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/operator-mobile-realtime-voice-runtime`
 
 ---
@@ -21,7 +21,9 @@ Then implement `conversation_interaction_v1` in the main AI chat UI (web + deskt
 
 Then execute post-audit lane `M` to close mobile PCM contract drift and implement unified turn-state/VAD/barge-in/race-cleanup behavior without regressing existing ORV invariants.
 
-Execution snapshot (2026-03-05):
+Then execute lane `N` to accelerate conversational UX quality toward ChatGPT-style behavior: realtime-first response speed, fast interruption, compact docked controls, and live transcript visibility.
+
+Execution snapshot (2026-03-06):
 
 1. `ORV-026` is `DONE` with canonical web/desktop conversation state machine + persistent HUD (`idle`, `connecting`, `live`, `reconnecting`, `ending`, `ended`, `error`) and standardized `conversation_*` events with deterministic reason-code mapping.
 2. `ORV-033` is `DONE` with iPhone canonical state/event parity and shared deterministic reason taxonomy.
@@ -33,6 +35,12 @@ Execution snapshot (2026-03-05):
 8. Lane `M` corrective tranche is complete from the 2026-03-05 audit: `ORV-045` through `ORV-052` are `DONE`.
 9. Lane `M` `P0` gate evidence is complete: mobile PCM defaults are enforced at `24_000 Hz` and `voice_transport_v1` envelope validation now rejects non-contract sample rates fail-closed before behavioral refactor rows.
 10. Lane `M` closeout parity evidence (`ORV-052`) is now complete with explicit web/desktop parity impact `none` after `ORV-050` mode-switch cleanup closure and `ORV-051` state-driven HUD mapping completion.
+11. Lane `N` is now queued with compact execution rows `ORV-053` through `ORV-057` to improve iPhone conversational responsiveness and UX continuity without over-fragmenting implementation steps.
+12. `ORV-053`, `ORV-054`, `ORV-055`, `ORV-056`, and `ORV-057` are now `DONE` (2026-03-06): lane-`N` now includes contract-freeze targets, realtime-first degradation visibility, hot-path acceleration (shorter segment cadence + websocket-healthy HTTP-transcription short-circuit), docked active-conversation controls/transcript continuity closeout, and residual-risk monitoring/freshness gates.
+13. `ORV-056` added explicit server-backed relay QoS/heartbeat projection (`voice_relay_qos_v1`) from backend ingest responses into mobile relay-health decisions, while preserving existing client ack/failure-aware gating and fail-closed sequence safety semantics.
+14. `ORV-056` published and then superseded with real-device/network `mobile_voice_latency_metrics_v1` evidence for canary/device matrix review (`artifacts/orv-056/mobile_voice_latency_metrics_2026-03-06_real_device_network.json`): aggregate p50/p95 = `interrupt_to_silence 176/238ms`, `time_to_first_assistant_audio 938/1184ms`, `live_transcript_lag 252/348ms` (`GO` against lane-`N` p95 thresholds).
+15. `ORV-057` added fail-closed server contract skew reasons (`relay_server_qos_contract_mismatch`, `relay_server_heartbeat_contract_mismatch`) plus runtime incidence counters (`mobile_voice_relay_server_monitoring_v1`) and evidence-refresh scripts (`mobile:voice-latency:evidence:check`, `...:check:real`) to close remaining low-latency observability gaps.
+16. `ORV-053` contract-freeze closeout is complete (`DONE`, 2026-03-06) and cross-workstream DAT-native truth gate remains unchanged: lane `N` does not change `ORV-023` status (`BLOCKED`/`NO_GO`) and cannot be used to claim DAT-native production readiness.
 
 ## Cross-workstream DAT-native blocker ledger (`ARH-M-001` sync)
 
@@ -88,6 +96,18 @@ Stale-claim invalidation rule: any `GO` statement that implies DAT-native readin
 14. Lane `M` isolation rule:
    - preserve ORV-010 through ORV-044 invariants and `/api/v1/ai/voice/*` compatibility,
    - do not modify `convex/ai/agentExecution.ts`.
+15. Lane `N` transport policy is realtime-first for live conversation mode:
+   - avoid default/implicit bias toward `chunked_fallback`,
+   - expose deterministic downgrade reasons when realtime transport is unavailable or degraded.
+16. Lane `N` interruption contract is budgeted:
+   - interruption-to-silence and turn-response latency budgets are explicit and release-gated,
+   - delayed frame-window waits are not accepted as primary interruption behavior.
+17. Lane `N` iPhone control surface is non-modal-first:
+   - compact docked orb and persistent state chip at composer bottom,
+   - live transcript remains visible during ongoing conversation turns.
+18. Lane `N` scope is constrained:
+   - preserve ORV-010 through ORV-052 invariants and `/api/v1/ai/voice/*` compatibility,
+   - keep `ORV-023` DAT-native blocker status unchanged unless physical-device evidence artifacts are added.
 
 ---
 
@@ -192,6 +212,15 @@ Stale-claim invalidation rule: any `GO` statement that implies DAT-native readin
 6. Require full mode-switch teardown to `idle` with cancellation/reset semantics before returning to chat mode.
 7. Close with explicit parity verification across mobile and web/desktop conversation contracts.
 
+### Layer 9: Mobile conversational UX acceleration (lane `N`)
+
+1. Freeze `conversation_voice_live_ux_v1` contract with deterministic latency/interruption/transcript budgets.
+2. Make live voice mode realtime-first by policy and telemetry, with explicit visible fallback reasons.
+3. Tighten capture/EOU/interrupt path so user barge-in stops assistant quickly and consistently.
+4. Shift to compact docked orb controls at the bottom of chat while keeping one-tap interrupt and stop affordances.
+5. Keep live transcript visible for both user and assistant with partial/final semantics and interruption markers.
+6. Close with measured performance evidence and parity checks without changing DAT-native gate status.
+
 ---
 
 ## Risks and mitigations
@@ -214,6 +243,8 @@ Stale-claim invalidation rule: any `GO` statement that implies DAT-native readin
    - Mitigation: canonical turn-state reducer + state-driven HUD/orb mapping + deterministic transition tests.
 9. **Lane `M` parity regression risk (mobile fixes diverge from web/desktop behavior)**
    - Mitigation: lane `M` closeout requires explicit desktop/mobile parity reruns and documented impact report.
+10. **Lane `N` perceived-latency regression risk (realtime path degrades silently)**
+   - Mitigation: realtime-first policy, explicit fallback telemetry, and release-gated conversational latency SLOs.
 
 ---
 
@@ -237,6 +268,11 @@ Stale-claim invalidation rule: any `GO` statement that implies DAT-native readin
 16. Lane `M` VAD evidence proves auto-finalization at `320ms` endpoint silence after speech onset using per-frame RMS telemetry.
 17. Lane `M` race/guard evidence proves no dual-path autospeak, no final-frame/assistant overlap race, and recorder auto-start debounce stabilization.
 18. Lane `M` closeout evidence explicitly reports web/desktop parity impacts (or confirms none) and preserves DAT-native `NO_GO` status while `ORV-023` is `BLOCKED`.
+19. Lane `N` contract row (`ORV-053`) is complete with locked latency and interruption budgets plus deterministic fallback taxonomy.
+20. Lane `N` transport + latency rows (`ORV-054`, `ORV-055`) prove realtime-first behavior, non-silent degradation reporting, and reduced turn dead-air without breaking sequencing safety.
+21. Lane `N` UX + closeout row (`ORV-056`) proves docked mini-orb controls, always-visible live transcript behavior, and measured p50/p95 evidence for `interrupt_to_silence`, `time_to_first_assistant_audio`, and `live_transcript_lag`.
+22. Lane `N` residual-risk row (`ORV-057`) proves server relay contract-skew observability (`mobile_voice_relay_server_monitoring_v1`) and repeatable latency evidence freshness checks (`mobile:voice-latency:evidence:check`, strict real gate variant).
+23. Lane `N` closeout evidence preserves DAT-native `NO_GO` status until `ORV-023` physical-device artifacts exist.
 
 ---
 
@@ -687,3 +723,27 @@ Reference runbook:
    - preserve ORV-010 through ORV-044 invariants,
    - preserve `/api/v1/ai/voice/*` compatibility,
    - keep `ORV-023` DAT-native physical-device gate unchanged (`BLOCKED`/`NO_GO` until artifacts exist).
+
+## ORV-053 through ORV-057 mobile conversational UX acceleration plan (2026-03-06)
+
+1. Phase 1 (`ORV-053`): freeze `conversation_voice_live_ux_v1` contract and latency budgets (`DONE`, 2026-03-06).
+   - Lock deterministic targets for `interrupt_to_silence`, `time_to_first_assistant_audio`, and `live_transcript_lag`.
+   - Lock fallback taxonomy and visible degradation labels in voice mode UX.
+2. Phase 2 (`ORV-054`, `ORV-055`): realtime-first transport + turn-loop acceleration.
+   - `ORV-054` complete (2026-03-06): removed silent bias toward `chunked_fallback` in mobile live conversation defaults and exposed deterministic degradation state (`reasonCode`, `reasonLabel`, `transitionLabel`) in active HUD/modal UX.
+   - `ORV-055` complete (2026-03-06): tightened capture cadence (`420ms`/`360ms`), short-circuited duplicate HTTP transcription when websocket realtime relay is healthy, preserved fallback transcription on non-healthy realtime paths, and localized fallback/degradation UI copy while keeping reason-code visibility.
+   - `ORV-055` de-risk follow-up complete (2026-03-06): relay health gating now checks ack freshness + consecutive ingest failures (not socket state only), rolling `mobile_voice_latency_metrics_v1` snapshots are emitted for `interrupt_to_silence`/`time_to_first_assistant_audio`/`live_transcript_lag`, and user-facing fallback strings no longer embed raw taxonomy fragments.
+3. Phase 3 (`ORV-056`): conversational control/UI continuity + measured closeout (`DONE`, 2026-03-06).
+   - Added compact docked mini-orb controls during active conversation (`VoiceModeModal` transparent docked overlay path) and reduced full-screen modal dominance while keeping one-tap stop behavior.
+   - Added always-visible live transcript rail with deterministic interruption marker (`interrupt:barge_in_armed`/`assistant_speaking`/`thinking`/`idle`) and partial/final continuity visibility.
+   - Added server-backed relay QoS/heartbeat contract projection (`voice_relay_qos_v1`) into mobile relay health evaluation (`relay_server_*` fail-closed reason taxonomy) and projected deterministic reason codes into `transportRuntime`.
+   - Published superseding measured p50/p95 evidence (real-device/network canary matrix, `n=36` per metric) in `artifacts/orv-056/mobile_voice_latency_metrics_2026-03-06_real_device_network.json`: `interrupt_to_silence 176/238ms`, `time_to_first_assistant_audio 938/1184ms`, `live_transcript_lag 252/348ms`; closeout decision `GO`.
+4. Phase 4 (`ORV-057`): residual risk closeout for evidence freshness + relay contract skew observability (`DONE`, 2026-03-06).
+   - Added explicit fail-closed server contract skew reasons in mobile relay health (`relay_server_qos_contract_mismatch`, `relay_server_heartbeat_contract_mismatch`) with deterministic translation labels.
+   - Projected runtime contract-version status + rolling incidence counters (`mobile_voice_relay_server_monitoring_v1`) into `transportRuntime` for canary-side degraded-mode analysis.
+   - Added evidence refresh guard script (`scripts/mobile/voice-latency-evidence-refresh-check.mjs`) with commands `npm run mobile:voice-latency:evidence:check` and strict real-network gate `npm run mobile:voice-latency:evidence:check:real`.
+   - Current strict gate result: `PASS` on the latest real-device/network artifact (`environment=ios_real_device_network_field_canary`, `synthetic=no`).
+5. Lane `N` non-regression rules:
+   - preserve ORV-010 through ORV-052 invariants and `/api/v1/ai/voice/*` compatibility,
+   - preserve `conversation_interaction_v1` state/reason taxonomy and same-thread continuity guarantees,
+   - keep `ORV-023` DAT-native gate unchanged (`BLOCKED`/`NO_GO`) unless required physical-device artifacts are added.

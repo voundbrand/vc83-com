@@ -20,7 +20,7 @@ import { useAppPreferences } from '../../contexts/AppPreferencesContext';
 import { MOBILE_VOICE_STRUCTURED_TELEMETRY_WINDOW_HOURS } from '../../lib/voice/runtimePolicy';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const DEFAULT_FRAME_DURATION_MS = 750;
+const DEFAULT_FRAME_DURATION_MS = 420;
 const STREAM_METER_SAMPLE_INTERVAL_MS = 80;
 const METERING_MIN_DB = -160;
 

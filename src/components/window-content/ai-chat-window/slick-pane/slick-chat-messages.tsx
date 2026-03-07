@@ -237,6 +237,8 @@ export function SlickChatMessages({
 
     return scopedMessages.filter((message) => !shouldHideInternalKickoffMessage(message))
   }, [chat.messages, selectedSurface])
+  const lastMessage = messages[messages.length - 1]
+  const lastMessageFingerprint = `${lastMessage?._id ?? "none"}:${lastMessage?.content?.length ?? 0}`
   const timelineMarkers = useMemo(() => {
     return timelineEvents
       .filter((event) => {
@@ -280,7 +282,7 @@ export function SlickChatMessages({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages.length, isSending, selectedSurface, timelineMarkers.length])
+  }, [lastMessageFingerprint, messages.length, isSending, selectedSurface, timelineMarkers.length])
 
   if (translationsLoading) {
     return (

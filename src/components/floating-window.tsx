@@ -289,11 +289,19 @@ export function FloatingWindow({
 
       {/* Content surface follows canonical mode tokens (Midnight/Daylight). */}
       <div
-        className={`flex-1 flex flex-col retro-scrollbar desktop-document-surface ${
-          allowOutwardPanels ? "overflow-visible" : "overflow-hidden"
+        className={`flex-1 min-h-0 flex flex-col retro-scrollbar desktop-document-surface ${
+          allowOutwardPanels
+            ? "overflow-x-visible overflow-y-hidden"
+            : "overflow-hidden"
         }`}
       >
-        <div className={`flex-1 ${allowOutwardPanels ? "overflow-visible" : "overflow-auto"}`}>
+        <div
+          className={`flex-1 min-h-0 ${
+            allowOutwardPanels
+              ? "overflow-x-visible overflow-y-hidden"
+              : "overflow-auto"
+          }`}
+        >
           {children}
         </div>
       </div>

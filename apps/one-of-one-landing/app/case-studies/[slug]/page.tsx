@@ -39,20 +39,6 @@ const CASE_STUDY_ICONS: Record<CaseStudySlug, typeof Phone> = {
   "dirk-linke": TrendingUp,
 }
 
-function buildDiagnosticUrl(language: Language): string {
-  const params = new URLSearchParams({
-    offer_code: "consult_full_build_scoping",
-    intent_code: "diagnostic_qualification",
-    surface: "one_of_one_landing",
-    routing_hint: "samantha_lead_capture",
-    handoff: "one-of-one",
-    intent: "resume",
-    onboardingChannel: "native_guest",
-    lang: language,
-    landingPath: "/case-studies",
-  })
-  return `https://app.l4yercak3.com/chat?${params.toString()}`
-}
 
 export default function CaseStudyPage() {
   const params = useParams()
@@ -153,7 +139,7 @@ export default function CaseStudyPage() {
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
             <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <a href={buildDiagnosticUrl(language)} target="_blank" rel="noreferrer">
+              <a href="/#diagnostic">
                 {lt.ctaButton}
               </a>
             </Button>

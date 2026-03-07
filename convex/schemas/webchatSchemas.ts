@@ -514,3 +514,124 @@ export const onboardingSpecialistPreviewContracts = defineTable({
   .index("by_contract_key", ["contractKey"])
   .index("by_status_and_available", ["status", "availableAt"])
   .index("by_user_and_time", ["userId", "updatedAt"]);
+
+const onboardingPostCaptureDispatchRunStatusValidator = v.union(
+  v.literal("queued"),
+  v.literal("running"),
+  v.literal("retry_scheduled"),
+  v.literal("succeeded"),
+  v.literal("failed_terminal"),
+  v.literal("dead_lettered"),
+  v.literal("replay_requested")
+);
+
+const onboardingPostCaptureDispatchStepStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("in_progress"),
+  v.literal("succeeded"),
+  v.literal("failed_retryable"),
+  v.literal("failed_terminal"),
+  v.literal("skipped_policy")
+);
+
+const onboardingPostCaptureDispatchStepStateValidator = v.object({
+  stepKey: v.string(),
+  status: onboardingPostCaptureDispatchStepStatusValidator,
+  attemptCount: v.number(),
+  lastAttemptAt: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+  lastReasonCode: v.optional(v.string()),
+  lastError: v.optional(v.string()),
+  outputRef: v.optional(v.string()),
+  externalSideEffectId: v.optional(v.string()),
+});
+
+export const onboardingPostCaptureDispatchRuns = defineTable({
+  dispatchKey: v.string(),
+  idempotencyKey: v.string(),
+  correlationId: v.string(),
+  organizationId: v.id("organizations"),
+  auditSessionKey: v.string(),
+  channel: onboardingChannelValidator,
+  status: onboardingPostCaptureDispatchRunStatusValidator,
+  attemptCount: v.number(),
+  maxAttempts: v.number(),
+  nextRetryAt: v.optional(v.number()),
+  leaseOwner: v.optional(v.string()),
+  leaseToken: v.optional(v.string()),
+  leaseExpiresAt: v.optional(v.number()),
+  stepState: v.array(onboardingPostCaptureDispatchStepStateValidator),
+  payloadSnapshotRef: v.optional(v.string()),
+  payloadSnapshot: v.optional(v.any()),
+  outputs: v.optional(v.any()),
+  reasonCode: v.optional(v.string()),
+  error: v.optional(v.string()),
+  replayOfRunId: v.optional(v.id("onboardingPostCaptureDispatchRuns")),
+  deadLetterId: v.optional(v.id("onboardingPostCaptureDispatchDeadLetters")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  completedAt: v.optional(v.number()),
+})
+  .index("by_dispatch_key", ["organizationId", "dispatchKey"])
+  .index("by_idempotency_key", ["organizationId", "idempotencyKey"])
+  .index("by_status_next_retry", ["status", "nextRetryAt"])
+  .index("by_org_status_updated", ["organizationId", "status", "updatedAt"]);
+
+const onboardingPostCaptureDispatchAttemptStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("succeeded"),
+  v.literal("failed_retryable"),
+  v.literal("failed_terminal")
+);
+
+export const onboardingPostCaptureDispatchAttempts = defineTable({
+  runId: v.id("onboardingPostCaptureDispatchRuns"),
+  organizationId: v.id("organizations"),
+  dispatchKey: v.string(),
+  attemptNumber: v.number(),
+  status: onboardingPostCaptureDispatchAttemptStatusValidator,
+  leaseOwner: v.string(),
+  leaseToken: v.string(),
+  leaseExpiresAt: v.number(),
+  reasonCode: v.optional(v.string()),
+  error: v.optional(v.string()),
+  backoffMs: v.optional(v.number()),
+  stepStateSnapshot: v.optional(v.array(onboardingPostCaptureDispatchStepStateValidator)),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  startedAt: v.number(),
+  completedAt: v.optional(v.number()),
+})
+  .index("by_run_attempt", ["runId", "attemptNumber"])
+  .index("by_status_started", ["status", "startedAt"])
+  .index("by_org_started", ["organizationId", "startedAt"]);
+
+const onboardingPostCaptureDispatchDeadLetterStatusValidator = v.union(
+  v.literal("open"),
+  v.literal("triaging"),
+  v.literal("replay_queued"),
+  v.literal("replayed"),
+  v.literal("resolved")
+);
+
+export const onboardingPostCaptureDispatchDeadLetters = defineTable({
+  runId: v.id("onboardingPostCaptureDispatchRuns"),
+  organizationId: v.id("organizations"),
+  dispatchKey: v.string(),
+  status: onboardingPostCaptureDispatchDeadLetterStatusValidator,
+  reasonCode: v.string(),
+  error: v.optional(v.string()),
+  payloadSnapshotRef: v.optional(v.string()),
+  payloadSnapshot: v.optional(v.any()),
+  stepStateSnapshot: v.optional(v.array(onboardingPostCaptureDispatchStepStateValidator)),
+  latestAttemptNumber: v.number(),
+  replayCount: v.number(),
+  lastReplayedAt: v.optional(v.number()),
+  triageNotes: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  resolvedAt: v.optional(v.number()),
+})
+  .index("by_run", ["runId"])
+  .index("by_status_updated", ["status", "updatedAt"])
+  .index("by_org_status_updated", ["organizationId", "status", "updatedAt"]);

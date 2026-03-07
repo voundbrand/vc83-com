@@ -4,8 +4,8 @@ import { Coins, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { calculateCreditsFromAmount, PRESET_AMOUNTS } from "@/lib/credit-pricing";
 
-const ACCENT_BACKGROUND = "var(--tone-accent)";
-const ACCENT_FOREGROUND = "#0f0f0f";
+const ACCENT_BACKGROUND = "var(--store-cta-bg)";
+const ACCENT_FOREGROUND = "var(--store-cta-text)";
 
 interface StoreCreditSectionProps {
   onPurchase: (amountEur: number, credits: number) => void;
@@ -43,7 +43,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
       {/* Section Header */}
       <div className="flex items-center gap-2 mb-3">
         <div className="p-1.5 rounded" style={{ background: "var(--desktop-shell-accent)" }}>
-          <Coins className="w-4 h-4" style={{ color: "var(--tone-accent-strong)" }} />
+          <Coins className="w-4 h-4" style={{ color: "var(--window-document-text)" }} />
         </div>
         <div>
           <h3 className="font-pixel text-xs" style={{ color: "var(--window-document-text)" }}>
@@ -75,7 +75,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
                 className="rounded-lg p-3 text-center transition-all hover:shadow-md"
                 style={{
                   background: isSelected ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
-                  border: isSelected ? "2px solid var(--tone-accent-strong)" : "1px solid var(--window-document-border)",
+                  border: isSelected ? `2px solid ${ACCENT_BACKGROUND}` : "1px solid var(--window-document-border)",
                   color: isSelected ? ACCENT_FOREGROUND : "var(--window-document-text)",
                 }}
               >
@@ -117,7 +117,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
                 className="w-full pl-7 pr-3 py-2 rounded text-xs focus:outline-none"
                 style={{
                   background: "var(--desktop-shell-accent)",
-                  border: `1px solid ${customAmount ? "var(--tone-accent-strong)" : "var(--window-document-border)"}`,
+                  border: `1px solid ${customAmount ? ACCENT_BACKGROUND : "var(--window-document-border)"}`,
                   color: "var(--window-document-text)",
                 }}
               />
@@ -136,7 +136,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
             aria-live="polite"
             style={{
               background: ACCENT_BACKGROUND,
-              border: "1px solid var(--tone-accent-strong)",
+              border: `1px solid ${ACCENT_BACKGROUND}`,
             }}
           >
             <div className="flex items-center justify-between" style={{ color: ACCENT_FOREGROUND }}>
@@ -173,7 +173,7 @@ export function StoreCreditSection({ onPurchase, isProcessing }: StoreCreditSect
           style={{
             background: calculation && activeAmount > 0 ? ACCENT_BACKGROUND : "var(--desktop-shell-accent)",
             color: calculation && activeAmount > 0 ? ACCENT_FOREGROUND : "var(--desktop-menu-text-muted)",
-            border: `1px solid ${calculation && activeAmount > 0 ? "var(--tone-accent-strong)" : "var(--window-document-border)"}`,
+            border: `1px solid ${calculation && activeAmount > 0 ? ACCENT_BACKGROUND : "var(--window-document-border)"}`,
           }}
         >
           {isProcessing ? (

@@ -1,0 +1,122 @@
+{
+  "evidenceContractVersion": "mobile_voice_latency_metrics_v1",
+  "measuredAtUtc": "2026-03-06T20:04:11.445Z",
+  "environment": "local_sandbox_synthetic_canary_matrix",
+  "profileCount": 3,
+  "sampleCountPerMetric": {
+    "interrupt_to_silence": 30,
+    "time_to_first_assistant_audio": 30,
+    "live_transcript_lag": 30
+  },
+  "budgets": {
+    "interrupt_to_silence_p95_max_ms": 350,
+    "time_to_first_assistant_audio_p95_max_ms": 1200,
+    "live_transcript_lag_p95_max_ms": 400
+  },
+  "profiles": {
+    "iphone_15_pro_wifi": {
+      "interrupt_to_silence": {
+        "sampleCount": 10,
+        "lastMs": 184,
+        "minMs": 128,
+        "maxMs": 184,
+        "p50Ms": 147,
+        "p95Ms": 184
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 10,
+        "lastMs": 1120,
+        "minMs": 720,
+        "maxMs": 1120,
+        "p50Ms": 860,
+        "p95Ms": 1120
+      },
+      "live_transcript_lag": {
+        "sampleCount": 10,
+        "lastMs": 332,
+        "minMs": 160,
+        "maxMs": 332,
+        "p50Ms": 221,
+        "p95Ms": 332
+      }
+    },
+    "iphone_14_5g": {
+      "interrupt_to_silence": {
+        "sampleCount": 10,
+        "lastMs": 214,
+        "minMs": 136,
+        "maxMs": 214,
+        "p50Ms": 154,
+        "p95Ms": 214
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 10,
+        "lastMs": 1180,
+        "minMs": 760,
+        "maxMs": 1180,
+        "p50Ms": 910,
+        "p95Ms": 1180
+      },
+      "live_transcript_lag": {
+        "sampleCount": 10,
+        "lastMs": 348,
+        "minMs": 172,
+        "maxMs": 348,
+        "p50Ms": 232,
+        "p95Ms": 348
+      }
+    },
+    "iphone_15_pro_meta_bridge": {
+      "interrupt_to_silence": {
+        "sampleCount": 10,
+        "lastMs": 208,
+        "minMs": 131,
+        "maxMs": 208,
+        "p50Ms": 152,
+        "p95Ms": 208
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 10,
+        "lastMs": 1160,
+        "minMs": 740,
+        "maxMs": 1160,
+        "p50Ms": 890,
+        "p95Ms": 1160
+      },
+      "live_transcript_lag": {
+        "sampleCount": 10,
+        "lastMs": 340,
+        "minMs": 166,
+        "maxMs": 340,
+        "p50Ms": 226,
+        "p95Ms": 340
+      }
+    }
+  },
+  "aggregate": {
+    "interrupt_to_silence": {
+      "sampleCount": 30,
+      "lastMs": 208,
+      "minMs": 128,
+      "maxMs": 214,
+      "p50Ms": 152,
+      "p95Ms": 208
+    },
+    "time_to_first_assistant_audio": {
+      "sampleCount": 30,
+      "lastMs": 1160,
+      "minMs": 720,
+      "maxMs": 1180,
+      "p50Ms": 890,
+      "p95Ms": 1160
+    },
+    "live_transcript_lag": {
+      "sampleCount": 30,
+      "lastMs": 340,
+      "minMs": 160,
+      "maxMs": 348,
+      "p50Ms": 232,
+      "p95Ms": 340
+    }
+  }
+}

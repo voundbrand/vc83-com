@@ -80,6 +80,12 @@ import {
 } from '../../src/lib/voice/lifecycle';
 import { buildVoiceConversationStarterText } from '../../src/lib/voice/catalogLanguage';
 import { shouldCloseVoiceSessionForConversationSwitch } from '../../src/lib/voice/continuity';
+import { resolveMobileVoiceLiveDuplexSegmentDurationMs } from '../../src/lib/voice/runtimePolicy';
+import {
+  createMobileVoiceLatencyMetricsCollector,
+  MOBILE_VOICE_LATENCY_METRICS_CONTRACT_VERSION,
+  type MobileVoiceLatencyMetricKey,
+} from '../../src/lib/voice/latencyMetrics';
 import {
   createMobileAvSourceRegistry,
   createNodeCommandGatePolicy,
@@ -111,6 +117,9 @@ const getGreetingKey = () => {
 };
 
 const MOBILE_VAD_MIN_ACTIVE_SPEECH_MS = 650;
+const MOBILE_LIVE_DUPLEX_TARGET_FRAME_DURATION_MS =
+  resolveMobileVoiceLiveDuplexSegmentDurationMs('elevenlabs');
+const MOBILE_LIVE_DUPLEX_MAX_FRAME_DURATION_MS = MOBILE_LIVE_DUPLEX_TARGET_FRAME_DURATION_MS * 2;
 
 function resolveCreditActionUrl(actionUrl: string | undefined): string | null {
   if (typeof actionUrl !== 'string' || actionUrl.trim().length === 0) {
@@ -234,6 +243,8 @@ export default function ConversationScreen() {
   const assistantSpeechInFlightSequenceRef = useRef<number | null>(null);
   const assistantSpeechCanceledThroughSequenceRef = useRef(0);
   const assistantSpeechCancelEpochRef = useRef(0);
+  const pendingAssistantFirstAudioStartAtMsRef = useRef<number | null>(null);
+  const pendingAssistantFirstAudioSourceRef = useRef<string | null>(null);
   const finalFrameFinalizeMutexRef = useRef(false);
   const lastFinalizedFrameSequenceRef = useRef<number | null>(null);
   const bargeInStateRef = useRef<VoiceBargeInState>('idle');
@@ -255,6 +266,9 @@ export default function ConversationScreen() {
   const starterKickoffCompletedRef = useRef(false);
   const lastVisionReadinessAlertCodeRef = useRef<string | null>(null);
   const syncInFlightRef = useRef(false);
+  const voiceLatencyMetricsRef = useRef(
+    createMobileVoiceLatencyMetricsCollector({ maxSamplesPerMetric: 240 })
+  );
   const liveSessionIdRef = useRef(`mobile_live_${Date.now().toString(36)}`);
   const avRegistryRef = useRef(createMobileAvSourceRegistry());
   const cameraSourceIdRef = useRef<string>('');
@@ -660,6 +674,61 @@ export default function ConversationScreen() {
   const liveHudStatusLabel = t(`chat.conversation.state.${conversationState}` as TranslationKey);
   const liveTurnHudLabel = resolveMobileConversationTurnHudLabel(conversationTurnState);
   const liveHudSourceLabel = resolveMobileConversationSourceHudLabel(visionSourceMode);
+  const liveTransportDegradationLabel = mobileVoiceRuntime.transportDegradation.isDegraded
+    ? t(
+        mobileVoiceRuntime.transportDegradation.reasonLabelKey as TranslationKey,
+        {}
+      )
+    : undefined;
+  const liveTransportDegradationReasonCode = mobileVoiceRuntime.transportDegradation.isDegraded
+    ? mobileVoiceRuntime.transportDegradation.reasonCode
+    : undefined;
+  const liveTransportFallbackReasonCodeLabel = liveTransportDegradationReasonCode
+    ? t('chat.voiceTransportReasonCode', { reasonCode: liveTransportDegradationReasonCode })
+    : undefined;
+  const liveRealtimeRelayHealthy = Boolean(
+    (mobileVoiceRuntime.transportRuntime as { realtimeRelayHealthy?: boolean })?.realtimeRelayHealthy
+  );
+  const liveRealtimeRelayReasonCode =
+    (mobileVoiceRuntime.transportRuntime as { realtimeRelayReasonCode?: string })?.realtimeRelayReasonCode
+    || 'relay_healthy';
+  const liveRealtimeRelayServerReasonCode =
+    (mobileVoiceRuntime.transportRuntime as { realtimeRelayServerReasonCode?: string })
+      ?.realtimeRelayServerReasonCode;
+  const liveRealtimeRelayReasonLabel = !liveRealtimeRelayHealthy
+    ? t(`chat.voiceRealtimeHealth.${liveRealtimeRelayReasonCode}` as TranslationKey)
+    : undefined;
+  const liveRealtimeRelayReasonCodeLabel = !liveRealtimeRelayHealthy
+    ? t('chat.voiceRealtimeReasonCode', { reasonCode: liveRealtimeRelayReasonCode })
+    : undefined;
+  const liveRealtimeRelayServerReasonCodeLabel =
+    !liveRealtimeRelayHealthy
+    && liveRealtimeRelayServerReasonCode
+    && liveRealtimeRelayServerReasonCode !== 'none'
+      ? t('chat.voiceRealtimeServerReasonCode', {
+          reasonCode: liveRealtimeRelayServerReasonCode,
+        })
+      : undefined;
+  const liveRealtimeHealthHudLabel = liveRealtimeRelayReasonLabel
+    ? t('chat.voiceRealtimeHealthHud', { reason: liveRealtimeRelayReasonLabel })
+    : undefined;
+  const liveTransportHealthLabel =
+    liveTransportDegradationLabel
+      ? [liveTransportDegradationLabel, liveTransportFallbackReasonCodeLabel]
+          .filter((value): value is string => Boolean(value))
+          .join(' • ')
+      : liveRealtimeRelayReasonLabel
+        ? [
+            liveRealtimeRelayReasonLabel,
+            liveRealtimeRelayReasonCodeLabel,
+            liveRealtimeRelayServerReasonCodeLabel,
+          ]
+            .filter((value): value is string => Boolean(value))
+            .join(' • ')
+        : undefined;
+  const liveTransportFallbackHudLabel = liveTransportHealthLabel
+    ? t('chat.voiceTransportFallback', { reason: liveTransportHealthLabel })
+    : undefined;
   const lastConversationEventRef = useRef<string>('');
   const canRunAssistantAutospeak = useCallback(() => (
     isVoiceModeOpenRef.current
@@ -712,6 +781,26 @@ export default function ConversationScreen() {
       ...(details || {}),
     });
   }, []);
+  const recordVoiceLatencyMetric = useCallback((args: {
+    metric: MobileVoiceLatencyMetricKey;
+    latencyMs: number;
+    source: string;
+  }) => {
+    const snapshot = voiceLatencyMetricsRef.current.record(args.metric, args.latencyMs);
+    logVoiceLifecycle('voice_latency_metric_recorded', {
+      metric: args.metric,
+      latencyMs: args.latencyMs,
+      source: args.source,
+      summary: snapshot.metrics[args.metric],
+    });
+    setVoiceRuntime((prev) => ({
+      ...(prev || {}),
+      latencyMetrics: snapshot,
+      latencyMetricsContractVersion: MOBILE_VOICE_LATENCY_METRICS_CONTRACT_VERSION,
+      latencyMetricsUpdatedAtMs: snapshot.capturedAtMs,
+    }));
+    return snapshot;
+  }, [logVoiceLifecycle]);
   const clearPendingFinalFrameTimer = useCallback(() => {
     if (pendingFinalFrameTimerRef.current) {
       clearTimeout(pendingFinalFrameTimerRef.current);
@@ -794,6 +883,8 @@ export default function ConversationScreen() {
     return decision.nextConsumedTurnToken;
   }, [logVoiceLifecycle]);
   const clearPendingAssistantSpeechEffects = useCallback((reason: string) => {
+    pendingAssistantFirstAudioStartAtMsRef.current = null;
+    pendingAssistantFirstAudioSourceRef.current = null;
     awaitingAssistantSpeechRef.current = false;
     awaitingAssistantSpeechTurnTokenRef.current = null;
     consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnTokenRef.current;
@@ -815,6 +906,8 @@ export default function ConversationScreen() {
       assistantSpeechCanceledThroughSequenceRef.current,
       inFlightSequence
     );
+    pendingAssistantFirstAudioStartAtMsRef.current = null;
+    pendingAssistantFirstAudioSourceRef.current = null;
     awaitingAssistantSpeechRef.current = false;
     awaitingAssistantSpeechTurnTokenRef.current = null;
     consumedAssistantAutospeakTurnTokenRef.current = assistantAutospeakTurnTokenRef.current;
@@ -874,13 +967,37 @@ export default function ConversationScreen() {
         return;
       }
       try {
-        await mobileVoiceRuntime.synthesizeAndPlay(spokenText);
+        const playback = await mobileVoiceRuntime.synthesizeAndPlay(spokenText);
+        const expectedAssistantStartAtMs = pendingAssistantFirstAudioStartAtMsRef.current;
+        if (
+          expectedAssistantStartAtMs
+          && Number.isFinite(playback.playbackStartedAtMs)
+        ) {
+          recordVoiceLatencyMetric({
+            metric: 'time_to_first_assistant_audio',
+            latencyMs: Number(playback.playbackStartedAtMs) - expectedAssistantStartAtMs,
+            source: pendingAssistantFirstAudioSourceRef.current || source,
+          });
+          pendingAssistantFirstAudioStartAtMsRef.current = null;
+          pendingAssistantFirstAudioSourceRef.current = null;
+        }
       } catch {
         if (shouldFailClosedStop()) {
           enforceFailClosedStop();
           return;
         }
+        const expectedAssistantStartAtMs = pendingAssistantFirstAudioStartAtMsRef.current;
+        const fallbackPlaybackStartedAtMs = Date.now();
         await speakWithSystemFallback(spokenText);
+        if (expectedAssistantStartAtMs) {
+          recordVoiceLatencyMetric({
+            metric: 'time_to_first_assistant_audio',
+            latencyMs: fallbackPlaybackStartedAtMs - expectedAssistantStartAtMs,
+            source: pendingAssistantFirstAudioSourceRef.current || `${source}_fallback`,
+          });
+          pendingAssistantFirstAudioStartAtMsRef.current = null;
+          pendingAssistantFirstAudioSourceRef.current = null;
+        }
       }
       if (shouldFailClosedStop()) {
         enforceFailClosedStop();
@@ -903,7 +1020,7 @@ export default function ConversationScreen() {
         serverSideSynthesizeAbortSupported: false,
       });
     }
-  }, [logVoiceLifecycle, mobileVoiceRuntime, speakWithSystemFallback]);
+  }, [logVoiceLifecycle, mobileVoiceRuntime, recordVoiceLatencyMetric, speakWithSystemFallback]);
   const handleCaptureStartBargeIn = useCallback(async (source: 'tap_capture_start' | 'vad_speech_onset' | 'frame_boundary_speech') => {
     const transition = resolveCaptureStartBargeInTransition({
       state: bargeInStateRef.current,
@@ -920,7 +1037,13 @@ export default function ConversationScreen() {
       sendRemoteCancel: transition.command.sendRemoteCancel,
       resetPlaybackQueue: transition.command.resetPlaybackQueue,
     });
+    const interruptStartedAtMs = Date.now();
     await cancelAssistantSpeech(`barge_in:${source}`);
+    recordVoiceLatencyMetric({
+      metric: 'interrupt_to_silence',
+      latencyMs: Date.now() - interruptStartedAtMs,
+      source,
+    });
     if (transition.command.sendRemoteCancel) {
       const ackTransition = reduceVoiceBargeInState({
         state: bargeInStateRef.current,
@@ -933,6 +1056,7 @@ export default function ConversationScreen() {
     conversationTurnState,
     isAssistantSpeaking,
     logVoiceLifecycle,
+    recordVoiceLatencyMetric,
   ]);
   const handleVoiceEnergySample = useCallback((sample: VoiceRecorderEnergySample, source: 'meter' | 'frame') => {
     if (!isVoiceCaptureActive) {
@@ -1067,12 +1191,12 @@ export default function ConversationScreen() {
 
   useEffect(() => {
     const transportMode =
-      (mobileVoiceRuntime.transportRuntime as { mode?: string })?.mode ?? 'chunked_fallback';
-    const realtimeConnected = Boolean(
-      (mobileVoiceRuntime.transportRuntime as { realtimeConnected?: boolean })?.realtimeConnected
+      (mobileVoiceRuntime.transportRuntime as { mode?: string })?.mode ?? 'websocket';
+    const realtimeRelayHealthy = Boolean(
+      (mobileVoiceRuntime.transportRuntime as { realtimeRelayHealthy?: boolean })?.realtimeRelayHealthy
     );
     const requiresRealtimeTransport = transportMode === 'websocket' || transportMode === 'webrtc';
-    const transportReady = requiresRealtimeTransport ? realtimeConnected : true;
+    const transportReady = requiresRealtimeTransport ? realtimeRelayHealthy : true;
     const nextState: ConversationSessionState =
       !isVoiceModeOpen
         ? 'idle'
@@ -2154,13 +2278,16 @@ export default function ConversationScreen() {
     if (attachment.type === 'image' && activeCameraSourceId) {
       const voiceTransportRuntime = mobileVoiceRuntime.transportRuntime as {
         realtimeConnected?: boolean;
+        realtimeRelayHealthy?: boolean;
       };
       void mobileVideoRuntime.ingestCapturedFrame({
         sourceId: activeCameraSourceId,
         sourceProviderId: activeCameraSource?.providerId || 'ios_avfoundation',
         sourceMode: visionSourceMode,
         voiceTransportSelection: mobileVoiceRuntime.transportSelection,
-        voiceRealtimeConnected: Boolean(voiceTransportRuntime.realtimeConnected),
+        voiceRealtimeConnected: Boolean(
+          voiceTransportRuntime.realtimeRelayHealthy ?? voiceTransportRuntime.realtimeConnected
+        ),
         interviewSessionId: mobileVoiceRuntime.getActiveSession()?.interviewSessionId,
         mimeType: attachment.mimeType,
         framePayloadBase64,
@@ -2323,6 +2450,10 @@ export default function ConversationScreen() {
         sequence: args.frameSequence,
       });
       if (finalization?.text) {
+        if (!pendingAssistantFirstAudioStartAtMsRef.current) {
+          pendingAssistantFirstAudioStartAtMsRef.current = Date.now();
+          pendingAssistantFirstAudioSourceRef.current = args.source;
+        }
         setVoiceRuntime((prev) => ({
           ...(prev || {}),
           transcript: finalization.text,
@@ -2490,6 +2621,10 @@ export default function ConversationScreen() {
 
   const handleLiveVoiceFrame = useCallback(async (frame: VoiceRecorderFrame) => {
     const frameTimestampMs = Number.isFinite(frame.timestampMs) ? frame.timestampMs : Date.now();
+    const normalizedFrameDurationMs = Math.min(
+      MOBILE_LIVE_DUPLEX_MAX_FRAME_DURATION_MS,
+      Math.max(20, Math.floor(frame.durationMs))
+    );
     const frameEnergyRms = Number.isFinite(frame.energyRms) ? frame.energyRms : 0;
     handleVoiceEnergySample({
       sequence: frame.sequence,
@@ -2507,7 +2642,7 @@ export default function ConversationScreen() {
       logVoiceLifecycle('voice_frame_drop_inactive_conversation', {
         sequence: frame.sequence,
         isFinal: frame.isFinal,
-        durationMs: frame.durationMs,
+        durationMs: normalizedFrameDurationMs,
       });
       return;
     }
@@ -2523,24 +2658,31 @@ export default function ConversationScreen() {
       return;
     }
 
-    const startedAt = Date.now() - frame.durationMs;
+    const startedAt = frameTimestampMs - normalizedFrameDurationMs;
     let ingestResult: Awaited<ReturnType<typeof mobileVoiceRuntime.ingestStreamingFrame>> | null = null;
     try {
       ingestResult = await mobileVoiceRuntime.ingestStreamingFrame({
         uri: frame.uri,
         mimeType: 'audio/m4a',
         language: resolvedAgentVoiceLanguage,
-        frameDurationMs: frame.durationMs,
+        frameDurationMs: normalizedFrameDurationMs,
         sequence: frame.sequence,
         isFinal: frame.isFinal,
         onPartial: (partial) => {
+          const transcriptLagMs = Date.now() - frameTimestampMs;
+          recordVoiceLatencyMetric({
+            metric: 'live_transcript_lag',
+            latencyMs: transcriptLagMs,
+            source: `frame_partial:${frame.sequence}`,
+          });
           setVoiceRuntime((prev) => ({
             ...(prev || {}),
             partialTranscript: partial,
             sessionState: 'streaming',
             frameSequence: frame.sequence,
-            frameDurationMs: frame.durationMs,
+            frameDurationMs: normalizedFrameDurationMs,
             frameEnergyRms,
+            liveTranscriptLagMs: transcriptLagMs,
             startedAt,
             stoppedAt: Date.now(),
           }));
@@ -2572,7 +2714,7 @@ export default function ConversationScreen() {
       sessionState: frame.isFinal ? 'stream_finalized' : 'streaming',
       partialTranscript: mobileVoiceRuntime.partialTranscript || undefined,
       frameSequence: frame.sequence,
-      frameDurationMs: frame.durationMs,
+      frameDurationMs: normalizedFrameDurationMs,
       frameEnergyRms,
       vadSpeechGateRms: MOBILE_VOICE_VAD_SPEECH_RMS_THRESHOLD,
       vadEndpointSilenceMs: MOBILE_VOICE_VAD_ENDPOINT_SILENCE_MS,
@@ -2611,7 +2753,7 @@ export default function ConversationScreen() {
         }
         logVoiceLifecycle('voice_frame_final_requires_assistant_cancel', {
           sequence: frame.sequence,
-          durationMs: frame.durationMs,
+          durationMs: normalizedFrameDurationMs,
           energyRms: frameEnergyRms,
         });
         const queuedPending = queuePendingFinalFrameFinalize({
@@ -2676,6 +2818,7 @@ export default function ConversationScreen() {
     avSourceScope,
     metaBridgeStatus,
     queuePendingFinalFrameFinalize,
+    recordVoiceLatencyMetric,
     resolvedAgentVoiceLanguage,
   ]);
 
@@ -3141,6 +3284,8 @@ export default function ConversationScreen() {
                 </Text>
                 <Text color="$colorTertiary" fontSize="$2">
                   {conversationMode === 'voice_with_eyes' ? 'Voice + Eyes' : 'Voice only'} • {liveHudStatusLabel} • source:{liveHudSourceLabel}
+                  {liveTransportFallbackHudLabel ? ` • ${liveTransportFallbackHudLabel}` : ''}
+                  {liveRealtimeHealthHudLabel ? ` • ${liveRealtimeHealthHudLabel}` : ''}
                 </Text>
               </XStack>
             )}
@@ -3445,6 +3590,7 @@ export default function ConversationScreen() {
           handleEndConversation('orb_stop_control');
         }}
         hudStatusLabel={liveHudStatusLabel}
+        transportDegradationReasonLabel={liveTransportHealthLabel}
         conversationTurnState={conversationTurnState}
         conversationEnding={isConversationEnding}
         onRecordingStateChange={setIsVoiceCaptureActive}

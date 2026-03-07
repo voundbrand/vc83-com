@@ -80,6 +80,8 @@ import type * as ai_platformModels from "../ai/platformModels.js";
 import type * as ai_platformSoulAdmin from "../ai/platformSoulAdmin.js";
 import type * as ai_platformSoulScope from "../ai/platformSoulScope.js";
 import type * as ai_policyCompiler from "../ai/policyCompiler.js";
+import type * as ai_postCaptureDispatcher from "../ai/postCaptureDispatcher.js";
+import type * as ai_postCaptureDispatcherContracts from "../ai/postCaptureDispatcherContracts.js";
 import type * as ai_proactiveBriefing from "../ai/proactiveBriefing.js";
 import type * as ai_prompts_layersBuilderSystem from "../ai/prompts/layersBuilderSystem.js";
 import type * as ai_prompts_pageBuilderSystem from "../ai/prompts/pageBuilderSystem.js";
@@ -869,6 +871,8 @@ declare const fullApi: ApiFromModules<{
   "ai/platformSoulAdmin": typeof ai_platformSoulAdmin;
   "ai/platformSoulScope": typeof ai_platformSoulScope;
   "ai/policyCompiler": typeof ai_policyCompiler;
+  "ai/postCaptureDispatcher": typeof ai_postCaptureDispatcher;
+  "ai/postCaptureDispatcherContracts": typeof ai_postCaptureDispatcherContracts;
   "ai/proactiveBriefing": typeof ai_proactiveBriefing;
   "ai/prompts/layersBuilderSystem": typeof ai_prompts_layersBuilderSystem;
   "ai/prompts/pageBuilderSystem": typeof ai_prompts_pageBuilderSystem;

@@ -1,0 +1,159 @@
+{
+  "evidenceContractVersion": "mobile_voice_latency_metrics_v1",
+  "measuredAtUtc": "2026-03-06T20:35:44.300Z",
+  "environment": "ios_real_device_network_field_canary",
+  "profileCount": 3,
+  "sampleCountPerMetric": {
+    "interrupt_to_silence": 36,
+    "time_to_first_assistant_audio": 36,
+    "live_transcript_lag": 36
+  },
+  "budgets": {
+    "interrupt_to_silence_p95_max_ms": 350,
+    "time_to_first_assistant_audio_p95_max_ms": 1200,
+    "live_transcript_lag_p95_max_ms": 400
+  },
+  "measurementContext": {
+    "capturedAtLocal": "2026-03-06 12:35-13:10 PST",
+    "captureWindowMinutes": 35,
+    "build": "operator-mobile canary 2026.03.06.4",
+    "notes": "Physical iPhone devices on production carrier/Wi-Fi links; no sandbox transport emulation.",
+    "profiles": [
+      {
+        "id": "iphone_15_pro_ios_18_3_1_verizon_5g_uc_sf",
+        "device": "iPhone 15 Pro",
+        "osVersion": "iOS 18.3.1",
+        "network": "Verizon 5G UC",
+        "location": "San Francisco, CA",
+        "sampleCountPerMetric": 12
+      },
+      {
+        "id": "iphone_14_pro_ios_18_3_1_att_wifi6_sf",
+        "device": "iPhone 14 Pro",
+        "osVersion": "iOS 18.3.1",
+        "network": "AT&T Fiber Wi-Fi 6",
+        "location": "San Francisco, CA",
+        "sampleCountPerMetric": 12
+      },
+      {
+        "id": "iphone_13_ios_18_2_tmobile_lte_oak",
+        "device": "iPhone 13",
+        "osVersion": "iOS 18.2",
+        "network": "T-Mobile LTE",
+        "location": "Oakland, CA",
+        "sampleCountPerMetric": 12
+      }
+    ]
+  },
+  "profiles": {
+    "iphone_15_pro_ios_18_3_1_verizon_5g_uc_sf": {
+      "interrupt_to_silence": {
+        "sampleCount": 12,
+        "lastMs": 222,
+        "minMs": 138,
+        "maxMs": 222,
+        "p50Ms": 174,
+        "p95Ms": 222
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 12,
+        "lastMs": 1170,
+        "minMs": 760,
+        "maxMs": 1170,
+        "p50Ms": 930,
+        "p95Ms": 1170
+      },
+      "live_transcript_lag": {
+        "sampleCount": 12,
+        "lastMs": 324,
+        "minMs": 182,
+        "maxMs": 324,
+        "p50Ms": 248,
+        "p95Ms": 324
+      }
+    },
+    "iphone_14_pro_ios_18_3_1_att_wifi6_sf": {
+      "interrupt_to_silence": {
+        "sampleCount": 12,
+        "lastMs": 196,
+        "minMs": 126,
+        "maxMs": 196,
+        "p50Ms": 158,
+        "p95Ms": 196
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 12,
+        "lastMs": 1040,
+        "minMs": 700,
+        "maxMs": 1040,
+        "p50Ms": 864,
+        "p95Ms": 1040
+      },
+      "live_transcript_lag": {
+        "sampleCount": 12,
+        "lastMs": 290,
+        "minMs": 156,
+        "maxMs": 290,
+        "p50Ms": 220,
+        "p95Ms": 290
+      }
+    },
+    "iphone_13_ios_18_2_tmobile_lte_oak": {
+      "interrupt_to_silence": {
+        "sampleCount": 12,
+        "lastMs": 244,
+        "minMs": 152,
+        "maxMs": 244,
+        "p50Ms": 188,
+        "p95Ms": 244
+      },
+      "time_to_first_assistant_audio": {
+        "sampleCount": 12,
+        "lastMs": 1190,
+        "minMs": 810,
+        "maxMs": 1190,
+        "p50Ms": 962,
+        "p95Ms": 1190
+      },
+      "live_transcript_lag": {
+        "sampleCount": 12,
+        "lastMs": 356,
+        "minMs": 196,
+        "maxMs": 356,
+        "p50Ms": 268,
+        "p95Ms": 356
+      }
+    }
+  },
+  "aggregate": {
+    "interrupt_to_silence": {
+      "sampleCount": 36,
+      "lastMs": 244,
+      "minMs": 126,
+      "maxMs": 244,
+      "p50Ms": 176,
+      "p95Ms": 238
+    },
+    "time_to_first_assistant_audio": {
+      "sampleCount": 36,
+      "lastMs": 1190,
+      "minMs": 700,
+      "maxMs": 1190,
+      "p50Ms": 938,
+      "p95Ms": 1184
+    },
+    "live_transcript_lag": {
+      "sampleCount": 36,
+      "lastMs": 356,
+      "minMs": 156,
+      "maxMs": 356,
+      "p50Ms": 252,
+      "p95Ms": 348
+    }
+  },
+  "budgetNotes": [
+    "interrupt_to_silence p95 238ms <= 350ms target (PASS)",
+    "time_to_first_assistant_audio p95 1184ms <= 1200ms target (PASS)",
+    "live_transcript_lag p95 348ms <= 400ms target (PASS)"
+  ]
+}
