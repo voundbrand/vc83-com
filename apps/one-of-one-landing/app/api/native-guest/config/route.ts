@@ -2,8 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+} from "convex/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
-const generatedApi: any = require("../../../../../../convex/_generated/api");
+import { internal as generatedInternalApi } from "../../../../../../convex/_generated/api";
 
 interface NativeGuestActiveAgentCandidate {
   _id: string;
@@ -149,6 +154,23 @@ function getPlatformOrganizationId(): string | null {
   );
 }
 
+type InternalQueryRef = FunctionReference<"query", "internal">;
+
+async function queryInternal<QueryRef extends InternalQueryRef>(
+  convex: ConvexHttpClient,
+  queryRef: QueryRef,
+  args: FunctionArgs<QueryRef>
+): Promise<FunctionReturnType<QueryRef>> {
+  const publicQueryRef =
+    queryRef as unknown as FunctionReference<
+      "query",
+      "public",
+      FunctionArgs<QueryRef>,
+      FunctionReturnType<QueryRef>
+    >;
+  return convex.query(publicQueryRef, args);
+}
+
 export async function GET() {
   try {
     const organizationId = getPlatformOrganizationId();
@@ -177,15 +199,17 @@ export async function GET() {
       process.env.ONE_OF_ONE_AUDIT_AGENT_NAME ||
       null;
 
-    const activeAgents = await convex.query(
-      generatedApi.internal.agentOntology.getAllActiveAgentsForOrg,
+    const activeAgents = await queryInternal(
+      convex,
+      generatedInternalApi.agentOntology.getAllActiveAgentsForOrg,
       {
         organizationId: organizationId as Id<"organizations">,
       }
     );
     const typedActiveAgents = activeAgents as NativeGuestActiveAgentCandidate[];
-    const activeAgent = await convex.query(
-      generatedApi.internal.agentOntology.getActiveAgentForOrg,
+    const activeAgent = await queryInternal(
+      convex,
+      generatedInternalApi.agentOntology.getActiveAgentForOrg,
       {
         organizationId: organizationId as Id<"organizations">,
         channel: "native_guest",
@@ -253,8 +277,9 @@ export async function GET() {
         }
         | null = null;
       try {
-        resolvedContext = await convex.query(
-          generatedApi.internal.api.v1.webchatApi.resolvePublicMessageContext,
+        resolvedContext = await queryInternal(
+          convex,
+          generatedInternalApi.api.v1.webchatApi.resolvePublicMessageContext,
           {
             organizationId: organizationId as Id<"organizations">,
             agentId: candidateAgentId as Id<"objects">,
@@ -273,8 +298,9 @@ export async function GET() {
         continue;
       }
 
-      const candidateBootstrap = await convex.query(
-        generatedApi.internal.api.v1.webchatApi.getPublicWebchatBootstrap,
+      const candidateBootstrap = await queryInternal(
+        convex,
+        generatedInternalApi.api.v1.webchatApi.getPublicWebchatBootstrap,
         {
           agentId: resolvedContext.agentId,
           channel: "native_guest",

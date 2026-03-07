@@ -3,8 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
-
-const generatedApi: any = require("../../../../../../convex/_generated/api");
+import { api as generatedApi } from "../../../../../../convex/_generated/api";
 
 function getConvexClient() {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const convex = getConvexClient();
-    const url = await convex.query(generatedApi.api.files.getFileUrl, {
+    const url = await convex.query(generatedApi.files.getFileUrl, {
       storageId: storageId as Id<"_storage">,
     });
 

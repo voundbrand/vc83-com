@@ -16,7 +16,6 @@ import {
 import { landingTranslations } from "@/content/landing-content"
 import {
   ArrowLeft,
-  ArrowRight,
   Star,
   CalendarDays,
   Phone,
@@ -139,9 +138,9 @@ export default function CaseStudyPage() {
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
             <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <a href="/#diagnostic">
+              <Link href="/#diagnostic">
                 {lt.ctaButton}
-              </a>
+              </Link>
             </Button>
             <Button asChild className="btn-accent text-xs h-8 w-8 sm:w-auto sm:px-3">
               <a
