@@ -186,12 +186,52 @@ export function Footer({ language = "en" }: FooterProps) {
 
         {/* Bottom bar */}
         <div
-          className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-2"
+          className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3"
           style={{ borderColor: "var(--color-border)" }}
         >
           <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
             {t.tagline}
           </p>
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] uppercase tracking-wider font-medium"
+              style={{
+                color: "var(--color-text-secondary)",
+                backgroundColor: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true" className="shrink-0 rounded-[1px]">
+                <rect width="16" height="3.33" fill="#000" />
+                <rect y="3.33" width="16" height="3.34" fill="#DD0000" />
+                <rect y="6.67" width="16" height="3.33" fill="#FFCC00" />
+              </svg>
+              {t.madeInGermany}
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] uppercase tracking-wider font-medium"
+              style={{
+                color: "var(--color-text-secondary)",
+                backgroundColor: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true" className="shrink-0 rounded-[1px]">
+                <rect width="16" height="10" fill="#003399" />
+                <g transform="translate(8,5)">
+                  {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle) => (
+                    <polygon
+                      key={angle}
+                      points="0,-3.2 0.4,-1 0,-1.4 -0.4,-1"
+                      fill="#FFCC00"
+                      transform={`rotate(${angle})`}
+                    />
+                  ))}
+                </g>
+              </svg>
+              {t.gdprCompliant}
+            </span>
+          </div>
           <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
             &copy; {new Date().getFullYear()} {t.copyright}
           </p>

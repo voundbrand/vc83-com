@@ -1281,7 +1281,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <Footer language={language} />
+      <Footer />
     </div>
   )
 }
