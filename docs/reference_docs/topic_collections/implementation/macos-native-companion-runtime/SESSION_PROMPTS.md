@@ -14,10 +14,10 @@
 6. Do not start lane `G` before `MCR-007` and `MCR-011` are `DONE`.
 7. Do not start lane `H` before `MCR-012` and `MCR-014` are `DONE`.
 8. Start lane `I` only after `MCR-018` is `DONE`; lane `I` parity foundation rows (`MCR-020+`) take priority over `MCR-019`.
-9. Do not promote `MCR-019` from `PENDING` until `MCR-025` is `DONE`.
+9. Promote `MCR-019` only after `MCR-025` is `DONE`; if live credentials/URL prerequisites are missing, fail closed and mark `MCR-019` as `BLOCKED`.
 10. After each completed row, sync `TASK_QUEUE.md`, `INDEX.md`, and `MASTER_PLAN.md`.
 
-Status snapshot (2026-02-27):
+Status snapshot (2026-03-09):
 
 1. Lane `A` `P0` rows are complete (`MCR-001` and `MCR-002` are `DONE`).
 2. Lane `B` scaffold kickoff row `MCR-003` is `DONE`; lane `B` follow-up row `MCR-004` is now `DONE`.
@@ -30,14 +30,20 @@ Status snapshot (2026-02-27):
 9. Lane `H` closeout row `MCR-016` is now `DONE` with residual-risk/rollback/escalation evidence published under `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-016-20260227T094625Z/*`.
 10. Follow-on hardening row `MCR-017` is now `DONE` with monitoring/automation baseline evidence published under `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-017-20260227T095948Z/*`.
 11. Production release automation row `MCR-018` is now `DONE` after implementing strict notarization, Sparkle appcast signing, GitHub release upload scripts, and `macos-release` workflow wiring with queue-first doc sync.
-12. Credentialed release rehearsal row `MCR-019` remains `PENDING` and intentionally deferred while lane `I` parity foundation rows execute.
+12. Credentialed release rehearsal row `MCR-019` is now `BLOCKED` after strict execution attempt failed closed on missing live credentials/URL prerequisites; evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
 13. Lane `I` parity kickoff row `MCR-020` is now `DONE` after unblock verification rerun; evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-session-20260227T133053Z/*`.
 14. Lane `I` native chat window parity slice row `MCR-021A` is `DONE` with evidence at `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-021a-20260227T123334Z/*`.
-15. External upstream dependencies are already favorable for later rows:
+15. Lane `I` proactive workflow recommendation slice row `MCR-021B` is `DONE` after implementing native work-observation + recommendation session control under `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/WorkObservation/*` with coverage in `AgenticWorkflowRecommendationEngineTests` and `WorkflowRecommendationSessionControllerTests`.
+16. Lane `I` concrete camera + microphone provider slice row `MCR-021` is `DONE` after implementing AVFoundation-backed providers with permission preflight and bounded active-session lifecycle checks; row verify profile (`swift test`, `typecheck`, `test:unit`, `docs:guard`) passed.
+17. Lane `I` voice wake + push-to-talk transcript forwarding row `MCR-022` is `DONE` after implementing `DesktopVoiceRuntimeLoop` under `apps/macos/Sources/SevenLayersMac/Voice/*`, adding deterministic fail-closed fallback transitions, and extending backend normalization in `convex/ai/voiceRuntime.ts`; row verify profile (`swift build`, `swift test`, `typecheck`, `test:unit`, `docs:guard`) passed.
+18. External upstream dependencies are already favorable for later rows:
    - `YAI-021` is `DONE`.
    - `AVR-010` is `DONE`, so `AVR-010@DONE_GATE` is satisfied for downstream rows.
-16. Deterministic next promotable row: `MCR-021` (`READY`).
-17. Active row count: `0` rows in `IN_PROGRESS`.
+19. Exec approvals UX/policy hardening row `MCR-023` is `DONE` after implementing prompt-contract + persisted deny policy bindings in `apps/macos/Sources/SevenLayersMac/SystemExec/*` and scope/hash visibility formatter support in `apps/macos/Sources/SevenLayersMac/UI/SystemExecApprovalPromptFormatter.swift`; row verify profile (`swift build`, `swift test`, `lint`, `test:unit`, `docs:guard`) passed.
+20. Lane `I` deep-link/trust-portal + notification action parity row `MCR-024` is `DONE` after adding capture route support, explicit requested-vs-effective trust-gate semantics, and fail-closed notification action follow-through handling with non-bypass `approval.action` evidence checks.
+21. Lane `I` parity foundation closeout row `MCR-025` is `DONE` after implementing deterministic transport-health + retry/disable/rollback observability, fail-closed transport-disable runtime behavior, and operator-visible diagnostics while preserving backend mutation authority and non-bypass trust/approval semantics.
+22. Deterministic next promotable row: none (`MCR-019` is currently `BLOCKED`; unblock requires provisioning live credentials/URL prerequisites and rerunning strict rehearsal).
+23. Active row count: `0` rows in `IN_PROGRESS`.
 
 ---
 
@@ -177,7 +183,7 @@ Tasks:
 2. Complete `MCR-016`: closeout docs, residual risk log, rollback runbook, owner map.
 3. Complete `MCR-017`: post-closeout monitoring cadence + automation hardening package.
 4. Complete `MCR-018`: strict notarization + appcast-sign + GitHub release automation and runbook sync.
-5. Complete `MCR-019` only after lane `I` parity foundation (`MCR-025`) is `DONE`.
+5. Complete `MCR-019` only after lane `I` parity foundation (`MCR-025`) is `DONE` and live credential/URL prerequisites are present.
 
 Requirements:
 
@@ -196,16 +202,17 @@ Tasks:
 
 1. Keep `MCR-020` baseline intact: node/gateway transport + capability discovery + approval-gated screen snapshot vertical slice with telemetry.
 2. Keep `MCR-021A` behavior stable while implementing downstream rows.
-3. Complete `MCR-021`: concrete camera + microphone providers with permission preflight and fail-closed session lifecycle.
-4. Complete `MCR-022`: voice wake/push-to-talk loop with transcript forwarding ingress envelopes.
-5. Complete `MCR-023`: exec approvals UX/policy hardening with non-bypass artifact bindings.
-6. Complete `MCR-024`: deep-link/trust portal + notification action handling for node-originated flows.
-7. Complete `MCR-025`: parity closeout for observability + safe failure/rollback behavior.
+3. Keep `MCR-021B` behavior stable: proactive work-observation + recommendation ergonomics remain local/assistive and do not alter backend authority boundaries.
+4. Keep `MCR-021` behavior stable: camera/microphone providers must preserve bounded lifecycle and fail-closed permission semantics.
+5. Keep `MCR-022` behavior stable: wake/push-to-talk transcript forwarding must remain ingress-only, backend-authoritative, and fail-closed on approval/runtime degradation.
+6. Keep `MCR-023` behavior stable: exec approvals prompt contract, persisted deny-by-default prechecks, and non-bypass `approval.action` artifact binding must remain fail-closed.
+7. Keep `MCR-024` behavior stable: deep-link/trust portal + notification action handling for node-originated flows must remain fail-closed and non-bypass.
+8. Keep `MCR-025` behavior stable: parity-closeout observability + safe failure/rollback diagnostics and retry/disable policy semantics remain deterministic.
 
 Requirements:
 
 1. OpenClaw remains reference-only architecture input; do not copy source verbatim.
 2. `vc83` backend remains mutation authority; desktop actions remain fail-closed and approval-gated.
 3. Every vertical slice must emit telemetry with correlation/session context and gate outcomes.
-4. `MCR-019` stays deferred until `MCR-025` is `DONE`.
+4. Lane `I` invariants remain release-blocking while `MCR-019` unblock/rehearsal work proceeds.
 5. Run row `Verify` commands exactly.

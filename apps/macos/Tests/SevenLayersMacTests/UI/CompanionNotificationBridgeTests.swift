@@ -38,6 +38,7 @@ final class CompanionNotificationBridgeTests: XCTestCase {
         )
         XCTAssertEqual(request.userInfo[NotificationUserInfoKey.gateMode], "approval_action")
         XCTAssertEqual(request.userInfo[NotificationUserInfoKey.approvalArtifactID], "approval-1234")
+        XCTAssertEqual(request.userInfo[NotificationUserInfoKey.approvalTokenClass], "approval.action")
 
         let deepLinkValue = try XCTUnwrap(request.userInfo[NotificationUserInfoKey.deepLinkURL])
         let deepLinkURL = try XCTUnwrap(URL(string: deepLinkValue))
@@ -45,6 +46,7 @@ final class CompanionNotificationBridgeTests: XCTestCase {
         XCTAssertEqual(decodedRoute?.kind, .approval)
         XCTAssertEqual(decodedRoute?.correlationID, "corr-1234")
         XCTAssertEqual(decodedRoute?.evidenceURL.absoluteString, "https://ops.vc83.app/evidence/ev-1234")
+        XCTAssertEqual(decodedRoute?.approvalTokenClass, "approval.action")
     }
 
     func testDeliverFallsBackToReadOnlyWhenApprovalArtifactIsMissing() async throws {
@@ -68,6 +70,35 @@ final class CompanionNotificationBridgeTests: XCTestCase {
         XCTAssertEqual(delivery.trustGateMode, .readOnly)
         XCTAssertEqual(request.userInfo[NotificationUserInfoKey.gateMode], "read_only")
         XCTAssertNil(request.userInfo[NotificationUserInfoKey.approvalArtifactID])
+        XCTAssertNil(request.userInfo[NotificationUserInfoKey.approvalTokenClass])
+    }
+
+    func testDeliverFallsBackToReadOnlyWhenApprovalTokenClassIsNotApprovalAction() async throws {
+        let client = FakeCompanionNotificationCenterClient()
+        client.status = .authorized
+
+        let bridge = CompanionNotificationBridge(notificationCenterClient: client)
+        let event = CompanionNotificationEvent(
+            kind: .approval,
+            title: "Approval required",
+            body: "Follow through the request.",
+            correlationID: "corr-approval-token-class",
+            evidenceURL: URL(string: "https://ops.vc83.app/evidence/ev-approval-token-class")!,
+            consentPreference: NotificationConsentPreference(tokenID: "consent-approval-token-class"),
+            approvalArtifact: ApprovalArtifact(
+                id: "approval-token-class-1",
+                tokenClass: "approval.session",
+                issuedAt: Date(timeIntervalSince1970: 1_700_500_500)
+            )
+        )
+
+        let delivery = try await bridge.deliver(event)
+        let request = try XCTUnwrap(client.requests.first)
+
+        XCTAssertEqual(delivery.trustGateMode, .readOnly)
+        XCTAssertEqual(request.userInfo[NotificationUserInfoKey.gateMode], "read_only")
+        XCTAssertNil(request.userInfo[NotificationUserInfoKey.approvalArtifactID])
+        XCTAssertNil(request.userInfo[NotificationUserInfoKey.approvalTokenClass])
     }
 
     func testDeliverRejectsInvalidConsentTokenClass() async {

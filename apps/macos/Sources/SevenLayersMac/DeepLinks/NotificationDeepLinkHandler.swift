@@ -4,6 +4,7 @@ import Foundation
 public enum NotificationDeepLinkKind: String, Equatable {
     case approval
     case escalation
+    case capture
 }
 
 public enum NotificationTrustGateMode: String, Equatable {
@@ -12,10 +13,13 @@ public enum NotificationTrustGateMode: String, Equatable {
 }
 
 public struct NotificationDeepLinkRoute: Equatable {
+    public static let requiredApprovalTokenClass = "approval.action"
+
     public let kind: NotificationDeepLinkKind
     public let correlationID: String
     public let evidenceURL: URL
     public let approvalArtifactID: String?
+    public let approvalTokenClass: String?
     public let gateMode: NotificationTrustGateMode
 
     public init(
@@ -23,12 +27,15 @@ public struct NotificationDeepLinkRoute: Equatable {
         correlationID: String,
         evidenceURL: URL,
         approvalArtifactID: String?,
+        approvalTokenClass: String? = nil,
         gateMode: NotificationTrustGateMode
     ) {
         self.kind = kind
         self.correlationID = correlationID.trimmingCharacters(in: .whitespacesAndNewlines)
         self.evidenceURL = evidenceURL
         self.approvalArtifactID = approvalArtifactID?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        self.approvalTokenClass = approvalTokenClass?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         self.gateMode = gateMode
     }
@@ -75,7 +82,14 @@ public struct NotificationDeepLinkCodec {
         var components = URLComponents()
         components.scheme = configuration.scheme
         components.host = configuration.host
-        components.path = route.kind == .approval ? "/approval" : "/escalation"
+        switch route.kind {
+        case .approval:
+            components.path = "/approval"
+        case .escalation:
+            components.path = "/escalation"
+        case .capture:
+            components.path = "/capture"
+        }
 
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: QueryKey.correlationID, value: correlationID),
@@ -85,6 +99,9 @@ public struct NotificationDeepLinkCodec {
 
         if let approvalArtifactID = route.approvalArtifactID, !approvalArtifactID.isEmpty {
             queryItems.append(URLQueryItem(name: QueryKey.approvalArtifactID, value: approvalArtifactID))
+        }
+        if let approvalTokenClass = route.approvalTokenClass, !approvalTokenClass.isEmpty {
+            queryItems.append(URLQueryItem(name: QueryKey.approvalTokenClass, value: approvalTokenClass))
         }
 
         components.queryItems = queryItems
@@ -106,6 +123,8 @@ public struct NotificationDeepLinkCodec {
             kind = .approval
         case "/escalation":
             kind = .escalation
+        case "/capture":
+            kind = .capture
         default:
             return nil
         }
@@ -144,14 +163,38 @@ public struct NotificationDeepLinkCodec {
 
         let approvalArtifactID = components.value(for: QueryKey.approvalArtifactID)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let approvalTokenClass = components.value(for: QueryKey.approvalTokenClass)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         return NotificationDeepLinkRoute(
             kind: kind,
             correlationID: correlationID,
             evidenceURL: evidenceURL,
             approvalArtifactID: approvalArtifactID?.isEmpty == true ? nil : approvalArtifactID,
+            approvalTokenClass: approvalTokenClass?.isEmpty == true ? nil : approvalTokenClass,
             gateMode: gateMode
         )
+    }
+}
+
+public enum NotificationGateFallbackReason: String, Equatable {
+    case missingApprovalEvidence = "missing_approval_evidence"
+    case invalidApprovalTokenClass = "invalid_approval_token_class"
+}
+
+public struct NotificationRouteResolution: Equatable {
+    public let requestedGateMode: NotificationTrustGateMode
+    public let effectiveRoute: NotificationDeepLinkRoute
+    public let fallbackReason: NotificationGateFallbackReason?
+
+    public init(
+        requestedGateMode: NotificationTrustGateMode,
+        effectiveRoute: NotificationDeepLinkRoute,
+        fallbackReason: NotificationGateFallbackReason?
+    ) {
+        self.requestedGateMode = requestedGateMode
+        self.effectiveRoute = effectiveRoute
+        self.fallbackReason = fallbackReason
     }
 }
 
@@ -175,12 +218,18 @@ public struct NotificationTrustPortalURLBuilder {
         self.configuration = configuration
     }
 
-    public func makeDestinationURL(for route: NotificationDeepLinkRoute) -> URL {
+    public func makeDestinationURL(for resolution: NotificationRouteResolution) -> URL {
+        let route = resolution.effectiveRoute
         var components = URLComponents(url: configuration.webBaseURL, resolvingAgainstBaseURL: false)
 
-        components?.path = route.kind == .approval
-            ? "/dashboard/approvals"
-            : "/dashboard/escalations"
+        switch route.kind {
+        case .approval:
+            components?.path = "/dashboard/approvals"
+        case .escalation:
+            components?.path = "/dashboard/escalations"
+        case .capture:
+            components?.path = "/dashboard/capture"
+        }
 
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: QueryKey.source, value: configuration.source),
@@ -188,10 +237,17 @@ public struct NotificationTrustPortalURLBuilder {
             URLQueryItem(name: QueryKey.correlationID, value: route.correlationID),
             URLQueryItem(name: QueryKey.evidenceURL, value: route.evidenceURL.absoluteString),
             URLQueryItem(name: QueryKey.gateMode, value: route.gateMode.rawValue),
+            URLQueryItem(name: QueryKey.requestedGateMode, value: resolution.requestedGateMode.rawValue),
         ]
 
         if let approvalArtifactID = route.approvalArtifactID, !approvalArtifactID.isEmpty {
             queryItems.append(URLQueryItem(name: QueryKey.approvalArtifactID, value: approvalArtifactID))
+        }
+        if let approvalTokenClass = route.approvalTokenClass, !approvalTokenClass.isEmpty {
+            queryItems.append(URLQueryItem(name: QueryKey.approvalTokenClass, value: approvalTokenClass))
+        }
+        if let fallbackReason = resolution.fallbackReason?.rawValue {
+            queryItems.append(URLQueryItem(name: QueryKey.gateFallbackReason, value: fallbackReason))
         }
 
         components?.queryItems = queryItems
@@ -243,12 +299,54 @@ public final class NotificationDeepLinkHandler {
             return .ignored
         }
 
-        let destinationURL = trustPortalURLBuilder.makeDestinationURL(for: route)
+        let routeResolution = resolveTrustGateRoute(route)
+        let destinationURL = trustPortalURLBuilder.makeDestinationURL(for: routeResolution)
         if workspace.open(destinationURL) {
             return .opened(destinationURL: destinationURL)
         }
 
         return .failedToOpen(destinationURL: destinationURL)
+    }
+
+    public func resolveTrustGateRoute(_ route: NotificationDeepLinkRoute) -> NotificationRouteResolution {
+        guard route.gateMode == .approvalAction else {
+            return NotificationRouteResolution(
+                requestedGateMode: route.gateMode,
+                effectiveRoute: route.withReadOnlyEvidenceSanitized(),
+                fallbackReason: nil
+            )
+        }
+
+        let artifactID = route.approvalArtifactID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let artifactID, !artifactID.isEmpty else {
+            return NotificationRouteResolution(
+                requestedGateMode: route.gateMode,
+                effectiveRoute: route.asReadOnlyFallback(),
+                fallbackReason: .missingApprovalEvidence
+            )
+        }
+
+        let tokenClass = route.approvalTokenClass?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard tokenClass == NotificationDeepLinkRoute.requiredApprovalTokenClass else {
+            return NotificationRouteResolution(
+                requestedGateMode: route.gateMode,
+                effectiveRoute: route.asReadOnlyFallback(),
+                fallbackReason: .invalidApprovalTokenClass
+            )
+        }
+
+        return NotificationRouteResolution(
+            requestedGateMode: route.gateMode,
+            effectiveRoute: NotificationDeepLinkRoute(
+                kind: route.kind,
+                correlationID: route.correlationID,
+                evidenceURL: route.evidenceURL,
+                approvalArtifactID: artifactID,
+                approvalTokenClass: tokenClass,
+                gateMode: .approvalAction
+            ),
+            fallbackReason: nil
+        )
     }
 }
 
@@ -258,7 +356,34 @@ private enum QueryKey {
     static let correlationID = "correlation_id"
     static let evidenceURL = "evidence_url"
     static let gateMode = "gate_mode"
+    static let requestedGateMode = "requested_gate_mode"
     static let approvalArtifactID = "approval_artifact_id"
+    static let approvalTokenClass = "approval_token_class"
+    static let gateFallbackReason = "gate_fallback_reason"
+}
+
+private extension NotificationDeepLinkRoute {
+    func asReadOnlyFallback() -> NotificationDeepLinkRoute {
+        NotificationDeepLinkRoute(
+            kind: kind,
+            correlationID: correlationID,
+            evidenceURL: evidenceURL,
+            approvalArtifactID: nil,
+            approvalTokenClass: nil,
+            gateMode: .readOnly
+        )
+    }
+
+    func withReadOnlyEvidenceSanitized() -> NotificationDeepLinkRoute {
+        NotificationDeepLinkRoute(
+            kind: kind,
+            correlationID: correlationID,
+            evidenceURL: evidenceURL,
+            approvalArtifactID: nil,
+            approvalTokenClass: nil,
+            gateMode: .readOnly
+        )
+    }
 }
 
 private extension URLComponents {

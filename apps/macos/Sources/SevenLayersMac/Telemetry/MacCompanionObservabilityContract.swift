@@ -9,6 +9,12 @@ public enum MacCompanionObservabilityKey {
     public static let approvalArtifactIDs = "approvalArtifactIds"
     public static let fallbackReasons = "fallbackReasons"
     public static let deliveryFailureReason = "deliveryFailureReason"
+    public static let transportHealth = "transportHealth"
+    public static let retryPolicyState = "retryPolicyState"
+    public static let retryAttempt = "retryAttempt"
+    public static let transportDisableReason = "transportDisableReason"
+    public static let rollbackState = "rollbackState"
+    public static let operatorDiagnostics = "operatorDiagnostics"
 }
 
 public enum MacCompanionGateOutcome: String, Equatable {
@@ -26,6 +32,26 @@ public enum MacCompanionApprovalStatus: String, Equatable {
     case unknown = "unknown"
 }
 
+public enum MacCompanionTransportHealth: String, Equatable {
+    case healthy = "healthy"
+    case degraded = "degraded"
+    case disabled = "disabled"
+}
+
+public enum MacCompanionRetryPolicyState: String, Equatable {
+    case notApplicable = "not_applicable"
+    case retrying = "retrying"
+    case disabled = "disabled"
+    case recovered = "recovered"
+}
+
+public enum MacCompanionRollbackState: String, Equatable {
+    case none = "none"
+    case failClosedDeny = "fail_closed_deny"
+    case readOnlyFallback = "read_only_fallback"
+    case transportDisabled = "transport_disabled"
+}
+
 public struct MacCompanionObservabilitySignal: Equatable {
     public let sessionId: String
     public let liveSessionId: String?
@@ -35,6 +61,12 @@ public struct MacCompanionObservabilitySignal: Equatable {
     public let approvalArtifactIDs: [String]
     public let fallbackReasons: [String]
     public let deliveryFailureReason: String?
+    public let transportHealth: MacCompanionTransportHealth
+    public let retryPolicyState: MacCompanionRetryPolicyState
+    public let retryAttempt: Int?
+    public let transportDisableReason: String?
+    public let rollbackState: MacCompanionRollbackState
+    public let operatorDiagnostics: [String]
 
     public init(
         sessionId: String,
@@ -44,7 +76,13 @@ public struct MacCompanionObservabilitySignal: Equatable {
         approvalStatus: MacCompanionApprovalStatus,
         approvalArtifactIDs: [String] = [],
         fallbackReasons: [String] = [],
-        deliveryFailureReason: String? = nil
+        deliveryFailureReason: String? = nil,
+        transportHealth: MacCompanionTransportHealth = .healthy,
+        retryPolicyState: MacCompanionRetryPolicyState = .notApplicable,
+        retryAttempt: Int? = nil,
+        transportDisableReason: String? = nil,
+        rollbackState: MacCompanionRollbackState = .none,
+        operatorDiagnostics: [String] = []
     ) {
         self.sessionId = Self.normalizeRequired(sessionId)
         self.liveSessionId = Self.normalizeOptional(liveSessionId)
@@ -54,6 +92,12 @@ public struct MacCompanionObservabilitySignal: Equatable {
         self.approvalArtifactIDs = Self.normalizeList(approvalArtifactIDs)
         self.fallbackReasons = Self.normalizeList(fallbackReasons)
         self.deliveryFailureReason = Self.normalizeOptional(deliveryFailureReason)
+        self.transportHealth = transportHealth
+        self.retryPolicyState = retryPolicyState
+        self.retryAttempt = Self.normalizeRetryAttempt(retryAttempt)
+        self.transportDisableReason = Self.normalizeOptional(transportDisableReason)
+        self.rollbackState = rollbackState
+        self.operatorDiagnostics = Self.normalizeList(operatorDiagnostics)
     }
 
     public func bridgeMetadata() -> [String: Any] {
@@ -63,6 +107,10 @@ public struct MacCompanionObservabilitySignal: Equatable {
             MacCompanionObservabilityKey.approvalStatus: approvalStatus.rawValue,
             MacCompanionObservabilityKey.approvalArtifactIDs: approvalArtifactIDs,
             MacCompanionObservabilityKey.fallbackReasons: fallbackReasons,
+            MacCompanionObservabilityKey.transportHealth: transportHealth.rawValue,
+            MacCompanionObservabilityKey.retryPolicyState: retryPolicyState.rawValue,
+            MacCompanionObservabilityKey.rollbackState: rollbackState.rawValue,
+            MacCompanionObservabilityKey.operatorDiagnostics: operatorDiagnostics,
         ]
 
         if let liveSessionId {
@@ -73,6 +121,12 @@ public struct MacCompanionObservabilitySignal: Equatable {
         }
         if let deliveryFailureReason {
             metadata[MacCompanionObservabilityKey.deliveryFailureReason] = deliveryFailureReason
+        }
+        if let retryAttempt {
+            metadata[MacCompanionObservabilityKey.retryAttempt] = retryAttempt
+        }
+        if let transportDisableReason {
+            metadata[MacCompanionObservabilityKey.transportDisableReason] = transportDisableReason
         }
 
         return metadata
@@ -100,5 +154,12 @@ public struct MacCompanionObservabilitySignal: Equatable {
             }
         }
         return normalized.sorted()
+    }
+
+    private static func normalizeRetryAttempt(_ value: Int?) -> Int? {
+        guard let value, value > 0 else {
+            return nil
+        }
+        return value
     }
 }

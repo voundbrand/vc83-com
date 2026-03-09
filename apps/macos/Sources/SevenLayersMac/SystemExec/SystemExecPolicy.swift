@@ -18,6 +18,11 @@ public enum SystemExecConnectorError: Error, Equatable {
     case approvalCommandHashMismatch(expected: String, actual: String)
     case approvalArgumentsHashMismatch(expected: String, actual: String)
     case approvalScopeMismatch(expected: String, actual: String)
+    case persistedPolicyDeny(
+        commandSHA256: String,
+        argumentsSHA256: String,
+        workingDirectoryScope: String
+    )
     case commandTimedOut
     case processFailed(exitCode: Int32)
     case runnerFailed(String)

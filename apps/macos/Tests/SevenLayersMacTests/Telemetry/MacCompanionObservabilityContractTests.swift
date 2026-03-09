@@ -11,7 +11,9 @@ final class MacCompanionObservabilityContractTests: XCTestCase {
             approvalStatus: .pending,
             approvalArtifactIDs: [" approval-2 ", "approval-1", "approval-1"],
             fallbackReasons: ["network_degraded", " network_degraded ", "capture_backpressure"],
-            deliveryFailureReason: " "
+            deliveryFailureReason: " ",
+            retryAttempt: 0,
+            operatorDiagnostics: [" gate_outcome:approval_required ", "gate_outcome:approval_required"]
         )
 
         XCTAssertEqual(signal.sessionId, "session-1")
@@ -20,6 +22,8 @@ final class MacCompanionObservabilityContractTests: XCTestCase {
         XCTAssertEqual(signal.approvalArtifactIDs, ["approval-1", "approval-2"])
         XCTAssertEqual(signal.fallbackReasons, ["capture_backpressure", "network_degraded"])
         XCTAssertNil(signal.deliveryFailureReason)
+        XCTAssertNil(signal.retryAttempt)
+        XCTAssertEqual(signal.operatorDiagnostics, ["gate_outcome:approval_required"])
     }
 
     func testBridgeMetadataContainsGateAndApprovalObservabilityShape() {
@@ -29,7 +33,13 @@ final class MacCompanionObservabilityContractTests: XCTestCase {
             approvalStatus: .failedOrMissing,
             approvalArtifactIDs: ["approval-3"],
             fallbackReasons: ["runtime_error"],
-            deliveryFailureReason: "outbound_delivery_unconfirmed"
+            deliveryFailureReason: "outbound_delivery_unconfirmed",
+            transportHealth: .disabled,
+            retryPolicyState: .disabled,
+            retryAttempt: 3,
+            transportDisableReason: "runtime_failure_threshold_reached",
+            rollbackState: .transportDisabled,
+            operatorDiagnostics: ["transport_health:disabled", "retry_policy:disabled"]
         )
 
         let metadata = signal.bridgeMetadata()
@@ -54,6 +64,18 @@ final class MacCompanionObservabilityContractTests: XCTestCase {
         XCTAssertEqual(
             metadata[MacCompanionObservabilityKey.deliveryFailureReason] as? String,
             "outbound_delivery_unconfirmed"
+        )
+        XCTAssertEqual(metadata[MacCompanionObservabilityKey.transportHealth] as? String, "disabled")
+        XCTAssertEqual(metadata[MacCompanionObservabilityKey.retryPolicyState] as? String, "disabled")
+        XCTAssertEqual(metadata[MacCompanionObservabilityKey.retryAttempt] as? Int, 3)
+        XCTAssertEqual(
+            metadata[MacCompanionObservabilityKey.transportDisableReason] as? String,
+            "runtime_failure_threshold_reached"
+        )
+        XCTAssertEqual(metadata[MacCompanionObservabilityKey.rollbackState] as? String, "transport_disabled")
+        XCTAssertEqual(
+            metadata[MacCompanionObservabilityKey.operatorDiagnostics] as? [String],
+            ["retry_policy:disabled", "transport_health:disabled"]
         )
     }
 }

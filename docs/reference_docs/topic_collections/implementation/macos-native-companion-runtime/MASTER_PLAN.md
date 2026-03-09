@@ -1,7 +1,7 @@
 # macOS Native Companion Runtime Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/macos-native-companion-runtime`  
-**Last updated:** 2026-02-27
+**Last updated:** 2026-03-09
 
 ---
 
@@ -76,10 +76,11 @@ This stream closes that execution gap.
 | Production release automation is executable end-to-end (notarize, appcast sign, GitHub release publish) with strict fail-closed behavior and report-mode blocker evidence | `MCR-018` | `V-SHELL-LINT`; `V-RELEASE-REPORT`; `V-DOCS` |
 | Desktop node/gateway transport, capability discovery, and first concrete approval-gated capture vertical slice are implemented in `apps/macos` | `MCR-020` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-TYPE`; `V-LINT`; `V-UNIT`; `V-E2E-DESKTOP`; `V-DOCS` |
 | Native chat-window parity slice is implemented on macOS using the same ingress contract as iPhone/webchat (backend-authoritative and approval-aware) | `MCR-021A` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-DOCS` |
+| Proactive work-observation + workflow recommendation ergonomics are implemented in native macOS popover flow without introducing local mutation authority | `MCR-021B` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-DOCS` |
 | Concrete camera + microphone providers and voice wake/push-to-talk transcript forwarding are implemented with fail-closed permission/approval behavior | `MCR-021`; `MCR-022` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-TYPE`; `V-UNIT`; `V-DOCS` |
 | Exec approvals UX/policy hardening and trust-portal notification action parity are complete | `MCR-023`; `MCR-024` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-LINT`; `V-E2E-DESKTOP`; `V-DOCS` |
 | Desktop parity foundation closeout (observability + safe failure/rollback behavior) is complete before broad release rehearsal | `MCR-025` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-TYPE`; `V-LINT`; `V-UNIT`; `V-E2E-DESKTOP`; `V-DOCS` |
-| First strict credentialed release rehearsal is captured with real secrets and hosted URLs | `MCR-019` | `V-DOCS` |
+| First strict credentialed release rehearsal is captured with real secrets and hosted URLs | `MCR-019` | `V-SWIFT-BUILD`; `V-SWIFT-TEST`; `V-TYPE`; `V-LINT`; `V-UNIT`; `V-E2E-DESKTOP`; `V-DOCS` |
 
 ---
 
@@ -127,7 +128,7 @@ Guardrails that are non-negotiable:
 | `F` | `MCR-011`, `MCR-012` | Canonical trust/approval/no-bypass enforcement + observability parity |
 | `G` | `MCR-013`, `MCR-014` | Release pipeline + update channel contract |
 | `H` | `MCR-015`, `MCR-016`, `MCR-017`, `MCR-018`, `MCR-019` | QA evidence, risk register, rollback/handoff closeout, post-closeout monitoring hardening, and production release automation/rehearsal |
-| `I` | `MCR-020`, `MCR-021A`, `MCR-021`, `MCR-022`, `MCR-023`, `MCR-024`, `MCR-025` | Desktop deep integration parity across node transport, native chat surface parity, concrete capture/voice surfaces, approvals UX, trust-portal action flows, and rollback-safe observability |
+| `I` | `MCR-020`, `MCR-021A`, `MCR-021B`, `MCR-021`, `MCR-022`, `MCR-023`, `MCR-024`, `MCR-025` | Desktop deep integration parity across node transport, native chat surface parity, proactive workflow recommendation ergonomics, concrete capture/voice surfaces, approvals UX, trust-portal action flows, and rollback-safe observability |
 
 ---
 
@@ -144,7 +145,7 @@ Internal deterministic gates:
 2. No local connector rows before auth lifecycle exists.
 3. No release pipeline rows before trust/ingress bridge rows close.
 4. No closeout before QA matrix is complete.
-5. Credentialed release rehearsal (`MCR-019`) remains deferred until parity foundation row `MCR-025` is `DONE`.
+5. Credentialed release rehearsal (`MCR-019`) is allowed only after parity foundation row `MCR-025` is `DONE`; missing live credentials/URL prerequisites must fail closed and mark the row `BLOCKED`.
 
 ---
 
@@ -153,7 +154,7 @@ Internal deterministic gates:
 1. Acceptance for this stream is defined by the `MCR-001` row-mapping table above.
 2. No row may be marked `DONE` unless its mapped verification profiles pass.
 3. `MCR-009` and `MCR-011` additionally require `AVR-010@DONE_GATE` before closeout.
-4. `MCR-019` cannot be promoted from `PENDING` until lane `I` parity foundation row `MCR-025` is `DONE`.
+4. `MCR-019` may be promoted only after lane `I` parity foundation row `MCR-025` is `DONE`; `MCR-019` cannot close `DONE` without strict credentialed evidence (sign/notary/appcast/publish + public URL contract).
 
 ---
 
@@ -308,6 +309,155 @@ Internal deterministic gates:
 
 ---
 
+## `MCR-021B` proactive workflow recommendation slice (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - add native "watch work + recommend workflow" behavior that remains local/assistive and does not bypass backend mutation authority.
+2. Implementation scope delivered:
+   - `WorkObservationEvent` and `AgenticWorkflowRecommendation` models with recommendation-provider contract,
+   - `NSWorkspaceApplicationMonitor` for foreground app activation signals,
+   - `AgenticWorkflowRecommendationEngine` heuristics for follow-up/research/build loops with safe fallback recommendation,
+   - `WorkflowRecommendationSessionController` for bounded event history, recommendation refresh, and draft text synthesis,
+   - popover UI controls for watch toggle, recommendation refresh, and recommendation draft insertion.
+3. Validation coverage added:
+   - `AgenticWorkflowRecommendationEngineTests` for heuristic selection behavior and empty-state handling,
+   - `WorkflowRecommendationSessionControllerTests` for watch lifecycle, recommendation refresh, and generated draft content behavior.
+4. Verification outcome:
+   - `cd apps/macos && swift test` passes (`Executed 70 tests, with 0 failures`),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-021` concrete camera + microphone providers (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - replace provider stubs with concrete AVFoundation-backed camera/microphone providers while keeping capture intents approval-gated and backend-authoritative.
+2. Implementation scope delivered:
+   - `AVFoundationCameraCaptureProvider` with camera permission preflight (`authorized`/`notDetermined`/`denied`/`restricted`) and bounded active-session lifecycle (`sessionAlreadyActive`, `sessionExpired`, `sessionNotFound` fail-closed states),
+   - `AVFoundationMicrophoneCaptureProvider` with microphone permission preflight and bounded active-session lifecycle under the same fail-closed contract,
+   - shared permission-state contract in `CapturePermissionState.swift` for deterministic provider behavior/testing.
+3. Validation coverage added:
+   - `AVFoundationCaptureProvidersTests` covering permission denied, not-determined request path, active-session rejection, and bounded-duration expiry for both camera and microphone providers.
+4. Verification outcome:
+   - `cd apps/macos && swift test` passes (`Executed 77 tests, with 0 failures`),
+   - `npm run typecheck` passes (`tsc --noEmit`, exit `0`),
+   - `npm run test:unit` passes (`259` files passed, `4` skipped; `1438` tests passed, `80` skipped),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-022` voice wake + push-to-talk runtime loop (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - implement desktop-native wake-monitor + push-to-talk runtime loop with canonical transcript forwarding envelopes while preserving backend mutation authority and ingress-only transcript semantics.
+2. Implementation scope delivered:
+   - `DesktopVoiceRuntimeLoop` under `apps/macos/Sources/SevenLayersMac/Voice/` with wake monitoring, push-to-talk activation, capture lifecycle integration, and explicit degraded fallback transitions for approval/permission/runtime stream failures,
+   - canonical transcript forwarding envelope construction over existing `tcg_ingress_envelope_v1` contract with `liveSessionId` + `voiceRuntime` metadata continuity,
+   - backend-side `resolveDesktopTranscriptForwardingEnvelope` helper in `convex/ai/voiceRuntime.ts` to fail closed on incomplete or invalid desktop transcript-forwarding payloads.
+3. Validation coverage added:
+   - `DesktopVoiceRuntimeLoopTests` for push-to-talk forwarding, wake activation transition, approval-missing fail-closed behavior, runtime-stream degrade fallback, and active-capture requirements,
+   - `voiceRuntimeSessionFsm.test.ts` coverage for desktop transcript envelope normalization + reject-path handling.
+4. Verification outcome:
+   - `cd apps/macos && swift build` passes (`Build complete!`),
+   - `cd apps/macos && swift test` passes (`Executed 82 tests, with 0 failures`),
+   - `npm run typecheck` passes (`tsc --noEmit`, exit `0`),
+   - `npm run test:unit` passes (`261` files passed, `4` skipped; `1448` tests passed, `80` skipped),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-023` exec approvals UX + policy bindings hardening (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - harden desktop exec approval UX/policy bindings with explicit prompt contract, persisted deny-by-default behavior, and scope/hash visibility while preserving backend mutation authority and fail-closed trust gates.
+2. Implementation scope delivered:
+   - `SystemExecApprovalPolicyBindings.swift` with `SystemExecDenyPolicyKey`, in-memory/noop/defaults-backed deny stores, and `SystemExecApprovalPromptContract` (`system_exec_approval_prompt_v1`) carrying executable, args, scope, hashes, required token class, and backend mutation-authority context,
+   - `SystemExecConnector` integration for persisted deny prechecks and deny persistence on policy gate failures (`invalidExecutablePath`, `prohibitedExecutable`, `commandNotAllowlisted`, `argumentNotAllowlisted`, `workingDirectoryOutOfScope`) before any runtime execution path,
+   - `SystemExecApprovalPromptFormatter` UI view-model helper surfacing token class, mutation authority, command/argument hashes, requested scope, required scope, and policy reason for deterministic operator review.
+3. Validation coverage added:
+   - `SystemExecConnectorTests` for persisted deny gate behavior, prompt contract scope/hash visibility, and unknown-command deny persistence with `approval.action` binding invariants retained,
+   - `SystemExecApprovalPromptFormatterTests` for prompt-detail rendering and persisted-deny state messaging.
+4. Verification outcome:
+   - `cd apps/macos && swift build` passes (`Build complete!`),
+   - `cd apps/macos && swift test` passes (`Executed 87 tests, with 0 failures`),
+   - `npm run lint` passes (`0` errors; warnings-only baseline),
+   - `npm run test:unit` passes (`262` files passed, `4` skipped; `1453` tests passed, `80` skipped),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-024` deep-link/trust-portal + notification action parity (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - extend desktop node follow-through handling for capture/escalation/approval events with explicit gate-mode semantics while preserving backend mutation authority and fail-closed approval evidence behavior.
+2. Implementation scope delivered:
+   - `NotificationDeepLinkHandler` now supports `capture` deep links and resolves `requested_gate_mode` to an effective gate mode using fail-closed trust logic (`approval_action` requires both `approval_artifact_id` and `approval_token_class=approval.action`; otherwise route is downgraded to read-only with fallback reason),
+   - `NotificationTrustPortalURLBuilder` now emits explicit trust-gate semantics (`gate_mode`, `requested_gate_mode`, optional `gate_fallback_reason`) and evidence fields for portal observability,
+   - `CompanionNotificationBridge` now propagates `approval_token_class` evidence in deep-link/userInfo payloads only when `approval.action` evidence is valid,
+   - added `CompanionNotificationActionHandler` for notification action follow-through routing (`approval`, `escalation`, `capture`) using canonical userInfo ingress fields and existing deep-link trust-gate enforcement.
+3. Validation coverage added:
+   - `NotificationDeepLinkHandlerTests` covers capture route handling and approval-action fail-closed downgrade behavior,
+   - `CompanionNotificationBridgeTests` covers approval token-class evidence propagation and invalid token-class fallback to read-only mode,
+   - `CompanionNotificationActionHandlerTests` covers action-to-route mapping, invalid payload rejection, and fail-closed gate fallback.
+4. Verification outcome:
+   - `cd apps/macos && swift build` passes (`Build complete!`),
+   - `cd apps/macos && swift test` passes (`Executed 94 tests, with 0 failures`),
+   - `npm run typecheck` passes (`tsc --noEmit`, exit `0`),
+   - `npm run test:e2e:desktop` passes (`5 passed`),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-025` parity foundation closeout (`DONE` 2026-03-09)
+
+1. Row intent completed:
+   - close desktop parity foundation with deterministic observability + fail-safe retry/disable/rollback runtime behavior and operator-visible diagnostics while preserving backend mutation authority and fail-closed approval semantics.
+2. Implementation scope delivered:
+   - extended `MacCompanionObservabilitySignal` contract with transport/retry/rollback diagnostic fields (`transportHealth`, `retryPolicyState`, `retryAttempt`, `transportDisableReason`, `rollbackState`, `operatorDiagnostics`) and metadata bridge emission,
+   - implemented runtime failure policy in `DesktopNodeGateway` with deterministic retry-to-disable transitions, fail-closed transport-disable gating, and transport diagnostics snapshots,
+   - added operator-visible diagnostics surface in native popover (`PopoverHostController`) bound to runtime diagnostics provider (`DesktopRuntimeDiagnosticsProviding`),
+   - preserved non-bypass approval semantics and backend-only mutation authority (`vc83_backend`) for all mutating follow-through paths.
+3. Validation coverage added:
+   - `DesktopNodeGatewayTests` now cover retrying/degraded telemetry, policy-driven transport disable, fail-closed blocked behavior while disabled, and recovered-state reset after successful retry,
+   - `MacCompanionObservabilityContractTests` now cover deterministic metadata emission for transport/retry/rollback and operator diagnostics normalization.
+4. Verification outcome:
+   - `cd apps/macos && swift build` passes (`Build complete!`),
+   - `cd apps/macos && swift test` passes (`Executed 96 tests, with 0 failures`),
+   - `npm run typecheck` passes (exit `0`),
+   - `npm run lint` passes (`0` errors; warnings-only baseline with `3601` warnings),
+   - `npm run test:unit` passes (`263` files passed, `4` skipped; `1458` tests passed, `80` skipped),
+   - `npm run test:e2e:desktop` passes (`5 passed`),
+   - `npm run docs:guard` passes (`Docs guard passed.`).
+
+---
+
+## `MCR-019` strict credentialed release rehearsal (`BLOCKED` 2026-03-09)
+
+1. Row execution transitions:
+   - `PENDING` -> `READY` after `MCR-025` reached `DONE`,
+   - `READY` -> `IN_PROGRESS` for strict credentialed rehearsal using sanctioned automation surfaces only,
+   - `IN_PROGRESS` -> `BLOCKED` due missing live credential/URL prerequisites with fail-closed pipeline behavior.
+2. Evidence bundle:
+   - `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
+3. Explicit prerequisite validation outcome:
+   - all required values were missing (`MACOS_DEVELOPER_ID_P12_BASE64`, `MACOS_DEVELOPER_ID_P12_PASSWORD`, `APPLE_TEAM_ID`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`, `NOTARY_KEY_P8_BASE64`, `SPARKLE_PRIVATE_KEY_BASE64`, `SPARKLE_PUBLIC_KEY`, `DOWNLOAD_URL_PREFIX`, `RELEASE_NOTES_URL_BASE`),
+   - fail evidence captured in `prerequisite-check.txt` and `prerequisite-check.json`.
+4. Required verification profile outcome:
+   - `cd apps/macos && swift build` passed on unrestricted rerun after sandbox module-cache permission failure (`swift_build.log`, `swift_build_escalated.log`),
+   - `cd apps/macos && swift test` passed (`swift_test_escalated.log`),
+   - `npm run typecheck` passed (`npm_typecheck.log`),
+   - `npm run lint` passed with warnings-only baseline (`npm_lint.log`),
+   - `npm run test:unit` passed (`npm_test_unit.log`),
+   - `npm run test:e2e:desktop` passed on unrestricted rerun after sandbox `listen EPERM 127.0.0.1:3000` (`npm_test_e2e_desktop.log`, `npm_test_e2e_desktop_escalated.log`),
+   - `npm run docs:guard` passed (`npm_docs_guard.log`).
+5. Strict release rehearsal outcome:
+   - attempted strict run with deterministic tag `v0.1.0` and publish enabled via `scripts/release-pipeline.sh`,
+   - pipeline failed closed at preflight with `codesign_identity:missing` and `notary_credentials:missing`,
+   - strict evidence captured in `release_pipeline_strict.log`, `release-dist/preflight-report.json`, and `release-dist/release-pipeline-evidence.json`,
+   - no signed/notarized/public release artifacts were published; rollback action not required because failure occurred before package/notarize/publish stages.
+
+---
+
 ## Immediate next action
 
-1. Start `MCR-021` (`READY`) for concrete camera + microphone runtime providers with fail-closed permission preflight and bounded session lifecycle enforcement.
+1. Unblock `MCR-019` by provisioning all required live secrets/URL values plus signing identity, then rerun the same strict sanctioned release path to completion and capture accepted notarization + signed appcast + GitHub/public URL evidence.

@@ -139,6 +139,7 @@ public final class CompanionNotificationBridge {
             correlationID: correlationID,
             evidenceURL: event.evidenceURL,
             approvalArtifactID: trustGateMode == .approvalAction ? event.approvalArtifact?.id : nil,
+            approvalTokenClass: trustGateMode == .approvalAction ? event.approvalArtifact?.tokenClass : nil,
             gateMode: trustGateMode
         )
         let deepLinkURL = try deepLinkCodec.encode(deepLinkRoute)
@@ -235,6 +236,7 @@ public final class CompanionNotificationBridge {
 
         if trustGateMode == .approvalAction, let approvalArtifact = event.approvalArtifact {
             userInfo[NotificationUserInfoKey.approvalArtifactID] = approvalArtifact.id
+            userInfo[NotificationUserInfoKey.approvalTokenClass] = approvalArtifact.tokenClass
         }
 
         return userInfo
@@ -318,4 +320,5 @@ public enum NotificationUserInfoKey {
     public static let gateMode = "gate_mode"
     public static let consentTokenID = "consent_token_id"
     public static let approvalArtifactID = "approval_artifact_id"
+    public static let approvalTokenClass = "approval_token_class"
 }

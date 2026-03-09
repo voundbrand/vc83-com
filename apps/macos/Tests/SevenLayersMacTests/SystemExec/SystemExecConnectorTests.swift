@@ -62,10 +62,12 @@ final class SystemExecConnectorTests: XCTestCase {
     func testExecuteRejectsCommandThatIsNotAllowlisted() {
         let runner = StubSystemExecRunner()
         let reporter = SpySystemExecAuditReporter()
+        let denyStore = InMemorySystemExecDenyPolicyStore()
         let connector = SystemExecConnector(
             policy: makePolicy(),
             runner: runner,
-            auditReporter: reporter
+            auditReporter: reporter,
+            denyPolicyStore: denyStore
         )
 
         let request = SystemExecExecutionRequest(
@@ -92,6 +94,57 @@ final class SystemExecConnectorTests: XCTestCase {
         XCTAssertEqual(runner.invocations.count, 0)
         XCTAssertEqual(reporter.reports.count, 0)
         XCTAssertEqual(reporter.cleanupPaths.count, 0)
+
+        let deniedKey = SystemExecDenyPolicyKey.make(
+            executablePath: "/usr/bin/whoami",
+            arguments: [],
+            workingDirectoryScope: "/tmp/mcr/session-2"
+        )
+        XCTAssertTrue(denyStore.hasPersistedDeny(deniedKey))
+    }
+
+    func testExecuteFailsClosedWhenRequestMatchesPersistedDenyPolicy() {
+        let runner = StubSystemExecRunner()
+        let denyStore = InMemorySystemExecDenyPolicyStore()
+        let connector = SystemExecConnector(
+            policy: makePolicy(),
+            runner: runner,
+            denyPolicyStore: denyStore
+        )
+
+        let deniedKey = SystemExecDenyPolicyKey.make(
+            executablePath: "/usr/bin/echo",
+            arguments: ["health"],
+            workingDirectoryScope: "/tmp/mcr/session-3"
+        )
+        denyStore.persistDeny(deniedKey)
+
+        let request = SystemExecExecutionRequest(
+            liveSessionID: "live_session_1",
+            correlationID: "corr_3",
+            executablePath: "/usr/bin/echo",
+            arguments: ["health"],
+            workingDirectory: "/tmp/mcr/session-3",
+            approvalArtifact: makeApproval(
+                correlationID: "corr_3",
+                executablePath: "/usr/bin/echo",
+                arguments: ["health"],
+                workingDirectoryScope: "/tmp/mcr"
+            )
+        )
+
+        XCTAssertThrowsError(try connector.execute(request)) { error in
+            XCTAssertEqual(
+                error as? SystemExecConnectorError,
+                .persistedPolicyDeny(
+                    commandSHA256: deniedKey.commandSHA256,
+                    argumentsSHA256: deniedKey.argumentsSHA256,
+                    workingDirectoryScope: deniedKey.workingDirectoryScope
+                )
+            )
+        }
+
+        XCTAssertEqual(runner.invocations.count, 0)
     }
 
     func testExecuteFailsClosedWhenApprovalArtifactIsMissing() {
@@ -261,6 +314,62 @@ final class SystemExecConnectorTests: XCTestCase {
         XCTAssertEqual(reporter.cleanupPaths[0], "\(expectedBasePath)/artifacts")
         XCTAssertEqual(report.envelope.status, .failed)
         XCTAssertEqual(report.envelope.exitCode, 7)
+    }
+
+    func testBuildApprovalPromptExposesScopeHashesAndBackendAuthority() throws {
+        let connector = SystemExecConnector(
+            policy: makePolicy(),
+            runner: StubSystemExecRunner(),
+            denyPolicyStore: InMemorySystemExecDenyPolicyStore()
+        )
+
+        let prompt = try connector.buildApprovalPrompt(
+            SystemExecExecutionRequest(
+                liveSessionID: "live_session_9",
+                correlationID: "corr_9",
+                executablePath: "/usr/bin/echo",
+                arguments: ["status"],
+                workingDirectory: "/tmp/mcr/session-9",
+                approvalArtifact: nil
+            )
+        )
+
+        XCTAssertEqual(prompt.contractVersion, "system_exec_approval_prompt_v1")
+        XCTAssertEqual(prompt.requiredApprovalTokenClass, "approval.action")
+        XCTAssertEqual(prompt.requiredWorkingDirectoryScope, "/tmp/mcr")
+        XCTAssertEqual(prompt.commandSHA256, SystemExecHasher.commandSHA256("/usr/bin/echo"))
+        XCTAssertEqual(prompt.argumentsSHA256, SystemExecHasher.argumentsSHA256(["status"]))
+        XCTAssertEqual(prompt.policyOutcome, .ready)
+        XCTAssertEqual(prompt.mutationAuthority, .vc83Backend)
+    }
+
+    func testBuildApprovalPromptDeniesByDefaultAndPersistsUnknownCommand() throws {
+        let denyStore = InMemorySystemExecDenyPolicyStore()
+        let connector = SystemExecConnector(
+            policy: makePolicy(),
+            runner: StubSystemExecRunner(),
+            denyPolicyStore: denyStore
+        )
+
+        let request = SystemExecExecutionRequest(
+            liveSessionID: "live_session_10",
+            correlationID: "corr_10",
+            executablePath: "/usr/bin/whoami",
+            arguments: [],
+            workingDirectory: "/tmp/mcr/session-10",
+            approvalArtifact: nil
+        )
+
+        let prompt = try connector.buildApprovalPrompt(request)
+        XCTAssertEqual(prompt.policyOutcome, .deniedByDefault)
+        XCTAssertEqual(prompt.policyReason, "command_not_allowlisted")
+
+        let deniedKey = SystemExecDenyPolicyKey.make(
+            executablePath: "/usr/bin/whoami",
+            arguments: [],
+            workingDirectoryScope: "/tmp/mcr/session-10"
+        )
+        XCTAssertTrue(denyStore.hasPersistedDeny(deniedKey))
     }
 }
 

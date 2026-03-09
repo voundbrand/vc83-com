@@ -5,6 +5,7 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
     private var bridge: MacCompanionBridge?
     private var desktopNodeGateway: DesktopNodeGateway?
     private var quickChatSession: QuickChatSessionController?
+    private var workflowRecommendationSession: WorkflowRecommendationSessionController?
     private var nativeChatSession: NativeChatWindowSessionController?
     private var nativeChatWindowController: NativeChatWindowController?
     private var popoverHost: PopoverHostController?
@@ -28,11 +29,17 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
         let nativeChatWindowController = NativeChatWindowController(
             sessionController: nativeChatSession
         )
+        let workflowRecommendationSession = WorkflowRecommendationSessionController(
+            activityMonitor: NSWorkspaceApplicationMonitor(),
+            recommendationEngine: AgenticWorkflowRecommendationEngine()
+        )
         let desktopNodeGateway = DesktopNodeGateway(bridge: bridge)
         let popoverHost = PopoverHostController(
             quickChatSession: quickChatSession,
+            workflowSession: workflowRecommendationSession,
             dashboardOpener: makeDashboardOpener(),
-            chatWindowOpener: nativeChatWindowController
+            chatWindowOpener: nativeChatWindowController,
+            diagnosticsProvider: desktopNodeGateway
         )
         let statusController = StatusItemController(popoverHost: popoverHost)
         let authCoordinator = makeDefaultAuthCoordinator()
@@ -46,6 +53,7 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
         self.bridge = bridge
         self.desktopNodeGateway = desktopNodeGateway
         self.quickChatSession = quickChatSession
+        self.workflowRecommendationSession = workflowRecommendationSession
         self.nativeChatSession = nativeChatSession
         self.nativeChatWindowController = nativeChatWindowController
         self.popoverHost = popoverHost

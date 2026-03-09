@@ -187,17 +187,20 @@ public final class SystemExecConnector {
     private let policy: SystemExecExecutionPolicy
     private let runner: any SystemExecCommandRunning
     private let auditReporter: any SystemExecAuditReporting
+    private let denyPolicyStore: any SystemExecDenyPolicyStoring
     private let now: () -> Date
 
     public init(
         policy: SystemExecExecutionPolicy = .failClosed,
         runner: any SystemExecCommandRunning,
         auditReporter: any SystemExecAuditReporting = NoopSystemExecAuditReporter(),
+        denyPolicyStore: any SystemExecDenyPolicyStoring = UserDefaultsSystemExecDenyPolicyStore(),
         now: @escaping () -> Date = Date.init
     ) {
         self.policy = policy
         self.runner = runner
         self.auditReporter = auditReporter
+        self.denyPolicyStore = denyPolicyStore
         self.now = now
     }
 
@@ -210,11 +213,38 @@ public final class SystemExecConnector {
             throw SystemExecConnectorError.missingCorrelationID
         }
 
-        let authorizedCommand = try policy.resolveAuthorizedCommand(
+        let requestedWorkingDirectoryScope = request.workingDirectory.flatMap(normalizeAbsolutePath)
+            ?? request.workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? "__unset_scope__"
+        let denyPolicyKey = SystemExecDenyPolicyKey.make(
             executablePath: request.executablePath,
             arguments: request.arguments,
-            workingDirectory: request.workingDirectory
+            workingDirectoryScope: requestedWorkingDirectoryScope
         )
+
+        if denyPolicyStore.hasPersistedDeny(denyPolicyKey) {
+            throw SystemExecConnectorError.persistedPolicyDeny(
+                commandSHA256: denyPolicyKey.commandSHA256,
+                argumentsSHA256: denyPolicyKey.argumentsSHA256,
+                workingDirectoryScope: denyPolicyKey.workingDirectoryScope
+            )
+        }
+
+        let authorizedCommand: SystemExecAuthorizedCommand
+        do {
+            authorizedCommand = try policy.resolveAuthorizedCommand(
+                executablePath: request.executablePath,
+                arguments: request.arguments,
+                workingDirectory: request.workingDirectory
+            )
+        } catch let policyError as SystemExecConnectorError {
+            if policyError.shouldPersistDenyDecision() {
+                denyPolicyStore.persistDeny(denyPolicyKey)
+            }
+            throw policyError
+        } catch {
+            throw error
+        }
 
         let approvalArtifact = try validateSystemExecApproval(
             request.approvalArtifact,
@@ -306,6 +336,97 @@ public final class SystemExecConnector {
         }
 
         return SystemExecExecutionResult(envelope: envelope, audit: descriptor)
+    }
+
+    public func buildApprovalPrompt(
+        _ request: SystemExecExecutionRequest
+    ) throws -> SystemExecApprovalPromptContract {
+        guard let liveSessionID = normalizedNonEmpty(request.liveSessionID) else {
+            throw SystemExecConnectorError.missingLiveSessionID
+        }
+        guard let correlationID = normalizedNonEmpty(request.correlationID) else {
+            throw SystemExecConnectorError.missingCorrelationID
+        }
+
+        let normalizedExecutablePath = normalizeAbsolutePath(request.executablePath)
+            ?? request.executablePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedArguments = request.arguments.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let requestedWorkingDirectory = request.workingDirectory.flatMap(normalizeAbsolutePath)
+            ?? request.workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let commandSHA256 = SystemExecHasher.commandSHA256(normalizedExecutablePath)
+        let argumentsSHA256 = SystemExecHasher.argumentsSHA256(normalizedArguments)
+
+        let denyPolicyKey = SystemExecDenyPolicyKey(
+            commandSHA256: commandSHA256,
+            argumentsSHA256: argumentsSHA256,
+            workingDirectoryScope: requestedWorkingDirectory ?? "__unset_scope__"
+        )
+
+        if denyPolicyStore.hasPersistedDeny(denyPolicyKey) {
+            return SystemExecApprovalPromptContract(
+                liveSessionID: liveSessionID,
+                correlationID: correlationID,
+                executablePath: normalizedExecutablePath,
+                arguments: normalizedArguments,
+                commandSHA256: commandSHA256,
+                argumentsSHA256: argumentsSHA256,
+                requestedWorkingDirectory: requestedWorkingDirectory,
+                requiredWorkingDirectoryScope: requestedWorkingDirectory,
+                policyOutcome: .deniedPersisted,
+                policyReason: "persisted_policy_deny"
+            )
+        }
+
+        do {
+            let authorizedCommand = try policy.resolveAuthorizedCommand(
+                executablePath: request.executablePath,
+                arguments: request.arguments,
+                workingDirectory: request.workingDirectory
+            )
+            return SystemExecApprovalPromptContract(
+                liveSessionID: liveSessionID,
+                correlationID: correlationID,
+                executablePath: authorizedCommand.executablePath,
+                arguments: authorizedCommand.arguments,
+                commandSHA256: SystemExecHasher.commandSHA256(authorizedCommand.executablePath),
+                argumentsSHA256: SystemExecHasher.argumentsSHA256(authorizedCommand.arguments),
+                requestedWorkingDirectory: requestedWorkingDirectory,
+                requiredWorkingDirectoryScope: authorizedCommand.rule.workingDirectoryScope,
+                policyOutcome: .ready,
+                policyReason: nil
+            )
+        } catch let policyError as SystemExecConnectorError {
+            if policyError.shouldPersistDenyDecision() {
+                denyPolicyStore.persistDeny(denyPolicyKey)
+            }
+            return SystemExecApprovalPromptContract(
+                liveSessionID: liveSessionID,
+                correlationID: correlationID,
+                executablePath: normalizedExecutablePath,
+                arguments: normalizedArguments,
+                commandSHA256: commandSHA256,
+                argumentsSHA256: argumentsSHA256,
+                requestedWorkingDirectory: requestedWorkingDirectory,
+                requiredWorkingDirectoryScope: requestedWorkingDirectory,
+                policyOutcome: .deniedByDefault,
+                policyReason: policyError.promptPolicyReason()
+            )
+        } catch {
+            return SystemExecApprovalPromptContract(
+                liveSessionID: liveSessionID,
+                correlationID: correlationID,
+                executablePath: normalizedExecutablePath,
+                arguments: normalizedArguments,
+                commandSHA256: commandSHA256,
+                argumentsSHA256: argumentsSHA256,
+                requestedWorkingDirectory: requestedWorkingDirectory,
+                requiredWorkingDirectoryScope: requestedWorkingDirectory,
+                policyOutcome: .deniedByDefault,
+                policyReason: String(describing: error)
+            )
+        }
     }
 
     private func makeAuditDescriptor(

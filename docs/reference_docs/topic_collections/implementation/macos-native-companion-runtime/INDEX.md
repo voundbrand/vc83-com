@@ -1,7 +1,7 @@
 # macOS Native Companion Runtime Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/macos-native-companion-runtime`  
-**Last updated:** 2026-02-27  
+**Last updated:** 2026-03-09  
 **Source request:** Start a new implementation workstream for a native macOS companion/menu-bar utility that makes the local computer an agent-capability surface under one-agent trust/approval contracts.
 
 ---
@@ -63,19 +63,45 @@ This workstream defines and executes a production path for a native macOS compan
 12. Production release automation rows are complete and hardened:
    - `MCR-018` is `DONE` (2026-02-27): strict notarization/stapling (`release-notarize.sh`), Sparkle Ed25519 appcast signing (`release-sign-appcast.sh`), GitHub release publishing (`release-github.sh`), and manual/tagged `macos-release` workflow (`.github/workflows/macos-release.yml`) are implemented with fail-closed strict mode and report-mode blocker evidence.
    - Follow-on hardening pass (same date) added deterministic `v<version>` tag enforcement, required secret/url validation, `APP_NAME=SevenLayers` guardrails in release scripts, pipeline evidence manifest emission, and explicit operator guidance for repo permissions + rollback evidence paths.
-13. Priority shift is now active:
-   - `MCR-019` is deferred to `PENDING` until desktop deep integration parity foundation closes (`MCR-025`).
-   - New lane `I` (`MCR-020+`) is now the active implementation path.
+13. Priority shift execution is complete:
+   - Lane `I` (`MCR-020+`) is now complete through parity foundation closeout (`MCR-025` `DONE`).
+   - `MCR-019` is no longer dependency-deferred and has been executed in strict rehearsal mode.
 14. Lane `I` kickoff row is now complete after unblock verification:
    - `MCR-020` is `DONE` (2026-02-27). The earlier row-external `npm run typecheck` blocker was cleared, then the full profile reran clean.
    - Verification evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-session-20260227T133053Z/*` (includes sandbox caveat logs and unrestricted reruns for Swift + desktop E2E).
 15. Native chat-window parity slice is now complete:
    - `MCR-021A` is `DONE` (2026-02-27): native chat window surface is now wired for end-to-end draft submission through canonical ingress (`QuickChatSessionController` -> bridge envelope), mirrors pending approvals, and opens from popover/menu-bar flow.
    - Verification evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-021a-20260227T123334Z/*`.
-16. External dependencies remain aligned for downstream phases:
+16. Work-observation workflow recommendation slice is now complete:
+   - `MCR-021B` is `DONE` (2026-03-09): native popover now supports foreground-app watch, local heuristic recommendation generation, and one-click recommendation-to-draft insertion via a bounded session controller.
+   - Implementation paths: `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/WorkObservation/*`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/UI/PopoverHostController.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/App/MenuBarApplicationDelegate.swift`.
+   - Validation coverage: `/Users/foundbrand_001/Development/vc83-com/apps/macos/Tests/SevenLayersMacTests/Runtime/AgenticWorkflowRecommendationEngineTests.swift` and `/Users/foundbrand_001/Development/vc83-com/apps/macos/Tests/SevenLayersMacTests/UI/WorkflowRecommendationSessionControllerTests.swift`.
+17. Concrete camera + microphone provider slice is now complete:
+   - `MCR-021` is `DONE` (2026-03-09): lane `I` now includes concrete `AVFoundationCameraCaptureProvider` and `AVFoundationMicrophoneCaptureProvider` with permission preflight and bounded active-session lifecycle fail-closed behavior.
+   - Validation profile passed: `cd apps/macos && swift test`, `npm run typecheck`, `npm run test:unit`, `npm run docs:guard`.
+18. Voice wake + push-to-talk parity slice is now complete:
+   - `MCR-022` is `DONE` (2026-03-09): lane `I` now includes `DesktopVoiceRuntimeLoop` with wake-monitor + push-to-talk activation, transcript forwarding envelopes through canonical ingress contract (`tcg_ingress_envelope_v1`), and explicit degraded fallback behavior for approval/permission/runtime stream failures.
+   - Implementation paths: `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/Voice/DesktopVoiceRuntimeLoop.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Tests/SevenLayersMacTests/Voice/DesktopVoiceRuntimeLoopTests.swift`, `/Users/foundbrand_001/Development/vc83-com/convex/ai/voiceRuntime.ts`.
+   - Validation profile passed: `cd apps/macos && swift build`, `cd apps/macos && swift test`, `npm run typecheck`, `npm run test:unit`, `npm run docs:guard`.
+19. Exec approvals UX/policy hardening slice is now complete:
+   - `MCR-023` is `DONE` (2026-03-09): `SystemExecConnector` now exposes `system_exec_approval_prompt_v1` contract prompts, enforces persisted deny-by-default policy prechecks, and preserves non-bypass `approval.action` artifact binding validation.
+   - Implementation paths: `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/SystemExec/SystemExecApprovalPolicyBindings.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/SystemExec/SystemExecConnector.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/UI/SystemExecApprovalPromptFormatter.swift`.
+   - Validation profile passed: `cd apps/macos && swift build`, `cd apps/macos && swift test`, `npm run lint`, `npm run test:unit`, `npm run docs:guard`.
+20. Deep-link/trust-portal + notification action parity slice is now complete:
+   - `MCR-024` is `DONE` (2026-03-09): desktop node event follow-through now supports approval/escalation/capture deep links with explicit requested-vs-effective gate semantics and fail-closed approval evidence handling.
+   - Implementation paths: `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/DeepLinks/NotificationDeepLinkHandler.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/Notifications/CompanionNotificationBridge.swift`, `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/Notifications/CompanionNotificationActionHandler.swift`.
+   - Validation profile passed: `cd apps/macos && swift build`, `cd apps/macos && swift test`, `npm run typecheck`, `npm run test:e2e:desktop`, `npm run docs:guard`.
+21. External dependencies remain aligned for downstream phases:
    - `YAI-021` is already `DONE` (ingress/parity closeout satisfied).
    - `AVR-010` is `DONE`; `AVR-010@DONE_GATE` is satisfied for downstream closeout rows.
-17. `apps/macos` implementation now includes lane `B` bridge-envelope contract mapping, lane `C` LaunchAgent lifecycle scaffolding, lane `D` notification/deep-link bridge handlers, lane `E` capture connectors, lane `G/H` production release automation foundations with hardened public-release guardrails, lane `I` node-gateway kickoff row `MCR-020` now `DONE`, and native chat window parity slice `MCR-021A` `DONE`; next promotable row is `MCR-021` (`READY`).
+22. Desktop parity foundation closeout is now complete:
+   - `MCR-025` is `DONE` (2026-03-09): lane `I` now includes deterministic transport-health + retry/disable/rollback observability, fail-closed transport-disable runtime behavior, and operator-visible diagnostics in the native popover while preserving backend mutation authority and non-bypass approval gates.
+   - Validation profile passed: `cd apps/macos && swift build`; `cd apps/macos && swift test`; `npm run typecheck`; `npm run lint`; `npm run test:unit`; `npm run test:e2e:desktop`; `npm run docs:guard`.
+23. First strict credentialed release rehearsal row has now run and is fail-closed blocked:
+   - `MCR-019` moved `PENDING -> READY -> IN_PROGRESS -> BLOCKED` (2026-03-09) with evidence at `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
+   - Explicit prerequisite validation failed (`10/10` required live values missing), and strict release attempt (`MODE=strict ... scripts/release-pipeline.sh`) failed at preflight with `codesign_identity:missing` and `notary_credentials:missing` (`release-dist/preflight-report.json`, `release-dist/release-pipeline-evidence.json`).
+   - Required verification profile was still completed and captured (including unrestricted reruns for sandbox-restricted Swift module-cache and desktop E2E localhost bind).
+24. `apps/macos` implementation now includes lane `B` bridge-envelope contract mapping, lane `C` LaunchAgent lifecycle scaffolding, lane `D` notification/deep-link bridge handlers, lane `E` capture connectors, lane `G/H` production release automation foundations with hardened public-release guardrails, and lane `I` parity rows `MCR-020`..`MCR-025` all `DONE`; `MCR-019` remains blocked strictly on missing live credentials/host URLs.
 
 ---
 
@@ -105,8 +131,8 @@ Not owned in this workstream:
 - [x] Lane E: local capture + scoped system connector (`MCR-009` `DONE`, `MCR-010` `DONE`)
 - [x] Lane F: canonical ingress/trust + observability (`MCR-011` `DONE`, `MCR-012` `DONE`)
 - [x] Lane G: packaging/signing/notarization/update (`MCR-013` `DONE`, `MCR-014` `DONE`)
-- [ ] Lane H: QA matrix + closeout + release hardening (`MCR-015` `DONE`, `MCR-016` `DONE`, `MCR-017` `DONE`, `MCR-018` `DONE`, `MCR-019` `PENDING`)
-- [ ] Lane I: desktop deep integration parity (`MCR-020` `DONE`, `MCR-021A` `DONE`, `MCR-021` `READY`, `MCR-022` `PENDING`, `MCR-023` `PENDING`, `MCR-024` `PENDING`, `MCR-025` `PENDING`)
+- [ ] Lane H: QA matrix + closeout + release hardening (`MCR-015` `DONE`, `MCR-016` `DONE`, `MCR-017` `DONE`, `MCR-018` `DONE`, `MCR-019` `BLOCKED`)
+- [x] Lane I: desktop deep integration parity (`MCR-020` `DONE`, `MCR-021A` `DONE`, `MCR-021B` `DONE`, `MCR-021` `DONE`, `MCR-022` `DONE`, `MCR-023` `DONE`, `MCR-024` `DONE`, `MCR-025` `DONE`)
 
 ---
 
