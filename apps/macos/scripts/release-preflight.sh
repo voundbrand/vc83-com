@@ -86,8 +86,8 @@ cat > "${OUT_FILE}" <<EOF
   "status": "${status}",
   "notaryAuthMode": "${NOTARY_MODE}",
   "signingIdentityDetected": $( [[ -n "${SIGNING_IDENTITY}" ]] && printf 'true' || printf 'false' ),
-  "missingRequirements": $(json_array "${missing[@]}"),
-  "warnings": $(json_array "${warnings[@]}")
+  "missingRequirements": $(json_array "${missing[@]-}"),
+  "warnings": $(json_array "${warnings[@]-}")
 }
 EOF
 
