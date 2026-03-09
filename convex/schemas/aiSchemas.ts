@@ -1672,6 +1672,8 @@ export const trustEventPayloadValidator = v.object({
   adaptive_decision: v.optional(v.string()),
   adaptive_confidence: v.optional(v.number()),
   consent_checkpoint_id: v.optional(v.string()),
+  stt_route: v.optional(v.string()),
+  stt_route_provider: v.optional(v.string()),
 
   // Content DNA fields
   content_profile_id: v.optional(v.string()),
@@ -1925,6 +1927,84 @@ export const videoTransportSessionState = defineTable({
   ])
   .index("by_updated_at", ["updatedAt"]);
 
+export const operatorMediaRetention = defineTable({
+  organizationId: v.id("organizations"),
+  conversationId: v.optional(v.id("aiConversations")),
+  interviewSessionId: v.id("agentSessions"),
+  liveSessionId: v.string(),
+  mediaType: v.union(
+    v.literal("audio_chunk"),
+    v.literal("audio_final"),
+    v.literal("assistant_audio_chunk"),
+    v.literal("assistant_audio_final"),
+    v.literal("video_frame"),
+    v.literal("video_keyframe"),
+  ),
+  mimeType: v.string(),
+  sizeBytes: v.number(),
+  checksum: v.string(),
+  capturedAt: v.number(),
+  sourceClass: v.optional(v.string()),
+  sourceId: v.optional(v.string()),
+  sourceSequence: v.optional(v.number()),
+  voiceSessionId: v.optional(v.string()),
+  videoSessionId: v.optional(v.string()),
+  storageId: v.optional(v.id("_storage")),
+  storagePath: v.string(),
+  storageDisposition: v.union(
+    v.literal("stored"),
+    v.literal("metadata_only"),
+    v.literal("deleted"),
+  ),
+  retentionMode: v.union(v.literal("metadata_only"), v.literal("full")),
+  ttlExpiresAt: v.number(),
+  redaction: v.optional(v.object({
+    status: v.union(v.literal("none"), v.literal("pending"), v.literal("applied")),
+    profileId: v.optional(v.string()),
+  })),
+  encryption: v.optional(v.object({
+    atRest: v.union(v.literal("convex_managed"), v.literal("customer_managed")),
+    keyRef: v.optional(v.string()),
+  })),
+  metadata: v.optional(v.any()),
+  idempotencyKey: v.string(),
+  policy: v.object({
+    sampled: v.boolean(),
+    reason: v.string(),
+    failClosed: v.boolean(),
+  }),
+  deletedAt: v.optional(v.number()),
+  deletedByUserId: v.optional(v.id("users")),
+  deletedReason: v.optional(v.string()),
+  storageDeletedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_captured_at", ["organizationId", "capturedAt"])
+  .index("by_org_conversation_captured_at", [
+    "organizationId",
+    "conversationId",
+    "capturedAt",
+  ])
+  .index("by_org_interview_captured_at", [
+    "organizationId",
+    "interviewSessionId",
+    "capturedAt",
+  ])
+  .index("by_org_live_captured_at", [
+    "organizationId",
+    "liveSessionId",
+    "capturedAt",
+  ])
+  .index("by_org_media_type_captured_at", [
+    "organizationId",
+    "mediaType",
+    "capturedAt",
+  ])
+  .index("by_org_idempotency", ["organizationId", "idempotencyKey"])
+  .index("by_org_ttl_expires_at", ["organizationId", "ttlExpiresAt"])
+  .index("by_ttl_expires_at", ["ttlExpiresAt"]);
+
 /**
  * AI Integration Schemas - General AI Assistant + Email AI Specialist
  *
@@ -1945,6 +2025,7 @@ export const videoTransportSessionState = defineTable({
 export const aiConversations = defineTable({
   organizationId: v.id("organizations"),
   userId: v.id("users"),
+  layerWorkflowId: v.optional(v.id("objects")),
 
   // Conversation metadata
   title: v.optional(v.string()),
@@ -1981,6 +2062,7 @@ export const aiConversations = defineTable({
 })
   .index("by_organization", ["organizationId"])
   .index("by_user", ["userId"])
+  .index("by_workflow", ["layerWorkflowId"])
   .index("by_slug", ["slug"]);
 
 /**

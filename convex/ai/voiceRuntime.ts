@@ -29,6 +29,11 @@ import {
   type VoiceRuntimeProviderId,
   type VoiceUsageTelemetry,
 } from "./voiceRuntimeAdapter";
+import {
+  buildOperatorMediaRetentionWriteRequest,
+  resolveOperatorMediaRetentionConfig,
+  type OperatorRetainedMediaType,
+} from "./mediaRetention";
 import { resolveMobileSourceAttestationContract } from "./mobileRuntimeHardening";
 import {
   resolveDeterministicVoiceDefaults,
@@ -313,6 +318,31 @@ function sanitizeTranscriptForVoiceTurn(value: unknown): string | null {
     return null;
   }
   return normalized;
+}
+
+function buildAmbientTranscriptDebugSnapshot(value: unknown): {
+  transcriptPreview: string;
+  transcriptLength: number;
+  speechHintDetected: boolean;
+  descriptorMatchCount: number;
+  descriptorOnly: boolean;
+} {
+  const normalized = normalizeString(value) ?? "";
+  const lower = normalized.toLowerCase();
+  const descriptorMatches =
+    lower.match(AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN) ?? [];
+  const remainder = lower
+    .replace(AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN, " ")
+    .replace(/[.,!?;:/|\\_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return {
+    transcriptPreview: normalized.slice(0, 180),
+    transcriptLength: normalized.length,
+    speechHintDetected: AMBIENT_TRANSCRIPT_SPEECH_HINT_PATTERN.test(lower),
+    descriptorMatchCount: descriptorMatches.length,
+    descriptorOnly: descriptorMatches.length > 0 && remainder.length === 0,
+  };
 }
 
 function normalizeObject(
@@ -1447,6 +1477,124 @@ export function resolveBrowserFallbackTranscriptText(args: {
     return null;
   }
   return sanitizeTranscriptForVoiceTurn(args.transcriptText);
+}
+
+function resolveVoiceEnvelopeRetainedMediaType(
+  eventType: VoiceTransportEnvelopeContract["eventType"],
+): OperatorRetainedMediaType | null {
+  switch (eventType) {
+    case "audio_chunk":
+      return "audio_chunk";
+    case "assistant_audio_chunk":
+      return "assistant_audio_chunk";
+    default:
+      return null;
+  }
+}
+
+function resolveVideoEnvelopeRetainedMediaType(args: {
+  keyframeHint?: unknown;
+}): OperatorRetainedMediaType {
+  return args.keyframeHint === true ? "video_keyframe" : "video_frame";
+}
+
+export type DesktopTranscriptForwardingEventType =
+  | "partial_transcript"
+  | "final_transcript";
+
+export type DesktopTranscriptForwardingRejectReason =
+  | "missing_live_session_id"
+  | "missing_voice_session_id"
+  | "missing_transcript"
+  | "invalid_transcript_event";
+
+export interface DesktopTranscriptForwardingEnvelope {
+  liveSessionId: string;
+  voiceRuntime: Record<string, unknown>;
+  transcriptText: string;
+  transcriptEvent: DesktopTranscriptForwardingEventType;
+}
+
+export interface DesktopTranscriptForwardingEnvelopeResolution {
+  accepted: boolean;
+  reason: "accepted" | DesktopTranscriptForwardingRejectReason;
+  envelope: DesktopTranscriptForwardingEnvelope | null;
+}
+
+export function resolveDesktopTranscriptForwardingEnvelope(args: {
+  liveSessionId?: string | null;
+  voiceRuntime?: Record<string, unknown> | null;
+  transcriptText?: string | null;
+  transcriptEvent?: string | null;
+}): DesktopTranscriptForwardingEnvelopeResolution {
+  const liveSessionId = normalizeSessionToken(args.liveSessionId);
+  if (!liveSessionId) {
+    return {
+      accepted: false,
+      reason: "missing_live_session_id",
+      envelope: null,
+    };
+  }
+
+  const voiceRuntime = normalizeObject(args.voiceRuntime);
+  const voiceSessionId = normalizeSessionToken(voiceRuntime?.voiceSessionId);
+  if (!voiceSessionId) {
+    return {
+      accepted: false,
+      reason: "missing_voice_session_id",
+      envelope: null,
+    };
+  }
+
+  const transcriptText = sanitizeTranscriptForVoiceTurn(args.transcriptText);
+  if (!transcriptText) {
+    return {
+      accepted: false,
+      reason: "missing_transcript",
+      envelope: null,
+    };
+  }
+
+  const transcriptEvent = normalizeDesktopTranscriptEventType(args.transcriptEvent);
+  if (!transcriptEvent) {
+    return {
+      accepted: false,
+      reason: "invalid_transcript_event",
+      envelope: null,
+    };
+  }
+
+  const normalizedVoiceRuntime: Record<string, unknown> = {
+    ...voiceRuntime,
+    liveSessionId,
+    voiceSessionId,
+    transcript: transcriptText,
+    transcriptEvent,
+  };
+
+  return {
+    accepted: true,
+    reason: "accepted",
+    envelope: {
+      liveSessionId,
+      transcriptText,
+      transcriptEvent,
+      voiceRuntime: normalizedVoiceRuntime,
+    },
+  };
+}
+
+function normalizeDesktopTranscriptEventType(
+  value: string | null | undefined,
+): DesktopTranscriptForwardingEventType | null {
+  const normalized = normalizeString(value)?.toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (normalized === "partial_transcript" || normalized === "final_transcript") {
+    return normalized;
+  }
+  return null;
 }
 
 export interface VoiceAssistantStreamRelayState {
@@ -3645,6 +3793,84 @@ export const transcribeVoiceAudio = action({
     const realtimeFallbackReason = normalizeString(
       transcriptionTelemetry?.realtimeFallbackReason,
     );
+    const retentionConfig = resolveOperatorMediaRetentionConfig();
+    let finalAudioRetention:
+      | {
+          attempted: boolean;
+          persisted: boolean;
+          idempotent: boolean;
+          retentionMode?: "metadata_only" | "full";
+          retentionId?: string;
+          reason?: string;
+          error?: string;
+        }
+      | undefined;
+    const finalAudioRetentionWriteRequest = buildOperatorMediaRetentionWriteRequest({
+      config: retentionConfig,
+      organizationId: runtimeContext.organizationId,
+      interviewSessionId: runtimeContext.interviewSessionId,
+      liveSessionId:
+        normalizeString(transcriptionTelemetry?.liveSessionId) ?? args.voiceSessionId,
+      mediaType: "audio_final",
+      mimeType: normalizedMimeType,
+      capturedAt:
+        normalizeTelemetryInteger(transcriptionTelemetry?.capturedAtMs) ?? Date.now(),
+      sourceClass: normalizeString(transcriptionTelemetry?.sourceClass) ?? undefined,
+      sourceId: normalizeString(transcriptionTelemetry?.sourceId) ?? undefined,
+      sourceSequence: normalizeTelemetryInteger(transcriptionTelemetry?.packetSequence),
+      voiceSessionId: args.voiceSessionId,
+      payloadBase64: args.audioBase64,
+      metadata: {
+        recorderMimeType,
+        blobMimeType,
+        blobSizeBytes,
+        sourceBlobMimeType,
+        sourceBlobSizeBytes,
+        retryPath,
+        realtimeTransportRoute,
+        realtimeFallbackReason,
+      },
+    });
+    if (finalAudioRetentionWriteRequest) {
+      try {
+        const retained = (await ctx.runMutation(
+          generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
+          finalAudioRetentionWriteRequest,
+        )) as {
+          retentionId: Id<"operatorMediaRetention">;
+          storageId: Id<"_storage"> | null;
+          idempotent: boolean;
+        };
+        finalAudioRetention = {
+          attempted: true,
+          persisted: true,
+          idempotent: Boolean(retained.idempotent),
+          retentionMode: finalAudioRetentionWriteRequest.retentionMode,
+          retentionId: String(retained.retentionId),
+          reason: finalAudioRetentionWriteRequest.policy.reason,
+        };
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "operator_final_audio_retention_failed";
+        finalAudioRetention = {
+          attempted: true,
+          persisted: false,
+          idempotent: false,
+          retentionMode: finalAudioRetentionWriteRequest.retentionMode,
+          reason: finalAudioRetentionWriteRequest.policy.reason,
+          error: message,
+        };
+        if (finalAudioRetentionWriteRequest.policy.failClosed) {
+          throw new Error(`operator_media_retention_fail_closed:${message}`);
+        }
+        console.error("[VoiceRuntime] operator_final_audio_retention_non_blocking_failure", {
+          error: message,
+          voiceSessionId: args.voiceSessionId,
+        });
+      }
+    }
     emitVoiceTelemetry("stt_request_received", {
       voiceSessionId: args.voiceSessionId,
       interviewSessionId: String(args.interviewSessionId),
@@ -3666,6 +3892,9 @@ export const transcribeVoiceAudio = action({
       realtimeFrameBytes,
       realtimeTransportRoute,
       realtimeFallbackReason,
+      mediaRetentionAttempted: finalAudioRetention?.attempted ?? false,
+      mediaRetentionPersisted: finalAudioRetention?.persisted ?? false,
+      mediaRetentionMode: finalAudioRetention?.retentionMode ?? null,
       sttRoutePrecedence: [
         VOICE_REALTIME_STT_PRIMARY_ROUTE,
         VOICE_REALTIME_STT_FAILOVER_ROUTE,
@@ -3719,6 +3948,7 @@ export const transcribeVoiceAudio = action({
         health: resolved.health,
         error: "browser_runtime_requires_client_side_voice_processing",
         nativeBridge,
+        retention: finalAudioRetention ?? null,
       };
     }
 
@@ -3757,6 +3987,7 @@ export const transcribeVoiceAudio = action({
       } else if (normalizeString(transcript.transcriptText)) {
         console.info(
           `[VoiceRuntime] Ignored ambient transcript session=${args.voiceSessionId}.`,
+          buildAmbientTranscriptDebugSnapshot(transcript.transcriptText),
         );
       }
       emitVoiceTelemetry("stt_result_success", {
@@ -3846,6 +4077,7 @@ export const transcribeVoiceAudio = action({
         }),
         sttRoute: transcript.route,
         sttRouteProvider: transcript.routeProvider,
+        retention: finalAudioRetention ?? null,
       };
     } catch (error) {
       if (isNoTranscriptTextError(error)) {
@@ -3865,6 +4097,7 @@ export const transcribeVoiceAudio = action({
           fallbackProviderId: resolved.fallbackFromProviderId ?? null,
           health: resolved.health,
           nativeBridge,
+          retention: finalAudioRetention ?? null,
         };
       }
       const transcriptionError =
@@ -3919,6 +4152,7 @@ export const transcribeVoiceAudio = action({
         health: resolved.health,
         error: transcriptionError,
         nativeBridge,
+        retention: finalAudioRetention ?? null,
       };
     }
   },
@@ -4005,6 +4239,93 @@ export const ingestVoiceTransportEnvelope = action({
     const normalizedVoiceRuntime = normalizeObject(args.voiceRuntime);
     const normalizedTransportRuntime = normalizeObject(args.transportRuntime);
     const normalizedAvObservability = normalizeObject(args.avObservability);
+    const retentionConfig = resolveOperatorMediaRetentionConfig();
+    const retainedVoiceMediaType = resolveVoiceEnvelopeRetainedMediaType(envelope.eventType);
+    let retentionIngest:
+      | {
+          attempted: boolean;
+          persisted: boolean;
+          idempotent: boolean;
+          retentionMode?: "metadata_only" | "full";
+          retentionId?: string;
+          reason?: string;
+          error?: string;
+        }
+      | undefined;
+    if (sequenceDecision.decision === "accepted" && retainedVoiceMediaType) {
+      const retentionWriteRequest = buildOperatorMediaRetentionWriteRequest({
+        config: retentionConfig,
+        organizationId: runtimeContext.organizationId,
+        conversationId: args.conversationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        liveSessionId: envelope.liveSessionId,
+        mediaType: retainedVoiceMediaType,
+        mimeType:
+          normalizeTranscriptionMimeType(envelope.transcriptionMimeType) ??
+          (envelope.pcm
+            ? resolvePcmTranscriptionMimeType(envelope.pcm)
+            : "audio/wav"),
+        capturedAt: envelope.timestampMs,
+        sourceClass: normalizeString(normalizedVoiceRuntime?.sourceClass) ?? undefined,
+        sourceId: normalizeString(normalizedVoiceRuntime?.sourceId) ?? undefined,
+        sourceSequence: envelope.sequence,
+        voiceSessionId: envelope.voiceSessionId,
+        payloadBase64: envelope.audioChunkBase64,
+        metadata: {
+          transportMode: envelope.transportMode,
+          eventType: envelope.eventType,
+          previousSequence: envelope.previousSequence,
+        },
+      });
+      if (retentionWriteRequest) {
+        try {
+          const retained = (await ctx.runMutation(
+            generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
+            retentionWriteRequest,
+          )) as {
+            retentionId: Id<"operatorMediaRetention">;
+            storageId: Id<"_storage"> | null;
+            idempotent: boolean;
+          };
+          retentionIngest = {
+            attempted: true,
+            persisted: true,
+            idempotent: Boolean(retained.idempotent),
+            retentionMode: retentionWriteRequest.retentionMode,
+            retentionId: String(retained.retentionId),
+            reason: retentionWriteRequest.policy.reason,
+          };
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "operator_media_retention_failed";
+          retentionIngest = {
+            attempted: true,
+            persisted: false,
+            idempotent: false,
+            retentionMode: retentionWriteRequest.retentionMode,
+            reason: retentionWriteRequest.policy.reason,
+            error: message,
+          };
+          if (retentionWriteRequest.policy.failClosed) {
+            throw new Error(`operator_media_retention_fail_closed:${message}`);
+          }
+          console.error("[VoiceRuntime] operator_media_retention_non_blocking_failure", {
+            error: message,
+            voiceSessionId: envelope.voiceSessionId,
+            sequence: envelope.sequence,
+          });
+        }
+      } else if (retentionConfig.enabled) {
+        retentionIngest = {
+          attempted: false,
+          persisted: false,
+          idempotent: false,
+          reason: "policy_skip",
+        };
+      }
+    }
 
     let relayEvents: VoiceTransportEnvelopeContract[] = [];
     let persistedFinalTranscript = false;
@@ -4148,6 +4469,7 @@ export const ingestVoiceTransportEnvelope = action({
                 relayErrorMessage = "voice_non_speech_transcript_filtered";
                 console.info(
                   `[VoiceRuntime] Ignored ambient transcript seq=${envelope.sequence}.`,
+                  buildAmbientTranscriptDebugSnapshot(transcript.transcriptText),
                 );
               }
             }
@@ -4187,6 +4509,7 @@ export const ingestVoiceTransportEnvelope = action({
           relayEvents = [];
           console.info(
             `[VoiceRuntime] Ignored ambient partial transcript seq=${envelope.sequence}.`,
+            buildAmbientTranscriptDebugSnapshot(envelope.transcriptText),
           );
         } else {
           relayEvents = [envelope];
@@ -4215,6 +4538,7 @@ export const ingestVoiceTransportEnvelope = action({
           relayEvents = [];
           console.info(
             `[VoiceRuntime] Ignored ambient final transcript seq=${envelope.sequence}.`,
+            buildAmbientTranscriptDebugSnapshot(envelope.transcriptText),
           );
         } else {
           relayEvents = [envelope];
@@ -4264,6 +4588,12 @@ export const ingestVoiceTransportEnvelope = action({
         voice_transport_expected_sequence: sequenceDecision.expectedSequence,
         voice_transport_relay_events: relayEvents,
         voice_transport_final_persisted: persistedFinalTranscript,
+        media_retention_attempted: retentionIngest?.attempted ?? false,
+        media_retention_persisted: retentionIngest?.persisted ?? false,
+        media_retention_idempotent: retentionIngest?.idempotent ?? false,
+        media_retention_mode: retentionIngest?.retentionMode ?? null,
+        media_retention_reason: retentionIngest?.reason ?? null,
+        media_retention_error: retentionIngest?.error ?? null,
       },
     });
 
@@ -4510,6 +4840,7 @@ export const ingestVoiceTransportEnvelope = action({
         ...turnOrchestrationDecision,
         turn: realtimeTurn,
       },
+      retention: retentionIngest ?? null,
       nativeBridge: buildVoiceRuntimeNativeBridgeMetadata({
         voiceSessionId: envelope.voiceSessionId,
         sessionState: "stt",
@@ -4529,6 +4860,10 @@ export const ingestVoiceTransportEnvelope = action({
       orchestrationStatus: realtimeTurn?.status ?? "none",
       orchestrationReason: turnOrchestrationDecision.reason,
       shouldTriggerAssistantTurn: turnOrchestrationDecision.shouldTriggerAssistantTurn,
+      mediaRetentionAttempted: retentionIngest?.attempted ?? false,
+      mediaRetentionPersisted: retentionIngest?.persisted ?? false,
+      mediaRetentionMode: retentionIngest?.retentionMode ?? null,
+      mediaRetentionReason: retentionIngest?.reason ?? null,
     });
     return response;
   },
@@ -4538,6 +4873,7 @@ export const ingestVideoFrameEnvelope = action({
   args: {
     sessionId: v.string(),
     interviewSessionId: v.id("agentSessions"),
+    conversationId: v.optional(v.id("aiConversations")),
     envelope: mediaSessionIngressContractValidator,
     maxFramesPerWindow: v.optional(v.number()),
     windowMs: v.optional(v.number()),
@@ -4555,6 +4891,8 @@ export const ingestVideoFrameEnvelope = action({
     assertMediaSessionIngressContract(envelope);
 
     const videoRuntime = normalizeObject(envelope.videoRuntime);
+    const cameraRuntime = normalizeObject(envelope.cameraRuntime);
+    const captureRuntime = normalizeObject(envelope.captureRuntime);
     const videoSessionId = normalizeSessionToken(videoRuntime?.videoSessionId);
     if (!videoSessionId) {
       throw new Error(
@@ -4586,6 +4924,103 @@ export const ingestVideoFrameEnvelope = action({
           typeof args.windowMs === "number" ? args.windowMs : undefined,
       },
     )) as IngestVideoTransportFrameCheckpointResult;
+
+    const retentionConfig = resolveOperatorMediaRetentionConfig();
+    let retentionIngest:
+      | {
+          attempted: boolean;
+          persisted: boolean;
+          idempotent: boolean;
+          retentionMode?: "metadata_only" | "full";
+          retentionId?: string;
+          reason?: string;
+          error?: string;
+        }
+      | undefined;
+    if (checkpoint.decision === "accepted") {
+      const retainedMediaType = resolveVideoEnvelopeRetainedMediaType({
+        keyframeHint: undefined,
+      });
+      const retentionWriteRequest = buildOperatorMediaRetentionWriteRequest({
+        config: retentionConfig,
+        organizationId: runtimeContext.organizationId,
+        conversationId: args.conversationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        liveSessionId: envelope.liveSessionId,
+        mediaType: retainedMediaType,
+        mimeType: normalizeString(videoRuntime?.mimeType) ?? "image/jpeg",
+        capturedAt: normalizeTelemetryInteger(videoRuntime?.packetTimestampMs)
+          ?? envelope.ingressTimestampMs,
+        sourceClass:
+          normalizeString(captureRuntime?.sourceClass)
+          ?? normalizeString(cameraRuntime?.sourceClass)
+          ?? undefined,
+        sourceId:
+          normalizeString(captureRuntime?.sourceId)
+          ?? normalizeString(cameraRuntime?.sourceId)
+          ?? undefined,
+        sourceSequence: sequence,
+        videoSessionId,
+        payloadBase64: normalizeString(videoRuntime?.framePayloadBase64) ?? undefined,
+        metadata: {
+          transportMode: normalizeString(envelope.transportRuntime?.mode) ?? null,
+          fallbackReason: normalizeString(envelope.transportRuntime?.fallbackReason) ?? null,
+          frameRate: normalizeTelemetryInteger(videoRuntime?.frameRate),
+          width: normalizeTelemetryInteger(videoRuntime?.width),
+          height: normalizeTelemetryInteger(videoRuntime?.height),
+          codec: normalizeString(videoRuntime?.codec) ?? null,
+        },
+      });
+      if (retentionWriteRequest) {
+        try {
+          const retained = (await ctx.runMutation(
+            generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
+            retentionWriteRequest,
+          )) as {
+            retentionId: Id<"operatorMediaRetention">;
+            storageId: Id<"_storage"> | null;
+            idempotent: boolean;
+          };
+          retentionIngest = {
+            attempted: true,
+            persisted: true,
+            idempotent: Boolean(retained.idempotent),
+            retentionMode: retentionWriteRequest.retentionMode,
+            retentionId: String(retained.retentionId),
+            reason: retentionWriteRequest.policy.reason,
+          };
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "operator_video_media_retention_failed";
+          retentionIngest = {
+            attempted: true,
+            persisted: false,
+            idempotent: false,
+            retentionMode: retentionWriteRequest.retentionMode,
+            reason: retentionWriteRequest.policy.reason,
+            error: message,
+          };
+          if (retentionWriteRequest.policy.failClosed) {
+            throw new Error(`operator_media_retention_fail_closed:${message}`);
+          }
+          console.error("[VoiceRuntime] operator_video_media_retention_non_blocking_failure", {
+            error: message,
+            liveSessionId: envelope.liveSessionId,
+            videoSessionId,
+            sequence,
+          });
+        }
+      } else if (retentionConfig.enabled) {
+        retentionIngest = {
+          attempted: false,
+          persisted: false,
+          idempotent: false,
+          reason: "policy_skip",
+        };
+      }
+    }
 
     return {
       success:
@@ -4624,6 +5059,7 @@ export const ingestVideoFrameEnvelope = action({
             0.75,
         ),
       },
+      retention: retentionIngest ?? null,
     };
   },
 });

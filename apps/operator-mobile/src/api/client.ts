@@ -73,6 +73,22 @@ class L4yercak3APIClient {
   }
 
   /**
+   * Build current auth headers for external gateway calls.
+   */
+  getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (this.apiKey) {
+      headers.Authorization = `Bearer ${this.apiKey}`;
+    } else if (this.sessionId) {
+      headers.Authorization = `Bearer ${this.sessionId}`;
+    }
+    if (this.organizationId) {
+      headers['X-Organization-Id'] = this.organizationId;
+    }
+    return headers;
+  }
+
+  /**
    * Load session from secure storage
    */
   async loadSession(): Promise<string | null> {

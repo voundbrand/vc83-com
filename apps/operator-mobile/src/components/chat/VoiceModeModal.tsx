@@ -63,7 +63,7 @@ const VOICE_MODE_TURN_VISUAL_STATE_MAP: Record<ConversationTurnState, VoiceModeT
     rotateDurationMs: 3600,
   },
   thinking: {
-    label: 'WAIT',
+    label: 'THINK',
     statusText: 'Thinking...',
     background: 'rgba(245, 158, 11, 0.3)',
     border: 'rgba(245, 158, 11, 0.72)',
@@ -470,12 +470,15 @@ export function VoiceModeModal({
         {showDockedConversationUi ? (
           <YStack
             flex={1}
-            justifyContent="flex-end"
             paddingHorizontal="$4"
+            paddingTop={Math.max(insets.top + 6, 14)}
             paddingBottom={Math.max(insets.bottom + 8, 18)}
             gap="$3"
           >
             <YStack
+              alignSelf="flex-start"
+              width="100%"
+              maxWidth={480}
               borderWidth={1}
               borderColor="rgba(255,255,255,0.16)"
               borderRadius="$5"
@@ -484,42 +487,60 @@ export function VoiceModeModal({
               gap="$2"
             >
               <XStack alignItems="center" justifyContent="space-between" gap="$2">
-                <Text color="#f3efe7" fontSize="$2" fontWeight="700">
+                <Text color="#f3efe7" fontSize="$3" fontWeight="700">
                   Live transcript
                 </Text>
-                <Text color="rgba(243,239,231,0.62)" fontSize="$1">
+                <Text color="rgba(243,239,231,0.62)" fontSize="$2">
                   interrupt:{liveInterruptionMarker}
                 </Text>
               </XStack>
-              <Text color="#93c5fd" fontSize="$2" numberOfLines={2}>
+              <Text color="#93c5fd" fontSize="$3" numberOfLines={3}>
                 USER {liveTranscriptUserText}
               </Text>
-              <Text color="#f3efe7" fontSize="$2" numberOfLines={2}>
+              <Text color="#f3efe7" fontSize="$3" numberOfLines={3}>
                 AGENT {liveTranscriptAssistantText}
               </Text>
-              <Text color="rgba(243,239,231,0.68)" fontSize="$1">
+              <Text color="rgba(243,239,231,0.68)" fontSize="$2">
                 {t('chat.voiceLiveHud', { status: hudStatusLabel })}
               </Text>
               {transportDegradationReasonLabel ? (
-                <Text color="#fbbf24" fontSize="$1">
+                <Text color="#fbbf24" fontSize="$2">
                   {t('chat.voiceTransportFallback', { reason: transportDegradationReasonLabel })}
                 </Text>
               ) : null}
             </YStack>
 
-            <XStack
-              alignItems="center"
-              gap="$3"
-              borderWidth={1}
-              borderColor="rgba(255,255,255,0.16)"
-              borderRadius="$6"
-              backgroundColor="rgba(17,17,19,0.94)"
-              paddingHorizontal="$3"
-              paddingVertical="$2.5"
-            >
-              <Pressable onPress={handleOrbPress}>
+            <YStack flex={1} />
+
+            <YStack alignSelf="flex-end" alignItems="flex-end" gap="$2">
+              <YStack
+                minWidth={168}
+                borderWidth={1}
+                borderColor="rgba(255,255,255,0.16)"
+                borderRadius="$6"
+                backgroundColor="rgba(17,17,19,0.94)"
+                paddingHorizontal="$3.5"
+                paddingVertical="$2.5"
+                alignItems="flex-end"
+                gap="$1"
+              >
+                <Text color="#f3efe7" fontSize="$4" fontWeight="600" numberOfLines={1}>
+                  {agentName}
+                </Text>
+                <Text color="rgba(243,239,231,0.72)" fontSize="$3" numberOfLines={1}>
+                  {statusText}
+                </Text>
+                <Text color="rgba(243,239,231,0.68)" fontSize="$2">
+                  Tap REC to stop
+                </Text>
+              </YStack>
+
+              <Pressable
+                onPress={handleOrbPress}
+                hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
+              >
                 <AnimatedCircle
-                  size={84}
+                  size={86}
                   backgroundColor={orbState.background}
                   borderWidth={1}
                   borderColor={orbState.border}
@@ -528,45 +549,20 @@ export function VoiceModeModal({
                   style={orbStyle}
                 >
                   <Circle
-                    size={42}
+                    size={48}
                     backgroundColor={orbState.core}
                     borderWidth={1}
                     borderColor={orbState.border}
                     alignItems="center"
                     justifyContent="center"
                   >
-                    <Text color="#f3efe7" fontSize="$1" fontWeight="700">
+                    <Text color="#f3efe7" fontSize="$3" fontWeight="800">
                       {orbState.label}
                     </Text>
                   </Circle>
                 </AnimatedCircle>
               </Pressable>
-              <YStack flex={1} gap="$1">
-                <Text color="#f3efe7" fontSize="$4" fontWeight="600" numberOfLines={1}>
-                  {agentName}
-                </Text>
-                <Text color="rgba(243,239,231,0.72)" fontSize="$2" numberOfLines={1}>
-                  {statusText}
-                </Text>
-              </YStack>
-              <Pressable
-                onPress={handleManualStop}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Circle
-                  size={44}
-                  backgroundColor="rgba(220, 38, 38, 0.22)"
-                  borderWidth={1}
-                  borderColor="rgba(248, 113, 113, 0.72)"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text color="#fecaca" fontSize="$1" fontWeight="800">
-                    STOP
-                  </Text>
-                </Circle>
-              </Pressable>
-            </XStack>
+            </YStack>
           </YStack>
         ) : (
           <YStack
@@ -705,7 +701,10 @@ export function VoiceModeModal({
                   <Circle size={6} backgroundColor="rgba(229, 149, 78, 0.24)" position="absolute" top={52} left={48} />
                 </AnimatedYStack>
 
-                <Pressable onPress={handleOrbPress}>
+                <Pressable
+                  onPress={handleOrbPress}
+                  hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
+                >
                   <AnimatedCircle
                     size={166}
                     backgroundColor={orbState.background}

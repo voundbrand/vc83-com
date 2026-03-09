@@ -113,6 +113,8 @@ const DEFAULT_PREFERENCES: MetaBridgeObservabilityPreferences = {
   persistentCaptureEnabled: true,
   remoteUploadEnabled: false,
 };
+const DEFAULT_META_BRIDGE_UPLOAD_ENDPOINT =
+  'https://app.l4yercak3.com/api/v1/mobile/meta-bridge-observability';
 
 const inMemoryStorageMap = new Map<string, string>();
 
@@ -320,7 +322,10 @@ export class MetaBridgeObservabilityService {
   }
 
   private get uploadEndpoint(): string {
-    return readStringEnv('EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT', '');
+    return readStringEnv(
+      'EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT',
+      DEFAULT_META_BRIDGE_UPLOAD_ENDPOINT
+    );
   }
 
   private get uploadApiKey(): string {

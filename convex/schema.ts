@@ -74,6 +74,7 @@ import {
   voiceTransportSessionState,
   voiceRuntimeSessionOpenRateState,
   videoTransportSessionState,
+  operatorMediaRetention,
   toolFoundryProposalBacklog,
   agentSpecRegistry,
 } from "./schemas/aiSchemas";
@@ -308,6 +309,7 @@ export default defineSchema({
   voiceTransportSessionState, // Keyed voice transport sequencing/replay checkpoint state
   voiceRuntimeSessionOpenRateState, // Per-live-session voice open quota/rate-limit counters
   videoTransportSessionState, // Keyed video frame sequencing/rate-control checkpoint state
+  operatorMediaRetention, // Explicit operator-mobile raw media retention metadata + storage linkage
   toolFoundryProposalBacklog, // Runtime ToolSpec proposal backlog with trace + rollback semantics
   agentSpecRegistry,      // Deterministic registry for agent_spec_v1 contracts
   aiAgentTasks,          // Email AI tasks with approval workflow

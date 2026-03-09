@@ -2657,6 +2657,10 @@ export default function ConversationScreen() {
     ) {
       return;
     }
+    if (frame.sequence === 0) {
+      lastFinalizedFrameSequenceRef.current = null;
+      finalFrameFinalizeMutexRef.current = false;
+    }
 
     const startedAt = frameTimestampMs - normalizedFrameDurationMs;
     let ingestResult: Awaited<ReturnType<typeof mobileVoiceRuntime.ingestStreamingFrame>> | null = null;
@@ -2836,6 +2840,9 @@ export default function ConversationScreen() {
     logVoiceLifecycle('voice_capture_before_start');
     clearPendingFinalFrame('capture_start_requested');
     finalFrameFinalizeMutexRef.current = false;
+    // VoiceRecorder frame sequence restarts at 0 for each capture, so finalize dedupe
+    // must also restart per-utterance to avoid suppressing subsequent turns.
+    lastFinalizedFrameSequenceRef.current = null;
     resetVadState('capture_start_requested');
     mobileVoiceRuntime.clearPartialTranscript('before_voice_capture');
     await handleCaptureStartBargeIn('tap_capture_start');

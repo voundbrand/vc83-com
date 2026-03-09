@@ -331,6 +331,25 @@ function parseOpenSessionRetryAfterMs(error: unknown): number | null {
   return Math.max(250, Math.floor(parsed));
 }
 
+function normalizeGatewayHttpBaseFromWebsocketUrl(websocketUrl: string): string | undefined {
+  try {
+    const parsed = new URL(websocketUrl);
+    parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+    parsed.pathname = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return undefined;
+  }
+}
+
+function appendWebsocketTicket(websocketUrl: string, ticket: string): string {
+  const parsed = new URL(websocketUrl);
+  parsed.searchParams.set('ticket', ticket);
+  return parsed.toString();
+}
+
 function estimateBase64ByteLength(base64Payload: string): number {
   const sanitized = base64Payload.replace(/\s+/g, '');
   if (!sanitized) {
@@ -608,6 +627,10 @@ async function waitForAudioPlayerCompletion(
 }
 
 export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
+  const configuredVoiceWebsocketUrl = normalizeOptionalToken(ENV.VOICE_WEBSOCKET_URL);
+  const configuredVoiceWebsocketTicketUrl = normalizeOptionalToken(
+    ENV.VOICE_WEBSOCKET_TICKET_URL
+  );
   const initialRequestedVoiceId = normalizeOptionalToken(args.requestedVoiceId);
   const initialEnvVoiceId = normalizeOptionalToken(ENV.ELEVENLABS_VOICE_ID);
   const normalizedRequestedVoiceId = normalizeOptionalToken(args.requestedVoiceId);
@@ -616,7 +639,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const [transportSelection, setTransportSelection] = useState<VoiceTransportSelection>(() =>
     resolveVoiceTransportSelection({
       configuredMode: ENV.VOICE_TRANSPORT_MODE,
-      websocketUrl: ENV.VOICE_WEBSOCKET_URL,
+      websocketUrl: configuredVoiceWebsocketUrl,
       isWebRtcAvailable: supportsWebRtc(),
     })
   );
@@ -790,38 +813,99 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       setTransportSelection((previous) =>
         downgradeVoiceTransportSelection({
           current: previous,
-          websocketUrl: ENV.VOICE_WEBSOCKET_URL,
+          websocketUrl: configuredVoiceWebsocketUrl,
           reason,
         })
       );
       setIsRealtimeConnected(false);
       captureRealtimeRelayHealth(false);
     },
-    [captureRealtimeRelayHealth]
+    [captureRealtimeRelayHealth, configuredVoiceWebsocketUrl]
   );
 
-  const connectWebsocket = useCallback((session: ActiveVoiceSession) => {
+  const resolveRealtimeWebsocketConnectUrl = useCallback(async (
+    session: ActiveVoiceSession
+  ): Promise<string | undefined> => {
+    if (!configuredVoiceWebsocketUrl) {
+      return undefined;
+    }
+    const hasAuth = l4yercak3Client.hasAuth();
+    if (!hasAuth) {
+      return configuredVoiceWebsocketUrl;
+    }
+    const ticketEndpoint = configuredVoiceWebsocketTicketUrl
+      || (() => {
+        const gatewayHttpBase = normalizeGatewayHttpBaseFromWebsocketUrl(
+          configuredVoiceWebsocketUrl
+        );
+        return gatewayHttpBase ? `${gatewayHttpBase}/v1/ws-ticket` : undefined;
+      })();
+    if (!ticketEndpoint) {
+      return configuredVoiceWebsocketUrl;
+    }
+    try {
+      const response = await fetch(ticketEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...l4yercak3Client.getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          conversationId: session.conversationId,
+          interviewSessionId: session.interviewSessionId,
+          voiceSessionId: session.voiceSessionId,
+        }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        ticket?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload?.success || typeof payload.ticket !== 'string') {
+        emitVoiceTelemetry('realtime_ws_ticket_issue_failed', {
+          status: response.status,
+          error: payload?.error || 'ticket_issue_failed',
+        });
+        return configuredVoiceWebsocketUrl;
+      }
+      emitVoiceTelemetry('realtime_ws_ticket_issue_ok', {
+        ttlMode: 'short_lived',
+      });
+      return appendWebsocketTicket(configuredVoiceWebsocketUrl, payload.ticket);
+    } catch (error) {
+      emitVoiceTelemetry('realtime_ws_ticket_issue_error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return configuredVoiceWebsocketUrl;
+    }
+  }, [
+    configuredVoiceWebsocketTicketUrl,
+    configuredVoiceWebsocketUrl,
+  ]);
+
+  const connectWebsocket = useCallback(async (session: ActiveVoiceSession) => {
+    const resolvedWebsocketUrl = await resolveRealtimeWebsocketConnectUrl(session);
     const baseSelection = resolveVoiceTransportSelection({
       configuredMode: ENV.VOICE_TRANSPORT_MODE,
-      websocketUrl: ENV.VOICE_WEBSOCKET_URL,
+      websocketUrl: resolvedWebsocketUrl,
       isWebRtcAvailable: supportsWebRtc(),
     });
     const selection =
       baseSelection.effectiveMode === 'webrtc'
         ? downgradeVoiceTransportSelection({
             current: baseSelection,
-            websocketUrl: ENV.VOICE_WEBSOCKET_URL,
+            websocketUrl: resolvedWebsocketUrl,
             reason: 'webrtc_not_implemented',
           })
         : baseSelection;
     setTransportSelection(selection);
 
-    if (selection.effectiveMode !== 'websocket' || !ENV.VOICE_WEBSOCKET_URL) {
+    if (selection.effectiveMode !== 'websocket' || !resolvedWebsocketUrl) {
       return;
     }
 
     try {
-      const socket = new WebSocket(ENV.VOICE_WEBSOCKET_URL);
+      const socket = new WebSocket(resolvedWebsocketUrl);
       intentionalSocketCloseRef.current = false;
       websocketRef.current = socket;
       socket.onopen = () => {
@@ -884,7 +968,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       console.warn('Voice websocket setup failed:', error);
       applyTransportDowngrade('websocket_connect_failed');
     }
-  }, [applyTransportDowngrade, captureRealtimeRelayHealth]);
+  }, [applyTransportDowngrade, captureRealtimeRelayHealth, resolveRealtimeWebsocketConnectUrl]);
 
   const disconnectRealtime = useCallback(() => {
     const socket = websocketRef.current;
@@ -1195,7 +1279,7 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         latestServerRelayQosRef.current = undefined;
         captureRealtimeRelayHealth(false);
         activeSessionRef.current = nextSession;
-        connectWebsocket(nextSession);
+        void connectWebsocket(nextSession);
         return nextSession;
       } catch (error) {
         const retryAfterMs = parseOpenSessionRetryAfterMs(error);

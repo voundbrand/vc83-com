@@ -1,0 +1,36 @@
+app = "voice-ws-gateway"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  LOG_LEVEL = "info"
+  WS_REQUIRE_CLIENT_TOKEN = "false"
+  WS_REQUIRE_AUTH = "true"
+  WS_TICKET_TTL_SECONDS = "90"
+  RATE_LIMIT_CONNECTIONS_PER_MINUTE = "30"
+  RATE_LIMIT_TICKET_ISSUES_PER_MINUTE = "30"
+  RATE_LIMIT_AUDIO_CHUNKS_PER_10S = "30"
+  MAX_AUDIO_BASE64_BYTES = "2097152"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 300
+    soft_limit = 200
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

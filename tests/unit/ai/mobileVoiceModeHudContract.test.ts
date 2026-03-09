@@ -32,7 +32,7 @@ describe("mobile voice mode hud contract", () => {
     expect(mappingSection).toContain("agent_speaking:");
     expect(mappingSection).toContain("label: 'IDLE'");
     expect(mappingSection).toContain("label: 'REC'");
-    expect(mappingSection).toContain("label: 'WAIT'");
+    expect(mappingSection).toContain("label: 'THINK'");
     expect(mappingSection).toContain("label: 'TALK'");
     expect(mappingSection).toContain("statusText: 'Live duplex ready'");
     expect(mappingSection).toContain("statusText: 'Listening...'");
@@ -114,7 +114,9 @@ describe("mobile voice mode hud contract", () => {
     expect(modalSource).toContain("interrupt:{liveInterruptionMarker}");
     expect(modalSource).toContain("USER {liveTranscriptUserText}");
     expect(modalSource).toContain("AGENT {liveTranscriptAssistantText}");
-    expect(modalSource).toContain("size={84}");
-    expect(modalSource).toContain("size={44}");
+    expect(modalSource).toContain("size={86}");
+    expect(modalSource).toContain("Tap REC to stop");
+    expect(modalSource).toContain("hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}");
+    expect(modalSource).not.toContain("size={44}");
   });
 });

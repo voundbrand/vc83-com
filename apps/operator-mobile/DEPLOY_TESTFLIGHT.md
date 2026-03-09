@@ -45,7 +45,12 @@ npx eas-cli init
 
 5. Ensure App Store Connect app record exists with bundle ID `com.l4yercak3.app`.
 
-6. Prepare iOS credentials:
+6. Configure Meta bridge upload env vars in Expo/EAS project settings (for each build environment you use):
+
+- `EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT=https://app.l4yercak3.com/api/v1/mobile/meta-bridge-observability`
+- `EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_API_KEY=<optional, must match server META_BRIDGE_LOG_UPLOAD_API_KEY when enforced>`
+
+7. Prepare iOS credentials:
 
 ```bash
 npm run credentials:ios

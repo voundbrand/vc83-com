@@ -232,6 +232,48 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     }
   }, []);
 
+  const forceResetRecorderState = useCallback(async () => {
+    stopRequestedRef.current = true;
+    clearTrackingTimers();
+    stopStreamMetering();
+    streamSegmentStartedAtRef.current = null;
+    try {
+      if (streamRecordingActiveRef.current) {
+        await enqueueStreamOperation(async () => {
+          try {
+            await streamRecorder.stop();
+          } catch {
+            // Best effort during recorder reset.
+          } finally {
+            streamRecordingActiveRef.current = false;
+          }
+        });
+      }
+    } catch {
+      // Best effort during recorder reset.
+    } finally {
+      streamRecordingActiveRef.current = false;
+    }
+
+    try {
+      if (primaryRecordingActiveRef.current) {
+        await recorder.stop();
+      }
+    } catch {
+      // Best effort during recorder reset.
+    } finally {
+      primaryRecordingActiveRef.current = false;
+    }
+
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+      });
+    } catch {
+      // Best effort during recorder reset.
+    }
+  }, [clearTrackingTimers, enqueueStreamOperation, recorder, stopStreamMetering, streamRecorder]);
+
   const resolveStreamSegmentEnergyRms = useCallback(() => {
     const stats = streamEnergyStatsRef.current;
     if (stats.sampleCount > 0) {
@@ -299,48 +341,42 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     streamRecorder,
   ]);
 
-  const startRecording = useCallback(async () => {
-    try {
-      const permission = await AudioModule.requestRecordingPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(t('voice.permissionTitle'), t('voice.permissionBody'));
-        return;
-      }
-
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-
-      stopRequestedRef.current = false;
-      streamSequenceRef.current = 0;
-      streamSegmentStartedAtRef.current = null;
-      setRecordingState(true);
-      setDuration(0);
-
-      timerRef.current = setInterval(() => {
-        setDuration((prev) => prev + 1);
-      }, 1000);
-
-      if (maxDurationMs && maxDurationMs > 0) {
-        autoStopRef.current = setTimeout(() => {
-          void stopRecordingRef.current?.();
-        }, maxDurationMs);
-      }
-
-      if (streamWhileRecording && onAudioFrame) {
-        await startStreamSegment();
-        return;
-      }
-
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      primaryRecordingActiveRef.current = true;
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      setRecordingState(false);
-      Alert.alert(t('voice.errorTitle'), t('voice.startFailed'));
+  const beginRecording = useCallback(async () => {
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(t('voice.permissionTitle'), t('voice.permissionBody'));
+      return;
     }
+
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+    });
+
+    stopRequestedRef.current = false;
+    streamSequenceRef.current = 0;
+    streamSegmentStartedAtRef.current = null;
+    setRecordingState(true);
+    setDuration(0);
+
+    timerRef.current = setInterval(() => {
+      setDuration((prev) => prev + 1);
+    }, 1000);
+
+    if (maxDurationMs && maxDurationMs > 0) {
+      autoStopRef.current = setTimeout(() => {
+        void stopRecordingRef.current?.();
+      }, maxDurationMs);
+    }
+
+    if (streamWhileRecording && onAudioFrame) {
+      await startStreamSegment();
+      return;
+    }
+
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    primaryRecordingActiveRef.current = true;
   }, [
     maxDurationMs,
     onAudioFrame,
@@ -348,6 +384,31 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
     setRecordingState,
     startStreamSegment,
     streamWhileRecording,
+    t,
+  ]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      if (streamRecordingActiveRef.current || primaryRecordingActiveRef.current) {
+        await forceResetRecorderState();
+      }
+      await beginRecording();
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      try {
+        await forceResetRecorderState();
+        await beginRecording();
+        return;
+      } catch (retryError) {
+        console.error('Failed to start recording after reset:', retryError);
+      }
+      setRecordingState(false);
+      Alert.alert(t('voice.errorTitle'), t('voice.startFailed'));
+    }
+  }, [
+    beginRecording,
+    forceResetRecorderState,
+    setRecordingState,
     t,
   ]);
 
@@ -457,9 +518,9 @@ export const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>
 
   useEffect(() => {
     return () => {
-      clearTrackingTimers();
+      void forceResetRecorderState();
     };
-  }, [clearTrackingTimers]);
+  }, [forceResetRecorderState]);
 
   const handlePress = () => {
     if (isTranscribing) return;

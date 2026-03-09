@@ -8,6 +8,13 @@
 // so Google callback routing works in local/dev builds.
 const GOOGLE_IOS_CLIENT_ID_FALLBACK =
   '19450024372-6c594u7djuj6kb0no2bfac9ibmbd0s9a.apps.googleusercontent.com';
+const META_BRIDGE_DEFAULT_LOG_UPLOAD_ENDPOINT =
+  'https://app.l4yercak3.com/api/v1/mobile/meta-bridge-observability';
+
+const voiceWebsocketUrlFromEnv =
+  process.env.EXPO_PUBLIC_VOICE_WEBSOCKET_URL?.trim() || '';
+const voiceTransportModeFromEnv =
+  process.env.EXPO_PUBLIC_VOICE_TRANSPORT_MODE?.trim() || '';
 
 export const ENV = {
   // L4yercak3 API
@@ -59,8 +66,11 @@ export const ENV = {
     process.env.EXPO_PUBLIC_AV_ATTESTATION_SECRET ||
     'local_dev_av_attestation_secret_v1',
   VOICE_TRANSPORT_MODE:
-    process.env.EXPO_PUBLIC_VOICE_TRANSPORT_MODE || 'websocket',
-  VOICE_WEBSOCKET_URL: process.env.EXPO_PUBLIC_VOICE_WEBSOCKET_URL || '',
+    voiceTransportModeFromEnv
+    || (voiceWebsocketUrlFromEnv ? 'websocket' : 'chunked_fallback'),
+  VOICE_WEBSOCKET_URL: voiceWebsocketUrlFromEnv,
+  VOICE_WEBSOCKET_TICKET_URL:
+    process.env.EXPO_PUBLIC_VOICE_WEBSOCKET_TICKET_URL?.trim() || '',
   VOICE_CHAOS_ENABLED: process.env.EXPO_PUBLIC_VOICE_CHAOS_ENABLED === 'true',
   VOICE_CHAOS_DROP_EVERY_N: Number(process.env.EXPO_PUBLIC_VOICE_CHAOS_DROP_EVERY_N || 0),
   VOICE_CHAOS_REORDER_WINDOW_SIZE: Number(process.env.EXPO_PUBLIC_VOICE_CHAOS_REORDER_WINDOW_SIZE || 0),
@@ -80,7 +90,7 @@ export const ENV = {
   META_BRIDGE_SNAPSHOT_INTERVAL_MS:
     Number(process.env.EXPO_PUBLIC_META_BRIDGE_SNAPSHOT_INTERVAL_MS || 15000),
   META_BRIDGE_LOG_UPLOAD_ENDPOINT:
-    process.env.EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT || '',
+    process.env.EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_ENDPOINT || META_BRIDGE_DEFAULT_LOG_UPLOAD_ENDPOINT,
   META_BRIDGE_LOG_UPLOAD_API_KEY:
     process.env.EXPO_PUBLIC_META_BRIDGE_LOG_UPLOAD_API_KEY || '',
   META_BRIDGE_UPLOAD_BATCH_SIZE:
@@ -91,6 +101,8 @@ export const ENV = {
     Number(process.env.EXPO_PUBLIC_META_BRIDGE_UPLOAD_BASE_BACKOFF_MS || 2000),
   META_BRIDGE_UPLOAD_MAX_BACKOFF_MS:
     Number(process.env.EXPO_PUBLIC_META_BRIDGE_UPLOAD_MAX_BACKOFF_MS || 300000),
+  META_BRIDGE_UPLOAD_QUEUE_LIMIT:
+    Number(process.env.EXPO_PUBLIC_META_BRIDGE_UPLOAD_QUEUE_LIMIT || 6000),
 } as const;
 
 // Validate required env vars at startup

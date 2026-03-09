@@ -1,0 +1,20 @@
+{
+  "name": "voice-ws-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Realtime WebSocket voice gateway for operator-mobile",
+  "type": "module",
+  "main": "src/server.mjs",
+  "scripts": {
+    "dev": "node --watch src/server.mjs",
+    "start": "node src/server.mjs",
+    "check": "node --check src/server.mjs"
+  },
+  "engines": {
+    "node": ">=20 <24"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.6.1"
+  }
+}
