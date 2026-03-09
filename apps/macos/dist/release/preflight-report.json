@@ -1,9 +1,0 @@
-{
-  "schema": "vc83_macos_release_preflight_v1",
-  "mode": "report",
-  "status": "blocked",
-  "notaryAuthMode": "none",
-  "signingIdentityDetected": false,
-  "missingRequirements": ["codesign_identity:missing", "notary_credentials:missing"],
-  "warnings": ["SOURCE_DATE_EPOCH_unset:defaulting_to_git_commit_time"]
-}

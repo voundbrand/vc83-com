@@ -83,3 +83,17 @@ apps/operator-mobile/ios/Pods/
 # local docs reference repos (not part of product source)
 docs/reference_projects/*
 !docs/reference_projects/README.md
+
+# macOS app local/build/release artifacts
+apps/macos/dist/
+apps/macos/.build/
+apps/macos/.swiftpm/
+
+# macOS signing/secrets
+apps/macos/**/*.p12
+apps/macos/**/*.p8
+apps/macos/**/*.mobileprovision
+apps/macos/**/*.cer
+apps/macos/**/*.key
+apps/macos/**/.env
+apps/macos/**/.env.*
