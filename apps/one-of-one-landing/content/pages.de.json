@@ -28,9 +28,9 @@
   },
   "docs": {
     "title": "Dokumentation",
-    "subtitle": "Willkommen in der sevenlayers-Dokumentation. Erfahren Sie, wie Ihr privater KI-Operator funktioniert, erkunden Sie die Plattformfunktionen und starten Sie durch.",
+    "subtitle": "Willkommen in der sevenlayers-Dokumentation. Erfahren Sie, wie Ihr privater KI-Agenten funktioniert, erkunden Sie die Plattformfunktionen und starten Sie durch.",
     "qlAboutTitle": "Über sevenlayers",
-    "qlAboutDesc": "Erfahren Sie, wie Ihr privater KI-Operator funktioniert",
+    "qlAboutDesc": "Erfahren Sie, wie Ihr privater KI-Agenten funktioniert",
     "qlFeaturesTitle": "Hauptfunktionen",
     "qlFeaturesDesc": "Conversational Onboarding, Multi-Channel, abgestufte Autonomie",
     "qlPrivacyTitle": "Datenschutz & Sicherheit",
@@ -38,12 +38,12 @@
     "qlSupportTitle": "Support",
     "qlSupportDesc": "Hilfe erhalten und Antworten auf häufige Fragen finden",
     "aboutTitle": "Über sevenlayers",
-    "aboutText": "sevenlayers ist eine private KI-Operator-Plattform für Unternehmen, die mit Kunden sprechen. Setzen Sie einen KI-Operator ein, der Ihr Unternehmen durch Konversation kennenlernt, Abläufe über jeden Kanal hinweg abwickelt und sich im Laufe der Zeit verbessert. Gebaut für Unternehmer, die weniger Zeit für wiederkehrende Arbeit aufwenden möchten — und mehr für das, was zählt.",
+    "aboutText": "sevenlayers ist eine private KI-Agenten-Plattform für Unternehmen, die mit Kunden sprechen. Setzen Sie einen KI-Agenten ein, der Ihr Unternehmen durch Konversation kennenlernt, Abläufe über jeden Kanal hinweg abwickelt und sich im Laufe der Zeit verbessert. Gebaut für Unternehmer, die weniger Zeit für wiederkehrende Arbeit aufwenden möchten — und mehr für das, was zählt.",
     "featuresTitle": "Hauptfunktionen",
     "features": [
-      { "title": "Conversational Onboarding", "desc": "Richten Sie Ihren KI-Operator durch ein Gespräch ein, nicht durch ein Formular. Erzählen Sie, wie Ihr Unternehmen funktioniert. Der Operator baut sich selbst." },
+      { "title": "Conversational Onboarding", "desc": "Richten Sie Ihren KI-Agenten durch ein Gespräch ein, nicht durch ein Formular. Erzählen Sie, wie Ihr Unternehmen funktioniert. Der Agent baut sich selbst." },
       { "title": "Multi-Channel-Einsatz", "desc": "Einsatz auf WhatsApp, Slack, Telegram, Web oder jedem Kanal, den Ihre Kunden bereits nutzen." },
-      { "title": "Abgestufte Autonomie", "desc": "Ihr Operator startet vorsichtig und verdient sich Unabhängigkeit im Laufe der Zeit. Sie genehmigen jede Änderung. Er geht nie eigenmächtig vor." },
+      { "title": "Abgestufte Autonomie", "desc": "Ihr Agent startet vorsichtig und verdient sich Unabhängigkeit im Laufe der Zeit. Sie genehmigen jede Änderung. Er geht nie eigenmächtig vor." },
       { "title": "Ihre Marke & CRM", "desc": "Komplette Plattform mit CRM, Zahlungen, Buchung und E-Mail — alles läuft unter Ihrer Marke auf Ihrer Domain." },
       { "title": "Klasse-1-Datenschutz", "desc": "Betrieb auf unserer Cloud, Ihrer Hardware oder Enterprise-GPU. Bringen Sie Ihr eigenes Modell mit. Ihre Daten, Ihre Regeln." }
     ],
@@ -54,7 +54,7 @@
   },
   "support": {
     "title": "Support",
-    "subtitle": "Hilfe zu sevenlayers und Ihrem privaten KI-Operator",
+    "subtitle": "Hilfe zu sevenlayers und Ihrem privaten KI-Agenten",
     "reachUsTitle": "So erreichen Sie uns",
     "emailTitle": "E-Mail-Support",
     "emailDesc": "Für allgemeine Anfragen, technische Probleme oder Funktionsanfragen.",
@@ -62,10 +62,10 @@
     "bookCallDesc": "Planen Sie einen Anruf für persönliche Unterstützung oder Partnerschaftsgespräche.",
     "faqTitle": "Häufig gestellte Fragen",
     "faqs": [
-      { "q": "Wie erstelle ich einen KI-Operator?", "a": "Beginnen Sie ein Gespräch mit unserem Onboarding-Agenten. Er fragt nach Ihrem Unternehmen und baut den Operator aus Ihren Antworten. Keine Formulare oder Konfiguration nötig." },
-      { "q": "Was passiert, wenn die KI etwas Falsches sagt?", "a": "Jeder Operator weiß, wann er an einen Menschen eskalieren muss. Er startet vorsichtig und übernimmt nur mehr, wenn Sie es genehmigen. Sie kontrollieren, was er kann und was nicht." },
-      { "q": "Welche Kanäle kann der Operator nutzen?", "a": "WhatsApp, Slack, Telegram, SMS und Web-Chat. Einsatz auf einem oder allen — der Operator passt sich jedem Kanal an." },
-      { "q": "Wird der Operator mit der Zeit besser?", "a": "Ja. Der Operator beobachtet seine eigenen Gespräche, schlägt Verbesserungen vor und wartet auf Ihre Genehmigung, bevor er etwas ändert. Er wird jede Woche besser, ohne Ihre Stimme zu verlieren." },
+      { "q": "Wie erstelle ich einen KI-Agenten?", "a": "Beginnen Sie ein Gespräch mit unserem Onboarding-Agenten. Er fragt nach Ihrem Unternehmen und baut den Agenten aus Ihren Antworten. Keine Formulare oder Konfiguration nötig." },
+      { "q": "Was passiert, wenn die KI etwas Falsches sagt?", "a": "Jeder Agent weiß, wann er an einen Menschen eskalieren muss. Er startet vorsichtig und übernimmt nur mehr, wenn Sie es genehmigen. Sie kontrollieren, was er kann und was nicht." },
+      { "q": "Welche Kanäle kann der Agent nutzen?", "a": "WhatsApp, Slack, Telegram, SMS und Web-Chat. Einsatz auf einem oder allen — der Agent passt sich jedem Kanal an." },
+      { "q": "Wird der Agent mit der Zeit besser?", "a": "Ja. Der Agent beobachtet seine eigenen Gespräche, schlägt Verbesserungen vor und wartet auf Ihre Genehmigung, bevor er etwas ändert. Er wird jede Woche besser, ohne Ihre Stimme zu verlieren." },
       { "q": "Sind meine Daten sicher?", "a": "Ja. Wir verwenden Verschlüsselung (SSL/TLS), sichere Authentifizierung und befolgen DSGVO-Anforderungen. Sie können auch vollständig auf Ihrer eigenen Hardware betreiben." },
       { "q": "Bieten Sie Enterprise-Pläne an?", "a": "Ja, wir bieten maßgeschneiderte Enterprise-Lösungen einschließlich On-Premise-GPU-Bereitstellung an. Kontaktieren Sie uns für weitere Informationen." },
       { "q": "Wie ist Ihre Antwortzeit?", "a": "Wir bemühen uns, alle Anfragen innerhalb von 24–48 Geschäftsstunden zu beantworten. Enterprise-Kunden erhalten vorrangigen Support." }
@@ -343,7 +343,7 @@
     "s2Items": [
       { "label": "Profilinformationen", "desc": "Name, Profilbild und Gebietsschema (Sprache/Region)." },
       { "label": "Benutzer-ID", "desc": "Eine plattformspezifische Kennung zur Zuordnung Ihrer Gespräche zu Ihrem Profil." },
-      { "label": "Nachrichten", "desc": "Gesprächsinhalte, die mit unserem KI-Operator ausgetauscht werden, zur Bereitstellung personalisierter Antworten." },
+      { "label": "Nachrichten", "desc": "Gesprächsinhalte, die mit unserem KI-Agenten ausgetauscht werden, zur Bereitstellung personalisierter Antworten." },
       { "label": "Telefonnummer", "desc": "Sofern über WhatsApp oder SMS bereitgestellt." },
       { "label": "Interaktionsmetadaten", "desc": "Zeitstempel, Nachrichtenstatus (zugestellt, gelesen) und Sitzungskennungen." }
     ],

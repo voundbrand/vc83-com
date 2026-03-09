@@ -28,9 +28,9 @@
   },
   "docs": {
     "title": "Documentation",
-    "subtitle": "Welcome to the sevenlayers documentation. Learn how your private AI operator works, explore platform capabilities, and get started.",
+    "subtitle": "Welcome to the sevenlayers documentation. Learn how your private AI agent works, explore platform capabilities, and get started.",
     "qlAboutTitle": "About sevenlayers",
-    "qlAboutDesc": "Learn how your private AI operator works",
+    "qlAboutDesc": "Learn how your private AI agent works",
     "qlFeaturesTitle": "Key Features",
     "qlFeaturesDesc": "Conversational onboarding, multi-channel, graduated autonomy",
     "qlPrivacyTitle": "Privacy & Security",
@@ -38,12 +38,12 @@
     "qlSupportTitle": "Support",
     "qlSupportDesc": "Get help and find answers to common questions",
     "aboutTitle": "About sevenlayers",
-    "aboutText": "sevenlayers is a private AI operator platform for businesses that talk to customers. Deploy an AI operator that learns your business through conversation, handles operations across any channel, and compounds over time. Built for operators who want to spend less time on repeatable work — and more time on what matters.",
+    "aboutText": "sevenlayers is a private AI agent platform for businesses that talk to customers. Deploy an AI agent that learns your business through conversation, handles operations across any channel, and compounds over time. Built for business owners who want to spend less time on repeatable work — and more time on what matters.",
     "featuresTitle": "Key Features",
     "features": [
-      { "title": "Conversational Onboarding", "desc": "Set up your AI operator through a conversation, not a form. Share how your business works. The operator builds itself." },
+      { "title": "Conversational Onboarding", "desc": "Set up your AI agent through a conversation, not a form. Share how your business works. The agent builds itself." },
       { "title": "Multi-Channel Deployment", "desc": "Deploy on WhatsApp, Slack, Telegram, web, or any channel your customers already use." },
-      { "title": "Graduated Autonomy", "desc": "Your operator starts cautious and earns independence over time. You approve every change. It never goes rogue." },
+      { "title": "Graduated Autonomy", "desc": "Your agent starts cautious and earns independence over time. You approve every change. It never goes rogue." },
       { "title": "Your Brand & CRM", "desc": "Full platform with CRM, payments, booking, and email — everything runs under your brand on your domain." },
       { "title": "Class 1 Privacy", "desc": "Run on our cloud, your hardware, or enterprise GPU. Bring your own model. Your data, your rules." }
     ],
@@ -54,7 +54,7 @@
   },
   "support": {
     "title": "Support",
-    "subtitle": "Get help with sevenlayers and your private AI operator",
+    "subtitle": "Get help with sevenlayers and your private AI agent",
     "reachUsTitle": "How to Reach Us",
     "emailTitle": "Email Support",
     "emailDesc": "For general inquiries, technical issues, or feature requests.",
@@ -62,10 +62,10 @@
     "bookCallDesc": "Schedule a call for personalized assistance or partnership discussions.",
     "faqTitle": "Frequently Asked Questions",
     "faqs": [
-      { "q": "How do I create an AI operator?", "a": "Start a conversation with our onboarding agent. It will ask about your business and build the operator from your answers. No forms or configuration needed." },
-      { "q": "What if the AI says something wrong?", "a": "Every operator knows when to escalate to a human. It starts cautious and only handles more as you approve. You control what it can and can't do." },
-      { "q": "Which channels can the operator use?", "a": "WhatsApp, Slack, Telegram, SMS, and web chat. Deploy on one or all — the operator adapts to each channel." },
-      { "q": "Does the operator get smarter over time?", "a": "Yes. The operator observes its own conversations, proposes improvements, and waits for your approval before changing anything. It gets better every week without losing your voice." },
+      { "q": "How do I create an AI agent?", "a": "Start a conversation with our onboarding agent. It will ask about your business and build the agent from your answers. No forms or configuration needed." },
+      { "q": "What if the AI says something wrong?", "a": "Every agent knows when to escalate to a human. It starts cautious and only handles more as you approve. You control what it can and can't do." },
+      { "q": "Which channels can the agent use?", "a": "WhatsApp, Slack, Telegram, SMS, and web chat. Deploy on one or all — the agent adapts to each channel." },
+      { "q": "Does the agent get smarter over time?", "a": "Yes. The agent observes its own conversations, proposes improvements, and waits for your approval before changing anything. It gets better every week without losing your voice." },
       { "q": "Is my data secure?", "a": "Yes. We use encryption (SSL/TLS), secure authentication, and follow GDPR requirements. You can also run entirely on your own hardware." },
       { "q": "Do you offer enterprise plans?", "a": "Yes, we offer custom enterprise solutions including on-premise GPU deployment. Contact us for more information." },
       { "q": "What's your response time?", "a": "We aim to respond to all inquiries within 24–48 business hours. Enterprise customers receive priority support." }
@@ -343,7 +343,7 @@
     "s2Items": [
       { "label": "Profile Information", "desc": "Name, profile picture, and locale (language/region)." },
       { "label": "User ID", "desc": "A platform-specific identifier used to associate your conversations with your profile." },
-      { "label": "Messages", "desc": "Conversation content exchanged with our AI operator, used to provide personalized responses." },
+      { "label": "Messages", "desc": "Conversation content exchanged with our AI agent, used to provide personalized responses." },
       { "label": "Phone Number", "desc": "If provided through WhatsApp or SMS." },
       { "label": "Interaction Metadata", "desc": "Timestamps, message status (delivered, read), and session identifiers." }
     ],

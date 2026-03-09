@@ -15,8 +15,8 @@ import { resolveLandingEntrypointLatencyMs, trackLandingEvent } from "../lib/ana
 import type { Language } from "./language-switcher";
 
 const STARTER_MESSAGES: Record<Language, string> = {
-  en: "I can run your seven-minute operator audit now. Start with what your business does and your rough revenue range.",
-  de: "Ich kann jetzt Ihren siebenminütigen Operator-Audit starten. Beginnen Sie mit Ihrem Geschäftsmodell und Ihrer ungefähren Umsatzspanne.",
+  en: "I can run your seven-minute agent audit now. Start with what your business does and your rough revenue range.",
+  de: "Ich kann jetzt Ihren siebenmin\u00FCtigen Agenten-Audit starten. Beginnen Sie mit Ihrem Gesch\u00E4ftsmodell und Ihrer ungef\u00E4hren Umsatzspanne.",
 };
 
 function buildStarterMessage(language: Language): LandingAuditMessage {

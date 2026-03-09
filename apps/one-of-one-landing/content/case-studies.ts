@@ -48,7 +48,7 @@ const en: CaseStudyTranslations = {
   readFullCaseStudy: "Read full case study",
   reviewCta: {
     headline: "Ready to build yours?",
-    text: "Every operator is built from scratch around one business. Yours.",
+    text: "Every agent is built from scratch around one business. Yours.",
   },
   caseStudies: {
     "marcus-engel": {
@@ -66,9 +66,9 @@ const en: CaseStudyTranslations = {
         "He tried voicemail \u2014 nobody under 40 leaves voicemails anymore.",
       ],
       solution: [
-        "Marcus\u2019s operator acts as his virtual receptionist. It knows every active listing, every price point, every neighborhood detail. When a call comes in that Marcus can\u2019t take, the operator answers in his professional style, qualifies the lead \u2014 budget, timeline, property type \u2014 answers listing-specific questions, and books viewings directly into his calendar.",
+        "Marcus\u2019s agent acts as his virtual receptionist. It knows every active listing, every price point, every neighborhood detail. When a call comes in that Marcus can\u2019t take, the agent answers in his professional style, qualifies the lead \u2014 budget, timeline, property type \u2014 answers listing-specific questions, and books viewings directly into his calendar.",
         "After each interaction, Marcus gets a structured summary. Not a voicemail he has to decode, but a qualified lead brief with next steps already suggested.",
-        "The operator also handles follow-ups. If a prospect viewed a property but hasn\u2019t been in touch for three days, it sends a personalized check-in. If a new listing matches a prospect\u2019s criteria, it notifies them before it hits the portals.",
+        "The agent also handles follow-ups. If a prospect viewed a property but hasn\u2019t been in touch for three days, it sends a personalized check-in. If a new listing matches a prospect\u2019s criteria, it notifies them before it hits the portals.",
       ],
       metrics: [
         { label: "Missed calls", before: "34%", after: "2%" },
@@ -77,7 +77,7 @@ const en: CaseStudyTranslations = {
         { label: "Deals closed/quarter", before: "4", after: "7" },
       ],
       quote:
-        "I was losing deals to agents who simply picked up the phone faster. Now my operator picks up faster than anyone \u2014 and it actually knows what it\u2019s talking about.",
+        "I was losing deals to agents who simply picked up the phone faster. Now my agent picks up faster than anyone \u2014 and it actually knows what it\u2019s talking about.",
     },
     "lutz-splettstosser": {
       slug: "lutz-splettstosser",
@@ -94,9 +94,9 @@ const en: CaseStudyTranslations = {
         "He\u2019s tried spam filters, rules, unsubscribe links that lead to more spam. Nothing sticks. For business owners and Gesellschafter in their 60s, this isn\u2019t a minor annoyance \u2014 it\u2019s a daily assault on their time and attention that makes them distrust their own inbox.",
       ],
       solution: [
-        "Lutz\u2019s operator acts as his personal email gatekeeper. It learned his communication patterns in the first week: who he actually corresponds with, which topics matter \u2014 Gesellschafter reports, tax documents, family \u2014 and what\u2019s noise.",
+        "Lutz\u2019s agent acts as his personal email gatekeeper. It learned his communication patterns in the first week: who he actually corresponds with, which topics matter \u2014 Gesellschafter reports, tax documents, family \u2014 and what\u2019s noise.",
         "Now it intercepts every incoming email before it hits his inbox. Legitimate messages pass through instantly. Spam gets silently archived with a weekly digest he can review if he wants. Borderline cases \u2014 a new contact, an unfamiliar but potentially legitimate sender \u2014 get flagged with a one-line summary so he can decide in seconds, not minutes.",
-        "The operator also handles unsubscription properly. When it identifies a persistent newsletter or marketing sender, it processes the unsubscribe and monitors for re-enrollment. If the sender ignores the unsubscribe, it escalates to a blocking rule.",
+        "The agent also handles unsubscription properly. When it identifies a persistent newsletter or marketing sender, it processes the unsubscribe and monitors for re-enrollment. If the sender ignores the unsubscribe, it escalates to a blocking rule.",
       ],
       metrics: [
         { label: "Spam reaching inbox", before: "47/day", after: "0\u20132/day" },
@@ -115,7 +115,7 @@ const en: CaseStudyTranslations = {
       quote:
         "I finally trust my inbox again. When my phone buzzes with an email, I know it\u2019s something that actually matters. I haven\u2019t felt that way in ten years.",
       broaderAppeal:
-        "This isn\u2019t just Lutz\u2019s problem. Across Germany, business owners and Gesellschafter in their 60s \u2014 people who built companies before email existed \u2014 are drowning in digital noise they never asked for. They don\u2019t want to learn new software. They want the problem to go away. That\u2019s exactly what an operator does: it doesn\u2019t add complexity, it removes it.",
+        "This isn\u2019t just Lutz\u2019s problem. Across Germany, business owners and Gesellschafter in their 60s \u2014 people who built companies before email existed \u2014 are drowning in digital noise they never asked for. They don\u2019t want to learn new software. They want the problem to go away. That\u2019s exactly what an agent does: it doesn\u2019t add complexity, it removes it.",
     },
     "franziska-splettstosser": {
       slug: "franziska-splettstosser",
@@ -132,8 +132,8 @@ const en: CaseStudyTranslations = {
         "Franziska was spending 3+ hours per week managing vacation requests, cross-referencing coverage, and handling the inevitable conflicts.",
       ],
       solution: [
-        "Franziska connected her existing Slack workspace to a dedicated vacation planning channel managed by her operator. Team members submit vacation requests in natural language \u2014 \u201CI\u2019d like to take August 18\u201322 off.\u201D The operator checks against the team calendar, verifies minimum coverage requirements that Franziska defined herself, and either approves automatically or flags conflicts.",
-        "The operator also maintains a live vacation calendar visible to the entire team, sends reminders before approved vacations, and generates monthly coverage reports.",
+        "Franziska connected her existing Slack workspace to a dedicated vacation planning channel managed by her agent. Team members submit vacation requests in natural language \u2014 \u201CI\u2019d like to take August 18\u201322 off.\u201D The agent checks against the team calendar, verifies minimum coverage requirements that Franziska defined herself, and either approves automatically or flags conflicts.",
+        "The agent also maintains a live vacation calendar visible to the entire team, sends reminders before approved vacations, and generates monthly coverage reports.",
       ],
       escalationRules: [
         "If coverage drops below 2 pharmacists on any shift \u2192 automatic block + notification to Franziska",
@@ -164,7 +164,7 @@ const en: CaseStudyTranslations = {
         },
       ],
       quote:
-        "I defined my rules once and the operator enforces them every time. My team knows exactly where they stand, and I don\u2019t spend my Sundays doing schedule Tetris anymore.",
+        "I defined my rules once and the agent enforces them every time. My team knows exactly where they stand, and I don\u2019t spend my Sundays doing schedule Tetris anymore.",
     },
     "dirk-linke": {
       slug: "dirk-linke",
@@ -181,9 +181,9 @@ const en: CaseStudyTranslations = {
         "Dirk was spending 4+ hours daily on manual research, scrolling through markets, reading analysis, and still missing opportunities because he couldn\u2019t process information fast enough.",
       ],
       solution: [
-        "Dirk\u2019s operator runs the full Polymarket research and trading pipeline natively. It continuously discovers markets, scores arbitrage opportunities using a multi-factor model \u2014 edge magnitude, liquidity depth, volume momentum, model confidence \u2014 and builds risk-bounded position plans.",
+        "Dirk\u2019s agent runs the full Polymarket research and trading pipeline natively. It continuously discovers markets, scores arbitrage opportunities using a multi-factor model \u2014 edge magnitude, liquidity depth, volume momentum, model confidence \u2014 and builds risk-bounded position plans.",
         "The system operates on a strict governance framework: paper trading is fully autonomous, but live execution requires explicit approval with an auditable approval artifact.",
-        "When the operator identifies a position with >350 bps expected edge and sufficient liquidity, it presents Dirk with a one-page brief: market question, recommended side, stake size, expected edge, and confidence score. Dirk approves or passes. The entire decision takes 30 seconds instead of 30 minutes.",
+        "When the agent identifies a position with >350 bps expected edge and sufficient liquidity, it presents Dirk with a one-page brief: market question, recommended side, stake size, expected edge, and confidence score. Dirk approves or passes. The entire decision takes 30 seconds instead of 30 minutes.",
       ],
       researchLoop: [
         {
@@ -218,7 +218,7 @@ const en: CaseStudyTranslations = {
         },
       ],
       quote:
-        "The operator does in seconds what used to take me hours \u2014 scanning hundreds of markets, scoring opportunities, and presenting me with exactly the positions worth taking. I just approve or pass.",
+        "The agent does in seconds what used to take me hours \u2014 scanning hundreds of markets, scoring opportunities, and presenting me with exactly the positions worth taking. I just approve or pass.",
     },
   },
 };
@@ -234,7 +234,7 @@ const de: CaseStudyTranslations = {
   readFullCaseStudy: "Zur vollst\u00E4ndigen Fallstudie",
   reviewCta: {
     headline: "Bereit, Ihren eigenen zu bauen?",
-    text: "Jeder Operator wird von Grund auf f\u00FCr ein Unternehmen gebaut. Ihres.",
+    text: "Jeder Agent wird von Grund auf f\u00FCr ein Unternehmen gebaut. Ihres.",
   },
   caseStudies: {
     "marcus-engel": {
@@ -252,9 +252,9 @@ const de: CaseStudyTranslations = {
         "Er versuchte es mit Mailbox \u2014 niemand unter 40 hinterl\u00E4sst noch Sprachnachrichten.",
       ],
       solution: [
-        "Marcus\u2019 Operator fungiert als sein virtueller Empfang. Er kennt jedes aktive Objekt, jeden Preis, jedes Stadtviertel-Detail. Wenn ein Anruf kommt, den Marcus nicht annehmen kann, antwortet der Operator in seinem professionellen Stil, qualifiziert den Lead \u2014 Budget, Zeitrahmen, Objekttyp \u2014 beantwortet objektspezifische Fragen und bucht Besichtigungen direkt in seinen Kalender.",
+        "Marcus\u2019 Agent fungiert als sein virtueller Empfang. Er kennt jedes aktive Objekt, jeden Preis, jedes Stadtviertel-Detail. Wenn ein Anruf kommt, den Marcus nicht annehmen kann, antwortet der Agent in seinem professionellen Stil, qualifiziert den Lead \u2014 Budget, Zeitrahmen, Objekttyp \u2014 beantwortet objektspezifische Fragen und bucht Besichtigungen direkt in seinen Kalender.",
         "Nach jeder Interaktion bekommt Marcus eine strukturierte Zusammenfassung. Keine Mailbox, die er entschl\u00FCsseln muss, sondern ein qualifiziertes Lead-Briefing mit bereits vorgeschlagenen n\u00E4chsten Schritten.",
-        "Der Operator \u00FCbernimmt auch die Nachverfolgung. Wenn ein Interessent ein Objekt besichtigt hat, aber seit drei Tagen nicht in Kontakt war, schickt er eine personalisierte R\u00FCckmeldung. Wenn ein neues Objekt zu den Kriterien eines Interessenten passt, benachrichtigt er ihn, bevor es auf den Portalen erscheint.",
+        "Der Agent \u00FCbernimmt auch die Nachverfolgung. Wenn ein Interessent ein Objekt besichtigt hat, aber seit drei Tagen nicht in Kontakt war, schickt er eine personalisierte R\u00FCckmeldung. Wenn ein neues Objekt zu den Kriterien eines Interessenten passt, benachrichtigt er ihn, bevor es auf den Portalen erscheint.",
       ],
       metrics: [
         { label: "Verpasste Anrufe", before: "34%", after: "2%" },
@@ -263,7 +263,7 @@ const de: CaseStudyTranslations = {
         { label: "Abschl\u00FCsse/Quartal", before: "4", after: "7" },
       ],
       quote:
-        "Ich habe Gesch\u00E4fte an Makler verloren, die einfach schneller ans Telefon gegangen sind. Jetzt nimmt mein Operator schneller ab als jeder andere \u2014 und er wei\u00DF tats\u00E4chlich, wovon er spricht.",
+        "Ich habe Gesch\u00E4fte an Makler verloren, die einfach schneller ans Telefon gegangen sind. Jetzt nimmt mein Agent schneller ab als jeder andere \u2014 und er wei\u00DF tats\u00E4chlich, wovon er spricht.",
     },
     "lutz-splettstosser": {
       slug: "lutz-splettstosser",
@@ -280,9 +280,9 @@ const de: CaseStudyTranslations = {
         "Er hat Spam-Filter probiert, Regeln, Abmeldelinks, die zu mehr Spam f\u00FChren. Nichts h\u00E4lt. F\u00FCr Unternehmer und Gesellschafter in ihren 60ern ist das keine Kleinigkeit \u2014 es ist ein t\u00E4glicher Angriff auf ihre Zeit und Aufmerksamkeit, der sie ihr eigenes Postfach misstrauen l\u00E4sst.",
       ],
       solution: [
-        "Lutz\u2019 Operator fungiert als sein pers\u00F6nlicher E-Mail-T\u00FCrsteher. In der ersten Woche lernte er die Kommunikationsmuster: mit wem Lutz tats\u00E4chlich korrespondiert, welche Themen wichtig sind \u2014 Gesellschafterberichte, Steuerdokumente, Familie \u2014 und was L\u00E4rm ist.",
+        "Lutz\u2019 Agent fungiert als sein pers\u00F6nlicher E-Mail-T\u00FCrsteher. In der ersten Woche lernte er die Kommunikationsmuster: mit wem Lutz tats\u00E4chlich korrespondiert, welche Themen wichtig sind \u2014 Gesellschafterberichte, Steuerdokumente, Familie \u2014 und was L\u00E4rm ist.",
         "Jetzt f\u00E4ngt er jede eingehende E-Mail ab, bevor sie das Postfach erreicht. Legitime Nachrichten kommen sofort durch. Spam wird still archiviert mit einer w\u00F6chentlichen \u00DCbersicht, die er pr\u00FCfen kann, wenn er m\u00F6chte. Grenzf\u00E4lle \u2014 ein neuer Kontakt, ein unbekannter, aber m\u00F6glicherweise legitimer Absender \u2014 werden mit einer Einzeiler-Zusammenfassung markiert.",
-        "Der Operator k\u00FCmmert sich auch korrekt um Abmeldungen. Wenn er einen hartn\u00E4ckigen Newsletter identifiziert, bearbeitet er die Abmeldung und \u00FCberwacht die erneute Eintragung. Wenn der Absender die Abmeldung ignoriert, eskaliert er zu einer Blockierungsregel.",
+        "Der Agent k\u00FCmmert sich auch korrekt um Abmeldungen. Wenn er einen hartn\u00E4ckigen Newsletter identifiziert, bearbeitet er die Abmeldung und \u00FCberwacht die erneute Eintragung. Wenn der Absender die Abmeldung ignoriert, eskaliert er zu einer Blockierungsregel.",
       ],
       metrics: [
         { label: "Spam im Posteingang", before: "47/Tag", after: "0\u20132/Tag" },
@@ -301,7 +301,7 @@ const de: CaseStudyTranslations = {
       quote:
         "Ich vertraue meinem Postfach wieder. Wenn mein Handy wegen einer E-Mail vibriert, wei\u00DF ich, dass es etwas ist, das wirklich wichtig ist. Dieses Gef\u00FChl hatte ich seit zehn Jahren nicht mehr.",
       broaderAppeal:
-        "Das ist nicht nur Lutz\u2019 Problem. In ganz Deutschland ertrinken Unternehmer und Gesellschafter in ihren 60ern \u2014 Menschen, die Firmen aufgebaut haben, bevor E-Mail existierte \u2014 in digitalem L\u00E4rm, den sie nie bestellt haben. Sie wollen keine neue Software lernen. Sie wollen, dass das Problem verschwindet. Genau das macht ein Operator: Er f\u00FCgt keine Komplexit\u00E4t hinzu, er entfernt sie.",
+        "Das ist nicht nur Lutz\u2019 Problem. In ganz Deutschland ertrinken Unternehmer und Gesellschafter in ihren 60ern \u2014 Menschen, die Firmen aufgebaut haben, bevor E-Mail existierte \u2014 in digitalem L\u00E4rm, den sie nie bestellt haben. Sie wollen keine neue Software lernen. Sie wollen, dass das Problem verschwindet. Genau das macht ein Agent: Er f\u00FCgt keine Komplexit\u00E4t hinzu, er entfernt sie.",
     },
     "franziska-splettstosser": {
       slug: "franziska-splettstosser",
@@ -318,8 +318,8 @@ const de: CaseStudyTranslations = {
         "Franziska verbrachte mehr als 3 Stunden pro Woche mit der Verwaltung von Urlaubsantr\u00E4gen, dem Abgleich der Besetzung und der Bew\u00E4ltigung unvermeidlicher Konflikte.",
       ],
       solution: [
-        "Franziska verband ihren bestehenden Slack-Workspace mit einem dedizierten Urlaubsplanungskanal, der von ihrem Operator verwaltet wird. Teammitglieder reichen Urlaubsantr\u00E4ge in nat\u00FCrlicher Sprache ein \u2014 \u201EIch m\u00F6chte vom 18. bis 22. August frei nehmen.\u201C Der Operator pr\u00FCft den Teamkalender, verifiziert die Mindestbesetzungsanforderungen, die Franziska selbst definiert hat, und genehmigt automatisch oder markiert Konflikte.",
-        "Der Operator f\u00FChrt auch einen Live-Urlaubskalender f\u00FCr das gesamte Team, sendet Erinnerungen vor genehmigten Urlauben und erstellt monatliche Besetzungsberichte.",
+        "Franziska verband ihren bestehenden Slack-Workspace mit einem dedizierten Urlaubsplanungskanal, der von ihrem Agenten verwaltet wird. Teammitglieder reichen Urlaubsantr\u00E4ge in nat\u00FCrlicher Sprache ein \u2014 \u201EIch m\u00F6chte vom 18. bis 22. August frei nehmen.\u201C Der Agent pr\u00FCft den Teamkalender, verifiziert die Mindestbesetzungsanforderungen, die Franziska selbst definiert hat, und genehmigt automatisch oder markiert Konflikte.",
+        "Der Agent f\u00FChrt auch einen Live-Urlaubskalender f\u00FCr das gesamte Team, sendet Erinnerungen vor genehmigten Urlauben und erstellt monatliche Besetzungsberichte.",
       ],
       escalationRules: [
         "Wenn die Besetzung unter 2 Apotheker pro Schicht f\u00E4llt \u2192 automatische Blockierung + Benachrichtigung an Franziska",
@@ -350,7 +350,7 @@ const de: CaseStudyTranslations = {
         },
       ],
       quote:
-        "Ich habe meine Regeln einmal definiert und der Operator setzt sie jedes Mal durch. Mein Team wei\u00DF genau, woran es ist, und ich verbringe meine Sonntage nicht mehr mit Dienstplan-Tetris.",
+        "Ich habe meine Regeln einmal definiert und der Agent setzt sie jedes Mal durch. Mein Team wei\u00DF genau, woran es ist, und ich verbringe meine Sonntage nicht mehr mit Dienstplan-Tetris.",
     },
     "dirk-linke": {
       slug: "dirk-linke",
@@ -367,9 +367,9 @@ const de: CaseStudyTranslations = {
         "Dirk verbrachte t\u00E4glich 4+ Stunden mit manueller Recherche, scrollte durch M\u00E4rkte, las Analysen und verpasste trotzdem Gelegenheiten, weil er Informationen nicht schnell genug verarbeiten konnte.",
       ],
       solution: [
-        "Dirks Operator betreibt die gesamte Polymarket-Research- und Trading-Pipeline nativ. Er entdeckt kontinuierlich M\u00E4rkte, bewertet Arbitrage-Gelegenheiten mit einem Mehrfaktor-Modell \u2014 Edge-Gr\u00F6\u00DFe, Liquidit\u00E4tstiefe, Volumen-Momentum, Modellkonfidenz \u2014 und erstellt risikobegrenzte Positionspl\u00E4ne.",
+        "Dirks Agent betreibt die gesamte Polymarket-Research- und Trading-Pipeline nativ. Er entdeckt kontinuierlich M\u00E4rkte, bewertet Arbitrage-Gelegenheiten mit einem Mehrfaktor-Modell \u2014 Edge-Gr\u00F6\u00DFe, Liquidit\u00E4tstiefe, Volumen-Momentum, Modellkonfidenz \u2014 und erstellt risikobegrenzte Positionspl\u00E4ne.",
         "Das System arbeitet mit einem strikten Governance-Rahmen: Paper-Trading ist vollst\u00E4ndig autonom, aber Live-Ausf\u00FChrung erfordert eine explizite Genehmigung mit einem pr\u00FCfbaren Genehmigungsartefakt.",
-        "Wenn der Operator eine Position mit >350 bps erwartetem Edge und ausreichender Liquidit\u00E4t identifiziert, pr\u00E4sentiert er Dirk ein einseitiges Briefing: Marktfrage, empfohlene Seite, Einsatzgr\u00F6\u00DFe, erwarteter Edge und Konfidenzwert. Dirk genehmigt oder passt. Die gesamte Entscheidung dauert 30 Sekunden statt 30 Minuten.",
+        "Wenn der Agent eine Position mit >350 bps erwartetem Edge und ausreichender Liquidit\u00E4t identifiziert, pr\u00E4sentiert er Dirk ein einseitiges Briefing: Marktfrage, empfohlene Seite, Einsatzgr\u00F6\u00DFe, erwarteter Edge und Konfidenzwert. Dirk genehmigt oder passt. Die gesamte Entscheidung dauert 30 Sekunden statt 30 Minuten.",
       ],
       researchLoop: [
         {
@@ -404,7 +404,7 @@ const de: CaseStudyTranslations = {
         },
       ],
       quote:
-        "Der Operator macht in Sekunden, was mich fr\u00FCher Stunden gekostet hat \u2014 Hunderte von M\u00E4rkten scannen, Chancen bewerten und mir genau die Positionen pr\u00E4sentieren, die sich lohnen. Ich genehmige oder passe.",
+        "Der Agent macht in Sekunden, was mich fr\u00FCher Stunden gekostet hat \u2014 Hunderte von M\u00E4rkten scannen, Chancen bewerten und mir genau die Positionen pr\u00E4sentieren, die sich lohnen. Ich genehmige oder passe.",
     },
   },
 };

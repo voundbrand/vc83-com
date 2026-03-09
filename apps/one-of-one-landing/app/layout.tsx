@@ -14,10 +14,10 @@ const fontVariableFallbacks: CSSProperties = {
 export const metadata: Metadata = {
   title: "sevenlayers — Private AI. You can Trust.",
   description:
-    "One operator. Yours alone. Built on everything you know. Private AI that learns your business and compounds over time.",
+    "Knock down your workload. One agent at a time. Private AI that learns your business and compounds over time.",
   keywords: [
     "private AI",
-    "AI operator",
+    "AI agent",
     "business automation",
     "sovereign AI",
     "AI assistant",
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: "sevenlayers — Private AI. You can Trust.",
     description:
-      "One operator. Yours alone. Built on everything you know.",
+      "Knock down your workload. One agent at a time.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "sevenlayers — Private AI. You can Trust.",
     description:
-      "One operator. Yours alone. Built on everything you know.",
+      "Knock down your workload. One agent at a time.",
   },
   icons: {
     icon: [{ url: "/images/sevenlayers-logo.png", type: "image/png" }],
