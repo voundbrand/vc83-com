@@ -675,10 +675,14 @@ function parseSlackInboundPayload(
       : undefined;
   const senderId = asString(event.user);
   const text = normalizeSlackMessageText(asString(event.text), eventType);
+  const parsedEventTs = eventTs ? Number.parseFloat(eventTs) : Number.NaN;
+  const referenceEpochMs = Number.isFinite(parsedEventTs)
+    ? parsedEventTs * 1000
+    : undefined;
   const vacationRequest = parseSlackVacationRequestIntent({
     text,
     source: eventType === "app_mention" ? "mention" : "message",
-    referenceEpochMs: Number.parseFloat(eventTs) * 1000,
+    referenceEpochMs,
   });
 
   if (!channelId || !eventTs || !senderId || !text) {

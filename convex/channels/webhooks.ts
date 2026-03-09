@@ -729,10 +729,7 @@ export const processChatwootWebhook = internalAction({
     // 4. Normalize inbound message
     const rawPayload = JSON.parse(args.payload);
     const normalized = provider.normalizeInbound(
-      {
-        ...rawPayload,
-        received_at_ms: args.receivedAt,
-      },
+      rawPayload,
       credentials || ({} as ProviderCredentials)
     );
 
@@ -1281,7 +1278,10 @@ export const processSlackEvent = internalAction({
     )) as ProviderCredentials | null;
 
     const normalized = provider.normalizeInbound(
-      rawPayload,
+      {
+        ...rawPayload,
+        received_at_ms: args.receivedAt,
+      },
       credentials || ({} as ProviderCredentials)
     );
     if (!normalized) {

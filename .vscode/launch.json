@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:vc83-com}/apps/macos",
+            "name": "Debug sevenlayers-mac (apps/macos)",
+            "target": "sevenlayers-mac",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug sevenlayers-mac (apps/macos)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:vc83-com}/apps/macos",
+            "name": "Release sevenlayers-mac (apps/macos)",
+            "target": "sevenlayers-mac",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release sevenlayers-mac (apps/macos)"
+        }
+    ]
+}
