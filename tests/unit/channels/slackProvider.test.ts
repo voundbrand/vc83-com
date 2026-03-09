@@ -377,6 +377,106 @@ describe("slackProvider", () => {
     expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
   });
 
+  it("parses mention vacation requests with deterministic US date ranges", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMentionUs1",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> pto 07/10/2026 to 07/14/2026",
+          channel: "C123ABC",
+          ts: "1700000601.600",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2026-07-10");
+    expect(metadata.slackVacationRequestEndDate).toBe("2026-07-14");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("parses mention vacation requests with relative next-week range when UTC zone is explicit", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMentionRelative1",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> vacation next week timezone:UTC",
+          channel: "C123ABC",
+          ts: "1710115200.000",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-03-18");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-03-24");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("fails closed for relative next-week mention requests without explicit timezone", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMentionRelative2",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> pto next week",
+          channel: "C123ABC",
+          ts: "1710115200.000",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("blocked");
+    expect(metadata.slackVacationRequestBlockedReasons).toContain(
+      "missing_relative_timezone"
+    );
+  });
+
+  it("parses mention vacation requests with relative this-week range when UTC zone is explicit", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMentionRelativeThisWeek1",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> vacation this week timezone:UTC",
+          channel: "C123ABC",
+          ts: "1710115200.000",
+        },
+      },
+      { providerId: "slack", slackBotUserId: "U-BOT" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-03-11");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-03-17");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
   it("fails closed for mention vacation requests without deterministic dates", () => {
     const normalized = slackProvider.normalizeInbound(
       {
@@ -448,5 +548,80 @@ describe("slackProvider", () => {
     expect(metadata.slackVacationRequestBlockedReasons).toContain(
       "ambiguous_date_range"
     );
+  });
+
+  it("parses slash-command next-week requests when anchor time and timezone are explicit", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "next week tz:UTC",
+        trigger_id: "Trig125",
+        received_at_ms: Date.UTC(2024, 2, 13, 12, 0, 0),
+      },
+      { providerId: "slack" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-03-18");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-03-24");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("parses slash-command next-month requests when anchor time and timezone are explicit", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "next month tz:UTC",
+        trigger_id: "Trig126",
+        received_at_ms: Date.UTC(2024, 2, 13, 12, 0, 0),
+      },
+      { providerId: "slack" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-04-01");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("fails closed for slash-command next-month requests without deterministic anchor time", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "next month tz:UTC",
+        trigger_id: "Trig127",
+      },
+      { providerId: "slack" }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("blocked");
+    expect(metadata.slackVacationRequestBlockedReasons).toContain(
+      "missing_relative_anchor_time"
+    );
+    expect(metadata.slackVacationRequestBlockedReasons).toContain("missing_iso_date");
   });
 });

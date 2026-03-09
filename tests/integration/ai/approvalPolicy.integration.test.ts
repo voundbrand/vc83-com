@@ -129,4 +129,21 @@ describe("chat/agent approval policy consistency", () => {
       "resolve the missing policy/integration prerequisites"
     );
   });
+
+  it("maps relative-date prerequisite blockers to explicit user-facing rationale", () => {
+    const response = buildVacationDecisionResponse({
+      verdict: "blocked",
+      requestedStartDate: undefined,
+      requestedEndDate: undefined,
+      reasonCodes: ["missing_relative_timezone", "missing_relative_anchor_time"],
+    });
+
+    expect(response.verdict).toBe("blocked");
+    expect(response.responseMessage).toContain(
+      "relative vacation requests must include an explicit timezone"
+    );
+    expect(response.responseMessage).toContain(
+      "missing a deterministic anchor timestamp"
+    );
+  });
 });

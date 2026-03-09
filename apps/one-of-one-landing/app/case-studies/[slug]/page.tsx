@@ -573,7 +573,7 @@ export default function CaseStudyPage() {
         </section>
       </main>
 
-      <Footer />
+      <Footer language={language} />
     </div>
   )
 }

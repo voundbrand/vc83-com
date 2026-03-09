@@ -101,6 +101,10 @@ const VACATION_REASON_CODE_LABELS: Record<string, string> = {
   policy_prerequisites_unresolved:
     "policy prerequisites remain unresolved",
   missing_requested_date_range: "requested date range is missing",
+  missing_relative_timezone:
+    "relative vacation requests must include an explicit timezone (for example: timezone:UTC)",
+  missing_relative_anchor_time:
+    "relative vacation requests are missing a deterministic anchor timestamp",
   missing_vacation_request_object_id: "vacation request envelope is missing",
   vacation_request_not_found: "vacation request record was not found",
   slack_team_scope_mismatch: "Slack workspace scope does not match request scope",

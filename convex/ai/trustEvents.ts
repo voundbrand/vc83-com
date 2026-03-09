@@ -233,6 +233,9 @@ export const TRUST_ADMIN_EVENT_NAMES = [
   "trust.admin.platform_soul_elevation_granted.v1",
   "trust.admin.platform_soul_apply_dual_approval_recorded.v1",
   "trust.admin.platform_soul_action_audited.v1",
+  "trust.admin.template_distribution_job_recorded.v1",
+  "trust.admin.template_distribution_job_blocked.v1",
+  "trust.admin.template_distribution_rollback_recorded.v1",
 ] as const;
 
 export const TRUST_EVENT_NAME_VALUES = [
@@ -321,6 +324,9 @@ export const trustEventNameValidator = v.union(
   v.literal("trust.admin.platform_soul_elevation_granted.v1"),
   v.literal("trust.admin.platform_soul_apply_dual_approval_recorded.v1"),
   v.literal("trust.admin.platform_soul_action_audited.v1"),
+  v.literal("trust.admin.template_distribution_job_recorded.v1"),
+  v.literal("trust.admin.template_distribution_job_blocked.v1"),
+  v.literal("trust.admin.template_distribution_rollback_recorded.v1"),
 );
 
 const TRUST_EVENT_NAME_PATTERN =
@@ -550,6 +556,14 @@ export const TRUST_ADMIN_PRIVILEGED_DUAL_APPROVAL_REQUIRED_ADDITIONAL_FIELDS = [
   ...TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
   "privileged_dual_approver_ids",
 ] as const;
+export const TRUST_ADMIN_TEMPLATE_DISTRIBUTION_REQUIRED_ADDITIONAL_FIELDS = [
+  "platform_agent_id",
+  "distribution_job_id",
+  "distribution_operation_kind",
+  "distribution_status",
+  "distribution_affected_org_count",
+  "distribution_blocked_count",
+] as const;
 
 export interface TrustEventBasePayload {
   event_id: string;
@@ -584,6 +598,8 @@ export interface TrustEventAdditionalPayload {
   adaptive_decision?: string;
   adaptive_confidence?: number;
   consent_checkpoint_id?: string;
+  stt_route?: string;
+  stt_route_provider?: string;
   voice_failover_provider?: string;
   voice_failover_reason?: string;
   voice_provider_health_status?: string;
@@ -677,6 +693,11 @@ export interface TrustEventAdditionalPayload {
   privileged_elevation_expires_at?: number;
   privileged_dual_approver_ids?: string[];
   privileged_decision?: string;
+  distribution_job_id?: string;
+  distribution_operation_kind?: string;
+  distribution_status?: string;
+  distribution_affected_org_count?: number;
+  distribution_blocked_count?: number;
 }
 
 export type TrustEventPayload = TrustEventBasePayload &
@@ -944,6 +965,21 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
   "trust.admin.platform_soul_action_audited.v1": {
     allowed_modes: ["admin"],
     required_additional_fields: TRUST_ADMIN_PRIVILEGED_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.template_distribution_job_recorded.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields:
+      TRUST_ADMIN_TEMPLATE_DISTRIBUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.template_distribution_job_blocked.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields:
+      TRUST_ADMIN_TEMPLATE_DISTRIBUTION_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.admin.template_distribution_rollback_recorded.v1": {
+    allowed_modes: ["admin"],
+    required_additional_fields:
+      TRUST_ADMIN_TEMPLATE_DISTRIBUTION_REQUIRED_ADDITIONAL_FIELDS,
   },
 };
 

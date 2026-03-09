@@ -248,6 +248,20 @@ crons.interval(
 );
 
 /**
+ * Cleanup expired operator mobile retained media
+ *
+ * Runs hourly to enforce operator media retention TTL:
+ * - marks expired retention rows as deleted
+ * - deletes stored payload blobs when present
+ */
+crons.interval(
+  "Cleanup expired operator mobile retained media",
+  { minutes: 60 },
+  generatedApi.internal.ai.mediaRetention.cleanupExpiredRetainedMedia,
+  {}
+);
+
+/**
  * Cleanup old super-admin QA run telemetry
  *
  * Runs hourly to enforce QA run retention policy:

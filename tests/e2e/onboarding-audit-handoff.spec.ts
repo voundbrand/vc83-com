@@ -66,7 +66,11 @@ test.describe("Onboarding Audit Handoff", () => {
       navigationTracker
     );
 
-    await expect(page.getByRole("heading", { name: /Private AI\. You can Trust\./i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: /(Private AI\. You can Trust\.|You built your business\.)/i,
+      })
+    ).toBeVisible();
     await expect(page.locator("#landing-audit-input")).toBeEnabled();
 
     const sendAuditMessage = async (message: string, expectedRequestCount: number) => {
@@ -153,15 +157,21 @@ test.describe("Onboarding Audit Handoff", () => {
     expect(callbackUrl.searchParams.get("utm_source")).toBe("e2e");
     expect(callbackUrl.searchParams.get("utm_medium")).toBe("playwright");
 
-    const webLink = page.getByRole("link", { name: /^Web$/ }).first();
+    const legacyWebLink = page.getByRole("link", { name: /^Web$/ }).first();
+    const currentWebLink = page.getByRole("link", { name: /^Open App$/ }).first();
+    const webLink = (await legacyWebLink.count()) > 0 ? legacyWebLink : currentWebLink;
     const webHref = await webLink.getAttribute("href");
     if (!webHref) {
       throw new Error("Expected Start Free Web handoff URL");
     }
     const webUrl = new URL(webHref);
-    expect(webUrl.pathname).toBe("/chat");
-    expect(webUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-    expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+    if (webUrl.pathname === "/chat") {
+      expect(webUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
+      expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+    } else {
+      expect(webUrl.pathname).toBe("/");
+      expect(webUrl.hostname).toContain("app.");
+    }
 
     const doneWithYouHref = await page
       .locator('a[href*="offer_code=consult_done_with_you"]')

@@ -44,6 +44,7 @@ interface OpenVoiceSessionResult extends VoiceActionResultBase {
 
 interface TranscribeVoiceResult extends VoiceActionResultBase {
   text?: string;
+  noSpeechDetected?: boolean;
 }
 
 interface SynthesizeVoiceResult extends VoiceActionResultBase {

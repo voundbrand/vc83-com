@@ -6,6 +6,7 @@ import {
   isAllowedVoiceRuntimeSessionTransition,
   isVoiceRuntimeSessionStale,
   resolveBrowserFallbackTranscriptText,
+  resolveDesktopTranscriptForwardingEnvelope,
   resolveVoiceAssistantRelay,
   resolveVoiceAssistantStreamRelayState,
   resolveVoiceRealtimeTurnOrchestrationDecision,
@@ -223,6 +224,63 @@ describe("voice runtime session fsm", () => {
         transcriptText: "ignored",
       })
     ).toBeNull();
+  });
+
+  it("resolves canonical desktop transcript forwarding envelope", () => {
+    const resolved = resolveDesktopTranscriptForwardingEnvelope({
+      liveSessionId: " live_123 ",
+      transcriptText: "  hello from desktop  ",
+      transcriptEvent: "final_transcript",
+      voiceRuntime: {
+        voiceSessionId: " voice_123 ",
+        providerId: "avfoundation",
+      },
+    });
+
+    expect(resolved).toEqual({
+      accepted: true,
+      reason: "accepted",
+      envelope: {
+        liveSessionId: "live_123",
+        transcriptText: "hello from desktop",
+        transcriptEvent: "final_transcript",
+        voiceRuntime: {
+          liveSessionId: "live_123",
+          voiceSessionId: "voice_123",
+          providerId: "avfoundation",
+          transcript: "hello from desktop",
+          transcriptEvent: "final_transcript",
+        },
+      },
+    });
+  });
+
+  it("fails closed for incomplete desktop transcript forwarding payloads", () => {
+    const missingVoice = resolveDesktopTranscriptForwardingEnvelope({
+      liveSessionId: "live_1",
+      transcriptText: "hello",
+      transcriptEvent: "partial_transcript",
+      voiceRuntime: {},
+    });
+    expect(missingVoice).toEqual({
+      accepted: false,
+      reason: "missing_voice_session_id",
+      envelope: null,
+    });
+
+    const missingTranscript = resolveDesktopTranscriptForwardingEnvelope({
+      liveSessionId: "live_1",
+      transcriptText: "   ",
+      transcriptEvent: "partial_transcript",
+      voiceRuntime: {
+        voiceSessionId: "voice_1",
+      },
+    });
+    expect(missingTranscript).toEqual({
+      accepted: false,
+      reason: "missing_transcript",
+      envelope: null,
+    });
   });
 
   it("relays assistant audio chunks/final events in deterministic order", () => {

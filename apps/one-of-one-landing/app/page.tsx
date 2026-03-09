@@ -421,13 +421,13 @@ export default function LandingPage() {
         <section className="py-20 md:py-32 px-4 md:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-balance leading-tight"
+              className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-balance leading-[1.1] max-w-[13ch] mx-auto"
               style={{ color: "var(--color-text)" }}
             >
               {t.headline}
             </h1>
             <p
-              className="mt-6 text-lg md:text-xl leading-relaxed text-pretty max-w-2xl mx-auto"
+              className="mt-6 text-lg md:text-xl leading-relaxed text-balance max-w-2xl mx-auto"
               style={{ color: "var(--color-text-secondary)" }}
             >
               {t.subheadline}
@@ -456,7 +456,7 @@ export default function LandingPage() {
               </Button>
             </div>
             <p
-              className="mt-3 text-xs md:text-sm max-w-2xl mx-auto"
+              className="mt-3 text-xs md:text-sm text-balance max-w-xl mx-auto"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               {t.parallelPathsNote}

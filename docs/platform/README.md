@@ -63,6 +63,7 @@ This keeps `BusinessLayer`, `PolicyLayer`, and `MemoryLayer` terminology consist
 | [ERROR_HANDLING.md](./ERROR_HANDLING.md) | Error classification, retry policies, degradation modes, user-facing messages |
 | [CREDIT_SYSTEM.md](./CREDIT_SYSTEM.md) | Credit tiers, consumption order, sub-org sharing, caps, safe defaults |
 | [SESSION_LIFECYCLE.md](./SESSION_LIFECYCLE.md) | Session TTL, auto-close, idle detection, reset policies, reopen behavior |
+| [OPERATOR_MOBILE_MEDIA_RETENTION.md](./OPERATOR_MOBILE_MEDIA_RETENTION.md) | Operator-mobile audio/video retention contract, storage layout, TTL/deletion runbook |
 | [SOUL_EVOLUTION.md](./SOUL_EVOLUTION.md) | Soul versioning, proposal lifecycle, rollback, rate limiting, reflection triggers |
 | [TOOL_SCOPING.md](./TOOL_SCOPING.md) | Layered tool policies, integration-aware filtering, tool broker, subtype defaults |
 

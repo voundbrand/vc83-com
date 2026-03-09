@@ -235,6 +235,41 @@ For `approved`:
 
 ---
 
+## Slack Date Parsing Contract (Deterministic + Fail-Closed)
+
+Vacation request parsing in Slack supports:
+
+1. Absolute dates:
+   - `YYYY-MM-DD` (ISO)
+   - `MM/DD/YYYY` and `MM-DD-YYYY` (normalized to ISO)
+2. Relative windows (only when deterministic prerequisites are present):
+   - `this week`
+   - `next week`
+   - `next month`
+
+Relative-window prerequisites:
+
+1. Request text must include explicit timezone token:
+   - accepted examples: `tz:UTC`, `timezone:UTC`, `UTC+02:00`
+2. Request must have deterministic anchor timestamp:
+   - Slack Events ingress (`/integrations/slack/events`): use `event.ts`
+   - Slack Commands ingress (`/integrations/slack/commands`): use `received_at_ms`
+
+Fail-closed blocker reason codes for relative inputs:
+
+1. `missing_relative_timezone`
+2. `missing_relative_anchor_time`
+3. `missing_iso_date` (compatibility fallback when no deterministic date range resolved)
+
+Examples:
+
+1. `vacation next week timezone:UTC` with valid `event.ts` -> parsed to Monday..Sunday of next week.
+2. `/vacation next month tz:UTC` with valid `received_at_ms` -> parsed to first..last day of next month.
+3. `pto next week` without timezone -> blocked (`missing_relative_timezone`).
+4. `/vacation this week tz:UTC` without `received_at_ms` -> blocked (`missing_relative_anchor_time`).
+
+---
+
 ## Trust and Audit Contract
 
 Minimum trust/audit events for this scenario:
@@ -261,4 +296,3 @@ All events must include:
 2. No bypass of existing OAuth/profile/credential contracts in `oauthConnections`.
 3. No free-form autonomous override of policy constraints.
 4. No calendar writes for unresolved conflicts.
-

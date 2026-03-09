@@ -127,7 +127,7 @@ const en: CaseStudyTranslations = {
       headline:
         "How a pharmacist turned vacation chaos into one Slack channel with zero conflicts.",
       problem: [
-        "Franziska Splettstö\u00DFer runs a pharmacy with a team of 8. Vacation planning was chaos: WhatsApp messages asking \u201Ccan I take off next Thursday?\u201D, a paper calendar on the break room wall that was never up to date, and constant scheduling conflicts that only surfaced when someone didn\u2019t show up.",
+        "Franziska Splettstö\u00DFer runs a pharmacy with a team of 17. Vacation planning was chaos: WhatsApp messages asking \u201Ccan I take off next Thursday?\u201D, a paper calendar on the break room wall that was never up to date, and constant scheduling conflicts that only surfaced when someone didn\u2019t show up.",
         "In pharmacy, understaffing isn\u2019t just inconvenient \u2014 it\u2019s a compliance issue. German regulations require minimum pharmacist coverage at all times.",
         "Franziska was spending 3+ hours per week managing vacation requests, cross-referencing coverage, and handling the inevitable conflicts.",
       ],
@@ -313,7 +313,7 @@ const de: CaseStudyTranslations = {
       headline:
         "Wie eine Apothekerin Urlaubschaos in einen Slack-Kanal ohne Konflikte verwandelt hat.",
       problem: [
-        "Franziska Splettstö\u00DFer leitet eine Apotheke mit einem 8-köpfigen Team. Die Urlaubsplanung war Chaos: WhatsApp-Nachrichten mit \u201EKann ich n\u00E4chsten Donnerstag frei haben?\u201C, ein Papierkalender im Pausenraum, der nie aktuell war, und st\u00E4ndige Terminkonflikte, die erst auffielen, wenn jemand nicht auftauchte.",
+        "Franziska Splettstö\u00DFer leitet eine Apotheke mit einem 17-köpfigen Team. Die Urlaubsplanung war Chaos: WhatsApp-Nachrichten mit \u201EKann ich n\u00E4chsten Donnerstag frei haben?\u201C, ein Papierkalender im Pausenraum, der nie aktuell war, und st\u00E4ndige Terminkonflikte, die erst auffielen, wenn jemand nicht auftauchte.",
         "In der Apotheke ist Unterbesetzung nicht nur \u00E4rgerlich \u2014 es ist ein Compliance-Problem. Deutsche Vorschriften verlangen jederzeit eine Mindestbesetzung mit Apothekern.",
         "Franziska verbrachte mehr als 3 Stunden pro Woche mit der Verwaltung von Urlaubsantr\u00E4gen, dem Abgleich der Besetzung und der Bew\u00E4ltigung unvermeidlicher Konflikte.",
       ],

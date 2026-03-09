@@ -53,13 +53,14 @@ export async function getLicenseInternal(
   organizationId: Id<"organizations">
 ) {
   // Query for active license in objects table
-  const licenseObject = await ctx.db
+  const licenseRows = await ctx.db
     .query("objects")
     .withIndex("by_org_type", (q) =>
       q.eq("organizationId", organizationId).eq("type", "organization_license")
     )
-    .filter((q) => q.eq(q.field("status"), "active"))
-    .first();
+    .collect();
+  const licenseObject =
+    licenseRows.find((row) => row.status === "active") ?? null;
 
   // If no license exists, return free tier defaults
   if (!licenseObject || !licenseObject.customProperties) {
@@ -143,6 +144,211 @@ export async function getLicenseInternal(
     trialEnd: customProps.trialEnd || null,
     manualOverride: customProps.manualOverride || null,
   };
+}
+
+export type StorefrontPackageDescriptor = {
+  packageAccess: "included_in_plan" | "add_on_purchase" | "enterprise_concierge";
+  licenseModel: "included" | "seat" | "usage" | "custom_contract";
+  activationHint: "activate_now" | "purchase_required" | "sales_contact_required";
+  packageCode?: string;
+  licenseSku?: string;
+  note?: string;
+};
+
+export type StorefrontEntitlementReasonCode =
+  | "entitled_included_in_plan"
+  | "entitled_add_on_owned"
+  | "blocked_sales_contact_required"
+  | "blocked_purchase_required_missing_reference"
+  | "blocked_purchase_required_not_owned"
+  | "blocked_entitlement_uncertain";
+
+export type StorefrontEntitlementDecision = {
+  allowed: boolean;
+  reasonCode: StorefrontEntitlementReasonCode;
+  guidance: string;
+  matchedEntitlementKeys: string[];
+  planTier: string;
+};
+
+export type StorefrontEntitlementSnapshot = {
+  planTier: string;
+  entitlementKeys: Set<string>;
+};
+
+function normalizeEntitlementToken(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function collectEntitlementTokens(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const tokens: string[] = [];
+  for (const entry of value) {
+    const normalized = normalizeEntitlementToken(entry);
+    if (normalized) {
+      tokens.push(normalized);
+    }
+  }
+  return tokens;
+}
+
+export async function getStorefrontEntitlementSnapshotInternal(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">
+): Promise<StorefrontEntitlementSnapshot> {
+  const license = await getLicenseInternal(ctx, organizationId);
+  const entitlementKeys = new Set<string>();
+  const licenseRows = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "organization_license")
+    )
+    .collect();
+  const licenseObject =
+    licenseRows.find((row) => row.status === "active") ?? null;
+
+  const customProps =
+    (licenseObject?.customProperties as Record<string, unknown> | undefined) ?? {};
+  const featureOverrides =
+    customProps.featureOverrides &&
+      typeof customProps.featureOverrides === "object" &&
+      !Array.isArray(customProps.featureOverrides)
+      ? (customProps.featureOverrides as Record<string, unknown>)
+      : {};
+  for (const [key, enabled] of Object.entries(featureOverrides)) {
+    if (enabled === true) {
+      const normalized = normalizeEntitlementToken(key);
+      if (normalized) {
+        entitlementKeys.add(normalized);
+      }
+    }
+  }
+
+  for (const token of collectEntitlementTokens(customProps.purchasedPackageCodes)) {
+    entitlementKeys.add(token);
+  }
+  for (const token of collectEntitlementTokens(customProps.purchasedLicenseSkus)) {
+    entitlementKeys.add(token);
+  }
+
+  const storefrontEntitlements =
+    customProps.storefrontEntitlements &&
+      typeof customProps.storefrontEntitlements === "object" &&
+      !Array.isArray(customProps.storefrontEntitlements)
+      ? (customProps.storefrontEntitlements as Record<string, unknown>)
+      : null;
+  for (const token of collectEntitlementTokens(storefrontEntitlements?.activeKeys)) {
+    entitlementKeys.add(token);
+  }
+  for (const token of collectEntitlementTokens(storefrontEntitlements?.packageCodes)) {
+    entitlementKeys.add(token);
+  }
+  for (const token of collectEntitlementTokens(storefrontEntitlements?.licenseSkus)) {
+    entitlementKeys.add(token);
+  }
+
+  return {
+    planTier: license.planTier,
+    entitlementKeys,
+  };
+}
+
+export function resolveStorefrontEntitlementDecisionFromSnapshot(
+  snapshot: StorefrontEntitlementSnapshot,
+  descriptor: StorefrontPackageDescriptor
+): StorefrontEntitlementDecision {
+  const packageCode = normalizeEntitlementToken(descriptor.packageCode);
+  const licenseSku = normalizeEntitlementToken(descriptor.licenseSku);
+  const requestedKeys = Array.from(
+    new Set([packageCode, licenseSku].filter((value): value is string => Boolean(value)))
+  ).sort((a, b) => a.localeCompare(b));
+  const matchedEntitlementKeys = requestedKeys
+    .filter((key) => snapshot.entitlementKeys.has(key))
+    .sort((a, b) => a.localeCompare(b));
+
+  if (
+    descriptor.packageAccess === "enterprise_concierge" ||
+    descriptor.activationHint === "sales_contact_required"
+  ) {
+    return {
+      allowed: false,
+      reasonCode: "blocked_sales_contact_required",
+      guidance:
+        "Activation requires an enterprise or concierge contract. Contact sales to enable this agent.",
+      matchedEntitlementKeys: [],
+      planTier: snapshot.planTier,
+    };
+  }
+
+  if (
+    descriptor.packageAccess === "included_in_plan" &&
+    descriptor.activationHint === "activate_now"
+  ) {
+    return {
+      allowed: true,
+      reasonCode: "entitled_included_in_plan",
+      guidance: "Activation is included in your current plan.",
+      matchedEntitlementKeys: [],
+      planTier: snapshot.planTier,
+    };
+  }
+
+  if (
+    descriptor.packageAccess === "add_on_purchase" ||
+    descriptor.activationHint === "purchase_required"
+  ) {
+    if (requestedKeys.length === 0) {
+      return {
+        allowed: false,
+        reasonCode: "blocked_purchase_required_missing_reference",
+        guidance:
+          "Activation is blocked because this add-on is missing a package/license reference. Contact support or sales.",
+        matchedEntitlementKeys: [],
+        planTier: snapshot.planTier,
+      };
+    }
+    if (matchedEntitlementKeys.length > 0) {
+      return {
+        allowed: true,
+        reasonCode: "entitled_add_on_owned",
+        guidance: "Activation is enabled because your organization owns the required add-on.",
+        matchedEntitlementKeys,
+        planTier: snapshot.planTier,
+      };
+    }
+    const purchaseTarget = packageCode || licenseSku || "required add-on";
+    return {
+      allowed: false,
+      reasonCode: "blocked_purchase_required_not_owned",
+      guidance: `Activation is blocked until your organization purchases '${purchaseTarget}'.`,
+      matchedEntitlementKeys: [],
+      planTier: snapshot.planTier,
+    };
+  }
+
+  return {
+    allowed: false,
+    reasonCode: "blocked_entitlement_uncertain",
+    guidance:
+      "Activation is blocked because entitlement status could not be determined with confidence.",
+    matchedEntitlementKeys: [],
+    planTier: snapshot.planTier,
+  };
+}
+
+export async function resolveStorefrontEntitlementDecision(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+  descriptor: StorefrontPackageDescriptor
+): Promise<StorefrontEntitlementDecision> {
+  const snapshot = await getStorefrontEntitlementSnapshotInternal(ctx, organizationId);
+  return resolveStorefrontEntitlementDecisionFromSnapshot(snapshot, descriptor);
 }
 
 /**

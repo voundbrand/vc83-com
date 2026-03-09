@@ -18,9 +18,15 @@ const SLACK_REPLAY_WINDOW_SECONDS = 60 * 5;
 const SLACK_API_BASE = "https://slack.com/api";
 const SLACK_TS_PATTERN = /^\d{10}\.\d+$/;
 const SLACK_ISO_DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
+const SLACK_US_DATE_PATTERN = /\b(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])[/-](\d{4})\b/g;
+const SLACK_THIS_WEEK_PATTERN = /\bthis\s+week\b/i;
+const SLACK_NEXT_WEEK_PATTERN = /\bnext\s+week\b/i;
+const SLACK_NEXT_MONTH_PATTERN = /\bnext\s+month\b/i;
+const SLACK_UTC_OFFSET_PATTERN =
+  /\b(?:tz|timezone)\s*[:=]\s*(utc(?:[+-](?:[01]?\d|2[0-3])(?::?[0-5]\d)?)?)\b|\b(utc(?:[+-](?:[01]?\d|2[0-3])(?::?[0-5]\d)?)?)\b/i;
 const SLACK_VACATION_INTENT_PATTERN =
   /\b(vacation|pto|time[\s_-]*off|out[\s_-]*of[\s_-]*office|ooo|away)\b/i;
-const SLACK_VACATION_PARSER_VERSION = 1;
+const SLACK_VACATION_PARSER_VERSION = 3;
 
 export type SlackVacationRequestSource = "mention" | "message" | "slash_command";
 export type SlackVacationRequestStatus = "parsed" | "blocked";
@@ -51,6 +57,10 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
     ? value
     : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function buildSignatureBaseString(body: string, timestamp: number): string {
@@ -261,16 +271,150 @@ function normalizeIsoCalendarDate(value: string): string | undefined {
     .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 }
 
-function extractIsoDatesFromText(text: string): string[] {
-  const candidates = text.match(SLACK_ISO_DATE_PATTERN) || [];
-  const dates: string[] = [];
-  for (const candidate of candidates) {
-    const normalized = normalizeIsoCalendarDate(candidate);
-    if (normalized) {
-      dates.push(normalized);
-    }
+function normalizeUsCalendarDate(value: string): string | undefined {
+  const match = /^(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])[/-](\d{4})$/.exec(value);
+  if (!match) {
+    return undefined;
   }
-  return dates;
+
+  const month = Number.parseInt(match[1], 10);
+  const day = Number.parseInt(match[2], 10);
+  const year = Number.parseInt(match[3], 10);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  const valid =
+    utc.getUTCFullYear() === year &&
+    utc.getUTCMonth() === month - 1 &&
+    utc.getUTCDate() === day;
+  if (!valid) {
+    return undefined;
+  }
+
+  return `${year.toString().padStart(4, "0")}-${month
+    .toString()
+    .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
+function extractDeterministicDatesFromText(text: string): string[] {
+  const datedMatches: Array<{ index: number; date: string }> = [];
+
+  for (const match of text.matchAll(SLACK_ISO_DATE_PATTERN)) {
+    const candidate = match[0];
+    const normalized = normalizeIsoCalendarDate(candidate);
+    if (!normalized) continue;
+    datedMatches.push({ index: match.index ?? 0, date: normalized });
+  }
+
+  for (const match of text.matchAll(SLACK_US_DATE_PATTERN)) {
+    const candidate = match[0];
+    const normalized = normalizeUsCalendarDate(candidate);
+    if (!normalized) continue;
+    datedMatches.push({ index: match.index ?? 0, date: normalized });
+  }
+
+  datedMatches.sort((a, b) => a.index - b.index);
+  return datedMatches.map((entry) => entry.date);
+}
+
+function parseUtcOffsetMinutes(token: string): number | undefined {
+  const normalized = token.trim().toUpperCase();
+  const match = /^UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?$/.exec(normalized);
+  if (!match) {
+    return undefined;
+  }
+  if (!match[1]) {
+    return 0;
+  }
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number.parseInt(match[2], 10);
+  const minutes = match[3] ? Number.parseInt(match[3], 10) : 0;
+  if (hours > 23 || minutes > 59) {
+    return undefined;
+  }
+  return sign * (hours * 60 + minutes);
+}
+
+function resolveUtcOffsetMinutesFromText(text: string): number | undefined {
+  const match = SLACK_UTC_OFFSET_PATTERN.exec(text);
+  if (!match) {
+    return undefined;
+  }
+  const token = match[1] || match[2];
+  if (!token) {
+    return undefined;
+  }
+  return parseUtcOffsetMinutes(token);
+}
+
+function toIsoDateAtUtcOffset(epochMs: number, offsetMinutes: number): string {
+  const shifted = new Date(epochMs + offsetMinutes * 60_000);
+  return `${shifted.getUTCFullYear().toString().padStart(4, "0")}-${(shifted.getUTCMonth() + 1)
+    .toString()
+    .padStart(2, "0")}-${shifted.getUTCDate().toString().padStart(2, "0")}`;
+}
+
+function resolveNextWeekDateRange(args: {
+  referenceEpochMs: number;
+  utcOffsetMinutes: number;
+}): { startDate: string; endDate: string } {
+  const shifted = new Date(args.referenceEpochMs + args.utcOffsetMinutes * 60_000);
+  const currentLocalMidnightUtcMs = Date.UTC(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate()
+  );
+  const dayOfWeek = shifted.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const currentWeekMondayUtcMs =
+    currentLocalMidnightUtcMs - daysSinceMonday * 24 * 60 * 60 * 1000;
+  const nextWeekMondayUtcMs = currentWeekMondayUtcMs + 7 * 24 * 60 * 60 * 1000;
+  const nextWeekSundayUtcMs = nextWeekMondayUtcMs + 6 * 24 * 60 * 60 * 1000;
+
+  return {
+    startDate: toIsoDateAtUtcOffset(nextWeekMondayUtcMs, 0),
+    endDate: toIsoDateAtUtcOffset(nextWeekSundayUtcMs, 0),
+  };
+}
+
+function resolveThisWeekDateRange(args: {
+  referenceEpochMs: number;
+  utcOffsetMinutes: number;
+}): { startDate: string; endDate: string } {
+  const shifted = new Date(args.referenceEpochMs + args.utcOffsetMinutes * 60_000);
+  const currentLocalMidnightUtcMs = Date.UTC(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate()
+  );
+  const dayOfWeek = shifted.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const currentWeekMondayUtcMs =
+    currentLocalMidnightUtcMs - daysSinceMonday * 24 * 60 * 60 * 1000;
+  const currentWeekSundayUtcMs = currentWeekMondayUtcMs + 6 * 24 * 60 * 60 * 1000;
+
+  return {
+    startDate: toIsoDateAtUtcOffset(currentWeekMondayUtcMs, 0),
+    endDate: toIsoDateAtUtcOffset(currentWeekSundayUtcMs, 0),
+  };
+}
+
+function resolveNextMonthDateRange(args: {
+  referenceEpochMs: number;
+  utcOffsetMinutes: number;
+}): { startDate: string; endDate: string } {
+  const shifted = new Date(args.referenceEpochMs + args.utcOffsetMinutes * 60_000);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const nextMonth = month === 11 ? 0 : month + 1;
+  const nextMonthYear = month === 11 ? year + 1 : year;
+
+  const nextMonthStartUtcMs = Date.UTC(nextMonthYear, nextMonth, 1);
+  const nextMonthEndUtcMs = Date.UTC(nextMonthYear, nextMonth + 1, 0);
+
+  return {
+    startDate: toIsoDateAtUtcOffset(nextMonthStartUtcMs, 0),
+    endDate: toIsoDateAtUtcOffset(nextMonthEndUtcMs, 0),
+  };
 }
 
 function hasVacationIntent(args: {
@@ -301,6 +445,7 @@ export function parseSlackVacationRequestIntent(args: {
   text?: string;
   source: SlackVacationRequestSource;
   commandName?: string;
+  referenceEpochMs?: number;
 }): SlackVacationRequestParseResult | null {
   const rawText = asString(args.text);
   if (!rawText) {
@@ -317,17 +462,59 @@ export function parseSlackVacationRequestIntent(args: {
   }
 
   const blockedReasons: string[] = [];
-  const isoDates = extractIsoDatesFromText(rawText);
+  const parsedDates = extractDeterministicDatesFromText(rawText);
   let requestedStartDate: string | undefined;
   let requestedEndDate: string | undefined;
 
-  if (isoDates.length === 0) {
-    blockedReasons.push("missing_iso_date");
-  } else if (isoDates.length > 2) {
+  if (parsedDates.length === 0) {
+    const relativeRangeType = SLACK_THIS_WEEK_PATTERN.test(rawText)
+      ? "this_week"
+      : SLACK_NEXT_WEEK_PATTERN.test(rawText)
+        ? "next_week"
+        : SLACK_NEXT_MONTH_PATTERN.test(rawText)
+          ? "next_month"
+          : null;
+    if (relativeRangeType) {
+      const utcOffsetMinutes = resolveUtcOffsetMinutesFromText(rawText);
+      if (utcOffsetMinutes === undefined) {
+        blockedReasons.push("missing_relative_timezone");
+      }
+      if (args.referenceEpochMs === undefined) {
+        blockedReasons.push("missing_relative_anchor_time");
+      }
+      if (
+        utcOffsetMinutes !== undefined &&
+        args.referenceEpochMs !== undefined
+      ) {
+        const relativeRange =
+          relativeRangeType === "this_week"
+            ? resolveThisWeekDateRange({
+                referenceEpochMs: args.referenceEpochMs,
+                utcOffsetMinutes,
+              })
+            : relativeRangeType === "next_week"
+              ? resolveNextWeekDateRange({
+                  referenceEpochMs: args.referenceEpochMs,
+                  utcOffsetMinutes,
+                })
+              : resolveNextMonthDateRange({
+                  referenceEpochMs: args.referenceEpochMs,
+                  utcOffsetMinutes,
+                });
+        requestedStartDate = relativeRange.startDate;
+        requestedEndDate = relativeRange.endDate;
+      }
+      if (!requestedStartDate || !requestedEndDate) {
+        blockedReasons.push("missing_iso_date");
+      }
+    } else {
+      blockedReasons.push("missing_iso_date");
+    }
+  } else if (parsedDates.length > 2) {
     blockedReasons.push("ambiguous_date_range");
   } else {
-    requestedStartDate = isoDates[0];
-    requestedEndDate = isoDates.length === 2 ? isoDates[1] : isoDates[0];
+    requestedStartDate = parsedDates[0];
+    requestedEndDate = parsedDates.length === 2 ? parsedDates[1] : parsedDates[0];
     if (requestedEndDate < requestedStartDate) {
       blockedReasons.push("date_range_out_of_order");
     }
@@ -491,6 +678,7 @@ function parseSlackInboundPayload(
   const vacationRequest = parseSlackVacationRequestIntent({
     text,
     source: eventType === "app_mention" ? "mention" : "message",
+    referenceEpochMs: Number.parseFloat(eventTs) * 1000,
   });
 
   if (!channelId || !eventTs || !senderId || !text) {
@@ -569,6 +757,7 @@ function parseSlackSlashCommandInboundPayload(
     text: commandText || message,
     source: "slash_command",
     commandName: command,
+    referenceEpochMs: asNumber(rawPayload.received_at_ms),
   });
 
   return {

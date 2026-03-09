@@ -149,4 +149,56 @@ describe("Slack signature boundary integration", () => {
       "1700000000.123"
     );
   });
+
+  it("applies relative vacation parsing for events-ingress payload shape", () => {
+    const eventsIngressPayload = {
+      type: "event_callback",
+      event_id: "EvVacationEventsIngress1",
+      event: {
+        type: "app_mention",
+        user: "U123",
+        text: "<@U-BOT> vacation next month timezone:UTC",
+        channel: "C999",
+        ts: "1710115200.000",
+      },
+    };
+
+    const normalized = slackProvider.normalizeInbound(eventsIngressPayload, {
+      providerId: "slack",
+      slackBotUserId: "U-BOT",
+    });
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackInvocationType).toBe("mention");
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-04-01");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
+  });
+
+  it("keeps commands-ingress relative parsing fail-closed without received_at_ms anchor", () => {
+    const commandsIngressPayload = {
+      type: "slash_command",
+      team_id: "T123",
+      channel_id: "C123ABC",
+      user_id: "U123",
+      user_name: "alice",
+      command: "/vacation",
+      text: "this week tz:UTC",
+      trigger_id: "TrigEventsIngress1",
+    };
+
+    const normalized = slackProvider.normalizeInbound(commandsIngressPayload, {
+      providerId: "slack",
+    });
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackInvocationType).toBe("slash_command");
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("blocked");
+    expect(metadata.slackVacationRequestBlockedReasons).toContain(
+      "missing_relative_anchor_time"
+    );
+    expect(metadata.slackVacationRequestBlockedReasons).toContain("missing_iso_date");
+  });
 });
