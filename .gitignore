@@ -97,3 +97,5 @@ apps/macos/**/*.cer
 apps/macos/**/*.key
 apps/macos/**/.env
 apps/macos/**/.env.*
+mcp-kb/node_modules/
+packages/sdk/node_modules/
