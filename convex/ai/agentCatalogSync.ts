@@ -11,6 +11,10 @@ const FALLBACK_SYNC_RUN_SUMMARY = {
   seedsFull: 0,
   runtimeLive: 0,
   toolsMissing: 0,
+  published: 0,
+  blockedAgents: 0,
+  recommendationTagged: 0,
+  recommendationMetadataStored: 0,
 };
 const FALLBACK_HASH_PREFIX = "automation_error";
 
@@ -22,6 +26,10 @@ const syncRunSummaryValidator = v.object({
   seedsFull: v.number(),
   runtimeLive: v.number(),
   toolsMissing: v.number(),
+  published: v.number(),
+  blockedAgents: v.number(),
+  recommendationTagged: v.number(),
+  recommendationMetadataStored: v.number(),
 });
 const syncRunDriftValidator = v.object({
   docsOutOfSync: v.boolean(),

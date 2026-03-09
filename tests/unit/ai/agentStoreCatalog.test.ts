@@ -153,6 +153,11 @@ function seedCatalogEntry(db: FakeDb, overrides: Partial<FakeRow>) {
       gapPenaltyMultiplier: 1,
       defaultActivationState: "suggest_activation",
     },
+    storefrontPackageDescriptor: {
+      packageAccess: "included_in_plan",
+      licenseModel: "included",
+      activationHint: "activate_now",
+    },
     updatedAt: 1,
     ...overrides,
   });
@@ -202,6 +207,22 @@ function seedTemplate(db: FakeDb, overrides: Partial<FakeRow> = {}) {
       },
     },
     ...overrides,
+  });
+}
+
+function seedLicense(db: FakeDb, overrides: Partial<Record<string, unknown>> = {}) {
+  db.seed("objects", {
+    _id: "objects_org_license_1",
+    organizationId: ORG_ID,
+    type: "organization_license",
+    status: "active",
+    name: "Organization License",
+    createdAt: 1,
+    updatedAt: 1,
+    customProperties: {
+      planTier: "free",
+      ...overrides,
+    },
   });
 }
 
@@ -313,6 +334,18 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
         expect.objectContaining({ key: "activecampaign", status: "available_now" }),
       ]),
     );
+    expect(card.storefrontPackageDescriptor).toEqual({
+      packageAccess: "included_in_plan",
+      licenseModel: "included",
+      activationHint: "activate_now",
+    });
+    expect(card.activationEntitlement).toEqual({
+      allowed: true,
+      reasonCode: "entitled_included_in_plan",
+      guidance: "Activation is included in your current plan.",
+      matchedEntitlementKeys: [],
+      planTier: "free",
+    });
     expect((card as any).soulBlend).toBeUndefined();
     expect(listResult.noFitEscalation).toEqual({
       minimum: "€5,000 minimum",
@@ -368,6 +401,13 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
     });
 
     expect(preflight.allowClone).toBe(false);
+    expect(preflight.entitlement).toEqual({
+      allowed: true,
+      reasonCode: "entitled_included_in_plan",
+      guidance: "Activation is included in your current plan.",
+      matchedEntitlementKeys: [],
+      planTier: "free",
+    });
     expect(preflight.directCreateAllowed).toBe(false);
     expect(preflight.capabilitySnapshot.blocked).toEqual(
       expect.arrayContaining([
@@ -400,6 +440,12 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
       toolProfile: "operations",
       requiredIntegrations: ["slack"],
       published: true,
+      storefrontPackageDescriptor: {
+        packageAccess: "enterprise_concierge",
+        licenseModel: "custom_contract",
+        activationHint: "sales_contact_required",
+        packageCode: "enterprise_ai_ops",
+      },
     });
     seedToolRequirement(db, {
       catalogAgentNumber: 11,
@@ -425,10 +471,138 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
     expect(result.card.displayName).toBe("Operations Copilot");
     expect(result.productPage.entry.published).toBe(true);
     expect(result.productPage.requirements.requiredTools).toContain("message_routing");
+    expect(result.card.storefrontPackageDescriptor).toEqual({
+      packageAccess: "enterprise_concierge",
+      licenseModel: "custom_contract",
+      activationHint: "sales_contact_required",
+      packageCode: "enterprise_ai_ops",
+    });
+    expect(result.productPage.entry.storefrontPackageDescriptor).toEqual({
+      packageAccess: "enterprise_concierge",
+      licenseModel: "custom_contract",
+      activationHint: "sales_contact_required",
+      packageCode: "enterprise_ai_ops",
+    });
+    expect(result.card.activationEntitlement).toEqual({
+      allowed: false,
+      reasonCode: "blocked_sales_contact_required",
+      guidance:
+        "Activation requires an enterprise or concierge contract. Contact sales to enable this agent.",
+      matchedEntitlementKeys: [],
+      planTier: "free",
+    });
     expect(result.askAiContextPayload).toMatchObject({
       catalogAgentNumber: 11,
       templateReady: true,
+      packageAccess: "enterprise_concierge",
+      licenseModel: "custom_contract",
+      activationHint: "sales_contact_required",
     });
+  });
+
+  it("keeps published visibility separate from entitlement authorization and blocks non-entitled add-ons", async () => {
+    const db = new FakeDb();
+    seedOrgAccess(db);
+    seedCatalogEntry(db, {
+      catalogAgentNumber: 19,
+      name: "Growth Add-on Agent",
+      published: true,
+      storefrontPackageDescriptor: {
+        packageAccess: "add_on_purchase",
+        licenseModel: "seat",
+        activationHint: "purchase_required",
+        packageCode: "addon_growth",
+        licenseSku: "sku_growth_001",
+      },
+    });
+    seedToolRequirement(db, {
+      catalogAgentNumber: 19,
+      toolName: "message_routing",
+      implementationStatus: "implemented",
+      source: "registry",
+    });
+    seedSeedRow(db, {
+      catalogAgentNumber: 19,
+      systemTemplateAgentId: "objects_template_1",
+    });
+    seedTemplate(db);
+
+    const listResult = await (listCatalogCards as any)._handler(createCtx(db), {
+      sessionId: "sessions_1",
+      organizationId: ORG_ID,
+      datasetVersion: DEFAULT_DATASET,
+      sort: "recommended",
+      pagination: { cursor: "0", limit: 20 },
+    });
+    expect(listResult.cards).toHaveLength(1);
+    expect(listResult.cards[0].published).toBe(true);
+    expect(listResult.cards[0].activationEntitlement).toMatchObject({
+      allowed: false,
+      reasonCode: "blocked_purchase_required_not_owned",
+    });
+
+    const preflight = await (getClonePreflight as any)._handler(createCtx(db), {
+      sessionId: "sessions_1",
+      organizationId: ORG_ID,
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: 19,
+    });
+    expect(preflight.allowClone).toBe(false);
+    expect(preflight.entitlement).toEqual({
+      allowed: false,
+      reasonCode: "blocked_purchase_required_not_owned",
+      guidance:
+        "Activation is blocked until your organization purchases 'addon_growth'.",
+      matchedEntitlementKeys: [],
+      planTier: "free",
+    });
+  });
+
+  it("supports deterministic legacy descriptor fallback with explicit entitlement status", async () => {
+    const db = new FakeDb();
+    seedOrgAccess(db);
+    seedCatalogEntry(db, {
+      catalogAgentNumber: 21,
+      name: "Legacy Descriptor Agent",
+      storefrontPackageDescriptor: undefined,
+      requiredIntegrations: [],
+      specialistAccessModes: ["invisible"],
+      channelAffinity: ["webchat"],
+    });
+    seedToolRequirement(db, {
+      catalogAgentNumber: 21,
+      toolName: "message_routing",
+      implementationStatus: "implemented",
+      source: "registry",
+    });
+    seedSeedRow(db, {
+      catalogAgentNumber: 21,
+      systemTemplateAgentId: "objects_template_1",
+    });
+    seedTemplate(db);
+    seedLicense(db, {
+      planTier: "pro",
+    });
+
+    const preflight = await (getClonePreflight as any)._handler(createCtx(db), {
+      sessionId: "sessions_1",
+      organizationId: ORG_ID,
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: 21,
+    });
+    expect(preflight.card.storefrontPackageDescriptor).toEqual({
+      packageAccess: "included_in_plan",
+      licenseModel: "included",
+      activationHint: "activate_now",
+    });
+    expect(preflight.entitlement).toEqual({
+      allowed: true,
+      reasonCode: "entitled_included_in_plan",
+      guidance: "Activation is included in your current plan.",
+      matchedEntitlementKeys: [],
+      planTier: "pro",
+    });
+    expect(preflight.allowClone).toBe(true);
   });
 
   it("fails closed when store compatibility flag is disabled", async () => {
@@ -470,6 +644,10 @@ describe("agentStoreCatalog list/filter/compare/preflight", () => {
       catalogAgentNumber: 35,
     });
     expect(preflight.allowClone).toBe(false);
+    expect(preflight.entitlement).toMatchObject({
+      allowed: false,
+      reasonCode: "blocked_entitlement_uncertain",
+    });
     expect(preflight.capabilitySnapshot.blocked).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

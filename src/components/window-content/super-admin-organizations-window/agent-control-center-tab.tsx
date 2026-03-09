@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -14,12 +14,16 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
+import { TemplateHubEntryPanel } from "@/components/window-content/agents/template-hub-entry-panel";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 type DriftStatus = "in_sync" | "docs_drift" | "code_drift" | "registry_drift";
 type DrawerTab = "summary" | "tools" | "seed" | "runtime" | "dependencies" | "audit";
+type TemplateHubSection = "catalog" | "versions" | "rollout";
+type ClonePolicyState = "in_sync" | "overridden" | "stale" | "blocked";
+type CloneRiskLevel = "low" | "medium" | "high";
 type SeedStatus = "full" | "skeleton" | "missing";
 
 export type SeedStatusOverrideState = {
@@ -195,6 +199,275 @@ type SyncRunsResponse = {
   runs: SyncRunRow[];
 };
 
+type TemplateCloneInventoryResponse = {
+  generatedAt: number;
+  total: number;
+  summary: {
+    byPolicyState: Record<ClonePolicyState, number>;
+    byRisk: Record<CloneRiskLevel, number>;
+  };
+  filterMetadata: {
+    organizations: Array<{
+      id: string;
+      name: string;
+      count: number;
+    }>;
+    templates: Array<{
+      id: string;
+      name: string;
+      count: number;
+    }>;
+  };
+  rows: Array<{
+    organizationId: string;
+    organizationName: string;
+    templateId: string;
+    templateName: string;
+    templateVersion: string;
+    cloneAgentId: string;
+    cloneAgentName: string;
+    cloneLifecycleState: string;
+    policyState: ClonePolicyState;
+    riskLevel: CloneRiskLevel;
+    stale: boolean;
+    blocked: boolean;
+    blockedFields: string[];
+    overriddenFields: string[];
+    diffCount: number;
+  }>;
+};
+
+type TemplateRolloutOptionsResponse = {
+  generatedAt: number;
+  templates: Array<{
+    templateId: string;
+    templateName: string;
+    templateOrganizationId?: string;
+    lifecycleStatus: "draft" | "published" | "deprecated";
+    publishedVersionId?: string;
+    publishedVersionTag?: string;
+    versions: Array<{
+      templateVersionId: string;
+      versionTag: string;
+      lifecycleStatus: "draft" | "published" | "deprecated";
+      createdAt: number;
+      updatedAt: number;
+    }>;
+  }>;
+};
+
+type TemplateDriftDiffRow = {
+  field: string;
+  policyMode: "locked" | "warn" | "free";
+  templateValue: unknown;
+  cloneValue: unknown;
+};
+
+type TemplateCloneDriftReportResponse = {
+  templateId: string;
+  templateVersion: string;
+  precedenceOrder: string[];
+  fields: string[];
+  targets: Array<{
+    organizationId: string;
+    cloneAgentId: string;
+    sourceTemplateId: string;
+    sourceTemplateVersion: string | null;
+    cloneLifecycleState: string;
+    policyState: ClonePolicyState;
+    stale: boolean;
+    blocked: boolean;
+    blockedFields: string[];
+    overriddenFields: string[];
+    diff: TemplateDriftDiffRow[];
+  }>;
+};
+
+type RolloutConfirmAction = {
+  type: "rollout_apply" | "rollout_rollback";
+  templateId: string;
+  templateName: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  targetOrganizationIds: string[];
+  stageSize: number;
+  stageStartIndex: number;
+  reason: string;
+};
+
+type TemplateLifecycleConfirmAction =
+  | {
+      type: "publish";
+      templateId: string;
+      templateName: string;
+      templateVersionId: string;
+      templateVersionTag: string;
+      publishReason?: string;
+    }
+  | {
+      type: "deprecate";
+      templateId: string;
+      templateName: string;
+      templateVersionId: string;
+      templateVersionTag: string;
+      reason: string;
+    };
+
+type RolloutPlanResponse = {
+  distributionJobId: string;
+  templateId: string;
+  templateVersion: string;
+  operationKind: "rollout_apply" | "rollout_rollback";
+  dryRun: boolean;
+  requestedTargetOrganizationIds: string[];
+  targetOrganizationIds: string[];
+  rolloutWindow: {
+    stageStartIndex: number;
+    stageSize: number;
+    requestedTargetCount: number;
+    stagedTargetCount: number;
+  };
+  summary: {
+    plan: {
+      creates: number;
+      updates: number;
+      skips: number;
+      blocked: number;
+    };
+    applied: {
+      creates: number;
+      updates: number;
+      skips: number;
+      blocked: number;
+    };
+  };
+  policyGates?: {
+    blockedLocked: number;
+    blockedWarnConfirmation: number;
+    warnConfirmed: number;
+    free: number;
+  };
+  reasonCounts?: {
+    plan: Record<string, number>;
+    applied: Record<string, number>;
+  };
+  plan: Array<{
+    organizationId: string;
+    operation: "create" | "update" | "skip" | "blocked";
+    reason: string;
+    existingCloneId?: string;
+    changedFields: string[];
+  }>;
+  applied: Array<{
+    organizationId: string;
+    cloneAgentId?: string;
+    operation: "create" | "update" | "skip" | "blocked";
+    reason?: string;
+  }>;
+};
+
+type TemplateDistributionTelemetryResponse = {
+  generatedAt: number;
+  summary: {
+    totalJobs: number;
+    byStatus: {
+      planned: number;
+      completed: number;
+      completedWithErrors: number;
+    };
+    byOperationKind: {
+      rolloutApply: number;
+      rolloutRollback: number;
+    };
+    totalAffectedOrgs: {
+      requested: number;
+      staged: number;
+      mutated: number;
+      blocked: number;
+    };
+  };
+  rows: Array<{
+    _id: string;
+    performedAt: number;
+    actionType: "template_distribution_plan_generated" | "template_distribution_applied";
+    distributionJobId: string;
+    templateId: string;
+    templateVersion: string;
+    operationKind: "rollout_apply" | "rollout_rollback";
+    reason: string;
+    dryRun: boolean;
+    status: "planned" | "completed" | "completed_with_errors";
+    affectedOrgCounts: {
+      requested: number;
+      staged: number;
+      mutated: number;
+      skipped: number;
+      blocked: number;
+    };
+    summary: {
+      plan: {
+        creates: number;
+        updates: number;
+        skips: number;
+        blocked: number;
+      };
+      applied: {
+        creates: number;
+        updates: number;
+        skips: number;
+        blocked: number;
+      };
+    };
+    policyGates: {
+      blockedLocked: number;
+      blockedWarnConfirmation: number;
+      warnConfirmed: number;
+      free: number;
+    };
+    reasonCounts: {
+      plan: Record<string, number>;
+      applied: Record<string, number>;
+    };
+    rolloutWindow: {
+      stageStartIndex: number;
+      stageSize: number;
+      requestedTargetCount: number;
+      stagedTargetCount: number;
+    };
+  }>;
+};
+
+type OrganizationOption = {
+  _id: string;
+  name: string;
+  isActive?: boolean;
+};
+
+function normalizeOrganizationOptions(value: unknown): OrganizationOption[] {
+  if (Array.isArray(value)) {
+    return value as OrganizationOption[];
+  }
+  if (value && typeof value === "object") {
+    const candidate = (value as { organizations?: unknown }).organizations;
+    if (Array.isArray(candidate)) {
+      return candidate as OrganizationOption[];
+    }
+  }
+  return [];
+}
+
+function areSortedStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const CATEGORY_OPTIONS = [
   "core",
   "legal",
@@ -209,6 +482,15 @@ const CATEGORY_OPTIONS = [
 const RUNTIME_STATUS_OPTIONS = ["live", "template_only", "not_deployed"];
 const SEED_STATUS_OPTIONS: SeedStatus[] = ["full", "skeleton", "missing"];
 const TOOL_COVERAGE_OPTIONS = ["complete", "partial", "missing"];
+const CLONE_POLICY_STATE_OPTIONS: ClonePolicyState[] = [
+  "in_sync",
+  "overridden",
+  "stale",
+  "blocked",
+];
+const CLONE_RISK_LEVEL_OPTIONS: CloneRiskLevel[] = ["high", "medium", "low"];
+const DEFAULT_ROLLOUT_STAGE_SIZE = 25;
+const ROLLOUT_ORGANIZATION_PAGE_SIZE = 24;
 const DRAWER_TABS: Array<{ id: DrawerTab; label: string }> = [
   { id: "summary", label: "Summary" },
   { id: "tools", label: "Tools" },
@@ -315,6 +597,71 @@ export function canExecuteConfirmedWrite(args: {
   return Boolean(args.sessionId && args.pendingConfirmAction && !args.isSubmittingWrite);
 }
 
+function formatRolloutDiffValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+function parsePositiveIntegerInput(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseNonNegativeIntegerInput(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function buildRolloutConfirmationMessage(action: RolloutConfirmAction): string {
+  const operation = action.type === "rollout_rollback" ? "rollback staged rollout" : "apply staged rollout";
+  return [
+    "Confirm template distribution action.",
+    "",
+    `Operation: ${operation}`,
+    `Template: ${action.templateName}`,
+    `Version target: ${action.templateVersionTag}`,
+    `Stage start: ${action.stageStartIndex}`,
+    `Stage size: ${action.stageSize}`,
+    `Staged orgs: ${action.targetOrganizationIds.length}`,
+    `Reason: ${action.reason}`,
+    "Audit event: template_distribution_applied",
+  ].join("\n");
+}
+
+function buildTemplateLifecycleConfirmationMessage(action: TemplateLifecycleConfirmAction): string {
+  if (action.type === "publish") {
+    return [
+      "Confirm template lifecycle action.",
+      "",
+      "Operation: publish template version",
+      `Template: ${action.templateName}`,
+      `Version target: ${action.templateVersionTag}`,
+      `Reason: ${action.publishReason || "n/a"}`,
+      "Audit event: agent_template.version_published",
+    ].join("\n");
+  }
+  return [
+    "Confirm template lifecycle action.",
+    "",
+    "Operation: deprecate template version",
+    `Template: ${action.templateName}`,
+    `Version target: ${action.templateVersionTag}`,
+    `Reason: ${action.reason}`,
+    "Audit event: agent_template.version_deprecated",
+  ].join("\n");
+}
+
 export function AgentControlCenterTab() {
   const { sessionId, isSuperAdmin } = useAuth();
   const { t } = useNamespaceTranslations("ui.super_admin.agent_control_center");
@@ -349,6 +696,47 @@ export function AgentControlCenterTab() {
   const [seedTemplateBindingAgentId, setSeedTemplateBindingAgentId] = useState<string>("");
   const [seedTemplateBindingReason, setSeedTemplateBindingReason] = useState<string>("");
   const [publishReason, setPublishReason] = useState<string>("");
+  const [templateHubSection, setTemplateHubSection] = useState<TemplateHubSection>("catalog");
+  const [cloneInventoryOrgFilter, setCloneInventoryOrgFilter] = useState<string>("");
+  const [cloneInventoryTemplateFilter, setCloneInventoryTemplateFilter] = useState<string>("");
+  const [cloneInventoryPolicyStateFilter, setCloneInventoryPolicyStateFilter] = useState<string>("");
+  const [cloneInventoryRiskFilter, setCloneInventoryRiskFilter] = useState<string>("");
+  const [cloneInventorySearch, setCloneInventorySearch] = useState<string>("");
+  const [templateDataRefreshNonce, setTemplateDataRefreshNonce] = useState<number>(0);
+  const [selectedLifecycleTemplateId, setSelectedLifecycleTemplateId] = useState<string>("");
+  const [selectedLifecycleVersionId, setSelectedLifecycleVersionId] = useState<string>("");
+  const [selectedRolloutTemplateId, setSelectedRolloutTemplateId] = useState<string>("");
+  const [selectedRolloutVersionId, setSelectedRolloutVersionId] = useState<string>("");
+  const [rolloutStageSize, setRolloutStageSize] = useState<string>(String(DEFAULT_ROLLOUT_STAGE_SIZE));
+  const [rolloutStageStartIndex, setRolloutStageStartIndex] = useState<string>("0");
+  const [rolloutReason, setRolloutReason] = useState<string>("");
+  const [rolloutMode, setRolloutMode] = useState<"apply" | "rollback">("apply");
+  const [rolloutTargetOrgIds, setRolloutTargetOrgIds] = useState<string[]>([]);
+  const [rolloutInlineMessage, setRolloutInlineMessage] = useState<{
+    type: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
+  const [rolloutOrganizationSearch, setRolloutOrganizationSearch] = useState<string>("");
+  const [rolloutOrganizationPage, setRolloutOrganizationPage] = useState<number>(1);
+  const [rolloutPreview, setRolloutPreview] = useState<{
+    requestedTargetOrganizationIds: string[];
+    stagedTargetOrganizationIds: string[];
+    drift: TemplateCloneDriftReportResponse | null;
+  } | null>(null);
+  const [rolloutPreviewRequest, setRolloutPreviewRequest] = useState<{
+    templateId: string;
+    templateVersionId: string;
+    targetOrganizationIds: string[];
+  } | null>(null);
+  const [isLoadingRolloutPreview, setIsLoadingRolloutPreview] = useState<boolean>(false);
+  const [pendingRolloutConfirmAction, setPendingRolloutConfirmAction] = useState<RolloutConfirmAction | null>(null);
+  const [lastRolloutResult, setLastRolloutResult] = useState<RolloutPlanResponse | null>(null);
+  const [snapshotVersionTagDraft, setSnapshotVersionTagDraft] = useState<string>("");
+  const [snapshotSummaryDraft, setSnapshotSummaryDraft] = useState<string>("");
+  const [publishVersionReasonDraft, setPublishVersionReasonDraft] = useState<string>("");
+  const [deprecateVersionReasonDraft, setDeprecateVersionReasonDraft] = useState<string>("");
+  const [templateLifecycleMessage, setTemplateLifecycleMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [pendingTemplateLifecycleConfirmAction, setPendingTemplateLifecycleConfirmAction] = useState<TemplateLifecycleConfirmAction | null>(null);
 
   const triggerCatalogSync = useMutation(api.ai.agentCatalogAdmin.triggerCatalogSync);
   const setAgentBlocker = useMutation(api.ai.agentCatalogAdmin.setAgentBlocker);
@@ -356,8 +744,20 @@ export function AgentControlCenterTab() {
   const setSeedTemplateBinding = useMutation(api.ai.agentCatalogAdmin.setSeedTemplateBinding);
   const setCatalogPublishedStatus = useMutation(api.ai.agentCatalogAdmin.setCatalogPublishedStatus);
   const backfillCatalogPublishedFlags = useMutation(api.ai.agentCatalogAdmin.backfillCatalogPublishedFlags);
+  const distributeTemplateToOrganizations = useMutation(
+    api.agentOntology.distributeAgentTemplateToOrganizations,
+  );
   const submitToolFoundryPromotionDecision = useMutation(
     api.ai.toolFoundry.proposalBacklog.submitProposalPromotionDecision,
+  );
+  const createAgentTemplateVersionSnapshot = useMutation(
+    api.agentOntology.createAgentTemplateVersionSnapshot,
+  );
+  const publishAgentTemplateVersion = useMutation(
+    api.agentOntology.publishAgentTemplateVersion,
+  );
+  const deprecateAgentTemplateLifecycle = useMutation(
+    api.agentOntology.deprecateAgentTemplateLifecycle,
   );
 
   const overview = useQuery(
@@ -427,6 +827,75 @@ export function AgentControlCenterTab() {
       : "skip",
   ) as ToolFoundryProposalReviewRow[] | undefined;
 
+  const cloneInventory = useQuery(
+    api.agentOntology.listTemplateCloneInventory,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          filters: {
+            organizationId: cloneInventoryOrgFilter || undefined,
+            templateId: cloneInventoryTemplateFilter || undefined,
+            policyState: cloneInventoryPolicyStateFilter || undefined,
+            riskLevel: cloneInventoryRiskFilter || undefined,
+            search: cloneInventorySearch.trim() || undefined,
+          },
+          limit: 300,
+        }
+      : "skip",
+  ) as TemplateCloneInventoryResponse | undefined;
+  const templateRolloutOptions = useQuery(
+    api.agentOntology.listTemplateRolloutOptions,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          refreshNonce: templateDataRefreshNonce,
+        }
+      : "skip",
+  ) as TemplateRolloutOptionsResponse | undefined;
+  const templateLifecycleOptions = useQuery(
+    api.agentOntology.listTemplateLifecycleOptions,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          refreshNonce: templateDataRefreshNonce,
+        }
+      : "skip",
+  ) as TemplateRolloutOptionsResponse | undefined;
+  const rolloutDriftPreview = useQuery(
+    api.agentOntology.getTemplateCloneDriftReport,
+    sessionId && isSuperAdmin && rolloutPreviewRequest
+      ? {
+          sessionId,
+          templateId: rolloutPreviewRequest.templateId,
+          templateVersionId: rolloutPreviewRequest.templateVersionId,
+          targetOrganizationIds: rolloutPreviewRequest.targetOrganizationIds,
+        }
+      : "skip",
+  ) as TemplateCloneDriftReportResponse | undefined;
+  const distributionTelemetry = useQuery(
+    api.agentOntology.listTemplateDistributionTelemetry,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+          templateId: selectedRolloutTemplateId || undefined,
+          limit: 20,
+          refreshNonce: templateDataRefreshNonce,
+        }
+      : "skip",
+  ) as TemplateDistributionTelemetryResponse | undefined;
+  const allOrganizations = useQuery(
+    api.organizations.listAll,
+    sessionId && isSuperAdmin
+      ? {
+          sessionId,
+        }
+      : "skip",
+  ) as unknown;
+  const organizationOptions = useMemo(
+    () => normalizeOrganizationOptions(allOrganizations),
+    [allOrganizations],
+  );
+
   useEffect(() => {
     if (!overview) {
       return;
@@ -460,6 +929,34 @@ export function AgentControlCenterTab() {
     setSeedTemplateBindingAgentId("");
     setSeedTemplateBindingReason("");
     setPublishReason("");
+    setTemplateHubSection("catalog");
+    setCloneInventoryOrgFilter("");
+    setCloneInventoryTemplateFilter("");
+    setCloneInventoryPolicyStateFilter("");
+    setCloneInventoryRiskFilter("");
+    setCloneInventorySearch("");
+    setSelectedLifecycleTemplateId("");
+    setSelectedLifecycleVersionId("");
+    setSelectedRolloutTemplateId("");
+    setSelectedRolloutVersionId("");
+    setRolloutStageSize(String(DEFAULT_ROLLOUT_STAGE_SIZE));
+    setRolloutStageStartIndex("0");
+    setRolloutReason("");
+    setRolloutMode("apply");
+    setRolloutTargetOrgIds([]);
+    setRolloutInlineMessage(null);
+    setRolloutOrganizationSearch("");
+    setRolloutOrganizationPage(1);
+    setRolloutPreview(null);
+    setRolloutPreviewRequest(null);
+    setPendingRolloutConfirmAction(null);
+    setLastRolloutResult(null);
+    setSnapshotVersionTagDraft("");
+    setSnapshotSummaryDraft("");
+    setPublishVersionReasonDraft("");
+    setDeprecateVersionReasonDraft("");
+    setTemplateLifecycleMessage(null);
+    setPendingTemplateLifecycleConfirmAction(null);
   }, [datasetVersion]);
 
   useEffect(() => {
@@ -478,7 +975,309 @@ export function AgentControlCenterTab() {
     setPublishReason("");
   }, [agentDetails]);
 
+  useEffect(() => {
+    if (!templateLifecycleOptions) {
+      return;
+    }
+    if (
+      selectedLifecycleTemplateId &&
+      templateLifecycleOptions.templates.some(
+        (template) => template.templateId === selectedLifecycleTemplateId,
+      )
+    ) {
+      return;
+    }
+    const firstTemplateId = templateLifecycleOptions.templates[0]?.templateId ?? "";
+    setSelectedLifecycleTemplateId(firstTemplateId);
+  }, [templateLifecycleOptions, selectedLifecycleTemplateId]);
+
+  useEffect(() => {
+    const selectedTemplate = templateLifecycleOptions?.templates.find(
+      (template) => template.templateId === selectedLifecycleTemplateId,
+    );
+    if (!selectedTemplate) {
+      setSelectedLifecycleVersionId("");
+      return;
+    }
+    const publishedVersionId = selectedTemplate.publishedVersionId;
+    const fallbackVersionId = selectedTemplate.versions[0]?.templateVersionId ?? "";
+    const nextVersionId = publishedVersionId || fallbackVersionId;
+    if (
+      selectedLifecycleVersionId &&
+      selectedTemplate.versions.some((version) => version.templateVersionId === selectedLifecycleVersionId)
+    ) {
+      return;
+    }
+    setSelectedLifecycleVersionId(nextVersionId);
+  }, [templateLifecycleOptions, selectedLifecycleTemplateId, selectedLifecycleVersionId]);
+
+  useEffect(() => {
+    if (!templateRolloutOptions) {
+      return;
+    }
+    if (
+      selectedRolloutTemplateId &&
+      templateRolloutOptions.templates.some(
+        (template) => template.templateId === selectedRolloutTemplateId,
+      )
+    ) {
+      return;
+    }
+    const firstTemplateId = templateRolloutOptions.templates[0]?.templateId ?? "";
+    setSelectedRolloutTemplateId(firstTemplateId);
+  }, [templateRolloutOptions, selectedRolloutTemplateId]);
+
+  useEffect(() => {
+    const selectedTemplate = templateRolloutOptions?.templates.find(
+      (template) => template.templateId === selectedRolloutTemplateId,
+    );
+    if (!selectedTemplate) {
+      setSelectedRolloutVersionId("");
+      return;
+    }
+    const publishedVersionId = selectedTemplate.publishedVersionId;
+    const fallbackVersionId = selectedTemplate.versions[0]?.templateVersionId ?? "";
+    const nextVersionId = publishedVersionId || fallbackVersionId;
+    if (
+      selectedRolloutVersionId &&
+      selectedTemplate.versions.some((version) => version.templateVersionId === selectedRolloutVersionId)
+    ) {
+      return;
+    }
+    setSelectedRolloutVersionId(nextVersionId);
+  }, [templateRolloutOptions, selectedRolloutTemplateId, selectedRolloutVersionId]);
+
+  useEffect(() => {
+    const selectedTemplateOwnerOrgIdRaw = templateRolloutOptions?.templates.find(
+      (template) => template.templateId === selectedRolloutTemplateId,
+    )?.templateOrganizationId;
+    const selectedTemplateOwnerOrgId =
+      typeof selectedTemplateOwnerOrgIdRaw === "string" && selectedTemplateOwnerOrgIdRaw.trim().length > 0
+        ? selectedTemplateOwnerOrgIdRaw.trim()
+        : undefined;
+    const cloneScopedOrgIds = Array.from(
+      new Set(
+        (cloneInventory?.rows ?? [])
+          .filter((row) => !selectedRolloutTemplateId || row.templateId === selectedRolloutTemplateId)
+          .map((row) => row.organizationId),
+      ),
+    );
+    const activeOrganizationIds = Array.from(
+      new Set(
+        organizationOptions
+          .filter(
+            (organization) =>
+              organization.isActive !== false &&
+              String(organization._id) !== selectedTemplateOwnerOrgId,
+          )
+          .map((organization) => String(organization._id)),
+      ),
+    );
+    const availableOrgIds = new Set(
+      activeOrganizationIds.length > 0 ? activeOrganizationIds : cloneScopedOrgIds,
+    );
+    setRolloutTargetOrgIds((current) => {
+      const filtered = current.filter((organizationId) => availableOrgIds.has(organizationId));
+      if (filtered.length > 0) {
+        if (areSortedStringArraysEqual(filtered, current)) {
+          return current;
+        }
+        return filtered;
+      }
+      if (cloneScopedOrgIds.length > 0) {
+        const sortedDefaults = cloneScopedOrgIds.sort((left, right) => left.localeCompare(right));
+        if (areSortedStringArraysEqual(sortedDefaults, current)) {
+          return current;
+        }
+        return sortedDefaults;
+      }
+      if (current.length === 0) {
+        return current;
+      }
+      return [];
+    });
+  }, [cloneInventory, selectedRolloutTemplateId, organizationOptions, templateRolloutOptions]);
+
+  useEffect(() => {
+    if (!rolloutPreview || !rolloutDriftPreview) {
+      return;
+    }
+    setRolloutPreview((current) => {
+      if (!current) {
+        return current;
+      }
+      if (current.drift === rolloutDriftPreview) {
+        return current;
+      }
+      return {
+        ...current,
+        drift: rolloutDriftPreview,
+      };
+    });
+  }, [rolloutPreview, rolloutDriftPreview]);
+
   const driftTone = driftBadgeTone(overview?.drift.status ?? "registry_drift");
+  const latestSyncCompletedAt = syncRuns?.runs?.[0]?.completedAt;
+  const selectedLifecycleTemplate = templateLifecycleOptions?.templates.find(
+    (template) => template.templateId === selectedLifecycleTemplateId,
+  );
+  const selectedLifecycleVersion = selectedLifecycleTemplate?.versions.find(
+    (version) => version.templateVersionId === selectedLifecycleVersionId,
+  );
+  const selectedRolloutTemplate = templateRolloutOptions?.templates.find(
+    (template) => template.templateId === selectedRolloutTemplateId,
+  );
+  const selectedRolloutTemplateOwnerOrgId =
+    typeof selectedRolloutTemplate?.templateOrganizationId === "string" &&
+    selectedRolloutTemplate.templateOrganizationId.trim().length > 0
+      ? selectedRolloutTemplate.templateOrganizationId.trim()
+      : undefined;
+  const selectedRolloutVersion = selectedRolloutTemplate?.versions.find(
+    (version) => version.templateVersionId === selectedRolloutVersionId,
+  );
+  const rolloutStageSizeValue = parsePositiveIntegerInput(
+    rolloutStageSize,
+    DEFAULT_ROLLOUT_STAGE_SIZE,
+  );
+  const rolloutStageStartIndexValue = parseNonNegativeIntegerInput(
+    rolloutStageStartIndex,
+    0,
+  );
+  const templateScopedInventoryRows = (cloneInventory?.rows ?? []).filter(
+    (row) => !selectedRolloutTemplateId || row.templateId === selectedRolloutTemplateId,
+  );
+  const cloneBackedTemplateScopedOrgIds = Array.from(
+    new Set(templateScopedInventoryRows.map((row) => row.organizationId)),
+  ).sort((left, right) => left.localeCompare(right));
+  const cloneBackedOrgIdSet = new Set(cloneBackedTemplateScopedOrgIds);
+  const rolloutOrganizationOptions = organizationOptions
+    .filter(
+      (organization) =>
+        organization.isActive !== false &&
+        String(organization._id) !== selectedRolloutTemplateOwnerOrgId,
+    )
+    .map((organization) => {
+      const id = String(organization._id);
+      return {
+        id,
+        name: organization.name || id,
+        hasClone: cloneBackedOrgIdSet.has(id),
+      };
+    })
+    .sort((left, right) => {
+      const nameSort = left.name.localeCompare(right.name);
+      if (nameSort !== 0) {
+        return nameSort;
+      }
+      return left.id.localeCompare(right.id);
+    });
+  const availableRolloutOrgIds = rolloutOrganizationOptions.map((organization) => organization.id);
+  const rolloutOrganizationNameById = new Map(
+    rolloutOrganizationOptions.map((organization) => [organization.id, organization.name]),
+  );
+  const plannedRolloutRows = lastRolloutResult?.plan ?? [];
+  const driftTargetByOrganizationId = new Map(
+    (rolloutPreview?.drift?.targets ?? []).map((target) => [target.organizationId, target]),
+  );
+  const normalizedRolloutOrganizationSearch = rolloutOrganizationSearch.trim().toLowerCase();
+  const filteredRolloutOrganizationOptions = rolloutOrganizationOptions.filter((organization) => {
+    if (!normalizedRolloutOrganizationSearch) {
+      return true;
+    }
+    return (
+      organization.name.toLowerCase().includes(normalizedRolloutOrganizationSearch) ||
+      organization.id.toLowerCase().includes(normalizedRolloutOrganizationSearch)
+    );
+  });
+  const rolloutOrganizationTotalPages = Math.max(
+    1,
+    Math.ceil(filteredRolloutOrganizationOptions.length / ROLLOUT_ORGANIZATION_PAGE_SIZE),
+  );
+  const boundedRolloutOrganizationPage = Math.min(
+    Math.max(1, rolloutOrganizationPage),
+    rolloutOrganizationTotalPages,
+  );
+  const rolloutOrganizationPageStart =
+    (boundedRolloutOrganizationPage - 1) * ROLLOUT_ORGANIZATION_PAGE_SIZE;
+  const pagedRolloutOrganizationOptions = filteredRolloutOrganizationOptions.slice(
+    rolloutOrganizationPageStart,
+    rolloutOrganizationPageStart + ROLLOUT_ORGANIZATION_PAGE_SIZE,
+  );
+  useEffect(() => {
+    if (rolloutOrganizationPage !== boundedRolloutOrganizationPage) {
+      setRolloutOrganizationPage(boundedRolloutOrganizationPage);
+    }
+  }, [rolloutOrganizationPage, boundedRolloutOrganizationPage]);
+  const defaultRolloutTargetOrgIds = cloneBackedTemplateScopedOrgIds;
+  const effectiveRolloutTargetOrgIds =
+    rolloutTargetOrgIds.length > 0 ? rolloutTargetOrgIds : defaultRolloutTargetOrgIds;
+  const stagedRolloutTargetOrgIds = effectiveRolloutTargetOrgIds
+    .slice()
+    .sort((left, right) => left.localeCompare(right))
+    .slice(
+      rolloutStageStartIndexValue,
+      rolloutStageStartIndexValue + rolloutStageSizeValue,
+    );
+  const hasRolloutTemplates = (templateRolloutOptions?.templates?.length ?? 0) > 0;
+  const hasLifecycleTemplates = (templateLifecycleOptions?.templates?.length ?? 0) > 0;
+  const hasSelectedTemplateVersions = (selectedRolloutTemplate?.versions?.length ?? 0) > 0;
+  const rolloutReadinessIssue = !hasRolloutTemplates
+    ? "No templates are available for rollout options yet."
+    : !selectedRolloutTemplate
+      ? "Select a template before generating a rollout preview."
+      : !hasSelectedTemplateVersions
+        ? "Selected template has no version snapshots yet. Create/publish a version first."
+        : effectiveRolloutTargetOrgIds.length === 0
+          ? "No target organizations currently have clones for the selected template."
+          : null;
+  const rolloutConfirmIssue = rolloutReadinessIssue
+    ? rolloutReadinessIssue
+    : !selectedRolloutTemplate || !selectedRolloutVersion
+      ? "Select a template and target version before apply or rollback."
+      : !rolloutPreview || rolloutPreview.stagedTargetOrganizationIds.length === 0
+        ? "Generate rollout preview first. Apply and rollback are confirmation-gated after preview."
+        : rolloutReason.trim().length === 0
+          ? "Reason is required before apply or rollback."
+          : null;
+  const templateLifecycleVersions = selectedLifecycleTemplate?.versions ?? [];
+  const hasTemplateLifecycleVersions = templateLifecycleVersions.length > 0;
+  const fallbackPublishableVersion = templateLifecycleVersions.find(
+    (version) => version.lifecycleStatus === "draft",
+  );
+  const selectedOrPublishableVersion = selectedLifecycleVersion ?? fallbackPublishableVersion ?? null;
+  const createSnapshotDisabledReason = !sessionId
+    ? "Super admin session is required."
+    : !selectedLifecycleTemplate
+      ? "Select a template first."
+      : isSubmittingWrite
+        ? "Wait for current write operation to complete."
+        : null;
+  const publishDisabledReason = !sessionId
+    ? "Super admin session is required."
+    : !selectedLifecycleTemplate
+      ? "Select a template first."
+      : !hasTemplateLifecycleVersions
+        ? "No versions created yet."
+        : !selectedOrPublishableVersion
+          ? "No publishable version available."
+          : selectedOrPublishableVersion.lifecycleStatus !== "draft"
+            ? "Only draft versions are publishable."
+            : isSubmittingWrite
+              ? "Wait for current write operation to complete."
+              : null;
+  const deprecateDisabledReason = !sessionId
+    ? "Super admin session is required."
+    : !selectedLifecycleTemplate
+      ? "Select a template first."
+      : !selectedLifecycleVersion
+        ? "Select a version first."
+        : selectedLifecycleVersion.lifecycleStatus !== "published"
+          ? "Only published versions can be deprecated."
+          : deprecateVersionReasonDraft.trim().length === 0
+            ? "Deprecation reason is required."
+            : isSubmittingWrite
+              ? "Wait for current write operation to complete."
+              : null;
 
   const handleAudit = async () => {
     if (!sessionId || isRunningAudit) {
@@ -559,6 +1358,303 @@ export function AgentControlCenterTab() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool Foundry decision failed.";
       setWriteMessage({ type: "error", text: message });
+    } finally {
+      setIsSubmittingWrite(false);
+    }
+  };
+
+  const clearTemplateLifecycleDerivedState = () => {
+    setRolloutPreview(null);
+    setRolloutPreviewRequest(null);
+    setLastRolloutResult(null);
+  };
+
+  const triggerTemplateLifecycleRefresh = () => {
+    setTemplateDataRefreshNonce((current) => current + 1);
+    clearTemplateLifecycleDerivedState();
+  };
+
+  const handleCreateSnapshot = async () => {
+    if (!sessionId || !selectedLifecycleTemplate || isSubmittingWrite) {
+      setTemplateLifecycleMessage({
+        type: "error",
+        text: createSnapshotDisabledReason || "Snapshot creation is currently unavailable.",
+      });
+      return;
+    }
+    setIsSubmittingWrite(true);
+    setTemplateLifecycleMessage(null);
+    try {
+      const result = await createAgentTemplateVersionSnapshot({
+        sessionId,
+        templateId: selectedLifecycleTemplate.templateId as any,
+        versionTag: snapshotVersionTagDraft.trim() || undefined,
+        summary: snapshotSummaryDraft.trim() || undefined,
+      });
+      triggerTemplateLifecycleRefresh();
+      setSelectedLifecycleVersionId(String(result.templateVersionId));
+      setSnapshotVersionTagDraft("");
+      setSnapshotSummaryDraft("");
+      setTemplateLifecycleMessage({
+        type: "success",
+        text: `Created snapshot ${result.versionTag}.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create version snapshot.";
+      setTemplateLifecycleMessage({ type: "error", text: message });
+    } finally {
+      setIsSubmittingWrite(false);
+    }
+  };
+
+  const handleRequestPublishVersion = () => {
+    if (publishDisabledReason || !selectedLifecycleTemplate || !selectedOrPublishableVersion) {
+      setTemplateLifecycleMessage({
+        type: "error",
+        text: publishDisabledReason || "Publish is currently unavailable.",
+      });
+      return;
+    }
+    setPendingTemplateLifecycleConfirmAction({
+      type: "publish",
+      templateId: selectedLifecycleTemplate.templateId,
+      templateName: selectedLifecycleTemplate.templateName,
+      templateVersionId: selectedOrPublishableVersion.templateVersionId,
+      templateVersionTag: selectedOrPublishableVersion.versionTag,
+      publishReason: publishVersionReasonDraft.trim() || undefined,
+    });
+  };
+
+  const handleRequestDeprecateVersion = () => {
+    if (deprecateDisabledReason || !selectedLifecycleTemplate || !selectedLifecycleVersion) {
+      setTemplateLifecycleMessage({
+        type: "error",
+        text: deprecateDisabledReason || "Deprecation is currently unavailable.",
+      });
+      return;
+    }
+    setPendingTemplateLifecycleConfirmAction({
+      type: "deprecate",
+      templateId: selectedLifecycleTemplate.templateId,
+      templateName: selectedLifecycleTemplate.templateName,
+      templateVersionId: selectedLifecycleVersion.templateVersionId,
+      templateVersionTag: selectedLifecycleVersion.versionTag,
+      reason: deprecateVersionReasonDraft.trim(),
+    });
+  };
+
+  const handleConfirmedTemplateLifecycleAction = async () => {
+    if (!sessionId || !pendingTemplateLifecycleConfirmAction || isSubmittingWrite) {
+      return;
+    }
+    setIsSubmittingWrite(true);
+    setTemplateLifecycleMessage(null);
+    try {
+      const action = pendingTemplateLifecycleConfirmAction;
+      if (action.type === "publish") {
+        await publishAgentTemplateVersion({
+          sessionId,
+          templateId: action.templateId as any,
+          templateVersionId: action.templateVersionId as any,
+          publishReason: action.publishReason,
+        });
+        setSelectedLifecycleVersionId(action.templateVersionId);
+        setPublishVersionReasonDraft("");
+        setTemplateLifecycleMessage({
+          type: "success",
+          text: `Published ${action.templateVersionTag}.`,
+        });
+      } else {
+        await deprecateAgentTemplateLifecycle({
+          sessionId,
+          templateId: action.templateId as any,
+          target: "version",
+          templateVersionId: action.templateVersionId as any,
+          reason: action.reason,
+        });
+        setDeprecateVersionReasonDraft("");
+        setTemplateLifecycleMessage({
+          type: "success",
+          text: `Deprecated ${action.templateVersionTag}.`,
+        });
+      }
+      triggerTemplateLifecycleRefresh();
+      setPendingTemplateLifecycleConfirmAction(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Template lifecycle action failed.";
+      setTemplateLifecycleMessage({ type: "error", text: message });
+    } finally {
+      setIsSubmittingWrite(false);
+    }
+  };
+
+  const handleRolloutPreview = async () => {
+    if (!sessionId || !selectedRolloutTemplate || !selectedRolloutVersion) {
+      setWriteMessage({
+        type: "error",
+        text: "Select a template and target version before generating rollout preview.",
+      });
+      return;
+    }
+    if (effectiveRolloutTargetOrgIds.length === 0) {
+      setWriteMessage({
+        type: "error",
+        text: "No rollout target organizations available for selected template.",
+      });
+      return;
+    }
+    setIsLoadingRolloutPreview(true);
+    setWriteMessage(null);
+    setRolloutInlineMessage({
+      type: "info",
+      text: "Generating rollout preview...",
+    });
+    try {
+      const dryRunPlan = (await distributeTemplateToOrganizations({
+        sessionId,
+        templateId: selectedRolloutTemplate.templateId,
+        templateVersionId: selectedRolloutVersion.templateVersionId,
+        operationKind: rolloutMode === "rollback" ? "rollout_rollback" : "rollout_apply",
+        targetOrganizationIds: effectiveRolloutTargetOrgIds as any,
+        stagedRollout: {
+          stageSize: rolloutStageSizeValue,
+          stageStartIndex: rolloutStageStartIndexValue,
+        },
+        dryRun: true,
+        reason:
+          rolloutReason.trim() ||
+          (rolloutMode === "rollback"
+            ? "template_distribution_rollback_preview"
+            : "template_distribution_rollout_preview"),
+      })) as RolloutPlanResponse;
+      setRolloutPreview({
+        requestedTargetOrganizationIds: dryRunPlan.requestedTargetOrganizationIds,
+        stagedTargetOrganizationIds: dryRunPlan.targetOrganizationIds,
+        drift: null,
+      });
+      setRolloutPreviewRequest({
+        templateId: selectedRolloutTemplate.templateId,
+        templateVersionId: selectedRolloutVersion.templateVersionId,
+        targetOrganizationIds: dryRunPlan.targetOrganizationIds,
+      });
+      setLastRolloutResult(dryRunPlan);
+      setWriteMessage({
+        type: "success",
+        text: `Rollout preview ready (${dryRunPlan.targetOrganizationIds.length} staged orgs, job ${dryRunPlan.distributionJobId}).`,
+      });
+      setRolloutInlineMessage({
+        type: "success",
+        text: `Preview ready. ${dryRunPlan.targetOrganizationIds.length} organizations staged.`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to generate rollout preview.";
+      setWriteMessage({ type: "error", text: message });
+      setRolloutInlineMessage({
+        type: "error",
+        text: `Preview failed: ${message}`,
+      });
+    } finally {
+      setIsLoadingRolloutPreview(false);
+    }
+  };
+
+  const handleRequestRolloutConfirm = () => {
+    if (!selectedRolloutTemplate || !selectedRolloutVersion) {
+      const message = "Select a template and target version before apply or rollback.";
+      setWriteMessage({
+        type: "error",
+        text: message,
+      });
+      setRolloutInlineMessage({ type: "error", text: message });
+      return;
+    }
+    if (!rolloutPreview || rolloutPreview.stagedTargetOrganizationIds.length === 0) {
+      const message = "Generate rollout preview first. Apply and rollback are confirmation-gated after preview.";
+      setWriteMessage({
+        type: "error",
+        text: message,
+      });
+      setRolloutInlineMessage({ type: "error", text: message });
+      return;
+    }
+    const reason = rolloutReason.trim();
+    if (!reason) {
+      const message = "Reason is required before apply or rollback.";
+      setWriteMessage({
+        type: "error",
+        text: message,
+      });
+      setRolloutInlineMessage({ type: "error", text: message });
+      return;
+    }
+    setPendingRolloutConfirmAction({
+      type: rolloutMode === "rollback" ? "rollout_rollback" : "rollout_apply",
+      templateId: selectedRolloutTemplate.templateId,
+      templateName: selectedRolloutTemplate.templateName,
+      templateVersionId: selectedRolloutVersion.templateVersionId,
+      templateVersionTag: selectedRolloutVersion.versionTag,
+      targetOrganizationIds: rolloutPreview.stagedTargetOrganizationIds,
+      stageSize: rolloutStageSizeValue,
+      stageStartIndex: rolloutStageStartIndexValue,
+      reason,
+    });
+    setRolloutInlineMessage({
+      type: "info",
+      text: "Confirmation required. Use Confirm Rollout to execute.",
+    });
+  };
+
+  const handleConfirmedRollout = async () => {
+    if (!sessionId || !pendingRolloutConfirmAction || isSubmittingWrite) {
+      return;
+    }
+    setIsSubmittingWrite(true);
+    setWriteMessage(null);
+    setRolloutInlineMessage({
+      type: "info",
+      text: "Executing rollout...",
+    });
+    try {
+      const action = pendingRolloutConfirmAction;
+      const applyResult = (await distributeTemplateToOrganizations({
+        sessionId,
+        templateId: action.templateId,
+        templateVersionId: action.templateVersionId as any,
+        operationKind: action.type === "rollout_rollback" ? "rollout_rollback" : "rollout_apply",
+        targetOrganizationIds: action.targetOrganizationIds as any,
+        stagedRollout: {
+          stageSize: action.stageSize,
+          stageStartIndex: 0,
+        },
+        dryRun: false,
+        reason: action.reason,
+      })) as RolloutPlanResponse;
+      setLastRolloutResult(applyResult);
+      setPendingRolloutConfirmAction(null);
+      setWriteMessage({
+        type: "success",
+        text:
+          action.type === "rollout_rollback"
+            ? `Rollback applied (${applyResult.summary.applied.creates + applyResult.summary.applied.updates} mutations, job ${applyResult.distributionJobId}).`
+            : `Rollout applied (${applyResult.summary.applied.creates + applyResult.summary.applied.updates} mutations, job ${applyResult.distributionJobId}).`,
+      });
+      setRolloutInlineMessage({
+        type: "success",
+        text:
+          action.type === "rollout_rollback"
+            ? `Rollback completed. Job ${applyResult.distributionJobId}.`
+            : `Rollout completed. Job ${applyResult.distributionJobId}.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Rollout execution failed.";
+      setWriteMessage({ type: "error", text: message });
+      setRolloutInlineMessage({
+        type: "error",
+        text: `Rollout failed: ${message}`,
+      });
     } finally {
       setIsSubmittingWrite(false);
     }
@@ -677,7 +1773,7 @@ export function AgentControlCenterTab() {
     );
   }
 
-  if (!overview || !listAgents || !syncRuns) {
+  if (!overview || !listAgents || !syncRuns || !cloneInventory) {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader2 size={24} className="animate-spin" style={{ color: "var(--primary)" }} />
@@ -686,8 +1782,8 @@ export function AgentControlCenterTab() {
   }
 
   return (
-    <div className="h-full p-4 flex gap-4 overflow-hidden">
-      <div className="flex-1 min-w-0 flex flex-col gap-3 overflow-hidden">
+    <div className="h-full min-h-0 p-4 flex gap-4 overflow-auto">
+      <div className="flex-1 min-w-0 flex flex-col gap-3">
         <div className="border rounded p-3 flex flex-col gap-3" style={{ borderColor: "var(--window-document-border)" }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -881,6 +1977,938 @@ export function AgentControlCenterTab() {
               ))}
             </div>
           )}
+        </div>
+
+        <TemplateHubEntryPanel
+          totalCatalogAgents={overview.summary.totalAgents}
+          publishedCatalogAgents={overview.summary.published}
+          latestSyncCompletedAt={latestSyncCompletedAt}
+          driftStatus={overview.drift.status}
+          activeSection={templateHubSection}
+          onSelectSection={setTemplateHubSection}
+        />
+
+        <div
+          className="border rounded p-2 text-xs"
+          style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+        >
+          {templateHubSection === "catalog" && (
+            <p>Template catalog view is active. Use dataset filters and the agent table to inspect publish readiness.</p>
+          )}
+          {templateHubSection === "versions" && (
+            <div className="space-y-3">
+              <p>Version history view is active. Use sync runs and drift status above as the timeline source of truth.</p>
+
+              {templateLifecycleMessage && (
+                <div
+                  className="text-xs border rounded px-2 py-1 flex items-center gap-2"
+                  style={{
+                    borderColor: templateLifecycleMessage.type === "success" ? "#15803d" : "#dc2626",
+                    color: templateLifecycleMessage.type === "success" ? "#166534" : "#991b1b",
+                    background: templateLifecycleMessage.type === "success" ? "#f0fdf4" : "#fee2e2",
+                  }}
+                >
+                  {templateLifecycleMessage.type === "success" ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                  {templateLifecycleMessage.text}
+                </div>
+              )}
+
+              {!hasLifecycleTemplates ? (
+                <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  No templates available.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Template
+                      </span>
+                      <select
+                        className="px-2 py-1 text-xs border rounded bg-transparent"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        value={selectedLifecycleTemplateId}
+                        onChange={(event) => {
+                          setSelectedLifecycleTemplateId(event.target.value);
+                          clearTemplateLifecycleDerivedState();
+                          setTemplateLifecycleMessage(null);
+                        }}
+                      >
+                        {templateLifecycleOptions?.templates.map((template) => (
+                          <option key={template.templateId} value={template.templateId}>
+                            {template.templateName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Version
+                      </span>
+                      <select
+                        className="px-2 py-1 text-xs border rounded bg-transparent"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        value={selectedLifecycleVersionId}
+                        onChange={(event) => {
+                          setSelectedLifecycleVersionId(event.target.value);
+                          clearTemplateLifecycleDerivedState();
+                          setTemplateLifecycleMessage(null);
+                        }}
+                      >
+                        {!hasTemplateLifecycleVersions && <option value="">No versions available</option>}
+                        {templateLifecycleVersions.map((version) => (
+                          <option key={version.templateVersionId} value={version.templateVersionId}>
+                            {version.versionTag} ({version.lifecycleStatus})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  {!hasTemplateLifecycleVersions && (
+                    <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      No versions created yet.
+                    </p>
+                  )}
+
+                  {hasTemplateLifecycleVersions && !fallbackPublishableVersion && (
+                    <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      No publishable version available.
+                    </p>
+                  )}
+
+                  <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p className="font-semibold">Create Snapshot</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <label className="text-[11px] flex flex-col gap-1">
+                        Version tag (optional)
+                        <input
+                          type="text"
+                          value={snapshotVersionTagDraft}
+                          onChange={(event) => setSnapshotVersionTagDraft(event.target.value)}
+                          className="px-2 py-1 text-xs border rounded bg-transparent"
+                          style={{ borderColor: "var(--window-document-border)" }}
+                          placeholder="v3"
+                          disabled={isSubmittingWrite}
+                        />
+                      </label>
+                      <label className="text-[11px] flex flex-col gap-1">
+                        Summary (optional)
+                        <input
+                          type="text"
+                          value={snapshotSummaryDraft}
+                          onChange={(event) => setSnapshotSummaryDraft(event.target.value)}
+                          className="px-2 py-1 text-xs border rounded bg-transparent"
+                          style={{ borderColor: "var(--window-document-border)" }}
+                          placeholder="describe changes in this snapshot"
+                          disabled={isSubmittingWrite}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-xs border rounded"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                      disabled={Boolean(createSnapshotDisabledReason)}
+                      title={createSnapshotDisabledReason ?? "Create a new immutable version snapshot"}
+                      onClick={handleCreateSnapshot}
+                    >
+                      Create Snapshot
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-xs border rounded"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                      disabled={isSubmittingWrite}
+                      title="Explicitly refetch lifecycle data"
+                      onClick={() => {
+                        triggerTemplateLifecycleRefresh();
+                        setTemplateLifecycleMessage({
+                          type: "success",
+                          text: "Lifecycle data refresh requested.",
+                        });
+                      }}
+                    >
+                      Refresh Lifecycle Data
+                    </button>
+                    {createSnapshotDisabledReason && (
+                      <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Create Snapshot unavailable: {createSnapshotDisabledReason}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p className="font-semibold">Publish / Deprecate</p>
+                    <label className="text-[11px] flex flex-col gap-1">
+                      Publish reason (optional)
+                      <input
+                        type="text"
+                        value={publishVersionReasonDraft}
+                        onChange={(event) => setPublishVersionReasonDraft(event.target.value)}
+                        className="px-2 py-1 text-xs border rounded bg-transparent"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        placeholder="release to rollout channel"
+                        disabled={isSubmittingWrite}
+                      />
+                    </label>
+                    <label className="text-[11px] flex flex-col gap-1">
+                      Deprecation reason (required)
+                      <input
+                        type="text"
+                        value={deprecateVersionReasonDraft}
+                        onChange={(event) => setDeprecateVersionReasonDraft(event.target.value)}
+                        className="px-2 py-1 text-xs border rounded bg-transparent"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        placeholder="superseded_by_newer_version"
+                        disabled={isSubmittingWrite}
+                      />
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs border rounded"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        disabled={Boolean(publishDisabledReason)}
+                        title={publishDisabledReason ?? "Publish selected draft version"}
+                        onClick={handleRequestPublishVersion}
+                      >
+                        Publish
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs border rounded"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        disabled={Boolean(deprecateDisabledReason)}
+                        title={deprecateDisabledReason ?? "Deprecate selected published version"}
+                        onClick={handleRequestDeprecateVersion}
+                      >
+                        Deprecate
+                      </button>
+                    </div>
+                    {publishDisabledReason && (
+                      <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Publish unavailable: {publishDisabledReason}
+                      </p>
+                    )}
+                    {deprecateDisabledReason && (
+                      <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Deprecate unavailable: {deprecateDisabledReason}
+                      </p>
+                    )}
+                  </div>
+
+                  {hasTemplateLifecycleVersions && (
+                    <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr style={{ background: "var(--window-document-bg-elevated)" }}>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Version</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Lifecycle</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Updated</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {templateLifecycleVersions.map((version) => {
+                            const tone = statusTone(version.lifecycleStatus === "published"
+                              ? "full"
+                              : version.lifecycleStatus === "draft"
+                                ? "skeleton"
+                                : "missing");
+                            return (
+                              <tr key={version.templateVersionId}>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {version.versionTag}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  <span className="px-1 py-0.5 rounded" style={{ color: tone.color, background: tone.bg }}>
+                                    {version.lifecycleStatus}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {formatDateTime(version.updatedAt)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          {templateHubSection === "rollout" && (
+            <div className="space-y-3">
+              <p>
+                Rollout actions are confirmation-gated and preserve deterministic precedence:
+                platform policy -&gt; template baseline -&gt; org clone overrides -&gt; runtime/session restrictions.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Template
+                  </span>
+                  <select
+                    className="px-2 py-1 text-xs border rounded bg-transparent"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                    value={selectedRolloutTemplateId}
+                    onChange={(event) => {
+                      setSelectedRolloutTemplateId(event.target.value);
+                      setRolloutPreview(null);
+                      setRolloutPreviewRequest(null);
+                    }}
+                  >
+                    {(templateRolloutOptions?.templates ?? []).map((template) => (
+                      <option key={template.templateId} value={template.templateId}>
+                        {template.templateName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Target version
+                  </span>
+                  <select
+                    className="px-2 py-1 text-xs border rounded bg-transparent"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                    value={selectedRolloutVersionId}
+                    onChange={(event) => {
+                      setSelectedRolloutVersionId(event.target.value);
+                      setRolloutPreview(null);
+                      setRolloutPreviewRequest(null);
+                    }}
+                  >
+                    {(!hasSelectedTemplateVersions || !selectedRolloutVersionId) && (
+                      <option value="">
+                        {hasSelectedTemplateVersions ? "Select target version" : "No versions available"}
+                      </option>
+                    )}
+                    {(selectedRolloutTemplate?.versions ?? []).map((version) => (
+                      <option key={version.templateVersionId} value={version.templateVersionId}>
+                        {version.versionTag} ({version.lifecycleStatus})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Mode
+                  </span>
+                  <select
+                    className="px-2 py-1 text-xs border rounded bg-transparent"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                    value={rolloutMode}
+                    onChange={(event) => setRolloutMode(event.target.value === "rollback" ? "rollback" : "apply")}
+                  >
+                    <option value="apply">Apply rollout</option>
+                    <option value="rollback">Rollback to target version</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Stage size
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={rolloutStageSize}
+                    onChange={(event) => setRolloutStageSize(event.target.value)}
+                    className="px-2 py-1 text-xs border rounded"
+                    style={{ borderColor: "var(--window-document-border)", background: "transparent" }}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Stage start index
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={rolloutStageStartIndex}
+                    onChange={(event) => setRolloutStageStartIndex(event.target.value)}
+                    className="px-2 py-1 text-xs border rounded"
+                    style={{ borderColor: "var(--window-document-border)", background: "transparent" }}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Reason (required for apply/rollback)
+                  </span>
+                  <input
+                    type="text"
+                    value={rolloutReason}
+                    onChange={(event) => setRolloutReason(event.target.value)}
+                    placeholder={
+                      rolloutMode === "rollback"
+                        ? "rollback_to_template_version_due_to_incident"
+                        : "staged_rollout_window_1"
+                    }
+                    className="px-2 py-1 text-xs border rounded"
+                    style={{ borderColor: "var(--window-document-border)", background: "transparent" }}
+                  />
+                </label>
+              </div>
+
+              <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+                <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  Target organizations (defaults to clone-backed orgs for selected template): {cloneBackedTemplateScopedOrgIds.length} clone-backed / {availableRolloutOrgIds.length} active
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={rolloutOrganizationSearch}
+                    onChange={(event) => {
+                      setRolloutOrganizationSearch(event.target.value);
+                      setRolloutOrganizationPage(1);
+                    }}
+                    placeholder="Search org name or ID"
+                    className="min-w-[220px] px-2 py-1 text-xs border rounded"
+                    style={{ borderColor: "var(--window-document-border)", background: "transparent" }}
+                  />
+                  <div className="flex items-center gap-1 text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded disabled:opacity-50"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                      disabled={boundedRolloutOrganizationPage <= 1}
+                      onClick={() => setRolloutOrganizationPage((current) => Math.max(1, current - 1))}
+                    >
+                      Prev
+                    </button>
+                    <span>
+                      Page {boundedRolloutOrganizationPage} / {rolloutOrganizationTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="px-2 py-1 border rounded disabled:opacity-50"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                      disabled={boundedRolloutOrganizationPage >= rolloutOrganizationTotalPages}
+                      onClick={() =>
+                        setRolloutOrganizationPage((current) =>
+                          Math.min(rolloutOrganizationTotalPages, current + 1),
+                        )
+                      }
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <span className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Showing {pagedRolloutOrganizationOptions.length} of {filteredRolloutOrganizationOptions.length} matches
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+                  {filteredRolloutOrganizationOptions.length === 0 ? (
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>No active organizations available.</p>
+                  ) : (
+                    pagedRolloutOrganizationOptions.map((organization) => {
+                      const organizationId = organization.id;
+                      const checked = rolloutTargetOrgIds.includes(organizationId);
+                      return (
+                        <label key={organizationId} className="flex items-center gap-1 text-[11px]">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              setRolloutPreview(null);
+                              setRolloutPreviewRequest(null);
+                              setRolloutTargetOrgIds((current) => {
+                                const next = new Set(current);
+                                if (event.target.checked) {
+                                  next.add(organizationId);
+                                } else {
+                                  next.delete(organizationId);
+                                }
+                                return Array.from(next).sort((left, right) => left.localeCompare(right));
+                              });
+                            }}
+                          />
+                          {organization.name}
+                          <span style={{ color: "var(--desktop-menu-text-muted)" }}>
+                            ({organization.hasClone ? "clone" : "new"})
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-1 text-xs border rounded"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                  disabled={isLoadingRolloutPreview || Boolean(rolloutReadinessIssue)}
+                  title={rolloutReadinessIssue ?? "Generate rollout dry-run and drift preview"}
+                  onClick={handleRolloutPreview}
+                >
+                  {isLoadingRolloutPreview ? "Preparing preview..." : "Preview rollout diff"}
+                </button>
+                <button
+                  type="button"
+                  className="px-2 py-1 text-xs border rounded"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                  disabled={isSubmittingWrite}
+                  title={rolloutConfirmIssue ?? "Run confirmation-gated rollout apply or rollback"}
+                  onClick={handleRequestRolloutConfirm}
+                >
+                  {rolloutMode === "rollback" ? "Rollback (confirm)" : "Apply rollout (confirm)"}
+                </button>
+              </div>
+              {rolloutConfirmIssue && (
+                <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  Apply/rollback unavailable: {rolloutConfirmIssue}
+                </p>
+              )}
+              {rolloutInlineMessage && (
+                <div
+                  className="border rounded px-2 py-1 text-[11px]"
+                  style={{
+                    borderColor:
+                      rolloutInlineMessage.type === "error"
+                        ? "#dc2626"
+                        : rolloutInlineMessage.type === "success"
+                          ? "#15803d"
+                          : "var(--window-document-border)",
+                    color:
+                      rolloutInlineMessage.type === "error"
+                        ? "#991b1b"
+                        : rolloutInlineMessage.type === "success"
+                          ? "#166534"
+                          : "var(--window-document-text)",
+                    background:
+                      rolloutInlineMessage.type === "error"
+                        ? "#fee2e2"
+                        : rolloutInlineMessage.type === "success"
+                          ? "#f0fdf4"
+                          : "var(--window-document-bg-elevated)",
+                  }}
+                >
+                  {rolloutInlineMessage.text}
+                </div>
+              )}
+              {pendingRolloutConfirmAction && (
+                <div
+                  className="border rounded p-2 space-y-2"
+                  style={{ borderColor: "#f59e0b", background: "var(--window-document-bg-elevated)" }}
+                >
+                  <p className="text-[11px] font-semibold" style={{ color: "var(--window-document-text)" }}>
+                    Confirmation pending: {pendingRolloutConfirmAction.type === "rollout_rollback" ? "Rollback" : "Apply rollout"}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Template {pendingRolloutConfirmAction.templateVersionTag} • {pendingRolloutConfirmAction.targetOrganizationIds.length} staged orgs
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-xs border rounded"
+                      style={{ borderColor: "#f59e0b" }}
+                      disabled={isSubmittingWrite}
+                      onClick={handleConfirmedRollout}
+                    >
+                      {pendingRolloutConfirmAction.type === "rollout_rollback" ? "Run rollback now" : "Run rollout now"}
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-xs border rounded"
+                      style={{ borderColor: "var(--window-document-border)" }}
+                      disabled={isSubmittingWrite}
+                      onClick={() => setPendingRolloutConfirmAction(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {rolloutReadinessIssue && (
+                <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                  Rollout unavailable: {rolloutReadinessIssue}
+                </p>
+              )}
+
+              <div className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Requested orgs: {effectiveRolloutTargetOrgIds.length} | Staged window preview: {stagedRolloutTargetOrgIds.length}
+              </div>
+
+              {rolloutPreview && (
+                <div
+                  className="border rounded p-2 space-y-2"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                >
+                  <p className="font-semibold">Rollout preview summary</p>
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Requested: {rolloutPreview.requestedTargetOrganizationIds.length} | Staged: {rolloutPreview.stagedTargetOrganizationIds.length}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Plan creates: {lastRolloutResult?.summary.plan.creates ?? 0} | updates: {lastRolloutResult?.summary.plan.updates ?? 0} | skips: {lastRolloutResult?.summary.plan.skips ?? 0} | blocked: {lastRolloutResult?.summary.plan.blocked ?? 0}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Rollout plan ID: {lastRolloutResult?.distributionJobId ?? "n/a"}
+                  </p>
+
+                  <p className="font-semibold text-[12px]">Planned targets</p>
+                  <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr style={{ background: "var(--window-document-bg-elevated)" }}>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org</th>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Operation</th>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Template version</th>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Existing clone</th>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Reason</th>
+                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Changed fields</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {plannedRolloutRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-2 py-2 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                              No staged rollout plan rows found.
+                            </td>
+                          </tr>
+                        ) : (
+                          plannedRolloutRows.map((row) => (
+                            <tr key={`${row.organizationId}:${row.operation}:${row.reason}`}>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {rolloutOrganizationNameById.get(row.organizationId) ?? row.organizationId}
+                                <div style={{ color: "var(--desktop-menu-text-muted)" }}>{row.organizationId}</div>
+                              </td>
+                              <td className="px-2 py-1 border-b capitalize" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.operation}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {lastRolloutResult?.templateVersion ?? selectedRolloutVersion?.versionTag ?? "n/a"}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.existingCloneId ?? "n/a (new clone)"}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.reason}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.changedFields.length}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="font-semibold text-[12px]">Drift details (updates only)</p>
+                  {!rolloutPreview.drift ? (
+                    <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      Loading preview drift diff...
+                    </p>
+                  ) : (
+                    <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr style={{ background: "var(--window-document-bg-elevated)" }}>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Clone</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>State</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Diff</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {plannedRolloutRows.filter((row) => row.operation === "update").length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-2 py-2 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                No update rows in this plan, so drift detail is not required.
+                              </td>
+                            </tr>
+                          ) : (
+                            plannedRolloutRows
+                              .filter((row) => row.operation === "update")
+                              .map((row) => {
+                                const target = driftTargetByOrganizationId.get(row.organizationId);
+                                const firstDiff = target?.diff?.[0];
+                                return (
+                                  <tr key={`drift:${row.organizationId}`}>
+                                    <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                      {row.organizationId}
+                                    </td>
+                                    <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                      {target?.cloneAgentId ?? row.existingCloneId ?? "n/a"}
+                                    </td>
+                                    <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                      {target?.policyState ?? row.operation}
+                                    </td>
+                                    <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                      {firstDiff
+                                        ? `${firstDiff.field} (${firstDiff.policyMode}): ${formatRolloutDiffValue(firstDiff.cloneValue)} -> ${formatRolloutDiffValue(firstDiff.templateValue)}`
+                                        : "diff pending"}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div
+                className="border rounded p-2 space-y-2"
+                style={{ borderColor: "var(--window-document-border)" }}
+              >
+                <p className="font-semibold">Distribution telemetry</p>
+                {!distributionTelemetry ? (
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Loading distribution telemetry...
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      Generated {formatDateTime(distributionTelemetry.generatedAt)}
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                      <MiniStat label="Jobs" value={distributionTelemetry.summary.totalJobs} />
+                      <MiniStat label="Completed" value={distributionTelemetry.summary.byStatus.completed} />
+                      <MiniStat label="With errors" value={distributionTelemetry.summary.byStatus.completedWithErrors} />
+                      <MiniStat label="Rollbacks" value={distributionTelemetry.summary.byOperationKind.rolloutRollback} />
+                    </div>
+                    <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      Affected org totals - requested: {distributionTelemetry.summary.totalAffectedOrgs.requested}, staged: {distributionTelemetry.summary.totalAffectedOrgs.staged}, mutated: {distributionTelemetry.summary.totalAffectedOrgs.mutated}, blocked: {distributionTelemetry.summary.totalAffectedOrgs.blocked}
+                    </p>
+                    <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr style={{ background: "var(--window-document-bg-elevated)" }}>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Time</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Kind</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Status</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Template</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Job</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Affected</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Errors</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {distributionTelemetry.rows.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-2 py-2 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                No distribution jobs for current template filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            distributionTelemetry.rows.map((row) => (
+                              <tr key={row._id}>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {formatDateTime(row.performedAt)}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {row.operationKind === "rollout_rollback" ? "rollback" : "rollout"}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {row.status.replace(/_/g, " ")}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {row.templateVersion}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {row.distributionJobId}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  mutated {row.affectedOrgCounts.mutated} / staged {row.affectedOrgCounts.staged}
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  blocked {row.affectedOrgCounts.blocked}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border rounded p-3 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-semibold" style={{ color: "var(--window-document-text)" }}>
+                Cross-Org Clone Inventory
+              </h4>
+              <p className="text-xs" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Filter clone drift by organization, template, policy state, and risk level.
+              </p>
+            </div>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Generated {formatDateTime(cloneInventory.generatedAt)}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-[11px]">
+            <MiniStat label="Total" value={cloneInventory.total} />
+            <MiniStat label="In Sync" value={cloneInventory.summary.byPolicyState.in_sync} />
+            <MiniStat label="Overridden" value={cloneInventory.summary.byPolicyState.overridden} />
+            <MiniStat label="Stale" value={cloneInventory.summary.byPolicyState.stale} />
+            <MiniStat label="Blocked" value={cloneInventory.summary.byPolicyState.blocked} />
+            <MiniStat label="High Risk" value={cloneInventory.summary.byRisk.high} />
+            <MiniStat label="Medium Risk" value={cloneInventory.summary.byRisk.medium} />
+            <MiniStat label="Low Risk" value={cloneInventory.summary.byRisk.low} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={cloneInventorySearch}
+              onChange={(event) => setCloneInventorySearch(event.target.value)}
+              placeholder="Search org/template/clone"
+              className="px-2 py-1 text-xs border rounded min-w-[220px]"
+              style={{ borderColor: "var(--window-document-border)", background: "transparent" }}
+            />
+
+            <select
+              className="px-2 py-1 text-xs border rounded bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={cloneInventoryOrgFilter}
+              onChange={(event) => setCloneInventoryOrgFilter(event.target.value)}
+            >
+              <option value="">Org</option>
+              {cloneInventory.filterMetadata.organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name} ({organization.count})
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="px-2 py-1 text-xs border rounded bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={cloneInventoryTemplateFilter}
+              onChange={(event) => setCloneInventoryTemplateFilter(event.target.value)}
+            >
+              <option value="">Template</option>
+              {cloneInventory.filterMetadata.templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} ({template.count})
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="px-2 py-1 text-xs border rounded bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={cloneInventoryPolicyStateFilter}
+              onChange={(event) => setCloneInventoryPolicyStateFilter(event.target.value)}
+            >
+              <option value="">State</option>
+              {CLONE_POLICY_STATE_OPTIONS.map((policyState) => (
+                <option key={policyState} value={policyState}>
+                  {compactCell(policyState)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="px-2 py-1 text-xs border rounded bg-transparent"
+              style={{ borderColor: "var(--window-document-border)" }}
+              value={cloneInventoryRiskFilter}
+              onChange={(event) => setCloneInventoryRiskFilter(event.target.value)}
+            >
+              <option value="">Risk</option>
+              {CLONE_RISK_LEVEL_OPTIONS.map((riskLevel) => (
+                <option key={riskLevel} value={riskLevel}>
+                  {compactCell(riskLevel)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="px-2 py-1 text-xs border rounded"
+              style={{ borderColor: "var(--window-document-border)" }}
+              onClick={() => {
+                setCloneInventoryOrgFilter("");
+                setCloneInventoryTemplateFilter("");
+                setCloneInventoryPolicyStateFilter("");
+                setCloneInventoryRiskFilter("");
+                setCloneInventorySearch("");
+              }}
+            >
+              Reset Inventory Filters
+            </button>
+          </div>
+
+          <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ background: "var(--window-document-bg-elevated)", color: "var(--window-document-text)" }}>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org</th>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>Template</th>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>Clone</th>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>State</th>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>Risk</th>
+                  <th className="text-left px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>Diffs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cloneInventory.rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-2 py-5 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                      No clone inventory rows for current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  cloneInventory.rows.map((row) => {
+                    const stateTone = statusTone(row.policyState);
+                    const riskTone =
+                      row.riskLevel === "high"
+                        ? { color: "#991b1b", bg: "#fee2e2" }
+                        : row.riskLevel === "medium"
+                        ? { color: "#9a3412", bg: "#fff7ed" }
+                        : { color: "#166534", bg: "#f0fdf4" };
+                    return (
+                      <tr key={row.cloneAgentId}>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          {row.organizationName}
+                        </td>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          {row.templateName}
+                        </td>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          {row.cloneAgentName}
+                        </td>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          <span className="px-1 py-0.5 rounded" style={{ color: stateTone.color, background: stateTone.bg }}>
+                            {compactCell(row.policyState)}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          <span className="px-1 py-0.5 rounded" style={{ color: riskTone.color, background: riskTone.bg }}>
+                            {row.riskLevel}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                          {row.diffCount}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="border rounded p-3 flex flex-wrap items-center gap-2" style={{ borderColor: "var(--window-document-border)" }}>
@@ -1080,11 +3108,7 @@ export function AgentControlCenterTab() {
 
         <div className="flex items-center justify-between text-xs" style={{ color: "var(--window-document-text)" }}>
           <p>
-            {tx(
-              "pagination.showing_of",
-              "Showing {{count}} of {{total}}",
-              { count: listAgents.agents.length, total: listAgents.total },
-            )}
+            {`Showing ${listAgents.agents.length} of ${listAgents.total}`}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -1784,6 +3808,64 @@ export function AgentControlCenterTab() {
         variant={pendingConfirmAction?.type === "remove_blocker" ? "danger" : "warning"}
         isLoading={isSubmittingWrite}
       />
+      <ConfirmationModal
+        isOpen={pendingRolloutConfirmAction !== null}
+        onClose={() => {
+          if (!isSubmittingWrite) {
+            setPendingRolloutConfirmAction(null);
+          }
+        }}
+        onConfirm={handleConfirmedRollout}
+        title="Confirm Template Rollout"
+        message={
+          pendingRolloutConfirmAction
+            ? buildRolloutConfirmationMessage(pendingRolloutConfirmAction)
+            : ""
+        }
+        confirmText={
+          pendingRolloutConfirmAction?.type === "rollout_rollback"
+            ? "Confirm Rollback"
+            : "Confirm Rollout"
+        }
+        cancelText="Cancel"
+        variant={
+          pendingRolloutConfirmAction?.type === "rollout_rollback"
+            ? "danger"
+            : "warning"
+        }
+        isLoading={isSubmittingWrite}
+      />
+      <ConfirmationModal
+        isOpen={pendingTemplateLifecycleConfirmAction !== null}
+        onClose={() => {
+          if (!isSubmittingWrite) {
+            setPendingTemplateLifecycleConfirmAction(null);
+          }
+        }}
+        onConfirm={handleConfirmedTemplateLifecycleAction}
+        title={
+          pendingTemplateLifecycleConfirmAction?.type === "deprecate"
+            ? "Confirm Template Deprecation"
+            : "Confirm Template Publish"
+        }
+        message={
+          pendingTemplateLifecycleConfirmAction
+            ? buildTemplateLifecycleConfirmationMessage(pendingTemplateLifecycleConfirmAction)
+            : ""
+        }
+        confirmText={
+          pendingTemplateLifecycleConfirmAction?.type === "deprecate"
+            ? "Confirm Deprecation"
+            : "Confirm Publish"
+        }
+        cancelText="Cancel"
+        variant={
+          pendingTemplateLifecycleConfirmAction?.type === "deprecate"
+            ? "danger"
+            : "warning"
+        }
+        isLoading={isSubmittingWrite}
+      />
     </div>
   );
 }
@@ -1801,6 +3883,23 @@ function DetailRow({
     <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
       <p style={{ color: "var(--desktop-menu-text-muted)" }}>{label}</p>
       <p className={multiline ? "whitespace-pre-wrap" : undefined}>{value}</p>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+      <p style={{ color: "var(--desktop-menu-text-muted)" }}>{label}</p>
+      <p className="font-semibold" style={{ color: "var(--window-document-text)" }}>
+        {value}
+      </p>
     </div>
   );
 }

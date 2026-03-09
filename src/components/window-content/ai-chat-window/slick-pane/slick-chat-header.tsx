@@ -2,11 +2,14 @@
 
 import { useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   Ghost,
+  Layers,
   Menu,
   Plus,
 } from "lucide-react"
+import { LayeredContextPanel } from "./layered-context-panel"
 import type {
   CollaborationSurfaceSelection,
   OperatorCollaborationContextPayload,
@@ -17,6 +20,7 @@ interface SlickChatHeaderProps {
   isRightDrawerOpen: boolean
   onToggleLeftDrawer: () => void
   onToggleRightDrawer: () => void
+  conversationStageVisible?: boolean
   collaborationContext: OperatorCollaborationContextPayload | null
   selectedSurface: CollaborationSurfaceSelection
   onSelectSurface: (selection: CollaborationSurfaceSelection) => void
@@ -27,9 +31,18 @@ export function SlickChatHeader({
   isRightDrawerOpen,
   onToggleLeftDrawer,
   onToggleRightDrawer,
+  conversationStageVisible,
 }: SlickChatHeaderProps) {
-  const { chat, setCurrentConversationId, privateModeEnabled, setPrivateModeEnabled } = useAIChatContext()
+  const {
+    chat,
+    setCurrentConversationId,
+    activeLayerWorkflowId,
+    setActiveLayerWorkflowId,
+    privateModeEnabled,
+    setPrivateModeEnabled,
+  } = useAIChatContext()
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false)
 
   const getDrawerButtonStyle = (isActive: boolean) => ({
     background: isActive
@@ -59,6 +72,25 @@ export function SlickChatHeader({
     } finally {
       setIsCreatingConversation(false)
     }
+  }
+
+  const handleSelectLayeredContext = async (workflowId: Id<"objects">) => {
+    if (isCreatingConversation) {
+      return
+    }
+    setIsCreatingConversation(true)
+    try {
+      const conversationId = await chat.createLayerWorkflowConversation(workflowId)
+      setActiveLayerWorkflowId(workflowId)
+      setCurrentConversationId(conversationId)
+      setIsContextPanelOpen(false)
+    } finally {
+      setIsCreatingConversation(false)
+    }
+  }
+
+  if (conversationStageVisible) {
+    return null
   }
 
   return (
@@ -92,6 +124,18 @@ export function SlickChatHeader({
         <button
           className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
           style={{
+            ...circularButtonStyle,
+            ...getDrawerButtonStyle(isContextPanelOpen),
+          }}
+          onClick={() => setIsContextPanelOpen((current) => !current)}
+          title="Open layered context browser"
+        >
+          <Layers size={17} />
+        </button>
+
+        <button
+          className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+          style={{
             ...getDrawerButtonStyle(isRightDrawerOpen),
             ...circularButtonStyle,
             color: "var(--shell-text)",
@@ -113,6 +157,14 @@ export function SlickChatHeader({
           <Plus size={18} />
         </button>
       </div>
+
+      {isContextPanelOpen ? (
+        <LayeredContextPanel
+          activeLayerWorkflowId={activeLayerWorkflowId}
+          onSelectWorkflow={handleSelectLayeredContext}
+          onClose={() => setIsContextPanelOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }

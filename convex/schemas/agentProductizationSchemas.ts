@@ -41,6 +41,86 @@ const recommendationMetadataValidator = v.object({
   defaultActivationState: recommendationActivationStateValidator,
 });
 
+const storefrontPackageDescriptorValidator = v.object({
+  packageAccess: v.union(
+    v.literal("included_in_plan"),
+    v.literal("add_on_purchase"),
+    v.literal("enterprise_concierge"),
+  ),
+  licenseModel: v.union(
+    v.literal("included"),
+    v.literal("seat"),
+    v.literal("usage"),
+    v.literal("custom_contract"),
+  ),
+  activationHint: v.union(
+    v.literal("activate_now"),
+    v.literal("purchase_required"),
+    v.literal("sales_contact_required"),
+  ),
+  packageCode: v.optional(v.string()),
+  licenseSku: v.optional(v.string()),
+  note: v.optional(v.string()),
+});
+
+const templateClonePrecedenceLayerValidator = v.union(
+  v.literal("platform_policy"),
+  v.literal("template_baseline"),
+  v.literal("org_clone_overrides"),
+  v.literal("runtime_session_restrictions"),
+);
+
+export const templateCloneLifecycleStateValidator = v.union(
+  v.literal("managed_in_sync"),
+  v.literal("managed_override_pending_sync"),
+  v.literal("managed_stale"),
+  v.literal("legacy_unmanaged"),
+);
+
+export const templateOverridePolicyModeValidator = v.union(
+  v.literal("locked"),
+  v.literal("warn"),
+  v.literal("free"),
+);
+
+export const templateCloneOverridePolicyValidator = v.object({
+  mode: templateOverridePolicyModeValidator,
+  fields: v.optional(
+    v.record(
+      v.string(),
+      v.object({
+        mode: templateOverridePolicyModeValidator,
+      }),
+    ),
+  ),
+});
+
+export const templateCloneLinkageContractValidator = v.object({
+  contractVersion: v.literal("ath_template_clone_linkage_v1"),
+  sourceTemplateId: v.id("objects"),
+  sourceTemplateVersion: v.optional(v.string()),
+  cloneLifecycleState: templateCloneLifecycleStateValidator,
+  overridePolicy: templateCloneOverridePolicyValidator,
+  lastTemplateSyncAt: v.optional(v.number()),
+  lastTemplateSyncJobId: v.optional(v.string()),
+});
+
+const seedTemplateBridgeContractValidator = v.object({
+  contractVersion: v.literal("ath_seed_template_bridge_v1"),
+  precedenceOrder: v.array(templateClonePrecedenceLayerValidator),
+  roleBoundary: v.literal("super_admin_global_templates"),
+  legacyCompatibilityMode: v.union(
+    v.literal("managed_seed"),
+    v.literal("legacy_unmanaged"),
+  ),
+  templateCloneLinkageContractVersion: v.optional(
+    v.literal("ath_template_clone_linkage_v1"),
+  ),
+  systemTemplateAgentId: v.optional(v.id("objects")),
+  protectedTemplate: v.boolean(),
+  immutableOriginContractMapped: v.boolean(),
+});
+
 export const agentCatalogEntries = defineTable({
   catalogAgentNumber: v.number(),
   datasetVersion: v.string(),
@@ -62,6 +142,7 @@ export const agentCatalogEntries = defineTable({
   intentTags: v.optional(v.array(v.string())),
   keywordAliases: v.optional(v.array(v.string())),
   recommendationMetadata: v.optional(recommendationMetadataValidator),
+  storefrontPackageDescriptor: v.optional(storefrontPackageDescriptorValidator),
   implementationPhase: v.number(),
   catalogStatus: v.union(v.literal("done"), v.literal("pending")),
   toolCoverageStatus: v.union(
@@ -162,6 +243,7 @@ export const agentCatalogSeedRegistry = defineTable({
   templateRole: v.optional(v.string()),
   protectedTemplate: v.optional(v.boolean()),
   immutableOriginContractMapped: v.boolean(),
+  templateCloneBridge: v.optional(seedTemplateBridgeContractValidator),
   sourcePath: v.string(),
   createdAt: v.number(),
   updatedAt: v.number(),

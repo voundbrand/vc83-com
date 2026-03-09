@@ -886,8 +886,25 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(decision.selectedModuleKey).toBeNull();
     expect(decision.clarificationQuestion).toBeTruthy();
     const question = decision.clarificationQuestion || "";
+    expect(question).toBe(
+      "Quick clarification before I proceed: do you want me to switch into appointment concierge mode and prepare a preview booking plan?"
+    );
     expect(question.includes("?")).toBe(true);
     expect(question.split("?")).toHaveLength(2);
+  });
+
+  it("keeps default route for low-confidence non-ambiguous runtime routing", () => {
+    const decision = resolveInboundRuntimeModuleIntentRoute({
+      authorityConfig: {},
+      message: "Can you summarize yesterday's notes for me?",
+      channel: "desktop",
+      metadata: {},
+    });
+
+    expect(decision.decision).toBe("default");
+    expect(decision.selectedModuleKey).toBeNull();
+    expect(decision.clarificationQuestion).toBeUndefined();
+    expect(decision.reasonCodes).toContain("confidence_below_ambiguity_threshold");
   });
 
   it("honors explicit der terminmacher runtime module config without intent ambiguity", () => {

@@ -6,6 +6,7 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 }));
 
 import {
+  getAgentDetails,
   internalReadDatasetSnapshot,
   listAgents,
   resolveRecommendations,
@@ -23,6 +24,7 @@ const DEFAULT_DATASET = "agp_v1";
 
 class FakeQuery {
   private filters = new Map<string, unknown>();
+  private sortDirection: "asc" | "desc" = "asc";
 
   constructor(private readonly rows: FakeRow[]) {}
 
@@ -47,6 +49,17 @@ class FakeQuery {
 
   async collect() {
     return clone(this.apply());
+  }
+
+  order(direction: "asc" | "desc") {
+    this.sortDirection = direction;
+    return this;
+  }
+
+  async take(limit: number) {
+    const rows = this.apply();
+    const sorted = this.sortDirection === "desc" ? rows.slice().reverse() : rows;
+    return clone(sorted.slice(0, limit));
   }
 
   private apply() {
@@ -142,6 +155,24 @@ function seedToolRequirement(db: FakeDb, overrides: Partial<FakeRow> = {}) {
     mutability: "mutating",
     source: "proposed_new",
     implementationStatus: "missing",
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  });
+}
+
+function seedSeedRegistry(db: FakeDb, overrides: Partial<FakeRow> = {}) {
+  db.seed("agentCatalogSeedRegistry", {
+    _id: `seed_row_${overrides.catalogAgentNumber ?? 1}`,
+    datasetVersion: DEFAULT_DATASET,
+    catalogAgentNumber: 1,
+    seedCoverage: "full",
+    requiresSoulBuild: false,
+    systemTemplateAgentId: "objects_seed_template",
+    templateRole: "platform_system_bot_template",
+    protectedTemplate: true,
+    immutableOriginContractMapped: true,
+    sourcePath: "seed://registry",
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
@@ -414,6 +445,49 @@ describe("agent catalog recommendation metadata surfaces", () => {
       flagKey: "AGENT_RECOMMENDER_COMPATIBILITY_ENABLED",
       defaultState: "off",
       matchedAlias: null,
+    });
+  });
+
+  it("maps seed linkage into deterministic bridge metadata without breaking legacy rows", async () => {
+    const db = new FakeDb();
+    seedCatalogEntry(db, {
+      catalogAgentNumber: 64,
+      runtimeStatus: "live",
+      seedStatus: "full",
+      toolCoverageStatus: "complete",
+    });
+    seedToolRequirement(db, {
+      catalogAgentNumber: 64,
+      implementationStatus: "implemented",
+    });
+    seedSeedRegistry(db, {
+      catalogAgentNumber: 64,
+    });
+
+    const listResult = await invokeListAgents({ db });
+    expect(listResult.total).toBe(1);
+    expect(listResult.agents[0].seedTemplateBridge).toMatchObject({
+      contractVersion: "ath_seed_template_bridge_v1",
+      precedenceOrder: [
+        "platform_policy",
+        "template_baseline",
+        "org_clone_overrides",
+        "runtime_session_restrictions",
+      ],
+      roleBoundary: "super_admin_global_templates",
+      protectedTemplate: true,
+      immutableOriginContractMapped: true,
+      systemTemplateAgentId: "objects_seed_template",
+    });
+
+    const details = await (getAgentDetails as any)._handler(createCtx(db), {
+      sessionId: "session_super",
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: 64,
+    });
+    expect(details.seedTemplateBridge).toMatchObject({
+      contractVersion: "ath_seed_template_bridge_v1",
+      legacyCompatibilityMode: "managed_seed",
     });
   });
 });

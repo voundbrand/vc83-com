@@ -54,6 +54,27 @@ type StoreCard = {
     hasTemplate: boolean;
     templateAgentId?: Id<"objects">;
   };
+  storefrontPackageDescriptor: {
+    packageAccess:
+      | "included_in_plan"
+      | "add_on_purchase"
+      | "enterprise_concierge";
+    licenseModel: "included" | "seat" | "usage" | "custom_contract";
+    activationHint:
+      | "activate_now"
+      | "purchase_required"
+      | "sales_contact_required";
+    packageCode?: string;
+    licenseSku?: string;
+    note?: string;
+  };
+  activationEntitlement: {
+    allowed: boolean;
+    reasonCode: string;
+    guidance: string;
+    matchedEntitlementKeys: string[];
+    planTier: string;
+  };
 };
 
 export type AgentCatalogCard = StoreCard;
@@ -100,6 +121,7 @@ type ClonePreflightResult = {
     }>;
   };
   allowClone: boolean;
+  entitlement: StoreCard["activationEntitlement"];
   noFitEscalation: {
     minimum: string;
     deposit: string;
@@ -120,6 +142,7 @@ type CatalogProductContextResult = {
       catalogStatus: string;
       published: boolean;
       autonomyDefault: string;
+      storefrontPackageDescriptor: StoreCard["storefrontPackageDescriptor"];
     };
     requirements: {
       requiredIntegrations: string[];
@@ -159,9 +182,15 @@ type CloneNowResult =
     }
   | {
       status: "blocked";
-      reason: "catalog_template_mismatch" | "capability_limits_blocked";
+      reason:
+        | "catalog_template_mismatch"
+        | "capability_limits_blocked"
+        | "entitlement_blocked";
       message: string;
+      reasonCode?: string;
+      guidance?: string;
       allowClone: false;
+      entitlement?: StoreCard["activationEntitlement"];
     };
 
 const DEFAULT_NO_FIT_ESCALATION = {
@@ -245,6 +274,49 @@ function humanizeBlockerType(
     default:
       return humanizeToken(blockerType);
   }
+}
+
+function humanizePackageAccess(
+  value: StoreCard["storefrontPackageDescriptor"]["packageAccess"]
+): string {
+  if (value === "included_in_plan") {
+    return "Included in plan";
+  }
+  if (value === "add_on_purchase") {
+    return "Add-on purchase";
+  }
+  return "Enterprise / concierge";
+}
+
+function humanizeLicenseModel(
+  value: StoreCard["storefrontPackageDescriptor"]["licenseModel"]
+): string {
+  if (value === "included") {
+    return "Included";
+  }
+  if (value === "seat") {
+    return "Per seat";
+  }
+  if (value === "usage") {
+    return "Usage-based";
+  }
+  return "Custom contract";
+}
+
+function humanizeActivationHint(
+  value: StoreCard["storefrontPackageDescriptor"]["activationHint"]
+): string {
+  if (value === "activate_now") {
+    return "Activation available";
+  }
+  if (value === "purchase_required") {
+    return "Purchase required";
+  }
+  return "Contact sales required";
+}
+
+function humanizeEntitlementReasonCode(reasonCode: string): string {
+  return humanizeToken(reasonCode);
 }
 
 function chipStyles(status: "available" | "planned" | "blocked") {
@@ -479,6 +551,17 @@ export function AgentStorePanel({
       setSelectedCatalogNumber(card.catalogAgentNumber);
       return;
     }
+    if (!card.activationEntitlement.allowed) {
+      setCloneMessage({
+        type: "error",
+        text:
+          `Activation blocked for #${card.catalogAgentNumber}: `
+          + `${humanizeEntitlementReasonCode(card.activationEntitlement.reasonCode)}. `
+          + `${card.activationEntitlement.guidance}`,
+      });
+      setSelectedCatalogNumber(card.catalogAgentNumber);
+      return;
+    }
 
     setCloneMessage(null);
     setSelectedCatalogNumber(card.catalogAgentNumber);
@@ -508,7 +591,11 @@ export function AgentStorePanel({
 
       setCloneMessage({
         type: "error",
-        text: `Activation blocked for #${card.catalogAgentNumber}: ${result.message}`,
+        text:
+          `Activation blocked for #${card.catalogAgentNumber}: `
+          + `${result.reasonCode ? `${humanizeEntitlementReasonCode(result.reasonCode)}. ` : ""}`
+          + `${result.guidance ? `${result.guidance} ` : ""}`
+          + `${result.message}`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Activation failed.";
@@ -788,6 +875,25 @@ export function AgentStorePanel({
                   )}
                 </div>
 
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Package: {humanizePackageAccess(card.storefrontPackageDescriptor.packageAccess)} · License:{" "}
+                  {humanizeLicenseModel(card.storefrontPackageDescriptor.licenseModel)} ·{" "}
+                  {humanizeActivationHint(card.storefrontPackageDescriptor.activationHint)}
+                </div>
+                <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                  Entitlement:{" "}
+                  <span
+                    style={{
+                      color: card.activationEntitlement.allowed
+                        ? "var(--tone-success)"
+                        : "var(--tone-warning)",
+                    }}
+                  >
+                    {card.activationEntitlement.allowed ? "Entitled" : "Blocked"}
+                  </span>{" "}
+                  · {humanizeEntitlementReasonCode(card.activationEntitlement.reasonCode)}
+                </div>
+
                 <TagRow
                   label={tx("ui.agents.store.abilities", "Abilities")}
                   noneLabel={tx("ui.agents.store.none", "none")}
@@ -824,7 +930,8 @@ export function AgentStorePanel({
                       color: "var(--window-document-text)",
                       background: "var(--window-document-card-bg, var(--window-document-bg))",
                       opacity:
-                        card.templateAvailability.hasTemplate && cloningCatalogNumber !== card.catalogAgentNumber
+                        card.templateAvailability.hasTemplate &&
+                          cloningCatalogNumber !== card.catalogAgentNumber
                           ? 1
                           : 0.7,
                     }}
@@ -833,9 +940,17 @@ export function AgentStorePanel({
                       cloningCatalogNumber === card.catalogAgentNumber
                     }
                     title={
-                      card.templateAvailability.hasTemplate
-                        ? tx("ui.agents.store.clone_now_title", "Activate now using protected template lifecycle")
-                        : tx("ui.agents.store.clone_blocked_title", "Template binding missing for this published agent")
+                      !card.templateAvailability.hasTemplate
+                        ? tx(
+                          "ui.agents.store.clone_blocked_title",
+                          "Template binding missing for this published agent",
+                        )
+                        : !card.activationEntitlement.allowed
+                          ? card.activationEntitlement.guidance
+                          : tx(
+                            "ui.agents.store.clone_now_title",
+                            "Activate now using protected template lifecycle",
+                          )
                     }
                   >
                     {cloningCatalogNumber === card.catalogAgentNumber
@@ -965,7 +1080,9 @@ export function AgentStorePanel({
                 {preflightResult.allowClone ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
                 {preflightResult.allowClone
                   ? tx("ui.agents.store.ready_for_clone_handoff", "Ready for clone handoff")
-                  : tx("ui.agents.store.blocked_until_gaps_close", "Blocked until gaps close")}
+                  : preflightResult.entitlement.allowed
+                    ? tx("ui.agents.store.blocked_until_gaps_close", "Blocked until gaps close")
+                    : tx("ui.agents.store.blocked_until_entitlement", "Blocked until entitlement is active")}
               </span>
             ) : (
               <span className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -1015,6 +1132,31 @@ export function AgentStorePanel({
                   <div>Tool profile: {humanizeToken(detailProductContext.productPage.entry.toolProfile)}</div>
                   <div>Published: {detailProductContext.productPage.entry.published ? "yes" : "no"}</div>
                   <div>Template ready: {detailProductContext.productPage.template.hasTemplate ? "yes" : "no"}</div>
+                  <div>
+                    Package:{" "}
+                    {humanizePackageAccess(
+                      detailProductContext.productPage.entry.storefrontPackageDescriptor.packageAccess
+                    )}
+                  </div>
+                  <div>
+                    License:{" "}
+                    {humanizeLicenseModel(
+                      detailProductContext.productPage.entry.storefrontPackageDescriptor.licenseModel
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    Activation hint:{" "}
+                    {humanizeActivationHint(
+                      detailProductContext.productPage.entry.storefrontPackageDescriptor.activationHint
+                    )}
+                  </div>
+                  <div>
+                    Entitlement: {preflightResult?.entitlement.allowed ? "Entitled" : "Blocked"}
+                  </div>
+                  <div>Entitlement reason: {humanizeEntitlementReasonCode(preflightResult?.entitlement.reasonCode || "unknown")}</div>
+                  <div className="md:col-span-2">
+                    Guidance: {preflightResult?.entitlement.guidance || "Entitlement guidance unavailable."}
+                  </div>
                 </div>
               )}
 

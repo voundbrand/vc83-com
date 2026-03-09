@@ -2,13 +2,16 @@
 
 import { useState, useMemo, useCallback, type DragEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require avoids TS2589 deep type instantiation on generated Convex API.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
 import type { NodeDefinition, NodeCategory } from "../../../convex/layers/types";
 import { getAllNodeDefinitions } from "../../../convex/layers/nodeRegistry";
 
 interface ToolChestProps {
   onNodeDragStart: (event: DragEvent, definition: NodeDefinition) => void;
   sessionId: string | null;
+  placedNodeTypes: Set<string>;
 }
 
 const CATEGORY_META: Record<
@@ -53,7 +56,7 @@ const SUBCATEGORY_LABELS: Record<string, string> = {
   certificates: "Certificates",
 };
 
-export function ToolChest({ onNodeDragStart, sessionId }: ToolChestProps) {
+export function ToolChest({ onNodeDragStart, sessionId, placedNodeTypes }: ToolChestProps) {
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<
     Set<NodeCategory>
@@ -62,11 +65,17 @@ export function ToolChest({ onNodeDragStart, sessionId }: ToolChestProps) {
   const allNodes = useMemo(() => getAllNodeDefinitions(), []);
 
   // Upvote system
-  const upvoteIntegration = useMutation(api.layers.layerWorkflowOntology.upvoteIntegration);
-  const upvoteCounts = useQuery(
-    api.layers.layerWorkflowOntology.getUpvoteCounts,
+  const useMutationUntyped = useMutation as (mutation: unknown) => any;
+  const useQueryUntyped = useQuery as (query: unknown, args: unknown) => any;
+  const upvoteIntegration = useMutationUntyped(
+    (api as any).layers.layerWorkflowOntology.upvoteIntegration,
+  ) as (args: { sessionId: string; integrationType: string; nodeType: string }) => Promise<{
+    alreadyVoted?: boolean;
+  }>;
+  const upvoteCounts = useQueryUntyped(
+    (api as any).layers.layerWorkflowOntology.getUpvoteCounts,
     sessionId ? { sessionId } : "skip",
-  );
+  ) as Array<{ nodeType: string; count: number }> | undefined;
   const [votedTypes, setVotedTypes] = useState<Set<string>>(new Set());
 
   const upvoteCountMap = useMemo(() => {
@@ -196,6 +205,7 @@ export function ToolChest({ onNodeDragStart, sessionId }: ToolChestProps) {
                                 upvoteCount={upvoteCountMap[def.type] ?? 0}
                                 hasVoted={votedTypes.has(def.type)}
                                 onUpvote={handleUpvote}
+                                isSingletonPlaced={Boolean(def.singleton && placedNodeTypes.has(def.type))}
                               />
                             ))}
                           </div>
@@ -223,29 +233,36 @@ function DraggableNode({
   upvoteCount,
   hasVoted,
   onUpvote,
+  isSingletonPlaced,
 }: {
   definition: NodeDefinition;
   onDragStart: (event: DragEvent, definition: NodeDefinition) => void;
   upvoteCount: number;
   hasVoted: boolean;
   onUpvote: (def: NodeDefinition) => void;
+  isSingletonPlaced: boolean;
 }) {
   const isComingSoon = definition.integrationStatus === "coming_soon";
+  const isDisabled = isComingSoon || isSingletonPlaced;
+  const disabledTitle = isSingletonPlaced
+    ? `${definition.name} is already placed in this workflow. Only one is allowed.`
+    : definition.description;
 
   return (
     <div
-      draggable={!isComingSoon}
+      draggable={!isDisabled}
       onDragStart={(e) => {
-        if (isComingSoon) return;
+        if (isDisabled) return;
         onDragStart(e, definition);
       }}
       className={`group flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-xs text-slate-200 transition-colors active:cursor-grabbing ${
-        isComingSoon
+        isDisabled
           ? "cursor-default border-dashed border-slate-700 opacity-50"
           : "border-slate-700 hover:border-blue-500/40 hover:bg-slate-800"
       }`}
-      style={{ background: isComingSoon ? "transparent" : "#18181b" }}
-      title={definition.description}
+      style={{ background: isDisabled ? "transparent" : "#18181b" }}
+      title={disabledTitle}
+      aria-disabled={isDisabled}
     >
       {/* Color dot */}
       <div
@@ -279,6 +296,9 @@ function DraggableNode({
           </button>
           <span className="text-[9px] uppercase text-muted-foreground">soon</span>
         </div>
+      )}
+      {!isComingSoon && isSingletonPlaced && (
+        <span className="shrink-0 text-[9px] uppercase text-amber-300">placed</span>
       )}
       {definition.integrationStatus === "available" &&
         definition.requiresAuth && (

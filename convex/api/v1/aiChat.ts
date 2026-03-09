@@ -2175,6 +2175,7 @@ export const ingestVideoFrame = httpAction(async (ctx, request) => {
       {
         sessionId: auth.sessionId,
         interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
         envelope: mediaSessionEnvelope,
         maxFramesPerWindow: parseOptionalPositiveNumber(
           parsedBody.maxFramesPerWindow

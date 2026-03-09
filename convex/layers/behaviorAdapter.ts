@@ -24,13 +24,31 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import type {
   WorkflowNode,
   ExecutionContext,
   NodeExecutionResult,
 } from "./types";
+import { executeTool } from "../ai/tools/registry";
 
 const generatedApi: any = require("../_generated/api");
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
 
 // ============================================================================
 // BEHAVIOR MAPPING
@@ -136,6 +154,89 @@ export const executeLcNativeNode = action({
   },
   handler: async (ctx, args): Promise<NodeExecutionResult> => {
     const startTime = Date.now();
+
+    if (args.nodeType === "lc_youtube_transcript") {
+      const nodeConfig = (args.nodeConfig ?? {}) as Record<string, unknown>;
+      const inputData = (args.inputData ?? {}) as Record<string, unknown>;
+      const videoUrl =
+        normalizeOptionalString(nodeConfig.videoUrl)
+        || normalizeOptionalString(inputData.videoUrl)
+        || normalizeOptionalString(inputData.url);
+
+      if (!videoUrl) {
+        return {
+          success: false,
+          error: "lc_youtube_transcript requires videoUrl in config or input data",
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const session = await (ctx as any).runQuery(generatedApi.internal.auth.getSessionById, {
+        sessionId: args.sessionId,
+      }) as { userId?: Id<"users"> } | null;
+
+      if (!session?.userId) {
+        return {
+          success: false,
+          error: "Unable to resolve authenticated user for lc_youtube_transcript execution",
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const toolResult = await executeTool(
+        {
+          ...ctx,
+          organizationId: args.organizationId,
+          userId: session.userId,
+          sessionId: args.sessionId,
+          runtimePolicy: {
+            codeExecution: {
+              autonomyLevel: "supervised",
+              requireApprovalFor: [],
+              approvalRequired: false,
+              approvalGranted: true,
+              policySource: "layers_lc_youtube_transcript",
+            },
+          },
+        },
+        "transcribe_youtube_video",
+        {
+          videoUrl,
+          source: normalizeOptionalString(nodeConfig.source) ?? "auto",
+          language: normalizeOptionalString(nodeConfig.language),
+          includeTimestamps: normalizeOptionalBoolean(nodeConfig.includeTimestamps) ?? false,
+          maxCharacters: normalizeOptionalNumber(nodeConfig.maxCharacters),
+          maxSegments: normalizeOptionalNumber(nodeConfig.maxSegments),
+          saveToUserFiles: false,
+        },
+      ) as Record<string, unknown>;
+
+      const success = toolResult?.success !== false;
+      return {
+        success,
+        outputData: success
+          ? {
+              ...(inputData as Record<string, unknown>),
+              videoUrl,
+              youtubeTranscript: toolResult,
+              transcript:
+                typeof toolResult?.transcript === "string"
+                  ? toolResult.transcript
+                  : undefined,
+            }
+          : undefined,
+        error:
+          success
+            ? undefined
+            : (typeof toolResult?.error === "string"
+                ? toolResult.error
+                : typeof toolResult?.message === "string"
+                  ? toolResult.message
+                  : "YouTube transcript ingestion failed"),
+        activeOutputs: success ? ["output"] : undefined,
+        durationMs: Date.now() - startTime,
+      };
+    }
 
     // Resolve the behavior type from node config
     const action = (args.nodeConfig as Record<string, unknown>)?.action as string;

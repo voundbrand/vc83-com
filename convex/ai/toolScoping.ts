@@ -1,11 +1,11 @@
 /**
  * LAYERED TOOL SCOPING
  *
- * Resolves which tools an agent can use via a 4-layer filter:
- *   1. Platform blocked — globally removed tools
- *   2. Org — org-level allow/deny + integration-aware filtering
- *   3. Agent — profile presets + explicit allow/deny + autonomy
- *   4. Session — per-session overrides + channel restrictions
+ * Resolves which tools an agent can use via a deterministic precedence filter:
+ *   1. Platform policy (global deny + integration hard gates)
+ *   2. Template baseline (profile/module defaults for template-defined agents)
+ *   3. Org clone overrides (org-level allow/deny + explicit clone tool settings)
+ *   4. Runtime/session restrictions (channel/session/autonomy trimming)
  *
  * Each layer can only REMOVE tools, never re-add them once filtered.
  * The only exception: `query_org_data` is always injected at the end.

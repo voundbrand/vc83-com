@@ -5,7 +5,7 @@
  * Renders agent header + tab bar + active sub-component.
  */
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Activity,
   Sparkles,
@@ -15,7 +15,11 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import type { AgentTab, AgentCustomProps } from "./types";
+import {
+  type AgentTab,
+  type AgentCustomProps,
+  resolveTemplateLineage,
+} from "./types";
 import { AgentSoulEditor } from "./agent-soul-editor";
 import { AgentToolsConfig } from "./agent-tools-config";
 import { AgentSessionsViewer } from "./agent-sessions-viewer";
@@ -85,6 +89,7 @@ export function AgentDetailPanel({
   }
 
   const props = (agent.customProperties || {}) as AgentCustomProps;
+  const templateLineage = resolveTemplateLineage(props);
   const isPrimary = isPrimaryAgentRecord(agent);
   const activeAgentCount = countActiveAgents(allAgents || [agent]);
   const canPause = canPauseAgentInUi(agent, activeAgentCount);
@@ -94,151 +99,175 @@ export function AgentDetailPanel({
     <div className="flex flex-col h-full">
       {/* Agent header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
+        className="px-4 py-3 border-b"
         style={{ borderColor: "var(--window-document-border)" }}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{
-              background:
-                agent.status === "active" ? "#22c55e" :
-                agent.status === "draft" ? "#eab308" :
-                agent.status === "paused" ? "#ef4444" : "#9ca3af",
-            }}
-          />
-          <div>
-            <h2 className="text-sm font-bold" style={{ color: "var(--window-document-text)" }}>
+        {/* Row 1: Name + actions */}
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{
+                background:
+                  agent.status === "active" ? "#22c55e" :
+                  agent.status === "draft" ? "#eab308" :
+                  agent.status === "paused" ? "#ef4444" : "#9ca3af",
+              }}
+            />
+            <h2 className="text-sm font-bold leading-tight" style={{ color: "var(--window-document-text)" }}>
               {props.displayName || agent.name}
             </h2>
-            <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-              <span>{agent.subtype?.replace(/_/g, " ")}</span>
-              {isPrimary && (
-                <>
-                  <span>·</span>
-                  <span
-                    className="px-1 py-0.5 rounded border"
-                    style={{
-                      borderColor: "var(--window-document-border)",
-                      background: "var(--warning)",
-                      color: "#111827",
-                    }}
-                  >
-                    primary
-                  </span>
-                </>
-              )}
-              <span>·</span>
-              <span>{agent.status}</span>
-              <span>·</span>
-              <span>{props.modelId?.split("/").pop() || "claude-sonnet-4"}</span>
-            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            {onOpenAgentOps && (
+              <button
+                onClick={onOpenAgentOps}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+                title="Open Agent Ops"
+              >
+                <Activity size={10} /> Ops
+              </button>
+            )}
+            {onOpenAgentCatalog && (
+              <button
+                onClick={onOpenAgentCatalog}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+                title="Open Agent Catalog"
+              >
+                <Sparkles size={10} /> Catalog
+              </button>
+            )}
+            <div
+              className="w-px h-4 mx-0.5"
+              style={{ background: "var(--window-document-border)" }}
+            />
+            {agent.status === "active" ? (
+              <button
+                onClick={() => {
+                  if (!canPause) return;
+                  void pauseAgent({ sessionId, agentId });
+                }}
+                disabled={!canPause}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+                title={canPause ? "Pause agent" : "Primary agent cannot be paused while it is the only active agent"}
+              >
+                <Pause size={10} /> Pause
+              </button>
+            ) : (
+              <button
+                onClick={() => void activateAgent({ sessionId, agentId })}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              >
+                <Play size={10} /> Activate
+              </button>
+            )}
+            {canMakePrimary && (
+              <button
+                onClick={() => void setPrimaryAgent({ sessionId, agentId, reason: "agents_window_detail_make_primary" })}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+                title="Make Primary"
+              >
+                <Crown size={10} /> Primary
+              </button>
+            )}
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+            >
+              <Settings size={10} /> Edit
+            </button>
+            {confirmDelete ? (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => { deleteAgent({ sessionId, agentId }); setConfirmDelete(false); }}
+                  className="p-1 border bg-red-100 hover:bg-red-200 text-red-600 rounded-sm"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                >
+                  <CheckCircle size={10} />
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="p-1 border transition-opacity hover:opacity-80 rounded-sm"
+                  style={{ borderColor: "var(--window-document-border)" }}
+                >
+                  <XCircle size={10} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="p-1 border text-[10px] hover:bg-red-50 rounded-sm"
+                style={{ borderColor: "var(--window-document-border)" }}
+              >
+                <Trash2 size={10} />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Header actions */}
-        <div className="flex items-center gap-1.5">
-          {onOpenAgentOps && (
-            <button
-              onClick={onOpenAgentOps}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-              title="Open Agent Ops"
-            >
-              <Activity size={10} /> Agent Ops
-            </button>
-          )}
-          {onOpenAgentCatalog && (
-            <button
-              onClick={onOpenAgentCatalog}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-              title="Open Agent Catalog"
-            >
-              <Sparkles size={10} /> Agent Catalog
-            </button>
-          )}
-          {agent.status === "active" ? (
-            <button
-              onClick={() => {
-                if (!canPause) {
-                  return;
-                }
-                void pauseAgent({ sessionId, agentId });
-              }}
-              disabled={!canPause}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-              title={
-                canPause
-                  ? "Pause agent"
-                  : "Primary agent cannot be paused while it is the only active agent"
-              }
-            >
-              <Pause size={10} /> Pause
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                void activateAgent({ sessionId, agentId });
-              }}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-            >
-              <Play size={10} /> Activate
-            </button>
-          )}
-          {canMakePrimary && (
-            <button
-              onClick={() => {
-                void setPrimaryAgent({
-                  sessionId,
-                  agentId,
-                  reason: "agents_window_detail_make_primary",
-                });
-              }}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-              title="Make Primary"
-            >
-              <Crown size={10} /> Make Primary
-            </button>
-          )}
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors"
-            style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-          >
-            <Settings size={10} /> Edit
-          </button>
-          {confirmDelete ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  deleteAgent({ sessionId, agentId });
-                  setConfirmDelete(false);
-                }}
-                className="p-1 border bg-red-100 hover:bg-red-200 text-red-600"
-                style={{ borderColor: "var(--window-document-border)" }}
+        {/* Row 2: Metadata chips */}
+        <div className="flex items-center gap-1.5 ml-5 text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+          <span>{agent.subtype?.replace(/_/g, " ")}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{agent.status}</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{props.modelId?.split("/").pop() || "claude-sonnet-4"}</span>
+          {isPrimary && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span
+                className="px-1 py-px rounded"
+                style={{ background: "var(--warning)", color: "#111827" }}
               >
-                <CheckCircle size={10} />
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="p-1 border transition-opacity hover:opacity-80"
+                primary
+              </span>
+            </>
+          )}
+          {templateLineage.isTemplateLinked && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span
+                className="px-1 py-px rounded border"
                 style={{ borderColor: "var(--window-document-border)" }}
+                title={`Source: ${templateLineage.sourceTemplateId || "unknown"}\nVersion: ${templateLineage.sourceTemplateVersion || "unknown"}`}
               >
-                <XCircle size={10} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="p-1 border text-[10px] hover:bg-red-50"
-              style={{ borderColor: "var(--window-document-border)" }}
-            >
-              <Trash2 size={10} />
-            </button>
+                template linked
+              </span>
+              {templateLineage.cloneLifecycleState && (
+                <>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span>{templateLineage.cloneLifecycleState.replace(/_/g, " ")}</span>
+                </>
+              )}
+              {templateLineage.overridePolicyMode && (
+                <>
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span
+                    className="px-1 py-px rounded border"
+                    style={{
+                      borderColor:
+                        templateLineage.overridePolicyMode === "locked" ? "#dc2626"
+                        : templateLineage.overridePolicyMode === "warn" ? "#f59e0b"
+                        : "#22c55e",
+                      color:
+                        templateLineage.overridePolicyMode === "locked" ? "#dc2626"
+                        : templateLineage.overridePolicyMode === "warn" ? "#f59e0b"
+                        : "#22c55e",
+                    }}
+                  >
+                    override: {templateLineage.overridePolicyMode}
+                  </span>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>

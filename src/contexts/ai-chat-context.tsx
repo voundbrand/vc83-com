@@ -14,6 +14,7 @@ import type { ConversationEventEnvelope } from "@/lib/ai/conversation-session-co
 const CHAT_COMPOSER_MODE_STORAGE_KEY = "ai_chat_composer_mode"
 const CHAT_REASONING_EFFORT_STORAGE_KEY = "ai_chat_reasoning_effort"
 const CHAT_PRIVATE_MODE_STORAGE_KEY = "ai_chat_private_mode"
+const CHAT_ACTIVE_LAYER_WORKFLOW_ID_STORAGE_KEY = "ai_chat_active_layer_workflow_id"
 
 function isComposerMode(value: string): value is AIChatComposerMode {
   return value === "auto" || value === "plan" || value === "plan_soft"
@@ -29,6 +30,8 @@ interface AIChatContextType {
   // Current conversation
   currentConversationId: Id<"aiConversations"> | undefined
   setCurrentConversationId: (id: Id<"aiConversations"> | undefined) => void
+  activeLayerWorkflowId: Id<"objects"> | undefined
+  setActiveLayerWorkflowId: (id: Id<"objects"> | undefined) => void
 
   // Organization ID
   organizationId: Id<"organizations"> | undefined
@@ -79,6 +82,9 @@ export function AIChatProvider({
   const [currentConversationId, setCurrentConversationId] = useState<
     Id<"aiConversations"> | undefined
   >(undefined)
+  const [activeLayerWorkflowId, setActiveLayerWorkflowId] = useState<
+    Id<"objects"> | undefined
+  >(undefined)
   const [isSending, setIsSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
   const [composerMode, setComposerMode] = useState<AIChatComposerMode>("auto")
@@ -90,7 +96,12 @@ export function AIChatProvider({
   // Abort controller for cancelling in-flight requests
   const abortController = useRef<AbortController | null>(null)
 
-  const chat = useAIChat(currentConversationId, selectedModel, superAdminQaMode)
+  const chat = useAIChat(
+    currentConversationId,
+    selectedModel,
+    superAdminQaMode,
+    activeLayerWorkflowId
+  )
 
   // Get current user's organization ID
   const { user } = useAuth()
@@ -115,6 +126,13 @@ export function AIChatProvider({
     if (storedPrivateMode === "1") {
       setPrivateModeEnabled(true)
     }
+
+    const storedActiveLayerWorkflowId = window.localStorage.getItem(
+      CHAT_ACTIVE_LAYER_WORKFLOW_ID_STORAGE_KEY
+    )
+    if (storedActiveLayerWorkflowId) {
+      setActiveLayerWorkflowId(storedActiveLayerWorkflowId as Id<"objects">)
+    }
   }, [])
 
   useEffect(() => {
@@ -137,6 +155,27 @@ export function AIChatProvider({
     }
     window.localStorage.setItem(CHAT_PRIVATE_MODE_STORAGE_KEY, privateModeEnabled ? "1" : "0")
   }, [privateModeEnabled])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+    if (!activeLayerWorkflowId) {
+      window.localStorage.removeItem(CHAT_ACTIVE_LAYER_WORKFLOW_ID_STORAGE_KEY)
+      return
+    }
+    window.localStorage.setItem(CHAT_ACTIVE_LAYER_WORKFLOW_ID_STORAGE_KEY, activeLayerWorkflowId)
+  }, [activeLayerWorkflowId])
+
+  useEffect(() => {
+    const conversationLayerWorkflowId = chat.conversation?.layerWorkflowId as
+      | Id<"objects">
+      | undefined
+    if (!conversationLayerWorkflowId) {
+      return
+    }
+    setActiveLayerWorkflowId(conversationLayerWorkflowId)
+  }, [chat.conversation?._id, chat.conversation?.layerWorkflowId])
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -175,6 +214,8 @@ export function AIChatProvider({
         chatMode: "authenticated",
         currentConversationId,
         setCurrentConversationId,
+        activeLayerWorkflowId,
+        setActiveLayerWorkflowId,
         organizationId,
         chat,
         isSending,

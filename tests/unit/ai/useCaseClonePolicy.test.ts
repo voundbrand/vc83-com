@@ -4,6 +4,11 @@ import {
   normalizeUseCaseKey,
   resolveTemplateClonePolicy,
 } from "../../../convex/ai/workerPool";
+import {
+  buildManagedTemplateCloneLinkage,
+  readTemplateCloneLinkageContract,
+  resolveTemplateSourceId,
+} from "../../../convex/ai/templateCloneLinkage";
 
 describe("resolveTemplateClonePolicy", () => {
   it("applies safe defaults when clone policy is missing", () => {
@@ -51,5 +56,53 @@ describe("use-case clone naming helpers", () => {
         cloneNumber: 2,
       })
     ).toBe("Event Experience Architect - Product Launch #2");
+  });
+});
+
+describe("template clone linkage contract helpers", () => {
+  it("builds managed linkage metadata with lifecycle + override policy defaults", () => {
+    expect(
+      buildManagedTemplateCloneLinkage({
+        sourceTemplateId: "objects_template_1",
+        sourceTemplateVersion: "objects_template_1@1700001000000",
+        lastTemplateSyncAt: 1_700_001_000_000,
+        lastTemplateSyncJobId: "job_123",
+      })
+    ).toMatchObject({
+      contractVersion: "ath_template_clone_linkage_v1",
+      sourceTemplateId: "objects_template_1",
+      sourceTemplateVersion: "objects_template_1@1700001000000",
+      cloneLifecycleState: "managed_in_sync",
+      lastTemplateSyncAt: 1_700_001_000_000,
+      lastTemplateSyncJobId: "job_123",
+      overridePolicy: {
+        mode: "warn",
+      },
+    });
+  });
+
+  it("keeps legacy clone metadata readable when templateCloneLinkage is absent", () => {
+    const legacyCustomProperties = {
+      templateAgentId: "objects_template_legacy",
+      cloneLifecycle: "managed_use_case_clone_v1",
+      overridePolicy: {
+        mode: "free",
+      },
+      lastTemplateSyncAt: 1_700_001_111_000,
+      lastTemplateJobId: "job_legacy_1",
+    };
+
+    expect(resolveTemplateSourceId(legacyCustomProperties)).toBe(
+      "objects_template_legacy"
+    );
+    expect(readTemplateCloneLinkageContract(legacyCustomProperties)).toMatchObject({
+      sourceTemplateId: "objects_template_legacy",
+      cloneLifecycleState: "managed_in_sync",
+      lastTemplateSyncAt: 1_700_001_111_000,
+      lastTemplateSyncJobId: "job_legacy_1",
+      overridePolicy: {
+        mode: "free",
+      },
+    });
   });
 });

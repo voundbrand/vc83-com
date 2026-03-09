@@ -13,7 +13,9 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { NodeDefinition, LayerWorkflowData } from "../../../convex/layers/types";
 import { getNodeDefinition } from "../../../convex/layers/nodeRegistry";
@@ -28,6 +30,15 @@ import { NodeInspector } from "./node-inspector";
 import { useLayersStore } from "./use-layers-store";
 import { AIPromptOverlay } from "./ai-prompt-overlay";
 import type { AIWorkflowResponse } from "./ai-workflow-schema";
+
+interface LayersWorkflowListItem {
+  _id: Id<"objects">;
+  name: string;
+  status: string;
+  nodeCount: number;
+  updatedAt?: number;
+  isActive?: boolean;
+}
 
 /**
  * LayersCanvas - Main container for the visual automation canvas.
@@ -67,7 +78,10 @@ export function LayersCanvas() {
 
   // Session keep-alive (throttled to once per 5 min)
   const lastTouchRef = useRef(0);
-  const touchSessionMutation = useMutation(api.auth.touchSession);
+  const useMutationUntyped = useMutation as (mutation: unknown) => any;
+  const touchSessionMutation = useMutationUntyped((api as any).auth.touchSession) as (args: {
+    sessionId: string;
+  }) => Promise<unknown>;
   const keepAlive = useCallback(() => {
     if (!sessionId) return;
     const now = Date.now();
@@ -108,6 +122,7 @@ export function LayersCanvas() {
     onConnect,
     addNode,
     deleteSelected,
+    deleteNode,
     duplicateSelected,
     toggleNodeDisabled,
     updateNodeStatus,
@@ -120,6 +135,16 @@ export function LayersCanvas() {
     loadWorkflow,
     setIsDirty,
   } = store;
+
+  const placedNodeTypes = useMemo(
+    () =>
+      new Set(
+        nodes
+          .map((node) => node.type)
+          .filter((nodeType): nodeType is string => typeof nodeType === "string"),
+      ),
+    [nodes],
+  );
 
   // Convex mutations
   const createWorkflow = useMutation(api.layers.layerWorkflowOntology.createWorkflow);
@@ -139,6 +164,7 @@ export function LayersCanvas() {
     api.layers.layerWorkflowOntology.listWorkflows,
     sessionId ? { sessionId } : "skip",
   );
+  const workflowList = (workflows ?? []) as LayersWorkflowListItem[];
 
   // Load selected workflow
   const workflowData = useQuery(
@@ -537,10 +563,10 @@ export function LayersCanvas() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowWorkflowMenu(false)} />
                 <div className="absolute top-full right-0 mt-1 w-72 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50 max-h-80 overflow-y-auto">
-                  {(!workflows || workflows.length === 0) ? (
+                  {workflowList.length === 0 ? (
                     <div className="px-3 py-4 text-center text-xs text-slate-500">No workflows yet</div>
                   ) : (
-                    workflows.filter((w) => w.status !== "archived").map((w) => (
+                    workflowList.filter((w) => w.status !== "archived").map((w) => (
                       <button
                         key={w._id}
                         onClick={() => {
@@ -713,7 +739,11 @@ export function LayersCanvas() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Tool Chest */}
-        <ToolChest onNodeDragStart={onNodeDragStart} sessionId={sessionId} />
+        <ToolChest
+          onNodeDragStart={onNodeDragStart}
+          sessionId={sessionId}
+          placedNodeTypes={placedNodeTypes}
+        />
 
         {/* Canvas */}
         <div className="relative flex-1" ref={reactFlowWrapper}>
@@ -777,14 +807,15 @@ export function LayersCanvas() {
         </div>
 
         {/* Node Inspector */}
-        <NodeInspector
-          node={selectedNode}
-          onUpdateConfig={updateNodeConfig}
-          onUpdateLabel={updateNodeLabel}
-          onDuplicate={duplicateSelected}
-          onToggleDisabled={toggleNodeDisabled}
-          onUpdateStatus={updateNodeStatus}
-          onClose={() => setSelectedNodeId(null)}
+          <NodeInspector
+            node={selectedNode}
+            onUpdateConfig={updateNodeConfig}
+            onUpdateLabel={updateNodeLabel}
+            onDuplicate={duplicateSelected}
+            onDelete={deleteNode}
+            onToggleDisabled={toggleNodeDisabled}
+            onUpdateStatus={updateNodeStatus}
+            onClose={() => setSelectedNodeId(null)}
           executionDetails={executionDetails ?? undefined}
         />
       </div>

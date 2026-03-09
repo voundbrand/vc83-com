@@ -16,7 +16,14 @@ import { AIChatWindow } from "@/components/window-content/ai-chat-window";
 import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-chat-window/voice-assistant-contract";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
-import { SUBTYPES, CHANNELS, MODELS, DEFAULT_AGENT_MODEL_ID } from "./types";
+import {
+  CHANNELS,
+  DEFAULT_AGENT_MODEL_ID,
+  MODELS,
+  SUBTYPES,
+  evaluateTemplateOverrideGate,
+  resolveTemplateLineage,
+} from "./types";
 import { FormField } from "./form-field";
 import {
   buildVoiceLanguageCatalogFromVoices,
@@ -107,7 +114,12 @@ export function AgentCreateForm({
   const [formSection, setFormSection] = useState<FormSection>("identity");
   const [launchMode, setLaunchMode] = useState<CreationLaunchMode | null>(editingAgentId ? "type" : null);
   const [saving, setSaving] = useState(false);
+  const [overrideWarnConfirmed, setOverrideWarnConfirmed] = useState(false);
+  const [overrideWarnReason, setOverrideWarnReason] = useState("");
+  const [policyGateMessage, setPolicyGateMessage] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const existingCustomProps = ((existingAgent?.customProperties || {}) as AgentCustomProps);
+  const templateLineage = resolveTemplateLineage(existingCustomProps);
 
   const normalizedVoiceLanguage = useMemo(
     () => normalizeVoiceLanguageCode(voiceLanguage) || normalizeVoiceLanguageCode(language) || "en",
@@ -195,6 +207,28 @@ export function AgentCreateForm({
     setSaving(true);
     try {
       if (editingAgentId) {
+        const overrideGate = evaluateTemplateOverrideGate(existingCustomProps, {
+          systemPrompt,
+          autonomyLevel,
+          modelId,
+          channelBindings,
+        });
+        if (overrideGate.lockedFields.length > 0) {
+          setPolicyGateMessage(
+            `Template lock: edits blocked for ${overrideGate.lockedFields.join(", ")}.`
+          );
+          return;
+        }
+        if (overrideGate.warnFields.length > 0) {
+          const normalizedReason = overrideWarnReason.trim();
+          if (!overrideWarnConfirmed || normalizedReason.length === 0) {
+            setPolicyGateMessage(
+              `Template warning: confirm override and provide reason for ${overrideGate.warnFields.join(", ")}.`
+            );
+            return;
+          }
+        }
+        setPolicyGateMessage(null);
         await updateAgent({
           sessionId,
           agentId: editingAgentId,
@@ -207,7 +241,17 @@ export function AgentCreateForm({
             modelId, temperature, channelBindings,
             blockedTopics: blockedTopics.split(",").map((t) => t.trim()).filter(Boolean),
           },
+          ...(overrideGate.warnFields.length > 0
+            ? {
+                overridePolicyGate: {
+                  confirmWarnOverride: true,
+                  reason: overrideWarnReason.trim(),
+                },
+              }
+            : {}),
         });
+        setOverrideWarnConfirmed(false);
+        setOverrideWarnReason("");
         onSaved(editingAgentId);
       } else {
         const agentId = await createAgent({
@@ -440,6 +484,55 @@ export function AgentCreateForm({
                 ? tx("ui.agents.create_form.title.edit", "Edit Agent")
                 : tx("ui.agents.create_form.title.create", "Create Agent")}
             </h3>
+            {editingAgentId && templateLineage.isTemplateLinked && (
+              <div
+                className="mb-3 border p-2 text-xs space-y-1"
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
+              >
+                <p>
+                  Template source: {templateLineage.sourceTemplateId || "n/a"} · version {templateLineage.sourceTemplateVersion || "n/a"}
+                </p>
+                <p>
+                  Override policy: {templateLineage.overridePolicyMode || "warn"} · lifecycle {(templateLineage.cloneLifecycleState || "legacy_unmanaged").replace(/_/g, " ")}
+                </p>
+              </div>
+            )}
+            {policyGateMessage && (
+              <div
+                className="mb-3 border p-2 text-xs"
+                style={{ borderColor: "#dc2626", color: "#dc2626", background: "color-mix(in srgb, #dc2626 8%, transparent)" }}
+              >
+                {policyGateMessage}
+              </div>
+            )}
+            {editingAgentId && templateLineage.isTemplateLinked && templateLineage.overridePolicyMode === "warn" && (
+              <div
+                className="mb-3 border p-2 text-xs space-y-2"
+                style={{ borderColor: "#f59e0b", color: "#f59e0b", background: "color-mix(in srgb, #f59e0b 8%, transparent)" }}
+              >
+                <p>Warn policy edits require explicit confirmation and reason before save.</p>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={overrideWarnConfirmed}
+                    onChange={(event) => setOverrideWarnConfirmed(event.target.checked)}
+                    aria-label="Confirm warn override for agent edits"
+                  />
+                  <span>I confirm this warn override.</span>
+                </label>
+                <div>
+                  <label htmlFor="agent-edit-override-reason" className="block mb-1">Override reason</label>
+                  <input
+                    id="agent-edit-override-reason"
+                    value={overrideWarnReason}
+                    onChange={(event) => setOverrideWarnReason(event.target.value)}
+                    className="w-full border px-2 py-1 text-xs"
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)", color: "var(--win95-text)" }}
+                    placeholder="Why this org-level override is needed"
+                  />
+                </div>
+              </div>
+            )}
 
             {!editingAgentId && (
               <div

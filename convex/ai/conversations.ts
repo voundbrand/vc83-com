@@ -6,7 +6,7 @@
 
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { mutation, query, type QueryCtx } from "../_generated/server";
+import { internalQuery, mutation, query, type QueryCtx } from "../_generated/server";
 
 /**
  * Generate a URL-friendly slug from a title
@@ -42,6 +42,23 @@ function generateSlug(title: string): string {
   }
 
   return baseSlug ? `${baseSlug}-${suffix}` : suffix;
+}
+
+async function getLayerWorkflowTitle(
+  ctx: QueryCtx,
+  organizationId: Id<"organizations">,
+  layerWorkflowId?: Id<"objects">
+): Promise<string | undefined> {
+  if (!layerWorkflowId) {
+    return undefined;
+  }
+
+  const workflow = await ctx.db.get(layerWorkflowId);
+  if (!workflow || workflow.organizationId !== organizationId) {
+    return undefined;
+  }
+
+  return workflow.name;
 }
 
 interface ConversationModelResolution {
@@ -559,6 +576,7 @@ export const createConversation = mutation({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     title: v.optional(v.string()),
+    layerWorkflowId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -569,6 +587,7 @@ export const createConversation = mutation({
     return await ctx.db.insert("aiConversations", {
       organizationId: args.organizationId,
       userId: args.userId,
+      layerWorkflowId: args.layerWorkflowId,
       title: args.title,
       slug,
       status: "active",
@@ -598,9 +617,15 @@ export const getConversation = query({
 
     const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
     const hydratedMessages = await hydrateMessagesWithAttachments(ctx, sortedMessages);
+    const layerWorkflowTitle = await getLayerWorkflowTitle(
+      ctx,
+      conversation.organizationId,
+      conversation.layerWorkflowId
+    );
 
     return {
       ...conversation,
+      layerWorkflowTitle,
       messages: hydratedMessages,
     };
   },
@@ -631,9 +656,15 @@ export const getConversationBySlug = query({
 
     const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
     const hydratedMessages = await hydrateMessagesWithAttachments(ctx, sortedMessages);
+    const layerWorkflowTitle = await getLayerWorkflowTitle(
+      ctx,
+      conversation.organizationId,
+      conversation.layerWorkflowId
+    );
 
     return {
       ...conversation,
+      layerWorkflowTitle,
       messages: hydratedMessages,
     };
   },
@@ -656,7 +687,28 @@ export const listConversations = query({
       .order("desc")
       .take(args.limit ?? 50);
 
-    return conversations;
+    const workflowTitleById = new Map<string, string>();
+    const workflowIds = new Set<string>();
+
+    for (const conversation of conversations) {
+      if (conversation.layerWorkflowId) {
+        workflowIds.add(conversation.layerWorkflowId);
+      }
+    }
+
+    for (const workflowId of workflowIds) {
+      const workflow = await ctx.db.get(workflowId as Id<"objects">);
+      if (workflow && workflow.organizationId === args.organizationId) {
+        workflowTitleById.set(workflowId, workflow.name);
+      }
+    }
+
+    return conversations.map((conversation) => ({
+      ...conversation,
+      layerWorkflowTitle: conversation.layerWorkflowId
+        ? workflowTitleById.get(conversation.layerWorkflowId)
+        : undefined,
+    }));
   },
 });
 
@@ -1224,5 +1276,35 @@ export const getModelFallbackRate = query({
       scannedConversations: recentConversations.length,
       ...aggregation,
     };
+  },
+});
+
+export const listActiveConversationCountsByWorkflow = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    workflowIds: v.array(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    const counts = await Promise.all(
+      args.workflowIds.map(async (workflowId) => {
+        const activeConversations = await ctx.db
+          .query("aiConversations")
+          .withIndex("by_workflow", (q) => q.eq("layerWorkflowId", workflowId))
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("organizationId"), args.organizationId),
+              q.eq(q.field("status"), "active"),
+            ),
+          )
+          .collect();
+
+        return {
+          layerWorkflowId: workflowId,
+          activeConversationCount: activeConversations.length,
+        };
+      }),
+    );
+
+    return counts;
   },
 });

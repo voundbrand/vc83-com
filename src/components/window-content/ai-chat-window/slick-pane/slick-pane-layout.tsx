@@ -37,6 +37,7 @@ export function SlickPaneLayout() {
   ) => unknown
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false)
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false)
+  const [isConversationStageVisible, setIsConversationStageVisible] = useState(false)
   const [selectedSurface, setSelectedSurface] = useState<CollaborationSurfaceSelection>({
     kind: "group",
   })
@@ -86,6 +87,14 @@ export function SlickPaneLayout() {
     }
   }, [collaborationContext, selectedSurface])
 
+  useEffect(() => {
+    if (!isConversationStageVisible) {
+      return
+    }
+    setLeftDrawerOpen(false)
+    setRightDrawerOpen(false)
+  }, [isConversationStageVisible])
+
   const toggleLeftDrawer = () => {
     setLeftDrawerOpen((current) => !current)
   }
@@ -105,6 +114,7 @@ export function SlickPaneLayout() {
           isRightDrawerOpen={rightDrawerOpen}
           onToggleLeftDrawer={toggleLeftDrawer}
           onToggleRightDrawer={toggleRightDrawer}
+          conversationStageVisible={isConversationStageVisible}
           collaborationContext={collaborationContext || null}
           selectedSurface={selectedSurface}
           onSelectSurface={setSelectedSurface}
@@ -122,6 +132,7 @@ export function SlickPaneLayout() {
               visualMode={visualMode}
               collaborationContext={collaborationContext || null}
               selectedSurface={selectedSurface}
+              onConversationStageVisibilityChange={setIsConversationStageVisible}
             />
           </div>
 

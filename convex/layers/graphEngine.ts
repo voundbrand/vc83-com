@@ -423,7 +423,7 @@ export const startExecution = internalAction({
         // Execute the node
         let result: NodeExecutionResult;
         try {
-          result = await executeNode(ctx, workflowNode, inputData, {
+          result = await executeWorkflowNode(ctx, workflowNode, inputData, {
             executionId: executionId.toString(),
             workflowId: args.workflowId,
             organizationId: args.organizationId,
@@ -523,7 +523,7 @@ const LOGIC_NODE_TYPES = new Set([
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GraphContext = { runAction: (...args: any[]) => any };
 
-async function executeNode(
+export async function executeWorkflowNode(
   ctx: GraphContext,
   node: WorkflowNode,
   inputData: Record<string, unknown>,

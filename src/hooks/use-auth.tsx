@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useAction } from "convex/react";
-import { useState, createContext, useContext, ReactNode, useEffect } from "react";
+import { useState, createContext, useContext, ReactNode, useEffect, useRef } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 import { useWindowManager } from "./use-window-manager";
 // Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
@@ -140,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOutMutation = useMutation(apiAny.auth.signOut);
   const switchOrgMutation = useMutation(apiAny.auth.switchOrganization);
   const setDefaultOrgMutation = useMutation(apiAny.auth.setDefaultOrganization);
+  const defaultOrgPersistAttemptRef = useRef<string | null>(null);
 
   const signIn = async (email: string, password: string) => {
     const result = await signInAction({ email, password });
@@ -214,15 +215,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Auto-persist defaultOrgId if user has organizations but no defaultOrgId
   // This fixes the issue where organization owners see no apps on first login
   useEffect(() => {
-    if (sessionId && userQuery && !userQuery.defaultOrgId && userQuery.currentOrganization) {
-      // User has organizations but no defaultOrgId set - persist the first one
-      setDefaultOrgMutation({
-        sessionId,
-        organizationId: userQuery.currentOrganization.id as Id<"organizations">
-      }).catch((error) => {
-        console.error("Failed to set default organization:", error);
-      });
+    if (!sessionId) {
+      defaultOrgPersistAttemptRef.current = null;
+      return;
     }
+
+    if (!userQuery || userQuery.defaultOrgId || !userQuery.currentOrganization) {
+      return;
+    }
+
+    const attemptKey = `${sessionId}:${userQuery.currentOrganization.id}`;
+    if (defaultOrgPersistAttemptRef.current === attemptKey) {
+      return;
+    }
+
+    defaultOrgPersistAttemptRef.current = attemptKey;
+
+    // User has organizations but no defaultOrgId set - persist the first one.
+    // Guarded by ref so this cannot loop on unstable query object identities.
+    void setDefaultOrgMutation({
+      sessionId,
+      organizationId: userQuery.currentOrganization.id as Id<"organizations">
+    }).catch((error) => {
+      console.error("Failed to set default organization:", error);
+    });
   }, [sessionId, userQuery, setDefaultOrgMutation]);
 
   // Transform the user data to match our interface

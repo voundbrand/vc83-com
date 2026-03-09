@@ -41,6 +41,12 @@ export function useLayersStore() {
 
   const reactFlowInstance = useReactFlow();
 
+  const hasNodeType = useCallback(
+    (candidateNodes: Node[], nodeType: string) =>
+      candidateNodes.some((node) => (node.data.definition as NodeDefinition).type === nodeType),
+    [],
+  );
+
   // --- snapshot helper ---
   const pushSnapshot = useCallback(() => {
     if (skipHistory.current) return;
@@ -96,6 +102,9 @@ export function useLayersStore() {
   // --- drop node from palette ---
   const addNode = useCallback(
     (definition: NodeDefinition, position: { x: number; y: number }) => {
+      if (definition.singleton && hasNodeType(nodes, definition.type)) {
+        return;
+      }
       pushSnapshot();
       const id = `${definition.type}_${Date.now()}`;
       const newNode: Node = {
@@ -113,7 +122,7 @@ export function useLayersStore() {
       setSelectedNodeId(id);
       setIsDirty(true);
     },
-    [setNodes, pushSnapshot],
+    [setNodes, pushSnapshot, hasNodeType, nodes],
   );
 
   // --- batch add nodes and edges (for AI-generated workflows) ---
@@ -133,34 +142,65 @@ export function useLayersStore() {
         targetHandle?: string;
       }>,
     ) => {
-      pushSnapshot();
-      const nodesToAdd: Node[] = newNodeDefs.map((n) => ({
-        id: n.id,
-        type: n.definition.category,
-        position: n.position,
-        data: {
-          definition: n.definition,
-          config: n.config ?? {},
-          status: "draft" as const,
-          label: n.label ?? n.definition.name,
-        },
-      }));
-      setNodes((nds) => [...nds, ...nodesToAdd]);
+      const existingNodeIds = new Set(nodes.map((n) => n.id));
+      const singletonNodeTypes = new Set(
+        nodes
+          .map((n) => n.data.definition as NodeDefinition)
+          .filter((definition) => definition.singleton)
+          .map((definition) => definition.type),
+      );
 
-      const edgesToAdd: Edge[] = newEdgeDefs.map((e, i) => ({
-        id: `ai_edge_${Date.now()}_${i}`,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle ?? "output",
-        targetHandle: e.targetHandle ?? "input",
-        type: "workflow",
-        animated: false,
-        data: { status: "draft", dataMapping: {} },
-      }));
+      const nodesToAdd: Node[] = [];
+      for (const candidate of newNodeDefs) {
+        if (candidate.definition.singleton && singletonNodeTypes.has(candidate.definition.type)) {
+          continue;
+        }
+
+        nodesToAdd.push({
+          id: candidate.id,
+          type: candidate.definition.category,
+          position: candidate.position,
+          data: {
+            definition: candidate.definition,
+            config: candidate.config ?? {},
+            status: "draft" as const,
+            label: candidate.label ?? candidate.definition.name,
+          },
+        });
+
+        if (candidate.definition.singleton) {
+          singletonNodeTypes.add(candidate.definition.type);
+        }
+      }
+
+      const addedNodeIds = new Set(nodesToAdd.map((n) => n.id));
+      const edgesToAdd: Edge[] = newEdgeDefs
+        .filter((e) => {
+          const sourceExists = existingNodeIds.has(e.source) || addedNodeIds.has(e.source);
+          const targetExists = existingNodeIds.has(e.target) || addedNodeIds.has(e.target);
+          return sourceExists && targetExists;
+        })
+        .map((e, i) => ({
+          id: `ai_edge_${Date.now()}_${i}`,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle ?? "output",
+          targetHandle: e.targetHandle ?? "input",
+          type: "workflow",
+          animated: false,
+          data: { status: "draft", dataMapping: {} },
+        }));
+
+      if (nodesToAdd.length === 0 && edgesToAdd.length === 0) {
+        return;
+      }
+
+      pushSnapshot();
+      setNodes((nds) => [...nds, ...nodesToAdd]);
       setEdges((eds) => [...eds, ...edgesToAdd]);
       setIsDirty(true);
     },
-    [setNodes, setEdges, pushSnapshot],
+    [setNodes, setEdges, pushSnapshot, nodes],
   );
 
   // --- delete selected ---
@@ -176,6 +216,18 @@ export function useLayersStore() {
     setSelectedNodeId(null);
     setIsDirty(true);
   }, [setNodes, setEdges, nodes, pushSnapshot]);
+
+  // --- delete specific node ---
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      pushSnapshot();
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setSelectedNodeId((current) => (current === nodeId ? null : current));
+      setIsDirty(true);
+    },
+    [setNodes, setEdges, pushSnapshot],
+  );
 
   // --- update node config ---
   const updateNodeConfig = useCallback(
@@ -197,8 +249,14 @@ export function useLayersStore() {
   const duplicateSelected = useCallback(() => {
     const selected = nodes.filter((n) => n.selected);
     if (selected.length === 0) return;
+    const duplicableNodes = selected.filter((node) => {
+      const definition = node.data.definition as NodeDefinition;
+      return !definition.singleton;
+    });
+    if (duplicableNodes.length === 0) return;
+
     pushSnapshot();
-    const newNodes: Node[] = selected.map((n) => ({
+    const newNodes: Node[] = duplicableNodes.map((n) => ({
       ...structuredClone(n),
       id: `${(n.data.definition as NodeDefinition).type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       position: { x: n.position.x + 40, y: n.position.y + 40 },
@@ -388,6 +446,7 @@ export function useLayersStore() {
     addNode,
     addNodesAndEdges,
     deleteSelected,
+    deleteNode,
     duplicateSelected,
     toggleNodeDisabled,
     updateNodeStatus,

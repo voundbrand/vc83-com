@@ -28,7 +28,7 @@ const BASE_PAYLOAD = {
 
 describe("trust event taxonomy contract", () => {
   it("registers deterministic trust event names without duplicates", () => {
-    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(63);
+    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(66);
     expect(new Set(TRUST_EVENT_NAME_VALUES).size).toBe(TRUST_EVENT_NAME_VALUES.length);
     expect(
       TRUST_EVENT_NAME_VALUES.every((eventName) => isDeterministicTrustEventName(eventName)),
@@ -68,6 +68,9 @@ describe("trust event taxonomy contract", () => {
     ).toBe(true);
     expect(
       isModeAllowedForTrustEvent("trust.admin.platform_soul_action_audited.v1", "admin"),
+    ).toBe(true);
+    expect(
+      isModeAllowedForTrustEvent("trust.admin.template_distribution_job_recorded.v1", "admin"),
     ).toBe(true);
     expect(
       isModeAllowedForTrustEvent("trust.guardrail.appointment_call_approval_requested.v1", "runtime"),

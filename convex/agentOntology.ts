@@ -27,7 +27,14 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "./rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./ai/modelDefaults";
-import { SUBTYPE_DEFAULT_PROFILES } from "./ai/toolScoping";
+import { SUBTYPE_DEFAULT_PROFILES, normalizeDeterministicToolNames } from "./ai/toolScoping";
+import {
+  MANAGED_USE_CASE_CLONE_LIFECYCLE,
+  buildManagedTemplateCloneLinkage,
+  isManagedUseCaseCloneProperties,
+  readTemplateCloneLinkageContract,
+  resolveTemplateSourceId,
+} from "./ai/templateCloneLinkage";
 import {
   normalizeChannelBindingsContract,
   webchatChannelBindingValidator,
@@ -37,6 +44,8 @@ import {
 const OPERATOR_ROUTING_CHANNELS = new Set(["desktop", "slack"]);
 const PLATFORM_MANAGED_CHANNEL_BINDING_CHANNELS = new Set(["desktop", "slack"]);
 const ORCHESTRATOR_DEFAULT_SUBTYPE = "general";
+const DEFAULT_ORG_AGENT_TEMPLATE_ROLE = "personal_life_operator_template";
+const DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY = "DEFAULT_ORG_AGENT_TEMPLATE_ID";
 
 const operatorCollaborationDefaultsValidator = v.object({
   defaultSurface: v.union(v.literal("group"), v.literal("dm")),
@@ -241,7 +250,21 @@ interface ActiveAgentCandidate {
 
 const PRIMARY_AGENT_INELIGIBLE_STATUSES = new Set(["archived", "deleted", "template"]);
 const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
-const MANAGED_USE_CASE_CLONE_LIFECYCLE = "managed_use_case_clone_v1";
+export const AGENT_TEMPLATE_CLONE_PRECEDENCE_ORDER = [
+  "platform_policy",
+  "template_baseline",
+  "org_clone_overrides",
+  "runtime_session_restrictions",
+] as const;
+const AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION = "ath_template_lifecycle_v1";
+const AGENT_TEMPLATE_OBJECT_TYPE = "org_agent";
+const AGENT_TEMPLATE_VERSION_OBJECT_TYPE = "org_agent_template_version";
+const AGENT_TEMPLATE_LIFECYCLE_STATUSES = ["draft", "published", "deprecated"] as const;
+const AGENT_TEMPLATE_VERSION_LIFECYCLE_STATUSES = [
+  "draft",
+  "published",
+  "deprecated",
+] as const;
 const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
   "displayName",
   "personality",
@@ -280,6 +303,50 @@ const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
   "escalationPolicy",
 ]);
 
+const TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS = [
+  "toolProfile",
+  "enabledTools",
+  "disabledTools",
+  "autonomyLevel",
+  "modelProvider",
+  "modelId",
+  "systemPrompt",
+  "channelBindings",
+] as const;
+
+type TemplateCloneDriftField = (typeof TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS)[number];
+type TemplateClonePolicyState = "in_sync" | "overridden" | "stale" | "blocked";
+type TemplateClonePolicyMode = "locked" | "warn" | "free";
+type TemplateCloneRiskLevel = "low" | "medium" | "high";
+
+type TemplateCloneDriftFieldDiff = {
+  field: TemplateCloneDriftField;
+  policyMode: TemplateClonePolicyMode;
+  templateValue: unknown;
+  cloneValue: unknown;
+};
+
+type TemplateCloneDriftContract = {
+  policyState: TemplateClonePolicyState;
+  stale: boolean;
+  blocked: boolean;
+  blockedFields: TemplateCloneDriftField[];
+  overriddenFields: TemplateCloneDriftField[];
+  diff: TemplateCloneDriftFieldDiff[];
+};
+
+function resolveTemplateCloneRiskLevel(
+  policyState: TemplateClonePolicyState
+): TemplateCloneRiskLevel {
+  if (policyState === "blocked" || policyState === "stale") {
+    return "high";
+  }
+  if (policyState === "overridden") {
+    return "medium";
+  }
+  return "low";
+}
+
 export type PrimaryAgentRepairCandidate = ActiveAgentCandidate;
 
 export interface PrimaryAgentRepairPatch {
@@ -312,6 +379,51 @@ interface ActiveAgentResolutionArgs {
   routeSelectors?: ActiveAgentRouteSelectors;
 }
 
+type EnsureActiveAgentForOrgArgs = {
+  organizationId: Id<"organizations">;
+  channel?: string;
+  subtype?: string;
+  routeSelectors?: ActiveAgentRouteSelectors;
+};
+
+type AgentTemplateLifecycleStatus =
+  (typeof AGENT_TEMPLATE_LIFECYCLE_STATUSES)[number];
+type AgentTemplateVersionLifecycleStatus =
+  (typeof AGENT_TEMPLATE_VERSION_LIFECYCLE_STATUSES)[number];
+
+type SuperAdminMutationSession = {
+  sessionId: string;
+  userId: Id<"users">;
+  roleName: "super_admin";
+};
+
+type TemplateDistributionOperation = "create" | "update" | "skip" | "blocked";
+type TemplateDistributionOperationKind = "rollout_apply" | "rollout_rollback";
+type TemplateDistributionOperationSummary = {
+  creates: number;
+  updates: number;
+  skips: number;
+  blocked: number;
+};
+type TemplateOverrideGateDecision = "allow" | "blocked_locked" | "blocked_warn_confirmation_required";
+type TemplateOverrideGateSummary = {
+  evaluatedFields: TemplateCloneDriftField[];
+  changedFields: TemplateCloneDriftField[];
+  lockedFields: TemplateCloneDriftField[];
+  warnFields: TemplateCloneDriftField[];
+  freeFields: TemplateCloneDriftField[];
+  warnConfirmationAccepted: boolean;
+  reason: string | null;
+  decision: TemplateOverrideGateDecision;
+};
+type TemplateDistributionPolicyGateSummary = {
+  blockedLocked: number;
+  blockedWarnConfirmation: number;
+  warnConfirmed: number;
+  free: number;
+};
+type TemplateDistributionReasonCounts = Record<string, number>;
+
 interface AgentRoutePolicy {
   policyId?: string;
   priority: number;
@@ -331,6 +443,400 @@ function normalizeOptionalString(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeTemplateLifecycleStatus(
+  value: unknown
+): AgentTemplateLifecycleStatus {
+  return value === "published" || value === "deprecated" ? value : "draft";
+}
+
+function normalizeTemplateVersionLifecycleStatus(
+  value: unknown
+): AgentTemplateVersionLifecycleStatus {
+  return value === "published" || value === "deprecated" ? value : "draft";
+}
+
+function pickTemplateBaselineSnapshot(
+  customProperties: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!customProperties) {
+    return {};
+  }
+  const snapshot = { ...customProperties };
+  delete snapshot.totalMessages;
+  delete snapshot.totalCostUsd;
+  delete snapshot.templateLifecycleContractVersion;
+  delete snapshot.templateLifecycleStatus;
+  delete snapshot.templateLifecycleUpdatedAt;
+  delete snapshot.templateLifecycleUpdatedBy;
+  delete snapshot.templatePublishedVersion;
+  delete snapshot.templatePublishedVersionId;
+  delete snapshot.templateCurrentVersion;
+  delete snapshot.templateLastVersionSnapshotId;
+  return snapshot;
+}
+
+function deriveChangedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): string[] {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return Array.from(keys)
+    .filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function toComparablePrimitive(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => toComparablePrimitive(entry));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => [key, toComparablePrimitive(record[key])])
+  );
+}
+
+function normalizeComparableTemplateCloneFieldValue(
+  field: TemplateCloneDriftField,
+  value: unknown
+): unknown {
+  if (field === "enabledTools" || field === "disabledTools") {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return normalizeDeterministicToolNames(
+      value.filter((entry): entry is string => typeof entry === "string")
+    );
+  }
+
+  if (field === "channelBindings") {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const normalizedBindings = normalizeChannelBindingsContract(
+      value.filter((entry): entry is ChannelBindingContractRecord => {
+        return (
+          !!entry &&
+          typeof entry === "object" &&
+          typeof (entry as Record<string, unknown>).channel === "string"
+        );
+      })
+    ).map((binding) => toComparablePrimitive(binding) as Record<string, unknown>);
+
+    return normalizedBindings.sort((left, right) => {
+      const leftChannel = normalizeOptionalString(left.channel) || "";
+      const rightChannel = normalizeOptionalString(right.channel) || "";
+      if (leftChannel !== rightChannel) {
+        return leftChannel.localeCompare(rightChannel);
+      }
+      return JSON.stringify(left).localeCompare(JSON.stringify(right));
+    });
+  }
+
+  if (field === "toolProfile") {
+    return normalizeOptionalString(value) || null;
+  }
+
+  return toComparablePrimitive(value ?? null);
+}
+
+function resolveTemplateCloneFieldPolicyMode(
+  linkage: ReturnType<typeof readTemplateCloneLinkageContract> | null,
+  field: TemplateCloneDriftField
+): TemplateClonePolicyMode {
+  const mode = linkage?.overridePolicy.fields?.[field]?.mode ?? linkage?.overridePolicy.mode;
+  return mode === "locked" || mode === "free" ? mode : "warn";
+}
+
+function resolveTemplateCloneDriftContract(args: {
+  templateBaseline: Record<string, unknown>;
+  cloneCustomProperties: Record<string, unknown>;
+  baselineTemplateVersion: string;
+  linkage: ReturnType<typeof readTemplateCloneLinkageContract> | null;
+}): TemplateCloneDriftContract {
+  const fieldDiffs: TemplateCloneDriftFieldDiff[] = [];
+  for (const field of TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS) {
+    const templateValue = normalizeComparableTemplateCloneFieldValue(
+      field,
+      args.templateBaseline[field]
+    );
+    const cloneValue = normalizeComparableTemplateCloneFieldValue(
+      field,
+      args.cloneCustomProperties[field]
+    );
+    if (JSON.stringify(templateValue) === JSON.stringify(cloneValue)) {
+      continue;
+    }
+    fieldDiffs.push({
+      field,
+      policyMode: resolveTemplateCloneFieldPolicyMode(args.linkage, field),
+      templateValue,
+      cloneValue,
+    });
+  }
+
+  const stale =
+    args.linkage?.cloneLifecycleState === "managed_stale" ||
+    (Boolean(args.linkage?.sourceTemplateVersion) &&
+      args.linkage?.sourceTemplateVersion !== args.baselineTemplateVersion);
+  const blockedFields = fieldDiffs
+    .filter((entry) => entry.policyMode === "locked")
+    .map((entry) => entry.field);
+  const overriddenFields = fieldDiffs
+    .filter((entry) => entry.policyMode !== "locked")
+    .map((entry) => entry.field);
+
+  const blocked =
+    !args.linkage ||
+    blockedFields.length > 0 ||
+    args.linkage.cloneLifecycleState === "legacy_unmanaged";
+  let policyState: TemplateClonePolicyState = "in_sync";
+  if (blocked) {
+    policyState = "blocked";
+  } else if (stale) {
+    policyState = "stale";
+  } else if (fieldDiffs.length > 0) {
+    policyState = "overridden";
+  }
+
+  return {
+    policyState,
+    stale,
+    blocked,
+    blockedFields,
+    overriddenFields,
+    diff: fieldDiffs,
+  };
+}
+
+async function requireSuperAdminMutationSession(
+  ctx: MutationCtx,
+  sessionId: string
+): Promise<SuperAdminMutationSession> {
+  const session = await ctx.db
+    .query("sessions")
+    .filter((q) => q.eq(q.field("_id"), sessionId))
+    .first();
+  if (!session) {
+    throw new Error("Invalid session");
+  }
+  const userContext = await getUserContext(ctx, session.userId);
+  if (!(userContext.isGlobal && userContext.roleName === "super_admin")) {
+    throw new ConvexError({
+      code: "FORBIDDEN",
+      message: "Template lifecycle operations require super_admin role.",
+    });
+  }
+  return {
+    sessionId,
+    userId: session.userId,
+    roleName: "super_admin",
+  };
+}
+
+async function writeTemplateLifecycleAuditEvent(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  objectId: Id<"objects">;
+  actionType:
+    | "agent_template.created"
+    | "agent_template.version_snapshot_created"
+    | "agent_template.version_published"
+    | "agent_template.deprecated"
+    | "agent_template.version_deprecated";
+  actor: SuperAdminMutationSession;
+  objectScope: {
+    scope: "global_template" | "template_version";
+    templateId: string;
+    templateVersionId?: string;
+    templateVersionTag?: string;
+  };
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  summary: Record<string, unknown>;
+  timestamp: number;
+}) {
+  const changedFields = deriveChangedFields(args.before, args.after);
+  const deterministicPayload = {
+    contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+    actor: {
+      userId: String(args.actor.userId),
+      sessionId: args.actor.sessionId,
+      role: args.actor.roleName,
+    },
+    actionType: args.actionType,
+    objectScope: {
+      ...args.objectScope,
+      organizationId: String(args.organizationId),
+      precedenceOrder: [...AGENT_TEMPLATE_CLONE_PRECEDENCE_ORDER],
+    },
+    diff: {
+      changedFields,
+      before: args.before,
+      after: args.after,
+      summary: args.summary,
+    },
+    timestamp: args.timestamp,
+  };
+
+  await args.ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: args.objectId,
+    actionType: args.actionType,
+    actionData: deterministicPayload,
+    performedBy: args.actor.userId,
+    performedAt: args.timestamp,
+  });
+
+  await args.ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.actor.userId,
+    action: args.actionType,
+    resource: args.objectScope.scope,
+    resourceId:
+      args.objectScope.scope === "template_version"
+        ? args.objectScope.templateVersionId
+        : args.objectScope.templateId,
+    success: true,
+    metadata: deterministicPayload,
+    createdAt: args.timestamp,
+  });
+}
+
+function dedupeAndSortObjectIds(values: Id<"organizations">[]): Id<"organizations">[] {
+  return Array.from(new Set(values.map((value) => String(value))))
+    .sort((left, right) => left.localeCompare(right))
+    .map((value) => value as Id<"organizations">);
+}
+
+function summarizeTemplateDistributionOperations(
+  rows: Array<{ operation: TemplateDistributionOperation }>
+): TemplateDistributionOperationSummary {
+  return {
+    creates: rows.filter((row) => row.operation === "create").length,
+    updates: rows.filter((row) => row.operation === "update").length,
+    skips: rows.filter((row) => row.operation === "skip").length,
+    blocked: rows.filter((row) => row.operation === "blocked").length,
+  };
+}
+
+function summarizeTemplateDistributionReasonCounts(
+  rows: Array<{ reason?: string }>
+): TemplateDistributionReasonCounts {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const reason = normalizeOptionalString(row.reason) || "unspecified";
+    counts.set(reason, (counts.get(reason) || 0) + 1);
+  }
+  return Object.fromEntries(
+    Array.from(counts.entries()).sort((left, right) => left[0].localeCompare(right[0]))
+  );
+}
+
+function buildDeterministicTemplateDistributionJobId(args: {
+  templateId: string;
+  templateVersionTag: string;
+  targetOrganizationIds: string[];
+}): string {
+  const basis = `${args.templateId}|${args.templateVersionTag}|${args.targetOrganizationIds.join(",")}`;
+  let hash = 0;
+  for (let index = 0; index < basis.length; index += 1) {
+    hash = (hash * 31 + basis.charCodeAt(index)) >>> 0;
+  }
+  return `ath_dist_${args.templateId}_${args.templateVersionTag}_${hash.toString(16).padStart(8, "0")}`;
+}
+
+function resolveTemplateVersionTagFromVersionObject(
+  versionCustomProperties: Record<string, unknown> | undefined
+): string | undefined {
+  return normalizeOptionalString(versionCustomProperties?.versionTag);
+}
+
+function resolveDefaultOrgAgentTemplateIdFromEnv(): string | undefined {
+  return normalizeOptionalString(
+    process.env[DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY]
+  );
+}
+
+function resolvePlatformOrgIdFromEnv(): Id<"organizations"> | undefined {
+  const platformOrgId = normalizeOptionalString(process.env.PLATFORM_ORG_ID);
+  if (platformOrgId) {
+    return platformOrgId as Id<"organizations">;
+  }
+  const testOrgId = normalizeOptionalString(process.env.TEST_ORG_ID);
+  if (testOrgId) {
+    return testOrgId as Id<"organizations">;
+  }
+  return undefined;
+}
+
+function resolveDefaultOrgTemplateVersionTag(args: {
+  templateId: Id<"objects">;
+  templateUpdatedAt: number;
+  templateCustomProperties: Record<string, unknown> | undefined;
+}): string {
+  return (
+    normalizeOptionalString(args.templateCustomProperties?.templatePublishedVersion) ||
+    normalizeOptionalString(args.templateCustomProperties?.templateVersion) ||
+    `${String(args.templateId)}@${args.templateUpdatedAt}`
+  );
+}
+
+function buildOrgDefaultTemplateSyncJobId(args: {
+  organizationId: Id<"organizations">;
+  templateId: Id<"objects">;
+  templateVersion: string;
+}): string {
+  const basis = `${String(args.organizationId)}|${String(args.templateId)}|${args.templateVersion}`;
+  let hash = 0;
+  for (let index = 0; index < basis.length; index += 1) {
+    hash = (hash * 31 + basis.charCodeAt(index)) >>> 0;
+  }
+  return `org_default_template_${String(args.templateId)}_${hash.toString(16).padStart(8, "0")}`;
+}
+
+function isLegacyAutoRecoveryAssistantCandidate(candidate: ActiveAgentCandidate): boolean {
+  const customProperties = readAgentCustomProperties(candidate);
+  return (
+    (candidate.name === "Default Assistant"
+      || customProperties.displayName === "Default Assistant")
+    && normalizeOptionalString(customProperties.toolProfile) === "general"
+  );
+}
+
+function isLegacyAutoProvisionUpgradeCandidate(
+  candidate: ActiveAgentCandidate
+): boolean {
+  if (
+    candidate.status === "archived"
+    || candidate.status === "deleted"
+    || candidate.status === "template"
+  ) {
+    return false;
+  }
+  const customProperties = readAgentCustomProperties(candidate);
+  const displayName = normalizeOptionalString(customProperties.displayName);
+  const name = normalizeOptionalString(candidate.name);
+  const toolProfile = normalizeOptionalString(customProperties.toolProfile);
+  const creationSource = normalizeOptionalString(customProperties.creationSource);
+  const isFallbackName =
+    name === "One-of-One Operator"
+    || name === "Default Assistant"
+    || displayName === "One-of-One Operator"
+    || displayName === "Default Assistant";
+  const isFallbackTooling = toolProfile === "admin" || toolProfile === "general";
+  const isFallbackSource =
+    creationSource === undefined ||
+    creationSource === "admin_manual" ||
+    creationSource === "legacy_direct";
+
+  return isFallbackName && isFallbackTooling && isFallbackSource;
 }
 
 function resolveRecoverySubtype(args: {
@@ -364,7 +870,7 @@ function isPrimaryFlagged(candidate: ActiveAgentCandidate): boolean {
 
 export function isManagedUseCaseCloneCandidate(candidate: ActiveAgentCandidate): boolean {
   const customProperties = readAgentCustomProperties(candidate);
-  return normalizeOptionalString(customProperties.cloneLifecycle) === MANAGED_USE_CASE_CLONE_LIFECYCLE;
+  return isManagedUseCaseCloneProperties(customProperties);
 }
 
 export function resolveDisallowedManagedCloneTuningFields(updatedFields: string[]): string[] {
@@ -377,6 +883,97 @@ export function resolveDisallowedManagedCloneTuningFields(updatedFields: string[
 
 function normalizeDeterministicUpdatedFields(updatedFields: string[]): string[] {
   return Array.from(new Set(updatedFields)).sort((a, b) => a.localeCompare(b));
+}
+
+function resolveTemplateOverrideGateForManagedClone(args: {
+  customProperties: Record<string, unknown>;
+  updates: Record<string, unknown>;
+  warnConfirmation: boolean;
+  reason: string | null;
+}): TemplateOverrideGateSummary | null {
+  if (!isManagedUseCaseCloneProperties(args.customProperties)) {
+    return null;
+  }
+  const linkage = readTemplateCloneLinkageContract(args.customProperties);
+  if (!linkage || linkage.cloneLifecycleState === "legacy_unmanaged") {
+    return null;
+  }
+
+  const evaluatedFields: TemplateCloneDriftField[] = [];
+  const changedFields: TemplateCloneDriftField[] = [];
+  const lockedFields: TemplateCloneDriftField[] = [];
+  const warnFields: TemplateCloneDriftField[] = [];
+  const freeFields: TemplateCloneDriftField[] = [];
+
+  for (const field of TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(args.updates, field)) {
+      continue;
+    }
+    evaluatedFields.push(field);
+    const currentValue = normalizeComparableTemplateCloneFieldValue(
+      field,
+      args.customProperties[field]
+    );
+    const nextValue = normalizeComparableTemplateCloneFieldValue(
+      field,
+      args.updates[field]
+    );
+    if (JSON.stringify(currentValue) === JSON.stringify(nextValue)) {
+      continue;
+    }
+    changedFields.push(field);
+    const mode = resolveTemplateCloneFieldPolicyMode(linkage, field);
+    if (mode === "locked") {
+      lockedFields.push(field);
+    } else if (mode === "warn") {
+      warnFields.push(field);
+    } else {
+      freeFields.push(field);
+    }
+  }
+
+  if (evaluatedFields.length === 0) {
+    return null;
+  }
+
+  let decision: TemplateOverrideGateDecision = "allow";
+  if (lockedFields.length > 0) {
+    decision = "blocked_locked";
+  } else if (warnFields.length > 0 && !args.warnConfirmation) {
+    decision = "blocked_warn_confirmation_required";
+  }
+
+  return {
+    evaluatedFields,
+    changedFields,
+    lockedFields,
+    warnFields,
+    freeFields,
+    warnConfirmationAccepted: args.warnConfirmation,
+    reason: args.reason,
+    decision,
+  };
+}
+
+function summarizeTemplateDistributionPolicyGates(
+  rows: Array<{ policyGate?: TemplateOverrideGateSummary }>
+): TemplateDistributionPolicyGateSummary {
+  return {
+    blockedLocked: rows.filter((row) => row.policyGate?.decision === "blocked_locked").length,
+    blockedWarnConfirmation: rows.filter(
+      (row) => row.policyGate?.decision === "blocked_warn_confirmation_required"
+    ).length,
+    warnConfirmed: rows.filter(
+      (row) =>
+        row.policyGate?.decision === "allow" &&
+        (row.policyGate?.warnFields.length || 0) > 0
+    ).length,
+    free: rows.filter(
+      (row) =>
+        row.policyGate?.decision === "allow" &&
+        (row.policyGate?.freeFields.length || 0) > 0
+    ).length,
+  };
 }
 
 function resolveOperatorContextId(candidate: ActiveAgentCandidate): string {
@@ -1096,6 +1693,536 @@ export const getActiveAgentForOrg = internalQuery({
  * 2) Reactivate a viable existing agent
  * 3) Create a default active agent
  */
+async function ensureActiveAgentForOrgInternalHandler(
+  ctx: MutationCtx,
+  args: EnsureActiveAgentForOrgArgs
+): Promise<{
+  agentId: Id<"objects">;
+  recoveryAction: "existing" | "reactivated" | "created";
+}> {
+  const recoverySubtype = resolveRecoverySubtype({
+    channel: args.channel,
+    subtype: args.subtype,
+  });
+  const agents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const existingActiveAgent = resolveActiveAgentForOrgCandidates(agents, {
+    channel: args.channel,
+    subtype: recoverySubtype,
+    routeSelectors: args.routeSelectors,
+  });
+  if (existingActiveAgent?._id) {
+    const existingProps =
+      (existingActiveAgent.customProperties as Record<string, unknown> | undefined) ?? {};
+    if (isLegacyAutoRecoveryAssistantCandidate(existingActiveAgent)) {
+      await ctx.db.patch(existingActiveAgent._id, {
+        name: "One-of-One Operator",
+        description: "Auto-created primary operator agent",
+        customProperties: {
+          ...existingProps,
+          displayName: "One-of-One Operator",
+          toolProfile: "admin",
+        },
+        updatedAt: Date.now(),
+      });
+    }
+    return {
+      agentId: existingActiveAgent._id,
+      recoveryAction: "existing",
+    };
+  }
+
+  const now = Date.now();
+  const viableAgents = agents
+    .filter((candidate) =>
+      candidate.status !== "archived" &&
+      candidate.status !== "deleted" &&
+      candidate.status !== "template" &&
+      (!recoverySubtype || normalizeOptionalString(candidate.subtype) === recoverySubtype)
+    )
+    .sort(compareAgentsByPrimaryOrder);
+  const reactivationCandidate =
+    viableAgents.find((candidate) => isPrimaryFlagged(candidate)) || viableAgents[0];
+
+  if (reactivationCandidate?._id) {
+    if (reactivationCandidate.status !== "active") {
+      await ctx.db.patch(reactivationCandidate._id, {
+        status: "active",
+        updatedAt: now,
+      });
+    }
+
+    const operatorId = resolveOperatorContextId(reactivationCandidate);
+    await applyPrimaryAgentRepairsForOrganization(ctx, {
+      organizationId: String(args.organizationId),
+      operatorId,
+      forcePrimaryAgentId: String(reactivationCandidate._id),
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: reactivationCandidate._id,
+      actionType: "activated_auto_recovery",
+      actionData: {
+        source: "ensureActiveAgentForOrgInternal",
+        previousStatus: reactivationCandidate.status || null,
+        channel: args.channel || null,
+      },
+      performedAt: now,
+    });
+
+    return {
+      agentId: reactivationCandidate._id,
+      recoveryAction: "reactivated",
+    };
+  }
+
+  const defaultChannelBindings = args.channel
+    ? normalizeChannelBindingsContract([{ channel: args.channel, enabled: true }])
+    : undefined;
+  const agentId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: recoverySubtype || "general",
+    name: "One-of-One Operator",
+    description: "Auto-created primary operator agent",
+    status: "active",
+    customProperties: {
+      displayName: "One-of-One Operator",
+      language: "en",
+      voiceLanguage: "en",
+      additionalLanguages: [],
+      faqEntries: [],
+      knowledgeBaseTags: [],
+      toolProfile: "admin",
+      enabledTools: [],
+      disabledTools: [],
+      autonomyLevel: "autonomous",
+      maxMessagesPerDay: 100,
+      maxCostPerDay: 5.0,
+      requireApprovalFor: [],
+      blockedTopics: [],
+      modelProvider: "openrouter",
+      modelId: ONBOARDING_DEFAULT_MODEL_ID,
+      temperature: 0.7,
+      maxTokens: 4096,
+      channelBindings: defaultChannelBindings,
+      unifiedPersonality: true,
+      teamAccessMode: "invisible",
+      dreamTeamSpecialists: [],
+      activeSoulMode: "work",
+      activeArchetype: null,
+      modeChannelBindings: [],
+      enabledArchetypes: [],
+      creationSource: "admin_manual",
+      operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+      isPrimary: true,
+      operatorCollaborationDefaults: {
+        ...DEFAULT_OPERATOR_COLLABORATION_DEFAULTS,
+      },
+      totalMessages: 0,
+      totalCostUsd: 0,
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await applyPrimaryAgentRepairsForOrganization(ctx, {
+    organizationId: String(args.organizationId),
+    operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+    forcePrimaryAgentId: String(agentId),
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: agentId,
+    actionType: "created_auto_recovery",
+    actionData: {
+      source: "ensureActiveAgentForOrgInternal",
+      channel: args.channel || null,
+    },
+    performedAt: now,
+  });
+
+  return {
+    agentId,
+    recoveryAction: "created",
+  };
+}
+
+async function resolveDefaultTemplateForOrgBootstrap(
+  ctx: MutationCtx
+): Promise<{
+  template: {
+    _id: Id<"objects">;
+    organizationId: Id<"organizations">;
+    type: string;
+    subtype?: string;
+    name: string;
+    description?: string;
+    status: string;
+    customProperties?: Record<string, unknown>;
+    createdBy?: Id<"users">;
+    createdAt: number;
+    updatedAt: number;
+  };
+  resolutionSource: "env_template_id" | "platform_template_role";
+}> {
+  const configuredTemplateId = resolveDefaultOrgAgentTemplateIdFromEnv();
+  if (configuredTemplateId) {
+    const configuredTemplate = await ctx.db.get(configuredTemplateId as Id<"objects">);
+    if (!configuredTemplate || configuredTemplate.type !== "org_agent") {
+      throw new Error(
+        `${DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY} does not resolve to an org_agent template (${configuredTemplateId}).`
+      );
+    }
+    if (configuredTemplate.status !== "template") {
+      throw new Error(
+        `${DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY} must point to a template-status org_agent (${configuredTemplateId}).`
+      );
+    }
+    return {
+      template: configuredTemplate as {
+        _id: Id<"objects">;
+        organizationId: Id<"organizations">;
+        type: string;
+        subtype?: string;
+        name: string;
+        description?: string;
+        status: string;
+        customProperties?: Record<string, unknown>;
+        createdBy?: Id<"users">;
+        createdAt: number;
+        updatedAt: number;
+      },
+      resolutionSource: "env_template_id",
+    };
+  }
+
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  if (!platformOrgId) {
+    throw new Error(
+      "Default org template resolution failed: PLATFORM_ORG_ID/TEST_ORG_ID is not configured."
+    );
+  }
+  const platformAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", platformOrgId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const templateCandidates = filterProtectedTemplateAgents(platformAgents, {
+    templateRole: DEFAULT_ORG_AGENT_TEMPLATE_ROLE,
+  });
+  const template = templateCandidates[0];
+  if (!template || !template._id) {
+    throw new Error(
+      `Default org template role not found on platform org: ${DEFAULT_ORG_AGENT_TEMPLATE_ROLE}.`
+    );
+  }
+  if (template.status !== "template") {
+    throw new Error(
+      `Default org template role is not template-status: ${DEFAULT_ORG_AGENT_TEMPLATE_ROLE}.`
+    );
+  }
+  return {
+    template: template as {
+      _id: Id<"objects">;
+      organizationId: Id<"organizations">;
+      type: string;
+      subtype?: string;
+      name: string;
+      description?: string;
+      status: string;
+      customProperties?: Record<string, unknown>;
+      createdBy?: Id<"users">;
+      createdAt: number;
+      updatedAt: number;
+    },
+    resolutionSource: "platform_template_role",
+  };
+}
+
+async function ensureManagedDefaultTemplateCloneForOrgHandler(
+  ctx: MutationCtx,
+  args: EnsureActiveAgentForOrgArgs
+): Promise<{
+  agentId: Id<"objects">;
+  provisioningAction:
+    | "template_clone_created"
+    | "template_clone_updated"
+    | "template_clone_promoted_legacy";
+  templateAgentId: Id<"objects">;
+  templateResolutionSource: "env_template_id" | "platform_template_role";
+}> {
+  const now = Date.now();
+  const recoverySubtype = resolveRecoverySubtype({
+    channel: args.channel,
+    subtype: args.subtype,
+  });
+  const resolvedTemplate = await resolveDefaultTemplateForOrgBootstrap(ctx);
+  const template = resolvedTemplate.template;
+  const templateProps =
+    (template.customProperties as Record<string, unknown> | undefined) ?? {};
+  const templateLifecycleStatus = normalizeTemplateLifecycleStatus(
+    templateProps.templateLifecycleStatus
+  );
+  if (templateLifecycleStatus === "deprecated") {
+    throw new Error("Default org template is deprecated and cannot be provisioned.");
+  }
+
+  const templateVersion = resolveDefaultOrgTemplateVersionTag({
+    templateId: template._id,
+    templateUpdatedAt: template.updatedAt,
+    templateCustomProperties: templateProps,
+  });
+  const templateBaseline = pickTemplateBaselineSnapshot(templateProps);
+  const syncJobId = buildOrgDefaultTemplateSyncJobId({
+    organizationId: args.organizationId,
+    templateId: template._id,
+    templateVersion,
+  });
+  const defaultChannelBindings = args.channel
+    ? normalizeChannelBindingsContract([{ channel: args.channel, enabled: true }])
+    : undefined;
+
+  const orgAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const existingClone = orgAgents
+    .filter((agent) => {
+      const props = (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+      return resolveTemplateSourceId(props) === String(template._id);
+    })
+    .sort((left, right) => String(left._id).localeCompare(String(right._id)))[0];
+
+  if (existingClone?._id) {
+    const existingProps =
+      (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+    const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+    const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(template._id),
+      sourceTemplateVersion: templateVersion,
+      overridePolicy: existingLinkage?.overridePolicy,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId: syncJobId,
+      cloneLifecycleState: existingLinkage?.cloneLifecycleState,
+    });
+    const nextCustomProperties: Record<string, unknown> = {
+      ...existingProps,
+      templateAgentId: template._id,
+      templateVersion,
+      cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+      templateCloneLinkage,
+      lastTemplateSyncAt: now,
+      lastTemplateJobId: syncJobId,
+      creationSource: "catalog_clone",
+      protected: false,
+      operatorId: normalizeOptionalString(existingProps.operatorId) || DEFAULT_OPERATOR_CONTEXT_ID,
+      isPrimary: true,
+    };
+    if (!Array.isArray(nextCustomProperties.channelBindings) && defaultChannelBindings) {
+      nextCustomProperties.channelBindings = defaultChannelBindings;
+    }
+    await ctx.db.patch(existingClone._id, {
+      subtype: template.subtype || recoverySubtype || existingClone.subtype || "general",
+      status: "active",
+      customProperties: nextCustomProperties,
+      updatedAt: now,
+    });
+
+    await applyPrimaryAgentRepairsForOrganization(ctx, {
+      organizationId: String(args.organizationId),
+      operatorId: String(nextCustomProperties.operatorId || DEFAULT_OPERATOR_CONTEXT_ID),
+      forcePrimaryAgentId: String(existingClone._id),
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: existingClone._id,
+      actionType: "org_default_template_clone_upserted",
+      actionData: {
+        source: "ensureTemplateManagedDefaultAgentForOrgInternal",
+        mode: "existing_clone",
+        channel: args.channel || null,
+        templateAgentId: String(template._id),
+        templateVersion,
+        templateResolutionSource: resolvedTemplate.resolutionSource,
+        syncJobId,
+      },
+      performedAt: now,
+    });
+
+    return {
+      agentId: existingClone._id,
+      provisioningAction: "template_clone_updated",
+      templateAgentId: template._id,
+      templateResolutionSource: resolvedTemplate.resolutionSource,
+    };
+  }
+
+  const legacyPromotionCandidate = orgAgents
+    .filter((agent) =>
+      (!recoverySubtype || normalizeOptionalString(agent.subtype) === recoverySubtype)
+      && isLegacyAutoProvisionUpgradeCandidate(agent)
+    )
+    .sort(compareAgentsByPrimaryOrder)[0];
+
+  if (legacyPromotionCandidate?._id) {
+    const legacyProps =
+      (legacyPromotionCandidate.customProperties as Record<string, unknown> | undefined) ?? {};
+    const legacyLinkage = readTemplateCloneLinkageContract(legacyProps);
+    const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(template._id),
+      sourceTemplateVersion: templateVersion,
+      overridePolicy: legacyLinkage?.overridePolicy,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId: syncJobId,
+      cloneLifecycleState: legacyLinkage?.cloneLifecycleState,
+    });
+    const nextCustomProperties: Record<string, unknown> = {
+      ...templateBaseline,
+      ...legacyProps,
+      templateAgentId: template._id,
+      templateVersion,
+      cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+      templateCloneLinkage,
+      lastTemplateSyncAt: now,
+      lastTemplateJobId: syncJobId,
+      creationSource: "catalog_clone",
+      protected: false,
+      operatorId: normalizeOptionalString(legacyProps.operatorId) || DEFAULT_OPERATOR_CONTEXT_ID,
+      isPrimary: true,
+      totalMessages: typeof legacyProps.totalMessages === "number" ? legacyProps.totalMessages : 0,
+      totalCostUsd: typeof legacyProps.totalCostUsd === "number" ? legacyProps.totalCostUsd : 0,
+    };
+    if (!Array.isArray(nextCustomProperties.channelBindings) && defaultChannelBindings) {
+      nextCustomProperties.channelBindings = defaultChannelBindings;
+    }
+
+    await ctx.db.patch(legacyPromotionCandidate._id, {
+      subtype: template.subtype || recoverySubtype || legacyPromotionCandidate.subtype || "general",
+      name: template.name,
+      description:
+        normalizeOptionalString(template.description)
+        || normalizeOptionalString(legacyPromotionCandidate.description)
+        || "Auto-provisioned default template clone",
+      status: "active",
+      customProperties: nextCustomProperties,
+      updatedAt: now,
+    });
+
+    await applyPrimaryAgentRepairsForOrganization(ctx, {
+      organizationId: String(args.organizationId),
+      operatorId: String(nextCustomProperties.operatorId || DEFAULT_OPERATOR_CONTEXT_ID),
+      forcePrimaryAgentId: String(legacyPromotionCandidate._id),
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: legacyPromotionCandidate._id,
+      actionType: "org_default_template_clone_upserted",
+      actionData: {
+        source: "ensureTemplateManagedDefaultAgentForOrgInternal",
+        mode: "promoted_legacy",
+        channel: args.channel || null,
+        templateAgentId: String(template._id),
+        templateVersion,
+        templateResolutionSource: resolvedTemplate.resolutionSource,
+        syncJobId,
+      },
+      performedAt: now,
+    });
+
+    return {
+      agentId: legacyPromotionCandidate._id,
+      provisioningAction: "template_clone_promoted_legacy",
+      templateAgentId: template._id,
+      templateResolutionSource: resolvedTemplate.resolutionSource,
+    };
+  }
+
+  const customProperties: Record<string, unknown> = {
+    ...templateBaseline,
+    protected: false,
+    templateAgentId: template._id,
+    templateVersion,
+    cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+    templateCloneLinkage: buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(template._id),
+      sourceTemplateVersion: templateVersion,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId: syncJobId,
+    }),
+    lastTemplateSyncAt: now,
+    lastTemplateJobId: syncJobId,
+    creationSource: "catalog_clone",
+    operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+    isPrimary: true,
+    totalMessages:
+      typeof templateBaseline.totalMessages === "number" ? templateBaseline.totalMessages : 0,
+    totalCostUsd:
+      typeof templateBaseline.totalCostUsd === "number" ? templateBaseline.totalCostUsd : 0,
+  };
+  if (!Array.isArray(customProperties.channelBindings) && defaultChannelBindings) {
+    customProperties.channelBindings = defaultChannelBindings;
+  }
+
+  const cloneId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: template.subtype || recoverySubtype || "general",
+    name: template.name,
+    description:
+      normalizeOptionalString(template.description) ||
+      "Auto-provisioned default template clone",
+    status: "active",
+    customProperties,
+    createdBy: template.createdBy,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await applyPrimaryAgentRepairsForOrganization(ctx, {
+    organizationId: String(args.organizationId),
+    operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+    forcePrimaryAgentId: String(cloneId),
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: cloneId,
+    actionType: "org_default_template_clone_upserted",
+    actionData: {
+      source: "ensureTemplateManagedDefaultAgentForOrgInternal",
+      mode: "created",
+      channel: args.channel || null,
+      templateAgentId: String(template._id),
+      templateVersion,
+      templateResolutionSource: resolvedTemplate.resolutionSource,
+      syncJobId,
+    },
+    performedAt: now,
+  });
+
+  return {
+    agentId: cloneId,
+    provisioningAction: "template_clone_created",
+    templateAgentId: template._id,
+    templateResolutionSource: resolvedTemplate.resolutionSource,
+  };
+}
+
 export const ensureActiveAgentForOrgInternal = internalMutation({
   args: {
     organizationId: v.id("organizations"),
@@ -1110,164 +2237,48 @@ export const ensureActiveAgentForOrgInternal = internalMutation({
       channelRef: v.optional(v.string()),
     })),
   },
+  handler: async (ctx, args) => ensureActiveAgentForOrgInternalHandler(ctx, args),
+});
+
+/**
+ * INTERNAL: Provision the org's default agent as a managed template clone.
+ * Fail-closed behavior: falls back to ensureActiveAgentForOrgInternal recovery.
+ */
+export const ensureTemplateManagedDefaultAgentForOrgInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    channel: v.optional(v.string()),
+    subtype: v.optional(v.string()),
+    routeSelectors: v.optional(v.object({
+      channel: v.optional(v.string()),
+      providerId: v.optional(v.string()),
+      account: v.optional(v.string()),
+      team: v.optional(v.string()),
+      peer: v.optional(v.string()),
+      channelRef: v.optional(v.string()),
+    })),
+  },
   handler: async (ctx, args) => {
-    const recoverySubtype = resolveRecoverySubtype({
-      channel: args.channel,
-      subtype: args.subtype,
-    });
-    const agents = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "org_agent")
-      )
-      .collect();
-
-    const existingActiveAgent = resolveActiveAgentForOrgCandidates(agents, {
-      channel: args.channel,
-      subtype: recoverySubtype,
-      routeSelectors: args.routeSelectors,
-    });
-    if (existingActiveAgent?._id) {
-      const existingProps =
-        (existingActiveAgent.customProperties as Record<string, unknown> | undefined) ?? {};
-      const isLegacyAutoRecoveryAssistant =
-        (existingActiveAgent.name === "Default Assistant"
-          || existingProps.displayName === "Default Assistant")
-        && normalizeOptionalString(existingProps.toolProfile) === "general";
-      if (isLegacyAutoRecoveryAssistant) {
-        await ctx.db.patch(existingActiveAgent._id, {
-          name: "One-of-One Operator",
-          description: "Auto-created primary operator agent",
-          customProperties: {
-            ...existingProps,
-            displayName: "One-of-One Operator",
-            toolProfile: "admin",
-          },
-          updatedAt: Date.now(),
-        });
-      }
+    try {
+      const provisioned = await ensureManagedDefaultTemplateCloneForOrgHandler(ctx, args);
       return {
-        agentId: existingActiveAgent._id,
-        recoveryAction: "existing",
+        agentId: provisioned.agentId,
+        provisioningAction: provisioned.provisioningAction,
+        fallbackUsed: false,
+        templateAgentId: provisioned.templateAgentId,
+        templateResolutionSource: provisioned.templateResolutionSource,
+      };
+    } catch (error) {
+      const fallback = await ensureActiveAgentForOrgInternalHandler(ctx, args);
+      return {
+        agentId: fallback.agentId,
+        provisioningAction: `fallback_${fallback.recoveryAction}` as const,
+        fallbackUsed: true,
+        templateAgentId: null,
+        templateResolutionSource: null,
+        fallbackReason: error instanceof Error ? error.message : "unknown_template_provisioning_error",
       };
     }
-
-    const now = Date.now();
-    const viableAgents = agents
-      .filter((candidate) =>
-        candidate.status !== "archived" &&
-        candidate.status !== "deleted" &&
-        candidate.status !== "template" &&
-        (!recoverySubtype || normalizeOptionalString(candidate.subtype) === recoverySubtype)
-      )
-      .sort(compareAgentsByPrimaryOrder);
-    const reactivationCandidate =
-      viableAgents.find((candidate) => isPrimaryFlagged(candidate)) || viableAgents[0];
-
-    if (reactivationCandidate?._id) {
-      if (reactivationCandidate.status !== "active") {
-        await ctx.db.patch(reactivationCandidate._id, {
-          status: "active",
-          updatedAt: now,
-        });
-      }
-
-      const operatorId = resolveOperatorContextId(reactivationCandidate);
-      await applyPrimaryAgentRepairsForOrganization(ctx, {
-        organizationId: String(args.organizationId),
-        operatorId,
-        forcePrimaryAgentId: String(reactivationCandidate._id),
-      });
-
-      await ctx.db.insert("objectActions", {
-        organizationId: args.organizationId,
-        objectId: reactivationCandidate._id,
-        actionType: "activated_auto_recovery",
-        actionData: {
-          source: "ensureActiveAgentForOrgInternal",
-          previousStatus: reactivationCandidate.status || null,
-          channel: args.channel || null,
-        },
-        performedAt: now,
-      });
-
-      return {
-        agentId: reactivationCandidate._id,
-        recoveryAction: "reactivated",
-      };
-    }
-
-    const defaultChannelBindings = args.channel
-      ? normalizeChannelBindingsContract([{ channel: args.channel, enabled: true }])
-      : undefined;
-    const agentId = await ctx.db.insert("objects", {
-      organizationId: args.organizationId,
-      type: "org_agent",
-      subtype: recoverySubtype || "general",
-      name: "One-of-One Operator",
-      description: "Auto-created primary operator agent",
-      status: "active",
-      customProperties: {
-        displayName: "One-of-One Operator",
-        language: "en",
-        voiceLanguage: "en",
-        additionalLanguages: [],
-        faqEntries: [],
-        knowledgeBaseTags: [],
-        toolProfile: "admin",
-        enabledTools: [],
-        disabledTools: [],
-        autonomyLevel: "autonomous",
-        maxMessagesPerDay: 100,
-        maxCostPerDay: 5.0,
-        requireApprovalFor: [],
-        blockedTopics: [],
-        modelProvider: "openrouter",
-        modelId: ONBOARDING_DEFAULT_MODEL_ID,
-        temperature: 0.7,
-        maxTokens: 4096,
-        channelBindings: defaultChannelBindings,
-        unifiedPersonality: true,
-        teamAccessMode: "invisible",
-        dreamTeamSpecialists: [],
-        activeSoulMode: "work",
-        activeArchetype: null,
-        modeChannelBindings: [],
-        enabledArchetypes: [],
-        creationSource: "admin_manual",
-        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
-        isPrimary: true,
-        operatorCollaborationDefaults: {
-          ...DEFAULT_OPERATOR_COLLABORATION_DEFAULTS,
-        },
-        totalMessages: 0,
-        totalCostUsd: 0,
-      },
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await applyPrimaryAgentRepairsForOrganization(ctx, {
-      organizationId: String(args.organizationId),
-      operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
-      forcePrimaryAgentId: String(agentId),
-    });
-
-    await ctx.db.insert("objectActions", {
-      organizationId: args.organizationId,
-      objectId: agentId,
-      actionType: "created_auto_recovery",
-      actionData: {
-        source: "ensureActiveAgentForOrgInternal",
-        channel: args.channel || null,
-      },
-      performedAt: now,
-    });
-
-    return {
-      agentId,
-      recoveryAction: "created",
-    };
   },
 });
 
@@ -1357,6 +2368,9 @@ async function enforceOneOfOneOperatorMutationAccess(
 ) {
   const userContext = await getUserContext(ctx, args.userId, args.organizationId);
   const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  // Role boundary lock:
+  // - super_admin can perform global template/platform operations.
+  // - org-scoped users can only mutate owner context within one-of-one guardrails.
   if (isSuperAdmin) {
     return;
   }
@@ -1404,6 +2418,1903 @@ async function enforceOneOfOneOperatorMutationAccess(
 // ============================================================================
 // AGENT MUTATIONS
 // ============================================================================
+
+export const createAgentTemplate = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    subtype: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    systemPrompt: v.optional(v.string()),
+    toolProfile: v.optional(v.string()),
+    enabledTools: v.optional(v.array(v.string())),
+    disabledTools: v.optional(v.array(v.string())),
+    autonomyLevel: v.optional(v.union(
+      v.literal("supervised"),
+      v.literal("sandbox"),
+      v.literal("autonomous"),
+      v.literal("delegation"),
+      v.literal("draft_only"),
+    )),
+    modelProvider: v.optional(v.string()),
+    modelId: v.optional(v.string()),
+    templateRole: v.optional(v.string()),
+    templateLayer: v.optional(v.string()),
+    templatePlaybook: v.optional(v.string()),
+    protectedTemplate: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
+    const now = Date.now();
+
+    const customProperties = {
+      displayName: args.displayName || args.name,
+      systemPrompt: args.systemPrompt,
+      toolProfile: args.toolProfile || SUBTYPE_DEFAULT_PROFILES[args.subtype] || "general",
+      enabledTools: args.enabledTools || [],
+      disabledTools: args.disabledTools || [],
+      autonomyLevel: args.autonomyLevel || "autonomous",
+      modelProvider: args.modelProvider || "openrouter",
+      modelId: args.modelId || ONBOARDING_DEFAULT_MODEL_ID,
+      templateRole: args.templateRole,
+      templateLayer: args.templateLayer,
+      templatePlaybook: args.templatePlaybook,
+      protected: args.protectedTemplate === true,
+      templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+      templateLifecycleStatus: "draft" as AgentTemplateLifecycleStatus,
+      templateLifecycleUpdatedAt: now,
+      templateLifecycleUpdatedBy: String(actor.userId),
+    };
+
+    const templateId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: AGENT_TEMPLATE_OBJECT_TYPE,
+      subtype: args.subtype,
+      name: args.name,
+      description: args.description || `${args.subtype} template`,
+      status: "template",
+      customProperties,
+      createdBy: actor.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await writeTemplateLifecycleAuditEvent({
+      ctx,
+      organizationId: args.organizationId,
+      objectId: templateId,
+      actionType: "agent_template.created",
+      actor,
+      objectScope: {
+        scope: "global_template",
+        templateId: String(templateId),
+      },
+      before: {},
+      after: {
+        lifecycleStatus: "draft",
+        subtype: args.subtype,
+        templateRole: args.templateRole || null,
+      },
+      summary: {
+        event: "template_created",
+        createdFrom: "super_admin_manual",
+      },
+      timestamp: now,
+    });
+
+    return {
+      templateId,
+      lifecycleStatus: "draft" as AgentTemplateLifecycleStatus,
+    };
+  },
+});
+
+export const createAgentTemplateVersionSnapshot = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    versionTag: v.optional(v.string()),
+    summary: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+
+    const now = Date.now();
+    const templateProps =
+      (template.customProperties as Record<string, unknown> | undefined) ?? {};
+    const normalizedVersionTag =
+      normalizeOptionalString(args.versionTag) ||
+      `${String(args.templateId)}@${template.updatedAt || now}`;
+
+    const existingVersions = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", template.organizationId).eq("type", AGENT_TEMPLATE_VERSION_OBJECT_TYPE)
+      )
+      .collect();
+    const duplicateVersion = existingVersions.find((row) => {
+      const props = row.customProperties as Record<string, unknown> | undefined;
+      return (
+        normalizeOptionalString(props?.sourceTemplateId) === String(args.templateId)
+        && normalizeOptionalString(props?.versionTag) === normalizedVersionTag
+      );
+    });
+    if (duplicateVersion) {
+      throw new ConvexError({
+        code: "CONFLICT",
+        message: `Template version '${normalizedVersionTag}' already exists.`,
+      });
+    }
+
+    const snapshot = {
+      name: template.name,
+      description: template.description,
+      subtype: template.subtype,
+      status: template.status,
+      baselineCustomProperties: pickTemplateBaselineSnapshot(templateProps),
+    };
+
+    const versionObjectId = await ctx.db.insert("objects", {
+      organizationId: template.organizationId,
+      type: AGENT_TEMPLATE_VERSION_OBJECT_TYPE,
+      subtype: normalizeOptionalString(template.subtype) || "general",
+      name: `${template.name} @ ${normalizedVersionTag}`,
+      description: `Immutable snapshot for template ${template.name}`,
+      status: "template_version",
+      customProperties: {
+        sourceTemplateId: String(args.templateId),
+        sourceTemplateName: template.name,
+        versionTag: normalizedVersionTag,
+        lifecycleStatus: "draft" as AgentTemplateVersionLifecycleStatus,
+        immutableSnapshot: true,
+        summary: normalizeOptionalString(args.summary),
+        snapshotCreatedAt: now,
+        snapshotCreatedBy: String(actor.userId),
+        snapshot,
+      },
+      createdBy: actor.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(args.templateId, {
+      customProperties: {
+        ...templateProps,
+        templateCurrentVersion: normalizedVersionTag,
+        templateLastVersionSnapshotId: String(versionObjectId),
+        templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+        templateLifecycleUpdatedAt: now,
+        templateLifecycleUpdatedBy: String(actor.userId),
+      },
+      updatedAt: now,
+    });
+
+    await writeTemplateLifecycleAuditEvent({
+      ctx,
+      organizationId: template.organizationId,
+      objectId: args.templateId,
+      actionType: "agent_template.version_snapshot_created",
+      actor,
+      objectScope: {
+        scope: "template_version",
+        templateId: String(args.templateId),
+        templateVersionId: String(versionObjectId),
+        templateVersionTag: normalizedVersionTag,
+      },
+      before: {
+        templateCurrentVersion:
+          normalizeOptionalString(templateProps.templateCurrentVersion) || null,
+        templateLastVersionSnapshotId:
+          normalizeOptionalString(templateProps.templateLastVersionSnapshotId) || null,
+      },
+      after: {
+        templateCurrentVersion: normalizedVersionTag,
+        templateLastVersionSnapshotId: String(versionObjectId),
+      },
+      summary: {
+        event: "template_version_snapshot_created",
+        immutableSnapshot: true,
+      },
+      timestamp: now,
+    });
+
+    return {
+      templateId: args.templateId,
+      templateVersionId: versionObjectId,
+      versionTag: normalizedVersionTag,
+      lifecycleStatus: "draft" as AgentTemplateVersionLifecycleStatus,
+    };
+  },
+});
+
+export const publishAgentTemplateVersion = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    templateVersionId: v.id("objects"),
+    publishReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+    const version = await ctx.db.get(args.templateVersionId);
+    if (!version || version.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+    const versionProps =
+      (version.customProperties as Record<string, unknown> | undefined) ?? {};
+    const sourceTemplateId = normalizeOptionalString(versionProps.sourceTemplateId);
+    if (sourceTemplateId !== String(args.templateId)) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template version does not belong to template.",
+      });
+    }
+
+    const now = Date.now();
+    const templateProps =
+      (template.customProperties as Record<string, unknown> | undefined) ?? {};
+    const versionTag = normalizeOptionalString(versionProps.versionTag);
+    if (!versionTag) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template version snapshot is missing versionTag.",
+      });
+    }
+    const currentVersionLifecycle = normalizeTemplateVersionLifecycleStatus(
+      versionProps.lifecycleStatus
+    );
+    if (currentVersionLifecycle === "deprecated") {
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: "Deprecated template version cannot be published.",
+      });
+    }
+
+    await ctx.db.patch(args.templateVersionId, {
+      customProperties: {
+        ...versionProps,
+        lifecycleStatus: "published",
+        publishedAt: now,
+        publishedBy: String(actor.userId),
+      },
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(args.templateId, {
+      customProperties: {
+        ...templateProps,
+        templateVersion: versionTag,
+        templatePublishedVersion: versionTag,
+        templatePublishedVersionId: String(args.templateVersionId),
+        templateCurrentVersion: versionTag,
+        templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+        templateLifecycleStatus: "published",
+        templateLifecycleUpdatedAt: now,
+        templateLifecycleUpdatedBy: String(actor.userId),
+      },
+      updatedAt: now,
+    });
+
+    await writeTemplateLifecycleAuditEvent({
+      ctx,
+      organizationId: template.organizationId,
+      objectId: args.templateId,
+      actionType: "agent_template.version_published",
+      actor,
+      objectScope: {
+        scope: "template_version",
+        templateId: String(args.templateId),
+        templateVersionId: String(args.templateVersionId),
+        templateVersionTag: versionTag,
+      },
+      before: {
+        templateLifecycleStatus: normalizeTemplateLifecycleStatus(
+          templateProps.templateLifecycleStatus
+        ),
+        templatePublishedVersion:
+          normalizeOptionalString(templateProps.templatePublishedVersion) || null,
+        versionLifecycleStatus: currentVersionLifecycle,
+      },
+      after: {
+        templateLifecycleStatus: "published",
+        templatePublishedVersion: versionTag,
+        versionLifecycleStatus: "published",
+      },
+      summary: {
+        event: "template_version_published",
+        publishReason: normalizeOptionalString(args.publishReason) || null,
+      },
+      timestamp: now,
+    });
+
+    return {
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      publishedVersion: versionTag,
+      templateLifecycleStatus: "published" as AgentTemplateLifecycleStatus,
+      versionLifecycleStatus: "published" as AgentTemplateVersionLifecycleStatus,
+    };
+  },
+});
+
+export const deprecateAgentTemplateLifecycle = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    target: v.union(v.literal("template"), v.literal("version")),
+    templateVersionId: v.optional(v.id("objects")),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+
+    const now = Date.now();
+    const templateProps =
+      (template.customProperties as Record<string, unknown> | undefined) ?? {};
+    const normalizedReason = normalizeOptionalString(args.reason) || null;
+
+    if (args.target === "template") {
+      await ctx.db.patch(args.templateId, {
+        customProperties: {
+          ...templateProps,
+          templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+          templateLifecycleStatus: "deprecated",
+          templateDeprecatedAt: now,
+          templateDeprecatedBy: String(actor.userId),
+          templateDeprecationReason: normalizedReason,
+          templateLifecycleUpdatedAt: now,
+          templateLifecycleUpdatedBy: String(actor.userId),
+        },
+        updatedAt: now,
+      });
+
+      await writeTemplateLifecycleAuditEvent({
+        ctx,
+        organizationId: template.organizationId,
+        objectId: args.templateId,
+        actionType: "agent_template.deprecated",
+        actor,
+        objectScope: {
+          scope: "global_template",
+          templateId: String(args.templateId),
+        },
+        before: {
+          templateLifecycleStatus: normalizeTemplateLifecycleStatus(
+            templateProps.templateLifecycleStatus
+          ),
+          templateDeprecatedAt:
+            typeof templateProps.templateDeprecatedAt === "number"
+              ? templateProps.templateDeprecatedAt
+              : null,
+        },
+        after: {
+          templateLifecycleStatus: "deprecated",
+          templateDeprecatedAt: now,
+        },
+        summary: {
+          event: "template_deprecated",
+          reason: normalizedReason,
+        },
+        timestamp: now,
+      });
+
+      return {
+        target: "template" as const,
+        templateId: args.templateId,
+        lifecycleStatus: "deprecated" as AgentTemplateLifecycleStatus,
+      };
+    }
+
+    if (!args.templateVersionId) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "templateVersionId is required when target=version.",
+      });
+    }
+
+    const version = await ctx.db.get(args.templateVersionId);
+    if (!version || version.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+    const versionProps =
+      (version.customProperties as Record<string, unknown> | undefined) ?? {};
+    const versionTemplateId = normalizeOptionalString(versionProps.sourceTemplateId);
+    if (versionTemplateId !== String(args.templateId)) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template version does not belong to template.",
+      });
+    }
+    const versionTag = normalizeOptionalString(versionProps.versionTag) || String(args.templateVersionId);
+
+    await ctx.db.patch(args.templateVersionId, {
+      customProperties: {
+        ...versionProps,
+        lifecycleStatus: "deprecated",
+        deprecatedAt: now,
+        deprecatedBy: String(actor.userId),
+        deprecationReason: normalizedReason,
+      },
+      updatedAt: now,
+    });
+
+    await writeTemplateLifecycleAuditEvent({
+      ctx,
+      organizationId: template.organizationId,
+      objectId: args.templateVersionId,
+      actionType: "agent_template.version_deprecated",
+      actor,
+      objectScope: {
+        scope: "template_version",
+        templateId: String(args.templateId),
+        templateVersionId: String(args.templateVersionId),
+        templateVersionTag: versionTag,
+      },
+      before: {
+        versionLifecycleStatus: normalizeTemplateVersionLifecycleStatus(
+          versionProps.lifecycleStatus
+        ),
+      },
+      after: {
+        versionLifecycleStatus: "deprecated",
+      },
+      summary: {
+        event: "template_version_deprecated",
+        reason: normalizedReason,
+      },
+      timestamp: now,
+    });
+
+    return {
+      target: "version" as const,
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      templateVersionTag: versionTag,
+      lifecycleStatus: "deprecated" as AgentTemplateVersionLifecycleStatus,
+    };
+  },
+});
+
+export const distributeAgentTemplateToOrganizations = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    templateVersionId: v.optional(v.id("objects")),
+    targetOrganizationIds: v.array(v.id("organizations")),
+    stagedRollout: v.optional(v.object({
+      stageSize: v.number(),
+      stageStartIndex: v.optional(v.number()),
+    })),
+    dryRun: v.optional(v.boolean()),
+    reason: v.optional(v.string()),
+    distributionJobId: v.optional(v.string()),
+    operationKind: v.optional(v.union(v.literal("rollout_apply"), v.literal("rollout_rollback"))),
+    overridePolicyGate: v.optional(v.object({
+      confirmWarnOverride: v.optional(v.boolean()),
+      reason: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+
+    const templateProps =
+      (template.customProperties as Record<string, unknown> | undefined) ?? {};
+    const templateLifecycle = normalizeTemplateLifecycleStatus(
+      templateProps.templateLifecycleStatus
+    );
+    if (templateLifecycle === "deprecated") {
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: "Deprecated templates cannot be distributed.",
+      });
+    }
+
+    const templateVersion = args.templateVersionId
+      ? await ctx.db.get(args.templateVersionId)
+      : null;
+    if (args.templateVersionId && (!templateVersion || templateVersion.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE)) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+    const templateVersionProps =
+      (templateVersion?.customProperties as Record<string, unknown> | undefined) ?? {};
+    if (templateVersion) {
+      const sourceTemplateId = normalizeOptionalString(templateVersionProps.sourceTemplateId);
+      if (sourceTemplateId !== String(args.templateId)) {
+        throw new ConvexError({
+          code: "INVALID_ARGUMENT",
+          message: "Template version does not belong to template.",
+        });
+      }
+      const versionLifecycle = normalizeTemplateVersionLifecycleStatus(
+        templateVersionProps.lifecycleStatus
+      );
+      if (versionLifecycle === "deprecated") {
+        throw new ConvexError({
+          code: "INVALID_STATE",
+          message: "Deprecated template versions cannot be distributed.",
+        });
+      }
+    }
+
+    const resolvedVersionTag =
+      resolveTemplateVersionTagFromVersionObject(templateVersionProps) ||
+      normalizeOptionalString(templateProps.templatePublishedVersion) ||
+      normalizeOptionalString(templateProps.templateVersion) ||
+      `${String(args.templateId)}@${template.updatedAt}`;
+
+    const snapshotBaseline = templateVersion
+      ? (
+          (
+            templateVersionProps.snapshot as
+              | Record<string, unknown>
+              | undefined
+          )?.baselineCustomProperties as Record<string, unknown> | undefined
+        ) ?? pickTemplateBaselineSnapshot(templateProps)
+      : pickTemplateBaselineSnapshot(templateProps);
+
+    const requestedTargetOrganizationIds = dedupeAndSortObjectIds(args.targetOrganizationIds);
+    const rawStageSize = args.stagedRollout?.stageSize;
+    const rawStageStartIndex = args.stagedRollout?.stageStartIndex ?? 0;
+    if (rawStageSize !== undefined) {
+      if (!Number.isInteger(rawStageSize) || rawStageSize < 1) {
+        throw new ConvexError({
+          code: "INVALID_ARGUMENT",
+          message: "stagedRollout.stageSize must be an integer greater than 0.",
+        });
+      }
+    }
+    if (!Number.isInteger(rawStageStartIndex) || rawStageStartIndex < 0) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "stagedRollout.stageStartIndex must be a non-negative integer.",
+      });
+    }
+    const stageSize = rawStageSize ?? requestedTargetOrganizationIds.length;
+    const stageStartIndex = rawStageStartIndex;
+    const targetOrganizationIds = requestedTargetOrganizationIds.slice(
+      Math.min(stageStartIndex, requestedTargetOrganizationIds.length),
+      Math.min(stageStartIndex + stageSize, requestedTargetOrganizationIds.length),
+    );
+    const deterministicJobId =
+      normalizeOptionalString(args.distributionJobId) ||
+      buildDeterministicTemplateDistributionJobId({
+        templateId: String(args.templateId),
+        templateVersionTag: resolvedVersionTag,
+        targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
+      });
+    const dryRun = args.dryRun === true;
+    const operationKind: TemplateDistributionOperationKind =
+      args.operationKind === "rollout_rollback" ? "rollout_rollback" : "rollout_apply";
+    const now = Date.now();
+    const normalizedReason = normalizeOptionalString(args.reason) || "template_distribution_rollout";
+    const normalizedOverrideReason =
+      normalizeOptionalString(args.overridePolicyGate?.reason) || null;
+    const warnConfirmationAccepted =
+      args.overridePolicyGate?.confirmWarnOverride === true &&
+      normalizedOverrideReason !== null;
+
+    const plan: Array<{
+      organizationId: Id<"organizations">;
+      operation: TemplateDistributionOperation;
+      reason: string;
+      existingCloneId?: Id<"objects">;
+      changedFields: string[];
+      writableTemplateFields: TemplateCloneDriftField[];
+      policyGate?: TemplateOverrideGateSummary;
+    }> = [];
+    const applyResults: Array<{
+      organizationId: Id<"organizations">;
+      cloneAgentId?: Id<"objects">;
+      operation: TemplateDistributionOperation;
+      reason?: string;
+      policyGate?: TemplateOverrideGateSummary;
+    }> = [];
+
+    for (const organizationId of targetOrganizationIds) {
+      const orgAgents = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", organizationId).eq("type", "org_agent")
+        )
+        .collect();
+
+      const managedTemplateClones = orgAgents
+        .filter((agent) => {
+          const customProperties =
+            (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+          return resolveTemplateSourceId(customProperties) === String(args.templateId);
+        })
+        .sort((left, right) => String(left._id).localeCompare(String(right._id)));
+
+      const existingClone = managedTemplateClones[0];
+      if (!existingClone) {
+        plan.push({
+          organizationId,
+          operation: "create",
+          reason: "missing_clone",
+          changedFields: [
+            "templateAgentId",
+            "templateVersion",
+            "templateCloneLinkage",
+          ],
+          writableTemplateFields: [],
+        });
+        continue;
+      }
+
+      const existingProps =
+        (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+      const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+      const nextLinkage = buildManagedTemplateCloneLinkage({
+        sourceTemplateId: String(args.templateId),
+        sourceTemplateVersion: resolvedVersionTag,
+        overridePolicy: existingLinkage?.overridePolicy,
+        lastTemplateSyncAt: now,
+        lastTemplateSyncJobId: deterministicJobId,
+        cloneLifecycleState: existingLinkage?.cloneLifecycleState,
+      });
+
+      const before = {
+        templateVersion: normalizeOptionalString(existingProps.templateVersion) || null,
+        templateAgentId: normalizeOptionalString(existingProps.templateAgentId) || null,
+        templateCloneLinkage: existingProps.templateCloneLinkage || null,
+      };
+      const after = {
+        templateVersion: resolvedVersionTag,
+        templateAgentId: String(args.templateId),
+        templateCloneLinkage: nextLinkage,
+      };
+      const changedFields = deriveChangedFields(before, after);
+      const changedTemplateFields = TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS.filter((field) => {
+        const existingValue = normalizeComparableTemplateCloneFieldValue(
+          field,
+          existingProps[field]
+        );
+        const templateValue = normalizeComparableTemplateCloneFieldValue(
+          field,
+          snapshotBaseline[field]
+        );
+        return JSON.stringify(existingValue) !== JSON.stringify(templateValue);
+      });
+      const overrideGateUpdates = Object.fromEntries(
+        changedTemplateFields
+          .filter((field) => Object.prototype.hasOwnProperty.call(existingProps, field))
+          .map((field) => [field, snapshotBaseline[field]])
+      );
+      const overrideGate = resolveTemplateOverrideGateForManagedClone({
+        customProperties: existingProps,
+        updates: overrideGateUpdates,
+        warnConfirmation: warnConfirmationAccepted,
+        reason: normalizedOverrideReason,
+      });
+      const writableTemplateFields = changedTemplateFields.filter((field) => {
+        if (!overrideGate?.changedFields.includes(field)) {
+          return true;
+        }
+        return !overrideGate.lockedFields.includes(field);
+      });
+      const blockedByLocked = (overrideGate?.lockedFields.length || 0) > 0;
+      const blockedByWarn =
+        overrideGate?.decision === "blocked_warn_confirmation_required";
+      const finalChangedFields = normalizeDeterministicUpdatedFields([
+        ...changedFields,
+        ...writableTemplateFields,
+      ]);
+      if (finalChangedFields.length === 0) {
+        plan.push({
+          organizationId,
+          existingCloneId: existingClone._id,
+          operation: "skip",
+          reason: "already_in_sync",
+          changedFields: finalChangedFields,
+          writableTemplateFields,
+          policyGate: overrideGate || undefined,
+        });
+      } else if (blockedByLocked || blockedByWarn) {
+        plan.push({
+          organizationId,
+          existingCloneId: existingClone._id,
+          operation: "blocked",
+          reason: blockedByLocked
+            ? "locked_override_fields"
+            : "warn_override_confirmation_required",
+          changedFields: finalChangedFields,
+          writableTemplateFields,
+          policyGate: overrideGate || undefined,
+        });
+      } else {
+        plan.push({
+          organizationId,
+          existingCloneId: existingClone._id,
+          operation: "update",
+          reason: "template_version_drift",
+          changedFields: finalChangedFields,
+          writableTemplateFields,
+          policyGate: overrideGate || undefined,
+        });
+      }
+    }
+
+    if (!dryRun) {
+      for (const row of plan) {
+        if (row.operation === "skip") {
+          applyResults.push({
+            organizationId: row.organizationId,
+            operation: row.operation,
+            reason: row.reason,
+            policyGate: row.policyGate,
+          });
+          continue;
+        }
+        if (row.operation === "blocked") {
+          if (row.existingCloneId) {
+            await ctx.db.insert("objectActions", {
+              organizationId: row.organizationId,
+              objectId: row.existingCloneId,
+              actionType: "template_distribution_blocked",
+              actionData: {
+                contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+                distributionJobId: deterministicJobId,
+                templateId: String(args.templateId),
+                templateVersion: resolvedVersionTag,
+                reason: row.reason,
+                changedFields: row.changedFields,
+                policyGate: row.policyGate,
+              },
+              performedBy: actor.userId,
+              performedAt: now,
+            });
+
+            await ctx.db.insert("auditLogs", {
+              organizationId: row.organizationId,
+              userId: actor.userId,
+              action: "template_distribution_blocked",
+              resource: "org_agent",
+              resourceId: String(row.existingCloneId),
+              success: false,
+              metadata: {
+                distributionJobId: deterministicJobId,
+                templateId: String(args.templateId),
+                templateVersion: resolvedVersionTag,
+                reason: row.reason,
+                changedFields: row.changedFields,
+                policyGate: row.policyGate,
+              },
+              createdAt: now,
+            });
+          }
+          applyResults.push({
+            organizationId: row.organizationId,
+            operation: row.operation,
+            reason: row.reason,
+            policyGate: row.policyGate,
+          });
+          continue;
+        }
+
+        if (row.operation === "create") {
+          const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+            sourceTemplateId: String(args.templateId),
+            sourceTemplateVersion: resolvedVersionTag,
+            lastTemplateSyncAt: now,
+            lastTemplateSyncJobId: deterministicJobId,
+          });
+          const cloneId = await ctx.db.insert("objects", {
+            organizationId: row.organizationId,
+            type: "org_agent",
+            subtype: template.subtype,
+            name: template.name,
+            description: template.description,
+            status: "active",
+            customProperties: {
+              ...snapshotBaseline,
+              protected: false,
+              templateAgentId: args.templateId,
+              templateVersion: resolvedVersionTag,
+              cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+              templateCloneLinkage,
+              lastTemplateSyncAt: now,
+              lastTemplateJobId: deterministicJobId,
+              creationSource: "catalog_clone",
+            },
+            createdBy: actor.userId,
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          await ctx.db.insert("objectActions", {
+            organizationId: row.organizationId,
+            objectId: cloneId,
+            actionType: "template_distribution_created",
+            actionData: {
+              contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: normalizedReason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            performedBy: actor.userId,
+            performedAt: now,
+          });
+
+          await ctx.db.insert("auditLogs", {
+            organizationId: row.organizationId,
+            userId: actor.userId,
+            action: "template_distribution_created",
+            resource: "org_agent",
+            resourceId: String(cloneId),
+            success: true,
+            metadata: {
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: normalizedReason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            createdAt: now,
+          });
+
+          applyResults.push({
+            organizationId: row.organizationId,
+            cloneAgentId: cloneId,
+            operation: "create",
+            reason: row.reason,
+            policyGate: row.policyGate,
+          });
+          continue;
+        }
+
+        if (row.operation === "update" && row.existingCloneId) {
+          const existingClone = await ctx.db.get(row.existingCloneId);
+          if (!existingClone) {
+            applyResults.push({
+              organizationId: row.organizationId,
+              operation: "blocked",
+              reason: "missing_clone",
+              policyGate: row.policyGate,
+            });
+            continue;
+          }
+          const existingProps =
+            (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+          const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+          const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+            sourceTemplateId: String(args.templateId),
+            sourceTemplateVersion: resolvedVersionTag,
+            overridePolicy: existingLinkage?.overridePolicy,
+            lastTemplateSyncAt: now,
+            lastTemplateSyncJobId: deterministicJobId,
+            cloneLifecycleState: existingLinkage?.cloneLifecycleState,
+          });
+          const templateFieldPatch = Object.fromEntries(
+            row.writableTemplateFields.map((field) => {
+              if (Object.prototype.hasOwnProperty.call(snapshotBaseline, field)) {
+                return [field, snapshotBaseline[field]];
+              }
+              return [field, null];
+            })
+          );
+
+          await ctx.db.patch(row.existingCloneId, {
+            customProperties: {
+              ...existingProps,
+              ...templateFieldPatch,
+              templateAgentId: args.templateId,
+              templateVersion: resolvedVersionTag,
+              cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+              templateCloneLinkage,
+              lastTemplateSyncAt: now,
+              lastTemplateJobId: deterministicJobId,
+            },
+            updatedAt: now,
+          });
+
+          await ctx.db.insert("objectActions", {
+            organizationId: row.organizationId,
+            objectId: row.existingCloneId,
+            actionType: "template_distribution_updated",
+            actionData: {
+              contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: normalizedReason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            performedBy: actor.userId,
+            performedAt: now,
+          });
+
+          await ctx.db.insert("auditLogs", {
+            organizationId: row.organizationId,
+            userId: actor.userId,
+            action: "template_distribution_updated",
+            resource: "org_agent",
+            resourceId: String(row.existingCloneId),
+            success: true,
+            metadata: {
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: normalizedReason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            createdAt: now,
+          });
+
+          applyResults.push({
+            organizationId: row.organizationId,
+            cloneAgentId: row.existingCloneId,
+            operation: "update",
+            reason: row.reason,
+            policyGate: row.policyGate,
+          });
+        }
+      }
+    }
+
+    const planSummary = summarizeTemplateDistributionOperations(plan);
+    const applySummary = summarizeTemplateDistributionOperations(applyResults);
+    const policyGateSummary = summarizeTemplateDistributionPolicyGates(plan);
+    const reasonCounts = {
+      plan: summarizeTemplateDistributionReasonCounts(plan),
+      applied: summarizeTemplateDistributionReasonCounts(
+        applyResults.map((row) => ({
+          reason: row.reason || row.operation,
+        }))
+      ),
+    };
+
+    await ctx.db.insert("objectActions", {
+      organizationId: template.organizationId,
+      objectId: args.templateId,
+      actionType: dryRun
+        ? "template_distribution_plan_generated"
+        : "template_distribution_applied",
+      actionData: {
+        contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+        distributionJobId: deterministicJobId,
+        templateId: String(args.templateId),
+        templateVersion: resolvedVersionTag,
+        operationKind,
+        reason: normalizedReason,
+        dryRun,
+        requestedTargetOrganizationIds: requestedTargetOrganizationIds.map((value) => String(value)),
+        targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
+        rolloutWindow: {
+          stageStartIndex,
+          stageSize,
+          requestedTargetCount: requestedTargetOrganizationIds.length,
+          stagedTargetCount: targetOrganizationIds.length,
+        },
+        summary: {
+          plan: planSummary,
+          applied: applySummary,
+        },
+        policyGates: policyGateSummary,
+        reasonCounts,
+        overridePolicyGate: {
+          confirmWarnOverride: warnConfirmationAccepted,
+          reason: normalizedOverrideReason,
+        },
+      },
+      performedBy: actor.userId,
+      performedAt: now,
+    });
+
+    return {
+      distributionJobId: deterministicJobId,
+      templateId: args.templateId,
+      templateVersion: resolvedVersionTag,
+      operationKind,
+      dryRun,
+      requestedTargetOrganizationIds,
+      targetOrganizationIds,
+      rolloutWindow: {
+        stageStartIndex,
+        stageSize,
+        requestedTargetCount: requestedTargetOrganizationIds.length,
+        stagedTargetCount: targetOrganizationIds.length,
+      },
+      summary: {
+        plan: planSummary,
+        applied: applySummary,
+      },
+      policyGates: policyGateSummary,
+      reasonCounts,
+      plan: plan.map((row) => ({
+        organizationId: row.organizationId,
+        operation: row.operation,
+        reason: row.reason,
+        existingCloneId: row.existingCloneId,
+        changedFields: row.changedFields,
+        writableTemplateFields: row.writableTemplateFields,
+        policyGate: row.policyGate,
+      })),
+      applied: applyResults,
+      overridePolicyGate: {
+        confirmWarnOverride: warnConfirmationAccepted,
+        reason: normalizedOverrideReason,
+      },
+    };
+  },
+});
+
+export const getTemplateCloneDriftReport = query({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    templateVersionId: v.optional(v.id("objects")),
+    targetOrganizationIds: v.optional(v.array(v.id("organizations"))),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, auth.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+
+    const templateProps =
+      (template.customProperties as Record<string, unknown> | undefined) ?? {};
+    const templateVersion = args.templateVersionId
+      ? await ctx.db.get(args.templateVersionId)
+      : null;
+    if (args.templateVersionId && (!templateVersion || templateVersion.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE)) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+    const templateVersionProps =
+      (templateVersion?.customProperties as Record<string, unknown> | undefined) ?? {};
+    if (templateVersion) {
+      const sourceTemplateId = normalizeOptionalString(templateVersionProps.sourceTemplateId);
+      if (sourceTemplateId !== String(args.templateId)) {
+        throw new ConvexError({
+          code: "INVALID_ARGUMENT",
+          message: "Template version does not belong to template.",
+        });
+      }
+    }
+
+    const resolvedVersionTag =
+      resolveTemplateVersionTagFromVersionObject(templateVersionProps) ||
+      normalizeOptionalString(templateProps.templatePublishedVersion) ||
+      normalizeOptionalString(templateProps.templateVersion) ||
+      `${String(args.templateId)}@${template.updatedAt}`;
+    const templateBaseline = templateVersion
+      ? (
+          (
+            templateVersionProps.snapshot as
+              | Record<string, unknown>
+              | undefined
+          )?.baselineCustomProperties as Record<string, unknown> | undefined
+        ) ?? pickTemplateBaselineSnapshot(templateProps)
+      : pickTemplateBaselineSnapshot(templateProps);
+
+    const requestedTargetOrgIds = dedupeAndSortObjectIds(args.targetOrganizationIds ?? []);
+    if (!isSuperAdmin && requestedTargetOrgIds.length > 0) {
+      const outOfScopeTarget = requestedTargetOrgIds.find(
+        (organizationId) => organizationId !== auth.organizationId
+      );
+      if (outOfScopeTarget) {
+        throw new ConvexError({
+          code: "FORBIDDEN",
+          message: "Template drift query is restricted to caller organization scope.",
+        });
+      }
+    }
+
+    const cloneCandidates = requestedTargetOrgIds.length > 0
+      ? (
+          await Promise.all(
+            requestedTargetOrgIds.map(async (organizationId) => {
+              const orgAgents = await ctx.db
+                .query("objects")
+                .withIndex("by_org_type", (q) =>
+                  q.eq("organizationId", organizationId).eq("type", "org_agent")
+                )
+                .collect();
+              return orgAgents.filter((agent) => {
+                const customProperties =
+                  (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+                return resolveTemplateSourceId(customProperties) === String(args.templateId);
+              });
+            })
+          )
+        ).flat()
+      : isSuperAdmin
+      ? (
+          await ctx.db
+            .query("objects")
+            .withIndex("by_type", (q) => q.eq("type", "org_agent"))
+            .collect()
+        ).filter((agent) => {
+          const customProperties =
+            (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+          return resolveTemplateSourceId(customProperties) === String(args.templateId);
+        })
+      : (
+          await ctx.db
+            .query("objects")
+            .withIndex("by_org_type", (q) =>
+              q.eq("organizationId", auth.organizationId).eq("type", "org_agent")
+            )
+            .collect()
+        ).filter((agent) => {
+          const customProperties =
+            (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+          return resolveTemplateSourceId(customProperties) === String(args.templateId);
+        });
+
+    const orderedTargets = cloneCandidates
+      .slice()
+      .sort((left, right) => {
+        const orgSort = String(left.organizationId).localeCompare(String(right.organizationId));
+        if (orgSort !== 0) {
+          return orgSort;
+        }
+        return String(left._id).localeCompare(String(right._id));
+      });
+
+    const targets = orderedTargets.map((cloneAgent) => {
+      const cloneCustomProperties =
+        (cloneAgent.customProperties as Record<string, unknown> | undefined) ?? {};
+      const linkage = readTemplateCloneLinkageContract(cloneCustomProperties);
+      const drift = resolveTemplateCloneDriftContract({
+        templateBaseline,
+        cloneCustomProperties,
+        baselineTemplateVersion: resolvedVersionTag,
+        linkage,
+      });
+
+      return {
+        organizationId: cloneAgent.organizationId,
+        cloneAgentId: cloneAgent._id,
+        sourceTemplateId: resolveTemplateSourceId(cloneCustomProperties) || String(args.templateId),
+        sourceTemplateVersion: linkage?.sourceTemplateVersion || null,
+        cloneLifecycleState: linkage?.cloneLifecycleState || "legacy_unmanaged",
+        policyState: drift.policyState,
+        stale: drift.stale,
+        blocked: drift.blocked,
+        blockedFields: drift.blockedFields,
+        overriddenFields: drift.overriddenFields,
+        diff: drift.diff,
+      };
+    });
+
+    return {
+      templateId: args.templateId,
+      templateVersion: resolvedVersionTag,
+      precedenceOrder: [...AGENT_TEMPLATE_CLONE_PRECEDENCE_ORDER],
+      fields: [...TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS],
+      targets,
+    };
+  },
+});
+
+export const listTemplateCloneInventory = query({
+  args: {
+    sessionId: v.string(),
+    filters: v.optional(v.object({
+      organizationId: v.optional(v.id("organizations")),
+      templateId: v.optional(v.id("objects")),
+      policyState: v.optional(v.union(
+        v.literal("in_sync"),
+        v.literal("overridden"),
+        v.literal("stale"),
+        v.literal("blocked"),
+      )),
+      riskLevel: v.optional(v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+      )),
+      search: v.optional(v.string()),
+    })),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, auth.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+    if (!isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Template clone inventory is restricted to super_admin role.",
+      });
+    }
+
+    const normalizedSearch = normalizeOptionalString(args.filters?.search)?.toLowerCase();
+    const limit = Math.max(25, Math.min(args.limit ?? 300, 1000));
+    const cloneCandidates = (
+      await ctx.db
+        .query("objects")
+        .withIndex("by_type", (q) => q.eq("type", "org_agent"))
+        .collect()
+    ).filter((agent) => {
+      const customProperties =
+        (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+      return resolveTemplateSourceId(customProperties) !== undefined;
+    });
+
+    const templateIdSet = new Set<string>();
+    const organizationIdSet = new Set<string>();
+    for (const clone of cloneCandidates) {
+      organizationIdSet.add(String(clone.organizationId));
+      const customProperties =
+        (clone.customProperties as Record<string, unknown> | undefined) ?? {};
+      const templateId = resolveTemplateSourceId(customProperties);
+      if (templateId) {
+        templateIdSet.add(templateId);
+      }
+    }
+
+    const [templates, organizations] = await Promise.all([
+      Promise.all(
+        Array.from(templateIdSet).map(async (templateId) => {
+          const template = await ctx.db.get(templateId as Id<"objects">);
+          return template && template.type === AGENT_TEMPLATE_OBJECT_TYPE
+            ? template
+            : null;
+        })
+      ),
+      Promise.all(
+        Array.from(organizationIdSet).map(async (organizationId) =>
+          ctx.db.get(organizationId as Id<"organizations">)
+        )
+      ),
+    ]);
+
+    const templateById = new Map(
+      templates
+        .filter((template): template is NonNullable<typeof template> => Boolean(template))
+        .map((template) => [String(template._id), template] as const)
+    );
+    const organizationById = new Map(
+      organizations
+        .filter((organization): organization is NonNullable<typeof organization> => Boolean(organization))
+        .map((organization) => [String(organization._id), organization] as const)
+    );
+
+    const rows = cloneCandidates
+      .map((cloneAgent) => {
+        const cloneCustomProperties =
+          (cloneAgent.customProperties as Record<string, unknown> | undefined) ?? {};
+        const sourceTemplateId = resolveTemplateSourceId(cloneCustomProperties);
+        if (!sourceTemplateId) {
+          return null;
+        }
+        const template = templateById.get(sourceTemplateId);
+        const templateCustomProperties =
+          (template?.customProperties as Record<string, unknown> | undefined) ?? {};
+        const linkage = readTemplateCloneLinkageContract(cloneCustomProperties);
+        const baselineTemplateVersion = template
+          ? normalizeOptionalString(templateCustomProperties.templatePublishedVersion)
+            || normalizeOptionalString(templateCustomProperties.templateVersion)
+            || `${String(template._id)}@${template.updatedAt}`
+          : linkage?.sourceTemplateVersion || "template_missing";
+        const drift = resolveTemplateCloneDriftContract({
+          templateBaseline: template
+            ? pickTemplateBaselineSnapshot(templateCustomProperties)
+            : {},
+          cloneCustomProperties,
+          baselineTemplateVersion,
+          linkage,
+        });
+        const riskLevel = resolveTemplateCloneRiskLevel(drift.policyState);
+        const organization = organizationById.get(String(cloneAgent.organizationId));
+        return {
+          organizationId: cloneAgent.organizationId,
+          organizationName: organization?.name || String(cloneAgent.organizationId),
+          templateId: sourceTemplateId,
+          templateName: template?.name || "[missing template]",
+          templateVersion: baselineTemplateVersion,
+          cloneAgentId: cloneAgent._id,
+          cloneAgentName: cloneAgent.name,
+          cloneLifecycleState: linkage?.cloneLifecycleState || "legacy_unmanaged",
+          policyState: drift.policyState,
+          riskLevel,
+          stale: drift.stale,
+          blocked: drift.blocked,
+          blockedFields: drift.blockedFields,
+          overriddenFields: drift.overriddenFields,
+          diffCount: drift.diff.length,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .filter((row) => {
+        if (args.filters?.organizationId && row.organizationId !== args.filters.organizationId) {
+          return false;
+        }
+        if (args.filters?.templateId && row.templateId !== String(args.filters.templateId)) {
+          return false;
+        }
+        if (args.filters?.policyState && row.policyState !== args.filters.policyState) {
+          return false;
+        }
+        if (args.filters?.riskLevel && row.riskLevel !== args.filters.riskLevel) {
+          return false;
+        }
+        if (!normalizedSearch) {
+          return true;
+        }
+        const haystack = [
+          row.organizationName,
+          row.templateName,
+          row.cloneAgentName,
+          row.templateId,
+          String(row.cloneAgentId),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+      .sort((left, right) => {
+        const orgSort = String(left.organizationId).localeCompare(String(right.organizationId));
+        if (orgSort !== 0) {
+          return orgSort;
+        }
+        const templateSort = left.templateId.localeCompare(right.templateId);
+        if (templateSort !== 0) {
+          return templateSort;
+        }
+        return String(left.cloneAgentId).localeCompare(String(right.cloneAgentId));
+      })
+      .slice(0, limit);
+
+    const byPolicyState = {
+      in_sync: 0,
+      overridden: 0,
+      stale: 0,
+      blocked: 0,
+    };
+    const byRisk = {
+      low: 0,
+      medium: 0,
+      high: 0,
+    };
+    const organizationCounts = new Map<string, { id: Id<"organizations">; name: string; count: number }>();
+    const templateCounts = new Map<string, { id: string; name: string; count: number }>();
+    for (const row of rows) {
+      byPolicyState[row.policyState] += 1;
+      byRisk[row.riskLevel] += 1;
+
+      const existingOrg = organizationCounts.get(String(row.organizationId));
+      if (existingOrg) {
+        existingOrg.count += 1;
+      } else {
+        organizationCounts.set(String(row.organizationId), {
+          id: row.organizationId,
+          name: row.organizationName,
+          count: 1,
+        });
+      }
+
+      const existingTemplate = templateCounts.get(row.templateId);
+      if (existingTemplate) {
+        existingTemplate.count += 1;
+      } else {
+        templateCounts.set(row.templateId, {
+          id: row.templateId,
+          name: row.templateName,
+          count: 1,
+        });
+      }
+    }
+
+    return {
+      generatedAt: Date.now(),
+      total: rows.length,
+      summary: {
+        byPolicyState,
+        byRisk,
+      },
+      filterMetadata: {
+        organizations: Array.from(organizationCounts.values()).sort((left, right) => {
+          const nameSort = left.name.localeCompare(right.name);
+          if (nameSort !== 0) {
+            return nameSort;
+          }
+          return String(left.id).localeCompare(String(right.id));
+        }),
+        templates: Array.from(templateCounts.values()).sort((left, right) => {
+          const nameSort = left.name.localeCompare(right.name);
+          if (nameSort !== 0) {
+            return nameSort;
+          }
+          return left.id.localeCompare(right.id);
+        }),
+      },
+      rows,
+    };
+  },
+});
+
+export const listTemplateRolloutOptions = query({
+  args: {
+    sessionId: v.string(),
+    refreshNonce: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, auth.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+    if (!isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Template rollout options are restricted to super_admin role.",
+      });
+    }
+
+    const [templates, versions] = await Promise.all([
+      ctx.db
+        .query("objects")
+        .withIndex("by_type", (q) => q.eq("type", AGENT_TEMPLATE_OBJECT_TYPE))
+        .collect(),
+      ctx.db
+        .query("objects")
+        .withIndex("by_type", (q) => q.eq("type", AGENT_TEMPLATE_VERSION_OBJECT_TYPE))
+        .collect(),
+    ]);
+
+    const templateRows = templates
+      .filter((template) => template.status === "template")
+      .map((template) => {
+        const customProperties =
+          (template.customProperties as Record<string, unknown> | undefined) ?? {};
+        const lifecycleStatus = normalizeTemplateLifecycleStatus(
+          customProperties.templateLifecycleStatus
+        );
+        const publishedVersionId = normalizeOptionalString(
+          customProperties.templatePublishedVersionId
+        );
+        const publishedVersionTag = normalizeOptionalString(
+          customProperties.templatePublishedVersion
+        );
+        return {
+          templateId: template._id,
+          templateName: template.name,
+          templateOrganizationId: template.organizationId,
+          lifecycleStatus,
+          publishedVersionId,
+          publishedVersionTag,
+          updatedAt: template.updatedAt,
+        };
+      })
+      .sort((left, right) => {
+        const nameSort = left.templateName.localeCompare(right.templateName);
+        if (nameSort !== 0) {
+          return nameSort;
+        }
+        return String(left.templateId).localeCompare(String(right.templateId));
+      });
+
+    const versionsByTemplateId = new Map<
+      string,
+      Array<{
+        templateVersionId: Id<"objects">;
+        versionTag: string;
+        lifecycleStatus: AgentTemplateVersionLifecycleStatus;
+        createdAt: number;
+        updatedAt: number;
+      }>
+    >();
+    for (const version of versions) {
+      const customProperties =
+        (version.customProperties as Record<string, unknown> | undefined) ?? {};
+      const sourceTemplateId = normalizeOptionalString(customProperties.sourceTemplateId);
+      if (!sourceTemplateId) {
+        continue;
+      }
+      const versionTag =
+        resolveTemplateVersionTagFromVersionObject(customProperties) ||
+        `${String(version._id)}@${version.updatedAt}`;
+      const row = {
+        templateVersionId: version._id,
+        versionTag,
+        lifecycleStatus: normalizeTemplateVersionLifecycleStatus(
+          customProperties.lifecycleStatus
+        ),
+        createdAt: version.createdAt,
+        updatedAt: version.updatedAt,
+      };
+      const existing = versionsByTemplateId.get(sourceTemplateId);
+      if (existing) {
+        existing.push(row);
+      } else {
+        versionsByTemplateId.set(sourceTemplateId, [row]);
+      }
+    }
+
+    const templateOptions = templateRows.map((template) => {
+      const versionsForTemplate = (versionsByTemplateId.get(String(template.templateId)) ?? [])
+        .slice()
+        .sort((left, right) => {
+          const updatedSort = right.updatedAt - left.updatedAt;
+          if (updatedSort !== 0) {
+            return updatedSort;
+          }
+          return String(left.templateVersionId).localeCompare(String(right.templateVersionId));
+        });
+      return {
+        templateId: template.templateId,
+        templateName: template.templateName,
+        templateOrganizationId: template.templateOrganizationId,
+        lifecycleStatus: template.lifecycleStatus,
+        publishedVersionId: template.publishedVersionId,
+        publishedVersionTag: template.publishedVersionTag,
+        versions: versionsForTemplate,
+      };
+    });
+
+    return {
+      generatedAt: Date.now(),
+      templates: templateOptions,
+    };
+  },
+});
+
+export const listTemplateLifecycleOptions = query({
+  args: {
+    sessionId: v.string(),
+    refreshNonce: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, auth.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+    if (!isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Template lifecycle options are restricted to super_admin role.",
+      });
+    }
+
+    const [templates, versions] = await Promise.all([
+      ctx.db
+        .query("objects")
+        .withIndex("by_type", (q) => q.eq("type", AGENT_TEMPLATE_OBJECT_TYPE))
+        .collect(),
+      ctx.db
+        .query("objects")
+        .withIndex("by_type", (q) => q.eq("type", AGENT_TEMPLATE_VERSION_OBJECT_TYPE))
+        .collect(),
+    ]);
+
+    const templateRows = templates
+      .filter((template) => template.status === "template")
+      .map((template) => {
+        const customProperties =
+          (template.customProperties as Record<string, unknown> | undefined) ?? {};
+        const lifecycleStatus = normalizeTemplateLifecycleStatus(
+          customProperties.templateLifecycleStatus
+        );
+        const publishedVersionId = normalizeOptionalString(
+          customProperties.templatePublishedVersionId
+        );
+        const publishedVersionTag = normalizeOptionalString(
+          customProperties.templatePublishedVersion
+        );
+        return {
+          templateId: template._id,
+          templateName: template.name,
+          lifecycleStatus,
+          publishedVersionId,
+          publishedVersionTag,
+          updatedAt: template.updatedAt,
+        };
+      })
+      .sort((left, right) => {
+        const nameSort = left.templateName.localeCompare(right.templateName);
+        if (nameSort !== 0) {
+          return nameSort;
+        }
+        return String(left.templateId).localeCompare(String(right.templateId));
+      });
+
+    const versionsByTemplateId = new Map<
+      string,
+      Array<{
+        templateVersionId: Id<"objects">;
+        versionTag: string;
+        lifecycleStatus: AgentTemplateVersionLifecycleStatus;
+        createdAt: number;
+        updatedAt: number;
+      }>
+    >();
+    for (const version of versions) {
+      const customProperties =
+        (version.customProperties as Record<string, unknown> | undefined) ?? {};
+      const sourceTemplateId = normalizeOptionalString(customProperties.sourceTemplateId);
+      if (!sourceTemplateId) {
+        continue;
+      }
+      const versionTag =
+        resolveTemplateVersionTagFromVersionObject(customProperties) ||
+        `${String(version._id)}@${version.updatedAt}`;
+      const row = {
+        templateVersionId: version._id,
+        versionTag,
+        lifecycleStatus: normalizeTemplateVersionLifecycleStatus(
+          customProperties.lifecycleStatus
+        ),
+        createdAt: version.createdAt,
+        updatedAt: version.updatedAt,
+      };
+      const existing = versionsByTemplateId.get(sourceTemplateId);
+      if (existing) {
+        existing.push(row);
+      } else {
+        versionsByTemplateId.set(sourceTemplateId, [row]);
+      }
+    }
+
+    const templateOptions = templateRows.map((template) => {
+      const versionsForTemplate = (versionsByTemplateId.get(String(template.templateId)) ?? [])
+        .slice()
+        .sort((left, right) => {
+          const updatedSort = right.updatedAt - left.updatedAt;
+          if (updatedSort !== 0) {
+            return updatedSort;
+          }
+          return String(left.templateVersionId).localeCompare(String(right.templateVersionId));
+        });
+      return {
+        templateId: template.templateId,
+        templateName: template.templateName,
+        lifecycleStatus: template.lifecycleStatus,
+        publishedVersionId: template.publishedVersionId,
+        publishedVersionTag: template.publishedVersionTag,
+        versions: versionsForTemplate,
+      };
+    });
+
+    return {
+      generatedAt: Date.now(),
+      templates: templateOptions,
+    };
+  },
+});
+
+export const listTemplateDistributionTelemetry = query({
+  args: {
+    sessionId: v.string(),
+    templateId: v.optional(v.id("objects")),
+    limit: v.optional(v.number()),
+    refreshNonce: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const auth = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, auth.userId, auth.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+    if (!isSuperAdmin) {
+      throw new ConvexError({
+        code: "FORBIDDEN",
+        message: "Template distribution telemetry is restricted to super_admin role.",
+      });
+    }
+
+    const limit = Math.max(10, Math.min(args.limit ?? 30, 200));
+    const scanLimit = Math.max(limit * 40, 500);
+    const rows = await ctx.db
+      .query("objectActions")
+      .withIndex("by_performed_at")
+      .order("desc")
+      .take(scanLimit);
+
+    const jobRows = rows
+      .filter((row) => {
+        return (
+          row.actionType === "template_distribution_plan_generated" ||
+          row.actionType === "template_distribution_applied"
+        );
+      })
+      .map((row) => {
+        const actionData = (row.actionData as Record<string, unknown> | undefined) ?? {};
+        const distributionJobId = normalizeOptionalString(actionData.distributionJobId);
+        if (!distributionJobId) {
+          return null;
+        }
+        const templateId = normalizeOptionalString(actionData.templateId);
+        if (!templateId) {
+          return null;
+        }
+        if (args.templateId && templateId !== String(args.templateId)) {
+          return null;
+        }
+        const templateVersion = normalizeOptionalString(actionData.templateVersion) || "unknown";
+        const reason = normalizeOptionalString(actionData.reason) || "unspecified";
+        const operationKind =
+          actionData.operationKind === "rollout_rollback"
+            ? "rollout_rollback"
+            : "rollout_apply";
+        const dryRun = actionData.dryRun === true;
+        const summary = (actionData.summary as Record<string, unknown> | undefined) ?? {};
+        const planSummary = (summary.plan as Record<string, unknown> | undefined) ?? {};
+        const appliedSummary = (summary.applied as Record<string, unknown> | undefined) ?? {};
+        const rolloutWindow = (actionData.rolloutWindow as Record<string, unknown> | undefined) ?? {};
+        const policyGates =
+          (actionData.policyGates as Record<string, unknown> | undefined) ?? {};
+        const reasonCounts = (actionData.reasonCounts as Record<string, unknown> | undefined) ?? {};
+        const appliedBlocked =
+          typeof appliedSummary.blocked === "number" ? appliedSummary.blocked : 0;
+        const status =
+          row.actionType === "template_distribution_plan_generated"
+            ? "planned"
+            : appliedBlocked > 0
+              ? "completed_with_errors"
+              : "completed";
+        const stagedTargetCount =
+          typeof rolloutWindow.stagedTargetCount === "number"
+            ? rolloutWindow.stagedTargetCount
+            : 0;
+        const requestedTargetCount =
+          typeof rolloutWindow.requestedTargetCount === "number"
+            ? rolloutWindow.requestedTargetCount
+            : 0;
+        const creates = typeof appliedSummary.creates === "number" ? appliedSummary.creates : 0;
+        const updates = typeof appliedSummary.updates === "number" ? appliedSummary.updates : 0;
+        const skips = typeof appliedSummary.skips === "number" ? appliedSummary.skips : 0;
+        return {
+          _id: row._id,
+          performedAt: row.performedAt,
+          actionType: row.actionType,
+          distributionJobId,
+          templateId,
+          templateVersion,
+          operationKind,
+          reason,
+          dryRun,
+          status,
+          affectedOrgCounts: {
+            requested: requestedTargetCount,
+            staged: stagedTargetCount,
+            mutated: creates + updates,
+            skipped: skips,
+            blocked: appliedBlocked,
+          },
+          summary: {
+            plan: {
+              creates: typeof planSummary.creates === "number" ? planSummary.creates : 0,
+              updates: typeof planSummary.updates === "number" ? planSummary.updates : 0,
+              skips: typeof planSummary.skips === "number" ? planSummary.skips : 0,
+              blocked: typeof planSummary.blocked === "number" ? planSummary.blocked : 0,
+            },
+            applied: {
+              creates,
+              updates,
+              skips,
+              blocked: appliedBlocked,
+            },
+          },
+          policyGates: {
+            blockedLocked:
+              typeof policyGates.blockedLocked === "number"
+                ? policyGates.blockedLocked
+                : 0,
+            blockedWarnConfirmation:
+              typeof policyGates.blockedWarnConfirmation === "number"
+                ? policyGates.blockedWarnConfirmation
+                : 0,
+            warnConfirmed:
+              typeof policyGates.warnConfirmed === "number"
+                ? policyGates.warnConfirmed
+                : 0,
+            free: typeof policyGates.free === "number" ? policyGates.free : 0,
+          },
+          reasonCounts: {
+            plan:
+              reasonCounts.plan && typeof reasonCounts.plan === "object"
+                ? (reasonCounts.plan as Record<string, number>)
+                : {},
+            applied:
+              reasonCounts.applied && typeof reasonCounts.applied === "object"
+                ? (reasonCounts.applied as Record<string, number>)
+                : {},
+          },
+          rolloutWindow: {
+            stageStartIndex:
+              typeof rolloutWindow.stageStartIndex === "number"
+                ? rolloutWindow.stageStartIndex
+                : 0,
+            stageSize:
+              typeof rolloutWindow.stageSize === "number" ? rolloutWindow.stageSize : 0,
+            requestedTargetCount,
+            stagedTargetCount,
+          },
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .sort((left, right) => {
+        if (left.performedAt !== right.performedAt) {
+          return right.performedAt - left.performedAt;
+        }
+        const jobSort = left.distributionJobId.localeCompare(right.distributionJobId);
+        if (jobSort !== 0) {
+          return jobSort;
+        }
+        return String(left._id).localeCompare(String(right._id));
+      })
+      .slice(0, limit);
+
+    const summary = {
+      totalJobs: jobRows.length,
+      byStatus: {
+        planned: jobRows.filter((row) => row.status === "planned").length,
+        completed: jobRows.filter((row) => row.status === "completed").length,
+        completedWithErrors: jobRows.filter((row) => row.status === "completed_with_errors")
+          .length,
+      },
+      byOperationKind: {
+        rolloutApply: jobRows.filter((row) => row.operationKind === "rollout_apply").length,
+        rolloutRollback: jobRows.filter((row) => row.operationKind === "rollout_rollback").length,
+      },
+      totalAffectedOrgs: {
+        requested: jobRows.reduce((acc, row) => acc + row.affectedOrgCounts.requested, 0),
+        staged: jobRows.reduce((acc, row) => acc + row.affectedOrgCounts.staged, 0),
+        mutated: jobRows.reduce((acc, row) => acc + row.affectedOrgCounts.mutated, 0),
+        blocked: jobRows.reduce((acc, row) => acc + row.affectedOrgCounts.blocked, 0),
+      },
+    };
+
+    return {
+      generatedAt: Date.now(),
+      summary,
+      rows: jobRows,
+    };
+  },
+});
 
 /**
  * CREATE AGENT
@@ -1642,6 +4553,10 @@ export const updateAgent = mutation({
       // Escalation Policy (per-agent HITL configuration)
       escalationPolicy: v.optional(v.any()),
     }),
+    overridePolicyGate: v.optional(v.object({
+      confirmWarnOverride: v.optional(v.boolean()),
+      reason: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
@@ -1702,6 +4617,11 @@ export const updateAgent = mutation({
     const updatedFields = normalizeDeterministicUpdatedFields(
       Object.keys(normalizedUpdates)
     );
+    const normalizedOverrideReason =
+      normalizeOptionalString(args.overridePolicyGate?.reason) || null;
+    const warnConfirmationAccepted =
+      args.overridePolicyGate?.confirmWarnOverride === true &&
+      normalizedOverrideReason !== null;
     const isManagedCloneTuningMutation = isManagedUseCaseCloneCandidate(agent);
     await enforceOneOfOneOperatorMutationAccess(ctx, {
       userId: session.userId,
@@ -1712,6 +4632,57 @@ export const updateAgent = mutation({
     });
 
     const now = Date.now();
+    const agentCustomProperties =
+      (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+    const overrideGate = resolveTemplateOverrideGateForManagedClone({
+      customProperties: agentCustomProperties,
+      updates: normalizedUpdates,
+      warnConfirmation: warnConfirmationAccepted,
+      reason: normalizedOverrideReason,
+    });
+
+    if (overrideGate) {
+      await ctx.db.insert("objectActions", {
+        organizationId: agent.organizationId,
+        objectId: args.agentId,
+        actionType: "managed_clone_override_gate_evaluated",
+        actionData: {
+          contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+          ...overrideGate,
+        },
+        performedBy: session.userId,
+        performedAt: now,
+      });
+
+      await ctx.db.insert("auditLogs", {
+        organizationId: agent.organizationId,
+        userId: session.userId,
+        action: "managed_clone_override_gate_evaluated",
+        resource: "org_agent",
+        resourceId: String(args.agentId),
+        success: overrideGate.decision === "allow",
+        metadata: {
+          contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+          ...overrideGate,
+          mutationSurface: "owner_managed_clone_tuning",
+        },
+        createdAt: now,
+      });
+
+      if (overrideGate.decision === "blocked_locked") {
+        throw new ConvexError({
+          code: "MANAGED_CLONE_OVERRIDE_POLICY_LOCKED",
+          message: `Managed clone override blocked by locked policy fields: ${overrideGate.lockedFields.join(", ")}`,
+        });
+      }
+      if (overrideGate.decision === "blocked_warn_confirmation_required") {
+        throw new ConvexError({
+          code: "MANAGED_CLONE_OVERRIDE_POLICY_WARN_CONFIRMATION_REQUIRED",
+          message: `Managed clone warn override requires explicit confirmation and reason: ${overrideGate.warnFields.join(", ")}`,
+        });
+      }
+    }
+
     await ctx.db.patch(args.agentId, {
       name: args.updates.name || agent.name,
       subtype: args.updates.subtype || agent.subtype,
@@ -1731,6 +4702,7 @@ export const updateAgent = mutation({
         mutationSurface: isManagedCloneTuningMutation
           ? "owner_managed_clone_tuning"
           : "standard_agent_update",
+        ...(overrideGate ? { overrideGate } : {}),
       },
       performedBy: session.userId,
       performedAt: now,
@@ -1748,6 +4720,7 @@ export const updateAgent = mutation({
           updatedFields,
           mutationSurface: "owner_managed_clone_tuning",
           cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+          ...(overrideGate ? { overrideGate } : {}),
         },
         createdAt: now,
       });
@@ -1813,6 +4786,10 @@ export const tuneManagedSpecialistClone = mutation({
       soul: v.optional(v.any()),
       escalationPolicy: v.optional(v.any()),
     }),
+    overridePolicyGate: v.optional(v.object({
+      confirmWarnOverride: v.optional(v.boolean()),
+      reason: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     const agent = await ctx.db.get(args.agentId);
@@ -2208,7 +5185,9 @@ export const getActiveWorkers = internalQuery({
 
     return agents.filter((a) => {
       const props = a.customProperties as Record<string, unknown> | undefined;
-      return a.status === "active" && props?.templateAgentId !== undefined;
+      // Legacy compatibility: agents without template linkage metadata stay operable;
+      // this worker view only scopes to explicitly linked clones.
+      return a.status === "active" && resolveTemplateSourceId(props) !== undefined;
     });
   },
 });

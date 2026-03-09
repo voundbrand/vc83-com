@@ -28,6 +28,8 @@ export interface Conversation {
   _id: Id<"aiConversations">
   organizationId: Id<"organizations">
   userId: Id<"users">
+  layerWorkflowId?: Id<"objects">
+  layerWorkflowTitle?: string
   title?: string
   status: "active" | "archived"
   createdAt: number
@@ -48,6 +50,8 @@ export interface ConversationRecord {
   _id: Id<"aiConversations">
   organizationId: Id<"organizations">
   userId: Id<"users">
+  layerWorkflowId?: Id<"objects">
+  layerWorkflowTitle?: string
   title?: string
   status: "active" | "archived"
   createdAt: number
@@ -220,6 +224,7 @@ export interface AIChatConversationAttachment {
 }
 
 export interface AIChatSendOptions {
+  layerWorkflowId?: Id<"objects">
   mode?: AIChatComposerMode
   reasoningEffort?: AIChatReasoningEffort
   privacyMode?: boolean
@@ -790,7 +795,8 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
 export function useAIChat(
   conversationId?: Id<"aiConversations">,
   selectedModel?: string,
-  superAdminQaMode?: AIChatSuperAdminQaMode
+  superAdminQaMode?: AIChatSuperAdminQaMode,
+  activeLayerWorkflowId?: Id<"objects">
 ) {
   const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
@@ -833,6 +839,7 @@ export function useAIChat(
     userId: Id<"users">
     sessionId?: string
     selectedModel?: string
+    layerWorkflowId?: Id<"objects">
     mode?: AIChatComposerMode
     reasoningEffort?: AIChatReasoningEffort
     privacyMode?: boolean
@@ -873,6 +880,7 @@ export function useAIChat(
     organizationId: Id<"organizations">
     userId: Id<"users">
     title?: string
+    layerWorkflowId?: Id<"objects">
   }) => Promise<Id<"aiConversations">>
 
   const updateConversationMutation = useMutationUntyped(apiUntyped.ai.conversations.updateConversation) as (args: {
@@ -916,6 +924,7 @@ export function useAIChat(
           userId: user.id as Id<"users">,
           sessionId: sessionId || undefined,
           selectedModel,
+          layerWorkflowId: options?.layerWorkflowId ?? activeLayerWorkflowId,
           mode: options?.mode,
           reasoningEffort: options?.reasoningEffort,
           privacyMode: options?.privacyMode,
@@ -941,7 +950,7 @@ export function useAIChat(
         throw err
       }
     },
-    [organization, selectedModel, sendMessageAction, sessionId, superAdminQaMode, user]
+    [activeLayerWorkflowId, organization, selectedModel, sendMessageAction, sessionId, superAdminQaMode, user]
   )
 
   const resolveVoiceRuntimeSession = useCallback(
@@ -965,7 +974,7 @@ export function useAIChat(
    * Create a new conversation
    */
   const createConversation = useCallback(
-    async (title?: string) => {
+    async (title?: string, layerWorkflowId?: Id<"objects">) => {
       if (!user || !organization) {
         throw new Error("User not authenticated")
       }
@@ -975,6 +984,7 @@ export function useAIChat(
           organizationId: organization.id as Id<"organizations">,
           userId: user.id as Id<"users">,
           title,
+          layerWorkflowId: layerWorkflowId ?? activeLayerWorkflowId,
         })
 
         return conversationId
@@ -984,7 +994,14 @@ export function useAIChat(
         throw err
       }
     },
-    [user, organization, createConversationMutation]
+    [user, organization, createConversationMutation, activeLayerWorkflowId]
+  )
+
+  const createLayerWorkflowConversation = useCallback(
+    async (layerWorkflowId: Id<"objects">, title?: string) => {
+      return await createConversation(title, layerWorkflowId)
+    },
+    [createConversation]
   )
 
   /**
@@ -1052,6 +1069,7 @@ export function useAIChat(
     sendMessage,
     resolveVoiceRuntimeSession,
     createConversation,
+    createLayerWorkflowConversation,
     updateConversation,
     archiveConversation,
     clearMessages,

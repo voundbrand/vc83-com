@@ -61,6 +61,7 @@ export const listAllPaginated = query({
     cursor: v.optional(v.string()),
     pageSize: v.optional(v.number()),
     search: v.optional(v.string()),
+    refreshKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
@@ -865,7 +866,7 @@ export const createOrganization = action({
       { organizationId }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
       {
         organizationId,
         channel: "desktop",
@@ -1015,7 +1016,7 @@ export const createBusinessOrganization = action({
       { organizationId }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
       {
         organizationId,
         channel: "desktop",
@@ -1193,7 +1194,7 @@ export const createSubOrganization = action({
       { organizationId }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
       {
         organizationId,
         channel: "desktop",

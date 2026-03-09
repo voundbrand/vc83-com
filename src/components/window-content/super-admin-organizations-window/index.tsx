@@ -104,12 +104,12 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
 
       {/* Tabs */}
       <div
-        className="border-b-2 overflow-x-auto"
+        className="border-b-2"
         style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
       >
-        <div className="flex min-w-max">
+        <div className="flex flex-wrap gap-px p-1">
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "list" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -121,7 +121,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           {t('ui.organizations.tab.list')}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "create" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -133,7 +133,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           {t('ui.organizations.tab.create')}
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "app-availability" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -145,7 +145,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           App Availability
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "templates" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -157,7 +157,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Templates
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "template-sets" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -169,7 +169,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Template Sets
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold border-r-2 transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "platform-ai-models" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -181,7 +181,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Platform AI Models
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: 'var(--window-document-border)',
             background: activeTab === "beta-access" ? 'var(--window-document-bg-elevated)' : 'var(--window-document-bg)',
@@ -193,7 +193,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Beta Access
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "platform-agent-trust" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -205,7 +205,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Platform Agent Trust
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "credit-redemption-codes" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -217,7 +217,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Credit Codes
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "platform-economics" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -229,7 +229,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           AI Economics
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "support-agent-quality" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -241,7 +241,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Support Quality
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "qa-runs" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -253,7 +253,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           QA Runs
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "agent-control-center" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -265,7 +265,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           Agent Control
         </button>
         <button
-          className="px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2 shrink-0"
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
             background: activeTab === "users" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
@@ -280,7 +280,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {activeTab === "list" && <OrganizationsListTab />}
         {activeTab === "create" && <SystemOrganizationsTab />}
         {activeTab === "template-sets" && <TemplateSetsTab />}

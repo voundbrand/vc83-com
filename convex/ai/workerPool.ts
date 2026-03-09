@@ -9,6 +9,14 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { DURATION_MS } from "../lib/constants";
+import {
+  MANAGED_USE_CASE_CLONE_LIFECYCLE,
+  buildManagedTemplateCloneLinkage,
+  isManagedUseCaseCloneProperties,
+  readTemplateCloneLinkageContract,
+  resolveTemplateSourceId,
+  resolveTemplateSourceVersion,
+} from "./templateCloneLinkage";
 
 // ============================================================================
 // CONSTANTS
@@ -18,7 +26,6 @@ const MAX_SYSTEM_WORKERS = 10;
 const WORKER_IDLE_TIMEOUT_MS = DURATION_MS.ONE_HOUR; // 60 minutes
 const WORKER_BUSY_THRESHOLD_MS = 30_000; // 30 seconds — worker is "busy" if active within this window
 
-const USE_CASE_CLONE_LIFECYCLE = "managed_use_case_clone_v1";
 const PRIMARY_AGENT_INELIGIBLE_STATUSES = new Set(["archived", "deleted", "template"]);
 const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
 const DEFAULT_CLONE_LIMITS = {
@@ -201,7 +208,7 @@ function selectOnboardingTemplateAgent(agents: AgentLikeRecord[]): AgentLikeReco
 }
 
 function readTemplateAgentId(customProperties: Record<string, unknown>): string | null {
-  return normalizeOptionalString(customProperties.templateAgentId);
+  return resolveTemplateSourceId(customProperties) ?? null;
 }
 
 function isManagedUseCaseClone(agent: AgentLikeRecord): boolean {
@@ -209,10 +216,7 @@ function isManagedUseCaseClone(agent: AgentLikeRecord): boolean {
   if (agent.status !== "active" && agent.status !== "draft") {
     return false;
   }
-  return (
-    readTemplateAgentId(props) !== null &&
-    normalizeOptionalString(props.cloneLifecycle) === USE_CASE_CLONE_LIFECYCLE
-  );
+  return readTemplateAgentId(props) !== null && isManagedUseCaseCloneProperties(props);
 }
 
 function resolveOperatorContextId(agent: AgentLikeRecord): string {
@@ -456,6 +460,24 @@ export const spawnUseCaseAgent = internalMutation({
     }
 
     const templateProps = asRecord(template.customProperties);
+    const templateSourceVersion = resolveTemplateSourceVersion(
+      template._id,
+      templateProps,
+      template.updatedAt
+    );
+    const metadataRecord = asRecord(args.metadata);
+    const lastTemplateSyncJobId =
+      normalizeOptionalString(metadataRecord.templateJobId) ||
+      normalizeOptionalString(metadataRecord.lastTemplateJobId) ||
+      normalizeOptionalString(metadataRecord.distributionJobId) ||
+      normalizeOptionalString(metadataRecord.jobId) ||
+      undefined;
+    const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(template._id),
+      sourceTemplateVersion: templateSourceVersion,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId,
+    });
     if (readTemplateRole(templateProps) === "platform_system_bot_template") {
       throw new Error("Quinn onboarding template cannot be used for use-case clone spawning.");
     }
@@ -545,6 +567,8 @@ export const spawnUseCaseAgent = internalMutation({
     const reuseExisting = args.reuseExisting !== false;
     if (reuseExisting && matchingClone) {
       const matchingCloneProps = asRecord(matchingClone.customProperties);
+      const existingTemplateLinkage =
+        readTemplateCloneLinkageContract(matchingCloneProps);
       const currentRequiredTools = normalizeDeterministicStringArray(matchingCloneProps.requiredTools);
       const currentRequiredCapabilities = normalizeDeterministicStringArray(
         matchingCloneProps.requiredCapabilities
@@ -552,19 +576,31 @@ export const spawnUseCaseAgent = internalMutation({
       const requiresContractUpdate =
         !arraysAreEqual(currentRequiredTools, requiredTools)
         || !arraysAreEqual(currentRequiredCapabilities, requiredCapabilities);
-      if (!ownerHadPrimaryBeforeSpawn || requiresContractUpdate) {
-        await ctx.db.patch(matchingClone._id, {
-          customProperties: {
-            ...matchingCloneProps,
-            operatorId: ownerOperatorId,
-            isPrimary: !ownerHadPrimaryBeforeSpawn ? true : matchingCloneProps.isPrimary === true,
-            requiredTools,
-            requiredCapabilities,
-            specialistScopeContract: specialistContract,
-          },
-          updatedAt: now,
-        });
-      }
+      await ctx.db.patch(matchingClone._id, {
+        customProperties: {
+          ...matchingCloneProps,
+          operatorId: ownerOperatorId,
+          isPrimary: !ownerHadPrimaryBeforeSpawn ? true : matchingCloneProps.isPrimary === true,
+          requiredTools,
+          requiredCapabilities,
+          specialistScopeContract: specialistContract,
+          templateAgentId: template._id,
+          templateVersion: templateSourceVersion,
+          cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+          overridePolicy: existingTemplateLinkage?.overridePolicy ?? templateCloneLinkage.overridePolicy,
+          lastTemplateSyncAt: now,
+          lastTemplateJobId: lastTemplateSyncJobId,
+          templateCloneLinkage: buildManagedTemplateCloneLinkage({
+            sourceTemplateId: String(template._id),
+            sourceTemplateVersion: templateSourceVersion,
+            overridePolicy: existingTemplateLinkage?.overridePolicy,
+            lastTemplateSyncAt: now,
+            lastTemplateSyncJobId,
+            cloneLifecycleState: existingTemplateLinkage?.cloneLifecycleState,
+          }),
+        },
+        updatedAt: now,
+      });
 
       await ctx.db.insert("objectActions", {
         organizationId: args.organizationId,
@@ -580,9 +616,14 @@ export const spawnUseCaseAgent = internalMutation({
           playbook: normalizedPlaybook ?? normalizeOptionalString(templateProps.templatePlaybook),
           operatorId: ownerOperatorId,
           promotedToPrimary: !ownerHadPrimaryBeforeSpawn,
+          templateVersion: templateSourceVersion,
+          templateCloneLinkage,
           requiredTools,
           requiredCapabilities,
           specialistScopeContract: specialistContract,
+          linkageRefreshReason: requiresContractUpdate
+            ? "required_capability_drift"
+            : "spawn_reuse",
         },
         performedBy: requestedByUserId,
         performedAt: now,
@@ -655,8 +696,13 @@ export const spawnUseCaseAgent = internalMutation({
         protected: false,
         status: "active",
         templateAgentId: template._id,
+        templateVersion: templateSourceVersion,
         templateSourceOrgId: template.organizationId,
-        cloneLifecycle: USE_CASE_CLONE_LIFECYCLE,
+        cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+        overridePolicy: templateCloneLinkage.overridePolicy,
+        lastTemplateSyncAt: now,
+        lastTemplateJobId: lastTemplateSyncJobId,
+        templateCloneLinkage,
         ownerUserId: args.ownerUserId,
         operatorId: ownerOperatorId,
         requestedByUserId,
@@ -698,7 +744,11 @@ export const spawnUseCaseAgent = internalMutation({
       useCaseKey,
       playbook: clonePlaybook,
       spawnReason: normalizeOptionalString(args.spawnReason) || "spawn_use_case_agent",
-      lifecycle: USE_CASE_CLONE_LIFECYCLE,
+      lifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+      templateVersion: templateSourceVersion,
+      templateCloneLinkage,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId,
       operatorId: ownerOperatorId,
       isPrimaryAssigned: !ownerHadPrimaryBeforeSpawn,
       requiredTools,

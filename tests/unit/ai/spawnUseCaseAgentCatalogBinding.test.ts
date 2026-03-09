@@ -16,6 +16,9 @@ vi.mock("../../../convex/_generated/api", () => ({
       workerPool: {
         spawnUseCaseAgent: "__spawn_use_case_agent__",
       },
+      agentExecution: {
+        recordStoreActivationEntitlementDecision: "__record_entitlement_decision__",
+      },
     },
     agentOntology: {
       getAgentInternal: "__get_agent_internal__",
@@ -44,6 +47,13 @@ function createCtx(overrides?: {
 }): ActionCtx {
   const preflightResult = overrides?.preflightResult ?? {
     catalogAgentNumber: 42,
+    card: {
+      storefrontPackageDescriptor: {
+        packageAccess: "included_in_plan",
+        licenseModel: "included",
+        activationHint: "activate_now",
+      },
+    },
     template: {
       templateAgentId: "objects_template_expected",
       hasTemplate: true,
@@ -54,6 +64,13 @@ function createCtx(overrides?: {
       blocked: [],
     },
     allowClone: true,
+    entitlement: {
+      allowed: true,
+      reasonCode: "entitled_included_in_plan",
+      guidance: "Activation is included in your current plan.",
+      matchedEntitlementKeys: [],
+      planTier: "pro",
+    },
     requiredTools: ["create_ticket", "search_contacts"],
     requiredCapabilities: ["integration:resend", "tool:create_ticket"],
     noFitEscalation: {
@@ -108,6 +125,9 @@ function createCtx(overrides?: {
     if (args && typeof args === "object" && "permission" in args) {
       return null;
     }
+    if (args && typeof args === "object" && "decision" in args) {
+      return null;
+    }
     if (args && typeof args === "object" && "templateAgentId" in args) {
       return spawnResult;
     }
@@ -157,11 +177,25 @@ describe("spawn_use_case_agent catalog-bound contract", () => {
           hasTemplate: true,
           protectedTemplate: true,
         },
+        card: {
+          storefrontPackageDescriptor: {
+            packageAccess: "included_in_plan",
+            licenseModel: "included",
+            activationHint: "activate_now",
+          },
+        },
         capabilitySnapshot: {
           availableNow: [],
           blocked: [],
         },
         allowClone: true,
+        entitlement: {
+          allowed: true,
+          reasonCode: "entitled_included_in_plan",
+          guidance: "Activation is included in your current plan.",
+          matchedEntitlementKeys: [],
+          planTier: "pro",
+        },
         requiredTools: ["create_ticket", "search_contacts"],
         requiredCapabilities: ["integration:resend", "tool:create_ticket"],
         noFitEscalation: {
@@ -191,6 +225,73 @@ describe("spawn_use_case_agent catalog-bound contract", () => {
     ).toBe(false);
   });
 
+  it("blocks activation fail-closed when entitlement is denied", async () => {
+    const ctx = createCtx({
+      preflightResult: {
+        catalogAgentNumber: 42,
+        card: {
+          storefrontPackageDescriptor: {
+            packageAccess: "add_on_purchase",
+            licenseModel: "seat",
+            activationHint: "purchase_required",
+            packageCode: "addon_growth",
+            licenseSku: "sku_growth_001",
+          },
+        },
+        template: {
+          templateAgentId: "objects_template_expected",
+          hasTemplate: true,
+          protectedTemplate: true,
+        },
+        capabilitySnapshot: {
+          availableNow: [],
+          blocked: [],
+        },
+        allowClone: false,
+        entitlement: {
+          allowed: false,
+          reasonCode: "blocked_purchase_required_not_owned",
+          guidance: "Activation is blocked until your organization purchases 'addon_growth'.",
+          matchedEntitlementKeys: [],
+          planTier: "free",
+        },
+        requiredTools: ["create_ticket"],
+        requiredCapabilities: ["tool:create_ticket"],
+        noFitEscalation: {
+          minimum: "minimum",
+          deposit: "deposit",
+          onboarding: "onboarding",
+        },
+      },
+    });
+
+    const result = await (spawn_use_case_agent as any)._handler(ctx, {
+      sessionId: "sessions_1",
+      organizationId: "organizations_1",
+      catalogAgentNumber: 42,
+      templateAgentId: "objects_template_expected",
+      useCase: "Support",
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      reason: "entitlement_blocked",
+      reasonCode: "blocked_purchase_required_not_owned",
+      allowClone: false,
+      guidance: "Activation is blocked until your organization purchases 'addon_growth'.",
+    });
+    expect(
+      ctx.runMutation.mock.calls.some((call) => call[0] === REF_SPAWN_USE_CASE_AGENT)
+    ).toBe(false);
+    expect(
+      ctx.runMutation.mock.calls.some(
+        (call) =>
+          call[1]?.decision === "deny" &&
+          call[1]?.reasonCode === "blocked_purchase_required_not_owned"
+      )
+    ).toBe(true);
+  });
+
   it("allows spawn when catalog preflight template matches request", async () => {
     const ctx = createCtx();
     const result = await (spawn_use_case_agent as any)._handler(ctx, {
@@ -212,8 +313,17 @@ describe("spawn_use_case_agent catalog-bound contract", () => {
     expect(
       ctx.runMutation.mock.calls.some((call) => call[1]?.templateAgentId === "objects_template_expected")
     ).toBe(true);
+    expect(
+      ctx.runMutation.mock.calls.some(
+        (call) =>
+          call[1]?.decision === "allow" &&
+          call[1]?.reasonCode === "entitled_included_in_plan"
+      )
+    ).toBe(true);
     const spawnMutationCall = ctx.runMutation.mock.calls.find(
-      (call) => call[1]?.templateAgentId === "objects_template_expected"
+      (call) =>
+        call[1]?.templateAgentId === "objects_template_expected" &&
+        "contractSourceCatalogAgentNumber" in (call[1] || {})
     );
     expect(spawnMutationCall?.[1]).toMatchObject({
       requiredTools: ["create_ticket", "search_contacts"],

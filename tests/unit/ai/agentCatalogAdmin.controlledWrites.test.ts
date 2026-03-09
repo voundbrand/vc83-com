@@ -7,9 +7,11 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 
 import {
   backfillCatalogPublishedFlags,
+  overrideSeedTemplateBindingMigration,
   setAgentBlocker,
   setCatalogPublishedStatus,
   setSeedStatusOverride,
+  setSeedTemplateBinding,
 } from "../../../convex/ai/agentCatalogAdmin";
 import { getUserContext, requireAuthenticatedUser } from "../../../convex/rbacHelpers";
 
@@ -150,6 +152,22 @@ function seedUser(db: FakeDb, overrides: Partial<FakeRow> = {}) {
   });
 }
 
+function seedTemplateAgent(db: FakeDb, overrides: Partial<FakeRow> = {}) {
+  db.seed("objects", {
+    _id: "objects_seed_template",
+    organizationId: ORG_ID,
+    type: "org_agent",
+    status: "template",
+    name: "Seed Template",
+    customProperties: {
+      protected: true,
+      templateRole: "platform_system_bot_template",
+      templateScope: "platform",
+    },
+    ...overrides,
+  });
+}
+
 function createCtx(db: FakeDb) {
   return { db } as any;
 }
@@ -211,6 +229,44 @@ async function invokeSetCatalogPublishedStatus(
     catalogAgentNumber: DEFAULT_AGENT_NUMBER,
     published: true,
     reason: "Release readiness complete.",
+    ...overrides,
+  });
+}
+
+async function invokeSetSeedTemplateBinding(
+  db: FakeDb,
+  overrides: Partial<{
+    datasetVersion: string;
+    catalogAgentNumber: number;
+    templateAgentId?: string;
+    reason: string;
+  }> = {},
+) {
+  return await (setSeedTemplateBinding as any)._handler(createCtx(db), {
+    sessionId: "sessions_super",
+    datasetVersion: DEFAULT_DATASET,
+    catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+    templateAgentId: "objects_seed_template",
+    reason: "Bridge catalog seed to template metadata",
+    ...overrides,
+  });
+}
+
+async function invokeOverrideSeedTemplateBindingMigration(
+  db: FakeDb,
+  overrides: Partial<{
+    datasetVersion: string;
+    catalogAgentNumber: number;
+    templateAgentId?: string;
+    migrationReason: string;
+  }> = {},
+) {
+  return await (overrideSeedTemplateBindingMigration as any)._handler(createCtx(db), {
+    sessionId: "sessions_super",
+    datasetVersion: DEFAULT_DATASET,
+    catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+    templateAgentId: "objects_seed_template",
+    migrationReason: "Immutable seed mapping migration override",
     ...overrides,
   });
 }
@@ -474,5 +530,158 @@ describe("agent catalog controlled writes: setCatalogPublishedStatus + backfill"
     expect(hidden?.published).toBe(false);
     const actionTypes = db.rows("objectActions").map((row) => row.actionType);
     expect(actionTypes).toContain("agent_catalog.published_backfill");
+  });
+});
+
+describe("agent catalog controlled writes: setSeedTemplateBinding", () => {
+  it("persists seeded bridge contract and keeps existing seed coverage semantics", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db);
+    seedTemplateAgent(db);
+    db.seed("agentCatalogSeedRegistry", {
+      _id: "seed_row_existing",
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+      seedCoverage: "skeleton",
+      requiresSoulBuild: true,
+      requiresSoulBuildReason: "Awaiting template mapping",
+      immutableOriginContractMapped: false,
+      sourcePath: "seed://initial",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const result = await invokeSetSeedTemplateBinding(db);
+    expect(result.binding.templateAgentId).toBe("objects_seed_template");
+    expect(result.seedTemplateBridge).toMatchObject({
+      contractVersion: "ath_seed_template_bridge_v1",
+      templateCloneLinkageContractVersion: "ath_template_clone_linkage_v1",
+      precedenceOrder: [
+        "platform_policy",
+        "template_baseline",
+        "org_clone_overrides",
+        "runtime_session_restrictions",
+      ],
+      roleBoundary: "super_admin_global_templates",
+      legacyCompatibilityMode: "managed_seed",
+      systemTemplateAgentId: "objects_seed_template",
+      protectedTemplate: true,
+      immutableOriginContractMapped: true,
+    });
+
+    const storedSeed = db.rows("agentCatalogSeedRegistry")[0];
+    expect(storedSeed?.seedCoverage).toBe("skeleton");
+    expect(storedSeed?.templateRole).toBe("platform_system_bot_template");
+    expect(storedSeed?.protectedTemplate).toBe(true);
+    expect(storedSeed?.immutableOriginContractMapped).toBe(true);
+    expect(storedSeed?.templateCloneBridge).toMatchObject({
+      contractVersion: "ath_seed_template_bridge_v1",
+      templateCloneLinkageContractVersion: "ath_template_clone_linkage_v1",
+      roleBoundary: "super_admin_global_templates",
+      legacyCompatibilityMode: "managed_seed",
+      protectedTemplate: true,
+      immutableOriginContractMapped: true,
+    });
+  });
+
+  it("locks immutable seeded mappings from rebinding", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db);
+    seedTemplateAgent(db);
+    db.seed("objects", {
+      _id: "objects_other_template",
+      organizationId: ORG_ID,
+      type: "org_agent",
+      status: "template",
+      name: "Other Template",
+      customProperties: {
+        protected: true,
+        templateRole: "sales_specialist_template",
+      },
+    });
+    db.seed("agentCatalogSeedRegistry", {
+      _id: "seed_row_immutable",
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+      seedCoverage: "full",
+      requiresSoulBuild: false,
+      systemTemplateAgentId: "objects_seed_template",
+      templateRole: "platform_system_bot_template",
+      protectedTemplate: true,
+      immutableOriginContractMapped: true,
+      sourcePath: "seed://locked",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    await expect(
+      invokeSetSeedTemplateBinding(db, {
+        templateAgentId: "objects_other_template",
+        reason: "Attempt rebind",
+      }),
+    ).rejects.toMatchObject({
+      data: {
+        code: "INVALID_ARGUMENT",
+      },
+    });
+
+    const storedSeed = db.rows("agentCatalogSeedRegistry")[0];
+    expect(storedSeed?.systemTemplateAgentId).toBe("objects_seed_template");
+    expect(storedSeed?.templateRole).toBe("platform_system_bot_template");
+  });
+});
+
+describe("agent catalog controlled writes: overrideSeedTemplateBindingMigration", () => {
+  it("allows super-admin migration override to rebind immutable mappings and records dedicated audit action", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db);
+    seedTemplateAgent(db);
+    db.seed("objects", {
+      _id: "objects_other_template",
+      organizationId: ORG_ID,
+      type: "org_agent",
+      status: "template",
+      name: "Other Template",
+      customProperties: {
+        protected: true,
+        templateRole: "sales_specialist_template",
+      },
+    });
+    db.seed("agentCatalogSeedRegistry", {
+      _id: "seed_row_immutable",
+      datasetVersion: DEFAULT_DATASET,
+      catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+      seedCoverage: "full",
+      requiresSoulBuild: false,
+      systemTemplateAgentId: "objects_seed_template",
+      templateRole: "platform_system_bot_template",
+      protectedTemplate: true,
+      immutableOriginContractMapped: true,
+      sourcePath: "seed://locked",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const result = await invokeOverrideSeedTemplateBindingMigration(db, {
+      templateAgentId: "objects_other_template",
+      migrationReason: "Canonical template re-home",
+    });
+    expect(result.binding.templateAgentId).toBe("objects_other_template");
+
+    const storedSeed = db.rows("agentCatalogSeedRegistry")[0];
+    expect(storedSeed?.systemTemplateAgentId).toBe("objects_other_template");
+    expect(storedSeed?.templateRole).toBe("sales_specialist_template");
+    expect(storedSeed?.immutableOriginContractMapped).toBe(true);
+    expect(storedSeed?.sourcePath).toBe(
+      "migration://agentCatalogAdmin.overrideSeedTemplateBindingMigration",
+    );
+
+    const actions = db.rows("objectActions");
+    expect(actions[0]?.actionType).toBe(
+      "agent_catalog.seed_template_binding_migration_override",
+    );
+    expect(actions[0]?.actionData).toMatchObject({
+      immutableRebindOverrideApplied: true,
+    });
   });
 });

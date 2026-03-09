@@ -39,6 +39,7 @@ export function OrganizationsListTab() {
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
+  const [listRefreshNonce, setListRefreshNonce] = useState(0);
   const [legacyPricingMutationOrgId, setLegacyPricingMutationOrgId] = useState<Id<"organizations"> | null>(null);
 
   // Archive modal (soft delete - for active orgs)
@@ -84,6 +85,7 @@ export function OrganizationsListTab() {
           cursor: cursor ?? undefined,
           pageSize,
           search: searchTerm || undefined,
+          refreshKey: String(listRefreshNonce),
         }
       : "skip"
   ) as
@@ -255,6 +257,49 @@ export function OrganizationsListTab() {
     });
   };
 
+  const resetToFirstPage = () => {
+    if (!isSuperAdmin) {
+      return;
+    }
+    setCursor(null);
+    setCursorHistory([]);
+  };
+
+  const refreshSuperAdminList = () => {
+    if (!isSuperAdmin) {
+      return;
+    }
+    resetToFirstPage();
+    setListRefreshNonce((prev) => prev + 1);
+  };
+
+  // If a destructive action leaves us on an empty cursor page, step back automatically.
+  useEffect(() => {
+    if (!isSuperAdmin || !paginatedOrganizations || cursor === null) {
+      return;
+    }
+
+    if (paginatedOrganizations.organizations.length > 0) {
+      return;
+    }
+
+    if (cursorHistory.length > 0) {
+      setCursorHistory((prev) => {
+        if (prev.length === 0) {
+          setCursor(null);
+          return prev;
+        }
+        const next = [...prev];
+        const previousCursor = next.pop() ?? null;
+        setCursor(previousCursor);
+        return next;
+      });
+      return;
+    }
+
+    setCursor(null);
+  }, [isSuperAdmin, paginatedOrganizations, cursor, cursorHistory.length]);
+
   // Archive handler (soft delete - for active orgs)
   const handleArchiveClick = (organizationId: Id<"organizations">, organizationName: string) => {
     // Use accessible memberships for safety checks (paged super-admin lists are not complete).
@@ -311,6 +356,7 @@ export function OrganizationsListTab() {
         sessionId,
         organizationId: orgToArchive.id,
       });
+      refreshSuperAdminList();
 
       // Success - modal will close and org badge will update to "Inactive"
       setArchiveModalOpen(false);
@@ -336,6 +382,7 @@ export function OrganizationsListTab() {
         sessionId,
         organizationId,
       });
+      refreshSuperAdminList();
     } catch (error) {
       console.error("Failed to restore organization:", error);
       alert(t('ui.organizations.error.restore_failed') + " " + (error instanceof Error ? error.message : "Unknown error"));
@@ -357,6 +404,7 @@ export function OrganizationsListTab() {
         sessionId,
         organizationId: orgToDelete.id,
       });
+      refreshSuperAdminList();
       // Success - modal will close and org will disappear from list
       setDeleteModalOpen(false);
       setOrgToDelete(null);
@@ -450,6 +498,10 @@ export function OrganizationsListTab() {
         alert(`${t('ui.organizations.error.archive_failed')} ${failed.length} of ${results.length} failed. ${firstReason}`);
       }
 
+      if (results.some((result) => result.status === "fulfilled")) {
+        refreshSuperAdminList();
+      }
+
       setBulkArchiveModalOpen(false);
       setSelectedOrgIds(new Set());
     } catch (error) {
@@ -466,7 +518,7 @@ export function OrganizationsListTab() {
     }
 
     setIsBulkDeleting(true);
-    const idsToDelete = [...selectedOrgIds].filter((id) => selectableOrgIds.has(id));
+    const idsToDelete = [...selectedOrgIds].filter((id) => bulkDeletableOrgIds.has(id));
 
     try {
       const results = await Promise.allSettled(
@@ -486,6 +538,9 @@ export function OrganizationsListTab() {
         alert(`${t('ui.organizations.error.delete_failed')} ${failed.length} of ${results.length} failed. ${firstReason}`);
       }
 
+      if (results.some((result) => result.status === "fulfilled")) {
+        refreshSuperAdminList();
+      }
       setBulkDeleteModalOpen(false);
       setSelectedOrgIds(new Set());
     } catch (error) {
@@ -970,7 +1025,7 @@ export function OrganizationsListTab() {
         }}
         onConfirm={handleConfirmBulkDelete}
         title="Delete selected organizations"
-        message={`Permanently delete ${selectedCount} selected inactive organization${selectedCount === 1 ? "" : "s"}? This cannot be undone.`}
+        message={`Permanently delete ${selectedInactiveCount} selected inactive organization${selectedInactiveCount === 1 ? "" : "s"}? This cannot be undone.`}
         confirmText={t('ui.organizations.delete.confirm_button')}
         cancelText={t('ui.organizations.button.cancel')}
         variant="danger"

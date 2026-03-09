@@ -95,6 +95,8 @@ export interface NodeDefinition {
   behaviorTypes?: string[];
   /** Credits consumed per execution (default: 1) */
   creditCost?: number;
+  /** If true, only one node of this type can exist in a workflow. */
+  singleton?: boolean;
 }
 
 // ============================================================================
@@ -173,6 +175,67 @@ export interface LayerWorkflowData {
   };
   /** Optional project association for file system capture */
   projectId?: string;
+}
+
+export interface LayeredContextWorkflowSummary {
+  workflowId: Id<"objects">;
+  workflowName: string;
+  workflowStatus: string;
+  workflowUpdatedAt: number;
+  nodeCount: number;
+  edgeCount: number;
+  workflowMode?: WorkflowMode;
+}
+
+export interface LayeredContextRecentExecution {
+  executionId: Id<"layerExecutions">;
+  status: "running" | "completed" | "failed" | "cancelled";
+  startedAt: number;
+  completedAt?: number;
+  triggerNodeId?: string;
+  summary?: string;
+}
+
+export interface LayeredContextConnectedNodeSurface {
+  nodeId: string;
+  nodeType: string;
+  nodeLabel?: string;
+  description?: string;
+  lastExecutionStatus?: string;
+  lastExecutionAt?: number;
+  contextSnippets?: LayeredContextNodeContextSnippet[];
+}
+
+export interface LayeredContextNodeContextSnippet {
+  source:
+    | "node_config"
+    | "execution_input"
+    | "execution_output"
+    | "transcript"
+    | "file_excerpt"
+    | "unavailable";
+  label: string;
+  value: string;
+  truncated?: boolean;
+}
+
+export interface LayeredContextTier1Payload {
+  workflow: LayeredContextWorkflowSummary;
+  recentExecutions: LayeredContextRecentExecution[];
+}
+
+export interface LayeredContextTier2Payload {
+  aiChatNodeId: string;
+  aiChatPrompt?: string;
+  aiChatModel?: string;
+  connectedInputs: LayeredContextConnectedNodeSurface[];
+  connectedOutputs: LayeredContextConnectedNodeSurface[];
+}
+
+export interface LayeredContextBundle {
+  contractVersion: "layered_context_bundle_v1";
+  tier1: LayeredContextTier1Payload;
+  tier2?: LayeredContextTier2Payload;
 }
 
 /** Trigger configuration */

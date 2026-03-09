@@ -25,6 +25,14 @@ const DEFAULT_DATASET_VERSION = "agp_v1";
 const EXPECTED_AGENT_COUNT = 104;
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 200;
+const SEED_TEMPLATE_BRIDGE_CONTRACT_VERSION = "ath_seed_template_bridge_v1";
+const TEMPLATE_CLONE_LINKAGE_CONTRACT_VERSION = "ath_template_clone_linkage_v1";
+const TEMPLATE_CLONE_PRECEDENCE_ORDER = [
+  "platform_policy",
+  "template_baseline",
+  "org_clone_overrides",
+  "runtime_session_restrictions",
+] as const;
 
 const categoryValidator = v.union(
   v.literal("core"),
@@ -149,9 +157,30 @@ type SeedRegistryRow = {
   templateRole?: string;
   protectedTemplate?: boolean;
   immutableOriginContractMapped: boolean;
+  templateCloneBridge?: {
+    contractVersion: typeof SEED_TEMPLATE_BRIDGE_CONTRACT_VERSION;
+    precedenceOrder: Array<(typeof TEMPLATE_CLONE_PRECEDENCE_ORDER)[number]>;
+    roleBoundary: "super_admin_global_templates";
+    legacyCompatibilityMode: "managed_seed" | "legacy_unmanaged";
+    templateCloneLinkageContractVersion?: typeof TEMPLATE_CLONE_LINKAGE_CONTRACT_VERSION;
+    systemTemplateAgentId?: string;
+    protectedTemplate: boolean;
+    immutableOriginContractMapped: boolean;
+  };
   sourcePath: string;
   createdAt: number;
   updatedAt: number;
+};
+
+type SeedTemplateBridgeContract = {
+  contractVersion: typeof SEED_TEMPLATE_BRIDGE_CONTRACT_VERSION;
+  precedenceOrder: Array<(typeof TEMPLATE_CLONE_PRECEDENCE_ORDER)[number]>;
+  roleBoundary: "super_admin_global_templates";
+  legacyCompatibilityMode: "managed_seed" | "legacy_unmanaged";
+  templateCloneLinkageContractVersion?: typeof TEMPLATE_CLONE_LINKAGE_CONTRACT_VERSION;
+  systemTemplateAgentId?: string;
+  protectedTemplate: boolean;
+  immutableOriginContractMapped: boolean;
 };
 
 type SyncRunRow = {
@@ -212,6 +241,49 @@ function asRecord(value: unknown): Record<string, unknown> {
     return {};
   }
   return value as Record<string, unknown>;
+}
+
+function buildSeedTemplateBridgeContract(args: {
+  systemTemplateAgentId?: string;
+  protectedTemplate: boolean;
+  immutableOriginContractMapped: boolean;
+}): SeedTemplateBridgeContract {
+  return {
+    contractVersion: SEED_TEMPLATE_BRIDGE_CONTRACT_VERSION,
+    precedenceOrder: [...TEMPLATE_CLONE_PRECEDENCE_ORDER],
+    roleBoundary: "super_admin_global_templates",
+    legacyCompatibilityMode: args.systemTemplateAgentId
+      ? "managed_seed"
+      : "legacy_unmanaged",
+    templateCloneLinkageContractVersion: TEMPLATE_CLONE_LINKAGE_CONTRACT_VERSION,
+    systemTemplateAgentId: args.systemTemplateAgentId,
+    protectedTemplate: args.protectedTemplate,
+    immutableOriginContractMapped: args.immutableOriginContractMapped,
+  };
+}
+
+function resolveSeedTemplateBridgeContract(seed: SeedRegistryRow | null): SeedTemplateBridgeContract | null {
+  if (!seed) {
+    return null;
+  }
+  const bridgedTemplateAgentId = seed.systemTemplateAgentId
+    ? String(seed.systemTemplateAgentId)
+    : undefined;
+  const fallbackBridge = buildSeedTemplateBridgeContract({
+    systemTemplateAgentId: bridgedTemplateAgentId,
+    protectedTemplate: seed.protectedTemplate === true,
+    immutableOriginContractMapped: seed.immutableOriginContractMapped === true,
+  });
+  if (!seed.templateCloneBridge) {
+    return fallbackBridge;
+  }
+  return {
+    ...fallbackBridge,
+    ...seed.templateCloneBridge,
+    precedenceOrder: [...TEMPLATE_CLONE_PRECEDENCE_ORDER],
+    roleBoundary: "super_admin_global_templates",
+    templateCloneLinkageContractVersion: TEMPLATE_CLONE_LINKAGE_CONTRACT_VERSION,
+  };
 }
 
 function normalizeBlockerNote(blocker: string): string {
@@ -884,6 +956,7 @@ export const listAgents = query({
           missing: 0,
         };
         const seed = seedByAgentNumber.get(entry.catalogAgentNumber);
+        const seedBridge = resolveSeedTemplateBridgeContract(seed ?? null);
         return {
           ...entry,
           published: resolveEntryPublished(entry),
@@ -893,6 +966,9 @@ export const listAgents = query({
           seedTemplateAgentId: seed?.systemTemplateAgentId
             ? String(seed.systemTemplateAgentId)
             : null,
+          seedProtectedTemplate: seed?.protectedTemplate === true,
+          seedImmutableOriginContractMapped: seed?.immutableOriginContractMapped === true,
+          seedTemplateBridge: seedBridge,
         };
       }),
     };
@@ -932,7 +1008,29 @@ export const listPlatformAgents = query({
       name?: string;
       status?: string;
       customProperties?: Record<string, unknown>;
-    }>;
+      }>;
+
+    const seedRows = (await dbAny
+      .query("agentCatalogSeedRegistry")
+      .withIndex("by_dataset_agent", (q: any) =>
+        q.eq("datasetVersion", DEFAULT_DATASET_VERSION),
+      )
+      .collect()) as SeedRegistryRow[];
+    const seedRowsByTemplateId = new Map<string, SeedRegistryRow[]>();
+    for (const seedRow of seedRows) {
+      const templateId = seedRow.systemTemplateAgentId
+        ? String(seedRow.systemTemplateAgentId)
+        : null;
+      if (!templateId) {
+        continue;
+      }
+      const existingRows = seedRowsByTemplateId.get(templateId);
+      if (existingRows) {
+        existingRows.push(seedRow);
+      } else {
+        seedRowsByTemplateId.set(templateId, [seedRow]);
+      }
+    }
 
     const normalized = rows
       .map((row) => {
@@ -943,6 +1041,13 @@ export const listPlatformAgents = query({
         const operatorId = normalizeOptionalString(props.operatorId);
         const protectedTemplate = props.protected === true;
         const primary = props.isPrimary === true;
+        const linkedSeedRows = seedRowsByTemplateId.get(String(row._id)) ?? [];
+        const linkedCatalogAgentNumbers = linkedSeedRows
+          .map((seedRow) => seedRow.catalogAgentNumber)
+          .sort((a, b) => a - b);
+        const bridgeStates = linkedSeedRows
+          .map((seedRow) => resolveSeedTemplateBridgeContract(seedRow))
+          .filter((value): value is SeedTemplateBridgeContract => value !== null);
         return {
           _id: String(row._id),
           name: normalizeOptionalString(row.name) || "Unnamed Platform Agent",
@@ -953,6 +1058,8 @@ export const listPlatformAgents = query({
           templatePlaybook,
           primary,
           operatorId,
+          linkedCatalogAgentNumbers,
+          seedTemplateBridge: bridgeStates[0] ?? null,
         };
       })
       .sort((left, right) => {
@@ -1070,6 +1177,7 @@ export const getAgentDetails = query({
       .first()) as SeedRegistryRow | null;
 
     const recentSyncRuns = await loadSyncRuns(ctx, datasetVersion, 10);
+    const seedTemplateBridge = resolveSeedTemplateBridgeContract(seed);
 
     return {
       datasetVersion,
@@ -1085,6 +1193,7 @@ export const getAgentDetails = query({
         return a.toolName.localeCompare(b.toolName);
       }),
       seed,
+      seedTemplateBridge,
       recentSyncRuns,
     };
   },
@@ -1517,118 +1626,188 @@ export const setSeedTemplateBinding = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, organizationId } = await requireSuperAdminSession(ctx, args.sessionId);
-    const datasetVersion = normalizeDatasetVersion(args.datasetVersion);
-    const reason = args.reason.trim();
-    if (reason.length === 0) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "Binding reason is required.",
-      });
-    }
+    return await applySeedTemplateBinding(ctx, {
+      userId,
+      organizationId,
+      datasetVersion: normalizeDatasetVersion(args.datasetVersion),
+      catalogAgentNumber: args.catalogAgentNumber,
+      templateAgentId: args.templateAgentId,
+      reason: args.reason,
+      allowImmutableRebind: false,
+      actionType: "agent_catalog.seed_template_binding_set",
+      sourcePathPrefix: "manual://agentCatalogAdmin.setSeedTemplateBinding",
+      objectType: "agent_catalog_seed_template_binding",
+    });
+  },
+});
 
-    const entry = await loadCatalogEntryByNumber(ctx, datasetVersion, args.catalogAgentNumber);
-    if (!entry) {
+async function applySeedTemplateBinding(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    organizationId: Id<"organizations">;
+    datasetVersion: string;
+    catalogAgentNumber: number;
+    templateAgentId?: Id<"objects">;
+    reason: string;
+    allowImmutableRebind: boolean;
+    actionType: `agent_catalog.${string}`;
+    sourcePathPrefix: string;
+    objectType: string;
+  },
+) {
+  const reason = args.reason.trim();
+  if (reason.length === 0) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message: "Binding reason is required.",
+    });
+  }
+
+  const entry = await loadCatalogEntryByNumber(
+    ctx,
+    args.datasetVersion,
+    args.catalogAgentNumber,
+  );
+  if (!entry) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: `Catalog agent ${args.catalogAgentNumber} was not found in dataset '${args.datasetVersion}'.`,
+    });
+  }
+
+  const dbAny = ctx.db as any;
+  const existingSeed = (await dbAny
+    .query("agentCatalogSeedRegistry")
+    .withIndex("by_dataset_agent", (q: any) =>
+      q.eq("datasetVersion", args.datasetVersion).eq("catalogAgentNumber", args.catalogAgentNumber),
+    )
+    .first()) as SeedRegistryRow | null;
+
+  const nextTemplateAgentId = args.templateAgentId ?? undefined;
+  let templateRole: string | undefined;
+  let templateName: string | null = null;
+  let templateScope: string | null = null;
+
+  if (nextTemplateAgentId) {
+    const templateAgent = (await dbAny.get(nextTemplateAgentId)) as
+      | {
+          _id: Id<"objects">;
+          type: string;
+          status: string;
+          name?: string;
+          customProperties?: unknown;
+        }
+      | null;
+    if (!templateAgent || templateAgent.type !== "org_agent") {
       throw new ConvexError({
         code: "NOT_FOUND",
-        message: `Catalog agent ${args.catalogAgentNumber} was not found in dataset '${datasetVersion}'.`,
+        message: "Template agent was not found.",
       });
     }
-
-    const dbAny = ctx.db as any;
-    const existingSeed = (await dbAny
-      .query("agentCatalogSeedRegistry")
-      .withIndex("by_dataset_agent", (q: any) =>
-        q.eq("datasetVersion", datasetVersion).eq("catalogAgentNumber", args.catalogAgentNumber),
-      )
-      .first()) as SeedRegistryRow | null;
-
-    const nextTemplateAgentId = args.templateAgentId ?? undefined;
-    let templateRole: string | undefined;
-    let templateName: string | null = null;
-    let templateScope: string | null = null;
-
-    if (nextTemplateAgentId) {
-      const templateAgent = (await dbAny.get(nextTemplateAgentId)) as
-        | {
-            _id: Id<"objects">;
-            type: string;
-            status: string;
-            name?: string;
-            customProperties?: unknown;
-          }
-        | null;
-      if (!templateAgent || templateAgent.type !== "org_agent") {
-        throw new ConvexError({
-          code: "NOT_FOUND",
-          message: "Template agent was not found.",
-        });
-      }
-      const templateProps = asRecord(templateAgent.customProperties);
-      if (templateAgent.status !== "template") {
-        throw new ConvexError({
-          code: "INVALID_ARGUMENT",
-          message: "Template binding requires an agent with status='template'.",
-        });
-      }
-      if (templateProps.protected !== true) {
-        throw new ConvexError({
-          code: "INVALID_ARGUMENT",
-          message: "Template binding requires a protected template agent.",
-        });
-      }
-      const resolvedTemplateRole = normalizeOptionalString(templateProps.templateRole);
-      if (!resolvedTemplateRole) {
-        throw new ConvexError({
-          code: "INVALID_ARGUMENT",
-          message: "Template binding requires templateRole on the target template.",
-        });
-      }
-      templateRole = resolvedTemplateRole;
-      templateName = normalizeOptionalString(templateAgent.name);
-      templateScope = normalizeOptionalString(templateProps.templateScope);
+    const templateProps = asRecord(templateAgent.customProperties);
+    if (templateAgent.status !== "template") {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template binding requires an agent with status='template'.",
+      });
     }
+    if (templateProps.protected !== true) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template binding requires a protected template agent.",
+      });
+    }
+    const resolvedTemplateRole = normalizeOptionalString(templateProps.templateRole);
+    if (!resolvedTemplateRole) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template binding requires templateRole on the target template.",
+      });
+    }
+    templateRole = resolvedTemplateRole;
+    templateName = normalizeOptionalString(templateAgent.name);
+    templateScope = normalizeOptionalString(templateProps.templateScope);
+  }
 
-    const now = Date.now();
-    const nextSeedCoverage =
-      nextTemplateAgentId
-        ? existingSeed?.seedCoverage && existingSeed.seedCoverage !== "missing"
-          ? existingSeed.seedCoverage
-          : "full"
-        : existingSeed?.seedCoverage ?? "missing";
-    const nextRequiresSoulBuild = nextTemplateAgentId
-      ? false
-      : existingSeed?.requiresSoulBuild ?? true;
-    const nextRequiresSoulBuildReason = nextTemplateAgentId
-      ? undefined
-      : existingSeed?.requiresSoulBuildReason ?? "Template binding removed.";
-    const nextImmutableOriginContractMapped = nextTemplateAgentId
+  const prevTemplateAgentId = existingSeed?.systemTemplateAgentId
+    ? String(existingSeed.systemTemplateAgentId)
+    : null;
+  const nextTemplateAgentIdString = nextTemplateAgentId ? String(nextTemplateAgentId) : null;
+  if (
+    existingSeed?.immutableOriginContractMapped === true
+    && prevTemplateAgentId
+    && prevTemplateAgentId !== nextTemplateAgentIdString
+    && !args.allowImmutableRebind
+  ) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message:
+        "Immutable seeded origin contract already mapped. Rebinding or clearing requires a migration override path.",
+    });
+  }
+
+  const now = Date.now();
+  const nextSeedCoverage =
+    nextTemplateAgentId
+      ? existingSeed?.seedCoverage && existingSeed.seedCoverage !== "missing"
+        ? existingSeed.seedCoverage
+        : "full"
+      : existingSeed?.seedCoverage ?? "missing";
+  const nextRequiresSoulBuild = nextTemplateAgentId
+    ? false
+    : existingSeed?.requiresSoulBuild ?? true;
+  const nextRequiresSoulBuildReason = nextTemplateAgentId
+    ? undefined
+    : existingSeed?.requiresSoulBuildReason ?? "Template binding removed.";
+  const nextImmutableOriginContractMapped =
+    existingSeed?.immutableOriginContractMapped === true
       ? true
-      : existingSeed?.immutableOriginContractMapped ?? false;
-    const nextSourcePath = nextTemplateAgentId
-      ? "manual://agentCatalogAdmin.setSeedTemplateBinding"
-      : existingSeed?.sourcePath ?? "manual://agentCatalogAdmin.setSeedTemplateBinding";
+      : Boolean(nextTemplateAgentId);
+  const nextSourcePath = nextTemplateAgentId
+    ? args.sourcePathPrefix
+    : existingSeed?.sourcePath ?? args.sourcePathPrefix;
 
-    const prevTemplateAgentId = existingSeed?.systemTemplateAgentId
-      ? String(existingSeed.systemTemplateAgentId)
-      : null;
-    const nextTemplateAgentIdString = nextTemplateAgentId ? String(nextTemplateAgentId) : null;
-    const prevTemplateRole = existingSeed?.templateRole ?? null;
-    const nextTemplateRole = nextTemplateAgentId ? templateRole ?? null : null;
+  const prevTemplateRole = existingSeed?.templateRole ?? null;
+  const nextTemplateRole = nextTemplateAgentId ? templateRole ?? null : null;
+  const nextSeedBridgeContract = buildSeedTemplateBridgeContract({
+    systemTemplateAgentId: nextTemplateAgentIdString ?? undefined,
+    protectedTemplate: Boolean(nextTemplateAgentId),
+    immutableOriginContractMapped: nextImmutableOriginContractMapped,
+  });
 
-    const changed =
-      !existingSeed
-      || prevTemplateAgentId !== nextTemplateAgentIdString
-      || prevTemplateRole !== nextTemplateRole
-      || (existingSeed?.protectedTemplate ?? false) !== Boolean(nextTemplateAgentId)
-      || existingSeed.seedCoverage !== nextSeedCoverage
-      || existingSeed.requiresSoulBuild !== nextRequiresSoulBuild
-      || (existingSeed.requiresSoulBuildReason ?? null) !== (nextRequiresSoulBuildReason ?? null)
-      || existingSeed.immutableOriginContractMapped !== nextImmutableOriginContractMapped
-      || existingSeed.sourcePath !== nextSourcePath;
+  const changed =
+    !existingSeed
+    || prevTemplateAgentId !== nextTemplateAgentIdString
+    || prevTemplateRole !== nextTemplateRole
+    || (existingSeed?.protectedTemplate ?? false) !== Boolean(nextTemplateAgentId)
+    || existingSeed.seedCoverage !== nextSeedCoverage
+    || existingSeed.requiresSoulBuild !== nextRequiresSoulBuild
+    || (existingSeed.requiresSoulBuildReason ?? null) !== (nextRequiresSoulBuildReason ?? null)
+    || existingSeed.immutableOriginContractMapped !== nextImmutableOriginContractMapped
+    || JSON.stringify(existingSeed.templateCloneBridge ?? null) !== JSON.stringify(nextSeedBridgeContract)
+    || existingSeed.sourcePath !== nextSourcePath;
 
-    let seedRegistryId: string;
-    if (existingSeed) {
-      await dbAny.patch(existingSeed._id, {
+  let seedRegistryId: string;
+  if (existingSeed) {
+    await dbAny.patch(existingSeed._id, {
+      seedCoverage: nextSeedCoverage,
+      requiresSoulBuild: nextRequiresSoulBuild,
+      requiresSoulBuildReason: nextRequiresSoulBuildReason,
+      systemTemplateAgentId: nextTemplateAgentId,
+      templateRole: nextTemplateRole ?? undefined,
+      protectedTemplate: Boolean(nextTemplateAgentId),
+      immutableOriginContractMapped: nextImmutableOriginContractMapped,
+      templateCloneBridge: nextSeedBridgeContract,
+      sourcePath: nextSourcePath,
+      updatedAt: now,
+    });
+    seedRegistryId = String(existingSeed._id);
+  } else {
+    seedRegistryId = String(
+      await dbAny.insert("agentCatalogSeedRegistry", {
+        datasetVersion: args.datasetVersion,
+        catalogAgentNumber: args.catalogAgentNumber,
         seedCoverage: nextSeedCoverage,
         requiresSoulBuild: nextRequiresSoulBuild,
         requiresSoulBuildReason: nextRequiresSoulBuildReason,
@@ -1636,66 +1815,78 @@ export const setSeedTemplateBinding = mutation({
         templateRole: nextTemplateRole ?? undefined,
         protectedTemplate: Boolean(nextTemplateAgentId),
         immutableOriginContractMapped: nextImmutableOriginContractMapped,
+        templateCloneBridge: nextSeedBridgeContract,
         sourcePath: nextSourcePath,
+        createdAt: now,
         updatedAt: now,
-      });
-      seedRegistryId = String(existingSeed._id);
-    } else {
-      seedRegistryId = String(
-        await dbAny.insert("agentCatalogSeedRegistry", {
-          datasetVersion,
-          catalogAgentNumber: args.catalogAgentNumber,
-          seedCoverage: nextSeedCoverage,
-          requiresSoulBuild: nextRequiresSoulBuild,
-          requiresSoulBuildReason: nextRequiresSoulBuildReason,
-          systemTemplateAgentId: nextTemplateAgentId,
-          templateRole: nextTemplateRole ?? undefined,
-          protectedTemplate: Boolean(nextTemplateAgentId),
-          immutableOriginContractMapped: nextImmutableOriginContractMapped,
-          sourcePath: nextSourcePath,
-          createdAt: now,
-          updatedAt: now,
-        }),
-      );
-    }
+      }),
+    );
+  }
 
-    await writeAgentCatalogAuditAction({
-      ctx,
-      organizationId,
-      userId,
-      actionType: "agent_catalog.seed_template_binding_set",
-      datasetVersion,
-      catalogAgentNumber: args.catalogAgentNumber,
-      actionData: {
-        reason,
-        changed,
-        seedRegistryId,
-        previousTemplateAgentId: prevTemplateAgentId,
-        nextTemplateAgentId: nextTemplateAgentIdString,
-        templateRole: nextTemplateRole,
-        templateName,
-        templateScope,
-        protectedTemplate: Boolean(nextTemplateAgentId),
-        seedCoverage: nextSeedCoverage,
-        requiresSoulBuild: nextRequiresSoulBuild,
-      },
-      objectType: "agent_catalog_seed_template_binding",
-    });
-
-    return {
-      success: true,
-      datasetVersion,
-      catalogAgentNumber: args.catalogAgentNumber,
+  await writeAgentCatalogAuditAction({
+    ctx,
+    organizationId: args.organizationId,
+    userId: args.userId,
+    actionType: args.actionType,
+    datasetVersion: args.datasetVersion,
+    catalogAgentNumber: args.catalogAgentNumber,
+    actionData: {
+      reason,
       changed,
+      immutableRebindOverrideApplied: args.allowImmutableRebind,
       seedRegistryId,
-      binding: {
-        templateAgentId: nextTemplateAgentIdString,
-        templateRole: nextTemplateRole,
-        templateName,
-        templateScope,
-        protectedTemplate: Boolean(nextTemplateAgentId),
-      },
-    };
+      previousTemplateAgentId: prevTemplateAgentId,
+      nextTemplateAgentId: nextTemplateAgentIdString,
+      templateRole: nextTemplateRole,
+      templateName,
+      templateScope,
+      protectedTemplate: Boolean(nextTemplateAgentId),
+      seedCoverage: nextSeedCoverage,
+      requiresSoulBuild: nextRequiresSoulBuild,
+      seedTemplateBridge: nextSeedBridgeContract,
+    },
+    objectType: args.objectType,
+  });
+
+  return {
+    success: true,
+    datasetVersion: args.datasetVersion,
+    catalogAgentNumber: args.catalogAgentNumber,
+    changed,
+    seedRegistryId,
+    binding: {
+      templateAgentId: nextTemplateAgentIdString,
+      templateRole: nextTemplateRole,
+      templateName,
+      templateScope,
+      protectedTemplate: Boolean(nextTemplateAgentId),
+    },
+    seedTemplateBridge: nextSeedBridgeContract,
+  };
+}
+
+export const overrideSeedTemplateBindingMigration = mutation({
+  args: {
+    sessionId: v.string(),
+    datasetVersion: v.optional(v.string()),
+    catalogAgentNumber: v.number(),
+    templateAgentId: v.optional(v.id("objects")),
+    migrationReason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, organizationId } = await requireSuperAdminSession(ctx, args.sessionId);
+    return await applySeedTemplateBinding(ctx, {
+      userId,
+      organizationId,
+      datasetVersion: normalizeDatasetVersion(args.datasetVersion),
+      catalogAgentNumber: args.catalogAgentNumber,
+      templateAgentId: args.templateAgentId,
+      reason: args.migrationReason,
+      allowImmutableRebind: true,
+      actionType: "agent_catalog.seed_template_binding_migration_override",
+      sourcePathPrefix: "migration://agentCatalogAdmin.overrideSeedTemplateBindingMigration",
+      objectType: "agent_catalog_seed_template_binding_migration_override",
+    });
   },
 });
 

@@ -276,6 +276,24 @@ export const run = internalAction({
       console.log("[completeOnboarding] Reusing existing org:", orgId);
     } else {
       console.log("[completeOnboarding] Created org:", orgId);
+      try {
+        const defaultAgentProvisioning = await ctx.runMutation(
+          internalApi.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
+          {
+            organizationId: orgId,
+            channel: "desktop",
+          }
+        );
+        console.log(
+          "[completeOnboarding] Default template clone provisioning:",
+          defaultAgentProvisioning?.provisioningAction || "unknown"
+        );
+      } catch (defaultAgentProvisioningError) {
+        console.error(
+          "[completeOnboarding] Default template clone provisioning failed (non-blocking):",
+          defaultAgentProvisioningError
+        );
+      }
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;

@@ -1289,9 +1289,109 @@ const lcNativeNodes: NodeDefinition[] = [
     ],
   },
   {
+    type: "lc_youtube_transcript",
+    name: "LC YouTube Transcript",
+    description: "Ingest transcript context from a YouTube video URL",
+    category: "lc_native",
+    subcategory: "ai",
+    icon: "youtube",
+    color: "#FF0000",
+    integrationStatus: "available",
+    requiresAuth: false,
+    inputs: [standardInput],
+    outputs: [standardOutput],
+    configFields: [
+      {
+        key: "action",
+        label: "Action",
+        type: "select",
+        required: true,
+        options: [{ label: "Transcribe YouTube Video", value: "transcribe_youtube_video" }],
+      },
+      {
+        key: "videoUrl",
+        label: "YouTube URL",
+        type: "text",
+        required: true,
+        placeholder: "https://www.youtube.com/watch?v=...",
+      },
+      {
+        key: "source",
+        label: "Transcript Source",
+        type: "select",
+        options: [
+          { label: "Auto (captions then audio)", value: "auto" },
+          { label: "Captions only", value: "captions" },
+          { label: "Audio only", value: "audio" },
+        ],
+      },
+      {
+        key: "language",
+        label: "Language",
+        type: "text",
+        placeholder: "en",
+      },
+      {
+        key: "includeTimestamps",
+        label: "Include Timestamps",
+        type: "boolean",
+      },
+      {
+        key: "maxCharacters",
+        label: "Max Characters",
+        type: "number",
+        defaultValue: 12000,
+      },
+    ],
+  },
+  {
+    type: "lc_ai_chat",
+    name: "LC AI Chat",
+    description:
+      "Layered context injector for chat runtime (advisory by default, action-capable via connected outputs + approval)",
+    category: "lc_native",
+    subcategory: "ai",
+    icon: "lc_ai_chat",
+    color: "#7C3AED",
+    integrationStatus: "available",
+    requiresAuth: false,
+    singleton: true,
+    inputs: [standardInput],
+    outputs: [standardOutput],
+    configFields: [
+      {
+        key: "systemPrompt",
+        label: "System Prompt",
+        type: "textarea",
+        required: true,
+        description: "Identity/instruction layer injected into chat runtime context.",
+      },
+      {
+        key: "model",
+        label: "Model",
+        type: "select",
+        options: [
+          { label: "Default", value: "default" },
+          { label: "Claude Sonnet", value: "claude-sonnet" },
+          { label: "GPT-4o", value: "gpt-4o" },
+        ],
+      },
+      {
+        key: "actionPolicy",
+        label: "Action Policy",
+        type: "select",
+        options: [
+          { label: "Propose only (approval required)", value: "approval_required" },
+          { label: "Advisory only (no actions)", value: "advisory_only" },
+        ],
+        description: "Actions always route through chat approval rail when enabled.",
+      },
+    ],
+  },
+  {
     type: "lc_ai_agent",
     name: "LC AI Agent",
-    description: "AI-powered agent node",
+    description: "Legacy AI agent node (compatibility path; prefer LC AI Chat for layered context)",
     category: "lc_native",
     subcategory: "ai",
     icon: "lc_ai_agent",
@@ -1409,6 +1509,14 @@ export function getNodesByCategory(category: NodeCategory): NodeDefinition[] {
 export function getNodeDefinition(type: string): NodeDefinition | null {
   return ALL_NODES.find((n) => n.type === type) ?? null;
 }
+
+/**
+ * Legacy AI node compatibility: existing workflows may still reference lc_ai_agent.
+ * Keep this alias map while lc_ai_chat becomes the default layered-context node type.
+ */
+export const LEGACY_NODE_TYPE_ALIASES: Record<string, string> = {
+  lc_ai_agent: "lc_ai_chat",
+};
 
 /** Get node definitions by subcategory */
 export function getNodesBySubcategory(subcategory: string): NodeDefinition[] {

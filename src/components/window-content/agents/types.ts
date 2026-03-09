@@ -14,6 +14,7 @@ export interface AgentCustomProps {
   elevenLabsVoiceId?: string;
   systemPrompt?: string;
   faqEntries?: Array<{ q: string; a: string }>;
+  toolProfile?: string;
   enabledTools?: string[];
   disabledTools?: string[];
   autonomyLevel?: "supervised" | "autonomous" | "draft_only";
@@ -31,6 +32,11 @@ export interface AgentCustomProps {
     resumeMessage?: string;
   };
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
+  templateAgentId?: string;
+  templateVersion?: string;
+  cloneLifecycle?: string;
+  overridePolicy?: TemplateOverridePolicy;
+  templateCloneLinkage?: TemplateCloneLinkage;
   totalMessages?: number;
   totalCostUsd?: number;
   isPrimary?: boolean;
@@ -46,6 +52,195 @@ export interface AgentCustomProps {
     emojiUsage?: string;
     lastUpdatedAt?: number;
     lastUpdatedBy?: string;
+  };
+}
+
+export type TemplateOverridePolicyMode = "locked" | "warn" | "free";
+export const TEMPLATE_OVERRIDE_GATED_FIELDS = [
+  "toolProfile",
+  "enabledTools",
+  "disabledTools",
+  "autonomyLevel",
+  "modelProvider",
+  "modelId",
+  "systemPrompt",
+  "channelBindings",
+] as const;
+export type TemplateOverrideGatedField = (typeof TEMPLATE_OVERRIDE_GATED_FIELDS)[number];
+
+export interface TemplateOverridePolicy {
+  mode?: TemplateOverridePolicyMode;
+  fields?: Record<string, { mode?: TemplateOverridePolicyMode } | undefined>;
+}
+
+export interface TemplateCloneLinkage {
+  sourceTemplateId?: string;
+  sourceTemplateVersion?: string;
+  cloneLifecycleState?: string;
+  overridePolicy?: TemplateOverridePolicy;
+}
+
+export function resolveTemplateLineage(customProps: AgentCustomProps): {
+  sourceTemplateId?: string;
+  sourceTemplateVersion?: string;
+  cloneLifecycleState?: string;
+  overridePolicyMode?: TemplateOverridePolicyMode;
+  isTemplateLinked: boolean;
+} {
+  const linkage = customProps.templateCloneLinkage;
+  const sourceTemplateId = linkage?.sourceTemplateId || customProps.templateAgentId;
+  const sourceTemplateVersion = linkage?.sourceTemplateVersion || customProps.templateVersion;
+  const cloneLifecycleState = linkage?.cloneLifecycleState || customProps.cloneLifecycle;
+  const overridePolicyMode =
+    linkage?.overridePolicy?.mode || customProps.overridePolicy?.mode;
+
+  return {
+    sourceTemplateId,
+    sourceTemplateVersion,
+    cloneLifecycleState,
+    overridePolicyMode,
+    isTemplateLinked: Boolean(sourceTemplateId),
+  };
+}
+
+export function resolveTemplateFieldOverrideMode(
+  customProps: AgentCustomProps,
+  field: string,
+): TemplateOverridePolicyMode | undefined {
+  const linkagePolicy = customProps.templateCloneLinkage?.overridePolicy;
+  const legacyPolicy = customProps.overridePolicy;
+  const mode =
+    linkagePolicy?.fields?.[field]?.mode
+    || legacyPolicy?.fields?.[field]?.mode
+    || linkagePolicy?.mode
+    || legacyPolicy?.mode;
+  if (mode === "locked" || mode === "warn" || mode === "free") {
+    return mode;
+  }
+  return undefined;
+}
+
+function normalizeToolArray(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const deduped = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+    deduped.add(trimmed);
+  }
+  return Array.from(deduped).sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeChannelBindingsComparable(
+  value: unknown
+): Array<{ channel: string; enabled: boolean }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is { channel: string; enabled?: boolean } => {
+      return !!entry && typeof entry === "object" && typeof (entry as { channel?: unknown }).channel === "string";
+    })
+    .map((entry) => ({
+      channel: entry.channel.trim().toLowerCase(),
+      enabled: entry.enabled === true,
+    }))
+    .sort((left, right) => {
+      if (left.channel !== right.channel) {
+        return left.channel.localeCompare(right.channel);
+      }
+      if (left.enabled === right.enabled) {
+        return 0;
+      }
+      return left.enabled ? 1 : -1;
+    });
+}
+
+function normalizeGatedFieldComparable(
+  field: TemplateOverrideGatedField,
+  value: unknown
+): unknown {
+  if (field === "enabledTools" || field === "disabledTools") {
+    return normalizeToolArray(value);
+  }
+  if (field === "channelBindings") {
+    return normalizeChannelBindingsComparable(value);
+  }
+  if (field === "toolProfile" || field === "systemPrompt") {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return value ?? null;
+}
+
+export function evaluateTemplateOverrideGate(
+  customProps: AgentCustomProps,
+  proposedUpdates: Partial<Record<TemplateOverrideGatedField, unknown>>,
+): {
+  isManagedTemplateClone: boolean;
+  changedFields: TemplateOverrideGatedField[];
+  lockedFields: TemplateOverrideGatedField[];
+  warnFields: TemplateOverrideGatedField[];
+  freeFields: TemplateOverrideGatedField[];
+} {
+  const lineage = resolveTemplateLineage(customProps);
+  const isManagedTemplateClone =
+    Boolean(lineage.sourceTemplateId) &&
+    lineage.cloneLifecycleState !== "legacy_unmanaged";
+  if (!isManagedTemplateClone) {
+    return {
+      isManagedTemplateClone: false,
+      changedFields: [],
+      lockedFields: [],
+      warnFields: [],
+      freeFields: [],
+    };
+  }
+
+  const changedFields: TemplateOverrideGatedField[] = [];
+  const lockedFields: TemplateOverrideGatedField[] = [];
+  const warnFields: TemplateOverrideGatedField[] = [];
+  const freeFields: TemplateOverrideGatedField[] = [];
+
+  for (const field of TEMPLATE_OVERRIDE_GATED_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(proposedUpdates, field)) {
+      continue;
+    }
+    const nextComparable = normalizeGatedFieldComparable(field, proposedUpdates[field]);
+    const currentComparable = normalizeGatedFieldComparable(field, customProps[field]);
+    if (JSON.stringify(currentComparable) === JSON.stringify(nextComparable)) {
+      continue;
+    }
+    changedFields.push(field);
+    const mode =
+      resolveTemplateFieldOverrideMode(customProps, field) ||
+      lineage.overridePolicyMode ||
+      "warn";
+    if (mode === "locked") {
+      lockedFields.push(field);
+    } else if (mode === "warn") {
+      warnFields.push(field);
+    } else {
+      freeFields.push(field);
+    }
+  }
+
+  return {
+    isManagedTemplateClone: true,
+    changedFields,
+    lockedFields,
+    warnFields,
+    freeFields,
   };
 }
 

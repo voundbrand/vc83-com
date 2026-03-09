@@ -22,6 +22,7 @@ interface NodeInspectorProps {
   onUpdateConfig: (nodeId: string, key: string, value: unknown) => void;
   onUpdateLabel: (nodeId: string, label: string) => void;
   onDuplicate: () => void;
+  onDelete: (nodeId: string) => void;
   onToggleDisabled: (nodeId: string) => void;
   onUpdateStatus: (nodeId: string, status: string) => void;
   onClose: () => void;
@@ -33,6 +34,7 @@ export function NodeInspector({
   onUpdateConfig,
   onUpdateLabel,
   onDuplicate,
+  onDelete,
   onToggleDisabled,
   onUpdateStatus,
   onClose,
@@ -253,6 +255,13 @@ export function NodeInspector({
                 title="Duplicate node (Cmd+D)"
               >
                 Duplicate
+              </button>
+              <button
+                onClick={() => onDelete(node.id)}
+                className="flex-1 rounded-md border border-red-800 px-2 py-1.5 text-[11px] text-red-300 hover:bg-red-950/30"
+                title="Delete node"
+              >
+                Delete
               </button>
               <button
                 onClick={() => onToggleDisabled(node.id)}

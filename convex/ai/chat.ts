@@ -37,6 +37,7 @@ import {
 import { shouldRequireToolApproval, type ToolApprovalAutonomyLevel } from "./escalation";
 import { getFeatureRequestMessage, detectUserLanguage } from "./i18nHelper";
 import { getPageBuilderPrompt } from "./prompts/pageBuilderSystem";
+import { getLayersBuilderPrompt } from "./prompts/layersBuilderSystem";
 import { composeKnowledgeContract } from "./systemKnowledge";
 import {
   normalizeToolCallsForProvider,
@@ -47,6 +48,7 @@ import {
   executeChatCompletionWithFailover,
   type ChatRuntimeFailoverResult,
 } from "./chatRuntimeOrchestration";
+import { getNodeDefinition } from "../layers/nodeRegistry";
 import { normalizeConversationRoutingPin } from "./conversations";
 import { evaluateSessionRoutingPinUpdate } from "./sessionRoutingPolicy";
 import {
@@ -131,7 +133,12 @@ function generateSessionTitle(
 
   // Fallback if title is empty
   if (!title || title.length < 3) {
-    title = context === "page_builder" ? "New Page" : "New Chat";
+    title =
+      context === "page_builder"
+        ? "New Page"
+        : context === "layers_builder"
+          ? "New Workflow"
+          : "New Chat";
   }
 
   return title;
@@ -162,6 +169,221 @@ interface ChatResponse {
     format: "json_object" | "json_code_block";
     value: unknown;
   };
+}
+
+interface LayersBuilderNodePayload {
+  id: string;
+  type: string;
+  label?: string;
+  position: { x: number; y: number };
+  config?: Record<string, unknown>;
+}
+
+interface LayersBuilderEdgePayload {
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+interface LayersBuilderWorkflowPayload {
+  nodes: LayersBuilderNodePayload[];
+  edges: LayersBuilderEdgePayload[];
+  description?: string;
+}
+
+function extractLayersBuilderJsonBlock(content: string): string | null {
+  const jsonBlock = content.match(/```json\s*([\s\S]*?)```/i);
+  if (jsonBlock?.[1]) {
+    return jsonBlock[1].trim();
+  }
+  const genericBlock = content.match(/```\s*([\s\S]*?)```/);
+  if (genericBlock?.[1]) {
+    const blockBody = genericBlock[1].trim();
+    if (blockBody.startsWith("{")) {
+      return blockBody;
+    }
+  }
+  const objectMatch = content.match(/(\{[\s\S]*"nodes"\s*:\s*\[[\s\S]*\})/);
+  return objectMatch?.[1]?.trim() ?? null;
+}
+
+function normalizeFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return value;
+}
+
+function normalizeLayersBuilderWorkflowPayload(
+  content: string,
+): LayersBuilderWorkflowPayload {
+  const jsonBlock = extractLayersBuilderJsonBlock(content);
+  if (!jsonBlock) {
+    throw new ConvexError({
+      code: "LAYERS_BUILDER_STRUCTURED_OUTPUT_REQUIRED",
+      message: "Layers builder response must include a workflow JSON block.",
+    });
+  }
+
+  let rawPayload: unknown;
+  try {
+    rawPayload = JSON.parse(jsonBlock);
+  } catch (error) {
+    throw new ConvexError({
+      code: "LAYERS_BUILDER_INVALID_JSON",
+      message: "Layers builder returned invalid JSON.",
+      details: error instanceof Error ? error.message : "json_parse_failed",
+    });
+  }
+
+  const payloadRecord =
+    rawPayload && typeof rawPayload === "object"
+      ? (rawPayload as Record<string, unknown>)
+      : null;
+  if (!payloadRecord) {
+    throw new ConvexError({
+      code: "LAYERS_BUILDER_INVALID_PAYLOAD",
+      message: "Layers builder payload must be a JSON object.",
+    });
+  }
+
+  const rawNodes = Array.isArray(payloadRecord.nodes) ? payloadRecord.nodes : null;
+  const rawEdges = Array.isArray(payloadRecord.edges) ? payloadRecord.edges : null;
+  if (!rawNodes || !rawEdges || rawNodes.length === 0) {
+    throw new ConvexError({
+      code: "LAYERS_BUILDER_INVALID_PAYLOAD",
+      message: "Layers builder payload must include non-empty nodes and edges arrays.",
+    });
+  }
+
+  if (rawNodes.length > 120 || rawEdges.length > 240) {
+    throw new ConvexError({
+      code: "LAYERS_BUILDER_PAYLOAD_TOO_LARGE",
+      message: "Layers builder payload exceeds deterministic safety bounds.",
+      maxNodes: 120,
+      maxEdges: 240,
+    });
+  }
+
+  const seenNodeIds = new Set<string>();
+  const nodes: LayersBuilderNodePayload[] = rawNodes.map((entry, index) => {
+    const record =
+      entry && typeof entry === "object"
+        ? (entry as Record<string, unknown>)
+        : null;
+    if (!record) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_INVALID_NODE",
+        message: "Each workflow node must be an object.",
+        nodeIndex: index,
+      });
+    }
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    const type = typeof record.type === "string" ? record.type.trim() : "";
+    const positionRecord =
+      record.position && typeof record.position === "object"
+        ? (record.position as Record<string, unknown>)
+        : null;
+    const x = normalizeFiniteNumber(positionRecord?.x);
+    const y = normalizeFiniteNumber(positionRecord?.y);
+    if (!id || !type || x === null || y === null) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_INVALID_NODE",
+        message: "Node entries must include id, type, and finite position coordinates.",
+        nodeIndex: index,
+      });
+    }
+    if (seenNodeIds.has(id)) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_DUPLICATE_NODE_ID",
+        message: "Node IDs must be unique.",
+        nodeId: id,
+      });
+    }
+    seenNodeIds.add(id);
+
+    if (!getNodeDefinition(type)) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_UNKNOWN_NODE_TYPE",
+        message: `Unknown node type "${type}" in Layers builder response.`,
+        nodeId: id,
+        nodeType: type,
+      });
+    }
+
+    const config =
+      record.config && typeof record.config === "object"
+        ? (record.config as Record<string, unknown>)
+        : undefined;
+
+    return {
+      id,
+      type,
+      label: typeof record.label === "string" ? record.label : undefined,
+      position: { x, y },
+      config,
+    };
+  });
+
+  const edges: LayersBuilderEdgePayload[] = rawEdges.map((entry, index) => {
+    const record =
+      entry && typeof entry === "object"
+        ? (entry as Record<string, unknown>)
+        : null;
+    if (!record) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_INVALID_EDGE",
+        message: "Each workflow edge must be an object.",
+        edgeIndex: index,
+      });
+    }
+    const source = typeof record.source === "string" ? record.source.trim() : "";
+    const target = typeof record.target === "string" ? record.target.trim() : "";
+    if (!source || !target || !seenNodeIds.has(source) || !seenNodeIds.has(target)) {
+      throw new ConvexError({
+        code: "LAYERS_BUILDER_INVALID_EDGE",
+        message: "Edges must reference existing node IDs for source and target.",
+        edgeIndex: index,
+      });
+    }
+    return {
+      source,
+      target,
+      sourceHandle:
+        typeof record.sourceHandle === "string" && record.sourceHandle.trim().length > 0
+          ? record.sourceHandle.trim()
+          : undefined,
+      targetHandle:
+        typeof record.targetHandle === "string" && record.targetHandle.trim().length > 0
+          ? record.targetHandle.trim()
+          : undefined,
+    };
+  });
+
+  const description =
+    typeof payloadRecord.description === "string"
+      ? payloadRecord.description.trim()
+      : undefined;
+
+  return {
+    nodes,
+    edges,
+    description: description && description.length > 0 ? description : undefined,
+  };
+}
+
+function formatLayersBuilderResponse(payload: LayersBuilderWorkflowPayload): string {
+  const normalizedPayload = {
+    nodes: payload.nodes,
+    edges: payload.edges,
+    description: payload.description,
+  };
+  const jsonBlock = `\`\`\`json\n${JSON.stringify(normalizedPayload, null, 2)}\n\`\`\``;
+  if (payload.description) {
+    return `${payload.description}\n\n${jsonBlock}`;
+  }
+  return `Workflow draft generated.\n\n${jsonBlock}`;
 }
 
 interface ToolCallResult {
@@ -1672,6 +1894,7 @@ export const sendMessage = action({
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     sessionId: v.optional(v.string()),
+    layerWorkflowId: v.optional(v.id("objects")),
     forcePrimaryAgent: v.optional(v.boolean()),
     selectedModel: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("auto"), v.literal("plan"), v.literal("plan_soft"))),
@@ -1867,6 +2090,7 @@ export const sendMessage = action({
         organizationId: args.organizationId,
         userId: args.userId,
         title: sessionTitle,
+        layerWorkflowId: args.layerWorkflowId,
       }) as Id<"aiConversations">;
 
       console.log(`[AI Chat] Created new conversation with title: "${sessionTitle}"`);
@@ -1893,18 +2117,19 @@ export const sendMessage = action({
       : [];
     const inlineAttachments = normalizeInlineSendAttachments(attachmentInputs);
 
-    const useLegacyPageBuilderFlow = args.context === "page_builder";
+    const useLegacyBuilderFlow =
+      args.context === "page_builder" || args.context === "layers_builder";
     const operatorCollabCutover = resolveOperatorCollaborationCutoverConfig({
       organizationId: args.organizationId,
       conversationId,
     });
     const operatorCollaborationShellEnabled =
-      !useLegacyPageBuilderFlow && operatorCollabCutover.collaborationShellEnabled;
+      !useLegacyBuilderFlow && operatorCollabCutover.collaborationShellEnabled;
     const operatorRoutingLineageId = `desktop_lineage:${args.organizationId}:${conversationId}`;
     const operatorRoutingThreadId = `group_thread:${conversationId}`;
     let requestedCollaborationRoute = !operatorCollaborationShellEnabled
       ? null
-      : useLegacyPageBuilderFlow
+      : useLegacyBuilderFlow
       ? null
       : normalizeChatCollaborationRoute(args.collaboration);
     let collaborationSurface = requestedCollaborationRoute?.surface ?? "group";
@@ -1925,7 +2150,7 @@ export const sendMessage = action({
       ? `desktop_corr:${conversationId}:${activeDmThreadId}`
       : `desktop_corr:${conversationId}`;
     const buildMessageCollaboration = (): StoredMessageCollaboration | undefined =>
-      useLegacyPageBuilderFlow
+      useLegacyBuilderFlow
         ? undefined
         : {
             surface: collaborationSurface,
@@ -1952,7 +2177,7 @@ export const sendMessage = action({
     const shouldForcePrimaryAgentRouting = args.forcePrimaryAgent === true;
     const normalizedAuthSessionId = normalizeNonEmptyString(args.sessionId);
 
-    if (!useLegacyPageBuilderFlow) {
+    if (!useLegacyBuilderFlow) {
       if (shouldForcePrimaryAgentRouting) {
         if (!normalizedAuthSessionId) {
           throw new Error(
@@ -2088,7 +2313,7 @@ export const sendMessage = action({
     };
 
     // Legacy page-builder flow composes against conversation history immediately.
-    if (useLegacyPageBuilderFlow) {
+    if (useLegacyBuilderFlow) {
       await persistInboundUserMessage();
     }
 
@@ -2113,12 +2338,15 @@ export const sendMessage = action({
         ? conversation.modelId.trim()
         : null);
     const conversationPinnedAuthProfileId = conversationRoutingPin?.authProfileId ?? null;
+    const conversationLayerWorkflowId =
+      (conversation as { layerWorkflowId?: Id<"objects"> }).layerWorkflowId
+      ?? args.layerWorkflowId;
 
     // Capture slug for new conversations (to return for URL update)
     if (isNewConversation && conversation.slug) {
       conversationSlug = conversation.slug;
     }
-    if (!useLegacyPageBuilderFlow) {
+    if (!useLegacyBuilderFlow) {
       const externalContactIdentifier = `desktop:${args.userId}:${conversationId}`;
       const operatorRouteInstallationId = `desktop_operator:${args.organizationId}`;
       const operatorRouteKey = `${operatorRouteInstallationId}:${conversationId}`;
@@ -2542,7 +2770,9 @@ export const sendMessage = action({
         operatorCollaborationProposalOnlyDmActions:
           operatorCollaborationDefaults.proposalOnlyDmActions,
         conversationId,
+        layerWorkflowId: conversationLayerWorkflowId,
         userId: args.userId,
+        sessionId: args.sessionId,
         selectedModel: args.selectedModel,
         mode: args.mode,
         reasoningEffort: args.reasoningEffort,
@@ -3425,14 +3655,17 @@ export const sendMessage = action({
       );
     };
 
-    // 6. Prepare messages for AI (legacy page builder path only).
-    // Normal desktop chat now routes through ai.agentExecution.processInboundMessage.
+    // 6. Prepare messages for AI (legacy builder contexts only).
+    // Normal desktop chat routes through ai.agentExecution.processInboundMessage.
     const isPageBuilderContext = args.context === "page_builder";
-    if (!isPageBuilderContext) {
-      throw new Error("Deprecated ai.chat non-page_builder path invoked unexpectedly.");
+    const isLayersBuilderContext = args.context === "layers_builder";
+    if (!isPageBuilderContext && !isLayersBuilderContext) {
+      throw new Error("Deprecated ai.chat non-builder path invoked unexpectedly.");
     }
 
-    let systemPrompt = getPageBuilderPrompt(args.builderMode);
+    let systemPrompt = isPageBuilderContext
+      ? getPageBuilderPrompt(args.builderMode)
+      : getLayersBuilderPrompt();
 
     // For setup mode (agent creation wizard), inject ALL system knowledge (~78KB)
     // This includes: meta-context, hero-definition, guide-positioning, plan-and-cta,
@@ -3523,7 +3756,9 @@ ${knowledgeBlock}`;
       }
     }
 
-    console.log(`[AI Chat] Using ${isPageBuilderContext ? 'page builder' : 'normal chat'} system prompt`);
+    console.log(
+      `[AI Chat] Using ${isPageBuilderContext ? "page builder" : "layers builder"} system prompt`
+    );
 
     const messages: ChatMessage[] = buildOpenRouterMessages({
       systemPrompt,
@@ -3540,9 +3775,10 @@ ${knowledgeBlock}`;
     );
 
     // 7. Call provider adapter with two-stage failover
-    // In prototype mode (page_builder context), only provide read-only tools
+    // In prototype mode (page_builder context), only provide read-only tools.
+    // Layers builder uses a deterministic no-tool JSON workflow path.
     const builderMode = isPageBuilderContext ? args.builderMode : undefined;
-    const availableTools = getToolSchemas(builderMode);
+    const availableTools = isLayersBuilderContext ? [] : getToolSchemas(builderMode);
     if (availableTools.length > 0) {
       const selectedPlatformModel = platformEnabledModels.find(
         (platformModel) => platformModel.id === model
@@ -4046,9 +4282,21 @@ ${knowledgeBlock}`;
 
     // IMPORTANT: Don't add assistant messages to chat when tools are proposed
     // The proposals should ONLY appear in the Tool Execution panel, not in the main chat
+    let normalizedLayersBuilderMessageContent: string | null = null;
     if (proposedToolCount === 0) {
       // No proposals - this is a normal response or executed tool results
       let messageContent = finalMessage.content;
+      if (isLayersBuilderContext) {
+        if (!messageContent || messageContent.trim().length === 0) {
+          throw new ConvexError({
+            code: "LAYERS_BUILDER_EMPTY_RESPONSE",
+            message: "Layers builder returned an empty response.",
+          });
+        }
+        const normalizedWorkflow = normalizeLayersBuilderWorkflowPayload(messageContent);
+        messageContent = formatLayersBuilderResponse(normalizedWorkflow);
+        normalizedLayersBuilderMessageContent = messageContent;
+      }
       if (!messageContent) {
         if (executedToolCalls.length > 0) {
           messageContent = `Executed ${executedToolCalls.length} tool(s): ${executedToolCalls.map(t => t.name).join(", ")}`;
@@ -4191,11 +4439,13 @@ ${knowledgeBlock}`;
 
       // Try to parse JSON from response for page builder
       let generatedJson: unknown = undefined;
-      if (args.context === "page_builder") {
+      if (args.context === "page_builder" || args.context === "layers_builder") {
         generatedJson = response.structuredOutput?.value;
 
-        if (!generatedJson && finalMessage.content) {
-          const jsonMatch = finalMessage.content.match(/```json\s*([\s\S]*?)\s*```/);
+        const trainingMessageContent =
+          normalizedLayersBuilderMessageContent ?? finalMessage.content;
+        if (!generatedJson && trainingMessageContent) {
+          const jsonMatch = trainingMessageContent.match(/```json\s*([\s\S]*?)\s*```/);
           if (jsonMatch) {
             try {
               generatedJson = JSON.parse(jsonMatch[1]);
@@ -4229,7 +4479,11 @@ ${knowledgeBlock}`;
     // Return message only if we saved one (i.e., no proposals)
     const returnMessage = proposedToolCount > 0
       ? "" // No message for proposals - they appear in Tool Execution panel only
-      : (finalMessage.content || `Executed ${executedToolCalls.length} tool(s)`);
+      : (
+          normalizedLayersBuilderMessageContent
+          || finalMessage.content
+          || `Executed ${executedToolCalls.length} tool(s)`
+        );
 
     return {
       conversationId: conversationId!, // Guaranteed set by createConversation

@@ -1,7 +1,7 @@
 "use client"
 
 import { useAction, useMutation, useQuery } from "convex/react"
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useCallback, useState, useRef, useEffect, useMemo } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import {
   type AIChatCameraRuntimeMetadata,
@@ -185,6 +185,37 @@ async function playAudioDataUrl(dataUrl: string): Promise<void> {
         error instanceof Error ? error.message : "audio_playback_start_failed"
       finalize(new Error(message))
     })
+  })
+}
+
+async function playSpeechSynthesisText(text: string): Promise<void> {
+  const fallbackText = text.trim()
+  if (
+    !fallbackText
+    || typeof window === "undefined"
+    || !("speechSynthesis" in window)
+  ) {
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const finalize = () => {
+      if (settled) {
+        return
+      }
+      settled = true
+      resolve()
+    }
+    try {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(fallbackText)
+      utterance.onend = finalize
+      utterance.onerror = finalize
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      finalize()
+    }
   })
 }
 
@@ -1527,12 +1558,14 @@ interface SlickChatInputProps {
   visualMode: "slick" | "single"
   collaborationContext: OperatorCollaborationContextPayload | null
   selectedSurface: CollaborationSurfaceSelection
+  onConversationStageVisibilityChange?: (visible: boolean) => void
 }
 
 export function SlickChatInput({
   visualMode,
   collaborationContext,
   selectedSurface,
+  onConversationStageVisibilityChange,
 }: SlickChatInputProps) {
   const [message, setMessage] = useState("")
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>("idle")
@@ -1568,6 +1601,7 @@ export function SlickChatInput({
   const [cameraLiveSession, setCameraLiveSession] = useState<CameraLiveSessionState | null>(null)
   const [cameraVisionError, setCameraVisionError] = useState<string | null>(null)
   const [hasCameraPreviewSignal, setHasCameraPreviewSignal] = useState(false)
+  const [liveUserTranscriptDraft, setLiveUserTranscriptDraft] = useState("")
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlInput, setUrlInput] = useState("")
   const [referenceUrls, setReferenceUrls] = useState<string[]>([])
@@ -1582,6 +1616,7 @@ export function SlickChatInput({
   const imageInputRef = useRef<HTMLInputElement>(null)
   const imageAttachmentsRef = useRef<ComposerImageAttachment[]>([])
   const voiceCaptureControllerRef = useRef<VoiceCaptureController | null>(null)
+  const voiceCaptureStateRef = useRef<VoiceCaptureState>("idle")
   const voiceStreamRef = useRef<MediaStream | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const lastConversationEventRef = useRef<string>("")
@@ -1609,8 +1644,14 @@ export function SlickChatInput({
   const activeVoiceSessionIdRef = useRef<string | null>(null)
   const resolvedVoiceRuntimeSessionRef =
     useRef<AIChatVoiceRuntimeSessionResolution | null>(null)
+  const currentConversationIdRef = useRef<Id<"aiConversations"> | undefined>(undefined)
+  const lastSpokenAssistantMessageRef = useRef<string | null>(null)
   const sessionIdRef = useRef<string | null>(null)
   const voiceRuntimeRef = useRef<ReturnType<typeof useVoiceRuntime> | null>(null)
+  const setVoiceCaptureStateSafe = useCallback((nextState: VoiceCaptureState) => {
+    voiceCaptureStateRef.current = nextState
+    setVoiceCaptureState(nextState)
+  }, [])
   const useQueryUntyped = useQuery as (query: unknown, args?: unknown) => unknown
   const useActionUntyped = useAction as (action: unknown) => unknown
   const useMutationUntyped = useMutation as (mutation: unknown) => unknown
@@ -1683,6 +1724,7 @@ export function SlickChatInput({
     chat,
     currentConversationId,
     setCurrentConversationId,
+    activeLayerWorkflowId,
     organizationId,
     isSending,
     setIsSending,
@@ -1746,6 +1788,10 @@ export function SlickChatInput({
   }, [activeVoiceSessionId])
 
   useEffect(() => {
+    currentConversationIdRef.current = currentConversationId
+  }, [currentConversationId])
+
+  useEffect(() => {
     resolvedVoiceRuntimeSessionRef.current = resolvedVoiceRuntimeSession
   }, [resolvedVoiceRuntimeSession])
 
@@ -1760,6 +1806,10 @@ export function SlickChatInput({
   useEffect(() => {
     isSendingRef.current = isSending
   }, [isSending])
+
+  useEffect(() => {
+    voiceCaptureStateRef.current = voiceCaptureState
+  }, [voiceCaptureState])
 
   useEffect(() => {
     conversationSessionActiveRef.current = isConversationSessionActive
@@ -1895,10 +1945,17 @@ export function SlickChatInput({
   useEffect(() => {
     setDmSyncSummaryDraft("")
     setDmSyncAuditTrail([])
+    lastSpokenAssistantMessageRef.current = null
   }, [currentConversationId])
 
   useEffect(() => {
-    if (conversationStartingRef.current) {
+    const shouldPreserveConversationUi =
+      conversationStartingRef.current
+      || conversationSessionActiveRef.current
+      || conversationEndingRef.current
+      || isConversationStageOpen
+      || Boolean(voiceCaptureControllerRef.current)
+    if (shouldPreserveConversationUi) {
       return
     }
     if (activeVoiceSessionId && resolvedVoiceRuntimeSession && sessionId) {
@@ -1915,7 +1972,7 @@ export function SlickChatInput({
     voiceCaptureControllerRef.current = null
     releaseVoiceMediaStream()
     releaseCameraStream()
-    setVoiceCaptureState("idle")
+    setVoiceCaptureStateSafe("idle")
     setVoiceCaptureError(null)
     setPendingVoiceRuntime(null)
     setResolvedVoiceRuntimeSession(null)
@@ -1926,6 +1983,7 @@ export function SlickChatInput({
     setCameraVisionError(null)
     setIsConversationMicMuted(false)
     setIsConversationEnding(false)
+    setLiveUserTranscriptDraft("")
     setConversationState("idle")
     setConversationReasonCode(undefined)
     activeRealtimeLiveSessionIdRef.current = null
@@ -2687,11 +2745,12 @@ export function SlickChatInput({
       throw new Error("Sign in and select an organization before using voice capture.")
     }
 
-    const runtimeSession = await chat.resolveVoiceRuntimeSession(currentConversationId)
+    const runtimeConversationId = currentConversationIdRef.current
+    const runtimeSession = await chat.resolveVoiceRuntimeSession(runtimeConversationId)
     setResolvedVoiceRuntimeSession(runtimeSession)
     if (
-      !currentConversationId
-      || String(currentConversationId) !== String(runtimeSession.conversationId)
+      !runtimeConversationId
+      || String(runtimeConversationId) !== String(runtimeSession.conversationId)
     ) {
       setCurrentConversationId(runtimeSession.conversationId)
     }
@@ -2724,8 +2783,8 @@ export function SlickChatInput({
     const controller = voiceCaptureControllerRef.current
     if (!controller) {
       releaseVoiceMediaStream()
-      if (voiceCaptureState !== "transcribing") {
-        setVoiceCaptureState("idle")
+      if (voiceCaptureStateRef.current !== "transcribing") {
+        setVoiceCaptureStateSafe("idle")
       }
       return
     }
@@ -2737,7 +2796,11 @@ export function SlickChatInput({
     starterGreetingText?: string
     includeStarterGreeting?: boolean
   }) => {
-    if (voiceCaptureState === "listening" || voiceCaptureState === "transcribing") {
+    if (
+      voiceCaptureStateRef.current === "listening"
+      || voiceCaptureStateRef.current === "transcribing"
+      || voiceCaptureControllerRef.current
+    ) {
       return
     }
     if (!sessionId) {
@@ -2817,6 +2880,8 @@ export function SlickChatInput({
       let realtimeTransportFallbackApplied = false
       let realtimeIngestFailedReason: string | null = null
       let latestRealtimeTranscript: string | null = null
+      let finalSegmentHttpTranscribeAttempted = false
+      let finalSegmentHttpTranscribeNoSpeech = false
       let queuedFrameCount = 0
       let queuedFrameBytes = 0
       let realtimeFrameQueue: Promise<void> = Promise.resolve()
@@ -2939,12 +3004,15 @@ export function SlickChatInput({
             })()
           }
         }, CONVERSATION_CAPTURE_HEARTBEAT_LOG_MS)
-        if (conversationSessionActiveRef.current) {
+        if (conversationSessionActiveRef.current && !isSendingRef.current) {
           captureForcedStopTimerId = window.setTimeout(() => {
             if (captureStopQueuedFromEndpoint) {
               return
             }
             if (!activeControllerRef()) {
+              return
+            }
+            if (!hasDetectedSpeechSinceCaptureStart) {
               return
             }
             captureStopQueuedFromEndpoint = true
@@ -2977,6 +3045,7 @@ export function SlickChatInput({
         if (!normalizedTranscript) {
           return
         }
+        setLiveUserTranscriptDraft(normalizedTranscript)
         setMessage(
           baseMessageBeforeVoiceCapture.length > 0
             ? `${baseMessageBeforeVoiceCapture} ${normalizedTranscript}`
@@ -3443,6 +3512,9 @@ export function SlickChatInput({
         })
 
         if (postRealtimePolicy.shouldUseHttpTranscription) {
+          if (segment.isFinal) {
+            finalSegmentHttpTranscribeAttempted = true
+          }
           const activeCaptureMethod = voiceCaptureControllerRef.current?.method
           const segmentCaptureMethod =
             activeCaptureMethod === "pcm_script_processor"
@@ -3490,6 +3562,9 @@ export function SlickChatInput({
             },
           })
           if (transcribeResult.success && transcribeResult.text?.trim()) {
+            if (segment.isFinal) {
+              finalSegmentHttpTranscribeNoSpeech = false
+            }
             const normalizedTranscript = transcribeResult.text.trim()
             mergeRealtimeTranscript(segment.sequence, normalizedTranscript)
 
@@ -3546,6 +3621,13 @@ export function SlickChatInput({
                 applyRelayEvents(relayEvents)
               }
             }
+          } else if (
+            segment.isFinal
+            && transcribeResult.success
+            && !transcribeResult.text?.trim()
+            && transcribeResult.noSpeechDetected
+          ) {
+            finalSegmentHttpTranscribeNoSpeech = true
           } else if (!transcribeResult.success) {
             realtimeIngestFailedReason =
               transcribeResult.error || "voice_segment_transcription_failed"
@@ -3560,7 +3642,13 @@ export function SlickChatInput({
 
         if (segment.isFinal) {
           const assistantSpeakingForFinalize = isSendingRef.current
-          if (assistantSpeakingForFinalize) {
+          const shouldQueueAssistantBargeIn =
+            assistantSpeakingForFinalize
+            && (
+              segment.speechDetected
+              || Boolean(ingestResult.transcriptText?.trim())
+            )
+          if (shouldQueueAssistantBargeIn) {
             await queuePendingSegmentFinalization({
               sequence: segment.sequence,
               ingestResult,
@@ -3673,11 +3761,17 @@ export function SlickChatInput({
           }
         }
 
+        const bargeInSpeechQualified =
+          hasDetectedSpeechSinceCaptureStart
+          && typeof firstSpeechDetectedAtMs === "number"
+          && Date.now() - firstSpeechDetectedAtMs >= DESKTOP_VAD_MIN_ACTIVE_SPEECH_MS
+
         if (
           speechDetected
           && consecutiveSpeechFrames >= CONVERSATION_VAD_POLICY.minSpeechFrames
           && isSendingRef.current
           && !interruptionIssuedWhileSending
+          && bargeInSpeechQualified
         ) {
           interruptionIssuedWhileSending = true
           bargeInCount += 1
@@ -3820,6 +3914,7 @@ export function SlickChatInput({
       const handleCapturedAudio = (payload: VoiceCapturePayload) => {
         clearCaptureTimers()
         releaseVoiceMediaStream()
+        voiceCaptureControllerRef.current = null
         console.info("[VoiceRuntime] web_audio_capture_payload_ready", {
           liveSessionId,
           voiceSessionId: openedVoiceSession.voiceSessionId,
@@ -3829,7 +3924,7 @@ export function SlickChatInput({
           realtimeFrameCount: queuedFrameCount,
         })
         if (!payload.audioBlob.size) {
-          setVoiceCaptureState("idle")
+          setVoiceCaptureStateSafe("idle")
           closeVoiceRuntimeSession({
             voiceSessionId: openedVoiceSession.voiceSessionId,
             providerId: openedVoiceSession.providerId,
@@ -3840,7 +3935,7 @@ export function SlickChatInput({
         }
 
         void (async () => {
-          setVoiceCaptureState("transcribing")
+          setVoiceCaptureStateSafe("transcribing")
           let shouldResumeCaptureAfterTurn = false
           try {
             let queuedTailFinalSegment = false
@@ -3876,7 +3971,14 @@ export function SlickChatInput({
                 ingestResult: lastIngestedSegmentResult,
                 source: "capture_stop_no_tail_segment",
               })
-              if (!finalizedNoTailSegment && isSendingRef.current) {
+              const shouldQueueNoTailBargeIn =
+                !finalizedNoTailSegment
+                && isSendingRef.current
+                && (
+                  hasDetectedSpeechSinceCaptureStart
+                  || Boolean(lastIngestedSegmentResult.transcriptText?.trim())
+                )
+              if (shouldQueueNoTailBargeIn) {
                 await queuePendingSegmentFinalization({
                   sequence: lastIngestedSegmentResult.sequence,
                   ingestResult: lastIngestedSegmentResult,
@@ -3900,7 +4002,16 @@ export function SlickChatInput({
             }
 
             const realtimeTranscript = latestRealtimeTranscript?.trim() || null
-            if (realtimeTranscript && !realtimeIngestFailedReason) {
+            const shouldUseSegmentTranscriptAsAuthoritative =
+              Boolean(realtimeTranscript)
+              && (
+                !realtimeIngestFailedReason
+                || (
+                  queuedFrameCount <= 1
+                  && finalSegmentHttpTranscribeAttempted
+                )
+              )
+            if (realtimeTranscript && shouldUseSegmentTranscriptAsAuthoritative) {
               const playbackQueueSnapshot = buildAssistantPlaybackQueueSnapshot()
               const echoTelemetry = buildEchoCancellationTelemetry()
               const realtimeRuntimeMetadata: AIChatVoiceRuntimeMetadata = {
@@ -3983,6 +4094,26 @@ export function SlickChatInput({
                   setPendingVoiceRuntime(null)
                   shouldResumeCaptureAfterTurn = true
                 }
+              }
+              return
+            }
+
+            const skipFallbackTranscriptionForAmbientSingleSegment =
+              queuedFrameCount <= 1
+              && finalSegmentHttpTranscribeAttempted
+              && finalSegmentHttpTranscribeNoSpeech
+              && realtimeIngestFailedReason === "voice_non_speech_transcript_filtered"
+            if (skipFallbackTranscriptionForAmbientSingleSegment) {
+              console.info("[VoiceRuntime] skipping_redundant_blob_transcription_after_ambient_filter", {
+                liveSessionId,
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                queuedFrameCount,
+                realtimeIngestFailedReason,
+              })
+              setVoiceCaptureError(null)
+              setPendingVoiceRuntime(null)
+              if (conversationSessionActiveRef.current) {
+                shouldResumeCaptureAfterTurn = true
               }
               return
             }
@@ -4100,6 +4231,25 @@ export function SlickChatInput({
             }
             setPendingVoiceRuntime(runtimeMetadata)
 
+            if (
+              transcribeResult.success
+              && !transcribeResult.text?.trim()
+              && transcribeResult.noSpeechDetected
+            ) {
+              console.info("[VoiceRuntime] no_speech_detected_after_blob_transcription", {
+                liveSessionId,
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                realtimeFallbackReason:
+                  realtimeIngestFailedReason || "realtime_transcript_unavailable",
+              })
+              setVoiceCaptureError(null)
+              setPendingVoiceRuntime(null)
+              if (conversationSessionActiveRef.current) {
+                shouldResumeCaptureAfterTurn = true
+              }
+              return
+            }
+
             if (!transcribeResult.success || !transcribeResult.text?.trim()) {
               const errorMessage = fallbackReason || "Voice transcription returned no text."
               setVoiceCaptureError(errorMessage)
@@ -4185,7 +4335,7 @@ export function SlickChatInput({
             notification.error("Voice Capture Failed", errorMessage)
           } finally {
             clearCaptureTimers()
-            setVoiceCaptureState("idle")
+            setVoiceCaptureStateSafe("idle")
             activeRealtimeLiveSessionIdRef.current = null
             activeRealtimeVoiceSessionIdRef.current = null
             activeRealtimeInterviewSessionIdRef.current = null
@@ -4202,7 +4352,8 @@ export function SlickChatInput({
               && !conversationEndingRef.current
               && !conversationMicMutedRef.current
             ) {
-              window.setTimeout(() => {
+              let resumeAttempts = 0
+              const resumeCaptureWhenAssistantReady = () => {
                 if (
                   !conversationSessionActiveRef.current
                   || conversationEndingRef.current
@@ -4210,8 +4361,19 @@ export function SlickChatInput({
                 ) {
                   return
                 }
+                if (
+                  voiceCaptureStateRef.current !== "idle"
+                  || Boolean(voiceCaptureControllerRef.current)
+                ) {
+                  return
+                }
+                // Keep capture available during assistant playback for duplex/barge-in.
+                if (isSendingRef.current && resumeAttempts < 10) {
+                  resumeAttempts += 1
+                }
                 void startVoiceCapture()
-              }, 0)
+              }
+              window.setTimeout(resumeCaptureWhenAssistantReady, 120)
             }
           }
         })()
@@ -4220,6 +4382,7 @@ export function SlickChatInput({
       const handleCaptureError = (error: unknown) => {
         clearCaptureTimers()
         releaseVoiceMediaStream()
+        voiceCaptureControllerRef.current = null
         const errorMessage =
           error instanceof Error ? error.message : "voice_capture_runtime_error"
         console.error("[VoiceRuntime] web_audio_capture_error", {
@@ -4227,7 +4390,7 @@ export function SlickChatInput({
           voiceSessionId: openedVoiceSession.voiceSessionId,
           errorMessage,
         })
-        setVoiceCaptureState("idle")
+        setVoiceCaptureStateSafe("idle")
         setVoiceCaptureError(errorMessage)
         activeRealtimeLiveSessionIdRef.current = null
         activeRealtimeVoiceSessionIdRef.current = null
@@ -4490,7 +4653,7 @@ export function SlickChatInput({
 
       voiceCaptureControllerRef.current = controller
       captureControllerStartedAtMs = Date.now()
-      setVoiceCaptureState("listening")
+      setVoiceCaptureStateSafe("listening")
       scheduleCaptureTimers(() => voiceCaptureControllerRef.current)
       armPcmNoFrameFallbackTimer(controller)
       console.info("[VoiceRuntime] web_audio_capture_listening", {
@@ -4501,7 +4664,7 @@ export function SlickChatInput({
     } catch (error) {
       clearCaptureTimers()
       releaseVoiceMediaStream()
-      setVoiceCaptureState("idle")
+      setVoiceCaptureStateSafe("idle")
       activeRealtimeLiveSessionIdRef.current = null
       activeRealtimeVoiceSessionIdRef.current = null
       activeRealtimeInterviewSessionIdRef.current = null
@@ -4535,7 +4698,9 @@ export function SlickChatInput({
     }
 
     setIsConversationSessionActive(false)
+    conversationStartingRef.current = true
     setIsStartingConversation(true)
+    setLiveUserTranscriptDraft("")
     try {
       emitConversationEvent("conversation_start_requested")
       if (conversationModeSelection === "voice_with_eyes") {
@@ -4588,6 +4753,7 @@ export function SlickChatInput({
         conversationStartedAtRef.current = Date.now()
       }
     } finally {
+      conversationStartingRef.current = false
       setIsStartingConversation(false)
     }
   }
@@ -4597,6 +4763,7 @@ export function SlickChatInput({
       return
     }
     conversationEndInFlightRef.current = true
+    conversationEndingRef.current = true
     console.info("[conversation_event] end_requested", {
       reason,
       voiceCaptureState,
@@ -4612,10 +4779,12 @@ export function SlickChatInput({
     }
     activeConversationEyesSourceRef.current = null
     setPendingVoiceRuntime(null)
+    setLiveUserTranscriptDraft("")
     setCameraVisionError(null)
     setConversationState("ended")
     setConversationReasonCode(undefined)
     setTimeout(() => {
+      conversationEndingRef.current = false
       setIsConversationEnding(false)
       setConversationState("idle")
       conversationEndInFlightRef.current = false
@@ -5246,17 +5415,10 @@ export function SlickChatInput({
     if (isSendingRef.current) {
       stopCurrentRequest()
       const waitStartedAtMs = Date.now()
-      while (isSendingRef.current && Date.now() - waitStartedAtMs < 2200) {
+      while (isSendingRef.current && Date.now() - waitStartedAtMs < 800) {
         await new Promise<void>((resolve) => {
           window.setTimeout(resolve, 40)
         })
-      }
-      if (isSendingRef.current) {
-        notification.info(
-          "Voice Turn Deferred",
-          "Assistant is still responding. Please speak again in a moment."
-        )
-        return false
       }
     }
     if (!isAIReady) {
@@ -5271,9 +5433,14 @@ export function SlickChatInput({
     setIsSending(true)
     abortController.current = new AbortController()
     try {
-      const targetConversationId = conversationIdOverride ?? currentConversationId
-      if (targetConversationId && String(targetConversationId) !== String(currentConversationId || "")) {
+      const currentConversationIdSnapshot = currentConversationIdRef.current
+      const targetConversationId = conversationIdOverride ?? currentConversationIdSnapshot
+      if (
+        targetConversationId
+        && String(targetConversationId) !== String(currentConversationIdSnapshot || "")
+      ) {
         setCurrentConversationId(targetConversationId)
+        currentConversationIdRef.current = targetConversationId
       }
       const outboundMessage = buildDeterministicOutboundMessage({
         message: messageToSend,
@@ -5284,6 +5451,7 @@ export function SlickChatInput({
       })
       const runtimeMetadata = buildConversationRuntimeMetadataEnvelope(voiceRuntimeMetadata)
       const result = await chat.sendMessage(outboundMessage, targetConversationId, {
+        layerWorkflowId: activeLayerWorkflowId,
         mode: composerMode,
         reasoningEffort,
         privacyMode: privateModeEnabled,
@@ -5306,6 +5474,92 @@ export function SlickChatInput({
       abortController.current = null
     }
   }
+
+  const speakAssistantResponse = useCallback(async (assistantText: string) => {
+    const normalizedText = assistantText.trim()
+    if (!normalizedText) {
+      return
+    }
+    const runtime = voiceRuntimeRef.current
+    const authSessionId = sessionIdRef.current
+    const runtimeSession = resolvedVoiceRuntimeSessionRef.current
+
+    if (!runtime || !authSessionId || !runtimeSession) {
+      await playSpeechSynthesisText(normalizedText)
+      return
+    }
+
+    let synthesisVoiceSessionId = activeVoiceSessionIdRef.current
+    let synthesisProviderId: VoiceRuntimeProviderId | undefined
+    let shouldCloseSynthesisSession = false
+
+    try {
+      if (!synthesisVoiceSessionId) {
+        const opened = await runtime.openSession({
+          requestedProviderId: "elevenlabs",
+          requestedVoiceId: preferredRequestedVoiceId,
+          voiceSessionId: buildRuntimeSessionId("voice"),
+          runtimeContext: {
+            authSessionId,
+            interviewSessionId: runtimeSession.agentSessionId,
+          },
+        })
+        synthesisVoiceSessionId = opened.voiceSessionId
+        synthesisProviderId = opened.providerId
+        shouldCloseSynthesisSession = true
+      }
+
+      if (!synthesisVoiceSessionId) {
+        await playSpeechSynthesisText(normalizedText)
+        return
+      }
+
+      const synthesis = await runtime.synthesizePreview({
+        voiceSessionId: synthesisVoiceSessionId,
+        text: normalizedText,
+        requestedProviderId: "elevenlabs",
+        requestedVoiceId: preferredRequestedVoiceId,
+        speakBrowserFallback: false,
+        runtimeContext: {
+          authSessionId,
+          interviewSessionId: runtimeSession.agentSessionId,
+        },
+      })
+
+      if (synthesis.success && synthesis.playbackDataUrl) {
+        await playAudioDataUrl(synthesis.playbackDataUrl)
+        return
+      }
+      if (synthesis.success && synthesis.fallbackText) {
+        await playSpeechSynthesisText(synthesis.fallbackText)
+        return
+      }
+      await playSpeechSynthesisText(normalizedText)
+    } catch (error) {
+      console.warn("[VoiceRuntime] assistant_reply_playback_failed", {
+        error: error instanceof Error ? error.message : "unknown_error",
+      })
+      await playSpeechSynthesisText(normalizedText)
+    } finally {
+      if (
+        shouldCloseSynthesisSession
+        && synthesisVoiceSessionId
+        && runtime
+        && authSessionId
+        && runtimeSession
+      ) {
+        void runtime.closeSession({
+          voiceSessionId: synthesisVoiceSessionId,
+          activeProviderId: synthesisProviderId,
+          reason: "chat_assistant_reply_playback_complete",
+          runtimeContext: {
+            authSessionId,
+            interviewSessionId: runtimeSession.agentSessionId,
+          },
+        }).catch(() => {})
+      }
+    }
+  }, [preferredRequestedVoiceId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -5552,6 +5806,7 @@ export function SlickChatInput({
       })
 
       const result = await chat.sendMessage(outboundMessage, currentConversationId, {
+        layerWorkflowId: activeLayerWorkflowId,
         mode: composerMode,
         reasoningEffort,
         privacyMode: privateModeEnabled,
@@ -5636,6 +5891,7 @@ export function SlickChatInput({
     try {
       setMessage("")
       const result = await chat.sendMessage(kickoff, currentConversationId, {
+        layerWorkflowId: activeLayerWorkflowId,
         mode: composerMode,
         reasoningEffort,
         privacyMode: privateModeEnabled,
@@ -5696,14 +5952,30 @@ export function SlickChatInput({
     || conversationState === "reconnecting"
     || isVoiceListening
     || Boolean(voiceCaptureControllerRef.current)
+  const shouldKeepConversationStageVisible =
+    isConversationStageOpen
+    || isConversationActive
+    || conversationState === "ending"
+    || conversationState === "error"
+    || isStartingConversation
+    || isConversationEnding
+
+  useEffect(() => {
+    onConversationStageVisibilityChange?.(shouldKeepConversationStageVisible)
+  }, [onConversationStageVisibilityChange, shouldKeepConversationStageVisible])
+
+  useEffect(() => {
+    return () => {
+      onConversationStageVisibilityChange?.(false)
+    }
+  }, [onConversationStageVisibilityChange])
+
   const controlDisabled = isSending || isFetchingReferences
-  const conversationModeLabel =
-    conversationModeSelection === "voice_with_eyes" ? "Voice + Eyes" : "Voice only"
   const conversationTurnHudLabel =
-    isVoiceListening
-      ? "LISTENING"
-      : (isVoiceTranscribing || isSending)
-        ? "THINKING"
+    (isVoiceTranscribing || isSending)
+      ? "THINKING"
+      : isVoiceListening
+        ? "LISTENING"
         : "IDLE"
   const conversationStateLabel =
     conversationState === "connecting"
@@ -5722,6 +5994,69 @@ export function SlickChatInput({
   const cameraDiagnosticLabel = formatCameraDiagnosticReason(
     cameraVisionError || cameraLiveSession?.fallbackReason
   )
+  const latestConversationUserMessage = useMemo(() => {
+    for (let index = chat.messages.length - 1; index >= 0; index -= 1) {
+      const nextMessage = chat.messages[index]
+      if (nextMessage?.role === "user" && typeof nextMessage.content === "string") {
+        const normalizedContent = nextMessage.content.trim()
+        if (normalizedContent.length > 0) {
+          return normalizedContent
+        }
+      }
+    }
+    return ""
+  }, [chat.messages])
+  const latestConversationAssistantTurn = useMemo(() => {
+    for (let index = chat.messages.length - 1; index >= 0; index -= 1) {
+      const nextMessage = chat.messages[index]
+      if (nextMessage?.role === "assistant" && typeof nextMessage.content === "string") {
+        const normalizedContent = nextMessage.content.trim()
+        if (normalizedContent.length > 0) {
+          return {
+            messageId:
+              typeof nextMessage._id === "string"
+                ? nextMessage._id
+                : undefined,
+            content: normalizedContent,
+          }
+        }
+      }
+    }
+    return null
+  }, [chat.messages])
+  const latestConversationAssistantMessage = latestConversationAssistantTurn?.content || ""
+  const liveInterruptionMarker =
+    (isVoiceTranscribing || isSending)
+      ? "thinking"
+      : isVoiceListening
+        ? "barge_in_armed"
+        : "idle"
+  const conversationLiveUserText = liveUserTranscriptDraft || latestConversationUserMessage
+  const conversationLiveAssistantText = latestConversationAssistantMessage
+
+  useEffect(() => {
+    const assistantText = latestConversationAssistantTurn?.content || ""
+    if (!assistantText) {
+      return
+    }
+    if (
+      !conversationSessionActiveRef.current
+      || conversationEndingRef.current
+      || isConversationMicMuted
+    ) {
+      return
+    }
+    const messageSignature = latestConversationAssistantTurn?.messageId || assistantText
+    if (lastSpokenAssistantMessageRef.current === messageSignature) {
+      return
+    }
+    lastSpokenAssistantMessageRef.current = messageSignature
+    void speakAssistantResponse(assistantText)
+  }, [
+    isConversationMicMuted,
+    latestConversationAssistantTurn,
+    speakAssistantResponse,
+  ])
   const configuredModelRows = useMemo(() => {
     const rows: Array<{ modelId: string; customLabel?: string }> = []
     const seen = new Set<string>()
@@ -6169,13 +6504,25 @@ export function SlickChatInput({
   return (
     <form
       onSubmit={handleSubmit}
-      className="relative z-10 px-4 pb-4 pt-2"
+      className={
+        shouldKeepConversationStageVisible
+          ? "absolute inset-0 h-full px-4 pb-4 pt-2"
+          : "relative px-4 pb-4 pt-2"
+      }
       style={{
-        background:
-          "linear-gradient(180deg, transparent 0%, var(--shell-surface) 40%, var(--shell-surface) 100%)",
+        zIndex: shouldKeepConversationStageVisible ? 60 : 10,
+        background: shouldKeepConversationStageVisible
+          ? "var(--shell-background)"
+          : "linear-gradient(180deg, transparent 0%, var(--shell-surface) 40%, var(--shell-surface) 100%)",
       }}
     >
-      <div className="mx-auto w-full max-w-4xl">
+      <div
+        className={
+          shouldKeepConversationStageVisible
+            ? "hidden"
+            : "mx-auto w-full max-w-4xl"
+        }
+      >
         <input
           ref={imageInputRef}
           type="file"
@@ -6252,86 +6599,9 @@ export function SlickChatInput({
             </div>
           ) : null}
 
-          {(isConversationActive || conversationState === "ending" || conversationState === "error") ? (
-            <div
-              className="mb-3 rounded-2xl border p-2"
-              style={{
-                borderColor:
-                  conversationState === "error"
-                    ? "var(--error)"
-                    : conversationState === "reconnecting"
-                      ? "var(--shell-input-border-strong)"
-                      : "var(--success)",
-                background: "var(--shell-surface)",
-              }}
-            >
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
-                  Turn {conversationTurnHudLabel}
-                </div>
-                <div className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
-                  {conversationModeLabel} • {conversationStateLabel}
-                  {conversationReasonCode ? ` • ${conversationReasonCode}` : ""}
-                </div>
-              </div>
-              {showChatDebugMetadata ? (
-                <div className="mb-1 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
-                  duplex: persistent_streaming_primary • vad: {CONVERSATION_VAD_POLICY.mode}
-                  ({CONVERSATION_VAD_POLICY.energyThresholdRms.toFixed(3)}) • jpeg cadence: {VISION_FORWARDING_CADENCE_MS}ms
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void toggleConversationMute()
-                  }}
-                  disabled={isVoiceTranscribing}
-                  className="rounded-full border px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{
-                    borderColor: "var(--shell-border-soft)",
-                    background: isConversationMicMuted ? "var(--error-bg)" : "var(--shell-surface)",
-                    color: isConversationMicMuted ? "var(--error)" : "var(--shell-text)",
-                  }}
-                >
-                  {isConversationMicMuted ? "Unmute mic" : "Mute mic"}
-                </button>
-                {conversationModeSelection === "voice_with_eyes" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleConversationEyesToggle}
-                      className="rounded-full border px-3 py-1 text-xs font-semibold"
-                      style={{
-                        borderColor: "var(--shell-border-soft)",
-                        background: "var(--shell-surface)",
-                        color: "var(--shell-text)",
-                      }}
-                    >
-                      {cameraLiveSession?.sessionState === "capturing" ? "Eyes off" : "Eyes on"}
-                    </button>
-                    <span className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
-                      source: {conversationEyesSourceSelection}
-                    </span>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => endConversationSession("inline_end_button")}
-                  className="rounded-full border px-3 py-1 text-xs font-semibold"
-                  style={{
-                    borderColor: "var(--error)",
-                    background: "var(--error-bg)",
-                    color: "var(--error)",
-                  }}
-                >
-                  End conversation
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {cameraLiveSession && !isConversationStageOpen && (conversationModeSelection === "voice_with_eyes" || showChatDebugMetadata) ? (
+          {cameraLiveSession
+          && !shouldKeepConversationStageVisible
+          && (conversationModeSelection === "voice_with_eyes" || showChatDebugMetadata) ? (
             <div
               className="mb-3 rounded-2xl border p-2"
               style={{
@@ -6776,7 +7046,7 @@ export function SlickChatInput({
                   <button
                     type="button"
                     aria-haspopup="dialog"
-                    aria-expanded={isConversationStageOpen}
+                    aria-expanded={shouldKeepConversationStageVisible}
                     onClick={() => setIsConversationStageOpen(true)}
                     disabled={controlDisabled || isVoiceTranscribing}
                     aria-label="Open conversation settings"
@@ -6818,37 +7088,48 @@ export function SlickChatInput({
 
       </div>
 
-      <SlickConversationStage
-        open={isConversationStageOpen}
-        agentName={conversationAgentName}
-        conversationMode={conversationModeSelection}
-        eyesSource={conversationEyesSourceSelection}
-        conversationState={conversationState}
-        conversationReasonCode={conversationReasonCode}
-        conversationStateLabel={conversationStateLabel}
-        conversationTurnLabel={conversationTurnHudLabel}
-        cameraSession={cameraLiveSession}
-        hasCameraPreviewSignal={hasCameraPreviewSignal}
-        cameraDiagnosticLabel={cameraDiagnosticLabel}
-        isConversationEnding={isConversationEnding}
-        isConversationMicMuted={isConversationMicMuted}
-        isStartingConversation={isStartingConversation}
-        controlDisabled={controlDisabled || isVoiceTranscribing}
-        eyesWebcamAvailable={conversationCapabilitySnapshot.capabilities.webcam.available}
-        metaGlassesAvailable={conversationCapabilitySnapshot.capabilities.metaGlasses.available}
-        metaGlassesReasonCode={conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode}
-        cameraVideoRef={cameraVideoRef}
-        onClose={() => setIsConversationStageOpen(false)}
-        onConversationModeChange={handleConversationModeChange}
-        onEyesSourceChange={(source) => setConversationEyesSourceSelection(source)}
-        onOrbPress={handleConversationOrbPress}
-        onToggleMute={() => {
-          void toggleConversationMute()
-        }}
-        onToggleEyes={handleConversationEyesToggle}
-        onEndConversation={() => endConversationSession("stage_end_button")}
-        onCameraPreviewSignalChange={setCameraPreviewSignal}
-      />
+      {shouldKeepConversationStageVisible ? (
+        <div
+          className="absolute inset-0 z-[70] flex justify-center px-4 pb-4 pt-2"
+          style={{ background: "var(--shell-background)" }}
+        >
+          <div className="w-full max-w-4xl">
+            <SlickConversationStage
+              open={shouldKeepConversationStageVisible}
+              agentName={conversationAgentName}
+              conversationMode={conversationModeSelection}
+              eyesSource={conversationEyesSourceSelection}
+              conversationState={conversationState}
+              conversationReasonCode={conversationReasonCode}
+              conversationStateLabel={conversationStateLabel}
+              conversationTurnLabel={conversationTurnHudLabel}
+              liveTranscriptUserText={conversationLiveUserText}
+              liveTranscriptAssistantText={conversationLiveAssistantText}
+              liveInterruptionMarker={liveInterruptionMarker}
+              cameraSession={cameraLiveSession}
+              hasCameraPreviewSignal={hasCameraPreviewSignal}
+              cameraDiagnosticLabel={cameraDiagnosticLabel}
+              isConversationEnding={isConversationEnding}
+              isConversationMicMuted={isConversationMicMuted}
+              isStartingConversation={isStartingConversation}
+              controlDisabled={controlDisabled || isVoiceTranscribing}
+              eyesWebcamAvailable={conversationCapabilitySnapshot.capabilities.webcam.available}
+              metaGlassesAvailable={conversationCapabilitySnapshot.capabilities.metaGlasses.available}
+              metaGlassesReasonCode={conversationCapabilitySnapshot.capabilities.metaGlasses.reasonCode}
+              cameraVideoRef={cameraVideoRef}
+              onClose={() => setIsConversationStageOpen(false)}
+              onConversationModeChange={handleConversationModeChange}
+              onEyesSourceChange={(source) => setConversationEyesSourceSelection(source)}
+              onOrbPress={handleConversationOrbPress}
+              onToggleMute={() => {
+                void toggleConversationMute()
+              }}
+              onToggleEyes={handleConversationEyesToggle}
+              onCameraPreviewSignalChange={setCameraPreviewSignal}
+            />
+          </div>
+        </div>
+      ) : null}
     </form>
   )
 }

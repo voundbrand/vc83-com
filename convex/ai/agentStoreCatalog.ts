@@ -21,6 +21,13 @@ import {
   type MidwifeSeededProfileCandidate,
 } from "./midwifeCatalogComposer";
 import { resolveTemplateClonePolicy } from "./workerPool";
+import {
+  getStorefrontEntitlementSnapshotInternal,
+  resolveStorefrontEntitlementDecision,
+  resolveStorefrontEntitlementDecisionFromSnapshot,
+  type StorefrontEntitlementDecision,
+  type StorefrontPackageDescriptor,
+} from "../licensing/helpers";
 
 const DEFAULT_DATASET_VERSION = "agp_v1";
 const DEFAULT_PAGE_SIZE = 24;
@@ -69,6 +76,7 @@ type CatalogEntryRow = {
   intentTags?: string[];
   keywordAliases?: string[];
   recommendationMetadata?: AgentRecommendationMetadata;
+  storefrontPackageDescriptor?: StorefrontPackageDescriptor;
   runtimeStatus: string;
   catalogStatus?: string;
   published?: boolean;
@@ -204,6 +212,8 @@ type StoreCard = {
     seedCoverage: "full" | "skeleton" | "missing";
     requiresSoulBuild: boolean;
   };
+  storefrontPackageDescriptor: StorefrontPackageDescriptor;
+  activationEntitlement: StorefrontEntitlementDecision;
 };
 
 const CATEGORY_STRENGTH_TAGS: Record<string, string[]> = {
@@ -437,6 +447,39 @@ function normalizeIntegrationKey(value: string): string {
 
 function resolveRuntimeAvailability(runtimeStatus: string): "available_now" | "planned" {
   return normalizeToken(runtimeStatus) === "live" ? "available_now" : "planned";
+}
+
+function resolveStorefrontPackageDescriptor(
+  entry: CatalogEntryRow
+): StorefrontPackageDescriptor {
+  const descriptor = entry.storefrontPackageDescriptor;
+  if (
+    descriptor &&
+    (descriptor.packageAccess === "included_in_plan"
+      || descriptor.packageAccess === "add_on_purchase"
+      || descriptor.packageAccess === "enterprise_concierge")
+    && (descriptor.licenseModel === "included"
+      || descriptor.licenseModel === "seat"
+      || descriptor.licenseModel === "usage"
+      || descriptor.licenseModel === "custom_contract")
+    && (descriptor.activationHint === "activate_now"
+      || descriptor.activationHint === "purchase_required"
+      || descriptor.activationHint === "sales_contact_required")
+  ) {
+    return {
+      packageAccess: descriptor.packageAccess,
+      licenseModel: descriptor.licenseModel,
+      activationHint: descriptor.activationHint,
+      packageCode: normalizeOptionalString(descriptor.packageCode) || undefined,
+      licenseSku: normalizeOptionalString(descriptor.licenseSku) || undefined,
+      note: normalizeOptionalString(descriptor.note) || undefined,
+    } as const;
+  }
+  return {
+    packageAccess: "included_in_plan" as const,
+    licenseModel: "included" as const,
+    activationHint: "activate_now" as const,
+  };
 }
 
 function inferLegacyPublishedState(entry: CatalogEntryRow): boolean {
@@ -763,6 +806,7 @@ function resolveStoreCard(args: {
   seedRow: SeedRegistryRow | null;
   candidate?: MidwifeSeededProfileCandidate;
   connectedIntegrationKeys: Set<string>;
+  activationEntitlement: StorefrontEntitlementDecision;
 }): StoreCard {
   const intentTags = deriveIntentTags(args.entry);
   const recommendationMetadata = deriveRecommendationMetadata(args.entry);
@@ -834,6 +878,8 @@ function resolveStoreCard(args: {
     },
     recommendationMetadata,
     templateAvailability: availability,
+    storefrontPackageDescriptor: resolveStorefrontPackageDescriptor(args.entry),
+    activationEntitlement: args.activationEntitlement,
   };
 }
 
@@ -872,6 +918,11 @@ function buildAskAiCatalogContextPayload(args: {
     ),
     templateReady: args.card.templateAvailability.hasTemplate,
     seedCoverage: args.card.templateAvailability.seedCoverage,
+    packageAccess: args.card.storefrontPackageDescriptor.packageAccess,
+    licenseModel: args.card.storefrontPackageDescriptor.licenseModel,
+    activationHint: args.card.storefrontPackageDescriptor.activationHint,
+    entitlementState: args.card.activationEntitlement.allowed ? "entitled" : "blocked",
+    entitlementReasonCode: args.card.activationEntitlement.reasonCode,
   };
 }
 
@@ -1067,6 +1118,7 @@ function resolveStoreCards(args: {
   seedByAgentNumber: Map<number, SeedRegistryRow>;
   candidateByAgentNumber: Map<number, MidwifeSeededProfileCandidate>;
   connectedIntegrationKeys: Set<string>;
+  entitlementByAgentNumber: Map<number, StorefrontEntitlementDecision>;
 }): StoreCard[] {
   return args.entries.map((entry) =>
     resolveStoreCard({
@@ -1075,6 +1127,14 @@ function resolveStoreCards(args: {
       seedRow: args.seedByAgentNumber.get(entry.catalogAgentNumber) ?? null,
       candidate: args.candidateByAgentNumber.get(entry.catalogAgentNumber),
       connectedIntegrationKeys: args.connectedIntegrationKeys,
+      activationEntitlement: args.entitlementByAgentNumber.get(entry.catalogAgentNumber) ?? {
+        allowed: false,
+        reasonCode: "blocked_entitlement_uncertain",
+        guidance:
+          "Activation is blocked because entitlement status could not be determined with confidence.",
+        matchedEntitlementKeys: [],
+        planTier: "free",
+      },
     }),
   );
 }
@@ -1133,6 +1193,19 @@ function buildCompatibilityDisabledCard(catalogAgentNumber: number): StoreCard {
       seedCoverage: "missing",
       requiresSoulBuild: true,
     },
+    storefrontPackageDescriptor: {
+      packageAccess: "enterprise_concierge",
+      licenseModel: "custom_contract",
+      activationHint: "sales_contact_required",
+      note: "agent_store_compatibility_disabled",
+    },
+    activationEntitlement: {
+      allowed: false,
+      reasonCode: "blocked_entitlement_uncertain",
+      guidance: "Activation is blocked while legacy Agent Store compatibility endpoints are disabled.",
+      matchedEntitlementKeys: [],
+      planTier: "free",
+    },
   };
 }
 
@@ -1184,6 +1257,20 @@ export const listCatalogCards = query({
     const { entries, toolsByAgentNumber, seedByAgentNumber, candidateByAgentNumber } =
       await loadCatalogRows(ctx, datasetVersion);
     const publishedEntries = entries.filter((entry) => isPublishedCatalogEntry(entry));
+    const entitlementSnapshot = await getStorefrontEntitlementSnapshotInternal(
+      ctx,
+      access.organizationId,
+    );
+    const entitlementByAgentNumber = new Map<number, StorefrontEntitlementDecision>();
+    for (const entry of publishedEntries) {
+      entitlementByAgentNumber.set(
+        entry.catalogAgentNumber,
+        resolveStorefrontEntitlementDecisionFromSnapshot(
+          entitlementSnapshot,
+          resolveStorefrontPackageDescriptor(entry),
+        ),
+      );
+    }
 
     const cards = resolveStoreCards({
       entries: publishedEntries,
@@ -1191,6 +1278,7 @@ export const listCatalogCards = query({
       seedByAgentNumber,
       candidateByAgentNumber,
       connectedIntegrationKeys: connectedIntegrations,
+      entitlementByAgentNumber,
     });
 
     const searchTokens = parseSearchTokens(args.filters?.search || "");
@@ -1314,12 +1402,27 @@ export const compareCatalogCards = query({
     const { entries, toolsByAgentNumber, seedByAgentNumber, candidateByAgentNumber } =
       await loadCatalogRows(ctx, datasetVersion);
     const publishedEntries = entries.filter((entry) => isPublishedCatalogEntry(entry));
+    const entitlementSnapshot = await getStorefrontEntitlementSnapshotInternal(
+      ctx,
+      access.organizationId,
+    );
+    const entitlementByAgentNumber = new Map<number, StorefrontEntitlementDecision>();
+    for (const entry of publishedEntries) {
+      entitlementByAgentNumber.set(
+        entry.catalogAgentNumber,
+        resolveStorefrontEntitlementDecisionFromSnapshot(
+          entitlementSnapshot,
+          resolveStorefrontPackageDescriptor(entry),
+        ),
+      );
+    }
     const cards = resolveStoreCards({
       entries: publishedEntries,
       toolsByAgentNumber,
       seedByAgentNumber,
       candidateByAgentNumber,
       connectedIntegrationKeys: connectedIntegrations,
+      entitlementByAgentNumber,
     });
 
     const requested = new Set(args.catalogAgentNumbers.map((n) => Math.floor(n)));
@@ -1415,12 +1518,18 @@ export const getCatalogAgentProductContext = query({
     });
     const seedRow = seedByAgentNumber.get(catalogAgentNumber) ?? null;
     const candidate = candidateByAgentNumber.get(catalogAgentNumber);
+    const activationEntitlement = await resolveStorefrontEntitlementDecision(
+      ctx,
+      access.organizationId,
+      resolveStorefrontPackageDescriptor(entry),
+    );
     const card = resolveStoreCard({
       entry,
       toolRows,
       seedRow,
       candidate,
       connectedIntegrationKeys: connectedIntegrations,
+      activationEntitlement,
     });
     const capabilitySnapshot = deriveCapabilitySnapshot({
       entry,
@@ -1448,6 +1557,7 @@ export const getCatalogAgentProductContext = query({
           catalogStatus: normalizeToken(entry.catalogStatus || "done"),
           published: card.published,
           autonomyDefault: normalizeToken(entry.autonomyDefault),
+          storefrontPackageDescriptor: card.storefrontPackageDescriptor,
         },
         requirements: {
           requiredIntegrations: normalizeTokenArray(entry.requiredIntegrations ?? []),
@@ -1513,12 +1623,13 @@ export const getClonePreflight = query({
     const compatibility = buildStoreCompatibilityPayload(compatibilityDecision);
     const catalogAgentNumber = Math.floor(args.catalogAgentNumber);
     if (!compatibilityDecision.enabled) {
+      const compatibilityCard = buildCompatibilityDisabledCard(catalogAgentNumber);
       return {
         datasetVersion,
         organizationId: access.organizationId,
         ownerUserId,
         catalogAgentNumber,
-        card: buildCompatibilityDisabledCard(catalogAgentNumber),
+        card: compatibilityCard,
         template: {
           templateAgentId: undefined,
           hasTemplate: false,
@@ -1546,6 +1657,7 @@ export const getClonePreflight = query({
             ownerLimit: false,
           },
         },
+        entitlement: compatibilityCard.activationEntitlement,
         allowClone: false,
         directCreateAllowed: false,
         noFitEscalation: NO_FIT_CONCIERGE_TERMS,
@@ -1705,6 +1817,11 @@ export const getClonePreflight = query({
       includeQuotaBlock,
       quotaBlockReason,
     });
+    const activationEntitlement = await resolveStorefrontEntitlementDecision(
+      ctx,
+      access.organizationId,
+      resolveStorefrontPackageDescriptor(entry),
+    );
 
     return {
       datasetVersion,
@@ -1717,6 +1834,7 @@ export const getClonePreflight = query({
         seedRow,
         candidate,
         connectedIntegrationKeys: connectedIntegrations,
+        activationEntitlement,
       }),
       template: {
         templateAgentId: templateAvailability.templateAgentId,
@@ -1734,7 +1852,8 @@ export const getClonePreflight = query({
       requiredTools: requiredScopeContract.requiredTools,
       requiredCapabilities: requiredScopeContract.requiredCapabilities,
       quota,
-      allowClone: capabilitySnapshot.blocked.length === 0,
+      entitlement: activationEntitlement,
+      allowClone: capabilitySnapshot.blocked.length === 0 && activationEntitlement.allowed,
       directCreateAllowed: false,
       noFitEscalation: NO_FIT_CONCIERGE_TERMS,
       compatibility,

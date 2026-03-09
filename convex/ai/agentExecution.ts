@@ -178,6 +178,7 @@ import {
   buildSupportRuntimePolicy,
   resolveSupportRuntimeContext,
 } from "./prompts/supportRuntimePolicy";
+import { buildLayeredContextSystemPrompt } from "./prompts/layeredContextSystem";
 import {
   type AgentRuntimeToolHooks,
   collectSuccessfulToolNames,
@@ -2472,6 +2473,98 @@ function resolveRuntimeModelRoutingPolicySeed(
 
 export const CATALOG_CLONE_CAPABILITY_LIMITS_BLOCKED_MESSAGE =
   "Clone activation is blocked until required capabilities move from blocked to available now.";
+export const CATALOG_CLONE_ENTITLEMENT_BLOCKED_MESSAGE =
+  "Clone activation is blocked until licensing/package entitlement requirements are satisfied.";
+
+export const recordStoreActivationEntitlementDecision = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    actorUserId: v.id("users"),
+    templateAgentId: v.id("objects"),
+    catalogAgentNumber: v.number(),
+    decision: v.union(v.literal("allow"), v.literal("deny")),
+    reasonCode: v.string(),
+    guidance: v.string(),
+    packageAccess: v.union(
+      v.literal("included_in_plan"),
+      v.literal("add_on_purchase"),
+      v.literal("enterprise_concierge"),
+    ),
+    licenseModel: v.union(
+      v.literal("included"),
+      v.literal("seat"),
+      v.literal("usage"),
+      v.literal("custom_contract"),
+    ),
+    activationHint: v.union(
+      v.literal("activate_now"),
+      v.literal("purchase_required"),
+      v.literal("sales_contact_required"),
+    ),
+    packageCode: v.optional(v.string()),
+    licenseSku: v.optional(v.string()),
+    matchedEntitlementKeys: v.array(v.string()),
+    planTier: v.string(),
+    capabilityBlockedCount: v.number(),
+    allowClone: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.templateAgentId,
+      actionType: "agent_store_activation_entitlement_evaluated",
+      actionData: {
+        contractVersion: "ath_store_entitlement_activation_v1",
+        catalogAgentNumber: args.catalogAgentNumber,
+        decision: args.decision,
+        reasonCode: args.reasonCode,
+        guidance: args.guidance,
+        packageAccess: args.packageAccess,
+        licenseModel: args.licenseModel,
+        activationHint: args.activationHint,
+        packageCode: args.packageCode,
+        licenseSku: args.licenseSku,
+        matchedEntitlementKeys: [...args.matchedEntitlementKeys].sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        planTier: args.planTier,
+        capabilityBlockedCount: args.capabilityBlockedCount,
+        allowClone: args.allowClone,
+      },
+      performedBy: args.actorUserId,
+      performedAt: now,
+    });
+
+    await ctx.db.insert("auditLogs", {
+      organizationId: args.organizationId,
+      userId: args.actorUserId,
+      action: "agent_store_activation_entitlement_evaluated",
+      resource: "org_agent_template",
+      resourceId: String(args.templateAgentId),
+      success: args.decision === "allow",
+      metadata: {
+        contractVersion: "ath_store_entitlement_activation_v1",
+        catalogAgentNumber: args.catalogAgentNumber,
+        decision: args.decision,
+        reasonCode: args.reasonCode,
+        guidance: args.guidance,
+        packageAccess: args.packageAccess,
+        licenseModel: args.licenseModel,
+        activationHint: args.activationHint,
+        packageCode: args.packageCode,
+        licenseSku: args.licenseSku,
+        matchedEntitlementKeys: [...args.matchedEntitlementKeys].sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        planTier: args.planTier,
+        capabilityBlockedCount: args.capabilityBlockedCount,
+        allowClone: args.allowClone,
+      },
+      createdAt: now,
+    });
+  },
+});
 
 /**
  * Spawn (or reuse) an org/user-scoped use-case agent clone from a protected template.
@@ -2541,11 +2634,23 @@ export const spawn_use_case_agent = action({
           deposit: string;
           onboarding: string;
         };
+        entitlement?: {
+          allowed: boolean;
+          reasonCode: string;
+          guidance: string;
+          matchedEntitlementKeys: string[];
+          planTier: string;
+        };
       }
     | {
         status: "blocked";
-        reason: "catalog_template_mismatch" | "capability_limits_blocked";
+        reason:
+          | "catalog_template_mismatch"
+          | "capability_limits_blocked"
+          | "entitlement_blocked";
         message: string;
+        reasonCode?: string;
+        guidance?: string;
         allowClone: false;
         catalogAgentNumber?: number;
         requiredTools?: string[];
@@ -2566,6 +2671,13 @@ export const spawn_use_case_agent = action({
           minimum: string;
           deposit: string;
           onboarding: string;
+        };
+        entitlement?: {
+          allowed: boolean;
+          reasonCode: string;
+          guidance: string;
+          matchedEntitlementKeys: string[];
+          planTier: string;
         };
       }
   > => {
@@ -2607,6 +2719,15 @@ export const spawn_use_case_agent = action({
           requestedChannel: args.requestedChannel,
         }) as {
           catalogAgentNumber: number;
+          card: {
+            storefrontPackageDescriptor: {
+              packageAccess: "included_in_plan" | "add_on_purchase" | "enterprise_concierge";
+              licenseModel: "included" | "seat" | "usage" | "custom_contract";
+              activationHint: "activate_now" | "purchase_required" | "sales_contact_required";
+              packageCode?: string;
+              licenseSku?: string;
+            };
+          };
           template: {
             templateAgentId?: Id<"objects">;
             hasTemplate: boolean;
@@ -2625,6 +2746,13 @@ export const spawn_use_case_agent = action({
             }>;
           };
           allowClone: boolean;
+          entitlement: {
+            allowed: boolean;
+            reasonCode: string;
+            guidance: string;
+            matchedEntitlementKeys: string[];
+            planTier: string;
+          };
           requiredTools: string[];
           requiredCapabilities: string[];
           noFitEscalation: {
@@ -2634,6 +2762,33 @@ export const spawn_use_case_agent = action({
           };
         }
       : null;
+
+    const logEntitlementDecision = async (decision: "allow" | "deny") => {
+      if (!preflight) {
+        return;
+      }
+      await ctx.runMutation(
+        getInternal().ai.agentExecution.recordStoreActivationEntitlementDecision,
+        {
+          organizationId: args.organizationId,
+          actorUserId: auth.userId,
+          templateAgentId: args.templateAgentId,
+          catalogAgentNumber: preflight.catalogAgentNumber,
+          decision,
+          reasonCode: preflight.entitlement.reasonCode,
+          guidance: preflight.entitlement.guidance,
+          packageAccess: preflight.card.storefrontPackageDescriptor.packageAccess,
+          licenseModel: preflight.card.storefrontPackageDescriptor.licenseModel,
+          activationHint: preflight.card.storefrontPackageDescriptor.activationHint,
+          packageCode: preflight.card.storefrontPackageDescriptor.packageCode,
+          licenseSku: preflight.card.storefrontPackageDescriptor.licenseSku,
+          matchedEntitlementKeys: preflight.entitlement.matchedEntitlementKeys,
+          planTier: preflight.entitlement.planTier,
+          capabilityBlockedCount: preflight.capabilitySnapshot.blocked.length,
+          allowClone: preflight.allowClone,
+        },
+      );
+    };
 
     if (preflight?.template?.templateAgentId) {
       const expectedTemplateId = String(preflight.template.templateAgentId);
@@ -2650,14 +2805,40 @@ export const spawn_use_case_agent = action({
           requiredCapabilities: preflight.requiredCapabilities,
           capabilitySnapshot: preflight.capabilitySnapshot,
           noFitEscalation: preflight.noFitEscalation,
+          entitlement: preflight.entitlement,
         };
       }
     }
 
+    if (!preflight?.entitlement || !preflight.entitlement.allowed) {
+      if (preflight) {
+        await logEntitlementDecision("deny");
+      }
+      return {
+        status: "blocked",
+        reason: "entitlement_blocked",
+        reasonCode: preflight?.entitlement?.reasonCode ?? "blocked_entitlement_uncertain",
+        guidance:
+          preflight?.entitlement?.guidance
+          ?? "Activation is blocked because entitlement status is uncertain.",
+        message: CATALOG_CLONE_ENTITLEMENT_BLOCKED_MESSAGE,
+        allowClone: false,
+        catalogAgentNumber: preflight?.catalogAgentNumber,
+        requiredTools: preflight?.requiredTools,
+        requiredCapabilities: preflight?.requiredCapabilities,
+        capabilitySnapshot: preflight?.capabilitySnapshot,
+        noFitEscalation: preflight?.noFitEscalation,
+        entitlement: preflight?.entitlement,
+      };
+    }
+
     if (preflight && !preflight.allowClone) {
+      await logEntitlementDecision("deny");
       return {
         status: "blocked",
         reason: "capability_limits_blocked",
+        reasonCode: preflight.entitlement.reasonCode,
+        guidance: preflight.entitlement.guidance,
         message: CATALOG_CLONE_CAPABILITY_LIMITS_BLOCKED_MESSAGE,
         allowClone: false,
         catalogAgentNumber: preflight.catalogAgentNumber,
@@ -2665,8 +2846,11 @@ export const spawn_use_case_agent = action({
         requiredCapabilities: preflight.requiredCapabilities,
         capabilitySnapshot: preflight.capabilitySnapshot,
         noFitEscalation: preflight.noFitEscalation,
+        entitlement: preflight.entitlement,
       };
     }
+
+    await logEntitlementDecision("allow");
 
     const spawnResult = await ctx.runMutation(
       getInternal().ai.workerPool.spawnUseCaseAgent,
@@ -2734,6 +2918,7 @@ export const spawn_use_case_agent = action({
       allowClone: preflight?.allowClone ?? true,
       capabilitySnapshot: preflight?.capabilitySnapshot,
       noFitEscalation: preflight?.noFitEscalation,
+      entitlement: preflight?.entitlement,
     };
   },
 });
@@ -6580,6 +6765,35 @@ export const processInboundMessage = action({
     const commercialKickoffRuntimeContext = buildInboundCommercialKickoffRuntimeContext(
       resolveInboundCommercialKickoffContract(inboundMetadata)
     );
+    const inboundLayerWorkflowId = firstInboundString(
+      inboundMetadata.layerWorkflowId,
+      inboundMetadata.workflowId,
+    ) as Id<"objects"> | undefined;
+    const inboundAuthSessionId = firstInboundString(inboundMetadata.sessionId);
+    let layeredContextSystemPrompt: string | undefined;
+    if (inboundLayerWorkflowId && inboundAuthSessionId) {
+      try {
+        const layeredContextBundle = await ctx.runQuery(
+          getApi().api.layers.layerWorkflowOntology.getLayeredContextBundle,
+          {
+            sessionId: inboundAuthSessionId,
+            workflowId: inboundLayerWorkflowId,
+          },
+        ) as { contractVersion?: string } | null;
+        if (layeredContextBundle?.contractVersion === "layered_context_bundle_v1") {
+          layeredContextSystemPrompt = buildLayeredContextSystemPrompt(
+            layeredContextBundle as Parameters<typeof buildLayeredContextSystemPrompt>[0],
+          );
+        }
+      } catch (error) {
+        console.warn("[AgentExecution] Failed to load layered context bundle", {
+          organizationId: String(args.organizationId),
+          sessionId: String(session._id),
+          workflowId: String(inboundLayerWorkflowId),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     const promptConfig = supportPolicyPrompt
       ? {
           ...runtimeConfig,
@@ -6683,6 +6897,7 @@ export const processInboundMessage = action({
       reactivationMemoryContext ?? "",
       contactMemoryContext ?? "",
       composerRuntimeContext ?? "",
+      layeredContextSystemPrompt ?? "",
       planFeasibilityContext ?? "",
       commercialKickoffRuntimeContext ?? "",
       inboundMessage,
@@ -6724,6 +6939,7 @@ export const processInboundMessage = action({
       reactivationMemoryContext,
       contactMemoryContext,
       composerRuntimeContext,
+      layeredContextSystemPrompt,
       planFeasibilityContext,
       commercialKickoffRuntimeContext,
     });
@@ -15392,6 +15608,8 @@ const MEETING_CONCIERGE_PHONE_PATTERN =
   /(?:\+?\d{1,2}[\s-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}/;
 const DER_TERMINMACHER_INTENT_BOOKING_PATTERN =
   /\b(termin|termine|terminanfrage|terminplanung|buchen|buche|buchung|appointment|appointments|book|booking|schedule|scheduled|meeting|meetings|calendar|slot|slots)\b/i;
+const DER_TERMINMACHER_INTENT_PLANNING_PATTERN =
+  /\b(plan|plane|planen|planung|organize|organise|arrange|arrangement|coordina(?:te|tion))\b/i;
 const DER_TERMINMACHER_INTENT_GERMAN_PATTERN =
   /\b(auf deutsch|deutsch|bitte deutsch|bitte auf deutsch|german|german-first|terminanfrage|terminvereinbarung)\b/i;
 const DER_TERMINMACHER_INTENT_CLARIFYING_QUESTION =
@@ -15511,6 +15729,11 @@ function scoreDerTerminmacherIntent(args: {
   if (bookingSignal) {
     confidence += 0.38;
     reasonCodes.push("booking_intent_signal");
+  }
+  const planningSignal = DER_TERMINMACHER_INTENT_PLANNING_PATTERN.test(messageLower);
+  if (bookingSignal && planningSignal) {
+    confidence += 0.06;
+    reasonCodes.push("booking_planning_signal");
   }
 
   const germanSignal = DER_TERMINMACHER_INTENT_GERMAN_PATTERN.test(messageLower);
@@ -17770,6 +17993,7 @@ export function assembleRuntimeSystemMessages(args: {
   reactivationMemoryContext?: string | null;
   contactMemoryContext?: string | null;
   composerRuntimeContext?: string | null;
+  layeredContextSystemPrompt?: string | null;
   planFeasibilityContext?: string | null;
   commercialKickoffRuntimeContext?: string | null;
 }): Array<{ role: "system"; content: string }> {
@@ -17813,6 +18037,15 @@ export function assembleRuntimeSystemMessages(args: {
     messages.push({
       role: "system",
       content: composerRuntimeContext,
+    });
+  }
+  const layeredContextSystemPrompt = normalizeRuntimeSystemContext(
+    args.layeredContextSystemPrompt
+  );
+  if (layeredContextSystemPrompt) {
+    messages.push({
+      role: "system",
+      content: layeredContextSystemPrompt,
     });
   }
   const planFeasibilityContext = normalizeRuntimeSystemContext(args.planFeasibilityContext);

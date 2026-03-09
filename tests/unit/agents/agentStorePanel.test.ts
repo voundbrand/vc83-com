@@ -50,6 +50,18 @@ const LIST_RESPONSE = {
         hasTemplate: true,
         templateAgentId: "objects_template_1" as any,
       },
+      storefrontPackageDescriptor: {
+        packageAccess: "included_in_plan",
+        licenseModel: "included",
+        activationHint: "activate_now",
+      },
+      activationEntitlement: {
+        allowed: true,
+        reasonCode: "entitled_included_in_plan",
+        guidance: "Activation is included in your current plan.",
+        matchedEntitlementKeys: [],
+        planTier: "pro",
+      },
     },
     {
       cardId: "agent:2",
@@ -77,6 +89,20 @@ const LIST_RESPONSE = {
       templateAvailability: {
         hasTemplate: true,
         templateAgentId: "objects_template_2" as any,
+      },
+      storefrontPackageDescriptor: {
+        packageAccess: "add_on_purchase",
+        licenseModel: "seat",
+        activationHint: "purchase_required",
+        packageCode: "addon_growth",
+        licenseSku: "sku_growth_001",
+      },
+      activationEntitlement: {
+        allowed: false,
+        reasonCode: "blocked_purchase_required_not_owned",
+        guidance: "Activation is blocked until your organization purchases 'addon_growth'.",
+        matchedEntitlementKeys: [],
+        planTier: "free",
       },
     },
   ],
@@ -114,6 +140,7 @@ const PREFLIGHT_RESPONSE = {
     ],
   },
   allowClone: false,
+  entitlement: LIST_RESPONSE.cards[1].activationEntitlement,
   noFitEscalation: LIST_RESPONSE.noFitEscalation,
 };
 
@@ -130,6 +157,12 @@ const PRODUCT_CONTEXT_RESPONSE = {
       catalogStatus: "done",
       published: true,
       autonomyDefault: "supervised",
+      storefrontPackageDescriptor: {
+        packageAccess: "add_on_purchase",
+        licenseModel: "seat",
+        activationHint: "purchase_required",
+        packageCode: "addon_growth",
+      },
     },
     requirements: {
       requiredIntegrations: ["activecampaign"],
@@ -205,6 +238,8 @@ describe("AgentStorePanel", () => {
     expect(screen.getByText("Provider Outreach Specialist")).toBeTruthy();
     expect(screen.getByText(/Browse published platform agents/i)).toBeTruthy();
     expect(screen.getAllByText(/Capability limits:/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Package: Included in plan · License: Included · Activation available/i)).toBeTruthy();
+    expect(screen.getByText(/Package: Add-on purchase · License: Per seat · Purchase required/i)).toBeTruthy();
     expect(screen.getByText(/Can't find the right mix\?/i)).toBeTruthy();
     expect(screen.getByText(/Custom-agent concierge is purchase-only/i)).toBeTruthy();
   });
@@ -250,5 +285,27 @@ describe("AgentStorePanel", () => {
     expect(
       await screen.findByText(/Multi.?channel outreach · Integration missing \(Activecampaign\)/i)
     ).toBeTruthy();
+  });
+
+  it("surfaces entitlement guidance when activation is blocked by licensing", async () => {
+    render(
+      React.createElement(AgentStorePanel, {
+        sessionId: "sessions_test",
+        organizationId: "org_123" as any,
+        onBack: vi.fn(),
+        onOpenAssistant: vi.fn(),
+        onRequestCustomOrder: vi.fn(),
+      })
+    );
+
+    const activateButtons = screen.getAllByRole("button", { name: "Activate" });
+    fireEvent.click(activateButtons[1]);
+
+    expect(
+      await screen.findByText(/Activation blocked for #2: Blocked Purchase Required Not Owned/i)
+    ).toBeTruthy();
+    expect(
+      (await screen.findAllByText(/Activation is blocked until your organization purchases 'addon_growth'/i)).length
+    ).toBeGreaterThan(0);
   });
 });
