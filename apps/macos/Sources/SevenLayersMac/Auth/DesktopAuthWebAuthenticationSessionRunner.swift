@@ -21,7 +21,6 @@ public protocol DesktopAuthInteractiveSessionRunning: AnyObject {
 
 public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopAuthInteractiveSessionRunning {
     private var currentSession: ASWebAuthenticationSession?
-    private weak var activePresentationAnchor: NSWindow?
     private let fallbackPresentationAnchor: NSWindow
 
     @MainActor
@@ -43,8 +42,6 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
         onCompletion: @escaping (Result<URL, Error>) -> Void
     ) -> Bool {
         cancel()
-
-        activePresentationAnchor = resolvePresentationAnchor()
 
         let session = ASWebAuthenticationSession(
             url: authorizationURL,
@@ -82,35 +79,10 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
         currentSession?.cancel()
         currentSession = nil
     }
-
-    @MainActor
-    private func resolvePresentationAnchor() -> NSWindow {
-        if let keyWindow = NSApp.keyWindow {
-            return keyWindow
-        }
-
-        if let mainWindow = NSApp.mainWindow {
-            return mainWindow
-        }
-
-        if let firstWindow = NSApp.windows.first {
-            return firstWindow
-        }
-
-        return fallbackPresentationAnchor
-    }
 }
 
 extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresentationContextProviding {
-    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        if Thread.isMainThread {
-            return activePresentationAnchor ?? fallbackPresentationAnchor
-        }
-
-        var anchor: ASPresentationAnchor?
-        DispatchQueue.main.sync {
-            anchor = activePresentationAnchor ?? fallbackPresentationAnchor
-        }
-        return anchor ?? fallbackPresentationAnchor
+    nonisolated public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        fallbackPresentationAnchor
     }
 }

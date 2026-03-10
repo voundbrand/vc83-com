@@ -175,23 +175,32 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func startLoginFlow() {
-        guard let authSessionController,
-              let authConfiguration,
-              let authInteractiveSessionRunner
-        else {
+        guard let authSessionController else {
             return
         }
 
+        let useSystemAuthSession = shouldUseSystemAuthSession()
+
         do {
             _ = try authSessionController.beginLogin { [weak self] authorizationURL in
-                return authInteractiveSessionRunner.begin(
-                    authorizationURL: authorizationURL,
-                    callbackURLScheme: authConfiguration.callbackScheme
-                ) { [weak self] result in
-                    Task { @MainActor [weak self] in
-                        self?.handleInteractiveAuthCompletion(result)
+                guard let self else {
+                    return false
+                }
+
+                if useSystemAuthSession,
+                   let authConfiguration,
+                   let authInteractiveSessionRunner {
+                    return authInteractiveSessionRunner.begin(
+                        authorizationURL: authorizationURL,
+                        callbackURLScheme: authConfiguration.callbackScheme
+                    ) { [weak self] result in
+                        Task { @MainActor [weak self] in
+                            self?.handleInteractiveAuthCompletion(result)
+                        }
                     }
                 }
+
+                return NSWorkspace.shared.open(authorizationURL)
             }
         } catch {
             NSLog("SevenLayersMac failed to start login flow: %@", String(describing: error))
@@ -318,5 +327,18 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
         }
         let normalized = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private func shouldUseSystemAuthSession(processInfo: ProcessInfo = .processInfo) -> Bool {
+        let raw = normalizedNonEmpty(
+            processInfo.environment["SEVENLAYERS_MAC_USE_SYSTEM_AUTH_SESSION"]
+        )?.lowercased()
+
+        switch raw {
+        case "1", "true", "yes", "on":
+            return true
+        default:
+            return false
+        }
     }
 }
