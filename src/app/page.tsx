@@ -655,6 +655,21 @@ export default function HomePage() {
 
   // Track if we've already opened a window on mount
   const [hasOpenedInitialWindow, setHasOpenedInitialWindow] = useState(false);
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+
+  const openSignInModal = () => {
+    setIsSignInModalOpen(true);
+  };
+
+  const closeSignInModal = () => {
+    setIsSignInModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (isSignInModalOpen && isSignedIn) {
+      setIsSignInModalOpen(false);
+    }
+  }, [isSignInModalOpen, isSignedIn]);
 
   const replaceUrlWithParams = (params: URLSearchParams) => {
     const currentSearch = window.location.search.startsWith("?")
@@ -1642,6 +1657,26 @@ export default function HomePage() {
     },
   ];
 
+  const userMenuItems: TopNavMenuItem[] = [
+    ...(isSignedIn
+      ? [
+          {
+            id: "user-menu-profile",
+            label: tx("ui.start_menu.user_profile", "User Profile"),
+            onSelect: requireAuth(openCurrentUserProfile),
+            icon: <ShellProfileIcon size={16} tone="muted" />,
+          },
+          { id: "user-menu-divider-auth", divider: true as const },
+        ]
+      : []),
+    {
+      id: "user-menu-auth",
+      label: isSignedIn ? t("ui.start_menu.log_out") : t("ui.start_menu.log_in"),
+      onSelect: isSignedIn ? handleLogout : openSignInModal,
+      icon: isSignedIn ? <ShellLogoutIcon size={16} tone="muted" /> : <ShellLoginIcon size={16} tone="muted" />,
+    },
+  ];
+
   // Check if user needs beta access approval (block entire app if pending/rejected/none)
   // Super admins bypass this check
   const shouldShowBetaBlock = isSignedIn && betaStatus && !betaStatus.hasAccess && !isSuperAdmin;
@@ -1712,6 +1747,44 @@ export default function HomePage() {
           {window.component}
         </FloatingWindow>
       ))}
+
+      {isSignInModalOpen && (
+        <div className="fixed inset-0 z-[70000] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            onClick={closeSignInModal}
+            aria-label="Close sign in modal"
+          />
+          <div
+            className="relative desktop-shell-window window-corners w-full max-w-md p-0 overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label={tx("ui.start_menu.log_in", "Sign In")}
+          >
+            <div className="desktop-shell-titlebar window-titlebar-corners px-3 py-2 flex items-center justify-between">
+              <span className="font-pixel text-xs" style={{ color: "var(--shell-titlebar-text)" }}>
+                {tx("ui.start_menu.log_in", "Sign In")}
+              </span>
+              <button
+                type="button"
+                className="desktop-shell-control-button"
+                onClick={closeSignInModal}
+                title="Close"
+                aria-label="Close"
+              >
+                <span className="select-none">×</span>
+              </button>
+            </div>
+            <div
+              className="max-h-[min(90vh,760px)] overflow-auto"
+              style={{ background: "var(--shell-surface)" }}
+            >
+              <LoginWindow />
+            </div>
+          </div>
+        </div>
+      )}
 
       {!isMobileShellFallback ? (
         <header
@@ -1797,6 +1870,26 @@ export default function HomePage() {
               >
                 {isDarkAppearance ? <ShellMoonIcon size={16} tone="active" /> : <ShellSepiaIcon size={16} tone="active" />}
               </button>
+
+              <TopNavMenu
+                label={(
+                  <span className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="flex h-4 w-4 items-center justify-center">
+                      <ShellProfileIcon size={14} tone="active" />
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em]">
+                      {tx("ui.start_menu.user_profile", "User")}
+                    </span>
+                  </span>
+                )}
+                items={userMenuItems}
+                align="right"
+                submenuDirection="left"
+                menuLabel={tx("ui.start_menu.user_profile", "User")}
+                triggerAriaLabel={tx("ui.start_menu.user_profile", "Open user menu")}
+                className="shrink-0"
+                buttonClassName="desktop-taskbar-action border-l-2 px-3 py-1 shrink-0 relative z-10"
+              />
 
               {isSignedIn && (
                 <TopNavMenu

@@ -17,7 +17,26 @@ final class AuthDesktopAuthURLBuilderTests: XCTestCase {
 
         XCTAssertEqual(components.path, "/api/auth/login/init")
         XCTAssertEqual(query["client"], "macos_companion")
+        XCTAssertEqual(query["provider"], "google")
         XCTAssertEqual(query["callback"], "vc83-mac://auth/callback")
         XCTAssertEqual(query["state"], "state-abc")
+    }
+
+    func testBuildsDesktopAuthorizationURLWithExplicitProvider() throws {
+        let config = DesktopAuthConfiguration(
+            webBaseURL: URL(string: "https://app.vc83.test")!,
+            preferredOAuthProvider: .microsoft
+        )
+
+        let builder = DesktopAuthURLBuilder(configuration: config)
+        let authURL = try builder.makeAuthorizationURL(state: "state-xyz")
+        let components = try XCTUnwrap(URLComponents(url: authURL, resolvingAgainstBaseURL: false))
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(components.path, "/api/auth/login/init")
+        XCTAssertEqual(query["client"], "macos_companion")
+        XCTAssertEqual(query["provider"], "microsoft")
+        XCTAssertEqual(query["callback"], "vc83-mac://auth/callback")
+        XCTAssertEqual(query["state"], "state-xyz")
     }
 }

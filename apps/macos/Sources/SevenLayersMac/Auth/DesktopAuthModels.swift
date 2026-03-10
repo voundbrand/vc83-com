@@ -1,21 +1,31 @@
 import Foundation
 
+public enum DesktopAuthOAuthProvider: String, Codable, Equatable {
+    case apple
+    case microsoft
+    case google
+    case github
+}
+
 public struct DesktopAuthConfiguration: Equatable {
     public let webBaseURL: URL
     public let callbackScheme: String
     public let callbackHost: String
     public let callbackPath: String
+    public let preferredOAuthProvider: DesktopAuthOAuthProvider
 
     public init(
         webBaseURL: URL,
         callbackScheme: String = "vc83-mac",
         callbackHost: String = "auth",
-        callbackPath: String = "/callback"
+        callbackPath: String = "/callback",
+        preferredOAuthProvider: DesktopAuthOAuthProvider = .google
     ) {
         self.webBaseURL = webBaseURL
         self.callbackScheme = callbackScheme.lowercased()
         self.callbackHost = callbackHost.lowercased()
         self.callbackPath = callbackPath.hasPrefix("/") ? callbackPath : "/\(callbackPath)"
+        self.preferredOAuthProvider = preferredOAuthProvider
     }
 
     public var callbackURL: URL {

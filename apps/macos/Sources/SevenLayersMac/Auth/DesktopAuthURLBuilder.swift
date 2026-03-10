@@ -15,6 +15,7 @@ public struct DesktopAuthURLBuilder {
         components.path = "/api/auth/login/init"
         components.queryItems = [
             URLQueryItem(name: "client", value: "macos_companion"),
+            URLQueryItem(name: "provider", value: configuration.preferredOAuthProvider.rawValue),
             URLQueryItem(name: "callback", value: configuration.callbackURL.absoluteString),
             URLQueryItem(name: "state", value: state),
         ]
