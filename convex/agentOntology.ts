@@ -1630,7 +1630,7 @@ export const getAgent = query({
 
     const agent = await ctx.db.get(args.agentId);
     if (!agent || agent.type !== "org_agent") {
-      throw new Error("Agent not found");
+      return null;
     }
 
     return agent;

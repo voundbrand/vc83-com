@@ -535,6 +535,16 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
       : "skip"
   ) as AgentRecord[] | undefined;
 
+  useEffect(() => {
+    if (!selectedAgentId || !agents) {
+      return;
+    }
+    const stillExists = agents.some((agent) => agent._id === selectedAgentId);
+    if (!stillExists) {
+      setSelectedAgentId(null);
+    }
+  }, [agents, selectedAgentId]);
+
   const stats = unsafeUseQuery(
     apiAny.ai.agentSessions.getAgentStats,
     sessionId && currentOrg?.id
