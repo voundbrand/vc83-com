@@ -1,5 +1,5 @@
 import AppKit
-import AuthenticationServices
+@preconcurrency import AuthenticationServices
 import Foundation
 
 public enum DesktopAuthInteractiveSessionError: Error, Equatable {
@@ -52,19 +52,18 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
         ) { [weak self] callbackURL, error in
             DispatchQueue.main.async {
                 self?.currentSession = nil
-            }
+                if let callbackURL {
+                    onCompletion(.success(callbackURL))
+                    return
+                }
 
-            if let callbackURL {
-                onCompletion(.success(callbackURL))
-                return
-            }
+                if let error {
+                    onCompletion(.failure(error))
+                    return
+                }
 
-            if let error {
-                onCompletion(.failure(error))
-                return
+                onCompletion(.failure(DesktopAuthInteractiveSessionError.missingCallbackURL))
             }
-
-            onCompletion(.failure(DesktopAuthInteractiveSessionError.missingCallbackURL))
         }
 
         session.presentationContextProvider = self
@@ -104,6 +103,14 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
 
 extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresentationContextProviding {
     public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        activePresentationAnchor ?? fallbackPresentationAnchor
+        if Thread.isMainThread {
+            return activePresentationAnchor ?? fallbackPresentationAnchor
+        }
+
+        var anchor: ASPresentationAnchor?
+        DispatchQueue.main.sync {
+            anchor = activePresentationAnchor ?? fallbackPresentationAnchor
+        }
+        return anchor ?? fallbackPresentationAnchor
     }
 }
