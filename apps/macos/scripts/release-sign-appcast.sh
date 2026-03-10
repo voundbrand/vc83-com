@@ -12,6 +12,7 @@ RELEASE_CHANNEL="${RELEASE_CHANNEL:-stable}"
 APPCAST_PATH="${APPCAST_PATH:-${OUT_DIR}/updates/${RELEASE_CHANNEL}/appcast.xml}"
 SIGNED_APPCAST_PATH="${SIGNED_APPCAST_PATH:-${OUT_DIR}/updates/${RELEASE_CHANNEL}/appcast.signed.xml}"
 APPCAST_SIGNATURE_REPORT_PATH="${APPCAST_SIGNATURE_REPORT_PATH:-${OUT_DIR}/appcast-signature-evidence.json}"
+OPENSSL_ERROR_LOG_PATH="${OPENSSL_ERROR_LOG_PATH:-${OUT_DIR}/appcast-openssl-error.log}"
 ZIP_PATH="${ZIP_PATH:-${OUT_DIR}/${APP_NAME}-${VERSION}.zip}"
 SIGNATURE_METHOD="${SIGNATURE_METHOD:-auto}" # auto|sign_update|openssl
 SIGN_UPDATE_BIN="${SIGN_UPDATE_BIN:-sign_update}"
@@ -244,13 +245,24 @@ if [[ "${status}" == "ok" && "${MODE}" == "strict" ]]; then
       else
         signature_bin_path="$(mktemp)"
         cleanup_paths+=("${signature_bin_path}")
+        : > "${OPENSSL_ERROR_LOG_PATH}"
         set +e
-        openssl pkeyutl -sign -rawin -inkey "${private_key_pem_path}" -in "${ZIP_PATH}" -out "${signature_bin_path}" >/dev/null 2>&1
-        openssl_exit_code=$?
+        openssl pkeyutl -sign -rawin -inkey "${private_key_pem_path}" -in "${ZIP_PATH}" -out "${signature_bin_path}" >/dev/null 2>>"${OPENSSL_ERROR_LOG_PATH}"
+        openssl_exit_code_rawin=$?
+        openssl_exit_code_compat=0
+        if [[ ${openssl_exit_code_rawin} -ne 0 ]]; then
+          openssl pkeyutl -sign -inkey "${private_key_pem_path}" -in "${ZIP_PATH}" -out "${signature_bin_path}" >/dev/null 2>>"${OPENSSL_ERROR_LOG_PATH}"
+          openssl_exit_code_compat=$?
+        fi
         set -e
-        if [[ ${openssl_exit_code} -ne 0 ]]; then
+        if [[ ${openssl_exit_code_rawin} -ne 0 && ${openssl_exit_code_compat} -ne 0 ]]; then
           status="blocked"
           missing+=("sparkle_signature:openssl_failed")
+          warnings+=("openssl_error_log:${OPENSSL_ERROR_LOG_PATH}")
+          if [[ -f "${OPENSSL_ERROR_LOG_PATH}" ]]; then
+            echo "OpenSSL signing output (${OPENSSL_ERROR_LOG_PATH}):" >&2
+            sed -n '1,200p' "${OPENSSL_ERROR_LOG_PATH}" >&2
+          fi
         else
           signature="$(openssl base64 -in "${signature_bin_path}" -A)"
         fi
