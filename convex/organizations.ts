@@ -377,6 +377,8 @@ export const inviteUser = action({
 
       let newUserId: Id<"users">;
       let isNewUser = false;
+      let inviteeFirstName = args.firstName;
+      let inviteeLastName = args.lastName;
 
       if (existingUser) {
         // Check if already a member
@@ -393,6 +395,8 @@ export const inviteUser = action({
         }
 
         newUserId = existingUser._id;
+        inviteeFirstName = existingUser.firstName || inviteeFirstName;
+        inviteeLastName = existingUser.lastName || inviteeLastName;
       } else {
         // Create new user
         newUserId = await (ctx as any).runMutation(generatedApi.internal.organizations.createInvitedUser, {
@@ -445,6 +449,8 @@ export const inviteUser = action({
             inviterName: inviter.firstName || inviter.email,
             isNewUser,
             setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
+            firstName: inviteeFirstName,
+            lastName: inviteeLastName,
           });
           emailStatus = "sent";
         } catch (error) {
@@ -557,6 +563,8 @@ export const resendInvitation = action({
       inviterName: resender.firstName || resender.email,
       isNewUser,
       setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
+      firstName: user.firstName,
+      lastName: user.lastName,
     });
 
     // Log audit event

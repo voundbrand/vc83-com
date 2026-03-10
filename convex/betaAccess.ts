@@ -452,6 +452,7 @@ async function sendBetaApprovalNotifications(
       (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaApprovalEmail, {
         email: user.email,
         firstName: user.firstName,
+        lastName: user.lastName,
       }),
       (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
         eventType: "beta_approved",

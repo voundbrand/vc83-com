@@ -7,7 +7,6 @@ import {
   getPasswordResetText,
 } from "./emailService_plain_text";
 import { buildPrefilledPlatformLoginUrl } from "./lib/authLinks";
-import { createAuthPrefillToken } from "./lib/authPrefillToken";
 import {
   EMAIL_BRAND,
   EMAIL_COLORS,
@@ -22,6 +21,8 @@ import {
   emailInfoBox,
   emailDivider,
 } from "./lib/emailBrandConstants";
+
+const generatedApi: any = require("./_generated/api");
 
 // Initialize Resend client (will be created in the action)
 const createResendClient = () => {
@@ -53,14 +54,19 @@ export const sendInvitationEmail = internalAction({
       ? `Du wurdest zu ${args.organizationName} auf ${EMAIL_BRAND.name} eingeladen`
       : `Du wurdest zu ${args.organizationName} hinzugefügt`;
 
-    const prefillToken = await createAuthPrefillToken({
+    const issuedPrefill = await (ctx as any).runMutation(
+      generatedApi.internal.authPrefill.issueOpaqueAuthPrefillToken,
+      {
       email: args.to,
       firstName: args.firstName,
       lastName: args.lastName,
       authMode: args.isNewUser ? "setup" : "check",
       autoCheck: !args.isNewUser,
+      source: args.isNewUser ? "inviteNewUserEmail" : "inviteExistingUserEmail",
       ttlMs: 30 * 24 * 60 * 60 * 1000,
-    });
+      }
+    );
+    const prefillToken = issuedPrefill.token;
 
     const deepLinkUrl = buildPrefilledPlatformLoginUrl({
       appBaseUrl: args.setupLink,

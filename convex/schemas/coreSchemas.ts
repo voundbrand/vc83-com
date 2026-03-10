@@ -929,3 +929,29 @@ export const platformSettings = defineTable({
   createdAt: v.number(),
 })
   .index("by_key", ["key"]);    // Unique lookup by setting key
+
+const authPrefillModeValidator = v.union(
+  v.literal("check"),
+  v.literal("signin"),
+  v.literal("setup"),
+  v.literal("signup")
+);
+
+// Opaque one-time auth prefill tokens used by email deep-links.
+// Stores only token hash; raw token is sent only in the URL.
+export const authPrefillTokens = defineTable({
+  tokenHash: v.string(),
+  email: v.string(),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  organizationName: v.optional(v.string()),
+  betaCode: v.optional(v.string()),
+  authMode: v.optional(authPrefillModeValidator),
+  autoCheck: v.optional(v.boolean()),
+  source: v.optional(v.string()),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+  consumedAt: v.optional(v.number()),
+})
+  .index("by_token_hash", ["tokenHash"])
+  .index("by_expires_at", ["expiresAt"]);

@@ -160,6 +160,21 @@ crons.daily(
 );
 
 /**
+ * Cleanup Expired Auth Prefill Tokens
+ *
+ * Runs daily to remove expired one-time prefill tokens used by email deep-links.
+ * Keeps token table small and limits retention of temporary onboarding metadata.
+ */
+crons.daily(
+  "Cleanup expired auth prefill tokens",
+  {
+    hourUTC: 6,
+    minuteUTC: 30,
+  },
+  generatedApi.internal.authPrefill.cleanupExpiredAuthPrefillTokens
+);
+
+/**
  * Sync External Calendar Events
  *
  * Runs every 15 minutes to pull events from connected Google and Microsoft

@@ -16,7 +16,6 @@ import { Resend } from "resend";
 import { createBetaAutoApproveToken } from "../lib/betaAutoApproveToken";
 import { toConvexSiteBaseUrl } from "../integrations/endpointResolver";
 import { buildPrefilledPlatformLoginUrl } from "../lib/authLinks";
-import { createAuthPrefillToken } from "../lib/authPrefillToken";
 import {
   EMAIL_BRAND,
   EMAIL_COLORS,
@@ -30,6 +29,8 @@ import {
   emailInfoBox,
   emailDivider,
 } from "../lib/emailBrandConstants";
+
+const generatedApi: any = require("../_generated/api");
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -227,14 +228,19 @@ export const sendBetaApprovalEmail = internalAction({
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
 
     const firstName = args.firstName || "there";
-    const prefillToken = await createAuthPrefillToken({
-      email: args.email,
-      firstName: args.firstName,
-      lastName: args.lastName,
-      authMode: "check",
-      autoCheck: true,
-      ttlMs: 14 * 24 * 60 * 60 * 1000,
-    });
+    const issuedPrefill = await (ctx as any).runMutation(
+      generatedApi.internal.authPrefill.issueOpaqueAuthPrefillToken,
+      {
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        authMode: "check",
+        autoCheck: true,
+        source: "betaApprovalEmail",
+        ttlMs: 14 * 24 * 60 * 60 * 1000,
+      }
+    );
+    const prefillToken = issuedPrefill.token;
     const loginUrl = buildPrefilledPlatformLoginUrl({
       appBaseUrl,
       openLoginSource: "betaApprovalEmail",

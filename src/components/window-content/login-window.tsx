@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Eye, EyeOff, Smartphone, Hourglass, PartyPopper, Clipboard, Download, UserRound, Lock, Layers, X } from "lucide-react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
@@ -34,6 +34,7 @@ export function LoginWindow() {
   const [showFirstLoginModal, setShowFirstLoginModal] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [showPasskeySetupPrompt, setShowPasskeySetupPrompt] = useState(false);
+  const hasAppliedLoginDeepLinkRef = useRef(false);
   const [signupSuccess, setSignupSuccess] = useState<{
     apiKey: string;
     apiKeyPrefix: string;
@@ -67,36 +68,187 @@ export function LoginWindow() {
     captureRefCode();
   }, []);
 
-  // Guest chat can deep-link login into signup mode and optionally prefill beta code.
+  // Deep-link auth handoffs can prefill login/signup fields and jump to the proper mode.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || hasAppliedLoginDeepLinkRef.current) return;
+    hasAppliedLoginDeepLinkRef.current = true;
+    void (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const prefillToken = (params.get("prefill") || "").trim();
+      let shouldCleanup = false;
 
-    const params = new URLSearchParams(window.location.search);
-    const requestedMode = (params.get("authMode") || "").trim().toLowerCase();
-    const requestedBetaCode = (params.get("betaCode") || params.get("beta_code") || "").trim();
-    let shouldCleanup = false;
+      type SignedPrefillData = {
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        organizationName?: string;
+        betaCode?: string;
+        authMode?: "check" | "signin" | "setup" | "signup";
+        autoCheck?: boolean;
+      };
 
-    if (requestedMode === "signup") {
-      setMode("signup");
-      setGuestSignupHandoffActive(true);
-      shouldCleanup = true;
-    }
+      let signedPrefill: SignedPrefillData | null = null;
 
-    if (requestedBetaCode.length > 0) {
-      setMode("signup");
-      setBetaCode(requestedBetaCode);
-      setGuestSignupHandoffActive(true);
-      shouldCleanup = true;
-    }
+      if (prefillToken.length > 0) {
+        shouldCleanup = true;
+        try {
+          const response = await fetch(
+            `/api/auth/prefill/resolve?token=${encodeURIComponent(prefillToken)}`,
+            {
+              method: "GET",
+              cache: "no-store",
+            }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.valid && data?.prefill && typeof data.prefill === "object") {
+              signedPrefill = data.prefill as SignedPrefillData;
+            }
+          }
+        } catch (error) {
+          console.error("[Login] Failed to resolve signed prefill token:", error);
+        }
+      }
 
-    if (!shouldCleanup) return;
+      const signedEmail = typeof signedPrefill?.email === "string" ? signedPrefill.email : "";
+      const signedFirstName = typeof signedPrefill?.firstName === "string" ? signedPrefill.firstName : "";
+      const signedLastName = typeof signedPrefill?.lastName === "string" ? signedPrefill.lastName : "";
+      const signedOrganizationName =
+        typeof signedPrefill?.organizationName === "string" ? signedPrefill.organizationName : "";
+      const signedBetaCode = typeof signedPrefill?.betaCode === "string" ? signedPrefill.betaCode : "";
+      const signedAuthMode = typeof signedPrefill?.authMode === "string" ? signedPrefill.authMode : "";
+      const signedAutoCheck = signedPrefill?.autoCheck === true;
 
-    params.delete("authMode");
-    params.delete("betaCode");
-    params.delete("beta_code");
-    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-    window.history.replaceState({}, "", nextUrl);
-  }, []);
+      const requestedMode = (
+        signedAuthMode
+        || params.get("authMode")
+        || ""
+      ).trim().toLowerCase();
+      const requestedBetaCode = (
+        signedBetaCode
+        || params.get("betaCode")
+        || params.get("beta_code")
+        || ""
+      ).trim();
+      const requestedEmail = (
+        signedEmail
+        || params.get("email")
+        || params.get("emailAddress")
+        || ""
+      ).trim();
+      const requestedFirstName = (
+        signedFirstName
+        || params.get("firstName")
+        || params.get("first_name")
+        || ""
+      ).trim();
+      const requestedLastName = (
+        signedLastName
+        || params.get("lastName")
+        || params.get("last_name")
+        || ""
+      ).trim();
+      const requestedOrganizationName = (
+        signedOrganizationName
+        || params.get("organizationName")
+        || params.get("organization_name")
+        || params.get("company")
+        || ""
+      ).trim();
+      const autoCheckRaw = (params.get("autoCheck") || params.get("autoContinue") || "").trim().toLowerCase();
+      const shouldAutoCheck = signedAutoCheck || autoCheckRaw === "1" || autoCheckRaw === "true" || autoCheckRaw === "yes";
+
+      if (requestedEmail.length > 0) {
+        setEmail(requestedEmail);
+        shouldCleanup = true;
+      }
+
+      if (requestedFirstName.length > 0) {
+        setFirstName(requestedFirstName);
+        shouldCleanup = true;
+      }
+
+      if (requestedLastName.length > 0) {
+        setLastName(requestedLastName);
+        shouldCleanup = true;
+      }
+
+      if (requestedOrganizationName.length > 0) {
+        setOrganizationName(requestedOrganizationName);
+        shouldCleanup = true;
+      }
+
+      if (requestedMode === "signup") {
+        setMode("signup");
+        setGuestSignupHandoffActive(true);
+        shouldCleanup = true;
+      } else if (requestedMode === "setup") {
+        setMode("setup");
+        setWelcomeUser(requestedFirstName || requestedEmail || null);
+        shouldCleanup = true;
+      } else if (requestedMode === "signin") {
+        setMode("signin");
+        shouldCleanup = true;
+      } else if (requestedMode === "check") {
+        setMode("check");
+        shouldCleanup = true;
+      }
+
+      if (requestedBetaCode.length > 0) {
+        setMode("signup");
+        setBetaCode(requestedBetaCode);
+        setGuestSignupHandoffActive(true);
+        shouldCleanup = true;
+      }
+
+      if (shouldAutoCheck && requestedEmail.length > 0) {
+        setError("");
+        setLoading(true);
+        shouldCleanup = true;
+        try {
+          const result = await checkNeedsPasswordSetup(requestedEmail);
+
+          if (!result.userExists) {
+            setMode("check");
+            setError(tx("ui.login.error_no_account", "No account found with this email"));
+          } else if (result.needsSetup) {
+            setMode("setup");
+            setWelcomeUser(result.userName || requestedFirstName || requestedEmail);
+          } else {
+            setMode("signin");
+          }
+        } catch (err) {
+          setMode("check");
+          setError(err instanceof Error ? err.message : tx("ui.login.error_generic", "Something went wrong"));
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      if (!shouldCleanup) return;
+
+      [
+        "prefill",
+        "authMode",
+        "betaCode",
+        "beta_code",
+        "email",
+        "emailAddress",
+        "firstName",
+        "first_name",
+        "lastName",
+        "last_name",
+        "organizationName",
+        "organization_name",
+        "company",
+        "autoCheck",
+        "autoContinue",
+      ].forEach((key) => params.delete(key));
+
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.history.replaceState({}, "", nextUrl);
+    })();
+  }, [checkNeedsPasswordSetup, tx]);
 
   // Get last used OAuth provider from localStorage
   const getLastUsedProvider = (): OAuthProvider | null => {
