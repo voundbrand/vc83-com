@@ -161,6 +161,56 @@ prepare_private_key_for_openssl() {
   return 1
 }
 
+swift_sign_ed25519() {
+  local private_key_pem_path="$1"
+  local payload_path="$2"
+  local signature_out_path="$3"
+
+  local seed_b64
+  seed_b64="$(
+    openssl pkey -in "${private_key_pem_path}" -outform DER 2>/dev/null \
+      | tail -c 32 \
+      | openssl base64 -A 2>/dev/null || true
+  )"
+  if [[ -z "${seed_b64}" ]]; then
+    return 1
+  fi
+
+  local swift_script_path
+  swift_script_path="$(mktemp)"
+  cat > "${swift_script_path}" <<'SWIFT'
+import Foundation
+import CryptoKit
+
+let env = ProcessInfo.processInfo.environment
+guard let seedB64 = env["SPARKLE_SEED_B64"], let seed = Data(base64Encoded: seedB64) else {
+  fputs("missing_seed\n", stderr)
+  exit(2)
+}
+if seed.count != 32 {
+  fputs("invalid_seed_length\n", stderr)
+  exit(3)
+}
+guard CommandLine.arguments.count > 2 else {
+  fputs("missing_args\n", stderr)
+  exit(4)
+}
+let payloadPath = CommandLine.arguments[1]
+let outPath = CommandLine.arguments[2]
+let payload = try Data(contentsOf: URL(fileURLWithPath: payloadPath))
+let privateKey = try Curve25519.Signing.PrivateKey(rawRepresentation: seed)
+let signature = try privateKey.signature(for: payload)
+try signature.base64EncodedString().write(toFile: outPath, atomically: true, encoding: .utf8)
+SWIFT
+
+  set +e
+  SPARKLE_SEED_B64="${seed_b64}" swift "${swift_script_path}" "${payload_path}" "${signature_out_path}" >/dev/null 2>&1
+  local swift_exit_code=$?
+  set -e
+  rm -f "${swift_script_path}"
+  return "${swift_exit_code}"
+}
+
 if [[ ! -f "${APPCAST_PATH}" ]]; then
   missing+=("appcast:missing")
 fi
@@ -256,12 +306,19 @@ if [[ "${status}" == "ok" && "${MODE}" == "strict" ]]; then
         fi
         set -e
         if [[ ${openssl_exit_code_rawin} -ne 0 && ${openssl_exit_code_compat} -ne 0 ]]; then
-          status="blocked"
-          missing+=("sparkle_signature:openssl_failed")
-          warnings+=("openssl_error_log:${OPENSSL_ERROR_LOG_PATH}")
-          if [[ -f "${OPENSSL_ERROR_LOG_PATH}" ]]; then
-            echo "OpenSSL signing output (${OPENSSL_ERROR_LOG_PATH}):" >&2
-            sed -n '1,200p' "${OPENSSL_ERROR_LOG_PATH}" >&2
+          signature_text_path="$(mktemp)"
+          cleanup_paths+=("${signature_text_path}")
+          if command -v swift >/dev/null 2>&1 && swift_sign_ed25519 "${private_key_pem_path}" "${ZIP_PATH}" "${signature_text_path}"; then
+            signature="$(cat "${signature_text_path}")"
+            resolved_method="swift_crypto"
+          else
+            status="blocked"
+            missing+=("sparkle_signature:openssl_failed")
+            warnings+=("openssl_error_log:${OPENSSL_ERROR_LOG_PATH}")
+            if [[ -f "${OPENSSL_ERROR_LOG_PATH}" ]]; then
+              echo "OpenSSL signing output (${OPENSSL_ERROR_LOG_PATH}):" >&2
+              sed -n '1,200p' "${OPENSSL_ERROR_LOG_PATH}" >&2
+            fi
           fi
         else
           signature="$(openssl base64 -in "${signature_bin_path}" -A)"
