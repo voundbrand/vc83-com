@@ -20,13 +20,18 @@ public protocol DesktopAuthInteractiveSessionRunning: AnyObject {
 }
 
 public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopAuthInteractiveSessionRunning {
-    private let stateQueue = DispatchQueue(label: "com.vc83.sevenlayers.auth.websession.runner.state")
     private var currentSession: ASWebAuthenticationSession?
     private weak var activePresentationAnchor: NSWindow?
-    private var fallbackPresentationAnchor: NSWindow?
+    private let fallbackPresentationAnchor: NSWindow
 
     @MainActor
     public override init() {
+        self.fallbackPresentationAnchor = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: true
+        )
         super.init()
     }
 
@@ -39,16 +44,15 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
     ) -> Bool {
         cancel()
 
-        let anchor = resolvePresentationAnchor()
-        stateQueue.sync {
-            activePresentationAnchor = anchor
-        }
+        activePresentationAnchor = resolvePresentationAnchor()
 
         let session = ASWebAuthenticationSession(
             url: authorizationURL,
             callbackURLScheme: callbackURLScheme
         ) { [weak self] callbackURL, error in
-            self?.clearSessionReference()
+            DispatchQueue.main.async {
+                self?.currentSession = nil
+            }
 
             if let callbackURL {
                 onCompletion(.success(callbackURL))
@@ -70,24 +74,14 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
             return false
         }
 
-        stateQueue.sync {
-            currentSession = session
-        }
+        currentSession = session
         return true
     }
 
     @MainActor
     public func cancel() {
-        stateQueue.sync {
-            currentSession?.cancel()
-            currentSession = nil
-        }
-    }
-
-    private func clearSessionReference() {
-        stateQueue.sync {
-            currentSession = nil
-        }
+        currentSession?.cancel()
+        currentSession = nil
     }
 
     @MainActor
@@ -104,38 +98,12 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
             return firstWindow
         }
 
-        if let fallbackPresentationAnchor {
-            return fallbackPresentationAnchor
-        }
-
-        let fallbackWindow = NSWindow(
-            contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: true
-        )
-        self.fallbackPresentationAnchor = fallbackWindow
-        return fallbackWindow
+        return fallbackPresentationAnchor
     }
 }
 
 extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresentationContextProviding {
     public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        stateQueue.sync {
-            if let activePresentationAnchor {
-                return activePresentationAnchor
-            }
-
-            if let fallbackPresentationAnchor {
-                return fallbackPresentationAnchor
-            }
-
-            return NSWindow(
-                contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: true
-            )
-        }
+        activePresentationAnchor ?? fallbackPresentationAnchor
     }
 }
