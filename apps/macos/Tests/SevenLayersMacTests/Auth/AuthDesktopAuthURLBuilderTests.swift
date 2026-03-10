@@ -39,4 +39,22 @@ final class AuthDesktopAuthURLBuilderTests: XCTestCase {
         XCTAssertEqual(query["callback"], "vc83-mac://auth/callback")
         XCTAssertEqual(query["state"], "state-xyz")
     }
+
+    func testBuildsDesktopAuthorizationURLWithPerRequestProviderOverride() throws {
+        let config = DesktopAuthConfiguration(
+            webBaseURL: URL(string: "https://app.vc83.test")!,
+            preferredOAuthProvider: .google
+        )
+
+        let builder = DesktopAuthURLBuilder(configuration: config)
+        let authURL = try builder.makeAuthorizationURL(
+            state: "state-override-1",
+            provider: .github
+        )
+        let components = try XCTUnwrap(URLComponents(url: authURL, resolvingAgainstBaseURL: false))
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(query["provider"], "github")
+        XCTAssertEqual(query["state"], "state-override-1")
+    }
 }

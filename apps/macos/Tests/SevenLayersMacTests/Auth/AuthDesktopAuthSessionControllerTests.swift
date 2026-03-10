@@ -115,6 +115,24 @@ final class AuthDesktopAuthSessionControllerTests: XCTestCase {
         )
     }
 
+    func testBeginLoginSupportsPerLoginProviderSelection() throws {
+        let store = InMemorySessionCredentialStore()
+        let controller = makeController(store: store)
+
+        let signInURL = try controller.beginLogin(
+            state: "provider-state-1",
+            provider: .github
+        ) { _ in true }
+
+        let queryItems = try XCTUnwrap(
+            URLComponents(url: signInURL, resolvingAgainstBaseURL: false)?.queryItems
+        )
+        let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(query["provider"], "github")
+        XCTAssertEqual(query["state"], "provider-state-1")
+    }
+
     func testCompleteAuthorizingStateWithoutCallbackSetsSignedOutReason() throws {
         let store = InMemorySessionCredentialStore()
         let controller = makeController(store: store)

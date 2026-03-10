@@ -15,6 +15,7 @@ VERSION="${VERSION:-0.0.0-dev}"
 MIN_OS_VERSION="${MIN_OS_VERSION:-14.0}"
 BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-release}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+AUTH_CALLBACK_SCHEME="${AUTH_CALLBACK_SCHEME:-vc83-mac}"
 
 if [[ ! -x "${EXECUTABLE_SOURCE}" ]]; then
   (
@@ -74,6 +75,17 @@ fi
 cat >> "${APP_BUNDLE_PATH}/Contents/Info.plist" <<EOF
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>${BUNDLE_IDENTIFIER}.auth</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>${AUTH_CALLBACK_SCHEME}</string>
+      </array>
+    </dict>
+  </array>
   <key>LSMinimumSystemVersion</key>
   <string>${MIN_OS_VERSION}</string>
   <key>NSHighResolutionCapable</key>

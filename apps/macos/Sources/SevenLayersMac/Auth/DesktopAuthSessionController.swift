@@ -124,9 +124,13 @@ public final class DesktopAuthSessionController: DesktopAuthStateProviding, Desk
     @discardableResult
     public func beginLogin(
         state: String = UUID().uuidString,
+        provider: DesktopAuthOAuthProvider? = nil,
         openAuthorizationURL: (URL) -> Bool
     ) throws -> URL {
-        let authorizationURL = try coordinator.beginSignIn(state: state)
+        let authorizationURL = try coordinator.beginSignIn(
+            state: state,
+            provider: provider
+        )
         guard openAuthorizationURL(authorizationURL) else {
             authSessionState = .signedOut(reason: .loginLaunchFailed)
             throw DesktopAuthSessionControllerError.authorizationURLOpenFailed

@@ -179,10 +179,14 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        guard let provider = chooseOAuthProvider() else {
+            return
+        }
+
         let useSystemAuthSession = shouldUseSystemAuthSession()
 
         do {
-            _ = try authSessionController.beginLogin { [weak self] authorizationURL in
+            _ = try authSessionController.beginLogin(provider: provider) { [weak self] authorizationURL in
                 guard let self else {
                     return false
                 }
@@ -339,6 +343,39 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
             return true
         default:
             return false
+        }
+    }
+
+    @MainActor
+    private func chooseOAuthProvider() -> DesktopAuthOAuthProvider? {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Sign In to SevenLayers"
+        alert.informativeText = "Choose an identity provider."
+
+        alert.addButton(withTitle: "Continue with Google")
+        alert.addButton(withTitle: "Continue with GitHub")
+        alert.addButton(withTitle: "Continue with Microsoft")
+        alert.addButton(withTitle: "Continue with Apple")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+
+        let response = alert.runModal()
+        let index = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+
+        switch index {
+        case 0:
+            return .google
+        case 1:
+            return .github
+        case 2:
+            return .microsoft
+        case 3:
+            return .apple
+        default:
+            return nil
         }
     }
 }

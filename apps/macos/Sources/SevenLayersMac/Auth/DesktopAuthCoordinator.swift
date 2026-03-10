@@ -28,9 +28,15 @@ public final class DesktopAuthCoordinator {
         )
     }
 
-    public func beginSignIn(state: String = UUID().uuidString) throws -> URL {
+    public func beginSignIn(
+        state: String = UUID().uuidString,
+        provider: DesktopAuthOAuthProvider? = nil
+    ) throws -> URL {
         pendingState = state
-        return try urlBuilder.makeAuthorizationURL(state: state)
+        return try urlBuilder.makeAuthorizationURL(
+            state: state,
+            provider: provider
+        )
     }
 
     public func handleCallback(_ callbackURL: URL) throws -> DesktopAuthCredential {
