@@ -142,6 +142,10 @@ if [[ "${status}" == "ok" && "${MODE}" == "strict" ]]; then
     if [[ "${notary_submission_status}" != "Accepted" ]]; then
       status="blocked"
       missing+=("notary_status:${notary_submission_status:-unknown}")
+      if [[ -f "${NOTARY_OUTPUT_PATH}" ]]; then
+        echo "Notary tool output (${NOTARY_OUTPUT_PATH}):" >&2
+        sed -n '1,240p' "${NOTARY_OUTPUT_PATH}" >&2
+      fi
     else
       notarization_accepted=true
 

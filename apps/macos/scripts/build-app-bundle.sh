@@ -54,6 +54,7 @@ cat > "${APP_BUNDLE_PATH}/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-codesign --force --deep --sign "${SIGN_IDENTITY}" "${APP_BUNDLE_PATH}"
+# Notarization requires hardened runtime for Developer ID distributions.
+codesign --force --deep --options runtime --timestamp --sign "${SIGN_IDENTITY}" "${APP_BUNDLE_PATH}"
 
 echo "${APP_BUNDLE_PATH}"
