@@ -10,15 +10,15 @@ export function getNewUserInvitationText(args: {
   setupLink: string;
 }) {
   return `
-l4yercak3 - Team Invitation
+sevenlayers - Team Invitation
 
-Welcome to l4yercak3!
+Welcome to sevenlayers!
 
-${args.inviterName} has invited you to join ${args.organizationName} on l4yercak3.
+${args.inviterName} has invited you to join ${args.organizationName} on sevenlayers.
 
-What is l4yercak3?
+What is sevenlayers?
 
-l4yercak3 (pronounced "Layer Cake") is a B2B workflow platform that helps businesses streamline their operations. We bring together all the digital tools your business needs—CRM, email workflows, invoicing, project management, form builders, and more—into one integrated workspace with AI-powered automation.
+sevenlayers is a B2B workflow platform that helps businesses streamline their operations. We bring together all the digital tools your business needs — CRM, email workflows, invoicing, project management, form builders, and more — into one integrated workspace with AI-powered automation.
 
 Each tool is a "layer" that works seamlessly with the others, so your customer data flows between your CRM, invoices, email campaigns, and projects. No more switching between dozens of separate tools.
 
@@ -27,14 +27,13 @@ Get Started
 To accept this invitation and set up your account, please visit:
 ${args.setupLink}
 
-This link will take you to a secure page where you can create your password and access your new workspace.
+The login window opens directly with your email prefilled, so you can create your password and access your workspace without re-entering it manually.
 
 ---
 
 If you have any questions, please don't hesitate to reach out to ${args.inviterName} or our support team.
 
-© ${new Date().getFullYear()} l4yercak3. All rights reserved.
-Layer on the superpowers.
+© ${new Date().getFullYear()} sevenlayers. All rights reserved.
 
 If you received this email by mistake, you can safely ignore it.
   `.trim();
@@ -50,26 +49,25 @@ export function getExistingUserInvitationText(args: {
   setupLink: string;
 }) {
   return `
-l4yercak3 - New Organization Access
+sevenlayers - New Organization Access
 
 Hello!
 
-${args.inviterName} has added you to ${args.organizationName} on l4yercak3.
+${args.inviterName} has added you to ${args.organizationName} on sevenlayers.
 
-You already have a l4yercak3 account, so you can access this new organization immediately.
+You already have a sevenlayers account, so you can access this new organization immediately.
 
 Access Your New Organization
 
 Visit: ${args.setupLink}
 
-Log in with your existing credentials, and you'll find ${args.organizationName} in your organization list.
+Log in with your existing credentials. The login window opens with your email prefilled, and you'll find ${args.organizationName} in your organization list.
 
 ---
 
 If you have any questions, please contact ${args.inviterName}.
 
-© ${new Date().getFullYear()} l4yercak3. All rights reserved.
-Layer on the superpowers.
+© ${new Date().getFullYear()} sevenlayers. All rights reserved.
 
 If you received this email by mistake, you can safely ignore it.
   `.trim();
@@ -85,25 +83,24 @@ export function getPasswordResetText(args: {
   const greeting = args.userName ? `Hello ${args.userName}` : "Hello";
 
   return `
-l4yercak3 - Password Reset Request
+sevenlayers - Password Reset Request
 
 ${greeting},
 
-We received a request to reset your password for your l4yercak3 account.
+We received a request to reset your password for your sevenlayers account.
 
 Reset Your Password
 
 To create a new password, please visit:
 ${args.resetLink}
 
-⚠️ Important:
+Important:
 - This link will expire in 1 hour for security reasons
 - If you didn't request this password reset, you can safely ignore this email
 
 ---
 
-© ${new Date().getFullYear()} l4yercak3. All rights reserved.
-Layer on the superpowers.
+© ${new Date().getFullYear()} sevenlayers. All rights reserved.
 
 If you have any questions about your account security, please contact our support team.
   `.trim();

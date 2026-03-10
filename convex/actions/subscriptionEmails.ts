@@ -14,6 +14,18 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import {
+  EMAIL_BRAND,
+  EMAIL_COLORS,
+  emailDarkWrapper,
+  emailHeader,
+  emailFooter,
+  emailButton,
+  emailContentRow,
+  emailHeading,
+  emailParagraph,
+  emailMetric,
+} from "../lib/emailBrandConstants";
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -100,6 +112,7 @@ function buildEmail(args: {
   trialEndsAt?: number;
 }): { subject: string; html: string; text: string } {
   const orgName = args.organizationName;
+  const appUrl = "https://app.l4yercak3.com";
 
   switch (args.event) {
     case "plan_upgrade": {
@@ -107,20 +120,23 @@ function buildEmail(args: {
       const subject = `Welcome to ${tierInfo.name} - ${orgName}`;
       return {
         subject,
-        html: wrapHtml(`
-          <h1 style="color:#1a1a2e;margin:0 0 16px">Welcome to ${tierInfo.name}!</h1>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Your organization <strong>${orgName}</strong> has been upgraded to the
-            <strong>${tierInfo.name}</strong> plan (${tierInfo.price}).
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            ${args.billingPeriod === "annual" ? "You're on annual billing - saving ~17% compared to monthly." : ""}
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Your new features are active immediately. Check your dashboard to explore everything that's now available.
-          </p>
-          ${ctaButton("Go to Dashboard", "https://app.l4yercak3.com")}
-        `),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailHeading(`Welcome to ${tierInfo.name}!`) +
+            emailParagraph(
+              `Your organization <strong>${orgName}</strong> has been upgraded to the <strong>${tierInfo.name}</strong> plan (${tierInfo.price}).`
+            ) +
+            (args.billingPeriod === "annual"
+              ? emailParagraph("You're on annual billing — saving ~17% compared to monthly.")
+              : "") +
+            emailParagraph(
+              "Your new features are active immediately. Check your dashboard to explore everything that's now available."
+            ) +
+            emailButton("Go to Dashboard", appUrl)
+          ) +
+          emailFooter()
+        ),
         text: `Welcome to ${tierInfo.name}! Your organization ${orgName} has been upgraded. Your new features are active immediately.`,
       };
     }
@@ -132,21 +148,20 @@ function buildEmail(args: {
       const subject = `Plan change scheduled - ${orgName}`;
       return {
         subject,
-        html: wrapHtml(`
-          <h1 style="color:#1a1a2e;margin:0 0 16px">Plan Change Scheduled</h1>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Your plan for <strong>${orgName}</strong> will change from
-            <strong>${fromInfo.name}</strong> to <strong>${toInfo.name}</strong>
-            on <strong>${dateStr}</strong>.
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            You'll keep all your current ${fromInfo.name} features until the change takes effect.
-            No action is needed - the switch will happen automatically.
-          </p>
-          <p style="color:#666;font-size:14px;line-height:1.6">
-            Changed your mind? You can cancel this change from the Store window in your dashboard.
-          </p>
-        `),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailHeading("Plan Change Scheduled") +
+            emailParagraph(
+              `Your plan for <strong>${orgName}</strong> will change from <strong>${fromInfo.name}</strong> to <strong>${toInfo.name}</strong> on <strong>${dateStr}</strong>.`
+            ) +
+            emailParagraph(
+              `You'll keep all your current ${fromInfo.name} features until the change takes effect. No action is needed — the switch will happen automatically.`
+            ) +
+            emailParagraph("Changed your mind? You can cancel this change from the Store window in your dashboard.", { muted: true, small: true })
+          ) +
+          emailFooter()
+        ),
         text: `Plan change scheduled for ${orgName}. Changing from ${fromInfo.name} to ${toInfo.name} on ${dateStr}. You'll keep your current features until then.`,
       };
     }
@@ -157,17 +172,17 @@ function buildEmail(args: {
       const subject = `Credits added - ${credits.toLocaleString()} credits for ${orgName}`;
       return {
         subject,
-        html: wrapHtml(`
-          <h1 style="color:#1a1a2e;margin:0 0 16px">Credits Added!</h1>
-          <div style="background:#f0f9ff;border-radius:8px;padding:20px;margin:16px 0;text-align:center">
-            <div style="font-size:32px;font-weight:bold;color:#1a1a2e">${credits.toLocaleString()}</div>
-            <div style="color:#666;font-size:14px">credits added to ${orgName}</div>
-          </div>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Your purchase of <strong>\u20AC${amount}</strong> has been processed.
-            These credits never expire and can be used for AI features, automations, and more.
-          </p>
-        `),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailHeading("Credits Added!") +
+            emailMetric(credits.toLocaleString(), `credits added to ${orgName}`) +
+            emailParagraph(
+              `Your purchase of <strong>\u20AC${amount}</strong> has been processed. These credits never expire and can be used for AI features, automations, and more.`
+            )
+          ) +
+          emailFooter()
+        ),
         text: `${credits.toLocaleString()} credits added to ${orgName}. Your purchase of EUR ${amount} has been processed. Credits never expire.`,
       };
     }
@@ -178,21 +193,24 @@ function buildEmail(args: {
       const subject = `Subscription ending - ${orgName}`;
       return {
         subject,
-        html: wrapHtml(`
-          <h1 style="color:#1a1a2e;margin:0 0 16px">Subscription Ending</h1>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Your <strong>${tierInfo.name}</strong> subscription for <strong>${orgName}</strong>
-            will end on <strong>${dateStr}</strong>.
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            After this date, your organization will move to the Free plan.
-            You'll keep all your data, but some features will be restricted.
-          </p>
-          <p style="color:#666;font-size:14px;line-height:1.6">
-            Want to keep your plan? You can reactivate from the Store window before ${dateStr}.
-          </p>
-          ${ctaButton("Reactivate Subscription", "https://app.l4yercak3.com")}
-        `),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailHeading("Subscription Ending") +
+            emailParagraph(
+              `Your <strong>${tierInfo.name}</strong> subscription for <strong>${orgName}</strong> will end on <strong>${dateStr}</strong>.`
+            ) +
+            emailParagraph(
+              "After this date, your organization will move to the Free plan. You'll keep all your data, but some features will be restricted."
+            ) +
+            emailParagraph(
+              `Want to keep your plan? You can reactivate from the Store window before ${dateStr}.`,
+              { muted: true, small: true }
+            ) +
+            emailButton("Reactivate Subscription", appUrl)
+          ) +
+          emailFooter()
+        ),
         text: `Your ${tierInfo.name} subscription for ${orgName} will end on ${dateStr}. After this date, you'll move to the Free plan. Reactivate from your dashboard before then.`,
       };
     }
@@ -203,21 +221,21 @@ function buildEmail(args: {
       const subject = `Your 14-day ${tierInfo.name} trial has started - ${orgName}`;
       return {
         subject,
-        html: wrapHtml(`
-          <h1 style="color:#1a1a2e;margin:0 0 16px">Your Trial Has Started!</h1>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Welcome to your <strong>14-day free trial</strong> of the
-            <strong>${tierInfo.name}</strong> plan for <strong>${orgName}</strong>.
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            You have full access to all ${tierInfo.name} features until <strong>${endsStr}</strong>.
-            No credit card required during your trial.
-          </p>
-          <p style="color:#333;font-size:16px;line-height:1.6">
-            Make the most of your trial by exploring all available features.
-          </p>
-          ${ctaButton("Explore Features", "https://app.l4yercak3.com")}
-        `),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailHeading("Your Trial Has Started!") +
+            emailParagraph(
+              `Welcome to your <strong>14-day free trial</strong> of the <strong>${tierInfo.name}</strong> plan for <strong>${orgName}</strong>.`
+            ) +
+            emailParagraph(
+              `You have full access to all ${tierInfo.name} features until <strong>${endsStr}</strong>. No credit card required during your trial.`
+            ) +
+            emailParagraph("Make the most of your trial by exploring all available features.") +
+            emailButton("Explore Features", appUrl)
+          ) +
+          emailFooter()
+        ),
         text: `Your 14-day ${tierInfo.name} trial for ${orgName} has started! Full access until ${endsStr}. No credit card required.`,
       };
     }
@@ -225,39 +243,14 @@ function buildEmail(args: {
     default:
       return {
         subject: `Subscription update - ${orgName}`,
-        html: wrapHtml(`<p>Your subscription for ${orgName} has been updated.</p>`),
+        html: emailDarkWrapper(
+          emailHeader() +
+          emailContentRow(
+            emailParagraph(`Your subscription for ${orgName} has been updated.`)
+          ) +
+          emailFooter()
+        ),
         text: `Your subscription for ${orgName} has been updated.`,
       };
   }
-}
-
-function ctaButton(label: string, url: string): string {
-  return `
-    <div style="text-align:center;margin:24px 0">
-      <a href="${url}" style="display:inline-block;background:#1a1a2e;color:white;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:bold;font-size:14px">${label}</a>
-    </div>
-  `;
-}
-
-function wrapHtml(content: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8" /></head>
-    <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-      <div style="max-width:600px;margin:0 auto;padding:40px 20px">
-        <div style="background:white;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-          ${content}
-        </div>
-        <div style="text-align:center;margin-top:24px;color:#999;font-size:12px">
-          <p>l4yercak3 - Business Operating System</p>
-          <p>
-            <a href="https://app.l4yercak3.com" style="color:#999;text-decoration:underline">Dashboard</a> &bull;
-            <a href="mailto:support@l4yercak3.com" style="color:#999;text-decoration:underline">Support</a>
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
 }

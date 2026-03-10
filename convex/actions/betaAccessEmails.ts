@@ -15,8 +15,22 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 import { createBetaAutoApproveToken } from "../lib/betaAutoApproveToken";
 import { toConvexSiteBaseUrl } from "../integrations/endpointResolver";
+import { buildPrefilledPlatformLoginUrl } from "../lib/authLinks";
+import { createAuthPrefillToken } from "../lib/authPrefillToken";
+import {
+  EMAIL_BRAND,
+  EMAIL_COLORS,
+  emailDarkWrapper,
+  emailHeader,
+  emailFooter,
+  emailButton,
+  emailContentRow,
+  emailHeading,
+  emailParagraph,
+  emailInfoBox,
+  emailDivider,
+} from "../lib/emailBrandConstants";
 
-// Initialize Resend client
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -59,129 +73,50 @@ export const notifySalesOfBetaRequest = internalAction({
       autoApproveUrl = `${backendBaseUrl.replace(/\/+$/, "")}/api/beta/auto-approve?token=${encodeURIComponent(token)}`;
     }
 
-    const subject = `🔒 New Beta Access Request: ${fullName}`;
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: #2A2A2A;
-      background-color: #F3F4F6;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #FFFFFF;
-      border: 3px solid #6B46C1;
-      box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
-    }
-    .header {
-      background: linear-gradient(135deg, #6B46C1 0%, #9F7AEA 100%);
-      padding: 30px;
-      text-align: center;
-      border-bottom: 3px solid #6B46C1;
-    }
-    .header h1 {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 20px;
-      color: #FFFFFF;
-      margin: 0;
-      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .info-box {
-      background: #F9FAFB;
-      border-left: 4px solid #6B46C1;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .button {
-      display: inline-block;
-      padding: 15px 40px;
-      background-color: #6B46C1;
-      color: #FFFFFF;
-      text-decoration: none;
-      font-weight: bold;
-      border: 3px solid #6B46C1;
-      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
-      font-size: 16px;
-    }
-    .footer {
-      background-color: #F9FAFB;
-      padding: 20px 30px;
-      text-align: center;
-      border-top: 3px solid #6B46C1;
-      font-size: 14px;
-      color: #6B7280;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🔒 New Beta Access Request</h1>
-    </div>
+    const subject = `New Beta Access Request: ${fullName}`;
+    const html = emailDarkWrapper(
+      emailHeader({ subtitle: "New Beta Access Request" }) +
+      emailContentRow(
+        emailHeading("Someone wants beta access!") +
 
-    <div class="content">
-      <h2 style="color: #6B46C1;">Someone wants beta access!</h2>
+        emailInfoBox(`
+          <p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">Name:</strong> ${fullName}</p>
+          <p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">Email:</strong> ${args.email}</p>
+          <p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
+        `) +
 
-      <div class="info-box">
-        <p><strong>Name:</strong> ${fullName}</p>
-        <p><strong>Email:</strong> ${args.email}</p>
-        <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })}</p>
-      </div>
+        (args.requestReason ? (
+          emailHeading("Why they want access:", { level: 3 }) +
+          emailInfoBox(`<p style="margin:0;font-size:14px;color:${EMAIL_COLORS.textPrimary};">${args.requestReason}</p>`)
+        ) : '') +
 
-      ${args.requestReason ? `
-      <h3>Why they want access:</h3>
-      <div class="info-box">
-        <p>${args.requestReason}</p>
-      </div>
-      ` : ''}
+        (args.useCase ? (
+          emailHeading("Their use case:", { level: 3 }) +
+          emailInfoBox(`<p style="margin:0;font-size:14px;color:${EMAIL_COLORS.textPrimary};">${args.useCase}</p>`)
+        ) : '') +
 
-      ${args.useCase ? `
-      <h3>Their use case:</h3>
-      <div class="info-box">
-        <p>${args.useCase}</p>
-      </div>
-      ` : ''}
+        (args.referralSource ? emailParagraph(`<strong>How they found us:</strong> ${args.referralSource}`) : '') +
 
-      ${args.referralSource ? `
-      <p><strong>How they found us:</strong> ${args.referralSource}</p>
-      ` : ''}
+        emailDivider() +
+        emailHeading("Next Steps", { level: 2 }) +
+        `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
+          <li>Review the request in the admin dashboard</li>
+          <li>Check their email/profile for legitimacy</li>
+          <li>Approve or reject with reason</li>
+          <li>They'll receive an email notification of your decision</li>
+        </ul>` +
 
-      <h2>🎯 Next Steps</h2>
-      <ul>
-        <li>Review the request in the admin dashboard</li>
-        <li>Check their email/profile for legitimacy</li>
-        <li>Approve or reject with reason</li>
-        <li>They'll receive an email notification of your decision</li>
-      </ul>
+        (autoApproveUrl ? (
+          emailDivider() +
+          emailHeading("One-Click Approval", { level: 2 }) +
+          emailButton("Auto-Approve Beta User", autoApproveUrl) +
+          emailParagraph("Secure link expires in 7 days.", { muted: true, small: true })
+        ) : '') +
 
-      ${autoApproveUrl ? `
-      <h2>⚡ One-Click Approval</h2>
-      <p><a href="${autoApproveUrl}" class="button" style="margin-right: 10px;">Auto-Approve Beta User</a></p>
-      <p style="font-size: 13px; color: #6B7280;">Secure link expires in 7 days.</p>
-      ` : ''}
-
-      <p><a href="${appBaseUrl.replace(/\/+$/, "")}/?openWindow=organizations&panel=beta-access" class="button">Review in Admin Dashboard</a></p>
-    </div>
-
-    <div class="footer">
-      <p>L4YERCAK3 Beta Access System</p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+        emailButton("Review in Admin Dashboard", `${appBaseUrl.replace(/\/+$/, "")}/?openWindow=organizations&panel=beta-access`, { variant: "secondary" })
+      ) +
+      emailFooter({ extra: `${EMAIL_BRAND.name} Beta Access System` })
+    );
 
     try {
       const { data, error } = await resend.emails.send({
@@ -199,7 +134,7 @@ export const notifySalesOfBetaRequest = internalAction({
         throw new Error(`Email could not be sent: ${error.message}`);
       }
 
-      console.log("✅ Sales notification sent successfully:", data);
+      console.log("Sales notification sent successfully:", data);
       return { success: true, emailId: data?.id };
     } catch (error) {
       console.error("Error sending sales notification:", error);
@@ -222,100 +157,34 @@ export const sendBetaRequestConfirmation = internalAction({
 
     const firstName = args.firstName || "there";
     const subject = "Your Beta Access Request is Being Reviewed";
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: #2A2A2A;
-      background-color: #F3F4F6;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #FFFFFF;
-      border: 3px solid #6B46C1;
-      box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
-    }
-    .header {
-      background: linear-gradient(135deg, #6B46C1 0%, #9F7AEA 100%);
-      padding: 30px;
-      text-align: center;
-      border-bottom: 3px solid #6B46C1;
-    }
-    .header h1 {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 20px;
-      color: #FFFFFF;
-      margin: 0;
-      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .info-box {
-      background: #F9FAFB;
-      border-left: 4px solid #6B46C1;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .footer {
-      background-color: #F9FAFB;
-      padding: 20px 30px;
-      text-align: center;
-      border-top: 3px solid #6B46C1;
-      font-size: 14px;
-      color: #6B7280;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>✅ Request Received</h1>
-    </div>
+    const html = emailDarkWrapper(
+      emailHeader({ subtitle: "Request Received" }) +
+      emailContentRow(
+        emailHeading(`Hi ${firstName}!`) +
+        emailParagraph(`Thank you for your interest in ${EMAIL_BRAND.name}! We've received your beta access request and it's currently under review.`) +
 
-    <div class="content">
-      <h2 style="color: #6B46C1;">Hi ${firstName}!</h2>
+        emailInfoBox(`
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">What happens next?</p>
+          <ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:1.8;">
+            <li>Our team will review your request within 24-48 hours</li>
+            <li>We'll send you an email when we make a decision</li>
+            <li>If approved, you'll get instant access to the platform</li>
+          </ul>
+        `) +
 
-      <p>Thank you for your interest in l4yercak3! We've received your beta access request and it's currently under review.</p>
+        emailParagraph("We appreciate your patience as we carefully grow our beta community!") +
 
-      <div class="info-box">
-        <p><strong>What happens next?</strong></p>
-        <ul>
-          <li>Our team will review your request within 24-48 hours</li>
-          <li>We'll send you an email when we make a decision</li>
-          <li>If approved, you'll get instant access to the platform</li>
-        </ul>
-      </div>
+        emailParagraph("In the meantime, feel free to:") +
+        `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
+          <li>Check out our <a href="https://l4yercak3.com/docs" style="color:${EMAIL_COLORS.accent};">documentation</a></li>
+          <li>Follow us on <a href="https://twitter.com/l4yercak3" style="color:${EMAIL_COLORS.accent};">Twitter</a></li>
+          <li>Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord community</a></li>
+        </ul>` +
 
-      <p>We appreciate your patience as we carefully grow our beta community!</p>
-
-      <p>In the meantime, feel free to:</p>
-      <ul>
-        <li>Check out our <a href="https://l4yercak3.com/docs">documentation</a></li>
-        <li>Follow us on <a href="https://twitter.com/l4yercak3">Twitter</a></li>
-        <li>Join our <a href="https://discord.gg/l4yercak3">Discord community</a></li>
-      </ul>
-
-      <p><strong>Questions?</strong> Reply to this email anytime.</p>
-    </div>
-
-    <div class="footer">
-      <p>L4YERCAK3 Team</p>
-      <p><a href="https://l4yercak3.com">l4yercak3.com</a></p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+        emailParagraph("<strong>Questions?</strong> Reply to this email anytime.")
+      ) +
+      emailFooter()
+    );
 
     try {
       const { data, error } = await resend.emails.send({
@@ -334,7 +203,7 @@ export const sendBetaRequestConfirmation = internalAction({
         throw new Error(`Email could not be sent: ${error.message}`);
       }
 
-      console.log("✅ Confirmation email sent successfully:", data);
+      console.log("Confirmation email sent successfully:", data);
       return { success: true, emailId: data?.id };
     } catch (error) {
       console.error("Error sending confirmation email:", error);
@@ -350,122 +219,60 @@ export const sendBetaApprovalEmail = internalAction({
   args: {
     email: v.string(),
     firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
 
     const firstName = args.firstName || "there";
-    const subject = "🎉 Your Beta Access Has Been Approved!";
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: #2A2A2A;
-      background-color: #F3F4F6;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #FFFFFF;
-      border: 3px solid #10b981;
-      box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
-    }
-    .header {
-      background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-      padding: 30px;
-      text-align: center;
-      border-bottom: 3px solid #10b981;
-    }
-    .header h1 {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 20px;
-      color: #FFFFFF;
-      margin: 0;
-      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .info-box {
-      background: #f0fdf4;
-      border-left: 4px solid #10b981;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .button {
-      display: inline-block;
-      padding: 15px 40px;
-      background-color: #10b981;
-      color: #FFFFFF;
-      text-decoration: none;
-      font-weight: bold;
-      border: 3px solid #10b981;
-      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
-      font-size: 16px;
-    }
-    .footer {
-      background-color: #F9FAFB;
-      padding: 20px 30px;
-      text-align: center;
-      border-top: 3px solid #10b981;
-      font-size: 14px;
-      color: #6B7280;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🎉 Welcome to l4yercak3!</h1>
-    </div>
+    const prefillToken = await createAuthPrefillToken({
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      authMode: "check",
+      autoCheck: true,
+      ttlMs: 14 * 24 * 60 * 60 * 1000,
+    });
+    const loginUrl = buildPrefilledPlatformLoginUrl({
+      appBaseUrl,
+      openLoginSource: "betaApprovalEmail",
+      prefillToken,
+    });
+    const subject = `Your Beta Access Has Been Approved!`;
+    const html = emailDarkWrapper(
+      emailHeader({ subtitle: `Welcome to ${EMAIL_BRAND.name}!` }) +
+      emailContentRow(
+        emailHeading(`Hi ${firstName}!`) +
+        emailParagraph(`<strong>Great news!</strong> Your beta access request has been approved. You now have full access to ${EMAIL_BRAND.name}!`) +
 
-    <div class="content">
-      <h2 style="color: #10b981;">Hi ${firstName}!</h2>
+        emailInfoBox(`
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Getting Started:</p>
+          <ol style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:1.8;">
+            <li>Open your personal sign-in link (email prefilled)</li>
+            <li>Complete your profile</li>
+            <li>Explore the platform features</li>
+            <li>Start building your first project</li>
+          </ol>
+        `, { borderColor: EMAIL_COLORS.success }) +
 
-      <p><strong>Great news!</strong> Your beta access request has been approved. You now have full access to l4yercak3! 🎉</p>
+        emailButton("Sign In Now", loginUrl) +
 
-      <div class="info-box">
-        <p><strong>Getting Started:</strong></p>
-        <ol>
-          <li>Sign in at <a href="https://l4yercak3.com">l4yercak3.com</a></li>
-          <li>Complete your profile</li>
-          <li>Explore the platform features</li>
-          <li>Start building your first project</li>
-        </ol>
-      </div>
+        emailDivider() +
+        emailHeading("What's Next?", { level: 2 }) +
+        `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Quick Start Guide:</strong> Check out our <a href="https://l4yercak3.com/docs/quickstart" style="color:${EMAIL_COLORS.accent};">quick start guide</a></li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Templates:</strong> Browse our <a href="https://l4yercak3.com/?openWindow=templates" style="color:${EMAIL_COLORS.accent};">template library</a></li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Support:</strong> Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord</a> for help</li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Feedback:</strong> We'd love to hear your thoughts!</li>
+        </ul>` +
 
-      <p><a href="https://l4yercak3.com" class="button">Sign In Now →</a></p>
-
-      <h3>🚀 What's Next?</h3>
-      <ul>
-        <li><strong>Quick Start Guide:</strong> Check out our <a href="https://l4yercak3.com/docs/quickstart">quick start guide</a></li>
-        <li><strong>Templates:</strong> Browse our <a href="https://l4yercak3.com/?openWindow=templates">template library</a></li>
-        <li><strong>Support:</strong> Join our <a href="https://discord.gg/l4yercak3">Discord</a> for help</li>
-        <li><strong>Feedback:</strong> We'd love to hear your thoughts!</li>
-      </ul>
-
-      <p>As a beta user, your feedback is incredibly valuable. Please don't hesitate to reach out with questions, suggestions, or issues.</p>
-
-      <p><strong>Happy building! 🎂</strong></p>
-    </div>
-
-    <div class="footer">
-      <p>L4YERCAK3 Team</p>
-      <p><a href="https://l4yercak3.com">l4yercak3.com</a></p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+        emailParagraph("As a beta user, your feedback is incredibly valuable. Please don't hesitate to reach out with questions, suggestions, or issues.") +
+        emailParagraph("<strong>Happy building!</strong>")
+      ) +
+      emailFooter()
+    );
 
     try {
       const { data, error } = await resend.emails.send({
@@ -484,7 +291,7 @@ export const sendBetaApprovalEmail = internalAction({
         throw new Error(`Email could not be sent: ${error.message}`);
       }
 
-      console.log("✅ Approval email sent successfully:", data);
+      console.log("Approval email sent successfully:", data);
       return { success: true, emailId: data?.id };
     } catch (error) {
       console.error("Error sending approval email:", error);
@@ -508,108 +315,31 @@ export const sendBetaRejectionEmail = internalAction({
 
     const firstName = args.firstName || "there";
     const subject = "Your Beta Access Request Update";
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: #2A2A2A;
-      background-color: #F3F4F6;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background-color: #FFFFFF;
-      border: 3px solid #6B46C1;
-      box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
-    }
-    .header {
-      background: linear-gradient(135deg, #6B46C1 0%, #9F7AEA 100%);
-      padding: 30px;
-      text-align: center;
-      border-bottom: 3px solid #6B46C1;
-    }
-    .header h1 {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 20px;
-      color: #FFFFFF;
-      margin: 0;
-      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .info-box {
-      background: #F9FAFB;
-      border-left: 4px solid #6B46C1;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .button {
-      display: inline-block;
-      padding: 15px 40px;
-      background-color: #6B46C1;
-      color: #FFFFFF;
-      text-decoration: none;
-      font-weight: bold;
-      border: 3px solid #6B46C1;
-      box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.2);
-      font-size: 16px;
-    }
-    .footer {
-      background-color: #F9FAFB;
-      padding: 20px 30px;
-      text-align: center;
-      border-top: 3px solid #6B46C1;
-      font-size: 14px;
-      color: #6B7280;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Beta Access Request Update</h1>
-    </div>
+    const html = emailDarkWrapper(
+      emailHeader({ subtitle: "Beta Access Request Update" }) +
+      emailContentRow(
+        emailHeading(`Hi ${firstName},`) +
+        emailParagraph(`Thank you for your interest in ${EMAIL_BRAND.name}. After careful review, we're unable to approve your beta access request at this time.`) +
 
-    <div class="content">
-      <h2 style="color: #6B46C1;">Hi ${firstName},</h2>
+        emailInfoBox(`
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Reason:</p>
+          <p style="margin:0;font-size:14px;color:${EMAIL_COLORS.textSecondary};">${args.reason}</p>
+        `) +
 
-      <p>Thank you for your interest in l4yercak3. After careful review, we're unable to approve your beta access request at this time.</p>
+        emailParagraph("We appreciate your interest and encourage you to:") +
+        `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
+          <li>Stay connected with our community</li>
+          <li>Follow our progress on <a href="https://twitter.com/l4yercak3" style="color:${EMAIL_COLORS.accent};">Twitter</a></li>
+          <li>Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord</a> for updates</li>
+          <li>Sign up for our newsletter for launch announcements</li>
+        </ul>` +
 
-      <div class="info-box">
-        <p><strong>Reason:</strong></p>
-        <p>${args.reason}</p>
-      </div>
+        emailParagraph("You're welcome to apply again in the future when your circumstances change or when we open up more beta slots.") +
 
-      <p>We appreciate your interest and encourage you to:</p>
-      <ul>
-        <li>Stay connected with our community</li>
-        <li>Follow our progress on <a href="https://twitter.com/l4yercak3">Twitter</a></li>
-        <li>Join our <a href="https://discord.gg/l4yercak3">Discord</a> for updates</li>
-        <li>Sign up for our newsletter for launch announcements</li>
-      </ul>
-
-      <p>You're welcome to apply again in the future when your circumstances change or when we open up more beta slots.</p>
-
-      <p><a href="https://l4yercak3.com" class="button">Visit Our Website</a></p>
-    </div>
-
-    <div class="footer">
-      <p>L4YERCAK3 Team</p>
-      <p><a href="https://l4yercak3.com">l4yercak3.com</a></p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+        emailButton("Visit Our Website", "https://l4yercak3.com", { variant: "secondary" })
+      ) +
+      emailFooter()
+    );
 
     try {
       const { data, error } = await resend.emails.send({
@@ -628,7 +358,7 @@ export const sendBetaRejectionEmail = internalAction({
         throw new Error(`Email could not be sent: ${error.message}`);
       }
 
-      console.log("✅ Rejection email sent successfully:", data);
+      console.log("Rejection email sent successfully:", data);
       return { success: true, emailId: data?.id };
     } catch (error) {
       console.error("Error sending rejection email:", error);

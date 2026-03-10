@@ -10,6 +10,14 @@ import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
 import { resolveSupportRecipient } from "../lib/supportRouting";
+import {
+  EMAIL_COLORS,
+  EMAIL_STYLES,
+  emailDarkWrapper,
+  emailHeader,
+  emailFooter,
+  emailContentRow,
+} from "../lib/emailBrandConstants";
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -81,7 +89,7 @@ function buildInfoRow(label: string, value?: string | number | null): string {
     return "";
   }
 
-  return `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`;
+  return `<p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`;
 }
 
 export const sendFeedbackNotification = internalAction({
@@ -138,68 +146,54 @@ export const sendFeedbackNotification = internalAction({
 
     const subject = `[Support Feedback][${sentimentLabel}] ${args.organizationContext.organizationName}`;
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.55; color: #2A2A2A; background-color: #F3F4F6; margin: 0; padding: 0; }
-    .container { max-width: 720px; margin: 24px auto; background-color: #FFFFFF; border: 1px solid #D1D5DB; }
-    .header { background: #111827; color: #F9FAFB; padding: 20px 24px; }
-    .header h1 { margin: 0; font-size: 18px; }
-    .header p { margin: 6px 0 0 0; font-size: 13px; color: #D1D5DB; }
-    .section { padding: 16px 24px; border-top: 1px solid #E5E7EB; }
-    .section h2 { margin: 0 0 10px 0; font-size: 14px; color: #111827; }
-    .section p { margin: 4px 0; font-size: 13px; color: #374151; }
-    .message-box { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
-    .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 9999px; padding: 4px 10px; background: #E5E7EB; color: #111827; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Support Feedback Submission</h1>
-      <p>Feedback ID: ${escapeHtml(String(args.feedbackId))}</p>
-    </div>
+    const sentimentColors: Record<string, string> = {
+      negative: EMAIL_COLORS.error,
+      neutral: EMAIL_COLORS.warning,
+      positive: EMAIL_COLORS.success,
+    };
+    const pillColor = sentimentColors[args.sentiment] || EMAIL_COLORS.textSecondary;
 
-    <div class="section">
-      <h2>Summary</h2>
-      <p><span class="pill">Sentiment: ${escapeHtml(sentimentLabel)}</span></p>
-      <p><strong>Submitted At:</strong> ${escapeHtml(submittedAtIso)}</p>
-      <p><strong>Recipient Route:</strong> ${escapeHtml(args.recipientSource)}${
-        args.preventedSalesRoute ? " (sales route prevented)" : ""
-      }</p>
-    </div>
+    const html = emailDarkWrapper(
+      emailHeader({ subtitle: "Support Feedback Submission" }) +
+      emailContentRow(`
+        <p style="margin:0 0 4px;font-size:12px;color:${EMAIL_COLORS.textTertiary};">Feedback ID: ${escapeHtml(String(args.feedbackId))}</p>
 
-    <div class="section">
-      <h2>User Context</h2>
-      ${buildInfoRow("User ID", args.userContext.userId)}
-      ${buildInfoRow("Name", userFullName || undefined)}
-      ${buildInfoRow("Email", args.userContext.email)}
-      ${buildInfoRow("Session Organization", args.userContext.sessionOrganizationId)}
-    </div>
+        <h2 style="margin:16px 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Summary</h2>
+        <p style="margin:0 0 8px;">
+          <span style="display:inline-block;font-size:12px;font-weight:600;border-radius:9999px;padding:4px 10px;background:${pillColor};color:#FFFFFF;">${escapeHtml(sentimentLabel)}</span>
+        </p>
+        <p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">Submitted At:</strong> ${escapeHtml(submittedAtIso)}</p>
+        <p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textSecondary};"><strong style="color:${EMAIL_COLORS.textPrimary};">Recipient Route:</strong> ${escapeHtml(args.recipientSource)}${
+          args.preventedSalesRoute ? " (sales route prevented)" : ""
+        }</p>
 
-    <div class="section">
-      <h2>Organization Context</h2>
-      ${buildInfoRow("Organization ID", args.organizationContext.organizationId)}
-      ${buildInfoRow("Name", args.organizationContext.organizationName)}
-      ${buildInfoRow("Slug", args.organizationContext.organizationSlug)}
-    </div>
+        <hr style="border:none;border-top:1px solid ${EMAIL_COLORS.border};margin:20px 0;" />
 
-    <div class="section">
-      <h2>Runtime Context</h2>
-      ${runtimeContextRows || "<p>No runtime context provided.</p>"}
-    </div>
+        <h2 style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">User Context</h2>
+        ${buildInfoRow("User ID", args.userContext.userId)}
+        ${buildInfoRow("Name", userFullName || undefined)}
+        ${buildInfoRow("Email", args.userContext.email)}
+        ${buildInfoRow("Session Organization", args.userContext.sessionOrganizationId)}
 
-    <div class="section">
-      <h2>Feedback Message</h2>
-      <div class="message-box">${escapeHtml(args.message)}</div>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+        <hr style="border:none;border-top:1px solid ${EMAIL_COLORS.border};margin:20px 0;" />
+
+        <h2 style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Organization Context</h2>
+        ${buildInfoRow("Organization ID", args.organizationContext.organizationId)}
+        ${buildInfoRow("Name", args.organizationContext.organizationName)}
+        ${buildInfoRow("Slug", args.organizationContext.organizationSlug)}
+
+        <hr style="border:none;border-top:1px solid ${EMAIL_COLORS.border};margin:20px 0;" />
+
+        <h2 style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Runtime Context</h2>
+        ${runtimeContextRows || `<p style="margin:4px 0;font-size:13px;color:${EMAIL_COLORS.textTertiary};">No runtime context provided.</p>`}
+
+        <hr style="border:none;border-top:1px solid ${EMAIL_COLORS.border};margin:20px 0;" />
+
+        <h2 style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Feedback Message</h2>
+        <div style="background:${EMAIL_COLORS.surfaceRaised};border:1px solid ${EMAIL_COLORS.border};border-radius:${EMAIL_STYLES.cardRadius};padding:12px;white-space:pre-wrap;font-size:13px;color:${EMAIL_COLORS.textPrimary};">${escapeHtml(args.message)}</div>
+      `) +
+      emailFooter()
+    );
 
     const replyTo = args.userContext.email.includes("@") ? args.userContext.email : undefined;
 

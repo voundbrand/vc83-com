@@ -12,6 +12,19 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../_generated/api");
+import {
+  EMAIL_BRAND,
+  EMAIL_COLORS,
+  EMAIL_STYLES,
+  emailDarkWrapper,
+  emailHeader,
+  emailFooter,
+  emailContentRow,
+  emailHeading,
+  emailParagraph,
+  emailInfoBox,
+  emailDivider,
+} from "../lib/emailBrandConstants";
 
 const createResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -26,26 +39,17 @@ const createResendClient = () => {
  */
 export const sendFeatureRequest = internalAction({
   args: {
-    // User context
     userId: v.id("users"),
     organizationId: v.id("organizations"),
-
-    // Tool details
     toolName: v.string(),
     toolParameters: v.any(),
     errorMessage: v.string(),
-
-    // Conversation context
     conversationId: v.id("aiConversations"),
     userMessage: v.string(),
     aiResponse: v.optional(v.string()),
-
-    // Timestamp
     occurredAt: v.number(),
   },
   handler: async (ctx, args): Promise<{ success: boolean; emailId?: string; linearIssue?: { issueId: string; issueNumber: string; issueUrl: string } }> => {
-    // Get user and org details from database
-    // In AI chat context, there's always a logged-in user with session
     const user: any = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.getUserById, { userId: args.userId });
     const org: any = await (ctx as any).runQuery(generatedApi.internal.ai.tools.internalToolMutations.getOrganizationById, { organizationId: args.organizationId });
 
@@ -55,8 +59,7 @@ export const sendFeatureRequest = internalAction({
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
 
-    // Build feature request email
-    const subject = `🔧 Feature Request: ${args.toolName} - User: ${userName}`;
+    const subject = `Feature Request: ${args.toolName} - User: ${userName}`;
 
     const emailData = {
       userEmail,
@@ -95,7 +98,6 @@ export const sendFeatureRequest = internalAction({
 
         console.log(`[Feature Request] Linear issue created: ${linearResult?.issueNumber}`);
       } catch (linearError: any) {
-        // Don't fail the whole flow if Linear fails, just log it
         console.error("Failed to create Linear issue:", linearError);
       }
     } else {
@@ -104,25 +106,27 @@ export const sendFeatureRequest = internalAction({
 
     // 2. Send email notification (with Linear link if created)
     const emailSubjectSuffix = linearResult ? ` [${linearResult.issueNumber}]` : "";
-    const emailBodyPrefix = linearResult ? `
-      <div style="background: #e0f2fe; border: 2px solid #0ea5e9; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-        <h3 style="margin: 0 0 10px 0; color: #0369a1;">✅ Linear Issue Created</h3>
-        <p style="margin: 0; color: #0c4a6e;">
-          <strong>Issue:</strong> <a href="${linearResult.issueUrl}" style="color: #0284c7;">${linearResult.issueNumber}</a><br>
-          <strong>Status:</strong> The issue has been automatically created and is ready for triage.
-        </p>
-      </div>
-    ` : "";
+    const emailBodyPrefix = linearResult ? emailInfoBox(`
+      <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.success};">Linear Issue Created</p>
+      <p style="margin:0;font-size:13px;color:${EMAIL_COLORS.textSecondary};">
+        <strong style="color:${EMAIL_COLORS.textPrimary};">Issue:</strong> <a href="${linearResult.issueUrl}" style="color:${EMAIL_COLORS.accent};">${linearResult.issueNumber}</a><br>
+        <strong style="color:${EMAIL_COLORS.textPrimary};">Status:</strong> The issue has been automatically created and is ready for triage.
+      </p>
+    `, { borderColor: EMAIL_COLORS.success }) : "";
 
     try {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
-        replyTo: userEmail, // Allow dev team to reply directly to user
+        replyTo: userEmail,
         to: process.env.SALES_EMAIL || "sales@l4yercak3.com",
         subject: subject + emailSubjectSuffix,
-        html: emailBodyPrefix + html,
+        html: emailBodyPrefix ? emailDarkWrapper(
+          emailHeader({ subtitle: "Feature Request" }) +
+          emailContentRow(emailBodyPrefix) +
+          html.replace(/^<!DOCTYPE html>[\s\S]*?<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "")
+        ) : html,
         text: linearResult
-          ? `✅ Linear Issue Created: ${linearResult.issueNumber}\nView at: ${linearResult.issueUrl}\n\n${text}`
+          ? `Linear Issue Created: ${linearResult.issueNumber}\nView at: ${linearResult.issueUrl}\n\n${text}`
           : text,
         headers: {
           'X-Entity-Ref-ID': `feature-request-${args.conversationId}-${Date.now()}`,
@@ -172,123 +176,90 @@ function getFeatureRequestEmailHTML(args: {
     timeStyle: 'long',
   });
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Feature Request: ${args.toolName}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  const infoRow = (label: string, value: string) =>
+    `<tr>
+      <td style="padding:6px 0;color:${EMAIL_COLORS.textSecondary};font-weight:600;width:140px;font-size:13px;vertical-align:top;">${label}:</td>
+      <td style="padding:6px 0;color:${EMAIL_COLORS.textPrimary};font-size:13px;">${value}</td>
+    </tr>`;
 
-  <!-- Header -->
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 20px;">
-    <h1 style="margin: 0 0 10px 0; font-size: 24px;">🔧 Feature Request</h1>
-    <p style="margin: 0; opacity: 0.9; font-size: 14px;">A user tried to use a tool that needs implementation</p>
-  </div>
+  return emailDarkWrapper(
+    emailHeader({ subtitle: "A user tried to use a tool that needs implementation" }) +
+    emailContentRow(
+      emailHeading("Feature Request") +
 
-  <!-- User Context -->
-  <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #2d3748;">👤 User Information</h2>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 8px 0; color: #718096; font-weight: 600; width: 140px;">Name:</td>
-        <td style="padding: 8px 0; color: #2d3748;">${args.userName}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #718096; font-weight: 600;">Email:</td>
-        <td style="padding: 8px 0; color: #2d3748;">${args.userEmail}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #718096; font-weight: 600;">Organization:</td>
-        <td style="padding: 8px 0; color: #2d3748;">${args.organizationName}</td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #718096; font-weight: 600;">Timestamp:</td>
-        <td style="padding: 8px 0; color: #2d3748;">${timestamp}</td>
-      </tr>
-    </table>
-  </div>
+      // User Context
+      emailInfoBox(`
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">User Information</p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow("Name", args.userName)}
+          ${infoRow("Email", args.userEmail)}
+          ${infoRow("Organization", args.organizationName)}
+          ${infoRow("Timestamp", timestamp)}
+        </table>
+      `, { borderColor: EMAIL_COLORS.info }) +
 
-  <!-- What the User Wanted -->
-  <div style="background: #fff; border: 2px solid #e2e8f0; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #2d3748;">💬 What the User Said (Original Request)</h2>
-    <blockquote style="margin: 0; padding: 15px; background: #f7fafc; border-left: 4px solid #9f7aea; font-style: italic; color: #4a5568;">
-      "${args.userMessage}"
-    </blockquote>
-  </div>
+      // What the User Wanted
+      `<div style="background:${EMAIL_COLORS.surfaceRaised};border:1px solid ${EMAIL_COLORS.border};border-radius:${EMAIL_STYLES.cardRadius};padding:16px 20px;margin:16px 0;">
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">What the User Said</p>
+        <blockquote style="margin:0;padding:12px;background:${EMAIL_COLORS.surface};border-left:3px solid ${EMAIL_COLORS.accent};font-style:italic;color:${EMAIL_COLORS.textSecondary};border-radius:4px;">
+          "${args.userMessage}"
+        </blockquote>
+      </div>` +
 
-  <!-- User's Detailed Elaboration -->
-  ${args.toolParameters?.userElaboration ? `
-  <div style="background: #f0fdf4; border: 2px solid #86efac; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #166534;">📝 User's Detailed Requirements</h2>
-    <blockquote style="margin: 0; padding: 15px; background: #dcfce7; border-left: 4px solid #22c55e; color: #166534;">
-      "${args.toolParameters.userElaboration}"
-    </blockquote>
-    <p style="margin: 10px 0 0 0; font-size: 13px; color: #166534; font-style: italic;">💡 This elaboration was requested by the AI to better understand the user's needs</p>
-  </div>
-  ` : ''}
+      // User's Detailed Elaboration
+      (args.toolParameters?.userElaboration ? `
+      <div style="background:${EMAIL_COLORS.surfaceRaised};border:1px solid ${EMAIL_COLORS.border};border-radius:${EMAIL_STYLES.cardRadius};padding:16px 20px;margin:16px 0;">
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">User's Detailed Requirements</p>
+        <blockquote style="margin:0;padding:12px;background:${EMAIL_COLORS.surface};border-left:3px solid ${EMAIL_COLORS.success};color:${EMAIL_COLORS.textSecondary};border-radius:4px;">
+          "${args.toolParameters.userElaboration}"
+        </blockquote>
+        <p style="margin:8px 0 0;font-size:12px;color:${EMAIL_COLORS.textTertiary};font-style:italic;">This elaboration was requested by the AI to better understand the user's needs</p>
+      </div>
+      ` : '') +
 
-  <!-- Tool That Failed -->
-  <div style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #c53030;">🛠️ Tool Attempted</h2>
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="padding: 8px 0; color: #742a2a; font-weight: 600; width: 140px;">Tool Name:</td>
-        <td style="padding: 8px 0; color: #2d3748;"><code style="background: #fed7d7; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace;">${args.toolName}</code></td>
-      </tr>
-      <tr>
-        <td style="padding: 8px 0; color: #742a2a; font-weight: 600; vertical-align: top;">Parameters:</td>
-        <td style="padding: 8px 0;">
-          <pre style="background: #fed7d7; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; margin: 0; font-family: 'Courier New', monospace;">${JSON.stringify(args.toolParameters, null, 2)}</pre>
-        </td>
-      </tr>
-    </table>
-  </div>
+      // Tool That Failed
+      emailInfoBox(`
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Tool Attempted</p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${infoRow("Tool Name", `<code style="background:${EMAIL_COLORS.surface};padding:2px 6px;border-radius:3px;font-family:${EMAIL_STYLES.monoStack};">${args.toolName}</code>`)}
+        </table>
+        <p style="margin:12px 0 4px;color:${EMAIL_COLORS.textSecondary};font-weight:600;font-size:13px;">Parameters:</p>
+        <pre style="background:${EMAIL_COLORS.surface};padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;margin:0;font-family:${EMAIL_STYLES.monoStack};color:${EMAIL_COLORS.textPrimary};border:1px solid ${EMAIL_COLORS.border};">${JSON.stringify(args.toolParameters, null, 2)}</pre>
+      `, { borderColor: EMAIL_COLORS.error }) +
 
-  <!-- Error Details -->
-  <div style="background: #fffaf0; border-left: 4px solid #f6ad55; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #c05621;">⚠️ Error Message</h2>
-    <pre style="background: #feebc8; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 13px; margin: 0; color: #744210; font-family: 'Courier New', monospace; white-space: pre-wrap;">${args.errorMessage}</pre>
-  </div>
+      // Error Details
+      emailInfoBox(`
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Error Message</p>
+        <pre style="background:${EMAIL_COLORS.surface};padding:12px;border-radius:4px;overflow-x:auto;font-size:13px;margin:0;color:${EMAIL_COLORS.warning};font-family:${EMAIL_STYLES.monoStack};white-space:pre-wrap;border:1px solid ${EMAIL_COLORS.border};">${args.errorMessage}</pre>
+      `, { borderColor: EMAIL_COLORS.warning }) +
 
-  ${args.aiResponse ? `
-  <!-- AI Response -->
-  <div style="background: #f0fff4; border-left: 4px solid #68d391; padding: 20px; margin-bottom: 20px; border-radius: 4px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #276749;">🤖 AI Response to User</h2>
-    <p style="margin: 0; color: #2f855a; font-size: 14px;">${args.aiResponse}</p>
-  </div>
-  ` : ''}
+      // AI Response
+      (args.aiResponse ? emailInfoBox(`
+        <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">AI Response to User</p>
+        <p style="margin:0;color:${EMAIL_COLORS.textSecondary};font-size:14px;">${args.aiResponse}</p>
+      `, { borderColor: EMAIL_COLORS.success }) : '') +
 
-  <!-- Action Items -->
-  <div style="background: #edf2f7; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
-    <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #2d3748;">✅ Recommended Actions</h2>
-    <ol style="margin: 0; padding-left: 20px; color: #4a5568;">
-      <li style="margin-bottom: 10px;">Review the tool parameters to understand the user's intent</li>
-      <li style="margin-bottom: 10px;">Implement the <strong>${args.toolName}</strong> tool with proper validation</li>
-      <li style="margin-bottom: 10px;">Test the implementation with similar parameters</li>
-      <li style="margin-bottom: 10px;">Update the tool status from "placeholder" to "ready"</li>
-      <li style="margin-bottom: 10px;">Consider replying to <a href="mailto:${args.userEmail}" style="color: #667eea;">${args.userEmail}</a> when implemented</li>
-    </ol>
-  </div>
+      // Action Items
+      emailDivider() +
+      emailHeading("Recommended Actions", { level: 2 }) +
+      `<ol style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
+        <li>Review the tool parameters to understand the user's intent</li>
+        <li>Implement the <strong style="color:${EMAIL_COLORS.textPrimary};">${args.toolName}</strong> tool with proper validation</li>
+        <li>Test the implementation with similar parameters</li>
+        <li>Update the tool status from "placeholder" to "ready"</li>
+        <li>Consider replying to <a href="mailto:${args.userEmail}" style="color:${EMAIL_COLORS.accent};">${args.userEmail}</a> when implemented</li>
+      </ol>` +
 
-  <!-- Debug Info -->
-  <div style="background: #f7fafc; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 12px; color: #718096;">
-    <strong>Debug Info:</strong><br>
-    Conversation ID: <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 2px;">${args.conversationId}</code><br>
-    Organization ID: <code style="background: #e2e8f0; padding: 2px 4px; border-radius: 2px;">${args.organizationId}</code>
-  </div>
-
-  <!-- Footer -->
-  <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #a0aec0; font-size: 12px;">
-    <p style="margin: 0;">l4yercak3 AI Assistant - Automated Feature Request</p>
-    <p style="margin: 5px 0 0 0;">This email was generated automatically when a user attempted to use an unimplemented tool</p>
-  </div>
-
-</body>
-</html>
-  `;
+      // Debug Info
+      emailDivider() +
+      `<p style="font-size:12px;color:${EMAIL_COLORS.textTertiary};">
+        <strong>Debug Info:</strong><br>
+        Conversation ID: <code style="background:${EMAIL_COLORS.surfaceRaised};padding:2px 4px;border-radius:2px;font-family:${EMAIL_STYLES.monoStack};">${args.conversationId}</code><br>
+        Organization ID: <code style="background:${EMAIL_COLORS.surfaceRaised};padding:2px 4px;border-radius:2px;font-family:${EMAIL_STYLES.monoStack};">${args.organizationId}</code>
+      </p>`
+    ) +
+    emailFooter({ extra: `${EMAIL_BRAND.name} AI Assistant — Automated Feature Request` })
+  );
 }
 
 /**
@@ -313,46 +284,46 @@ function getFeatureRequestEmailText(args: {
   });
 
   return `
-🔧 FEATURE REQUEST: ${args.toolName}
+FEATURE REQUEST: ${args.toolName}
 
 A user tried to use a tool that needs implementation.
 
-👤 USER INFORMATION
+USER INFORMATION
 ====================
 Name: ${args.userName}
 Email: ${args.userEmail}
 Organization: ${args.organizationName}
 Timestamp: ${timestamp}
 
-💬 WHAT THE USER SAID (ORIGINAL REQUEST)
+WHAT THE USER SAID (ORIGINAL REQUEST)
 =========================================
 "${args.userMessage}"
 
 ${args.toolParameters?.userElaboration ? `
-📝 USER'S DETAILED REQUIREMENTS
+USER'S DETAILED REQUIREMENTS
 ================================
 "${args.toolParameters.userElaboration}"
 
-💡 This elaboration was requested by the AI to better understand the user's needs
+This elaboration was requested by the AI to better understand the user's needs
 ` : ''}
 
-🛠️ TOOL ATTEMPTED
+TOOL ATTEMPTED
 ==================
 Tool Name: ${args.toolName}
 Parameters:
 ${JSON.stringify(args.toolParameters, null, 2)}
 
-⚠️ ERROR MESSAGE
+ERROR MESSAGE
 =================
 ${args.errorMessage}
 
 ${args.aiResponse ? `
-🤖 AI RESPONSE TO USER
+AI RESPONSE TO USER
 =======================
 ${args.aiResponse}
 ` : ''}
 
-✅ RECOMMENDED ACTIONS
+RECOMMENDED ACTIONS
 =======================
 1. Review the tool parameters to understand the user's intent
 2. Implement the ${args.toolName} tool with proper validation
@@ -366,7 +337,7 @@ Conversation ID: ${args.conversationId}
 Organization ID: ${args.organizationId}
 
 ---
-l4yercak3 AI Assistant - Automated Feature Request
+${EMAIL_BRAND.name} AI Assistant — Automated Feature Request
 This email was generated automatically when a user attempted to use an unimplemented tool.
   `.trim();
 }
