@@ -10,6 +10,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
+import { getConvexErrorMessage } from "@/lib/convex-error-message";
 
 interface InviteUserModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ type OrganizationRoleOption = {
 };
 
 export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserModalProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -79,7 +80,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
         setSuccess(false);
       }, 2000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : t("ui.manage.invite.error");
+      const errorMessage = getConvexErrorMessage(err, t("ui.manage.invite.error"));
       setError(errorMessage);
       console.error("Invitation error:", err);
     } finally {

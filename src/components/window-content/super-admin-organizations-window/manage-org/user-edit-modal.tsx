@@ -40,7 +40,7 @@ export function UserEditModal({
   invitationPending = false,
   isEditingSelf = false,
 }: UserEditModalProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [firstName, setFirstName] = useState(user.firstName || "");
   const [lastName, setLastName] = useState(user.lastName || "");
   const [selectedRoleId, setSelectedRoleId] = useState<Id<"roles">>(currentRoleId);

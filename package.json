@@ -68,6 +68,7 @@
     "ai:economics:guard": "bash scripts/ci/check-ai-economics-contract.sh",
     "i18n:audit": "bash scripts/ci/check-i18n-audit.sh",
     "i18n:namespace:budget": "bash scripts/ci/check-i18n-namespace-load-budget.sh",
+    "i18n:key:coverage": "bash scripts/ci/check-i18n-key-coverage.sh",
     "ui:legacy:guard": "bash scripts/ci/check-legacy-style-introductions.sh",
     "ui:design:guard": "bash scripts/ci/check-ui-design-drift.sh",
     "ui:showcase:guard": "bash scripts/ci/check-ui-showcase-enforcement.sh",

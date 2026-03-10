@@ -17,7 +17,7 @@ export function DeleteAccountModal({
   onConfirm,
   userEmail,
 }: DeleteAccountModalProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");

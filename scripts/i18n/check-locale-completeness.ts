@@ -24,7 +24,7 @@ const DEFAULT_LOCALES = ["en", "de", "pl", "es", "fr", "ja"];
 
 const REQUIRED_NAMESPACE_PREFIXES = [
   "ui.builder.",
-  "ui.manage.security.passkeys.",
+  "ui.manage.",
   "ui.payments.stripe.",
   "ui.payments.stripe_connect.",
 ] as const;

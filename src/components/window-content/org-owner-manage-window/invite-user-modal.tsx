@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { formatRoleName } from "@/utils/roleFormatter";
 import { usePostHog } from "posthog-js/react";
+import { getConvexErrorMessage } from "@/lib/convex-error-message";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const apiAny: any = require("../../../../convex/_generated/api").api;
 
@@ -98,7 +99,7 @@ export function InviteUserModal({ isOpen, onClose, organizationId }: InviteUserM
         setSuccess(false);
       }, 2000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : t("ui.manage.invite.error");
+      const errorMessage = getConvexErrorMessage(err, t("ui.manage.invite.error"));
       setError(errorMessage);
       console.error("Invitation error:", err);
 

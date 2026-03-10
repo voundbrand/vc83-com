@@ -21,7 +21,7 @@ type SortField = "name" | "email" | "role" | "joinedAt";
 type SortDirection = "asc" | "desc";
 
 export function UserManagementTable({ organizationId }: UserManagementTableProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
@@ -339,7 +339,7 @@ export function UserManagementTable({ organizationId }: UserManagementTableProps
 
 // Role Badge Component
 function RoleBadge({ role }: { role: string }) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
 
   const roleConfig: Record<string, { bg: string; text: string }> = {
     super_admin: {
@@ -389,7 +389,7 @@ function RoleBadge({ role }: { role: string }) {
 
 // Status Badge Component
 function StatusBadge({ isActive, acceptedAt }: { isActive: boolean; acceptedAt?: number }) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
 
   if (!isActive) {
     return (

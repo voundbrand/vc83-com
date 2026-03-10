@@ -1,5 +1,5 @@
 import { action, query, mutation, internalMutation, internalQuery } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 const generatedApi: any = require("./_generated/api");
 import { requireAuthenticatedUser, getUserContext, checkPermission, requirePermission } from "./rbacHelpers";
@@ -15,6 +15,29 @@ const LEGACY_COMPATIBILITY_TIERS = new Set([
   "professional",
   "community",
 ]);
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && typeof error.message === "string" && error.message.trim().length > 0) {
+    return error.message.trim();
+  }
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error.trim();
+  }
+  if (error && typeof error === "object") {
+    const errorRecord = error as { data?: unknown; message?: unknown };
+    const dataRecord =
+      errorRecord.data && typeof errorRecord.data === "object" && !Array.isArray(errorRecord.data)
+        ? (errorRecord.data as { message?: unknown })
+        : null;
+    if (typeof dataRecord?.message === "string" && dataRecord.message.trim().length > 0) {
+      return dataRecord.message.trim();
+    }
+    if (typeof errorRecord.message === "string" && errorRecord.message.trim().length > 0) {
+      return errorRecord.message.trim();
+    }
+  }
+  return fallback;
+}
 
 // ============================================================================
 // QUERIES
@@ -334,108 +357,140 @@ export const inviteUser = action({
     sendEmail: v.optional(v.boolean()), // Default true
   },
   handler: async (ctx, args) => {
-    // Authenticate user
-    const { userId: inviterId } = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
-      sessionId: args.sessionId,
-    });
-
-    // Check permissions
-    await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
-      userId: inviterId,
-      permission: "manage_users",
-      organizationId: args.organizationId,
-    });
-
-    // Check if user already exists
-    const existingUser = await (ctx as any).runQuery(generatedApi.internal.organizations.getUserByEmail, {
-      email: args.email,
-    });
-
-    let newUserId: Id<"users">;
-    let isNewUser = false;
-
-    if (existingUser) {
-      // Check if already a member
-      const existingMembership = await (ctx as any).runQuery(generatedApi.internal.organizations.checkMembership, {
-        userId: existingUser._id,
-        organizationId: args.organizationId,
-      });
-
-      if (existingMembership) {
-        throw new Error("This user is already a member of your organization");
-      }
-
-      newUserId = existingUser._id;
-    } else {
-      // Create new user
-      newUserId = await (ctx as any).runMutation(generatedApi.internal.organizations.createInvitedUser, {
-        email: args.email,
-        firstName: args.firstName,
-        lastName: args.lastName,
-        invitedBy: inviterId,
-        defaultOrgId: args.organizationId,
-      });
-      isNewUser = true;
-    }
-
-    // Add user to organization
     try {
-      await (ctx as any).runMutation(generatedApi.internal.organizations.addUserToOrganization, {
-        userId: newUserId,
-        organizationId: args.organizationId,
-        roleId: args.roleId,
-        invitedBy: inviterId,
-      });
-    } catch (error) {
-      // If this was a new user we created, we need to clean up
-      if (isNewUser) {
-        // Delete the newly created user since the invitation failed
-        await (ctx as any).runMutation(generatedApi.internal.organizations.deleteInvitedUser, {
-          userId: newUserId,
-        });
-      }
-      // Re-throw the error with proper message
-      throw error;
-    }
-
-    // Send invitation email (if enabled)
-    if (args.sendEmail !== false) {
-      const organization = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrganization, {
-        organizationId: args.organizationId,
+      // Authenticate user
+      const { userId: inviterId } = await (ctx as any).runQuery(generatedApi.internal.rbacHelpers.requireAuthenticatedUserQuery, {
+        sessionId: args.sessionId,
       });
 
-      const inviter = await (ctx as any).runQuery(generatedApi.internal.organizations.getUser, {
+      // Check permissions
+      await (ctx as any).runMutation(generatedApi.internal.rbacHelpers.requirePermissionMutation, {
         userId: inviterId,
+        permission: "manage_users",
+        organizationId: args.organizationId,
       });
 
-      await (ctx as any).runAction(generatedApi.internal.emailService.sendInvitationEmail, {
-        to: args.email,
-        organizationName: organization.name,
-        inviterName: inviter.firstName || inviter.email,
+      // Check if user already exists
+      const existingUser = await (ctx as any).runQuery(generatedApi.internal.organizations.getUserByEmail, {
+        email: args.email,
+      });
+
+      let newUserId: Id<"users">;
+      let isNewUser = false;
+
+      if (existingUser) {
+        // Check if already a member
+        const existingMembership = await (ctx as any).runQuery(generatedApi.internal.organizations.checkMembership, {
+          userId: existingUser._id,
+          organizationId: args.organizationId,
+        });
+
+        if (existingMembership) {
+          throw new ConvexError({
+            code: "USER_ALREADY_MEMBER",
+            message: "This user is already a member of your organization",
+          });
+        }
+
+        newUserId = existingUser._id;
+      } else {
+        // Create new user
+        newUserId = await (ctx as any).runMutation(generatedApi.internal.organizations.createInvitedUser, {
+          email: args.email,
+          firstName: args.firstName,
+          lastName: args.lastName,
+          invitedBy: inviterId,
+          defaultOrgId: args.organizationId,
+        });
+        isNewUser = true;
+      }
+
+      // Add user to organization
+      try {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.addUserToOrganization, {
+          userId: newUserId,
+          organizationId: args.organizationId,
+          roleId: args.roleId,
+          invitedBy: inviterId,
+        });
+      } catch (error) {
+        // If this was a new user we created, we need to clean up
+        if (isNewUser) {
+          // Delete the newly created user since the invitation failed
+          await (ctx as any).runMutation(generatedApi.internal.organizations.deleteInvitedUser, {
+            userId: newUserId,
+          });
+        }
+        // Re-throw the error with proper message
+        throw error;
+      }
+
+      let emailStatus: "sent" | "skipped" | "failed" = "skipped";
+      let emailErrorMessage: string | null = null;
+
+      // Send invitation email (if enabled)
+      if (args.sendEmail !== false) {
+        try {
+          const organization = await (ctx as any).runQuery(generatedApi.internal.organizations.getOrganization, {
+            organizationId: args.organizationId,
+          });
+
+          const inviter = await (ctx as any).runQuery(generatedApi.internal.organizations.getUser, {
+            userId: inviterId,
+          });
+
+          await (ctx as any).runAction(generatedApi.internal.emailService.sendInvitationEmail, {
+            to: args.email,
+            organizationName: organization.name,
+            inviterName: inviter.firstName || inviter.email,
+            isNewUser,
+            setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
+          });
+          emailStatus = "sent";
+        } catch (error) {
+          emailStatus = "failed";
+          emailErrorMessage = error instanceof Error ? error.message : "Unknown email delivery error";
+          console.error("Invitation email delivery failed:", {
+            organizationId: args.organizationId,
+            invitedEmail: args.email,
+            error,
+          });
+        }
+      }
+
+      // Log audit event
+      await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
+        userId: inviterId,
+        organizationId: args.organizationId,
+        action: "invite_user",
+        resource: "users",
+        success: true,
+        metadata: {
+          invitedEmail: args.email,
+          roleId: args.roleId,
+          isNewUser,
+          emailStatus,
+          emailErrorMessage,
+        },
+      });
+
+      return {
+        success: true,
+        userId: newUserId,
         isNewUser,
-        setupLink: process.env.NEXT_PUBLIC_APP_URL || "https://app.l4yercak3.com",
+        emailStatus,
+        emailErrorMessage,
+      };
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        throw error;
+      }
+
+      throw new ConvexError({
+        code: "INVITE_USER_FAILED",
+        message: extractErrorMessage(error, "Unable to invite user. Please try again."),
       });
     }
-
-    // Log audit event
-    await (ctx as any).runMutation(generatedApi.internal.rbac.logAudit, {
-      userId: inviterId,
-      organizationId: args.organizationId,
-      action: "invite_user",
-      resource: "users",
-      success: true,
-      metadata: {
-        invitedEmail: args.email,
-        roleId: args.roleId,
-        isNewUser,
-      },
-    });
-
-    return {
-      success: true,
-      userId: newUserId,
-      isNewUser,
-    };
   },
 });
 
@@ -665,7 +720,18 @@ export const addUserToOrganization = internalMutation({
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
-      const currentCount = currentMembers.length;
+      // Global super admins are platform operators and should not consume org seat limits.
+      const billableFlags = await Promise.all(
+        currentMembers.map(async (member) => {
+          const memberUser = await ctx.db.get(member.userId);
+          if (!memberUser?.global_role_id) {
+            return 1;
+          }
+          const globalRole = await ctx.db.get(memberUser.global_role_id);
+          return globalRole?.name === "super_admin" ? 0 : 1;
+        })
+      );
+      const currentCount = billableFlags.reduce<number>((sum, value) => sum + value, 0);
 
       // Check if limit would be exceeded
       if (currentCount >= maxUsers) {
@@ -679,10 +745,16 @@ export const addUserToOrganization = internalMutation({
         };
         const nextTier = tierNames[license.planTier] || "a higher tier";
 
-        throw new Error(
-          `You've reached your user limit (${maxUsers}). ` +
-          `Upgrade to ${nextTier} for more users.`
-        );
+        throw new ConvexError({
+          code: "ORG_USER_LIMIT_REACHED",
+          message:
+            `You've reached your user limit (${maxUsers}). ` +
+            `Upgrade to ${nextTier} for more users.`,
+          maxUsers,
+          currentUsers: currentCount,
+          planTier: license.planTier,
+          nextTier,
+        });
       }
     }
 

@@ -33,7 +33,7 @@ export function AddressModal({
   onSubmit,
   isSubmitting = false,
 }: AddressModalProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
 
   if (!isOpen) return null;
 

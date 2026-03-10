@@ -11,7 +11,7 @@ import { formatRoleName } from "@/utils/roleFormatter";
 type ViewMode = "roles" | "permissions" | "matrix";
 
 export function RolesPermissionsTab() {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
   const [viewMode, setViewMode] = useState<ViewMode>("roles");
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());

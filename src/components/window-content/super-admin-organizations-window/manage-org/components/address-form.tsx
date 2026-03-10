@@ -33,7 +33,7 @@ export function AddressForm({
   onCancel,
   isSubmitting = false,
 }: AddressFormProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
 
   // Get supported countries for dropdown
   const supportedCountries = getSupportedCountries();

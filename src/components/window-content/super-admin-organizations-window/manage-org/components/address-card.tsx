@@ -28,7 +28,7 @@ export function AddressCard({
   onSetPrimary,
   canEdit = false,
 }: AddressCardProps) {
-  const { t } = useNamespaceTranslations("ui.organizations");
+  const { t } = useNamespaceTranslations("ui.manage");
 
   // Address data is now in customProperties
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
