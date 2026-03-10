@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
-import { Coins, Layers, Shield } from "lucide-react"
+import { Coins, Layers, Shield, X } from "lucide-react"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { ShellBotIcon } from "@/components/icons/shell-icons"
@@ -20,7 +20,7 @@ function truncateContextName(name: string): string {
 export function ChatHeader() {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
   const { openWindow } = useWindowManager()
-  const { chat, activeLayerWorkflowId } = useAIChatContext()
+  const { chat, activeLayerWorkflowId, setActiveLayerWorkflowId, setCurrentConversationId } = useAIChatContext()
   const activeLayerWorkflowTitle = useMemo(() => {
     if (!activeLayerWorkflowId) {
       return undefined
@@ -87,6 +87,11 @@ export function ChatHeader() {
     })
   }
 
+  const handleClearLayeredContext = () => {
+    setActiveLayerWorkflowId(undefined)
+    setCurrentConversationId(undefined)
+  }
+
   return (
     <div
       className="flex items-center gap-3 px-4 py-2 border-b-2 transition-all duration-300"
@@ -125,7 +130,20 @@ export function ChatHeader() {
               }}
           title={contextPillTitle}
         >
-          <span className="block max-w-[18rem] truncate">{contextPillLabel}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="block max-w-[18rem] truncate">{contextPillLabel}</span>
+            {contextPillActive ? (
+              <button
+                type="button"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full transition-colors"
+                style={{ color: "currentColor", background: "transparent" }}
+                title="Clear layered context"
+                onClick={handleClearLayeredContext}
+              >
+                <X size={11} />
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 

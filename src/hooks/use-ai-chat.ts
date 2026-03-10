@@ -974,7 +974,11 @@ export function useAIChat(
    * Create a new conversation
    */
   const createConversation = useCallback(
-    async (title?: string, layerWorkflowId?: Id<"objects">) => {
+    async (
+      title?: string,
+      layerWorkflowId?: Id<"objects">,
+      options?: { ignoreActiveLayerContext?: boolean }
+    ) => {
       if (!user || !organization) {
         throw new Error("User not authenticated")
       }
@@ -984,7 +988,9 @@ export function useAIChat(
           organizationId: organization.id as Id<"organizations">,
           userId: user.id as Id<"users">,
           title,
-          layerWorkflowId: layerWorkflowId ?? activeLayerWorkflowId,
+          layerWorkflowId: options?.ignoreActiveLayerContext
+            ? layerWorkflowId
+            : (layerWorkflowId ?? activeLayerWorkflowId),
         })
 
         return conversationId

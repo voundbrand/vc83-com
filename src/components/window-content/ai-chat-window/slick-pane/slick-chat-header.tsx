@@ -9,6 +9,7 @@ import {
   Layers,
   Menu,
   Plus,
+  X,
 } from "lucide-react"
 import { LayeredContextPanel } from "./layered-context-panel"
 import type {
@@ -116,12 +117,28 @@ export function SlickChatHeader({
       return
     }
     setIsCreatingConversation(true)
+    const previousLayerWorkflowId = activeLayerWorkflowId
+    setActiveLayerWorkflowId(undefined)
     try {
-      await chat.createConversation()
+      await chat.createConversation(undefined, undefined, { ignoreActiveLayerContext: true })
       setCurrentConversationId(undefined)
+    } catch (error) {
+      setActiveLayerWorkflowId(previousLayerWorkflowId)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred while starting a new chat."
+      notification.error(
+        "Unable to Start New Chat",
+        errorMessage.length > 140 ? "Please retry in a moment." : errorMessage
+      )
+      return
     } finally {
       setIsCreatingConversation(false)
     }
+  }
+
+  const handleClearLayeredContext = () => {
+    setActiveLayerWorkflowId(undefined)
+    setCurrentConversationId(undefined)
+    setIsContextPanelOpen(false)
   }
 
   const handleSelectLayeredContext = async (workflowId: Id<"objects">) => {
@@ -198,7 +215,20 @@ export function SlickChatHeader({
                 }}
             title={contextPillTitle}
           >
-            <span className="block max-w-[18rem] truncate">{contextPillLabel}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="block max-w-[18rem] truncate">{contextPillLabel}</span>
+              {contextPillActive ? (
+                <button
+                  type="button"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full transition-colors"
+                  style={{ color: "currentColor", background: "transparent" }}
+                  title="Clear layered context"
+                  onClick={handleClearLayeredContext}
+                >
+                  <X size={11} />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 

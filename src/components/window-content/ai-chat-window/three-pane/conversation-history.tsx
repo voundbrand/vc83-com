@@ -12,7 +12,13 @@ interface ConversationHistoryProps {
 
 export function ConversationHistory({ onClose }: ConversationHistoryProps) {
   const { t } = useNamespaceTranslations("ui.ai_assistant")
-  const { chat, currentConversationId, setCurrentConversationId } = useAIChatContext()
+  const {
+    chat,
+    currentConversationId,
+    setCurrentConversationId,
+    activeLayerWorkflowId,
+    setActiveLayerWorkflowId,
+  } = useAIChatContext()
   const [searchQuery, setSearchQuery] = useState("")
   const [hoveredConversationId, setHoveredConversationId] = useState<string | null>(null)
 
@@ -28,11 +34,14 @@ export function ConversationHistory({ onClose }: ConversationHistoryProps) {
 
   // Handle new conversation creation
   const handleNewChat = async () => {
+    const previousLayerWorkflowId = activeLayerWorkflowId
+    setActiveLayerWorkflowId(undefined)
     try {
-      await chat.createConversation()
+      await chat.createConversation(undefined, undefined, { ignoreActiveLayerContext: true })
       setCurrentConversationId(undefined) // Clear selection to start fresh
       onClose?.()
     } catch (error) {
+      setActiveLayerWorkflowId(previousLayerWorkflowId)
       console.error("Failed to create new conversation:", error)
     }
   }
