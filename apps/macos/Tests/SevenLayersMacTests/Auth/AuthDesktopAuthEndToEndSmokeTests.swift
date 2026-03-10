@@ -50,6 +50,48 @@ final class AuthDesktopAuthEndToEndSmokeTests: XCTestCase {
         XCTAssertEqual(bridge.payloads, ["signed in runtime action"])
         XCTAssertEqual(try coordinator.loadStoredCredential()?.sessionToken, "session-e2e-1")
     }
+
+    func testFailedCallbackCanRetryAndRecoverWithSignedInRuntimeSubmission() throws {
+        let store = EndToEndInMemorySessionStore()
+        let configuration = DesktopAuthConfiguration(webBaseURL: URL(string: "https://app.vc83.test")!)
+        let coordinator = DesktopAuthCoordinator(
+            configuration: configuration,
+            credentialStore: store
+        )
+        let sessionController = DesktopAuthSessionController(coordinator: coordinator)
+        let bridge = EndToEndCompanionBridge()
+        let quickChatSession = QuickChatSessionController(
+            bridge: bridge,
+            authStateProvider: sessionController
+        )
+
+        _ = try sessionController.beginLogin(state: "e2e-fail-1") { _ in true }
+        let failedCallbackURL = URL(
+            string: "vc83-mac://auth/callback?error=access_denied&state=e2e-fail-1"
+        )!
+
+        XCTAssertThrowsError(try sessionController.handleOpenURL(failedCallbackURL))
+        XCTAssertEqual(sessionController.authSessionState, .signedOut(reason: .callbackRejected))
+        XCTAssertNil(quickChatSession.submitContextDraft("blocked before retry"))
+
+        let retriedLoginURL = try sessionController.beginLogin(state: "e2e-retry-1") { url in
+            XCTAssertEqual(url.path, "/auth/desktop")
+            return true
+        }
+        XCTAssertEqual(retriedLoginURL.path, "/auth/desktop")
+        XCTAssertEqual(sessionController.authSessionState, .authorizing)
+
+        let successfulCallbackURL = URL(
+            string: "vc83-mac://auth/callback?session_token=session-recovered-1&state=e2e-retry-1"
+        )!
+        let handled = try sessionController.handleOpenURL(successfulCallbackURL)
+        XCTAssertTrue(handled)
+        XCTAssertTrue(sessionController.isAuthenticated)
+
+        let submission = quickChatSession.submitContextDraft("retry recovered action")
+        XCTAssertEqual(submission?.payload, "retry recovered action")
+        XCTAssertEqual(bridge.payloads.last, "retry recovered action")
+    }
 }
 
 private final class EndToEndInMemorySessionStore: SessionCredentialStore {

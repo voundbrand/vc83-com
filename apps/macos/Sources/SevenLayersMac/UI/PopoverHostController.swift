@@ -334,23 +334,31 @@ private final class QuickChatPopoverViewController: NSViewController {
 
     private func renderAuthState(_ state: DesktopAuthSessionState) {
         currentAuthState = state
+        let presentation = state.statusPresentation(
+            canSignIn: onSignIn != nil,
+            canSignOut: onSignOut != nil
+        )
+        authStatusLabel.stringValue = presentation.indicatorText
+        authActionButton.title = presentation.actionTitle
+        authActionButton.isEnabled = presentation.isActionEnabled
 
         switch state {
         case .authenticated:
-            authStatusLabel.stringValue = "Auth: Signed in"
             authStatusLabel.textColor = .systemGreen
-            authActionButton.title = "Sign Out"
-            authActionButton.isEnabled = onSignOut != nil
         case .authorizing:
-            authStatusLabel.stringValue = "Auth: Signing in"
             authStatusLabel.textColor = .systemOrange
-            authActionButton.title = "Sign In"
-            authActionButton.isEnabled = false
-        case .signedOut:
-            authStatusLabel.stringValue = "Auth: Signed out"
-            authStatusLabel.textColor = .secondaryLabelColor
-            authActionButton.title = "Sign In"
-            authActionButton.isEnabled = onSignIn != nil
+        case let .signedOut(reason: reason):
+            authStatusLabel.textColor = isAuthFailureReason(reason) ? .systemRed : .secondaryLabelColor
+            statusLabel.stringValue = authStateProvider?.authStatusText ?? "Sign in required."
+        }
+    }
+
+    private func isAuthFailureReason(_ reason: DesktopAuthSignedOutReason) -> Bool {
+        switch reason {
+        case .callbackRejected, .expiredCredential, .invalidCredential, .loginLaunchFailed, .unauthorizedResponse:
+            return true
+        case .missingCredential, .userInitiated:
+            return false
         }
     }
 

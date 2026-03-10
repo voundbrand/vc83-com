@@ -689,20 +689,21 @@ private final class NativeChatWindowViewController: NSViewController {
 
     private func renderAuthState(_ state: DesktopAuthSessionState) {
         currentAuthState = state
+        let presentation = state.statusPresentation(
+            canSignIn: onSignIn != nil,
+            canSignOut: onSignOut != nil
+        )
+        authStatusLabel.stringValue = presentation.indicatorText
+        authActionButton.title = presentation.actionTitle
+        authActionButton.isEnabled = presentation.isActionEnabled
 
         switch state {
         case .authenticated:
-            authStatusLabel.stringValue = "Auth: Signed in"
-            authActionButton.title = "Sign Out"
-            authActionButton.isEnabled = onSignOut != nil
+            break
         case .authorizing:
-            authStatusLabel.stringValue = "Auth: Signing in"
-            authActionButton.title = "Sign In"
-            authActionButton.isEnabled = false
+            statusLabel.stringValue = authStateProvider?.authStatusText ?? "Waiting for sign-in callback."
         case .signedOut:
-            authStatusLabel.stringValue = "Auth: Signed out"
-            authActionButton.title = "Sign In"
-            authActionButton.isEnabled = onSignIn != nil
+            statusLabel.stringValue = authStateProvider?.authStatusText ?? "Sign in required."
         }
 
         applyTheme()
@@ -864,8 +865,20 @@ private final class NativeChatWindowViewController: NSViewController {
             return themeMode == .dark ? NSColor.systemGreen : color(hex: "166534")
         case .authorizing:
             return themeMode == .dark ? NSColor.systemOrange : color(hex: "B45309")
-        case .signedOut:
+        case let .signedOut(reason: reason):
+            if isAuthFailureReason(reason) {
+                return themeMode == .dark ? NSColor.systemRed : color(hex: "B42318")
+            }
             return palette.secondaryText
+        }
+    }
+
+    private func isAuthFailureReason(_ reason: DesktopAuthSignedOutReason) -> Bool {
+        switch reason {
+        case .callbackRejected, .expiredCredential, .invalidCredential, .loginLaunchFailed, .unauthorizedResponse:
+            return true
+        case .missingCredential, .userInitiated:
+            return false
         }
     }
 

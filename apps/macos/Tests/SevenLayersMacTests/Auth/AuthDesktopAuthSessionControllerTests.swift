@@ -97,6 +97,24 @@ final class AuthDesktopAuthSessionControllerTests: XCTestCase {
         XCTAssertNil(store.load())
     }
 
+    func testBeginLoginCanBeRetriedWhileAuthorizing() throws {
+        let store = InMemorySessionCredentialStore()
+        let controller = makeController(store: store)
+
+        let firstURL = try controller.beginLogin(state: "first-state") { _ in true }
+        XCTAssertEqual(controller.authSessionState, .authorizing)
+
+        let retryURL = try controller.beginLogin(state: "retry-state") { _ in true }
+        XCTAssertEqual(controller.authSessionState, .authorizing)
+
+        let firstQuery = try XCTUnwrap(URLComponents(url: firstURL, resolvingAgainstBaseURL: false)?.queryItems)
+        let retryQuery = try XCTUnwrap(URLComponents(url: retryURL, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertNotEqual(
+            firstQuery.first(where: { $0.name == "state" })?.value,
+            retryQuery.first(where: { $0.name == "state" })?.value
+        )
+    }
+
     private func makeController(
         store: InMemorySessionCredentialStore,
         now: @escaping () -> Date = Date.init
