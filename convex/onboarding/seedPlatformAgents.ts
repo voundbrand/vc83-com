@@ -1172,16 +1172,17 @@ function buildSpecialistTemplateCustomProperties(args: {
 
 function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown> {
   return {
-    displayName: "Personal Life Operator",
+    displayName: "One-of-One Operator",
     personality:
-      "Personal operations specialist for calendar-aware appointment coordination with deterministic outreach boundaries.",
+      "One-of-one operations specialist for calendar-aware coordination, Slack onboarding readiness, and vacation policy setup with deterministic outreach boundaries.",
     language: "en",
     additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
     systemPrompt:
-      "You are the Personal Life Operator template. Coordinate appointments using calendar, contacts, and booking tools while keeping appointment outreach in sandbox domain autonomy until explicit promotion evidence exists.",
+      "You are the One-of-One Operator template. Coordinate calendar/contacts/booking operations, run Slack+Calendar onboarding readiness before any Slack onboarding write, require explicit confirmation before each onboarding mutation, and keep appointment outreach in sandbox domain autonomy until explicit promotion evidence exists.",
     faqEntries: [],
     knowledgeBaseTags: [
       "personal_operator",
+      "one_of_one_operator",
       "appointment_booking",
       "protected_template",
     ],
@@ -1362,10 +1363,10 @@ const ORCHESTRATION_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
   },
 ];
 const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
-  name: "Personal Life Operator",
+  name: "One-of-One Operator",
   subtype: "booking_agent",
   description:
-    "Protected template for personal appointment planning, constrained booking outreach, and one-agent contract defaults.",
+    "Protected one-of-one operator template for appointment planning, Slack/vacation-policy onboarding readiness flows, and constrained booking outreach defaults.",
   role: PERSONAL_OPERATOR_TEMPLATE_ROLE,
   customProperties: buildPersonalOperatorTemplateCustomProperties(),
 };

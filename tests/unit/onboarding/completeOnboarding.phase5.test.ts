@@ -6,12 +6,14 @@ const PLATFORM_ORG_ID = "org_platform_phase5" as Id<"organizations">;
 const CLAIMED_ORG_ID = "org_claimed_phase5" as Id<"organizations">;
 const NEW_ORG_ID = "org_new_phase5" as Id<"organizations">;
 const AGENT_ID = "agent_phase5" as Id<"objects">;
+const DEFAULT_TEMPLATE_AGENT_ID = "agent_default_template_phase5" as Id<"objects">;
 const SESSION_ID = "session_phase5" as Id<"agentSessions">;
 
 function createCompleteOnboardingContext(args: {
   channel: "telegram" | "webchat" | "native_guest";
   existingOrgId?: Id<"organizations">;
   extractedData?: Record<string, unknown>;
+  provisionedAgentId?: Id<"objects">;
 }) {
   const createdOrganizations: Array<Record<string, unknown>> = [];
   const rebindCalls: Array<Record<string, unknown>> = [];
@@ -69,6 +71,21 @@ function createCompleteOnboardingContext(args: {
     if (Object.prototype.hasOwnProperty.call(payload, "workspaceName") && Object.prototype.hasOwnProperty.call(payload, "source")) {
       createdOrganizations.push(payload);
       return NEW_ORG_ID;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "organizationId")
+      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && !Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      && !Object.prototype.hasOwnProperty.call(payload, "telegramChatId")
+    ) {
+      return args.provisionedAgentId
+        ? {
+            agentId: args.provisionedAgentId,
+            provisioningAction: "template_clone_created",
+            fallbackUsed: false,
+          }
+        : { success: true };
     }
 
     if (
@@ -138,6 +155,31 @@ describe("complete onboarding phase 5 orchestration", () => {
     expect(createdOrganizations).toHaveLength(0);
     expect(rebindCalls).toHaveLength(1);
     expect(rebindCalls[0]?.organizationId).toBe(CLAIMED_ORG_ID);
+  });
+
+  it("reuses default template-managed operator and skips bootstrap when provisioning returns an agent", async () => {
+    const { ctx, createdOrganizations, rebindCalls } = createCompleteOnboardingContext({
+      channel: "webchat",
+      existingOrgId: CLAIMED_ORG_ID,
+      extractedData: {
+        workspaceName: "Template Managed Workspace",
+      },
+      provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
+    });
+
+    const result = await (completeOnboardingRun as any)._handler(ctx, {
+      sessionId: SESSION_ID,
+      channelContactIdentifier: "wc_session_phase5_template_managed",
+      channel: "webchat",
+      organizationId: PLATFORM_ORG_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.organizationId).toBe(CLAIMED_ORG_ID);
+    expect(result.agentId).toBe(DEFAULT_TEMPLATE_AGENT_ID);
+    expect(createdOrganizations).toHaveLength(0);
+    expect(rebindCalls).toHaveLength(1);
+    expect(ctx.runAction).not.toHaveBeenCalled();
   });
 
   it("recreates workspace only when explicitly confirmed and rebinds session to new org", async () => {

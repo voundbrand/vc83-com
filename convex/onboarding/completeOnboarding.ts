@@ -5,7 +5,7 @@
  * 1. Reads extractedData from the completed interview session
  * 2. Creates (or resolves) the user's workspace organization
  * 3. Seeds daily credits
- * 4. Bootstraps the customer's first AI agent (with soul from interview data)
+ * 4. Resolves the customer's default template-managed one-of-one operator
  * 5. Switches channel/session routing from System Bot → workspace agent
  * 6. Sends an intro message when channel transport supports direct dispatch
  * 7. Stores the intro in the new session with agent attribution
@@ -276,24 +276,6 @@ export const run = internalAction({
       console.log("[completeOnboarding] Reusing existing org:", orgId);
     } else {
       console.log("[completeOnboarding] Created org:", orgId);
-      try {
-        const defaultAgentProvisioning = await ctx.runMutation(
-          internalApi.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
-          {
-            organizationId: orgId,
-            channel: "desktop",
-          }
-        );
-        console.log(
-          "[completeOnboarding] Default template clone provisioning:",
-          defaultAgentProvisioning?.provisioningAction || "unknown"
-        );
-      } catch (defaultAgentProvisioningError) {
-        console.error(
-          "[completeOnboarding] Default template clone provisioning failed (non-blocking):",
-          defaultAgentProvisioningError
-        );
-      }
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
@@ -312,48 +294,81 @@ export const run = internalAction({
       console.error("[completeOnboarding] Credit seeding failed (non-blocking):", e);
     }
 
-    // 4. Bootstrap agent with soul from interview data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let agentResult: any;
-    const baselineHints = [
-      extractedData.socialEnergyPreference
-        ? `social_energy_preference=${String(extractedData.socialEnergyPreference)}`
-        : null,
-      extractedData.preferredVoiceStyle
-        ? `preferred_voice_style=${String(extractedData.preferredVoiceStyle)}`
-        : null,
-      extractedData.hesitationResponseStyle
-        ? `hesitation_response_style=${String(extractedData.hesitationResponseStyle)}`
-        : null,
-      extractedData.communicationStyle
-        ? `communication_style=${String(extractedData.communicationStyle)}`
-        : null,
-    ].filter(Boolean).join("; ");
+    // 4. Resolve the template-managed default onboarding operator.
+    let onboardingAgentId: Id<"objects"> | null = null;
     try {
-      agentResult = await ctx.runAction(
-        publicApi.ai.soulGenerator.bootstrapAgent,
+      const defaultAgentProvisioning = await ctx.runMutation(
+        internalApi.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
         {
           organizationId: orgId,
-          name: "Operator",
-          subtype: "general",
-          industry: workspaceContext,
-          targetAudience: extractedData.targetAudience || extractedData.target_audience,
-          tonePreference: extractedData.tonePreference || extractedData.tone_preference,
-          additionalContext: [
-            extractedData.primaryUseCase || extractedData.primary_use_case,
-            baselineHints.length > 0 ? `baseline_calibration: ${baselineHints}` : null,
-            "naming_directive: choose a personal first name for yourself (not generic placeholders like Agent/Assistant).",
-          ].filter(Boolean).join(" | "),
+          channel: "desktop",
         }
       );
-      console.log("[completeOnboarding] Agent bootstrapped:", agentResult?.agentId);
-    } catch (e) {
-      console.error("[completeOnboarding] Agent bootstrap failed:", e);
-      return { success: false, error: "Agent bootstrap failed" };
+      onboardingAgentId =
+        (defaultAgentProvisioning?.agentId as Id<"objects"> | undefined) || null;
+      console.log(
+        "[completeOnboarding] Default onboarding agent resolved:",
+        onboardingAgentId || "unknown",
+        "provisioningAction:",
+        defaultAgentProvisioning?.provisioningAction || "unknown"
+      );
+    } catch (defaultAgentResolutionError) {
+      console.error(
+        "[completeOnboarding] Default onboarding agent resolution failed:",
+        defaultAgentResolutionError
+      );
     }
 
-    if (!agentResult?.agentId) {
-      console.error("[completeOnboarding] No agentId returned from bootstrap");
+    // Backward-compatible fallback for environments that do not return agentId yet.
+    if (!onboardingAgentId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let agentResult: any;
+      const baselineHints = [
+        extractedData.socialEnergyPreference
+          ? `social_energy_preference=${String(extractedData.socialEnergyPreference)}`
+          : null,
+        extractedData.preferredVoiceStyle
+          ? `preferred_voice_style=${String(extractedData.preferredVoiceStyle)}`
+          : null,
+        extractedData.hesitationResponseStyle
+          ? `hesitation_response_style=${String(extractedData.hesitationResponseStyle)}`
+          : null,
+        extractedData.communicationStyle
+          ? `communication_style=${String(extractedData.communicationStyle)}`
+          : null,
+      ].filter(Boolean).join("; ");
+      try {
+        agentResult = await ctx.runAction(
+          publicApi.ai.soulGenerator.bootstrapAgent,
+          {
+            organizationId: orgId,
+            name: "Operator",
+            subtype: "general",
+            industry: workspaceContext,
+            targetAudience: extractedData.targetAudience || extractedData.target_audience,
+            tonePreference: extractedData.tonePreference || extractedData.tone_preference,
+            additionalContext: [
+              extractedData.primaryUseCase || extractedData.primary_use_case,
+              baselineHints.length > 0 ? `baseline_calibration: ${baselineHints}` : null,
+              "naming_directive: choose a personal first name for yourself (not generic placeholders like Agent/Assistant).",
+            ].filter(Boolean).join(" | "),
+          }
+        );
+        onboardingAgentId = (agentResult?.agentId as Id<"objects"> | undefined) || null;
+        console.log(
+          "[completeOnboarding] Fallback agent bootstrap:",
+          onboardingAgentId || "missing_agent_id"
+        );
+      } catch (fallbackBootstrapError) {
+        console.error(
+          "[completeOnboarding] Fallback agent bootstrap failed:",
+          fallbackBootstrapError
+        );
+      }
+    }
+
+    if (!onboardingAgentId) {
+      console.error("[completeOnboarding] Failed to resolve onboarding agent");
       return { success: false, error: "No agent created" };
     }
 
@@ -378,7 +393,7 @@ export const run = internalAction({
           {
             sessionToken: channelContactIdentifier.trim(),
             organizationId: orgId,
-            agentId: agentResult.agentId,
+            agentId: onboardingAgentId,
           }
         );
         if (rebindResult?.success) {
@@ -415,7 +430,7 @@ export const run = internalAction({
         await ctx.runMutation(internalApi.onboarding.identityClaims.syncGuestSessionLedger, {
           sessionToken: guestSessionToken,
           organizationId: orgId,
-          agentId: agentResult.agentId,
+          agentId: onboardingAgentId,
           channel: normalizedChannel,
           agentSessionId: undefined,
         });
@@ -424,7 +439,7 @@ export const run = internalAction({
           {
             sessionToken: guestSessionToken,
             organizationId: orgId,
-            agentId: agentResult.agentId,
+            agentId: onboardingAgentId,
             channel: normalizedChannel,
           }
         ) as { claimToken?: string | null } | null;
@@ -447,7 +462,7 @@ export const run = internalAction({
     // 6. New agent introduces itself
     const newAgent = await ctx.runQuery(
       internalApi.agentOntology.getAgentInternal,
-      { agentId: agentResult.agentId }
+      { agentId: onboardingAgentId }
     );
 
     const customProperties = asRecord(newAgent?.customProperties);
@@ -455,7 +470,7 @@ export const run = internalAction({
     const identity = resolvePersonalAgentIdentity({
       extractedData: extractedData as Record<string, unknown>,
       organizationId: orgId,
-      agentId: agentResult.agentId as Id<"objects">,
+      agentId: onboardingAgentId,
       soulName: soul.name,
       displayName: customProperties.displayName,
     });
@@ -466,7 +481,7 @@ export const run = internalAction({
       try {
         await ctx.runMutation(
           internalApi.onboarding.completeOnboarding.persistOnboardingAgentIdentity,
-          { agentId: agentResult.agentId, agentName }
+          { agentId: onboardingAgentId, agentName }
         );
       } catch (identityPersistError) {
         console.error("[completeOnboarding] Failed to persist agent self-selected name:", identityPersistError);
@@ -534,7 +549,7 @@ export const run = internalAction({
     const newSession = await ctx.runMutation(
       internalApi.ai.agentSessions.resolveSession,
       {
-        agentId: agentResult.agentId,
+        agentId: onboardingAgentId,
         organizationId: orgId,
         channel: normalizedChannel,
         externalContactIdentifier: channelContactIdentifier,
@@ -548,7 +563,7 @@ export const run = internalAction({
           sessionId: newSession._id,
           role: "assistant" as const,
           content: introMessage,
-          agentId: agentResult.agentId,
+          agentId: onboardingAgentId,
           agentName,
         }
       );
@@ -559,7 +574,7 @@ export const run = internalAction({
     return {
       success: true,
       organizationId: orgId,
-      agentId: agentResult.agentId,
+      agentId: onboardingAgentId,
       agentName,
       identityClaimToken: identityClaimToken || undefined,
       identityClaimLink: identityClaimLink || undefined,
