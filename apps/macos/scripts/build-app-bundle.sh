@@ -16,12 +16,16 @@ MIN_OS_VERSION="${MIN_OS_VERSION:-14.0}"
 BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-release}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 AUTH_CALLBACK_SCHEME="${AUTH_CALLBACK_SCHEME:-vc83-mac}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
 
-if [[ ! -x "${EXECUTABLE_SOURCE}" ]]; then
+if [[ "${SKIP_BUILD}" != "1" ]]; then
   (
     cd "${MACOS_ROOT}"
     swift build -c "${BUILD_CONFIGURATION}" --product sevenlayers-mac
   )
+elif [[ ! -x "${EXECUTABLE_SOURCE}" ]]; then
+  echo "Executable not found at ${EXECUTABLE_SOURCE} while SKIP_BUILD=1" >&2
+  exit 1
 fi
 
 if [[ -z "${ICON_SOURCE_PATH}" ]]; then
