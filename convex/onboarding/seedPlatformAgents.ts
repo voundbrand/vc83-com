@@ -1187,6 +1187,9 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
     ],
     toolProfile: "personal_operator",
     enabledTools: [
+      "check_slack_calendar_onboarding_readiness",
+      "start_slack_workspace_connect",
+      "save_pharmacist_vacation_policy",
       "check_oauth_connection",
       "create_contact",
       "search_contacts",
