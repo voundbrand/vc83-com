@@ -115,6 +115,16 @@ final class AuthDesktopAuthSessionControllerTests: XCTestCase {
         )
     }
 
+    func testCompleteAuthorizingStateWithoutCallbackSetsSignedOutReason() throws {
+        let store = InMemorySessionCredentialStore()
+        let controller = makeController(store: store)
+        _ = try controller.beginLogin(state: "state-cancel-1") { _ in true }
+
+        controller.completeAuthorizingStateWithoutCallback(reason: .userInitiated)
+
+        XCTAssertEqual(controller.authSessionState, .signedOut(reason: .userInitiated))
+    }
+
     private func makeController(
         store: InMemorySessionCredentialStore,
         now: @escaping () -> Date = Date.init

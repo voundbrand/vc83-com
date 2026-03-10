@@ -1,4 +1,5 @@
 import AppKit
+import AuthenticationServices
 import Foundation
 
 public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
@@ -18,6 +19,8 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var authSessionController: DesktopAuthSessionController?
     private var authHTTPClient: DesktopAuthHTTPClient?
+    private var authConfiguration: DesktopAuthConfiguration?
+    private var authInteractiveSessionRunner: (any DesktopAuthInteractiveSessionRunning)?
     private var hotkeyController: GlobalHotkeyController?
 
     private var pendingApprovalsObserverToken: UUID?
@@ -29,7 +32,8 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     public func applicationDidFinishLaunching(_ notification: Notification) {
         let bridge = MacCompanionBridge()
-        let authCoordinator = makeDefaultAuthCoordinator()
+        let authConfiguration = makeDefaultAuthConfiguration()
+        let authCoordinator = DesktopAuthCoordinator(configuration: authConfiguration)
         let authSessionController = DesktopAuthSessionController(coordinator: authCoordinator)
         authSessionController.restoreSession()
         let authHTTPClient = DesktopAuthHTTPClient(
@@ -37,6 +41,7 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
                 credentialProvider: authSessionController
             )
         )
+        let authInteractiveSessionRunner = DesktopAuthWebAuthenticationSessionRunner()
         let captureAuthorization = makeCaptureAuthorizationContext()
         let quickChatSession = QuickChatSessionController(
             bridge: bridge,
@@ -130,6 +135,8 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
         self.statusItemController = statusController
         self.authSessionController = authSessionController
         self.authHTTPClient = authHTTPClient
+        self.authConfiguration = authConfiguration
+        self.authInteractiveSessionRunner = authInteractiveSessionRunner
         self.hotkeyController = hotkeyController
 
         pendingApprovalsObserverToken = quickChatSession.addPendingApprovalsObserver { [weak statusController] count in
@@ -147,6 +154,7 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
             self.pendingApprovalsObserverToken = nil
         }
 
+        authInteractiveSessionRunner?.cancel()
         hotkeyController?.stop()
     }
 
@@ -167,12 +175,24 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func startLoginFlow() {
-        guard let authSessionController else {
+        guard let authSessionController,
+              let authConfiguration,
+              let authInteractiveSessionRunner
+        else {
             return
         }
 
         do {
-            _ = try authSessionController.beginLogin { NSWorkspace.shared.open($0) }
+            _ = try authSessionController.beginLogin { [weak self] authorizationURL in
+                return authInteractiveSessionRunner.begin(
+                    authorizationURL: authorizationURL,
+                    callbackURLScheme: authConfiguration.callbackScheme
+                ) { [weak self] result in
+                    Task { @MainActor [weak self] in
+                        self?.handleInteractiveAuthCompletion(result)
+                    }
+                }
+            }
         } catch {
             NSLog("SevenLayersMac failed to start login flow: %@", String(describing: error))
         }
@@ -197,10 +217,34 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
         return DashboardDeepLinkOpener(configuration: config)
     }
 
-    private func makeDefaultAuthCoordinator() -> DesktopAuthCoordinator {
+    private func makeDefaultAuthConfiguration() -> DesktopAuthConfiguration {
         let webBaseURL = URL(string: "https://app.l4yercak3.com")!
-        let config = DesktopAuthConfiguration(webBaseURL: webBaseURL)
-        return DesktopAuthCoordinator(configuration: config)
+        return DesktopAuthConfiguration(webBaseURL: webBaseURL)
+    }
+
+    @MainActor
+    private func handleInteractiveAuthCompletion(_ result: Result<URL, Error>) {
+        guard let authSessionController else {
+            return
+        }
+
+        switch result {
+        case let .success(callbackURL):
+            do {
+                _ = try authSessionController.handleOpenURL(callbackURL)
+            } catch {
+                NSLog("SevenLayersMac interactive auth callback rejected: %@", String(describing: error))
+            }
+        case let .failure(error):
+            if let sessionError = error as? ASWebAuthenticationSessionError,
+               sessionError.code == .canceledLogin {
+                authSessionController.completeAuthorizingStateWithoutCallback(reason: .userInitiated)
+                return
+            }
+
+            authSessionController.completeAuthorizingStateWithoutCallback(reason: .loginLaunchFailed)
+            NSLog("SevenLayersMac interactive auth failed: %@", String(describing: error))
+        }
     }
 
     private func makeCaptureAuthorizationContext(

@@ -136,6 +136,14 @@ public final class DesktopAuthSessionController: DesktopAuthStateProviding, Desk
         return authorizationURL
     }
 
+    public func completeAuthorizingStateWithoutCallback(reason: DesktopAuthSignedOutReason) {
+        guard case .authorizing = authSessionState else {
+            return
+        }
+
+        authSessionState = .signedOut(reason: reason)
+    }
+
     @discardableResult
     public func handleOpenURL(_ url: URL) throws -> Bool {
         do {
