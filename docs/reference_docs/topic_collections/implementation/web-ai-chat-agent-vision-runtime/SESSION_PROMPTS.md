@@ -31,7 +31,8 @@ Progress snapshot (2026-03-10):
 - `WCV-104` is complete (robust-path matrix evidence for policy/auth/freshness is now captured in integration tests and workstream docs; `typecheck`, targeted integration tests, and `docs:guard` passed).
 - `WCV-201` is complete (persistent realtime multimodal session contract for audio+video path is frozen, including deterministic fallback precedence, one-way downgrade guardrail to turn-stitch runtime, and pre-`WCV-202` rollout safety constraints).
 - `WCV-202` is complete (implemented feature-flagged persistent realtime multimodal backend lifecycle and Gemini Live adapter capability resolution, with resolve/open/close lifecycle metadata surfaced through API while preserving turn-stitch default behavior).
-- Next READY-first row: `WCV-203`.
+- `WCV-203` is complete (web runtime orchestration now propagates persistent-session-first lifecycle metadata across voice capture/send flows, gates turn-stitch vision-frame resolver usage to fallback mode only, and applies deterministic fallback metadata when persistent path is unavailable).
+- Next READY-first row: `WCV-204`.
 
 ## Session A (Phase 1 Fast Path)
 

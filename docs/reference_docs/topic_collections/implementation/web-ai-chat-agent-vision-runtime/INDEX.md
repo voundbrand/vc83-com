@@ -38,11 +38,11 @@ Excluded:
 |---|---|---|
 | `A` | `WCV-001`..`WCV-004` | `DONE` x4 |
 | `B` | `WCV-101`..`WCV-104` | `DONE` x4 |
-| `C` | `WCV-201`..`WCV-204` | `DONE`, `DONE`, `READY`, `PENDING` |
+| `C` | `WCV-201`..`WCV-204` | `DONE`, `DONE`, `DONE`, `READY` |
 
 ## READY-first execution list
 
-1. `WCV-203`
+1. `WCV-204`
 
 ## Required gates
 
@@ -63,3 +63,5 @@ Excluded:
 9. `2026-03-10`: Completed `WCV-104` by expanding robust-path validation matrix coverage in integration tests for retention policy outcomes (`off`, `metadata_only`, `full`), auth isolation outcomes (`interview_session_mismatch`, `conversation_not_found`, `organization_mismatch`, `conversation_user_mismatch`, allow-match), and freshness outcomes (`attached`, `vision_frame_stale`, `vision_frame_missing`). Verification snapshot: `npm run typecheck` pass, `npm run test -- tests/integration/ai/webChatVisionAuthorization.integration.test.ts` pass, `npm run test -- tests/integration/ai/webChatVisionTurnAttach.integration.test.ts` pass, `npm run docs:guard` pass. Lane `B` closed; advanced `WCV-201` to `READY`.
 10. `2026-03-10`: Completed `WCV-201` by freezing the persistent realtime multimodal audio+video session contract, deterministic fallback/migration guardrails to turn-stitch runtime, and rollout safety constraints required before `WCV-202`. Verification snapshot: `npm run docs:guard` pass. Advanced `WCV-202` to `READY`.
 11. `2026-03-10`: Completed `WCV-202` by implementing feature-flagged persistent realtime multimodal backend lifecycle and provider adapter scaffolding (`convex/ai/voiceRuntimeAdapter.ts`, `convex/ai/voiceRuntime.ts`, `convex/api/v1/aiChat.ts`), including resolve/open/close lifecycle metadata and deterministic fallback signaling while preserving turn-stitch default behavior. Verification snapshot: `npm run typecheck` pass, `npm run docs:guard` pass. Advanced `WCV-203` to `READY`.
+12. `2026-03-10`: Completed `WCV-203` by migrating web chat runtime orchestration to persistent-session-first metadata path with deterministic fallback to turn-stitch mode (`src/hooks/use-voice-runtime.ts`, `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx`, `convex/ai/chatRuntimeOrchestration.ts`). Verification snapshot: `npm run typecheck` pass, `npm run docs:guard` pass, `npm run test:e2e:desktop` failed with `Error: Timed out waiting 180000ms from config.webServer.`. Advanced `WCV-204` to `READY`.
+13. `2026-03-10`: Re-ran `WCV-203` verification after local process cleanup; `npm run test:e2e:desktop` now passes (`5 passed (33.9s)`). Current `WCV-203` verification snapshot: `npm run typecheck` pass, `npm run test:e2e:desktop` pass, `npm run docs:guard` pass.

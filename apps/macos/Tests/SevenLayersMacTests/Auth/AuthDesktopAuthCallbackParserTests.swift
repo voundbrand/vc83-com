@@ -28,6 +28,18 @@ final class AuthDesktopAuthCallbackParserTests: XCTestCase {
         XCTAssertEqual(payload.state, "state-123")
     }
 
+    func testParsesPlatformSessionAliasFromCallback() throws {
+        let parser = DesktopAuthCallbackParser(
+            configuration: DesktopAuthConfiguration(webBaseURL: URL(string: "https://app.vc83.test")!)
+        )
+
+        let callbackURL = URL(string: "vc83-mac://auth/callback?session=platform-session-1&state=state-123")!
+        let payload = try parser.parse(callbackURL, expectedState: "state-123")
+
+        XCTAssertEqual(payload.sessionToken, "platform-session-1")
+        XCTAssertEqual(payload.state, "state-123")
+    }
+
     func testRejectsWrongCallbackRoute() {
         let parser = DesktopAuthCallbackParser(
             configuration: DesktopAuthConfiguration(webBaseURL: URL(string: "https://app.vc83.test")!)

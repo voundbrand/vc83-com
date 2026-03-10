@@ -298,7 +298,9 @@ function parseHostedCallbackSession(resultURL: string, expectedState: string): {
   }
 
   const sessionToken =
-    callbackURL.searchParams.get('session') || callbackURL.searchParams.get('token');
+    callbackURL.searchParams.get('session')
+    || callbackURL.searchParams.get('session_token')
+    || callbackURL.searchParams.get('token');
   if (!sessionToken) {
     const callbackError =
       callbackURL.searchParams.get('error_description') || callbackURL.searchParams.get('error');

@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
   const sessionType =
-    client === "operator_mobile" || client === "platform_web"
-      ? "platform"
-      : "cli";
+    client === "cli"
+      ? "cli"
+      : "platform";
 
   if (provider) {
     const oauthSignupURL = new URL("/api/auth/oauth-signup", appUrl);

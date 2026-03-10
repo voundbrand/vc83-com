@@ -39,7 +39,7 @@ final class AuthDesktopAuthEndToEndSmokeTests: XCTestCase {
         XCTAssertEqual(loginComponents.path, "/api/auth/login/init")
 
         let callbackURL = URL(
-            string: "vc83-mac://auth/callback?session_token=session-e2e-1&state=e2e-state-1"
+            string: "vc83-mac://auth/callback?session=session-e2e-1&state=e2e-state-1"
         )!
         let handled = try sessionController.handleOpenURL(callbackURL)
         XCTAssertTrue(handled)
@@ -82,7 +82,7 @@ final class AuthDesktopAuthEndToEndSmokeTests: XCTestCase {
         XCTAssertEqual(sessionController.authSessionState, .authorizing)
 
         let successfulCallbackURL = URL(
-            string: "vc83-mac://auth/callback?session_token=session-recovered-1&state=e2e-retry-1"
+            string: "vc83-mac://auth/callback?session=session-recovered-1&state=e2e-retry-1"
         )!
         let handled = try sessionController.handleOpenURL(successfulCallbackURL)
         XCTAssertTrue(handled)

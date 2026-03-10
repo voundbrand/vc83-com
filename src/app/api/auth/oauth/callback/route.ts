@@ -192,6 +192,7 @@ async function handleOAuthCallback(request: NextRequest) {
     if (shouldUseExternalPlatformCallback(stateRecord.callbackUrl, appUrl)) {
       const externalRedirectUrl = new URL(stateRecord.callbackUrl);
       externalRedirectUrl.searchParams.set("session", result.token);
+      externalRedirectUrl.searchParams.set("session_token", result.token);
       externalRedirectUrl.searchParams.set("isNewUser", result.isNewUser ? "true" : "false");
       externalRedirectUrl.searchParams.set("oauthProvider", oauthProvider);
       if (stateRecord.cliState) {
