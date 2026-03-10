@@ -68,6 +68,53 @@ export const INTENTIONAL_DESKTOP_VISION_STOP_REASONS = new Set([
   "preview_recovery",
 ])
 
+export function isTransientDesktopCameraBackpressureReason(
+  reason: string | null | undefined
+): boolean {
+  if (typeof reason !== "string") {
+    return false
+  }
+  const normalized = reason.trim().toLowerCase()
+  if (!normalized) {
+    return false
+  }
+  return normalized === "capture_backpressure" || normalized.startsWith("capture_backpressure_")
+}
+
+export function normalizeDesktopCameraFallbackReason(
+  reason: string | null | undefined
+): string | undefined {
+  if (typeof reason !== "string") {
+    return undefined
+  }
+  const normalized = reason.trim()
+  if (!normalized) {
+    return undefined
+  }
+  if (isTransientDesktopCameraBackpressureReason(normalized)) {
+    return undefined
+  }
+  return normalized
+}
+
+export function shouldResolveDuplexVoiceTurnVisionFrame(args: {
+  conversationModeSelection: DesktopConversationModeSelection
+  cameraSessionState: DesktopCameraSessionState | null | undefined
+  cameraVisionError?: string | null
+  sessionTransportPath: "persistent_realtime_multimodal" | "turn_stitch"
+}): boolean {
+  if (args.sessionTransportPath !== "persistent_realtime_multimodal") {
+    return true
+  }
+  if (args.conversationModeSelection !== "voice_with_eyes") {
+    return false
+  }
+  if (args.cameraSessionState !== "capturing") {
+    return false
+  }
+  return !normalizeDesktopCameraFallbackReason(args.cameraVisionError)
+}
+
 const ACTIVE_CONVERSATION_STATES = new Set<ConversationSessionState>([
   "live",
   "reconnecting",

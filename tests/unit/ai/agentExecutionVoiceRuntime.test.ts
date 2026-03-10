@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInboundLanguageLockRuntimeContext,
+  resolveInboundConversationLanguageLock,
   resolveInboundVoiceRuntimeRequest,
   resolveVoiceRuntimeLanguage,
   resolveVoiceRuntimeVoiceId,
@@ -138,5 +140,76 @@ describe("agentExecution voice runtime request parsing", () => {
         orgDefaultVoiceId: "voice_org",
       }),
     ).toBe("voice_org");
+  });
+
+  it("locks response language from inbound voice runtime metadata when present", () => {
+    const inboundVoiceRequest = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+        language: "en-US",
+      },
+    });
+    expect(inboundVoiceRequest).not.toBeNull();
+    expect(
+      resolveInboundConversationLanguageLock({
+        metadata: {
+          voiceRuntime: {
+            language: "de",
+          },
+        },
+        inboundVoiceRequest,
+      }),
+    ).toBe("en-us");
+  });
+
+  it("prefers explicit conversation runtime language lock over inbound voice hints", () => {
+    const inboundVoiceRequest = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+        language: "hi",
+      },
+    });
+    expect(inboundVoiceRequest).not.toBeNull();
+    expect(
+      resolveInboundConversationLanguageLock({
+        metadata: {
+          conversationRuntime: {
+            languageLock: "en-US",
+          },
+          voiceRuntime: {
+            language: "de",
+          },
+        },
+        inboundVoiceRequest,
+      }),
+    ).toBe("en-us");
+  });
+
+  it("falls back to metadata language hints for lock selection", () => {
+    expect(
+      resolveInboundConversationLanguageLock({
+        metadata: {
+          conversationRuntime: {
+            languageLock: "de-DE",
+          },
+        },
+      }),
+    ).toBe("de-de");
+    expect(
+      resolveInboundConversationLanguageLock({
+        metadata: {
+          language: "hindi",
+        },
+      }),
+    ).toBe("hi");
+  });
+
+  it("builds deterministic runtime context for language lock enforcement", () => {
+    const context = buildInboundLanguageLockRuntimeContext("en-US");
+    expect(context).toContain("LANGUAGE LOCK");
+    expect(context).toContain("en-us");
+    expect(context).toContain("explicitly requests");
   });
 });

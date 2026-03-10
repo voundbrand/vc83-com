@@ -5350,6 +5350,10 @@ export const processInboundMessage = action({
         ?? routedAuthorityRuntimeModuleMetadata?.key
         ?? null,
     });
+    const conversationLanguageLock = resolveInboundConversationLanguageLock({
+      metadata,
+      inboundVoiceRequest,
+    });
     const actionCompletionResponseLanguage = resolveActionCompletionResponseLanguage({
       authorityConfig: authorityConfigRecord,
       inboundMessage,
@@ -5365,6 +5369,7 @@ export const processInboundMessage = action({
     });
     const composerRuntimeContextParts = [
       buildInboundComposerRuntimeContext(composerRuntimeControls),
+      buildInboundLanguageLockRuntimeContext(conversationLanguageLock),
       buildRuntimeModuleIntentRoutingContext(runtimeModuleIntentRouting),
       buildDerTerminmacherRuntimeContext(derTerminmacherRuntimeContract),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
@@ -18892,6 +18897,79 @@ export function resolveVoiceRuntimeLanguage(args: {
       args.agentConfig?.language
     )
   );
+}
+
+function normalizeInboundLanguageLockTag(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase().replace(/_/g, "-");
+  if (!normalized) {
+    return null;
+  }
+  if (
+    normalized === "english"
+    || normalized === "englisch"
+  ) {
+    return "en";
+  }
+  if (
+    normalized === "german"
+    || normalized === "deutsch"
+  ) {
+    return "de";
+  }
+  if (normalized === "hindi") {
+    return "hi";
+  }
+  if (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+export function resolveInboundConversationLanguageLock(args: {
+  metadata: Record<string, unknown>;
+  inboundVoiceRequest?: InboundVoiceRuntimeRequest | null;
+}): string | null {
+  const voiceRuntime = normalizeInboundObjectValue(args.metadata.voiceRuntime);
+  const conversationRuntime = normalizeInboundObjectValue(
+    args.metadata.conversationRuntime
+  );
+  const explicitConversationLanguageLock = normalizeInboundLanguageLockTag(
+    conversationRuntime?.languageLock
+  );
+  if (explicitConversationLanguageLock) {
+    return explicitConversationLanguageLock;
+  }
+  return (
+    normalizeInboundLanguageLockTag(args.inboundVoiceRequest?.language)
+    ?? normalizeInboundLanguageLockTag(
+      firstInboundString(
+        voiceRuntime?.language,
+        conversationRuntime?.language,
+        args.metadata.language,
+        args.metadata.locale
+      )
+    )
+    ?? null
+  );
+}
+
+export function buildInboundLanguageLockRuntimeContext(
+  languageLock: string | null | undefined
+): string | null {
+  const normalized = normalizeInboundLanguageLockTag(languageLock);
+  if (!normalized) {
+    return null;
+  }
+  return [
+    "--- LANGUAGE LOCK ---",
+    `Conversation language lock: ${normalized}.`,
+    `Default all replies to ${normalized} and keep language stable across turns.`,
+    "Switch languages only when the user explicitly requests it.",
+    "--- END LANGUAGE LOCK ---",
+  ].join("\n");
 }
 
 export function resolveVoiceRuntimeVoiceId(args: {

@@ -38,11 +38,11 @@ Excluded:
 |---|---|---|
 | `A` | `WCV-001`..`WCV-004` | `DONE` x4 |
 | `B` | `WCV-101`..`WCV-104` | `DONE` x4 |
-| `C` | `WCV-201`..`WCV-204` | `DONE`, `DONE`, `DONE`, `READY` |
+| `C` | `WCV-201`..`WCV-204` | `DONE` x4 |
 
 ## READY-first execution list
 
-1. `WCV-204`
+1. `None (all rows DONE)`
 
 ## Required gates
 
@@ -65,3 +65,4 @@ Excluded:
 11. `2026-03-10`: Completed `WCV-202` by implementing feature-flagged persistent realtime multimodal backend lifecycle and provider adapter scaffolding (`convex/ai/voiceRuntimeAdapter.ts`, `convex/ai/voiceRuntime.ts`, `convex/api/v1/aiChat.ts`), including resolve/open/close lifecycle metadata and deterministic fallback signaling while preserving turn-stitch default behavior. Verification snapshot: `npm run typecheck` pass, `npm run docs:guard` pass. Advanced `WCV-203` to `READY`.
 12. `2026-03-10`: Completed `WCV-203` by migrating web chat runtime orchestration to persistent-session-first metadata path with deterministic fallback to turn-stitch mode (`src/hooks/use-voice-runtime.ts`, `src/components/window-content/ai-chat-window/slick-pane/slick-chat-input.tsx`, `convex/ai/chatRuntimeOrchestration.ts`). Verification snapshot: `npm run typecheck` pass, `npm run docs:guard` pass, `npm run test:e2e:desktop` failed with `Error: Timed out waiting 180000ms from config.webServer.`. Advanced `WCV-204` to `READY`.
 13. `2026-03-10`: Re-ran `WCV-203` verification after local process cleanup; `npm run test:e2e:desktop` now passes (`5 passed (33.9s)`). Current `WCV-203` verification snapshot: `npm run typecheck` pass, `npm run test:e2e:desktop` pass, `npm run docs:guard` pass.
+14. `2026-03-10`: Completed `WCV-204` lane-closeout parity matrix against local `docs/reference_projects/VisionClaw` and `docs/reference_projects/agents` references; published canary decision evidence (`GO (canary)`) in `MASTER_PLAN.md` with retained feature-flag/allowlist/rollback constraints. Verification snapshot: `npm run typecheck` pass, `npm run test:e2e:desktop` pass, `npm run docs:guard` pass. Lane `C` closed.

@@ -59,6 +59,8 @@ import {
   type ConversationReasonCode,
   type ConversationSessionState,
   inferConversationReasonCode,
+  resolveConversationSessionState,
+  shouldKeepConversationStageVisible as resolveConversationStageVisibility,
 } from "@/lib/ai/conversation-session-contract"
 import {
   buildConversationCapabilitySnapshot,
@@ -70,7 +72,10 @@ import {
   composeDesktopRuntimeMetadata,
   evaluateDesktopVisionDegradeGuard,
   isIntentionalDesktopVisionStopReason,
+  isTransientDesktopCameraBackpressureReason,
+  normalizeDesktopCameraFallbackReason,
   resolveDesktopConversationModeTransition,
+  shouldResolveDuplexVoiceTurnVisionFrame,
   shouldRecoverBlankDesktopVisionPreview,
 } from "@/lib/ai/desktop-conversation-runtime"
 import {
@@ -1577,13 +1582,11 @@ function getLanguageAbbreviation(localeValue: string | undefined): string {
 }
 
 function formatCameraDiagnosticReason(reason: string | null | undefined): string | null {
-  if (typeof reason !== "string") {
+  const normalizedReason = normalizeDesktopCameraFallbackReason(reason)
+  if (!normalizedReason) {
     return null
   }
-  const normalized = reason.trim()
-  if (!normalized) {
-    return null
-  }
+  const normalized = normalizedReason
   if (normalized.includes("NotAllowedError") || normalized.includes("permission")) {
     return "Camera permission denied"
   }
@@ -2653,7 +2656,8 @@ export function SlickChatInput({
           ? {
               ...current,
               sessionState: "capturing",
-              fallbackReason: "capture_backpressure",
+              fallbackReason:
+                normalizeDesktopCameraFallbackReason(current.fallbackReason) ?? undefined,
               frameCadenceMs: throttle.cadenceMs,
             }
           : current
@@ -2797,23 +2801,33 @@ export function SlickChatInput({
         setCameraVisionError(null)
       }
     } catch (error) {
+      const transportError =
+        error instanceof Error
+          ? error.message
+          : "vision_frame_transport_failed"
+      if (isTransientDesktopCameraBackpressureReason(transportError)) {
+        setCameraLiveSession((current) =>
+          current
+            ? {
+                ...current,
+                sessionState: "capturing",
+                fallbackReason: "capture_backpressure",
+              }
+            : current
+        )
+        setCameraVisionError(null)
+        return
+      }
       setCameraLiveSession((current) =>
         current
           ? {
               ...current,
               sessionState: "error",
-              fallbackReason:
-                error instanceof Error
-                  ? error.message
-                  : "vision_frame_transport_failed",
+              fallbackReason: transportError,
             }
           : current
       )
-      setCameraVisionError(
-        error instanceof Error
-          ? error.message
-          : "vision_frame_transport_failed"
-      )
+      setCameraVisionError(transportError)
     }
   }
 
@@ -5045,9 +5059,23 @@ export function SlickChatInput({
       return
     }
 
+    if (conversationModeSelection === "voice_with_eyes") {
+      stopVisionStream("conversation_eyes_toggle_off")
+      setConversationModeSelection("voice")
+      setConversationReasonCode(undefined)
+      activeConversationEyesSourceRef.current = null
+      emitConversationEvent("conversation_eyes_source_changed", {
+        eyesSource: "none",
+        mode: "voice",
+      })
+      return
+    }
+
     void (async () => {
       const started = await startVisionStream()
       if (started) {
+        setConversationModeSelection("voice_with_eyes")
+        setConversationReasonCode(undefined)
         activeConversationEyesSourceRef.current = conversationEyesSourceSelection
         emitConversationEvent("conversation_eyes_source_changed", {
           eyesSource: conversationEyesSourceSelection,
@@ -5477,6 +5505,10 @@ export function SlickChatInput({
     const normalizedLiveSessionId =
       voiceRuntimeBase?.liveSessionId
       || cameraLiveSession?.liveSessionId
+    const cameraRuntimeFallbackReason =
+      normalizeDesktopCameraFallbackReason(
+        cameraVisionError ?? cameraLiveSession?.fallbackReason
+      ) ?? null
     const cameraRuntime: AIChatCameraRuntimeMetadata | undefined =
       normalizedLiveSessionId
       || cameraLiveSession
@@ -5504,10 +5536,10 @@ export function SlickChatInput({
             frameCaptureCount: cameraLiveSession?.frameCaptureCount || 0,
             frameCadenceMs: cameraLiveSession?.frameCadenceMs,
             frameCadenceFps: cameraLiveSession?.frameCadenceFps,
-            fallbackReason: cameraVisionError ?? cameraLiveSession?.fallbackReason ?? null,
+            fallbackReason: cameraRuntimeFallbackReason,
             captureSource: "live_stream_capture",
             sourceHealth: {
-              status: cameraVisionError ? "degraded" : "healthy",
+              status: cameraRuntimeFallbackReason ? "degraded" : "healthy",
               previewSignal: hasCameraPreviewSignal,
             },
             previewSignalObservedAtMs: cameraPreviewSignalObservedAtRef.current,
@@ -5611,6 +5643,8 @@ export function SlickChatInput({
       },
       interruptCount: conversationInterruptCountRef.current,
       mode: conversationModeSelection,
+      languageLock: voiceInputLanguage,
+      language: voiceInputLanguage,
       requestedEyesSource:
         conversationModeSelection === "voice_with_eyes"
           ? conversationEyesSourceSelection
@@ -5685,12 +5719,21 @@ export function SlickChatInput({
       const authSessionId = sessionIdRef.current
       const runtimeSession = resolvedVoiceRuntimeSessionRef.current
       const liveSessionId = normalizeOptionalString(voiceRuntimeMetadata.liveSessionId)
-      const usePersistentRealtimeMultimodalPath =
+      const sessionTransportPath: "persistent_realtime_multimodal" | "turn_stitch" =
         normalizeOptionalString(voiceRuntimeMetadata.sessionTransportPath)
           === "persistent_realtime_multimodal"
+          ? "persistent_realtime_multimodal"
+          : "turn_stitch"
+      const shouldResolveVisionFrame =
+        shouldResolveDuplexVoiceTurnVisionFrame({
+          conversationModeSelection,
+          cameraSessionState: cameraLiveSession?.sessionState,
+          cameraVisionError,
+          sessionTransportPath,
+        })
       let visionFrameResolution: VoiceTurnVisionFrameResolution | undefined
       if (
-        !usePersistentRealtimeMultimodalPath
+        shouldResolveVisionFrame
         && authSessionId
         && runtimeSession
         && targetConversationId
@@ -5912,6 +5955,10 @@ export function SlickChatInput({
         pendingVoiceRuntime?.liveSessionId
         || latestVisionAttachment?.liveSessionId
         || cameraLiveSession?.liveSessionId
+      const cameraRuntimeFallbackReason =
+        normalizeDesktopCameraFallbackReason(
+          cameraVisionError ?? cameraLiveSession?.fallbackReason
+        ) ?? null
       const cameraRuntime: AIChatCameraRuntimeMetadata | undefined =
         normalizedLiveSessionId
         || cameraLiveSession
@@ -5944,11 +5991,11 @@ export function SlickChatInput({
               ),
               frameCadenceMs: cameraLiveSession?.frameCadenceMs,
               frameCadenceFps: cameraLiveSession?.frameCadenceFps,
-              fallbackReason: cameraVisionError ?? cameraLiveSession?.fallbackReason ?? null,
+              fallbackReason: cameraRuntimeFallbackReason,
               captureSource:
                 liveVisionAttachments.length > 0 ? "live_stream_capture" : "upload_only",
               sourceHealth: {
-                status: cameraVisionError ? "degraded" : "healthy",
+                status: cameraRuntimeFallbackReason ? "degraded" : "healthy",
                 previewSignal: hasCameraPreviewSignal,
               },
               previewSignalObservedAtMs: cameraPreviewSignalObservedAtRef.current,
@@ -6066,6 +6113,8 @@ export function SlickChatInput({
         },
         interruptCount: conversationInterruptCountRef.current,
         mode: conversationModeSelection,
+        languageLock: voiceInputLanguage,
+        language: voiceInputLanguage,
         requestedEyesSource:
           conversationModeSelection === "voice_with_eyes"
             ? conversationEyesSourceSelection
@@ -6239,12 +6288,14 @@ export function SlickChatInput({
     || isVoiceListening
     || Boolean(voiceCaptureControllerRef.current)
   const shouldKeepConversationStageVisible =
-    isConversationStageOpen
-    || isConversationActive
-    || conversationState === "ending"
-    || conversationState === "error"
-    || isStartingConversation
-    || isConversationEnding
+    resolveConversationStageVisibility({
+      isConversationStageOpen,
+      isConversationActive,
+      isConversationSessionActive,
+      conversationState,
+      isStartingConversation,
+      isConversationEnding,
+    })
 
   useEffect(() => {
     onConversationStageVisibilityChange?.(shouldKeepConversationStageVisible)
@@ -6523,8 +6574,8 @@ export function SlickChatInput({
     if (languageOptions.length <= 1) {
       return
     }
-    if (voiceCaptureState === "listening") {
-      stopVoiceCapture()
+    if (isConversationSessionActive || isConversationActive) {
+      return
     }
     const currentIndex = languageOptions.findIndex((option) => option.value === selectedLanguageValue)
     const fallbackIndex = currentIndex >= 0 ? currentIndex : 0
@@ -6568,21 +6619,18 @@ export function SlickChatInput({
       conversationModeSelection === "voice_with_eyes"
         ? cameraVisionError
         : null
-    const hasConversationIntent = isStartingConversation || isVoiceListening || isVoiceTranscribing || Boolean(pendingVoiceRuntime)
-    const nextState: ConversationSessionState =
-      isConversationEnding
-        ? "ending"
-        : conversationState === "ended"
-          ? "ended"
-          : blockingVisionError || voiceCaptureError
-            ? "error"
-            : !hasConversationIntent
-              ? "idle"
-              : isStartingConversation || isVoiceTranscribing
-                ? "connecting"
-                : isVoiceListening
-                  ? "live"
-                  : "reconnecting"
+    const nextState: ConversationSessionState = resolveConversationSessionState({
+      currentState: conversationState,
+      isConversationEnding,
+      isStartingConversation,
+      isVoiceListening,
+      isVoiceTranscribing,
+      hasPendingVoiceRuntime: Boolean(pendingVoiceRuntime),
+      hasConversationSessionActive: isConversationSessionActive,
+      isSendingAssistantTurn: isSending,
+      blockingVisionError,
+      voiceCaptureError,
+    })
 
     const nextReason =
       nextState === "error"
@@ -6601,6 +6649,8 @@ export function SlickChatInput({
     isStartingConversation,
     isVoiceListening,
     isVoiceTranscribing,
+    isConversationSessionActive,
+    isSending,
     pendingVoiceRuntime,
     voiceCaptureError,
   ])
@@ -6932,7 +6982,7 @@ export function SlickChatInput({
                   >
                     {cameraLiveSession.sessionState === "capturing"
                       ? "Waiting for camera preview signal..."
-                      : "Vision stream is stopped. Tap Eyes on to restart."}
+                      : "Vision stream is stopped. Use Eyes mode controls to restart or exit."}
                   </div>
                 ) : null}
               </div>

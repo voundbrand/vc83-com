@@ -10,6 +10,77 @@ const ORG_ID = "org_retention_policy_1" as Id<"organizations">;
 const INTERVIEW_ID = "interview_retention_policy_1" as Id<"agentSessions">;
 
 describe("operator media retention policy", () => {
+  it("prefers compact env keys for Convex-safe configuration", () => {
+    const config = resolveOperatorMediaRetentionConfig({
+      OP_MEDIA_RET_ENABLED: "true",
+      OP_MEDIA_RET_MODE: "metadata_only",
+      OP_MEDIA_RET_FAIL_CLOSED: "false",
+      OP_MEDIA_RET_AUDIO_TTL_HOURS: "5",
+      OP_MEDIA_RET_VIDEO_TTL_HOURS: "7",
+      OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES: "9",
+      OP_MEDIA_RET_VIDEO_KEYFRAMES_ONLY: "true",
+      OP_MEDIA_RET_REDACTION_STATUS: "pending",
+      OP_MEDIA_RET_REDACTION_PROFILE_ID: "profile-short",
+      OP_MEDIA_RET_ENCRYPTION_MODE: "customer_managed",
+      OP_MEDIA_RET_ENCRYPTION_KEY_REF: "kms://short",
+    });
+    expect(config).toMatchObject({
+      enabled: true,
+      mode: "metadata_only",
+      failClosed: false,
+      audioTtlMs: 5 * 60 * 60 * 1000,
+      videoTtlMs: 7 * 60 * 60 * 1000,
+      videoSampleEveryNFrames: 9,
+      videoRetainKeyframesOnly: true,
+      redactionStatus: "pending",
+      redactionProfileId: "profile-short",
+      encryptionMode: "customer_managed",
+      encryptionKeyRef: "kms://short",
+    });
+  });
+
+  it("keeps legacy retention env aliases working for migration", () => {
+    const config = resolveOperatorMediaRetentionConfig({
+      OPERATOR_MEDIA_RETENTION_ENABLED: "true",
+      OPERATOR_MEDIA_RETENTION_MODE: "full",
+      OPERATOR_MEDIA_RETENTION_VIDEO_SAMPLE_EVERY_N_FRAMES: "4",
+      OPERATOR_MEDIA_RETENTION_VIDEO_KEYFRAMES_ONLY: "true",
+      OPERATOR_MEDIA_RETENTION_REDACTION_STATUS: "applied",
+      OPERATOR_MEDIA_RETENTION_REDACTION_PROFILE_ID: "profile-legacy",
+      OPERATOR_MEDIA_RETENTION_ENCRYPTION_KEY_REF: "kms://legacy",
+    });
+    expect(config.enabled).toBe(true);
+    expect(config.mode).toBe("full");
+    expect(config.videoSampleEveryNFrames).toBe(4);
+    expect(config.videoRetainKeyframesOnly).toBe(true);
+    expect(config.redactionStatus).toBe("applied");
+    expect(config.redactionProfileId).toBe("profile-legacy");
+    expect(config.encryptionKeyRef).toBe("kms://legacy");
+  });
+
+  it("does not throw when long legacy env keys are rejected by runtime", () => {
+    const env = new Proxy<Record<string, string | undefined>>(
+      {
+        OP_MEDIA_RET_ENABLED: "true",
+        OP_MEDIA_RET_MODE: "metadata_only",
+        OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES: "3",
+      },
+      {
+        get(target, prop) {
+          if (typeof prop === "string" && prop.length > 39) {
+            throw new Error(
+              `The environment variable name ${prop} is too long. Environment variable names must be less than 40.`,
+            );
+          }
+          return target[prop];
+        },
+      },
+    );
+
+    expect(() => resolveOperatorMediaRetentionConfig(env)).not.toThrow();
+    expect(resolveOperatorMediaRetentionConfig(env).videoSampleEveryNFrames).toBe(3);
+  });
+
   it("fails closed to disabled when enable flag is false", () => {
     const config = resolveOperatorMediaRetentionConfig({
       OPERATOR_MEDIA_RETENTION_ENABLED: "false",

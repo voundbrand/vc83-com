@@ -51,6 +51,79 @@ export interface ConversationEventEnvelope {
   payload?: Record<string, unknown>
 }
 
+export interface ConversationSessionStateResolutionInput {
+  currentState: ConversationSessionState
+  isConversationEnding: boolean
+  isStartingConversation: boolean
+  isVoiceListening: boolean
+  isVoiceTranscribing: boolean
+  hasPendingVoiceRuntime: boolean
+  hasConversationSessionActive: boolean
+  isSendingAssistantTurn: boolean
+  blockingVisionError?: string | null
+  voiceCaptureError?: string | null
+}
+
+export interface ConversationStageVisibilityInput {
+  isConversationStageOpen: boolean
+  isConversationActive: boolean
+  isConversationSessionActive: boolean
+  conversationState: ConversationSessionState
+  isStartingConversation: boolean
+  isConversationEnding: boolean
+}
+
+export function shouldKeepConversationStageVisible(
+  args: ConversationStageVisibilityInput
+): boolean {
+  return (
+    args.isConversationStageOpen
+    || args.isConversationActive
+    || args.isConversationSessionActive
+    || args.conversationState === "ending"
+    || args.conversationState === "error"
+    || args.isStartingConversation
+    || args.isConversationEnding
+  )
+}
+
+export function resolveConversationSessionState(
+  args: ConversationSessionStateResolutionInput
+): ConversationSessionState {
+  if (args.isConversationEnding) {
+    return "ending"
+  }
+  if (args.currentState === "ended") {
+    return "ended"
+  }
+  if (args.blockingVisionError || args.voiceCaptureError) {
+    return "error"
+  }
+
+  const hasConversationIntent =
+    args.isStartingConversation
+    || args.isVoiceListening
+    || args.isVoiceTranscribing
+    || args.hasPendingVoiceRuntime
+    || args.hasConversationSessionActive
+    || args.isSendingAssistantTurn
+  if (!hasConversationIntent) {
+    return "idle"
+  }
+
+  if (args.isStartingConversation || args.isVoiceTranscribing) {
+    return "connecting"
+  }
+  if (
+    args.isVoiceListening
+    || args.hasConversationSessionActive
+    || args.isSendingAssistantTurn
+  ) {
+    return "live"
+  }
+  return "reconnecting"
+}
+
 export function inferConversationReasonCode(reason: string | null | undefined): ConversationReasonCode {
   const normalized = (reason || "").trim().toLowerCase()
   if (!normalized) {

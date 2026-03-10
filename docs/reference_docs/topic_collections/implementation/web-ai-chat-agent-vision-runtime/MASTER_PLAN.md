@@ -204,6 +204,7 @@ Targeted tests:
 11. `2026-03-10`: Completed `WCV-202` by implementing feature-flagged persistent realtime multimodal backend lifecycle and provider adapter scaffolding: added Gemini Live persistent session capability resolution in `voiceRuntimeAdapter.ts`, wired persistent lifecycle resolution/open/close snapshots in `voiceRuntime.ts`, and exposed lifecycle metadata in `/api/v1/ai/voice/session/resolve|open|close` via `aiChat.ts` while keeping turn-stitch as default fallback path. Verify snapshot: `npm run typecheck` pass, `npm run docs:guard` pass. Advanced `WCV-203` to `READY`.
 12. `2026-03-10`: Completed `WCV-203` by migrating web chat voice orchestration to persistent-session-first runtime metadata path with deterministic fallback tagging: updated `use-voice-runtime.ts` to pass/receive persistent lifecycle fields, updated `slick-chat-input.tsx` to propagate persistent session path and turn-stitch fallback reasons through voice/conversation runtime metadata and to skip per-turn vision frame resolver calls when persistent path is active, and updated `chatRuntimeOrchestration.ts` (+ call site) to suppress latest turn-stitch image attachment injection when persistent mode is active. Verify snapshot: `npm run typecheck` pass, `npm run docs:guard` pass, `npm run test:e2e:desktop` failed with `Error: Timed out waiting 180000ms from config.webServer.`. Advanced `WCV-204` to `READY`.
 13. `2026-03-10`: Re-ran `WCV-203` verification after clearing stale local dev server processes; `npm run test:e2e:desktop` now passes (`5 passed (33.9s)`). Current `WCV-203` verify state: `npm run typecheck` pass, `npm run test:e2e:desktop` pass, `npm run docs:guard` pass.
+14. `2026-03-10`: Completed `WCV-204` parity closeout by validating lane-C behavior against local `VisionClaw`/`agents` references, publishing parity matrix + canary go/no-go evidence (`GO (canary)` with feature-flag/allowlist/rollback guardrails retained), and synchronizing queue artifacts. Verify snapshot: `npm run typecheck` pass, `npm run test:e2e:desktop` pass (`5 passed (31.7s)`), `npm run docs:guard` pass. Lane `C` closed.
 
 ## Exit criteria
 
@@ -212,3 +213,45 @@ Targeted tests:
 3. Lane `C` done: persistent realtime multimodal parity path validated with fallback retained until canary promotion.
 4. `INDEX.md`, `MASTER_PLAN.md`, `TASK_QUEUE.md`, and `SESSION_PROMPTS.md` remain synchronized.
 5. `npm run docs:guard` passes.
+
+## WCV-204 parity matrix and canary evidence
+
+Reference baselines reviewed:
+
+1. `docs/reference_projects/VisionClaw/README.md`
+2. `docs/reference_projects/VisionClaw/samples/CameraAccess/CameraAccess/Gemini/GeminiLiveService.swift`
+3. `docs/reference_projects/VisionClaw/samples/CameraAccess/CameraAccess/Gemini/GeminiSessionViewModel.swift`
+4. `docs/reference_projects/agents/README.md`
+5. `docs/reference_projects/agents/examples/test_realtime_pipeline.py`
+6. `docs/reference_projects/agents/examples/reply_interrupt_agent.py`
+7. `docs/reference_projects/agents/examples/fallback_recovery.py`
+
+### Parity matrix (`WCV-204`)
+
+| Capability | VisionClaw / agents reference | vc83 lane-C implementation evidence | Status |
+|---|---|---|---|
+| Persistent realtime multimodal session lifecycle | VisionClaw documents Gemini Live realtime voice+vision session loop over WebSocket with audio/video streaming | `WCV-201`/`WCV-202` contract + adapter/lifecycle path: feature-flagged persistent session lifecycle in `convex/ai/voiceRuntime.ts` and `convex/ai/voiceRuntimeAdapter.ts` | `PASS` |
+| Live video context during active voice session | VisionClaw throttles video frame forwarding while session is active (`sendVideoFrameIfThrottled`) | `WCV-203` routes voice turns via persistent-session metadata and suppresses latest turn-stitch image attachment injection in persistent mode (`chatRuntimeOrchestration.ts`) | `PASS` |
+| Barge-in / interruption continuity | VisionClaw handles interrupted responses (`START_OF_ACTIVITY_INTERRUPTS`) and interruption callbacks | vc83 preserves interruption contracts and keeps deterministic fallback mode tagging in web runtime orchestration (`slick-chat-input.tsx`, `use-voice-runtime.ts`) | `PASS` |
+| Deterministic fallback and recovery | agents examples include explicit fallback recovery (`fallback_recovery.py`) and interruption controls (`reply_interrupt_agent.py`) | vc83 retains explicit fallback precedence and one-way downgrade guardrail from `WCV-201`, with runtime fallback reasons propagated end-to-end in lane C | `PASS` |
+| Tool-call loop compatibility under realtime session | VisionClaw routes tool calls + cancellation through OpenClaw bridge in active realtime session | vc83 keeps existing agent execution/tool flow unchanged while migrating session transport metadata path (`WCV-203` non-regression scope) | `PASS` |
+| Verification gates for parity canary readiness | Reference projects emphasize realtime pipeline reliability and operational validation | `WCV-204` required verifies executed: `typecheck`, desktop e2e, docs guard | `PASS` |
+
+### Canary go/no-go decision
+
+Decision inputs:
+
+1. Parity matrix rows above all `PASS`.
+2. `npm run typecheck` passes.
+3. `npm run test:e2e:desktop` passes.
+4. `npm run docs:guard` passes.
+5. Fallback compatibility and kill-switch constraints from `WCV-201` remain intact.
+
+Decision:
+
+1. **`GO (canary)`** for lane `C` closeout under existing rollout constraints:
+   - feature flag remains default `off` in production
+   - allowlist-based canary only
+   - immediate rollback path to turn-stitch mode remains available and documented
+
+Evidence snapshot timestamp: `2026-03-10` (workstream-local verification run sequence).

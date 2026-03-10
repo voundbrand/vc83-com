@@ -57,6 +57,46 @@ const MIN_WEB_CHAT_VISION_FRAME_MAX_AGE_MS = 1_000;
 const MAX_WEB_CHAT_VISION_FRAME_MAX_AGE_MS = 120_000;
 const DEFAULT_WEB_CHAT_VISION_RESOLVER_SCAN_LIMIT = 40;
 
+// Convex environment variable names must be short (< 40 chars). Use compact keys as
+// canonical names and keep legacy aliases for non-Convex compatibility/migration.
+const OPERATOR_MEDIA_RETENTION_ENV_KEYS = {
+  mode: ["OP_MEDIA_RET_MODE", "OPERATOR_MEDIA_RETENTION_MODE"],
+  enabled: ["OP_MEDIA_RET_ENABLED", "OPERATOR_MEDIA_RETENTION_ENABLED"],
+  failClosed: ["OP_MEDIA_RET_FAIL_CLOSED", "OPERATOR_MEDIA_RETENTION_FAIL_CLOSED"],
+  audioTtlHours: [
+    "OP_MEDIA_RET_AUDIO_TTL_HOURS",
+    "OPERATOR_MEDIA_RETENTION_AUDIO_TTL_HOURS",
+  ],
+  videoTtlHours: [
+    "OP_MEDIA_RET_VIDEO_TTL_HOURS",
+    "OPERATOR_MEDIA_RETENTION_VIDEO_TTL_HOURS",
+  ],
+  videoSampleEveryNFrames: [
+    "OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES",
+    "OPERATOR_MEDIA_RETENTION_VIDEO_SAMPLE_EVERY_N_FRAMES",
+  ],
+  videoRetainKeyframesOnly: [
+    "OP_MEDIA_RET_VIDEO_KEYFRAMES_ONLY",
+    "OPERATOR_MEDIA_RETENTION_VIDEO_KEYFRAMES_ONLY",
+  ],
+  redactionStatus: [
+    "OP_MEDIA_RET_REDACTION_STATUS",
+    "OPERATOR_MEDIA_RETENTION_REDACTION_STATUS",
+  ],
+  redactionProfileId: [
+    "OP_MEDIA_RET_REDACTION_PROFILE_ID",
+    "OPERATOR_MEDIA_RETENTION_REDACTION_PROFILE_ID",
+  ],
+  encryptionMode: [
+    "OP_MEDIA_RET_ENCRYPTION_MODE",
+    "OPERATOR_MEDIA_RETENTION_ENCRYPTION_MODE",
+  ],
+  encryptionKeyRef: [
+    "OP_MEDIA_RET_ENCRYPTION_KEY_REF",
+    "OPERATOR_MEDIA_RETENTION_ENCRYPTION_KEY_REF",
+  ],
+} as const;
+
 export const WEB_CHAT_VISION_DEGRADE_REASON_VALUES = [
   "vision_frame_missing",
   "vision_frame_stale",
@@ -405,26 +445,59 @@ function normalizeQueryLimit(value: unknown, fallback = 50): number {
   return normalizePositiveInteger(value, fallback, 1, MAX_QUERY_LIMIT);
 }
 
+function readEnvValue(
+  env: Record<string, string | undefined>,
+  key: string,
+): string | undefined {
+  try {
+    return env[key];
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveEnvAlias(
+  env: Record<string, string | undefined>,
+  keys: readonly string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = readEnvValue(env, key);
+    if (typeof value !== "undefined") {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export function resolveOperatorMediaRetentionConfig(
   env: Record<string, string | undefined> = process.env,
 ): OperatorMediaRetentionConfig {
-  const mode = normalizeRetentionMode(env.OPERATOR_MEDIA_RETENTION_MODE);
-  const enabledFlag = normalizeBoolean(env.OPERATOR_MEDIA_RETENTION_ENABLED) ?? false;
-  const failClosed = normalizeBoolean(env.OPERATOR_MEDIA_RETENTION_FAIL_CLOSED) ?? true;
+  const mode = normalizeRetentionMode(
+    resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.mode),
+  );
+  const enabledFlag =
+    normalizeBoolean(resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.enabled)) ??
+    false;
+  const failClosed =
+    normalizeBoolean(
+      resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.failClosed),
+    ) ?? true;
   const audioTtlHours = normalizePositiveInteger(
-    env.OPERATOR_MEDIA_RETENTION_AUDIO_TTL_HOURS,
+    resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.audioTtlHours),
     DEFAULT_AUDIO_TTL_HOURS,
   );
   const videoTtlHours = normalizePositiveInteger(
-    env.OPERATOR_MEDIA_RETENTION_VIDEO_TTL_HOURS,
+    resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.videoTtlHours),
     DEFAULT_VIDEO_TTL_HOURS,
   );
   const videoSampleEveryNFrames = normalizePositiveInteger(
-    env.OPERATOR_MEDIA_RETENTION_VIDEO_SAMPLE_EVERY_N_FRAMES,
+    resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.videoSampleEveryNFrames),
     DEFAULT_VIDEO_SAMPLE_EVERY_N_FRAMES,
   );
   const videoRetainKeyframesOnly =
-    normalizeBoolean(env.OPERATOR_MEDIA_RETENTION_VIDEO_KEYFRAMES_ONLY) ?? false;
+    normalizeBoolean(
+      resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.videoRetainKeyframesOnly),
+    ) ?? false;
 
   return {
     enabled: enabledFlag && mode !== "off",
@@ -435,15 +508,19 @@ export function resolveOperatorMediaRetentionConfig(
     videoSampleEveryNFrames,
     videoRetainKeyframesOnly,
     redactionStatus: normalizeRedactionStatus(
-      env.OPERATOR_MEDIA_RETENTION_REDACTION_STATUS,
+      resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.redactionStatus),
     ),
     redactionProfileId:
-      normalizeString(env.OPERATOR_MEDIA_RETENTION_REDACTION_PROFILE_ID) ?? undefined,
+      normalizeString(
+        resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.redactionProfileId),
+      ) ?? undefined,
     encryptionMode: normalizeEncryptionMode(
-      env.OPERATOR_MEDIA_RETENTION_ENCRYPTION_MODE,
+      resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.encryptionMode),
     ),
     encryptionKeyRef:
-      normalizeString(env.OPERATOR_MEDIA_RETENTION_ENCRYPTION_KEY_REF) ?? undefined,
+      normalizeString(
+        resolveEnvAlias(env, OPERATOR_MEDIA_RETENTION_ENV_KEYS.encryptionKeyRef),
+      ) ?? undefined,
   };
 }
 

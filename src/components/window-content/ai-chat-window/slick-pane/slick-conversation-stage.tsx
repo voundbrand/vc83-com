@@ -278,7 +278,7 @@ export function SlickConversationStage({
                   <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs" style={{ color: "var(--shell-text-dim)" }}>
                     {cameraSession.sessionState === "capturing"
                       ? "Waiting for camera preview signal..."
-                      : "Vision stream is stopped. Tap Eyes to restart."}
+                      : "Vision stream is stopped. Tap Exit Eyes to close this mode."}
                   </div>
                 ) : null}
               </div>
@@ -316,7 +316,7 @@ export function SlickConversationStage({
                       color: "var(--shell-text)",
                     }}
                   >
-                    {cameraSession?.sessionState === "capturing" ? "Eyes off" : "Eyes on"}
+                    {cameraSession?.sessionState === "capturing" ? "Eyes off" : "Exit Eyes"}
                   </button>
                 ) : null}
               </div>
@@ -598,7 +598,7 @@ export function SlickConversationStage({
                   <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs" style={{ color: "var(--shell-text-dim)" }}>
                     {cameraSession.sessionState === "capturing"
                       ? "Waiting for camera preview signal..."
-                      : "Vision stream is stopped. Tap Eyes to restart."}
+                      : "Vision stream is stopped. Tap Exit Eyes to close this mode."}
                   </div>
                 ) : null}
               </div>
@@ -637,7 +637,7 @@ export function SlickConversationStage({
                 color: "var(--shell-text)",
               }}
             >
-              {cameraSession?.sessionState === "capturing" ? "Eyes off" : "Eyes on"}
+              {cameraSession?.sessionState === "capturing" ? "Eyes off" : "Exit Eyes"}
             </button>
           ) : null}
         </div>

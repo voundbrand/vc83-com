@@ -119,6 +119,29 @@ function buildMultimodalUserContent(args: {
   return parts;
 }
 
+function normalizeOptionalToken(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function shouldSuppressLatestUserImageAttachments(args: {
+  sessionTransportPath?: string | null;
+  voiceSessionId?: string | null;
+  turnStitchAttachmentPolicy?: string | null;
+}): boolean {
+  return (
+    normalizeOptionalToken(args.turnStitchAttachmentPolicy)
+      === "suppress_latest_user_image_attachments"
+    && normalizeOptionalToken(args.sessionTransportPath)
+      === "persistent_realtime_multimodal"
+    && typeof args.voiceSessionId === "string"
+    && args.voiceSessionId.trim().length > 0
+  );
+}
+
 export function buildOpenRouterMessages(args: {
   systemPrompt: string;
   conversationMessages: ChatRuntimeConversationMessage[];

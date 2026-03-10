@@ -60,9 +60,9 @@ describe("operator media retention ingest linkage", () => {
 
   it("applies video frame sampling before building retention write request", async () => {
     const config = resolveOperatorMediaRetentionConfig({
-      OPERATOR_MEDIA_RETENTION_ENABLED: "true",
-      OPERATOR_MEDIA_RETENTION_MODE: "metadata_only",
-      OPERATOR_MEDIA_RETENTION_VIDEO_SAMPLE_EVERY_N_FRAMES: "3",
+      OP_MEDIA_RET_ENABLED: "true",
+      OP_MEDIA_RET_MODE: "metadata_only",
+      OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES: "3",
     });
 
     const skipped = buildOperatorMediaRetentionWriteRequest({

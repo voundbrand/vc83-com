@@ -46,6 +46,7 @@ import {
 import {
   buildOpenRouterMessages,
   executeChatCompletionWithFailover,
+  shouldSuppressLatestUserImageAttachments as shouldSuppressLatestUserImageAttachmentsForVoiceRuntime,
   type ChatRuntimeFailoverResult,
 } from "./chatRuntimeOrchestration";
 import { getNodeDefinition } from "../layers/nodeRegistry";
@@ -3760,12 +3761,16 @@ ${knowledgeBlock}`;
       `[AI Chat] Using ${isPageBuilderContext ? "page builder" : "layers builder"} system prompt`
     );
     const inboundVoiceRuntime = normalizeRecord(args.voiceRuntime);
-    const inboundVoiceSessionTransportPath = normalizeNonEmptyString(
-      inboundVoiceRuntime?.sessionTransportPath
-    );
     const suppressLatestUserImageAttachments =
-      inboundVoiceSessionTransportPath === "persistent_realtime_multimodal"
-      && Boolean(normalizeNonEmptyString(inboundVoiceRuntime?.voiceSessionId));
+      shouldSuppressLatestUserImageAttachmentsForVoiceRuntime({
+        sessionTransportPath: normalizeNonEmptyString(
+          inboundVoiceRuntime?.sessionTransportPath
+        ),
+        voiceSessionId: normalizeNonEmptyString(inboundVoiceRuntime?.voiceSessionId),
+        turnStitchAttachmentPolicy: normalizeNonEmptyString(
+          inboundVoiceRuntime?.turnStitchAttachmentPolicy
+        ),
+      });
 
     const messages: ChatMessage[] = buildOpenRouterMessages({
       systemPrompt,

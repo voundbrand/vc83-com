@@ -4,7 +4,10 @@ import {
   buildDesktopGeminiLiveMetadata,
   composeDesktopRuntimeMetadata,
   evaluateDesktopVisionDegradeGuard,
+  isTransientDesktopCameraBackpressureReason,
+  normalizeDesktopCameraFallbackReason,
   resolveDesktopConversationModeTransition,
+  shouldResolveDuplexVoiceTurnVisionFrame,
   shouldRecoverBlankDesktopVisionPreview,
 } from "../../../src/lib/ai/desktop-conversation-runtime"
 
@@ -101,6 +104,47 @@ describe("desktop conversation runtime", () => {
       blankPreviewGraceMs: 2_000,
     })
     expect(pastGrace).toBe(true)
+  })
+
+  it("treats capture backpressure as transient and keeps vision fallback clean", () => {
+    expect(isTransientDesktopCameraBackpressureReason("capture_backpressure")).toBe(true)
+    expect(
+      isTransientDesktopCameraBackpressureReason("capture_backpressure_audio_only")
+    ).toBe(true)
+    expect(normalizeDesktopCameraFallbackReason("capture_backpressure")).toBeUndefined()
+    expect(
+      normalizeDesktopCameraFallbackReason("capture_backpressure_audio_only")
+    ).toBeUndefined()
+    expect(normalizeDesktopCameraFallbackReason("camera_preview_timeout")).toBe(
+      "camera_preview_timeout"
+    )
+  })
+
+  it("keeps duplex turn-level vision attachment active in persistent eyes mode", () => {
+    expect(
+      shouldResolveDuplexVoiceTurnVisionFrame({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "capturing",
+        cameraVisionError: null,
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe(true)
+    expect(
+      shouldResolveDuplexVoiceTurnVisionFrame({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "stopped",
+        cameraVisionError: null,
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe(false)
+    expect(
+      shouldResolveDuplexVoiceTurnVisionFrame({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "capturing",
+        cameraVisionError: "capture_backpressure",
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe(true)
   })
 
   it("builds runtime metadata payloads that include the desktop parity envelope", () => {

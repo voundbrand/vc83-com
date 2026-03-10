@@ -53,17 +53,22 @@ Primary query indexes for compliance/debug:
 
 Environment flags:
 
-- `OPERATOR_MEDIA_RETENTION_ENABLED` (`true`/`false`)
-- `OPERATOR_MEDIA_RETENTION_MODE` (`off` | `metadata_only` | `full`)
-- `OPERATOR_MEDIA_RETENTION_FAIL_CLOSED` (`true`/`false`)
-- `OPERATOR_MEDIA_RETENTION_AUDIO_TTL_HOURS`
-- `OPERATOR_MEDIA_RETENTION_VIDEO_TTL_HOURS`
-- `OPERATOR_MEDIA_RETENTION_VIDEO_SAMPLE_EVERY_N_FRAMES`
-- `OPERATOR_MEDIA_RETENTION_VIDEO_KEYFRAMES_ONLY`
-- `OPERATOR_MEDIA_RETENTION_REDACTION_STATUS` (`none` | `pending` | `applied`)
-- `OPERATOR_MEDIA_RETENTION_REDACTION_PROFILE_ID` (optional)
-- `OPERATOR_MEDIA_RETENTION_ENCRYPTION_MODE` (`convex_managed` | `customer_managed`)
-- `OPERATOR_MEDIA_RETENTION_ENCRYPTION_KEY_REF` (optional)
+- `OP_MEDIA_RET_ENABLED` (`true`/`false`)
+- `OP_MEDIA_RET_MODE` (`off` | `metadata_only` | `full`)
+- `OP_MEDIA_RET_FAIL_CLOSED` (`true`/`false`)
+- `OP_MEDIA_RET_AUDIO_TTL_HOURS`
+- `OP_MEDIA_RET_VIDEO_TTL_HOURS`
+- `OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES`
+- `OP_MEDIA_RET_VIDEO_KEYFRAMES_ONLY`
+- `OP_MEDIA_RET_REDACTION_STATUS` (`none` | `pending` | `applied`)
+- `OP_MEDIA_RET_REDACTION_PROFILE_ID` (optional)
+- `OP_MEDIA_RET_ENCRYPTION_MODE` (`convex_managed` | `customer_managed`)
+- `OP_MEDIA_RET_ENCRYPTION_KEY_REF` (optional)
+
+Compatibility aliases (migration only):
+
+- Runtime also accepts legacy `OPERATOR_MEDIA_RETENTION_*` names when available.
+- Convex environments enforce short env keys; prefer `OP_MEDIA_RET_*` for all deployments.
 
 Fail-closed semantics:
 
@@ -130,8 +135,8 @@ Automated TTL cleanup:
 ### Dev
 
 1. Set:
-   - `OPERATOR_MEDIA_RETENTION_ENABLED=true`
-   - `OPERATOR_MEDIA_RETENTION_MODE=metadata_only` (or `full` for payload storage tests)
+   - `OP_MEDIA_RET_ENABLED=true`
+   - `OP_MEDIA_RET_MODE=metadata_only` (or `full` for payload storage tests)
 2. Exercise:
    - `/api/v1/ai/voice/audio/frame`
    - `/api/v1/ai/voice/video/frame`
@@ -142,12 +147,12 @@ Automated TTL cleanup:
 
 1. Enable `metadata_only` first.
 2. Validate ingest latency and record volume.
-3. Enable `full` in targeted orgs with explicit sampling (`VIDEO_SAMPLE_EVERY_N_FRAMES`).
+3. Enable `full` in targeted orgs with explicit sampling (`OP_MEDIA_RET_VIDEO_SAMPLE_N_FRAMES`).
 
 ### Prod
 
 1. Roll out by environment variable promotion.
-2. Keep `OPERATOR_MEDIA_RETENTION_FAIL_CLOSED=true` once retention is required for compliance.
+2. Keep `OP_MEDIA_RET_FAIL_CLOSED=true` once retention is required for compliance.
 3. Monitor:
    - retention insert failures
    - TTL cleanup counts

@@ -4570,7 +4570,7 @@ export const transcribeVoiceAudio = action({
     });
     if (finalAudioRetentionWriteRequest) {
       try {
-        const retained = (await ctx.runMutation(
+        const retained = (await ctx.runAction(
           generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
           finalAudioRetentionWriteRequest,
         )) as {
@@ -5016,7 +5016,7 @@ export const ingestVoiceTransportEnvelope = action({
       });
       if (retentionWriteRequest) {
         try {
-          const retained = (await ctx.runMutation(
+          const retained = (await ctx.runAction(
             generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
             retentionWriteRequest,
           )) as {
@@ -5712,7 +5712,7 @@ export const ingestVideoFrameEnvelope = action({
       });
       if (retentionWriteRequest) {
         try {
-          const retained = (await ctx.runMutation(
+          const retained = (await ctx.runAction(
             generatedApi.internal.ai.mediaRetention.persistRetainedMediaPayload,
             retentionWriteRequest,
           )) as {

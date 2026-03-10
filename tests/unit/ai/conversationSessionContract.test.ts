@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { inferConversationReasonCode } from "../../../src/lib/ai/conversation-session-contract"
+import {
+  inferConversationReasonCode,
+  resolveConversationSessionState,
+  shouldKeepConversationStageVisible,
+} from "../../../src/lib/ai/conversation-session-contract"
 import {
   buildConversationCapabilitySnapshot,
   mapConversationCapabilityReasonCode,
@@ -41,5 +45,61 @@ describe("conversation session contract mapping", () => {
       available: false,
       reasonCode: "dat_sdk_unavailable",
     })
+  })
+
+  it("keeps conversation live across thinking gaps while session continuity signals remain", () => {
+    const state = resolveConversationSessionState({
+      currentState: "live",
+      isConversationEnding: false,
+      isStartingConversation: false,
+      isVoiceListening: false,
+      isVoiceTranscribing: false,
+      hasPendingVoiceRuntime: false,
+      hasConversationSessionActive: true,
+      isSendingAssistantTurn: true,
+      blockingVisionError: null,
+      voiceCaptureError: null,
+    })
+    expect(state).toBe("live")
+  })
+
+  it("returns idle only after all continuity signals are cleared", () => {
+    const state = resolveConversationSessionState({
+      currentState: "live",
+      isConversationEnding: false,
+      isStartingConversation: false,
+      isVoiceListening: false,
+      isVoiceTranscribing: false,
+      hasPendingVoiceRuntime: false,
+      hasConversationSessionActive: false,
+      isSendingAssistantTurn: false,
+      blockingVisionError: null,
+      voiceCaptureError: null,
+    })
+    expect(state).toBe("idle")
+  })
+
+  it("keeps conversation stage visible while session continuity remains active", () => {
+    const visible = shouldKeepConversationStageVisible({
+      isConversationStageOpen: false,
+      isConversationActive: false,
+      isConversationSessionActive: true,
+      conversationState: "live",
+      isStartingConversation: false,
+      isConversationEnding: false,
+    })
+    expect(visible).toBe(true)
+  })
+
+  it("allows stage to close when no continuity signal remains", () => {
+    const visible = shouldKeepConversationStageVisible({
+      isConversationStageOpen: false,
+      isConversationActive: false,
+      isConversationSessionActive: false,
+      conversationState: "idle",
+      isStartingConversation: false,
+      isConversationEnding: false,
+    })
+    expect(visible).toBe(false)
   })
 })
