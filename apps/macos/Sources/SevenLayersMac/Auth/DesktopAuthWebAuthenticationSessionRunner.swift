@@ -6,8 +6,8 @@ public enum DesktopAuthInteractiveSessionError: Error, Equatable {
     case missingCallbackURL
 }
 
-@MainActor
 public protocol DesktopAuthInteractiveSessionRunning: AnyObject {
+    @MainActor
     @discardableResult
     func begin(
         authorizationURL: URL,
@@ -15,21 +15,22 @@ public protocol DesktopAuthInteractiveSessionRunning: AnyObject {
         onCompletion: @escaping (Result<URL, Error>) -> Void
     ) -> Bool
 
+    @MainActor
     func cancel()
 }
 
-@MainActor
 public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopAuthInteractiveSessionRunning {
+    private let stateQueue = DispatchQueue(label: "com.vc83.sevenlayers.auth.websession.runner.state")
     private var currentSession: ASWebAuthenticationSession?
-    private lazy var fallbackPresentationAnchor: NSWindow = {
-        NSWindow(
-            contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: true
-        )
-    }()
+    private weak var activePresentationAnchor: NSWindow?
+    private var fallbackPresentationAnchor: NSWindow?
 
+    @MainActor
+    public override init() {
+        super.init()
+    }
+
+    @MainActor
     @discardableResult
     public func begin(
         authorizationURL: URL,
@@ -38,11 +39,16 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
     ) -> Bool {
         cancel()
 
+        let anchor = resolvePresentationAnchor()
+        stateQueue.sync {
+            activePresentationAnchor = anchor
+        }
+
         let session = ASWebAuthenticationSession(
             url: authorizationURL,
             callbackURLScheme: callbackURLScheme
         ) { [weak self] callbackURL, error in
-            self?.currentSession = nil
+            self?.clearSessionReference()
 
             if let callbackURL {
                 onCompletion(.success(callbackURL))
@@ -64,19 +70,28 @@ public final class DesktopAuthWebAuthenticationSessionRunner: NSObject, DesktopA
             return false
         }
 
-        currentSession = session
+        stateQueue.sync {
+            currentSession = session
+        }
         return true
     }
 
+    @MainActor
     public func cancel() {
-        currentSession?.cancel()
-        currentSession = nil
+        stateQueue.sync {
+            currentSession?.cancel()
+            currentSession = nil
+        }
     }
-}
 
-@MainActor
-extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresentationContextProviding {
-    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+    private func clearSessionReference() {
+        stateQueue.sync {
+            currentSession = nil
+        }
+    }
+
+    @MainActor
+    private func resolvePresentationAnchor() -> NSWindow {
         if let keyWindow = NSApp.keyWindow {
             return keyWindow
         }
@@ -89,6 +104,38 @@ extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresenta
             return firstWindow
         }
 
-        return fallbackPresentationAnchor
+        if let fallbackPresentationAnchor {
+            return fallbackPresentationAnchor
+        }
+
+        let fallbackWindow = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: true
+        )
+        self.fallbackPresentationAnchor = fallbackWindow
+        return fallbackWindow
+    }
+}
+
+extension DesktopAuthWebAuthenticationSessionRunner: ASWebAuthenticationPresentationContextProviding {
+    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        stateQueue.sync {
+            if let activePresentationAnchor {
+                return activePresentationAnchor
+            }
+
+            if let fallbackPresentationAnchor {
+                return fallbackPresentationAnchor
+            }
+
+            return NSWindow(
+                contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: true
+            )
+        }
     }
 }
