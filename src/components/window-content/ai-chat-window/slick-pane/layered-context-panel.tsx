@@ -93,7 +93,7 @@ export function LayeredContextPanel({
   return (
     <div
       ref={panelRef}
-      className="absolute right-4 top-[4.4rem] z-40 flex h-[min(70vh,36rem)] w-[min(92vw,26rem)] flex-col rounded-2xl border"
+      className="pointer-events-auto absolute right-4 top-[4.4rem] z-40 flex h-[min(70vh,36rem)] w-[min(92vw,26rem)] flex-col rounded-2xl border"
       style={{
         borderColor: "var(--shell-border-strong)",
         background: "var(--shell-surface)",
@@ -189,7 +189,11 @@ export function LayeredContextPanel({
                 disabled={Boolean(isSwitchingWorkflowId)}
                 onClick={() => {
                   setIsSwitchingWorkflowId(workflow._id)
-                  void onSelectWorkflow(workflow._id).finally(() => setIsSwitchingWorkflowId(null))
+                  void onSelectWorkflow(workflow._id)
+                    .catch(() => {
+                      // Failure feedback is handled by the caller; keep panel state cleanup deterministic.
+                    })
+                    .finally(() => setIsSwitchingWorkflowId(null))
                 }}
                 title={workflow.name}
               >

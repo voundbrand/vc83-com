@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
+import { useNotification } from "@/hooks/use-notification"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   Ghost,
@@ -50,6 +51,7 @@ export function SlickChatHeader({
     privateModeEnabled,
     setPrivateModeEnabled,
   } = useAIChatContext()
+  const notification = useNotification()
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false)
   const activeLayerWorkflowTitle = useMemo(() => {
@@ -87,6 +89,10 @@ export function SlickChatHeader({
     }
     return truncateContextName(activeLayerWorkflowTitle)
   }, [activeLayerWorkflowId, activeLayerWorkflowTitle])
+  const contextPillLabel = activeLayerWorkflowLabel || "No Layered Context"
+  const contextPillActive = Boolean(activeLayerWorkflowLabel)
+  const contextPillTitle = activeLayerWorkflowTitle
+    || (contextPillActive ? "Layered context active" : "No layered context selected")
 
   const getDrawerButtonStyle = (isActive: boolean) => ({
     background: isActive
@@ -120,14 +126,27 @@ export function SlickChatHeader({
 
   const handleSelectLayeredContext = async (workflowId: Id<"objects">) => {
     if (isCreatingConversation) {
+      notification.info(
+        "Context Switch In Progress",
+        "Please wait for the current chat action to finish before switching layered context."
+      )
       return
     }
     setIsCreatingConversation(true)
+    const previousLayerWorkflowId = activeLayerWorkflowId
+    setActiveLayerWorkflowId(workflowId)
     try {
       const conversationId = await chat.createLayerWorkflowConversation(workflowId)
-      setActiveLayerWorkflowId(workflowId)
       setCurrentConversationId(conversationId)
       setIsContextPanelOpen(false)
+    } catch (error) {
+      setActiveLayerWorkflowId(previousLayerWorkflowId)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred while switching context."
+      notification.error(
+        "Unable to Switch Layered Context",
+        errorMessage.length > 140 ? "Please retry in a moment." : errorMessage
+      )
+      return
     } finally {
       setIsCreatingConversation(false)
     }
@@ -164,19 +183,23 @@ export function SlickChatHeader({
         </button>
 
         <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center px-2">
-          {activeLayerWorkflowLabel ? (
-            <div
-              className="max-w-full rounded-full border px-3 py-1 text-[11px] font-medium"
-              style={{
-                borderColor: "var(--shell-neutral-active-border)",
-                background: "var(--shell-neutral-hover-surface)",
-                color: "var(--shell-text)",
-              }}
-              title={activeLayerWorkflowTitle || "Layered context active"}
-            >
-              <span className="block max-w-[18rem] truncate">{activeLayerWorkflowLabel}</span>
-            </div>
-          ) : null}
+          <div
+            className="max-w-full rounded-full border px-3 py-1 text-[11px] font-medium"
+            style={contextPillActive
+              ? {
+                  borderColor: "var(--shell-neutral-active-border)",
+                  background: "var(--shell-neutral-hover-surface)",
+                  color: "var(--shell-text)",
+                }
+              : {
+                  borderColor: "var(--shell-border-soft)",
+                  background: "var(--shell-surface-elevated)",
+                  color: "var(--shell-text-dim)",
+                }}
+            title={contextPillTitle}
+          >
+            <span className="block max-w-[18rem] truncate">{contextPillLabel}</span>
+          </div>
         </div>
 
         <button
