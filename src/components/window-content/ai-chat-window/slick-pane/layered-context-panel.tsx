@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "convex/react"
 import { Layers, Search, Sparkles } from "lucide-react"
@@ -107,6 +108,18 @@ export function LayeredContextPanel({
         <p className="flex-1 text-sm font-semibold" style={{ color: "var(--shell-text)" }}>
           Layered Context
         </p>
+        <Link
+          href="/layers"
+          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors"
+          style={{
+            borderColor: "var(--shell-border-strong)",
+            color: "var(--shell-text)",
+            background: "var(--shell-surface)",
+          }}
+          title="Create a new layered context"
+        >
+          + Create
+        </Link>
       </div>
 
       <div className="border-b p-2" style={{ borderColor: "var(--shell-border-soft)" }}>
@@ -137,6 +150,20 @@ export function LayeredContextPanel({
             <p className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
               {hasSearch ? "No workflows match your search." : "No workflows available yet."}
             </p>
+            {!hasSearch ? (
+              <Link
+                href="/layers"
+                className="mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                style={{
+                  borderColor: "var(--shell-border-strong)",
+                  color: "var(--shell-text)",
+                  background: "var(--shell-surface-elevated)",
+                }}
+                title="Create your first layered context"
+              >
+                Create layered context
+              </Link>
+            ) : null}
           </div>
         ) : (
           cards.map((workflow) => {

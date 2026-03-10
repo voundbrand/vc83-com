@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
@@ -26,6 +26,15 @@ interface SlickChatHeaderProps {
   onSelectSurface: (selection: CollaborationSurfaceSelection) => void
 }
 
+const MAX_CONTEXT_PILL_NAME_LENGTH = 20
+
+function truncateContextName(name: string): string {
+  if (name.length <= MAX_CONTEXT_PILL_NAME_LENGTH) {
+    return name
+  }
+  return `${name.slice(0, MAX_CONTEXT_PILL_NAME_LENGTH).trimEnd()}...`
+}
+
 export function SlickChatHeader({
   isLeftDrawerOpen,
   isRightDrawerOpen,
@@ -43,6 +52,41 @@ export function SlickChatHeader({
   } = useAIChatContext()
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(false)
+  const activeLayerWorkflowTitle = useMemo(() => {
+    if (!activeLayerWorkflowId) {
+      return undefined
+    }
+
+    const normalizedCurrentTitle = (
+      chat.conversation?.layerWorkflowId === activeLayerWorkflowId
+        ? chat.conversation.layerWorkflowTitle
+        : undefined
+    )?.trim()
+    if (normalizedCurrentTitle) {
+      return normalizedCurrentTitle
+    }
+
+    const matchingConversation = (chat.conversations || []).find((conversation) => (
+      conversation.layerWorkflowId === activeLayerWorkflowId
+      && typeof conversation.layerWorkflowTitle === "string"
+      && conversation.layerWorkflowTitle.trim().length > 0
+    ))
+    return matchingConversation?.layerWorkflowTitle?.trim()
+  }, [
+    activeLayerWorkflowId,
+    chat.conversation?.layerWorkflowId,
+    chat.conversation?.layerWorkflowTitle,
+    chat.conversations,
+  ])
+  const activeLayerWorkflowLabel = useMemo(() => {
+    if (!activeLayerWorkflowId) {
+      return undefined
+    }
+    if (!activeLayerWorkflowTitle) {
+      return "Layered Context"
+    }
+    return truncateContextName(activeLayerWorkflowTitle)
+  }, [activeLayerWorkflowId, activeLayerWorkflowTitle])
 
   const getDrawerButtonStyle = (isActive: boolean) => ({
     background: isActive
@@ -119,7 +163,21 @@ export function SlickChatHeader({
           <Ghost size={17} />
         </button>
 
-        <div className="flex min-h-11 min-w-0 flex-1" aria-hidden="true" />
+        <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center px-2">
+          {activeLayerWorkflowLabel ? (
+            <div
+              className="max-w-full rounded-full border px-3 py-1 text-[11px] font-medium"
+              style={{
+                borderColor: "var(--shell-neutral-active-border)",
+                background: "var(--shell-neutral-hover-surface)",
+                color: "var(--shell-text)",
+              }}
+              title={activeLayerWorkflowTitle || "Layered context active"}
+            >
+              <span className="block max-w-[18rem] truncate">{activeLayerWorkflowLabel}</span>
+            </div>
+          ) : null}
+        </div>
 
         <button
           className="desktop-shell-button flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
