@@ -70,6 +70,44 @@ Fail-closed semantics:
 - If policy requires retention and persistence fails, ingest fails with `operator_media_retention_fail_closed:*`.
 - If retention is disabled, realtime behavior is unchanged.
 
+## Web Chat Vision Runtime Observability Mapping
+
+`WCV-103` adds deterministic attachment observability taxonomy for voice-turn freshest-frame selection.
+
+Runtime emits a `telemetry` snapshot on voice vision frame resolution with:
+
+- `contractVersion`: `web_chat_vision_attachment_telemetry_v1`
+- `reason`: one of:
+  - `attached`
+  - `vision_frame_missing`
+  - `vision_frame_stale`
+  - `vision_policy_blocked`
+  - `vision_frame_dropped_storage_url_missing`
+  - `vision_frame_dropped_auth_isolation`
+- `source`: `auth_gate` | `buffer` | `retention`
+- `maxFrameAgeMs`
+- `frameAgeMs`
+- `freshnessBucket`: `age_0_2s` | `age_2_5s` | `age_5_12s` | `age_12s_plus` | `unknown`
+- `counters`
+
+Counter taxonomy:
+
+- `vision_frame_attempt_total`
+- `vision_frame_attached_total`
+- `vision_frame_miss_total`
+- `vision_frame_miss_reason:<reason>`
+- `vision_frame_drop_total`
+- `vision_frame_drop_reason:<reason>`
+- `vision_frame_freshness_bucket:<bucket>`
+
+Reason-code mapping (runtime decision -> observability reason):
+
+- Attachment selected and URL resolved -> `attached`
+- No candidate in scope -> `vision_frame_missing`
+- Freshest candidate older than freshness window -> `vision_frame_stale`
+- Retention/auth policy block -> `vision_policy_blocked`
+- Auth isolation guard blocked before selection -> `vision_frame_dropped_auth_isolation`
+
 ## Lifecycle + Deletion
 
 Manual delete utility:

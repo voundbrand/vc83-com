@@ -28,6 +28,27 @@ final class QuickChatSessionControllerTests: XCTestCase {
         XCTAssertNil(session.lastSubmission)
     }
 
+    func testSubmitContextDraftFailsClosedWhenSignedOut() {
+        let bridge = StubCompanionBridge()
+        let authState = AuthStateStub(
+            authSessionState: .signedOut(reason: .missingCredential),
+            authStatusText: "Sign in required before running privileged actions."
+        )
+        let session = QuickChatSessionController(
+            bridge: bridge,
+            authStateProvider: authState
+        )
+
+        let submission = session.submitContextDraft("operator context preview")
+
+        XCTAssertNil(submission)
+        XCTAssertEqual(
+            session.lastSubmissionBlockReason,
+            "Sign in required before running privileged actions."
+        )
+        XCTAssertTrue(bridge.contextPayloads.isEmpty)
+    }
+
     func testPendingApprovalsObserverReceivesInitialAndUpdatedValues() {
         let session = QuickChatSessionController(bridge: StubCompanionBridge())
         var observedValues: [Int] = []
@@ -72,5 +93,22 @@ private final class StubCompanionBridge: CompanionBridgeBoundary {
         approval: ApprovalArtifact?
     ) throws -> IngressEnvelope {
         throw CompanionBridgeError.missingApprovalArtifact
+    }
+}
+
+private final class AuthStateStub: DesktopAuthStateProviding {
+    let authSessionState: DesktopAuthSessionState
+    let authStatusText: String
+
+    init(authSessionState: DesktopAuthSessionState, authStatusText: String) {
+        self.authSessionState = authSessionState
+        self.authStatusText = authStatusText
+    }
+
+    var isAuthenticated: Bool {
+        if case .authenticated = authSessionState {
+            return true
+        }
+        return false
     }
 }

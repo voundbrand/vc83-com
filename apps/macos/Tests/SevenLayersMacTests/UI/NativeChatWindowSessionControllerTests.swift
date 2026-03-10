@@ -45,6 +45,23 @@ final class NativeChatWindowSessionControllerTests: XCTestCase {
 
         XCTAssertEqual(session.state.pendingApprovalsCount, 4)
     }
+
+    func testSubmitDraftFailsClosedWhenSignedOut() {
+        let quickChatSession = QuickChatSessionController(
+            bridge: StubNativeChatBridge(),
+            authStateProvider: NativeChatAuthStateStub(
+                authSessionState: .signedOut(reason: .expiredCredential),
+                authStatusText: "Session expired. Sign in again."
+            )
+        )
+        let session = NativeChatWindowSessionController(quickChatSession: quickChatSession)
+
+        let didSubmit = session.submitDraft("desktop message")
+
+        XCTAssertFalse(didSubmit)
+        XCTAssertTrue(session.state.messages.isEmpty)
+        XCTAssertEqual(session.state.statusText, "Session expired. Sign in again.")
+    }
 }
 
 private final class StubNativeChatBridge: CompanionBridgeBoundary {
@@ -70,5 +87,22 @@ private final class StubNativeChatBridge: CompanionBridgeBoundary {
         approval: ApprovalArtifact?
     ) throws -> IngressEnvelope {
         throw CompanionBridgeError.missingApprovalArtifact
+    }
+}
+
+private final class NativeChatAuthStateStub: DesktopAuthStateProviding {
+    let authSessionState: DesktopAuthSessionState
+    let authStatusText: String
+
+    init(authSessionState: DesktopAuthSessionState, authStatusText: String) {
+        self.authSessionState = authSessionState
+        self.authStatusText = authStatusText
+    }
+
+    var isAuthenticated: Bool {
+        if case .authenticated = authSessionState {
+            return true
+        }
+        return false
     }
 }

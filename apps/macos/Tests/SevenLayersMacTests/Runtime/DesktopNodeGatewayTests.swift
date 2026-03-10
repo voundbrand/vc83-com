@@ -67,6 +67,9 @@ final class DesktopNodeGatewayTests: XCTestCase {
             XCTAssertEqual(arguments["liveSessionId"], "live_screen_1")
             XCTAssertEqual(arguments["capability"], CaptureCapability.screenSnapshot.rawValue)
             XCTAssertEqual(arguments["nodeId"], "sevenlayers.test.node")
+            XCTAssertEqual(arguments["sourceKind"], "display")
+            XCTAssertEqual(arguments["sourceDisplayId"], "1")
+            XCTAssertEqual(arguments["evidenceRef"], "/tmp/snapshot-evidence.json")
         } else {
             XCTFail("Expected mutating tool intent for screen snapshot execution.")
         }
@@ -288,7 +291,12 @@ private final class StubScreenCaptureProvider: ScreenCaptureProviding {
         return ScreenSnapshotArtifact(
             sourceId: sourceId,
             capturedAt: Date(timeIntervalSince1970: 1_700_400_000),
-            payloadRef: "/tmp/snapshot.png"
+            payloadRef: "/tmp/snapshot.png",
+            sourceMetadata: ScreenSnapshotSourceMetadata(
+                sourceKind: .display,
+                displayId: 1
+            ),
+            evidenceRef: "/tmp/snapshot-evidence.json"
         )
     }
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { assertOperatorMediaRetentionOrgScope } from "../../../convex/ai/mediaRetention";
+import {
+  assertOperatorMediaRetentionOrgScope,
+  resolveWebChatVisionAttachmentAuthIsolationDecision,
+} from "../../../convex/ai/mediaRetention";
 
 describe("operator media retention authorization", () => {
   const VIEWER_ORG = "org_retention_viewer_1" as Id<"organizations">;
@@ -32,5 +35,21 @@ describe("operator media retention authorization", () => {
         recordOrganizationId: OTHER_ORG,
       }),
     ).toThrow("Unauthorized: media retention record belongs to another organization.");
+  });
+
+  it("fails closed when requested and resolved interview sessions mismatch", () => {
+    expect(
+      resolveWebChatVisionAttachmentAuthIsolationDecision({
+        authenticatedOrganizationId: VIEWER_ORG,
+        authenticatedUserId: "user_retention_viewer_1" as Id<"users">,
+        requestedInterviewSessionId: "session_retention_viewer_1" as Id<"agentSessions">,
+        resolvedInterviewSessionId: "session_retention_viewer_2" as Id<"agentSessions">,
+        conversationOrganizationId: VIEWER_ORG,
+        conversationUserId: "user_retention_viewer_1" as Id<"users">,
+      }),
+    ).toEqual({
+      allowed: false,
+      reason: "interview_session_mismatch",
+    });
   });
 });

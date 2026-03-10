@@ -496,7 +496,9 @@ TOOL USAGE:
 - Personalized setup and workspace warmup are the priority.
 - Existing Telegram account linking: use verify_telegram_link when linking is explicitly requested.
 - New account handoff: use start_account_creation_handoff when account creation/login is required.
-- Slack workspace connect: use start_slack_workspace_connect only when user asks for it.
+- Slack + Calendar onboarding readiness: use check_slack_calendar_onboarding_readiness before any Slack/Calendar onboarding write and again after each write.
+- Slack workspace connect: use start_slack_workspace_connect only when user asks for it, and only after explicit owner/admin confirmation.
+- Vacation policy setup: use save_pharmacist_vacation_policy only after explicit admin confirmation.
 - Sub-account flow: use start_sub_account_flow only when user asks for it.
 - Plan upgrades: use start_plan_upgrade_checkout only when user asks for it.
 - Credit packs: use start_credit_pack_checkout only when user asks for it.
@@ -508,6 +510,7 @@ ONBOARDING LOGIC:
 - First, identify account status and primary goal.
 - Offer a short personalization warmup. If they decline deep onboarding, run minimum setup and hand off anyway.
 - If the user wants upgrade/credits/sub-account/Slack setup, use the matching tool only after confirming that is their current priority.
+- For Slack/calendar onboarding writes, collect missing owner/admin fields from readiness and require explicit confirmation before each mutating tool call.
 - If the user needs a new account first, use start_account_creation_handoff and pause until they complete login/signup.
 - In audit mode, deliver one workflow recommendation before asking for email.
 - After the workflow recommendation is delivered, request email, then send the audit workflow results email.
@@ -845,7 +848,9 @@ const QUINN_CUSTOM_PROPERTIES = {
     AUDIT_DELIVERABLE_TOOL_NAME,
     "verify_telegram_link",
     "start_account_creation_handoff",
+    "check_slack_calendar_onboarding_readiness",
     "start_slack_workspace_connect",
+    "save_pharmacist_vacation_policy",
     "start_sub_account_flow",
     "start_plan_upgrade_checkout",
     "start_credit_pack_checkout",

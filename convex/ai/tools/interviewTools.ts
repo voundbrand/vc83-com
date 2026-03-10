@@ -2766,18 +2766,32 @@ const startAccountCreationHandoffTool: AITool = {
   },
 };
 
-const startSlackWorkspaceConnectTool: AITool = {
-  name: "start_slack_workspace_connect",
+async function runSlackCalendarOnboardingReadiness(args: {
+  ctx: ToolExecutionContext;
+  sessionId: string;
+  teamBindingId?: string;
+}) {
+  return await args.ctx.runQuery(
+    getApi().api.oauth.slack.getSlackCalendarOnboardingReadiness,
+    {
+      sessionId: args.sessionId,
+      teamBindingId: cleanOptionalString(args.teamBindingId),
+    }
+  );
+}
+
+const checkSlackCalendarOnboardingReadinessTool: AITool = {
+  name: "check_slack_calendar_onboarding_readiness",
   description:
-    "Create a one-click Slack workspace OAuth CTA for authenticated users. " +
-    "Use when the user asks to connect Slack quickly from chat.",
+    "Read-only readiness snapshot for Slack + Google Calendar + vacation-policy onboarding. " +
+    "Use this before and after any mutating onboarding step.",
+  readOnly: true,
   parameters: {
     type: "object",
     properties: {
-      returnUrl: {
+      teamBindingId: {
         type: "string",
-        description:
-          "Optional URL to return to after OAuth completes. Defaults to integrations window.",
+        description: "Optional org team ID for team-scoped readiness checks.",
       },
     },
     required: [],
@@ -2786,7 +2800,98 @@ const startSlackWorkspaceConnectTool: AITool = {
 
   async execute(
     ctx: ToolExecutionContext,
-    args: { returnUrl?: string }
+    args: { teamBindingId?: string }
+  ) {
+    const channel = normalizeRuntimeChannel(ctx.channel);
+    const sessionId = cleanOptionalString(ctx.sessionId);
+    const appBaseUrl = resolvePublicAppUrl();
+    const integrationsUrl = `${appBaseUrl}/?openWindow=integrations`;
+
+    if (!sessionId) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "check_readiness",
+        error: "session_required",
+        channel,
+        cta: buildChannelSafeUrlCta({
+          label: "Open Integrations",
+          url: integrationsUrl,
+          fallbackText: "Open integrations to review onboarding readiness.",
+        }),
+        message:
+          "Readiness checks require an authenticated dashboard session. Open Integrations to continue.",
+      };
+    }
+
+    try {
+      const readiness = await runSlackCalendarOnboardingReadiness({
+        ctx,
+        sessionId,
+        teamBindingId: args.teamBindingId,
+      });
+      return {
+        success: true,
+        flow: "slack_calendar_onboarding",
+        action: "check_readiness",
+        channel,
+        readiness,
+        message:
+          "Readiness evaluated. Use reason codes and owner/admin requirements to drive the next step.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "check_readiness",
+        channel,
+        error: String(error),
+        cta: buildChannelSafeUrlCta({
+          label: "Open Integrations",
+          url: integrationsUrl,
+          fallbackText: "Open integrations to run readiness checks manually.",
+        }),
+        message:
+          "Unable to evaluate onboarding readiness automatically. Open Integrations and retry.",
+      };
+    }
+  },
+};
+
+const startSlackWorkspaceConnectTool: AITool = {
+  name: "start_slack_workspace_connect",
+  description:
+    "Create a one-click Slack workspace OAuth CTA for authenticated users. " +
+    "Always runs readiness first and requires explicit confirmation before write.",
+  parameters: {
+    type: "object",
+    properties: {
+      returnUrl: {
+        type: "string",
+        description:
+          "Optional URL to return to after OAuth completes. Defaults to integrations window.",
+      },
+      teamBindingId: {
+        type: "string",
+        description: "Optional org team ID for team-scoped readiness checks.",
+      },
+      confirmWrite: {
+        type: "boolean",
+        description:
+          "Must be true to execute OAuth mutation after readiness preflight.",
+      },
+    },
+    required: [],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: {
+      returnUrl?: string;
+      teamBindingId?: string;
+      confirmWrite?: boolean;
+    }
   ) {
     const channel = normalizeRuntimeChannel(ctx.channel);
     const sessionId = cleanOptionalString(ctx.sessionId);
@@ -2812,11 +2917,71 @@ const startSlackWorkspaceConnectTool: AITool = {
       };
     }
 
+    let readinessBefore: Record<string, unknown>;
+    try {
+      readinessBefore = (await runSlackCalendarOnboardingReadiness({
+        ctx,
+        sessionId,
+        teamBindingId: args.teamBindingId,
+      })) as Record<string, unknown>;
+    } catch (error) {
+      return {
+        success: false,
+        flow: "slack_connect",
+        channel,
+        error: "readiness_check_failed",
+        details: String(error),
+        message:
+          "Could not evaluate onboarding readiness. Retry readiness before requesting Slack OAuth.",
+      };
+    }
+
+    const readinessState = cleanOptionalString(readinessBefore.state) || "blocked";
+    const ownerAdminInputRequirements = Array.isArray(
+      readinessBefore.ownerAdminInputRequirements
+    )
+      ? readinessBefore.ownerAdminInputRequirements
+      : [];
+    if (readinessState === "blocked") {
+      return {
+        success: false,
+        flow: "slack_connect",
+        channel,
+        error: "readiness_blocked",
+        readinessBefore,
+        ownerAdminInputRequirements,
+        message:
+          "Readiness is blocked. Resolve blocked reason codes before running Slack connect.",
+      };
+    }
+
+    if (args.confirmWrite !== true) {
+      return {
+        success: false,
+        flow: "slack_connect",
+        channel,
+        error: "explicit_confirmation_required",
+        readinessBefore,
+        ownerAdminInputRequirements,
+        requiredConfirmation: {
+          tool: "start_slack_workspace_connect",
+          required: true,
+        },
+        message:
+          "Explicit owner/admin confirmation is required before starting Slack OAuth. Re-run with confirmWrite=true.",
+      };
+    }
+
     try {
       const oauthResult = await ctx.runMutation(getApi().api.oauth.slack.initiateSlackOAuth, {
         sessionId,
         connectionType: "organizational",
         returnUrl,
+      });
+      const readinessAfter = await runSlackCalendarOnboardingReadiness({
+        ctx,
+        sessionId,
+        teamBindingId: args.teamBindingId,
       });
 
       const cta = buildChannelSafeUrlCta({
@@ -2831,8 +2996,12 @@ const startSlackWorkspaceConnectTool: AITool = {
         channel,
         authUrl: oauthResult.authUrl as string,
         cta,
+        readinessBefore,
+        readinessAfter,
+        ownerAdminInputRequirements:
+          (readinessAfter as Record<string, unknown>).ownerAdminInputRequirements || [],
         message:
-          "Share the CTA and wait for OAuth completion. After approval, Slack will be connected.",
+          "Slack OAuth link generated. Complete OAuth, then re-check readiness for remaining owner/admin actions.",
       };
     } catch (error) {
       const cta = buildChannelSafeUrlCta({
@@ -2846,9 +3015,230 @@ const startSlackWorkspaceConnectTool: AITool = {
         flow: "slack_connect",
         channel,
         error: String(error),
+        readinessBefore,
+        ownerAdminInputRequirements,
         cta,
         message:
           "Could not generate the Slack connect link automatically. Open Integrations and reconnect from the Slack panel.",
+      };
+    }
+  },
+};
+
+const savePharmacistVacationPolicyTool: AITool = {
+  name: "save_pharmacist_vacation_policy",
+  description:
+    "Save pharmacist vacation policy using existing org-scoped mutation. " +
+    "Runs readiness first and requires explicit confirmation before write.",
+  parameters: {
+    type: "object",
+    properties: {
+      policyObjectId: {
+        type: "string",
+        description: "Optional existing vacation policy object ID.",
+      },
+      teamBindingId: {
+        type: "string",
+        description: "Optional org team ID for team-linked policy scope.",
+      },
+      timezone: { type: "string" },
+      maxConcurrentAway: { type: "number" },
+      minOnDutyTotal: { type: "number" },
+      pharmacistRoleFloor: { type: "number" },
+      requestWindowMinLeadDays: { type: "number" },
+      requestWindowMaxFutureDays: { type: "number" },
+      slackChannelId: { type: "string" },
+      googleBlockingCalendarIds: {
+        type: "array",
+        items: { type: "string" },
+      },
+      googlePushCalendarId: { type: "string" },
+      overrideRequireReason: { type: "boolean" },
+      overrideRequireOwnerApproval: { type: "boolean" },
+      confirmWrite: {
+        type: "boolean",
+        description:
+          "Must be true to execute policy mutation after readiness preflight.",
+      },
+    },
+    required: ["maxConcurrentAway", "minOnDutyTotal", "pharmacistRoleFloor"],
+  },
+  status: "ready" as ToolStatus,
+
+  async execute(
+    ctx: ToolExecutionContext,
+    args: {
+      policyObjectId?: string;
+      teamBindingId?: string;
+      timezone?: string;
+      maxConcurrentAway: number;
+      minOnDutyTotal: number;
+      pharmacistRoleFloor: number;
+      requestWindowMinLeadDays?: number;
+      requestWindowMaxFutureDays?: number;
+      slackChannelId?: string;
+      googleBlockingCalendarIds?: string[];
+      googlePushCalendarId?: string;
+      overrideRequireReason?: boolean;
+      overrideRequireOwnerApproval?: boolean;
+      confirmWrite?: boolean;
+    }
+  ) {
+    const channel = normalizeRuntimeChannel(ctx.channel);
+    const sessionId = cleanOptionalString(ctx.sessionId);
+    const appBaseUrl = resolvePublicAppUrl();
+    const integrationsUrl = `${appBaseUrl}/?openWindow=integrations`;
+
+    if (!sessionId) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        error: "session_required",
+        channel,
+        cta: buildChannelSafeUrlCta({
+          label: "Open Integrations",
+          url: integrationsUrl,
+          fallbackText: "Open integrations to configure vacation policy.",
+        }),
+        message:
+          "Saving vacation policy requires an authenticated dashboard session.",
+      };
+    }
+
+    let readinessBefore: unknown;
+    try {
+      readinessBefore = await runSlackCalendarOnboardingReadiness({
+        ctx,
+        sessionId,
+        teamBindingId: args.teamBindingId,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        channel,
+        error: "readiness_check_failed",
+        details: String(error),
+        message:
+          "Could not evaluate onboarding readiness. Retry readiness before saving policy.",
+      };
+    }
+
+    const readinessBeforeRecord = readinessBefore as Record<string, unknown>;
+    const readinessState =
+      cleanOptionalString(readinessBeforeRecord.state) || "blocked";
+    const ownerAdminInputRequirements = Array.isArray(
+      readinessBeforeRecord.ownerAdminInputRequirements
+    )
+      ? readinessBeforeRecord.ownerAdminInputRequirements
+      : [];
+
+    if (readinessState === "blocked") {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        channel,
+        error: "readiness_blocked",
+        readinessBefore,
+        ownerAdminInputRequirements,
+        message:
+          "Readiness is blocked. Resolve blocked reason codes before saving policy.",
+      };
+    }
+
+    if (args.confirmWrite !== true) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        channel,
+        error: "explicit_confirmation_required",
+        readinessBefore,
+        ownerAdminInputRequirements,
+        requiredConfirmation: {
+          tool: "save_pharmacist_vacation_policy",
+          required: true,
+        },
+        message:
+          "Explicit admin confirmation is required before saving vacation policy. Re-run with confirmWrite=true.",
+      };
+    }
+
+    try {
+      const saveResult = await ctx.runMutation(
+        getApi().api.oauth.slack.savePharmacistVacationPolicyConfig,
+        {
+          sessionId,
+          policyObjectId:
+            cleanOptionalString(args.policyObjectId) as Id<"objects"> | undefined,
+          teamBindingId: cleanOptionalString(args.teamBindingId),
+          timezone: cleanOptionalString(args.timezone),
+          maxConcurrentAway: Number(args.maxConcurrentAway),
+          minOnDutyTotal: Number(args.minOnDutyTotal),
+          pharmacistRoleFloor: Number(args.pharmacistRoleFloor),
+          requestWindowMinLeadDays:
+            typeof args.requestWindowMinLeadDays === "number"
+              ? args.requestWindowMinLeadDays
+              : undefined,
+          requestWindowMaxFutureDays:
+            typeof args.requestWindowMaxFutureDays === "number"
+              ? args.requestWindowMaxFutureDays
+              : undefined,
+          slackChannelId: cleanOptionalString(args.slackChannelId),
+          googleBlockingCalendarIds: Array.isArray(args.googleBlockingCalendarIds)
+            ? args.googleBlockingCalendarIds
+                .map((calendarId) => cleanOptionalString(calendarId))
+                .filter((calendarId): calendarId is string => Boolean(calendarId))
+            : undefined,
+          googlePushCalendarId: cleanOptionalString(args.googlePushCalendarId),
+          overrideRequireReason:
+            typeof args.overrideRequireReason === "boolean"
+              ? args.overrideRequireReason
+              : undefined,
+          overrideRequireOwnerApproval:
+            typeof args.overrideRequireOwnerApproval === "boolean"
+              ? args.overrideRequireOwnerApproval
+              : undefined,
+        }
+      );
+      const readinessAfter = await runSlackCalendarOnboardingReadiness({
+        ctx,
+        sessionId,
+        teamBindingId: args.teamBindingId,
+      });
+
+      return {
+        success: true,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        channel,
+        saveResult,
+        readinessBefore,
+        readinessAfter,
+        ownerAdminInputRequirements:
+          (readinessAfter as Record<string, unknown>).ownerAdminInputRequirements || [],
+        message:
+          "Vacation policy saved. Readiness has been re-evaluated for next onboarding steps.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        flow: "slack_calendar_onboarding",
+        action: "save_vacation_policy",
+        channel,
+        error: String(error),
+        readinessBefore,
+        ownerAdminInputRequirements,
+        cta: buildChannelSafeUrlCta({
+          label: "Open Integrations",
+          url: integrationsUrl,
+          fallbackText: "Open integrations to finish vacation policy setup.",
+        }),
+        message:
+          "Could not save vacation policy from chat. Open Integrations and complete setup manually.",
       };
     }
   },
@@ -3414,7 +3804,9 @@ export const INTERVIEW_TOOLS: Record<string, AITool> = {
   generate_audit_workflow_deliverable: generateAuditWorkflowDeliverableTool,
   verify_telegram_link: verifyTelegramLinkTool,
   start_account_creation_handoff: startAccountCreationHandoffTool,
+  check_slack_calendar_onboarding_readiness: checkSlackCalendarOnboardingReadinessTool,
   start_slack_workspace_connect: startSlackWorkspaceConnectTool,
+  save_pharmacist_vacation_policy: savePharmacistVacationPolicyTool,
   start_sub_account_flow: startSubAccountFlowTool,
   start_plan_upgrade_checkout: startPlanUpgradeCheckoutTool,
   start_credit_pack_checkout: startCreditPackCheckoutTool,

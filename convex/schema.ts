@@ -74,6 +74,7 @@ import {
   voiceTransportSessionState,
   voiceRuntimeSessionOpenRateState,
   videoTransportSessionState,
+  webChatVisionFrameBufferState,
   operatorMediaRetention,
   toolFoundryProposalBacklog,
   agentSpecRegistry,
@@ -309,6 +310,7 @@ export default defineSchema({
   voiceTransportSessionState, // Keyed voice transport sequencing/replay checkpoint state
   voiceRuntimeSessionOpenRateState, // Per-live-session voice open quota/rate-limit counters
   videoTransportSessionState, // Keyed video frame sequencing/rate-control checkpoint state
+  webChatVisionFrameBufferState, // Rolling vision frame selection buffer for voice-turn model attachment
   operatorMediaRetention, // Explicit operator-mobile raw media retention metadata + storage linkage
   toolFoundryProposalBacklog, // Runtime ToolSpec proposal backlog with trace + rollback semantics
   agentSpecRegistry,      // Deterministic registry for agent_spec_v1 contracts

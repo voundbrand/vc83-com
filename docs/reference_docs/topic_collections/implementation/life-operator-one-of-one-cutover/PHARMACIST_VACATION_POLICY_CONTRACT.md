@@ -249,11 +249,15 @@ Vacation request parsing in Slack supports:
 
 Relative-window prerequisites:
 
-1. Request text must include explicit timezone token:
-   - accepted examples: `tz:UTC`, `timezone:UTC`, `UTC+02:00`
+1. Timezone resolution is deterministic and auditable:
+   - first preference: explicit request token (`tz:UTC`, `timezone:UTC`, `UTC+02:00`)
+   - fallback: `organization_settings` with `subtype: "main"` (`customProperties.timezone`)
+   - fail-closed when neither is available: `missing_relative_timezone`
 2. Request must have deterministic anchor timestamp:
    - Slack Events ingress (`/integrations/slack/events`): use `event.ts`
    - Slack Commands ingress (`/integrations/slack/commands`): use `received_at_ms`
+3. `organization_settings` `customProperties.dateFormat` is sourced for parser context/audit,
+   while absolute date parsing remains deterministic and unchanged (`YYYY-MM-DD`, `MM/DD/YYYY`, `MM-DD-YYYY`).
 
 Fail-closed blocker reason codes for relative inputs:
 
@@ -265,8 +269,9 @@ Examples:
 
 1. `vacation next week timezone:UTC` with valid `event.ts` -> parsed to Monday..Sunday of next week.
 2. `/vacation next month tz:UTC` with valid `received_at_ms` -> parsed to first..last day of next month.
-3. `pto next week` without timezone -> blocked (`missing_relative_timezone`).
-4. `/vacation this week tz:UTC` without `received_at_ms` -> blocked (`missing_relative_anchor_time`).
+3. `pto next week` without timezone token + org `main.timezone=UTC` -> parsed deterministically.
+4. `pto next week` without timezone token and without org timezone -> blocked (`missing_relative_timezone`).
+5. `/vacation this week tz:UTC` (or org fallback timezone) without `received_at_ms` -> blocked (`missing_relative_anchor_time`).
 
 ---
 

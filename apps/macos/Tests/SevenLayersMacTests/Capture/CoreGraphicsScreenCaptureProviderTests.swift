@@ -32,4 +32,17 @@ final class CoreGraphicsScreenCaptureProviderTests: XCTestCase {
             )
         }
     }
+
+    func testCaptureSnapshotRejectsMalformedWindowSourceBeforePermissionCheck() {
+        let provider = CoreGraphicsScreenCaptureProvider()
+
+        XCTAssertThrowsError(
+            try provider.captureSnapshot(sourceId: "window:not-a-number")
+        ) { error in
+            XCTAssertEqual(
+                error as? CoreGraphicsScreenCaptureProviderError,
+                .unsupportedWindowSource("window:not-a-number")
+            )
+        }
+    }
 }

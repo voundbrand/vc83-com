@@ -6,7 +6,9 @@ import { ONBOARDING_INTERVIEW_TEMPLATE } from "../../../convex/onboarding/seedPl
 const REQUIRED_ONBOARDING_CONVERSION_TOOLS = [
   "verify_telegram_link",
   "start_account_creation_handoff",
+  "check_slack_calendar_onboarding_readiness",
   "start_slack_workspace_connect",
+  "save_pharmacist_vacation_policy",
   "start_sub_account_flow",
   "start_plan_upgrade_checkout",
   "start_credit_pack_checkout",

@@ -54,4 +54,18 @@ final class AuthDesktopAuthCallbackParserTests: XCTestCase {
             )
         }
     }
+
+    func testRejectsMalformedExpiration() {
+        let parser = DesktopAuthCallbackParser(
+            configuration: DesktopAuthConfiguration(webBaseURL: URL(string: "https://app.vc83.test")!)
+        )
+
+        let callbackURL = URL(
+            string: "vc83-mac://auth/callback?session_token=session-1&expires_at=not-a-timestamp"
+        )!
+
+        XCTAssertThrowsError(try parser.parse(callbackURL, expectedState: nil)) { error in
+            XCTAssertEqual(error as? DesktopAuthError, .malformedExpiration)
+        }
+    }
 }

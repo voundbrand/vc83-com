@@ -628,6 +628,7 @@ import type * as stripeRefunds from "../stripeRefunds.js";
 import type * as stripeWebhooks from "../stripeWebhooks.js";
 import type * as superAdminUserManagement from "../superAdminUserManagement.js";
 import type * as superAdminUserManagementGuards from "../superAdminUserManagementGuards.js";
+import type * as teamOntology from "../teamOntology.js";
 import type * as templateAvailability from "../templateAvailability.js";
 import type * as templateOntology from "../templateOntology.js";
 import type * as templateResolutionTelemetry from "../templateResolutionTelemetry.js";
@@ -1424,6 +1425,7 @@ declare const fullApi: ApiFromModules<{
   stripeWebhooks: typeof stripeWebhooks;
   superAdminUserManagement: typeof superAdminUserManagement;
   superAdminUserManagementGuards: typeof superAdminUserManagementGuards;
+  teamOntology: typeof teamOntology;
   templateAvailability: typeof templateAvailability;
   templateOntology: typeof templateOntology;
   templateResolutionTelemetry: typeof templateResolutionTelemetry;

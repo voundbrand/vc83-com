@@ -241,6 +241,8 @@ export interface ProviderCredentials {
   slackSigningSecret?: string;
   slackInteractionMode?: "mentions_only" | "mentions_and_dm";
   slackAiAppFeaturesEnabled?: boolean;
+  slackFallbackTimezone?: string;
+  slackFallbackDateFormat?: string;
   // Generic
   apiKey?: string;
   apiSecret?: string;

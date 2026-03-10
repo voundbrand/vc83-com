@@ -1904,6 +1904,11 @@ export const voiceRuntimeSessionOpenRateState = defineTable({
   ])
   .index("by_updated_at", ["updatedAt"]);
 
+export const WEB_CHAT_VISION_FRAME_BUFFER_CONTRACT_VERSION =
+  "web_chat_vision_frame_buffer_v1" as const;
+export const WEB_CHAT_VISION_FRAME_BUFFER_MAX_FRAMES = 40 as const;
+export const WEB_CHAT_VISION_FRAME_BUFFER_IDEMPOTENCY_WINDOW_LIMIT = 256 as const;
+
 export const videoTransportSessionState = defineTable({
   organizationId: v.id("organizations"),
   interviewSessionId: v.id("agentSessions"),
@@ -1924,6 +1929,50 @@ export const videoTransportSessionState = defineTable({
     "interviewSessionId",
     "liveSessionId",
     "videoSessionId",
+  ])
+  .index("by_updated_at", ["updatedAt"]);
+
+export const webChatVisionFrameBufferState = defineTable({
+  organizationId: v.id("organizations"),
+  interviewSessionId: v.id("agentSessions"),
+  conversationId: v.id("aiConversations"),
+  liveSessionId: v.string(),
+  contractVersion: v.literal(WEB_CHAT_VISION_FRAME_BUFFER_CONTRACT_VERSION),
+  maxFrames: v.number(),
+  idempotencyWindowLimit: v.number(),
+  entries: v.array(v.object({
+    retentionId: v.id("operatorMediaRetention"),
+    capturedAt: v.number(),
+    mediaType: v.union(v.literal("video_frame"), v.literal("video_keyframe")),
+    mimeType: v.string(),
+    sizeBytes: v.number(),
+    storageId: v.id("_storage"),
+    videoSessionId: v.optional(v.string()),
+    sourceSequence: v.optional(v.number()),
+    ttlExpiresAt: v.number(),
+    idempotencyKey: v.string(),
+    insertedAt: v.number(),
+  })),
+  idempotencyWindow: v.array(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_org_interview_conversation_live", [
+    "organizationId",
+    "interviewSessionId",
+    "conversationId",
+    "liveSessionId",
+  ])
+  .index("by_org_interview_live", [
+    "organizationId",
+    "interviewSessionId",
+    "liveSessionId",
+  ])
+  .index("by_org_interview_conversation_updated", [
+    "organizationId",
+    "interviewSessionId",
+    "conversationId",
+    "updatedAt",
   ])
   .index("by_updated_at", ["updatedAt"]);
 

@@ -1054,6 +1054,103 @@ interface DmSummarySyncAuditEntry extends DmSummarySyncResult {
   specialistLabel: string
 }
 
+type VoiceTurnVisionFrameResolution =
+  | {
+      status: "attached"
+      maxFrameAgeMs: number
+      frame: {
+        storageUrl: string
+        mimeType: string
+        sizeBytes: number
+        capturedAt?: number
+        retentionId?: string
+      }
+    }
+  | {
+      status: "degraded"
+      maxFrameAgeMs: number
+      reason: "vision_frame_missing" | "vision_frame_stale" | "vision_policy_blocked"
+      freshestCandidateCapturedAt?: number
+      freshestCandidateAgeMs?: number
+    }
+
+function normalizeVoiceTurnVisionFrameResolution(
+  value: unknown
+): VoiceTurnVisionFrameResolution | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined
+  }
+  const record = value as Record<string, unknown>
+  const status = normalizeOptionalString(record.status)
+  const maxFrameAgeMs =
+    typeof record.maxFrameAgeMs === "number" && Number.isFinite(record.maxFrameAgeMs)
+      ? Math.max(0, Math.round(record.maxFrameAgeMs))
+      : 12_000
+
+  if (status === "attached") {
+    const frameRecord =
+      record.frame && typeof record.frame === "object"
+        ? (record.frame as Record<string, unknown>)
+        : null
+    const storageUrl = normalizeOptionalString(frameRecord?.storageUrl)
+    const mimeType = normalizeOptionalString(frameRecord?.mimeType)?.toLowerCase()
+    const sizeBytesRaw = frameRecord?.sizeBytes
+    const sizeBytes =
+      typeof sizeBytesRaw === "number" && Number.isFinite(sizeBytesRaw)
+        ? Math.max(0, Math.round(sizeBytesRaw))
+        : 0
+    if (!storageUrl || !mimeType || !mimeType.startsWith("image/") || sizeBytes <= 0) {
+      return undefined
+    }
+    const capturedAt =
+      typeof frameRecord?.capturedAt === "number" && Number.isFinite(frameRecord.capturedAt)
+        ? Math.floor(frameRecord.capturedAt)
+        : undefined
+    const retentionId = normalizeOptionalString(frameRecord?.retentionId)
+    return {
+      status: "attached",
+      maxFrameAgeMs,
+      frame: {
+        storageUrl,
+        mimeType,
+        sizeBytes,
+        capturedAt,
+        retentionId: retentionId || undefined,
+      },
+    }
+  }
+
+  if (status === "degraded") {
+    const reason = normalizeOptionalString(record.reason)
+    if (
+      reason !== "vision_frame_missing"
+      && reason !== "vision_frame_stale"
+      && reason !== "vision_policy_blocked"
+    ) {
+      return undefined
+    }
+    const freshestCandidateCapturedAt =
+      typeof record.freshestCandidateCapturedAt === "number"
+      && Number.isFinite(record.freshestCandidateCapturedAt)
+        ? Math.floor(record.freshestCandidateCapturedAt)
+        : undefined
+    const freshestCandidateAgeMs =
+      typeof record.freshestCandidateAgeMs === "number"
+      && Number.isFinite(record.freshestCandidateAgeMs)
+        ? Math.max(0, Math.round(record.freshestCandidateAgeMs))
+        : undefined
+    return {
+      status: "degraded",
+      maxFrameAgeMs,
+      reason,
+      freshestCandidateCapturedAt,
+      freshestCandidateAgeMs,
+    }
+  }
+
+  return undefined
+}
+
 function buildDeterministicDmSyncAttemptId(args: {
   threadId: string
   dmThreadId: string
@@ -1677,6 +1774,14 @@ export function SlickChatInput({
       retryAfterMs?: number
     }
   }>
+  const resolveFreshestVisionFrameForVoiceTurnAction = useActionUntyped(
+    api.ai.voiceRuntime.resolveFreshestVisionFrameForVoiceTurn
+  ) as (args: {
+    sessionId: string
+    interviewSessionId: Id<"agentSessions">
+    conversationId: Id<"aiConversations">
+    liveSessionId?: string
+  }) => Promise<VoiceTurnVisionFrameResolution | Record<string, unknown>>
   const generateAttachmentUploadUrl = useMutationUntyped(
     api.ai.chatAttachments.generateUploadUrl
   ) as (args: {
@@ -5449,7 +5554,34 @@ export function SlickChatInput({
         references: [],
         imageAttachments: [],
       })
-      const runtimeMetadata = buildConversationRuntimeMetadataEnvelope(voiceRuntimeMetadata)
+      const authSessionId = sessionIdRef.current
+      const runtimeSession = resolvedVoiceRuntimeSessionRef.current
+      const liveSessionId = normalizeOptionalString(voiceRuntimeMetadata.liveSessionId)
+      let visionFrameResolution: VoiceTurnVisionFrameResolution | undefined
+      if (authSessionId && runtimeSession && targetConversationId) {
+        try {
+          const rawVisionResolution =
+            await resolveFreshestVisionFrameForVoiceTurnAction({
+              sessionId: authSessionId,
+              interviewSessionId: runtimeSession.agentSessionId,
+              conversationId: targetConversationId,
+              liveSessionId: liveSessionId || undefined,
+            })
+          visionFrameResolution = normalizeVoiceTurnVisionFrameResolution(
+            rawVisionResolution
+          )
+        } catch (error) {
+          console.warn("[VoiceRuntime] voice_turn_vision_frame_resolution_failed", {
+            error: error instanceof Error ? error.message : "unknown_error",
+            conversationId: String(targetConversationId),
+            interviewSessionId: String(runtimeSession.agentSessionId),
+          })
+        }
+      }
+      const runtimeMetadata = buildConversationRuntimeMetadataEnvelope({
+        ...voiceRuntimeMetadata,
+        visionFrameResolution,
+      })
       const result = await chat.sendMessage(outboundMessage, targetConversationId, {
         layerWorkflowId: activeLayerWorkflowId,
         mode: composerMode,

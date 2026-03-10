@@ -176,6 +176,36 @@ describe("Slack signature boundary integration", () => {
     expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
   });
 
+  it("uses org timezone fallback for events-ingress relative payloads without explicit timezone text", () => {
+    const eventsIngressPayload = {
+      type: "event_callback",
+      event_id: "EvVacationEventsIngressFallback1",
+      event: {
+        type: "app_mention",
+        user: "U123",
+        text: "<@U-BOT> vacation next month",
+        channel: "C999",
+        ts: "1710115200.000",
+      },
+    };
+
+    const normalized = slackProvider.normalizeInbound(eventsIngressPayload, {
+      providerId: "slack",
+      slackBotUserId: "U-BOT",
+      slackFallbackTimezone: "UTC",
+      slackFallbackDateFormat: "MM/DD/YYYY",
+    });
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-04-01");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
+    expect(metadata.slackVacationRequestRelativeTimezoneSource).toBe(
+      "organization_settings"
+    );
+  });
+
   it("keeps commands-ingress relative parsing fail-closed without received_at_ms anchor", () => {
     const commandsIngressPayload = {
       type: "slash_command",

@@ -10,6 +10,9 @@ import {
   mediaSessionIngressContractValidator,
   assertVoiceTransportEnvelope,
   trustEventPayloadValidator,
+  WEB_CHAT_VISION_FRAME_BUFFER_CONTRACT_VERSION,
+  WEB_CHAT_VISION_FRAME_BUFFER_IDEMPOTENCY_WINDOW_LIMIT,
+  WEB_CHAT_VISION_FRAME_BUFFER_MAX_FRAMES,
   type MediaSessionIngressContract,
   type VoiceTransportEnvelopeContract,
   voiceTransportEnvelopeValidator,
@@ -23,16 +26,27 @@ import {
 } from "./trustEvents";
 import {
   normalizeVoiceRuntimeProviderId,
+  resolvePersistentRealtimeMultimodalAdapter,
   resolvePcmTranscriptionMimeType,
   resolveVoiceRuntimeAdapter,
+  type PersistentRealtimeMultimodalProviderId,
   type VoiceProviderHealth,
   type VoiceRuntimeProviderId,
   type VoiceUsageTelemetry,
 } from "./voiceRuntimeAdapter";
 import {
+  buildWebChatVisionAttachmentTelemetrySnapshot,
+  type WebChatVisionAttachReason,
+} from "./trustTelemetry";
+import {
   buildOperatorMediaRetentionWriteRequest,
+  resolveEffectiveOperatorMediaRetentionMode,
   resolveOperatorMediaRetentionConfig,
+  resolveWebChatVisionAttachmentAuthIsolationDecision,
+  resolveWebChatVisionFrameDecision,
+  resolveWebChatVisionFrameMaxAgeMs,
   type OperatorRetainedMediaType,
+  type WebChatVisionFrameCandidate,
 } from "./mediaRetention";
 import { resolveMobileSourceAttestationContract } from "./mobileRuntimeHardening";
 import {
@@ -53,6 +67,15 @@ const VOICE_REALTIME_STT_PRIMARY_ROUTE =
 const VOICE_REALTIME_STT_FAILOVER_ROUTE =
   "gemini_native_audio_failover" as const;
 const GEMINI_NATIVE_AUDIO_TRANSCRIBE_MODEL = "gemini-2.0-flash";
+const PERSISTENT_REALTIME_MULTIMODAL_CONTRACT_VERSION =
+  "web_chat_persistent_realtime_multimodal_v1" as const;
+
+type PersistentRealtimeFallbackReason =
+  | "feature_flag_disabled"
+  | "provider_capability_unsupported"
+  | "session_handshake_failed";
+
+type PersistentRealtimeMode = "persistent_realtime_multimodal" | "turn_stitch";
 
 type VoiceTrustEventName =
   | "trust.voice.session_transition.v1"
@@ -134,6 +157,59 @@ function normalizeVoiceRuntimeSessionFsmState(
   )
     ? (normalized as VoiceRuntimeSessionFsmState)
     : undefined;
+}
+
+function parseEnvBooleanFlag(value: string | undefined): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1"
+    || normalized === "true"
+    || normalized === "yes"
+    || normalized === "on";
+}
+
+function isPersistentRealtimeMultimodalEnabled(): boolean {
+  return (
+    parseEnvBooleanFlag(process.env.WEB_AI_CHAT_PERSISTENT_REALTIME_MULTIMODAL_ENABLED)
+    || parseEnvBooleanFlag(process.env.VOICE_RUNTIME_PERSISTENT_MULTIMODAL_ENABLED)
+  );
+}
+
+type PersistentRealtimeLifecycleSnapshot = {
+  contractVersion: typeof PERSISTENT_REALTIME_MULTIMODAL_CONTRACT_VERSION;
+  mode: PersistentRealtimeMode;
+  enabled: boolean;
+  featureFlagEnabled: boolean;
+  providerId: PersistentRealtimeMultimodalProviderId | null;
+  providerSessionId: string | null;
+  transport: "native_realtime_audio_video" | null;
+  fallbackReason: PersistentRealtimeFallbackReason | null;
+  healthStatus: "healthy" | "degraded" | "offline" | null;
+};
+
+function buildPersistentRealtimeLifecycleSnapshot(args: {
+  mode: PersistentRealtimeMode;
+  featureFlagEnabled: boolean;
+  providerId?: PersistentRealtimeMultimodalProviderId | null;
+  providerSessionId?: string | null;
+  transport?: "native_realtime_audio_video" | null;
+  fallbackReason?: PersistentRealtimeFallbackReason | null;
+  healthStatus?: "healthy" | "degraded" | "offline" | null;
+}): PersistentRealtimeLifecycleSnapshot {
+  const mode = args.mode;
+  return {
+    contractVersion: PERSISTENT_REALTIME_MULTIMODAL_CONTRACT_VERSION,
+    mode,
+    enabled: mode === "persistent_realtime_multimodal",
+    featureFlagEnabled: args.featureFlagEnabled,
+    providerId: args.providerId ?? null,
+    providerSessionId: normalizeString(args.providerSessionId) ?? null,
+    transport: args.transport ?? null,
+    fallbackReason: args.fallbackReason ?? null,
+    healthStatus: args.healthStatus ?? null,
+  };
 }
 
 export function isAllowedVoiceRuntimeSessionTransition(args: {
@@ -1467,6 +1543,114 @@ function trimVoiceTransportRelayEventsBySequence(args: {
     trimmed[sequence] = relayEvents;
   }
   return trimmed;
+}
+
+type WebChatVisionFrameBufferMediaType = "video_frame" | "video_keyframe";
+
+interface WebChatVisionFrameBufferEntry {
+  retentionId: Id<"operatorMediaRetention">;
+  capturedAt: number;
+  mediaType: WebChatVisionFrameBufferMediaType;
+  mimeType: string;
+  sizeBytes: number;
+  storageId: Id<"_storage">;
+  videoSessionId?: string;
+  sourceSequence?: number;
+  ttlExpiresAt: number;
+  idempotencyKey: string;
+  insertedAt: number;
+}
+
+interface WebChatVisionFrameBufferSnapshot {
+  contractVersion: typeof WEB_CHAT_VISION_FRAME_BUFFER_CONTRACT_VERSION;
+  maxFrames: number;
+  idempotencyWindowLimit: number;
+  entries: WebChatVisionFrameBufferEntry[];
+  idempotencyWindow: string[];
+}
+
+function normalizeVisionFrameSourceSequence(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return -1;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function compareVisionFrameBufferEntriesDesc(
+  left: WebChatVisionFrameBufferEntry,
+  right: WebChatVisionFrameBufferEntry,
+): number {
+  const capturedAtDelta = Math.floor(right.capturedAt) - Math.floor(left.capturedAt);
+  if (capturedAtDelta !== 0) {
+    return capturedAtDelta;
+  }
+  const sequenceDelta =
+    normalizeVisionFrameSourceSequence(right.sourceSequence)
+    - normalizeVisionFrameSourceSequence(left.sourceSequence);
+  if (sequenceDelta !== 0) {
+    return sequenceDelta;
+  }
+  return String(right.retentionId).localeCompare(String(left.retentionId));
+}
+
+function compareWebChatVisionFrameCandidatesDesc(
+  left: WebChatVisionFrameCandidate,
+  right: WebChatVisionFrameCandidate,
+): number {
+  const capturedAtDelta = Math.floor(right.capturedAt) - Math.floor(left.capturedAt);
+  if (capturedAtDelta !== 0) {
+    return capturedAtDelta;
+  }
+  const sequenceDelta =
+    normalizeVisionFrameSourceSequence(right.sourceSequence)
+    - normalizeVisionFrameSourceSequence(left.sourceSequence);
+  if (sequenceDelta !== 0) {
+    return sequenceDelta;
+  }
+  return String(right.retentionId).localeCompare(String(left.retentionId));
+}
+
+function sanitizeVisionFrameBufferEntries(args: {
+  entries: WebChatVisionFrameBufferEntry[];
+  nowMs: number;
+}): WebChatVisionFrameBufferEntry[] {
+  return args.entries
+    .filter((entry) =>
+      typeof entry.capturedAt === "number" &&
+      Number.isFinite(entry.capturedAt) &&
+      entry.capturedAt > 0 &&
+      typeof entry.sizeBytes === "number" &&
+      Number.isFinite(entry.sizeBytes) &&
+      entry.sizeBytes > 0 &&
+      typeof entry.ttlExpiresAt === "number" &&
+      Number.isFinite(entry.ttlExpiresAt) &&
+      entry.ttlExpiresAt > args.nowMs &&
+      typeof entry.idempotencyKey === "string" &&
+      entry.idempotencyKey.trim().length > 0 &&
+      typeof entry.mimeType === "string" &&
+      entry.mimeType.toLowerCase().startsWith("image/")
+    )
+    .sort(compareVisionFrameBufferEntriesDesc);
+}
+
+function toVisionFrameBufferWebChatCandidates(args: {
+  entries: WebChatVisionFrameBufferEntry[];
+  liveSessionId: string;
+}): WebChatVisionFrameCandidate[] {
+  return args.entries.map((entry) => ({
+    retentionId: entry.retentionId,
+    capturedAt: Math.floor(entry.capturedAt),
+    mediaType: entry.mediaType,
+    mimeType: entry.mimeType,
+    sizeBytes: Math.max(0, Math.floor(entry.sizeBytes)),
+    storageId: entry.storageId,
+    liveSessionId: args.liveSessionId,
+    videoSessionId: entry.videoSessionId,
+    sourceSequence:
+      typeof entry.sourceSequence === "number" && Number.isFinite(entry.sourceSequence)
+        ? Math.floor(entry.sourceSequence)
+        : undefined,
+  }));
 }
 
 export function resolveBrowserFallbackTranscriptText(args: {
@@ -2991,6 +3175,212 @@ export const ingestVideoTransportFrameCheckpoint = internalMutation({
   },
 });
 
+export const appendWebChatVisionFrameBufferEntry = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    interviewSessionId: v.id("agentSessions"),
+    conversationId: v.id("aiConversations"),
+    liveSessionId: v.string(),
+    retentionId: v.id("operatorMediaRetention"),
+    capturedAt: v.number(),
+    mediaType: v.union(v.literal("video_frame"), v.literal("video_keyframe")),
+    mimeType: v.string(),
+    sizeBytes: v.number(),
+    storageId: v.id("_storage"),
+    videoSessionId: v.optional(v.string()),
+    sourceSequence: v.optional(v.number()),
+    ttlExpiresAt: v.number(),
+    idempotencyKey: v.string(),
+    idempotentReplay: v.optional(v.boolean()),
+    nowMs: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const nowMs = Math.max(0, Math.floor(args.nowMs));
+    const existing = await ctx.db
+      .query("webChatVisionFrameBufferState")
+      .withIndex("by_org_interview_conversation_live", (q: any) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("interviewSessionId", args.interviewSessionId)
+          .eq("conversationId", args.conversationId)
+          .eq("liveSessionId", args.liveSessionId),
+      )
+      .first();
+
+    const priorBuffer = existing?.entries && Array.isArray(existing.entries)
+      ? sanitizeVisionFrameBufferEntries({
+          entries: existing.entries as WebChatVisionFrameBufferEntry[],
+          nowMs,
+        })
+      : [];
+
+    const nextEntry: WebChatVisionFrameBufferEntry = {
+      retentionId: args.retentionId,
+      capturedAt: Math.floor(args.capturedAt),
+      mediaType: args.mediaType,
+      mimeType: args.mimeType,
+      sizeBytes: Math.max(0, Math.floor(args.sizeBytes)),
+      storageId: args.storageId,
+      videoSessionId: normalizeSessionToken(args.videoSessionId) ?? undefined,
+      sourceSequence:
+        typeof args.sourceSequence === "number" && Number.isFinite(args.sourceSequence)
+          ? Math.floor(args.sourceSequence)
+          : undefined,
+      ttlExpiresAt: Math.floor(args.ttlExpiresAt),
+      idempotencyKey: args.idempotencyKey,
+      insertedAt: nowMs,
+    };
+
+    const priorIdempotencyWindow = Array.isArray(existing?.idempotencyWindow)
+      ? existing.idempotencyWindow.filter((value) =>
+          typeof value === "string" && value.trim().length > 0
+        )
+      : [];
+    const idempotencyWindowLimit =
+      typeof existing?.idempotencyWindowLimit === "number" &&
+      Number.isFinite(existing.idempotencyWindowLimit) &&
+      existing.idempotencyWindowLimit > 0
+        ? Math.floor(existing.idempotencyWindowLimit)
+        : WEB_CHAT_VISION_FRAME_BUFFER_IDEMPOTENCY_WINDOW_LIMIT;
+    const idempotencyWindow = Array.from(
+      new Set([...priorIdempotencyWindow, args.idempotencyKey]),
+    ).slice(-idempotencyWindowLimit);
+
+    const duplicateByRetentionId = priorBuffer.some(
+      (entry) => String(entry.retentionId) === String(nextEntry.retentionId),
+    );
+    const duplicateByIdempotencyKey = priorBuffer.some(
+      (entry) => entry.idempotencyKey === nextEntry.idempotencyKey,
+    );
+    const shouldAppend =
+      !duplicateByRetentionId &&
+      !duplicateByIdempotencyKey &&
+      !(args.idempotentReplay === true && priorIdempotencyWindow.includes(args.idempotencyKey));
+
+    const maxFrames =
+      typeof existing?.maxFrames === "number" &&
+      Number.isFinite(existing.maxFrames) &&
+      existing.maxFrames > 0
+        ? Math.floor(existing.maxFrames)
+        : WEB_CHAT_VISION_FRAME_BUFFER_MAX_FRAMES;
+    const mergedEntries = sanitizeVisionFrameBufferEntries({
+      entries: shouldAppend ? [...priorBuffer, nextEntry] : priorBuffer,
+      nowMs,
+    }).slice(0, maxFrames);
+
+    const patchPayload: WebChatVisionFrameBufferSnapshot = {
+      contractVersion: WEB_CHAT_VISION_FRAME_BUFFER_CONTRACT_VERSION,
+      maxFrames,
+      idempotencyWindowLimit,
+      entries: mergedEntries,
+      idempotencyWindow,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        contractVersion: patchPayload.contractVersion,
+        maxFrames: patchPayload.maxFrames,
+        idempotencyWindowLimit: patchPayload.idempotencyWindowLimit,
+        entries: patchPayload.entries,
+        idempotencyWindow: patchPayload.idempotencyWindow,
+        updatedAt: nowMs,
+      });
+      return {
+        created: false,
+        appended: shouldAppend,
+        frameCount: mergedEntries.length,
+      };
+    }
+
+    await ctx.db.insert("webChatVisionFrameBufferState", {
+      organizationId: args.organizationId,
+      interviewSessionId: args.interviewSessionId,
+      conversationId: args.conversationId,
+      liveSessionId: args.liveSessionId,
+      contractVersion: patchPayload.contractVersion,
+      maxFrames: patchPayload.maxFrames,
+      idempotencyWindowLimit: patchPayload.idempotencyWindowLimit,
+      entries: patchPayload.entries,
+      idempotencyWindow: patchPayload.idempotencyWindow,
+      createdAt: nowMs,
+      updatedAt: nowMs,
+    });
+    return {
+      created: true,
+      appended: shouldAppend,
+      frameCount: mergedEntries.length,
+    };
+  },
+});
+
+export const resolveWebChatVisionFrameBufferCandidates = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    interviewSessionId: v.id("agentSessions"),
+    conversationId: v.id("aiConversations"),
+    liveSessionId: v.optional(v.string()),
+    nowMs: v.number(),
+  },
+  handler: async (ctx, args): Promise<WebChatVisionFrameCandidate[]> => {
+    const nowMs = Math.max(0, Math.floor(args.nowMs));
+    const normalizedLiveSessionId = normalizeSessionToken(args.liveSessionId);
+
+    const rows = normalizedLiveSessionId
+      ? await ctx.db
+          .query("webChatVisionFrameBufferState")
+          .withIndex("by_org_interview_conversation_live", (q: any) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("interviewSessionId", args.interviewSessionId)
+              .eq("conversationId", args.conversationId)
+              .eq("liveSessionId", normalizedLiveSessionId),
+          )
+          .collect()
+      : await ctx.db
+          .query("webChatVisionFrameBufferState")
+          .withIndex("by_org_interview_conversation_updated", (q: any) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("interviewSessionId", args.interviewSessionId)
+              .eq("conversationId", args.conversationId),
+          )
+          .order("desc")
+          .take(4);
+
+    const candidates: WebChatVisionFrameCandidate[] = [];
+    for (const row of rows) {
+      const normalizedLiveSession = normalizeSessionToken(row.liveSessionId);
+      if (!normalizedLiveSession) {
+        continue;
+      }
+      const entries = sanitizeVisionFrameBufferEntries({
+        entries: Array.isArray(row.entries)
+          ? (row.entries as WebChatVisionFrameBufferEntry[])
+          : [],
+        nowMs,
+      });
+      candidates.push(
+        ...toVisionFrameBufferWebChatCandidates({
+          entries,
+          liveSessionId: normalizedLiveSession,
+        }),
+      );
+    }
+
+    const dedupedCandidates: WebChatVisionFrameCandidate[] = [];
+    const seenRetentionIds = new Set<string>();
+    for (const candidate of candidates.sort(compareWebChatVisionFrameCandidatesDesc)) {
+      const retentionId = String(candidate.retentionId);
+      if (seenRetentionIds.has(retentionId)) {
+        continue;
+      }
+      seenRetentionIds.add(retentionId);
+      dedupedCandidates.push(candidate);
+    }
+    return dedupedCandidates;
+  },
+});
+
 export const enforceVoiceSessionOpenRateLimit = internalMutation({
   args: {
     organizationId: v.id("organizations"),
@@ -3199,10 +3589,236 @@ export const resolveVoiceSessionState = action({
   },
 });
 
+export const resolvePersistentRealtimeMultimodalSessionLifecycle = action({
+  args: {
+    sessionId: v.string(),
+    interviewSessionId: v.id("agentSessions"),
+    requestedProviderId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const runtimeContext = (await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
+      {
+        sessionId: args.sessionId,
+        interviewSessionId: args.interviewSessionId,
+      },
+    )) as VoiceRuntimeContext;
+    const featureFlagEnabled = isPersistentRealtimeMultimodalEnabled();
+    if (!featureFlagEnabled) {
+      return buildPersistentRealtimeLifecycleSnapshot({
+        mode: "turn_stitch",
+        featureFlagEnabled,
+        fallbackReason: "feature_flag_disabled",
+      });
+    }
+    const persistentAdapter = await resolvePersistentRealtimeMultimodalAdapter({
+      requestedProviderId: normalizeString(args.requestedProviderId) ?? undefined,
+      geminiBinding: runtimeContext.geminiBinding,
+    });
+    if (!persistentAdapter.adapter) {
+      return buildPersistentRealtimeLifecycleSnapshot({
+        mode: "turn_stitch",
+        featureFlagEnabled,
+        providerId: persistentAdapter.requestedProviderId,
+        fallbackReason: "provider_capability_unsupported",
+        healthStatus: persistentAdapter.health.status,
+      });
+    }
+    return buildPersistentRealtimeLifecycleSnapshot({
+      mode: "persistent_realtime_multimodal",
+      featureFlagEnabled,
+      providerId: persistentAdapter.adapter.providerId,
+      transport: "native_realtime_audio_video",
+      healthStatus: persistentAdapter.health.status,
+    });
+  },
+});
+
+export const resolveFreshestVisionFrameForVoiceTurn = action({
+  args: {
+    sessionId: v.string(),
+    interviewSessionId: v.id("agentSessions"),
+    conversationId: v.id("aiConversations"),
+    liveSessionId: v.optional(v.string()),
+    nowMs: v.optional(v.number()),
+    maxFrameAgeMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const runtimeContext = (await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveVoiceRuntimeContext,
+      {
+        sessionId: args.sessionId,
+        interviewSessionId: args.interviewSessionId,
+      },
+    )) as VoiceRuntimeContext;
+    const nowMs =
+      typeof args.nowMs === "number" && Number.isFinite(args.nowMs)
+        ? Math.floor(args.nowMs)
+        : Date.now();
+    const maxFrameAgeMs = resolveWebChatVisionFrameMaxAgeMs(args.maxFrameAgeMs);
+    const buildVisionTelemetry = (input: {
+      reason: WebChatVisionAttachReason;
+      source: "auth_gate" | "buffer" | "retention";
+      frameAgeMs?: unknown;
+    }) =>
+      buildWebChatVisionAttachmentTelemetrySnapshot({
+        reason: input.reason,
+        source: input.source,
+        maxFrameAgeMs,
+        frameAgeMs: input.frameAgeMs,
+      });
+    const retentionConfig = resolveOperatorMediaRetentionConfig();
+    const effectiveRetentionMode = resolveEffectiveOperatorMediaRetentionMode(
+      retentionConfig,
+    );
+    const conversationScope = (await ctx.runQuery(
+      generatedApi.internal.ai.mediaRetention.resolveVisionAttachmentConversationScope,
+      {
+        conversationId: args.conversationId,
+      },
+    )) as {
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+    } | null;
+    const authIsolationDecision = resolveWebChatVisionAttachmentAuthIsolationDecision({
+      authenticatedOrganizationId: runtimeContext.organizationId,
+      authenticatedUserId: runtimeContext.actorId as Id<"users">,
+      requestedInterviewSessionId: args.interviewSessionId,
+      resolvedInterviewSessionId: runtimeContext.interviewSessionId,
+      conversationOrganizationId: conversationScope?.organizationId,
+      conversationUserId: conversationScope?.userId,
+    });
+    if (!authIsolationDecision.allowed) {
+      const telemetry = buildVisionTelemetry({
+        reason: "vision_frame_dropped_auth_isolation",
+        source: "auth_gate",
+      });
+      return {
+        status: "degraded" as const,
+        reason: "vision_policy_blocked" as const,
+        maxFrameAgeMs,
+        telemetry,
+      };
+    }
+    const bufferedCandidates = (await ctx.runQuery(
+      generatedApi.internal.ai.voiceRuntime.resolveWebChatVisionFrameBufferCandidates,
+      {
+        organizationId: runtimeContext.organizationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        conversationId: args.conversationId,
+        liveSessionId: normalizeString(args.liveSessionId) ?? undefined,
+        nowMs,
+      },
+    )) as WebChatVisionFrameCandidate[];
+
+    if (bufferedCandidates.length > 0 || effectiveRetentionMode !== "full") {
+      const bufferedDecision = resolveWebChatVisionFrameDecision({
+        retentionMode: effectiveRetentionMode,
+        nowMs,
+        maxFrameAgeMs,
+        candidates: bufferedCandidates,
+      });
+      if (bufferedDecision.status === "attached") {
+        const bufferedStorageUrl = await ctx.storage.getUrl(
+          bufferedDecision.frame.storageId,
+        );
+        if (bufferedStorageUrl) {
+          const telemetry = buildVisionTelemetry({
+            reason: "attached",
+            source: "buffer",
+            frameAgeMs: bufferedDecision.frame.ageMs,
+          });
+          return {
+            ...bufferedDecision,
+            frame: {
+              ...bufferedDecision.frame,
+              storageUrl: bufferedStorageUrl,
+            },
+            telemetry,
+          };
+        }
+      } else if (bufferedDecision.reason === "vision_policy_blocked") {
+        const telemetry = buildVisionTelemetry({
+          reason: "vision_policy_blocked",
+          source: "buffer",
+          frameAgeMs: bufferedDecision.freshestCandidateAgeMs,
+        });
+        return {
+          ...bufferedDecision,
+          telemetry,
+        };
+      }
+    }
+
+    const resolution = await ctx.runQuery(
+      generatedApi.internal.ai.mediaRetention.resolveFreshestVisionFrameForVoiceTurn,
+      {
+        organizationId: runtimeContext.organizationId,
+        interviewSessionId: runtimeContext.interviewSessionId,
+        conversationId: args.conversationId,
+        liveSessionId: normalizeString(args.liveSessionId) ?? undefined,
+        nowMs,
+        maxFrameAgeMs,
+      },
+    ) as
+      | {
+          status: "attached";
+          maxFrameAgeMs: number;
+          frame: {
+            retentionId: Id<"operatorMediaRetention">;
+            capturedAt: number;
+            mediaType: "video_frame" | "video_keyframe";
+            mimeType: string;
+            sizeBytes: number;
+            storageId: Id<"_storage">;
+            liveSessionId: string;
+            videoSessionId?: string;
+            sourceSequence?: number;
+            ageMs: number;
+          };
+        }
+      | {
+          status: "degraded";
+          maxFrameAgeMs: number;
+          reason: "vision_frame_missing" | "vision_frame_stale" | "vision_policy_blocked";
+          freshestCandidateCapturedAt?: number;
+          freshestCandidateAgeMs?: number;
+        };
+
+    if (resolution.status !== "attached") {
+      const telemetry = buildVisionTelemetry({
+        reason: resolution.reason,
+        source: "retention",
+        frameAgeMs: resolution.freshestCandidateAgeMs,
+      });
+      return {
+        ...resolution,
+        telemetry,
+      };
+    }
+
+    const storageUrl = await ctx.storage.getUrl(resolution.frame.storageId);
+    const telemetry = buildVisionTelemetry({
+      reason: "attached",
+      source: "retention",
+      frameAgeMs: resolution.frame.ageMs,
+    });
+    return {
+      ...resolution,
+      frame: {
+        ...resolution.frame,
+        storageUrl,
+      },
+      telemetry,
+    };
+  },
+});
+
 export const openVoiceSession = action({
   args: {
     sessionId: v.string(),
     interviewSessionId: v.id("agentSessions"),
+    conversationId: v.optional(v.id("aiConversations")),
     expectedOrganizationId: v.optional(v.id("organizations")),
     expectedUserId: v.optional(v.id("users")),
     requestedProviderId: v.optional(
@@ -3217,6 +3833,7 @@ export const openVoiceSession = action({
     avObservability: v.optional(v.any()),
     clientSurface: v.optional(v.string()),
     attestationProofToken: v.optional(v.string()),
+    persistentRequestedProviderId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const runtimeContext = (await ctx.runQuery(
@@ -3327,6 +3944,14 @@ export const openVoiceSession = action({
         cleanedSession.state === "open" ||
         cleanedSession.state === "degraded")
     ) {
+      const persistentMultimodal = await ctx.runAction(
+        generatedApi.api.ai.voiceRuntime.resolvePersistentRealtimeMultimodalSessionLifecycle,
+        {
+          sessionId: args.sessionId,
+          interviewSessionId: args.interviewSessionId,
+          requestedProviderId: normalizeString(args.persistentRequestedProviderId) ?? undefined,
+        },
+      ) as PersistentRealtimeLifecycleSnapshot;
       return {
         success: true,
         voiceSessionId,
@@ -3352,6 +3977,7 @@ export const openVoiceSession = action({
         }),
         fsmState: cleanedSession.state,
         idempotent: true,
+        persistentMultimodal,
       };
     }
     const rateLimitLiveSessionId =
@@ -3397,6 +4023,23 @@ export const openVoiceSession = action({
       elevenLabsBinding: runtimeContext.elevenLabsBinding,
       fetchFn: fetch,
     });
+    const persistentFeatureFlagEnabled = isPersistentRealtimeMultimodalEnabled();
+    const persistentAdapter = persistentFeatureFlagEnabled
+      ? await resolvePersistentRealtimeMultimodalAdapter({
+          requestedProviderId:
+            normalizeString(args.persistentRequestedProviderId) ?? undefined,
+          geminiBinding: runtimeContext.geminiBinding,
+        })
+      : null;
+    let persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+      mode: "turn_stitch",
+      featureFlagEnabled: persistentFeatureFlagEnabled,
+      fallbackReason: persistentFeatureFlagEnabled
+        ? "provider_capability_unsupported"
+        : "feature_flag_disabled",
+      providerId: persistentAdapter?.requestedProviderId ?? null,
+      healthStatus: persistentAdapter?.health.status ?? null,
+    });
     let session;
     try {
       session = await resolved.adapter.openSession({
@@ -3405,6 +4048,39 @@ export const openVoiceSession = action({
         interviewSessionId: String(runtimeContext.interviewSessionId),
         voiceId: voiceResolution.resolvedVoiceId,
       });
+      if (persistentFeatureFlagEnabled && persistentAdapter?.adapter) {
+        try {
+          const persistentSession = await persistentAdapter.adapter.openSession({
+            voiceSessionId,
+            organizationId: String(runtimeContext.organizationId),
+            interviewSessionId: String(runtimeContext.interviewSessionId),
+            conversationId: args.conversationId
+              ? String(args.conversationId)
+              : undefined,
+            liveSessionId: normalizeString(args.liveSessionId) ?? undefined,
+          });
+          persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+            mode: "persistent_realtime_multimodal",
+            featureFlagEnabled: persistentFeatureFlagEnabled,
+            providerId: persistentSession.providerId,
+            providerSessionId: persistentSession.providerSessionId,
+            transport: persistentSession.transport,
+            healthStatus: persistentAdapter.health.status,
+          });
+        } catch (persistentError) {
+          console.warn(
+            "[VoiceRuntime] persistent_realtime_multimodal_open_failed",
+            persistentError,
+          );
+          persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+            mode: "turn_stitch",
+            featureFlagEnabled: persistentFeatureFlagEnabled,
+            providerId: persistentAdapter.requestedProviderId,
+            fallbackReason: "session_handshake_failed",
+            healthStatus: persistentAdapter.health.status,
+          });
+        }
+      }
     } catch (error) {
       await emitVoiceSessionTransitionEvent(ctx, {
         runtimeContext,
@@ -3490,6 +4166,7 @@ export const openVoiceSession = action({
       nativeBridge,
       fsmState: targetState,
       idempotent: false,
+      persistentMultimodal,
     };
   },
 });
@@ -3503,6 +4180,8 @@ export const closeVoiceSession = action({
       v.union(v.literal("browser"), v.literal("elevenlabs")),
     ),
     reason: v.optional(v.string()),
+    persistentRequestedProviderId: v.optional(v.string()),
+    persistentProviderSessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const nowMs = Date.now();
@@ -3541,6 +4220,10 @@ export const closeVoiceSession = action({
         }),
         fsmState: "closed" as const,
         idempotent: true,
+        persistentMultimodal: buildPersistentRealtimeLifecycleSnapshot({
+          mode: "turn_stitch",
+          featureFlagEnabled: isPersistentRealtimeMultimodalEnabled(),
+        }),
       };
     }
     const latestSession = await resolveLatestVoiceRuntimeSessionSnapshot(ctx, {
@@ -3576,6 +4259,10 @@ export const closeVoiceSession = action({
         }),
         fsmState: "closed" as const,
         idempotent: true,
+        persistentMultimodal: buildPersistentRealtimeLifecycleSnapshot({
+          mode: "turn_stitch",
+          featureFlagEnabled: isPersistentRealtimeMultimodalEnabled(),
+        }),
       };
     }
     if (!cleanedSession) {
@@ -3601,6 +4288,10 @@ export const closeVoiceSession = action({
         }),
         fsmState: "closed" as const,
         idempotent: true,
+        persistentMultimodal: buildPersistentRealtimeLifecycleSnapshot({
+          mode: "turn_stitch",
+          featureFlagEnabled: isPersistentRealtimeMultimodalEnabled(),
+        }),
       };
     }
 
@@ -3614,6 +4305,53 @@ export const closeVoiceSession = action({
       elevenLabsBinding: runtimeContext.elevenLabsBinding,
       fetchFn: fetch,
     });
+    const persistentFeatureFlagEnabled = isPersistentRealtimeMultimodalEnabled();
+    let persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+      mode: "turn_stitch",
+      featureFlagEnabled: persistentFeatureFlagEnabled,
+      fallbackReason: persistentFeatureFlagEnabled
+        ? "provider_capability_unsupported"
+        : "feature_flag_disabled",
+    });
+    if (persistentFeatureFlagEnabled) {
+      const persistentAdapter = await resolvePersistentRealtimeMultimodalAdapter({
+        requestedProviderId:
+          normalizeString(args.persistentRequestedProviderId) ?? undefined,
+        geminiBinding: runtimeContext.geminiBinding,
+      });
+      if (persistentAdapter.adapter) {
+        const providerSessionId = normalizeString(args.persistentProviderSessionId);
+        if (providerSessionId) {
+          try {
+            await persistentAdapter.adapter.closeSession({
+              providerSessionId,
+              reason: normalizeString(args.reason) ?? "voice_session_close",
+            });
+          } catch (persistentCloseError) {
+            console.warn(
+              "[VoiceRuntime] persistent_realtime_multimodal_close_failed",
+              persistentCloseError,
+            );
+          }
+          persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+            mode: "persistent_realtime_multimodal",
+            featureFlagEnabled: persistentFeatureFlagEnabled,
+            providerId: persistentAdapter.adapter.providerId,
+            providerSessionId,
+            transport: "native_realtime_audio_video",
+            healthStatus: persistentAdapter.health.status,
+          });
+        } else {
+          persistentMultimodal = buildPersistentRealtimeLifecycleSnapshot({
+            mode: "turn_stitch",
+            featureFlagEnabled: persistentFeatureFlagEnabled,
+            providerId: persistentAdapter.adapter.providerId,
+            fallbackReason: "session_handshake_failed",
+            healthStatus: persistentAdapter.health.status,
+          });
+        }
+      }
+    }
     const nativeBridge = buildVoiceRuntimeNativeBridgeMetadata({
       voiceSessionId: args.voiceSessionId,
       sessionState: "closed",
@@ -3656,6 +4394,7 @@ export const closeVoiceSession = action({
           nativeBridge,
           fsmState: "closed" as const,
           idempotent: true,
+          persistentMultimodal,
         };
       }
       await emitVoiceSessionTransitionEvent(ctx, {
@@ -3717,6 +4456,7 @@ export const closeVoiceSession = action({
       nativeBridge,
       fsmState: "closed" as const,
       idempotent: false,
+      persistentMultimodal,
     };
   },
 });
@@ -4941,6 +5681,8 @@ export const ingestVideoFrameEnvelope = action({
       const retainedMediaType = resolveVideoEnvelopeRetainedMediaType({
         keyframeHint: undefined,
       });
+      const framePayloadBase64 =
+        normalizeString(videoRuntime?.framePayloadBase64) ?? undefined;
       const retentionWriteRequest = buildOperatorMediaRetentionWriteRequest({
         config: retentionConfig,
         organizationId: runtimeContext.organizationId,
@@ -4961,7 +5703,7 @@ export const ingestVideoFrameEnvelope = action({
           ?? undefined,
         sourceSequence: sequence,
         videoSessionId,
-        payloadBase64: normalizeString(videoRuntime?.framePayloadBase64) ?? undefined,
+        payloadBase64: framePayloadBase64,
         metadata: {
           transportMode: normalizeString(envelope.transportRuntime?.mode) ?? null,
           fallbackReason: normalizeString(envelope.transportRuntime?.fallbackReason) ?? null,
@@ -4989,6 +5731,40 @@ export const ingestVideoFrameEnvelope = action({
             retentionId: String(retained.retentionId),
             reason: retentionWriteRequest.policy.reason,
           };
+          const isVisionMediaType =
+            retentionWriteRequest.mediaType === "video_frame" ||
+            retentionWriteRequest.mediaType === "video_keyframe";
+          if (
+            args.conversationId &&
+            retained.storageId &&
+            retentionWriteRequest.retentionMode === "full" &&
+            isVisionMediaType
+          ) {
+            await ctx.runMutation(
+              generatedApi.internal.ai.voiceRuntime.appendWebChatVisionFrameBufferEntry,
+              {
+                organizationId: runtimeContext.organizationId,
+                interviewSessionId: runtimeContext.interviewSessionId,
+                conversationId: args.conversationId,
+                liveSessionId: envelope.liveSessionId,
+                retentionId: retained.retentionId,
+                capturedAt: retentionWriteRequest.capturedAt,
+                mediaType: retentionWriteRequest.mediaType,
+                mimeType: retentionWriteRequest.mimeType,
+                sizeBytes: Math.max(
+                  1,
+                  Math.floor((framePayloadBase64?.length ?? 0) * 0.75),
+                ),
+                storageId: retained.storageId,
+                videoSessionId,
+                sourceSequence: retentionWriteRequest.sourceSequence,
+                ttlExpiresAt: retentionWriteRequest.ttlExpiresAt,
+                idempotencyKey: retentionWriteRequest.idempotencyKey,
+                idempotentReplay: Boolean(retained.idempotent),
+                nowMs: envelope.ingressTimestampMs,
+              },
+            );
+          }
         } catch (error) {
           const message =
             error instanceof Error

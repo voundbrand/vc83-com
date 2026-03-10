@@ -3,6 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   buildOperatorMediaRetentionWriteRequest,
   materializeOperatorMediaRetentionPayload,
+  resolveEffectiveOperatorMediaRetentionMode,
   resolveOperatorMediaRetentionConfig,
 } from "../../../convex/ai/mediaRetention";
 
@@ -103,5 +104,13 @@ describe("operator media retention ingest linkage", () => {
     });
     expect(materialized.storagePath).toContain("video_frame");
     expect(materialized.sizeBytes).toBe(3);
+  });
+
+  it("maps disabled retention to off mode for fail-closed vision policy decisions", () => {
+    const config = resolveOperatorMediaRetentionConfig({
+      OPERATOR_MEDIA_RETENTION_ENABLED: "false",
+      OPERATOR_MEDIA_RETENTION_MODE: "full",
+    });
+    expect(resolveEffectiveOperatorMediaRetentionMode(config)).toBe("off");
   });
 });

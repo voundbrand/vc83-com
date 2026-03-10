@@ -26,10 +26,13 @@ const SLACK_UTC_OFFSET_PATTERN =
   /\b(?:tz|timezone)\s*[:=]\s*(utc(?:[+-](?:[01]?\d|2[0-3])(?::?[0-5]\d)?)?)\b|\b(utc(?:[+-](?:[01]?\d|2[0-3])(?::?[0-5]\d)?)?)\b/i;
 const SLACK_VACATION_INTENT_PATTERN =
   /\b(vacation|pto|time[\s_-]*off|out[\s_-]*of[\s_-]*office|ooo|away)\b/i;
-const SLACK_VACATION_PARSER_VERSION = 3;
+const SLACK_VACATION_PARSER_VERSION = 4;
 
 export type SlackVacationRequestSource = "mention" | "message" | "slash_command";
 export type SlackVacationRequestStatus = "parsed" | "blocked";
+export type SlackVacationRelativeTimezoneSource =
+  | "explicit"
+  | "organization_settings";
 
 export interface SlackVacationRequestParseResult {
   intent: "vacation_request";
@@ -40,6 +43,9 @@ export interface SlackVacationRequestParseResult {
   requestedStartDate?: string;
   requestedEndDate?: string;
   blockedReasons: string[];
+  relativeTimezoneSource?: SlackVacationRelativeTimezoneSource;
+  relativeTimezone?: string;
+  fallbackDateFormat?: string;
   commandName?: string;
 }
 
@@ -334,16 +340,115 @@ function parseUtcOffsetMinutes(token: string): number | undefined {
   return sign * (hours * 60 + minutes);
 }
 
-function resolveUtcOffsetMinutesFromText(text: string): number | undefined {
+function resolveUtcOffsetFromText(text: string): {
+  utcOffsetMinutes: number;
+  timezoneToken: string;
+} | null {
   const match = SLACK_UTC_OFFSET_PATTERN.exec(text);
   if (!match) {
-    return undefined;
+    return null;
   }
   const token = match[1] || match[2];
   if (!token) {
+    return null;
+  }
+  const utcOffsetMinutes = parseUtcOffsetMinutes(token);
+  if (utcOffsetMinutes === undefined) {
+    return null;
+  }
+  return { utcOffsetMinutes, timezoneToken: token.toUpperCase() };
+}
+
+function isValidIanaTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveUtcOffsetMinutesFromIanaTimezone(args: {
+  timezone: string;
+  referenceEpochMs: number;
+}): number | undefined {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: args.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const parts = formatter.formatToParts(new Date(args.referenceEpochMs));
+    const byType = new Map(parts.map((part) => [part.type, part.value]));
+    const year = Number.parseInt(byType.get("year") || "", 10);
+    const month = Number.parseInt(byType.get("month") || "", 10);
+    const day = Number.parseInt(byType.get("day") || "", 10);
+    const hour = Number.parseInt(byType.get("hour") || "", 10);
+    const minute = Number.parseInt(byType.get("minute") || "", 10);
+    const second = Number.parseInt(byType.get("second") || "", 10);
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day) ||
+      !Number.isFinite(hour) ||
+      !Number.isFinite(minute) ||
+      !Number.isFinite(second)
+    ) {
+      return undefined;
+    }
+    const localizedEpochMs = Date.UTC(year, month - 1, day, hour, minute, second);
+    return Math.round((localizedEpochMs - args.referenceEpochMs) / 60_000);
+  } catch {
     return undefined;
   }
-  return parseUtcOffsetMinutes(token);
+}
+
+function resolveFallbackTimezone(args: {
+  fallbackTimezone?: string;
+  referenceEpochMs?: number;
+}): {
+  timezoneConfigured: boolean;
+  utcOffsetMinutes?: number;
+  timezoneToken?: string;
+} {
+  const timezoneToken = asString(args.fallbackTimezone);
+  if (!timezoneToken) {
+    return { timezoneConfigured: false };
+  }
+
+  const explicitUtcOffsetMinutes = parseUtcOffsetMinutes(timezoneToken);
+  if (explicitUtcOffsetMinutes !== undefined) {
+    return {
+      timezoneConfigured: true,
+      utcOffsetMinutes: explicitUtcOffsetMinutes,
+      timezoneToken: timezoneToken.toUpperCase(),
+    };
+  }
+
+  if (!isValidIanaTimezone(timezoneToken)) {
+    return { timezoneConfigured: false };
+  }
+
+  if (args.referenceEpochMs === undefined) {
+    return {
+      timezoneConfigured: true,
+      timezoneToken,
+    };
+  }
+
+  return {
+    timezoneConfigured: true,
+    utcOffsetMinutes: resolveUtcOffsetMinutesFromIanaTimezone({
+      timezone: timezoneToken,
+      referenceEpochMs: args.referenceEpochMs,
+    }),
+    timezoneToken,
+  };
 }
 
 function toIsoDateAtUtcOffset(epochMs: number, offsetMinutes: number): string {
@@ -446,6 +551,8 @@ export function parseSlackVacationRequestIntent(args: {
   source: SlackVacationRequestSource;
   commandName?: string;
   referenceEpochMs?: number;
+  fallbackTimezone?: string;
+  fallbackDateFormat?: string;
 }): SlackVacationRequestParseResult | null {
   const rawText = asString(args.text);
   if (!rawText) {
@@ -465,6 +572,8 @@ export function parseSlackVacationRequestIntent(args: {
   const parsedDates = extractDeterministicDatesFromText(rawText);
   let requestedStartDate: string | undefined;
   let requestedEndDate: string | undefined;
+  let relativeTimezoneSource: SlackVacationRelativeTimezoneSource | undefined;
+  let relativeTimezone: string | undefined;
 
   if (parsedDates.length === 0) {
     const relativeRangeType = SLACK_THIS_WEEK_PATTERN.test(rawText)
@@ -475,8 +584,22 @@ export function parseSlackVacationRequestIntent(args: {
           ? "next_month"
           : null;
     if (relativeRangeType) {
-      const utcOffsetMinutes = resolveUtcOffsetMinutesFromText(rawText);
-      if (utcOffsetMinutes === undefined) {
+      const explicitTimezone = resolveUtcOffsetFromText(rawText);
+      const fallbackTimezone = resolveFallbackTimezone({
+        fallbackTimezone: args.fallbackTimezone,
+        referenceEpochMs: args.referenceEpochMs,
+      });
+      const utcOffsetMinutes =
+        explicitTimezone?.utcOffsetMinutes ?? fallbackTimezone.utcOffsetMinutes;
+      relativeTimezoneSource = explicitTimezone
+        ? "explicit"
+        : fallbackTimezone.timezoneConfigured
+          ? "organization_settings"
+          : undefined;
+      relativeTimezone =
+        explicitTimezone?.timezoneToken ?? fallbackTimezone.timezoneToken;
+
+      if (!relativeTimezoneSource) {
         blockedReasons.push("missing_relative_timezone");
       }
       if (args.referenceEpochMs === undefined) {
@@ -529,6 +652,9 @@ export function parseSlackVacationRequestIntent(args: {
     requestedStartDate,
     requestedEndDate,
     blockedReasons,
+    relativeTimezoneSource,
+    relativeTimezone,
+    fallbackDateFormat: asString(args.fallbackDateFormat),
     commandName:
       args.source === "slash_command" && args.commandName
         ? normalizeSlackCommandName(args.commandName)
@@ -549,6 +675,10 @@ function buildSlackVacationRequestMetadata(
     slackVacationRequestStartDate: vacationRequest.requestedStartDate,
     slackVacationRequestEndDate: vacationRequest.requestedEndDate,
     slackVacationRequestBlockedReasons: vacationRequest.blockedReasons,
+    slackVacationRequestRelativeTimezoneSource:
+      vacationRequest.relativeTimezoneSource,
+    slackVacationRequestRelativeTimezone: vacationRequest.relativeTimezone,
+    slackVacationRequestFallbackDateFormat: vacationRequest.fallbackDateFormat,
     slackVacationRequest: vacationRequest,
   };
 }
@@ -683,6 +813,8 @@ function parseSlackInboundPayload(
     text,
     source: eventType === "app_mention" ? "mention" : "message",
     referenceEpochMs,
+    fallbackTimezone: credentials.slackFallbackTimezone,
+    fallbackDateFormat: credentials.slackFallbackDateFormat,
   });
 
   if (!channelId || !eventTs || !senderId || !text) {
@@ -762,6 +894,8 @@ function parseSlackSlashCommandInboundPayload(
     source: "slash_command",
     commandName: command,
     referenceEpochMs: asNumber(rawPayload.received_at_ms),
+    fallbackTimezone: credentials.slackFallbackTimezone,
+    fallbackDateFormat: credentials.slackFallbackDateFormat,
   });
 
   return {

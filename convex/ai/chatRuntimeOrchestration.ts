@@ -84,10 +84,14 @@ function buildMultimodalUserContent(args: {
   content: string;
   attachments?: ChatRuntimeConversationAttachment[];
 }): ChatRuntimeMessageContent {
-  const imageUrls = (args.attachments || [])
-    .filter((attachment) => attachment.kind === "image")
-    .map((attachment) => attachment.url?.trim())
-    .filter((url): url is string => Boolean(url));
+  const imageUrls = Array.from(
+    new Set(
+      (args.attachments || [])
+        .filter((attachment) => attachment.kind === "image")
+        .map((attachment) => attachment.url?.trim())
+        .filter((url): url is string => Boolean(url))
+    )
+  );
 
   if (imageUrls.length === 0) {
     return args.content;

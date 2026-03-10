@@ -3,6 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import {
   internalAction,
   internalMutation,
+  internalQuery,
   mutation,
   query,
   type MutationCtx,
@@ -51,6 +52,48 @@ const DEFAULT_VIDEO_TTL_HOURS = 24;
 const DEFAULT_VIDEO_SAMPLE_EVERY_N_FRAMES = 1;
 const DEFAULT_CLEANUP_LIMIT = 100;
 const MAX_QUERY_LIMIT = 200;
+const DEFAULT_WEB_CHAT_VISION_FRAME_MAX_AGE_MS = 12_000;
+const MIN_WEB_CHAT_VISION_FRAME_MAX_AGE_MS = 1_000;
+const MAX_WEB_CHAT_VISION_FRAME_MAX_AGE_MS = 120_000;
+const DEFAULT_WEB_CHAT_VISION_RESOLVER_SCAN_LIMIT = 40;
+
+export const WEB_CHAT_VISION_DEGRADE_REASON_VALUES = [
+  "vision_frame_missing",
+  "vision_frame_stale",
+  "vision_policy_blocked",
+] as const;
+export type WebChatVisionDegradeReason =
+  (typeof WEB_CHAT_VISION_DEGRADE_REASON_VALUES)[number];
+
+export interface WebChatVisionFrameCandidate {
+  retentionId: Id<"operatorMediaRetention">;
+  capturedAt: number;
+  mediaType: "video_frame" | "video_keyframe";
+  mimeType: string;
+  sizeBytes: number;
+  storageId: Id<"_storage">;
+  liveSessionId: string;
+  videoSessionId?: string;
+  sourceSequence?: number;
+}
+
+export interface WebChatVisionResolvedFrame extends WebChatVisionFrameCandidate {
+  ageMs: number;
+}
+
+export type WebChatVisionFrameResolution =
+  | {
+      status: "attached";
+      maxFrameAgeMs: number;
+      frame: WebChatVisionResolvedFrame;
+    }
+  | {
+      status: "degraded";
+      maxFrameAgeMs: number;
+      reason: WebChatVisionDegradeReason;
+      freshestCandidateCapturedAt?: number;
+      freshestCandidateAgeMs?: number;
+    };
 
 export interface OperatorMediaRetentionConfig {
   enabled: boolean;
@@ -64,6 +107,15 @@ export interface OperatorMediaRetentionConfig {
   redactionProfileId?: string;
   encryptionMode: OperatorMediaEncryptionMode;
   encryptionKeyRef?: string;
+}
+
+export function resolveEffectiveOperatorMediaRetentionMode(
+  config: Pick<OperatorMediaRetentionConfig, "enabled" | "mode">,
+): OperatorMediaRetentionMode {
+  if (!config.enabled) {
+    return "off";
+  }
+  return config.mode;
 }
 
 export interface OperatorMediaRetentionDecision {
@@ -463,6 +515,100 @@ export function resolveOperatorMediaRetentionDecision(args: {
   };
 }
 
+function normalizeVisionFrameCandidateTimestamp(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeVisionFrameSequence(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return -1;
+  }
+  return Math.floor(value);
+}
+
+function compareVisionFrameCandidatesDesc(
+  left: WebChatVisionFrameCandidate,
+  right: WebChatVisionFrameCandidate,
+): number {
+  const capturedAtDelta =
+    normalizeVisionFrameCandidateTimestamp(right.capturedAt)
+    - normalizeVisionFrameCandidateTimestamp(left.capturedAt);
+  if (capturedAtDelta !== 0) {
+    return capturedAtDelta;
+  }
+
+  const sequenceDelta =
+    normalizeVisionFrameSequence(right.sourceSequence)
+    - normalizeVisionFrameSequence(left.sourceSequence);
+  if (sequenceDelta !== 0) {
+    return sequenceDelta;
+  }
+
+  return String(right.retentionId).localeCompare(String(left.retentionId));
+}
+
+export function resolveWebChatVisionFrameMaxAgeMs(rawValue?: unknown): number {
+  return normalizePositiveInteger(
+    rawValue,
+    DEFAULT_WEB_CHAT_VISION_FRAME_MAX_AGE_MS,
+    MIN_WEB_CHAT_VISION_FRAME_MAX_AGE_MS,
+    MAX_WEB_CHAT_VISION_FRAME_MAX_AGE_MS,
+  );
+}
+
+export function resolveWebChatVisionFrameDecision(args: {
+  retentionMode: OperatorMediaRetentionMode;
+  nowMs: number;
+  maxFrameAgeMs?: number;
+  candidates: WebChatVisionFrameCandidate[];
+}): WebChatVisionFrameResolution {
+  const maxFrameAgeMs = resolveWebChatVisionFrameMaxAgeMs(args.maxFrameAgeMs);
+  const nowMs = normalizeVisionFrameCandidateTimestamp(args.nowMs);
+
+  if (args.retentionMode !== "full") {
+    return {
+      status: "degraded",
+      maxFrameAgeMs,
+      reason: "vision_policy_blocked",
+    };
+  }
+
+  const orderedCandidates = [...args.candidates].sort(compareVisionFrameCandidatesDesc);
+  const freshest = orderedCandidates[0];
+  if (!freshest) {
+    return {
+      status: "degraded",
+      maxFrameAgeMs,
+      reason: "vision_frame_missing",
+    };
+  }
+
+  const capturedAt = normalizeVisionFrameCandidateTimestamp(freshest.capturedAt);
+  const ageMs = Math.max(0, nowMs - capturedAt);
+  if (ageMs > maxFrameAgeMs) {
+    return {
+      status: "degraded",
+      maxFrameAgeMs,
+      reason: "vision_frame_stale",
+      freshestCandidateCapturedAt: capturedAt,
+      freshestCandidateAgeMs: ageMs,
+    };
+  }
+
+  return {
+    status: "attached",
+    maxFrameAgeMs,
+    frame: {
+      ...freshest,
+      capturedAt,
+      ageMs,
+    },
+  };
+}
+
 export function buildOperatorMediaRetentionIdempotencyKey(args: {
   organizationId: Id<"organizations">;
   liveSessionId: string;
@@ -568,6 +714,61 @@ export function buildOperatorMediaRetentionWriteRequest(args: {
       reason: decision.reason,
       failClosed: decision.failClosed,
     },
+  };
+}
+
+export function resolveWebChatVisionAttachmentAuthIsolationDecision(args: {
+  authenticatedOrganizationId: Id<"organizations">;
+  authenticatedUserId: Id<"users">;
+  requestedInterviewSessionId: Id<"agentSessions">;
+  resolvedInterviewSessionId: Id<"agentSessions">;
+  conversationOrganizationId?: Id<"organizations"> | null;
+  conversationUserId?: Id<"users"> | null;
+}): {
+  allowed: true;
+} | {
+  allowed: false;
+  reason:
+    | "conversation_not_found"
+    | "organization_mismatch"
+    | "conversation_user_mismatch"
+    | "interview_session_mismatch";
+} {
+  if (
+    String(args.requestedInterviewSessionId)
+    !== String(args.resolvedInterviewSessionId)
+  ) {
+    return {
+      allowed: false,
+      reason: "interview_session_mismatch",
+    };
+  }
+  if (!args.conversationOrganizationId || !args.conversationUserId) {
+    return {
+      allowed: false,
+      reason: "conversation_not_found",
+    };
+  }
+  if (
+    String(args.authenticatedOrganizationId)
+    !== String(args.conversationOrganizationId)
+  ) {
+    return {
+      allowed: false,
+      reason: "organization_mismatch",
+    };
+  }
+  if (
+    String(args.authenticatedUserId)
+    !== String(args.conversationUserId)
+  ) {
+    return {
+      allowed: false,
+      reason: "conversation_user_mismatch",
+    };
+  }
+  return {
+    allowed: true,
   };
 }
 
@@ -829,6 +1030,113 @@ export const persistRetainedMediaPayload = internalAction({
     }
 
     return persisted;
+  },
+});
+
+export const resolveFreshestVisionFrameForVoiceTurn = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    interviewSessionId: v.id("agentSessions"),
+    conversationId: v.id("aiConversations"),
+    liveSessionId: v.optional(v.string()),
+    nowMs: v.optional(v.number()),
+    maxFrameAgeMs: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const retentionConfig = resolveOperatorMediaRetentionConfig();
+    const effectiveRetentionMode = resolveEffectiveOperatorMediaRetentionMode(
+      retentionConfig,
+    );
+    const nowMs = normalizeVisionFrameCandidateTimestamp(args.nowMs ?? Date.now());
+    const maxFrameAgeMs = resolveWebChatVisionFrameMaxAgeMs(args.maxFrameAgeMs);
+    const normalizedLiveSessionId = normalizeString(args.liveSessionId) ?? undefined;
+
+    if (effectiveRetentionMode !== "full") {
+      return resolveWebChatVisionFrameDecision({
+        retentionMode: effectiveRetentionMode,
+        nowMs,
+        maxFrameAgeMs,
+        candidates: [],
+      });
+    }
+
+    const limit = normalizeQueryLimit(args.limit, DEFAULT_WEB_CHAT_VISION_RESOLVER_SCAN_LIMIT);
+    const rows = await ctx.db
+      .query("operatorMediaRetention")
+      .withIndex("by_org_conversation_captured_at", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("conversationId", args.conversationId),
+      )
+      .order("desc")
+      .take(Math.max(limit * 4, limit));
+
+    const candidates: WebChatVisionFrameCandidate[] = rows
+      .filter((row) => {
+        if (
+          String(row.interviewSessionId) !== String(args.interviewSessionId)
+        ) {
+          return false;
+        }
+        if (
+          normalizedLiveSessionId
+          && row.liveSessionId !== normalizedLiveSessionId
+        ) {
+          return false;
+        }
+        if (row.mediaType !== "video_frame" && row.mediaType !== "video_keyframe") {
+          return false;
+        }
+        if (typeof row.deletedAt === "number" || typeof row.storageDeletedAt === "number") {
+          return false;
+        }
+        if (row.storageDisposition !== "stored" || !row.storageId) {
+          return false;
+        }
+        if (row.ttlExpiresAt <= nowMs) {
+          return false;
+        }
+        return true;
+      })
+      .slice(0, limit)
+      .map((row) => ({
+        retentionId: row._id,
+        capturedAt: row.capturedAt,
+        mediaType: row.mediaType as "video_frame" | "video_keyframe",
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        storageId: row.storageId as Id<"_storage">,
+        liveSessionId: row.liveSessionId,
+        videoSessionId: row.videoSessionId,
+        sourceSequence: row.sourceSequence,
+      }));
+
+    return resolveWebChatVisionFrameDecision({
+      retentionMode: effectiveRetentionMode,
+      nowMs,
+      maxFrameAgeMs,
+      candidates,
+    });
+  },
+});
+
+export const resolveVisionAttachmentConversationScope = internalQuery({
+  args: {
+    conversationId: v.id("aiConversations"),
+  },
+  handler: async (ctx, args): Promise<{
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+  } | null> => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      return null;
+    }
+    return {
+      organizationId: conversation.organizationId,
+      userId: conversation.userId,
+    };
   },
 });
 

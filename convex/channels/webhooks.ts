@@ -45,11 +45,65 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+type OrganizationRegionalSettings = {
+  timezone?: string;
+  dateFormat?: string;
+};
+
 function uniqueSecretCandidates(values: Array<string | undefined>): string[] {
   const normalized = values
     .map((value) => normalizeOptionalString(value))
     .filter((value): value is string => Boolean(value));
   return Array.from(new Set(normalized));
+}
+
+function resolveRegionalSettingsFromObject(
+  settingsObject: Record<string, unknown> | null
+): OrganizationRegionalSettings {
+  if (!settingsObject) {
+    return {};
+  }
+  const customProperties = settingsObject.customProperties as
+    | Record<string, unknown>
+    | undefined;
+  return {
+    timezone:
+      normalizeOptionalString(customProperties?.timezone) ||
+      normalizeOptionalString(settingsObject.timezone),
+    dateFormat:
+      normalizeOptionalString(customProperties?.dateFormat) ||
+      normalizeOptionalString(settingsObject.dateFormat),
+  };
+}
+
+async function getOrganizationRegionalSettings(args: {
+  ctx: unknown;
+  organizationId: Id<"organizations">;
+}): Promise<OrganizationRegionalSettings> {
+  const settings = (await (args.ctx as any).runQuery(
+    internalApi.organizationOntology.getOrganizationSettingsInternal,
+    {
+      organizationId: args.organizationId,
+      subtype: "main",
+    }
+  )) as Record<string, unknown> | null;
+  return resolveRegionalSettingsFromObject(settings);
+}
+
+function buildSlackNormalizationCredentials(args: {
+  credentials: ProviderCredentials | null;
+  regionalSettings: OrganizationRegionalSettings;
+}): ProviderCredentials {
+  const base = args.credentials || ({ providerId: "slack" } as ProviderCredentials);
+  return {
+    ...base,
+    slackFallbackTimezone:
+      normalizeOptionalString(base.slackFallbackTimezone) ||
+      normalizeOptionalString(args.regionalSettings.timezone),
+    slackFallbackDateFormat:
+      normalizeOptionalString(base.slackFallbackDateFormat) ||
+      normalizeOptionalString(args.regionalSettings.dateFormat),
+  };
 }
 
 type WebhookIngressStatus = "success" | "warning" | "error" | "skipped";
@@ -824,6 +878,15 @@ function normalizeSlackVacationStatus(
   return undefined;
 }
 
+function normalizeSlackVacationRelativeTimezoneSource(
+  value: unknown
+): SlackVacationRequestParseResult["relativeTimezoneSource"] | undefined {
+  if (value === "explicit" || value === "organization_settings") {
+    return value;
+  }
+  return undefined;
+}
+
 function normalizeSlackVacationIntent(
   value: unknown
 ): SlackVacationRequestParseResult | null {
@@ -855,6 +918,11 @@ function normalizeSlackVacationIntent(
     requestedStartDate: normalizeOptionalString(parsed.requestedStartDate),
     requestedEndDate: normalizeOptionalString(parsed.requestedEndDate),
     blockedReasons: normalizeStringArray(parsed.blockedReasons),
+    relativeTimezoneSource: normalizeSlackVacationRelativeTimezoneSource(
+      parsed.relativeTimezoneSource
+    ),
+    relativeTimezone: normalizeOptionalString(parsed.relativeTimezone),
+    fallbackDateFormat: normalizeOptionalString(parsed.fallbackDateFormat),
     commandName: normalizeOptionalString(parsed.commandName),
   };
 }
@@ -907,11 +975,24 @@ function buildSlackVacationRequestName(args: {
   return `Slack vacation request ${requester} undated`;
 }
 
+function normalizePolicyTeamBindingId(
+  customProperties: Record<string, unknown> | undefined
+): string | undefined {
+  const teamLink = customProperties?.teamLink as
+    | Record<string, unknown>
+    | undefined;
+  return (
+    normalizeOptionalString(customProperties?.teamId) ||
+    normalizeOptionalString(teamLink?.teamId)
+  );
+}
+
 function slackPolicyMatchesRoute(args: {
   policyObject: Record<string, unknown>;
   providerConnectionId?: string;
   teamId?: string;
   routeKey?: string;
+  teamBindingId?: string;
 }): boolean {
   const customProperties = args.policyObject.customProperties as
     | Record<string, unknown>
@@ -941,6 +1022,15 @@ function slackPolicyMatchesRoute(args: {
     return false;
   }
   if (policyRouteKey && args.routeKey && policyRouteKey !== args.routeKey) {
+    return false;
+  }
+
+  const policyTeamBindingId = normalizePolicyTeamBindingId(customProperties);
+  if (policyTeamBindingId) {
+    if (!args.teamBindingId || policyTeamBindingId !== args.teamBindingId) {
+      return false;
+    }
+  } else if (args.teamBindingId) {
     return false;
   }
 
@@ -987,6 +1077,12 @@ async function persistSlackVacationRequestEnvelopeIfPresent(
     normalizeOptionalString(args.normalizedMetadata.senderName) ||
     userId ||
     "unknown";
+  const requestTeamBindingId =
+    normalizeOptionalString(args.normalizedMetadata.teamBindingId) ||
+    normalizeOptionalString(
+      (args.normalizedMetadata.teamLink as Record<string, unknown> | undefined)
+        ?.teamId
+    );
   const blockedReasons = new Set<string>(
     vacationIntent.status === "blocked" ? vacationIntent.blockedReasons : []
   );
@@ -1069,6 +1165,7 @@ async function persistSlackVacationRequestEnvelopeIfPresent(
       providerConnectionId: args.providerConnectionId,
       teamId,
       routeKey: args.routeKey,
+      teamBindingId: requestTeamBindingId,
     })
   );
 
@@ -1141,6 +1238,7 @@ async function persistSlackVacationRequestEnvelopeIfPresent(
         sourceMetadata: {
           teamId,
           channelId,
+          teamBindingId: requestTeamBindingId,
           eventId: args.providerEventId,
           messageTs: args.providerMessageId,
           threadTs: args.providerConversationId,
@@ -1262,6 +1360,11 @@ export const processSlackEvent = internalAction({
       return { status: "error", message: "Unknown Slack workspace" };
     }
 
+    const organizationRegionalSettings = await getOrganizationRegionalSettings({
+      ctx,
+      organizationId,
+    });
+
     const credentials = (await (ctx.runQuery as Function)(
       internalApi.channels.router.getProviderCredentials,
       {
@@ -1276,13 +1379,17 @@ export const processSlackEvent = internalAction({
         routeKey: args.routeKey,
       }
     )) as ProviderCredentials | null;
+    const normalizationCredentials = buildSlackNormalizationCredentials({
+      credentials,
+      regionalSettings: organizationRegionalSettings,
+    });
 
     const normalized = provider.normalizeInbound(
       {
         ...rawPayload,
         received_at_ms: args.receivedAt,
       },
-      credentials || ({} as ProviderCredentials)
+      normalizationCredentials
     );
     if (!normalized) {
       await recordWebhookIngressOutcome(ctx, {
@@ -1586,6 +1693,11 @@ export const processSlackSlashCommand = internalAction({
       return { status: "error", message: "Unknown Slack workspace" };
     }
 
+    const organizationRegionalSettings = await getOrganizationRegionalSettings({
+      ctx,
+      organizationId,
+    });
+
     const credentials = (await (ctx.runQuery as Function)(
       internalApi.channels.router.getProviderCredentials,
       {
@@ -1690,6 +1802,10 @@ export const processSlackSlashCommand = internalAction({
     }
 
     try {
+      const normalizationCredentials = buildSlackNormalizationCredentials({
+        credentials,
+        regionalSettings: organizationRegionalSettings,
+      });
       const normalized = provider.normalizeInbound(
         {
           type: "slash_command",
@@ -1704,7 +1820,7 @@ export const processSlackSlashCommand = internalAction({
           response_url: args.responseUrl,
           received_at_ms: args.receivedAt,
         },
-        credentials
+        normalizationCredentials
       );
       if (!normalized) {
         await recordWebhookIngressOutcome(ctx, {

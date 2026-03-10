@@ -63,6 +63,39 @@ export interface VoiceRuntimeTelemetryContract {
   events: VoiceRuntimeTelemetryEvent[];
 }
 
+export const WEB_CHAT_VISION_ATTACH_REASON_VALUES = [
+  "attached",
+  "vision_frame_missing",
+  "vision_frame_stale",
+  "vision_policy_blocked",
+  "vision_frame_dropped_storage_url_missing",
+  "vision_frame_dropped_auth_isolation",
+] as const;
+
+export type WebChatVisionAttachReason =
+  (typeof WEB_CHAT_VISION_ATTACH_REASON_VALUES)[number];
+
+export const WEB_CHAT_VISION_FRESHNESS_BUCKET_VALUES = [
+  "age_0_2s",
+  "age_2_5s",
+  "age_5_12s",
+  "age_12s_plus",
+  "unknown",
+] as const;
+
+export type WebChatVisionFreshnessBucket =
+  (typeof WEB_CHAT_VISION_FRESHNESS_BUCKET_VALUES)[number];
+
+export interface WebChatVisionAttachmentTelemetrySnapshot {
+  contractVersion: "web_chat_vision_attachment_telemetry_v1";
+  reason: WebChatVisionAttachReason;
+  source: "auth_gate" | "buffer" | "retention";
+  maxFrameAgeMs: number;
+  frameAgeMs: number | null;
+  freshnessBucket: WebChatVisionFreshnessBucket;
+  counters: Record<string, number>;
+}
+
 export type VoiceRuntimeCanaryDecision = "PROMOTE" | "HOLD" | "ROLLBACK";
 
 export const VOICE_RUNTIME_CANARY_BUDGET_VERSION =
@@ -124,6 +157,82 @@ export type ActionCompletionMismatchReasonCode =
 export interface VoiceProviderFailureClassification {
   reasonCode: VoiceProviderFailureTaxonomyReason;
   healthStatus: VoiceProviderHealthStatus;
+}
+
+function toNonNegativeInteger(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+export function resolveWebChatVisionFreshnessBucket(
+  frameAgeMs: unknown,
+): WebChatVisionFreshnessBucket {
+  const ageMs = toNonNegativeInteger(frameAgeMs);
+  if (ageMs === null) {
+    return "unknown";
+  }
+  if (ageMs <= 2_000) {
+    return "age_0_2s";
+  }
+  if (ageMs <= 5_000) {
+    return "age_2_5s";
+  }
+  if (ageMs <= 12_000) {
+    return "age_5_12s";
+  }
+  return "age_12s_plus";
+}
+
+export function buildWebChatVisionAttachmentCounters(args: {
+  reason: WebChatVisionAttachReason;
+  freshnessBucket: WebChatVisionFreshnessBucket;
+}): Record<string, number> {
+  const counters: Record<string, number> = {
+    vision_frame_attempt_total: 1,
+  };
+  if (args.reason === "attached") {
+    counters.vision_frame_attached_total = 1;
+  }
+  if (
+    args.reason === "vision_frame_missing"
+    || args.reason === "vision_frame_stale"
+    || args.reason === "vision_policy_blocked"
+  ) {
+    counters.vision_frame_miss_total = 1;
+    counters[`vision_frame_miss_reason:${args.reason}`] = 1;
+  }
+  if (
+    args.reason === "vision_frame_dropped_storage_url_missing"
+    || args.reason === "vision_frame_dropped_auth_isolation"
+  ) {
+    counters.vision_frame_drop_total = 1;
+    counters[`vision_frame_drop_reason:${args.reason}`] = 1;
+  }
+  counters[`vision_frame_freshness_bucket:${args.freshnessBucket}`] = 1;
+  return counters;
+}
+
+export function buildWebChatVisionAttachmentTelemetrySnapshot(args: {
+  reason: WebChatVisionAttachReason;
+  source: "auth_gate" | "buffer" | "retention";
+  maxFrameAgeMs: number;
+  frameAgeMs?: unknown;
+}): WebChatVisionAttachmentTelemetrySnapshot {
+  const freshnessBucket = resolveWebChatVisionFreshnessBucket(args.frameAgeMs);
+  return {
+    contractVersion: "web_chat_vision_attachment_telemetry_v1",
+    reason: args.reason,
+    source: args.source,
+    maxFrameAgeMs: Math.max(0, Math.floor(args.maxFrameAgeMs)),
+    frameAgeMs: toNonNegativeInteger(args.frameAgeMs),
+    freshnessBucket,
+    counters: buildWebChatVisionAttachmentCounters({
+      reason: args.reason,
+      freshnessBucket,
+    }),
+  };
 }
 
 export type TrustKpiUnit = "ratio" | "minutes";

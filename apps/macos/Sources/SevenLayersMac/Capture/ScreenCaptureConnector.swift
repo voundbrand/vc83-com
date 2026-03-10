@@ -5,17 +5,51 @@ public struct ScreenSnapshotArtifact: Equatable {
     public let capturedAt: Date
     public let mimeType: String
     public let payloadRef: String?
+    public let sourceMetadata: ScreenSnapshotSourceMetadata?
+    public let evidenceRef: String?
 
     public init(
         sourceId: String,
         capturedAt: Date,
         mimeType: String = "image/png",
-        payloadRef: String? = nil
+        payloadRef: String? = nil,
+        sourceMetadata: ScreenSnapshotSourceMetadata? = nil,
+        evidenceRef: String? = nil
     ) {
         self.sourceId = sourceId
         self.capturedAt = capturedAt
         self.mimeType = mimeType
         self.payloadRef = payloadRef
+        self.sourceMetadata = sourceMetadata
+        self.evidenceRef = evidenceRef
+    }
+}
+
+public struct ScreenSnapshotSourceMetadata: Equatable {
+    public let sourceKind: ScreenCaptureSourceKind
+    public let displayId: UInt32?
+    public let windowId: UInt32?
+    public let ownerName: String?
+    public let title: String?
+    public let workspaceId: Int?
+    public let isOnScreen: Bool?
+
+    public init(
+        sourceKind: ScreenCaptureSourceKind,
+        displayId: UInt32? = nil,
+        windowId: UInt32? = nil,
+        ownerName: String? = nil,
+        title: String? = nil,
+        workspaceId: Int? = nil,
+        isOnScreen: Bool? = nil
+    ) {
+        self.sourceKind = sourceKind
+        self.displayId = displayId
+        self.windowId = windowId
+        self.ownerName = ownerName
+        self.title = title
+        self.workspaceId = workspaceId
+        self.isOnScreen = isOnScreen
     }
 }
 

@@ -56,6 +56,37 @@ const GOOGLE_CALENDAR_WRITE_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
 ];
 
+const SLACK_CALENDAR_ONBOARDING_READINESS_CONTRACT_VERSION =
+  "slack_calendar_onboarding_readiness_v1";
+
+export type SlackCalendarOnboardingReadinessState =
+  | "not_started"
+  | "partial"
+  | "ready"
+  | "blocked"
+  | "misconfigured"
+  | "degraded";
+
+type SlackCalendarOnboardingCheckStatus = "pass" | "warn" | "fail";
+type SlackCalendarOnboardingCheckSeverity = "required" | "optional";
+
+type SlackCalendarOnboardingCheckRow = {
+  id: string;
+  title: string;
+  category: "slack" | "calendar" | "vacation_policy" | "organization" | "team";
+  status: SlackCalendarOnboardingCheckStatus;
+  severity: SlackCalendarOnboardingCheckSeverity;
+  reasonCodes: string[];
+  evidence: Record<string, unknown>;
+};
+
+type OwnerAdminInputRequirement = {
+  id: string;
+  label: string;
+  owner: "owner" | "admin";
+  reasonCodes: string[];
+};
+
 type SlackSetupMode = "platform_managed" | "organization_byoa";
 type SlackInteractionMode = "mentions_only" | "mentions_and_dm";
 type VacationBlockedPeriodRecurrence = "none" | "yearly";
@@ -245,6 +276,17 @@ function normalizeVacationOverrideAuthority(
   };
 }
 
+function normalizePolicyTeamBindingId(
+  policyProps: Record<string, unknown> | undefined
+): string | undefined {
+  return (
+    normalizeOptionalString(policyProps?.teamId) ||
+    normalizeOptionalString(
+      (policyProps?.teamLink as Record<string, unknown> | undefined)?.teamId
+    )
+  );
+}
+
 function normalizeProviderProfileType(
   value: unknown
 ): "platform" | "organization" | undefined {
@@ -310,6 +352,7 @@ function matchesSlackPolicyScope(args: {
   slackConnectionId?: string;
   teamId?: string;
   routeKey?: string;
+  teamBindingId?: string;
 }): boolean {
   const props = (args.policyObject.customProperties || {}) as Record<string, unknown>;
   const integrations = (props.integrations || {}) as Record<string, unknown>;
@@ -328,6 +371,15 @@ function matchesSlackPolicyScope(args: {
     return false;
   }
   if (policyRouteKey && args.routeKey && policyRouteKey !== args.routeKey) {
+    return false;
+  }
+
+  const policyTeamBindingId = normalizePolicyTeamBindingId(props);
+  if (policyTeamBindingId) {
+    if (!args.teamBindingId || policyTeamBindingId !== args.teamBindingId) {
+      return false;
+    }
+  } else if (args.teamBindingId) {
     return false;
   }
 
@@ -408,6 +460,30 @@ async function listVacationPoliciesForOrg(
     .collect()) as Array<Record<string, unknown>>;
 }
 
+async function getOrganizationTeamObject(
+  ctx: unknown,
+  args: {
+    organizationId: Id<"organizations">;
+    teamId?: string;
+  }
+): Promise<Record<string, unknown> | null> {
+  const teamId = normalizeOptionalString(args.teamId);
+  if (!teamId) {
+    return null;
+  }
+  const team = (await (ctx as any).db.get(
+    teamId as Id<"objects">
+  )) as Record<string, unknown> | null;
+  if (
+    !team ||
+    team.organizationId !== args.organizationId ||
+    team.type !== "organization_team"
+  ) {
+    return null;
+  }
+  return team;
+}
+
 async function resolveConnectionBlockingCalendarIds(
   ctx: unknown,
   args: {
@@ -457,6 +533,213 @@ async function resolveConnectionBlockingCalendarIds(
       blockingCalendarIds.length > 0 ? blockingCalendarIds : ["primary"],
     explicitBlockingConfigured,
   };
+}
+
+async function getOrganizationMainSettingsObject(
+  ctx: unknown,
+  organizationId: Id<"organizations">
+): Promise<Record<string, unknown> | null> {
+  const settings = (await (ctx as any).db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q
+        .eq("organizationId", organizationId)
+        .eq("type", "organization_settings")
+    )
+    .filter((q: any) => q.eq(q.field("subtype"), "main"))
+    .first()) as Record<string, unknown> | null;
+  return settings || null;
+}
+
+function resolveOrganizationRegionalSettings(
+  settingsObject: Record<string, unknown> | null
+): { timezone?: string; dateFormat?: string } {
+  const props = (settingsObject?.customProperties || {}) as Record<string, unknown>;
+  return {
+    timezone:
+      normalizeOptionalString(props.timezone) ||
+      normalizeOptionalString(settingsObject?.timezone),
+    dateFormat:
+      normalizeOptionalString(props.dateFormat) ||
+      normalizeOptionalString(settingsObject?.dateFormat),
+  };
+}
+
+function hasReasonCodePrefix(reasonCodes: string[], prefix: string): boolean {
+  return reasonCodes.some((reasonCode) => reasonCode.startsWith(prefix));
+}
+
+function collectReadinessReasonCodes(
+  checks: SlackCalendarOnboardingCheckRow[]
+): string[] {
+  return Array.from(
+    new Set(
+      checks
+        .filter((check) => check.status !== "pass")
+        .flatMap((check) => check.reasonCodes)
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+export function resolveSlackCalendarOnboardingReadinessState(args: {
+  checks: SlackCalendarOnboardingCheckRow[];
+  hasSlackConnection: boolean;
+  hasCalendarConnection: boolean;
+  hasPolicy: boolean;
+}): SlackCalendarOnboardingReadinessState {
+  const reasonCodes = collectReadinessReasonCodes(args.checks);
+  const hasProgress =
+    args.hasSlackConnection || args.hasCalendarConnection || args.hasPolicy;
+  const requiredFailures = args.checks.filter(
+    (check) => check.severity === "required" && check.status === "fail"
+  );
+  const optionalWarnings = args.checks.filter(
+    (check) =>
+      check.severity === "optional" &&
+      (check.status === "warn" || check.status === "fail")
+  );
+
+  if (!hasProgress && requiredFailures.length > 0) {
+    return "not_started";
+  }
+
+  const blockedCodes = new Set([
+    "permission_manage_integrations_required",
+    "session_invalid_or_expired",
+    "user_not_in_default_org",
+  ]);
+  if (reasonCodes.some((reasonCode) => blockedCodes.has(reasonCode))) {
+    return "blocked";
+  }
+
+  const misconfiguredPrefixes = [
+    "slack_identity_",
+    "slack_setup_",
+    "vacation_policy_ambiguous",
+    "vacation_policy_slack_identity_",
+    "vacation_policy_google_connection_",
+    "vacation_policy_team_link_",
+  ];
+  if (
+    reasonCodes.some((reasonCode) =>
+      misconfiguredPrefixes.some((prefix) => reasonCode.startsWith(prefix))
+    )
+  ) {
+    return "misconfigured";
+  }
+
+  if (requiredFailures.length > 0) {
+    return hasProgress ? "partial" : "not_started";
+  }
+
+  if (optionalWarnings.length > 0 || hasReasonCodePrefix(reasonCodes, "organization_settings_")) {
+    return "degraded";
+  }
+
+  return hasProgress ? "ready" : "not_started";
+}
+
+function buildReadinessCheckRow(args: {
+  id: string;
+  title: string;
+  category: SlackCalendarOnboardingCheckRow["category"];
+  severity: SlackCalendarOnboardingCheckSeverity;
+  reasonCodes?: string[];
+  evidence?: Record<string, unknown>;
+}): SlackCalendarOnboardingCheckRow {
+  const reasonCodes = (args.reasonCodes || []).filter(
+    (reasonCode) => reasonCode.trim().length > 0
+  );
+  const status: SlackCalendarOnboardingCheckStatus =
+    reasonCodes.length === 0
+      ? "pass"
+      : args.severity === "optional"
+        ? "warn"
+        : "fail";
+  return {
+    id: args.id,
+    title: args.title,
+    category: args.category,
+    severity: args.severity,
+    status,
+    reasonCodes,
+    evidence: args.evidence || {},
+  };
+}
+
+function buildOwnerAdminInputRequirements(args: {
+  checks: SlackCalendarOnboardingCheckRow[];
+  selectedPolicyProps: Record<string, unknown>;
+}): OwnerAdminInputRequirement[] {
+  const requirements: OwnerAdminInputRequirement[] = [];
+  const addRequirement = (requirement: OwnerAdminInputRequirement) => {
+    if (requirements.some((existing) => existing.id === requirement.id)) {
+      return;
+    }
+    requirements.push(requirement);
+  };
+
+  const reasonCodes = collectReadinessReasonCodes(args.checks);
+  if (reasonCodes.includes("slack_connection_missing")) {
+    addRequirement({
+      id: "owner.confirm_slack_workspace_connect",
+      label: "Confirm Slack workspace connection",
+      owner: "owner",
+      reasonCodes: ["slack_connection_missing"],
+    });
+  }
+  if (reasonCodes.includes("calendar_work_connection_missing")) {
+    addRequirement({
+      id: "owner.connect_google_calendar_work_account",
+      label: "Connect Google Calendar work account",
+      owner: "owner",
+      reasonCodes: ["calendar_work_connection_missing"],
+    });
+  }
+  if (reasonCodes.includes("vacation_policy_missing")) {
+    addRequirement({
+      id: "admin.policy.maxConcurrentAway",
+      label: "Set vacation policy max concurrent away",
+      owner: "admin",
+      reasonCodes: ["vacation_policy_missing"],
+    });
+    addRequirement({
+      id: "admin.policy.minOnDutyTotal",
+      label: "Set vacation policy min on-duty total",
+      owner: "admin",
+      reasonCodes: ["vacation_policy_missing"],
+    });
+    addRequirement({
+      id: "admin.policy.pharmacistRoleFloor",
+      label: "Set pharmacist role minimum on-duty floor",
+      owner: "admin",
+      reasonCodes: ["vacation_policy_missing"],
+    });
+  }
+
+  const slackIntegration = ((args.selectedPolicyProps.integrations || {}) as Record<string, unknown>)
+    .slack as Record<string, unknown> | undefined;
+  if (!normalizeOptionalString(slackIntegration?.channelId)) {
+    addRequirement({
+      id: "admin.policy.slackChannelId",
+      label: "Set Slack destination channel ID for policy notifications",
+      owner: "admin",
+      reasonCodes: ["vacation_policy_slack_channel_missing"],
+    });
+  }
+
+  const googleIntegration = ((args.selectedPolicyProps.integrations || {}) as Record<string, unknown>)
+    .googleCalendar as Record<string, unknown> | undefined;
+  if (normalizeStringArray(googleIntegration?.blockingCalendarIds).length === 0) {
+    addRequirement({
+      id: "admin.policy.googleBlockingCalendarIds",
+      label: "Set Google blocking calendar IDs",
+      owner: "admin",
+      reasonCodes: ["vacation_policy_google_blocking_calendar_ids_missing"],
+    });
+  }
+
+  return requirements;
 }
 
 function readSlackSettingsProps(
@@ -1011,12 +1294,586 @@ export const saveSlackSetupConfig = mutation({
 });
 
 /**
+ * Aggregate Slack + Calendar + vacation-policy onboarding readiness.
+ * Read-only contract for deterministic onboarding state evaluation.
+ */
+export const getSlackCalendarOnboardingReadiness = query({
+  args: {
+    sessionId: v.string(),
+    teamBindingId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const generatedAt = Date.now();
+    const invalidSessionResult = {
+      contractVersion: SLACK_CALENDAR_ONBOARDING_READINESS_CONTRACT_VERSION,
+      generatedAt,
+      state: "blocked" as SlackCalendarOnboardingReadinessState,
+      reasonCodes: ["session_invalid_or_expired"],
+      checks: [
+        buildReadinessCheckRow({
+          id: "permission.manage_integrations",
+          title: "Manage integrations permission",
+          category: "slack",
+          severity: "required",
+          reasonCodes: ["session_invalid_or_expired"],
+          evidence: {
+            sessionValid: false,
+          },
+        }),
+      ],
+      summary: {
+        slack: {
+          connected: false,
+          setupMode: "platform_managed" as SlackSetupMode,
+        },
+        calendar: {
+          hasWorkConnection: false,
+        },
+        vacationPolicy: {
+          exists: false,
+          objectId: null as string | null,
+        },
+      },
+      ownerAdminInputRequirements: [] as OwnerAdminInputRequirement[],
+    };
+
+    const session = await ctx.db.get(args.sessionId as Id<"sessions">);
+    if (!session || session.expiresAt < Date.now()) {
+      return invalidSessionResult;
+    }
+
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.defaultOrgId) {
+      return {
+        ...invalidSessionResult,
+        reasonCodes: ["user_not_in_default_org"],
+        checks: [
+          buildReadinessCheckRow({
+            id: "permission.manage_integrations",
+            title: "Manage integrations permission",
+            category: "slack",
+            severity: "required",
+            reasonCodes: ["user_not_in_default_org"],
+            evidence: {
+              userFound: Boolean(user),
+              defaultOrgId: user?.defaultOrgId || null,
+            },
+          }),
+        ],
+      };
+    }
+
+    const canManage = await (ctx as any).runQuery(generatedApi.api.auth.canUserPerform, {
+      sessionId: args.sessionId,
+      permission: "manage_integrations",
+      resource: "oauth",
+      organizationId: user.defaultOrgId,
+    });
+
+    const checks: SlackCalendarOnboardingCheckRow[] = [];
+    checks.push(
+      buildReadinessCheckRow({
+        id: "permission.manage_integrations",
+        title: "Manage integrations permission",
+        category: "slack",
+        severity: "required",
+        reasonCodes: canManage ? [] : ["permission_manage_integrations_required"],
+        evidence: {
+          canManageIntegrations: canManage === true,
+        },
+      })
+    );
+
+    if (!canManage) {
+      const state = resolveSlackCalendarOnboardingReadinessState({
+        checks,
+        hasSlackConnection: false,
+        hasCalendarConnection: false,
+        hasPolicy: false,
+      });
+      return {
+        contractVersion: SLACK_CALENDAR_ONBOARDING_READINESS_CONTRACT_VERSION,
+        generatedAt,
+        state,
+        reasonCodes: collectReadinessReasonCodes(checks),
+        checks,
+        summary: {
+          slack: {
+            connected: false,
+            setupMode: "platform_managed" as SlackSetupMode,
+          },
+          calendar: {
+            hasWorkConnection: false,
+          },
+          vacationPolicy: {
+            exists: false,
+            objectId: null as string | null,
+          },
+        },
+        ownerAdminInputRequirements: [] as OwnerAdminInputRequirement[],
+      };
+    }
+
+    const settingsObject = await getSlackSettingsObject(ctx, user.defaultOrgId);
+    const settingsProps = readSlackSettingsProps(settingsObject);
+    const setupMode = normalizeSlackSetupMode(settingsProps.setupMode);
+    const interactionMode = normalizeSlackInteractionMode(settingsProps.interactionMode);
+    const aiAppFeaturesEnabled = normalizeSlackAiAppFeaturesEnabled(
+      settingsProps.aiAppFeaturesEnabled
+    );
+    const byoaConfigured = Boolean(
+      normalizeOptionalString(settingsProps.byoaClientId) &&
+        normalizeOptionalString(settingsProps.byoaClientSecretEncrypted) &&
+        normalizeOptionalString(settingsProps.byoaSigningSecretEncrypted)
+    );
+    checks.push(
+      buildReadinessCheckRow({
+        id: "slack.setup_mode",
+        title: "Slack setup mode credentials",
+        category: "slack",
+        severity: "required",
+        reasonCodes:
+          setupMode === "organization_byoa" && !byoaConfigured
+            ? ["slack_setup_byoa_incomplete"]
+            : [],
+        evidence: {
+          setupMode,
+          interactionMode,
+          aiAppFeaturesEnabled,
+          byoaConfigured,
+        },
+      })
+    );
+
+    const selectedProfileType = resolveSelectedSlackProfileType(setupMode);
+    const activeSlackConnections = await listActiveSlackConnectionsForOrg(
+      ctx,
+      user.defaultOrgId
+    );
+    const selectedSlackConnection =
+      activeSlackConnections.find(
+        (connection) => resolveConnectionProfileType(connection) === selectedProfileType
+      ) || null;
+    const selectedSlackConnectionId = selectedSlackConnection
+      ? String(selectedSlackConnection._id)
+      : undefined;
+    const slackScope = selectedSlackConnection
+      ? readSlackRouteScope(selectedSlackConnection)
+      : {};
+
+    checks.push(
+      buildReadinessCheckRow({
+        id: "slack.connection",
+        title: "Slack workspace connection",
+        category: "slack",
+        severity: "required",
+        reasonCodes: selectedSlackConnection ? [] : ["slack_connection_missing"],
+        evidence: {
+          selectedProfileType,
+          selectedConnectionId: selectedSlackConnectionId || null,
+          selectedConnectionStatus: normalizeOptionalString(
+            selectedSlackConnection?.status
+          ) || null,
+        },
+      })
+    );
+    checks.push(
+      buildReadinessCheckRow({
+        id: "slack.route_identity",
+        title: "Slack route identity",
+        category: "slack",
+        severity: "required",
+        reasonCodes: selectedSlackConnection
+          ? [
+              ...(slackScope.teamId ? [] : ["slack_identity_team_id_missing"]),
+              ...(slackScope.routeKey ? [] : ["slack_identity_route_key_missing"]),
+            ]
+          : [],
+        evidence: {
+          teamId: slackScope.teamId || null,
+          routeKey: slackScope.routeKey || null,
+          channelId: slackScope.channelId || null,
+          workspaceName: slackScope.workspaceName || null,
+          workspaceDomain: slackScope.workspaceDomain || null,
+        },
+      })
+    );
+
+    const googleConnections = (await ctx.db
+      .query("oauthConnections")
+      .withIndex("by_org_and_provider", (q) =>
+        q.eq("organizationId", user.defaultOrgId as Id<"organizations">).eq("provider", "google")
+      )
+      .filter((q) => q.neq(q.field("status"), "revoked"))
+      .collect()) as Array<Record<string, unknown>>;
+    const googleWorkConnection = selectGoogleWorkConnection({
+      connections: googleConnections,
+      userId: user._id,
+    });
+    const googleWorkReadiness = resolveGoogleConnectionReadiness(googleWorkConnection);
+
+    checks.push(
+      buildReadinessCheckRow({
+        id: "calendar.work_connection",
+        title: "Google Calendar work connection",
+        category: "calendar",
+        severity: "required",
+        reasonCodes: googleWorkReadiness.hasConnection
+          ? []
+          : ["calendar_work_connection_missing"],
+        evidence: {
+          hasConnection: googleWorkReadiness.hasConnection,
+          connectionId: googleWorkReadiness.connectionId || null,
+          connectionType: googleWorkReadiness.connectionType,
+          status: googleWorkReadiness.status,
+          email: googleWorkReadiness.email,
+        },
+      })
+    );
+    checks.push(
+      buildReadinessCheckRow({
+        id: "calendar.sync",
+        title: "Google Calendar sync",
+        category: "calendar",
+        severity: "required",
+        reasonCodes: googleWorkReadiness.hasConnection
+          ? [
+              ...(googleWorkReadiness.status === "active"
+                ? []
+                : ["calendar_connection_inactive"]),
+              ...(googleWorkReadiness.syncEnabled ? [] : ["calendar_sync_disabled"]),
+            ]
+          : [],
+        evidence: {
+          status: googleWorkReadiness.status,
+          syncEnabled: googleWorkReadiness.syncEnabled,
+        },
+      })
+    );
+    checks.push(
+      buildReadinessCheckRow({
+        id: "calendar.scopes",
+        title: "Google Calendar scopes",
+        category: "calendar",
+        severity: "required",
+        reasonCodes: googleWorkReadiness.hasConnection
+          ? [
+              ...(googleWorkReadiness.canAccessCalendar
+                ? []
+                : ["calendar_read_scope_missing"]),
+              ...(googleWorkReadiness.canWriteCalendar
+                ? []
+                : ["calendar_write_scope_missing"]),
+            ]
+          : [],
+        evidence: {
+          canAccessCalendar: googleWorkReadiness.canAccessCalendar,
+          canWriteCalendar: googleWorkReadiness.canWriteCalendar,
+          calendarWriteReady: googleWorkReadiness.calendarWriteReady,
+        },
+      })
+    );
+
+    const requestedTeamBindingId = normalizeOptionalString(args.teamBindingId);
+    const requestedTeamBinding = await getOrganizationTeamObject(ctx, {
+      organizationId: user.defaultOrgId,
+      teamId: requestedTeamBindingId,
+    });
+    const requestedTeamBindingReasonCodes: string[] = [];
+    if (requestedTeamBindingId) {
+      if (!requestedTeamBinding) {
+        requestedTeamBindingReasonCodes.push(
+          "vacation_policy_team_link_target_missing"
+        );
+      } else if (
+        normalizeOptionalString(requestedTeamBinding.status) !== "active"
+      ) {
+        requestedTeamBindingReasonCodes.push(
+          "vacation_policy_team_link_target_inactive"
+        );
+      }
+    }
+    checks.push(
+      buildReadinessCheckRow({
+        id: "team.binding_target",
+        title: "Requested team binding target",
+        category: "team",
+        severity: requestedTeamBindingId ? "required" : "optional",
+        reasonCodes: requestedTeamBindingReasonCodes,
+        evidence: {
+          requestedTeamBindingId: requestedTeamBindingId || null,
+          exists: Boolean(requestedTeamBinding),
+          status: normalizeOptionalString(requestedTeamBinding?.status) || null,
+        },
+      })
+    );
+
+    const allPolicies = await listVacationPoliciesForOrg(ctx, user.defaultOrgId);
+    const activePolicies = allPolicies.filter(
+      (policy) => normalizeOptionalString(policy.status) === "active"
+    );
+    const scopedPolicies =
+      selectedSlackConnectionId || slackScope.teamId || slackScope.routeKey
+        ? activePolicies.filter((policy) =>
+            matchesSlackPolicyScope({
+              policyObject: policy,
+              slackConnectionId: selectedSlackConnectionId,
+              teamId: slackScope.teamId,
+              routeKey: slackScope.routeKey,
+              teamBindingId: requestedTeamBindingId,
+            })
+          )
+        : activePolicies.filter((policy) => {
+            const policyProps = (policy.customProperties || {}) as Record<string, unknown>;
+            const policyTeamBindingId = normalizePolicyTeamBindingId(policyProps);
+            if (requestedTeamBindingId) {
+              return policyTeamBindingId === requestedTeamBindingId;
+            }
+            return !policyTeamBindingId;
+          });
+
+    const selectedPolicy =
+      scopedPolicies
+        .sort((a, b) => {
+          const updatedA = toNonNegativeInteger(a.updatedAt, 0);
+          const updatedB = toNonNegativeInteger(b.updatedAt, 0);
+          return updatedB - updatedA;
+        })[0] || null;
+    const selectedPolicyProps = (selectedPolicy?.customProperties ||
+      {}) as Record<string, unknown>;
+    const selectedIntegrations = (selectedPolicyProps.integrations ||
+      {}) as Record<string, unknown>;
+    const selectedSlackIntegration = (selectedIntegrations.slack ||
+      {}) as Record<string, unknown>;
+    const selectedGoogleIntegration = (selectedIntegrations.googleCalendar ||
+      {}) as Record<string, unknown>;
+
+    const policyReasonCodes: string[] = [];
+    if (scopedPolicies.length > 1) {
+      policyReasonCodes.push("vacation_policy_ambiguous");
+    } else if (!selectedPolicy) {
+      if (activePolicies.length === 0) {
+        policyReasonCodes.push("vacation_policy_missing");
+      } else {
+        policyReasonCodes.push("vacation_policy_slack_identity_mismatch");
+      }
+    }
+    checks.push(
+      buildReadinessCheckRow({
+        id: "vacation_policy.selection",
+        title: "Vacation policy selection",
+        category: "vacation_policy",
+        severity: "required",
+        reasonCodes: policyReasonCodes,
+        evidence: {
+          selectedPolicyId: selectedPolicy ? String(selectedPolicy._id) : null,
+          scopedPolicyCount: scopedPolicies.length,
+          activePolicyCount: activePolicies.length,
+          requestedTeamBindingId: requestedTeamBindingId || null,
+        },
+      })
+    );
+
+    const policyGoogleConnectionId = normalizeOptionalString(
+      selectedGoogleIntegration.providerConnectionId
+    );
+    const effectiveGoogleConnectionId =
+      policyGoogleConnectionId || (googleWorkReadiness.connectionId as string | null);
+    const blockingSnapshot = await resolveConnectionBlockingCalendarIds(ctx, {
+      organizationId: user.defaultOrgId,
+      connectionId: effectiveGoogleConnectionId
+        ? (effectiveGoogleConnectionId as Id<"oauthConnections">)
+        : null,
+    });
+    const effectiveBlockingCalendarIds = normalizeStringArray(
+      selectedGoogleIntegration.blockingCalendarIds
+    ).length
+      ? normalizeStringArray(selectedGoogleIntegration.blockingCalendarIds)
+      : blockingSnapshot.blockingCalendarIds;
+
+    const policyIntegrationReasonCodes: string[] = [];
+    if (selectedPolicy) {
+      if (!normalizeOptionalString(selectedSlackIntegration.channelId)) {
+        policyIntegrationReasonCodes.push("vacation_policy_slack_channel_missing");
+      }
+      if (!policyGoogleConnectionId) {
+        policyIntegrationReasonCodes.push(
+          "vacation_policy_google_connection_id_missing"
+        );
+      } else if (
+        googleWorkReadiness.connectionId &&
+        String(googleWorkReadiness.connectionId) !== String(policyGoogleConnectionId)
+      ) {
+        policyIntegrationReasonCodes.push(
+          "vacation_policy_google_connection_scope_mismatch"
+        );
+      }
+      if (effectiveBlockingCalendarIds.length === 0) {
+        policyIntegrationReasonCodes.push(
+          "vacation_policy_google_blocking_calendar_ids_missing"
+        );
+      }
+    }
+    checks.push(
+      buildReadinessCheckRow({
+        id: "vacation_policy.integrations",
+        title: "Vacation policy integration bindings",
+        category: "vacation_policy",
+        severity: "required",
+        reasonCodes: selectedPolicy ? policyIntegrationReasonCodes : [],
+        evidence: {
+          policyGoogleConnectionId: policyGoogleConnectionId || null,
+          effectiveGoogleConnectionId: effectiveGoogleConnectionId || null,
+          blockingCalendarIds: effectiveBlockingCalendarIds,
+          pushCalendarId:
+            normalizeOptionalString(selectedGoogleIntegration.pushCalendarId) ||
+            effectiveBlockingCalendarIds[0] ||
+            "primary",
+          slackChannelId: normalizeOptionalString(selectedSlackIntegration.channelId) || null,
+        },
+      })
+    );
+
+    const teamLinkReasonCodes: string[] = [];
+    const policyTeamBindingId = normalizePolicyTeamBindingId(selectedPolicyProps);
+    let linkedTeamSummary:
+      | {
+          teamId: string;
+          name: string | null;
+          status: string | null;
+        }
+      | null = null;
+    if (policyTeamBindingId) {
+      const linkedTeam = await getOrganizationTeamObject(ctx, {
+        organizationId: user.defaultOrgId,
+        teamId: policyTeamBindingId,
+      });
+      if (!linkedTeam) {
+        teamLinkReasonCodes.push("vacation_policy_team_link_missing");
+      } else {
+        linkedTeamSummary = {
+          teamId: String(linkedTeam._id),
+          name: normalizeOptionalString(linkedTeam.name) || null,
+          status: normalizeOptionalString(linkedTeam.status) || null,
+        };
+        if (normalizeOptionalString(linkedTeam.status) !== "active") {
+          teamLinkReasonCodes.push("vacation_policy_team_link_inactive");
+        }
+      }
+    }
+    checks.push(
+      buildReadinessCheckRow({
+        id: "vacation_policy.team_link",
+        title: "Vacation policy team link",
+        category: "team",
+        severity: "optional",
+        reasonCodes: teamLinkReasonCodes,
+        evidence: {
+          linkedTeamId: policyTeamBindingId || null,
+          linkedTeam: linkedTeamSummary,
+          orgWideFallback: !policyTeamBindingId,
+        },
+      })
+    );
+
+    const organizationMainSettings = await getOrganizationMainSettingsObject(
+      ctx,
+      user.defaultOrgId
+    );
+    const regionalSettings = resolveOrganizationRegionalSettings(
+      organizationMainSettings
+    );
+    checks.push(
+      buildReadinessCheckRow({
+        id: "organization.regional_settings",
+        title: "Organization regional settings",
+        category: "organization",
+        severity: "optional",
+        reasonCodes: [
+          ...(regionalSettings.timezone ? [] : ["organization_settings_timezone_missing"]),
+          ...(regionalSettings.dateFormat
+            ? []
+            : ["organization_settings_date_format_missing"]),
+        ],
+        evidence: {
+          timezone: regionalSettings.timezone || null,
+          dateFormat: regionalSettings.dateFormat || null,
+          organizationSettingsObjectId: organizationMainSettings
+            ? String(organizationMainSettings._id)
+            : null,
+        },
+      })
+    );
+
+    const hasSlackConnection = Boolean(selectedSlackConnection);
+    const hasCalendarConnection = googleWorkReadiness.hasConnection;
+    const hasPolicy = Boolean(selectedPolicy);
+    const state = resolveSlackCalendarOnboardingReadinessState({
+      checks,
+      hasSlackConnection,
+      hasCalendarConnection,
+      hasPolicy,
+    });
+    const reasonCodes = collectReadinessReasonCodes(checks);
+    const ownerAdminInputRequirements = buildOwnerAdminInputRequirements({
+      checks,
+      selectedPolicyProps,
+    });
+
+    return {
+      contractVersion: SLACK_CALENDAR_ONBOARDING_READINESS_CONTRACT_VERSION,
+      generatedAt,
+      state,
+      reasonCodes,
+      checks,
+      summary: {
+        slack: {
+          setupMode,
+          selectedProfileType,
+          connected: hasSlackConnection,
+          connectionId: selectedSlackConnectionId || null,
+          teamId: slackScope.teamId || null,
+          routeKey: slackScope.routeKey || null,
+          channelId:
+            normalizeOptionalString(selectedSlackIntegration.channelId) ||
+            slackScope.channelId ||
+            null,
+        },
+        calendar: {
+          hasWorkConnection: hasCalendarConnection,
+          work: googleWorkReadiness,
+          effectiveConnectionId: effectiveGoogleConnectionId || null,
+          blockingCalendarIds: effectiveBlockingCalendarIds,
+        },
+        vacationPolicy: {
+          exists: hasPolicy,
+          objectId: selectedPolicy ? String(selectedPolicy._id) : null,
+          status: normalizeOptionalString(selectedPolicy?.status) || null,
+          teamBindingId: policyTeamBindingId || null,
+          requestedTeamBindingId: requestedTeamBindingId || null,
+        },
+        regionalSettings: {
+          timezone: regionalSettings.timezone || null,
+          dateFormat: regionalSettings.dateFormat || null,
+        },
+      },
+      ownerAdminInputRequirements,
+      writesRequiringExplicitConfirmation: [
+        "start_slack_workspace_connect",
+        "save_pharmacist_vacation_policy",
+      ],
+    };
+  },
+});
+
+/**
  * Resolve owner-facing pharmacist vacation policy config + integration readiness.
  * Uses existing Slack + Google connection contracts and keeps org scope boundaries strict.
  */
 export const getPharmacistVacationPolicyConfig = query({
   args: {
     sessionId: v.string(),
+    teamBindingId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
@@ -1058,6 +1915,11 @@ export const getPharmacistVacationPolicyConfig = query({
     const selectedSlackConnectionId = selectedSlackConnection
       ? String(selectedSlackConnection._id)
       : undefined;
+    const requestedTeamBindingId = normalizeOptionalString(args.teamBindingId);
+    const requestedTeamBinding = await getOrganizationTeamObject(ctx, {
+      organizationId: user.defaultOrgId,
+      teamId: requestedTeamBindingId,
+    });
 
     const allPolicies = await listVacationPoliciesForOrg(ctx, user.defaultOrgId);
     const activePolicies = allPolicies.filter(
@@ -1071,9 +1933,17 @@ export const getPharmacistVacationPolicyConfig = query({
               slackConnectionId: selectedSlackConnectionId,
               teamId: slackScope.teamId,
               routeKey: slackScope.routeKey,
+              teamBindingId: requestedTeamBindingId,
             })
           )
-        : activePolicies;
+        : activePolicies.filter((policy) => {
+            const props = (policy.customProperties || {}) as Record<string, unknown>;
+            const policyTeamBindingId = normalizePolicyTeamBindingId(props);
+            if (requestedTeamBindingId) {
+              return policyTeamBindingId === requestedTeamBindingId;
+            }
+            return !policyTeamBindingId;
+          });
     const selectedPolicy =
       scopedPolicies.sort((a, b) => {
         const updatedA = toNonNegativeInteger(a.updatedAt, 0);
@@ -1082,6 +1952,16 @@ export const getPharmacistVacationPolicyConfig = query({
       })[0] || null;
     const selectedPolicyProps = (selectedPolicy?.customProperties ||
       {}) as Record<string, unknown>;
+    const selectedPolicyTeamBindingId = normalizePolicyTeamBindingId(
+      selectedPolicyProps
+    );
+    const selectedPolicyTeam =
+      selectedPolicyTeamBindingId
+        ? await getOrganizationTeamObject(ctx, {
+            organizationId: user.defaultOrgId,
+            teamId: selectedPolicyTeamBindingId,
+          })
+        : null;
 
     const googleConnections = (await ctx.db
       .query("oauthConnections")
@@ -1153,9 +2033,30 @@ export const getPharmacistVacationPolicyConfig = query({
           "primary",
       },
       policy: {
+        requestedTeamBinding: requestedTeamBindingId
+          ? {
+              teamId: requestedTeamBindingId,
+              exists: Boolean(requestedTeamBinding),
+              name: normalizeOptionalString(requestedTeamBinding?.name) || null,
+              status: normalizeOptionalString(requestedTeamBinding?.status) || null,
+            }
+          : null,
         exists: Boolean(selectedPolicy),
         objectId: selectedPolicy ? String(selectedPolicy._id) : null,
         status: normalizeOptionalString(selectedPolicy?.status) || null,
+        teamBinding: selectedPolicyTeamBindingId
+          ? {
+              teamId: selectedPolicyTeamBindingId,
+              exists:
+                Boolean(selectedPolicyTeam) &&
+                selectedPolicyTeam?.organizationId === user.defaultOrgId &&
+                selectedPolicyTeam?.type === "organization_team",
+              name:
+                normalizeOptionalString(selectedPolicyTeam?.name) || null,
+              status:
+                normalizeOptionalString(selectedPolicyTeam?.status) || null,
+            }
+          : null,
         timezone:
           normalizeOptionalString(selectedPolicyProps.timezone) ||
           DEFAULT_VACATION_TIMEZONE,
@@ -1204,6 +2105,7 @@ export const savePharmacistVacationPolicyConfig = mutation({
   args: {
     sessionId: v.string(),
     policyObjectId: v.optional(v.id("objects")),
+    teamBindingId: v.optional(v.string()),
     timezone: v.optional(v.string()),
     maxConcurrentAway: v.number(),
     minOnDutyTotal: v.number(),
@@ -1274,6 +2176,23 @@ export const savePharmacistVacationPolicyConfig = mutation({
         "Slack team scope is missing from the connected workspace. Reconnect Slack first."
       );
     }
+    const requestedTeamBindingId = normalizeOptionalString(args.teamBindingId);
+    const requestedTeamBinding = await getOrganizationTeamObject(ctx, {
+      organizationId: user.defaultOrgId,
+      teamId: requestedTeamBindingId,
+    });
+    if (requestedTeamBindingId) {
+      if (!requestedTeamBinding) {
+        throw new Error(
+          "Requested team binding was not found in this organization."
+        );
+      }
+      if (normalizeOptionalString(requestedTeamBinding.status) !== "active") {
+        throw new Error(
+          "Requested team binding is inactive. Activate the team before linking policy."
+        );
+      }
+    }
 
     const googleConnections = (await ctx.db
       .query("oauthConnections")
@@ -1308,6 +2227,7 @@ export const savePharmacistVacationPolicyConfig = mutation({
         slackConnectionId: selectedSlackConnectionId,
         teamId: slackScope.teamId,
         routeKey: slackScope.routeKey,
+        teamBindingId: requestedTeamBindingId,
       })
     );
 
@@ -1335,6 +2255,37 @@ export const savePharmacistVacationPolicyConfig = mutation({
 
     const existingProps = (targetPolicy?.customProperties ||
       {}) as Record<string, unknown>;
+    const existingTeamBindingId = normalizePolicyTeamBindingId(existingProps);
+    const effectiveTeamBindingId = requestedTeamBindingId || existingTeamBindingId;
+    const effectiveTeamBinding = effectiveTeamBindingId
+      ? await getOrganizationTeamObject(ctx, {
+          organizationId: user.defaultOrgId,
+          teamId: effectiveTeamBindingId,
+        })
+      : null;
+    if (effectiveTeamBindingId) {
+      if (!effectiveTeamBinding) {
+        throw new Error(
+          "Effective team binding was not found in this organization."
+        );
+      }
+      if (normalizeOptionalString(effectiveTeamBinding.status) !== "active") {
+        throw new Error(
+          "Effective team binding is inactive. Activate the team before linking policy."
+        );
+      }
+    }
+
+    const scopedPoliciesForArchival = activePolicies.filter((policy) =>
+      matchesSlackPolicyScope({
+        policyObject: policy,
+        slackConnectionId: selectedSlackConnectionId,
+        teamId: slackScope.teamId,
+        routeKey: slackScope.routeKey,
+        teamBindingId: effectiveTeamBindingId,
+      })
+    );
+
     const existingIntegrations = (existingProps.integrations ||
       {}) as Record<string, unknown>;
     const existingSlackIntegration = (existingIntegrations.slack ||
@@ -1484,6 +2435,16 @@ export const savePharmacistVacationPolicyConfig = mutation({
       updatedAt: now,
       updatedBy: String(user._id),
     };
+    if (effectiveTeamBindingId) {
+      customProperties.teamId = effectiveTeamBindingId;
+      customProperties.teamLink = {
+        teamId: effectiveTeamBindingId,
+        type: "organization_team",
+      };
+    } else {
+      delete customProperties.teamId;
+      delete customProperties.teamLink;
+    }
 
     let policyObjectId: Id<"objects">;
     if (targetPolicy) {
@@ -1495,11 +2456,15 @@ export const savePharmacistVacationPolicyConfig = mutation({
         updatedAt: now,
       } as never);
     } else {
+      const policyScopeLabel =
+        normalizeOptionalString(effectiveTeamBinding?.name) ||
+        slackScope.workspaceName ||
+        slackScope.teamId;
       policyObjectId = await ctx.db.insert("objects", {
         organizationId: user.defaultOrgId,
         type: VACATION_POLICY_OBJECT_TYPE,
         subtype: VACATION_POLICY_SUBTYPE,
-        name: `Pharmacist Vacation Policy (${slackScope.workspaceName || slackScope.teamId})`,
+        name: `Pharmacist Vacation Policy (${policyScopeLabel})`,
         status: "active",
         customProperties,
         createdAt: now,
@@ -1508,7 +2473,7 @@ export const savePharmacistVacationPolicyConfig = mutation({
     }
 
     // Ensure deterministic single-active-policy behavior for the same Slack scope.
-    for (const policy of scopedPolicies) {
+    for (const policy of scopedPoliciesForArchival) {
       if (String(policy._id) === String(policyObjectId)) {
         continue;
       }
@@ -1533,6 +2498,7 @@ export const savePharmacistVacationPolicyConfig = mutation({
         slackRouteKey: slackScope.routeKey,
         googleConnectionId: googleWorkReadiness.connectionId,
         calendarWriteReady: googleWorkReadiness.calendarWriteReady,
+        teamBindingId: effectiveTeamBindingId || null,
       },
     });
 
@@ -1544,6 +2510,7 @@ export const savePharmacistVacationPolicyConfig = mutation({
       pharmacistRoleFloor,
       blockedPeriodCount: blockedPeriods.length,
       calendarWriteReady: googleWorkReadiness.calendarWriteReady,
+      teamBindingId: effectiveTeamBindingId || null,
     };
   },
 });

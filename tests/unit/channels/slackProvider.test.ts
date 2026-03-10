@@ -452,6 +452,41 @@ describe("slackProvider", () => {
     );
   });
 
+  it("parses relative next-week mention requests with org timezone fallback when text timezone is absent", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "event_callback",
+        event_id: "EvVacationMentionRelativeFallback1",
+        event: {
+          type: "app_mention",
+          user: "U123",
+          text: "<@U-BOT> pto next week",
+          channel: "C123ABC",
+          ts: "1710115200.000",
+        },
+      },
+      {
+        providerId: "slack",
+        slackBotUserId: "U-BOT",
+        slackFallbackTimezone: "UTC",
+        slackFallbackDateFormat: "MM/DD/YYYY",
+      }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-03-18");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-03-24");
+    expect(metadata.slackVacationRequestRelativeTimezoneSource).toBe(
+      "organization_settings"
+    );
+    expect(metadata.slackVacationRequestRelativeTimezone).toBe("UTC");
+    expect(metadata.slackVacationRequestFallbackDateFormat).toBe("MM/DD/YYYY");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
   it("parses mention vacation requests with relative this-week range when UTC zone is explicit", () => {
     const normalized = slackProvider.normalizeInbound(
       {
@@ -597,6 +632,40 @@ describe("slackProvider", () => {
     expect(metadata.slackVacationRequestStatus).toBe("parsed");
     expect(metadata.slackVacationRequestStartDate).toBe("2024-04-01");
     expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
+    expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
+  });
+
+  it("parses slash-command next-month requests with org timezone fallback when text timezone is absent", () => {
+    const normalized = slackProvider.normalizeInbound(
+      {
+        type: "slash_command",
+        team_id: "T123",
+        channel_id: "C123ABC",
+        user_id: "U123",
+        user_name: "alice",
+        command: "/vacation",
+        text: "next month",
+        trigger_id: "Trig126b",
+        received_at_ms: Date.UTC(2024, 2, 13, 12, 0, 0),
+      },
+      {
+        providerId: "slack",
+        slackFallbackTimezone: "UTC",
+        slackFallbackDateFormat: "MM/DD/YYYY",
+      }
+    );
+
+    expect(normalized).not.toBeNull();
+    const metadata = (normalized?.metadata || {}) as Record<string, unknown>;
+    expect(metadata.slackVacationRequestDetected).toBe(true);
+    expect(metadata.slackVacationRequestStatus).toBe("parsed");
+    expect(metadata.slackVacationRequestStartDate).toBe("2024-04-01");
+    expect(metadata.slackVacationRequestEndDate).toBe("2024-04-30");
+    expect(metadata.slackVacationRequestRelativeTimezoneSource).toBe(
+      "organization_settings"
+    );
+    expect(metadata.slackVacationRequestRelativeTimezone).toBe("UTC");
+    expect(metadata.slackVacationRequestFallbackDateFormat).toBe("MM/DD/YYYY");
     expect(metadata.slackVacationRequestBlockedReasons).toEqual([]);
   });
 

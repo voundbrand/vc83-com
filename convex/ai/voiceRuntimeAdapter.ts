@@ -2,6 +2,7 @@ import type { AiProviderId } from "../channels/types";
 
 export type VoiceRuntimeProviderId = "browser" | "elevenlabs";
 export type VoiceProviderHealthStatus = "healthy" | "degraded" | "offline";
+export type PersistentRealtimeMultimodalProviderId = "gemini_live";
 
 export interface VoiceProviderHealth {
   providerId: VoiceRuntimeProviderId;
@@ -108,9 +109,15 @@ export interface ElevenLabsBinding {
   defaultVoiceId?: string;
 }
 
+export interface GeminiBinding {
+  apiKey: string;
+  baseUrl?: string;
+}
+
 export interface ResolveVoiceRuntimeAdapterArgs {
   requestedProviderId?: VoiceRuntimeProviderId | AiProviderId | string | null;
   elevenLabsBinding?: ElevenLabsBinding | null;
+  geminiBinding?: GeminiBinding | null;
   fetchFn?: typeof fetch;
   webSocketFactory?: VoiceRuntimeWebSocketFactory;
   now?: () => number;
@@ -121,6 +128,57 @@ export interface ResolvedVoiceRuntimeAdapter {
   requestedProviderId: VoiceRuntimeProviderId;
   health: VoiceProviderHealth;
   fallbackFromProviderId?: VoiceRuntimeProviderId;
+}
+
+export interface PersistentRealtimeMultimodalProviderHealth {
+  providerId: PersistentRealtimeMultimodalProviderId;
+  status: VoiceProviderHealthStatus;
+  checkedAt: number;
+  reason?: string;
+}
+
+export interface PersistentRealtimeMultimodalSessionOpenArgs {
+  voiceSessionId: string;
+  organizationId: string;
+  interviewSessionId: string;
+  conversationId?: string;
+  liveSessionId?: string;
+}
+
+export interface PersistentRealtimeMultimodalSessionCloseArgs {
+  providerSessionId: string;
+  reason?: string;
+}
+
+export interface PersistentRealtimeMultimodalSession {
+  providerId: PersistentRealtimeMultimodalProviderId;
+  providerSessionId: string;
+  openedAt: number;
+  transport: "native_realtime_audio_video";
+}
+
+export interface PersistentRealtimeMultimodalAdapter {
+  readonly providerId: PersistentRealtimeMultimodalProviderId;
+  probeHealth(): Promise<PersistentRealtimeMultimodalProviderHealth>;
+  openSession(
+    args: PersistentRealtimeMultimodalSessionOpenArgs,
+  ): Promise<PersistentRealtimeMultimodalSession>;
+  closeSession(args: PersistentRealtimeMultimodalSessionCloseArgs): Promise<void>;
+}
+
+export interface ResolvePersistentRealtimeMultimodalAdapterArgs {
+  requestedProviderId?: string | null;
+  geminiBinding?: GeminiBinding | null;
+  now?: () => number;
+}
+
+export interface ResolvedPersistentRealtimeMultimodalAdapter {
+  requestedProviderId: PersistentRealtimeMultimodalProviderId;
+  adapter: PersistentRealtimeMultimodalAdapter | null;
+  health: PersistentRealtimeMultimodalProviderHealth;
+  unavailableReason?:
+    | "provider_capability_unsupported"
+    | "missing_gemini_api_key";
 }
 
 export interface ElevenLabsVoiceRuntimeAdapterOptions {
@@ -372,6 +430,19 @@ function normalizeRequestedProviderId(
 
 function nowFrom(getNow?: () => number): number {
   return typeof getNow === "function" ? getNow() : Date.now();
+}
+
+function normalizePersistentRealtimeRequestedProviderId(
+  value: string | null | undefined,
+): PersistentRealtimeMultimodalProviderId {
+  if (typeof value !== "string") {
+    return "gemini_live";
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "gemini" || normalized === "gemini_live") {
+    return "gemini_live";
+  }
+  return "gemini_live";
 }
 
 function extractErrorMessage(payload: unknown): string | null {
@@ -1200,6 +1271,56 @@ export function createElevenLabsVoiceRuntimeAdapter(
   return new ElevenLabsVoiceRuntimeAdapter(options);
 }
 
+class GeminiLivePersistentRealtimeMultimodalAdapter
+  implements PersistentRealtimeMultimodalAdapter {
+  readonly providerId: PersistentRealtimeMultimodalProviderId = "gemini_live";
+
+  private readonly now: () => number;
+
+  constructor(now?: () => number) {
+    this.now = now ?? Date.now;
+  }
+
+  async probeHealth(): Promise<PersistentRealtimeMultimodalProviderHealth> {
+    return {
+      providerId: this.providerId,
+      status: "healthy",
+      checkedAt: this.now(),
+    };
+  }
+
+  async openSession(
+    args: PersistentRealtimeMultimodalSessionOpenArgs,
+  ): Promise<PersistentRealtimeMultimodalSession> {
+    const openedAt = this.now();
+    const conversationToken = normalizeString(args.conversationId) ?? "none";
+    const liveSessionToken = normalizeString(args.liveSessionId) ?? "none";
+    const providerSessionId = [
+      "gemini_live",
+      args.voiceSessionId,
+      conversationToken,
+      liveSessionToken,
+      String(openedAt),
+    ].join(":");
+    return {
+      providerId: this.providerId,
+      providerSessionId,
+      openedAt,
+      transport: "native_realtime_audio_video",
+    };
+  }
+
+  async closeSession(args: PersistentRealtimeMultimodalSessionCloseArgs): Promise<void> {
+    void args;
+  }
+}
+
+export function createGeminiLivePersistentRealtimeMultimodalAdapter(
+  now?: () => number,
+): PersistentRealtimeMultimodalAdapter {
+  return new GeminiLivePersistentRealtimeMultimodalAdapter(now);
+}
+
 export function normalizeVoiceRuntimeProviderId(
   value: ResolveVoiceRuntimeAdapterArgs["requestedProviderId"],
 ): VoiceRuntimeProviderId {
@@ -1300,5 +1421,53 @@ export async function resolveVoiceRuntimeAdapter(
     adapter: providerAdapter,
     requestedProviderId,
     health: providerHealth,
+  };
+}
+
+export async function resolvePersistentRealtimeMultimodalAdapter(
+  args: ResolvePersistentRealtimeMultimodalAdapterArgs,
+): Promise<ResolvedPersistentRealtimeMultimodalAdapter> {
+  const requestedValue = normalizeString(args.requestedProviderId)?.toLowerCase() ?? null;
+  const requestedProviderId = normalizePersistentRealtimeRequestedProviderId(
+    args.requestedProviderId,
+  );
+  const checkedAt = nowFrom(args.now);
+  if (
+    requestedValue
+    && requestedValue !== "gemini"
+    && requestedValue !== "gemini_live"
+  ) {
+    return {
+      requestedProviderId,
+      adapter: null,
+      unavailableReason: "provider_capability_unsupported",
+      health: {
+        providerId: requestedProviderId,
+        status: "offline",
+        checkedAt,
+        reason: "provider_capability_unsupported",
+      },
+    };
+  }
+  const geminiApiKey = normalizeString(args.geminiBinding?.apiKey);
+  if (!geminiApiKey) {
+    return {
+      requestedProviderId,
+      adapter: null,
+      unavailableReason: "missing_gemini_api_key",
+      health: {
+        providerId: requestedProviderId,
+        status: "degraded",
+        checkedAt,
+        reason: "missing_gemini_api_key",
+      },
+    };
+  }
+  const adapter = createGeminiLivePersistentRealtimeMultimodalAdapter(args.now);
+  const health = await adapter.probeHealth();
+  return {
+    requestedProviderId,
+    adapter,
+    health,
   };
 }

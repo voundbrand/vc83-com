@@ -12,6 +12,7 @@ public struct QuickChatSubmission: Equatable {
 @MainActor
 public final class QuickChatSessionController {
     private let bridge: CompanionBridgeBoundary
+    private let authStateProvider: (any DesktopAuthStateProviding)?
 
     private var pendingApprovalObservers: [UUID: (Int) -> Void] = [:]
 
@@ -24,15 +25,26 @@ public final class QuickChatSessionController {
     }
 
     public private(set) var lastSubmission: QuickChatSubmission?
+    public private(set) var lastSubmissionBlockReason: String?
 
-    public init(bridge: CompanionBridgeBoundary) {
+    public init(
+        bridge: CompanionBridgeBoundary,
+        authStateProvider: (any DesktopAuthStateProviding)? = nil
+    ) {
         self.bridge = bridge
+        self.authStateProvider = authStateProvider
     }
 
     @discardableResult
     public func submitContextDraft(_ draft: String) -> QuickChatSubmission? {
         let payload = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !payload.isEmpty else {
+            lastSubmissionBlockReason = "Enter context before sending."
+            return nil
+        }
+
+        if let authStateProvider, !authStateProvider.isAuthenticated {
+            lastSubmissionBlockReason = authStateProvider.authStatusText
             return nil
         }
 
@@ -47,6 +59,7 @@ public final class QuickChatSessionController {
             timestamp: Date()
         )
 
+        lastSubmissionBlockReason = nil
         lastSubmission = submission
         return submission
     }

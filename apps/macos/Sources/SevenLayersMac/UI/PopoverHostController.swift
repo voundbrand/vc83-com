@@ -15,7 +15,10 @@ public final class PopoverHostController {
         workflowSession: WorkflowRecommendationSessionController,
         dashboardOpener: DashboardDeepLinkOpening,
         chatWindowOpener: NativeChatWindowOpening,
-        diagnosticsProvider: (any DesktopRuntimeDiagnosticsProviding)? = nil
+        diagnosticsProvider: (any DesktopRuntimeDiagnosticsProviding)? = nil,
+        authStateProvider: (any DesktopAuthStateProviding)? = nil,
+        onSignIn: (() -> Void)? = nil,
+        onSignOut: (() -> Void)? = nil
     ) {
         self.popover = NSPopover()
         self.diagnosticsProvider = diagnosticsProvider
@@ -27,7 +30,10 @@ public final class PopoverHostController {
             workflowSession: workflowSession,
             dashboardOpener: dashboardOpener,
             chatWindowOpener: chatWindowOpener,
-            diagnosticsProvider: diagnosticsProvider
+            diagnosticsProvider: diagnosticsProvider,
+            authStateProvider: authStateProvider,
+            onSignIn: onSignIn,
+            onSignOut: onSignOut
         )
     }
 
@@ -48,9 +54,16 @@ private final class QuickChatPopoverViewController: NSViewController {
     private let dashboardOpener: DashboardDeepLinkOpening
     private let chatWindowOpener: NativeChatWindowOpening
     private let diagnosticsProvider: (any DesktopRuntimeDiagnosticsProviding)?
+    private let authStateProvider: (any DesktopAuthStateProviding)?
+    private let onSignIn: (() -> Void)?
+    private let onSignOut: (() -> Void)?
     private var workflowObserverToken: UUID?
+    private var authObserverToken: UUID?
+    private var currentAuthState: DesktopAuthSessionState = .signedOut(reason: .missingCredential)
 
     private let titleLabel = NSTextField(labelWithString: "Quick Chat")
+    private let authStatusLabel = NSTextField(labelWithString: "Auth: Signed out")
+    private let authActionButton = NSButton(title: "Sign In", target: nil, action: nil)
     private let subtitleLabel = NSTextField(labelWithString: "Ingress/control surface only. Backend remains mutation authority.")
     private let pendingLabel = NSTextField(labelWithString: "Pending approvals: 0")
     private let draftField = NSTextField(string: "")
@@ -72,13 +85,19 @@ private final class QuickChatPopoverViewController: NSViewController {
         workflowSession: WorkflowRecommendationSessionController,
         dashboardOpener: DashboardDeepLinkOpening,
         chatWindowOpener: NativeChatWindowOpening,
-        diagnosticsProvider: (any DesktopRuntimeDiagnosticsProviding)?
+        diagnosticsProvider: (any DesktopRuntimeDiagnosticsProviding)?,
+        authStateProvider: (any DesktopAuthStateProviding)?,
+        onSignIn: (() -> Void)?,
+        onSignOut: (() -> Void)?
     ) {
         self.quickChatSession = quickChatSession
         self.workflowSession = workflowSession
         self.dashboardOpener = dashboardOpener
         self.chatWindowOpener = chatWindowOpener
         self.diagnosticsProvider = diagnosticsProvider
+        self.authStateProvider = authStateProvider
+        self.onSignIn = onSignIn
+        self.onSignOut = onSignOut
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -92,6 +111,13 @@ private final class QuickChatPopoverViewController: NSViewController {
 
         titleLabel.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
         titleLabel.frame = NSRect(x: 18, y: 324, width: 150, height: 22)
+
+        authStatusLabel.alignment = .right
+        authStatusLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        authStatusLabel.textColor = .secondaryLabelColor
+        authStatusLabel.frame = NSRect(x: 172, y: 326, width: 102, height: 18)
+
+        authActionButton.frame = NSRect(x: 282, y: 320, width: 80, height: 28)
 
         subtitleLabel.textColor = .secondaryLabelColor
         subtitleLabel.maximumNumberOfLines = 2
@@ -134,6 +160,8 @@ private final class QuickChatPopoverViewController: NSViewController {
         statusLabel.frame = NSRect(x: 18, y: 10, width: 344, height: 30)
 
         root.addSubview(titleLabel)
+        root.addSubview(authStatusLabel)
+        root.addSubview(authActionButton)
         root.addSubview(subtitleLabel)
         root.addSubview(pendingLabel)
         root.addSubview(incrementApprovalButton)
@@ -161,9 +189,17 @@ private final class QuickChatPopoverViewController: NSViewController {
             workflowSession.removeStateObserver(workflowObserverToken)
             self.workflowObserverToken = nil
         }
+
+        if let authObserverToken {
+            authStateProvider?.removeAuthStateObserver(authObserverToken)
+            self.authObserverToken = nil
+        }
     }
 
     private func wireActions() {
+        authActionButton.target = self
+        authActionButton.action = #selector(runAuthAction)
+
         sendContextButton.target = self
         sendContextButton.action = #selector(sendContextDraft)
 
@@ -193,13 +229,33 @@ private final class QuickChatPopoverViewController: NSViewController {
             self?.renderWorkflowState(state)
         }
 
+        if let authStateProvider {
+            authObserverToken = authStateProvider.addAuthStateObserver { [weak self] state in
+                self?.renderAuthState(state)
+            }
+        } else {
+            renderAuthState(.signedOut(reason: .missingCredential))
+            authActionButton.isEnabled = false
+        }
+
         refreshRuntimeDiagnostics()
+    }
+
+    @objc
+    private func runAuthAction() {
+        if case .authenticated = currentAuthState {
+            onSignOut?()
+            statusLabel.stringValue = "Signing out..."
+        } else {
+            onSignIn?()
+            statusLabel.stringValue = "Starting sign-in flow..."
+        }
     }
 
     @objc
     private func sendContextDraft() {
         guard let submission = quickChatSession.submitContextDraft(draftField.stringValue) else {
-            statusLabel.stringValue = "Enter context before sending."
+            statusLabel.stringValue = quickChatSession.lastSubmissionBlockReason ?? "Enter context before sending."
             return
         }
 
@@ -273,6 +329,28 @@ private final class QuickChatPopoverViewController: NSViewController {
             workflowStatusLabel.stringValue = "\(topRecommendation.title) (\(topRecommendation.confidencePercent)%): \(topRecommendation.summary)"
         } else {
             workflowStatusLabel.stringValue = "No recommendation yet."
+        }
+    }
+
+    private func renderAuthState(_ state: DesktopAuthSessionState) {
+        currentAuthState = state
+
+        switch state {
+        case .authenticated:
+            authStatusLabel.stringValue = "Auth: Signed in"
+            authStatusLabel.textColor = .systemGreen
+            authActionButton.title = "Sign Out"
+            authActionButton.isEnabled = onSignOut != nil
+        case .authorizing:
+            authStatusLabel.stringValue = "Auth: Signing in"
+            authStatusLabel.textColor = .systemOrange
+            authActionButton.title = "Sign In"
+            authActionButton.isEnabled = false
+        case .signedOut:
+            authStatusLabel.stringValue = "Auth: Signed out"
+            authStatusLabel.textColor = .secondaryLabelColor
+            authActionButton.title = "Sign In"
+            authActionButton.isEnabled = onSignIn != nil
         }
     }
 

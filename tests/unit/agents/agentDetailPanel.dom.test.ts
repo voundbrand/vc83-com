@@ -88,11 +88,13 @@ describe("AgentDetailPanel template lineage badges", () => {
       } as any),
     );
 
-    expect(screen.getByText("template linked")).toBeTruthy();
-    expect(screen.getByText("Source: objects_template_77")).toBeTruthy();
-    expect(screen.getByText("Version: v9")).toBeTruthy();
-    expect(screen.getByText("Lifecycle: managed in sync")).toBeTruthy();
-    expect(screen.getByText("override warn")).toBeTruthy();
+    const templateBadge = screen.getByText("template linked");
+    const templateBadgeTitle = templateBadge.getAttribute("title");
+
+    expect(templateBadge).toBeTruthy();
+    expect(templateBadgeTitle).toContain("Source: objects_template_77");
+    expect(templateBadgeTitle).toContain("Version: v9");
+    expect(screen.getByText("managed in sync")).toBeTruthy();
+    expect(screen.getByText("override: warn")).toBeTruthy();
   });
 });
-

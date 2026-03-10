@@ -341,6 +341,30 @@ public final class DesktopNodeGateway: DesktopRuntimeDiagnosticsProviding {
         if let payloadRef = normalizedNonEmpty(snapshotResult.artifact.payloadRef) {
             arguments["payloadRef"] = payloadRef
         }
+        if let evidenceRef = normalizedNonEmpty(snapshotResult.artifact.evidenceRef) {
+            arguments["evidenceRef"] = evidenceRef
+        }
+        if let sourceMetadata = snapshotResult.artifact.sourceMetadata {
+            arguments["sourceKind"] = sourceMetadata.sourceKind.rawValue
+            if let displayId = sourceMetadata.displayId {
+                arguments["sourceDisplayId"] = String(displayId)
+            }
+            if let windowId = sourceMetadata.windowId {
+                arguments["sourceWindowId"] = String(windowId)
+            }
+            if let ownerName = normalizedNonEmpty(sourceMetadata.ownerName) {
+                arguments["sourceOwnerName"] = ownerName
+            }
+            if let title = normalizedNonEmpty(sourceMetadata.title) {
+                arguments["sourceTitle"] = title
+            }
+            if let workspaceId = sourceMetadata.workspaceId {
+                arguments["sourceWorkspaceId"] = String(workspaceId)
+            }
+            if let isOnScreen = sourceMetadata.isOnScreen {
+                arguments["sourceIsOnScreen"] = isOnScreen ? "true" : "false"
+            }
+        }
 
         return arguments
     }

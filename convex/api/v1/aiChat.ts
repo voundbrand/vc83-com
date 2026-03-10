@@ -38,6 +38,7 @@ const PUBLIC_APP_BASE_URL = (
   || process.env.APP_URL
   || ""
 ).trim().replace(/\/+$/, "");
+const DEFAULT_VISION_FRAME_MAX_AGE_MS = 12_000;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -335,6 +336,22 @@ function parseOptionalNullableString(value: unknown): string | null | undefined 
     return null;
   }
   return parseOptionalString(value);
+}
+
+function isVisionPolicyBlockedError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : "";
+  if (!message) {
+    return false;
+  }
+  return (
+    message.includes("does not belong to your organization")
+    || message.includes("conversation not found")
+    || message.includes("unauthorized")
+    || message.includes("auth")
+  );
 }
 
 function parseOptionalPositiveNumber(value: unknown): number | undefined {
@@ -1453,12 +1470,17 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
       liveSessionId?: unknown;
       sourceMode?: unknown;
       voiceRuntime?: unknown;
+      persistentRuntime?: unknown;
+      maxVisionFrameAgeMs?: unknown;
     };
     const conversationId = parseConversationId(parsedBody.conversationId);
     const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
     const liveSessionId = parseOptionalString(parsedBody.liveSessionId);
     const sourceMode = parseOptionalString(parsedBody.sourceMode);
     const voiceRuntime = parseOptionalRuntimeObject(parsedBody.voiceRuntime);
+    const persistentRuntime = parseOptionalRuntimeObject(parsedBody.persistentRuntime);
+    const maxVisionFrameAgeMs =
+      parseOptionalPositiveNumber(parsedBody.maxVisionFrameAgeMs);
     const resolved = await resolveVoiceRuntimeSessionContext(ctx, auth, conversationId);
     const state = await (ctx as any).runAction(
       generatedApi.api.ai.voiceRuntime.resolveVoiceSessionState,
@@ -1468,6 +1490,43 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
         voiceSessionId,
       }
     );
+    const persistentMultimodal = await (ctx as any).runAction(
+      generatedApi.api.ai.voiceRuntime.resolvePersistentRealtimeMultimodalSessionLifecycle,
+      {
+        sessionId: auth.sessionId,
+        interviewSessionId: resolved.interviewSessionId,
+        requestedProviderId: parseOptionalString(persistentRuntime?.requestedProviderId),
+      },
+    );
+    let visionFrameResolution: Record<string, unknown> | null = null;
+    try {
+      visionFrameResolution = await (ctx as any).runAction(
+        generatedApi.api.ai.voiceRuntime.resolveFreshestVisionFrameForVoiceTurn,
+        {
+          sessionId: auth.sessionId,
+          interviewSessionId: resolved.interviewSessionId,
+          conversationId: resolved.conversationId,
+          liveSessionId,
+          maxFrameAgeMs: maxVisionFrameAgeMs,
+        }
+      ) as Record<string, unknown>;
+    } catch (visionResolutionError) {
+      console.error("[AI Chat API] Resolve voice session vision-frame resolver error:", {
+        error:
+          visionResolutionError instanceof Error
+            ? visionResolutionError.message
+            : "unknown_error",
+        conversationId: resolved.conversationId,
+        interviewSessionId: resolved.interviewSessionId,
+      });
+      visionFrameResolution = {
+        status: "degraded",
+        reason: isVisionPolicyBlockedError(visionResolutionError)
+          ? "vision_policy_blocked"
+          : "vision_frame_missing",
+        maxFrameAgeMs: maxVisionFrameAgeMs ?? DEFAULT_VISION_FRAME_MAX_AGE_MS,
+      };
+    }
     let sessionOpenAttestationProof: { token: string; expiresAt: number } | null = null;
     if (liveSessionId && voiceRuntime) {
       sessionOpenAttestationProof = await (ctx as any).runAction(
@@ -1486,6 +1545,8 @@ export const resolveVoiceSession = httpAction(async (ctx, request) => {
       {
         ...resolved,
         voiceSession: state.voiceSession ?? null,
+        persistentMultimodal,
+        visionFrameResolution,
         sessionOpenAttestationProof,
       },
       origin
@@ -1529,6 +1590,7 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
       transportRuntime?: unknown;
       avObservability?: unknown;
       attestationProofToken?: unknown;
+      persistentRuntime?: unknown;
     };
     const conversationId = parseConversationId(parsedBody.conversationId);
     const resolved =
@@ -1544,6 +1606,7 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
       {
         sessionId: auth.sessionId,
         interviewSessionId: resolved.interviewSessionId,
+        conversationId: resolved.conversationId,
         expectedOrganizationId: auth.organizationId,
         expectedUserId: auth.userId,
         requestedProviderId: parseRequestedVoiceProviderId(parsedBody.requestedProviderId),
@@ -1556,6 +1619,9 @@ export const openVoiceSession = httpAction(async (ctx, request) => {
         avObservability: parseOptionalRuntimeObject(parsedBody.avObservability),
         clientSurface: "mobile_api_v1",
         attestationProofToken: parseOptionalString(parsedBody.attestationProofToken),
+        persistentRequestedProviderId: parseOptionalString(
+          parseOptionalRuntimeObject(parsedBody.persistentRuntime)?.requestedProviderId,
+        ),
       }
     );
 
@@ -1592,6 +1658,7 @@ export const closeVoiceSession = httpAction(async (ctx, request) => {
       voiceSessionId?: unknown;
       activeProviderId?: unknown;
       reason?: unknown;
+      persistentRuntime?: unknown;
     };
     const voiceSessionId = parseOptionalString(parsedBody.voiceSessionId);
     if (!voiceSessionId) {
@@ -1615,6 +1682,12 @@ export const closeVoiceSession = httpAction(async (ctx, request) => {
         voiceSessionId,
         activeProviderId: parseRequestedVoiceProviderId(parsedBody.activeProviderId),
         reason: parseOptionalString(parsedBody.reason),
+        persistentRequestedProviderId: parseOptionalString(
+          parseOptionalRuntimeObject(parsedBody.persistentRuntime)?.requestedProviderId,
+        ),
+        persistentProviderSessionId: parseOptionalString(
+          parseOptionalRuntimeObject(parsedBody.persistentRuntime)?.providerSessionId,
+        ),
       }
     );
 

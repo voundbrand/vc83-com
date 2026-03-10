@@ -5325,7 +5325,18 @@ export const processInboundMessage = action({
         reasonCodes: runtimeModuleIntentRouting.reasonCodes,
       },
     });
-    const inboundImageAttachments = normalizeInboundImageAttachments(metadata.attachments);
+    const inboundAttachmentInputs = Array.isArray(metadata.attachments)
+      ? [...metadata.attachments]
+      : [];
+    const resolvedVoiceTurnVisionFrameAttachment =
+      resolveInboundVoiceTurnVisionFrameAttachmentInput(metadata);
+    if (resolvedVoiceTurnVisionFrameAttachment) {
+      inboundAttachmentInputs.push(resolvedVoiceTurnVisionFrameAttachment);
+    }
+    if (inboundAttachmentInputs.length > 0) {
+      metadata.attachments = inboundAttachmentInputs;
+    }
+    const inboundImageAttachments = normalizeInboundImageAttachments(inboundAttachmentInputs);
     if (composerRuntimeControls.cleanedMessage.length > 0) {
       inboundMessage = composerRuntimeControls.cleanedMessage;
     }
@@ -16725,6 +16736,49 @@ function normalizeComposerReferenceStatus(
     return value;
   }
   return undefined;
+}
+
+export function resolveInboundVoiceTurnVisionFrameAttachmentInput(
+  metadata: Record<string, unknown>
+): Record<string, unknown> | null {
+  const voiceRuntime = normalizeInboundObjectValue(metadata.voiceRuntime);
+  const resolution = normalizeInboundObjectValue(
+    voiceRuntime?.visionFrameResolution ?? metadata.visionFrameResolution
+  );
+  if (!resolution || firstInboundString(resolution.status) !== "attached") {
+    return null;
+  }
+
+  const frame = normalizeInboundObjectValue(resolution.frame);
+  const url = firstInboundString(
+    frame?.storageUrl,
+    frame?.url,
+    frame?.imageUrl
+  );
+  const mimeType = firstInboundString(frame?.mimeType, frame?.mime_type)
+    ?.toLowerCase();
+  const sizeBytesRaw = frame?.sizeBytes;
+  const sizeBytes =
+    typeof sizeBytesRaw === "number" && Number.isFinite(sizeBytesRaw)
+      ? Math.max(0, Math.round(sizeBytesRaw))
+      : 0;
+  if (!url || !mimeType || !mimeType.startsWith("image/") || sizeBytes <= 0) {
+    return null;
+  }
+
+  const capturedAt =
+    typeof frame?.capturedAt === "number" && Number.isFinite(frame.capturedAt)
+      ? Math.floor(frame.capturedAt)
+      : undefined;
+  const retentionId = firstInboundString(frame?.retentionId);
+  return {
+    type: "image",
+    name: capturedAt ? `voice-turn-frame-${capturedAt}` : "voice-turn-frame",
+    mimeType,
+    sizeBytes,
+    url,
+    sourceId: retentionId ?? "voice_turn_freshest_frame",
+  };
 }
 
 function normalizeInboundImageAttachments(value: unknown): InboundImageAttachment[] {

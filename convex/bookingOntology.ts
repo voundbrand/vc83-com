@@ -1695,6 +1695,15 @@ function normalizeRoleAssignments(value: unknown): Record<string, string[]> {
   return assignments;
 }
 
+function normalizePolicyTeamBindingId(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const props = value as Record<string, unknown>;
+  const teamLink = props.teamLink as Record<string, unknown> | undefined;
+  return normalizeOptionalString(props.teamId) || normalizeOptionalString(teamLink?.teamId);
+}
+
 function normalizeRoleBaseline(value: unknown): Map<string, number> {
   const map = new Map<string, number>();
   if (!Array.isArray(value)) {
@@ -1866,6 +1875,26 @@ export const evaluatePharmacistVacationRequestInternal = internalAction({
     }
 
     const policyProps = (policy?.customProperties || {}) as Record<string, unknown>;
+    const policyTeamBindingId = normalizePolicyTeamBindingId(policyProps);
+    let policyTeamBindingStatus: string | null = null;
+    if (policyTeamBindingId) {
+      const linkedTeam = (await ctx.runQuery(
+        getInternal().teamOntology.getTeamInternal,
+        {
+          organizationId: args.organizationId,
+          teamId: policyTeamBindingId as Id<"objects">,
+        }
+      )) as { status?: unknown } | null;
+      if (!linkedTeam) {
+        blockedReasons.push("vacation_policy_team_link_missing");
+      } else {
+        policyTeamBindingStatus = normalizeOptionalString(linkedTeam.status) || null;
+        if (policyTeamBindingStatus !== "active") {
+          blockedReasons.push("vacation_policy_team_link_inactive");
+        }
+      }
+    }
+
     const policyVersion = asFiniteNumber(policyProps.policyVersion) || 1;
     const maxConcurrentAway = asFiniteNumber(policyProps.maxConcurrentAway);
     if (maxConcurrentAway === undefined || maxConcurrentAway < 0) {
@@ -2124,6 +2153,8 @@ export const evaluatePharmacistVacationRequestInternal = internalAction({
       blockedReasons: dedupeStrings(blockedReasons),
       evaluationSnapshot: {
         policyVersion,
+        teamBindingId: policyTeamBindingId || null,
+        teamBindingStatus: policyTeamBindingStatus,
         concurrentAwayCount,
         minOnDutyTotalAfterDecision,
         minOnDutyByRoleAfterDecision,

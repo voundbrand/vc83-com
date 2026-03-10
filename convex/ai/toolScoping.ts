@@ -108,6 +108,7 @@ const GENERAL_PROFILE = [
   // Meta
   "request_feature",
   "check_oauth_connection",
+  "check_slack_calendar_onboarding_readiness",
   "start_slack_workspace_connect",
   // Escalation
   "escalate_to_human",
@@ -171,6 +172,7 @@ const GENERAL_PROFILE = [
 const SUPPORT_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "check_slack_calendar_onboarding_readiness",
   "start_slack_workspace_connect",
   "escalate_to_human",
   "run_platform_productivity_loop",
@@ -206,6 +208,7 @@ const SUPPORT_PROFILE = [
 const SALES_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "check_slack_calendar_onboarding_readiness",
   "start_slack_workspace_connect",
   "escalate_to_human",
   "run_platform_productivity_loop",
@@ -252,6 +255,7 @@ const SALES_PROFILE = [
 const BOOKING_PROFILE = [
   "request_feature",
   "check_oauth_connection",
+  "check_slack_calendar_onboarding_readiness",
   "start_slack_workspace_connect",
   "escalate_to_human",
   "run_platform_productivity_loop",

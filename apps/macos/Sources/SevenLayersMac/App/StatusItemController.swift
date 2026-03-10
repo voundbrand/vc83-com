@@ -4,7 +4,11 @@ import AppKit
 public final class StatusItemController: NSObject {
     private let popoverHost: PopoverHostController
     private let badgeFormatter: StatusItemBadgeFormatter
+    private let authStateProvider: (any DesktopAuthStateProviding)?
+    private let onSignIn: (() -> Void)?
+    private let onSignOut: (() -> Void)?
     private let onQuit: () -> Void
+    private let onPrimaryAction: () -> Void
 
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
@@ -15,10 +19,18 @@ public final class StatusItemController: NSObject {
     public init(
         popoverHost: PopoverHostController,
         badgeFormatter: StatusItemBadgeFormatter = StatusItemBadgeFormatter(),
+        authStateProvider: (any DesktopAuthStateProviding)? = nil,
+        onSignIn: (() -> Void)? = nil,
+        onSignOut: (() -> Void)? = nil,
+        onPrimaryAction: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.popoverHost = popoverHost
         self.badgeFormatter = badgeFormatter
+        self.authStateProvider = authStateProvider
+        self.onSignIn = onSignIn
+        self.onSignOut = onSignOut
+        self.onPrimaryAction = onPrimaryAction
         self.onQuit = onQuit
         super.init()
     }
@@ -53,10 +65,11 @@ public final class StatusItemController: NSObject {
             return
         }
 
-        togglePopover()
+        onPrimaryAction()
     }
 
     private func showStatusMenu(from button: NSStatusBarButton) {
+        statusMenu = buildStatusMenu()
         guard let statusMenu else {
             return
         }
@@ -72,6 +85,17 @@ public final class StatusItemController: NSObject {
 
     private func buildStatusMenu() -> NSMenu {
         let menu = NSMenu()
+        if let authStateProvider {
+            let isAuthenticated = authStateProvider.isAuthenticated
+            let authItem = NSMenuItem(
+                title: isAuthenticated ? "Sign Out" : "Sign In",
+                action: #selector(runAuthActionFromMenu),
+                keyEquivalent: ""
+            )
+            authItem.isEnabled = isAuthenticated ? (onSignOut != nil) : (onSignIn != nil)
+            menu.addItem(authItem)
+            menu.addItem(.separator())
+        }
         menu.addItem(
             NSMenuItem(
                 title: "Open SevenLayers",
@@ -93,7 +117,16 @@ public final class StatusItemController: NSObject {
 
     @objc
     private func openFromMenu() {
-        togglePopover()
+        onPrimaryAction()
+    }
+
+    @objc
+    private func runAuthActionFromMenu() {
+        if authStateProvider?.isAuthenticated == true {
+            onSignOut?()
+        } else {
+            onSignIn?()
+        }
     }
 
     @objc
@@ -135,12 +168,21 @@ public final class StatusItemController: NSObject {
     }
 
     private func makeStatusIcon() -> NSImage? {
-        guard let iconURL = Bundle.module.url(forResource: "MenuBarIcon", withExtension: "png"),
-              let image = NSImage(contentsOf: iconURL) else {
-            return nil
+        let iconCandidates = [
+            "MenuBarIconWhite",
+            "MenuBarIcon",
+        ]
+
+        for iconName in iconCandidates {
+            guard let iconURL = Bundle.module.url(forResource: iconName, withExtension: "png"),
+                  let image = NSImage(contentsOf: iconURL) else {
+                continue
+            }
+            image.size = NSSize(width: 18, height: 18)
+            image.isTemplate = true
+            return image
         }
-        image.size = NSSize(width: 18, height: 18)
-        image.isTemplate = false
-        return image
+
+        return nil
     }
 }
