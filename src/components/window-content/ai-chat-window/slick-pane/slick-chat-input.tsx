@@ -142,6 +142,56 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null
 }
 
+type VoiceSessionRuntimePath = "persistent_realtime_multimodal" | "turn_stitch"
+type VoiceSessionFallbackReason =
+  | "feature_flag_disabled"
+  | "provider_capability_unsupported"
+  | "session_handshake_failed"
+  | "voice_runtime_fallback"
+
+function resolveVoiceSessionRuntimePath(args: {
+  persistentMultimodal?: {
+    mode?: "persistent_realtime_multimodal" | "turn_stitch"
+    enabled?: boolean
+    fallbackReason?: string | null
+    providerId?: string | null
+    providerSessionId?: string | null
+    featureFlagEnabled?: boolean
+  } | null
+}): {
+  runtimePath: VoiceSessionRuntimePath
+  turnStitchFallbackReason: VoiceSessionFallbackReason | null
+  persistentProviderId?: string
+  persistentProviderSessionId?: string
+} {
+  const snapshot = args.persistentMultimodal
+  if (snapshot?.enabled === true && snapshot.mode === "persistent_realtime_multimodal") {
+    return {
+      runtimePath: "persistent_realtime_multimodal",
+      turnStitchFallbackReason: null,
+      persistentProviderId: normalizeOptionalString(snapshot.providerId) || undefined,
+      persistentProviderSessionId:
+        normalizeOptionalString(snapshot.providerSessionId) || undefined,
+    }
+  }
+
+  const fallbackReasonRaw = normalizeOptionalString(snapshot?.fallbackReason)
+  const turnStitchFallbackReason: VoiceSessionFallbackReason =
+    fallbackReasonRaw === "feature_flag_disabled"
+    || fallbackReasonRaw === "provider_capability_unsupported"
+    || fallbackReasonRaw === "session_handshake_failed"
+      ? fallbackReasonRaw
+      : "voice_runtime_fallback"
+
+  return {
+    runtimePath: "turn_stitch",
+    turnStitchFallbackReason,
+    persistentProviderId: normalizeOptionalString(snapshot?.providerId) || undefined,
+    persistentProviderSessionId:
+      normalizeOptionalString(snapshot?.providerSessionId) || undefined,
+  }
+}
+
 function resolveDesktopConversationStarterText(args: {
   language?: string | null
   userFirstName?: string | null
@@ -2865,6 +2915,8 @@ export function SlickChatInput({
   const closeVoiceRuntimeSession = (args: {
     voiceSessionId: string
     providerId?: VoiceRuntimeProviderId
+    persistentProviderSessionId?: string
+    persistentRequestedProviderId?: "gemini_live" | "gemini"
     runtimeSession: AIChatVoiceRuntimeSessionResolution
     reason: string
   }) => {
@@ -2876,6 +2928,8 @@ export function SlickChatInput({
       voiceSessionId: args.voiceSessionId,
       activeProviderId: args.providerId,
       reason: args.reason,
+      persistentRequestedProviderId: args.persistentRequestedProviderId,
+      persistentProviderSessionId: args.persistentProviderSessionId,
       runtimeContext: {
         authSessionId: sessionId,
         interviewSessionId: args.runtimeSession.agentSessionId,
@@ -2941,11 +2995,20 @@ export function SlickChatInput({
     }
 
     let openedSession:
-      | {
+        | {
           voiceSessionId: string
           providerId: VoiceRuntimeProviderId
           requestedProviderId: VoiceRuntimeProviderId
           fallbackProviderId: VoiceRuntimeProviderId | null
+          persistentMultimodal?: {
+            contractVersion?: string
+            mode?: "persistent_realtime_multimodal" | "turn_stitch"
+            enabled?: boolean
+            featureFlagEnabled?: boolean
+            providerId?: string | null
+            providerSessionId?: string | null
+            fallbackReason?: string | null
+          }
         }
       | null = null
     let clearCaptureTimers = () => {}
@@ -2960,6 +3023,8 @@ export function SlickChatInput({
         requestedProviderId: "elevenlabs",
         requestedVoiceId: preferredRequestedVoiceId,
         voiceSessionId: buildRuntimeSessionId("voice"),
+        conversationId: runtimeSession.conversationId,
+        persistentRequestedProviderId: "gemini_live",
         runtimeContext: {
           authSessionId: sessionId,
           interviewSessionId: runtimeSession.agentSessionId,
@@ -2969,6 +3034,9 @@ export function SlickChatInput({
         throw new Error("voice_runtime_open_session_failed")
       }
       const openedVoiceSession = openedSession
+      const sessionRuntimePath = resolveVoiceSessionRuntimePath({
+        persistentMultimodal: openedVoiceSession.persistentMultimodal ?? null,
+      })
       const liveSessionId = cameraLiveSession?.liveSessionId || buildRuntimeSessionId("voice")
       const baseMessageBeforeVoiceCapture = message.trim()
       const pcmContract = resolveVoicePcmCaptureContract("elevenlabs")
@@ -4033,6 +4101,9 @@ export function SlickChatInput({
           closeVoiceRuntimeSession({
             voiceSessionId: openedVoiceSession.voiceSessionId,
             providerId: openedVoiceSession.providerId,
+            persistentRequestedProviderId: "gemini_live",
+            persistentProviderSessionId:
+              sessionRuntimePath.persistentProviderSessionId,
             runtimeSession,
             reason: "chat_voice_capture_empty_audio",
           })
@@ -4131,6 +4202,16 @@ export function SlickChatInput({
                   : null,
                 liveSessionId,
                 sessionState: "transcribed",
+                sessionTransportPath: sessionRuntimePath.runtimePath,
+                turnStitchFallbackReason:
+                  sessionRuntimePath.turnStitchFallbackReason,
+                persistentProviderId: sessionRuntimePath.persistentProviderId,
+                persistentProviderSessionId:
+                  sessionRuntimePath.persistentProviderSessionId,
+                persistentFeatureFlagEnabled:
+                  openedVoiceSession.persistentMultimodal?.featureFlagEnabled === true,
+                persistentContractVersion:
+                  openedVoiceSession.persistentMultimodal?.contractVersion,
                 runtimeAuthorityPrecedence: "vc83_runtime_policy",
                 routeTarget: "vc83_voice_runtime",
                 bridgeSource: "useVoiceRuntime",
@@ -4283,6 +4364,16 @@ export function SlickChatInput({
               fallbackReason,
               liveSessionId,
               sessionState: transcribeResult.success ? "transcribed" : "fallback",
+              sessionTransportPath: sessionRuntimePath.runtimePath,
+              turnStitchFallbackReason:
+                sessionRuntimePath.turnStitchFallbackReason,
+              persistentProviderId: sessionRuntimePath.persistentProviderId,
+              persistentProviderSessionId:
+                sessionRuntimePath.persistentProviderSessionId,
+              persistentFeatureFlagEnabled:
+                openedVoiceSession.persistentMultimodal?.featureFlagEnabled === true,
+              persistentContractVersion:
+                openedVoiceSession.persistentMultimodal?.contractVersion,
               runtimeAuthorityPrecedence: "vc83_runtime_policy",
               routeTarget: "vc83_voice_runtime",
               bridgeSource: "useVoiceRuntime",
@@ -4391,6 +4482,16 @@ export function SlickChatInput({
               fallbackReason: errorMessage,
               liveSessionId,
               sessionState: "fallback",
+              sessionTransportPath: sessionRuntimePath.runtimePath,
+              turnStitchFallbackReason:
+                sessionRuntimePath.turnStitchFallbackReason,
+              persistentProviderId: sessionRuntimePath.persistentProviderId,
+              persistentProviderSessionId:
+                sessionRuntimePath.persistentProviderSessionId,
+              persistentFeatureFlagEnabled:
+                openedVoiceSession.persistentMultimodal?.featureFlagEnabled === true,
+              persistentContractVersion:
+                openedVoiceSession.persistentMultimodal?.contractVersion,
               runtimeAuthorityPrecedence: "vc83_runtime_policy",
               routeTarget: "vc83_voice_runtime",
               bridgeSource: "useVoiceRuntime",
@@ -4448,6 +4549,9 @@ export function SlickChatInput({
             closeVoiceRuntimeSession({
               voiceSessionId: openedVoiceSession.voiceSessionId,
               providerId: openedVoiceSession.providerId,
+              persistentRequestedProviderId: "gemini_live",
+              persistentProviderSessionId:
+                sessionRuntimePath.persistentProviderSessionId,
               runtimeSession,
               reason: "chat_voice_capture_complete",
             })
@@ -4505,6 +4609,9 @@ export function SlickChatInput({
         closeVoiceRuntimeSession({
           voiceSessionId: openedVoiceSession.voiceSessionId,
           providerId: openedVoiceSession.providerId,
+          persistentRequestedProviderId: "gemini_live",
+          persistentProviderSessionId:
+            sessionRuntimePath.persistentProviderSessionId,
           runtimeSession,
           reason: "chat_voice_capture_failed_to_start",
         })
@@ -4785,6 +4892,11 @@ export function SlickChatInput({
         closeVoiceRuntimeSession({
           voiceSessionId: openedSession.voiceSessionId,
           providerId: openedSession.providerId,
+          persistentRequestedProviderId: "gemini_live",
+          persistentProviderSessionId:
+            normalizeOptionalString(
+              openedSession.persistentMultimodal?.providerSessionId
+            ) || undefined,
           runtimeSession,
           reason: "chat_voice_capture_failed_to_start",
         })
@@ -5415,6 +5527,11 @@ export function SlickChatInput({
               : "voice",
         }
       : undefined
+    const runtimePath =
+      normalizeOptionalString(voiceRuntimeBase?.sessionTransportPath)
+        === "persistent_realtime_multimodal"
+        ? "persistent_realtime_multimodal"
+        : "turn_stitch"
 
     const geminiLive = buildDesktopGeminiLiveMetadata({
       conversationModeSelection,
@@ -5447,7 +5564,10 @@ export function SlickChatInput({
       state: conversationState,
       reasonCode: conversationReasonCode,
       duplexPolicy: {
-        mode: "persistent_streaming_primary" as const,
+        mode:
+          runtimePath === "persistent_realtime_multimodal"
+            ? ("persistent_streaming_primary" as const)
+            : ("batch_fallback_only" as const),
         interruptDetection: "client_vad_barge_in" as const,
         interruptStopAssistantOnSpeech: true,
       },
@@ -5459,7 +5579,10 @@ export function SlickChatInput({
         endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
       },
       videoForwardingPolicy: {
-        mode: "persistent_transport_jpeg_throttled" as const,
+        mode:
+          runtimePath === "persistent_realtime_multimodal"
+            ? ("persistent_transport_jpeg_throttled" as const)
+            : ("manual_capture_only" as const),
         frameMimeType: "image/jpeg" as const,
         cadenceMs: VISION_FORWARDING_CADENCE_MS,
         maxFramesPerWindow: VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
@@ -5496,6 +5619,11 @@ export function SlickChatInput({
         conversationModeSelection === "voice_with_eyes"
           ? conversationEyesSourceSelection
           : "voice",
+      runtimePath,
+      turnStitchFallbackReason:
+        runtimePath === "turn_stitch"
+          ? normalizeOptionalString(voiceRuntimeBase?.turnStitchFallbackReason)
+          : undefined,
       capabilitySnapshot: conversationCapabilitySnapshot,
     }
 
@@ -5557,8 +5685,16 @@ export function SlickChatInput({
       const authSessionId = sessionIdRef.current
       const runtimeSession = resolvedVoiceRuntimeSessionRef.current
       const liveSessionId = normalizeOptionalString(voiceRuntimeMetadata.liveSessionId)
+      const usePersistentRealtimeMultimodalPath =
+        normalizeOptionalString(voiceRuntimeMetadata.sessionTransportPath)
+          === "persistent_realtime_multimodal"
       let visionFrameResolution: VoiceTurnVisionFrameResolution | undefined
-      if (authSessionId && runtimeSession && targetConversationId) {
+      if (
+        !usePersistentRealtimeMultimodalPath
+        && authSessionId
+        && runtimeSession
+        && targetConversationId
+      ) {
         try {
           const rawVisionResolution =
             await resolveFreshestVisionFrameForVoiceTurnAction({
@@ -5828,9 +5964,14 @@ export function SlickChatInput({
             sourceMode:
               conversationModeSelection === "voice_with_eyes"
                 ? conversationEyesSourceSelection
-                : "voice",
+              : "voice",
           }
         : undefined
+      const runtimePath =
+        normalizeOptionalString(pendingVoiceRuntime?.sessionTransportPath)
+          === "persistent_realtime_multimodal"
+          ? "persistent_realtime_multimodal"
+          : "turn_stitch"
       const geminiLive = buildDesktopGeminiLiveMetadata({
         conversationModeSelection,
         eyesSourceSelection: conversationEyesSourceSelection,
@@ -5878,7 +6019,10 @@ export function SlickChatInput({
         state: conversationState,
         reasonCode: conversationReasonCode,
         duplexPolicy: {
-          mode: "persistent_streaming_primary" as const,
+          mode:
+            runtimePath === "persistent_realtime_multimodal"
+              ? ("persistent_streaming_primary" as const)
+              : ("batch_fallback_only" as const),
           interruptDetection: "client_vad_barge_in" as const,
           interruptStopAssistantOnSpeech: true,
         },
@@ -5890,7 +6034,10 @@ export function SlickChatInput({
           endpointSilenceMs: CONVERSATION_VAD_POLICY.endpointSilenceMs,
         },
         videoForwardingPolicy: {
-          mode: "persistent_transport_jpeg_throttled" as const,
+          mode:
+            runtimePath === "persistent_realtime_multimodal"
+              ? ("persistent_transport_jpeg_throttled" as const)
+              : ("manual_capture_only" as const),
           frameMimeType: "image/jpeg" as const,
           cadenceMs: VISION_FORWARDING_CADENCE_MS,
           maxFramesPerWindow: VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
@@ -5927,6 +6074,13 @@ export function SlickChatInput({
           conversationModeSelection === "voice_with_eyes"
             ? conversationEyesSourceSelection
             : "voice",
+        runtimePath,
+        turnStitchFallbackReason:
+          runtimePath === "turn_stitch"
+            ? normalizeOptionalString(
+                pendingVoiceRuntime?.turnStitchFallbackReason
+              )
+            : undefined,
         capabilitySnapshot: conversationCapabilitySnapshot,
       }
       const runtimeMetadata = composeDesktopRuntimeMetadata({
@@ -6843,7 +6997,9 @@ export function SlickChatInput({
                   }}
                 >
                   Voice runtime {pendingVoiceRuntime.providerId || "unknown"} •
-                  {pendingVoiceRuntime.transcribeStatus || "unknown"}
+                  {pendingVoiceRuntime.transcribeStatus || "unknown"} •
+                  {normalizeOptionalString(pendingVoiceRuntime.sessionTransportPath)
+                    || "turn_stitch"}
                 </span>
               ) : null}
               {voiceCaptureError ? (

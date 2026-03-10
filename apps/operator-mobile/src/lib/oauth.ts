@@ -87,6 +87,8 @@ export interface AccountLinkingStatusResponse {
   error?: string;
 }
 
+type HostedOAuthProvider = 'github' | 'microsoft';
+
 // Configure Google Sign-In (call this once on app startup)
 export function configureGoogleSignIn() {
   if (!ENV.GOOGLE_IOS_CLIENT_ID) {
@@ -267,6 +269,124 @@ const githubDiscovery = {
   tokenEndpoint: 'https://github.com/login/oauth/access_token',
   revocationEndpoint: `https://github.com/settings/connections/applications/${ENV.GITHUB_CLIENT_ID}`,
 };
+
+function createOAuthRedirectUri(provider: HostedOAuthProvider): string {
+  return AuthSession.makeRedirectUri({
+    scheme: 'l4yercak3',
+    path: `oauth/${provider}`,
+  });
+}
+
+function buildHostedLoginInitURL(provider: HostedOAuthProvider, redirectUri: string, state: string): string {
+  const appBaseURL = ENV.L4YERCAK3_APP_URL || 'https://app.l4yercak3.com';
+  const loginInitURL = new URL('/api/auth/login/init', appBaseURL);
+  loginInitURL.searchParams.set('client', 'operator_mobile');
+  loginInitURL.searchParams.set('provider', provider);
+  loginInitURL.searchParams.set('callback', redirectUri);
+  loginInitURL.searchParams.set('state', state);
+  return loginInitURL.toString();
+}
+
+function parseHostedCallbackSession(resultURL: string, expectedState: string): {
+  sessionToken: string;
+  isNewUser: boolean;
+} {
+  const callbackURL = new URL(resultURL);
+  const receivedState = callbackURL.searchParams.get('state');
+  if (!receivedState || receivedState !== expectedState) {
+    throw new Error('Sign-in callback state mismatch');
+  }
+
+  const sessionToken =
+    callbackURL.searchParams.get('session') || callbackURL.searchParams.get('token');
+  if (!sessionToken) {
+    const callbackError =
+      callbackURL.searchParams.get('error_description') || callbackURL.searchParams.get('error');
+    throw new Error(callbackError || 'Missing session token in OAuth callback');
+  }
+
+  return {
+    sessionToken,
+    isNewUser: callbackURL.searchParams.get('isNewUser') === 'true',
+  };
+}
+
+async function fetchUserFromSession(sessionToken: string): Promise<User> {
+  const baseUrl = ENV.L4YERCAK3_API_URL || 'https://agreeable-lion-828.convex.site';
+  const response = await fetch(`${baseUrl}/api/v1/auth/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const text = await response.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid auth profile response (${response.status})`);
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      typeof data === 'object' && data && 'error' in data
+        ? String((data as { error?: unknown }).error || '')
+        : '';
+    throw new Error(errorMessage || `Failed to load auth profile (${response.status})`);
+  }
+
+  const user = (data as { user?: User } | User)?.user ?? (data as User);
+  if (!user || typeof user !== 'object' || !('id' in user) || !('email' in user)) {
+    throw new Error('Auth profile response missing user payload');
+  }
+  return user;
+}
+
+function deriveOrganizationId(user: User): string {
+  if (user.currentOrganization?.id) {
+    return user.currentOrganization.id;
+  }
+  if (user.defaultOrgId) {
+    return user.defaultOrgId;
+  }
+  if (user.organizations.length > 0 && user.organizations[0]?.id) {
+    return user.organizations[0].id;
+  }
+  throw new Error('No organization available for authenticated user');
+}
+
+async function signInWithHostedOAuthSession(provider: HostedOAuthProvider): Promise<MobileOAuthResponse> {
+  const redirectUri = createOAuthRedirectUri(provider);
+  const state = `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  const loginURL = buildHostedLoginInitURL(provider, redirectUri, state);
+
+  console.log(`[OAuth] Hosted login init URL (${provider}):`, loginURL);
+
+  const authResult = await WebBrowser.openAuthSessionAsync(loginURL, redirectUri);
+  if (authResult.type === 'cancel' || authResult.type === 'dismiss') {
+    throw new Error('Sign in was cancelled');
+  }
+  if (authResult.type !== 'success' || !authResult.url) {
+    throw new Error(`${provider} Sign-In failed`);
+  }
+
+  const { sessionToken, isNewUser } = parseHostedCallbackSession(authResult.url, state);
+  const user = await fetchUserFromSession(sessionToken);
+  const organizationId = deriveOrganizationId(user);
+
+  return {
+    success: true,
+    sessionId: sessionToken,
+    userId: user.id,
+    email: user.email,
+    organizationId,
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    isNewUser,
+    user,
+  };
+}
 
 /**
  * Sign in with GitHub
@@ -452,6 +572,20 @@ export async function performOAuthSignIn(
   provider: OAuthProvider,
   signupOptions?: OAuthSignupOptions
 ): Promise<MobileOAuthResponse> {
+  if (
+    ENV.USE_UNIFIED_MOBILE_HOSTED_OAUTH &&
+    (provider === 'github' || provider === 'microsoft')
+  ) {
+    try {
+      return await signInWithHostedOAuthSession(provider);
+    } catch (error) {
+      console.warn(
+        `[OAuth] Unified hosted login failed for ${provider}, falling back to legacy mobile-oauth flow:`,
+        error
+      );
+    }
+  }
+
   // Step 1: OAuth sign-in based on provider
   let credentials: OAuthCredentials;
 

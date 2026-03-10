@@ -15,9 +15,9 @@ final class AuthDesktopAuthURLBuilderTests: XCTestCase {
         let components = try XCTUnwrap(URLComponents(url: authURL, resolvingAgainstBaseURL: false))
         let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
 
-        XCTAssertEqual(components.path, "/auth/desktop")
-        XCTAssertEqual(query["redirect_uri"], "vc83-mac://auth/callback")
+        XCTAssertEqual(components.path, "/api/auth/login/init")
+        XCTAssertEqual(query["client"], "macos_companion")
+        XCTAssertEqual(query["callback"], "vc83-mac://auth/callback")
         XCTAssertEqual(query["state"], "state-abc")
-        XCTAssertEqual(query["platform"], "macos_companion")
     }
 }

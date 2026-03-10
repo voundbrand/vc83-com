@@ -12,11 +12,11 @@ public struct DesktopAuthURLBuilder {
             throw DesktopAuthError.invalidAuthorizationURL
         }
 
-        components.path = "/auth/desktop"
+        components.path = "/api/auth/login/init"
         components.queryItems = [
-            URLQueryItem(name: "redirect_uri", value: configuration.callbackURL.absoluteString),
+            URLQueryItem(name: "client", value: "macos_companion"),
+            URLQueryItem(name: "callback", value: configuration.callbackURL.absoluteString),
             URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "platform", value: "macos_companion"),
         ]
 
         guard let url = components.url else {

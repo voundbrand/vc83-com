@@ -15,6 +15,13 @@ export type VoiceRealtimeTransportRoute =
 export type VoiceRealtimeSttRoute =
   | "scribe_v2_realtime_primary"
   | "gemini_native_audio_failover";
+export type PersistentMultimodalRuntimeMode =
+  | "persistent_realtime_multimodal"
+  | "turn_stitch";
+export type PersistentMultimodalFallbackReason =
+  | "feature_flag_disabled"
+  | "provider_capability_unsupported"
+  | "session_handshake_failed";
 export type VoiceTransportEnvelopeEventType =
   | "audio_chunk"
   | "partial_transcript"
@@ -35,6 +42,17 @@ interface VoiceActionResultBase {
   requestedProviderId: VoiceRuntimeProviderId;
   fallbackProviderId: VoiceRuntimeProviderId | null;
   health: VoiceProviderHealth;
+  persistentMultimodal?: {
+    contractVersion: string;
+    mode: PersistentMultimodalRuntimeMode;
+    enabled: boolean;
+    featureFlagEnabled: boolean;
+    providerId: "gemini_live" | null;
+    providerSessionId: string | null;
+    transport: "native_realtime_audio_video" | null;
+    fallbackReason: PersistentMultimodalFallbackReason | null;
+    healthStatus: VoiceProviderHealthStatus | null;
+  };
   error?: string;
 }
 
@@ -380,6 +398,8 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       requestedProviderId?: VoiceRuntimeProviderId;
       requestedVoiceId?: string;
       voiceSessionId?: string;
+      conversationId?: Id<"aiConversations">;
+      persistentRequestedProviderId?: "gemini_live" | "gemini";
       runtimeContext?: VoiceRuntimeContextOverride;
     },
   ): Promise<OpenVoiceSessionResult> => {
@@ -387,9 +407,11 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     return (await openVoiceSessionAction({
       sessionId: runtimeContext.authSessionId,
       interviewSessionId: runtimeContext.interviewSessionId,
+      conversationId: options?.conversationId,
       requestedProviderId: normalizeProviderId(options?.requestedProviderId),
       requestedVoiceId: options?.requestedVoiceId,
       voiceSessionId: options?.voiceSessionId,
+      persistentRequestedProviderId: options?.persistentRequestedProviderId,
     })) as OpenVoiceSessionResult;
   };
 
@@ -397,6 +419,8 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
     voiceSessionId: string;
     activeProviderId?: VoiceRuntimeProviderId;
     reason?: string;
+    persistentRequestedProviderId?: "gemini_live" | "gemini";
+    persistentProviderSessionId?: string;
     runtimeContext?: VoiceRuntimeContextOverride;
   }) => {
     const runtimeContext = requireRuntimeContext(args, options.runtimeContext);
@@ -406,6 +430,8 @@ export function useVoiceRuntime(args: UseVoiceRuntimeArgs) {
       voiceSessionId: options.voiceSessionId,
       activeProviderId: normalizeProviderId(options.activeProviderId),
       reason: options.reason,
+      persistentRequestedProviderId: options.persistentRequestedProviderId,
+      persistentProviderSessionId: options.persistentProviderSessionId,
     })) as VoiceActionResultBase;
   };
 

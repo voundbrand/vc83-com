@@ -8,7 +8,7 @@ final class AuthDesktopAuthCoordinatorTests: XCTestCase {
         let coordinator = DesktopAuthCoordinator(configuration: config, credentialStore: store)
 
         let signInURL = try coordinator.beginSignIn(state: "state-42")
-        XCTAssertEqual(signInURL.path, "/auth/desktop")
+        XCTAssertEqual(signInURL.path, "/api/auth/login/init")
 
         let callbackURL = URL(string: "vc83-mac://auth/callback?session_token=session-42&state=state-42")!
         let credential = try coordinator.handleCallback(callbackURL)

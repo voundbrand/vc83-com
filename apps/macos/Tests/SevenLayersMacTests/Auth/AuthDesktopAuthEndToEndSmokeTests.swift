@@ -36,7 +36,7 @@ final class AuthDesktopAuthEndToEndSmokeTests: XCTestCase {
         let loginComponents = try XCTUnwrap(
             URLComponents(url: loginURL, resolvingAgainstBaseURL: false)
         )
-        XCTAssertEqual(loginComponents.path, "/auth/desktop")
+        XCTAssertEqual(loginComponents.path, "/api/auth/login/init")
 
         let callbackURL = URL(
             string: "vc83-mac://auth/callback?session_token=session-e2e-1&state=e2e-state-1"
@@ -75,10 +75,10 @@ final class AuthDesktopAuthEndToEndSmokeTests: XCTestCase {
         XCTAssertNil(quickChatSession.submitContextDraft("blocked before retry"))
 
         let retriedLoginURL = try sessionController.beginLogin(state: "e2e-retry-1") { url in
-            XCTAssertEqual(url.path, "/auth/desktop")
+            XCTAssertEqual(url.path, "/api/auth/login/init")
             return true
         }
-        XCTAssertEqual(retriedLoginURL.path, "/auth/desktop")
+        XCTAssertEqual(retriedLoginURL.path, "/api/auth/login/init")
         XCTAssertEqual(sessionController.authSessionState, .authorizing)
 
         let successfulCallbackURL = URL(

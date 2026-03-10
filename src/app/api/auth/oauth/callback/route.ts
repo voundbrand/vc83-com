@@ -23,6 +23,23 @@ type CallbackParams = {
   provider: OAuthProvider | null;
 };
 
+function shouldUseExternalPlatformCallback(callbackUrl: string, appUrl: string): boolean {
+  try {
+    const callback = new URL(callbackUrl);
+    const appBase = new URL(appUrl);
+
+    const isHttp = callback.protocol === "http:" || callback.protocol === "https:";
+    if (!isHttp) {
+      return true;
+    }
+
+    return callback.origin !== appBase.origin;
+  } catch {
+    // Fail closed: if URL cannot be parsed, do not attempt external redirect.
+    return false;
+  }
+}
+
 function toStringValue(value: FormDataEntryValue | null): string | null {
   return typeof value === "string" ? value : null;
 }
@@ -170,8 +187,19 @@ async function handleOAuthCallback(request: NextRequest) {
       return NextResponse.redirect(redirectUrl.toString());
     }
 
-    // Platform: Redirect to platform home with session
+    // Platform: either redirect back to an external callback (mobile app), or to web home.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    if (shouldUseExternalPlatformCallback(stateRecord.callbackUrl, appUrl)) {
+      const externalRedirectUrl = new URL(stateRecord.callbackUrl);
+      externalRedirectUrl.searchParams.set("session", result.token);
+      externalRedirectUrl.searchParams.set("isNewUser", result.isNewUser ? "true" : "false");
+      externalRedirectUrl.searchParams.set("oauthProvider", oauthProvider);
+      if (stateRecord.cliState) {
+        externalRedirectUrl.searchParams.set("state", stateRecord.cliState);
+      }
+      return NextResponse.redirect(externalRedirectUrl.toString());
+    }
+
     const redirectUrl = new URL("/", appUrl);
     redirectUrl.searchParams.set("session", result.token);
     redirectUrl.searchParams.set("isNewUser", result.isNewUser ? "true" : "false");

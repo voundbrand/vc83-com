@@ -3759,10 +3759,18 @@ ${knowledgeBlock}`;
     console.log(
       `[AI Chat] Using ${isPageBuilderContext ? "page builder" : "layers builder"} system prompt`
     );
+    const inboundVoiceRuntime = normalizeRecord(args.voiceRuntime);
+    const inboundVoiceSessionTransportPath = normalizeNonEmptyString(
+      inboundVoiceRuntime?.sessionTransportPath
+    );
+    const suppressLatestUserImageAttachments =
+      inboundVoiceSessionTransportPath === "persistent_realtime_multimodal"
+      && Boolean(normalizeNonEmptyString(inboundVoiceRuntime?.voiceSessionId));
 
     const messages: ChatMessage[] = buildOpenRouterMessages({
       systemPrompt,
       conversationMessages: conversation.messages,
+      suppressLatestUserImageAttachments,
       onFilteredIncompleteToolCall: ({ messageIndex }) => {
         console.log(
           `[AI Chat] Filtering out incomplete tool call from history (message ${messageIndex})`

@@ -18,7 +18,8 @@ public struct DesktopAuthCallbackParser {
 
         let queryMap = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value) })
 
-        guard let sessionToken = queryMap["session_token"] ?? nil, !sessionToken.isEmpty else {
+        let sessionToken = queryMap["session_token"] ?? queryMap["token"] ?? nil
+        guard let sessionToken, !sessionToken.isEmpty else {
             throw DesktopAuthError.missingQueryItem("session_token")
         }
 

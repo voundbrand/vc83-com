@@ -122,11 +122,18 @@ function buildMultimodalUserContent(args: {
 export function buildOpenRouterMessages(args: {
   systemPrompt: string;
   conversationMessages: ChatRuntimeConversationMessage[];
+  suppressLatestUserImageAttachments?: boolean;
   onFilteredIncompleteToolCall?: (args: { messageIndex: number }) => void;
 }): ChatRuntimeMessage[] {
   const messages: ChatRuntimeMessage[] = [
     { role: "system", content: args.systemPrompt },
   ];
+  let latestUserMessageIndex = -1;
+  for (let index = 0; index < args.conversationMessages.length; index += 1) {
+    if (args.conversationMessages[index]?.role === "user") {
+      latestUserMessageIndex = index;
+    }
+  }
 
   for (let i = 0; i < args.conversationMessages.length; i++) {
     const msg = args.conversationMessages[i];
@@ -148,13 +155,18 @@ export function buildOpenRouterMessages(args: {
       }
     }
 
-    const content =
+    const suppressAttachmentsForMessage =
       msg.role === "user"
-        ? buildMultimodalUserContent({
-            content: msg.content,
-            attachments: msg.attachments,
-          })
-        : msg.content;
+      && args.suppressLatestUserImageAttachments === true
+      && i === latestUserMessageIndex;
+    const content = msg.role === "user"
+      ? (suppressAttachmentsForMessage
+          ? msg.content
+          : buildMultimodalUserContent({
+              content: msg.content,
+              attachments: msg.attachments,
+            }))
+      : msg.content;
 
     messages.push({
       role: msg.role,

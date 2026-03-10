@@ -1,40 +1,30 @@
-/**
- * CLI Login Initiation Route
- * 
- * GET /api/auth/cli-login
- * 
- * Initiates CLI authentication flow.
- * If provider specified, redirects directly to OAuth.
- * Otherwise, shows provider selection page.
- * Uses the same OAuth providers as platform login (Microsoft, Google, GitHub).
- */
-
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
-import { fetchAction } from "convex/nextjs";
+
+/**
+ * Legacy CLI login route.
+ *
+ * Backward-compatible shim that forwards to the unified login init endpoint.
+ */
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const callbackUrl = searchParams.get("callback") || "http://localhost:3001/callback";
-  const provider = searchParams.get("provider") as "microsoft" | "google" | "github" | null;
+  const loginInitURL = new URL("/api/auth/login/init", request.nextUrl.origin);
+  loginInitURL.searchParams.set("client", "cli");
 
-  try {
-    // Initiate CLI login (creates state and returns OAuth URL or selection page)
-    const result = await fetchAction(api.api.v1.cliAuth.initiateCliLogin, {
-      callbackUrl,
-      provider: provider || undefined,
-    });
-
-    // If provider was specified, redirect directly to OAuth
-    // Otherwise, redirect to provider selection page
-    return NextResponse.redirect(result.authUrl);
-  } catch (error: unknown) {
-    console.error("CLI login initiation error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to initiate CLI login", error_description: errorMessage },
-      { status: 500 }
-    );
+  const callback = searchParams.get("callback");
+  if (callback && callback.trim().length > 0) {
+    loginInitURL.searchParams.set("callback", callback);
   }
-}
 
+  const provider = searchParams.get("provider");
+  if (provider && provider.trim().length > 0) {
+    loginInitURL.searchParams.set("provider", provider);
+  }
+
+  const state = searchParams.get("state");
+  if (state && state.trim().length > 0) {
+    loginInitURL.searchParams.set("state", state);
+  }
+
+  return NextResponse.redirect(loginInitURL);
+}

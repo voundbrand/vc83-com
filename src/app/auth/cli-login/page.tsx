@@ -1,15 +1,7 @@
 /**
- * CLI Login Provider Selection Page
+ * External client login provider selection page.
  *
- * Shows OAuth provider selection (Microsoft, Google, GitHub) for CLI login.
- * User selects their preferred provider, then redirects to OAuth.
- *
- * Uses the same retro UI styling as the main login window, displayed
- * in a floating window on the classic Windows 95 teal desktop.
- *
- * IMPORTANT: OAuth flow is initiated via /api/auth/oauth-signup endpoint
- * which properly generates and stores the state token. Do NOT build
- * OAuth URLs client-side as that bypasses state registration.
+ * Supports both CLI and macOS companion login starts through one page.
  */
 
 'use client';
@@ -21,7 +13,12 @@ import { Eye, EyeOff } from 'lucide-react';
 function CliLoginContent() {
   const searchParams = useSearchParams();
   const callback = searchParams.get('callback');
-  const cliState = searchParams.get('state'); // CLI's state for CSRF protection
+  const cliState = searchParams.get('state');
+  const loginClient = (searchParams.get('client') || 'cli').toLowerCase();
+  const isDesktopLogin = loginClient === 'macos_companion' || loginClient === 'macos' || loginClient === 'desktop';
+  const isMobileLogin = loginClient === 'operator_mobile' || loginClient === 'mobile';
+  const loginTitle = isDesktopLogin ? 'Desktop Login' : (isMobileLogin ? 'Mobile Login' : 'CLI Login');
+  const loginContextLabel = isDesktopLogin ? 'desktop app' : (isMobileLogin ? 'mobile app' : 'CLI');
   const [error, setError] = useState<string | null>(null);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
   const [email, setEmail] = useState('');
@@ -41,15 +38,13 @@ function CliLoginContent() {
       return;
     }
 
-    // Redirect to the oauth-signup endpoint which properly generates and stores the state
-    // This is the correct flow - do NOT build OAuth URLs client-side
-    // We pass the CLI's state so it can be returned in the callback for CSRF validation
+    // Redirect through unified auth init so client-specific flow is selected server-side.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-    let oauthUrl = `${appUrl}/api/auth/oauth-signup?provider=${provider}&sessionType=cli&callback=${encodeURIComponent(callback)}`;
+    let oauthUrl = `${appUrl}/api/auth/login/init?client=${encodeURIComponent(loginClient)}&provider=${provider}&callback=${encodeURIComponent(callback)}`;
 
-    // Pass CLI's original state so it can be returned in the callback
+    // Pass original external-client state so callback can echo for CSRF validation.
     if (cliState) {
-      oauthUrl += `&cliState=${encodeURIComponent(cliState)}`;
+      oauthUrl += `&state=${encodeURIComponent(cliState)}`;
     }
 
     window.location.href = oauthUrl;
@@ -101,7 +96,7 @@ function CliLoginContent() {
             <div className="text-5xl mb-4">⚠️</div>
             <h1 className="font-pixel text-sm desktop-shell-text mb-4">Invalid Request</h1>
             <p className="text-sm desktop-shell-text-muted">
-              Missing callback URL. Please try logging in again from the CLI.
+              Missing callback URL. Please try logging in again from the {loginContextLabel}.
             </p>
           </div>
         </div>
@@ -123,7 +118,7 @@ function CliLoginContent() {
                 borderColor: 'var(--shell-window-icon-border)'
               }}
             >🍰</div>
-            <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>CLI Login</span>
+            <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>{loginTitle}</span>
           </div>
           <div className="flex gap-[2px]">
             <button className="desktop-shell-control-button" title="Minimize">
@@ -143,7 +138,7 @@ function CliLoginContent() {
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">🍰</div>
             <h1 className="font-pixel text-sm desktop-shell-text">
-              CLI Login
+              {loginTitle}
             </h1>
             <p className="text-xs mt-2 desktop-shell-text-muted">
               Choose your preferred login method
@@ -253,10 +248,13 @@ function CliLoginContent() {
                     throw new Error(data.error || 'Signup failed');
                   }
 
-                  // Redirect to CLI callback with token
+                  // Redirect back to external client callback with token
                   if (data.token && callback) {
                     const redirectUrl = new URL(callback);
                     redirectUrl.searchParams.set('token', data.token);
+                    if (cliState) {
+                      redirectUrl.searchParams.set('state', cliState);
+                    }
                     window.location.href = redirectUrl.toString();
                   }
                 } catch (err: unknown) {
@@ -398,7 +396,7 @@ function CliLoginContent() {
 
           <div className="mt-6 desktop-shell-note p-3">
             <p className="text-xs desktop-shell-text-muted">
-              This will create the same account as platform login, just with CLI access.
+              This will create the same account as platform login, with external-client access.
             </p>
           </div>
         </div>
@@ -423,7 +421,7 @@ export default function CliLoginPage() {
                   borderColor: 'var(--shell-window-icon-border)'
                 }}
               >🍰</div>
-              <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>CLI Login</span>
+              <span className="font-pixel text-xs" style={{ color: 'var(--shell-titlebar-text)' }}>Sign In</span>
             </div>
             <div className="flex gap-[2px]">
               <button className="desktop-shell-control-button" title="Minimize">
@@ -440,7 +438,7 @@ export default function CliLoginPage() {
           {/* Content */}
           <div className="p-6 text-center" style={{ background: 'var(--shell-surface)' }}>
             <div className="text-4xl mb-4">🍰</div>
-            <h1 className="font-pixel text-sm desktop-shell-text">CLI Login</h1>
+            <h1 className="font-pixel text-sm desktop-shell-text">Sign In</h1>
             <p className="text-sm desktop-shell-text-muted mt-2">Loading...</p>
           </div>
         </div>

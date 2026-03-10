@@ -54,6 +54,7 @@ export const ENV = {
   // App Settings
   IS_DEV: __DEV__,
   ENABLE_GITHUB_MICROSOFT_OAUTH: process.env.EXPO_PUBLIC_ENABLE_GITHUB_MICROSOFT_OAUTH === 'true',
+  USE_UNIFIED_MOBILE_HOSTED_OAUTH: process.env.EXPO_PUBLIC_USE_UNIFIED_MOBILE_HOSTED_OAUTH !== 'false',
   AV_ALLOWED_NODE_COMMANDS:
     process.env.EXPO_PUBLIC_AV_ALLOWED_NODE_COMMANDS ||
     'capture_frame,capture_audio,transcribe_audio,extract_entities,assemble_concierge_payload,preview_meeting_concierge,execute_meeting_concierge',
