@@ -30,14 +30,20 @@ fi
 
 status="ok"
 dmg_generated=false
+staging_dir=""
 
 if (( ${#missing[@]} > 0 )); then
   status="blocked"
 elif [[ "${MODE}" == "strict" ]]; then
+  staging_dir="$(mktemp -d)"
+  trap 'if [[ -n "${staging_dir}" && -d "${staging_dir}" ]]; then rm -rf "${staging_dir}"; fi' EXIT
+  cp -R "${APP_BUNDLE_PATH}" "${staging_dir}/"
+  ln -s /Applications "${staging_dir}/Applications"
+
   rm -f "${DMG_PATH}"
   hdiutil create \
     -volname "${APP_NAME}" \
-    -srcfolder "${APP_BUNDLE_PATH}" \
+    -srcfolder "${staging_dir}" \
     -ov \
     -format UDZO \
     "${DMG_PATH}" >/dev/null

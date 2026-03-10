@@ -8,4 +8,8 @@ public struct MenuBarShellState: Equatable {
     public mutating func togglePopoverVisibility() {
         isPopoverVisible.toggle()
     }
+
+    public mutating func markPopoverHidden() {
+        isPopoverVisible = false
+    }
 }

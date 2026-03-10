@@ -41,7 +41,10 @@ public final class MenuBarApplicationDelegate: NSObject, NSApplicationDelegate {
             chatWindowOpener: nativeChatWindowController,
             diagnosticsProvider: desktopNodeGateway
         )
-        let statusController = StatusItemController(popoverHost: popoverHost)
+        let statusController = StatusItemController(
+            popoverHost: popoverHost,
+            onQuit: { NSApplication.shared.terminate(nil) }
+        )
         let authCoordinator = makeDefaultAuthCoordinator()
 
         let hotkeyController = GlobalHotkeyController { [weak statusController] in

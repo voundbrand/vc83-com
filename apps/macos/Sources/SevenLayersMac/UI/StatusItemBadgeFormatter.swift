@@ -1,7 +1,7 @@
 public struct StatusItemBadgeFormatter {
     public let baseTitle: String
 
-    public init(baseTitle: String = "VC83") {
+    public init(baseTitle: String = "SevenLayers") {
         self.baseTitle = baseTitle
     }
 

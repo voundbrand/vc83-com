@@ -15,7 +15,10 @@ let package = Package(
         .target(name: "SevenLayersProtocol"),
         .target(
             name: "SevenLayersMac",
-            dependencies: ["SevenLayersProtocol"]
+            dependencies: ["SevenLayersProtocol"],
+            resources: [
+                .process("Resources"),
+            ]
         ),
         .executableTarget(
             name: "SevenLayersMacApp",
