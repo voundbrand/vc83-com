@@ -171,10 +171,7 @@ function parseEnvBooleanFlag(value: string | undefined): boolean {
 }
 
 function isPersistentRealtimeMultimodalEnabled(): boolean {
-  return (
-    parseEnvBooleanFlag(process.env.WEB_AI_CHAT_PERSISTENT_REALTIME_MULTIMODAL_ENABLED)
-    || parseEnvBooleanFlag(process.env.VOICE_RUNTIME_PERSISTENT_MULTIMODAL_ENABLED)
-  );
+  return parseEnvBooleanFlag(process.env.VR_PERSISTENT_MM_ENABLED);
 }
 
 type PersistentRealtimeLifecycleSnapshot = {
