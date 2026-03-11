@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 public enum KeychainSessionStoreError: Error, Equatable {
@@ -15,6 +16,12 @@ public protocol KeychainDataClient {
 public struct SystemKeychainDataClient: KeychainDataClient {
     public init() {}
 
+    private func nonInteractiveContext() -> LAContext {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        return context
+    }
+
     public func read(service: String, account: String) throws -> Data? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -22,12 +29,13 @@ public struct SystemKeychainDataClient: KeychainDataClient {
             kSecAttrAccount: account,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne,
+            kSecUseAuthenticationContext: nonInteractiveContext(),
         ]
 
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        if status == errSecItemNotFound {
+        if status == errSecItemNotFound || status == errSecInteractionNotAllowed {
             return nil
         }
 
@@ -47,6 +55,7 @@ public struct SystemKeychainDataClient: KeychainDataClient {
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
+            kSecUseAuthenticationContext: nonInteractiveContext(),
         ]
 
         var insertQuery = baseQuery
@@ -79,6 +88,7 @@ public struct SystemKeychainDataClient: KeychainDataClient {
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: account,
+            kSecUseAuthenticationContext: nonInteractiveContext(),
         ]
 
         let status = SecItemDelete(query as CFDictionary)
@@ -92,7 +102,11 @@ public struct SystemKeychainDataClient: KeychainDataClient {
 }
 
 public final class KeychainSessionCredentialStore: SessionCredentialStore {
+    private static let currentService = "com.vc83.sevenlayers.macos.auth.v2"
+    private static let legacyService = "com.vc83.sevenlayers.macos.auth"
+
     private let service: String
+    private let legacyService: String?
     private let account: String
     private let keychainClient: KeychainDataClient
 
@@ -100,11 +114,13 @@ public final class KeychainSessionCredentialStore: SessionCredentialStore {
     private let decoder = JSONDecoder()
 
     public init(
-        service: String = "com.vc83.sevenlayers.macos.auth",
+        service: String? = nil,
+        legacyService: String? = nil,
         account: String = "active-session",
         keychainClient: KeychainDataClient = SystemKeychainDataClient()
     ) {
-        self.service = service
+        self.service = service ?? KeychainSessionCredentialStore.currentService
+        self.legacyService = legacyService ?? KeychainSessionCredentialStore.legacyService
         self.account = account
         self.keychainClient = keychainClient
     }
@@ -115,18 +131,32 @@ public final class KeychainSessionCredentialStore: SessionCredentialStore {
     }
 
     public func load() throws -> DesktopAuthCredential? {
-        guard let payload = try keychainClient.read(service: service, account: account) else {
+        if let payload = try keychainClient.read(service: service, account: account) {
+            guard let credential = try? decoder.decode(DesktopAuthCredential.self, from: payload) else {
+                throw KeychainSessionStoreError.invalidPayload
+            }
+            return credential
+        }
+
+        guard let legacyService,
+              legacyService != service,
+              let legacyPayload = try keychainClient.read(service: legacyService, account: account)
+        else {
             return nil
         }
 
-        guard let credential = try? decoder.decode(DesktopAuthCredential.self, from: payload) else {
+        guard let credential = try? decoder.decode(DesktopAuthCredential.self, from: legacyPayload) else {
             throw KeychainSessionStoreError.invalidPayload
         }
 
+        try? save(credential)
         return credential
     }
 
     public func clear() throws {
         try keychainClient.delete(service: service, account: account)
+        if let legacyService, legacyService != service {
+            try? keychainClient.delete(service: legacyService, account: account)
+        }
     }
 }
