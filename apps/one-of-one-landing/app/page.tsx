@@ -3,43 +3,49 @@
 import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
 import { AuditChatSurface } from "@/components/audit-chat-surface"
-import { HandoffCta, type HandoffTranslations } from "@/components/handoff-cta"
+
 import { LandingAnalyticsEntrypoint } from "@/components/landing-analytics-entrypoint"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher, type Language } from "@/components/language-switcher"
 import { Button } from "@/components/ui/button"
 import { landingTranslations } from "@/content/landing-content"
-import {
-  landingPricingSheets,
-  type LandingPricingCheckoutKey,
-  type LandingPricingRow,
-} from "@/content/pricing-sheet"
+
 import { trackLandingEvent } from "@/lib/analytics"
 import { resolveLegacyPublicCutoverMode } from "@/lib/commercial-cutover"
 import { Footer } from "@/components/footer"
+import { LandingDemoCallModal, type LandingDemoCallModalLabels } from "@/components/landing-demo-call-modal"
 import Link from "next/link"
 import {
   Apple,
   Monitor,
+  Laptop,
   Smartphone,
   Globe,
   Phone,
   TrendingUp,
   MessageSquare,
+  MessageCircle,
   Mail,
   Zap,
   Sparkles,
   Shield,
   Cloud,
   Server,
-  Cpu,
   Lock,
   CalendarDays,
+  CalendarCheck,
   ArrowRight,
-  CreditCard,
   Star,
   User,
+  Users,
+  FileText,
+  Filter,
+  Mic,
+  BarChart3,
+  Scale,
 } from "lucide-react"
+import { AgentTileExpanded, CHANNEL_ICONS, type AgentTileData, type AgentTileLabels } from "@/components/agent-tile-expanded"
+
 
 const FOUNDER_DEMO_URLS: Record<Language, string> = {
   en: "https://cal.com/voundbrand/sevenlayers-demo-en",
@@ -47,47 +53,6 @@ const FOUNDER_DEMO_URLS: Record<Language, string> = {
 }
 const DIAGNOSTIC_SECTION_ID = "diagnostic"
 const REMINGTON_EMAIL = "remington@sevenlayers.io"
-
-const PRICING_EMAIL_TEMPLATES: Record<Language, {
-  subjectPrefix: string;
-  greeting: string;
-  intro: string;
-  productLabel: string;
-  setupLabel: string;
-  recurringLabel: string;
-  sourceLabel: string;
-  timestampLabel: string;
-  requestLabel: string;
-  closeLine: string;
-  signoff: string;
-}> = {
-  en: {
-    subjectPrefix: "One-of-One Offer Request",
-    greeting: "Hi Remington,",
-    intro: "I would like to proceed with the following offer from the One-of-One pricing overview:",
-    productLabel: "Product",
-    setupLabel: "Setup price",
-    recurringLabel: "Recurring price",
-    sourceLabel: "Source",
-    timestampLabel: "Timestamp",
-    requestLabel: "Request",
-    closeLine: "Please share the next steps and preferred checkout path.",
-    signoff: "Best regards,",
-  },
-  de: {
-    subjectPrefix: "One-of-One Angebotsanfrage",
-    greeting: "Hallo Remington,",
-    intro: "ich möchte mit folgendem Angebot aus der One-of-One Preisübersicht fortfahren:",
-    productLabel: "Produkt",
-    setupLabel: "Setup-Preis",
-    recurringLabel: "Laufender Preis",
-    sourceLabel: "Quelle",
-    timestampLabel: "Zeitstempel",
-    requestLabel: "Anfrage",
-    closeLine: "Bitte senden Sie mir die nächsten Schritte und den bevorzugten Checkout-Pfad.",
-    signoff: "Viele Grüße,",
-  },
-}
 
 type BetaPlatform = "iPhone" | "macOS" | "Android"
 
@@ -151,78 +116,15 @@ function buildBetaSignupMailtoUrl(language: Language, platform: BetaPlatform): s
   return `mailto:${REMINGTON_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`
 }
 
-function resolveLandingStoreBaseUrl(): string {
-  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "")
-  return appBaseUrl ? `${appBaseUrl}/store` : "/store"
-}
-
-function buildPricingCheckoutUrl(checkoutKey: LandingPricingCheckoutKey): string | null {
-  const storeBaseUrl = resolveLandingStoreBaseUrl()
-
-  if (checkoutKey === "plan_pro_monthly") {
-    return `${storeBaseUrl}?tier=pro&period=monthly&source=one_of_one_landing`
-  }
-  if (checkoutKey === "plan_pro_annual") {
-    return `${storeBaseUrl}?tier=pro&period=annual&source=one_of_one_landing`
-  }
-  if (checkoutKey === "plan_scale_monthly") {
-    return `${storeBaseUrl}?tier=scale&period=monthly&source=one_of_one_landing`
-  }
-  if (checkoutKey === "plan_scale_annual") {
-    return `${storeBaseUrl}?tier=scale&period=annual&source=one_of_one_landing`
-  }
-  if (checkoutKey === "consult_done_with_you") {
-    return `${storeBaseUrl}?autostartCommercial=1&offer_code=consult_done_with_you&intent_code=consulting_sprint_scope_only&routing_hint=samantha_lead_capture&source=one_of_one_landing`
-  }
-  if (checkoutKey === "layer1_foundation") {
-    return `${storeBaseUrl}?autostartCommercial=1&offer_code=layer1_foundation&intent_code=implementation_start_layer1&routing_hint=founder_bridge&source=one_of_one_landing`
-  }
-  if (checkoutKey === "sub_org_monthly" || checkoutKey === "sub_org_annual" || checkoutKey === "credits") {
-    return `${storeBaseUrl}?source=one_of_one_landing`
-  }
-
-  return null
-}
-
-function buildPricingInquiryMailtoUrl(language: Language, row: LandingPricingRow): string {
-  const template = PRICING_EMAIL_TEMPLATES[language]
-  const timestampDate = new Date()
-  const localizedTimestamp = timestampDate.toLocaleString(language === "de" ? "de-DE" : "en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })
-  const timestamp = `${localizedTimestamp} (${timestampDate.toISOString()})`
-  const subject = `${template.subjectPrefix}: ${row.item}`
-  const body = [
-    template.greeting,
-    "",
-    template.intro,
-    "",
-    `${template.productLabel}: ${row.item}`,
-    `${template.setupLabel}: ${row.setup}`,
-    `${template.recurringLabel}: ${row.recurring}`,
-    `${template.sourceLabel}: one_of_one_landing`,
-    `${template.timestampLabel}: ${timestamp}`,
-    `${template.requestLabel}: ${template.closeLine}`,
-    "",
-    template.signoff,
-  ].join("\r\n")
-
-  const encodedSubject = encodeURIComponent(subject)
-  const encodedBody = encodeURIComponent(body)
-  return `mailto:${REMINGTON_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`
-}
-
 export default function LandingPage() {
   const [language, setLanguage] = useState<Language>("en")
   const t = landingTranslations[language]
-  const pricingSheet = landingPricingSheets[language]
   const founderDemoUrl = FOUNDER_DEMO_URLS[language]
   const avatarStorageId = process.env.NEXT_PUBLIC_REM_AVATAR_STORAGE_ID
   const [founderAvatarUrl, setFounderAvatarUrl] = useState<string | null>(null)
-  const [showDetailedPricing, setShowDetailedPricing] = useState(false)
-  const [expandedPricingSections, setExpandedPricingSections] = useState<string[]>([])
   const [expandedProofs, setExpandedProofs] = useState<string[]>([])
+  const [expandedAgents, setExpandedAgents] = useState<number[]>([])
+  const [selectedDemoAgent, setSelectedDemoAgent] = useState<AgentTileData | null>(null)
   const legacyPublicCutoverMode = resolveLegacyPublicCutoverMode()
 
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -266,28 +168,6 @@ export default function LandingPage() {
     }
   }, [avatarStorageId])
 
-  useEffect(() => {
-    if (!showDetailedPricing) return
-    setExpandedPricingSections(pricingSheet.categories.map((category) => category.title))
-  }, [language, pricingSheet, showDetailedPricing])
-
-  const handleDetailedPricingToggle = useCallback(() => {
-    setShowDetailedPricing((current) => {
-      const next = !current
-      if (next) {
-        setExpandedPricingSections(pricingSheet.categories.map((category) => category.title))
-      }
-      return next
-    })
-  }, [pricingSheet])
-
-  const togglePricingCategory = useCallback((categoryTitle: string) => {
-    setExpandedPricingSections((current) => (
-      current.includes(categoryTitle)
-        ? current.filter((title) => title !== categoryTitle)
-        : [...current, categoryTitle]
-    ))
-  }, [])
 
   const toggleProof = useCallback((name: string) => {
     setExpandedProofs((current) => (
@@ -297,64 +177,224 @@ export default function LandingPage() {
     ))
   }, [])
 
-  const handoffTranslations: HandoffTranslations = {
-    startFree: t.startFree ?? "Free Diagnostic",
-    startFreeDesc:
-      t.startFreeDesc
-      ?? "Run a free diagnostic audit to qualify your highest-leverage workflow before any paid scope.",
-    doneWithYou: t.doneWithYou ?? "Consulting Sprint",
-    doneWithYouPrice: t.doneWithYouPrice ?? "€3,500 excl. VAT (scope-only)",
-    doneWithYouDesc:
-      t.doneWithYouDesc
-      ?? "Strategy and implementation roadmap only. No production build is included in this sprint.",
-    fullBuild: t.fullBuild ?? "Implementation Start",
-    fullBuildPrice: t.fullBuildPrice ?? "from €7,000 excl. VAT",
-    fullBuildDesc:
-      t.fullBuildDesc
-      ?? "Production implementation starts here, beginning with layer-one foundation and delivery.",
-    startCheckout: t.startCheckout ?? "Checkout",
-    createAccountCarryContext:
-      t.createAccountCarryContext ?? "Create account and keep your audit progress",
-  }
+  const toggleAgent = useCallback((index: number) => {
+    setExpandedAgents((current) => (
+      current.includes(index)
+        ? current.filter((n) => n !== index)
+        : [...current, index]
+    ))
+  }, [])
 
-  const resolvePricingRowAction = useCallback((row: LandingPricingRow) => {
-    if (row.checkoutKey) {
-      const checkoutUrl = buildPricingCheckoutUrl(row.checkoutKey)
-      if (checkoutUrl) {
-        return {
-          type: "checkout" as const,
-          href: checkoutUrl,
-          label: t.pricingCheckoutAction ?? "Go to checkout",
-        }
-      }
-    }
-
-    return {
-      type: "email" as const,
-      href: buildPricingInquiryMailtoUrl(language, row),
-      label: t.pricingEmailAction ?? "Email Remington",
-    }
-  }, [language, t.pricingCheckoutAction, t.pricingEmailAction])
-
-  const trackPricingRowActionClick = useCallback((args: {
-    row: LandingPricingRow;
-    actionType: "checkout" | "email";
-    destinationUrl: string;
-  }) => {
+  const handleAgentPhoneCtaClick = useCallback((agent: AgentTileData) => {
     trackLandingEvent({
-      eventName: args.actionType === "checkout"
-        ? "onboarding.funnel.upgrade"
-        : "onboarding.funnel.activation",
+      eventName: "onboarding.funnel.activation",
       metadata: {
-        ctaId: `pricing_row_${args.actionType}`,
-        ctaGroup: "pricing_sheet",
-        ctaPlacement: "paths_detailed_pricing",
-        ctaIntent: args.actionType === "checkout" ? "checkout_first" : "email_inquiry",
-        pricingOffer: args.row.item,
-        destination: args.destinationUrl,
+        ctaId: "agent_demo_phone_cta",
+        ctaGroup: "agent_demo_call",
+        ctaPlacement: "agent_tile",
+        requestedAgentKey: agent.agentKey,
+        requestedPersonaName: agent.personaName,
+        requestedAgentName: agent.name,
+        flowStep: "open_modal",
       },
     })
+    setSelectedDemoAgent(agent)
   }, [])
+
+  const agentTileLabels: AgentTileLabels = {
+    skillsLabel: t.agentSkillsLabel,
+    outcomesLabel: t.agentOutcomesLabel,
+    voiceLabel: t.agentVoiceLabel,
+    toneLabel: t.agentToneLabel,
+    languagesLabel: t.agentLanguagesLabel,
+    channelsLabel: t.agentChannelsLabel,
+    expandLabel: t.agentExpandLabel,
+    collapseLabel: t.agentCollapseLabel,
+    languagesMoreLabel: t.agentLanguagesMore,
+    languagesLessLabel: t.agentLanguagesLess,
+    phoneAvailableLabel: t.agentPhoneAvailable,
+  }
+
+  const demoCallModalLabels: LandingDemoCallModalLabels = {
+    title: t.demoCallModalTitle,
+    bodyIntro: t.demoCallModalBodyIntro,
+    phoneLabel: t.demoCallModalPhoneLabel,
+    phonePlaceholder: t.demoCallModalPhonePlaceholder,
+    privacyNote: t.demoCallModalPrivacyNote,
+    submitLabel: t.demoCallModalSubmit,
+    submittingLabel: t.demoCallModalSubmitting,
+    readyEyebrow: t.demoCallModalReadyEyebrow,
+    readyTitlePrefix: t.demoCallModalReadyTitlePrefix,
+    readyBody: t.demoCallModalReadyBody,
+    callNowLabel: t.demoCallModalCallNow,
+    resetLabel: t.demoCallModalReset,
+    closeLabel: t.demoCallModalClose,
+    errorLabel: t.demoCallModalError,
+  }
+
+  const sharedDemoPhoneNumber = process.env.NEXT_PUBLIC_LANDING_SHARED_DEMO_PHONE_NUMBER?.trim() || null
+  const resolveDemoPhoneNumber = useCallback(
+    (fallbackNumber: string) => sharedDemoPhoneNumber || fallbackNumber,
+    [sharedDemoPhoneNumber]
+  )
+
+  // Replace placeholder phone numbers with real ElevenLabs agent numbers once provisioned.
+  // Format: E.164 international format (e.g. "+4930123456789")
+  const agents: AgentTileData[] = [
+    {
+      agentKey: "clara",
+      icon: Phone,
+      name: t.agent1Name,
+      headline: t.agent1Headline,
+      desc: t.agent1Desc,
+      metric: t.agent1Metric,
+      personaName: t.agent1PersonaName,
+      avatarColor: "#E8520A",
+      avatarSrc: "/images/clara-avatar.png",
+      skills: [t.agent1Skill1, t.agent1Skill2, t.agent1Skill3, t.agent1Skill4, t.agent1Skill5, t.agent1Skill6],
+      outcomes: [t.agent1Outcome1, t.agent1Outcome2, t.agent1Outcome3],
+      voiceDesc: t.agent1VoiceDesc,
+      toneDesc: t.agent1ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.phone, label: t.channelPhone },
+        { icon: CHANNEL_ICONS.whatsapp, label: t.channelWhatsApp },
+        { icon: CHANNEL_ICONS.webchat, label: t.channelWebChat },
+        { icon: CHANNEL_ICONS.sms, label: t.channelSMS },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000001"),
+      phoneCta: t.agent1PhoneCta,
+    },
+    {
+      agentKey: "maren",
+      icon: CalendarCheck,
+      name: t.agent2Name,
+      headline: t.agent2Headline,
+      desc: t.agent2Desc,
+      metric: t.agent2Metric,
+      personaName: t.agent2PersonaName,
+      avatarColor: "#722F37",
+      avatarSrc: "/images/maren-avatar.png",
+      skills: [t.agent2Skill1, t.agent2Skill2, t.agent2Skill3, t.agent2Skill4, t.agent2Skill5],
+      outcomes: [t.agent2Outcome1, t.agent2Outcome2, t.agent2Outcome3],
+      voiceDesc: t.agent2VoiceDesc,
+      toneDesc: t.agent2ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.phone, label: t.channelPhone },
+        { icon: CHANNEL_ICONS.whatsapp, label: t.channelWhatsApp },
+        { icon: CHANNEL_ICONS.webchat, label: t.channelWebChat },
+        { icon: CHANNEL_ICONS.sms, label: t.channelSMS },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000002"),
+      phoneCta: t.agent2PhoneCta,
+    },
+    {
+      agentKey: "jonas",
+      icon: Filter,
+      name: t.agent3Name,
+      headline: t.agent3Headline,
+      desc: t.agent3Desc,
+      metric: t.agent3Metric,
+      personaName: t.agent3PersonaName,
+      avatarColor: "#EAB308",
+      avatarSrc: "/images/jonas-avatar.png",
+      skills: [t.agent3Skill1, t.agent3Skill2, t.agent3Skill3, t.agent3Skill4, t.agent3Skill5],
+      outcomes: [t.agent3Outcome1, t.agent3Outcome2, t.agent3Outcome3],
+      voiceDesc: t.agent3VoiceDesc,
+      toneDesc: t.agent3ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.phone, label: t.channelPhone },
+        { icon: CHANNEL_ICONS.email, label: t.channelEmail },
+        { icon: CHANNEL_ICONS.webchat, label: t.channelWebChat },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000003"),
+      phoneCta: t.agent3PhoneCta,
+    },
+    {
+      agentKey: "tobias",
+      icon: Mic,
+      name: t.agent4Name,
+      headline: t.agent4Headline,
+      desc: t.agent4Desc,
+      metric: t.agent4Metric,
+      personaName: t.agent4PersonaName,
+      avatarColor: "#9333EA",
+      avatarSrc: "/images/tobias-avatar.png",
+      skills: [t.agent4Skill1, t.agent4Skill2, t.agent4Skill3, t.agent4Skill4, t.agent4Skill5],
+      outcomes: [t.agent4Outcome1, t.agent4Outcome2, t.agent4Outcome3],
+      voiceDesc: t.agent4VoiceDesc,
+      toneDesc: t.agent4ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.phone, label: t.channelPhone },
+        { icon: CHANNEL_ICONS.whatsapp, label: t.channelWhatsApp },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000004"),
+      phoneCta: t.agent4PhoneCta,
+    },
+    {
+      agentKey: "lina",
+      icon: MessageCircle,
+      name: t.agent5Name,
+      headline: t.agent5Headline,
+      desc: t.agent5Desc,
+      metric: t.agent5Metric,
+      personaName: t.agent5PersonaName,
+      avatarColor: "#D97706",
+      avatarSrc: "/images/lina-avatar.png",
+      skills: [t.agent5Skill1, t.agent5Skill2, t.agent5Skill3, t.agent5Skill4, t.agent5Skill5, t.agent5Skill6],
+      outcomes: [t.agent5Outcome1, t.agent5Outcome2, t.agent5Outcome3],
+      voiceDesc: t.agent5VoiceDesc,
+      toneDesc: t.agent5ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.whatsapp, label: t.channelWhatsApp },
+        { icon: CHANNEL_ICONS.email, label: t.channelEmail },
+        { icon: CHANNEL_ICONS.sms, label: t.channelSMS },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000005"),
+      phoneCta: t.agent5PhoneCta,
+    },
+    {
+      agentKey: "kai",
+      icon: Users,
+      name: t.agent6Name,
+      headline: t.agent6Headline,
+      desc: t.agent6Desc,
+      metric: t.agent6Metric,
+      personaName: t.agent6PersonaName,
+      avatarColor: "#0891B2",
+      avatarSrc: "/images/kai-avatar.png",
+      skills: [t.agent6Skill1, t.agent6Skill2, t.agent6Skill3, t.agent6Skill4, t.agent6Skill5],
+      outcomes: [t.agent6Outcome1, t.agent6Outcome2, t.agent6Outcome3],
+      voiceDesc: t.agent6VoiceDesc,
+      toneDesc: t.agent6ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.webchat, label: t.channelWebChat },
+        { icon: CHANNEL_ICONS.sms, label: t.channelSMS },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000006"),
+      phoneCta: t.agent6PhoneCta,
+    },
+    {
+      agentKey: "nora",
+      icon: BarChart3,
+      name: t.agent7Name,
+      headline: t.agent7Headline,
+      desc: t.agent7Desc,
+      metric: t.agent7Metric,
+      personaName: t.agent7PersonaName,
+      avatarColor: "#DC2626",
+      avatarSrc: "/images/nora-avatar.png",
+      skills: [t.agent7Skill1, t.agent7Skill2, t.agent7Skill3, t.agent7Skill4, t.agent7Skill5, t.agent7Skill6],
+      outcomes: [t.agent7Outcome1, t.agent7Outcome2, t.agent7Outcome3],
+      voiceDesc: t.agent7VoiceDesc,
+      toneDesc: t.agent7ToneDesc,
+      channels: [
+        { icon: CHANNEL_ICONS.webchat, label: t.channelWebChat },
+        { icon: CHANNEL_ICONS.api, label: t.channelAPI },
+      ],
+      phoneNumber: resolveDemoPhoneNumber("+49 000 0000007"),
+      phoneCta: t.agent7PhoneCta,
+    },
+  ]
 
   return (
     <div
@@ -395,21 +435,21 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
-            <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <a href="#diagnostic">
-                {t.ctaButton}
-              </a>
-            </Button>
-            <Button asChild className="btn-accent text-xs h-8 w-8 sm:w-auto sm:px-3">
-                <a
+            <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex gap-1.5">
+              <a
                 href={founderDemoUrl}
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => trackDemoCtaClick("book_demo_header", "header", founderDemoUrl)}
-                aria-label={t.bookDemo}
+                onClick={() => trackDemoCtaClick("request_demo_header", "header", founderDemoUrl)}
               >
                 <CalendarDays className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.bookDemoShort}</span>
+                {t.bookDemoShort}
+              </a>
+            </Button>
+            <Button asChild className="btn-accent text-xs h-8 w-11 sm:w-auto sm:px-3">
+              <a href="#diagnostic" aria-label={t.chatHeadline}>
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Audit</span>
               </a>
             </Button>
           </div>
@@ -438,29 +478,32 @@ export default function LandingPage() {
             >
               {t.action}
             </p>
+            <p
+              className="mt-4 text-sm md:text-base leading-relaxed text-balance max-w-2xl mx-auto"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              {t.actionHighlight}
+            </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button asChild className="btn-primary h-10 px-6 w-full sm:w-auto">
-                <a href="#diagnostic">{t.ctaButton}</a>
-              </Button>
-              <Button asChild className="btn-accent h-10 px-6 w-full sm:w-auto gap-2">
+              <Button asChild className="btn-primary h-11 px-6 w-full sm:w-auto gap-2">
                 <a
                   href={founderDemoUrl}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => trackDemoCtaClick("book_demo_hero", "hero", founderDemoUrl)}
+                  onClick={() => trackDemoCtaClick("request_demo_hero", "hero", founderDemoUrl)}
                 >
                   <CalendarDays className="w-4 h-4" />
-                  {t.bookDemo}
+                  {t.ctaButton}
                   <ArrowRight className="w-4 h-4" />
                 </a>
               </Button>
+              <Button asChild className="btn-accent h-11 px-6 w-full sm:w-auto gap-2">
+                <a href="#diagnostic">
+                  <MessageSquare className="w-4 h-4" />
+                  {t.parallelPathsNote}
+                </a>
+              </Button>
             </div>
-            <p
-              className="mt-3 text-xs md:text-sm text-balance max-w-xl mx-auto"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              {t.parallelPathsNote}
-            </p>
           </div>
         </section>
 
@@ -469,44 +512,70 @@ export default function LandingPage() {
           className="py-16 md:py-24 px-4 md:px-8"
           style={{ backgroundColor: "var(--color-surface)" }}
         >
-          <div className="max-w-3xl mx-auto space-y-8">
-            <p
-              className="text-base md:text-lg leading-relaxed"
+          <div className="max-w-3xl mx-auto">
+            <h2
+              className="text-2xl md:text-3xl font-bold text-balance mb-10"
               style={{ color: "var(--color-text)" }}
             >
-              {t.problem1}
-            </p>
-            <p
-              className="text-base md:text-lg leading-relaxed"
-              style={{ color: "var(--color-text)" }}
-            >
-              {t.problem2}{" "}
-              <em>{t.problem2emphasis}</em>
-            </p>
-            <p
-              className="text-base md:text-lg leading-relaxed"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              {t.problem3}
-            </p>
+              {t.problemHeadline}
+            </h2>
+            <div className="space-y-8">
+              <p
+                className="text-base md:text-lg leading-relaxed"
+                style={{ color: "var(--color-text)" }}
+              >
+                {t.problem1}
+              </p>
+              <p
+                className="text-base md:text-lg leading-relaxed"
+                style={{ color: "var(--color-text)" }}
+              >
+                {t.problem2}
+              </p>
+              <p
+                className="text-base md:text-lg font-medium"
+                style={{ color: "var(--color-accent)" }}
+              >
+                {t.problem2emphasis}
+              </p>
+              <p
+                className="text-base md:text-lg leading-relaxed"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                {t.problem3}
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* Section 3: The Shift */}
+        {/* Section 3: The Seven Agents — Alternating Tiles */}
         <section className="py-16 md:py-24 px-4 md:px-8">
-          <div className="max-w-3xl mx-auto space-y-8">
-            <p
-              className="text-base md:text-lg leading-relaxed"
+          <div className="max-w-5xl mx-auto">
+            <h2
+              className="text-2xl md:text-3xl font-bold text-center mb-4"
               style={{ color: "var(--color-text)" }}
             >
               {t.shift1}
-            </p>
+            </h2>
             <p
-              className="text-base md:text-lg leading-relaxed"
-              style={{ color: "var(--color-text)" }}
+              className="text-base md:text-lg leading-relaxed text-center max-w-3xl mx-auto mb-12"
+              style={{ color: "var(--color-text-secondary)" }}
             >
               {t.shift2}
             </p>
+
+            <div className="space-y-4">
+              {agents.map((agent, i) => (
+                <AgentTileExpanded
+                  key={i}
+                  agent={agent}
+                  labels={agentTileLabels}
+                  isExpanded={expandedAgents.includes(i)}
+                  onToggle={() => toggleAgent(i)}
+                  onPhoneCtaClick={handleAgentPhoneCtaClick}
+                />
+              ))}
+            </div>
           </div>
         </section>
 
@@ -562,7 +631,7 @@ export default function LandingPage() {
                 <p className="text-xs font-medium" style={{ color: "var(--color-text)" }}>
                   Remington S.
                 </p>
-                <Button asChild className="btn-accent text-sm h-9 px-4 gap-2">
+                <Button asChild className="btn-accent text-sm h-11 px-4 gap-2">
                   <a
                     href={founderDemoUrl}
                     target="_blank"
@@ -615,47 +684,51 @@ export default function LandingPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>34%</span>{" "}
-                      <span className="font-semibold">&rarr; 2%</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.marcusEngelMetric1After}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4+ hrs</span>{" "}
-                      <span className="font-semibold">&rarr; &lt;3 min</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.marcusEngelMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.marcusEngelMetric2After}</span>
                     </p>
                   </div>
                 </div>
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${expandedProofs.includes("marcus-engel") ? "" : "line-clamp-3"}`}
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {t.marcusEngelDetail}
+                </p>
                 <button
                   type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
+                  className="mt-2 flex items-center gap-1.5 text-xs transition-colors py-3"
+                  style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
                   onClick={() => toggleProof("marcus-engel")}
                 >
                   <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("marcus-engel") ? "rotate-90" : ""}`} />
                   {expandedProofs.includes("marcus-engel") ? t.readLess : t.readMore}
                 </button>
                 {expandedProofs.includes("marcus-engel") && (
-                  <div>
-                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.marcusEngelDetail}
-                    </p>
-                    <Link
-                      href="/case-studies/marcus-engel"
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                      style={{ color: "var(--color-accent)" }}
-                    >
-                      {t.readFullCaseStudy}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
+                  <Link
+                    href="/case-studies/marcus-engel"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    {t.readFullCaseStudy}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 )}
                 <div className="mt-3 flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
                   ))}
                 </div>
+                <p className="mt-3 text-xs font-medium italic" style={{ color: "var(--color-accent)" }}>
+                  {t.marcusEngelScaleCallout}
+                </p>
               </div>
 
               {/* Lutz Splettstößer */}
@@ -685,41 +758,42 @@ export default function LandingPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>47/day</span>{" "}
-                      <span className="font-semibold">&rarr; 0&ndash;2</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.lutzMetric1After}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>45 min</span>{" "}
-                      <span className="font-semibold">&rarr; &lt;5 min</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.lutzMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.lutzMetric2After}</span>
                     </p>
                   </div>
                 </div>
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${expandedProofs.includes("lutz") ? "" : "line-clamp-3"}`}
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {t.lutzDetail}
+                </p>
                 <button
                   type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
+                  className="mt-2 flex items-center gap-1.5 text-xs transition-colors py-3"
+                  style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
                   onClick={() => toggleProof("lutz")}
                 >
                   <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("lutz") ? "rotate-90" : ""}`} />
                   {expandedProofs.includes("lutz") ? t.readLess : t.readMore}
                 </button>
                 {expandedProofs.includes("lutz") && (
-                  <div>
-                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.lutzDetail}
-                    </p>
-                    <Link
-                      href="/case-studies/lutz-splettstosser"
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                      style={{ color: "var(--color-accent)" }}
-                    >
-                      {t.readFullCaseStudy}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
+                  <Link
+                    href="/case-studies/lutz-splettstosser"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    {t.readFullCaseStudy}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 )}
                 <div className="mt-3 flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -755,41 +829,42 @@ export default function LandingPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>Weekly</span>{" "}
-                      <span className="font-semibold">&rarr; 0</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.franziskaMetric1After}</span>
                     </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>3+ hrs</span>{" "}
-                      <span className="font-semibold">&rarr; 20 min</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.franziskaMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.franziskaMetric2After}</span>
                     </p>
                   </div>
                 </div>
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${expandedProofs.includes("franziska") ? "" : "line-clamp-3"}`}
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {t.franziskaDetail}
+                </p>
                 <button
                   type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
+                  className="mt-2 flex items-center gap-1.5 text-xs transition-colors py-3"
+                  style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
                   onClick={() => toggleProof("franziska")}
                 >
                   <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("franziska") ? "rotate-90" : ""}`} />
                   {expandedProofs.includes("franziska") ? t.readLess : t.readMore}
                 </button>
                 {expandedProofs.includes("franziska") && (
-                  <div>
-                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.franziskaDetail}
-                    </p>
-                    <Link
-                      href="/case-studies/franziska-splettstosser"
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                      style={{ color: "var(--color-accent)" }}
-                    >
-                      {t.readFullCaseStudy}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
+                  <Link
+                    href="/case-studies/franziska-splettstosser"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    {t.readFullCaseStudy}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 )}
                 <div className="mt-3 flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -798,7 +873,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Dirk Linke */}
+              {/* Thomas Berger */}
               <div className="proof-block">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -810,56 +885,128 @@ export default function LandingPage() {
                         color: "var(--color-accent)",
                       }}
                     >
-                      DL
+                      TB
                     </div>
                     <div>
-                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Dirk Linke</p>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Thomas Berger</p>
                       <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                        {t.dirkDesc}
+                        {t.thomasDesc}
                       </p>
                     </div>
                   </div>
-                  <TrendingUp className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
+                  <FileText className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <div className="flex items-center gap-6">
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric1Label}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>~20</span>{" "}
-                      <span className="font-semibold">&rarr; 200+</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.thomasMetric1After}</span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric2Label}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4+ hrs</span>{" "}
-                      <span className="font-semibold">&rarr; 15 min</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.thomasMetric2After}</span>
                     </p>
                   </div>
                 </div>
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${expandedProofs.includes("thomas") ? "" : "line-clamp-3"}`}
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {t.thomasDetail}
+                </p>
                 <button
                   type="button"
-                  className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                  style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("dirk")}
+                  className="mt-2 flex items-center gap-1.5 text-xs transition-colors py-3"
+                  style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
+                  onClick={() => toggleProof("thomas")}
                 >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("dirk") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("dirk") ? t.readLess : t.readMore}
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("thomas") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("thomas") ? t.readLess : t.readMore}
                 </button>
-                {expandedProofs.includes("dirk") && (
-                  <div>
-                    <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.dirkDetail}
-                    </p>
-                    <Link
-                      href="/case-studies/dirk-linke"
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                      style={{ color: "var(--color-accent)" }}
+                {expandedProofs.includes("thomas") && (
+                  <Link
+                    href="/case-studies/thomas-berger"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    {t.readFullCaseStudy}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+                <div className="mt-3 flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3.5 h-3.5" fill="var(--color-accent)" style={{ color: "var(--color-accent)" }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Kirsten Höner-March */}
+              <div className="proof-block">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-accent-subtle)",
+                        border: "1.5px solid var(--color-accent)",
+                        color: "var(--color-accent)",
+                      }}
                     >
-                      {t.readFullCaseStudy}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
+                      KH
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Kirsten H&ouml;ner-March</p>
+                      <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                        {t.kirstenDesc}
+                      </p>
+                    </div>
                   </div>
+                  <Scale className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
+                </div>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.kirstenMetric1Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.kirstenMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.kirstenMetric1After}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.kirstenMetric2Label}</p>
+                    <p style={{ color: "var(--color-text)" }}>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.kirstenMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.kirstenMetric2After}</span>
+                    </p>
+                  </div>
+                </div>
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${expandedProofs.includes("kirsten") ? "" : "line-clamp-3"}`}
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {t.kirstenDetail}
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 flex items-center gap-1.5 text-xs transition-colors py-3"
+                  style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
+                  onClick={() => toggleProof("kirsten")}
+                >
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("kirsten") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("kirsten") ? t.readLess : t.readMore}
+                </button>
+                {expandedProofs.includes("kirsten") && (
+                  <Link
+                    href="/case-studies/kirsten-hoener-march"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: "var(--color-accent)" }}
+                  >
+                    {t.readFullCaseStudy}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 )}
                 <div className="mt-3 flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -868,138 +1015,87 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+
+            <p
+              className="mt-8 text-center text-sm leading-relaxed max-w-2xl mx-auto"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              {t.proofMidMarketCallout}
+            </p>
           </div>
         </section>
 
-        {/* Section 6: The Paths */}
+        {/* Section 6: The Process */}
         <section
           className="py-16 md:py-24 px-4 md:px-8"
           style={{ backgroundColor: "var(--color-surface)" }}
         >
           <div className="max-w-5xl mx-auto">
             <h2
-              className="text-2xl md:text-3xl font-semibold text-center mb-12"
+              className="text-2xl md:text-3xl font-semibold text-center mb-4"
               style={{ color: "var(--color-text)" }}
             >
-              {t.pathsHeadline}
+              {t.processHeadline}
             </h2>
-            <HandoffCta translations={handoffTranslations} />
-            <div className="mt-8 text-center">
-              <button
-                type="button"
-                className="text-xs underline underline-offset-4 transition-opacity hover:opacity-80"
-                style={{ color: "var(--color-text-secondary)" }}
-                onClick={handleDetailedPricingToggle}
-              >
-                {showDetailedPricing
-                  ? (t.detailedPricingHide ?? "Hide detailed Pricing Overview")
-                  : (t.detailedPricingShow ?? "See detailed Pricing Overview")}
-              </button>
+            <p
+              className="text-base md:text-lg text-center mb-12 max-w-2xl mx-auto"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              {t.processSubheadline}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { step: "01", title: t.processStep1Title, desc: t.processStep1Desc, icon: Phone },
+                { step: "02", title: t.processStep2Title, desc: t.processStep2Desc, icon: FileText },
+                { step: "03", title: t.processStep3Title, desc: t.processStep3Desc, icon: CalendarDays },
+                { step: "04", title: t.processStep4Title, desc: t.processStep4Desc, icon: Zap },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="proof-block flex flex-col items-center text-center p-6"
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center mb-4 text-sm font-bold"
+                    style={{ backgroundColor: "var(--color-accent-subtle)", color: "var(--color-accent)" }}
+                  >
+                    {item.step}
+                  </div>
+                  <item.icon
+                    className="w-5 h-5 mb-3"
+                    style={{ color: "var(--color-accent)" }}
+                  />
+                  <h3
+                    className="text-lg font-semibold mb-2"
+                    style={{ color: "var(--color-text)" }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p
+                    className="text-sm leading-relaxed"
+                    style={{ color: "var(--color-text-secondary)" }}
+                  >
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
             </div>
-            {showDetailedPricing && (
-              <div className="mt-6 space-y-4">
-                {pricingSheet.categories.map((category) => {
-                  const isExpanded = expandedPricingSections.includes(category.title)
-                  return (
-                    <div key={category.title} className="path-card p-0 overflow-hidden">
-                      <button
-                        type="button"
-                        className="w-full px-5 py-4 border-b text-left flex items-start justify-between gap-4"
-                        style={{ borderColor: "var(--color-border)" }}
-                        onClick={() => togglePricingCategory(category.title)}
-                      >
-                        <div>
-                          <h3 className="text-base md:text-lg font-semibold" style={{ color: "var(--color-text)" }}>
-                            {category.title}
-                          </h3>
-                          {category.note && (
-                            <p className="mt-1 text-xs md:text-sm" style={{ color: "var(--color-text-tertiary)" }}>
-                              {category.note}
-                            </p>
-                          )}
-                        </div>
-                        <ArrowRight
-                          className={`w-4 h-4 mt-1 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                          style={{ color: "var(--color-text-tertiary)" }}
-                        />
-                      </button>
-                      {isExpanded && (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full text-sm">
-                            <thead style={{ backgroundColor: "var(--color-surface-hover)" }}>
-                              <tr>
-                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                  {pricingSheet.offerLabel}
-                                </th>
-                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                  {pricingSheet.setupLabel}
-                                </th>
-                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                  {pricingSheet.recurringLabel}
-                                </th>
-                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                  {pricingSheet.motionLabel}
-                                </th>
-                                <th className="text-left px-4 py-3 font-semibold" style={{ color: "var(--color-text-secondary)" }}>
-                                  {t.pricingActionLabel ?? "Action"}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {category.rows.map((row) => {
-                                const pricingAction = resolvePricingRowAction(row)
-                                const isCheckoutAction = pricingAction.type === "checkout"
-                                return (
-                                  <tr key={`${category.title}-${row.item}`} style={{ borderTop: "1px solid var(--color-border)" }}>
-                                    <td className="px-4 py-3 align-top" style={{ color: row.highlight ? "var(--color-text)" : "var(--color-text-secondary)", fontWeight: row.highlight ? 600 : 500 }}>
-                                      {row.item}
-                                    </td>
-                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text)" }}>
-                                      {row.setup}
-                                    </td>
-                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text)" }}>
-                                      {row.recurring}
-                                    </td>
-                                    <td className="px-4 py-3 align-top" style={{ color: "var(--color-text-tertiary)" }}>
-                                      {row.motion}
-                                    </td>
-                                    <td className="px-4 py-3 align-top">
-                                      <Button asChild className={`${isCheckoutAction ? "btn-primary" : "btn-secondary"} text-xs h-8 px-3 gap-1.5 whitespace-nowrap`}>
-                                        <a
-                                          href={pricingAction.href}
-                                          onClick={(event) => {
-                                            trackPricingRowActionClick({
-                                              row,
-                                              actionType: pricingAction.type,
-                                              destinationUrl: pricingAction.href,
-                                            })
-                                            if (!isCheckoutAction) {
-                                              event.preventDefault()
-                                              window.location.href = buildPricingInquiryMailtoUrl(language, row)
-                                            }
-                                          }}
-                                        >
-                                          {isCheckoutAction ? (
-                                            <CreditCard className="w-3.5 h-3.5" />
-                                          ) : (
-                                            <Mail className="w-3.5 h-3.5" />
-                                          )}
-                                          {pricingAction.label}
-                                        </a>
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+
+            <div className="mt-10 text-center">
+              <Button asChild className="btn-primary h-11 px-8 gap-2">
+                <a
+                  href={founderDemoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackDemoCtaClick("request_demo_process", "process", founderDemoUrl)}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  {t.bookDemo}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </Button>
+            </div>
+
             <p
               className="mt-12 text-center text-sm max-w-2xl mx-auto"
               style={{ color: "var(--color-text-secondary)" }}
@@ -1007,19 +1103,76 @@ export default function LandingPage() {
               {t.personalNote} &mdash;{" "}
               <span style={{ color: "var(--color-text)" }}>Remington</span>
             </p>
+
+            {/* Objection handling — stays inside the process section */}
+            <div className="mt-16 max-w-3xl mx-auto space-y-12">
+              <div>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-text)" }}>{t.whyNotCall}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.whyNotCallText}</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-text)" }}>{t.whyAgents}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.whyAgentsText}</p>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Why Not a Discovery Call */}
+        {/* Demo Kit Section */}
         <section className="py-16 md:py-24 px-4 md:px-8">
-          <div className="max-w-3xl mx-auto space-y-12">
-            <div>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-text)" }}>{t.whyNotCall}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.whyNotCallText}</p>
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <h2
+                className="text-2xl md:text-3xl font-semibold text-balance"
+                style={{ color: "var(--color-text)" }}
+              >
+                {t.demoKitHeadline}
+              </h2>
+              <p
+                className="mt-4 text-base md:text-lg max-w-xl mx-auto"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                {t.demoKitSubheadline}
+              </p>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4" style={{ color: "var(--color-text)" }}>{t.whyAgents}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.whyAgentsText}</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { icon: Phone, title: t.demoKitItem1Title, desc: t.demoKitItem1Desc },
+                { icon: TrendingUp, title: t.demoKitItem2Title, desc: t.demoKitItem2Desc },
+                { icon: FileText, title: t.demoKitItem3Title, desc: t.demoKitItem3Desc },
+                { icon: MessageCircle, title: t.demoKitItem4Title, desc: t.demoKitItem4Desc },
+              ].map((item, i) => (
+                <div key={i} className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
+                    >
+                      <item.icon className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{item.title}</h4>
+                      <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{item.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 text-center">
+              <Button asChild className="btn-primary h-11 px-8 gap-2">
+                <a
+                  href={founderDemoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackDemoCtaClick("request_demo_kit", "demo_kit", founderDemoUrl)}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  {t.demoKitCta}
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </Button>
             </div>
           </div>
         </section>
@@ -1036,92 +1189,25 @@ export default function LandingPage() {
             >
               {t.agentsEverywhereHeadline}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
-                >
-                  <Apple className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>iPhone</h4>
-                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.iphoneDesc}</p>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "iPhone") }}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {[
+                { icon: Apple, label: "iPhone", desc: t.iphoneDesc },
+                { icon: Monitor, label: "macOS", desc: t.macosDesc },
+                { icon: Laptop, label: "Windows", desc: t.windowsDesc },
+                { icon: Smartphone, label: "Android", desc: t.androidDesc },
+                { icon: Globe, label: "Web", desc: t.webAppDesc },
+              ].map((platform) => (
+                <div key={platform.label} className="flex flex-col items-center text-center">
+                  <div
+                    className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
+                    style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
                   >
-                    <Mail className="w-3 h-3" />
-                    {t.joinBeta}
-                  </button>
+                    <platform.icon className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
+                  </div>
+                  <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{platform.label}</h4>
+                  <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{platform.desc}</p>
                 </div>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
-                >
-                  <Monitor className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>macOS</h4>
-                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.macosDesc}</p>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "macOS") }}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                  >
-                    <Mail className="w-3 h-3" />
-                    {t.joinBeta}
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
-                >
-                  <Smartphone className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>Android</h4>
-                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.androidDesc}</p>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => { window.location.href = buildBetaSignupMailtoUrl(language, "Android") }}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                  >
-                    <Mail className="w-3 h-3" />
-                    {t.joinBeta}
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <div
-                  className="w-14 h-14 rounded-xl mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}
-                >
-                  <Globe className="w-7 h-7" style={{ color: "var(--color-accent)" }} />
-                </div>
-                <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>Web App</h4>
-                <p className="text-sm flex-1" style={{ color: "var(--color-text-secondary)" }}>{t.webAppDesc}</p>
-                <div className="mt-4">
-                  <a
-                    href="https://app.l4yercak3.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
-                    style={{ color: "var(--color-accent)", border: "1px solid var(--color-accent)", opacity: 0.85, background: "none" }}
-                  >
-                    <Globe className="w-3 h-3" />
-                    {t.openApp ?? "Open App"}
-                  </a>
-                </div>
-              </div>
+              ))}
             </div>
             <p className="mt-10 text-center text-sm" style={{ color: "var(--color-text-tertiary)" }}>{t.agentsEverywhereTagline}</p>
           </div>
@@ -1143,7 +1229,7 @@ export default function LandingPage() {
                   <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-secondary)" }}>{t.communicationChannels}</h4>
                 </div>
                 <div className="space-y-2">
-                  {["WhatsApp", "Slack", "Telegram", "SMS"].map((item) => (
+                  {["Telefon", "WhatsApp", "E-Mail", "SMS"].map((item) => (
                     <div key={item} className="flex items-center gap-2 text-sm" style={{ color: "var(--color-text)" }}>
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
                       {item}
@@ -1159,7 +1245,7 @@ export default function LandingPage() {
                   <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-secondary)" }}>{t.workspaceTools}</h4>
                 </div>
                 <div className="space-y-2">
-                  {["Microsoft 365", "Google Workspace", "GitHub", "Vercel"].map((item) => (
+                  {["Microsoft 365", "Google Workspace", "Google Calendar", "Outlook"].map((item) => (
                     <div key={item} className="flex items-center gap-2 text-sm" style={{ color: "var(--color-text)" }}>
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
                       {item}
@@ -1177,9 +1263,9 @@ export default function LandingPage() {
                 <div className="space-y-2">
                   {[
                     { name: "Zapier", soon: false },
-                    { name: "Make", soon: true },
-                    { name: "n8n", soon: true },
+                    { name: "Make", soon: false },
                     { name: "ActiveCampaign", soon: false },
+                    { name: "Calendly", soon: true },
                   ].map((item) => (
                     <div key={item.name} className="flex items-center gap-2 text-sm" style={{ color: "var(--color-text)" }}>
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.soon ? "var(--color-text-tertiary)" : "var(--color-accent)" }} />
@@ -1197,7 +1283,7 @@ export default function LandingPage() {
                   <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-secondary)" }}>{t.aiModels}</h4>
                 </div>
                 <div className="space-y-2">
-                  {["OpenAI", "Anthropic", "OpenRouter", "ElevenLabs"].map((item) => (
+                  {["Lexoffice", "sevDesk", "DATEV", "CRM-Systeme"].map((item) => (
                     <div key={item} className="flex items-center gap-2 text-sm" style={{ color: "var(--color-text)" }}>
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--color-accent)" }} />
                       {item}
@@ -1214,72 +1300,42 @@ export default function LandingPage() {
         <section className="py-16 md:py-24 px-4 md:px-8" style={{ backgroundColor: "var(--color-surface)" }}>
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Shield className="w-6 h-6" style={{ color: "var(--color-accent)" }} />
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-accent)" }}>Class 1 Privacy</span>
-              </div>
               <h2 className="text-2xl md:text-3xl font-semibold text-balance" style={{ color: "var(--color-text)" }}>{t.privacyHeadline}</h2>
               <p className="mt-4 text-base md:text-lg max-w-2xl mx-auto" style={{ color: "var(--color-text-secondary)" }}>{t.privacySubheadline}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Cloud */}
-              <div className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}>
-                    <Cloud className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{t.cloudOption}</h4>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.cloudOptionDesc}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Local Hardware */}
-              <div className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}>
-                    <Server className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{t.localOption}</h4>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.localOptionDesc}</p>
+              {[
+                { icon: Shield, title: t.cloudOption, desc: t.cloudOptionDesc },
+                { icon: Lock, title: t.localOption, desc: t.localOptionDesc },
+                { icon: Server, title: t.enterpriseOption, desc: t.enterpriseOptionDesc },
+                { icon: Cloud, title: t.bringYourOwn, desc: t.bringYourOwnDesc },
+              ].map((item, i) => (
+                <div key={i} className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}>
+                      <item.icon className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{item.title}</h4>
+                      <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{item.desc}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Enterprise GPU */}
-              <div className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}>
-                    <Cpu className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{t.enterpriseOption}</h4>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.enterpriseOptionDesc}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bring Your Own Model */}
-              <div className="p-6 rounded-lg" style={{ backgroundColor: "var(--color-bg)", border: "1px solid var(--color-border)" }}>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-accent-subtle)", border: "1px solid var(--color-border)" }}>
-                    <Lock className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2" style={{ color: "var(--color-text)" }}>{t.bringYourOwn}</h4>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>{t.bringYourOwnDesc}</p>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
             <p className="mt-10 text-center text-sm max-w-xl mx-auto" style={{ color: "var(--color-text-tertiary)" }}>{t.privacyTagline}</p>
           </div>
         </section>
       </main>
+
+      <LandingDemoCallModal
+        agent={selectedDemoAgent}
+        labels={demoCallModalLabels}
+        isOpen={Boolean(selectedDemoAgent)}
+        onClose={() => setSelectedDemoAgent(null)}
+      />
 
       <Footer language={language} />
     </div>

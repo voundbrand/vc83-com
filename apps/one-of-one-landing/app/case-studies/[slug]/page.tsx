@@ -21,7 +21,8 @@ import {
   Phone,
   Shield,
   CalendarDays as CalendarIcon,
-  TrendingUp,
+  FileText,
+  Scale,
   User,
 } from "lucide-react"
 import { trackLandingEvent } from "@/lib/analytics"
@@ -35,7 +36,8 @@ const CASE_STUDY_ICONS: Record<CaseStudySlug, typeof Phone> = {
   "marcus-engel": Phone,
   "lutz-splettstosser": Shield,
   "franziska-splettstosser": CalendarIcon,
-  "dirk-linke": TrendingUp,
+  "thomas-berger": FileText,
+  "kirsten-hoener-march": Scale,
 }
 
 
@@ -137,12 +139,7 @@ export default function CaseStudyPage() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher onChange={handleLanguageChange} />
             <ThemeToggle />
-            <Button asChild className="btn-primary text-xs h-8 px-4 hidden sm:inline-flex">
-              <Link href="/#diagnostic">
-                {lt.ctaButton}
-              </Link>
-            </Button>
-            <Button asChild className="btn-accent text-xs h-8 w-8 sm:w-auto sm:px-3">
+            <Button asChild className="btn-primary text-xs h-8 w-8 sm:w-auto sm:px-4">
               <a
                 href={founderDemoUrl}
                 target="_blank"
@@ -164,6 +161,11 @@ export default function CaseStudyPage() {
                 <CalendarDays className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{lt.bookDemoShort}</span>
               </a>
+            </Button>
+            <Button asChild className="btn-accent text-xs h-8 px-4 hidden sm:inline-flex">
+              <Link href="/#diagnostic">
+                {lt.ctaButton}
+              </Link>
             </Button>
           </div>
         </div>
