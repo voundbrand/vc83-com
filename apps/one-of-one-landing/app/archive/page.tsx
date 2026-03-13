@@ -24,7 +24,6 @@ import {
   Smartphone,
   Globe,
   Phone,
-  TrendingUp,
   MessageSquare,
   Mail,
   Zap,
@@ -39,6 +38,7 @@ import {
   CreditCard,
   Star,
   User,
+  FileText,
 } from "lucide-react"
 
 const FOUNDER_DEMO_URLS: Record<Language, string> = {
@@ -798,7 +798,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Dirk Linke */}
+              {/* Thomas Berger */}
               <div className="proof-block">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -810,30 +810,30 @@ export default function LandingPage() {
                         color: "var(--color-accent)",
                       }}
                     >
-                      DL
+                      TB
                     </div>
                     <div>
-                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Dirk Linke</p>
+                      <p className="font-semibold" style={{ color: "var(--color-text)" }}>Thomas Berger</p>
                       <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                        {t.dirkDesc}
+                        {t.thomasDesc}
                       </p>
                     </div>
                   </div>
-                  <TrendingUp className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
+                  <FileText className="w-5 h-5 shrink-0 ml-2" style={{ color: "var(--color-accent)" }} />
                 </div>
                 <div className="flex items-center gap-6">
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric1Label}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric1Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>~20</span>{" "}
-                      <span className="font-semibold">&rarr; 200+</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric1Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.thomasMetric1After}</span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.dirkMetric2Label}</p>
+                    <p className="text-xs uppercase tracking-wide" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric2Label}</p>
                     <p style={{ color: "var(--color-text)" }}>
-                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>4+ hrs</span>{" "}
-                      <span className="font-semibold">&rarr; 15 min</span>
+                      <span className="line-through" style={{ color: "var(--color-text-tertiary)" }}>{t.thomasMetric2Before}</span>{" "}
+                      <span className="font-semibold">&rarr; {t.thomasMetric2After}</span>
                     </p>
                   </div>
                 </div>
@@ -841,18 +841,18 @@ export default function LandingPage() {
                   type="button"
                   className="mt-3 flex items-center gap-1.5 text-xs transition-colors"
                   style={{ color: "var(--color-text-secondary)" }}
-                  onClick={() => toggleProof("dirk")}
+                  onClick={() => toggleProof("thomas")}
                 >
-                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("dirk") ? "rotate-90" : ""}`} />
-                  {expandedProofs.includes("dirk") ? t.readLess : t.readMore}
+                  <ArrowRight className={`w-3.5 h-3.5 transition-transform ${expandedProofs.includes("thomas") ? "rotate-90" : ""}`} />
+                  {expandedProofs.includes("thomas") ? t.readLess : t.readMore}
                 </button>
-                {expandedProofs.includes("dirk") && (
+                {expandedProofs.includes("thomas") && (
                   <div>
                     <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
-                      {t.dirkDetail}
+                      {t.thomasDetail}
                     </p>
                     <Link
-                      href="/case-studies/dirk-linke"
+                      href="/case-studies/thomas-berger"
                       className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                       style={{ color: "var(--color-accent)" }}
                     >

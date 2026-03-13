@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { X } from "lucide-react"
 
 const STORAGE_KEY = "ooo_cookie_banner_dismissed"
@@ -10,27 +10,17 @@ const copy = {
     title: "Legally-required cookie banner",
     line1: "sevenlayers.io doesn't use third-party cookies, only a single in-house cookie.",
     line2: "No data is sent to a third party.",
-    line3Pre: "(",
-    line3Name: "Ursula von der Leyen",
-    line3Post: " would be so proud.)",
-    tooltip: "Ursula von der Leyen is the President of the European Commission \u2013 NOT to be confused with Hillary Clinton.",
   },
   de: {
     title: "Gesetzlich vorgeschriebenes Cookie-Banner",
     line1: "sevenlayers.io verwendet keine Drittanbieter-Cookies, sondern nur ein einziges eigenes Cookie.",
     line2: "Es werden keine Daten an Dritte weitergegeben.",
-    line3Pre: "(",
-    line3Name: "Ursula von der Leyen",
-    line3Post: " wäre so stolz.)",
-    tooltip: "Ursula von der Leyen ist die Präsidentin der Europäischen Kommission \u2013 NICHT zu verwechseln mit Hillary Clinton.",
   },
 }
 
 export function CookieBanner() {
   const [show, setShow] = useState(false)
   const [lang, setLang] = useState<"en" | "de">("en")
-  const [tooltipOpen, setTooltipOpen] = useState(false)
-  const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     try {
@@ -96,35 +86,6 @@ export function CookieBanner() {
       </p>
       <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--color-text-secondary)" }}>
         {t.line2}
-      </p>
-      <p className="text-xs leading-relaxed mt-1 relative" style={{ color: "var(--color-text-tertiary)" }}>
-        {t.line3Pre}
-        <span
-          className="underline decoration-dotted cursor-help"
-          style={{ color: "var(--color-text-secondary)" }}
-          onMouseEnter={() => {
-            tooltipTimeout.current = setTimeout(() => setTooltipOpen(true), 300)
-          }}
-          onMouseLeave={() => {
-            if (tooltipTimeout.current) clearTimeout(tooltipTimeout.current)
-            setTooltipOpen(false)
-          }}
-        >
-          {t.line3Name}
-        </span>
-        {t.line3Post}
-        {tooltipOpen && (
-          <span
-            className="absolute bottom-full right-0 mb-2 w-64 rounded-lg border p-3 text-xs leading-relaxed shadow-md cookie-banner-enter"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            {t.tooltip}
-          </span>
-        )}
       </p>
     </div>
   )

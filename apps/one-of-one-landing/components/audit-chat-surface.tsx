@@ -15,8 +15,13 @@ import { resolveLandingEntrypointLatencyMs, trackLandingEvent } from "../lib/ana
 import type { Language } from "./language-switcher";
 
 const STARTER_MESSAGES: Record<Language, string> = {
-  en: "I can run your seven-minute agent audit now. Start with what your business does and your rough revenue range.",
-  de: "Ich kann jetzt Ihren siebenmin\u00FCtigen Agenten-Audit starten. Beginnen Sie mit Ihrem Gesch\u00E4ftsmodell und Ihrer ungef\u00E4hren Umsatzspanne.",
+  en: "I help businesses figure out where an assistant would take the most pressure off their team. Tell me what your business does and I\u2019ll show you which one fits.",
+  de: "Ich helfe Unternehmen herauszufinden, wo ein Assistent ihr Team am meisten entlasten w\u00FCrde. Erz\u00E4hlen Sie mir, was Ihr Unternehmen macht \u2014 und ich zeige Ihnen, welcher passt.",
+};
+
+const CHAT_UI: Record<Language, { subtitle: string; placeholder: string; send: string }> = {
+  en: { subtitle: "Business diagnostic \u00B7 5 minutes", placeholder: "Your answer\u2026", send: "Send" },
+  de: { subtitle: "Unternehmens-Diagnose \u00B7 5 Minuten", placeholder: "Ihre Antwort\u2026", send: "Senden" },
 };
 
 function buildStarterMessage(language: Language): LandingAuditMessage {
@@ -279,6 +284,7 @@ function renderAssistantContent(content: string): ReactNode {
 export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLanguage?: Language }) {
   const runtimeConfig = useMemo(() => resolveLandingAuditRuntimeConfig(), []);
   const activeLanguage = useMemo(() => resolveStarterLanguage(preferredLanguage), [preferredLanguage]);
+  const ui = CHAT_UI[activeLanguage] || CHAT_UI.en;
   const [messages, setMessages] = useState<LandingAuditMessage[]>([]);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
@@ -441,7 +447,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
             Samantha
           </p>
           <p className="text-xs" style={{ color: "var(--color-text-tertiary)" }}>
-            Private AI audit &middot; 7 minutes
+            {ui.subtitle}
           </p>
         </div>
       </div>
@@ -523,7 +529,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Type your response..."
+          placeholder={ui.placeholder}
           disabled={isSending}
           className="chat-input flex-1 px-3 py-2 text-base md:text-sm"
         />
@@ -533,7 +539,7 @@ export function AuditChatSurface({ preferredLanguage = "en" }: { preferredLangua
           className="btn-accent px-3 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
         >
           <Send className="w-4 h-4" />
-          Send
+          {ui.send}
         </button>
       </form>
 

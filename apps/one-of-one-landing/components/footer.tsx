@@ -99,12 +99,12 @@ export function Footer({ language = "en" }: FooterProps) {
             >
               {t.product}
             </h4>
-            <nav className="flex flex-col gap-2">
+            <nav className="flex flex-col gap-0.5">
               {productLinkKeys.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-xs transition-colors hover:underline"
+                  className="text-xs transition-colors hover:underline py-1"
                   style={{ color: "var(--color-text-tertiary)" }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = "var(--color-text)"
@@ -127,12 +127,12 @@ export function Footer({ language = "en" }: FooterProps) {
             >
               {t.legal}
             </h4>
-            <nav className="flex flex-col gap-2">
+            <nav className="flex flex-col gap-0.5">
               {legalLinkKeys.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-xs transition-colors hover:underline"
+                  className="text-xs transition-colors hover:underline py-1"
                   style={{ color: "var(--color-text-tertiary)" }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = "var(--color-text)"
@@ -163,7 +163,7 @@ export function Footer({ language = "en" }: FooterProps) {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={social.label}
-                  className="p-2 rounded-lg transition-colors"
+                  className="p-2.5 rounded-lg transition-colors"
                   style={{
                     backgroundColor: "var(--color-surface-hover)",
                     color: "var(--color-text-secondary)",
