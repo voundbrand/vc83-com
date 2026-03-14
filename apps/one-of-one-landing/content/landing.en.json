@@ -293,5 +293,24 @@
   "demoCallModalCallNow": "Call the demo line",
   "demoCallModalReset": "Use a different number",
   "demoCallModalClose": "Close",
-  "demoCallModalError": "We could not prepare the demo call. Please try again."
+  "demoCallModalError": "We could not prepare the demo call. Please try again.",
+
+  "agentSectionOperatorEyebrow": "Your operator",
+  "agentSectionFrontlineHeadline": "Her frontline team",
+  "agentSectionFrontlineSubline": "The specialists Clara coordinates to handle your calls, appointments, leads, and follow-ups.",
+  "agentSectionSpecialistToggleShow": "See the full team",
+  "agentSectionSpecialistToggleHide": "Show fewer",
+  "agentSectionSpecialistHeadline": "Behind the scenes",
+  "agentSectionSpecialistSubline": "The back-office layer that keeps operations running across every location.",
+
+  "agentVoiceIntroLabel": "Hear my voice",
+  "agentVoiceIntroPlayingLabel": "Playing...",
+
+  "agent1VoiceIntroScript": "Hi, I'm Clara — your AI receptionist. This call may be recorded and shared with our service providers. I'm here to take your calls, route you to the right specialist, and make sure nothing gets missed.",
+  "agent2VoiceIntroScript": "Hi, I'm Maren. I coordinate appointments across all your locations — booking, rescheduling, no-show recovery. Tell me what you need and I'll find the best slot.",
+  "agent3VoiceIntroScript": "Hi, I'm Jonas. I qualify your inbound leads so your sales team only talks to real opportunities. Describe an inquiry and I'll walk you through the process.",
+  "agent4VoiceIntroScript": "Hi, I'm Tobias. I turn rough field notes into structured, quote-ready documentation — no typing required. Just describe the job and I'll draft it.",
+  "agent5VoiceIntroScript": "Hi, I'm Lina. I handle your follow-ups after appointments, open quotes, and service visits — so nothing falls through the cracks. Let me show you how that sounds.",
+  "agent6VoiceIntroScript": "Hi, I'm Kai. When someone calls in sick at 6 AM, the shift is covered by 6:05. I coordinate vacation planning, escalations, and handoffs through one assistant instead of scattered WhatsApp groups.",
+  "agent7VoiceIntroScript": "Hi, I'm Nora. I turn your location data into clear insight — what's happening, why, and what to do next. Let me show you with an example."
 }

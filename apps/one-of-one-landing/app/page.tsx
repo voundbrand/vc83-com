@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
 import { AuditChatSurface } from "@/components/audit-chat-surface"
 
@@ -35,6 +35,9 @@ import {
   CalendarDays,
   CalendarCheck,
   ArrowRight,
+  ChevronDown,
+  Play,
+  Pause,
   Star,
   User,
   Users,
@@ -52,69 +55,6 @@ const FOUNDER_DEMO_URLS: Record<Language, string> = {
   de: "https://cal.com/voundbrand/sevenlayers-demo-de",
 }
 const DIAGNOSTIC_SECTION_ID = "diagnostic"
-const REMINGTON_EMAIL = "remington@sevenlayers.io"
-
-type BetaPlatform = "iPhone" | "macOS" | "Android"
-
-const BETA_EMAIL_TEMPLATES: Record<Language, {
-  subjectPrefix: string;
-  greeting: string;
-  intro: string;
-  platformLabel: string;
-  sourceLabel: string;
-  timestampLabel: string;
-  closeLine: string;
-  signoff: string;
-}> = {
-  en: {
-    subjectPrefix: "Beta Tester Signup",
-    greeting: "Hi Remington,",
-    intro: "I would like to sign up as a beta tester for the sevenlayers native app:",
-    platformLabel: "Platform",
-    sourceLabel: "Source",
-    timestampLabel: "Timestamp",
-    closeLine: "Please let me know when the beta is available and how to get access.",
-    signoff: "Best regards,",
-  },
-  de: {
-    subjectPrefix: "Beta-Tester Anmeldung",
-    greeting: "Hallo Remington,",
-    intro: "ich möchte mich als Beta-Tester für die native sevenlayers-App anmelden:",
-    platformLabel: "Plattform",
-    sourceLabel: "Quelle",
-    timestampLabel: "Zeitstempel",
-    closeLine: "Bitte informieren Sie mich, wenn die Beta verfügbar ist und wie ich Zugang erhalte.",
-    signoff: "Viele Grüße,",
-  },
-}
-
-function buildBetaSignupMailtoUrl(language: Language, platform: BetaPlatform): string {
-  const template = BETA_EMAIL_TEMPLATES[language]
-  const timestampDate = new Date()
-  const localizedTimestamp = timestampDate.toLocaleString(language === "de" ? "de-DE" : "en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })
-  const timestamp = `${localizedTimestamp} (${timestampDate.toISOString()})`
-  const subject = `${template.subjectPrefix}: ${platform}`
-  const body = [
-    template.greeting,
-    "",
-    template.intro,
-    "",
-    `${template.platformLabel}: ${platform}`,
-    `${template.sourceLabel}: one_of_one_landing`,
-    `${template.timestampLabel}: ${timestamp}`,
-    "",
-    template.closeLine,
-    "",
-    template.signoff,
-  ].join("\r\n")
-
-  const encodedSubject = encodeURIComponent(subject)
-  const encodedBody = encodeURIComponent(body)
-  return `mailto:${REMINGTON_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`
-}
 
 export default function LandingPage() {
   const [language, setLanguage] = useState<Language>("en")
@@ -124,7 +64,13 @@ export default function LandingPage() {
   const [founderAvatarUrl, setFounderAvatarUrl] = useState<string | null>(null)
   const [expandedProofs, setExpandedProofs] = useState<string[]>([])
   const [expandedAgents, setExpandedAgents] = useState<number[]>([])
+  const [activeFrontlineIndex, setActiveFrontlineIndex] = useState<number | null>(null)
+  const [showSpecialists, setShowSpecialists] = useState(false)
   const [selectedDemoAgent, setSelectedDemoAgent] = useState<AgentTileData | null>(null)
+  const [playingAgentKey, setPlayingAgentKey] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const voiceIntroObjectUrlCacheRef = useRef<Record<string, string>>({})
+  const voiceIntroRequestIdRef = useRef(0)
   const legacyPublicCutoverMode = resolveLegacyPublicCutoverMode()
 
   const handleLanguageChange = useCallback((lang: Language) => {
@@ -184,6 +130,133 @@ export default function LandingPage() {
         : [...current, index]
     ))
   }, [])
+
+  const toggleFrontlineAgent = useCallback((index: number) => {
+    setActiveFrontlineIndex((current) => (current === index ? null : index))
+  }, [])
+
+  const getVoiceIntroCacheKey = useCallback(
+    (agentKey: string) => `${agentKey}:${language}`,
+    [language],
+  )
+
+  const handlePlayVoice = useCallback(
+    async (agentKey: string) => {
+      try {
+        // If already playing this agent, stop
+        if (playingAgentKey === agentKey) {
+          voiceIntroRequestIdRef.current += 1
+          audioRef.current?.pause()
+          audioRef.current = null
+          setPlayingAgentKey(null)
+          return
+        }
+
+        // Stop any current playback
+        if (audioRef.current) {
+          audioRef.current.pause()
+          audioRef.current = null
+        }
+
+        const requestId = voiceIntroRequestIdRef.current + 1
+        voiceIntroRequestIdRef.current = requestId
+
+        const cacheKey = getVoiceIntroCacheKey(agentKey)
+        let objectUrl = voiceIntroObjectUrlCacheRef.current[cacheKey] || null
+        if (!objectUrl) {
+          const response = await fetch(
+            `/api/voice-intro?agentKey=${encodeURIComponent(agentKey)}&language=${encodeURIComponent(language)}`,
+            {
+              method: "GET",
+              cache: "force-cache",
+            },
+          )
+          if (!response.ok) {
+            throw new Error("Unable to load voice intro.")
+          }
+
+          const contentType = response.headers.get("content-type") || ""
+          if (!contentType.startsWith("audio/")) {
+            throw new Error("Voice intro did not return playable audio.")
+          }
+
+          const audioBlob = await response.blob()
+          objectUrl = URL.createObjectURL(audioBlob)
+          voiceIntroObjectUrlCacheRef.current[cacheKey] = objectUrl
+        }
+
+        if (voiceIntroRequestIdRef.current !== requestId || !objectUrl) {
+          return
+        }
+
+        const audio = new Audio(objectUrl)
+        audioRef.current = audio
+        setPlayingAgentKey(agentKey)
+
+        audio.addEventListener("ended", () => {
+          setPlayingAgentKey(null)
+          audioRef.current = null
+        })
+
+        audio.addEventListener("error", () => {
+          setPlayingAgentKey(null)
+          audioRef.current = null
+        })
+
+        await audio.play()
+
+        trackLandingEvent({
+          eventName: "onboarding.funnel.activation",
+          metadata: {
+            ctaId: "agent_voice_intro",
+            ctaGroup: "voice_intro",
+            ctaPlacement: "agent_tile",
+            agentKey,
+            language,
+          },
+        })
+      } catch (error) {
+        console.error("[LandingVoiceIntro] Unable to play voice intro:", error)
+        if (audioRef.current) {
+          audioRef.current.pause()
+          audioRef.current = null
+        }
+        setPlayingAgentKey(null)
+      }
+    },
+    [getVoiceIntroCacheKey, language, playingAgentKey],
+  )
+
+  // Stop audio when language changes
+  useEffect(() => {
+    voiceIntroRequestIdRef.current += 1
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+      setPlayingAgentKey(null)
+    }
+
+    return () => {
+      Object.values(voiceIntroObjectUrlCacheRef.current).forEach((objectUrl) => {
+        URL.revokeObjectURL(objectUrl)
+      })
+      voiceIntroObjectUrlCacheRef.current = {}
+    }
+  }, [language])
+
+  useEffect(() => (
+    () => {
+      voiceIntroRequestIdRef.current += 1
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      Object.values(voiceIntroObjectUrlCacheRef.current).forEach((objectUrl) => {
+        URL.revokeObjectURL(objectUrl)
+      })
+      voiceIntroObjectUrlCacheRef.current = {}
+    }
+  ), [])
 
   const handleAgentPhoneCtaClick = useCallback((agent: AgentTileData) => {
     trackLandingEvent({
@@ -263,6 +336,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000001"),
       phoneCta: t.agent1PhoneCta,
+      voiceIntroScript: t.agent1VoiceIntroScript,
     },
     {
       agentKey: "maren",
@@ -286,6 +360,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000002"),
       phoneCta: t.agent2PhoneCta,
+      voiceIntroScript: t.agent2VoiceIntroScript,
     },
     {
       agentKey: "jonas",
@@ -308,6 +383,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000003"),
       phoneCta: t.agent3PhoneCta,
+      voiceIntroScript: t.agent3VoiceIntroScript,
     },
     {
       agentKey: "tobias",
@@ -329,6 +405,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000004"),
       phoneCta: t.agent4PhoneCta,
+      voiceIntroScript: t.agent4VoiceIntroScript,
     },
     {
       agentKey: "lina",
@@ -351,6 +428,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000005"),
       phoneCta: t.agent5PhoneCta,
+      voiceIntroScript: t.agent5VoiceIntroScript,
     },
     {
       agentKey: "kai",
@@ -372,6 +450,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000006"),
       phoneCta: t.agent6PhoneCta,
+      voiceIntroScript: t.agent6VoiceIntroScript,
     },
     {
       agentKey: "nora",
@@ -393,6 +472,7 @@ export default function LandingPage() {
       ],
       phoneNumber: resolveDemoPhoneNumber("+49 000 0000007"),
       phoneCta: t.agent7PhoneCta,
+      voiceIntroScript: t.agent7VoiceIntroScript,
     },
   ]
 
@@ -548,7 +628,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Section 3: The Seven Agents — Alternating Tiles */}
+        {/* Section 3: Clara + Agent Team — Tiered Layout */}
         <section className="py-16 md:py-24 px-4 md:px-8">
           <div className="max-w-5xl mx-auto">
             <h2
@@ -564,17 +644,227 @@ export default function LandingPage() {
               {t.shift2}
             </p>
 
-            <div className="space-y-4">
-              {agents.map((agent, i) => (
+            {/* Clara — featured operator tile */}
+            <div className="mb-10">
+              <p
+                className="text-xs font-semibold uppercase tracking-widest mb-3"
+                style={{ color: "var(--color-accent)" }}
+              >
+                {t.agentSectionOperatorEyebrow}
+              </p>
+              <div
+                className="rounded-lg"
+                style={{ border: "2px solid var(--color-accent)", boxShadow: "0 0 0 1px var(--color-accent-subtle)" }}
+              >
                 <AgentTileExpanded
-                  key={i}
-                  agent={agent}
+                  agent={agents[0]}
                   labels={agentTileLabels}
-                  isExpanded={expandedAgents.includes(i)}
-                  onToggle={() => toggleAgent(i)}
+                  isExpanded={expandedAgents.includes(0)}
+                  onToggle={() => toggleAgent(0)}
                   onPhoneCtaClick={handleAgentPhoneCtaClick}
+                  voiceIntroLabel={playingAgentKey === agents[0].agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
+                  isPlayingVoice={playingAgentKey === agents[0].agentKey}
+                  onPlayVoice={() => void handlePlayVoice(agents[0].agentKey)}
                 />
-              ))}
+              </div>
+            </div>
+
+            {/* Frontline team — compact card grid */}
+            <div className="mb-10">
+              <h3
+                className="text-lg md:text-xl font-semibold mb-2"
+                style={{ color: "var(--color-text)" }}
+              >
+                {t.agentSectionFrontlineHeadline}
+              </h3>
+              <p
+                className="text-sm mb-6"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                {t.agentSectionFrontlineSubline}
+              </p>
+
+              {/* 3-column compact cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {agents.slice(1, 4).map((agent, offset) => {
+                  const i = offset + 1
+                  const isActive = activeFrontlineIndex === i
+                  return (
+                    <div
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      className="proof-block p-5 text-left transition-all cursor-pointer"
+                      style={{
+                        border: isActive ? "2px solid var(--color-accent)" : undefined,
+                        outline: "none",
+                      }}
+                      onClick={() => toggleFrontlineAgent(i)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFrontlineAgent(i) } }}
+                    >
+                      {/* Avatar + play button row */}
+                      <div className="flex items-start justify-between mb-3">
+                        {agent.avatarSrc ? (
+                          <div
+                            className="w-12 h-12 rounded-full overflow-hidden border-2"
+                            style={{ borderColor: agent.avatarColor }}
+                          >
+                            <Image
+                              src={agent.avatarSrc}
+                              alt={agent.personaName}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                            style={{ backgroundColor: agent.avatarColor }}
+                          >
+                            {agent.personaName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0"
+                          style={{
+                            backgroundColor: "var(--btn-secondary-bg)",
+                            color: "var(--btn-secondary-text)",
+                            border: "1px solid var(--btn-secondary-border)",
+                          }}
+                          aria-label={playingAgentKey === agent.agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void handlePlayVoice(agent.agentKey)
+                          }}
+                        >
+                          {playingAgentKey === agent.agentKey ? (
+                            <Pause className="w-3.5 h-3.5" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      {/* Type label */}
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <agent.icon className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-accent)" }} />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--color-accent)" }}>
+                          {agent.name}
+                        </span>
+                      </div>
+                      {/* Name + headline */}
+                      <h4 className="text-sm font-bold mb-1" style={{ color: "var(--color-text)" }}>
+                        {agent.personaName}
+                      </h4>
+                      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--color-text-secondary)" }}>
+                        {agent.headline}
+                      </p>
+                      {/* Metric */}
+                      <p className="text-xs font-bold" style={{ color: "var(--color-accent)" }}>
+                        {agent.metric}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Expanded tile below the grid */}
+              {activeFrontlineIndex !== null && agents[activeFrontlineIndex] && (
+                <div className="mt-4">
+                  <AgentTileExpanded
+                    agent={agents[activeFrontlineIndex]}
+                    labels={agentTileLabels}
+                    isExpanded={expandedAgents.includes(activeFrontlineIndex)}
+                    onToggle={() => toggleAgent(activeFrontlineIndex)}
+                    onPhoneCtaClick={handleAgentPhoneCtaClick}
+                    voiceIntroLabel={playingAgentKey === agents[activeFrontlineIndex].agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
+                    isPlayingVoice={playingAgentKey === agents[activeFrontlineIndex].agentKey}
+                    onPlayVoice={() => void handlePlayVoice(agents[activeFrontlineIndex].agentKey)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Specialist layer — Tobias, Kai, Nora */}
+            <div>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between py-4 px-1 transition-colors cursor-pointer group"
+                onClick={() => setShowSpecialists((v) => !v)}
+              >
+                <div>
+                  <h3
+                    className="text-lg md:text-xl font-semibold text-left"
+                    style={{ color: "var(--color-text)" }}
+                  >
+                    {t.agentSectionSpecialistHeadline}
+                  </h3>
+                  <p
+                    className="text-sm text-left mt-0.5"
+                    style={{ color: "var(--color-text-secondary)" }}
+                  >
+                    {t.agentSectionSpecialistSubline}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  {/* Avatar previews */}
+                  <div className="hidden sm:flex items-center -space-x-2">
+                    {agents.slice(4).map((agent) => (
+                      agent.avatarSrc ? (
+                        <div
+                          key={agent.agentKey}
+                          className="w-7 h-7 rounded-full overflow-hidden border-2 bg-[var(--color-bg)]"
+                          style={{ borderColor: "var(--color-border)" }}
+                        >
+                          <Image
+                            src={agent.avatarSrc}
+                            alt={agent.personaName}
+                            width={28}
+                            height={28}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          key={agent.agentKey}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white border-2"
+                          style={{ backgroundColor: agent.avatarColor, borderColor: "var(--color-bg)" }}
+                        >
+                          {agent.personaName.charAt(0)}
+                        </div>
+                      )
+                    ))}
+                  </div>
+                  <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                    {showSpecialists ? t.agentSectionSpecialistToggleHide : t.agentSectionSpecialistToggleShow}
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${showSpecialists ? "rotate-180" : ""}`}
+                    />
+                  </span>
+                </div>
+              </button>
+
+              {showSpecialists && (
+                <div className="space-y-4 mt-4">
+                  {agents.slice(4).map((agent, offset) => {
+                    const i = offset + 4
+                    return (
+                      <AgentTileExpanded
+                        key={i}
+                        agent={agent}
+                        labels={agentTileLabels}
+                        isExpanded={expandedAgents.includes(i)}
+                        onToggle={() => toggleAgent(i)}
+                        onPhoneCtaClick={handleAgentPhoneCtaClick}
+                        voiceIntroLabel={playingAgentKey === agent.agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
+                        isPlayingVoice={playingAgentKey === agent.agentKey}
+                        onPlayVoice={() => void handlePlayVoice(agent.agentKey)}
+                      />
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>

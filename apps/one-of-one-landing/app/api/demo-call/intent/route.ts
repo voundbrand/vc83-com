@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
-import { internal as generatedInternalApi } from "../../../../../../convex/_generated/api";
 import {
   LANDING_DEMO_CALL_INTENT_OBJECT_TYPE,
   LANDING_DEMO_CALL_INTENT_TTL_MS,
@@ -17,6 +16,11 @@ import {
   mutateInternal,
   queryInternal,
 } from "@/lib/server-convex";
+
+// Dynamic require avoids excessively deep Convex API type instantiation in this route.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedInternalApi: any =
+  require("../../../../../../convex/_generated/api").internal;
 
 type CreateLandingDemoCallIntentRequest = {
   callerPhone?: string;

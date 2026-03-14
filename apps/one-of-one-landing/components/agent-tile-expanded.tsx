@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { type LucideIcon, ArrowRight, Phone, MessageCircle, Mail, MessageSquare, Globe, Smartphone } from "lucide-react"
+import { type LucideIcon, ArrowRight, Phone, Play, Pause, MessageCircle, Mail, MessageSquare, Globe, Smartphone } from "lucide-react"
 import { SUPPORTED_LANGUAGES, PRIMARY_LANGUAGE_CODES } from "@/lib/voice-catalog"
 
 type AgentChannel = {
@@ -27,6 +27,7 @@ type AgentTileData = {
   channels: AgentChannel[]
   phoneNumber?: string
   phoneCta?: string
+  voiceIntroScript?: string
 }
 
 type AgentTileLabels = {
@@ -53,12 +54,18 @@ export function AgentTileExpanded({
   isExpanded,
   onToggle,
   onPhoneCtaClick,
+  voiceIntroLabel,
+  isPlayingVoice,
+  onPlayVoice,
 }: {
   agent: AgentTileData
   labels: AgentTileLabels
   isExpanded: boolean
   onToggle: () => void
   onPhoneCtaClick?: (agent: AgentTileData) => void
+  voiceIntroLabel?: string
+  isPlayingVoice?: boolean
+  onPlayVoice?: () => void
 }) {
   const [showAllLanguages, setShowAllLanguages] = useState(false)
 
@@ -135,35 +142,53 @@ export function AgentTileExpanded({
           </button>
         </div>
 
-        {/* Phone CTA — right side of header */}
-        {agent.phoneNumber && agent.phoneCta && (
+        {/* CTA column — right side of header */}
+        {(agent.phoneNumber && agent.phoneCta) || onPlayVoice ? (
           <div className="shrink-0 flex flex-col items-center gap-1.5 w-full md:w-auto">
-            {onPhoneCtaClick ? (
+            {agent.phoneNumber && agent.phoneCta && (
+              <>
+                {onPhoneCtaClick ? (
+                  <button
+                    type="button"
+                    className="phone-cta-pill w-full md:w-auto"
+                    onClick={() => onPhoneCtaClick(agent)}
+                  >
+                    <Phone className="w-4 h-4" />
+                    {agent.phoneCta}
+                  </button>
+                ) : (
+                  <a
+                    href={`tel:${agent.phoneNumber.replace(/\s/g, "")}`}
+                    className="phone-cta-pill w-full md:w-auto"
+                  >
+                    <Phone className="w-4 h-4" />
+                    {agent.phoneCta}
+                  </a>
+                )}
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--color-success)" }}
+                >
+                  {labels.phoneAvailableLabel}
+                </span>
+              </>
+            )}
+            {onPlayVoice && voiceIntroLabel && (
               <button
                 type="button"
-                className="phone-cta-pill w-full md:w-auto"
-                onClick={() => onPhoneCtaClick(agent)}
+                className="voice-intro-pill w-full md:w-auto mt-1"
+                onClick={onPlayVoice}
               >
-                <Phone className="w-4 h-4" />
-                {agent.phoneCta}
+                {isPlayingVoice ? (
+                  <Pause className="w-3.5 h-3.5" />
+                ) : (
+                  <Play className="w-3.5 h-3.5" />
+                )}
+                {voiceIntroLabel}
               </button>
-            ) : (
-              <a
-                href={`tel:${agent.phoneNumber.replace(/\s/g, "")}`}
-                className="phone-cta-pill w-full md:w-auto"
-              >
-                <Phone className="w-4 h-4" />
-                {agent.phoneCta}
-              </a>
             )}
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: "var(--color-success)" }}
-            >
-              {labels.phoneAvailableLabel}
-            </span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Accordion content */}

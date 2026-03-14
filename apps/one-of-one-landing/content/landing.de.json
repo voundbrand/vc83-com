@@ -293,5 +293,24 @@
   "demoCallModalCallNow": "Demo-Leitung anrufen",
   "demoCallModalReset": "Andere Nummer verwenden",
   "demoCallModalClose": "Schließen",
-  "demoCallModalError": "Der Demo-Anruf konnte nicht vorbereitet werden. Bitte versuchen Sie es erneut."
+  "demoCallModalError": "Der Demo-Anruf konnte nicht vorbereitet werden. Bitte versuchen Sie es erneut.",
+
+  "agentSectionOperatorEyebrow": "Ihre Operatorin",
+  "agentSectionFrontlineHeadline": "Ihr Frontline-Team",
+  "agentSectionFrontlineSubline": "Die Spezialisten, die Clara koordiniert — für Ihre Anrufe, Termine, Leads und Nachverfolgung.",
+  "agentSectionSpecialistToggleShow": "Das ganze Team sehen",
+  "agentSectionSpecialistToggleHide": "Weniger anzeigen",
+  "agentSectionSpecialistHeadline": "Im Hintergrund",
+  "agentSectionSpecialistSubline": "Die Operations-Ebene, die den Betrieb an jedem Standort am Laufen hält.",
+
+  "agentVoiceIntroLabel": "Meine Stimme hören",
+  "agentVoiceIntroPlayingLabel": "Wird abgespielt...",
+
+  "agent1VoiceIntroScript": "Hallo, ich bin Clara — Ihre KI-Rezeptionistin. Dieses Gespräch kann aufgezeichnet und an unsere Dienstleister weitergegeben werden. Ich nehme Ihre Anrufe entgegen, leite Sie an den richtigen Spezialisten weiter und sorge dafür, dass nichts verloren geht.",
+  "agent2VoiceIntroScript": "Hallo, ich bin Maren. Ich koordiniere Termine über alle Ihre Standorte — Buchung, Umplanung, Ausfallnachverfolgung. Sagen Sie mir, was Sie brauchen, und ich finde den besten Termin.",
+  "agent3VoiceIntroScript": "Hallo, ich bin Jonas. Ich qualifiziere Ihre eingehenden Anfragen, damit Ihr Vertrieb nur mit echten Chancen spricht. Beschreiben Sie eine Anfrage und ich zeige Ihnen den Ablauf.",
+  "agent4VoiceIntroScript": "Hallo, ich bin Tobias. Ich mache aus groben Notizen vom Einsatzort strukturierte, angebotsfertige Dokumentation — ganz ohne Tippen. Beschreiben Sie einfach den Auftrag.",
+  "agent5VoiceIntroScript": "Hallo, ich bin Lina. Ich übernehme Ihre Nachverfolgung nach Terminen, offenen Angeboten und Serviceeinsätzen — damit nichts untergeht. Ich zeige Ihnen, wie das klingt.",
+  "agent6VoiceIntroScript": "Hallo, ich bin Kai. Wenn sich um 6 Uhr jemand krankmeldet, ist die Schicht um 6:05 besetzt. Ich koordiniere Urlaubsplanung, Eskalationen und Übergaben über einen Assistenten statt über verstreute WhatsApp-Gruppen.",
+  "agent7VoiceIntroScript": "Hallo, ich bin Nora. Ich verwandle Ihre Standortdaten in klare Handlungsempfehlungen — was passiert, warum, und was als Nächstes zu tun ist."
 }

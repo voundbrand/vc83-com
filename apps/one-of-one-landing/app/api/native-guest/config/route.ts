@@ -8,7 +8,10 @@ import type {
   FunctionReturnType,
 } from "convex/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
-import { internal as generatedInternalApi } from "../../../../../../convex/_generated/api";
+// Dynamic require avoids excessively deep Convex API type instantiation in this route.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedInternalApi: any =
+  require("../../../../../../convex/_generated/api").internal;
 
 interface NativeGuestActiveAgentCandidate {
   _id: string;
