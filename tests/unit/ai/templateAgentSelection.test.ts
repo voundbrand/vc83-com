@@ -15,7 +15,7 @@ describe("selectOnboardingTemplateAgent", () => {
         _id: "template_event",
         name: "Event Architect Template",
         status: "template",
-        customProperties: { protected: true, templateRole: "event_experience_architect_template" },
+        customProperties: { protected: true, templateRole: "personal_life_operator_template" },
       },
       {
         _id: "template_quinn",

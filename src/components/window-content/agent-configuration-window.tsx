@@ -44,8 +44,10 @@ import {
 // ============================================================================
 
 type TabType = "agents" | "create" | "activity" | "approvals";
+type AgentClass = "internal_operator" | "external_customer_facing";
 
 interface AgentCustomProps {
+  agentClass?: AgentClass;
   displayName?: string;
   personality?: string;
   language?: string;
@@ -89,6 +91,13 @@ const MODELS = [
   { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
   { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5" },
 ];
+
+function normalizeAgentClass(value: unknown): AgentClass {
+  if (value === "external_customer_facing" || value === "customer_facing") {
+    return "external_customer_facing";
+  }
+  return "internal_operator";
+}
 
 // ============================================================================
 // MAIN COMPONENT
@@ -597,6 +606,7 @@ function AgentFormTab({
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [subtype, setSubtype] = useState("general");
+  const [agentClass, setAgentClass] = useState<AgentClass>("internal_operator");
   const [personality, setPersonality] = useState("");
   const [language, setLanguage] = useState("en");
   const [brandVoice, setBrandVoice] = useState("");
@@ -620,6 +630,7 @@ function AgentFormTab({
     setName(existingAgent.name || "");
     setDisplayName(p.displayName || "");
     setSubtype(existingAgent.subtype || "general");
+    setAgentClass(normalizeAgentClass(p.agentClass));
     setPersonality(p.personality || "");
     setLanguage(p.language || "en");
     setBrandVoice(p.brandVoiceInstructions || "");
@@ -650,6 +661,7 @@ function AgentFormTab({
             name,
             displayName,
             subtype,
+            agentClass,
             personality,
             language,
             brandVoiceInstructions: brandVoice,
@@ -670,6 +682,7 @@ function AgentFormTab({
           name,
           displayName,
           subtype,
+          agentClass,
           personality,
           language,
           brandVoiceInstructions: brandVoice,
@@ -748,6 +761,24 @@ function AgentFormTab({
                 {SUBTYPES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                {tx("form.identity.agent_class", "Agent Class")}
+              </label>
+              <select
+                value={agentClass}
+                onChange={(e) => setAgentClass(e.target.value as AgentClass)}
+                className="w-full border px-2 py-1 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light)" }}
+              >
+                <option value="internal_operator">
+                  {tx("form.identity.agent_class_internal", "Internal operator")}
+                </option>
+                <option value="external_customer_facing">
+                  {tx("form.identity.agent_class_external", "External customer-facing")}
+                </option>
               </select>
             </div>
             <FormField label={tx("form.identity.personality", "Personality")} value={personality} onChange={setPersonality} multiline placeholder={tx("form.identity.personality_placeholder", "Friendly, professional, concise...")} />

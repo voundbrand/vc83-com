@@ -2,6 +2,57 @@ import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
+const parsedWsSlowConsumerDropThresholdBytes = Number.parseInt(
+  process.env.WS_SLOW_CONSUMER_DROP_THRESHOLD_BYTES || '262144',
+  10,
+);
+const wsSlowConsumerDropThresholdBytes = Math.max(
+  16_384,
+  Number.isFinite(parsedWsSlowConsumerDropThresholdBytes)
+    ? parsedWsSlowConsumerDropThresholdBytes
+    : 262_144,
+);
+const parsedWsSlowConsumerCloseThresholdBytes = Number.parseInt(
+  process.env.WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES || '1048576',
+  10,
+);
+const wsSlowConsumerCloseThresholdBytes = Math.max(
+  wsSlowConsumerDropThresholdBytes,
+  Number.isFinite(parsedWsSlowConsumerCloseThresholdBytes)
+    ? parsedWsSlowConsumerCloseThresholdBytes
+    : 1_048_576,
+);
+const parsedWsHeartbeatCadenceMs = Number.parseInt(
+  process.env.WS_HEARTBEAT_CADENCE_MS || '2500',
+  10,
+);
+const wsHeartbeatCadenceMs = Math.max(
+  250,
+  Number.isFinite(parsedWsHeartbeatCadenceMs)
+    ? parsedWsHeartbeatCadenceMs
+    : 2_500,
+);
+const parsedWsHeartbeatSequenceGapTolerance = Number.parseInt(
+  process.env.WS_HEARTBEAT_SEQUENCE_GAP_TOLERANCE || '0',
+  10,
+);
+const wsHeartbeatSequenceGapTolerance = Math.max(
+  0,
+  Number.isFinite(parsedWsHeartbeatSequenceGapTolerance)
+    ? parsedWsHeartbeatSequenceGapTolerance
+    : 0,
+);
+const parsedWsHeartbeatStallTimeoutMs = Number.parseInt(
+  process.env.WS_HEARTBEAT_STALL_TIMEOUT_MS || String(Math.max(5_000, wsHeartbeatCadenceMs * 3)),
+  10,
+);
+const wsHeartbeatStallTimeoutMs = Math.max(
+  250,
+  Number.isFinite(parsedWsHeartbeatStallTimeoutMs)
+    ? parsedWsHeartbeatStallTimeoutMs
+    : Math.max(5_000, wsHeartbeatCadenceMs * 3),
+);
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   HOST: process.env.HOST || '0.0.0.0',
@@ -26,11 +77,36 @@ const env = {
     5,
     Number.parseInt(process.env.RATE_LIMIT_AUDIO_CHUNKS_PER_10S || '30', 10) || 30,
   ),
+  WS_HANDSHAKE_TIMEOUT_MS: Math.max(
+    250,
+    Number.parseInt(process.env.WS_HANDSHAKE_TIMEOUT_MS || '5000', 10) || 5000,
+  ),
   MAX_AUDIO_BASE64_BYTES: Math.max(
     16_384,
     Number.parseInt(process.env.MAX_AUDIO_BASE64_BYTES || '2097152', 10) || 2_097_152,
   ),
+  WS_SLOW_CONSUMER_DROP_THRESHOLD_BYTES: wsSlowConsumerDropThresholdBytes,
+  WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES: wsSlowConsumerCloseThresholdBytes,
+  WS_HEARTBEAT_CADENCE_MS: wsHeartbeatCadenceMs,
+  WS_HEARTBEAT_SEQUENCE_GAP_TOLERANCE: wsHeartbeatSequenceGapTolerance,
+  WS_HEARTBEAT_STALL_TIMEOUT_MS: wsHeartbeatStallTimeoutMs,
 };
+
+const WS_CLOSE_CODE_POLICY_VIOLATION = 1008;
+const WS_CLOSE_CODE_TRY_AGAIN_LATER = 1013;
+const WS_GATEWAY_READY_POLICY_VERSION = 'voice_gateway_ready_policy_v1';
+const WS_GATEWAY_READY_HEARTBEAT_CONTRACT_VERSION = 'voice_relay_heartbeat_v1';
+const WS_CLOSE_REASON_UNAUTHORIZED = 'unauthorized';
+const WS_CLOSE_REASON_CONNECTION_RATE_LIMITED = 'connection_rate_limited';
+const WS_CLOSE_REASON_SESSION_OPEN_TIMEOUT = 'session_open_timeout';
+const WS_CLOSE_REASON_FIRST_FRAME_NOT_SESSION_OPEN = 'first_frame_not_session_open';
+const WS_CLOSE_REASON_SESSION_OPEN_REQUIRED = 'session_open_required';
+const WS_CLOSE_REASON_SLOW_CONSUMER = 'slow_consumer';
+const WS_SLOW_CONSUMER_POLICY_DROP = 'drop';
+const WS_SLOW_CONSUMER_POLICY_CLOSE = 'close';
+const WS_SLOW_CONSUMER_ACTION_SEND = 'send';
+const WS_SLOW_CONSUMER_ACTION_DROP = 'drop';
+const WS_SLOW_CONSUMER_ACTION_CLOSE = 'close';
 
 if (!env.CONVEX_HTTP_URL) {
   throw new Error('Missing CONVEX_HTTP_URL');
@@ -53,10 +129,15 @@ const metrics = {
   wsConnectionsAccepted: 0,
   wsConnectionsRejectedAuth: 0,
   wsConnectionsRejectedRateLimit: 0,
+  wsConnectionsRejectedProtocol: 0,
+  wsHandshakeTimeouts: 0,
   wsMessagesInvalid: 0,
   wsAudioChunksReceived: 0,
   wsAudioChunksRateLimited: 0,
   wsAudioChunksRejectedSize: 0,
+  wsSlowConsumerThresholdBreaches: 0,
+  wsSlowConsumerDrops: 0,
+  wsSlowConsumerCloses: 0,
   transcribeSuccess: 0,
   transcribeFailed: 0,
   transcribeLatencyMs: [],
@@ -252,6 +333,157 @@ function logEvent(level, event, details = {}) {
   });
 }
 
+function normalizeSocketBufferedAmount(socket) {
+  const rawBufferedAmount = typeof socket?.bufferedAmount === 'number'
+    ? socket.bufferedAmount
+    : 0;
+  if (!Number.isFinite(rawBufferedAmount)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(rawBufferedAmount));
+}
+
+function resolveSlowConsumerSendAction({
+  bufferedAmount,
+  dropThresholdBytes,
+  closeThresholdBytes,
+  slowConsumerPolicy,
+}) {
+  if (bufferedAmount >= closeThresholdBytes) {
+    return WS_SLOW_CONSUMER_ACTION_CLOSE;
+  }
+  if (bufferedAmount >= dropThresholdBytes) {
+    return slowConsumerPolicy === WS_SLOW_CONSUMER_POLICY_DROP
+      ? WS_SLOW_CONSUMER_ACTION_DROP
+      : WS_SLOW_CONSUMER_ACTION_CLOSE;
+  }
+  return WS_SLOW_CONSUMER_ACTION_SEND;
+}
+
+function sendJsonWithSlowConsumerGuard({
+  socket,
+  payload,
+  messageType = 'unknown',
+  connectionId = 'unknown_connection',
+  clientIp = 'unknown_ip',
+  slowConsumerPolicy = WS_SLOW_CONSUMER_POLICY_CLOSE,
+  closeCode = WS_CLOSE_CODE_POLICY_VIOLATION,
+  closeReason = WS_CLOSE_REASON_SLOW_CONSUMER,
+}) {
+  const socketClosingState = typeof socket.CLOSING === 'number' ? socket.CLOSING : 2;
+  const socketClosedState = typeof socket.CLOSED === 'number' ? socket.CLOSED : 3;
+  if (socket.readyState === socketClosedState || socket.readyState === socketClosingState) {
+    return { outcome: 'socket_unavailable', bufferedAmount: 0 };
+  }
+
+  const bufferedAmount = normalizeSocketBufferedAmount(socket);
+  const sendAction = resolveSlowConsumerSendAction({
+    bufferedAmount,
+    dropThresholdBytes: env.WS_SLOW_CONSUMER_DROP_THRESHOLD_BYTES,
+    closeThresholdBytes: env.WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES,
+    slowConsumerPolicy,
+  });
+
+  if (sendAction === WS_SLOW_CONSUMER_ACTION_DROP) {
+    metrics.wsSlowConsumerThresholdBreaches += 1;
+    metrics.wsSlowConsumerDrops += 1;
+    logEvent('warn', 'ws_send_dropped_slow_consumer', {
+      connectionId,
+      clientIp,
+      messageType,
+      bufferedAmount,
+      dropThresholdBytes: env.WS_SLOW_CONSUMER_DROP_THRESHOLD_BYTES,
+      closeThresholdBytes: env.WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES,
+      policy: slowConsumerPolicy,
+    });
+    return { outcome: 'dropped', bufferedAmount };
+  }
+
+  if (sendAction === WS_SLOW_CONSUMER_ACTION_CLOSE) {
+    metrics.wsSlowConsumerThresholdBreaches += 1;
+    metrics.wsSlowConsumerCloses += 1;
+    logEvent('warn', 'ws_send_closed_slow_consumer', {
+      connectionId,
+      clientIp,
+      messageType,
+      bufferedAmount,
+      dropThresholdBytes: env.WS_SLOW_CONSUMER_DROP_THRESHOLD_BYTES,
+      closeThresholdBytes: env.WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES,
+      policy: slowConsumerPolicy,
+      closeCode,
+      closeReason,
+    });
+    try {
+      socket.close(closeCode, closeReason);
+    } catch {
+      /* ignore */
+    }
+    return { outcome: 'closed', bufferedAmount };
+  }
+
+  try {
+    const serializedPayload = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    socket.send(serializedPayload);
+    return { outcome: 'sent', bufferedAmount };
+  } catch (error) {
+    logEvent('warn', 'ws_send_failed', {
+      connectionId,
+      clientIp,
+      messageType,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { outcome: 'send_failed', bufferedAmount };
+  }
+}
+
+function buildGatewayReadyPolicyEnvelope() {
+  return {
+    version: WS_GATEWAY_READY_POLICY_VERSION,
+    maxPayloadBytes: env.MAX_AUDIO_BASE64_BYTES,
+    maxBufferedBytes: env.WS_SLOW_CONSUMER_CLOSE_THRESHOLD_BYTES,
+    heartbeat: {
+      cadenceMs: env.WS_HEARTBEAT_CADENCE_MS,
+      contractVersion: WS_GATEWAY_READY_HEARTBEAT_CONTRACT_VERSION,
+      sequenceGapTolerance: env.WS_HEARTBEAT_SEQUENCE_GAP_TOLERANCE,
+      stallTimeoutMs: env.WS_HEARTBEAT_STALL_TIMEOUT_MS,
+    },
+  };
+}
+
+function closeSocketWithError(
+  socket,
+  {
+    error,
+    code,
+    reason,
+    extra = {},
+    connectionId = 'unknown_connection',
+    clientIp = 'unknown_ip',
+  },
+) {
+  const socketClosingState = typeof socket.CLOSING === 'number' ? socket.CLOSING : 2;
+  const socketClosedState = typeof socket.CLOSED === 'number' ? socket.CLOSED : 3;
+  if (socket.readyState === socketClosedState || socket.readyState === socketClosingState) {
+    return;
+  }
+  const errorSendResult = sendJsonWithSlowConsumerGuard({
+    socket,
+    payload: {
+      type: 'error',
+      error,
+      ...extra,
+    },
+    messageType: 'error',
+    connectionId,
+    clientIp,
+    slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_CLOSE,
+  });
+  if (errorSendResult.outcome === 'closed') {
+    return;
+  }
+  socket.close(code, reason);
+}
+
 function getClientIp(request) {
   return request.ip || 'unknown_ip';
 }
@@ -319,10 +551,15 @@ app.get('/metrics', async () => {
       wsConnectionsAccepted: metrics.wsConnectionsAccepted,
       wsConnectionsRejectedAuth: metrics.wsConnectionsRejectedAuth,
       wsConnectionsRejectedRateLimit: metrics.wsConnectionsRejectedRateLimit,
+      wsConnectionsRejectedProtocol: metrics.wsConnectionsRejectedProtocol,
+      wsHandshakeTimeouts: metrics.wsHandshakeTimeouts,
       wsMessagesInvalid: metrics.wsMessagesInvalid,
       wsAudioChunksReceived: metrics.wsAudioChunksReceived,
       wsAudioChunksRateLimited: metrics.wsAudioChunksRateLimited,
       wsAudioChunksRejectedSize: metrics.wsAudioChunksRejectedSize,
+      wsSlowConsumerThresholdBreaches: metrics.wsSlowConsumerThresholdBreaches,
+      wsSlowConsumerDrops: metrics.wsSlowConsumerDrops,
+      wsSlowConsumerCloses: metrics.wsSlowConsumerCloses,
       transcribeSuccess: metrics.transcribeSuccess,
       transcribeFailed: metrics.transcribeFailed,
     },
@@ -442,8 +679,13 @@ app.get('/ws', { websocket: true }, (socket, request) => {
   ) {
     metrics.wsConnectionsRejectedRateLimit += 1;
     logEvent('warn', 'ws_connection_rejected_rate_limit', { connectionId, clientIp });
-    socket.send(JSON.stringify({ type: 'error', error: 'connection_rate_limited' }));
-    socket.close(1013, 'connection_rate_limited');
+    closeSocketWithError(socket, {
+      error: 'connection_rate_limited',
+      code: WS_CLOSE_CODE_TRY_AGAIN_LATER,
+      reason: WS_CLOSE_REASON_CONNECTION_RATE_LIMITED,
+      connectionId,
+      clientIp,
+    });
     return;
   }
 
@@ -451,8 +693,13 @@ app.get('/ws', { websocket: true }, (socket, request) => {
   if (queryTicket) {
     if (!env.WS_TICKET_SECRET) {
       metrics.wsConnectionsRejectedAuth += 1;
-      socket.send(JSON.stringify({ type: 'error', error: 'ws_ticket_secret_not_configured' }));
-      socket.close(1008, 'unauthorized');
+      closeSocketWithError(socket, {
+        error: 'ws_ticket_secret_not_configured',
+        code: WS_CLOSE_CODE_POLICY_VIOLATION,
+        reason: WS_CLOSE_REASON_UNAUTHORIZED,
+        connectionId,
+        clientIp,
+      });
       return;
     }
     const ticketCheck = verifyTicket(queryTicket, env.WS_TICKET_SECRET);
@@ -463,22 +710,37 @@ app.get('/ws', { websocket: true }, (socket, request) => {
         clientIp,
         reason: ticketCheck.reason,
       });
-      socket.send(JSON.stringify({ type: 'error', error: ticketCheck.reason }));
-      socket.close(1008, 'unauthorized');
+      closeSocketWithError(socket, {
+        error: ticketCheck.reason,
+        code: WS_CLOSE_CODE_POLICY_VIOLATION,
+        reason: WS_CLOSE_REASON_UNAUTHORIZED,
+        connectionId,
+        clientIp,
+      });
       return;
     }
     ticketPayload = ticketCheck.payload;
 
     if (ticketPayload.ah && !bearerTokenHash) {
       metrics.wsConnectionsRejectedAuth += 1;
-      socket.send(JSON.stringify({ type: 'error', error: 'missing_bearer_auth' }));
-      socket.close(1008, 'unauthorized');
+      closeSocketWithError(socket, {
+        error: 'missing_bearer_auth',
+        code: WS_CLOSE_CODE_POLICY_VIOLATION,
+        reason: WS_CLOSE_REASON_UNAUTHORIZED,
+        connectionId,
+        clientIp,
+      });
       return;
     }
     if (ticketPayload.ah && !safeEqualUtf8(ticketPayload.ah, bearerTokenHash)) {
       metrics.wsConnectionsRejectedAuth += 1;
-      socket.send(JSON.stringify({ type: 'error', error: 'ticket_auth_mismatch' }));
-      socket.close(1008, 'unauthorized');
+      closeSocketWithError(socket, {
+        error: 'ticket_auth_mismatch',
+        code: WS_CLOSE_CODE_POLICY_VIOLATION,
+        reason: WS_CLOSE_REASON_UNAUTHORIZED,
+        connectionId,
+        clientIp,
+      });
       return;
     }
   }
@@ -486,16 +748,26 @@ app.get('/ws', { websocket: true }, (socket, request) => {
   if (env.WS_REQUIRE_AUTH && !bearerToken && !ticketPayload && !env.CONVEX_SERVICE_AUTH_TOKEN) {
     metrics.wsConnectionsRejectedAuth += 1;
     logEvent('warn', 'ws_connection_rejected_missing_auth', { connectionId, clientIp });
-    socket.send(JSON.stringify({ type: 'error', error: 'missing_bearer_auth' }));
-    socket.close(1008, 'unauthorized');
+    closeSocketWithError(socket, {
+      error: 'missing_bearer_auth',
+      code: WS_CLOSE_CODE_POLICY_VIOLATION,
+      reason: WS_CLOSE_REASON_UNAUTHORIZED,
+      connectionId,
+      clientIp,
+    });
     return;
   }
 
   if (env.WS_REQUIRE_CLIENT_TOKEN && (!env.WS_CLIENT_TOKEN || staticClientToken !== env.WS_CLIENT_TOKEN)) {
     metrics.wsConnectionsRejectedAuth += 1;
     logEvent('warn', 'ws_connection_rejected_static_token', { connectionId, clientIp });
-    socket.send(JSON.stringify({ type: 'error', error: 'unauthorized' }));
-    socket.close(1008, 'unauthorized');
+    closeSocketWithError(socket, {
+      error: 'unauthorized',
+      code: WS_CLOSE_CODE_POLICY_VIOLATION,
+      reason: WS_CLOSE_REASON_UNAUTHORIZED,
+      connectionId,
+      clientIp,
+    });
     return;
   }
 
@@ -515,24 +787,141 @@ app.get('/ws', { websocket: true }, (socket, request) => {
     conversationId: '',
     ready: false,
     transcribeInFlight: false,
+    firstValidClientFrameSeen: false,
+    closeInitiated: false,
   };
 
-  socket.send(JSON.stringify({
-    type: 'gateway_ready',
-    connectionId,
-    ts: nowMs(),
-  }));
+  let handshakeTimeout = setTimeout(() => {
+    if (state.ready || state.closeInitiated) {
+      return;
+    }
+    metrics.wsHandshakeTimeouts += 1;
+    metrics.wsConnectionsRejectedProtocol += 1;
+    state.closeInitiated = true;
+    logEvent('warn', 'ws_connection_rejected_handshake_timeout', {
+      connectionId,
+      clientIp,
+      timeoutMs: env.WS_HANDSHAKE_TIMEOUT_MS,
+    });
+    closeSocketWithError(socket, {
+      error: 'voice_session_open_timeout',
+      code: WS_CLOSE_CODE_POLICY_VIOLATION,
+      reason: WS_CLOSE_REASON_SESSION_OPEN_TIMEOUT,
+      extra: {
+        closeCode: WS_CLOSE_CODE_POLICY_VIOLATION,
+        closeReason: WS_CLOSE_REASON_SESSION_OPEN_TIMEOUT,
+      },
+      connectionId,
+      clientIp,
+    });
+  }, env.WS_HANDSHAKE_TIMEOUT_MS);
+  handshakeTimeout.unref?.();
+
+  function clearHandshakeTimeout() {
+    if (!handshakeTimeout) {
+      return;
+    }
+    clearTimeout(handshakeTimeout);
+    handshakeTimeout = null;
+  }
+
+  function rejectPreOpenMessage(error, reason, messageType) {
+    if (state.closeInitiated) {
+      return;
+    }
+    state.closeInitiated = true;
+    metrics.wsConnectionsRejectedProtocol += 1;
+    clearHandshakeTimeout();
+    logEvent('warn', 'ws_connection_rejected_pre_open_message', {
+      connectionId,
+      clientIp,
+      error,
+      reason,
+      messageType,
+    });
+    closeSocketWithError(socket, {
+      error,
+      code: WS_CLOSE_CODE_POLICY_VIOLATION,
+      reason,
+      extra: {
+        closeCode: WS_CLOSE_CODE_POLICY_VIOLATION,
+        closeReason: reason,
+        messageType,
+      },
+      connectionId,
+      clientIp,
+    });
+  }
+
+  function sendToClient(
+    payload,
+    {
+      messageType = 'unknown',
+      slowConsumerPolicy = WS_SLOW_CONSUMER_POLICY_CLOSE,
+    } = {},
+  ) {
+    const sendResult = sendJsonWithSlowConsumerGuard({
+      socket,
+      payload,
+      messageType,
+      connectionId,
+      clientIp,
+      slowConsumerPolicy,
+    });
+    if (sendResult.outcome === 'closed') {
+      state.closeInitiated = true;
+      clearHandshakeTimeout();
+    }
+    return sendResult;
+  }
+
+  sendToClient(
+    {
+      type: 'gateway_ready',
+      connectionId,
+      ts: nowMs(),
+      policy: buildGatewayReadyPolicyEnvelope(),
+    },
+    { messageType: 'gateway_ready' },
+  );
 
   socket.on('message', async (raw) => {
     const message = normalizeMessage(raw.toString());
     if (!message || typeof message.type !== 'string') {
       metrics.wsMessagesInvalid += 1;
-      socket.send(JSON.stringify({ type: 'error', error: 'invalid_json_message' }));
+      sendToClient({ type: 'error', error: 'invalid_json_message' }, { messageType: 'error' });
+      return;
+    }
+
+    if (!state.firstValidClientFrameSeen) {
+      state.firstValidClientFrameSeen = true;
+      if (message.type !== 'voice_session_open') {
+        rejectPreOpenMessage(
+          'first_frame_must_be_voice_session_open',
+          WS_CLOSE_REASON_FIRST_FRAME_NOT_SESSION_OPEN,
+          message.type,
+        );
+        return;
+      }
+    }
+
+    if (!state.ready && message.type !== 'voice_session_open') {
+      rejectPreOpenMessage(
+        'session_open_required_before_message',
+        WS_CLOSE_REASON_SESSION_OPEN_REQUIRED,
+        message.type,
+      );
       return;
     }
 
     if (message.type === 'ping') {
-      socket.send(JSON.stringify({ type: 'pong', ts: nowMs() }));
+      sendToClient(
+        { type: 'pong', ts: nowMs() },
+        {
+          messageType: 'pong',
+          slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_DROP,
+        },
+      );
       return;
     }
 
@@ -542,20 +931,20 @@ app.get('/ws', { websocket: true }, (socket, request) => {
       const conversationId = typeof message.conversationId === 'string' ? message.conversationId.trim() : '';
 
       if (!voiceSessionId || !interviewSessionId) {
-        socket.send(JSON.stringify({ type: 'error', error: 'missing_session_ids' }));
+        sendToClient({ type: 'error', error: 'missing_session_ids' }, { messageType: 'error' });
         return;
       }
 
       if (ticketPayload?.vid && ticketPayload.vid !== voiceSessionId) {
-        socket.send(JSON.stringify({ type: 'error', error: 'voice_session_id_ticket_mismatch' }));
+        sendToClient({ type: 'error', error: 'voice_session_id_ticket_mismatch' }, { messageType: 'error' });
         return;
       }
       if (ticketPayload?.iid && ticketPayload.iid !== interviewSessionId) {
-        socket.send(JSON.stringify({ type: 'error', error: 'interview_session_id_ticket_mismatch' }));
+        sendToClient({ type: 'error', error: 'interview_session_id_ticket_mismatch' }, { messageType: 'error' });
         return;
       }
       if (ticketPayload?.cid && conversationId && ticketPayload.cid !== conversationId) {
-        socket.send(JSON.stringify({ type: 'error', error: 'conversation_id_ticket_mismatch' }));
+        sendToClient({ type: 'error', error: 'conversation_id_ticket_mismatch' }, { messageType: 'error' });
         return;
       }
 
@@ -577,11 +966,13 @@ app.get('/ws', { websocket: true }, (socket, request) => {
           status: verify.status,
           error: verify.body?.error || 'voice_session_open_failed',
         });
-        socket.send(JSON.stringify({
+        sendToClient({
           type: 'voice_session_open_failed',
           status: verify.status,
           error: verify.body?.error || 'voice_session_open_failed',
-        }));
+        }, {
+          messageType: 'voice_session_open_failed',
+        });
         return;
       }
 
@@ -589,13 +980,16 @@ app.get('/ws', { websocket: true }, (socket, request) => {
       state.interviewSessionId = interviewSessionId;
       state.conversationId = conversationId;
       state.ready = true;
+      clearHandshakeTimeout();
 
-      socket.send(JSON.stringify({
+      sendToClient({
         type: 'voice_session_open_ok',
         voiceSessionId,
         interviewSessionId,
         conversationId,
-      }));
+      }, {
+        messageType: 'voice_session_open_ok',
+      });
 
       logEvent('info', 'voice_session_open_ok', {
         connectionId,
@@ -610,11 +1004,17 @@ app.get('/ws', { websocket: true }, (socket, request) => {
       metrics.wsAudioChunksReceived += 1;
 
       if (!state.ready) {
-        socket.send(JSON.stringify({ type: 'error', error: 'session_not_open' }));
+        sendToClient({ type: 'error', error: 'session_not_open' }, { messageType: 'error' });
         return;
       }
       if (state.transcribeInFlight) {
-        socket.send(JSON.stringify({ type: 'ingest_backpressure', reason: 'transcribe_in_flight' }));
+        sendToClient(
+          { type: 'ingest_backpressure', reason: 'transcribe_in_flight' },
+          {
+            messageType: 'ingest_backpressure',
+            slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_DROP,
+          },
+        );
         return;
       }
 
@@ -627,7 +1027,7 @@ app.get('/ws', { websocket: true }, (socket, request) => {
         })
       ) {
         metrics.wsAudioChunksRateLimited += 1;
-        socket.send(JSON.stringify({ type: 'error', error: 'audio_chunk_rate_limited' }));
+        sendToClient({ type: 'error', error: 'audio_chunk_rate_limited' }, { messageType: 'error' });
         return;
       }
 
@@ -637,24 +1037,35 @@ app.get('/ws', { websocket: true }, (socket, request) => {
         : 'audio/m4a';
 
       if (!audioBase64) {
-        socket.send(JSON.stringify({ type: 'error', error: 'missing_audio_base64' }));
+        sendToClient({ type: 'error', error: 'missing_audio_base64' }, { messageType: 'error' });
         return;
       }
 
       const estimatedBytes = estimateBase64Bytes(audioBase64);
       if (estimatedBytes > env.MAX_AUDIO_BASE64_BYTES) {
         metrics.wsAudioChunksRejectedSize += 1;
-        socket.send(JSON.stringify({
+        sendToClient({
           type: 'error',
           error: 'audio_chunk_too_large',
           maxBytes: env.MAX_AUDIO_BASE64_BYTES,
-        }));
+        }, {
+          messageType: 'error',
+        });
         return;
       }
 
       state.transcribeInFlight = true;
       try {
-        socket.send(JSON.stringify({ type: 'partial_transcript', partialTranscript: 'Processing...' }));
+        const processingSend = sendToClient(
+          { type: 'partial_transcript', partialTranscript: 'Processing...' },
+          {
+            messageType: 'partial_transcript',
+            slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_DROP,
+          },
+        );
+        if (processingSend.outcome === 'closed') {
+          return;
+        }
 
         const transcribeStart = nowMs();
         const transcribe = await postConvex(
@@ -677,11 +1088,13 @@ app.get('/ws', { websocket: true }, (socket, request) => {
             status: transcribe.status,
             error: transcribe.body?.error || 'transcribe_failed',
           });
-          socket.send(JSON.stringify({
+          sendToClient({
             type: 'error',
             error: transcribe.body?.error || 'transcribe_failed',
             status: transcribe.status,
-          }));
+          }, {
+            messageType: 'error',
+          });
           return;
         }
 
@@ -689,14 +1102,26 @@ app.get('/ws', { websocket: true }, (socket, request) => {
 
         const text = typeof transcribe.body.text === 'string' ? transcribe.body.text : '';
         if (text) {
-          socket.send(JSON.stringify({
-            type: 'partial_transcript',
-            partialTranscript: text,
-          }));
-          socket.send(JSON.stringify({
-            eventType: 'partial_transcript',
-            transcriptText: text,
-          }));
+          sendToClient(
+            {
+              type: 'partial_transcript',
+              partialTranscript: text,
+            },
+            {
+              messageType: 'partial_transcript',
+              slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_DROP,
+            },
+          );
+          sendToClient(
+            {
+              eventType: 'partial_transcript',
+              transcriptText: text,
+            },
+            {
+              messageType: 'partial_transcript_event',
+              slowConsumerPolicy: WS_SLOW_CONSUMER_POLICY_DROP,
+            },
+          );
         }
       } catch (error) {
         metrics.transcribeFailed += 1;
@@ -704,17 +1129,21 @@ app.get('/ws', { websocket: true }, (socket, request) => {
           connectionId,
           error: error instanceof Error ? error.message : String(error),
         });
-        socket.send(JSON.stringify({ type: 'error', error: 'audio_chunk_processing_failed' }));
+        sendToClient({ type: 'error', error: 'audio_chunk_processing_failed' }, { messageType: 'error' });
       } finally {
         state.transcribeInFlight = false;
       }
       return;
     }
 
-    socket.send(JSON.stringify({ type: 'error', error: 'unsupported_message_type', messageType: message.type }));
+    sendToClient(
+      { type: 'error', error: 'unsupported_message_type', messageType: message.type },
+      { messageType: 'error' },
+    );
   });
 
   socket.on('close', (code, reasonBuffer) => {
+    clearHandshakeTimeout();
     const reason = reasonBuffer?.toString() || '';
     logEvent('info', 'ws_client_closed', {
       connectionId,
@@ -758,4 +1187,9 @@ export {
   signTicketPayload,
   verifyTicket,
   hitFixedWindowLimit,
+  resolveSlowConsumerSendAction,
+  sendJsonWithSlowConsumerGuard,
+  buildGatewayReadyPolicyEnvelope,
+  WS_GATEWAY_READY_POLICY_VERSION,
+  WS_GATEWAY_READY_HEARTBEAT_CONTRACT_VERSION,
 };

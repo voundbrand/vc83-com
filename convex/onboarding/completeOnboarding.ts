@@ -372,6 +372,18 @@ export const run = internalAction({
       return { success: false, error: "No agent created" };
     }
 
+    try {
+      await ctx.runMutation(internalApi.ai.weekendMode.ensureDefaultWeekendModeConfigForAgent, {
+        agentId: onboardingAgentId,
+        enabled: true,
+      });
+    } catch (weekendModeConfigError) {
+      console.warn(
+        "[completeOnboarding] Failed to seed weekend mode defaults (non-blocking):",
+        weekendModeConfigError
+      );
+    }
+
     // 5. Switch channel routing/session ownership when needed.
     if (normalizedChannel === "telegram") {
       try {

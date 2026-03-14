@@ -1649,6 +1649,15 @@ export const trustEventPayloadValidator = v.object({
   lifecycle_checkpoint: v.optional(v.string()),
   lifecycle_transition_actor: v.optional(v.string()),
   lifecycle_transition_reason: v.optional(v.string()),
+  eval_run_id: v.optional(v.string()),
+  eval_scenario_id: v.optional(v.string()),
+  eval_agent_id: v.optional(v.string()),
+  eval_lifecycle_state: v.optional(v.string()),
+  eval_reason_codes: v.optional(v.array(v.string())),
+  eval_envelope_contract_version: v.optional(v.string()),
+  eval_lifecycle_contract_version: v.optional(v.string()),
+  eval_transition_source: v.optional(v.string()),
+  eval_trace_status: v.optional(v.string()),
 
   // Voice runtime/session telemetry fields
   voice_session_id: v.optional(v.string()),
@@ -1668,6 +1677,20 @@ export const trustEventPayloadValidator = v.object({
   voice_transport_ordering_decision: v.optional(v.string()),
   voice_transport_relay_events: v.optional(v.array(v.any())),
   voice_transport_sequence: v.optional(v.float64()),
+  media_retention_attempted: v.optional(v.boolean()),
+  media_retention_persisted: v.optional(v.boolean()),
+  media_retention_idempotent: v.optional(v.boolean()),
+  media_retention_mode: v.optional(v.union(v.string(), v.null())),
+  media_retention_reason: v.optional(v.union(v.string(), v.null())),
+  media_retention_error: v.optional(v.union(v.string(), v.null())),
+  vision_attachment_contract_version: v.optional(v.string()),
+  vision_frame_status: v.optional(v.string()),
+  vision_frame_reason: v.optional(v.union(v.string(), v.null())),
+  vision_frame_source: v.optional(v.union(v.string(), v.null())),
+  vision_frame_freshness_bucket: v.optional(v.union(v.string(), v.null())),
+  vision_frame_age_ms: v.optional(v.union(v.float64(), v.null())),
+  vision_frame_max_age_ms: v.optional(v.union(v.float64(), v.null())),
+  vision_frame_attached: v.optional(v.boolean()),
   adaptive_phase_id: v.optional(v.string()),
   adaptive_decision: v.optional(v.string()),
   adaptive_confidence: v.optional(v.number()),
@@ -2217,6 +2240,30 @@ export const aiMessageAttachments = defineTable({
  *
  * Audit trail of all tool executions with human-in-the-loop approval
  */
+const evalRunEnvelopeVerdictValidator = v.union(
+  v.literal("passed"),
+  v.literal("failed"),
+  v.literal("blocked"),
+);
+
+const evalRunEnvelopeValidator = v.object({
+  contractVersion: v.literal("wae_eval_run_envelope_v1"),
+  runId: v.string(),
+  scenarioId: v.optional(v.string()),
+  agentId: v.optional(v.string()),
+  label: v.optional(v.string()),
+  toolCallId: v.optional(v.string()),
+  toolCallRound: v.optional(v.number()),
+  verdict: v.optional(evalRunEnvelopeVerdictValidator),
+  artifactPointer: v.optional(v.string()),
+  timings: v.object({
+    turnStartedAt: v.number(),
+    toolStartedAt: v.number(),
+    toolCompletedAt: v.number(),
+    durationMs: v.number(),
+  }),
+});
+
 export const aiToolExecutions = defineTable({
   conversationId: v.id("aiConversations"),
   organizationId: v.id("organizations"),
@@ -2269,12 +2316,17 @@ export const aiToolExecutions = defineTable({
   costUsd: v.number(),
   executedAt: v.number(),
   durationMs: v.number(),
+
+  // WAE-101 eval-run envelope persistence (additive, optional).
+  evalEnvelope: v.optional(evalRunEnvelopeValidator),
 })
   .index("by_organization", ["organizationId"])
   .index("by_org_time", ["organizationId", "executedAt"])
   .index("by_conversation", ["conversationId"])
   .index("by_status", ["status"])
-  .index("by_conversation_status", ["conversationId", "status"]);
+  .index("by_conversation_status", ["conversationId", "status"])
+  .index("by_eval_run_id", ["evalEnvelope.runId"])
+  .index("by_org_eval_run_id", ["organizationId", "evalEnvelope.runId"]);
 
 const toolFoundryInputTypeValidator = v.union(
   v.literal("string"),

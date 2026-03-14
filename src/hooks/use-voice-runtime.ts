@@ -52,6 +52,20 @@ interface VoiceActionResultBase {
     transport: "native_realtime_audio_video" | null;
     fallbackReason: PersistentMultimodalFallbackReason | null;
     healthStatus: VoiceProviderHealthStatus | null;
+    providerSetupContract?: {
+      contractVersion: string;
+      automaticActivityDetection: {
+        disabled: false;
+        startOfSpeechSensitivity: "START_SENSITIVITY_HIGH";
+        endOfSpeechSensitivity: "END_SENSITIVITY_LOW";
+        silenceDurationMs: number;
+        prefixPaddingMs: number;
+      };
+      activityHandling: "START_OF_ACTIVITY_INTERRUPTS";
+      turnCoverage: "TURN_INCLUDES_ALL_INPUT";
+      inputAudioTranscriptionEnabled: true;
+      outputAudioTranscriptionEnabled: true;
+    };
   };
   error?: string;
 }

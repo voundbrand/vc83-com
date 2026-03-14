@@ -214,6 +214,77 @@ function seedAgent(
   });
 }
 
+function seedWaeGateArtifact(
+  db: FakeDb,
+  overrides: Partial<Record<string, unknown>> & {
+    templateId: string;
+    templateVersionId: string;
+    templateVersionTag: string;
+  },
+) {
+  const recordedAt =
+    typeof overrides.recordedAt === "number" ? overrides.recordedAt : 1_700_000_000_000;
+  db.seed("objectActions", {
+    _id: `objectActions_wae_${db.rows("objectActions").length + 1}`,
+    organizationId: ORG_ID,
+    objectId: overrides.templateVersionId,
+    actionType: "wae_rollout_gate.recorded",
+    actionData: {
+      contractVersion: "wae_rollout_gate_decision_v1",
+      rolloutContractVersion: "wae_rollout_promotion_contract_v1",
+      status: overrides.status ?? "pass",
+      reasonCode: overrides.reasonCode ?? "pass",
+      templateId: overrides.templateId,
+      templateVersionId: overrides.templateVersionId,
+      templateVersionTag: overrides.templateVersionTag,
+      runId: overrides.runId ?? "wae_run_1",
+      suiteKeyHash: overrides.suiteKeyHash ?? "suite_hash_1",
+      scenarioMatrixContractVersion:
+        overrides.scenarioMatrixContractVersion ?? "wae_matrix_v1",
+      completedAt: overrides.completedAt ?? recordedAt,
+      recordedAt,
+      recordedByUserId: OWNER_USER_ID,
+      freshnessWindowMs: overrides.freshnessWindowMs ?? 72 * 60 * 60 * 1000,
+      score: {
+        verdict: overrides.scoreVerdict ?? "passed",
+        decision: overrides.scoreDecision ?? "proceed",
+        resultLabel: overrides.resultLabel ?? "PASS",
+        weightedScore: overrides.weightedScore ?? 0.93,
+        thresholds: {
+          pass: 0.85,
+          hold: 0.7,
+        },
+        failedMetrics: overrides.failedMetrics ?? [],
+        warnings: overrides.warnings ?? [],
+        blockedReasons: overrides.blockedReasons ?? [],
+      },
+      scenarioCoverage: {
+        totalScenarios: overrides.totalScenarios ?? 3,
+        runnableScenarios: overrides.runnableScenarios ?? 3,
+        skippedScenarios: overrides.skippedScenarios ?? 0,
+        passedScenarios: overrides.passedScenarios ?? 3,
+        failedScenarios: overrides.failedScenarios ?? 0,
+        evaluatedScenarioIds:
+          overrides.evaluatedScenarioIds ?? ["Q-001", "OOO-001", "SAM-001"],
+        failedScenarioIds: overrides.failedScenarioIds ?? [],
+        skippedScenarioIds: overrides.skippedScenarioIds ?? [],
+      },
+      criticalReasonCodeBudget: {
+        allowedCount: overrides.allowedCriticalCount ?? 0,
+        observedCount: overrides.observedCriticalCount ?? 0,
+        observedReasonCodes: overrides.observedReasonCodes ?? [],
+      },
+      failureSnapshot: {
+        unresolvedCriticalFailures: overrides.unresolvedCriticalFailures ?? 0,
+        failedMetrics: overrides.snapshotFailedMetrics ?? [],
+        blockedReasons: overrides.snapshotBlockedReasons ?? [],
+      },
+    },
+    performedBy: OWNER_USER_ID,
+    performedAt: recordedAt,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -726,6 +797,12 @@ describe("agentOntology mutation paths: template lifecycle (ATH-004)", () => {
           versionTag: "v2",
         },
       );
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "v2",
+        recordedAt: 1_700_300_000_000,
+      });
 
       const publishResult = await (publishAgentTemplateVersion as any)._handler(createCtx(db), {
         sessionId: SESSION_ID,
@@ -822,6 +899,63 @@ describe("agentOntology mutation paths: template lifecycle (ATH-004)", () => {
       nowSpy.mockRestore();
     }
   });
+
+  it("blocks template publication when WAE gate evidence is missing", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+
+    getUserContextMock.mockResolvedValue({
+      userId: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      isGlobal: true,
+      roleName: "super_admin",
+    } as any);
+
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_301_000_000);
+    try {
+      const created = await (createAgentTemplate as any)._handler(createCtx(db), {
+        sessionId: SESSION_ID,
+        organizationId: ORG_ID,
+        subtype: "general",
+        name: "Template Missing Gate",
+      });
+      const snapshot = await (createAgentTemplateVersionSnapshot as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SESSION_ID,
+          templateId: created.templateId,
+          versionTag: "v_gate_missing",
+        },
+      );
+
+      await (publishAgentTemplateVersion as any)
+        ._handler(createCtx(db), {
+          sessionId: SESSION_ID,
+          templateId: created.templateId,
+          templateVersionId: snapshot.templateVersionId,
+        })
+        .then(
+          () => {
+            throw new Error("expected publishAgentTemplateVersion to fail");
+          },
+          (error: unknown) => {
+            expect(String(error)).toContain("No WAE rollout gate artifact was recorded");
+          },
+        );
+
+      const blockedAction = db.rows("objectActions").find(
+        (row) => row.actionType === "agent_template.publish_blocked_wae_gate",
+      );
+      expect(blockedAction?.actionData).toMatchObject({
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "v_gate_missing",
+        reasonCode: "wae_evidence_missing",
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });
 
 describe("agentOntology mutation paths: template distribution (ATH-005)", () => {
@@ -878,6 +1012,12 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
           versionTag: "dist_v1",
         },
       );
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "dist_v1",
+        recordedAt: 1_700_400_000_000,
+      });
 
       seedAgent(db, {
         _id: "objects_existing_clone",
@@ -955,6 +1095,12 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
           versionTag: "rollout_v1",
         },
       );
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "rollout_v1",
+        recordedAt: 1_700_500_000_000,
+      });
 
       const firstApply = await (distributeAgentTemplateToOrganizations as any)._handler(
         createCtx(db),
@@ -1019,6 +1165,12 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
           versionTag: "rollout_v2",
         },
       );
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "rollout_v2",
+        recordedAt: 1_700_510_000_000,
+      });
 
       const firstPlan = await (distributeAgentTemplateToOrganizations as any)._handler(
         createCtx(db),
@@ -1171,6 +1323,12 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
           versionTag: "rollout_policy_v1",
         },
       );
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "rollout_policy_v1",
+        recordedAt: 1_700_515_000_000,
+      });
 
       seedAgent(db, {
         _id: "objects_clone_locked",
@@ -1310,6 +1468,88 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
         .rows("auditLogs")
         .find((row) => row.action === "template_distribution_blocked");
       expect(blockedAudit?.metadata?.reason).toBe("locked_override_fields");
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("blocks template distribution when the latest WAE gate fails critical reason-code budget", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+
+    getUserContextMock.mockResolvedValue({
+      userId: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      isGlobal: true,
+      roleName: "super_admin",
+    } as any);
+
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_516_000_000);
+    try {
+      const created = await (createAgentTemplate as any)._handler(createCtx(db), {
+        sessionId: SESSION_ID,
+        organizationId: ORG_ID,
+        subtype: "general",
+        name: "Template Gate Failed",
+      });
+      const snapshot = await (createAgentTemplateVersionSnapshot as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SESSION_ID,
+          templateId: created.templateId,
+          versionTag: "rollout_gate_fail_v1",
+        },
+      );
+
+      seedWaeGateArtifact(db, {
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "rollout_gate_fail_v1",
+        recordedAt: 1_700_516_000_000,
+        status: "fail",
+        reasonCode: "wae_gate_failed",
+        scoreVerdict: "failed",
+        scoreDecision: "hold",
+        resultLabel: "FAIL",
+        failedMetrics: ["scenario:OOO-001:tool_correctness"],
+        observedCriticalCount: 1,
+        observedReasonCodes: ["scenario:OOO-001:forbidden_tool_used:manage_bookings"],
+        unresolvedCriticalFailures: 1,
+        snapshotFailedMetrics: ["scenario:OOO-001:tool_correctness"],
+      });
+
+      await (distributeAgentTemplateToOrganizations as any)
+        ._handler(createCtx(db), {
+          sessionId: SESSION_ID,
+          templateId: created.templateId,
+          templateVersionId: snapshot.templateVersionId,
+          targetOrganizationIds: ["organizations_7"],
+          dryRun: true,
+        })
+        .then(
+          () => {
+            throw new Error("expected distributeAgentTemplateToOrganizations to fail");
+          },
+          (error: unknown) => {
+            expect(String(error)).toContain("WAE rollout gate did not pass");
+          },
+        );
+
+      const blockedAudit = db.rows("auditLogs").find(
+        (row) => row.action === "agent_template.distribution_blocked_wae_gate",
+      );
+      expect(blockedAudit).toMatchObject({
+        organizationId: ORG_ID,
+        userId: OWNER_USER_ID,
+        action: "agent_template.distribution_blocked_wae_gate",
+        success: false,
+      });
+      expect(blockedAudit?.metadata).toMatchObject({
+        templateId: created.templateId,
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "rollout_gate_fail_v1",
+        reasonCode: "wae_gate_failed",
+      });
     } finally {
       nowSpy.mockRestore();
     }

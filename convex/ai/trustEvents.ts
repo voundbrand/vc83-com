@@ -126,6 +126,7 @@ export const TRUST_CONTEXT_EVENT_NAMES = [
 export const TRUST_LIFECYCLE_EVENT_NAMES = [
   "trust.lifecycle.transition_checkpoint.v1",
   "trust.lifecycle.operator_reply_in_stream.v1",
+  "trust.lifecycle.eval_run_state_transition.v1",
 ] as const;
 
 export const TRUST_VOICE_EVENT_NAMES = [
@@ -265,6 +266,7 @@ export const trustEventNameValidator = v.union(
   v.literal("trust.context.layer_violation_blocked.v1"),
   v.literal("trust.lifecycle.transition_checkpoint.v1"),
   v.literal("trust.lifecycle.operator_reply_in_stream.v1"),
+  v.literal("trust.lifecycle.eval_run_state_transition.v1"),
   v.literal("trust.voice.session_transition.v1"),
   v.literal("trust.voice.adaptive_flow_decision.v1"),
   v.literal("trust.voice.runtime_failover_triggered.v1"),
@@ -358,6 +360,16 @@ const LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS = [
   "lifecycle_checkpoint",
   "lifecycle_transition_actor",
   "lifecycle_transition_reason",
+] as const;
+
+const EVAL_LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS = [
+  ...LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS,
+  "eval_run_id",
+  "eval_lifecycle_state",
+  "eval_reason_codes",
+  "eval_envelope_contract_version",
+  "eval_lifecycle_contract_version",
+  "eval_transition_source",
 ] as const;
 
 const VOICE_SESSION_REQUIRED_ADDITIONAL_FIELDS = [
@@ -588,6 +600,15 @@ export interface TrustEventAdditionalPayload {
   lifecycle_checkpoint?: string;
   lifecycle_transition_actor?: string;
   lifecycle_transition_reason?: string;
+  eval_run_id?: string;
+  eval_scenario_id?: string;
+  eval_agent_id?: string;
+  eval_lifecycle_state?: string;
+  eval_reason_codes?: string[];
+  eval_envelope_contract_version?: string;
+  eval_lifecycle_contract_version?: string;
+  eval_transition_source?: string;
+  eval_trace_status?: string;
 
   voice_session_id?: string;
   voice_state_from?: string;
@@ -603,6 +624,20 @@ export interface TrustEventAdditionalPayload {
   voice_failover_provider?: string;
   voice_failover_reason?: string;
   voice_provider_health_status?: string;
+  media_retention_attempted?: boolean;
+  media_retention_persisted?: boolean;
+  media_retention_idempotent?: boolean;
+  media_retention_mode?: string | null;
+  media_retention_reason?: string | null;
+  media_retention_error?: string | null;
+  vision_attachment_contract_version?: string;
+  vision_frame_status?: string;
+  vision_frame_reason?: string | null;
+  vision_frame_source?: string | null;
+  vision_frame_freshness_bucket?: string | null;
+  vision_frame_age_ms?: number | null;
+  vision_frame_max_age_ms?: number | null;
+  vision_frame_attached?: boolean;
 
   content_profile_id?: string;
   content_profile_version?: string;
@@ -728,6 +763,10 @@ export const TRUST_EVENT_SPECIFICATIONS: Record<TrustEventName, TrustEventSpecif
   "trust.lifecycle.operator_reply_in_stream.v1": {
     allowed_modes: ["lifecycle"],
     required_additional_fields: LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS,
+  },
+  "trust.lifecycle.eval_run_state_transition.v1": {
+    allowed_modes: ["lifecycle"],
+    required_additional_fields: EVAL_LIFECYCLE_REQUIRED_ADDITIONAL_FIELDS,
   },
   "trust.voice.session_transition.v1": {
     allowed_modes: ["lifecycle"],

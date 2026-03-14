@@ -212,6 +212,21 @@ crons.interval(
 );
 
 /**
+ * Enforce Weekend Mode Schedules
+ *
+ * Runs every 30 minutes to evaluate Personal Life Operator weekend windows.
+ * Activates Friday-evening mode and deactivates Monday-morning mode based on
+ * each operator's configured timezone and schedule.
+ *
+ * On weekend->weekday transitions, this also triggers Monday report generation.
+ */
+crons.interval(
+  "Enforce weekend mode schedules",
+  { minutes: 30 },
+  generatedApi.internal.ai.weekendMode.enforceWeekendModeSchedules
+);
+
+/**
  * Retry Dead Letter Queue Messages
  *
  * Runs every 5 minutes to retry outbound messages that failed delivery.
@@ -332,6 +347,22 @@ crons.weekly(
     minuteUTC: 0,
   },
   generatedApi.internal.ai.soulEvolution.scheduledReflection
+);
+
+/**
+ * Monday morning weekend reports
+ *
+ * Runs weekly on Monday to generate weekend summary reports for organizations
+ * with weekend mode enabled on their personal operator.
+ */
+crons.weekly(
+  "Monday morning weekend reports",
+  {
+    dayOfWeek: "monday",
+    hourUTC: 8,
+    minuteUTC: 15,
+  },
+  generatedApi.internal.ai.weekendMode.generateMondayMorningReports
 );
 
 /**

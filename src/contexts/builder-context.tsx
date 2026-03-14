@@ -2133,11 +2133,17 @@ export function BuilderProvider({
               const setupKnowledgeTags = Array.from(
                 new Set([...configuredTags, `agent:${slugTag}`])
               );
+              const normalizedAgentClass =
+                setupConfig.agentClass === "internal_operator"
+                || setupConfig.agentClass === "external_customer_facing"
+                  ? setupConfig.agentClass
+                  : "external_customer_facing";
 
               createdId = await createAgentMutation({
                 sessionId,
                 organizationId,
                 subtype: normalizedSubtype,
+                agentClass: normalizedAgentClass,
                 name: setupConfig.name,
                 displayName: setupConfig.displayName,
                 personality: setupConfig.personality,

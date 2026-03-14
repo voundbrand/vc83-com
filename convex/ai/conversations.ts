@@ -922,6 +922,26 @@ export const archiveConversation = mutation({
 /**
  * Log tool execution
  */
+const evalRunEnvelopeMutationValidator = v.object({
+  contractVersion: v.literal("wae_eval_run_envelope_v1"),
+  runId: v.string(),
+  scenarioId: v.optional(v.string()),
+  agentId: v.optional(v.string()),
+  label: v.optional(v.string()),
+  toolCallId: v.optional(v.string()),
+  toolCallRound: v.optional(v.number()),
+  verdict: v.optional(
+    v.union(v.literal("passed"), v.literal("failed"), v.literal("blocked")),
+  ),
+  artifactPointer: v.optional(v.string()),
+  timings: v.object({
+    turnStartedAt: v.number(),
+    toolStartedAt: v.number(),
+    toolCompletedAt: v.number(),
+    durationMs: v.number(),
+  }),
+});
+
 export const logToolExecution = mutation({
   args: {
     conversationId: v.id("aiConversations"),
@@ -936,6 +956,7 @@ export const logToolExecution = mutation({
     costUsd: v.number(),
     executedAt: v.number(),
     durationMs: v.number(),
+    evalEnvelope: v.optional(evalRunEnvelopeMutationValidator),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("aiToolExecutions", {
@@ -951,6 +972,7 @@ export const logToolExecution = mutation({
       costUsd: args.costUsd,
       executedAt: args.executedAt,
       durationMs: args.durationMs,
+      evalEnvelope: args.evalEnvelope,
     });
   },
 });
@@ -994,6 +1016,7 @@ export const proposeToolExecution = mutation({
     toolName: v.string(),
     parameters: v.any(),
     proposalMessage: v.optional(v.string()),
+    evalEnvelope: v.optional(evalRunEnvelopeMutationValidator),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("aiToolExecutions", {
@@ -1008,6 +1031,7 @@ export const proposeToolExecution = mutation({
       costUsd: 0,
       executedAt: Date.now(),
       durationMs: 0,
+      evalEnvelope: args.evalEnvelope,
     });
   },
 });

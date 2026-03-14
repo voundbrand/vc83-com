@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInboundVoiceTurnVisionRuntimeContext,
   buildInboundLanguageLockRuntimeContext,
   resolveInboundConversationLanguageLock,
   resolveInboundVoiceRuntimeRequest,
@@ -187,6 +188,31 @@ describe("agentExecution voice runtime request parsing", () => {
     ).toBe("en-us");
   });
 
+  it("prefers explicit voice runtime language lock over runtime language hints", () => {
+    const inboundVoiceRequest = resolveInboundVoiceRuntimeRequest({
+      voiceRuntime: {
+        requestedProviderId: "elevenlabs",
+        synthesizeResponse: true,
+        language: "hi",
+      },
+    });
+    expect(inboundVoiceRequest).not.toBeNull();
+    expect(
+      resolveInboundConversationLanguageLock({
+        metadata: {
+          voiceRuntime: {
+            languageLock: "en-US",
+            language: "de",
+          },
+          conversationRuntime: {
+            language: "fr",
+          },
+        },
+        inboundVoiceRequest,
+      }),
+    ).toBe("en-us");
+  });
+
   it("falls back to metadata language hints for lock selection", () => {
     expect(
       resolveInboundConversationLanguageLock({
@@ -211,5 +237,67 @@ describe("agentExecution voice runtime request parsing", () => {
     expect(context).toContain("LANGUAGE LOCK");
     expect(context).toContain("en-us");
     expect(context).toContain("explicitly requests");
+  });
+
+  it("injects turn-level vision unavailability context when eyes mode cannot attach a frame", () => {
+    const context = buildInboundVoiceTurnVisionRuntimeContext({
+      conversationRuntime: {
+        mode: "voice_with_eyes",
+        requestedEyesSource: "webcam",
+      },
+      voiceRuntime: {
+        visionTurnContext: {
+          requested: true,
+          frameAttached: false,
+          unavailableReason: "camera_not_capturing",
+          cameraSessionState: "stopped",
+        },
+      },
+    });
+    expect(context).toContain("TURN VISION STATUS");
+    expect(context).toContain("Reason code: camera_not_capturing");
+    expect(context).toContain("request a fresh camera frame");
+  });
+
+  it("injects attached turn-level vision context when a frame is available", () => {
+    const context = buildInboundVoiceTurnVisionRuntimeContext({
+      conversationRuntime: {
+        mode: "voice_with_eyes",
+        requestedEyesSource: "webcam",
+      },
+      voiceRuntime: {
+        visionFrameResolution: {
+          status: "attached",
+          frame: {
+            storageUrl: "https://cdn.example.com/frame.jpg",
+            mimeType: "image/jpeg",
+            sizeBytes: 1024,
+          },
+        },
+      },
+    });
+    expect(context).toContain("TURN VISION STATUS");
+    expect(context).toContain("Turn frame attachment status: attached.");
+  });
+
+  it("treats claimed attached vision turns as unavailable when no attachable frame URL exists", () => {
+    const context = buildInboundVoiceTurnVisionRuntimeContext({
+      conversationRuntime: {
+        mode: "voice_with_eyes",
+        requestedEyesSource: "webcam",
+      },
+      voiceRuntime: {
+        visionFrameResolution: {
+          status: "attached",
+          frame: {
+            mimeType: "image/jpeg",
+            sizeBytes: 1024,
+          },
+        },
+      },
+    });
+    expect(context).toContain("TURN VISION STATUS");
+    expect(context).toContain("Turn frame attachment status: unavailable.");
+    expect(context).toContain("Reason code: vision_resolution_failed");
   });
 });

@@ -133,6 +133,63 @@ describe("realtime voice telemetry contract integration", () => {
     ]);
   });
 
+  it("preserves slow-consumer fallback reason codes for deterministic trust telemetry", () => {
+    const collector = createVoiceRuntimeTelemetryCollector({
+      liveSessionId: "mobile_live_orv_210",
+      voiceSessionId: "voice_orv_210",
+      interviewSessionId: "interview_orv_210",
+    });
+
+    collector.record({
+      eventType: "fallback_transition",
+      fromTransport: "websocket",
+      toTransport: "chunked_fallback",
+      reasonCode: "websocket_slow_consumer_closed",
+    }, 1_710_000_250_000);
+
+    const normalized = normalizeVoiceRuntimeTelemetryContract(collector.snapshot());
+    expect(normalized).not.toBeNull();
+    expect(normalized?.events).toHaveLength(1);
+    expect(normalized?.events[0]?.eventType).toBe("fallback_transition");
+    expect(normalized?.events[0]?.payload).toMatchObject({
+      fromTransport: "websocket",
+      toTransport: "chunked_fallback",
+      reasonCode: "websocket_slow_consumer_closed",
+    });
+  });
+
+  it("preserves heartbeat sequence-gap and stall-timeout reason codes in telemetry contracts", () => {
+    const collector = createVoiceRuntimeTelemetryCollector({
+      liveSessionId: "mobile_live_orv_213",
+      voiceSessionId: "voice_orv_213",
+      interviewSessionId: "interview_orv_213",
+    });
+
+    collector.record({
+      eventType: "fallback_transition",
+      fromTransport: "websocket",
+      toTransport: "chunked_fallback",
+      reasonCode: "relay_server_heartbeat_sequence_gap",
+    }, 1_710_000_255_000);
+    collector.record({
+      eventType: "provider_failure",
+      providerId: "browser",
+      fallbackProviderId: "browser",
+      reasonCode: "relay_server_heartbeat_stall_timeout",
+      recoverable: true,
+    }, 1_710_000_255_025);
+
+    const normalized = normalizeVoiceRuntimeTelemetryContract(collector.snapshot());
+    expect(normalized).not.toBeNull();
+    expect(normalized?.events).toHaveLength(2);
+    expect(normalized?.events[0]?.payload).toMatchObject({
+      reasonCode: "relay_server_heartbeat_sequence_gap",
+    });
+    expect(normalized?.events[1]?.payload).toMatchObject({
+      reasonCode: "relay_server_heartbeat_stall_timeout",
+    });
+  });
+
   it("produces deterministic PROMOTE/HOLD/ROLLBACK canary decisions from telemetry budgets", () => {
     const promoteCollector = createVoiceRuntimeTelemetryCollector({
       liveSessionId: "mobile_live_orv_019_promote",

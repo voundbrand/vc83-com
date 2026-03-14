@@ -170,6 +170,7 @@ import type * as ai_voiceDefaults from "../ai/voiceDefaults.js";
 import type * as ai_voiceRuntime from "../ai/voiceRuntime.js";
 import type * as ai_voiceRuntimeAdapter from "../ai/voiceRuntimeAdapter.js";
 import type * as ai_webReader from "../ai/webReader.js";
+import type * as ai_weekendMode from "../ai/weekendMode.js";
 import type * as ai_workItemActions from "../ai/workItemActions.js";
 import type * as ai_workItems from "../ai/workItems.js";
 import type * as ai_workerPool from "../ai/workerPool.js";
@@ -971,6 +972,7 @@ declare const fullApi: ApiFromModules<{
   "ai/voiceRuntime": typeof ai_voiceRuntime;
   "ai/voiceRuntimeAdapter": typeof ai_voiceRuntimeAdapter;
   "ai/webReader": typeof ai_webReader;
+  "ai/weekendMode": typeof ai_weekendMode;
   "ai/workItemActions": typeof ai_workItemActions;
   "ai/workItems": typeof ai_workItems;
   "ai/workerPool": typeof ai_workerPool;

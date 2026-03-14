@@ -344,6 +344,28 @@ export const agentSessions = defineTable({
     topics: v.optional(v.array(v.string())),
   })),
 
+  // Weekend-mode automation metadata (Personal Life Operator rollout).
+  weekendMode: v.optional(v.object({
+    weekendWindowEvaluatedAt: v.optional(v.number()),
+    weekendWindowActiveAtOpen: v.optional(v.boolean()),
+    weekendPipelineId: v.optional(v.id("objects")),
+    weekendStageId: v.optional(v.id("objects")),
+    weekendContactAutoCreated: v.optional(v.boolean()),
+    taskExtraction: v.optional(v.object({
+      status: v.union(
+        v.literal("pending"),
+        v.literal("completed"),
+        v.literal("failed"),
+        v.literal("skipped"),
+      ),
+      processedAt: v.optional(v.number()),
+      reason: v.optional(v.string()),
+      extraction: v.optional(v.any()),
+      taskCount: v.optional(v.number()),
+      taskIds: v.optional(v.array(v.string())),
+    })),
+  })),
+
   // Previous session context (for resumed sessions)
   previousSessionId: v.optional(v.id("agentSessions")),
   previousSessionSummary: v.optional(v.string()),

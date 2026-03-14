@@ -41,4 +41,16 @@ describe("user-facing runtime failure messaging", () => {
     expect(result.rewritten).toBe(false);
     expect(result.assistantContent).toBe(content);
   });
+
+  it("rewrites runtime contract checks without duplicating checks", () => {
+    const result = sanitizeUserFacingRuntimeFailureMessage({
+      assistantContent:
+        "I couldn't complete a visible response for this turn after runtime contract checks. Please retry your request.",
+      language: "en",
+    });
+
+    expect(result.rewritten).toBe(true);
+    expect(result.assistantContent.toLowerCase()).toContain("execution checks");
+    expect(result.assistantContent.toLowerCase()).not.toContain("execution check checks");
+  });
 });

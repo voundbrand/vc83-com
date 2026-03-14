@@ -6,6 +6,7 @@ import {
   evaluateDesktopVisionDegradeGuard,
   isTransientDesktopCameraBackpressureReason,
   normalizeDesktopCameraFallbackReason,
+  resolveDuplexVoiceTurnVisionUnavailableReason,
   resolveDesktopConversationModeTransition,
   shouldResolveDuplexVoiceTurnVisionFrame,
   shouldRecoverBlankDesktopVisionPreview,
@@ -130,6 +131,14 @@ describe("desktop conversation runtime", () => {
       })
     ).toBe(true)
     expect(
+      resolveDuplexVoiceTurnVisionUnavailableReason({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "capturing",
+        cameraVisionError: null,
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBeNull()
+    expect(
       shouldResolveDuplexVoiceTurnVisionFrame({
         conversationModeSelection: "voice_with_eyes",
         cameraSessionState: "stopped",
@@ -138,6 +147,14 @@ describe("desktop conversation runtime", () => {
       })
     ).toBe(false)
     expect(
+      resolveDuplexVoiceTurnVisionUnavailableReason({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "stopped",
+        cameraVisionError: null,
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe("camera_not_capturing")
+    expect(
       shouldResolveDuplexVoiceTurnVisionFrame({
         conversationModeSelection: "voice_with_eyes",
         cameraSessionState: "capturing",
@@ -145,6 +162,22 @@ describe("desktop conversation runtime", () => {
         sessionTransportPath: "persistent_realtime_multimodal",
       })
     ).toBe(true)
+    expect(
+      resolveDuplexVoiceTurnVisionUnavailableReason({
+        conversationModeSelection: "voice_with_eyes",
+        cameraSessionState: "capturing",
+        cameraVisionError: "camera_permission_denied",
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe("camera_error")
+    expect(
+      resolveDuplexVoiceTurnVisionUnavailableReason({
+        conversationModeSelection: "voice",
+        cameraSessionState: "capturing",
+        cameraVisionError: null,
+        sessionTransportPath: "persistent_realtime_multimodal",
+      })
+    ).toBe("vision_not_requested")
   })
 
   it("builds runtime metadata payloads that include the desktop parity envelope", () => {
@@ -162,6 +195,10 @@ describe("desktop conversation runtime", () => {
       sourceMode: "webcam",
       cameraLiveSessionId: "camera_live_1",
       cameraSessionState: "capturing",
+      providerSetupContract: {
+        activityHandling: "START_OF_ACTIVITY_INTERRUPTS",
+        turnCoverage: "TURN_INCLUDES_ALL_INPUT",
+      },
     })
 
     const payload = composeDesktopRuntimeMetadata({

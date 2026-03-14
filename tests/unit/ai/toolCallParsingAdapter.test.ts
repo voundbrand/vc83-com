@@ -4,6 +4,13 @@ import {
   normalizeToolCallsForProvider,
   parseToolCallArguments,
 } from "../../../convex/ai/toolBroker";
+import {
+  resolveEvalLifecycleEvidence,
+  normalizeEvalArtifactPointer,
+  buildEvalRunPlaybackTracePayload,
+  WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+  type EvalRunTraceToolExecutionRecord,
+} from "../../../convex/ai/chat";
 
 describe("tool call parsing adapter", () => {
   it("normalizes empty-ish argument payloads to an object JSON string", () => {
@@ -58,5 +65,84 @@ describe("tool call parsing adapter", () => {
 
     expect(toolCalls[0].function.arguments).toBe("{}");
     expect(toolCalls[1].function.arguments).toBe('{"query":"alice"}');
+  });
+
+  it("normalizes structured artifact pointers to lifecycle evidence paths", () => {
+    const pointer = normalizeEvalArtifactPointer({
+      lifecycleRoot: "tmp/reports/wae/run_abc/lifecycle",
+    });
+    const resolved = resolveEvalLifecycleEvidence({ artifactPointer: pointer });
+
+    expect(resolved.reasonCodes).toEqual([]);
+    expect(resolved.evidence?.pinManifestPath).toBe(
+      "tmp/reports/wae/run_abc/lifecycle/pin-manifest.json"
+    );
+    expect(resolved.evidence?.evidenceIndexPath).toBe(
+      "tmp/reports/wae/run_abc/lifecycle/evidence-index.json"
+    );
+  });
+
+  it("fails closed on missing/invalid lifecycle artifact pointers", () => {
+    const missingPointer = resolveEvalLifecycleEvidence({ artifactPointer: undefined });
+    expect(missingPointer.reasonCodes).toEqual(["missing_artifact_pointer"]);
+
+    const invalidPointer = resolveEvalLifecycleEvidence({ artifactPointer: "{not-json" });
+    expect(invalidPointer.reasonCodes).toEqual(["invalid_artifact_pointer"]);
+
+    const missingPathsPointer = resolveEvalLifecycleEvidence({
+      artifactPointer: JSON.stringify({
+        contractVersion: "wae_eval_lifecycle_artifact_pointer_v1",
+      }),
+    });
+    expect(missingPathsPointer.reasonCodes).toEqual(["missing_lifecycle_evidence_paths"]);
+  });
+
+  it("marks replay blocked with deterministic lexical reason codes on lifecycle evidence mismatch", () => {
+    const makeTrace = (
+      executionId: string,
+      lifecycleRoot: string,
+    ): EvalRunTraceToolExecutionRecord => ({
+      executionId,
+      conversationId: "conversation_1",
+      organizationId: "org_1",
+      userId: "user_1",
+      toolName: "search_contacts",
+      status: "success",
+      parameters: {},
+      result: { ok: true },
+      tokensUsed: 10,
+      costUsd: 0.001,
+      executedAt: 1_700_000_000_000,
+      durationMs: 100,
+      evalEnvelope: {
+        contractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+        runId: "run_mismatch",
+        scenarioId: "scenario_1",
+        agentId: "agent_1",
+        label: "test",
+        verdict: "passed",
+        artifactPointer: normalizeEvalArtifactPointer({ lifecycleRoot }),
+        timings: {
+          turnStartedAt: 1_700_000_000_000,
+          toolStartedAt: 1_700_000_000_001,
+          toolCompletedAt: 1_700_000_000_101,
+          durationMs: 100,
+        },
+      },
+    });
+
+    const playback = buildEvalRunPlaybackTracePayload({
+      organizationId: "org_1" as any,
+      runId: "run_mismatch",
+      traces: [
+        makeTrace("exec_1", "tmp/reports/wae/run_mismatch/lifecycle-a"),
+        makeTrace("exec_2", "tmp/reports/wae/run_mismatch/lifecycle-b"),
+      ],
+    });
+
+    expect(playback.status).toBe("blocked");
+    expect(playback.run.lifecycleState).toBe("blocked");
+    expect(playback.reasonCodes).toEqual(["lifecycle_evidence_mismatch"]);
+    expect(playback.run.lifecycleReasonCodes).toEqual(["lifecycle_evidence_mismatch"]);
   });
 });

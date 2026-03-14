@@ -27,6 +27,10 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "./rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./ai/modelDefaults";
+import {
+  evaluateWaeRolloutGateForTemplateVersion,
+  type WaeRolloutGateBlockReasonCode,
+} from "./ai/agentCatalogAdmin";
 import { SUBTYPE_DEFAULT_PROFILES, normalizeDeterministicToolNames } from "./ai/toolScoping";
 import {
   MANAGED_USE_CASE_CLONE_LIFECYCLE,
@@ -43,6 +47,7 @@ import {
 
 const OPERATOR_ROUTING_CHANNELS = new Set(["desktop", "slack"]);
 const PLATFORM_MANAGED_CHANNEL_BINDING_CHANNELS = new Set(["desktop", "slack"]);
+const TELEPHONY_ROUTING_CHANNELS = new Set(["phone_call"]);
 const ORCHESTRATOR_DEFAULT_SUBTYPE = "general";
 const DEFAULT_ORG_AGENT_TEMPLATE_ROLE = "personal_life_operator_template";
 const DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY = "DEFAULT_ORG_AGENT_TEMPLATE_ID";
@@ -67,6 +72,17 @@ const dreamTeamWorkspaceTypeValidator = v.union(
 const soulModeValidator = v.union(
   v.literal("work"),
   v.literal("private"),
+);
+
+export const AGENT_CLASS_VALUES = [
+  "internal_operator",
+  "external_customer_facing",
+] as const;
+export type AgentClass = (typeof AGENT_CLASS_VALUES)[number];
+
+const agentClassValidator = v.union(
+  v.literal("internal_operator"),
+  v.literal("external_customer_facing"),
 );
 
 const modeChannelBindingValidator = v.object({
@@ -266,6 +282,7 @@ const AGENT_TEMPLATE_VERSION_LIFECYCLE_STATUSES = [
   "deprecated",
 ] as const;
 const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
+  "agentClass",
   "displayName",
   "personality",
   "language",
@@ -443,6 +460,46 @@ function normalizeOptionalString(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+export function normalizeAgentClass(
+  value: unknown,
+  fallback: AgentClass = "internal_operator"
+): AgentClass {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (normalized === "internal_operator" || normalized === "external_customer_facing") {
+    return normalized;
+  }
+  if (normalized === "internal_team") {
+    return "internal_operator";
+  }
+  if (normalized === "customer_facing") {
+    return "external_customer_facing";
+  }
+  return fallback;
+}
+
+export function readAgentClass(
+  customProperties: Record<string, unknown> | undefined,
+  fallback: AgentClass = "internal_operator"
+): AgentClass {
+  return normalizeAgentClass(customProperties?.agentClass, fallback);
+}
+
+export function resolveExpectedAgentClassForChannel(
+  channel: string | undefined
+): AgentClass | null {
+  const normalizedChannel = normalizeOptionalString(channel)?.toLowerCase();
+  if (!normalizedChannel) {
+    return null;
+  }
+  if (OPERATOR_ROUTING_CHANNELS.has(normalizedChannel)) {
+    return "internal_operator";
+  }
+  if (TELEPHONY_ROUTING_CHANNELS.has(normalizedChannel)) {
+    return "external_customer_facing";
+  }
+  return null;
 }
 
 function normalizeTemplateLifecycleStatus(
@@ -705,6 +762,61 @@ async function writeTemplateLifecycleAuditEvent(args: {
         : args.objectScope.templateId,
     success: true,
     metadata: deterministicPayload,
+    createdAt: args.timestamp,
+  });
+}
+
+async function writeTemplateWaeGateBlockedEvent(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  objectId: Id<"objects">;
+  actionType:
+    | "agent_template.publish_blocked_wae_gate"
+    | "agent_template.distribution_blocked_wae_gate";
+  actor: SuperAdminMutationSession;
+  resource: "template_version" | "global_template";
+  resourceId: string;
+  templateId: string;
+  templateVersionId?: string | null;
+  templateVersionTag?: string | null;
+  reasonCode: WaeRolloutGateBlockReasonCode;
+  message: string;
+  gate: unknown;
+  timestamp: number;
+}) {
+  const payload = {
+    contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+    actor: {
+      userId: String(args.actor.userId),
+      sessionId: args.actor.sessionId,
+      role: args.actor.roleName,
+    },
+    reasonCode: args.reasonCode,
+    message: args.message,
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId ?? null,
+    templateVersionTag: args.templateVersionTag ?? null,
+    gate: args.gate,
+    timestamp: args.timestamp,
+  };
+
+  await args.ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: args.objectId,
+    actionType: args.actionType,
+    actionData: payload,
+    performedBy: args.actor.userId,
+    performedAt: args.timestamp,
+  });
+
+  await args.ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.actor.userId,
+    action: args.actionType,
+    resource: args.resource,
+    resourceId: args.resourceId,
+    success: false,
+    metadata: payload,
     createdAt: args.timestamp,
   });
 }
@@ -1370,6 +1482,17 @@ export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidat
     }
   }
 
+  const expectedAgentClass = resolveExpectedAgentClassForChannel(args.channel);
+  if (expectedAgentClass) {
+    candidates = candidates.filter((agent) => {
+      const props = readAgentCustomProperties(agent);
+      return readAgentClass(props) === expectedAgentClass;
+    });
+    if (candidates.length === 0) {
+      return null;
+    }
+  }
+
   const operatorRoutingChannelRequested = isOperatorRoutingChannel(args.channel);
   const orchestratorCandidate = operatorRoutingChannelRequested
     ? resolveOrchestratorCandidate(candidates, args.channel)
@@ -1704,6 +1827,7 @@ async function ensureActiveAgentForOrgInternalHandler(
     channel: args.channel,
     subtype: args.subtype,
   });
+  const expectedAgentClass = resolveExpectedAgentClassForChannel(args.channel);
   const agents = await ctx.db
     .query("objects")
     .withIndex("by_org_type", (q) =>
@@ -1719,14 +1843,27 @@ async function ensureActiveAgentForOrgInternalHandler(
   if (existingActiveAgent?._id) {
     const existingProps =
       (existingActiveAgent.customProperties as Record<string, unknown> | undefined) ?? {};
+    const normalizedExistingAgentClass = readAgentClass(
+      existingProps,
+      expectedAgentClass ?? "internal_operator"
+    );
     if (isLegacyAutoRecoveryAssistantCandidate(existingActiveAgent)) {
       await ctx.db.patch(existingActiveAgent._id, {
         name: "One-of-One Operator",
         description: "Auto-created primary operator agent",
         customProperties: {
           ...existingProps,
+          agentClass: normalizedExistingAgentClass,
           displayName: "One-of-One Operator",
           toolProfile: "admin",
+        },
+        updatedAt: Date.now(),
+      });
+    } else if (existingProps.agentClass !== normalizedExistingAgentClass) {
+      await ctx.db.patch(existingActiveAgent._id, {
+        customProperties: {
+          ...existingProps,
+          agentClass: normalizedExistingAgentClass,
         },
         updatedAt: Date.now(),
       });
@@ -1743,7 +1880,10 @@ async function ensureActiveAgentForOrgInternalHandler(
       candidate.status !== "archived" &&
       candidate.status !== "deleted" &&
       candidate.status !== "template" &&
-      (!recoverySubtype || normalizeOptionalString(candidate.subtype) === recoverySubtype)
+      (!recoverySubtype || normalizeOptionalString(candidate.subtype) === recoverySubtype) &&
+      (!expectedAgentClass || readAgentClass(
+        (candidate.customProperties as Record<string, unknown> | undefined) ?? {}
+      ) === expectedAgentClass)
     )
     .sort(compareAgentsByPrimaryOrder);
   const reactivationCandidate =
@@ -1785,6 +1925,7 @@ async function ensureActiveAgentForOrgInternalHandler(
   const defaultChannelBindings = args.channel
     ? normalizeChannelBindingsContract([{ channel: args.channel, enabled: true }])
     : undefined;
+  const fallbackAgentClass = expectedAgentClass ?? "internal_operator";
   const agentId = await ctx.db.insert("objects", {
     organizationId: args.organizationId,
     type: "org_agent",
@@ -1793,6 +1934,7 @@ async function ensureActiveAgentForOrgInternalHandler(
     description: "Auto-created primary operator agent",
     status: "active",
     customProperties: {
+      agentClass: fallbackAgentClass,
       displayName: "One-of-One Operator",
       language: "en",
       voiceLanguage: "en",
@@ -2154,6 +2296,7 @@ async function ensureManagedDefaultTemplateCloneForOrgHandler(
 
   const customProperties: Record<string, unknown> = {
     ...templateBaseline,
+    agentClass: normalizeAgentClass(templateBaseline.agentClass, "internal_operator"),
     protected: false,
     templateAgentId: template._id,
     templateVersion,
@@ -2689,6 +2832,35 @@ export const publishAgentTemplateVersion = mutation({
       });
     }
 
+    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      templateVersionTag: versionTag,
+      now,
+    });
+    if (!waeGate.allowed) {
+      await writeTemplateWaeGateBlockedEvent({
+        ctx,
+        organizationId: template.organizationId,
+        objectId: args.templateVersionId,
+        actionType: "agent_template.publish_blocked_wae_gate",
+        actor,
+        resource: "template_version",
+        resourceId: String(args.templateVersionId),
+        templateId: String(args.templateId),
+        templateVersionId: String(args.templateVersionId),
+        templateVersionTag: versionTag,
+        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
+        message: waeGate.message || "WAE rollout gate blocked template publication.",
+        gate: waeGate.gate,
+        timestamp: now,
+      });
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: waeGate.message || "WAE rollout gate blocked template publication.",
+      });
+    }
+
     await ctx.db.patch(args.templateVersionId, {
       customProperties: {
         ...versionProps,
@@ -2980,6 +3152,11 @@ export const distributeAgentTemplateToOrganizations = mutation({
       normalizeOptionalString(templateProps.templatePublishedVersion) ||
       normalizeOptionalString(templateProps.templateVersion) ||
       `${String(args.templateId)}@${template.updatedAt}`;
+    const resolvedTemplateVersionId =
+      args.templateVersionId
+      ?? (
+        normalizeOptionalString(templateProps.templatePublishedVersionId) as Id<"objects"> | null
+      );
 
     const snapshotBaseline = templateVersion
       ? (
@@ -3031,6 +3208,35 @@ export const distributeAgentTemplateToOrganizations = mutation({
     const warnConfirmationAccepted =
       args.overridePolicyGate?.confirmWarnOverride === true &&
       normalizedOverrideReason !== null;
+
+    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+      templateId: args.templateId,
+      templateVersionId: resolvedTemplateVersionId,
+      templateVersionTag: resolvedVersionTag,
+      now,
+    });
+    if (!waeGate.allowed) {
+      await writeTemplateWaeGateBlockedEvent({
+        ctx,
+        organizationId: template.organizationId,
+        objectId: args.templateId,
+        actionType: "agent_template.distribution_blocked_wae_gate",
+        actor,
+        resource: "global_template",
+        resourceId: String(args.templateId),
+        templateId: String(args.templateId),
+        templateVersionId: resolvedTemplateVersionId ? String(resolvedTemplateVersionId) : null,
+        templateVersionTag: resolvedVersionTag,
+        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
+        message: waeGate.message || "WAE rollout gate blocked template distribution.",
+        gate: waeGate.gate,
+        timestamp: now,
+      });
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: waeGate.message || "WAE rollout gate blocked template distribution.",
+      });
+    }
 
     const plan: Array<{
       organizationId: Id<"organizations">;
@@ -3247,6 +3453,10 @@ export const distributeAgentTemplateToOrganizations = mutation({
             status: "active",
             customProperties: {
               ...snapshotBaseline,
+              agentClass: normalizeAgentClass(
+                snapshotBaseline.agentClass,
+                "internal_operator"
+              ),
               protected: false,
               templateAgentId: args.templateId,
               templateVersion: resolvedVersionTag,
@@ -4325,6 +4535,7 @@ export const createAgent = mutation({
     sessionId: v.string(),
     organizationId: v.id("organizations"),
     subtype: v.string(),
+    agentClass: v.optional(agentClassValidator),
     name: v.string(),
     displayName: v.optional(v.string()),
     // Identity & Personality
@@ -4404,6 +4615,7 @@ export const createAgent = mutation({
     }
 
     const operatorId = String(session.userId);
+    const resolvedAgentClass = normalizeAgentClass(args.agentClass, "internal_operator");
     const normalizedChannelBindings = normalizeChannelBindingsContract(
       args.channelBindings as ChannelBindingContractRecord[] | undefined
     );
@@ -4416,6 +4628,7 @@ export const createAgent = mutation({
       description: args.displayName || `${args.subtype} agent`,
       status: "draft",
       customProperties: {
+        agentClass: resolvedAgentClass,
         displayName: args.displayName || args.name,
         personality: args.personality,
         language: args.language || "en",
@@ -4479,6 +4692,7 @@ export const createAgent = mutation({
       actionType: "created",
       actionData: {
         subtype: args.subtype,
+        agentClass: resolvedAgentClass,
         autonomyLevel: args.autonomyLevel,
         creationSource,
         operatorId,
@@ -4504,6 +4718,7 @@ export const updateAgent = mutation({
       name: v.optional(v.string()),
       displayName: v.optional(v.string()),
       subtype: v.optional(v.string()),
+      agentClass: v.optional(agentClassValidator),
       personality: v.optional(v.string()),
       language: v.optional(v.string()),
       voiceLanguage: v.optional(v.string()),
@@ -4577,6 +4792,12 @@ export const updateAgent = mutation({
           args.updates.channelBindings as ChannelBindingContractRecord[]
         )
       : undefined;
+    const normalizedAgentClass =
+      typeof args.updates.agentClass === "string"
+        ? normalizeAgentClass(args.updates.agentClass, readAgentClass(
+            (agent.customProperties as Record<string, unknown> | undefined) ?? {}
+          ))
+        : undefined;
     const hasPlatformManagedOverride = normalizedChannelBindings
       ? detectPlatformManagedChannelBindingOverride(
           (agent.customProperties as Record<string, unknown> | undefined)
@@ -4602,6 +4823,7 @@ export const updateAgent = mutation({
 
     const normalizedUpdates = {
       ...args.updates,
+      ...(normalizedAgentClass ? { agentClass: normalizedAgentClass } : {}),
       ...(normalizedChannelBindings
         ? { channelBindings: normalizedChannelBindings }
         : {}),
@@ -4737,6 +4959,7 @@ export const tuneManagedSpecialistClone = mutation({
     sessionId: v.string(),
     agentId: v.id("objects"),
     updates: v.object({
+      agentClass: v.optional(agentClassValidator),
       displayName: v.optional(v.string()),
       personality: v.optional(v.string()),
       language: v.optional(v.string()),

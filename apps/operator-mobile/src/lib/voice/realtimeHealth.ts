@@ -7,6 +7,8 @@ export type MobileRealtimeRelayHealthReasonCode =
   | 'relay_server_qos_missing'
   | 'relay_server_qos_contract_mismatch'
   | 'relay_server_heartbeat_contract_mismatch'
+  | 'relay_server_heartbeat_sequence_gap'
+  | 'relay_server_heartbeat_stall_timeout'
   | 'relay_server_qos_unhealthy'
   | 'relay_server_ack_missing'
   | 'relay_server_heartbeat_stale';
@@ -48,6 +50,8 @@ export type MobileRealtimeRelayHealth = {
   lastIngestAttemptAtMs?: number;
   lastIngestAckAtMs?: number;
   consecutiveIngestFailures: number;
+  serverRelayHeartbeatSequenceGap?: number;
+  serverRelayHeartbeatAckAgeMs?: number;
   serverRelayReasonCode?: string;
   serverRelayQosAgeMs?: number;
   serverRelayContractVersionStatus?: MobileRealtimeRelayContractVersionStatus;
@@ -60,6 +64,8 @@ const DEFAULT_ACK_STALE_MS = 2_500;
 const DEFAULT_INGEST_ACK_GRACE_MS = 3_000;
 const DEFAULT_SERVER_QOS_GRACE_MS = 3_500;
 const DEFAULT_SERVER_HEARTBEAT_STALE_MS = 5_000;
+const DEFAULT_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE = 0;
+const DEFAULT_SERVER_HEARTBEAT_STALL_TIMEOUT_MS = 7_500;
 
 function clampFiniteInt(value: number | undefined | null, minimum: number): number | undefined {
   if (!Number.isFinite(value)) {
@@ -120,6 +126,40 @@ function resolveContractVersionStatus(args: {
   return args.observed.trim() === args.expected ? 'ok' : 'mismatch';
 }
 
+function resolveHeartbeatSequenceGap(
+  heartbeat: MobileRealtimeRelayServerQosSnapshot['heartbeat'] | undefined
+): number | undefined {
+  if (!heartbeat) {
+    return undefined;
+  }
+  const expectedSequence = clampFiniteInt(heartbeat.expectedSequence, 0);
+  if (expectedSequence === undefined) {
+    return undefined;
+  }
+  const acknowledgedSequence = clampFiniteInt(
+    heartbeat.ackSequence,
+    0
+  );
+  const effectiveAcknowledgedSequence =
+    acknowledgedSequence !== undefined
+      ? acknowledgedSequence
+      : heartbeat.status === 'missing'
+        ? Math.max(0, expectedSequence - 1)
+        : expectedSequence;
+  return Math.max(0, expectedSequence - effectiveAcknowledgedSequence);
+}
+
+function resolveHeartbeatAckAgeMs(args: {
+  nowMs: number;
+  heartbeat: MobileRealtimeRelayServerQosSnapshot['heartbeat'] | undefined;
+}): number | undefined {
+  const acknowledgedAtMs = clampFiniteInt(args.heartbeat?.acknowledgedAtMs, 0);
+  if (acknowledgedAtMs === undefined) {
+    return undefined;
+  }
+  return Math.max(0, args.nowMs - acknowledgedAtMs);
+}
+
 function buildRelayHealthSnapshot(args: {
   healthy: boolean;
   reasonCode: MobileRealtimeRelayHealthReasonCode;
@@ -127,6 +167,8 @@ function buildRelayHealthSnapshot(args: {
   lastIngestAttemptAtMs?: number;
   lastIngestAckAtMs?: number;
   consecutiveIngestFailures: number;
+  serverRelayHeartbeatSequenceGap?: number;
+  serverRelayHeartbeatAckAgeMs?: number;
   serverRelayQos?: MobileRealtimeRelayServerQosSnapshot;
   serverRelayQosAgeMs?: number;
   serverRelayContractVersionStatus?: MobileRealtimeRelayContractVersionStatus;
@@ -139,6 +181,8 @@ function buildRelayHealthSnapshot(args: {
     lastIngestAttemptAtMs: args.lastIngestAttemptAtMs,
     lastIngestAckAtMs: args.lastIngestAckAtMs,
     consecutiveIngestFailures: args.consecutiveIngestFailures,
+    serverRelayHeartbeatSequenceGap: args.serverRelayHeartbeatSequenceGap,
+    serverRelayHeartbeatAckAgeMs: args.serverRelayHeartbeatAckAgeMs,
     serverRelayQos: args.serverRelayQos,
     serverRelayQosAgeMs: args.serverRelayQosAgeMs,
     serverRelayContractVersionStatus: args.serverRelayContractVersionStatus,
@@ -160,6 +204,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
   serverRelayQos?: MobileRealtimeRelayServerQosSnapshot;
   serverQosGraceMs?: number;
   serverHeartbeatStaleMs?: number;
+  serverHeartbeatSequenceGapTolerance?: number;
+  serverHeartbeatStallTimeoutMs?: number;
 }): MobileRealtimeRelayHealth {
   const nowMs = Number.isFinite(args.nowMs) ? Math.floor(args.nowMs || 0) : Date.now();
   const consecutiveIngestFailures = Number.isFinite(args.consecutiveIngestFailures)
@@ -180,6 +226,12 @@ export function evaluateMobileRealtimeRelayHealth(args: {
   const serverHeartbeatStaleMs = Number.isFinite(args.serverHeartbeatStaleMs)
     ? Math.max(250, Math.floor(args.serverHeartbeatStaleMs || 0))
     : DEFAULT_SERVER_HEARTBEAT_STALE_MS;
+  const serverHeartbeatSequenceGapTolerance = Number.isFinite(args.serverHeartbeatSequenceGapTolerance)
+    ? Math.max(0, Math.floor(args.serverHeartbeatSequenceGapTolerance || 0))
+    : DEFAULT_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE;
+  const serverHeartbeatStallTimeoutMs = Number.isFinite(args.serverHeartbeatStallTimeoutMs)
+    ? Math.max(250, Math.floor(args.serverHeartbeatStallTimeoutMs || 0))
+    : DEFAULT_SERVER_HEARTBEAT_STALL_TIMEOUT_MS;
   const lastIngestAttemptAtMs = Number.isFinite(args.lastIngestAttemptAtMs)
     ? Math.max(0, Math.floor(args.lastIngestAttemptAtMs || 0))
     : undefined;
@@ -198,6 +250,13 @@ export function evaluateMobileRealtimeRelayHealth(args: {
     observed: serverRelayQos?.heartbeat.contractVersion,
     expected: MOBILE_VOICE_RELAY_HEARTBEAT_CONTRACT_VERSION,
   });
+  const serverRelayHeartbeatSequenceGap = resolveHeartbeatSequenceGap(
+    serverRelayQos?.heartbeat
+  );
+  const serverRelayHeartbeatAckAgeMs = resolveHeartbeatAckAgeMs({
+    nowMs,
+    heartbeat: serverRelayQos?.heartbeat,
+  });
 
   if (!args.isSocketConnected) {
     return buildRelayHealthSnapshot({
@@ -207,6 +266,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -221,6 +282,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -233,6 +296,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       reasonCode: 'relay_healthy',
       nowMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -248,6 +313,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -261,6 +328,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       nowMs,
       lastIngestAttemptAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -276,6 +345,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
     });
@@ -289,6 +360,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -304,6 +377,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -319,6 +394,48 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
+      serverRelayQos,
+      serverRelayQosAgeMs,
+      serverRelayContractVersionStatus,
+      serverRelayHeartbeatContractVersionStatus,
+    });
+  }
+
+  if (
+    serverRelayQos
+    && (serverRelayHeartbeatSequenceGap ?? 0) > serverHeartbeatSequenceGapTolerance
+  ) {
+    return buildRelayHealthSnapshot({
+      healthy: false,
+      reasonCode: 'relay_server_heartbeat_sequence_gap',
+      nowMs,
+      lastIngestAttemptAtMs,
+      lastIngestAckAtMs,
+      consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
+      serverRelayQos,
+      serverRelayQosAgeMs,
+      serverRelayContractVersionStatus,
+      serverRelayHeartbeatContractVersionStatus,
+    });
+  }
+
+  if (
+    serverRelayQos
+    && (serverRelayHeartbeatAckAgeMs ?? 0) > serverHeartbeatStallTimeoutMs
+  ) {
+    return buildRelayHealthSnapshot({
+      healthy: false,
+      reasonCode: 'relay_server_heartbeat_stall_timeout',
+      nowMs,
+      lastIngestAttemptAtMs,
+      lastIngestAckAtMs,
+      consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -334,6 +451,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -349,6 +468,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -364,6 +485,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
       lastIngestAttemptAtMs,
       lastIngestAckAtMs,
       consecutiveIngestFailures,
+      serverRelayHeartbeatSequenceGap,
+      serverRelayHeartbeatAckAgeMs,
       serverRelayQos,
       serverRelayQosAgeMs,
       serverRelayContractVersionStatus,
@@ -377,6 +500,8 @@ export function evaluateMobileRealtimeRelayHealth(args: {
     lastIngestAttemptAtMs,
     lastIngestAckAtMs,
     consecutiveIngestFailures,
+    serverRelayHeartbeatSequenceGap,
+    serverRelayHeartbeatAckAgeMs,
     serverRelayQos,
     serverRelayQosAgeMs,
     serverRelayContractVersionStatus,

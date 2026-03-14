@@ -20,6 +20,14 @@ import {
 } from "./agentRecommendationResolver";
 import { TOOL_REGISTRY } from "./tools/registry";
 import { INTERVIEW_TOOLS } from "./tools/interviewTools";
+import {
+  normalizeWaeRunRecord,
+  normalizeWaeScenarioRecords,
+  scoreWaeEvalBundle,
+  type WaeEvalRunRecordInput,
+  type WaeEvalScenarioRecordInput,
+  type WaeEvalScorePacket,
+} from "./tools/evalAnalystTool";
 
 const DEFAULT_DATASET_VERSION = "agp_v1";
 const EXPECTED_AGENT_COUNT = 104;
@@ -33,6 +41,87 @@ const TEMPLATE_CLONE_PRECEDENCE_ORDER = [
   "org_clone_overrides",
   "runtime_session_restrictions",
 ] as const;
+export const WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION =
+  "wae_rollout_gate_decision_v1" as const;
+export const WAE_ROLLOUT_GATE_ACTION_TYPE = "wae_rollout_gate.recorded" as const;
+export const WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION =
+  "wae_rollout_promotion_contract_v1" as const;
+export const WAE_ROLLOUT_GATE_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+
+const WAE_ROLLOUT_GATE_CRITICAL_REASON_PREFIXES = [
+  "expected_skipped_verdict",
+  "forbidden_tool_used",
+  "missing_required_any_tool",
+  "missing_required_outcome",
+  "missing_required_tool",
+  "missing_skip_reason",
+  "negative_path_outcome_missing",
+  "unexpected_failed_verdict",
+  "unexpected_skip_reason",
+  "unexpected_skipped_verdict",
+] as const;
+
+export type WaeRolloutGateBlockReasonCode =
+  | "wae_evidence_missing"
+  | "wae_evidence_stale"
+  | "wae_gate_failed"
+  | "wae_evidence_mismatch";
+
+export interface WaeRolloutGateDecisionArtifact {
+  contractVersion: typeof WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION;
+  rolloutContractVersion: typeof WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION;
+  status: "pass" | "fail";
+  reasonCode: "pass" | WaeRolloutGateBlockReasonCode;
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  runId: string;
+  suiteKeyHash: string;
+  scenarioMatrixContractVersion: string;
+  completedAt: number;
+  recordedAt: number;
+  recordedByUserId: string;
+  freshnessWindowMs: number;
+  score: Pick<
+    WaeEvalScorePacket,
+    | "verdict"
+    | "decision"
+    | "resultLabel"
+    | "weightedScore"
+    | "thresholds"
+    | "failedMetrics"
+    | "warnings"
+    | "blockedReasons"
+  >;
+  scenarioCoverage: {
+    totalScenarios: number;
+    runnableScenarios: number;
+    skippedScenarios: number;
+    passedScenarios: number;
+    failedScenarios: number;
+    evaluatedScenarioIds: string[];
+    failedScenarioIds: string[];
+    skippedScenarioIds: string[];
+  };
+  criticalReasonCodeBudget: {
+    allowedCount: number;
+    observedCount: number;
+    observedReasonCodes: string[];
+  };
+  failureSnapshot: {
+    unresolvedCriticalFailures: number;
+    failedMetrics: string[];
+    blockedReasons: string[];
+  };
+}
+
+export interface WaeRolloutGateEvaluationResult {
+  allowed: boolean;
+  reasonCode?: WaeRolloutGateBlockReasonCode;
+  message?: string;
+  ageMs?: number;
+  gate: WaeRolloutGateDecisionArtifact | null;
+}
 
 const categoryValidator = v.union(
   v.literal("core"),
@@ -236,11 +325,264 @@ function normalizeOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeLexicalStrings(values: Iterable<unknown>): string[] {
+  return Array.from(
+    new Set(
+      Array.from(values)
+        .map((value) => normalizeOptionalString(value))
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeUnknownArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
   return value as Record<string, unknown>;
+}
+
+function isCriticalWaeReasonCode(reasonCode: string): boolean {
+  if (reasonCode.startsWith("pending_feature:")) {
+    return false;
+  }
+  return WAE_ROLLOUT_GATE_CRITICAL_REASON_PREFIXES.some(
+    (prefix) => reasonCode === prefix || reasonCode.startsWith(`${prefix}:`),
+  );
+}
+
+function collectCriticalWaeReasonCodes(args: {
+  score: WaeEvalScorePacket;
+  scenarioRecords: WaeEvalScenarioRecordInput[];
+}): string[] {
+  const observed = new Set<string>();
+
+  for (const blockedReason of args.score.blockedReasons) {
+    const normalized = normalizeOptionalString(blockedReason);
+    if (normalized) {
+      observed.add(normalized);
+    }
+  }
+
+  for (const scenario of args.scenarioRecords) {
+    for (const reasonCode of scenario.reasonCodes) {
+      if (!isCriticalWaeReasonCode(reasonCode)) {
+        continue;
+      }
+      observed.add(`scenario:${scenario.scenarioId}:${reasonCode}`);
+    }
+  }
+
+  return [...observed].sort((left, right) => left.localeCompare(right));
+}
+
+export function buildWaeRolloutGateDecisionArtifact(args: {
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  runRecord: WaeEvalRunRecordInput;
+  scenarioRecords: WaeEvalScenarioRecordInput[];
+  score: WaeEvalScorePacket;
+  recordedAt: number;
+  completedAt: number;
+  recordedByUserId: string;
+}): WaeRolloutGateDecisionArtifact {
+  const failedScenarioIds = normalizeLexicalStrings(
+    args.score.scenarioBreakdown
+      .filter((scenario) => scenario.failedMetrics.length > 0)
+      .map((scenario) => scenario.scenarioId),
+  );
+  const skippedScenarioIds = normalizeLexicalStrings(
+    args.scenarioRecords
+      .filter((scenario) => scenario.actualVerdict === "SKIPPED")
+      .map((scenario) => scenario.scenarioId),
+  );
+  const criticalReasonCodes = collectCriticalWaeReasonCodes({
+    score: args.score,
+    scenarioRecords: args.scenarioRecords,
+  });
+  const passed =
+    args.runRecord.lifecycleStatus === "passed"
+    && args.score.verdict === "passed"
+    && args.score.decision === "proceed"
+    && criticalReasonCodes.length === 0;
+
+  return {
+    contractVersion: WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION,
+    rolloutContractVersion: WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION,
+    status: passed ? "pass" : "fail",
+    reasonCode: passed ? "pass" : "wae_gate_failed",
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: args.templateVersionTag,
+    runId: args.runRecord.runId,
+    suiteKeyHash: args.runRecord.suiteKeyHash,
+    scenarioMatrixContractVersion: args.runRecord.scenarioMatrixContractVersion,
+    completedAt: args.completedAt,
+    recordedAt: args.recordedAt,
+    recordedByUserId: args.recordedByUserId,
+    freshnessWindowMs: WAE_ROLLOUT_GATE_MAX_AGE_MS,
+    score: {
+      verdict: args.score.verdict,
+      decision: args.score.decision,
+      resultLabel: args.score.resultLabel,
+      weightedScore: args.score.weightedScore,
+      thresholds: args.score.thresholds,
+      failedMetrics: [...args.score.failedMetrics],
+      warnings: [...args.score.warnings],
+      blockedReasons: [...args.score.blockedReasons],
+    },
+    scenarioCoverage: {
+      totalScenarios: args.runRecord.counts.scenarios,
+      runnableScenarios: args.score.counts.runnable,
+      skippedScenarios: args.score.counts.skipped,
+      passedScenarios: args.score.counts.passed,
+      failedScenarios: args.score.counts.failed,
+      evaluatedScenarioIds: normalizeLexicalStrings(
+        args.scenarioRecords.map((scenario) => scenario.scenarioId),
+      ),
+      failedScenarioIds,
+      skippedScenarioIds,
+    },
+    criticalReasonCodeBudget: {
+      allowedCount: 0,
+      observedCount: criticalReasonCodes.length,
+      observedReasonCodes: criticalReasonCodes,
+    },
+    failureSnapshot: {
+      unresolvedCriticalFailures: failedScenarioIds.length + args.score.blockedReasons.length,
+      failedMetrics: [...args.score.failedMetrics],
+      blockedReasons: [...args.score.blockedReasons],
+    },
+  };
+}
+
+function parseWaeRolloutGateDecisionArtifact(
+  value: unknown,
+): WaeRolloutGateDecisionArtifact | null {
+  const record = asRecord(value);
+  const contractVersion = normalizeOptionalString(record.contractVersion);
+  const rolloutContractVersion = normalizeOptionalString(record.rolloutContractVersion);
+  const status = normalizeOptionalString(record.status);
+  const reasonCode = normalizeOptionalString(record.reasonCode);
+  const templateId = normalizeOptionalString(record.templateId);
+  const templateVersionId = normalizeOptionalString(record.templateVersionId);
+  const templateVersionTag = normalizeOptionalString(record.templateVersionTag);
+  const runId = normalizeOptionalString(record.runId);
+  const suiteKeyHash = normalizeOptionalString(record.suiteKeyHash);
+  const scenarioMatrixContractVersion = normalizeOptionalString(
+    record.scenarioMatrixContractVersion,
+  );
+  const completedAt = normalizeFiniteNumber(record.completedAt);
+  const recordedAt = normalizeFiniteNumber(record.recordedAt);
+  const recordedByUserId = normalizeOptionalString(record.recordedByUserId);
+  const freshnessWindowMs = normalizeFiniteNumber(record.freshnessWindowMs);
+  const score = asRecord(record.score);
+  const thresholds = asRecord(score.thresholds);
+  const scenarioCoverage = asRecord(record.scenarioCoverage);
+  const criticalReasonCodeBudget = asRecord(record.criticalReasonCodeBudget);
+  const failureSnapshot = asRecord(record.failureSnapshot);
+
+  if (
+    contractVersion !== WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION
+    || rolloutContractVersion !== WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION
+    || (status !== "pass" && status !== "fail")
+    || (reasonCode !== "pass"
+      && reasonCode !== "wae_evidence_missing"
+      && reasonCode !== "wae_evidence_stale"
+      && reasonCode !== "wae_gate_failed"
+      && reasonCode !== "wae_evidence_mismatch")
+    || !templateId
+    || !templateVersionId
+    || !templateVersionTag
+    || !runId
+    || !suiteKeyHash
+    || !scenarioMatrixContractVersion
+    || completedAt === null
+    || recordedAt === null
+    || !recordedByUserId
+    || freshnessWindowMs === null
+  ) {
+    return null;
+  }
+
+  const scoreVerdict = normalizeOptionalString(score.verdict);
+  const scoreDecision = normalizeOptionalString(score.decision);
+  const scoreResultLabel = normalizeOptionalString(score.resultLabel);
+  if (
+    (scoreVerdict !== "passed" && scoreVerdict !== "failed" && scoreVerdict !== "blocked")
+    || (scoreDecision !== "proceed" && scoreDecision !== "hold")
+    || (scoreResultLabel !== "PASS" && scoreResultLabel !== "FAIL")
+  ) {
+    return null;
+  }
+
+  return {
+    contractVersion: WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION,
+    rolloutContractVersion: WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION,
+    status,
+    reasonCode: reasonCode as WaeRolloutGateDecisionArtifact["reasonCode"],
+    templateId,
+    templateVersionId,
+    templateVersionTag,
+    runId,
+    suiteKeyHash,
+    scenarioMatrixContractVersion,
+    completedAt,
+    recordedAt,
+    recordedByUserId,
+    freshnessWindowMs,
+    score: {
+      verdict: scoreVerdict as WaeEvalScorePacket["verdict"],
+      decision: scoreDecision as WaeEvalScorePacket["decision"],
+      resultLabel: scoreResultLabel as WaeEvalScorePacket["resultLabel"],
+      weightedScore: normalizeFiniteNumber(score.weightedScore) ?? 0,
+      thresholds: {
+        pass: normalizeFiniteNumber(thresholds.pass) ?? 0,
+        hold: normalizeFiniteNumber(thresholds.hold) ?? 0,
+      },
+      failedMetrics: normalizeLexicalStrings(normalizeUnknownArray(score.failedMetrics)),
+      warnings: normalizeLexicalStrings(normalizeUnknownArray(score.warnings)),
+      blockedReasons: normalizeLexicalStrings(normalizeUnknownArray(score.blockedReasons)),
+    },
+    scenarioCoverage: {
+      totalScenarios: normalizeFiniteNumber(scenarioCoverage.totalScenarios) ?? 0,
+      runnableScenarios: normalizeFiniteNumber(scenarioCoverage.runnableScenarios) ?? 0,
+      skippedScenarios: normalizeFiniteNumber(scenarioCoverage.skippedScenarios) ?? 0,
+      passedScenarios: normalizeFiniteNumber(scenarioCoverage.passedScenarios) ?? 0,
+      failedScenarios: normalizeFiniteNumber(scenarioCoverage.failedScenarios) ?? 0,
+      evaluatedScenarioIds: normalizeLexicalStrings(
+        normalizeUnknownArray(scenarioCoverage.evaluatedScenarioIds),
+      ),
+      failedScenarioIds: normalizeLexicalStrings(
+        normalizeUnknownArray(scenarioCoverage.failedScenarioIds),
+      ),
+      skippedScenarioIds: normalizeLexicalStrings(
+        normalizeUnknownArray(scenarioCoverage.skippedScenarioIds),
+      ),
+    },
+    criticalReasonCodeBudget: {
+      allowedCount: normalizeFiniteNumber(criticalReasonCodeBudget.allowedCount) ?? 0,
+      observedCount: normalizeFiniteNumber(criticalReasonCodeBudget.observedCount) ?? 0,
+      observedReasonCodes: normalizeLexicalStrings(
+        normalizeUnknownArray(criticalReasonCodeBudget.observedReasonCodes),
+      ),
+    },
+    failureSnapshot: {
+      unresolvedCriticalFailures:
+        normalizeFiniteNumber(failureSnapshot.unresolvedCriticalFailures) ?? 0,
+      failedMetrics: normalizeLexicalStrings(normalizeUnknownArray(failureSnapshot.failedMetrics)),
+      blockedReasons: normalizeLexicalStrings(normalizeUnknownArray(failureSnapshot.blockedReasons)),
+    },
+  };
 }
 
 function buildSeedTemplateBridgeContract(args: {
@@ -660,6 +1002,130 @@ async function writeAgentCatalogAuditAction(args: {
     performedBy: args.userId,
     performedAt: now,
   });
+}
+
+export async function getLatestWaeRolloutGateDecisionArtifact(
+  ctx: QueryCtx | MutationCtx,
+  templateVersionId: Id<"objects">,
+): Promise<WaeRolloutGateDecisionArtifact | null> {
+  const dbAny = ctx.db as any;
+  const actions = (await dbAny
+    .query("objectActions")
+    .withIndex("by_object", (q: any) => q.eq("objectId", templateVersionId))
+    .collect()) as Array<{
+    _id: string;
+    actionType?: unknown;
+    actionData?: unknown;
+    performedAt?: unknown;
+  }>;
+
+  const candidates = actions
+    .filter((row) => row.actionType === WAE_ROLLOUT_GATE_ACTION_TYPE)
+    .map((row) => ({
+      actionId: row._id,
+      performedAt: normalizeFiniteNumber(row.performedAt) ?? 0,
+      artifact: parseWaeRolloutGateDecisionArtifact(row.actionData),
+    }))
+    .filter(
+      (row): row is {
+        actionId: string;
+        performedAt: number;
+        artifact: WaeRolloutGateDecisionArtifact;
+      } => row.artifact !== null,
+    )
+    .sort((left, right) => {
+      if (left.performedAt !== right.performedAt) {
+        return right.performedAt - left.performedAt;
+      }
+      return right.actionId.localeCompare(left.actionId);
+    });
+
+  return candidates[0]?.artifact ?? null;
+}
+
+export async function evaluateWaeRolloutGateForTemplateVersion(
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId?: Id<"objects"> | null;
+    templateVersionTag?: string | null;
+    now?: number;
+  },
+): Promise<WaeRolloutGateEvaluationResult> {
+  const templateVersionId = args.templateVersionId ?? null;
+  const templateVersionTag = normalizeOptionalString(args.templateVersionTag);
+  const now = args.now ?? Date.now();
+
+  if (!templateVersionId || !templateVersionTag) {
+    return {
+      allowed: false,
+      reasonCode: "wae_evidence_missing",
+      message: "WAE rollout gate evidence is missing for this template version.",
+      gate: null,
+    };
+  }
+
+  const gate = await getLatestWaeRolloutGateDecisionArtifact(ctx, templateVersionId);
+  if (!gate) {
+    return {
+      allowed: false,
+      reasonCode: "wae_evidence_missing",
+      message: `No WAE rollout gate artifact was recorded for template version ${templateVersionTag}.`,
+      gate: null,
+    };
+  }
+
+  const ageMs = Math.max(0, now - gate.recordedAt);
+  const freshnessWindowMs =
+    gate.freshnessWindowMs > 0 ? gate.freshnessWindowMs : WAE_ROLLOUT_GATE_MAX_AGE_MS;
+
+  if (
+    gate.templateId !== String(args.templateId)
+    || gate.templateVersionId !== String(templateVersionId)
+    || gate.templateVersionTag !== templateVersionTag
+    || gate.rolloutContractVersion !== WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION
+  ) {
+    return {
+      allowed: false,
+      reasonCode: "wae_evidence_mismatch",
+      message: "WAE rollout gate evidence does not match the requested template/version contract.",
+      ageMs,
+      gate,
+    };
+  }
+
+  if (ageMs > freshnessWindowMs) {
+    return {
+      allowed: false,
+      reasonCode: "wae_evidence_stale",
+      message: `WAE rollout gate evidence is stale (${Math.floor(ageMs / 3_600_000)}h old).`,
+      ageMs,
+      gate,
+    };
+  }
+
+  if (
+    gate.status !== "pass"
+    || gate.reasonCode !== "pass"
+    || gate.score.verdict !== "passed"
+    || gate.score.decision !== "proceed"
+    || gate.criticalReasonCodeBudget.observedCount > gate.criticalReasonCodeBudget.allowedCount
+    || gate.failureSnapshot.unresolvedCriticalFailures > 0
+  ) {
+    return {
+      allowed: false,
+      reasonCode: "wae_gate_failed",
+      message: "WAE rollout gate did not pass for this template version.",
+      ageMs,
+      gate,
+    };
+  }
+
+  return {
+    allowed: true,
+    ageMs,
+    gate,
+  };
 }
 
 function buildSummary(entries: CatalogEntryRow[], toolRequirements: ToolRequirementRow[]) {
@@ -1613,6 +2079,117 @@ export const backfillCatalogPublishedFlags = mutation({
       unchangedCount: entries.length - updates.length,
       updates,
     };
+  },
+});
+
+export const recordWaeRolloutGateDecision = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    templateVersionId: v.id("objects"),
+    waeRunRecord: v.any(),
+    waeScenarioRecords: v.any(),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== "org_agent" || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+
+    const templateVersion = await ctx.db.get(args.templateVersionId);
+    if (!templateVersion || templateVersion.type !== "org_agent_template_version") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+
+    const versionProps = asRecord(templateVersion.customProperties);
+    if (normalizeOptionalString(versionProps.sourceTemplateId) !== String(args.templateId)) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template version does not belong to template.",
+      });
+    }
+
+    const runRecord = normalizeWaeRunRecord(args.waeRunRecord);
+    const scenarioRecords = normalizeWaeScenarioRecords(args.waeScenarioRecords);
+    if (!runRecord) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "waeRunRecord is missing or invalid.",
+      });
+    }
+    if (scenarioRecords.length === 0) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "waeScenarioRecords must contain at least one valid scenario record.",
+      });
+    }
+
+    const templateVersionTag = normalizeOptionalString(versionProps.versionTag);
+    if (!templateVersionTag || runRecord.templateVersionTag !== templateVersionTag) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "WAE run evidence does not match the template version tag.",
+      });
+    }
+
+    const score = scoreWaeEvalBundle({
+      runRecord,
+      scenarioRecords,
+    });
+    const recordedAt = Date.now();
+    const completedAt = args.completedAt ?? recordedAt;
+    const artifact = buildWaeRolloutGateDecisionArtifact({
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag,
+      runRecord,
+      scenarioRecords,
+      score,
+      recordedAt,
+      completedAt,
+      recordedByUserId: String(userId),
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: template.organizationId,
+      objectId: args.templateVersionId,
+      actionType: WAE_ROLLOUT_GATE_ACTION_TYPE,
+      actionData: artifact as unknown as Record<string, unknown>,
+      performedBy: userId,
+      performedAt: recordedAt,
+    });
+
+    await ctx.db.insert("auditLogs", {
+      organizationId: template.organizationId,
+      userId,
+      action: WAE_ROLLOUT_GATE_ACTION_TYPE,
+      resource: "template_version",
+      resourceId: String(args.templateVersionId),
+      success: artifact.status === "pass",
+      metadata: artifact as unknown as Record<string, unknown>,
+      createdAt: recordedAt,
+    });
+
+    return artifact;
+  },
+});
+
+export const getLatestWaeRolloutGateDecision = query({
+  args: {
+    sessionId: v.string(),
+    templateVersionId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    return await getLatestWaeRolloutGateDecisionArtifact(ctx, args.templateVersionId);
   },
 });
 

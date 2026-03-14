@@ -77,6 +77,18 @@ export type VoiceDuplexTransportFallbackDecision = {
   changedRoute: boolean
 }
 
+export type AmbientSingleSegmentRecoveryReason =
+  | "not_ambient_single_segment"
+  | "retry_blob_transcription"
+  | "skip_redundant_blob_transcription"
+
+export type AmbientSingleSegmentRecoveryDecision = {
+  shouldRetryBlobTranscription: boolean
+  shouldSkipBlobTranscription: boolean
+  speechHintObserved: boolean
+  reason: AmbientSingleSegmentRecoveryReason
+}
+
 export const DEFAULT_PENDING_FINAL_FRAME_TIMEOUT_MS = 500
 
 export function resolveInitialDuplexTransportRoute(
@@ -225,6 +237,68 @@ export function resolveDuplexTransportFallbackDecision(args: {
     fallbackApplied: fallbackRoute !== args.currentRoute || args.fallbackApplied,
     fallbackReason: "websocket_primary_failed",
     changedRoute: fallbackRoute !== args.currentRoute,
+  }
+}
+
+export function resolveAmbientSingleSegmentRecoveryDecision(args: {
+  queuedFrameCount: number
+  finalSegmentHttpTranscribeAttempted: boolean
+  finalSegmentHttpTranscribeNoSpeech: boolean
+  realtimeIngestFailedReason: string | null | undefined
+  hasDetectedSpeechSinceCaptureStart: boolean
+  captureSpeechFrameCount: number
+  captureMaxFrameRms: number
+  vadEnergyThresholdRms: number
+}): AmbientSingleSegmentRecoveryDecision {
+  const normalizedFrameCount = Number.isFinite(args.queuedFrameCount)
+    ? Math.max(0, Math.floor(args.queuedFrameCount))
+    : 0
+  const normalizedReason = (args.realtimeIngestFailedReason || "").trim()
+  const isAmbientSingleSegment =
+    normalizedFrameCount <= 1
+    && args.finalSegmentHttpTranscribeAttempted
+    && args.finalSegmentHttpTranscribeNoSpeech
+    && normalizedReason === "voice_non_speech_transcript_filtered"
+  if (!isAmbientSingleSegment) {
+    return {
+      shouldRetryBlobTranscription: false,
+      shouldSkipBlobTranscription: false,
+      speechHintObserved: false,
+      reason: "not_ambient_single_segment",
+    }
+  }
+
+  const normalizedSpeechFrameCount = Number.isFinite(args.captureSpeechFrameCount)
+    ? Math.max(0, Math.floor(args.captureSpeechFrameCount))
+    : 0
+  const normalizedMaxFrameRms = Number.isFinite(args.captureMaxFrameRms)
+    ? Math.max(0, Number(args.captureMaxFrameRms))
+    : 0
+  const normalizedVadEnergyThreshold = Number.isFinite(args.vadEnergyThresholdRms)
+    ? Math.max(0, Number(args.vadEnergyThresholdRms))
+    : 0
+  const frameRmsSpeechHintThreshold = Math.max(
+    0.006,
+    normalizedVadEnergyThreshold * 0.75,
+  )
+  const speechHintObserved =
+    args.hasDetectedSpeechSinceCaptureStart
+    || normalizedSpeechFrameCount > 0
+    || normalizedMaxFrameRms >= frameRmsSpeechHintThreshold
+  if (speechHintObserved) {
+    return {
+      shouldRetryBlobTranscription: true,
+      shouldSkipBlobTranscription: false,
+      speechHintObserved: true,
+      reason: "retry_blob_transcription",
+    }
+  }
+
+  return {
+    shouldRetryBlobTranscription: false,
+    shouldSkipBlobTranscription: true,
+    speechHintObserved: false,
+    reason: "skip_redundant_blob_transcription",
   }
 }
 

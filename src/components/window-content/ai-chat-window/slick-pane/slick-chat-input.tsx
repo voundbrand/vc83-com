@@ -41,6 +41,7 @@ import {
   VOICE_AGENT_HANDOFF_EVENT,
 } from "@/lib/voice-assistant/agent-co-creation-handoff"
 import {
+  resolveGeminiLiveRealtimeInputSetupContract,
   resolveVoiceCaptureFallbackMimeType,
   resolveVoiceCapturePreferredMimeTypes,
   resolveVoiceLiveDuplexSegmentDurationMs,
@@ -74,6 +75,7 @@ import {
   isIntentionalDesktopVisionStopReason,
   isTransientDesktopCameraBackpressureReason,
   normalizeDesktopCameraFallbackReason,
+  resolveDuplexVoiceTurnVisionUnavailableReason,
   resolveDesktopConversationModeTransition,
   shouldResolveDuplexVoiceTurnVisionFrame,
   shouldRecoverBlankDesktopVisionPreview,
@@ -100,6 +102,7 @@ import {
   evaluatePendingFinalFrameRelease,
   finalizeMergedTranscript,
   mergeTranscriptFrame,
+  resolveAmbientSingleSegmentRecoveryDecision,
   resolvePendingFinalFrameQueueDecision,
   queuePendingFinalFrameFinalize,
   resolveSegmentedFrameStreamingPolicy,
@@ -1128,6 +1131,24 @@ type VoiceTurnVisionFrameResolution =
       freshestCandidateCapturedAt?: number
       freshestCandidateAgeMs?: number
     }
+
+type VoiceTurnVisionUnavailableReason =
+  | "camera_not_capturing"
+  | "camera_error"
+  | "vision_frame_missing"
+  | "vision_frame_stale"
+  | "vision_policy_blocked"
+  | "vision_resolution_failed"
+
+type VoiceTurnVisionContext = {
+  requested: boolean
+  frameAttached: boolean
+  unavailableReason?: VoiceTurnVisionUnavailableReason
+  cameraSessionState?: "capturing" | "stopped" | "error" | "idle" | "unknown"
+  cameraFallbackReason?: string
+  maxFrameAgeMs?: number
+  freshestCandidateAgeMs?: number
+}
 
 function normalizeVoiceTurnVisionFrameResolution(
   value: unknown
@@ -3022,6 +3043,14 @@ export function SlickChatInput({
             providerId?: string | null
             providerSessionId?: string | null
             fallbackReason?: string | null
+            providerSetupContract?: {
+              contractVersion?: string
+              automaticActivityDetection?: Record<string, unknown>
+              activityHandling?: string
+              turnCoverage?: string
+              inputAudioTranscriptionEnabled?: boolean
+              outputAudioTranscriptionEnabled?: boolean
+            }
           }
         }
       | null = null
@@ -3304,6 +3333,18 @@ export function SlickChatInput({
         }
       }
 
+      const buildRealtimeConversationRuntime = (): Record<string, unknown> => ({
+        contractVersion: CONVERSATION_CONTRACT_VERSION,
+        mode: conversationModeSelection,
+        state: conversationState,
+        languageLock: voiceInputLanguage,
+        language: voiceInputLanguage,
+        runtimePath: sessionRuntimePath.runtimePath,
+        providerSetupContract:
+          openedVoiceSession.persistentMultimodal?.providerSetupContract
+          ?? resolveGeminiLiveRealtimeInputSetupContract(),
+      })
+
       const mergeRealtimeTranscript = (sequence: number, transcriptText: string) => {
         const merged = mergeTranscriptFrame(transcriptFramesBySequence, sequence, transcriptText)
         if (!merged) {
@@ -3336,9 +3377,11 @@ export function SlickChatInput({
           sttRoute: primarySttRoute,
           requestedProviderId: "elevenlabs",
           eventType: "barge_in",
+          conversationRuntime: buildRealtimeConversationRuntime(),
           voiceRuntime: {
             liveSessionId,
             captureMethod: "pcm_segmented_duplex_streaming",
+            language: voiceInputLanguage,
             segmentDurationMs: liveDuplexSegmentDurationMs,
             frameQueuePolicy: "deterministic_serial",
             finalFramePolicy: "pending_guarded_finalize",
@@ -3585,6 +3628,7 @@ export function SlickChatInput({
             eventType: "audio_chunk",
             audioChunkBase64: envelope.audioChunkBase64,
             transcriptionMimeType: envelope.transcriptionMimeType,
+            conversationRuntime: buildRealtimeConversationRuntime(),
             pcm: {
               encoding: "pcm_s16le",
               sampleRateHz: envelope.pcm.sampleRateHz,
@@ -3594,6 +3638,7 @@ export function SlickChatInput({
             voiceRuntime: {
               liveSessionId,
               captureMethod: "pcm_segmented_duplex_streaming",
+              language: voiceInputLanguage,
               segmentDurationMs: liveDuplexSegmentDurationMs,
               segmentSequence: segment.sequence,
               frameQueuePolicy: "deterministic_serial",
@@ -3770,9 +3815,11 @@ export function SlickChatInput({
                   requestedProviderId: "elevenlabs",
                   eventType: segment.isFinal ? "final_transcript" : "partial_transcript",
                   transcriptText,
+                  conversationRuntime: buildRealtimeConversationRuntime(),
                   voiceRuntime: {
                     liveSessionId,
                     captureMethod: "pcm_segmented_duplex_streaming",
+                    language: voiceInputLanguage,
                     segmentDurationMs: liveDuplexSegmentDurationMs,
                     segmentSequence: segment.sequence,
                     transcriptSequence: transcriptIngestSequence,
@@ -4298,17 +4345,25 @@ export function SlickChatInput({
               return
             }
 
-            const skipFallbackTranscriptionForAmbientSingleSegment =
-              queuedFrameCount <= 1
-              && finalSegmentHttpTranscribeAttempted
-              && finalSegmentHttpTranscribeNoSpeech
-              && realtimeIngestFailedReason === "voice_non_speech_transcript_filtered"
-            if (skipFallbackTranscriptionForAmbientSingleSegment) {
+            const ambientSingleSegmentRecoveryDecision =
+              resolveAmbientSingleSegmentRecoveryDecision({
+                queuedFrameCount,
+                finalSegmentHttpTranscribeAttempted,
+                finalSegmentHttpTranscribeNoSpeech,
+                realtimeIngestFailedReason,
+                hasDetectedSpeechSinceCaptureStart,
+                captureSpeechFrameCount: captureSpeechFrameCounter,
+                captureMaxFrameRms,
+                vadEnergyThresholdRms: CONVERSATION_VAD_POLICY.energyThresholdRms,
+              })
+            if (ambientSingleSegmentRecoveryDecision.shouldSkipBlobTranscription) {
               console.info("[VoiceRuntime] skipping_redundant_blob_transcription_after_ambient_filter", {
                 liveSessionId,
                 voiceSessionId: openedVoiceSession.voiceSessionId,
                 queuedFrameCount,
                 realtimeIngestFailedReason,
+                speechHintObserved: ambientSingleSegmentRecoveryDecision.speechHintObserved,
+                recoveryReason: ambientSingleSegmentRecoveryDecision.reason,
               })
               setVoiceCaptureError(null)
               setPendingVoiceRuntime(null)
@@ -4316,6 +4371,17 @@ export function SlickChatInput({
                 shouldResumeCaptureAfterTurn = true
               }
               return
+            }
+            if (ambientSingleSegmentRecoveryDecision.shouldRetryBlobTranscription) {
+              console.info("[VoiceRuntime] retrying_blob_transcription_after_ambient_single_segment", {
+                liveSessionId,
+                voiceSessionId: openedVoiceSession.voiceSessionId,
+                queuedFrameCount,
+                realtimeIngestFailedReason,
+                captureSpeechFrameCount: captureSpeechFrameCounter,
+                captureMaxFrameRms: Number(captureMaxFrameRms.toFixed(5)),
+                recoveryReason: ambientSingleSegmentRecoveryDecision.reason,
+              })
             }
 
             const transcribeResult = await voiceRuntime.transcribeAudioBlob({
@@ -5595,6 +5661,7 @@ export function SlickChatInput({
       contractVersion: CONVERSATION_CONTRACT_VERSION,
       state: conversationState,
       reasonCode: conversationReasonCode,
+      providerSetupContract: geminiLive.providerSetupContract,
       duplexPolicy: {
         mode:
           runtimePath === "persistent_realtime_multimodal"
@@ -5724,6 +5791,19 @@ export function SlickChatInput({
           === "persistent_realtime_multimodal"
           ? "persistent_realtime_multimodal"
           : "turn_stitch"
+      const cameraSessionStateForTurn: VoiceTurnVisionContext["cameraSessionState"] =
+        cameraLiveSession?.sessionState || "idle"
+      const cameraFallbackReasonForTurn =
+        normalizeDesktopCameraFallbackReason(
+          cameraVisionError ?? cameraLiveSession?.fallbackReason
+        ) || undefined
+      const preResolutionVisionUnavailableReason =
+        resolveDuplexVoiceTurnVisionUnavailableReason({
+          conversationModeSelection,
+          cameraSessionState: cameraLiveSession?.sessionState,
+          cameraVisionError,
+          sessionTransportPath,
+        })
       const shouldResolveVisionFrame =
         shouldResolveDuplexVoiceTurnVisionFrame({
           conversationModeSelection,
@@ -5732,6 +5812,20 @@ export function SlickChatInput({
           sessionTransportPath,
         })
       let visionFrameResolution: VoiceTurnVisionFrameResolution | undefined
+      let visionTurnContext: VoiceTurnVisionContext | undefined =
+        conversationModeSelection === "voice_with_eyes"
+          ? {
+              requested: true,
+              frameAttached: false,
+              cameraSessionState: cameraSessionStateForTurn,
+              cameraFallbackReason: cameraFallbackReasonForTurn,
+              unavailableReason:
+                preResolutionVisionUnavailableReason
+                && preResolutionVisionUnavailableReason !== "vision_not_requested"
+                  ? preResolutionVisionUnavailableReason
+                  : undefined,
+            }
+          : undefined
       if (
         shouldResolveVisionFrame
         && authSessionId
@@ -5749,7 +5843,33 @@ export function SlickChatInput({
           visionFrameResolution = normalizeVoiceTurnVisionFrameResolution(
             rawVisionResolution
           )
+          if (visionTurnContext && visionFrameResolution) {
+            if (visionFrameResolution.status === "attached") {
+              visionTurnContext = {
+                ...visionTurnContext,
+                frameAttached: true,
+                unavailableReason: undefined,
+                maxFrameAgeMs: visionFrameResolution.maxFrameAgeMs,
+                freshestCandidateAgeMs: undefined,
+              }
+            } else {
+              visionTurnContext = {
+                ...visionTurnContext,
+                frameAttached: false,
+                unavailableReason: visionFrameResolution.reason,
+                maxFrameAgeMs: visionFrameResolution.maxFrameAgeMs,
+                freshestCandidateAgeMs: visionFrameResolution.freshestCandidateAgeMs,
+              }
+            }
+          }
         } catch (error) {
+          if (visionTurnContext) {
+            visionTurnContext = {
+              ...visionTurnContext,
+              frameAttached: false,
+              unavailableReason: "vision_resolution_failed",
+            }
+          }
           console.warn("[VoiceRuntime] voice_turn_vision_frame_resolution_failed", {
             error: error instanceof Error ? error.message : "unknown_error",
             conversationId: String(targetConversationId),
@@ -5757,9 +5877,22 @@ export function SlickChatInput({
           })
         }
       }
+      if (
+        visionTurnContext
+        && shouldResolveVisionFrame
+        && !visionFrameResolution
+        && !visionTurnContext.unavailableReason
+      ) {
+        visionTurnContext = {
+          ...visionTurnContext,
+          frameAttached: false,
+          unavailableReason: "vision_resolution_failed",
+        }
+      }
       const runtimeMetadata = buildConversationRuntimeMetadataEnvelope({
         ...voiceRuntimeMetadata,
         visionFrameResolution,
+        visionTurnContext,
       })
       const result = await chat.sendMessage(outboundMessage, targetConversationId, {
         layerWorkflowId: activeLayerWorkflowId,
@@ -6065,6 +6198,7 @@ export function SlickChatInput({
         contractVersion: CONVERSATION_CONTRACT_VERSION,
         state: conversationState,
         reasonCode: conversationReasonCode,
+        providerSetupContract: geminiLive.providerSetupContract,
         duplexPolicy: {
           mode:
             runtimePath === "persistent_realtime_multimodal"

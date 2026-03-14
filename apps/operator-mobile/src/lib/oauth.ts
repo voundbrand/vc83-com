@@ -339,7 +339,11 @@ async function fetchUserFromSession(sessionToken: string): Promise<User> {
     throw new Error(errorMessage || `Failed to load auth profile (${response.status})`);
   }
 
-  const user = (data as { user?: User } | User)?.user ?? (data as User);
+  const userPayload =
+    typeof data === 'object' && data && 'user' in data
+      ? (data as { user?: User }).user
+      : undefined;
+  const user = userPayload ?? (data as User);
   if (!user || typeof user !== 'object' || !('id' in user) || !('email' in user)) {
     throw new Error('Auth profile response missing user payload');
   }

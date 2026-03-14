@@ -121,6 +121,45 @@ export type VisionSourceNegotiation = {
 };
 
 const DEFAULT_SAMPLE_RATE = 24_000;
+export const GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION =
+  'gemini_live_realtime_input_setup_v1' as const;
+export const GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT =
+  'START_OF_ACTIVITY_INTERRUPTS' as const;
+export const GEMINI_LIVE_TURN_COVERAGE_CONTRACT =
+  'TURN_INCLUDES_ALL_INPUT' as const;
+
+export type GeminiLiveRealtimeInputSetupContract = {
+  contractVersion: typeof GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION;
+  automaticActivityDetection: {
+    disabled: false;
+    startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH';
+    endOfSpeechSensitivity: 'END_SENSITIVITY_LOW';
+    silenceDurationMs: 500;
+    prefixPaddingMs: 40;
+  };
+  activityHandling: typeof GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT;
+  turnCoverage: typeof GEMINI_LIVE_TURN_COVERAGE_CONTRACT;
+  inputAudioTranscriptionEnabled: true;
+  outputAudioTranscriptionEnabled: true;
+};
+
+export function buildGeminiLiveRealtimeInputSetupContract():
+  GeminiLiveRealtimeInputSetupContract {
+  return {
+    contractVersion: GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION,
+    automaticActivityDetection: {
+      disabled: false,
+      startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+      endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+      silenceDurationMs: 500,
+      prefixPaddingMs: 40,
+    },
+    activityHandling: GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+    turnCoverage: GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
+    inputAudioTranscriptionEnabled: true,
+    outputAudioTranscriptionEnabled: true,
+  };
+}
 
 export function createDefaultMetaBridgeDiagnostics(): MetaBridgeRuntimeDiagnostics {
   return {
@@ -334,6 +373,7 @@ export function buildGeminiLiveMetadata(args: {
   const payload: Record<string, unknown> = {
     provider: 'gemini',
     mode: 'live_reference',
+    providerSetupContract: buildGeminiLiveRealtimeInputSetupContract(),
     sourceMode: args.sourceMode,
     bridgeConnectionState: args.bridge.connectionState,
     enabled: true,

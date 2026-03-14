@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+  GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
+  resolveGeminiLiveRealtimeInputSetupContract,
   resolveVoicePcmCaptureContract,
   resolveVoiceRealtimeSttRoutePrecedence,
   resolveVoiceRealtimeTransportRoutePrecedence,
@@ -28,5 +31,24 @@ describe("web voice runtime policy", () => {
       "scribe_v2_realtime_primary",
       "gemini_native_audio_failover",
     ]);
+  });
+
+  it("locks Gemini Live setup contract parity with VisionClaw realtime activity handling", () => {
+    const setup = resolveGeminiLiveRealtimeInputSetupContract();
+    expect(setup.activityHandling).toBe(
+      GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT
+    );
+    expect(setup.turnCoverage).toBe(
+      GEMINI_LIVE_TURN_COVERAGE_CONTRACT
+    );
+    expect(setup.automaticActivityDetection).toEqual({
+      disabled: false,
+      startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+      endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+      silenceDurationMs: 500,
+      prefixPaddingMs: 40,
+    });
+    expect(setup.inputAudioTranscriptionEnabled).toBe(true);
+    expect(setup.outputAudioTranscriptionEnabled).toBe(true);
   });
 });

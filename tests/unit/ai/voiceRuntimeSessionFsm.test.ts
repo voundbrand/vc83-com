@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+  GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
   VOICE_TRANSPORT_WEBSOCKET_INGEST_PHASE_ID,
   VOICE_RUNTIME_SESSION_FSM_STATE_VALUES,
+  buildGeminiLiveRealtimeInputSetupContract,
   isLikelyAmbientTranscriptText,
   isAllowedVoiceRuntimeSessionTransition,
   isVoiceRuntimeSessionStale,
   resolveBrowserFallbackTranscriptText,
+  resolveRealtimeTranscriptionLanguageHint,
   resolveDesktopTranscriptForwardingEnvelope,
   resolveVoiceAssistantRelay,
   resolveVoiceAssistantStreamRelayState,
@@ -224,6 +228,50 @@ describe("voice runtime session fsm", () => {
         transcriptText: "ignored",
       })
     ).toBeNull();
+  });
+
+  it("resolves realtime transcription language hints from runtime metadata deterministically", () => {
+    expect(
+      resolveRealtimeTranscriptionLanguageHint({
+        conversationRuntime: {
+          languageLock: "en-US",
+          language: "de",
+        },
+        voiceRuntime: {
+          language: "ru",
+        },
+        runtimeFallbackLanguage: "fr",
+      }),
+    ).toBe("en-us");
+
+    expect(
+      resolveRealtimeTranscriptionLanguageHint({
+        conversationRuntime: {},
+        voiceRuntime: {
+          language: "de-DE",
+        },
+        runtimeFallbackLanguage: "english",
+      }),
+    ).toBe("de-de");
+  });
+
+  it("locks Gemini Live provider setup contract parity for all runtime clients", () => {
+    const setupContract = buildGeminiLiveRealtimeInputSetupContract();
+    expect(setupContract.activityHandling).toBe(
+      GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+    );
+    expect(setupContract.turnCoverage).toBe(
+      GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
+    );
+    expect(setupContract.automaticActivityDetection).toEqual({
+      disabled: false,
+      startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+      endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+      silenceDurationMs: 500,
+      prefixPaddingMs: 40,
+    });
+    expect(setupContract.inputAudioTranscriptionEnabled).toBe(true);
+    expect(setupContract.outputAudioTranscriptionEnabled).toBe(true);
   });
 
   it("resolves canonical desktop transcript forwarding envelope", () => {

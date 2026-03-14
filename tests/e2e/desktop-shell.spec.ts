@@ -124,7 +124,7 @@ test.describe("Desktop Shell", () => {
       minSpeechFrames: 2,
       endpointSilenceMs: 320,
     });
-    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1250);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1000);
     expect(DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW).toBe(8);
     expect(DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS).toBe(10000);
   });

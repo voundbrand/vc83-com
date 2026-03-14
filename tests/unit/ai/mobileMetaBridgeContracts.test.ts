@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+  GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
   buildGeminiLiveMetadata,
+  buildGeminiLiveRealtimeInputSetupContract,
   createDefaultMetaBridgeSnapshot,
   evaluateVisionSourceReadiness,
   mapVisionReadinessReasonToConversationReason,
@@ -132,6 +135,18 @@ describe('mobile meta bridge contracts', () => {
       bridge,
     });
 
+    expect(iphonePayload.providerSetupContract).toEqual(
+      buildGeminiLiveRealtimeInputSetupContract()
+    );
+    expect(metaPayload.providerSetupContract).toEqual(
+      buildGeminiLiveRealtimeInputSetupContract()
+    );
+    expect(
+      (metaPayload.providerSetupContract as { activityHandling?: string }).activityHandling
+    ).toBe(GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT);
+    expect(
+      (metaPayload.providerSetupContract as { turnCoverage?: string }).turnCoverage
+    ).toBe(GEMINI_LIVE_TURN_COVERAGE_CONTRACT);
     expect(iphonePayload.bridgeDiagnostics).toBeUndefined();
     expect(metaPayload.bridgeDiagnostics).toMatchObject({
       connectionState: 'connected',

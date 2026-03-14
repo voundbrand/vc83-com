@@ -2918,11 +2918,11 @@ export const resolveContact = internalQuery({
     const identifier = args.identifier.toLowerCase().trim();
 
     // Match by phone for phone-based channels
-    if (["whatsapp", "sms"].includes(args.channel)) {
+    if (["whatsapp", "sms", "phone_call"].includes(args.channel)) {
       const match = contacts.find((c) => {
         const props = c.customProperties as Record<string, unknown> | undefined;
-        const phone = String(props?.phone || "").replace(/\s+/g, "");
-        return phone === identifier.replace(/\s+/g, "");
+        const phone = String(props?.phone || "").replace(/[^\d+]/g, "");
+        return phone === identifier.replace(/[^\d+]/g, "");
       });
       if (match) return match;
     }
@@ -4627,6 +4627,12 @@ export const generateSessionSummary = internalAction({
             },
           }
         );
+
+        await ctx.scheduler.runAfter(
+          0,
+          getInternalRef().ai.weekendMode.processWeekendSessionSummary,
+          { sessionId }
+        );
       }
     } catch (e) {
       console.error("[SessionSummary] Failed to generate summary:", e);
@@ -4637,6 +4643,140 @@ export const generateSessionSummary = internalAction({
 // ============================================================================
 // PUBLIC QUERIES (Authenticated — called from frontend UI)
 // ============================================================================
+
+export interface EvalTraceReadScopeDecision {
+  allowed: boolean;
+  reason?: "missing_scope" | "session_org_mismatch" | "missing_permission";
+}
+
+export function evaluateEvalTraceReadScope(args: {
+  sessionOrganizationId?: Id<"organizations"> | string | null;
+  requestedOrganizationId?: Id<"organizations"> | string | null;
+  hasPermission: boolean;
+}): EvalTraceReadScopeDecision {
+  const sessionOrganizationId = normalizeSessionScopeToken(args.sessionOrganizationId);
+  const requestedOrganizationId = normalizeSessionScopeToken(args.requestedOrganizationId);
+  if (!sessionOrganizationId || !requestedOrganizationId) {
+    return {
+      allowed: false,
+      reason: "missing_scope",
+    };
+  }
+  if (sessionOrganizationId !== requestedOrganizationId) {
+    return {
+      allowed: false,
+      reason: "session_org_mismatch",
+    };
+  }
+  if (!args.hasPermission) {
+    return {
+      allowed: false,
+      reason: "missing_permission",
+    };
+  }
+  return { allowed: true };
+}
+
+async function requireEvalTraceReadAccess(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  organizationId: Id<"organizations">;
+}) {
+  const auth = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  const hasPermission = await checkPermission(
+    args.ctx,
+    auth.userId,
+    "view_organization",
+    args.organizationId
+  );
+  const decision = evaluateEvalTraceReadScope({
+    sessionOrganizationId: auth.organizationId,
+    requestedOrganizationId: args.organizationId,
+    hasPermission,
+  });
+  if (!decision.allowed) {
+    throw new Error("Unauthorized eval trace access.");
+  }
+  return {
+    userId: auth.userId,
+    decision,
+  };
+}
+
+export const getEvalRunPlaybackTrace = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireEvalTraceReadAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+    return await (ctx as any).runQuery(
+      getInternalRef().ai.chat.getEvalRunPlaybackTraceInternal,
+      {
+        organizationId: args.organizationId,
+        runId: args.runId,
+        limit: args.limit,
+      }
+    );
+  },
+});
+
+export const getEvalRunDiffTrace = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    baselineRunId: v.string(),
+    candidateRunId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireEvalTraceReadAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+    return await (ctx as any).runQuery(
+      getInternalRef().ai.chat.getEvalRunDiffTraceInternal,
+      {
+        organizationId: args.organizationId,
+        baselineRunId: args.baselineRunId,
+        candidateRunId: args.candidateRunId,
+        limit: args.limit,
+      }
+    );
+  },
+});
+
+export const getEvalPromotionEvidencePacket = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireEvalTraceReadAccess({
+      ctx,
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+    });
+    return await (ctx as any).runQuery(
+      getInternalRef().ai.chat.getEvalPromotionEvidencePacketInternal,
+      {
+        organizationId: args.organizationId,
+        runId: args.runId,
+        limit: args.limit,
+      }
+    );
+  },
+});
 
 /**
  * Aggregate session stats per agent for an organization.

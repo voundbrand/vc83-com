@@ -1,0 +1,588 @@
+name: wae-eval-gate
+
+on:
+  schedule:
+    - cron: "25 7 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Execution mode: nightly regression or pre-rollout gate."
+        required: false
+        default: "nightly"
+        type: choice
+        options:
+          - nightly
+          - pre-rollout
+      template_id:
+        description: "Required for pre-rollout mode. Template object id."
+        required: false
+        default: ""
+        type: string
+      template_version_id:
+        description: "Required for pre-rollout mode. Template version object id."
+        required: false
+        default: ""
+        type: string
+      template_version_tag:
+        description: "Required for pre-rollout mode. Template version tag expected by WAE evidence."
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      mode:
+        description: "Execution mode: nightly regression or pre-rollout gate."
+        required: false
+        default: "pre-rollout"
+        type: string
+      template_id:
+        description: "Required for pre-rollout mode. Template object id."
+        required: false
+        default: ""
+        type: string
+      template_version_id:
+        description: "Required for pre-rollout mode. Template version object id."
+        required: false
+        default: ""
+        type: string
+      template_version_tag:
+        description: "Required for pre-rollout mode. Template version tag expected by WAE evidence."
+        required: false
+        default: ""
+        type: string
+    secrets:
+      NEXT_PUBLIC_CONVEX_URL:
+        required: true
+      TEST_SESSION_ID:
+        required: false
+    outputs:
+      verdict:
+        description: "WAE scorer verdict (`passed`, `failed`, or `blocked`)."
+        value: ${{ jobs.wae_eval.outputs.verdict }}
+      go_no_go:
+        description: "Overall rollout decision (`GO` or `NO-GO`)."
+        value: ${{ jobs.wae_eval.outputs.go_no_go }}
+      run_id:
+        description: "Deterministic WAE run id used for artifact collection."
+        value: ${{ jobs.wae_eval.outputs.run_id }}
+      rollout_status:
+        description: "Persisted rollout gate status (`pass`, `fail`, `blocked`, or `skipped`)."
+        value: ${{ jobs.wae_eval.outputs.rollout_status }}
+      weighted_score:
+        description: "Weighted WAE score emitted by the scorer."
+        value: ${{ jobs.wae_eval.outputs.weighted_score }}
+
+permissions:
+  contents: read
+
+jobs:
+  wae_eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      verdict: ${{ steps.score.outputs.verdict }}
+      go_no_go: ${{ steps.conclude.outputs.go_no_go }}
+      run_id: ${{ steps.resolve.outputs.run_id }}
+      rollout_status: ${{ steps.rollout.outputs.rollout_status }}
+      weighted_score: ${{ steps.score.outputs.weighted_score }}
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+      NEXT_PUBLIC_API_ENDPOINT_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_WAE_ENABLE: "1"
+      TEST_SESSION_ID: ${{ secrets.TEST_SESSION_ID }}
+      WAE_LANE: "D"
+      WAE_TARGET_ENV: "ci"
+      WAE_TEMPLATE_VERSION_TAG_OVERRIDE: ${{ vars.WAE_TEMPLATE_VERSION_TAG }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Resolve WAE execution mode
+        id: resolve
+        shell: bash
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_TEMPLATE_ID: ${{ inputs.template_id }}
+          INPUT_TEMPLATE_VERSION_ID: ${{ inputs.template_version_id }}
+          INPUT_TEMPLATE_VERSION_TAG: ${{ inputs.template_version_tag }}
+        run: |
+          mode="${INPUT_MODE:-}"
+          if [[ -z "$mode" ]]; then
+            mode="nightly"
+          fi
+          if [[ "$mode" != "nightly" && "$mode" != "pre-rollout" ]]; then
+            echo "Unsupported WAE mode: $mode"
+            exit 1
+          fi
+
+          template_version_tag="${INPUT_TEMPLATE_VERSION_TAG:-}"
+          if [[ -z "$template_version_tag" && "$mode" == "nightly" ]]; then
+            template_version_tag="${WAE_TEMPLATE_VERSION_TAG_OVERRIDE:-}"
+          fi
+          if [[ -z "$template_version_tag" && "$mode" == "nightly" ]]; then
+            template_version_tag="nightly-${GITHUB_SHA::12}"
+          fi
+
+          run_id="wae-${mode}-${GITHUB_RUN_ID}-attempt-${GITHUB_RUN_ATTEMPT}"
+          artifact_root="tmp/reports/wae/${run_id}"
+          record_rollout_gate="false"
+          if [[ "$mode" == "pre-rollout" ]]; then
+            record_rollout_gate="true"
+          fi
+
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "artifact_root=$artifact_root" >> "$GITHUB_OUTPUT"
+          echo "record_rollout_gate=$record_rollout_gate" >> "$GITHUB_OUTPUT"
+          echo "template_id=${INPUT_TEMPLATE_ID:-}" >> "$GITHUB_OUTPUT"
+          echo "template_version_id=${INPUT_TEMPLATE_VERSION_ID:-}" >> "$GITHUB_OUTPUT"
+          echo "template_version_tag=$template_version_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Validate required WAE secrets
+        id: validate
+        shell: bash
+        run: |
+          missing=()
+          if [[ -z "${NEXT_PUBLIC_CONVEX_URL:-}" ]]; then
+            missing+=("NEXT_PUBLIC_CONVEX_URL")
+          fi
+          if [[ "${{ steps.resolve.outputs.record_rollout_gate }}" == "true" && -z "${TEST_SESSION_ID:-}" ]]; then
+            missing+=("TEST_SESSION_ID")
+          fi
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required WAE secret(s): %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run WAE telemetry guard
+        id: qa_guard
+        if: always() && steps.validate.outcome == 'success'
+        run: npm run qa:telemetry:guard
+
+      - name: Run WAE desktop contract suite
+        id: contracts
+        if: always() && steps.validate.outcome == 'success'
+        env:
+          WAE_RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+        run: npm run wae:eval:contracts
+
+      - name: Run WAE seeded-agent regression suite
+        id: regression
+        if: always() && steps.validate.outcome == 'success'
+        env:
+          WAE_RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+        run: npm run wae:eval:regression
+
+      - name: Score WAE bundle and publish verdict summary
+        id: score
+        if: always()
+        env:
+          QA_GUARD_OUTCOME: ${{ steps.qa_guard.outcome }}
+          CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
+          REGRESSION_OUTCOME: ${{ steps.regression.outcome }}
+          WAE_MODE: ${{ steps.resolve.outputs.mode }}
+          WAE_RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+          WAE_ARTIFACT_ROOT: ${{ steps.resolve.outputs.artifact_root }}
+        run: |
+          node --import tsx <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          import {
+            WAE_EVAL_SCORE_PACKET_VERSION,
+            normalizeWaeRunRecord,
+            normalizeWaeScenarioRecords,
+            scoreWaeEvalBundle,
+          } from "./convex/ai/tools/evalAnalystTool";
+          import {
+            WAE_EVAL_SCORING_HOLD_THRESHOLD,
+            WAE_EVAL_SCORING_PASS_THRESHOLD,
+            WAE_EVAL_SCORING_RUBRIC_VERSION,
+            WAE_EVAL_SCORING_WEIGHTS,
+            type WaeEvalRubricMetricKey,
+          } from "./convex/ai/trustTelemetry";
+
+          const runId = process.env.WAE_RUN_ID || "wae-run-missing";
+          const mode = process.env.WAE_MODE || "nightly";
+          const templateVersionTag = process.env.WAE_TEMPLATE_VERSION_TAG || "nightly-unset";
+          const artifactRoot = process.env.WAE_ARTIFACT_ROOT || path.join("tmp", "reports", "wae", runId);
+          const bundleDir = path.join(process.cwd(), artifactRoot, "bundle");
+          const summaryDir = path.join(process.cwd(), artifactRoot, "summary");
+          fs.mkdirSync(summaryDir, { recursive: true });
+
+          const runRecordsPath = path.join(bundleDir, "run-records.jsonl");
+          const scenarioRecordsPath = path.join(bundleDir, "scenario-records.jsonl");
+          const scorePacketPath = path.join(summaryDir, "wae-score-packet.json");
+          const summaryPath = path.join(summaryDir, "wae-verdict-summary.json");
+          const markdownPath = path.join(summaryDir, "wae-verdict-summary.md");
+
+          const readJsonLines = (filePath) => {
+            if (!fs.existsSync(filePath)) {
+              return [];
+            }
+            return fs
+              .readFileSync(filePath, "utf8")
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => JSON.parse(line));
+          };
+
+          const buildZeroDimensions = () =>
+            Object.keys(WAE_EVAL_SCORING_WEIGHTS).reduce((accumulator, metric) => {
+              const metricKey = metric;
+              accumulator[metricKey] = {
+                metric: metricKey,
+                weight: WAE_EVAL_SCORING_WEIGHTS[metricKey],
+                scoreRatio: 0,
+                weightedContribution: 0,
+              };
+              return accumulator;
+            }, {});
+
+          let rawRunRecords = [];
+          let rawScenarioRecords = [];
+          let scorePacket = null;
+          const scorerReasonCodes = [];
+
+          try {
+            rawRunRecords = readJsonLines(runRecordsPath);
+            rawScenarioRecords = readJsonLines(scenarioRecordsPath);
+            const normalizedRunRecord =
+              rawRunRecords.length === 1 ? normalizeWaeRunRecord(rawRunRecords[0]) : null;
+            const normalizedScenarioRecords = normalizeWaeScenarioRecords(rawScenarioRecords);
+            if (!normalizedRunRecord || normalizedScenarioRecords.length === 0) {
+              scorerReasonCodes.push("wae_bundle_missing_or_invalid");
+            } else {
+              scorePacket = scoreWaeEvalBundle({
+                runRecord: normalizedRunRecord,
+                scenarioRecords: normalizedScenarioRecords,
+              });
+            }
+          } catch (error) {
+            scorerReasonCodes.push(`wae_bundle_parse_error:${(error instanceof Error ? error.message : String(error)).replace(/\s+/g, "_")}`);
+          }
+
+          if (!scorePacket) {
+            scorePacket = {
+              contractVersion: WAE_EVAL_SCORE_PACKET_VERSION,
+              rubricContractVersion: WAE_EVAL_SCORING_RUBRIC_VERSION,
+              runId,
+              suiteKeyHash: "unknown",
+              verdict: "blocked",
+              decision: "hold",
+              resultLabel: "FAIL",
+              weightedScore: 0,
+              thresholds: {
+                pass: WAE_EVAL_SCORING_PASS_THRESHOLD,
+                hold: WAE_EVAL_SCORING_HOLD_THRESHOLD,
+              },
+              counts: {
+                scenarios: 0,
+                runnable: 0,
+                skipped: 0,
+                passed: 0,
+                failed: 0,
+              },
+              aggregateDimensions: buildZeroDimensions(),
+              scenarioBreakdown: [],
+              failedMetrics: [...new Set(["wae_bundle_missing_or_invalid", ...scorerReasonCodes])].sort(),
+              warnings: [],
+              blockedReasons: [...new Set(["wae_bundle_missing_or_invalid", ...scorerReasonCodes])].sort(),
+              requiredRemediation: [
+                {
+                  scope: "run",
+                  id: runId,
+                  action:
+                    "Provide a valid `wae_eval_scorer_run_record_v1` run record and scenario record bundle before scoring.",
+                  failedMetrics: ["wae_bundle_missing_or_invalid"],
+                },
+              ],
+            };
+          }
+
+          const failedScenarioIds = scorePacket.scenarioBreakdown
+            .filter((scenario) => scenario.failedMetrics.length > 0)
+            .map((scenario) => scenario.scenarioId)
+            .sort();
+          const goNoGo = scorePacket.verdict === "passed" && scorePacket.decision === "proceed"
+            ? "GO"
+            : "NO-GO";
+
+          const summary = {
+            contractVersion: "wae_eval_ci_verdict_summary_v1",
+            mode,
+            runId,
+            templateVersionTag,
+            artifactRoot,
+            bundle: {
+              runRecordsPath: path.relative(process.cwd(), runRecordsPath),
+              scenarioRecordsPath: path.relative(process.cwd(), scenarioRecordsPath),
+              present: fs.existsSync(runRecordsPath) && fs.existsSync(scenarioRecordsPath),
+            },
+            prerequisiteChecks: {
+              qaTelemetryGuard: process.env.QA_GUARD_OUTCOME || "skipped",
+              desktopContracts: process.env.CONTRACTS_OUTCOME || "skipped",
+              seededRegression: process.env.REGRESSION_OUTCOME || "skipped",
+            },
+            verdict: scorePacket.verdict,
+            decision: scorePacket.decision,
+            goNoGo,
+            weightedScore: scorePacket.weightedScore,
+            thresholds: scorePacket.thresholds,
+            counts: scorePacket.counts,
+            failedScenarioIds,
+            failedMetrics: scorePacket.failedMetrics,
+            blockedReasons: scorePacket.blockedReasons,
+            warnings: scorePacket.warnings,
+            requiredRemediation: scorePacket.requiredRemediation,
+            generatedAt: new Date().toISOString(),
+          };
+
+          fs.writeFileSync(scorePacketPath, `${JSON.stringify(scorePacket, null, 2)}\n`, "utf8");
+          fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+
+          const markdown = [
+            "## WAE Verdict Summary",
+            `- Mode: \`${mode}\``,
+            `- Rollout decision: \`${goNoGo}\``,
+            `- Score verdict: \`${scorePacket.verdict}\``,
+            `- Weighted score: \`${scorePacket.weightedScore}\``,
+            `- Runnable scenarios: \`${scorePacket.counts.runnable}\``,
+            `- Failed scenarios: \`${failedScenarioIds.length}\``,
+            `- Blocked reasons: \`${scorePacket.blockedReasons.length > 0 ? scorePacket.blockedReasons.join(", ") : "none"}\``,
+            `- Failed metrics: \`${scorePacket.failedMetrics.length > 0 ? scorePacket.failedMetrics.join(", ") : "none"}\``,
+            `- Artifact root: \`${artifactRoot}\``,
+          ].join("\n");
+          fs.writeFileSync(markdownPath, `${markdown}\n`, "utf8");
+
+          const writeOutput = (name, value) => {
+            if (!process.env.GITHUB_OUTPUT) {
+              return;
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}<<__WAE__\n${value}\n__WAE__\n`);
+          };
+
+          writeOutput("verdict", scorePacket.verdict);
+          writeOutput("decision", scorePacket.decision);
+          writeOutput("go_no_go", goNoGo);
+          writeOutput("weighted_score", String(scorePacket.weightedScore));
+          writeOutput("failed_metrics_csv", scorePacket.failedMetrics.join(","));
+          writeOutput("blocked_reasons_csv", scorePacket.blockedReasons.join(","));
+          writeOutput("summary_path", path.relative(process.cwd(), summaryPath));
+
+          if (process.env.GITHUB_STEP_SUMMARY) {
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n\n`);
+          }
+          NODE
+
+      - name: Record WAE rollout gate artifact
+        id: rollout
+        if: always()
+        env:
+          WAE_MODE: ${{ steps.resolve.outputs.mode }}
+          WAE_RECORD_ROLLOUT_GATE: ${{ steps.resolve.outputs.record_rollout_gate }}
+          WAE_RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          WAE_ARTIFACT_ROOT: ${{ steps.resolve.outputs.artifact_root }}
+          WAE_TEMPLATE_ID: ${{ steps.resolve.outputs.template_id }}
+          WAE_TEMPLATE_VERSION_ID: ${{ steps.resolve.outputs.template_version_id }}
+          WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+        run: |
+          node --import tsx <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          import { ConvexHttpClient } from "convex/browser";
+          import { api } from "./convex/_generated/api";
+
+          const runId = process.env.WAE_RUN_ID || "wae-run-missing";
+          const artifactRoot = process.env.WAE_ARTIFACT_ROOT || path.join("tmp", "reports", "wae", runId);
+          const summaryDir = path.join(process.cwd(), artifactRoot, "summary");
+          const summaryPath = path.join(summaryDir, "wae-rollout-gate-summary.json");
+          const decisionPath = path.join(summaryDir, "wae-rollout-gate-decision.json");
+          fs.mkdirSync(summaryDir, { recursive: true });
+
+          const writeOutput = (name, value) => {
+            if (!process.env.GITHUB_OUTPUT) {
+              return;
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}<<__WAE__\n${value}\n__WAE__\n`);
+          };
+
+          const result = {
+            contractVersion: "wae_rollout_gate_ci_summary_v1",
+            runId,
+            status: "skipped",
+            reasonCode: "nightly_mode",
+            message: "Nightly mode does not persist rollout gate artifacts.",
+            artifactPath: path.relative(process.cwd(), decisionPath),
+            recordedAt: new Date().toISOString(),
+          };
+
+          if (process.env.WAE_RECORD_ROLLOUT_GATE === "true") {
+            const templateId = process.env.WAE_TEMPLATE_ID?.trim() || "";
+            const templateVersionId = process.env.WAE_TEMPLATE_VERSION_ID?.trim() || "";
+            const templateVersionTag = process.env.WAE_TEMPLATE_VERSION_TAG?.trim() || "";
+            const sessionId = process.env.TEST_SESSION_ID?.trim() || "";
+            const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+            const runRecordsPath = path.join(process.cwd(), artifactRoot, "bundle", "run-records.jsonl");
+            const scenarioRecordsPath = path.join(process.cwd(), artifactRoot, "bundle", "scenario-records.jsonl");
+
+            if (!templateId || !templateVersionId || !templateVersionTag) {
+              result.status = "blocked";
+              result.reasonCode = "missing_template_inputs";
+              result.message =
+                "Pre-rollout mode requires template_id, template_version_id, and template_version_tag.";
+            } else if (!sessionId || !convexUrl) {
+              result.status = "blocked";
+              result.reasonCode = "missing_required_secret";
+              result.message =
+                "Pre-rollout mode requires NEXT_PUBLIC_CONVEX_URL and TEST_SESSION_ID.";
+            } else if (!fs.existsSync(runRecordsPath) || !fs.existsSync(scenarioRecordsPath)) {
+              result.status = "blocked";
+              result.reasonCode = "wae_bundle_missing_or_invalid";
+              result.message =
+                "Cannot record WAE rollout gate artifact because the scorer bundle is missing.";
+            } else {
+              const readJsonLines = (filePath) =>
+                fs.readFileSync(filePath, "utf8")
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .map((line) => JSON.parse(line));
+
+              try {
+                const convex = new ConvexHttpClient(convexUrl);
+                const artifact = await convex.mutation(
+                  api.ai.agentCatalogAdmin.recordWaeRolloutGateDecision,
+                  {
+                    sessionId,
+                    templateId,
+                    templateVersionId,
+                    waeRunRecord: readJsonLines(runRecordsPath)[0] ?? null,
+                    waeScenarioRecords: readJsonLines(scenarioRecordsPath),
+                  },
+                );
+                result.status = artifact.status;
+                result.reasonCode = artifact.reasonCode;
+                result.message =
+                  artifact.status === "pass"
+                    ? "Recorded pass rollout artifact."
+                    : "Recorded fail rollout artifact.";
+                result.recordedAt = new Date(artifact.recordedAt).toISOString();
+                fs.writeFileSync(decisionPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+              } catch (error) {
+                result.status = "blocked";
+                result.reasonCode = "rollout_gate_recording_failed";
+                result.message = error instanceof Error ? error.message : String(error);
+              }
+            }
+          }
+
+          fs.writeFileSync(summaryPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+          writeOutput("rollout_status", result.status);
+          writeOutput("rollout_reason_code", result.reasonCode);
+          writeOutput("summary_path", path.relative(process.cwd(), summaryPath));
+
+          if (process.env.GITHUB_STEP_SUMMARY) {
+            fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              [
+                "### WAE Rollout Gate Artifact",
+                `- Status: \`${result.status}\``,
+                `- Reason code: \`${result.reasonCode}\``,
+                `- Message: ${result.message}`,
+                "",
+              ].join("\n"),
+            );
+          }
+          NODE
+
+      - name: Upload WAE artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wae-${{ steps.resolve.outputs.mode }}-${{ steps.resolve.outputs.run_id }}
+          path: |
+            ${{ steps.resolve.outputs.artifact_root }}
+            tmp/playwright/wae-session-metadata.json
+            tmp/playwright/wae-storage-state.json
+            tmp/playwright-report/desktop-shell
+            tmp/playwright-report-atx
+            tmp/test-results
+          if-no-files-found: warn
+
+      - name: Enforce WAE go/no-go verdict
+        id: conclude
+        if: always()
+        shell: bash
+        run: |
+          go_no_go="GO"
+          reasons=()
+
+          if [[ "${{ steps.validate.outcome }}" != "success" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("missing required WAE secrets")
+          fi
+          if [[ "${{ steps.qa_guard.outcome }}" != "success" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("qa telemetry guard failed")
+          fi
+          if [[ "${{ steps.contracts.outcome }}" != "success" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("desktop contract suite failed")
+          fi
+          if [[ "${{ steps.regression.outcome }}" != "success" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("seeded-agent regression suite failed")
+          fi
+          if [[ "${{ steps.score.outputs.verdict }}" != "passed" || "${{ steps.score.outputs.decision }}" != "proceed" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("wae scorer verdict=${{ steps.score.outputs.verdict }} decision=${{ steps.score.outputs.decision }}")
+          fi
+          if [[ "${{ steps.resolve.outputs.record_rollout_gate }}" == "true" && "${{ steps.rollout.outputs.rollout_status }}" != "pass" ]]; then
+            go_no_go="NO-GO"
+            reasons+=("rollout gate artifact status=${{ steps.rollout.outputs.rollout_status }} reason=${{ steps.rollout.outputs.rollout_reason_code }}")
+          fi
+
+          {
+            echo "go_no_go=$go_no_go"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ "$go_no_go" == "GO" ]]; then
+            echo "WAE verdict: GO"
+            {
+              echo "### Final WAE Decision"
+              echo "- Verdict: \`GO\`"
+              echo "- Run id: \`${{ steps.resolve.outputs.run_id }}\`"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          printf 'WAE verdict: NO-GO (%s)\n' "${reasons[*]}"
+          {
+            echo "### Final WAE Decision"
+            echo "- Verdict: \`NO-GO\`"
+            echo "- Run id: \`${{ steps.resolve.outputs.run_id }}\`"
+            echo "- Reasons: ${reasons[*]}"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1

@@ -174,6 +174,7 @@ import {
   resolveModeScopedAutonomyLevel,
   resolveSoulModeRuntimeContract,
 } from "./soulModes";
+import { resolveWeekendModeRuntimeContract } from "./weekendMode";
 import {
   buildSupportRuntimePolicy,
   resolveSupportRuntimeContext,
@@ -305,6 +306,7 @@ function getInternal(): any { return getApi().internal; }
 // ============================================================================
 
 interface AgentConfig {
+  agentClass?: "internal_operator" | "external_customer_facing";
   displayName?: string;
   personality?: string;
   language?: string;
@@ -353,6 +355,13 @@ interface AgentConfig {
   modeChannelBindings?: unknown;
   enabledArchetypes?: unknown;
   activeChannel?: string;
+  weekendMode?: unknown;
+  weekendModeEnabled?: boolean;
+  weekendModeActive?: boolean;
+  weekendModeReason?: string;
+  weekendModeTimezone?: string;
+  weekendModeFridayStart?: string;
+  weekendModeMondayEnd?: string;
   domainAutonomy?: unknown;
   autonomyTrust?: unknown;
   actionCompletionContract?: {
@@ -3997,6 +4006,10 @@ export const processInboundMessage = action({
       const explicitChannelBindings = Array.isArray(explicitAgentProps.channelBindings)
         ? explicitAgentProps.channelBindings
         : [];
+      const explicitAgentClassAllowed = isAgentClassAllowedForInboundChannel({
+        channel: args.channel,
+        rawAgentClass: explicitAgentProps.agentClass,
+      });
       const explicitAgentSupportsChannel = !requiresWebchatBinding
         || requiredPublicChannels.some((requiredChannel) =>
           explicitChannelBindings.some((entry) => {
@@ -4013,6 +4026,7 @@ export const processInboundMessage = action({
         String(explicitAgent.organizationId) === String(args.organizationId) &&
         (explicitAgent.type === "org_agent" || explicitAgent.type === "agent") &&
         !explicitAgentRecord?.deletedAt &&
+        explicitAgentClassAllowed &&
         explicitAgentSupportsChannel
       );
 
@@ -4031,6 +4045,7 @@ export const processInboundMessage = action({
           detail: {
             explicitInboundAgentId: String(explicitInboundAgentId),
             exists: Boolean(explicitAgent),
+            classAllowed: explicitAgentClassAllowed,
             channelSupported: explicitAgentSupportsChannel,
           },
         });
@@ -4145,6 +4160,30 @@ export const processInboundMessage = action({
           },
         });
       }
+    }
+
+    const selectedAgentProps =
+      ((agent as { customProperties?: Record<string, unknown> | null } | null)
+        ?.customProperties || {}) as Record<string, unknown>;
+    if (!isAgentClassAllowedForInboundChannel({
+      channel: args.channel,
+      rawAgentClass: selectedAgentProps.agentClass,
+    })) {
+      recordSamanthaDispatchEvent({
+        stage: "router_terminal",
+        status: "fail",
+        reasonCode: "agent_class_channel_mismatch",
+        detail: {
+          channel: args.channel,
+          resolvedAgentId: String(agent._id),
+          resolvedAgentClass: normalizeInboundAgentClass(selectedAgentProps.agentClass),
+          expectedAgentClass: resolveExpectedInboundAgentClass(args.channel),
+        },
+      });
+      return {
+        status: "error",
+        message: "Selected agent class is not allowed for this channel.",
+      };
     }
 
     // Update worker's last active timestamp if this is a worker
@@ -4336,6 +4375,11 @@ export const processInboundMessage = action({
       (authorityConfig as unknown as Record<string, unknown>).templateRole =
         superAdminQaMode.targetTemplateRole;
     }
+
+    const weekendModeRuntime = resolveWeekendModeRuntimeContract({
+      weekendModeRaw: authorityConfig.weekendMode,
+      timestamp: Date.now(),
+    });
 
     runtimeGovernorContract = resolveRuntimeGovernorContract({
       agentConfig: authorityConfig as unknown as Record<string, unknown>,
@@ -5045,6 +5089,34 @@ export const processInboundMessage = action({
       }
     }
 
+    if (
+      isFirstInboundMessage &&
+      weekendModeRuntime.enabled &&
+      weekendModeRuntime.active &&
+      args.channel === "phone_call"
+    ) {
+      try {
+        await ctx.runMutation(getInternal().ai.weekendMode.ensureWeekendCallerCoverage, {
+          organizationId: args.organizationId,
+          agentId: authorityAgent._id,
+          sessionId: session._id,
+          channel: args.channel,
+          externalContactIdentifier: args.externalContactIdentifier,
+          observedAt: Date.now(),
+        });
+      } catch (weekendCoverageError) {
+        console.warn("[AgentExecution] Weekend caller automation failed (non-blocking):", {
+          organizationId: args.organizationId,
+          sessionId: String(session._id),
+          agentId: String(authorityAgent._id),
+          error:
+            weekendCoverageError instanceof Error
+              ? weekendCoverageError.message
+              : String(weekendCoverageError),
+        });
+      }
+    }
+
     let aiSettings = ((await ctx.runQuery(
       getApi().api.ai.settings.getAISettings,
       {
@@ -5370,6 +5442,7 @@ export const processInboundMessage = action({
     const composerRuntimeContextParts = [
       buildInboundComposerRuntimeContext(composerRuntimeControls),
       buildInboundLanguageLockRuntimeContext(conversationLanguageLock),
+      buildInboundVoiceTurnVisionRuntimeContext(metadata),
       buildRuntimeModuleIntentRoutingContext(runtimeModuleIntentRouting),
       buildDerTerminmacherRuntimeContext(derTerminmacherRuntimeContract),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
@@ -6721,6 +6794,13 @@ export const processInboundMessage = action({
       activeSoulMode: soulModeRuntime.mode,
       activeArchetype: archetypeRuntime.archetype?.id ?? null,
       activeChannel: args.channel,
+      weekendMode: authorityConfig.weekendMode,
+      weekendModeEnabled: weekendModeRuntime.enabled,
+      weekendModeActive: weekendModeRuntime.active,
+      weekendModeReason: weekendModeRuntime.reason,
+      weekendModeTimezone: weekendModeRuntime.timezone,
+      weekendModeFridayStart: weekendModeRuntime.fridayStart,
+      weekendModeMondayEnd: weekendModeRuntime.mondayEnd,
       privacyMode: routingPolicyContract.privacyMode,
       qualityTierFloor: routingPolicyContract.qualityTierFloor,
       localConnection: routingPolicyContract.localConnection,
@@ -12064,6 +12144,46 @@ function normalizeInboundRouteString(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+const INTERNAL_OPERATOR_ROUTING_CHANNELS = new Set(["desktop", "slack"]);
+const TELEPHONY_ROUTING_CHANNELS = new Set(["phone_call"]);
+
+type AgentClass = "internal_operator" | "external_customer_facing";
+
+function normalizeInboundAgentClass(value: unknown): AgentClass {
+  const normalized = normalizeInboundRouteString(value)?.toLowerCase();
+  if (normalized === "external_customer_facing" || normalized === "customer_facing") {
+    return "external_customer_facing";
+  }
+  return "internal_operator";
+}
+
+function resolveExpectedInboundAgentClass(
+  channel: string
+): AgentClass | null {
+  const normalizedChannel = normalizeInboundRouteString(channel)?.toLowerCase();
+  if (!normalizedChannel) {
+    return null;
+  }
+  if (INTERNAL_OPERATOR_ROUTING_CHANNELS.has(normalizedChannel)) {
+    return "internal_operator";
+  }
+  if (TELEPHONY_ROUTING_CHANNELS.has(normalizedChannel)) {
+    return "external_customer_facing";
+  }
+  return null;
+}
+
+function isAgentClassAllowedForInboundChannel(args: {
+  channel: string;
+  rawAgentClass: unknown;
+}): boolean {
+  const expectedClass = resolveExpectedInboundAgentClass(args.channel);
+  if (!expectedClass) {
+    return true;
+  }
+  return normalizeInboundAgentClass(args.rawAgentClass) === expectedClass;
+}
+
 function normalizeInboundRouteProfileType(
   value: unknown
 ): "platform" | "organization" | undefined {
@@ -13531,6 +13651,7 @@ export function sanitizeUserFacingRuntimeFailureMessage(args: {
         [/\bmissing_required_fields\b/gi, "es fehlen noch Angaben"],
         [/\bruntime capability gap\b/gi, "fehlende Funktion im aktuellen Ablauf"],
         [/\bruntime scope\b/gi, "aktueller Ablauf"],
+        [/\bruntime contract checks?\b/gi, "Ausfuehrungspruefungen"],
         [/\bruntime contract\b/gi, "Ausfuehrungspruefung"],
         [/\bcontract payload\b/gi, "Anfragedaten"],
         [/\btool execution evidence\b/gi, "bestaetigte Ausfuehrung"],
@@ -13542,6 +13663,7 @@ export function sanitizeUserFacingRuntimeFailureMessage(args: {
         [/\bmissing_required_fields\b/gi, "some details are still missing"],
         [/\bruntime capability gap\b/gi, "a missing capability in this flow"],
         [/\bruntime scope\b/gi, "current flow"],
+        [/\bruntime contract checks?\b/gi, "execution checks"],
         [/\bruntime contract\b/gi, "execution check"],
         [/\bcontract payload\b/gi, "request data"],
         [/\btool execution evidence\b/gi, "confirmed execution"],
@@ -13749,9 +13871,9 @@ function buildActionCompletionSanitizationFallbackMessage(args: {
   }
 
   if (args.language === "de") {
-    return "Ich kann in diesem Schritt keine sichtbare Antwort nach den Runtime-Contract-Pruefungen bereitstellen. Bitte wiederholen Sie Ihre Anfrage.";
+    return "Ich konnte in diesem Schritt keine sichtbare Antwort abschliessen. Bitte wiederholen Sie Ihre Anfrage.";
   }
-  return "I’m unable to provide a visible response for this turn after runtime contract checks. Please retry your request.";
+  return "I couldn't complete a visible response for this turn. Please retry your request.";
 }
 
 function buildLegacySamanthaActionCompletionContract(args: {
@@ -16743,6 +16865,179 @@ function normalizeComposerReferenceStatus(
   return undefined;
 }
 
+type InboundVoiceTurnVisionUnavailableReason =
+  | "camera_not_capturing"
+  | "camera_error"
+  | "vision_frame_missing"
+  | "vision_frame_stale"
+  | "vision_policy_blocked"
+  | "vision_resolution_failed";
+
+function normalizeInboundVoiceTurnVisionUnavailableReason(
+  value: unknown
+): InboundVoiceTurnVisionUnavailableReason | null {
+  const normalized = firstInboundString(value)?.toLowerCase();
+  if (
+    normalized === "camera_not_capturing"
+    || normalized === "camera_error"
+    || normalized === "vision_frame_missing"
+    || normalized === "vision_frame_stale"
+    || normalized === "vision_policy_blocked"
+    || normalized === "vision_resolution_failed"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function resolveInboundVoiceTurnVisionUnavailableDetail(args: {
+  reasonCode: InboundVoiceTurnVisionUnavailableReason;
+  cameraSessionState: string | null | undefined;
+  cameraFallbackReason: string | null | undefined;
+  maxFrameAgeMs: number | null;
+  freshestCandidateAgeMs: number | null;
+}): string {
+  if (args.reasonCode === "camera_not_capturing") {
+    return `Camera session state for this turn was ${
+      args.cameraSessionState || "not_capturing"
+    }.`;
+  }
+  if (args.reasonCode === "camera_error") {
+    if (args.cameraFallbackReason) {
+      return `Camera runtime reported fallback reason: ${args.cameraFallbackReason}.`;
+    }
+    return "Camera runtime reported an unavailable or degraded camera path.";
+  }
+  if (args.reasonCode === "vision_frame_missing") {
+    return "No fresh frame candidate was available at turn assembly time.";
+  }
+  if (args.reasonCode === "vision_frame_stale") {
+    const staleAgeDetail =
+      typeof args.freshestCandidateAgeMs === "number"
+      && typeof args.maxFrameAgeMs === "number"
+        ? ` Freshest frame age ${args.freshestCandidateAgeMs}ms exceeded ${args.maxFrameAgeMs}ms freshness budget.`
+        : "";
+    return `The freshest frame candidate was stale for turn attachment.${staleAgeDetail}`.trim();
+  }
+  if (args.reasonCode === "vision_policy_blocked") {
+    return "Vision frame attachment was blocked by policy or retention constraints.";
+  }
+  return "Turn-time vision frame resolution failed before an attachment could be created.";
+}
+
+export function buildInboundVoiceTurnVisionRuntimeContext(
+  metadata: Record<string, unknown>
+): string | null {
+  const conversationRuntime = normalizeInboundObjectValue(metadata.conversationRuntime);
+  const cameraRuntime = normalizeInboundObjectValue(metadata.cameraRuntime);
+  const voiceRuntime = normalizeInboundObjectValue(metadata.voiceRuntime);
+  const visionTurnContext = normalizeInboundObjectValue(voiceRuntime?.visionTurnContext);
+  const visionResolution = normalizeInboundObjectValue(
+    voiceRuntime?.visionFrameResolution ?? metadata.visionFrameResolution
+  );
+
+  const conversationMode = firstInboundString(conversationRuntime?.mode)?.toLowerCase();
+  const requestedEyesSource =
+    firstInboundString(conversationRuntime?.requestedEyesSource)?.toLowerCase();
+  const sourceMode = firstInboundString(
+    conversationRuntime?.sourceMode,
+    voiceRuntime?.sourceMode
+  )?.toLowerCase();
+  const visionRequested =
+    visionTurnContext?.requested === true
+    || conversationMode === "voice_with_eyes"
+    || requestedEyesSource === "webcam"
+    || requestedEyesSource === "meta_glasses"
+    || sourceMode === "webcam"
+    || sourceMode === "meta_glasses";
+  if (!visionRequested) {
+    return null;
+  }
+
+  const frameAttachmentClaimed =
+    visionTurnContext?.frameAttached === true
+    || firstInboundString(visionResolution?.status) === "attached";
+  const resolvedFrameAttachment =
+    resolveInboundVoiceTurnVisionFrameAttachmentInput(metadata);
+  const frameAttached = Boolean(resolvedFrameAttachment);
+  if (frameAttached) {
+    return [
+      "--- TURN VISION STATUS ---",
+      "Vision mode requested for this turn.",
+      "Turn frame attachment status: attached.",
+      "Use attached frame context for visual claims and avoid implying continuous live video access.",
+      "--- END TURN VISION STATUS ---",
+    ].join("\n");
+  }
+
+  const explicitReasonCode = normalizeInboundVoiceTurnVisionUnavailableReason(
+    visionTurnContext?.unavailableReason
+  );
+  const degradedReasonCode = normalizeInboundVoiceTurnVisionUnavailableReason(
+    visionResolution?.reason
+  );
+  const cameraSessionState = firstInboundString(
+    visionTurnContext?.cameraSessionState,
+    cameraRuntime?.sessionState
+  );
+  const cameraFallbackReason = firstInboundString(
+    visionTurnContext?.cameraFallbackReason,
+    cameraRuntime?.fallbackReason
+  );
+  const maxFrameAgeMsRaw =
+    visionTurnContext?.maxFrameAgeMs ?? visionResolution?.maxFrameAgeMs;
+  const maxFrameAgeMs =
+    typeof maxFrameAgeMsRaw === "number" && Number.isFinite(maxFrameAgeMsRaw)
+      ? Math.max(0, Math.floor(maxFrameAgeMsRaw))
+      : null;
+  const freshestCandidateAgeMsRaw =
+    visionTurnContext?.freshestCandidateAgeMs
+    ?? visionResolution?.freshestCandidateAgeMs;
+  const freshestCandidateAgeMs =
+    typeof freshestCandidateAgeMsRaw === "number" && Number.isFinite(freshestCandidateAgeMsRaw)
+      ? Math.max(0, Math.floor(freshestCandidateAgeMsRaw))
+      : null;
+
+  const reasonCode =
+    explicitReasonCode
+    ?? degradedReasonCode
+    ?? (frameAttachmentClaimed ? "vision_resolution_failed" : null)
+    ?? (
+      cameraSessionState && cameraSessionState.toLowerCase() !== "capturing"
+        ? "camera_not_capturing"
+        : null
+    )
+    ?? (cameraFallbackReason ? "camera_error" : "vision_frame_missing");
+  const reasonDetail = resolveInboundVoiceTurnVisionUnavailableDetail({
+    reasonCode,
+    cameraSessionState,
+    cameraFallbackReason,
+    maxFrameAgeMs,
+    freshestCandidateAgeMs,
+  });
+
+  const lines: string[] = [
+    "Vision mode requested for this turn.",
+    "Turn frame attachment status: unavailable.",
+    `Reason code: ${reasonCode}.`,
+    `Reason detail: ${reasonDetail}`,
+    "If the user asks whether you can see them or read live camera input, explain this reason directly and request a fresh camera frame when needed.",
+    "Do not claim live visual access without an attached frame.",
+  ];
+  if (typeof maxFrameAgeMs === "number") {
+    lines.push(`Frame freshness budget: ${maxFrameAgeMs}ms.`);
+  }
+  if (typeof freshestCandidateAgeMs === "number") {
+    lines.push(`Freshest candidate age: ${freshestCandidateAgeMs}ms.`);
+  }
+
+  return [
+    "--- TURN VISION STATUS ---",
+    lines.join("\n"),
+    "--- END TURN VISION STATUS ---",
+  ].join("\n");
+}
+
 export function resolveInboundVoiceTurnVisionFrameAttachmentInput(
   metadata: Record<string, unknown>
 ): Record<string, unknown> | null {
@@ -18941,6 +19236,12 @@ export function resolveInboundConversationLanguageLock(args: {
   );
   if (explicitConversationLanguageLock) {
     return explicitConversationLanguageLock;
+  }
+  const explicitVoiceRuntimeLanguageLock = normalizeInboundLanguageLockTag(
+    voiceRuntime?.languageLock
+  );
+  if (explicitVoiceRuntimeLanguageLock) {
+    return explicitVoiceRuntimeLanguageLock;
   }
   return (
     normalizeInboundLanguageLockTag(args.inboundVoiceRequest?.language)

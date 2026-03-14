@@ -29,7 +29,9 @@ export const DEFAULT_REALTIME_SESSION_BUFFER_STEP_MS = 20;
 export const DEFAULT_REALTIME_SESSION_LEASE_TIMEOUT_MS = 15_000;
 export const DEFAULT_REALTIME_SESSION_RECONNECT_GAP_MS = 2_500;
 export const DEFAULT_REALTIME_SESSION_REPLAY_CACHE_LIMIT = 512;
-export const DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS = 1_250;
+export const DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS = 1_000;
+export const MIN_REALTIME_VISION_FORWARDING_CADENCE_MS = 250;
+export const MAX_REALTIME_VISION_FORWARDING_CADENCE_MS = 5_000;
 export const DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS = 10_000;
 export const DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW = 8;
 
@@ -146,8 +148,11 @@ export function shouldThrottleRealtimeVisionForwarding(args: {
   cadenceMs?: number;
 }): RealtimeVisionForwardingThrottleResolution {
   const cadenceMs = Math.max(
-    100,
-    Math.floor(args.cadenceMs ?? DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS),
+    MIN_REALTIME_VISION_FORWARDING_CADENCE_MS,
+    Math.min(
+      MAX_REALTIME_VISION_FORWARDING_CADENCE_MS,
+      Math.floor(args.cadenceMs ?? DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS),
+    ),
   );
   if (typeof args.lastForwardAtMs !== "number") {
     return { cadenceMs, throttled: false };

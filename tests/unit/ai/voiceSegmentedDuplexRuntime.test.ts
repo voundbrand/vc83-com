@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   createDeterministicFrameQueue,
+  resolveAmbientSingleSegmentRecoveryDecision,
   resolveDuplexTransportFallbackDecision,
   resolveDuplexTransportModeFromRoute,
   resolveFallbackDuplexTransportRoute,
@@ -139,6 +140,46 @@ describe("voice segmented duplex runtime core", () => {
       fallbackApplied: true,
       fallbackReason: "websocket_primary_failed",
       changedRoute: false,
+    })
+  })
+
+  it("retries blob transcription for ambient single-segment turns when speech hints exist", () => {
+    expect(
+      resolveAmbientSingleSegmentRecoveryDecision({
+        queuedFrameCount: 1,
+        finalSegmentHttpTranscribeAttempted: true,
+        finalSegmentHttpTranscribeNoSpeech: true,
+        realtimeIngestFailedReason: "voice_non_speech_transcript_filtered",
+        hasDetectedSpeechSinceCaptureStart: false,
+        captureSpeechFrameCount: 1,
+        captureMaxFrameRms: 0.004,
+        vadEnergyThresholdRms: 0.02,
+      })
+    ).toEqual({
+      shouldRetryBlobTranscription: true,
+      shouldSkipBlobTranscription: false,
+      speechHintObserved: true,
+      reason: "retry_blob_transcription",
+    })
+  })
+
+  it("skips redundant blob transcription for pure ambient single-segment turns", () => {
+    expect(
+      resolveAmbientSingleSegmentRecoveryDecision({
+        queuedFrameCount: 1,
+        finalSegmentHttpTranscribeAttempted: true,
+        finalSegmentHttpTranscribeNoSpeech: true,
+        realtimeIngestFailedReason: "voice_non_speech_transcript_filtered",
+        hasDetectedSpeechSinceCaptureStart: false,
+        captureSpeechFrameCount: 0,
+        captureMaxFrameRms: 0.001,
+        vadEnergyThresholdRms: 0.02,
+      })
+    ).toEqual({
+      shouldRetryBlobTranscription: false,
+      shouldSkipBlobTranscription: true,
+      speechHintObserved: false,
+      reason: "skip_redundant_blob_transcription",
     })
   })
 

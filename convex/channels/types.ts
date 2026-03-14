@@ -42,6 +42,9 @@ export type ProviderCredentialSource =
   | "platform_fallback";
 
 export type ProviderProfileType = "platform" | "organization";
+export type TelephonyProviderIdentity = "direct" | "eleven_telephony";
+export type TelephonyRouteKeyPolicy = "legacy_direct_optional" | "eleven_route_v1";
+export const ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX = "eleven:phone" as const;
 
 export interface ChannelBindingInstallationIdentity {
   providerConnectionId?: string;
@@ -51,6 +54,8 @@ export interface ChannelBindingInstallationIdentity {
   providerProfileType?: ProviderProfileType;
   routeKey?: string;
   allowPlatformFallback?: boolean;
+  telephonyProviderIdentity?: TelephonyProviderIdentity;
+  telephonyRouteKeyPolicy?: TelephonyRouteKeyPolicy;
 }
 
 export interface ChannelProviderBindingContract
@@ -118,7 +123,14 @@ export type ProviderCredentialField =
   | "manychatApiKey"
   | "resendApiKey"
   | "directCallApiKey"
-  | "directCallWebhookSecret";
+  | "directCallWebhookSecret"
+  | "elevenTelephonyApiKey"
+  | "elevenTelephonyWebhookSecret";
+
+export const ELEVEN_TELEPHONY_ENCRYPTED_FIELDS = [
+  "elevenTelephonyApiKey",
+  "elevenTelephonyWebhookSecret",
+] as const;
 
 // Normalized inbound message from any provider
 export interface NormalizedInboundMessage {
@@ -192,6 +204,8 @@ export interface ProviderCredentials {
   providerId: ProviderId;
   credentialSource?: ProviderCredentialSource;
   encryptedFields?: ProviderCredentialField[];
+  telephonyProviderIdentity?: TelephonyProviderIdentity;
+  telephonyRouteKeyPolicy?: TelephonyRouteKeyPolicy;
   providerConnectionId?: string;
   providerAccountId?: string;
   providerInstallationId?: string;
@@ -233,6 +247,12 @@ export interface ProviderCredentials {
   directCallApiKey?: string;
   directCallFromNumber?: string;
   directCallWebhookSecret?: string;
+  // Eleven telephony contract extension (binds to direct provider runtime)
+  elevenTelephonyBaseUrl?: string;
+  elevenTelephonyApiKey?: string;
+  elevenTelephonyFromNumber?: string;
+  elevenTelephonyWebhookSecret?: string;
+  elevenTelephonyAgentId?: string;
   // Slack (per-org OAuth bot)
   slackBotToken?: string;
   slackBotUserId?: string;

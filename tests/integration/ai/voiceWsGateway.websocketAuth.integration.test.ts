@@ -22,14 +22,25 @@ type WsCapture = {
   messages: Array<Record<string, unknown>>;
 };
 
-function createWsCapture(url: string, headers?: Record<string, string>): Promise<WsCapture> {
+type WsCaptureOptions = {
+  headers?: Record<string, string>;
+  onOpen?: (websocket: WebSocket) => void;
+  timeoutMs?: number;
+};
+
+function createWsCapture(url: string, options: WsCaptureOptions = {}): Promise<WsCapture> {
   return new Promise((resolve, reject) => {
+    const { headers, onOpen, timeoutMs = 4_000 } = options;
     const messages: Array<Record<string, unknown>> = [];
     const websocket = new WebSocket(url, { headers });
     const timeout = setTimeout(() => {
       websocket.terminate();
       reject(new Error('websocket_capture_timeout'));
-    }, 4_000);
+    }, timeoutMs);
+
+    websocket.on('open', () => {
+      onOpen?.(websocket);
+    });
 
     websocket.on('message', (data) => {
       try {
@@ -69,9 +80,11 @@ describe('voice-ws-gateway websocket auth failures', () => {
     process.env.WS_REQUIRE_AUTH = 'true';
     process.env.WS_TICKET_SECRET = 'unit_test_ticket_secret_ws_auth';
     process.env.WS_TICKET_TTL_SECONDS = '120';
+    process.env.WS_HANDSHAKE_TIMEOUT_MS = '300';
     process.env.RATE_LIMIT_CONNECTIONS_PER_MINUTE = '100';
     process.env.RATE_LIMIT_TICKET_ISSUES_PER_MINUTE = '100';
     process.env.RATE_LIMIT_AUDIO_CHUNKS_PER_10S = '100';
+    process.env.WS_HEARTBEAT_CADENCE_MS = '2500';
 
     try {
       vi.resetModules();
@@ -94,6 +107,31 @@ describe('voice-ws-gateway websocket auth failures', () => {
       await gatewayModule.app.close();
     }
   });
+
+  async function issueTicket(args: {
+    authToken: string;
+    conversationId: string;
+    interviewSessionId: string;
+    voiceSessionId: string;
+  }): Promise<string> {
+    const ticketResponse = await gatewayModule!.app.inject({
+      method: 'POST',
+      url: '/v1/ws-ticket',
+      headers: {
+        authorization: `Bearer ${args.authToken}`,
+      },
+      payload: {
+        conversationId: args.conversationId,
+        interviewSessionId: args.interviewSessionId,
+        voiceSessionId: args.voiceSessionId,
+      },
+    });
+
+    expect(ticketResponse.statusCode).toBe(200);
+    const ticketBody = ticketResponse.json();
+    expect(ticketBody.success).toBe(true);
+    return ticketBody.ticket as string;
+  }
 
   it('rejects invalid ticket format', async () => {
     if (startupError) {
@@ -144,31 +182,96 @@ describe('voice-ws-gateway websocket auth failures', () => {
       return;
     }
 
-    const ticketResponse = await gatewayModule!.app.inject({
-      method: 'POST',
-      url: '/v1/ws-ticket',
-      headers: {
-        authorization: 'Bearer auth_user_a',
-      },
-      payload: {
-        conversationId: 'conv_ws_auth',
-        interviewSessionId: 'int_ws_auth',
-        voiceSessionId: 'voice_ws_auth',
-      },
+    const ticket = await issueTicket({
+      authToken: 'auth_user_a',
+      conversationId: 'conv_ws_auth',
+      interviewSessionId: 'int_ws_auth',
+      voiceSessionId: 'voice_ws_auth',
     });
-
-    expect(ticketResponse.statusCode).toBe(200);
-    const ticketBody = ticketResponse.json();
-    expect(ticketBody.success).toBe(true);
-    const ticket = ticketBody.ticket as string;
 
     const capture = await createWsCapture(
       `${websocketBaseUrl}/ws?ticket=${encodeURIComponent(ticket)}`,
-      { authorization: 'Bearer auth_user_b' },
+      { headers: { authorization: 'Bearer auth_user_b' } },
     );
 
     expect(capture.closeCode).toBe(1008);
     expect(capture.messages[0]?.error).toBe('ticket_auth_mismatch');
+  });
+
+  it('closes when first valid client frame is not voice_session_open', async () => {
+    if (startupError) {
+      const code = (startupError as NodeJS.ErrnoException).code;
+      const message = startupError.message || '';
+      const isSandboxListenBlock =
+        code === 'EPERM'
+        || code === 'EACCES'
+        || message.includes('EPERM')
+        || message.includes('EACCES');
+      expect(isSandboxListenBlock).toBe(true);
+      return;
+    }
+
+    const authToken = 'auth_user_first_frame_gate';
+    const ticket = await issueTicket({
+      authToken,
+      conversationId: 'conv_ws_first_frame_gate',
+      interviewSessionId: 'int_ws_first_frame_gate',
+      voiceSessionId: 'voice_ws_first_frame_gate',
+    });
+
+    const capture = await createWsCapture(
+      `${websocketBaseUrl}/ws?ticket=${encodeURIComponent(ticket)}`,
+      {
+        headers: { authorization: `Bearer ${authToken}` },
+        onOpen: (websocket) => {
+          websocket.send(JSON.stringify({
+            type: 'audio_chunk',
+            audioBase64: 'Zm9v',
+            mimeType: 'audio/m4a',
+          }));
+        },
+      },
+    );
+
+    expect(capture.closeCode).toBe(1008);
+    expect(capture.closeReason).toBe('first_frame_not_session_open');
+    expect(
+      capture.messages.some((message) => message.error === 'first_frame_must_be_voice_session_open'),
+    ).toBe(true);
+  });
+
+  it('closes when handshake timeout expires before voice_session_open', async () => {
+    if (startupError) {
+      const code = (startupError as NodeJS.ErrnoException).code;
+      const message = startupError.message || '';
+      const isSandboxListenBlock =
+        code === 'EPERM'
+        || code === 'EACCES'
+        || message.includes('EPERM')
+        || message.includes('EACCES');
+      expect(isSandboxListenBlock).toBe(true);
+      return;
+    }
+
+    const authToken = 'auth_user_handshake_timeout';
+    const ticket = await issueTicket({
+      authToken,
+      conversationId: 'conv_ws_handshake_timeout',
+      interviewSessionId: 'int_ws_handshake_timeout',
+      voiceSessionId: 'voice_ws_handshake_timeout',
+    });
+
+    const capture = await createWsCapture(
+      `${websocketBaseUrl}/ws?ticket=${encodeURIComponent(ticket)}`,
+      {
+        headers: { authorization: `Bearer ${authToken}` },
+        timeoutMs: 5_000,
+      },
+    );
+
+    expect(capture.closeCode).toBe(1008);
+    expect(capture.closeReason).toBe('session_open_timeout');
+    expect(capture.messages.some((message) => message.error === 'voice_session_open_timeout')).toBe(true);
   });
 
   it('accepts valid ticket with matching bearer auth and emits gateway_ready', async () => {
@@ -185,23 +288,12 @@ describe('voice-ws-gateway websocket auth failures', () => {
     }
 
     const authToken = 'auth_user_happy_path';
-    const ticketResponse = await gatewayModule!.app.inject({
-      method: 'POST',
-      url: '/v1/ws-ticket',
-      headers: {
-        authorization: `Bearer ${authToken}`,
-      },
-      payload: {
-        conversationId: 'conv_ws_happy',
-        interviewSessionId: 'int_ws_happy',
-        voiceSessionId: 'voice_ws_happy',
-      },
+    const ticket = await issueTicket({
+      authToken,
+      conversationId: 'conv_ws_happy',
+      interviewSessionId: 'int_ws_happy',
+      voiceSessionId: 'voice_ws_happy',
     });
-
-    expect(ticketResponse.statusCode).toBe(200);
-    const ticketBody = ticketResponse.json();
-    expect(ticketBody.success).toBe(true);
-    const ticket = ticketBody.ticket as string;
 
     const connectedCapture = await new Promise<{
       messages: Array<Record<string, unknown>>;
@@ -245,7 +337,21 @@ describe('voice-ws-gateway websocket auth failures', () => {
       });
     });
 
-    expect(connectedCapture.messages.some((message) => message.type === 'gateway_ready')).toBe(true);
+    const gatewayReadyMessage = connectedCapture.messages.find(
+      (message) => message.type === 'gateway_ready',
+    );
+    expect(gatewayReadyMessage).toBeTruthy();
+    expect(gatewayReadyMessage?.policy).toMatchObject({
+      version: 'voice_gateway_ready_policy_v1',
+      maxPayloadBytes: 2_097_152,
+      maxBufferedBytes: 1_048_576,
+      heartbeat: {
+        cadenceMs: 2_500,
+        contractVersion: 'voice_relay_heartbeat_v1',
+        sequenceGapTolerance: 0,
+        stallTimeoutMs: 7_500,
+      },
+    });
     expect(connectedCapture.closeCode).toBe(1000);
   });
 });

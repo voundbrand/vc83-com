@@ -11,6 +11,7 @@ import type { SectionConnection, DetectedItem } from "@/contexts/builder-context
 export interface AgentConfigJson {
   name: string;
   subtype?: string;
+  agentClass?: "internal_operator" | "external_customer_facing";
   displayName?: string;
   personality?: string;
   language?: string;

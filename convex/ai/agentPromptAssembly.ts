@@ -53,6 +53,12 @@ export interface AgentPromptConfig {
   modeChannelBindings?: unknown;
   enabledArchetypes?: unknown;
   activeChannel?: string;
+  weekendModeEnabled?: boolean;
+  weekendModeActive?: boolean;
+  weekendModeReason?: string;
+  weekendModeTimezone?: string;
+  weekendModeFridayStart?: string;
+  weekendModeMondayEnd?: string;
 }
 
 export interface AgentPromptHandoffContext {
@@ -419,6 +425,34 @@ export function buildAgentSystemPrompt(
     parts.push(`Mode guidance: ${soulModeRuntime.config.description}`);
   }
   parts.push("--- END SOUL MODE OVERLAY ---");
+
+  if (config.weekendModeEnabled) {
+    parts.push("\n--- WEEKEND MODE OVERLAY ---");
+    parts.push(`Weekend mode active: ${config.weekendModeActive === true ? "yes" : "no"}`);
+    if (config.weekendModeTimezone) {
+      parts.push(`Weekend timezone: ${config.weekendModeTimezone}`);
+    }
+    if (config.weekendModeFridayStart && config.weekendModeMondayEnd) {
+      parts.push(
+        `Weekend window: Friday ${config.weekendModeFridayStart} -> Monday ${config.weekendModeMondayEnd}`,
+      );
+    }
+    if (config.weekendModeReason) {
+      parts.push(`Weekend evaluation: ${config.weekendModeReason}`);
+    }
+    if (config.weekendModeActive) {
+      parts.push(
+        "Weekend response contract: prioritize clear information capture, avoid over-promising immediate execution, and set realistic Monday follow-up expectations.",
+      );
+      parts.push(
+        "When uncertain, ask one clarifying question and summarize the exact callback/follow-up commitment before ending the turn.",
+      );
+      parts.push(
+        "Capture caller intent and urgency explicitly so Monday handoff can execute without re-asking baseline details.",
+      );
+    }
+    parts.push("--- END WEEKEND MODE OVERLAY ---");
+  }
 
   parts.push("\n--- ARCHETYPE OVERLAY ---");
   if (archetypeRuntime.archetype) {

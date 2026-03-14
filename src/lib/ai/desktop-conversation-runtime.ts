@@ -1,8 +1,15 @@
 import type { ConversationSessionState } from "./conversation-session-contract"
+import {
+  resolveGeminiLiveRealtimeInputSetupContract,
+} from "../voice-assistant/runtime-policy"
 
 export type DesktopConversationModeSelection = "voice" | "voice_with_eyes"
 export type DesktopConversationEyesSourceSelection = "webcam" | "meta_glasses"
 export type DesktopCameraSessionState = "capturing" | "stopped" | "error"
+export type DuplexVoiceTurnVisionUnavailableReason =
+  | "vision_not_requested"
+  | "camera_not_capturing"
+  | "camera_error"
 
 export interface DesktopCameraLiveSessionSnapshot {
   liveSessionId?: string
@@ -113,6 +120,27 @@ export function shouldResolveDuplexVoiceTurnVisionFrame(args: {
     return false
   }
   return !normalizeDesktopCameraFallbackReason(args.cameraVisionError)
+}
+
+export function resolveDuplexVoiceTurnVisionUnavailableReason(args: {
+  conversationModeSelection: DesktopConversationModeSelection
+  cameraSessionState: DesktopCameraSessionState | null | undefined
+  cameraVisionError?: string | null
+  sessionTransportPath: "persistent_realtime_multimodal" | "turn_stitch"
+}): DuplexVoiceTurnVisionUnavailableReason | null {
+  if (args.conversationModeSelection !== "voice_with_eyes") {
+    return "vision_not_requested"
+  }
+  if (args.sessionTransportPath !== "persistent_realtime_multimodal") {
+    return null
+  }
+  if (args.cameraSessionState !== "capturing") {
+    return "camera_not_capturing"
+  }
+  if (normalizeDesktopCameraFallbackReason(args.cameraVisionError)) {
+    return "camera_error"
+  }
+  return null
 }
 
 const ACTIVE_CONVERSATION_STATES = new Set<ConversationSessionState>([
@@ -308,6 +336,7 @@ export function buildDesktopGeminiLiveMetadata(args: {
   return {
     provider: "gemini",
     mode: "live_reference",
+    providerSetupContract: resolveGeminiLiveRealtimeInputSetupContract(),
     enabled: isVisionEnabled,
     sourceMode,
     cameraSessionState: args.cameraLiveSession?.sessionState || "idle",

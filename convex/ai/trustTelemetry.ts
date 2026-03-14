@@ -159,6 +159,89 @@ export interface VoiceProviderFailureClassification {
   healthStatus: VoiceProviderHealthStatus;
 }
 
+export const EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME =
+  "trust.lifecycle.eval_run_state_transition.v1" as const;
+export const EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION =
+  "wae_eval_run_lifecycle_snapshot_v1" as const;
+
+export const EVAL_RUN_LIFECYCLE_STATE_VALUES = [
+  "queued",
+  "running",
+  "passed",
+  "failed",
+  "blocked",
+] as const;
+
+export type EvalRunLifecycleState = (typeof EVAL_RUN_LIFECYCLE_STATE_VALUES)[number];
+
+export const EVAL_RUN_LIFECYCLE_REASON_CODE_VALUES = [
+  "queued_for_execution",
+  "execution_started",
+  "execution_succeeded",
+  "execution_failed",
+  "execution_blocked",
+  "eval_run_not_found",
+  "scenario_id_mismatch",
+  "agent_id_mismatch",
+  "label_mismatch",
+  "missing_artifact_pointer",
+  "invalid_artifact_pointer",
+  "missing_lifecycle_evidence_paths",
+  "lifecycle_evidence_mismatch",
+  "missing_lifecycle_evidence",
+  "missing_pin_manifest",
+  "missing_create_receipt",
+  "missing_reset_receipt",
+  "missing_teardown_receipt",
+  "missing_evidence_index",
+  "seed_contract_drift",
+  "seed_contract_drift_runtime",
+] as const;
+
+export type EvalRunLifecycleReasonCode =
+  (typeof EVAL_RUN_LIFECYCLE_REASON_CODE_VALUES)[number];
+export type EvalRunLifecycleNormalizedReasonCode =
+  | EvalRunLifecycleReasonCode
+  | "unknown_reason";
+
+export const EVAL_RUN_FAIL_CLOSED_REASON_CODE_VALUES = [
+  "eval_run_not_found",
+  "scenario_id_mismatch",
+  "agent_id_mismatch",
+  "label_mismatch",
+  "missing_artifact_pointer",
+  "invalid_artifact_pointer",
+  "missing_lifecycle_evidence_paths",
+  "lifecycle_evidence_mismatch",
+  "missing_lifecycle_evidence",
+  "missing_pin_manifest",
+  "missing_create_receipt",
+  "missing_reset_receipt",
+  "missing_teardown_receipt",
+  "missing_evidence_index",
+  "seed_contract_drift",
+  "seed_contract_drift_runtime",
+] as const satisfies readonly EvalRunLifecycleReasonCode[];
+
+export interface BuildEvalRunLifecycleTrustPayloadArgs {
+  orgId: Id<"organizations">;
+  sessionId: string;
+  channel: string;
+  actorType: TrustEventActorType;
+  actorId: string;
+  runId: string;
+  scenarioId?: string;
+  agentId?: string;
+  fromState?: unknown;
+  toState: unknown;
+  reasonCodes?: Array<unknown>;
+  envelopeContractVersion: string;
+  lifecycleContractVersion: string;
+  transitionSource?: string;
+  traceStatus?: "ready" | "blocked";
+  occurredAt?: number;
+}
+
 function toNonNegativeInteger(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return null;
@@ -446,6 +529,158 @@ function normalizeTelemetryDimensionToken(
   fallback: string,
 ): string {
   return normalizeTelemetryToken(value) ?? fallback;
+}
+
+const EVAL_RUN_LIFECYCLE_STATE_SET = new Set<string>(
+  EVAL_RUN_LIFECYCLE_STATE_VALUES,
+);
+const EVAL_RUN_LIFECYCLE_REASON_CODE_SET = new Set<string>(
+  EVAL_RUN_LIFECYCLE_REASON_CODE_VALUES,
+);
+const EVAL_RUN_REASON_CODE_ALIAS_MAP: Record<string, EvalRunLifecycleReasonCode> = {
+  queue_for_execution: "queued_for_execution",
+  queued: "queued_for_execution",
+  execution_queue: "queued_for_execution",
+  run_queued: "queued_for_execution",
+  run_started: "execution_started",
+  execution_running: "execution_started",
+  run_running: "execution_started",
+  run_passed: "execution_succeeded",
+  passed: "execution_succeeded",
+  run_failed: "execution_failed",
+  failed: "execution_failed",
+  run_blocked: "execution_blocked",
+  blocked: "execution_blocked",
+  eval_missing: "eval_run_not_found",
+  run_not_found: "eval_run_not_found",
+  scenario_mismatch: "scenario_id_mismatch",
+  agent_mismatch: "agent_id_mismatch",
+  artifact_pointer_missing: "missing_artifact_pointer",
+  artifact_pointer_invalid: "invalid_artifact_pointer",
+  lifecycle_paths_missing: "missing_lifecycle_evidence_paths",
+  lifecycle_evidence_missing: "missing_lifecycle_evidence",
+  pin_manifest_missing: "missing_pin_manifest",
+  create_receipt_missing: "missing_create_receipt",
+  reset_receipt_missing: "missing_reset_receipt",
+  teardown_receipt_missing: "missing_teardown_receipt",
+  evidence_index_missing: "missing_evidence_index",
+  seed_drift: "seed_contract_drift",
+  seed_drift_runtime: "seed_contract_drift_runtime",
+};
+
+function normalizeEvalRunReasonToken(value: unknown): string | null {
+  const token = normalizeTelemetryToken(value)?.toLowerCase() ?? null;
+  if (!token) {
+    return null;
+  }
+  const normalized = token
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function normalizeEvalRunLifecycleState(
+  stateInput: unknown,
+): EvalRunLifecycleState | null {
+  const normalized = normalizeEvalRunReasonToken(stateInput);
+  if (!normalized) {
+    return null;
+  }
+  return EVAL_RUN_LIFECYCLE_STATE_SET.has(normalized)
+    ? (normalized as EvalRunLifecycleState)
+    : null;
+}
+
+export function normalizeEvalRunLifecycleReasonCode(
+  reasonCodeInput: unknown,
+): EvalRunLifecycleNormalizedReasonCode {
+  const normalized = normalizeEvalRunReasonToken(reasonCodeInput);
+  if (!normalized) {
+    return "unknown_reason";
+  }
+  const canonical = EVAL_RUN_REASON_CODE_ALIAS_MAP[normalized] ?? normalized;
+  return EVAL_RUN_LIFECYCLE_REASON_CODE_SET.has(canonical)
+    ? (canonical as EvalRunLifecycleReasonCode)
+    : "unknown_reason";
+}
+
+export function normalizeEvalRunLifecycleReasonCodes(
+  reasonCodeInputs: Array<unknown>,
+): EvalRunLifecycleNormalizedReasonCode[] {
+  if (reasonCodeInputs.length === 0) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      reasonCodeInputs.map((reasonCode) =>
+        normalizeEvalRunLifecycleReasonCode(reasonCode),
+      ),
+    ),
+  ).sort();
+}
+
+export function resolveEvalRunLifecycleTransitionReasonCode(
+  state: EvalRunLifecycleState,
+): EvalRunLifecycleReasonCode {
+  if (state === "queued") {
+    return "queued_for_execution";
+  }
+  if (state === "running") {
+    return "execution_started";
+  }
+  if (state === "passed") {
+    return "execution_succeeded";
+  }
+  if (state === "failed") {
+    return "execution_failed";
+  }
+  return "execution_blocked";
+}
+
+export function buildEvalRunLifecycleTrustPayload(
+  args: BuildEvalRunLifecycleTrustPayloadArgs,
+): TrustEventPayload {
+  const occurredAt = typeof args.occurredAt === "number"
+    ? Math.floor(args.occurredAt)
+    : Date.now();
+  const toState = normalizeEvalRunLifecycleState(args.toState) ?? "blocked";
+  const fromState = normalizeEvalRunLifecycleState(args.fromState) ?? "queued";
+  const normalizedReasonCodes = normalizeEvalRunLifecycleReasonCodes(args.reasonCodes ?? []);
+  const reasonCodes = normalizedReasonCodes.length > 0
+    ? normalizedReasonCodes
+    : [resolveEvalRunLifecycleTransitionReasonCode(toState)];
+  const transitionSource = normalizeTelemetryToken(args.transitionSource) ?? "unspecified";
+  const traceStatus = normalizeTelemetryToken(args.traceStatus);
+  const scenarioId = normalizeTelemetryToken(args.scenarioId);
+  const agentId = normalizeTelemetryToken(args.agentId);
+  const lifecycleTransitionReason = reasonCodes.join("|");
+
+  return {
+    event_id: `${EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME}:${args.runId}:${toState}:${occurredAt}`,
+    event_version: TRUST_EVENT_TAXONOMY_VERSION,
+    occurred_at: occurredAt,
+    org_id: args.orgId,
+    mode: "lifecycle",
+    channel: args.channel,
+    session_id: args.sessionId,
+    actor_type: args.actorType,
+    actor_id: args.actorId,
+    lifecycle_state_from: fromState,
+    lifecycle_state_to: toState,
+    lifecycle_checkpoint: "eval_run_state_transition",
+    lifecycle_transition_actor: args.actorType,
+    lifecycle_transition_reason: lifecycleTransitionReason,
+    eval_run_id: args.runId,
+    eval_scenario_id: scenarioId ?? undefined,
+    eval_agent_id: agentId ?? undefined,
+    eval_lifecycle_state: toState,
+    eval_reason_codes: reasonCodes,
+    eval_envelope_contract_version: args.envelopeContractVersion,
+    eval_lifecycle_contract_version: args.lifecycleContractVersion,
+    eval_transition_source: transitionSource,
+    eval_trace_status: traceStatus ?? undefined,
+  };
 }
 
 export function buildRuntimeTurnTelemetryDimensions(args: {
@@ -966,6 +1201,127 @@ export function evaluateTrustRolloutGuardrails(
     missingMetrics,
     warningMetrics,
     criticalMetrics,
+  };
+}
+
+export type WaeEvalRubricMetricKey =
+  | "tool_correctness"
+  | "completion_quality"
+  | "safety"
+  | "latency"
+  | "cost";
+
+export type WaeEvalBudgetMetricKey = "latency" | "cost";
+
+export const WAE_EVAL_SCORING_RUBRIC_VERSION =
+  "wae_eval_weighted_rubric_v1" as const;
+
+export const WAE_EVAL_SCORING_WEIGHTS: Record<WaeEvalRubricMetricKey, number> = {
+  tool_correctness: 0.35,
+  completion_quality: 0.3,
+  safety: 0.2,
+  latency: 0.1,
+  cost: 0.05,
+};
+
+export const WAE_EVAL_SCORING_PASS_THRESHOLD = 0.85;
+export const WAE_EVAL_SCORING_HOLD_THRESHOLD = 0.7;
+
+export interface WaeEvalBudgetDefinition {
+  displayName: string;
+  unit: "ms" | "usd";
+  target: number;
+  warningThreshold: number;
+  criticalThreshold: number;
+}
+
+export interface WaeEvalBudgetEvaluation {
+  metric: WaeEvalBudgetMetricKey;
+  observedValue: number;
+  severity: TrustKpiSeverity;
+  thresholdValue: number | null;
+  scoreRatio: number;
+}
+
+export const WAE_EVAL_BUDGET_DEFINITIONS: Record<
+  WaeEvalBudgetMetricKey,
+  WaeEvalBudgetDefinition
+> = {
+  latency: {
+    displayName: "Scenario latency budget",
+    unit: "ms",
+    target: 4_000,
+    warningThreshold: 8_000,
+    criticalThreshold: 15_000,
+  },
+  cost: {
+    displayName: "Scenario cost budget",
+    unit: "usd",
+    target: 0.01,
+    warningThreshold: 0.025,
+    criticalThreshold: 0.05,
+  },
+};
+
+function roundBudgetValue(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
+}
+
+export function evaluateWaeEvalBudget(
+  metric: WaeEvalBudgetMetricKey,
+  observedValue: number,
+): WaeEvalBudgetEvaluation {
+  const definition = WAE_EVAL_BUDGET_DEFINITIONS[metric];
+  if (!isFiniteNumber(observedValue) || observedValue < 0) {
+    return {
+      metric,
+      observedValue: Number.NaN,
+      severity: "critical",
+      thresholdValue: null,
+      scoreRatio: 0,
+    };
+  }
+
+  if (observedValue <= definition.target) {
+    return {
+      metric,
+      observedValue,
+      severity: "ok",
+      thresholdValue: definition.target,
+      scoreRatio: 1,
+    };
+  }
+
+  if (observedValue <= definition.warningThreshold) {
+    const span = definition.warningThreshold - definition.target || 1;
+    const progress = (observedValue - definition.target) / span;
+    return {
+      metric,
+      observedValue,
+      severity: "warning",
+      thresholdValue: definition.warningThreshold,
+      scoreRatio: roundBudgetValue(1 - (progress * 0.5)),
+    };
+  }
+
+  if (observedValue <= definition.criticalThreshold) {
+    const span = definition.criticalThreshold - definition.warningThreshold || 1;
+    const progress = (observedValue - definition.warningThreshold) / span;
+    return {
+      metric,
+      observedValue,
+      severity: "critical",
+      thresholdValue: definition.criticalThreshold,
+      scoreRatio: roundBudgetValue(Math.max(0, 0.5 - (progress * 0.5))),
+    };
+  }
+
+  return {
+    metric,
+    observedValue,
+    severity: "critical",
+    thresholdValue: definition.criticalThreshold,
+    scoreRatio: 0,
   };
 }
 

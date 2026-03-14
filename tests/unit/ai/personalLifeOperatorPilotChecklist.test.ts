@@ -82,6 +82,71 @@ type CrossOrgChecklistResult = Record<
   boolean
 >;
 
+interface TelephonyTenantFixture {
+  organizationId: string;
+  providerConnectionId: string;
+  providerInstallationId: string;
+  routeKey: string;
+  providerConversationId: string;
+  callRecordId: string;
+}
+
+interface TelephonyWebhookSpoofFixture {
+  payloadOrganizationId: string;
+  resolvedOrganizationId: string;
+  recordedOrganizationId: string;
+  routeKey: string;
+  payloadOrganizationIgnored: boolean;
+}
+
+interface TelephonyCallRecordOwnershipFixture {
+  requestedOrganizationId: string;
+  updatedCallRecordId: string;
+  updatedCallRecordOrganizationId: string;
+  foreignCallRecordIds: string[];
+  untouchedForeignCallRecordIds: string[];
+  providerConversationId: string;
+  usedConversationFallback: boolean;
+}
+
+interface TelephonyRouteKeyMismatchFixture {
+  bindingRouteKey: string;
+  requestRouteKey: string;
+  credentialRouteKey: string;
+  rejectionCode: "invalid_route_key" | "route_not_found";
+  mutationBlocked: boolean;
+}
+
+interface TelephonyTenantIsolationEvidence {
+  spoof: TelephonyWebhookSpoofFixture;
+  ownership: TelephonyCallRecordOwnershipFixture;
+  routeMismatch: TelephonyRouteKeyMismatchFixture;
+}
+
+type TelephonyTenantIsolationChecklistResult = Record<
+  "PO-TEL-01" | "PO-TEL-02" | "PO-TEL-03",
+  boolean
+>;
+
+const TELEPHONY_TENANT_FIXTURES: Record<"alpha" | "beta", TelephonyTenantFixture> = {
+  alpha: {
+    organizationId: "org_alpha_001",
+    providerConnectionId: "conn_alpha_001",
+    providerInstallationId: "inst_alpha_001",
+    routeKey: "eleven:phone:conn_alpha_001:inst_alpha_001",
+    providerConversationId: "conv_alpha_001",
+    callRecordId: "call_alpha_001",
+  },
+  beta: {
+    organizationId: "org_beta_001",
+    providerConnectionId: "conn_beta_001",
+    providerInstallationId: "inst_beta_001",
+    routeKey: "eleven:phone:conn_beta_001:inst_beta_001",
+    providerConversationId: "conv_alpha_001",
+    callRecordId: "call_beta_001",
+  },
+};
+
 function evaluatePilotChecklist(evidence: PilotScenarioEvidence): PilotChecklistResult {
   const firstAttemptAt = evidence.attempts[0]?.attemptedAt ?? Number.POSITIVE_INFINITY;
   const mission = evidence.mission;
@@ -216,6 +281,48 @@ function evaluateCrossOrgChecklist(args: {
     "PO-ORG-01": noCrossLeakage,
     "PO-ORG-02": contextSwitchClarity,
     "PO-ORG-03": orgAwareBookingBehavior,
+  };
+}
+
+function evaluateTelephonyTenantIsolationChecklist(
+  evidence: TelephonyTenantIsolationEvidence
+): TelephonyTenantIsolationChecklistResult {
+  const spoof = evidence.spoof;
+  const ownership = evidence.ownership;
+  const routeMismatch = evidence.routeMismatch;
+
+  const payloadSpoofNeutralized = Boolean(
+    spoof.payloadOrganizationId !== spoof.resolvedOrganizationId &&
+      spoof.payloadOrganizationIgnored &&
+      spoof.recordedOrganizationId === spoof.resolvedOrganizationId &&
+      spoof.routeKey.startsWith("eleven:phone:")
+  );
+
+  const callRecordOwnershipScoped = Boolean(
+    ownership.updatedCallRecordOrganizationId === ownership.requestedOrganizationId &&
+      ownership.foreignCallRecordIds.length > 0 &&
+      ownership.untouchedForeignCallRecordIds.length ===
+        ownership.foreignCallRecordIds.length &&
+      ownership.untouchedForeignCallRecordIds.every((id) =>
+        ownership.foreignCallRecordIds.includes(id)
+      ) &&
+      ownership.usedConversationFallback &&
+      ownership.providerConversationId.trim().length > 0 &&
+      ownership.updatedCallRecordId.trim().length > 0
+  );
+
+  const routeKeyMismatchRejected = Boolean(
+    routeMismatch.bindingRouteKey !== routeMismatch.requestRouteKey &&
+      routeMismatch.bindingRouteKey !== routeMismatch.credentialRouteKey &&
+      routeMismatch.requestRouteKey === routeMismatch.credentialRouteKey &&
+      routeMismatch.mutationBlocked &&
+      ["invalid_route_key", "route_not_found"].includes(routeMismatch.rejectionCode)
+  );
+
+  return {
+    "PO-TEL-01": payloadSpoofNeutralized,
+    "PO-TEL-02": callRecordOwnershipScoped,
+    "PO-TEL-03": routeKeyMismatchRejected,
   };
 }
 
@@ -761,6 +868,138 @@ describe("personal life operator pilot checklist", () => {
     expect(checklist["PO-ORG-01"]).toBe(true);
     expect(checklist["PO-ORG-02"]).toBe(true);
     expect(checklist["PO-ORG-03"]).toBe(false);
+  });
+});
+
+describe("telephony tenant isolation validation plan", () => {
+  it("passes deterministic fixtures for spoof neutralization, same-org ownership, and route mismatch rejection", () => {
+    const checklist = evaluateTelephonyTenantIsolationChecklist({
+      spoof: {
+        payloadOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        resolvedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        recordedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        routeKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        payloadOrganizationIgnored: true,
+      },
+      ownership: {
+        requestedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        updatedCallRecordId: TELEPHONY_TENANT_FIXTURES.alpha.callRecordId,
+        updatedCallRecordOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        foreignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        untouchedForeignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        providerConversationId:
+          TELEPHONY_TENANT_FIXTURES.alpha.providerConversationId,
+        usedConversationFallback: true,
+      },
+      routeMismatch: {
+        bindingRouteKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        requestRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        credentialRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        rejectionCode: "invalid_route_key",
+        mutationBlocked: true,
+      },
+    });
+
+    expect(Object.values(checklist).every(Boolean)).toBe(true);
+  });
+
+  it("fails spoof validation when payload organization remains authoritative", () => {
+    const checklist = evaluateTelephonyTenantIsolationChecklist({
+      spoof: {
+        payloadOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        resolvedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        recordedOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        routeKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        payloadOrganizationIgnored: false,
+      },
+      ownership: {
+        requestedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        updatedCallRecordId: TELEPHONY_TENANT_FIXTURES.alpha.callRecordId,
+        updatedCallRecordOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        foreignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        untouchedForeignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        providerConversationId:
+          TELEPHONY_TENANT_FIXTURES.alpha.providerConversationId,
+        usedConversationFallback: true,
+      },
+      routeMismatch: {
+        bindingRouteKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        requestRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        credentialRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        rejectionCode: "invalid_route_key",
+        mutationBlocked: true,
+      },
+    });
+
+    expect(checklist["PO-TEL-01"]).toBe(false);
+    expect(checklist["PO-TEL-02"]).toBe(true);
+    expect(checklist["PO-TEL-03"]).toBe(true);
+  });
+
+  it("fails ownership validation when providerConversationId fallback mutates a foreign org record", () => {
+    const checklist = evaluateTelephonyTenantIsolationChecklist({
+      spoof: {
+        payloadOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        resolvedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        recordedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        routeKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        payloadOrganizationIgnored: true,
+      },
+      ownership: {
+        requestedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        updatedCallRecordId: TELEPHONY_TENANT_FIXTURES.beta.callRecordId,
+        updatedCallRecordOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        foreignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        untouchedForeignCallRecordIds: [],
+        providerConversationId:
+          TELEPHONY_TENANT_FIXTURES.alpha.providerConversationId,
+        usedConversationFallback: true,
+      },
+      routeMismatch: {
+        bindingRouteKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        requestRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        credentialRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        rejectionCode: "invalid_route_key",
+        mutationBlocked: true,
+      },
+    });
+
+    expect(checklist["PO-TEL-01"]).toBe(true);
+    expect(checklist["PO-TEL-02"]).toBe(false);
+    expect(checklist["PO-TEL-03"]).toBe(true);
+  });
+
+  it("fails route mismatch validation when a mismatched route key is not blocked", () => {
+    const checklist = evaluateTelephonyTenantIsolationChecklist({
+      spoof: {
+        payloadOrganizationId: TELEPHONY_TENANT_FIXTURES.beta.organizationId,
+        resolvedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        recordedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        routeKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        payloadOrganizationIgnored: true,
+      },
+      ownership: {
+        requestedOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        updatedCallRecordId: TELEPHONY_TENANT_FIXTURES.alpha.callRecordId,
+        updatedCallRecordOrganizationId: TELEPHONY_TENANT_FIXTURES.alpha.organizationId,
+        foreignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        untouchedForeignCallRecordIds: [TELEPHONY_TENANT_FIXTURES.beta.callRecordId],
+        providerConversationId:
+          TELEPHONY_TENANT_FIXTURES.alpha.providerConversationId,
+        usedConversationFallback: true,
+      },
+      routeMismatch: {
+        bindingRouteKey: TELEPHONY_TENANT_FIXTURES.alpha.routeKey,
+        requestRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        credentialRouteKey: TELEPHONY_TENANT_FIXTURES.beta.routeKey,
+        rejectionCode: "invalid_route_key",
+        mutationBlocked: false,
+      },
+    });
+
+    expect(checklist["PO-TEL-01"]).toBe(true);
+    expect(checklist["PO-TEL-02"]).toBe(true);
+    expect(checklist["PO-TEL-03"]).toBe(false);
   });
 });
 

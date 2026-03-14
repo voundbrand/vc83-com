@@ -102,7 +102,7 @@ describe("mobile realtime relay health", () => {
     expect(health.reasonCode).toBe("relay_server_heartbeat_stale");
   });
 
-  it("projects deterministic unhealthy reason when server reports relay qos failure", () => {
+  it("projects deterministic unhealthy reason when server reports heartbeat sequence gaps", () => {
     const health = evaluateMobileRealtimeRelayHealth({
       nowMs: 60_000,
       isSocketConnected: true,
@@ -126,7 +126,8 @@ describe("mobile realtime relay health", () => {
     });
 
     expect(health.healthy).toBe(false);
-    expect(health.reasonCode).toBe("relay_server_qos_unhealthy");
+    expect(health.reasonCode).toBe("relay_server_heartbeat_sequence_gap");
+    expect(health.serverRelayHeartbeatSequenceGap).toBe(1);
     expect(health.serverRelayReasonCode).toBe("relay_gap_detected");
   });
 
@@ -186,5 +187,34 @@ describe("mobile realtime relay health", () => {
     expect(health.reasonCode).toBe("relay_server_heartbeat_contract_mismatch");
     expect(health.serverRelayContractVersionStatus).toBe("ok");
     expect(health.serverRelayHeartbeatContractVersionStatus).toBe("mismatch");
+  });
+
+  it("fails closed when heartbeat acknowledgement exceeds stall timeout", () => {
+    const health = evaluateMobileRealtimeRelayHealth({
+      nowMs: 95_000,
+      isSocketConnected: true,
+      lastIngestAttemptAtMs: 94_000,
+      lastIngestAckAtMs: 94_500,
+      consecutiveIngestFailures: 0,
+      ingestAckGraceMs: 400,
+      serverHeartbeatStallTimeoutMs: 7_500,
+      serverRelayQos: {
+        contractVersion: "voice_relay_qos_v1",
+        observedAtMs: 94_900,
+        healthy: true,
+        reasonCode: "relay_healthy",
+        heartbeat: {
+          contractVersion: "voice_relay_heartbeat_v1",
+          status: "acknowledged",
+          expectedSequence: 41,
+          ackSequence: 41,
+          acknowledgedAtMs: 87_000,
+        },
+      },
+    });
+
+    expect(health.healthy).toBe(false);
+    expect(health.reasonCode).toBe("relay_server_heartbeat_stall_timeout");
+    expect(health.serverRelayHeartbeatAckAgeMs).toBe(8_000);
   });
 });

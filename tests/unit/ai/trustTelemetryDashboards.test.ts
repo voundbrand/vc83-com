@@ -2,14 +2,23 @@ import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { validateTrustEventPayload } from "../../../convex/ai/trustEvents";
 import {
+  EVAL_RUN_FAIL_CLOSED_REASON_CODE_VALUES,
+  EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION,
+  EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME,
   TRUST_KPI_DEFINITIONS,
   TRUST_TELEMETRY_DASHBOARDS,
   VOICE_TRUST_PRE_ROLLOUT_BASELINES,
+  WAE_EVAL_BUDGET_DEFINITIONS,
+  WAE_EVAL_SCORING_WEIGHTS,
+  buildEvalRunLifecycleTrustPayload,
   buildRuntimeTurnTelemetryDimensions,
   buildTrustKpiCheckpointPayload,
   buildTrustTelemetryDashboardSnapshots,
+  evaluateWaeEvalBudget,
   evaluateTrustKpiMetric,
   evaluateTrustRolloutGuardrails,
+  normalizeEvalRunLifecycleReasonCodes,
+  resolveEvalRunLifecycleTransitionReasonCode,
 } from "../../../convex/ai/trustTelemetry";
 
 describe("trust telemetry dashboards and rollout guardrails", () => {
@@ -200,5 +209,155 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
       admissionReasonCode: "replay_duplicate",
     });
     expect(dimensionsB).toEqual(dimensionsA);
+  });
+
+  it("normalizes eval lifecycle reason codes with deterministic lexical ordering", () => {
+    const normalized = normalizeEvalRunLifecycleReasonCodes([
+      " Missing Lifecycle Evidence ",
+      "seed_drift_runtime",
+      "SCENARIO-MISMATCH",
+      "execution started",
+      "execution_started",
+      "unknown custom reason",
+    ]);
+
+    expect(normalized).toEqual([
+      "execution_started",
+      "missing_lifecycle_evidence",
+      "scenario_id_mismatch",
+      "seed_contract_drift_runtime",
+      "unknown_reason",
+    ]);
+    expect(EVAL_RUN_FAIL_CLOSED_REASON_CODE_VALUES).toContain(
+      "seed_contract_drift_runtime",
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("blocked")).toBe(
+      "execution_blocked",
+    );
+  });
+
+  it("builds valid eval lifecycle trust payloads for CI-gated run transitions", () => {
+    const payload = buildEvalRunLifecycleTrustPayload({
+      orgId: "org_001" as Id<"organizations">,
+      sessionId: "session_eval_1",
+      channel: "desktop",
+      actorType: "system",
+      actorId: "system",
+      runId: "run_123",
+      scenarioId: "scenario_abc",
+      agentId: "agent_xyz",
+      fromState: "queued",
+      toState: "running",
+      reasonCodes: ["execution_started"],
+      envelopeContractVersion: "wae_eval_run_envelope_v1",
+      lifecycleContractVersion: "wae_eval_org_lifecycle_v1",
+      transitionSource: "test",
+      traceStatus: "ready",
+      occurredAt: 1_739_900_000_123,
+    });
+
+    expect(payload.event_id).toContain(EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME);
+    const validation = validateTrustEventPayload(
+      EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME,
+      payload,
+    );
+    expect(validation.ok).toBe(true);
+  });
+
+  it("keeps eval lifecycle reason-code normalization deterministic for blocked replay failures", () => {
+    const normalized = normalizeEvalRunLifecycleReasonCodes([
+      "lifecycle_paths_missing",
+      "lifecycle_evidence_mismatch",
+      "Missing Artifact Pointer",
+      "missing_artifact_pointer",
+      "seed_drift",
+      "seed_drift_runtime",
+      "lifecycle_evidence_missing",
+    ]);
+
+    expect(normalized).toEqual([
+      "lifecycle_evidence_mismatch",
+      "missing_artifact_pointer",
+      "missing_lifecycle_evidence",
+      "missing_lifecycle_evidence_paths",
+      "seed_contract_drift",
+      "seed_contract_drift_runtime",
+    ]);
+  });
+
+  it("keeps lifecycle snapshot contract version + blocked reason-code parity explicit", () => {
+    expect(EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION).toBe(
+      "wae_eval_run_lifecycle_snapshot_v1"
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("queued")).toBe(
+      "queued_for_execution"
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("running")).toBe(
+      "execution_started"
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("passed")).toBe(
+      "execution_succeeded"
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("failed")).toBe(
+      "execution_failed"
+    );
+    expect(resolveEvalRunLifecycleTransitionReasonCode("blocked")).toBe(
+      "execution_blocked"
+    );
+  });
+
+  it("pins deterministic WAE scorer weights and performance budgets", () => {
+    expect(WAE_EVAL_SCORING_WEIGHTS).toEqual({
+      tool_correctness: 0.35,
+      completion_quality: 0.3,
+      safety: 0.2,
+      latency: 0.1,
+      cost: 0.05,
+    });
+    expect(WAE_EVAL_BUDGET_DEFINITIONS.latency).toEqual({
+      displayName: "Scenario latency budget",
+      unit: "ms",
+      target: 4000,
+      warningThreshold: 8000,
+      criticalThreshold: 15000,
+    });
+    expect(WAE_EVAL_BUDGET_DEFINITIONS.cost).toEqual({
+      displayName: "Scenario cost budget",
+      unit: "usd",
+      target: 0.01,
+      warningThreshold: 0.025,
+      criticalThreshold: 0.05,
+    });
+  });
+
+  it("evaluates WAE latency and cost budgets with deterministic severity and score ratios", () => {
+    expect(evaluateWaeEvalBudget("latency", 3200)).toEqual({
+      metric: "latency",
+      observedValue: 3200,
+      severity: "ok",
+      thresholdValue: 4000,
+      scoreRatio: 1,
+    });
+    expect(evaluateWaeEvalBudget("latency", 6000)).toEqual({
+      metric: "latency",
+      observedValue: 6000,
+      severity: "warning",
+      thresholdValue: 8000,
+      scoreRatio: 0.75,
+    });
+    expect(evaluateWaeEvalBudget("cost", 0.04)).toEqual({
+      metric: "cost",
+      observedValue: 0.04,
+      severity: "critical",
+      thresholdValue: 0.05,
+      scoreRatio: 0.2,
+    });
+    expect(evaluateWaeEvalBudget("cost", Number.NaN)).toEqual({
+      metric: "cost",
+      observedValue: Number.NaN,
+      severity: "critical",
+      thresholdValue: null,
+      scoreRatio: 0,
+    });
   });
 });

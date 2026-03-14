@@ -16,6 +16,17 @@ import { slackProvider } from "./providers/slackProvider";
 import { directCallProvider } from "./providers/directCallProvider";
 
 const PROVIDER_REGISTRY: Record<string, ChannelProvider> = {};
+const PROVIDER_ID_ALIASES = Object.freeze({
+  eleven_telephony: "direct",
+});
+
+function normalizeProviderLookupId(id: string): string {
+  const normalized = id.trim();
+  if (!normalized) {
+    return normalized;
+  }
+  return PROVIDER_ID_ALIASES[normalized as keyof typeof PROVIDER_ID_ALIASES] ?? normalized;
+}
 
 export function getProviderConformanceIssues(provider: ChannelProvider): string[] {
   const issues: string[] = [];
@@ -70,7 +81,14 @@ registerProvider(slackProvider);
 registerProvider(directCallProvider);
 
 export function getProvider(id: ProviderId): ChannelProvider | null {
-  return PROVIDER_REGISTRY[id] ?? null;
+  return PROVIDER_REGISTRY[normalizeProviderLookupId(id)] ?? null;
+}
+
+export function getProviderByIdentity(id: string): ChannelProvider | null {
+  if (!id?.trim()) {
+    return null;
+  }
+  return PROVIDER_REGISTRY[normalizeProviderLookupId(id)] ?? null;
 }
 
 export function getAllProviders(): ChannelProvider[] {

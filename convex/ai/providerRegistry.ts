@@ -74,6 +74,19 @@ export interface ResolvedAiProviderBinding {
   fallbackMetadata: ProviderBindingFallbackMetadata;
 }
 
+export interface AiBillingSourceContract {
+  billingSource: AiBillingSource;
+  credentialOwner: "platform" | "organization";
+  usageAttribution: "platform" | "organization" | "private_contract";
+  platformCredentialFallbackAllowed: boolean;
+  organizationCredentialRequired: boolean;
+  requiresSuperAdminConfiguration: boolean;
+  executionPolicy:
+    | "platform_managed"
+    | "organization_managed"
+    | "private_controlled";
+}
+
 interface ResolveOrganizationProviderBindingsArgs {
   llmSettings?: LlmSettingsProviderResolverLike | null;
   providerId?: string | null;
@@ -112,6 +125,39 @@ const BILLING_SOURCE_VALUES = new Set<AiBillingSource>([
   "byok",
   "private",
 ]);
+
+const AI_BILLING_SOURCE_CONTRACTS: Record<
+  AiBillingSource,
+  AiBillingSourceContract
+> = {
+  platform: {
+    billingSource: "platform",
+    credentialOwner: "platform",
+    usageAttribution: "platform",
+    platformCredentialFallbackAllowed: true,
+    organizationCredentialRequired: false,
+    requiresSuperAdminConfiguration: true,
+    executionPolicy: "platform_managed",
+  },
+  byok: {
+    billingSource: "byok",
+    credentialOwner: "organization",
+    usageAttribution: "organization",
+    platformCredentialFallbackAllowed: false,
+    organizationCredentialRequired: true,
+    requiresSuperAdminConfiguration: false,
+    executionPolicy: "organization_managed",
+  },
+  private: {
+    billingSource: "private",
+    credentialOwner: "organization",
+    usageAttribution: "private_contract",
+    platformCredentialFallbackAllowed: false,
+    organizationCredentialRequired: true,
+    requiresSuperAdminConfiguration: false,
+    executionPolicy: "private_controlled",
+  },
+};
 
 function toPluginAdapterContract(
   snapshot: ProviderAdapterContractSnapshot
@@ -848,6 +894,12 @@ export function resolveOrganizationProviderBindingForProvider(
     providerId,
   });
   return bindings[0] ?? null;
+}
+
+export function getAiBillingSourceContract(
+  billingSource: AiBillingSource
+): AiBillingSourceContract {
+  return AI_BILLING_SOURCE_CONTRACTS[billingSource];
 }
 
 export function stripApiKeyFromBinding(

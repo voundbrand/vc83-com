@@ -9,6 +9,7 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { DURATION_MS } from "../lib/constants";
+import { evaluateWaeRolloutGateForTemplateVersion } from "./agentCatalogAdmin";
 import {
   MANAGED_USE_CASE_CLONE_LIFECYCLE,
   buildManagedTemplateCloneLinkage,
@@ -61,6 +62,17 @@ function normalizeOptionalString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeAgentClass(value: unknown): "internal_operator" | "external_customer_facing" {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (normalized === "external_customer_facing") {
+    return "external_customer_facing";
+  }
+  if (normalized === "customer_facing") {
+    return "external_customer_facing";
+  }
+  return "internal_operator";
 }
 
 function normalizeNonNegativeLimit(
@@ -184,6 +196,54 @@ function readTemplateRole(customProperties: Record<string, unknown> | undefined)
 function isProtectedTemplateAgent(agent: AgentLikeRecord): boolean {
   const props = asRecord(agent.customProperties);
   return agent.status === "template" && props.protected === true;
+}
+
+async function writeWaeSpawnBlockedAudit(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  template: AgentLikeRecord;
+  templateVersionId?: string | null;
+  templateVersionTag?: string | null;
+  requestedByUserId: Id<"users">;
+  ownerUserId: Id<"users">;
+  reasonCode: string;
+  message: string;
+  gate: unknown;
+  useCase: string;
+  timestamp: number;
+}) {
+  const payload = {
+    templateAgentId: args.template._id,
+    templateVersionId: args.templateVersionId ?? null,
+    templateVersionTag: args.templateVersionTag ?? null,
+    requestedByUserId: args.requestedByUserId,
+    ownerUserId: args.ownerUserId,
+    reasonCode: args.reasonCode,
+    message: args.message,
+    gate: args.gate,
+    useCase: args.useCase,
+    timestamp: args.timestamp,
+  };
+
+  await args.ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: args.template._id,
+    actionType: "template_clone_spawn_blocked_wae_gate",
+    actionData: payload,
+    performedBy: args.requestedByUserId,
+    performedAt: args.timestamp,
+  });
+
+  await args.ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.requestedByUserId,
+    action: "template_clone_spawn_blocked_wae_gate",
+    resource: "org_agent",
+    resourceId: String(args.template._id),
+    success: false,
+    metadata: payload,
+    createdAt: args.timestamp,
+  });
 }
 
 function selectOnboardingTemplateAgent(agents: AgentLikeRecord[]): AgentLikeRecord | null {
@@ -375,6 +435,7 @@ export const getOnboardingWorker = internalMutation({
         status: "active",
         customProperties: {
           ...templateProps,
+          agentClass: normalizeAgentClass(templateProps.agentClass),
           displayName: `Quinn Worker ${workerNumber}`,
           status: "active",
           protected: true,
@@ -502,6 +563,32 @@ export const spawnUseCaseAgent = internalMutation({
       throw new Error("Requester must be an active organization member.");
     }
 
+    const publishedTemplateVersionId =
+      normalizeOptionalString(templateProps.templatePublishedVersionId) || null;
+    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+      templateId: template._id,
+      templateVersionId: publishedTemplateVersionId as Id<"objects"> | null,
+      templateVersionTag: templateSourceVersion,
+      now,
+    });
+    if (!waeGate.allowed) {
+      await writeWaeSpawnBlockedAudit({
+        ctx,
+        organizationId: args.organizationId,
+        template,
+        templateVersionId: publishedTemplateVersionId,
+        templateVersionTag: templateSourceVersion,
+        requestedByUserId,
+        ownerUserId: args.ownerUserId,
+        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
+        message: waeGate.message || "WAE rollout gate blocked managed clone spawning.",
+        gate: waeGate.gate,
+        useCase: args.useCase,
+        timestamp: now,
+      });
+      throw new Error(waeGate.message || "WAE rollout gate blocked managed clone spawning.");
+    }
+
     const normalizedPlaybook = normalizeOptionalString(args.playbook)?.toLowerCase() ?? null;
     if (normalizedPlaybook && clonePolicy.allowedPlaybooks && !clonePolicy.allowedPlaybooks.includes(normalizedPlaybook)) {
       throw new Error(
@@ -579,6 +666,7 @@ export const spawnUseCaseAgent = internalMutation({
       await ctx.db.patch(matchingClone._id, {
         customProperties: {
           ...matchingCloneProps,
+          agentClass: normalizeAgentClass(matchingCloneProps.agentClass),
           operatorId: ownerOperatorId,
           isPrimary: !ownerHadPrimaryBeforeSpawn ? true : matchingCloneProps.isPrimary === true,
           requiredTools,
@@ -692,6 +780,7 @@ export const spawnUseCaseAgent = internalMutation({
       status: "active",
       customProperties: {
         ...templateProps,
+        agentClass: normalizeAgentClass(templateProps.agentClass),
         displayName: preferredCloneName || `${templateDisplayName} (${useCaseLabel})`,
         protected: false,
         status: "active",

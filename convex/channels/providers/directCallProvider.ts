@@ -13,7 +13,10 @@ import type {
   NormalizedInboundMessage,
   OutboundMessage,
   SendResult,
+  TelephonyProviderIdentity,
+  TelephonyRouteKeyPolicy,
 } from "../types";
+import { ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX } from "../types";
 
 const capabilities: ChannelProviderCapabilities = {
   supportedChannels: ["phone_call"],
@@ -24,6 +27,24 @@ const capabilities: ChannelProviderCapabilities = {
   supportsTemplates: false,
   supportsConversationThreading: false,
 };
+
+type TelephonyContractFailureCode =
+  | "invalid_provider_identity"
+  | "missing_provider_connection_id"
+  | "missing_provider_installation_id"
+  | "missing_route_key"
+  | "invalid_route_key"
+  | "invalid_profile_type";
+
+interface ResolvedTelephonyContract {
+  ok: boolean;
+  providerIdentity: TelephonyProviderIdentity;
+  routeKeyPolicy: TelephonyRouteKeyPolicy;
+  routeKey?: string;
+  expectedRouteKey?: string;
+  code?: TelephonyContractFailureCode;
+  reason?: string;
+}
 
 function normalizeOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -63,6 +84,207 @@ function resolveBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
+function resolveTelephonyProviderIdentity(
+  credentials: ProviderCredentials
+): {
+  ok: boolean;
+  providerIdentity: TelephonyProviderIdentity;
+  code?: TelephonyContractFailureCode;
+  reason?: string;
+} {
+  const identity = normalizeOptionalString(credentials.telephonyProviderIdentity);
+  if (!identity || identity === "direct") {
+    return {
+      ok: true,
+      providerIdentity: "direct",
+    };
+  }
+  if (identity === "eleven_telephony") {
+    return {
+      ok: true,
+      providerIdentity: "eleven_telephony",
+    };
+  }
+  return {
+    ok: false,
+    providerIdentity: "direct",
+    code: "invalid_provider_identity",
+    reason: `Unsupported telephonyProviderIdentity: ${identity}`,
+  };
+}
+
+function deriveElevenRouteKey(
+  providerConnectionId: string,
+  providerInstallationId: string
+): string {
+  return [
+    ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX,
+    providerConnectionId,
+    providerInstallationId,
+  ].join(":");
+}
+
+function validateTelephonyContract(
+  credentials: ProviderCredentials
+): ResolvedTelephonyContract {
+  const identityResult = resolveTelephonyProviderIdentity(credentials);
+  if (!identityResult.ok) {
+    return {
+      ok: false,
+      providerIdentity: "direct",
+      routeKeyPolicy: "legacy_direct_optional",
+      code: identityResult.code,
+      reason: identityResult.reason,
+    };
+  }
+
+  if (identityResult.providerIdentity === "direct") {
+    return {
+      ok: true,
+      providerIdentity: "direct",
+      routeKeyPolicy: "legacy_direct_optional",
+      routeKey: normalizeOptionalString(credentials.bindingRouteKey),
+    };
+  }
+
+  const providerConnectionId = normalizeOptionalString(
+    credentials.providerConnectionId
+  );
+  if (!providerConnectionId) {
+    return {
+      ok: false,
+      providerIdentity: "eleven_telephony",
+      routeKeyPolicy: "eleven_route_v1",
+      code: "missing_provider_connection_id",
+      reason: "eleven_telephony requires providerConnectionId",
+    };
+  }
+
+  const providerInstallationId = normalizeOptionalString(
+    credentials.providerInstallationId
+  );
+  if (!providerInstallationId) {
+    return {
+      ok: false,
+      providerIdentity: "eleven_telephony",
+      routeKeyPolicy: "eleven_route_v1",
+      code: "missing_provider_installation_id",
+      reason: "eleven_telephony requires providerInstallationId",
+    };
+  }
+
+  if (credentials.providerProfileType !== "organization") {
+    return {
+      ok: false,
+      providerIdentity: "eleven_telephony",
+      routeKeyPolicy: "eleven_route_v1",
+      code: "invalid_profile_type",
+      reason: "eleven_telephony requires providerProfileType=organization",
+    };
+  }
+
+  const expectedRouteKey = deriveElevenRouteKey(
+    providerConnectionId,
+    providerInstallationId
+  );
+  const routeKey = normalizeOptionalString(credentials.bindingRouteKey);
+  if (!routeKey) {
+    return {
+      ok: false,
+      providerIdentity: "eleven_telephony",
+      routeKeyPolicy: "eleven_route_v1",
+      expectedRouteKey,
+      code: "missing_route_key",
+      reason: `eleven_telephony requires bindingRouteKey=${expectedRouteKey}`,
+    };
+  }
+
+  if (routeKey !== expectedRouteKey) {
+    return {
+      ok: false,
+      providerIdentity: "eleven_telephony",
+      routeKeyPolicy: "eleven_route_v1",
+      routeKey,
+      expectedRouteKey,
+      code: "invalid_route_key",
+      reason: `eleven_telephony bindingRouteKey mismatch (${routeKey} != ${expectedRouteKey})`,
+    };
+  }
+
+  return {
+    ok: true,
+    providerIdentity: "eleven_telephony",
+    routeKeyPolicy: "eleven_route_v1",
+    routeKey,
+    expectedRouteKey,
+  };
+}
+
+function resolveProviderBaseUrl(
+  credentials: ProviderCredentials,
+  providerIdentity: TelephonyProviderIdentity
+): string | undefined {
+  if (providerIdentity === "eleven_telephony") {
+    return (
+      normalizeOptionalString(credentials.elevenTelephonyBaseUrl) ||
+      normalizeOptionalString(credentials.directCallBaseUrl)
+    );
+  }
+  return normalizeOptionalString(credentials.directCallBaseUrl);
+}
+
+function resolveProviderApiKey(
+  credentials: ProviderCredentials,
+  providerIdentity: TelephonyProviderIdentity
+): string | undefined {
+  if (providerIdentity === "eleven_telephony") {
+    return (
+      normalizeOptionalString(credentials.elevenTelephonyApiKey) ||
+      normalizeOptionalString(credentials.directCallApiKey)
+    );
+  }
+  return normalizeOptionalString(credentials.directCallApiKey);
+}
+
+function resolveProviderFromNumber(
+  credentials: ProviderCredentials,
+  providerIdentity: TelephonyProviderIdentity
+): string | undefined {
+  if (providerIdentity === "eleven_telephony") {
+    return (
+      normalizeOptionalString(credentials.elevenTelephonyFromNumber) ||
+      normalizeOptionalString(credentials.directCallFromNumber)
+    );
+  }
+  return normalizeOptionalString(credentials.directCallFromNumber);
+}
+
+function resolveProviderWebhookSecret(
+  credentials: ProviderCredentials,
+  providerIdentity: TelephonyProviderIdentity
+): string | undefined {
+  if (providerIdentity === "eleven_telephony") {
+    return (
+      normalizeOptionalString(credentials.elevenTelephonyWebhookSecret) ||
+      normalizeOptionalString(credentials.directCallWebhookSecret) ||
+      normalizeOptionalString(process.env.ELEVEN_TELEPHONY_WEBHOOK_SECRET) ||
+      normalizeOptionalString(process.env.DIRECT_CALL_WEBHOOK_SECRET)
+    );
+  }
+  return (
+    normalizeOptionalString(credentials.directCallWebhookSecret) ||
+    normalizeOptionalString(process.env.DIRECT_CALL_WEBHOOK_SECRET)
+  );
+}
+
+function resolvePresentedRouteKey(headers: Record<string, string>): string | undefined {
+  return (
+    normalizeOptionalString(headers["x-telephony-route-key"]) ||
+    normalizeOptionalString(headers["x-provider-route-key"]) ||
+    normalizeOptionalString(headers["x-eleven-route-key"])
+  );
+}
+
 function buildRetryableHttpFailure(response: Response, errorText: string): SendResult {
   const sanitizedError =
     errorText.trim().length > 0
@@ -96,6 +318,14 @@ export const directCallProvider: ChannelProvider = {
     const transcriptText =
       normalizeOptionalString(rawPayload.transcriptText) ||
       normalizeOptionalString(rawPayload.transcript);
+    const telephonyProviderIdentity =
+      normalizeOptionalString(rawPayload.telephonyProviderIdentity) ||
+      normalizeOptionalString(rawPayload.providerIdentity) ||
+      "direct";
+    const routeKey =
+      normalizeOptionalString(rawPayload.routeKey) ||
+      normalizeOptionalString(rawPayload.bindingRouteKey) ||
+      normalizeOptionalString(rawPayload.providerRouteKey);
 
     if (!to || !callId || !transcriptText) {
       return null;
@@ -111,6 +341,8 @@ export const directCallProvider: ChannelProvider = {
         providerId: "direct",
         providerMessageId: callId,
         providerEventId: normalizeOptionalString(rawPayload.eventId),
+        telephonyProviderIdentity,
+        routeKey,
         raw: rawPayload,
       },
     };
@@ -120,13 +352,25 @@ export const directCallProvider: ChannelProvider = {
     credentials: ProviderCredentials,
     message: OutboundMessage
   ): Promise<SendResult> {
-    const baseUrl = normalizeOptionalString(credentials.directCallBaseUrl);
-    const apiKey = normalizeOptionalString(credentials.directCallApiKey);
+    const contract = validateTelephonyContract(credentials);
+    if (!contract.ok) {
+      return {
+        success: false,
+        error: `Telephony provider contract validation failed: ${contract.reason || contract.code || "invalid_contract"}`,
+        retryable: false,
+      };
+    }
+
+    const baseUrl = resolveProviderBaseUrl(credentials, contract.providerIdentity);
+    const apiKey = resolveProviderApiKey(credentials, contract.providerIdentity);
 
     if (!baseUrl || !apiKey) {
       return {
         success: false,
-        error: "Direct telephony provider credentials are incomplete",
+        error:
+          contract.providerIdentity === "eleven_telephony"
+            ? "Eleven telephony provider credentials are incomplete"
+            : "Direct telephony provider credentials are incomplete",
         retryable: false,
       };
     }
@@ -137,10 +381,20 @@ export const directCallProvider: ChannelProvider = {
 
     const payload: Record<string, unknown> = {
       to: message.recipientIdentifier,
-      from: normalizeOptionalString(credentials.directCallFromNumber),
+      from: resolveProviderFromNumber(credentials, contract.providerIdentity),
       script: message.content,
       metadata: {
         ...metadata,
+        telephonyProviderIdentity: contract.providerIdentity,
+        telephonyRouteKeyPolicy: contract.routeKeyPolicy,
+        providerConnectionId: normalizeOptionalString(
+          credentials.providerConnectionId
+        ),
+        providerInstallationId: normalizeOptionalString(
+          credentials.providerInstallationId
+        ),
+        providerProfileType: credentials.providerProfileType,
+        routeKey: contract.routeKey,
       },
     };
 
@@ -208,9 +462,15 @@ export const directCallProvider: ChannelProvider = {
     headers: Record<string, string>,
     credentials: ProviderCredentials
   ): boolean {
-    const expectedSecret =
-      normalizeOptionalString(credentials.directCallWebhookSecret) ||
-      normalizeOptionalString(process.env.DIRECT_CALL_WEBHOOK_SECRET);
+    const contract = validateTelephonyContract(credentials);
+    if (!contract.ok) {
+      return false;
+    }
+
+    const expectedSecret = resolveProviderWebhookSecret(
+      credentials,
+      contract.providerIdentity
+    );
     if (!expectedSecret) {
       return false;
     }
@@ -218,20 +478,46 @@ export const directCallProvider: ChannelProvider = {
     const presented =
       normalizeOptionalString(headers["x-direct-call-secret"]) ||
       normalizeOptionalString(headers["x-telephony-webhook-secret"]) ||
+      normalizeOptionalString(headers["x-eleven-webhook-secret"]) ||
       normalizeOptionalString(headers.authorization)?.replace(/^Bearer\s+/i, "");
-    return presented === expectedSecret;
+    if (presented !== expectedSecret) {
+      return false;
+    }
+
+    if (contract.providerIdentity === "eleven_telephony") {
+      const presentedRouteKey = resolvePresentedRouteKey(headers);
+      if (!presentedRouteKey || !contract.routeKey) {
+        return false;
+      }
+      if (presentedRouteKey !== contract.routeKey) {
+        return false;
+      }
+    }
+
+    return true;
   },
 
   async testConnection(
     credentials: ProviderCredentials
   ): Promise<{ success: boolean; accountName?: string; error?: string }> {
-    const baseUrl = normalizeOptionalString(credentials.directCallBaseUrl);
-    const apiKey = normalizeOptionalString(credentials.directCallApiKey);
+    const contract = validateTelephonyContract(credentials);
+    if (!contract.ok) {
+      return {
+        success: false,
+        error: `Telephony provider contract validation failed: ${contract.reason || contract.code || "invalid_contract"}`,
+      };
+    }
+
+    const baseUrl = resolveProviderBaseUrl(credentials, contract.providerIdentity);
+    const apiKey = resolveProviderApiKey(credentials, contract.providerIdentity);
 
     if (!baseUrl || !apiKey) {
       return {
         success: false,
-        error: "Direct telephony provider credentials are incomplete",
+        error:
+          contract.providerIdentity === "eleven_telephony"
+            ? "Eleven telephony provider credentials are incomplete"
+            : "Direct telephony provider credentials are incomplete",
       };
     }
 
@@ -253,7 +539,10 @@ export const directCallProvider: ChannelProvider = {
 
       return {
         success: true,
-        accountName: "Direct Telephony",
+        accountName:
+          contract.providerIdentity === "eleven_telephony"
+            ? "Eleven Telephony"
+            : "Direct Telephony",
       };
     } catch (error) {
       return {
@@ -263,4 +552,3 @@ export const directCallProvider: ChannelProvider = {
     }
   },
 };
-

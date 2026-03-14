@@ -891,50 +891,69 @@ const QUINN_CUSTOM_PROPERTIES = {
 
 const SAMANTHA_LEAD_CAPTURE_WORKER_NAME = "Samantha Lead Capture 1";
 const SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME = "Samantha Warm Lead Capture 1";
+const SAMANTHA_CANONICAL_DISPLAY_NAME = "Samantha";
+const SAMANTHA_PERSONA_CONTRACT_VERSION = "samantha_single_persona_v1";
+const SAMANTHA_CANONICAL_PERSONALITY =
+  "Sharp, commercially literate diagnostic guide. Identifies the highest-leverage revenue leak quickly, explains the impact in plain business terms, and recommends one decisive next move.";
+const SAMANTHA_CANONICAL_SYSTEM_PROMPT = [
+  "You are Samantha, the sevenlayers diagnostic guide and operator-level revenue leak advisor.",
+  "Persona contract:",
+  "- You are one canonical Samantha persona.",
+  "- Route modes such as cold or warm may change urgency, escalation threshold, or follow-up posture only.",
+  "- Route modes must not change your identity, voice, or core behavior.",
+  "Identity and boundary contract:",
+  "- You are the real sevenlayers diagnostic and recommendation layer.",
+  "- You operate in webchat/native guest chat, not on the shared phone-demo line.",
+  "- Clara is the shared live phone-demo concierge on the phone line.",
+  "- The fictional phone-demo company layer is a demo construct. Your truth layer is real sevenlayers.",
+  "- Do not present yourself as Clara or as one of the phone-demo specialists.",
+  "Core job:",
+  "- Diagnose the user's biggest revenue leak or operational bottleneck.",
+  "- Recommend one strongest next move: the single best specialist, continued chat, audit deliverable email, or account creation/founder follow-up when requested.",
+  "- Explain the business impact in concrete terms.",
+  "Diagnostic scope:",
+  "- Focus on missed calls and slow response, cross-location scheduling friction, weak follow-up and retention, manual quote or documentation backlog, team coordination chaos, and delayed location-level visibility.",
+  "- When the business is not ready for all seven, recommend the one best starting point.",
+  "Value-first sequencing contract:",
+  "1) Ask concise context questions to understand the business.",
+  "2) If the user is stuck or unclear, use imagination-sparking questions that help them picture the operational upside.",
+  "3) Diagnose the biggest bottleneck and give one strongest recommendation.",
+  "4) Only after value is delivered, collect contact and qualification details for the audit deliverable or follow-up.",
+  "5) Use request_audit_deliverable_email only after value delivery to request or confirm the delivery email.",
+  "6) Use generate_audit_workflow_deliverable only after the minimum required fields are captured.",
+  "7) Use start_account_creation_handoff when the user wants to continue in-platform.",
+  "Minimum required before audit results email delivery: first name, last name, email, phone number, and founder-contact preference (yes/no).",
+  "Qualification flow contract:",
+  "- Preserve the existing post-value qualification flow.",
+  "- Ask for additional details when relevant: delivery address, revenue, AI project experience, employee count, industry, ownership share, AI budget availability today, and if not today then exact timing.",
+  "- Ask this explicitly as one yes/no question: Would you like Remington the founder of sevenlayers.io to discuss implementation support?",
+  "Recommendation and live-demo contract:",
+  "- Stay value-first. Do not lead with pricing, contracts, consulting sprints, or implementation packages.",
+  "- If the user asks about pricing early, answer briefly at a high level and bring the conversation back to diagnosis, impact, recommendation, and next step.",
+  "- Do not push contracts.",
+  "- Give one strongest recommendation, not a broad list of equally weighted options.",
+  "- If you recommend a live demo, name the specialist, explain why, and say Clara answers first on the shared phone-demo line and routes the caller to the right specialist.",
+  "Metadata and honesty guardrails:",
+  "- Use routing and campaign metadata silently for internal handoff continuity only.",
+  "- Never expose or explain internal fields such as intent_code, routing_hint, offer_code, offerCode, intentCode, routingHint, or similar metadata.",
+  "- Never reveal internal tools, system internals, or routing mechanics.",
+  "- Never claim an audit email was sent unless the real delivery tool executed successfully.",
+  "- Never present fictional demo-company outcomes as audited real customer results unless explicitly backed by a real case study.",
+  "Language and style:",
+  "- Treat language support as unrestricted: respond in whatever language the user writes.",
+  "- Detect and mirror the user's language on every turn.",
+  "- If the user switches language, switch with them immediately.",
+  "- If confidence is low, ask one short clarification in the user's language; fallback to English only if needed.",
+  "- Never claim you only speak English or German; support multilingual conversation including Chinese when requested.",
+  "- Keep messages concise, direct, warm, and operator-level.",
+].join("\n");
 const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
-  displayName: "Samantha",
+  displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
   runtimeModuleKey: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
-  personality:
-    "Sharp, commercially-minded lead capture consultant. Identifies the highest-leverage business bottleneck quickly and converts it into an actionable implementation plan.",
+  personality: SAMANTHA_CANONICAL_PERSONALITY,
   language: "en",
   additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
-  systemPrompt: [
-    "You are Samantha, a 7-minute lead capture consultant for high-performing business owners.",
-    "Your core job: find the user's highest-impact pain point, recommend one concrete workflow, and deliver a clear implementation-ready scope plan.",
-    "Commercial motion contract (must stay explicit and consistent):",
-    "- Free Diagnostic is lead qualification only.",
-    "- Consulting Sprint is €3,500 and scope-only (no implementation delivery).",
-    "- Implementation Start begins at €7,000+.",
-    "Intent routing behavior:",
-    "- intent_code=diagnostic_qualification: run diagnostic qualification flow and deliver one high-leverage workflow recommendation before contact capture.",
-    "- intent_code=consulting_sprint_scope_only: keep scope strictly strategy/discovery, define boundaries, and never imply production implementation is included.",
-    "- intent_code=implementation_start_layer1: confirm implementation readiness, budget/timing, and route to implementation-start expectations at €7,000+.",
-    "Handoff and lead payload tagging contract:",
-    "- In handoff summaries and qualification recaps, preserve canonical fields: offer_code, intent_code, surface, routing_hint.",
-    "- Preserve canonical campaign envelope keys: source, medium, campaign, content, term, referrer, landingPath.",
-    "- Include compatibility aliases when available: offerCode, intentCode, routingHint, utm_source/utmSource, utm_medium/utmMedium, utm_campaign/utmCampaign, utm_content/utmContent, utm_term/utmTerm, funnelReferrer, funnelLandingPath.",
-    "Language policy:",
-    "- Treat language support as unrestricted: respond in whatever language the user writes.",
-    "- Detect and mirror the user's language on every turn.",
-    "- If the user switches language, switch with them immediately.",
-    "- If confidence is low, ask one short clarification in the user's language; fallback to English only if needed.",
-    "- Never claim you only speak English/German; support multilingual conversation including Chinese when requested.",
-    "Always follow value-first sequencing:",
-    "1) Ask concise context questions to identify the bottleneck.",
-    "2) Deliver one specific workflow recommendation first.",
-    "3) After value delivery, collect lead qualification details before sending the audit results email.",
-    "Minimum required before audit results email delivery: first name, last name, email, phone number, and founder-contact preference (yes/no).",
-    "Ask for additional qualification details when possible: delivery address, revenue, AI project experience, employee count, industry, ownership share, AI budget availability today, and if not today then exact timing.",
-    "Ask this explicitly as one yes/no question: Would you like Remington the founder of sevenlayers.io to discuss implementation support?",
-    "4) Use request_audit_deliverable_email only after value delivery to request or confirm the delivery email.",
-    "5) Use generate_audit_workflow_deliverable to send the implementation results email after minimum required fields are captured.",
-    "When discussing consulting sprint outcomes, state explicitly that implementation delivery is excluded.",
-    "If implementation readiness is requested, state explicitly that implementation starts at €7,000+.",
-    "Never ask for contact details before delivering value.",
-    "Prioritize high-intent leads for follow-up based on completeness and clarity of qualification data.",
-    "Never present a broad list of ideas; give one strongest plan.",
-    "Keep messages concise, direct, and operator-level.",
-  ].join("\n"),
+  systemPrompt: SAMANTHA_CANONICAL_SYSTEM_PROMPT,
   faqEntries: [
     {
       q: "What do I get in this audit?",
@@ -973,6 +992,10 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   templateLayer: "lead_capture",
   templateScope: "platform",
   templatePlaybook: "lead_capture",
+  canonicalPersonaKey: "samantha",
+  personaContractVersion: SAMANTHA_PERSONA_CONTRACT_VERSION,
+  routeMode: "cold",
+  routeModeBehavior: "canonical",
   soulScope: {
     capability: "platform_soul_admin",
     layer: "L2",
@@ -1014,36 +1037,11 @@ const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
 
 const SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   ...SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-  displayName: "Samantha Warm",
-  personality:
-    "High-intent implementation consultant. Converts warm commercial handoffs into clear next steps, qualification payloads, and deterministic follow-up actions.",
-  systemPrompt: [
-    "You are Samantha Warm, the warm-intent commercial conversion specialist for sevenlayers.io.",
-    "Audience gate:",
-    "- You only run warm conversion behavior when inbound metadata indicates surface=store or target_specialist_template_role=one_of_one_warm_lead_capture_consultant_template.",
-    "- If metadata indicates one_of_one_landing or cold traffic, stay value-first and do not hard-sell.",
-    "Commercial motion contract (must stay explicit and consistent):",
-    "- Free Diagnostic is qualification only.",
-    "- Consulting Sprint is €3,500 and scope-only (no implementation delivery).",
-    "- Implementation Start begins at €7,000+.",
-    "Intent routing behavior:",
-    "- intent_code=diagnostic_qualification or diagnostic_scope_intake: deliver one workflow recommendation, then capture qualification for next-step call.",
-    "- intent_code=consulting_sprint_scope_only: keep scope strategy/discovery only and explicitly exclude production implementation.",
-    "- intent_code=implementation_start_layer1 or implementation_layer_upgrade: confirm readiness, budget/timing, and implementation expectations.",
-    "Handoff and lead payload tagging contract:",
-    "- In handoff summaries and qualification recaps, preserve canonical fields: offer_code, intent_code, surface, routing_hint.",
-    "- Preserve canonical campaign envelope keys: source, medium, campaign, content, term, referrer, landingPath.",
-    "- Include compatibility aliases when available: offerCode, intentCode, routingHint, utm_source/utmSource, utm_medium/utmMedium, utm_campaign/utmCampaign, utm_content/utmContent, utm_term/utmTerm, funnelReferrer, funnelLandingPath.",
-    "Sequencing contract:",
-    "1) Deliver value first (one strongest workflow recommendation).",
-    "2) Collect qualification fields before finalizing follow-up.",
-    "3) Request audit deliverable email and send audit results only after minimum required fields are captured.",
-    "Minimum required before audit results email delivery: first name, last name, email, phone number, and founder-contact preference (yes/no).",
-    "If implementation readiness is requested, state explicitly that implementation starts at €7,000+.",
-    "Keep responses concise, direct, and operator-level.",
-  ].join("\n"),
+  displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
   knowledgeBaseTags: ["one_of_one", "lead_capture", "audit_mode", "warm_intent"],
-  temperature: 0.4,
+  routeMode: "warm",
+  routeModeBehavior: "compatibility_alias",
+  compatibilityAliasForTemplateRole: SAMANTHA_LEAD_CAPTURE_TEMPLATE_ROLE,
   templateRole: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
 };
 
@@ -1051,7 +1049,7 @@ const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
   name: "Samantha Warm Lead Capture Consultant",
   subtype: "general",
   description:
-    "Protected template for warm-intent commercial handoffs (store/chat) with strict conversion guardrails and audit deliverable flow.",
+    "Protected compatibility alias for warm-route Samantha traffic. Shares the canonical Samantha identity, prompt, and audit behavior while preserving the warm template role for metadata routing.",
   role: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
   customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
 };
@@ -1110,65 +1108,16 @@ const USE_CASE_CLONE_POLICY_DEFAULTS = {
 };
 const PERSONAL_OPERATOR_TEMPLATE_PLAYBOOK = "personal_operator";
 const PERSONAL_OPERATOR_TEMPLATE_ROLE = "personal_life_operator_template";
-
-function buildSpecialistTemplateCustomProperties(args: {
-  displayName: string;
-  personality: string;
-  systemPrompt: string;
-  enabledTools: string[];
-  requireApprovalFor?: string[];
-  templateLayer: "orchestration_core" | "event_playbook";
-  templateRole: string;
-  templatePlaybook: "event";
-  maxMessagesPerDay?: number;
-  maxCostPerDay?: number;
-  temperature?: number;
-}): Record<string, unknown> {
-  return {
-    displayName: args.displayName,
-    personality: args.personality,
-    language: "en",
-    additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
-    systemPrompt: args.systemPrompt,
-    faqEntries: [],
-    knowledgeBaseTags: [
-      "orchestration_core",
-      args.templateLayer,
-      "event_playbook",
-    ],
-    toolProfile: "general",
-    enabledTools: args.enabledTools,
-    disabledTools: [],
-    autonomyLevel: "autonomous",
-    maxMessagesPerDay: args.maxMessagesPerDay ?? 500,
-    maxCostPerDay: args.maxCostPerDay ?? 30,
-    requireApprovalFor: args.requireApprovalFor ?? [],
-    blockedTopics: [],
-    modelProvider: "openrouter",
-    modelId: ONBOARDING_DEFAULT_MODEL_ID,
-    temperature: args.temperature ?? 0.35,
-    maxTokens: 4096,
-    channelBindings: [
-      { channel: "webchat", enabled: true },
-      { channel: "native_guest", enabled: true },
-    ],
-    totalMessages: 0,
-    totalCostUsd: 0,
-    protected: true,
-    templateScope: "platform",
-    templateLayer: args.templateLayer,
-    templateRole: args.templateRole,
-    templatePlaybook: args.templatePlaybook,
-    soulScope: {
-      capability: "platform_soul_admin",
-      layer: "L2",
-      domain: "platform",
-      classification: "platform_l2",
-      allowPlatformSoulAdmin: true,
-    },
-    clonePolicy: USE_CASE_CLONE_POLICY_DEFAULTS,
-  };
-}
+const DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLES = [
+  "orchestration_runtime_planner_template",
+  "orchestration_data_link_specialist_template",
+  "orchestration_publishing_operator_template",
+  "event_experience_architect_template",
+  "event_form_checkout_specialist_template",
+] as const;
+const DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLE_SET = new Set<string>(
+  DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLES,
+);
 
 function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown> {
   return {
@@ -1248,120 +1197,6 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
   };
 }
 
-const ORCHESTRATION_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
-  {
-    name: "Orchestration Runtime Planner",
-    subtype: "general",
-    description: "Protected template for deterministic orchestration runtime planning and intent decomposition.",
-    role: "orchestration_runtime_planner_template",
-    customProperties: buildSpecialistTemplateCustomProperties({
-      displayName: "Runtime Planner",
-      personality: "Deterministic orchestration planner. Convert one goal into explicit, dependency-safe steps and guardrail checkpoints.",
-      systemPrompt:
-        "You are the Orchestration Runtime Planner template. Build deterministic orchestration plans, keep idempotency constraints explicit, and require approvals before publish/payment-impacting changes.",
-      enabledTools: [
-        "create_experience",
-        "create_event_experience",
-        "create_layers_workflow",
-        "link_objects",
-      ],
-      templateLayer: "orchestration_core",
-      templateRole: "orchestration_runtime_planner_template",
-      templatePlaybook: "event",
-      requireApprovalFor: ["deploy_webapp", "publish_checkout"],
-      temperature: 0.2,
-    }),
-  },
-  {
-    name: "Orchestration Data Link Specialist",
-    subtype: "general",
-    description: "Protected template for artifact graph linking and web-app data connection validation.",
-    role: "orchestration_data_link_specialist_template",
-    customProperties: buildSpecialistTemplateCustomProperties({
-      displayName: "Data Link Specialist",
-      personality: "Precise data-link operator. Validate references, resolve missing dependencies, and keep object graph integrity intact.",
-      systemPrompt:
-        "You are the Orchestration Data Link Specialist template. Connect generated artifacts without duplicate drift and emit explicit follow-up gaps.",
-      enabledTools: [
-        "detect_webapp_connections",
-        "connect_webapp_data",
-        "link_objects",
-        "create_layers_workflow",
-      ],
-      templateLayer: "orchestration_core",
-      templateRole: "orchestration_data_link_specialist_template",
-      templatePlaybook: "event",
-      temperature: 0.2,
-    }),
-  },
-  {
-    name: "Orchestration Publishing Operator",
-    subtype: "general",
-    description: "Protected template for controlled publishing handoffs and deployment status validation.",
-    role: "orchestration_publishing_operator_template",
-    customProperties: buildSpecialistTemplateCustomProperties({
-      displayName: "Publishing Operator",
-      personality: "Careful publishing operator. Validate readiness, request explicit approvals, and avoid irreversible actions without checkpoints.",
-      systemPrompt:
-        "You are the Orchestration Publishing Operator template. Drive publish/deploy readiness checks and do not bypass explicit human checkpoints.",
-      enabledTools: [
-        "deploy_webapp",
-        "check_deploy_status",
-        "link_objects",
-      ],
-      templateLayer: "orchestration_core",
-      templateRole: "orchestration_publishing_operator_template",
-      templatePlaybook: "event",
-      requireApprovalFor: ["deploy_webapp", "publish_checkout"],
-      temperature: 0.25,
-    }),
-  },
-  {
-    name: "Event Experience Architect",
-    subtype: "general",
-    description: "Protected template for event playbook intent shaping and artifact recipe decisions.",
-    role: "event_experience_architect_template",
-    customProperties: buildSpecialistTemplateCustomProperties({
-      displayName: "Event Architect",
-      personality: "Event launch architect. Turn a user brief into a coherent event experience with ticketing, forms, and publishing constraints.",
-      systemPrompt:
-        "You are the Event Experience Architect template. Prioritize deterministic event playbook inputs and surface missing constraints before execution.",
-      enabledTools: [
-        "create_event_experience",
-        "create_experience",
-        "create_event",
-        "create_product",
-      ],
-      templateLayer: "event_playbook",
-      templateRole: "event_experience_architect_template",
-      templatePlaybook: "event",
-      temperature: 0.3,
-    }),
-  },
-  {
-    name: "Event Form and Checkout Specialist",
-    subtype: "general",
-    description: "Protected template for event form/checkout artifact quality and payment readiness.",
-    role: "event_form_checkout_specialist_template",
-    customProperties: buildSpecialistTemplateCustomProperties({
-      displayName: "Event Form + Checkout Specialist",
-      personality: "Conversion-focused specialist for forms and checkout artifacts with explicit publish/payment guardrails.",
-      systemPrompt:
-        "You are the Event Form and Checkout Specialist template. Build high-confidence form and checkout artifacts with explicit payment safety controls.",
-      enabledTools: [
-        "create_form",
-        "create_checkout_page",
-        "create_product",
-        "set_product_price",
-      ],
-      templateLayer: "event_playbook",
-      templateRole: "event_form_checkout_specialist_template",
-      templatePlaybook: "event",
-      requireApprovalFor: ["publish_checkout"],
-      temperature: 0.3,
-    }),
-  },
-];
 const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
   name: "One-of-One Operator",
   subtype: "booking_agent",
@@ -1371,7 +1206,6 @@ const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
   customProperties: buildPersonalOperatorTemplateCustomProperties(),
 };
 const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
-  ...ORCHESTRATION_TEMPLATE_AGENT_SEEDS,
   PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
 ];
 
@@ -1698,7 +1532,7 @@ export const seedAll = internalMutation({
       workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
       workerDescription: "Samantha lead capture consultant worker (seeded)",
       customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-      displayName: "Samantha",
+      displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
       seedRole: "lead_capture_consultant",
     });
     if (samanthaWorkerResult.created) {
@@ -1722,15 +1556,15 @@ export const seedAll = internalMutation({
       templateAgentId: samanthaWarmTemplateResult.agentId,
       workerPoolRole: "lead_capture_consultant_warm",
       workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
-      workerDescription: "Samantha warm lead capture consultant worker (seeded)",
+      workerDescription: "Samantha warm-route compatibility worker (seeded)",
       customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-      displayName: "Samantha Warm",
+      displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
       seedRole: "lead_capture_consultant_warm",
     });
     if (samanthaWarmWorkerResult.created) {
-      console.log(`[seedPlatformAgents] Initial Samantha Warm worker spawned: ${samanthaWarmWorkerResult.workerId}`);
+      console.log(`[seedPlatformAgents] Initial Samantha warm-route compatibility worker spawned: ${samanthaWarmWorkerResult.workerId}`);
     } else {
-      console.log(`[seedPlatformAgents] Samantha Warm worker already exists — skipped`);
+      console.log(`[seedPlatformAgents] Samantha warm-route compatibility worker already exists — skipped`);
     }
 
     // ------------------------------------------------------------------
@@ -1916,6 +1750,214 @@ export const seedAll = internalMutation({
   },
 });
 
+type DecommissionedTemplateCandidate = {
+  agentId: Id<"objects">;
+  name: string;
+  status: string;
+  role: string;
+  protected: boolean;
+  templateLayer: string | null;
+  templatePlaybook: string | null;
+  dependentAgentIds: string[];
+  dependentAgentNames: string[];
+  dependentAgentCount: number;
+  outgoingLinkCount: number;
+  incomingLinkCount: number;
+  objectActionCount: number;
+};
+
+async function collectDecommissionedOrchestrationTemplateCandidates(
+  ctx: WriteCtx,
+  args: { organizationId: Id<"organizations"> },
+): Promise<DecommissionedTemplateCandidate[]> {
+  const agents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const candidates = agents
+    .filter((agent) => {
+      if (agent.status !== "template") {
+        return false;
+      }
+      const props = asRecord(agent.customProperties);
+      const role = typeof props.templateRole === "string" ? props.templateRole : "";
+      return DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLE_SET.has(role);
+    });
+
+  const records = await Promise.all(candidates.map(async (candidate) => {
+    const candidateId = String(candidate._id);
+    const candidateProps = asRecord(candidate.customProperties);
+
+    const dependentAgents = agents.filter((agent) => {
+      const props = asRecord(agent.customProperties);
+      const templateAgentId = props.templateAgentId;
+      return typeof templateAgentId === "string" && templateAgentId === candidateId;
+    });
+
+    const outgoingLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_object", (q) => q.eq("fromObjectId", candidate._id))
+      .collect();
+    const incomingLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_to_object", (q) => q.eq("toObjectId", candidate._id))
+      .collect();
+    const objectActions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_object", (q) => q.eq("objectId", candidate._id))
+      .collect();
+
+    return {
+      agentId: candidate._id,
+      name: candidate.name,
+      status: candidate.status ?? "",
+      role: typeof candidateProps.templateRole === "string" ? candidateProps.templateRole : "",
+      protected: candidateProps.protected === true,
+      templateLayer:
+        typeof candidateProps.templateLayer === "string" ? candidateProps.templateLayer : null,
+      templatePlaybook:
+        typeof candidateProps.templatePlaybook === "string" ? candidateProps.templatePlaybook : null,
+      dependentAgentIds: dependentAgents.map((agent) => String(agent._id)),
+      dependentAgentNames: dependentAgents.map((agent) => agent.name),
+      dependentAgentCount: dependentAgents.length,
+      outgoingLinkCount: outgoingLinks.length,
+      incomingLinkCount: incomingLinks.length,
+      objectActionCount: objectActions.length,
+    };
+  }));
+
+  return records.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function runOrchestrationTemplateDecommission(
+  ctx: WriteCtx,
+  args: {
+    apply: boolean;
+    performedBy?: Id<"users">;
+  },
+) {
+  const platformOrgId = getPlatformOrgId();
+  const now = Date.now();
+
+  const platformOrg = await ctx.db.get(platformOrgId);
+  if (!platformOrg) {
+    throw new Error(`Platform org ${platformOrgId} not found. Set PLATFORM_ORG_ID env var.`);
+  }
+
+  const candidates = await collectDecommissionedOrchestrationTemplateCandidates(ctx, {
+    organizationId: platformOrgId,
+  });
+
+  if (!args.apply) {
+    return {
+      success: true,
+      mode: "dry_run" as const,
+      platformOrgId,
+      targetCount: candidates.length,
+      appliedCount: 0,
+      blockedCount: candidates.filter((candidate) => candidate.dependentAgentCount > 0).length,
+      candidates,
+    };
+  }
+
+  const appliedAgentIds: string[] = [];
+  const blocked = [] as Array<{
+    agentId: string;
+    role: string;
+    reason: string;
+    dependentAgentIds: string[];
+  }>;
+
+  for (const candidate of candidates) {
+    if (candidate.dependentAgentCount > 0) {
+      blocked.push({
+        agentId: String(candidate.agentId),
+        role: candidate.role,
+        reason: "template_has_dependent_clones",
+        dependentAgentIds: candidate.dependentAgentIds,
+      });
+      continue;
+    }
+
+    const template = await ctx.db.get(candidate.agentId);
+    if (!template || template.type !== "org_agent") {
+      blocked.push({
+        agentId: String(candidate.agentId),
+        role: candidate.role,
+        reason: "template_not_found",
+        dependentAgentIds: [],
+      });
+      continue;
+    }
+
+    const currentProps = asRecord(template.customProperties);
+    await ctx.db.patch(candidate.agentId, {
+      status: "archived",
+      customProperties: {
+        ...currentProps,
+        protected: false,
+        decommissioned: true,
+        decommissionedAt: now,
+        decommissionedReason: "WAE-002c orchestration/event template decommission",
+      },
+      updatedAt: now,
+    });
+    await ctx.db.insert("objectActions", {
+      organizationId: platformOrgId,
+      objectId: candidate.agentId,
+      actionType: "decommissioned",
+      actionData: {
+        taskId: "WAE-002c",
+        templateRole: candidate.role,
+        mode: "archive",
+      },
+      performedBy: args.performedBy,
+      performedAt: now,
+    });
+    appliedAgentIds.push(String(candidate.agentId));
+  }
+
+  return {
+    success: true,
+    mode: "apply" as const,
+    platformOrgId,
+    targetCount: candidates.length,
+    appliedCount: appliedAgentIds.length,
+    blockedCount: blocked.length,
+    appliedAgentIds,
+    blocked,
+    candidates,
+  };
+}
+
+export const decommissionOrchestrationTemplateAgents = internalMutation({
+  args: {
+    apply: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    return runOrchestrationTemplateDecommission(ctx, {
+      apply: args.apply === true,
+    });
+  },
+});
+
+export const decommissionOrchestrationTemplateAgentsAsSuperAdmin = mutation({
+  args: {
+    sessionId: v.string(),
+    apply: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    return runOrchestrationTemplateDecommission(ctx, {
+      apply: args.apply === true,
+      performedBy: userId,
+    });
+  },
+});
+
 export const seedSamanthaLeadCaptureConsultant = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -1941,7 +1983,7 @@ export const seedSamanthaLeadCaptureConsultant = internalMutation({
       workerName: SAMANTHA_LEAD_CAPTURE_WORKER_NAME,
       workerDescription: "Samantha lead capture consultant worker (seeded)",
       customProperties: SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-      displayName: "Samantha",
+      displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
       seedRole: "lead_capture_consultant",
     });
 
@@ -1981,9 +2023,9 @@ export const seedSamanthaWarmLeadCaptureConsultant = internalMutation({
       templateAgentId: templateResult.agentId,
       workerPoolRole: "lead_capture_consultant_warm",
       workerName: SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME,
-      workerDescription: "Samantha warm lead capture consultant worker (seeded)",
+      workerDescription: "Samantha warm-route compatibility worker (seeded)",
       customProperties: SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES,
-      displayName: "Samantha Warm",
+      displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
       seedRole: "lead_capture_consultant_warm",
     });
 

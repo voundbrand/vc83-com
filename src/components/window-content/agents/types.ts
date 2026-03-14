@@ -5,6 +5,7 @@
 import { DEFAULT_AGENT_MODEL_ID } from "@/lib/ai/model-defaults";
 
 export interface AgentCustomProps {
+  agentClass?: "internal_operator" | "external_customer_facing";
   displayName?: string;
   personality?: string;
   language?: string;

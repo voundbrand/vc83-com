@@ -104,6 +104,68 @@ describe("operator routing resolution", () => {
     expect(resolved?._id).toBe(specialist._id);
   });
 
+  it("routes phone_call to external customer-facing agents only", () => {
+    const internalAgent: Candidate = {
+      _id: "agent_a",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        agentClass: "internal_operator",
+      },
+    };
+    const externalAgent: Candidate = {
+      _id: "agent_b",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        agentClass: "external_customer_facing",
+      },
+    };
+
+    const resolved = resolveActiveAgentForOrgCandidates(
+      [internalAgent, externalAgent],
+      { channel: "phone_call" }
+    );
+
+    expect(resolved?._id).toBe(externalAgent._id);
+  });
+
+  it("fails closed for phone_call when no external-class agent exists", () => {
+    const internalAgent: Candidate = {
+      _id: "agent_a",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        agentClass: "internal_operator",
+      },
+    };
+
+    const resolved = resolveActiveAgentForOrgCandidates(
+      [internalAgent],
+      { channel: "phone_call" }
+    );
+
+    expect(resolved).toBeNull();
+  });
+
+  it("fails closed for desktop when only external-class agent exists", () => {
+    const externalAgent: Candidate = {
+      _id: "agent_a",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        agentClass: "external_customer_facing",
+      },
+    };
+
+    const resolved = resolveActiveAgentForOrgCandidates(
+      [externalAgent],
+      { channel: "desktop" }
+    );
+
+    expect(resolved).toBeNull();
+  });
+
   it("detects platform-managed channel binding overrides", () => {
     const hasOverride = detectPlatformManagedChannelBindingOverride(
       [

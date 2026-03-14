@@ -21,6 +21,10 @@ import { normalizeClaimTokenForResponse } from "./onboarding/claimTokenResponse"
 import { decodeAndVerifyBetaAutoApproveToken } from "./lib/betaAutoApproveToken";
 import { verifySlackRequestSignature } from "./channels/providers/slackProvider";
 import { verifyWhatsAppWebhookSignature } from "./channels/providers/whatsappSignature";
+import {
+  ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX,
+  type ProviderCredentials,
+} from "./channels/types";
 import { addRateLimitHeaders, checkRateLimit } from "./middleware/rateLimit";
 import {
   WEBCHAT_BOOTSTRAP_CONTRACT_VERSION,
@@ -197,6 +201,492 @@ async function recordIngressWebhookEvent(args: {
   } catch (error) {
     console.warn("[Webhook] Failed to persist ingress event from HTTP boundary:", error);
   }
+}
+
+const TELEPHONY_WEBHOOK_SIGNATURE_VERSION = "v1";
+const TELEPHONY_WEBHOOK_REPLAY_WINDOW_SECONDS = 60 * 5;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asArray(value: unknown): unknown[] | null {
+  return Array.isArray(value) ? value : null;
+}
+
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function resolveTelephonyWebhookEventTimestampMs(value: unknown): number | undefined {
+  const numeric = asNumber(value);
+  if (typeof numeric === "number") {
+    return numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    mismatch |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  }
+  return mismatch === 0;
+}
+
+function normalizeTelephonySignatureHeader(
+  signatureHeader: string | null | undefined
+): string | undefined {
+  const normalizedHeader = asNonEmptyString(signatureHeader);
+  if (!normalizedHeader) {
+    return undefined;
+  }
+
+  const signature = normalizedHeader.startsWith(
+    `${TELEPHONY_WEBHOOK_SIGNATURE_VERSION}=`
+  )
+    ? normalizedHeader.slice(3)
+    : normalizedHeader;
+  if (!/^[0-9a-f]{64}$/i.test(signature)) {
+    return undefined;
+  }
+
+  return signature.toLowerCase();
+}
+
+async function computeTelephonyWebhookSignature(
+  secret: string,
+  body: string,
+  timestampSeconds: number
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const payload = `${TELEPHONY_WEBHOOK_SIGNATURE_VERSION}:${timestampSeconds}:${body}`;
+  const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return toHex(new Uint8Array(digest));
+}
+
+async function verifyTelephonyWebhookSignature(args: {
+  body: string;
+  signatureHeader?: string | null;
+  timestampHeader?: string | null;
+  signingSecret?: string;
+  nowMs?: number;
+  replayWindowSeconds?: number;
+}): Promise<{
+  valid: boolean;
+  reason?:
+    | "missing_signing_secret"
+    | "missing_signature_headers"
+    | "invalid_signature_timestamp"
+    | "stale_signature_timestamp"
+    | "invalid_signature";
+  timestampSeconds?: number;
+}> {
+  const signingSecret = asNonEmptyString(args.signingSecret);
+  if (!signingSecret) {
+    return { valid: false, reason: "missing_signing_secret" };
+  }
+
+  const signature = normalizeTelephonySignatureHeader(args.signatureHeader);
+  const timestampRaw = asNonEmptyString(args.timestampHeader);
+  if (!signature || !timestampRaw) {
+    return { valid: false, reason: "missing_signature_headers" };
+  }
+
+  const timestampSeconds = Number.parseInt(timestampRaw, 10);
+  if (!Number.isFinite(timestampSeconds)) {
+    return { valid: false, reason: "invalid_signature_timestamp" };
+  }
+
+  const replayWindow =
+    args.replayWindowSeconds ?? TELEPHONY_WEBHOOK_REPLAY_WINDOW_SECONDS;
+  const nowSeconds = Math.floor((args.nowMs ?? Date.now()) / 1000);
+  if (Math.abs(nowSeconds - timestampSeconds) > replayWindow) {
+    return {
+      valid: false,
+      reason: "stale_signature_timestamp",
+      timestampSeconds,
+    };
+  }
+
+  const expectedSignature = await computeTelephonyWebhookSignature(
+    signingSecret,
+    args.body,
+    timestampSeconds
+  );
+  if (!timingSafeEqual(expectedSignature, signature)) {
+    return {
+      valid: false,
+      reason: "invalid_signature",
+      timestampSeconds,
+    };
+  }
+
+  return { valid: true, timestampSeconds };
+}
+
+function extractTelephonyRoutingIdentity(
+  payload: Record<string, unknown>,
+  request: Request
+): {
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: "platform" | "organization";
+  routeKey?: string;
+} {
+  const metadata =
+    payload.metadata && typeof payload.metadata === "object" && !Array.isArray(payload.metadata)
+      ? (payload.metadata as Record<string, unknown>)
+      : {};
+  const providerProfileType =
+    payload.providerProfileType === "platform" ||
+    payload.providerProfileType === "organization"
+      ? payload.providerProfileType
+      : metadata.providerProfileType === "platform" ||
+          metadata.providerProfileType === "organization"
+        ? metadata.providerProfileType
+        : undefined;
+
+  return {
+    providerConnectionId:
+      asNonEmptyString(request.headers.get("x-telephony-provider-connection-id")) ||
+      asNonEmptyString(request.headers.get("x-eleven-provider-connection-id")) ||
+      asNonEmptyString(payload.providerConnectionId) ||
+      asNonEmptyString(metadata.providerConnectionId),
+    providerAccountId:
+      asNonEmptyString(request.headers.get("x-telephony-provider-account-id")) ||
+      asNonEmptyString(request.headers.get("x-eleven-provider-account-id")) ||
+      asNonEmptyString(payload.providerAccountId) ||
+      asNonEmptyString(metadata.providerAccountId),
+    providerInstallationId:
+      asNonEmptyString(request.headers.get("x-telephony-provider-installation-id")) ||
+      asNonEmptyString(request.headers.get("x-eleven-provider-installation-id")) ||
+      asNonEmptyString(payload.providerInstallationId) ||
+      asNonEmptyString(metadata.providerInstallationId),
+    providerProfileId:
+      asNonEmptyString(request.headers.get("x-telephony-provider-profile-id")) ||
+      asNonEmptyString(request.headers.get("x-eleven-provider-profile-id")) ||
+      asNonEmptyString(payload.providerProfileId) ||
+      asNonEmptyString(metadata.providerProfileId),
+    providerProfileType,
+    routeKey:
+      asNonEmptyString(request.headers.get("x-telephony-route-key")) ||
+      asNonEmptyString(request.headers.get("x-provider-route-key")) ||
+      asNonEmptyString(request.headers.get("x-eleven-route-key")) ||
+      asNonEmptyString(payload.routeKey) ||
+      asNonEmptyString(payload.bindingRouteKey) ||
+      asNonEmptyString(payload.providerRouteKey) ||
+      asNonEmptyString(metadata.routeKey) ||
+      asNonEmptyString(metadata.bindingRouteKey) ||
+      asNonEmptyString(metadata.providerRouteKey),
+  };
+}
+
+function resolveTelephonyWebhookProviderCallId(
+  payload: Record<string, unknown>
+): string | undefined {
+  return (
+    asNonEmptyString(payload.providerCallId) ||
+    asNonEmptyString(payload.callId) ||
+    asNonEmptyString(payload.id)
+  );
+}
+
+function buildTranscriptTextFromSegments(
+  transcriptSegments: Array<Record<string, unknown>>
+): string | undefined {
+  const text = transcriptSegments
+    .map((segment) => {
+      const resolved =
+        asNonEmptyString(segment.text) ||
+        asNonEmptyString(segment.message) ||
+        asNonEmptyString(segment.transcript) ||
+        asNonEmptyString(segment.content);
+      if (!resolved) {
+        return null;
+      }
+      const role =
+        asNonEmptyString(segment.role) ||
+        asNonEmptyString(segment.speaker) ||
+        asNonEmptyString(segment.source);
+      return role ? `${role}: ${resolved}` : resolved;
+    })
+    .filter((segment): segment is string => Boolean(segment))
+    .join("\n")
+    .trim();
+
+  return text.length > 0 ? text : undefined;
+}
+
+function normalizeTelephonyTranscriptSegments(
+  transcript: unknown
+): Array<Record<string, unknown>> | undefined {
+  const segments = asArray(transcript)
+    ?.map((segment) => asRecord(segment))
+    .filter((segment): segment is Record<string, unknown> => Boolean(segment));
+  return segments && segments.length > 0 ? segments : undefined;
+}
+
+function deriveTelephonyWebhookOutcome(args: {
+  payload: Record<string, unknown>;
+  eventType?: string;
+  analysis?: Record<string, unknown> | null;
+  errorMessage?: string;
+}): string | undefined {
+  const explicitOutcome =
+    asNonEmptyString(args.payload.outcome) ||
+    asNonEmptyString(args.payload.status) ||
+    asNonEmptyString(args.payload.eventType);
+  if (explicitOutcome) {
+    return explicitOutcome;
+  }
+
+  if (args.eventType === "call_initiation_failure") {
+    return "failed";
+  }
+
+  if (args.eventType === "post_call_transcription") {
+    const callSuccessful = args.analysis?.call_successful;
+    if (callSuccessful === false) {
+      return "completed";
+    }
+    return "completed";
+  }
+
+  if (args.errorMessage) {
+    return "failed";
+  }
+
+  return undefined;
+}
+
+export function normalizeTelephonyWebhookPayload(
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  const envelopeData = asRecord(payload.data);
+  if (!envelopeData) {
+    return payload;
+  }
+
+  const topLevelMetadata = asRecord(payload.metadata) || {};
+  const envelopeMetadata = asRecord(envelopeData.metadata);
+  const metadataBody = asRecord(envelopeMetadata?.body);
+  const initiationClientData = asRecord(
+    envelopeData.conversation_initiation_client_data
+  );
+  const dynamicVariables = asRecord(initiationClientData?.dynamic_variables) || {};
+  const analysis = asRecord(envelopeData.analysis);
+  const transcriptSegments = normalizeTelephonyTranscriptSegments(
+    envelopeData.transcript
+  );
+  const transcriptText =
+    asNonEmptyString(payload.transcriptText) ||
+    asNonEmptyString(payload.transcript) ||
+    buildTranscriptTextFromSegments(transcriptSegments || []);
+  const providerConversationId =
+    asNonEmptyString(payload.providerConversationId) ||
+    asNonEmptyString(payload.conversationId) ||
+    asNonEmptyString(envelopeData.conversation_id);
+  const providerCallId =
+    resolveTelephonyWebhookProviderCallId(payload) ||
+    asNonEmptyString(envelopeData.provider_call_id) ||
+    asNonEmptyString(envelopeData.call_id) ||
+    asNonEmptyString(envelopeData.callSid) ||
+    asNonEmptyString(metadataBody?.call_sid) ||
+    asNonEmptyString(metadataBody?.CallSid) ||
+    providerConversationId;
+  const errorMessage =
+    asNonEmptyString(payload.errorMessage) ||
+    asNonEmptyString(payload.error) ||
+    asNonEmptyString(envelopeData.failure_reason) ||
+    asNonEmptyString(envelopeData.reason);
+  const eventType =
+    asNonEmptyString(payload.eventType) ||
+    asNonEmptyString(payload.type);
+  const endedAt =
+    resolveTelephonyWebhookEventTimestampMs(payload.endedAt) ||
+    resolveTelephonyWebhookEventTimestampMs(envelopeData.ended_at) ||
+    resolveTelephonyWebhookEventTimestampMs(payload.event_timestamp) ||
+    resolveTelephonyWebhookEventTimestampMs(envelopeData.event_timestamp);
+  const durationSeconds =
+    asNumber(payload.durationSeconds) ||
+    asNumber(envelopeData.duration_seconds) ||
+    asNumber(envelopeMetadata?.call_duration_secs);
+  const routeKey =
+    asNonEmptyString(payload.routeKey) ||
+    asNonEmptyString(payload.bindingRouteKey) ||
+    asNonEmptyString(payload.providerRouteKey) ||
+    asNonEmptyString(dynamicVariables.routeKey) ||
+    asNonEmptyString(dynamicVariables.bindingRouteKey) ||
+    asNonEmptyString(dynamicVariables.providerRouteKey);
+  const normalizedMetadata = {
+    ...topLevelMetadata,
+    ...(envelopeMetadata || {}),
+    ...dynamicVariables,
+  };
+
+  return {
+    ...payload,
+    eventId:
+      asNonEmptyString(payload.eventId) ||
+      asNonEmptyString(payload.event_id),
+    eventType,
+    telephonyProviderIdentity:
+      asNonEmptyString(payload.telephonyProviderIdentity) ||
+      asNonEmptyString(payload.providerIdentity) ||
+      asNonEmptyString(dynamicVariables.telephonyProviderIdentity) ||
+      "eleven_telephony",
+    providerCallId,
+    providerConversationId,
+    conversationId:
+      asNonEmptyString(payload.conversationId) || providerConversationId,
+    outcome: deriveTelephonyWebhookOutcome({
+      payload,
+      eventType,
+      analysis,
+      errorMessage,
+    }),
+    status:
+      asNonEmptyString(payload.status) ||
+      deriveTelephonyWebhookOutcome({
+        payload,
+        eventType,
+        analysis,
+        errorMessage,
+      }),
+    disposition:
+      asNonEmptyString(payload.disposition) ||
+      asNonEmptyString(envelopeData.failure_reason) ||
+      asNonEmptyString(envelopeData.reason),
+    transcriptText,
+    transcript:
+      asNonEmptyString(payload.transcript) || transcriptText,
+    transcriptSegments:
+      Array.isArray(payload.transcriptSegments) && payload.transcriptSegments.length > 0
+        ? payload.transcriptSegments
+        : transcriptSegments,
+    durationSeconds,
+    endedAt,
+    voicemailDetected:
+      payload.voicemailDetected === true ||
+      envelopeData.voicemail_detected === true,
+    errorMessage,
+    error:
+      asNonEmptyString(payload.error) || errorMessage,
+    organizationId:
+      asNonEmptyString(payload.organizationId) ||
+      asNonEmptyString(dynamicVariables.organizationId),
+    providerConnectionId:
+      asNonEmptyString(payload.providerConnectionId) ||
+      asNonEmptyString(dynamicVariables.providerConnectionId),
+    providerAccountId:
+      asNonEmptyString(payload.providerAccountId) ||
+      asNonEmptyString(dynamicVariables.providerAccountId),
+    providerInstallationId:
+      asNonEmptyString(payload.providerInstallationId) ||
+      asNonEmptyString(dynamicVariables.providerInstallationId),
+    providerProfileId:
+      asNonEmptyString(payload.providerProfileId) ||
+      asNonEmptyString(dynamicVariables.providerProfileId),
+    providerProfileType:
+      payload.providerProfileType === "platform" ||
+      payload.providerProfileType === "organization"
+        ? payload.providerProfileType
+        : dynamicVariables.providerProfileType === "platform" ||
+            dynamicVariables.providerProfileType === "organization"
+          ? dynamicVariables.providerProfileType
+          : undefined,
+    routeKey,
+    bindingRouteKey:
+      asNonEmptyString(payload.bindingRouteKey) || routeKey,
+    providerRouteKey:
+      asNonEmptyString(payload.providerRouteKey) || routeKey,
+    metadata: normalizedMetadata,
+  };
+}
+
+function resolveTelephonyWebhookSigningSecret(
+  credentials: ProviderCredentials | null
+): string | undefined {
+  return (
+    asNonEmptyString(credentials?.elevenTelephonyWebhookSecret) ||
+    asNonEmptyString(credentials?.directCallWebhookSecret) ||
+    asNonEmptyString(process.env.ELEVEN_TELEPHONY_WEBHOOK_SECRET) ||
+    asNonEmptyString(process.env.DIRECT_CALL_WEBHOOK_SECRET)
+  );
+}
+
+function isElevenTelephonyIngress(args: {
+  payload: Record<string, unknown>;
+  routeKey?: string;
+  signatureHeader?: string | null;
+  timestampHeader?: string | null;
+}): boolean {
+  const telephonyProviderIdentity =
+    asNonEmptyString(args.payload.telephonyProviderIdentity) ||
+    asNonEmptyString(args.payload.providerIdentity) ||
+    asNonEmptyString(
+      (args.payload.metadata as Record<string, unknown> | undefined)
+        ?.telephonyProviderIdentity
+    );
+
+  return Boolean(
+    args.signatureHeader ||
+      args.timestampHeader ||
+      telephonyProviderIdentity === "eleven_telephony" ||
+      args.routeKey?.startsWith(`${ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX}:`)
+  );
+}
+
+function buildTelephonyWebhookRejectResponse(
+  status: number,
+  reasonCode: string
+): Response {
+  return new Response(
+    JSON.stringify({
+      ok: false,
+      error: "telephony_webhook_rejected",
+      reasonCode,
+    }),
+    {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
 }
 
 type TelegramWebhookAuthContext =
@@ -5549,31 +6039,185 @@ http.route({
 
 const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
   try {
-    const expectedSecret = asNonEmptyString(process.env.DIRECT_CALL_WEBHOOK_SECRET);
-    const presentedSecret =
-      asNonEmptyString(request.headers.get("x-direct-call-secret")) ||
-      asNonEmptyString(request.headers.get("x-telephony-webhook-secret")) ||
-      asNonEmptyString(request.headers.get("authorization"))?.replace(
-        /^Bearer\s+/i,
-        ""
-      );
-
-    if (expectedSecret && presentedSecret !== expectedSecret) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const payload = (await request.json()) as Record<string, unknown>;
-    const organizationId = asNonEmptyString(payload.organizationId);
-    const providerCallId =
-      asNonEmptyString(payload.providerCallId) ||
-      asNonEmptyString(payload.callId) ||
-      asNonEmptyString(payload.id);
-
-    if (!organizationId || !providerCallId) {
+    const body = await request.text();
+    let rawPayload: Record<string, unknown>;
+    try {
+      rawPayload = JSON.parse(body) as Record<string, unknown>;
+    } catch {
       return new Response(
         JSON.stringify({
           ok: false,
-          error: "organizationId and providerCallId are required",
+          error: "invalid_json_body",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const payload = normalizeTelephonyWebhookPayload(rawPayload);
+    const providerCallId = resolveTelephonyWebhookProviderCallId(payload);
+    const signatureHeader =
+      request.headers.get("x-eleven-signature") ||
+      request.headers.get("x-telephony-signature") ||
+      request.headers.get("x-direct-call-signature");
+    const timestampHeader =
+      request.headers.get("x-eleven-request-timestamp") ||
+      request.headers.get("x-telephony-request-timestamp") ||
+      request.headers.get("x-direct-call-request-timestamp");
+    const routingIdentity = extractTelephonyRoutingIdentity(payload, request);
+    const isElevenIngress = isElevenTelephonyIngress({
+      payload,
+      routeKey: routingIdentity.routeKey,
+      signatureHeader,
+      timestampHeader,
+    });
+
+    let organizationId: Id<"organizations"> | undefined;
+    let providerConnectionId: string | undefined;
+    let providerAccountId: string | undefined;
+    let providerInstallationId: string | undefined;
+    let providerProfileId: string | undefined;
+    let providerProfileType: "platform" | "organization" | undefined;
+    let routeKey = routingIdentity.routeKey;
+    let payloadOrganizationId = asNonEmptyString(payload.organizationId);
+
+    if (isElevenIngress) {
+      const resolvedContext = await (ctx as any).runQuery(
+        generatedApi.internal.channels.router.resolveTelephonyWebhookIngressContext,
+        {
+          providerId: "direct",
+          providerConnectionId: routingIdentity.providerConnectionId,
+          providerAccountId: routingIdentity.providerAccountId,
+          providerInstallationId: routingIdentity.providerInstallationId,
+          providerProfileId: routingIdentity.providerProfileId,
+          providerProfileType: routingIdentity.providerProfileType,
+          routeKey: routingIdentity.routeKey,
+        }
+      );
+
+      if (resolvedContext.status !== "resolved") {
+        console.warn("[Direct Telephony Webhook] Rejected Eleven ingress route", {
+          reasonCode: resolvedContext.status,
+          providerCallId,
+          routeKey: routingIdentity.routeKey,
+          providerConnectionId: routingIdentity.providerConnectionId,
+          providerInstallationId: routingIdentity.providerInstallationId,
+          matchCount: resolvedContext.matchCount,
+        });
+        return buildTelephonyWebhookRejectResponse(
+          resolvedContext.status === "ambiguous_route" ? 403 : 401,
+          resolvedContext.status
+        );
+      }
+
+      organizationId = resolvedContext.organizationId;
+      providerConnectionId = resolvedContext.providerConnectionId;
+      providerAccountId = resolvedContext.providerAccountId;
+      providerInstallationId = resolvedContext.providerInstallationId;
+      providerProfileId = resolvedContext.providerProfileId;
+      providerProfileType = resolvedContext.providerProfileType;
+      routeKey = resolvedContext.routeKey || routeKey;
+
+      const credentials = (await (ctx as any).runQuery(
+        generatedApi.internal.channels.router.getProviderCredentials,
+        {
+          organizationId,
+          providerId: resolvedContext.providerId,
+          providerConnectionId,
+          providerAccountId,
+          providerInstallationId,
+          providerProfileId,
+          providerProfileType: providerProfileType || "organization",
+          routeKey,
+          allowPlatformFallback: false,
+        }
+      )) as ProviderCredentials | null;
+      const signingSecret = resolveTelephonyWebhookSigningSecret(credentials);
+      const signatureResult = await verifyTelephonyWebhookSignature({
+        body,
+        signatureHeader,
+        timestampHeader,
+        signingSecret,
+      });
+
+      if (!signatureResult.valid) {
+        await recordIngressWebhookEvent({
+          ctx,
+          organizationId,
+          provider: "direct",
+          endpoint: "/webhooks/telephony/direct",
+          action: "telephony_direct_ingress",
+          status: "error",
+          message: "Eleven telephony webhook rejected at HTTP boundary",
+          errorMessage: signatureResult.reason,
+          providerEventId: asNonEmptyString(payload.eventId),
+          providerConnectionId,
+          providerAccountId,
+          routeKey,
+          channel: "phone_call",
+          metadata: {
+            reasonCode: signatureResult.reason,
+            providerCallId,
+            providerInstallationId,
+            providerProfileId,
+            providerProfileType,
+          },
+        });
+        return buildTelephonyWebhookRejectResponse(
+          401,
+          signatureResult.reason || "invalid_signature"
+        );
+      }
+    } else {
+      const expectedSecret = asNonEmptyString(process.env.DIRECT_CALL_WEBHOOK_SECRET);
+      const presentedSecret =
+        asNonEmptyString(request.headers.get("x-direct-call-secret")) ||
+        asNonEmptyString(request.headers.get("x-telephony-webhook-secret")) ||
+        asNonEmptyString(request.headers.get("authorization"))?.replace(
+          /^Bearer\s+/i,
+          ""
+        );
+
+      if (expectedSecret && presentedSecret !== expectedSecret) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      if (payloadOrganizationId) {
+        organizationId = payloadOrganizationId as Id<"organizations">;
+      }
+    }
+
+    if (!organizationId || !providerCallId) {
+      if (isElevenIngress && organizationId) {
+        await recordIngressWebhookEvent({
+          ctx,
+          organizationId,
+          provider: "direct",
+          endpoint: "/webhooks/telephony/direct",
+          action: "telephony_direct_ingress",
+          status: "error",
+          message: "Eleven telephony webhook missing required call identity",
+          errorMessage: "missing_provider_call_id",
+          providerConnectionId,
+          providerAccountId,
+          routeKey,
+          channel: "phone_call",
+          metadata: {
+            providerInstallationId,
+            providerProfileId,
+            providerProfileType,
+          },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error:
+            isElevenIngress
+              ? "providerCallId is required"
+              : "organizationId and providerCallId are required",
         }),
         {
           status: 400,
@@ -5587,6 +6231,7 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
       {
         organizationId: organizationId as Id<"organizations">,
         providerCallId,
+        providerConversationId: asNonEmptyString(payload.providerConversationId),
         providerId: asNonEmptyString(payload.providerId),
         outcome:
           asNonEmptyString(payload.outcome) ||
@@ -5610,6 +6255,37 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
           asNonEmptyString(payload.error),
       }
     );
+
+    if (isElevenIngress) {
+      const payloadOrganizationIdMismatch =
+        Boolean(payloadOrganizationId) && payloadOrganizationId !== organizationId;
+      await recordIngressWebhookEvent({
+        ctx,
+        organizationId,
+        provider: "direct",
+        endpoint: "/webhooks/telephony/direct",
+        action: "telephony_direct_ingress",
+        status: payloadOrganizationIdMismatch ? "warning" : "success",
+        message: payloadOrganizationIdMismatch
+          ? "Eleven telephony webhook accepted with route-derived org override"
+          : "Eleven telephony webhook accepted",
+        providerEventId: asNonEmptyString(payload.eventId),
+        providerConnectionId,
+        providerAccountId,
+        routeKey,
+        channel: "phone_call",
+        metadata: {
+          providerCallId,
+          providerInstallationId,
+          providerProfileId,
+          providerProfileType,
+          payloadOrganizationId,
+          resolvedOrganizationId: String(organizationId),
+          payloadOrganizationIdIgnored: Boolean(payloadOrganizationId),
+          payloadOrganizationIdMismatch,
+        },
+      });
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,

@@ -14,7 +14,7 @@ describe("agent spec registry contract", () => {
       agent: {
         key: " one_of_one_samantha_warm ",
         identity: {
-          displayName: " Samantha Warm ",
+          displayName: " Samantha ",
           role: " lead_capture_consultant ",
           templateRole: " one_of_one_warm_template ",
         },

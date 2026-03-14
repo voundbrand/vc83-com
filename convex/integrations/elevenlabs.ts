@@ -2,9 +2,14 @@ import { action, internalQuery, mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
-import { resolveOrganizationProviderBindingForProvider } from "../ai/providerRegistry";
+import {
+  type AiProviderBindingSource,
+  getAiBillingSourceContract,
+  resolveOrganizationProviderBindings,
+} from "../ai/providerRegistry";
 import { resolveDeterministicOrgDefaultVoiceId } from "../ai/voiceDefaults";
 import type { Id } from "../_generated/dataModel";
+import type { AiBillingSource } from "../channels/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
@@ -48,6 +53,24 @@ type ElevenLabsProviderProfile = {
   metadata?: unknown;
 };
 
+type ElevenLabsCommercializationContract = {
+  billingSource: AiBillingSource;
+  credentialOwner: "platform" | "organization";
+  usageAttribution: "platform" | "organization" | "private_contract";
+  platformCredentialFallbackAllowed: boolean;
+  organizationCredentialRequired: boolean;
+  requiresSuperAdminConfiguration: boolean;
+  executionPolicy:
+    | "platform_managed"
+    | "organization_managed"
+    | "private_controlled";
+  allowedBindingSources: readonly AiProviderBindingSource[];
+  bindingRequirementReason:
+    | "platform_managed_requires_platform_binding"
+    | "organization_managed_requires_org_binding"
+    | "private_contract_requires_org_binding";
+};
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -65,6 +88,31 @@ function normalizeBillingSource(value: unknown): "platform" | "byok" | "private"
   return value === "platform" || value === "byok" || value === "private"
     ? value
     : null;
+}
+
+function getElevenLabsCommercializationContract(
+  billingSource: AiBillingSource
+): ElevenLabsCommercializationContract {
+  const base = getAiBillingSourceContract(billingSource);
+  if (billingSource === "platform") {
+    return {
+      ...base,
+      allowedBindingSources: ["platform_env"],
+      bindingRequirementReason: "platform_managed_requires_platform_binding",
+    };
+  }
+  if (billingSource === "byok") {
+    return {
+      ...base,
+      allowedBindingSources: ["organization_auth_profile"],
+      bindingRequirementReason: "organization_managed_requires_org_binding",
+    };
+  }
+  return {
+    ...base,
+    allowedBindingSources: ["organization_auth_profile"],
+    bindingRequirementReason: "private_contract_requires_org_binding",
+  };
 }
 
 function getPlatformElevenLabsApiKey(): string | null {
@@ -323,10 +371,12 @@ function buildElevenLabsProfile(args: {
   defaultVoiceId?: string;
   billingSource: "platform" | "byok" | "private";
 }): ElevenLabsProviderProfile {
-  const nextApiKey =
+  const candidateApiKey =
     normalizeString(args.apiKey) ??
     normalizeString(args.existingProfile?.apiKey) ??
     undefined;
+  const nextApiKey =
+    args.billingSource === "platform" ? undefined : candidateApiKey;
   const nextBaseUrl =
     normalizeBaseUrl(args.baseUrl) ??
     normalizeBaseUrl(args.existingProfile?.baseUrl) ??
@@ -451,16 +501,27 @@ function resolveElevenLabsBindingFromSettings(
       }
     | null
 ) {
-  return resolveOrganizationProviderBindingForProvider({
+  const billingSource = resolveBillingSource(settings);
+  const commercialization =
+    getElevenLabsCommercializationContract(billingSource);
+  const bindings = resolveOrganizationProviderBindings({
     providerId: "elevenlabs",
     llmSettings: (settings?.llm ?? null) as {
       providerId?: string;
       openrouterApiKey?: string;
       providerAuthProfiles?: Array<Record<string, unknown>>;
     } | null,
-    defaultBillingSource: resolveBillingSource(settings),
+    defaultBillingSource: billingSource,
     now: Date.now(),
   });
+
+  return (
+    bindings.find(
+      (binding) =>
+        commercialization.allowedBindingSources.includes(binding.source) &&
+        binding.billingSource === commercialization.billingSource
+    ) ?? null
+  );
 }
 
 export const getElevenLabsSettings = query({
@@ -494,13 +555,24 @@ export const getElevenLabsSettings = query({
       profileBillingSource ??
       resolveBillingSource(settings);
     const billingSource = resolvedBillingSource;
+    const commercialization =
+      getElevenLabsCommercializationContract(billingSource);
     const platformApiKey = getPlatformElevenLabsApiKey();
     const profileApiKey = normalizeString(profile?.apiKey);
     const hasEffectiveApiKey = Boolean(normalizeString(binding?.apiKey));
+    const baseHealth = summarizeProfileHealth(profile);
     const health =
       binding && hasEffectiveApiKey
         ? { status: "healthy" as const }
-        : summarizeProfileHealth(profile);
+        : {
+            status: baseHealth.status,
+            reason:
+              settings?.enabled === true &&
+              !binding &&
+              !commercialization.platformCredentialFallbackAllowed
+                ? commercialization.bindingRequirementReason
+                : baseHealth.reason,
+          };
 
     return {
       enabled: Boolean(binding),
@@ -516,6 +588,7 @@ export const getElevenLabsSettings = query({
       lastFailureReason: profile?.lastFailureReason ?? null,
       healthStatus: health.status,
       healthReason: health.reason ?? null,
+      commercialization,
     };
   },
 });
@@ -545,6 +618,8 @@ export const getAuthorizedElevenLabsBinding = internalQuery({
       normalizeBillingSource(binding?.billingSource) ??
       normalizeBillingSource(profile?.billingSource) ??
       resolveBillingSource(settings);
+    const commercialization =
+      getElevenLabsCommercializationContract(billingSource);
     const effectiveApiKey =
       normalizeString(binding?.apiKey) ??
       (billingSource === "platform"
@@ -559,6 +634,8 @@ export const getAuthorizedElevenLabsBinding = internalQuery({
       defaultVoiceId: getDefaultVoiceId(profile) ?? null,
       enabled: Boolean(binding),
       billingSource,
+      commercialization,
+      credentialSource: binding?.credentialSource ?? null,
     };
   },
 });
@@ -606,9 +683,11 @@ export const saveElevenLabsSettings = mutation({
       normalizeBillingSource(args.billingSource) ??
       normalizeBillingSource(existingProfile?.billingSource) ??
       (isSuperAdmin ? fallbackBillingSource : fallbackForNonSuper);
+    const commercialization =
+      getElevenLabsCommercializationContract(billingSource);
     const touchesPlatformManagedMode =
       billingSource === "platform" || existingBillingSource === "platform";
-    if (touchesPlatformManagedMode && !isSuperAdmin) {
+    if (touchesPlatformManagedMode && commercialization.requiresSuperAdminConfiguration && !isSuperAdmin) {
       throw new Error(
         "Permission denied: super_admin required to configure platform-managed ElevenLabs mode.",
       );
@@ -682,6 +761,7 @@ export const saveElevenLabsSettings = mutation({
           ? Boolean(getPlatformElevenLabsApiKey())
           : Boolean(normalizeString(nextProfile.apiKey)),
       billingSource,
+      commercialization,
       baseUrl:
         normalizeBaseUrl(nextProfile.baseUrl) ?? ELEVENLABS_BASE_URL,
       defaultVoiceId: getDefaultVoiceId(nextProfile) ?? null,

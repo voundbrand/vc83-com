@@ -47,6 +47,12 @@ describe("voice runtime chaos fallback matrix", () => {
       toTransport: "chunked_fallback",
       reasonCode: "websocket_closed",
     }, 1_710_010_000_000);
+    collector.record({
+      eventType: "fallback_transition",
+      fromTransport: "chunked_fallback",
+      toTransport: "chunked_fallback",
+      reasonCode: "relay_server_heartbeat_sequence_gap",
+    }, 1_710_010_000_020);
 
     const acceptedSequences = new Set<number>([0, 1, 2]);
     expect(
@@ -107,7 +113,7 @@ describe("voice runtime chaos fallback matrix", () => {
         voiceSessionId,
       }),
     );
-    expect(telemetryContract.events).toHaveLength(3);
+    expect(telemetryContract.events).toHaveLength(4);
     expect(telemetryContract.coverage.fallback_transition).toBe(true);
     expect(telemetryContract.coverage.latency_checkpoint).toBe(true);
     expect(telemetryContract.coverage.provider_failure).toBe(true);
@@ -134,8 +140,9 @@ describe("voice runtime chaos fallback matrix", () => {
       },
     });
 
-    expect(trustEvents).toHaveLength(3);
+    expect(trustEvents).toHaveLength(4);
     expect(trustEvents.map((event) => event.eventName)).toEqual([
+      "trust.voice.adaptive_flow_decision.v1",
       "trust.voice.adaptive_flow_decision.v1",
       "trust.voice.adaptive_flow_decision.v1",
       "trust.voice.runtime_failover_triggered.v1",
@@ -150,6 +157,13 @@ describe("voice runtime chaos fallback matrix", () => {
       event.payload.adaptive_phase_id === "latency:stream_frame_roundtrip"
     );
     expect(jitterBreachDecision?.payload.adaptive_decision).toBe("latency_budget_breached");
+
+    const heartbeatGapDecision = trustEvents.find((event) =>
+      event.payload.adaptive_phase_id === "fallback:chunked_fallback->chunked_fallback"
+    );
+    expect(heartbeatGapDecision?.payload.adaptive_decision).toBe(
+      "fallback:relay_server_heartbeat_sequence_gap"
+    );
 
     const timeoutFailover = trustEvents.find(
       (event) => event.eventName === "trust.voice.runtime_failover_triggered.v1",

@@ -66,11 +66,8 @@ test.describe("Onboarding Audit Handoff", () => {
       navigationTracker
     );
 
-    await expect(
-      page.getByRole("heading", {
-        name: /(Private AI\. You can Trust\.|You built your business\.)/i,
-      })
-    ).toBeVisible();
+    await expect(page.locator("#diagnostic")).toBeVisible();
+    await expect(page.locator("#landing-audit-input")).toBeVisible();
     await expect(page.locator("#landing-audit-input")).toBeEnabled();
 
     const sendAuditMessage = async (message: string, expectedRequestCount: number) => {
@@ -127,7 +124,7 @@ test.describe("Onboarding Audit Handoff", () => {
     await expect(page.getByText("Claim token captured for handoff.")).toBeVisible();
 
     const createAccountLink = page.getByRole("link", {
-      name: /Create account and (carry audit context|keep your audit progress)/i,
+      name: /Create account and (carry audit context|keep your audit progress|keep your progress)/i,
     });
     await expect(createAccountLink).toBeVisible();
 

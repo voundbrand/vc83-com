@@ -54,6 +54,7 @@ const ENCRYPTED_CHANNEL_FIELDS = new Set<ProviderCredentialField>([
 
 const APPOINTMENT_OUTREACH_CONTRACT_VERSION = "appointment_outreach_v1" as const;
 const TELEPHONY_ARTIFACT_CONTRACT_VERSION = "telephony_artifact_v1" as const;
+const TELEPHONY_AUDIT_CONTRACT_VERSION = "telephony_audit_v1" as const;
 const APPOINTMENT_OUTREACH_DEFAULT_MAX_ATTEMPTS = 4;
 const APPOINTMENT_OUTREACH_MAX_WINDOW_MS = 48 * 60 * 60 * 1000;
 const APPOINTMENT_OUTREACH_RETRY_DELAY_MS = 2 * 60 * 60 * 1000;
@@ -63,6 +64,89 @@ const APPOINTMENT_OUTREACH_DEFAULT_ALLOWED_HOURS = {
   end: "17:00",
   timezone: "UTC",
 } as const;
+
+export const TELEPHONY_AUDIT_EVENT_NAMES = {
+  callConsentRecorded: "trust.guardrail.telephony_consent_recorded.v1",
+  callExecutionRecorded: "trust.lifecycle.telephony_call_execution_recorded.v1",
+  transcriptIngestionRecorded: "trust.knowledge.telephony_transcript_ingested.v1",
+  outcomeMutationRecorded: "trust.lifecycle.telephony_outcome_mutation_recorded.v1",
+} as const;
+
+export const TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES = {
+  callConsent: "telephony_consent_evidence_artifact",
+  callExecution: "telephony_call_execution_evidence_artifact",
+  transcriptIngestion: "telephony_transcript_ingest_evidence_artifact",
+  outcomeMutation: "telephony_outcome_mutation_evidence_artifact",
+} as const;
+
+const TELEPHONY_AUDIT_BASE_IMMUTABLE_FIELD_KEYS = [
+  "contractVersion",
+  "eventId",
+  "eventName",
+  "eventVersion",
+  "evidenceArtifactType",
+  "recordedAt",
+  "providerId",
+  "providerCallId",
+  "providerConversationId",
+  "callRecordId",
+  "sourceArtifactId",
+  "missionId",
+  "attemptId",
+  "bookingId",
+  "idempotencyKey",
+  "mutationSource",
+  "payload",
+] as const;
+
+export const TELEPHONY_AUDIT_IMMUTABLE_FIELD_KEYS = {
+  callConsent: [
+    ...TELEPHONY_AUDIT_BASE_IMMUTABLE_FIELD_KEYS,
+    "payload.consentScope",
+    "payload.recordingDisclosureStatus",
+    "payload.recordingConsentStatus",
+    "payload.callFallbackApproved",
+    "payload.callConsentDisclosurePresent",
+    "payload.autonomyPromotionApprovalId",
+    "payload.autonomyPromotionReason",
+    "payload.domainAutonomyLevel",
+    "payload.promotionCriteriaMet",
+  ],
+  callExecution: [
+    ...TELEPHONY_AUDIT_BASE_IMMUTABLE_FIELD_KEYS,
+    "payload.recipientIdentifier",
+    "payload.providerMessageId",
+    "payload.sendSuccess",
+    "payload.sendError",
+    "payload.scriptCharacterCount",
+    "payload.outcomeStatus",
+    "payload.disposition",
+    "payload.voicemailDetected",
+  ],
+  transcriptIngestion: [
+    ...TELEPHONY_AUDIT_BASE_IMMUTABLE_FIELD_KEYS,
+    "payload.priorTranscriptStatus",
+    "payload.nextTranscriptStatus",
+    "payload.priorCapturedAt",
+    "payload.nextCapturedAt",
+    "payload.transcriptCharacterCount",
+    "payload.transcriptSegmentCount",
+  ],
+  outcomeMutation: [
+    ...TELEPHONY_AUDIT_BASE_IMMUTABLE_FIELD_KEYS,
+    "payload.priorOutcome",
+    "payload.nextOutcome",
+    "payload.priorDisposition",
+    "payload.nextDisposition",
+    "payload.durationSeconds",
+    "payload.endedAt",
+    "payload.voicemailDetected",
+    "payload.errorMessagePresent",
+  ],
+} as const;
+
+type TelephonyAuditEvidenceKind =
+  keyof typeof TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES;
 
 export const APPOINTMENT_OUTREACH_LIMITS = Object.freeze({
   defaultMaxAttempts: APPOINTMENT_OUTREACH_DEFAULT_MAX_ATTEMPTS,
@@ -133,6 +217,16 @@ interface ChannelBindingResolutionHints {
   providerProfileType?: ProviderProfileType;
   routeKey?: string;
 }
+
+const TELEPHONY_BINDING_IDENTITY_PRECEDENCE = [
+  "providerConnectionId",
+  "providerInstallationId",
+  "providerProfileType",
+  "routeKey",
+] as const;
+
+type TelephonyBindingIdentityField =
+  (typeof TELEPHONY_BINDING_IDENTITY_PRECEDENCE)[number];
 
 type ObjectId = Id<"objects">;
 type OrganizationId = Id<"organizations">;
@@ -333,6 +427,40 @@ function normalizeOptionalString(value: unknown): string | undefined {
 
 function normalizeOptionalBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeOptionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function stripUndefinedProperties(
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  );
+}
+
+function appendUniqueReference(
+  existing: unknown,
+  nextValue: string | undefined
+): string[] | undefined {
+  const normalized = normalizeOptionalStringArray(existing) || [];
+  const candidate = normalizeOptionalString(nextValue);
+  if (!candidate) {
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (normalized.includes(candidate)) {
+    return normalized;
+  }
+  normalized.push(candidate);
+  return normalized;
 }
 
 function normalizeProviderProfileType(value: unknown): ProviderProfileType | undefined {
@@ -572,6 +700,139 @@ function mapTelephonySendOutcome(result: SendResult): {
   };
 }
 
+function buildTelephonyAuditEventId(args: {
+  providerCallId: string;
+  evidenceKind: TelephonyAuditEvidenceKind;
+  recordedAt: number;
+}): string {
+  return `telephony_audit:${args.providerCallId}:${args.evidenceKind}:${args.recordedAt}`;
+}
+
+async function appendAuditArtifactReference(args: {
+  ctx: RouterActionCtx;
+  objectId: ObjectId;
+  auditArtifactId: string;
+  auditArtifactType: string;
+  updatedAt: number;
+}): Promise<void> {
+  const target = await getObjectRecord(args.ctx, args.objectId);
+  if (!target) {
+    return;
+  }
+  const props = (target.customProperties || {}) as Record<string, unknown>;
+  await patchObjectRecord(args.ctx, args.objectId, {
+    customProperties: {
+      ...props,
+      auditTrailArtifactIds: appendUniqueReference(
+        props.auditTrailArtifactIds,
+        args.auditArtifactId
+      ),
+      auditTrailArtifactTypes: appendUniqueReference(
+        props.auditTrailArtifactTypes,
+        args.auditArtifactType
+      ),
+      auditContractVersion:
+        normalizeOptionalString(props.auditContractVersion) ||
+        TELEPHONY_AUDIT_CONTRACT_VERSION,
+    },
+    updatedAt: args.updatedAt,
+  });
+}
+
+async function createTelephonyAuditEvidenceArtifact(args: {
+  ctx: RouterActionCtx;
+  organizationId: OrganizationId;
+  providerId: ProviderId;
+  providerCallId: string;
+  providerConversationId?: string;
+  callRecordId?: string;
+  sourceArtifactId?: string;
+  missionId?: string;
+  attemptId?: string;
+  bookingId?: string;
+  idempotencyKey?: string;
+  evidenceKind: TelephonyAuditEvidenceKind;
+  mutationSource: "send_result" | "webhook_outcome";
+  payload: Record<string, unknown>;
+  recordedAt: number;
+}): Promise<string> {
+  const eventNameMap = {
+    callConsent: TELEPHONY_AUDIT_EVENT_NAMES.callConsentRecorded,
+    callExecution: TELEPHONY_AUDIT_EVENT_NAMES.callExecutionRecorded,
+    transcriptIngestion: TELEPHONY_AUDIT_EVENT_NAMES.transcriptIngestionRecorded,
+    outcomeMutation: TELEPHONY_AUDIT_EVENT_NAMES.outcomeMutationRecorded,
+  } as const;
+  const evidenceArtifactType =
+    TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES[args.evidenceKind];
+  const immutableFieldKeys =
+    TELEPHONY_AUDIT_IMMUTABLE_FIELD_KEYS[args.evidenceKind];
+  const eventId = buildTelephonyAuditEventId({
+    providerCallId: args.providerCallId,
+    evidenceKind: args.evidenceKind,
+    recordedAt: args.recordedAt,
+  });
+  const payload = stripUndefinedProperties(args.payload);
+  const auditArtifactId = await insertObjectRecord(args.ctx, {
+    organizationId: args.organizationId,
+    type: evidenceArtifactType,
+    subtype: args.providerId,
+    name: `${eventNameMap[args.evidenceKind]} ${args.providerCallId}`,
+    status: "recorded",
+    customProperties: stripUndefinedProperties({
+      contractVersion: TELEPHONY_AUDIT_CONTRACT_VERSION,
+      telephonyArtifactContractVersion: TELEPHONY_ARTIFACT_CONTRACT_VERSION,
+      eventId,
+      eventName: eventNameMap[args.evidenceKind],
+      eventVersion: "v1",
+      evidenceKind: args.evidenceKind,
+      evidenceArtifactType,
+      immutableFieldKeys: [...immutableFieldKeys],
+      recordedAt: args.recordedAt,
+      providerId: args.providerId,
+      providerCallId: args.providerCallId,
+      providerConversationId: args.providerConversationId,
+      callRecordId: args.callRecordId,
+      sourceArtifactId: args.sourceArtifactId,
+      missionId: args.missionId,
+      attemptId: args.attemptId,
+      bookingId: args.bookingId,
+      idempotencyKey: args.idempotencyKey,
+      mutationSource: args.mutationSource,
+      payload,
+    }),
+    createdAt: args.recordedAt,
+    updatedAt: args.recordedAt,
+  });
+
+  if (args.callRecordId) {
+    const callRecordObjectId = toObjectId(args.callRecordId);
+    if (callRecordObjectId) {
+      await appendAuditArtifactReference({
+        ctx: args.ctx,
+        objectId: callRecordObjectId,
+        auditArtifactId: String(auditArtifactId),
+        auditArtifactType: evidenceArtifactType,
+        updatedAt: args.recordedAt,
+      });
+    }
+  }
+
+  if (args.sourceArtifactId) {
+    const sourceArtifactObjectId = toObjectId(args.sourceArtifactId);
+    if (sourceArtifactObjectId) {
+      await appendAuditArtifactReference({
+        ctx: args.ctx,
+        objectId: sourceArtifactObjectId,
+        auditArtifactId: String(auditArtifactId),
+        auditArtifactType: evidenceArtifactType,
+        updatedAt: args.recordedAt,
+      });
+    }
+  }
+
+  return String(auditArtifactId);
+}
+
 async function persistTelephonyCallArtifacts(args: {
   ctx: RouterActionCtx;
   organizationId: OrganizationId;
@@ -615,6 +876,10 @@ async function persistTelephonyCallArtifacts(args: {
       missionId: args.missionId,
       attemptId: args.attemptId,
       bookingId: args.bookingId,
+      auditContractVersion: TELEPHONY_AUDIT_CONTRACT_VERSION,
+      auditEventName: TELEPHONY_AUDIT_EVENT_NAMES.transcriptIngestionRecorded,
+      immutableEvidenceArtifactType:
+        TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES.transcriptIngestion,
     },
     createdAt: now,
     updatedAt: now,
@@ -646,6 +911,10 @@ async function persistTelephonyCallArtifacts(args: {
       missionId: args.missionId,
       attemptId: args.attemptId,
       bookingId: args.bookingId,
+      auditContractVersion: TELEPHONY_AUDIT_CONTRACT_VERSION,
+      auditEventName: TELEPHONY_AUDIT_EVENT_NAMES.outcomeMutationRecorded,
+      immutableEvidenceArtifactType:
+        TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES.outcomeMutation,
     },
     createdAt: now,
     updatedAt: now,
@@ -685,9 +954,162 @@ async function persistTelephonyCallArtifacts(args: {
           ? args.result.telephony?.endedAt
           : undefined,
       createdAt: now,
+      auditContractVersion: TELEPHONY_AUDIT_CONTRACT_VERSION,
+      auditEventNames: {
+        ...TELEPHONY_AUDIT_EVENT_NAMES,
+      },
+      immutableEvidenceArtifactTypes: {
+        ...TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES,
+      },
     },
     createdAt: now,
     updatedAt: now,
+  });
+
+  let missionProps:
+    | (AppointmentMissionSnapshot & Record<string, unknown>)
+    | undefined;
+  const missionObjectId = toObjectId(args.missionId);
+  if (missionObjectId) {
+    const mission = await getObjectRecord(args.ctx, missionObjectId);
+    if (mission && mission.type === "appointment_outreach_mission") {
+      missionProps = (mission.customProperties || {}) as AppointmentMissionSnapshot &
+        Record<string, unknown>;
+    }
+  }
+
+  await createTelephonyAuditEvidenceArtifact({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    providerId: args.providerId,
+    providerCallId,
+    providerConversationId: args.providerConversationId,
+    callRecordId: String(callRecordId),
+    missionId: args.missionId,
+    attemptId: args.attemptId,
+    bookingId: args.bookingId,
+    idempotencyKey: args.idempotencyKey,
+    evidenceKind: "callConsent",
+    mutationSource: "send_result",
+    recordedAt: now,
+    payload: {
+      consentScope: args.missionId ? "appointment_outreach" : "telephony_call",
+      recordingDisclosureStatus:
+        normalizeOptionalString(missionProps?.callConsentDisclosure)
+          ? "disclosed"
+          : "not_captured",
+      recordingConsentStatus:
+        missionProps?.callFallbackApproved === true &&
+        normalizeOptionalString(missionProps?.callConsentDisclosure)
+          ? "evidence_present"
+          : args.missionId
+            ? "evidence_missing"
+            : "not_applicable",
+      callFallbackApproved: missionProps?.callFallbackApproved === true,
+      callConsentDisclosurePresent: Boolean(
+        normalizeOptionalString(missionProps?.callConsentDisclosure)
+      ),
+      autonomyPromotionApprovalId: normalizeOptionalString(
+        missionProps?.autonomyPromotionApprovalId
+      ),
+      autonomyPromotionReason: normalizeOptionalString(
+        missionProps?.autonomyPromotionReason
+      ),
+      domainAutonomyLevel: normalizeOptionalString(missionProps?.domainAutonomyLevel),
+      promotionCriteriaMet:
+        normalizeOptionalBoolean(missionProps?.promotionCriteriaMet) ?? false,
+    },
+  });
+
+  await createTelephonyAuditEvidenceArtifact({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    providerId: args.providerId,
+    providerCallId,
+    providerConversationId: args.providerConversationId,
+    callRecordId: String(callRecordId),
+    missionId: args.missionId,
+    attemptId: args.attemptId,
+    bookingId: args.bookingId,
+    idempotencyKey: args.idempotencyKey,
+    evidenceKind: "callExecution",
+    mutationSource: "send_result",
+    recordedAt: now,
+    payload: {
+      recipientIdentifier: args.recipientIdentifier,
+      providerMessageId: normalizeOptionalString(args.result.providerMessageId),
+      sendSuccess: args.result.success,
+      sendError: normalizeOptionalString(args.result.error),
+      scriptCharacterCount: args.content.length,
+      outcomeStatus: telephonyOutcome.outcomeStatus,
+      disposition: normalizeOptionalString(args.result.telephony?.disposition),
+      voicemailDetected: telephonyOutcome.voicemailDetected,
+    },
+  });
+
+  if (
+    transcriptText ||
+    Array.isArray(args.result.telephony?.transcriptSegments)
+  ) {
+    await createTelephonyAuditEvidenceArtifact({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      providerId: args.providerId,
+      providerCallId,
+      providerConversationId: args.providerConversationId,
+      callRecordId: String(callRecordId),
+      sourceArtifactId: String(transcriptArtifactId),
+      missionId: args.missionId,
+      attemptId: args.attemptId,
+      bookingId: args.bookingId,
+      idempotencyKey: args.idempotencyKey,
+      evidenceKind: "transcriptIngestion",
+      mutationSource: "send_result",
+      recordedAt: now,
+      payload: {
+        priorTranscriptStatus: "missing",
+        nextTranscriptStatus: telephonyOutcome.transcriptStatus,
+        priorCapturedAt: undefined,
+        nextCapturedAt: transcriptText ? now : undefined,
+        transcriptCharacterCount: transcriptText?.length || 0,
+        transcriptSegmentCount: Array.isArray(args.result.telephony?.transcriptSegments)
+          ? args.result.telephony?.transcriptSegments.length
+          : 0,
+      },
+    });
+  }
+
+  await createTelephonyAuditEvidenceArtifact({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    providerId: args.providerId,
+    providerCallId,
+    providerConversationId: args.providerConversationId,
+    callRecordId: String(callRecordId),
+    sourceArtifactId: String(outcomeArtifactId),
+    missionId: args.missionId,
+    attemptId: args.attemptId,
+    bookingId: args.bookingId,
+    idempotencyKey: args.idempotencyKey,
+    evidenceKind: "outcomeMutation",
+    mutationSource: "send_result",
+    recordedAt: now,
+    payload: {
+      priorOutcome: "missing",
+      nextOutcome: telephonyOutcome.outcomeStatus,
+      priorDisposition: undefined,
+      nextDisposition: normalizeOptionalString(args.result.telephony?.disposition),
+      durationSeconds:
+        typeof args.result.telephony?.durationSeconds === "number"
+          ? args.result.telephony?.durationSeconds
+          : undefined,
+      endedAt:
+        typeof args.result.telephony?.endedAt === "number"
+          ? args.result.telephony?.endedAt
+          : undefined,
+      voicemailDetected: telephonyOutcome.voicemailDetected,
+      errorMessagePresent: Boolean(normalizeOptionalString(args.result.error)),
+    },
   });
 
   if (args.attemptId) {
@@ -746,6 +1168,93 @@ function hasChannelBindingResolutionHints(hints: ChannelBindingResolutionHints):
       hints.providerProfileType ||
       hints.routeKey
   );
+}
+
+function hasTelephonyBindingIdentityHints(
+  hints: ChannelBindingResolutionHints
+): boolean {
+  return TELEPHONY_BINDING_IDENTITY_PRECEDENCE.some((field) => {
+    switch (field) {
+      case "providerConnectionId":
+        return Boolean(hints.providerConnectionId);
+      case "providerInstallationId":
+        return Boolean(hints.providerInstallationId);
+      case "providerProfileType":
+        return Boolean(hints.providerProfileType);
+      case "routeKey":
+        return Boolean(hints.routeKey);
+    }
+  });
+}
+
+function hasTrustedTelephonyRouteIdentity(
+  hints: ChannelBindingResolutionHints
+): boolean {
+  return Boolean(
+    hints.providerConnectionId ||
+      hints.providerInstallationId ||
+      hints.routeKey
+  );
+}
+
+function readTelephonyIdentityField(args: {
+  hints?: ChannelBindingResolutionHints;
+  identity?: ProviderRoutingIdentityHints | null;
+  field: TelephonyBindingIdentityField;
+}): string | undefined {
+  switch (args.field) {
+    case "providerConnectionId":
+      return args.hints?.providerConnectionId ?? args.identity?.providerConnectionId;
+    case "providerInstallationId":
+      return (
+        args.hints?.providerInstallationId ?? args.identity?.providerInstallationId
+      );
+    case "providerProfileType":
+      return args.hints?.providerProfileType ?? args.identity?.providerProfileType;
+    case "routeKey":
+      return args.hints?.routeKey ?? args.identity?.routeKey;
+  }
+}
+
+function filterTelephonyBindingsByIdentityPrecedence<T extends Record<string, unknown>>(
+  bindings: T[],
+  hints: ChannelBindingResolutionHints
+): T[] {
+  let matching = bindings;
+
+  // Non-telephony helper fields can still narrow the candidate set, but tenant routing
+  // is resolved only from the canonical telephony precedence tuple below.
+  const auxiliaryHints: ChannelBindingResolutionHints = {
+    providerId: hints.providerId,
+    providerAccountId: hints.providerAccountId,
+    providerProfileId: hints.providerProfileId,
+  };
+  if (hasChannelBindingResolutionHints(auxiliaryHints)) {
+    matching = matching.filter((binding) =>
+      bindingMatchesResolutionHints(binding, auxiliaryHints)
+    );
+  }
+
+  for (const field of TELEPHONY_BINDING_IDENTITY_PRECEDENCE) {
+    const expected = readTelephonyIdentityField({ hints, field });
+    if (!expected) {
+      continue;
+    }
+    matching = matching.filter((binding) => {
+      const identity = normalizeBindingRoutingIdentity(binding);
+      const actual = readTelephonyIdentityField({ identity, field });
+      return Boolean(actual && actual === expected);
+    });
+  }
+
+  return matching;
+}
+
+function bindingMatchesTelephonyIdentityPrecedence(
+  binding: Record<string, unknown>,
+  hints: ChannelBindingResolutionHints
+): boolean {
+  return filterTelephonyBindingsByIdentityPrecedence([binding], hints).length === 1;
 }
 
 function bindingMatchesResolutionHints(
@@ -1038,6 +1547,12 @@ export const getChannelBinding = internalQuery({
         if (!hasHints) {
           return true;
         }
+        if (args.channel === "phone_call" && hasTelephonyBindingIdentityHints(normalizedHints)) {
+          return bindingMatchesTelephonyIdentityPrecedence(
+            binding as unknown as Record<string, unknown>,
+            normalizedHints
+          );
+        }
         return bindingMatchesResolutionHints(
           binding as unknown as Record<string, unknown>,
           normalizedHints
@@ -1058,6 +1573,160 @@ export const getChannelBinding = internalQuery({
     }
 
     return matching[0] ?? null;
+  },
+});
+
+export type TelephonyWebhookIngressResolution =
+  | {
+      status: "resolved";
+      organizationId: Id<"organizations">;
+      bindingId: ObjectId;
+      providerId: ProviderId;
+      providerConnectionId?: string;
+      providerAccountId?: string;
+      providerInstallationId?: string;
+      providerProfileId?: string;
+      providerProfileType?: ProviderProfileType;
+      routeKey?: string;
+    }
+  | {
+      status: "missing_route_identity" | "route_not_found" | "ambiguous_route";
+      organizationId?: undefined;
+      bindingId?: undefined;
+      providerId?: ProviderId;
+      providerConnectionId?: string;
+      providerAccountId?: string;
+      providerInstallationId?: string;
+      providerProfileId?: string;
+      providerProfileType?: ProviderProfileType;
+      routeKey?: string;
+      matchCount?: number;
+    };
+
+/**
+ * Resolve telephony webhook ingress to exactly one org from route identity.
+ * This is cross-tenant and must fail closed when identity is absent or ambiguous.
+ */
+export const resolveTelephonyWebhookIngressContext = internalQuery({
+  args: {
+    providerId: v.optional(v.string()),
+    providerConnectionId: v.optional(v.string()),
+    providerAccountId: v.optional(v.string()),
+    providerInstallationId: v.optional(v.string()),
+    providerProfileId: v.optional(v.string()),
+    providerProfileType: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    routeKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<TelephonyWebhookIngressResolution> => {
+    const normalizedHints = normalizeChannelBindingResolutionHints({
+      providerId: args.providerId as ProviderId | undefined,
+      providerConnectionId: args.providerConnectionId,
+      providerAccountId: args.providerAccountId,
+      providerInstallationId: args.providerInstallationId,
+      providerProfileId: args.providerProfileId,
+      providerProfileType: args.providerProfileType,
+      routeKey: args.routeKey,
+    });
+
+    // Profile/provider metadata may assert scope, but cross-org ingress still requires
+    // a tenant-bound route identity from the canonical telephony tuple.
+    if (!hasTrustedTelephonyRouteIdentity(normalizedHints)) {
+      return {
+        status: "missing_route_identity",
+        providerId: normalizedHints.providerId,
+        providerConnectionId: normalizedHints.providerConnectionId,
+        providerAccountId: normalizedHints.providerAccountId,
+        providerInstallationId: normalizedHints.providerInstallationId,
+        providerProfileId: normalizedHints.providerProfileId,
+        providerProfileType: normalizedHints.providerProfileType,
+        routeKey: normalizedHints.routeKey,
+      };
+    }
+
+    const bindings = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "channel_provider_binding"))
+      .collect();
+
+    const matching = bindings
+      .filter((binding) => {
+        const props = binding.customProperties as Record<string, unknown>;
+        return props?.channel === "phone_call" && props?.enabled === true;
+      })
+      .filter((binding) =>
+        bindingMatchesTelephonyIdentityPrecedence(
+          binding as unknown as Record<string, unknown>,
+          normalizedHints
+        )
+      )
+      .sort((a, b) => {
+        const priorityDelta = readBindingPriority(
+          a as unknown as Record<string, unknown>
+        ) - readBindingPriority(b as unknown as Record<string, unknown>);
+        if (priorityDelta !== 0) {
+          return priorityDelta;
+        }
+        return String(a._id).localeCompare(String(b._id));
+      });
+
+    if (matching.length === 0) {
+      return {
+        status: "route_not_found",
+        providerId: normalizedHints.providerId,
+        providerConnectionId: normalizedHints.providerConnectionId,
+        providerAccountId: normalizedHints.providerAccountId,
+        providerInstallationId: normalizedHints.providerInstallationId,
+        providerProfileId: normalizedHints.providerProfileId,
+        providerProfileType: normalizedHints.providerProfileType,
+        routeKey: normalizedHints.routeKey,
+      };
+    }
+
+    if (matching.length !== 1) {
+      return {
+        status: "ambiguous_route",
+        providerId: normalizedHints.providerId,
+        providerConnectionId: normalizedHints.providerConnectionId,
+        providerAccountId: normalizedHints.providerAccountId,
+        providerInstallationId: normalizedHints.providerInstallationId,
+        providerProfileId: normalizedHints.providerProfileId,
+        providerProfileType: normalizedHints.providerProfileType,
+        routeKey: normalizedHints.routeKey,
+        matchCount: matching.length,
+      };
+    }
+
+    const match = matching[0];
+    const identity = normalizeBindingRoutingIdentity(
+      match as unknown as Record<string, unknown>
+    );
+    if (!identity) {
+      return {
+        status: "route_not_found",
+        providerId: normalizedHints.providerId,
+        providerConnectionId: normalizedHints.providerConnectionId,
+        providerAccountId: normalizedHints.providerAccountId,
+        providerInstallationId: normalizedHints.providerInstallationId,
+        providerProfileId: normalizedHints.providerProfileId,
+        providerProfileType: normalizedHints.providerProfileType,
+        routeKey: normalizedHints.routeKey,
+      };
+    }
+
+    return {
+      status: "resolved",
+      organizationId: match.organizationId,
+      bindingId: match._id,
+      providerId: identity.providerId,
+      providerConnectionId: identity.providerConnectionId,
+      providerAccountId: identity.providerAccountId,
+      providerInstallationId: identity.providerInstallationId,
+      providerProfileId: identity.providerProfileId,
+      providerProfileType: identity.providerProfileType,
+      routeKey: identity.routeKey,
+    };
   },
 });
 
@@ -2989,6 +3658,7 @@ export const recordTelephonyWebhookOutcome = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     providerCallId: v.string(),
+    providerConversationId: v.optional(v.string()),
     providerId: v.optional(v.string()),
     outcome: v.optional(v.string()),
     disposition: v.optional(v.string()),
@@ -3002,6 +3672,9 @@ export const recordTelephonyWebhookOutcome = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     const providerCallId = normalizeOptionalString(args.providerCallId);
+    const providerConversationId = normalizeOptionalString(
+      args.providerConversationId
+    );
     if (!providerCallId) {
       return { success: false, error: "providerCallId is required" };
     }
@@ -3012,40 +3685,79 @@ export const recordTelephonyWebhookOutcome = internalMutation({
         q.eq("organizationId", args.organizationId).eq("type", "telephony_call_record")
       )
       .collect();
-    const callRecord = callRecords.find((record) => {
+    const callRecordByProviderCallId = callRecords.find((record) => {
       const props = (record.customProperties || {}) as Record<string, unknown>;
       return normalizeOptionalString(props.providerCallId) === providerCallId;
     });
+    const callRecordByConversationId = !callRecordByProviderCallId &&
+      providerConversationId
+      ? callRecords.filter((record) => {
+          const props = (record.customProperties || {}) as Record<string, unknown>;
+          return (
+            normalizeOptionalString(props.providerConversationId) ===
+            providerConversationId
+          );
+        })
+      : [];
+    const callRecord =
+      callRecordByProviderCallId ||
+      (callRecordByConversationId.length === 1
+        ? callRecordByConversationId[0]
+        : undefined);
 
     const normalizedOutcome = normalizeOptionalString(args.outcome);
     const normalizedDisposition = normalizeOptionalString(args.disposition);
     const normalizedTranscript = normalizeOptionalString(args.transcriptText);
     const voicemailDetected = args.voicemailDetected === true;
+    const normalizedErrorMessage = normalizeOptionalString(args.errorMessage);
+    const auditProviderId =
+      (normalizeOptionalString(args.providerId) as ProviderId | undefined) ||
+      (normalizeOptionalString(
+        (callRecord?.customProperties as Record<string, unknown> | undefined)?.providerId
+      ) as ProviderId | undefined) ||
+      "direct";
 
     let transcriptArtifactId =
       normalizeOptionalString(
         (callRecord?.customProperties as Record<string, unknown> | undefined)
           ?.transcriptArtifactId
       );
+    let priorTranscriptStatus = "missing";
+    let priorTranscriptCapturedAt: number | undefined;
     const transcriptArtifactObjectId = toObjectId(transcriptArtifactId);
     if (transcriptArtifactObjectId) {
       const transcriptArtifact = await ctx.db.get(transcriptArtifactObjectId);
       if (transcriptArtifact) {
+        const transcriptProps = (transcriptArtifact.customProperties || {}) as Record<
+          string,
+          unknown
+        >;
+        priorTranscriptStatus =
+          normalizeOptionalString(transcriptArtifact.status) || "missing";
+        priorTranscriptCapturedAt =
+          typeof transcriptProps.capturedAt === "number"
+            ? transcriptProps.capturedAt
+            : undefined;
         await ctx.db.patch(transcriptArtifactObjectId, {
           status: normalizedTranscript ? "captured" : transcriptArtifact.status,
           customProperties: {
-            ...((transcriptArtifact.customProperties || {}) as Record<string, unknown>),
+            ...transcriptProps,
             transcriptText:
               normalizedTranscript ||
-              normalizeOptionalString(
-                (transcriptArtifact.customProperties as Record<string, unknown>)
-                  .transcriptText
-              ),
+              normalizeOptionalString(transcriptProps.transcriptText),
             transcriptSegments: Array.isArray(args.transcriptSegments)
               ? args.transcriptSegments
-              : (transcriptArtifact.customProperties as Record<string, unknown>)
-                  .transcriptSegments,
+              : transcriptProps.transcriptSegments,
             capturedAt: normalizedTranscript ? now : undefined,
+            auditContractVersion:
+              normalizeOptionalString(transcriptProps.auditContractVersion) ||
+              TELEPHONY_AUDIT_CONTRACT_VERSION,
+            auditEventName:
+              normalizeOptionalString(transcriptProps.auditEventName) ||
+              TELEPHONY_AUDIT_EVENT_NAMES.transcriptIngestionRecorded,
+            immutableEvidenceArtifactType:
+              normalizeOptionalString(transcriptProps.immutableEvidenceArtifactType) ||
+              TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES.transcriptIngestion,
           },
           updatedAt: now,
         });
@@ -3058,36 +3770,50 @@ export const recordTelephonyWebhookOutcome = internalMutation({
         (callRecord?.customProperties as Record<string, unknown> | undefined)
           ?.outcomeArtifactId
       );
+    let priorOutcome = "missing";
+    let priorDisposition: string | undefined;
     const outcomeArtifactObjectId = toObjectId(outcomeArtifactId);
     if (outcomeArtifactObjectId) {
       const outcomeArtifact = await ctx.db.get(outcomeArtifactObjectId);
       if (outcomeArtifact) {
+        const outcomeProps = (outcomeArtifact.customProperties || {}) as Record<
+          string,
+          unknown
+        >;
+        priorOutcome =
+          normalizeOptionalString(outcomeProps.outcome) ||
+          normalizeOptionalString(outcomeArtifact.status) ||
+          "missing";
+        priorDisposition = normalizeOptionalString(outcomeProps.disposition);
         await ctx.db.patch(outcomeArtifactObjectId, {
           status: normalizedOutcome ? "completed" : outcomeArtifact.status,
           customProperties: {
-            ...((outcomeArtifact.customProperties || {}) as Record<string, unknown>),
+            ...outcomeProps,
             outcome:
               normalizedOutcome ||
-              normalizeOptionalString(
-                (outcomeArtifact.customProperties as Record<string, unknown>).outcome
-              ),
+              normalizeOptionalString(outcomeProps.outcome),
             disposition:
               normalizedDisposition ||
-              normalizeOptionalString(
-                (outcomeArtifact.customProperties as Record<string, unknown>)
-                  .disposition
-              ),
+              normalizeOptionalString(outcomeProps.disposition),
             durationSeconds:
               typeof args.durationSeconds === "number"
                 ? args.durationSeconds
-                : (outcomeArtifact.customProperties as Record<string, unknown>)
-                    .durationSeconds,
+                : outcomeProps.durationSeconds,
             endedAt:
               typeof args.endedAt === "number"
                 ? args.endedAt
-                : (outcomeArtifact.customProperties as Record<string, unknown>).endedAt,
+                : outcomeProps.endedAt,
             voicemailDetected,
-            errorMessage: normalizeOptionalString(args.errorMessage),
+            errorMessage: normalizedErrorMessage,
+            auditContractVersion:
+              normalizeOptionalString(outcomeProps.auditContractVersion) ||
+              TELEPHONY_AUDIT_CONTRACT_VERSION,
+            auditEventName:
+              normalizeOptionalString(outcomeProps.auditEventName) ||
+              TELEPHONY_AUDIT_EVENT_NAMES.outcomeMutationRecorded,
+            immutableEvidenceArtifactType:
+              normalizeOptionalString(outcomeProps.immutableEvidenceArtifactType) ||
+              TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES.outcomeMutation,
           },
           updatedAt: now,
         });
@@ -3104,6 +3830,9 @@ export const recordTelephonyWebhookOutcome = internalMutation({
             : callRecord.status,
         customProperties: {
           ...callProps,
+          providerConversationId:
+            providerConversationId ||
+            normalizeOptionalString(callProps.providerConversationId),
           outcome: normalizedOutcome || normalizeOptionalString(callProps.outcome),
           disposition:
             normalizedDisposition || normalizeOptionalString(callProps.disposition),
@@ -3120,7 +3849,16 @@ export const recordTelephonyWebhookOutcome = internalMutation({
             typeof args.endedAt === "number" ? args.endedAt : callProps.endedAt,
           voicemailDetected:
             voicemailDetected || callProps.voicemailDetected === true,
-          sendError: normalizeOptionalString(args.errorMessage) || callProps.sendError,
+          sendError: normalizedErrorMessage || callProps.sendError,
+          auditContractVersion:
+            normalizeOptionalString(callProps.auditContractVersion) ||
+            TELEPHONY_AUDIT_CONTRACT_VERSION,
+          auditEventNames:
+            callProps.auditEventNames || { ...TELEPHONY_AUDIT_EVENT_NAMES },
+          immutableEvidenceArtifactTypes:
+            callProps.immutableEvidenceArtifactTypes || {
+              ...TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES,
+            },
         },
         updatedAt: now,
       });
@@ -3146,7 +3884,7 @@ export const recordTelephonyWebhookOutcome = internalMutation({
                 voicemailDetected || attemptProps.voicemailDetected === true,
               transcriptText:
                 normalizedTranscript || attemptProps.transcriptText,
-              error: normalizeOptionalString(args.errorMessage) || attemptProps.error,
+              error: normalizedErrorMessage || attemptProps.error,
             },
             updatedAt: now,
           });
@@ -3249,6 +3987,77 @@ export const recordTelephonyWebhookOutcome = internalMutation({
             });
           }
         }
+      }
+
+      if (normalizedTranscript || Array.isArray(args.transcriptSegments)) {
+        await createTelephonyAuditEvidenceArtifact({
+          ctx: ctx as RouterActionCtx,
+          organizationId: args.organizationId,
+          providerId: auditProviderId,
+          providerCallId,
+          providerConversationId,
+          callRecordId: String(callRecord._id),
+          sourceArtifactId: transcriptArtifactId,
+          missionId: normalizeOptionalString(callProps.missionId),
+          attemptId: normalizeOptionalString(callProps.attemptId),
+          bookingId: normalizeOptionalString(callProps.bookingId),
+          idempotencyKey: normalizeOptionalString(callProps.idempotencyKey),
+          evidenceKind: "transcriptIngestion",
+          mutationSource: "webhook_outcome",
+          recordedAt: now,
+          payload: {
+            priorTranscriptStatus,
+            nextTranscriptStatus: normalizedTranscript ? "captured" : priorTranscriptStatus,
+            priorCapturedAt: priorTranscriptCapturedAt,
+            nextCapturedAt:
+              normalizedTranscript ? now : priorTranscriptCapturedAt,
+            transcriptCharacterCount: normalizedTranscript?.length || 0,
+            transcriptSegmentCount: Array.isArray(args.transcriptSegments)
+              ? args.transcriptSegments.length
+              : 0,
+          },
+        });
+      }
+
+      if (
+        normalizedOutcome ||
+        normalizedDisposition ||
+        typeof args.durationSeconds === "number" ||
+        typeof args.endedAt === "number" ||
+        voicemailDetected ||
+        normalizedErrorMessage
+      ) {
+        await createTelephonyAuditEvidenceArtifact({
+          ctx: ctx as RouterActionCtx,
+          organizationId: args.organizationId,
+          providerId: auditProviderId,
+          providerCallId,
+          providerConversationId,
+          callRecordId: String(callRecord._id),
+          sourceArtifactId: outcomeArtifactId,
+          missionId: normalizeOptionalString(callProps.missionId),
+          attemptId: normalizeOptionalString(callProps.attemptId),
+          bookingId: normalizeOptionalString(callProps.bookingId),
+          idempotencyKey: normalizeOptionalString(callProps.idempotencyKey),
+          evidenceKind: "outcomeMutation",
+          mutationSource: "webhook_outcome",
+          recordedAt: now,
+          payload: {
+            priorOutcome,
+            nextOutcome: normalizedOutcome || priorOutcome,
+            priorDisposition,
+            nextDisposition: normalizedDisposition || priorDisposition,
+            durationSeconds:
+              typeof args.durationSeconds === "number"
+                ? args.durationSeconds
+                : callProps.durationSeconds,
+            endedAt:
+              typeof args.endedAt === "number" ? args.endedAt : callProps.endedAt,
+            voicemailDetected:
+              voicemailDetected || callProps.voicemailDetected === true,
+            errorMessagePresent: Boolean(normalizedErrorMessage),
+          },
+        });
       }
     }
 

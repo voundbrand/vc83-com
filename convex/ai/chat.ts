@@ -4,8 +4,8 @@
  * Main entry point for AI conversations using provider adapters
  */
 
-import { action, internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import { action, internalMutation, internalQuery } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
@@ -58,8 +58,16 @@ import {
   type TrustEventPayload,
 } from "./trustEvents";
 import {
+  EVAL_RUN_FAIL_CLOSED_REASON_CODE_VALUES,
+  EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION,
+  EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME,
+  buildEvalRunLifecycleTrustPayload,
   classifyVoiceProviderFailureReason,
+  normalizeEvalRunLifecycleReasonCodes,
   normalizeVoiceRuntimeTelemetryContract,
+  resolveEvalRunLifecycleTransitionReasonCode,
+  type EvalRunLifecycleNormalizedReasonCode,
+  type EvalRunLifecycleState,
   type VoiceRuntimeTelemetryContract,
   type VoiceRuntimeTelemetryEvent,
 } from "./trustTelemetry";
@@ -444,6 +452,26 @@ interface SuperAdminAgentQaRuntimeContract {
   originSurface?: string;
 }
 
+export const WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION = "wae_eval_run_envelope_v1" as const;
+const WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION = "wae_eval_org_lifecycle_v1" as const;
+const WAE_EVAL_TRACE_PLAYBACK_CONTRACT_VERSION = "wae_eval_run_playback_trace_v1" as const;
+const WAE_EVAL_TRACE_DIFF_CONTRACT_VERSION = "wae_eval_run_diff_trace_v1" as const;
+const WAE_EVAL_PROMOTION_EVIDENCE_PACKET_CONTRACT_VERSION =
+  "wae_eval_promotion_evidence_packet_v1" as const;
+const WAE_EVAL_LIFECYCLE_EVIDENCE_CONTRACT_VERSION = "wae_eval_lifecycle_evidence_v1" as const;
+const WAE_EVAL_ARTIFACT_POINTER_CONTRACT_VERSION = "wae_eval_lifecycle_artifact_pointer_v1" as const;
+const EVAL_RUN_FAIL_CLOSED_REASON_CODE_SET = new Set<string>(
+  EVAL_RUN_FAIL_CLOSED_REASON_CODE_VALUES,
+);
+
+interface EvalRunEnvelopeContext {
+  runId: string;
+  scenarioId?: string;
+  agentId?: string;
+  label?: string;
+  artifactPointer?: string;
+}
+
 const QA_SAMANTHA_AUDIT_QUESTION_ORDER = [
   "business_revenue",
   "team_size",
@@ -602,6 +630,891 @@ function normalizeSuperAdminQaMode(
     ingressChannel: normalizeNonEmptyString(record.ingressChannel),
     originSurface: normalizeNonEmptyString(record.originSurface),
   };
+}
+
+function normalizeEvalRunEnvelopeContext(args: {
+  rawEnvelope: unknown;
+  qaMode?: SuperAdminAgentQaRuntimeContract;
+}): EvalRunEnvelopeContext | undefined {
+  const raw =
+    args.rawEnvelope && typeof args.rawEnvelope === "object" && !Array.isArray(args.rawEnvelope)
+      ? (args.rawEnvelope as Record<string, unknown>)
+      : undefined;
+  const runId =
+    normalizeNonEmptyString(raw?.runId)
+    || normalizeNonEmptyString(args.qaMode?.runId);
+  if (!runId) {
+    return undefined;
+  }
+  return {
+    runId,
+    scenarioId: normalizeNonEmptyString(raw?.scenarioId),
+    agentId:
+      normalizeNonEmptyString(raw?.agentId)
+      || normalizeNonEmptyString(args.qaMode?.targetAgentId),
+    label:
+      normalizeNonEmptyString(raw?.label)
+      || normalizeNonEmptyString(args.qaMode?.label),
+    artifactPointer:
+      normalizeEvalArtifactPointer(raw?.artifactPointer)
+      || normalizeEvalArtifactPointer(raw?.artifactsPointer),
+  };
+}
+
+type EvalToolExecutionStatus =
+  | "proposed"
+  | "approved"
+  | "executing"
+  | "success"
+  | "failed"
+  | "rejected"
+  | "cancelled";
+
+export interface EvalRunTraceToolExecutionRecord {
+  executionId: string;
+  conversationId: string;
+  organizationId: string;
+  userId: string;
+  toolName: string;
+  status: EvalToolExecutionStatus;
+  parameters: unknown;
+  result?: unknown;
+  error?: string;
+  tokensUsed: number;
+  costUsd: number;
+  executedAt: number;
+  durationMs: number;
+  evalEnvelope: {
+    contractVersion: typeof WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION;
+    runId: string;
+    scenarioId?: string;
+    agentId?: string;
+    label?: string;
+    toolCallId?: string;
+    toolCallRound?: number;
+    verdict?: "passed" | "failed" | "blocked";
+    artifactPointer?: string;
+    timings: {
+      turnStartedAt: number;
+      toolStartedAt: number;
+      toolCompletedAt: number;
+      durationMs: number;
+    };
+  };
+}
+
+export interface EvalLifecycleEvidencePaths {
+  contractVersion: typeof WAE_EVAL_LIFECYCLE_EVIDENCE_CONTRACT_VERSION;
+  lifecycleContractVersion: typeof WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION;
+  artifactPointer: string;
+  lifecycleRoot?: string;
+  pinManifestPath: string;
+  createReceiptPath: string;
+  resetReceiptPath: string;
+  teardownReceiptPath: string;
+  evidenceIndexPath: string;
+}
+
+export interface EvalRunPlaybackSummary {
+  runId: string;
+  scenarioId?: string;
+  agentId?: string;
+  label?: string;
+  verdict?: "passed" | "failed" | "blocked";
+  lifecycleState: EvalRunLifecycleState;
+  lifecycleReasonCodes: EvalRunLifecycleNormalizedReasonCode[];
+  totalToolExecutions: number;
+  returnedToolExecutions: number;
+  truncated: boolean;
+  totalDurationMs: number;
+  totalTokensUsed: number;
+  totalCostUsd: number;
+  statusCounts: Record<EvalToolExecutionStatus, number>;
+}
+
+export interface EvalRunPlaybackTracePayload {
+  contractVersion: typeof WAE_EVAL_TRACE_PLAYBACK_CONTRACT_VERSION;
+  envelopeContractVersion: typeof WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION;
+  lifecycleContractVersion: typeof WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION;
+  lifecycleSnapshotContractVersion: typeof EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION;
+  status: "ready" | "blocked";
+  reasonCodes: string[];
+  organizationId: Id<"organizations">;
+  run: EvalRunPlaybackSummary;
+  lifecycleEvidence: EvalLifecycleEvidencePaths | null;
+  toolExecutions: EvalRunTraceToolExecutionRecord[];
+}
+
+export interface EvalRunDiffTracePayload {
+  contractVersion: typeof WAE_EVAL_TRACE_DIFF_CONTRACT_VERSION;
+  envelopeContractVersion: typeof WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION;
+  lifecycleContractVersion: typeof WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION;
+  lifecycleSnapshotContractVersion: typeof EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION;
+  status: "ready" | "blocked";
+  reasonCodes: string[];
+  organizationId: Id<"organizations">;
+  baseline: EvalRunPlaybackSummary;
+  candidate: EvalRunPlaybackSummary;
+  comparison: {
+    verdictChanged: boolean;
+    lifecycleStateChanged: boolean;
+    toolCountDelta: number;
+    durationDeltaMs: number;
+    tokensDelta: number;
+    costDeltaUsd: number;
+    addedTools: string[];
+    removedTools: string[];
+    statusCountDelta: Record<EvalToolExecutionStatus, number>;
+    sequenceDiff: Array<{
+      position: number;
+      changeType: "unchanged" | "modified" | "added" | "removed";
+      baseline?: {
+        toolName: string;
+        status: EvalToolExecutionStatus;
+        verdict?: "passed" | "failed" | "blocked";
+      };
+      candidate?: {
+        toolName: string;
+        status: EvalToolExecutionStatus;
+        verdict?: "passed" | "failed" | "blocked";
+      };
+    }>;
+  };
+}
+
+export interface EvalPromotionEvidencePacketPayload {
+  contractVersion: typeof WAE_EVAL_PROMOTION_EVIDENCE_PACKET_CONTRACT_VERSION;
+  envelopeContractVersion: typeof WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION;
+  lifecycleContractVersion: typeof WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION;
+  lifecycleSnapshotContractVersion: typeof EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION;
+  status: "ready" | "blocked";
+  reasonCodes: string[];
+  organizationId: Id<"organizations">;
+  runId: string;
+  run: EvalRunPlaybackSummary;
+  lifecycleEvidence: EvalLifecycleEvidencePaths | null;
+  evidenceChecklist: {
+    hasArtifactPointer: boolean;
+    hasPinManifest: boolean;
+    hasCreateReceipt: boolean;
+    hasResetReceipt: boolean;
+    hasTeardownReceipt: boolean;
+    hasEvidenceIndex: boolean;
+    hasTraceRows: boolean;
+  };
+  traces: Array<{
+    executionId: string;
+    toolName: string;
+    status: EvalToolExecutionStatus;
+    verdict?: "passed" | "failed" | "blocked";
+    durationMs: number;
+    tokensUsed: number;
+    costUsd: number;
+    toolCallRound?: number;
+    toolCallId?: string;
+  }>;
+}
+
+function collectLexicalReasonCodes(values: Array<string | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeNonEmptyString(value))
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort();
+}
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+export function normalizeEvalArtifactPointer(value: unknown): string | undefined {
+  const raw = normalizeNonEmptyString(value);
+  if (raw) {
+    return raw;
+  }
+  const record = normalizeRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const lifecycleRoot = normalizeNonEmptyString(record.lifecycleRoot);
+  const pinManifestPath = normalizeNonEmptyString(record.pinManifestPath);
+  const createReceiptPath = normalizeNonEmptyString(record.createReceiptPath);
+  const resetReceiptPath = normalizeNonEmptyString(record.resetReceiptPath);
+  const teardownReceiptPath = normalizeNonEmptyString(record.teardownReceiptPath);
+  const evidenceIndexPath = normalizeNonEmptyString(record.evidenceIndexPath);
+  if (
+    !lifecycleRoot
+    && !pinManifestPath
+    && !createReceiptPath
+    && !resetReceiptPath
+    && !teardownReceiptPath
+    && !evidenceIndexPath
+  ) {
+    return undefined;
+  }
+  const normalizedRoot = lifecycleRoot ? trimTrailingSlashes(lifecycleRoot) : undefined;
+  const buildPath = (fileName: string) =>
+    normalizedRoot ? `${normalizedRoot}/${fileName}` : undefined;
+  return JSON.stringify({
+    contractVersion: WAE_EVAL_ARTIFACT_POINTER_CONTRACT_VERSION,
+    lifecycleRoot: normalizedRoot,
+    pinManifestPath: pinManifestPath ?? buildPath("pin-manifest.json"),
+    createReceiptPath: createReceiptPath ?? buildPath("create-receipt.json"),
+    resetReceiptPath: resetReceiptPath ?? buildPath("reset-receipt.json"),
+    teardownReceiptPath: teardownReceiptPath ?? buildPath("teardown-receipt.json"),
+    evidenceIndexPath: evidenceIndexPath ?? buildPath("evidence-index.json"),
+  });
+}
+
+export function resolveEvalLifecycleEvidence(args: {
+  artifactPointer?: string;
+}): { evidence: EvalLifecycleEvidencePaths | null; reasonCodes: string[] } {
+  const pointer = normalizeNonEmptyString(args.artifactPointer);
+  if (!pointer) {
+    return {
+      evidence: null,
+      reasonCodes: ["missing_artifact_pointer"],
+    };
+  }
+
+  const fromStructuredPointer = (() => {
+    if (!pointer.startsWith("{")) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(pointer) as Record<string, unknown>;
+      if (
+        normalizeNonEmptyString(parsed.contractVersion)
+        !== WAE_EVAL_ARTIFACT_POINTER_CONTRACT_VERSION
+      ) {
+        return null;
+      }
+      const lifecycleRootRaw = normalizeNonEmptyString(parsed.lifecycleRoot);
+      const lifecycleRoot = lifecycleRootRaw ? trimTrailingSlashes(lifecycleRootRaw) : undefined;
+      const buildPath = (fileName: string) =>
+        lifecycleRoot ? `${lifecycleRoot}/${fileName}` : undefined;
+      const pinManifestPath =
+        normalizeNonEmptyString(parsed.pinManifestPath) ?? buildPath("pin-manifest.json");
+      const createReceiptPath =
+        normalizeNonEmptyString(parsed.createReceiptPath) ?? buildPath("create-receipt.json");
+      const resetReceiptPath =
+        normalizeNonEmptyString(parsed.resetReceiptPath) ?? buildPath("reset-receipt.json");
+      const teardownReceiptPath =
+        normalizeNonEmptyString(parsed.teardownReceiptPath) ?? buildPath("teardown-receipt.json");
+      const evidenceIndexPath =
+        normalizeNonEmptyString(parsed.evidenceIndexPath) ?? buildPath("evidence-index.json");
+      if (
+        !pinManifestPath
+        || !createReceiptPath
+        || !resetReceiptPath
+        || !teardownReceiptPath
+        || !evidenceIndexPath
+      ) {
+        return {
+          evidence: null,
+          reasonCodes: ["missing_lifecycle_evidence_paths"],
+        };
+      }
+      return {
+        evidence: {
+          contractVersion: WAE_EVAL_LIFECYCLE_EVIDENCE_CONTRACT_VERSION,
+          lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+          artifactPointer: pointer,
+          lifecycleRoot,
+          pinManifestPath,
+          createReceiptPath,
+          resetReceiptPath,
+          teardownReceiptPath,
+          evidenceIndexPath,
+        } satisfies EvalLifecycleEvidencePaths,
+        reasonCodes: [],
+      };
+    } catch {
+      return {
+        evidence: null,
+        reasonCodes: ["invalid_artifact_pointer"],
+      };
+    }
+  })();
+  if (fromStructuredPointer) {
+    return fromStructuredPointer;
+  }
+
+  const normalizedPointer = trimTrailingSlashes(pointer);
+  const evidenceIndexSuffix = "/evidence-index.json";
+  const lifecycleRoot = normalizedPointer.endsWith(evidenceIndexSuffix)
+    ? normalizedPointer.slice(0, -evidenceIndexSuffix.length)
+    : normalizedPointer.endsWith("evidence-index.json")
+      ? normalizedPointer.slice(0, -"evidence-index.json".length).replace(/\/+$/, "")
+      : normalizedPointer.includes(".json")
+        ? undefined
+        : normalizedPointer;
+  if (!lifecycleRoot) {
+    return {
+      evidence: null,
+      reasonCodes: ["missing_lifecycle_evidence_paths"],
+    };
+  }
+  return {
+    evidence: {
+      contractVersion: WAE_EVAL_LIFECYCLE_EVIDENCE_CONTRACT_VERSION,
+      lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+      artifactPointer: pointer,
+      lifecycleRoot,
+      pinManifestPath: `${lifecycleRoot}/pin-manifest.json`,
+      createReceiptPath: `${lifecycleRoot}/create-receipt.json`,
+      resetReceiptPath: `${lifecycleRoot}/reset-receipt.json`,
+      teardownReceiptPath: `${lifecycleRoot}/teardown-receipt.json`,
+      evidenceIndexPath: `${lifecycleRoot}/evidence-index.json`,
+    },
+    reasonCodes: [],
+  };
+}
+
+function clampEvalTraceLimit(value: number | undefined): number {
+  const fallback = 500;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(Math.floor(value), 5000));
+}
+
+function compareEvalTraceRows(
+  left: EvalRunTraceToolExecutionRecord,
+  right: EvalRunTraceToolExecutionRecord
+): number {
+  const leftRound = typeof left.evalEnvelope.toolCallRound === "number"
+    ? left.evalEnvelope.toolCallRound
+    : Number.MAX_SAFE_INTEGER;
+  const rightRound = typeof right.evalEnvelope.toolCallRound === "number"
+    ? right.evalEnvelope.toolCallRound
+    : Number.MAX_SAFE_INTEGER;
+  if (leftRound !== rightRound) {
+    return leftRound - rightRound;
+  }
+  if (left.evalEnvelope.timings.toolStartedAt !== right.evalEnvelope.timings.toolStartedAt) {
+    return left.evalEnvelope.timings.toolStartedAt - right.evalEnvelope.timings.toolStartedAt;
+  }
+  if (left.executedAt !== right.executedAt) {
+    return left.executedAt - right.executedAt;
+  }
+  return left.executionId.localeCompare(right.executionId);
+}
+
+function coerceEvalToolExecutionStatus(value: unknown): EvalToolExecutionStatus | null {
+  return value === "proposed"
+    || value === "approved"
+    || value === "executing"
+    || value === "success"
+    || value === "failed"
+    || value === "rejected"
+    || value === "cancelled"
+    ? value
+    : null;
+}
+
+export function toEvalRunTraceRecord(
+  doc: Doc<"aiToolExecutions">
+): EvalRunTraceToolExecutionRecord | null {
+  const envelope =
+    doc.evalEnvelope
+    && typeof doc.evalEnvelope === "object"
+    && !Array.isArray(doc.evalEnvelope)
+      ? (doc.evalEnvelope as Record<string, unknown>)
+      : null;
+  if (!envelope) {
+    return null;
+  }
+  const contractVersion = normalizeNonEmptyString(envelope.contractVersion);
+  const runId = normalizeNonEmptyString(envelope.runId);
+  const toolStartedAt =
+    typeof envelope.timings === "object"
+    && envelope.timings
+    && !Array.isArray(envelope.timings)
+      ? (envelope.timings as Record<string, unknown>).toolStartedAt
+      : undefined;
+  const toolCompletedAt =
+    typeof envelope.timings === "object"
+    && envelope.timings
+    && !Array.isArray(envelope.timings)
+      ? (envelope.timings as Record<string, unknown>).toolCompletedAt
+      : undefined;
+  const turnStartedAt =
+    typeof envelope.timings === "object"
+    && envelope.timings
+    && !Array.isArray(envelope.timings)
+      ? (envelope.timings as Record<string, unknown>).turnStartedAt
+      : undefined;
+  const durationMs =
+    typeof envelope.timings === "object"
+    && envelope.timings
+    && !Array.isArray(envelope.timings)
+      ? (envelope.timings as Record<string, unknown>).durationMs
+      : undefined;
+  const status = coerceEvalToolExecutionStatus(doc.status);
+  if (
+    contractVersion !== WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION
+    || !runId
+    || typeof turnStartedAt !== "number"
+    || typeof toolStartedAt !== "number"
+    || typeof toolCompletedAt !== "number"
+    || typeof durationMs !== "number"
+    || !status
+  ) {
+    return null;
+  }
+  const verdictRaw = normalizeNonEmptyString(envelope.verdict);
+  const verdict =
+    verdictRaw === "passed" || verdictRaw === "failed" || verdictRaw === "blocked"
+      ? verdictRaw
+      : undefined;
+  return {
+    executionId: String(doc._id),
+    conversationId: String(doc.conversationId),
+    organizationId: String(doc.organizationId),
+    userId: String(doc.userId),
+    toolName: doc.toolName,
+    status,
+    parameters: doc.parameters,
+    result: doc.result,
+    error: doc.error,
+    tokensUsed: doc.tokensUsed,
+    costUsd: doc.costUsd,
+    executedAt: doc.executedAt,
+    durationMs: doc.durationMs,
+    evalEnvelope: {
+      contractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+      runId,
+      scenarioId: normalizeNonEmptyString(envelope.scenarioId),
+      agentId: normalizeNonEmptyString(envelope.agentId),
+      label: normalizeNonEmptyString(envelope.label),
+      toolCallId: normalizeNonEmptyString(envelope.toolCallId),
+      toolCallRound:
+        typeof envelope.toolCallRound === "number"
+          ? envelope.toolCallRound
+          : undefined,
+      verdict,
+      artifactPointer: normalizeNonEmptyString(envelope.artifactPointer),
+      timings: {
+        turnStartedAt,
+        toolStartedAt,
+        toolCompletedAt,
+        durationMs,
+      },
+    },
+  };
+}
+
+function buildEmptyStatusCounts(): Record<EvalToolExecutionStatus, number> {
+  return {
+    proposed: 0,
+    approved: 0,
+    executing: 0,
+    success: 0,
+    failed: 0,
+    rejected: 0,
+    cancelled: 0,
+  };
+}
+
+function resolveRunVerdict(
+  traces: EvalRunTraceToolExecutionRecord[]
+): "passed" | "failed" | "blocked" | undefined {
+  let verdict: "passed" | "failed" | "blocked" | undefined;
+  for (const trace of traces) {
+    if (trace.evalEnvelope.verdict === "failed") {
+      return "failed";
+    }
+    if (trace.evalEnvelope.verdict === "blocked") {
+      verdict = "blocked";
+      continue;
+    }
+    if (trace.evalEnvelope.verdict === "passed" && !verdict) {
+      verdict = "passed";
+    }
+  }
+  return verdict;
+}
+
+function collectEvalLifecycleEvidenceReasonCodes(
+  lifecycleEvidence: EvalLifecycleEvidencePaths | null,
+): EvalRunLifecycleNormalizedReasonCode[] {
+  if (!lifecycleEvidence) {
+    return [
+      "missing_lifecycle_evidence",
+      "missing_pin_manifest",
+      "missing_create_receipt",
+      "missing_reset_receipt",
+      "missing_teardown_receipt",
+      "missing_evidence_index",
+    ];
+  }
+  const reasonCodes: string[] = [];
+  if (!normalizeNonEmptyString(lifecycleEvidence.pinManifestPath)) {
+    reasonCodes.push("missing_pin_manifest");
+  }
+  if (!normalizeNonEmptyString(lifecycleEvidence.createReceiptPath)) {
+    reasonCodes.push("missing_create_receipt");
+  }
+  if (!normalizeNonEmptyString(lifecycleEvidence.resetReceiptPath)) {
+    reasonCodes.push("missing_reset_receipt");
+  }
+  if (!normalizeNonEmptyString(lifecycleEvidence.teardownReceiptPath)) {
+    reasonCodes.push("missing_teardown_receipt");
+  }
+  if (!normalizeNonEmptyString(lifecycleEvidence.evidenceIndexPath)) {
+    reasonCodes.push("missing_evidence_index");
+  }
+  return normalizeEvalRunLifecycleReasonCodes(reasonCodes);
+}
+
+function hasEvalRunFailClosedReasonCodes(
+  reasonCodes: EvalRunLifecycleNormalizedReasonCode[],
+): boolean {
+  return reasonCodes.some((reasonCode) =>
+    reasonCode !== "unknown_reason"
+    && EVAL_RUN_FAIL_CLOSED_REASON_CODE_SET.has(reasonCode),
+  );
+}
+
+function resolveEvalRunLifecycleStateForPlayback(args: {
+  verdict?: "passed" | "failed" | "blocked";
+  statusCounts: Record<EvalToolExecutionStatus, number>;
+  totalToolExecutions: number;
+  reasonCodes: EvalRunLifecycleNormalizedReasonCode[];
+}): EvalRunLifecycleState {
+  if (hasEvalRunFailClosedReasonCodes(args.reasonCodes)) {
+    return "blocked";
+  }
+  if (args.verdict === "failed") {
+    return "failed";
+  }
+  if (args.verdict === "blocked") {
+    return "blocked";
+  }
+  if (args.verdict === "passed") {
+    return "passed";
+  }
+  if (args.statusCounts.executing > 0 || args.statusCounts.approved > 0) {
+    return "running";
+  }
+  if (args.totalToolExecutions > 0) {
+    return "running";
+  }
+  return "queued";
+}
+
+function resolveEvalRunLifecycleReasonCodesForState(args: {
+  state: EvalRunLifecycleState;
+  reasonCodes: EvalRunLifecycleNormalizedReasonCode[];
+}): EvalRunLifecycleNormalizedReasonCode[] {
+  if (args.reasonCodes.length > 0) {
+    return args.reasonCodes;
+  }
+  return normalizeEvalRunLifecycleReasonCodes([
+    resolveEvalRunLifecycleTransitionReasonCode(args.state),
+  ]);
+}
+
+export function buildEvalRunPlaybackTracePayload(args: {
+  organizationId: Id<"organizations">;
+  runId: string;
+  traces: EvalRunTraceToolExecutionRecord[];
+  limit?: number;
+}): EvalRunPlaybackTracePayload {
+  const sorted = [...args.traces].sort(compareEvalTraceRows);
+  const clampedLimit = clampEvalTraceLimit(args.limit);
+  const returned = sorted.slice(0, clampedLimit);
+  const reasonCodes: string[] = [];
+  if (sorted.length === 0) {
+    reasonCodes.push("eval_run_not_found");
+  }
+
+  const scenarioValues = collectLexicalReasonCodes(
+    sorted.map((entry) => entry.evalEnvelope.scenarioId)
+  );
+  if (scenarioValues.length > 1) {
+    reasonCodes.push("scenario_id_mismatch");
+  }
+  const agentValues = collectLexicalReasonCodes(
+    sorted.map((entry) => entry.evalEnvelope.agentId)
+  );
+  if (agentValues.length > 1) {
+    reasonCodes.push("agent_id_mismatch");
+  }
+  const labelValues = collectLexicalReasonCodes(
+    sorted.map((entry) => entry.evalEnvelope.label)
+  );
+  if (labelValues.length > 1) {
+    reasonCodes.push("label_mismatch");
+  }
+
+  const lifecycleCandidates = sorted.map((entry) =>
+    resolveEvalLifecycleEvidence({
+      artifactPointer: entry.evalEnvelope.artifactPointer,
+    })
+  );
+  for (const candidate of lifecycleCandidates) {
+    reasonCodes.push(...candidate.reasonCodes);
+  }
+  const uniqueLifecycleSignatures = Array.from(
+    new Set(
+      lifecycleCandidates
+        .map((candidate) =>
+          candidate.evidence
+            ? [
+              candidate.evidence.pinManifestPath,
+              candidate.evidence.createReceiptPath,
+              candidate.evidence.resetReceiptPath,
+              candidate.evidence.teardownReceiptPath,
+              candidate.evidence.evidenceIndexPath,
+            ].join("|")
+            : null
+        )
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  if (uniqueLifecycleSignatures.length > 1) {
+    reasonCodes.push("lifecycle_evidence_mismatch");
+  }
+  const lifecycleEvidence = lifecycleCandidates.find((candidate) => candidate.evidence)?.evidence ?? null;
+  if (!lifecycleEvidence) {
+    reasonCodes.push("missing_lifecycle_evidence");
+  }
+  reasonCodes.push(...collectEvalLifecycleEvidenceReasonCodes(lifecycleEvidence));
+
+  const statusCounts = buildEmptyStatusCounts();
+  let totalDurationMs = 0;
+  let totalTokensUsed = 0;
+  let totalCostUsd = 0;
+  for (const trace of sorted) {
+    statusCounts[trace.status] += 1;
+    totalDurationMs += trace.durationMs;
+    totalTokensUsed += trace.tokensUsed;
+    totalCostUsd += trace.costUsd;
+  }
+
+  const verdict = resolveRunVerdict(sorted);
+  const normalizedReasonCodes = normalizeEvalRunLifecycleReasonCodes(reasonCodes);
+  const lifecycleState = resolveEvalRunLifecycleStateForPlayback({
+    verdict,
+    statusCounts,
+    totalToolExecutions: sorted.length,
+    reasonCodes: normalizedReasonCodes,
+  });
+  const lifecycleReasonCodes = resolveEvalRunLifecycleReasonCodesForState({
+    state: lifecycleState,
+    reasonCodes: normalizedReasonCodes,
+  });
+
+  const run: EvalRunPlaybackSummary = {
+    runId: args.runId,
+    scenarioId: scenarioValues[0],
+    agentId: agentValues[0],
+    label: labelValues[0],
+    verdict,
+    lifecycleState,
+    lifecycleReasonCodes,
+    totalToolExecutions: sorted.length,
+    returnedToolExecutions: returned.length,
+    truncated: sorted.length > returned.length,
+    totalDurationMs,
+    totalTokensUsed,
+    totalCostUsd: Number(totalCostUsd.toFixed(6)),
+    statusCounts,
+  };
+
+  return {
+    contractVersion: WAE_EVAL_TRACE_PLAYBACK_CONTRACT_VERSION,
+    envelopeContractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+    lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+    lifecycleSnapshotContractVersion: EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION,
+    status: normalizedReasonCodes.length > 0 ? "blocked" : "ready",
+    reasonCodes: normalizedReasonCodes,
+    organizationId: args.organizationId,
+    run,
+    lifecycleEvidence,
+    toolExecutions: returned,
+  };
+}
+
+export function buildEvalRunDiffTracePayload(args: {
+  organizationId: Id<"organizations">;
+  baselineRunId: string;
+  candidateRunId: string;
+  baselineTraces: EvalRunTraceToolExecutionRecord[];
+  candidateTraces: EvalRunTraceToolExecutionRecord[];
+  limit?: number;
+}): EvalRunDiffTracePayload {
+  const baseline = buildEvalRunPlaybackTracePayload({
+    organizationId: args.organizationId,
+    runId: args.baselineRunId,
+    traces: args.baselineTraces,
+    limit: args.limit,
+  });
+  const candidate = buildEvalRunPlaybackTracePayload({
+    organizationId: args.organizationId,
+    runId: args.candidateRunId,
+    traces: args.candidateTraces,
+    limit: args.limit,
+  });
+  const baselineTools = collectLexicalReasonCodes(
+    baseline.toolExecutions.map((entry) => entry.toolName)
+  );
+  const candidateTools = collectLexicalReasonCodes(
+    candidate.toolExecutions.map((entry) => entry.toolName)
+  );
+  const sequenceDiffLimit = Math.max(
+    baseline.toolExecutions.length,
+    candidate.toolExecutions.length
+  );
+  const sequenceDiff = Array.from({ length: sequenceDiffLimit }, (_, index) => {
+    const baselineEntry = baseline.toolExecutions[index];
+    const candidateEntry = candidate.toolExecutions[index];
+    if (baselineEntry && candidateEntry) {
+      const unchanged =
+        baselineEntry.toolName === candidateEntry.toolName
+        && baselineEntry.status === candidateEntry.status
+        && baselineEntry.evalEnvelope.verdict === candidateEntry.evalEnvelope.verdict;
+      return {
+        position: index + 1,
+        changeType: unchanged ? "unchanged" : "modified",
+        baseline: {
+          toolName: baselineEntry.toolName,
+          status: baselineEntry.status,
+          verdict: baselineEntry.evalEnvelope.verdict,
+        },
+        candidate: {
+          toolName: candidateEntry.toolName,
+          status: candidateEntry.status,
+          verdict: candidateEntry.evalEnvelope.verdict,
+        },
+      } as const;
+    }
+    if (baselineEntry) {
+      return {
+        position: index + 1,
+        changeType: "removed",
+        baseline: {
+          toolName: baselineEntry.toolName,
+          status: baselineEntry.status,
+          verdict: baselineEntry.evalEnvelope.verdict,
+        },
+      } as const;
+    }
+    return {
+      position: index + 1,
+      changeType: "added",
+      candidate: {
+        toolName: candidateEntry!.toolName,
+        status: candidateEntry!.status,
+        verdict: candidateEntry!.evalEnvelope.verdict,
+      },
+    } as const;
+  });
+  const statusCountDelta = buildEmptyStatusCounts();
+  (Object.keys(statusCountDelta) as EvalToolExecutionStatus[]).forEach((key) => {
+    statusCountDelta[key] =
+      candidate.run.statusCounts[key] - baseline.run.statusCounts[key];
+  });
+  const reasonCodes = collectLexicalReasonCodes([
+    ...baseline.reasonCodes.map((code) => `baseline:${code}`),
+    ...candidate.reasonCodes.map((code) => `candidate:${code}`),
+  ]);
+  return {
+    contractVersion: WAE_EVAL_TRACE_DIFF_CONTRACT_VERSION,
+    envelopeContractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+    lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+    lifecycleSnapshotContractVersion: EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION,
+    status: reasonCodes.length > 0 ? "blocked" : "ready",
+    reasonCodes,
+    organizationId: args.organizationId,
+    baseline: baseline.run,
+    candidate: candidate.run,
+    comparison: {
+      verdictChanged: baseline.run.verdict !== candidate.run.verdict,
+      lifecycleStateChanged:
+        baseline.run.lifecycleState !== candidate.run.lifecycleState,
+      toolCountDelta:
+        candidate.run.totalToolExecutions - baseline.run.totalToolExecutions,
+      durationDeltaMs: candidate.run.totalDurationMs - baseline.run.totalDurationMs,
+      tokensDelta: candidate.run.totalTokensUsed - baseline.run.totalTokensUsed,
+      costDeltaUsd: Number(
+        (candidate.run.totalCostUsd - baseline.run.totalCostUsd).toFixed(6)
+      ),
+      addedTools: candidateTools.filter((tool) => !baselineTools.includes(tool)),
+      removedTools: baselineTools.filter((tool) => !candidateTools.includes(tool)),
+      statusCountDelta,
+      sequenceDiff,
+    },
+  };
+}
+
+export function buildEvalPromotionEvidencePacket(args: {
+  organizationId: Id<"organizations">;
+  runId: string;
+  traces: EvalRunTraceToolExecutionRecord[];
+  limit?: number;
+}): EvalPromotionEvidencePacketPayload {
+  const playback = buildEvalRunPlaybackTracePayload({
+    organizationId: args.organizationId,
+    runId: args.runId,
+    traces: args.traces,
+    limit: args.limit,
+  });
+  const lifecycleEvidence = playback.lifecycleEvidence;
+  const evidenceChecklist = {
+    hasArtifactPointer: Boolean(lifecycleEvidence?.artifactPointer),
+    hasPinManifest: Boolean(lifecycleEvidence?.pinManifestPath),
+    hasCreateReceipt: Boolean(lifecycleEvidence?.createReceiptPath),
+    hasResetReceipt: Boolean(lifecycleEvidence?.resetReceiptPath),
+    hasTeardownReceipt: Boolean(lifecycleEvidence?.teardownReceiptPath),
+    hasEvidenceIndex: Boolean(lifecycleEvidence?.evidenceIndexPath),
+    hasTraceRows: playback.run.totalToolExecutions > 0,
+  };
+  return {
+    contractVersion: WAE_EVAL_PROMOTION_EVIDENCE_PACKET_CONTRACT_VERSION,
+    envelopeContractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+    lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+    lifecycleSnapshotContractVersion: EVAL_RUN_LIFECYCLE_SNAPSHOT_CONTRACT_VERSION,
+    status: playback.status,
+    reasonCodes: playback.reasonCodes,
+    organizationId: args.organizationId,
+    runId: args.runId,
+    run: playback.run,
+    lifecycleEvidence,
+    evidenceChecklist,
+    traces: playback.toolExecutions.map((trace) => ({
+      executionId: trace.executionId,
+      toolName: trace.toolName,
+      status: trace.status,
+      verdict: trace.evalEnvelope.verdict,
+      durationMs: trace.durationMs,
+      tokensUsed: trace.tokensUsed,
+      costUsd: trace.costUsd,
+      toolCallRound: trace.evalEnvelope.toolCallRound,
+      toolCallId: trace.evalEnvelope.toolCallId,
+    })),
+  };
+}
+
+async function loadEvalRunTraceRows(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  runId: string;
+}): Promise<EvalRunTraceToolExecutionRecord[]> {
+  const rows = await args.ctx.db
+    .query("aiToolExecutions")
+    .withIndex("by_org_eval_run_id", (q: any) =>
+      q.eq("organizationId", args.organizationId).eq("evalEnvelope.runId", args.runId)
+    )
+    .collect() as Doc<"aiToolExecutions">[];
+  return rows
+    .map((row) => toEvalRunTraceRecord(row))
+    .filter((row): row is EvalRunTraceToolExecutionRecord => Boolean(row));
 }
 
 function isSamanthaQaTemplateRole(value: string | undefined): boolean {
@@ -812,6 +1725,13 @@ function normalizeVoiceRuntimeProviderToken(value: unknown): string {
   return normalized.replace(/[^a-z0-9_:-]/g, "_");
 }
 
+function normalizeNonNegativeInteger(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
 function resolveVoiceRuntimeTelemetryContractFromInbound(args: {
   liveSessionId?: unknown;
   voiceRuntime?: unknown;
@@ -901,6 +1821,187 @@ function buildAdaptiveDecisionFromTelemetryEvent(event: VoiceRuntimeTelemetryEve
   };
 }
 
+interface VoiceTurnVisionTelemetrySnapshot {
+  contractVersion: string;
+  status: "attached" | "degraded";
+  reason: string;
+  source?: string;
+  freshnessBucket?: string;
+  frameAgeMs?: number;
+  maxFrameAgeMs?: number;
+  attached: boolean;
+}
+
+function resolveVoiceTurnVisionTelemetrySnapshot(args: {
+  voiceRuntime?: Record<string, unknown>;
+}): VoiceTurnVisionTelemetrySnapshot | null {
+  const resolution = normalizeRecord(args.voiceRuntime?.visionFrameResolution);
+  if (!resolution) {
+    return null;
+  }
+  const telemetry = normalizeRecord(resolution.telemetry);
+  const statusToken = normalizeNonEmptyString(resolution.status)?.toLowerCase();
+  if (statusToken !== "attached" && statusToken !== "degraded") {
+    return null;
+  }
+
+  const frame = normalizeRecord(resolution.frame);
+  const frameStorageUrl = normalizeNonEmptyString(frame?.storageUrl);
+  const hasAttachableFrame = statusToken === "attached" && Boolean(frameStorageUrl);
+  const normalizedReason =
+    normalizeNonEmptyString(resolution.reason)?.toLowerCase()
+    ?? normalizeNonEmptyString(telemetry?.reason)?.toLowerCase();
+  const reason =
+    hasAttachableFrame
+      ? "attached"
+      : statusToken === "attached"
+        ? "vision_frame_dropped_storage_url_missing"
+        : normalizedReason ?? "vision_frame_missing";
+  const source = normalizeNonEmptyString(telemetry?.source)?.toLowerCase();
+  const freshnessBucket = normalizeNonEmptyString(
+    telemetry?.freshnessBucket,
+  )?.toLowerCase();
+  const frameAgeMs = normalizeNonNegativeInteger(
+    telemetry?.frameAgeMs
+    ?? resolution.freshestCandidateAgeMs
+    ?? frame?.ageMs,
+  );
+  const maxFrameAgeMs = normalizeNonNegativeInteger(
+    telemetry?.maxFrameAgeMs ?? resolution.maxFrameAgeMs,
+  );
+  const contractVersion =
+    normalizeNonEmptyString(telemetry?.contractVersion)
+    ?? "web_chat_vision_attachment_telemetry_v1";
+
+  return {
+    contractVersion,
+    status: hasAttachableFrame ? "attached" : "degraded",
+    reason,
+    source,
+    freshnessBucket,
+    frameAgeMs,
+    maxFrameAgeMs,
+    attached: hasAttachableFrame,
+  };
+}
+
+function resolveVoiceSessionIdFromTelemetryCorrelationKey(
+  value: unknown,
+): string | undefined {
+  const correlationKey = normalizeNonEmptyString(value);
+  if (!correlationKey) {
+    return undefined;
+  }
+  const separatorIndex = correlationKey.lastIndexOf("::");
+  if (separatorIndex < 0) {
+    return undefined;
+  }
+  const sessionToken = correlationKey.slice(separatorIndex + 2);
+  return normalizeNonEmptyString(sessionToken) ?? undefined;
+}
+
+function buildDerivedVoiceSessionIdFromLiveSession(
+  liveSessionId: unknown,
+): string | undefined {
+  const normalizedLiveSessionId = normalizeNonEmptyString(liveSessionId);
+  if (!normalizedLiveSessionId) {
+    return undefined;
+  }
+  return `derived_from_live:${normalizedLiveSessionId}`;
+}
+
+function resolveVoiceRuntimeTrustEventVoiceSessionId(args: {
+  contract?: VoiceRuntimeTelemetryContract | null;
+  liveSessionId?: unknown;
+  voiceRuntime?: unknown;
+  transportRuntime?: unknown;
+  avObservability?: unknown;
+}): string | undefined {
+  const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const transportRuntime = normalizeRecord(args.transportRuntime);
+  const voiceTransportRuntime = normalizeRecord(transportRuntime?.voiceTransportRuntime);
+  const avObservability = normalizeRecord(args.avObservability);
+  const telemetryCandidate = normalizeRecord(
+    voiceTransportRuntime?.telemetry
+      ?? transportRuntime?.telemetry
+      ?? avObservability?.voiceRuntimeTelemetry,
+  );
+
+  return (
+    normalizeNonEmptyString(args.contract?.voiceSessionId)
+    ?? normalizeNonEmptyString(voiceRuntime?.voiceSessionId)
+    ?? normalizeNonEmptyString(voiceRuntime?.sessionId)
+    ?? normalizeNonEmptyString(voiceTransportRuntime?.voiceSessionId)
+    ?? normalizeNonEmptyString(transportRuntime?.voiceSessionId)
+    ?? normalizeNonEmptyString(avObservability?.voiceSessionId)
+    ?? normalizeNonEmptyString(telemetryCandidate?.voiceSessionId)
+    ?? resolveVoiceSessionIdFromTelemetryCorrelationKey(
+      telemetryCandidate?.correlationKey,
+    )
+    ?? resolveVoiceSessionIdFromTelemetryCorrelationKey(
+      avObservability?.voiceRuntimeTelemetryCorrelationKey,
+    )
+    ?? buildDerivedVoiceSessionIdFromLiveSession(
+      normalizeNonEmptyString(args.liveSessionId)
+      ?? normalizeNonEmptyString(voiceRuntime?.liveSessionId)
+      ?? normalizeNonEmptyString(voiceTransportRuntime?.liveSessionId)
+      ?? normalizeNonEmptyString(transportRuntime?.liveSessionId)
+      ?? normalizeNonEmptyString(avObservability?.liveSessionId)
+      ?? normalizeNonEmptyString(telemetryCandidate?.liveSessionId),
+    )
+  );
+}
+
+function buildVoiceTurnVisionAdaptiveTrustEvent(args: {
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  sessionId: Id<"agentSessions">;
+  channel: string;
+  voiceSessionId?: string;
+  voiceRuntime?: Record<string, unknown>;
+  occurredAtMs: number;
+}): PersistedVoiceRuntimeTelemetryTrustEvent | null {
+  const voiceSessionId = normalizeNonEmptyString(args.voiceSessionId);
+  if (!voiceSessionId) {
+    return null;
+  }
+  const vision = resolveVoiceTurnVisionTelemetrySnapshot({
+    voiceRuntime: args.voiceRuntime,
+  });
+  if (!vision) {
+    return null;
+  }
+
+  return {
+    eventName: VOICE_TRUST_ADAPTIVE_EVENT_NAME,
+    payload: {
+      event_id: `${VOICE_TRUST_ADAPTIVE_EVENT_NAME}:vision:${voiceSessionId}:${args.occurredAtMs}`,
+      event_version: TRUST_EVENT_TAXONOMY_VERSION,
+      occurred_at: args.occurredAtMs,
+      org_id: args.organizationId,
+      mode: "runtime",
+      channel: args.channel,
+      session_id: String(args.sessionId),
+      actor_type: "user",
+      actor_id: String(args.userId),
+      voice_session_id: voiceSessionId,
+      adaptive_phase_id: "vision_turn_attachment",
+      adaptive_decision: vision.attached ? "vision_frame_attached" : vision.reason,
+      adaptive_confidence: 1,
+      consent_checkpoint_id: vision.contractVersion,
+      decision_reason: vision.reason,
+      vision_attachment_contract_version: vision.contractVersion,
+      vision_frame_status: vision.status,
+      vision_frame_reason: vision.reason,
+      vision_frame_source: vision.source ?? null,
+      vision_frame_freshness_bucket: vision.freshnessBucket ?? null,
+      vision_frame_age_ms: vision.frameAgeMs ?? null,
+      vision_frame_max_age_ms: vision.maxFrameAgeMs ?? null,
+      vision_frame_attached: vision.attached,
+    },
+  };
+}
+
 export function buildVoiceRuntimeTelemetryTrustEventPayloads(args: {
   organizationId: Id<"organizations">;
   userId: Id<"users">;
@@ -918,11 +2019,15 @@ export function buildVoiceRuntimeTelemetryTrustEventPayloads(args: {
     transportRuntime: args.transportRuntime,
     avObservability: args.avObservability,
   });
-  if (!contract || contract.events.length === 0) {
-    return [];
-  }
-
   const voiceRuntime = normalizeRecord(args.voiceRuntime);
+  const avObservability = normalizeRecord(args.avObservability);
+  const resolvedVoiceSessionId = resolveVoiceRuntimeTrustEventVoiceSessionId({
+    contract,
+    liveSessionId: args.liveSessionId,
+    voiceRuntime,
+    transportRuntime: args.transportRuntime,
+    avObservability,
+  });
   const baselineProviderId = normalizeVoiceRuntimeProviderToken(
     voiceRuntime?.providerId
   );
@@ -932,22 +2037,46 @@ export function buildVoiceRuntimeTelemetryTrustEventPayloads(args: {
       : Date.now();
   const events: PersistedVoiceRuntimeTelemetryTrustEvent[] = [];
 
-  for (const event of contract.events) {
-    const payload = normalizeRecord(event.payload);
-    if (event.eventType === "provider_failure") {
-      const runtimeProvider = normalizeVoiceRuntimeProviderToken(
-        payload?.providerId ?? baselineProviderId
-      );
-      const fallbackProvider = normalizeVoiceRuntimeProviderToken(
-        payload?.fallbackProviderId ?? "browser"
-      );
-      const failureClassification = classifyVoiceProviderFailureReason(
-        payload?.reasonCode
-      );
+  if (contract && contract.events.length > 0) {
+    for (const event of contract.events) {
+      const payload = normalizeRecord(event.payload);
+      if (event.eventType === "provider_failure") {
+        const runtimeProvider = normalizeVoiceRuntimeProviderToken(
+          payload?.providerId ?? baselineProviderId
+        );
+        const fallbackProvider = normalizeVoiceRuntimeProviderToken(
+          payload?.fallbackProviderId ?? "browser"
+        );
+        const failureClassification = classifyVoiceProviderFailureReason(
+          payload?.reasonCode
+        );
+        events.push({
+          eventName: VOICE_TRUST_FAILOVER_EVENT_NAME,
+          payload: {
+            event_id: `${VOICE_TRUST_FAILOVER_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
+            event_version: TRUST_EVENT_TAXONOMY_VERSION,
+            occurred_at: event.occurredAtMs || baseOccurredAt,
+            org_id: args.organizationId,
+            mode: "runtime",
+            channel: args.channel,
+            session_id: String(args.sessionId),
+            actor_type: "user",
+            actor_id: String(args.userId),
+            voice_session_id: contract.voiceSessionId,
+            voice_runtime_provider: runtimeProvider,
+            voice_failover_provider: fallbackProvider,
+            voice_failover_reason: failureClassification.reasonCode,
+            voice_provider_health_status: failureClassification.healthStatus,
+          },
+        });
+        continue;
+      }
+
+      const adaptive = buildAdaptiveDecisionFromTelemetryEvent(event);
       events.push({
-        eventName: VOICE_TRUST_FAILOVER_EVENT_NAME,
+        eventName: VOICE_TRUST_ADAPTIVE_EVENT_NAME,
         payload: {
-          event_id: `${VOICE_TRUST_FAILOVER_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
+          event_id: `${VOICE_TRUST_ADAPTIVE_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
           event_version: TRUST_EVENT_TAXONOMY_VERSION,
           occurred_at: event.occurredAtMs || baseOccurredAt,
           org_id: args.organizationId,
@@ -957,35 +2086,26 @@ export function buildVoiceRuntimeTelemetryTrustEventPayloads(args: {
           actor_type: "user",
           actor_id: String(args.userId),
           voice_session_id: contract.voiceSessionId,
-          voice_runtime_provider: runtimeProvider,
-          voice_failover_provider: fallbackProvider,
-          voice_failover_reason: failureClassification.reasonCode,
-          voice_provider_health_status: failureClassification.healthStatus,
+          adaptive_phase_id: adaptive.phaseId,
+          adaptive_decision: adaptive.decision,
+          adaptive_confidence: adaptive.confidence,
+          consent_checkpoint_id: contract.contractVersion,
         },
       });
-      continue;
     }
+  }
 
-    const adaptive = buildAdaptiveDecisionFromTelemetryEvent(event);
-    events.push({
-      eventName: VOICE_TRUST_ADAPTIVE_EVENT_NAME,
-      payload: {
-        event_id: `${VOICE_TRUST_ADAPTIVE_EVENT_NAME}:${event.eventId}:${baseOccurredAt}`,
-        event_version: TRUST_EVENT_TAXONOMY_VERSION,
-        occurred_at: event.occurredAtMs || baseOccurredAt,
-        org_id: args.organizationId,
-        mode: "runtime",
-        channel: args.channel,
-        session_id: String(args.sessionId),
-        actor_type: "user",
-        actor_id: String(args.userId),
-        voice_session_id: contract.voiceSessionId,
-        adaptive_phase_id: adaptive.phaseId,
-        adaptive_decision: adaptive.decision,
-        adaptive_confidence: adaptive.confidence,
-        consent_checkpoint_id: contract.contractVersion,
-      },
-    });
+  const visionAdaptiveEvent = buildVoiceTurnVisionAdaptiveTrustEvent({
+    organizationId: args.organizationId,
+    userId: args.userId,
+    sessionId: args.sessionId,
+    channel: args.channel,
+    voiceSessionId: resolvedVoiceSessionId,
+    voiceRuntime,
+    occurredAtMs: baseOccurredAt,
+  });
+  if (visionAdaptiveEvent) {
+    events.push(visionAdaptiveEvent);
   }
 
   return events;
@@ -1888,6 +3008,79 @@ export const resolveVoiceRuntimeSession = action({
   },
 });
 
+export const getEvalRunPlaybackTraceInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<EvalRunPlaybackTracePayload> => {
+    const traces = await loadEvalRunTraceRows({
+      ctx,
+      organizationId: args.organizationId,
+      runId: args.runId,
+    });
+    return buildEvalRunPlaybackTracePayload({
+      organizationId: args.organizationId,
+      runId: args.runId,
+      traces,
+      limit: args.limit,
+    });
+  },
+});
+
+export const getEvalRunDiffTraceInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    baselineRunId: v.string(),
+    candidateRunId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<EvalRunDiffTracePayload> => {
+    const [baselineTraces, candidateTraces] = await Promise.all([
+      loadEvalRunTraceRows({
+        ctx,
+        organizationId: args.organizationId,
+        runId: args.baselineRunId,
+      }),
+      loadEvalRunTraceRows({
+        ctx,
+        organizationId: args.organizationId,
+        runId: args.candidateRunId,
+      }),
+    ]);
+    return buildEvalRunDiffTracePayload({
+      organizationId: args.organizationId,
+      baselineRunId: args.baselineRunId,
+      candidateRunId: args.candidateRunId,
+      baselineTraces,
+      candidateTraces,
+      limit: args.limit,
+    });
+  },
+});
+
+export const getEvalPromotionEvidencePacketInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<EvalPromotionEvidencePacketPayload> => {
+    const traces = await loadEvalRunTraceRows({
+      ctx,
+      organizationId: args.organizationId,
+      runId: args.runId,
+    });
+    return buildEvalPromotionEvidencePacket({
+      organizationId: args.organizationId,
+      runId: args.runId,
+      traces,
+      limit: args.limit,
+    });
+  },
+});
+
 export const sendMessage = action({
   args: {
     conversationId: v.optional(v.id("aiConversations")),
@@ -1945,6 +3138,7 @@ export const sendMessage = action({
     avObservability: v.optional(v.any()),
     geminiLive: v.optional(v.any()),
     qaMode: v.optional(v.any()),
+    evalEnvelope: v.optional(v.any()),
     isAutoRecovery: v.optional(v.boolean()), // Flag to bypass proposals for auto-recovery
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"), v.literal("layers_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
@@ -2077,6 +3271,11 @@ export const sendMessage = action({
         }
       }
     }
+    const evalEnvelopeContext = normalizeEvalRunEnvelopeContext({
+      rawEnvelope: args.evalEnvelope,
+      qaMode,
+    });
+    const evalTurnStartedAt = Date.now();
 
     // 1. Get or create conversation
     let conversationId: Id<"aiConversations"> | undefined = args.conversationId;
@@ -3919,6 +5118,47 @@ ${knowledgeBlock}`;
     let toolCallRounds = 0;
     let maxToolCallRounds = providerConfig.maxToolCallRounds;
     let hasProposedTools = false; // Track if any tools were proposed (not executed)
+    const evalLifecycleSessionId =
+      normalizeNonEmptyString(args.sessionId) ?? `conversation:${String(conversationId)}`;
+    const emitEvalLifecycleTrustEvent = async (event: {
+      fromState?: EvalRunLifecycleState;
+      toState: EvalRunLifecycleState;
+      reasonCodes?: Array<unknown>;
+      transitionSource: string;
+      traceStatus?: "ready" | "blocked";
+    }) => {
+      if (!evalEnvelopeContext) {
+        return;
+      }
+      try {
+        const payload = buildEvalRunLifecycleTrustPayload({
+          orgId: args.organizationId,
+          sessionId: evalLifecycleSessionId,
+          channel: "desktop",
+          actorType: "system",
+          actorId: String(args.userId),
+          runId: evalEnvelopeContext.runId,
+          scenarioId: evalEnvelopeContext.scenarioId,
+          agentId: evalEnvelopeContext.agentId,
+          fromState: event.fromState,
+          toState: event.toState,
+          reasonCodes: event.reasonCodes,
+          envelopeContractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+          lifecycleContractVersion: WAE_EVAL_ORG_LIFECYCLE_CONTRACT_VERSION,
+          transitionSource: event.transitionSource,
+          traceStatus: event.traceStatus,
+        });
+        await (ctx as any).runMutation(
+          generatedApi.internal.ai.voiceRuntime.recordVoiceTrustEvent,
+          {
+            eventName: EVAL_RUN_LIFECYCLE_TRUST_EVENT_NAME,
+            payload,
+          },
+        );
+      } catch (error) {
+        console.error("[AI Chat] Failed to persist eval lifecycle trust event:", error);
+      }
+    };
 
     while (toolCallRounds < maxToolCallRounds) {
       const currentToolCalls = response.choices[0].message.tool_calls;
@@ -3967,6 +5207,44 @@ ${knowledgeBlock}`;
         });
         // Auto-recovery bypasses approval so retries can execute immediately.
         const shouldPropose = !args.isAutoRecovery && needsApproval;
+        const buildEvalEnvelopeForToolExecution = (args: {
+          verdict?: "passed" | "failed" | "blocked";
+          toolCompletedAt: number;
+          durationMs: number;
+        }) =>
+          evalEnvelopeContext
+            ? {
+                contractVersion: WAE_EVAL_RUN_ENVELOPE_CONTRACT_VERSION,
+                runId: evalEnvelopeContext.runId,
+                scenarioId: evalEnvelopeContext.scenarioId,
+                agentId: evalEnvelopeContext.agentId,
+                label: evalEnvelopeContext.label,
+                toolCallId: toolCall.id,
+                toolCallRound: toolCallRounds,
+                verdict: args.verdict,
+                artifactPointer: evalEnvelopeContext.artifactPointer,
+                timings: {
+                  turnStartedAt: evalTurnStartedAt,
+                  toolStartedAt: startTime,
+                  toolCompletedAt: args.toolCompletedAt,
+                  durationMs: args.durationMs,
+                },
+              }
+            : undefined;
+
+        await emitEvalLifecycleTrustEvent({
+          toState: "queued",
+          reasonCodes: ["queued_for_execution"],
+          transitionSource: "chat_tool_call_enqueued",
+          traceStatus: "ready",
+        });
+        await emitEvalLifecycleTrustEvent({
+          fromState: "queued",
+          toState: "running",
+          reasonCodes: ["execution_started"],
+          transitionSource: "chat_tool_call_started",
+          traceStatus: "ready",
+        });
 
         try {
 
@@ -3974,6 +5252,7 @@ ${knowledgeBlock}`;
 
           if (shouldPropose) {
             // Create a proposal instead of executing
+            const proposalRecordedAt = Date.now();
             const executionId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.proposeToolExecution, {
               conversationId,
               organizationId: args.organizationId,
@@ -3981,6 +5260,11 @@ ${knowledgeBlock}`;
               toolName: toolCall.function.name,
               parameters: parsedArgs,
               proposalMessage: `AI wants to execute: ${toolCall.function.name}`,
+              evalEnvelope: buildEvalEnvelopeForToolExecution({
+                verdict: "blocked",
+                toolCompletedAt: proposalRecordedAt,
+                durationMs: Math.max(0, proposalRecordedAt - startTime),
+              }),
             });
 
             result = {
@@ -3991,6 +5275,13 @@ ${knowledgeBlock}`;
 
             hasProposedTools = true; // Mark that we have proposals pending
             console.log("[AI Chat] Tool proposed for approval:", toolCall.function.name, executionId);
+            await emitEvalLifecycleTrustEvent({
+              fromState: "running",
+              toState: "blocked",
+              reasonCodes: ["execution_blocked"],
+              transitionSource: "chat_tool_call_blocked_pending_approval",
+              traceStatus: "blocked",
+            });
           } else {
             // Execute tool immediately
             result = await executeTool(
@@ -4014,7 +5305,8 @@ ${knowledgeBlock}`;
             );
           }
 
-          const durationMs = Date.now() - startTime;
+          const toolCompletedAt = Date.now();
+          const durationMs = toolCompletedAt - startTime;
 
           // If this was a proposal, don't log it as executed yet
           // The logging already happened in proposeToolExecution
@@ -4036,8 +5328,25 @@ ${knowledgeBlock}`;
               status: executionStatus,
               tokensUsed: response.usage?.total_tokens || 0,
               costUsd: calculateUsageCost(response.usage, usedModel),
-              executedAt: Date.now(),
+              executedAt: toolCompletedAt,
               durationMs,
+              evalEnvelope: buildEvalEnvelopeForToolExecution({
+                verdict: executionStatus === "success" ? "passed" : "failed",
+                toolCompletedAt,
+                durationMs,
+              }),
+            });
+
+            await emitEvalLifecycleTrustEvent({
+              fromState: "running",
+              toState: executionStatus === "success" ? "passed" : "failed",
+              reasonCodes: [
+                executionStatus === "success"
+                  ? "execution_succeeded"
+                  : "execution_failed",
+              ],
+              transitionSource: "chat_tool_call_execution_outcome",
+              traceStatus: executionStatus === "success" ? "ready" : "blocked",
             });
           }
 
@@ -4062,6 +5371,8 @@ ${knowledgeBlock}`;
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
+          const toolCompletedAt = Date.now();
+          const durationMs = toolCompletedAt - startTime;
           console.error(`[AI Chat] Tool execution failed: ${toolCall.function.name}`, error);
 
           // Log failed execution (use parsedArgs, not re-parse!)
@@ -4075,8 +5386,21 @@ ${knowledgeBlock}`;
             status: "failed",
             tokensUsed: response.usage?.total_tokens || 0,
             costUsd: calculateUsageCost(response.usage, usedModel),
-            executedAt: Date.now(),
-            durationMs: Date.now() - startTime,
+            executedAt: toolCompletedAt,
+            durationMs,
+            evalEnvelope: buildEvalEnvelopeForToolExecution({
+              verdict: "failed",
+              toolCompletedAt,
+              durationMs,
+            }),
+          });
+
+          await emitEvalLifecycleTrustEvent({
+            fromState: "running",
+            toState: "failed",
+            reasonCodes: ["execution_failed"],
+            transitionSource: "chat_tool_call_execution_exception",
+            traceStatus: "blocked",
           });
 
           toolCalls.push({

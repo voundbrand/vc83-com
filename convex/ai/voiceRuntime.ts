@@ -69,6 +69,27 @@ const VOICE_REALTIME_STT_FAILOVER_ROUTE =
 const GEMINI_NATIVE_AUDIO_TRANSCRIBE_MODEL = "gemini-2.0-flash";
 const PERSISTENT_REALTIME_MULTIMODAL_CONTRACT_VERSION =
   "web_chat_persistent_realtime_multimodal_v1" as const;
+export const GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION =
+  "gemini_live_realtime_input_setup_v1" as const;
+export const GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT =
+  "START_OF_ACTIVITY_INTERRUPTS" as const;
+export const GEMINI_LIVE_TURN_COVERAGE_CONTRACT =
+  "TURN_INCLUDES_ALL_INPUT" as const;
+
+export interface GeminiLiveRealtimeInputSetupContract {
+  contractVersion: typeof GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION;
+  automaticActivityDetection: {
+    disabled: false;
+    startOfSpeechSensitivity: "START_SENSITIVITY_HIGH";
+    endOfSpeechSensitivity: "END_SENSITIVITY_LOW";
+    silenceDurationMs: 500;
+    prefixPaddingMs: 40;
+  };
+  activityHandling: typeof GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT;
+  turnCoverage: typeof GEMINI_LIVE_TURN_COVERAGE_CONTRACT;
+  inputAudioTranscriptionEnabled: true;
+  outputAudioTranscriptionEnabled: true;
+}
 
 type PersistentRealtimeFallbackReason =
   | "feature_flag_disabled"
@@ -184,7 +205,26 @@ type PersistentRealtimeLifecycleSnapshot = {
   transport: "native_realtime_audio_video" | null;
   fallbackReason: PersistentRealtimeFallbackReason | null;
   healthStatus: "healthy" | "degraded" | "offline" | null;
+  providerSetupContract: GeminiLiveRealtimeInputSetupContract;
 };
+
+export function buildGeminiLiveRealtimeInputSetupContract():
+  GeminiLiveRealtimeInputSetupContract {
+  return {
+    contractVersion: GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION,
+    automaticActivityDetection: {
+      disabled: false,
+      startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+      endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+      silenceDurationMs: 500,
+      prefixPaddingMs: 40,
+    },
+    activityHandling: GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+    turnCoverage: GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
+    inputAudioTranscriptionEnabled: true,
+    outputAudioTranscriptionEnabled: true,
+  };
+}
 
 function buildPersistentRealtimeLifecycleSnapshot(args: {
   mode: PersistentRealtimeMode;
@@ -206,6 +246,7 @@ function buildPersistentRealtimeLifecycleSnapshot(args: {
     transport: args.transport ?? null,
     fallbackReason: args.fallbackReason ?? null,
     healthStatus: args.healthStatus ?? null,
+    providerSetupContract: buildGeminiLiveRealtimeInputSetupContract(),
   };
 }
 
@@ -292,6 +333,49 @@ function normalizeString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeRealtimeTranscriptionLanguageHint(
+  value: unknown,
+): string | null {
+  const normalized = normalizeString(value)?.toLowerCase().replace(/_/g, "-");
+  if (!normalized) {
+    return null;
+  }
+  if (normalized === "english" || normalized === "englisch") {
+    return "en";
+  }
+  if (normalized === "german" || normalized === "deutsch") {
+    return "de";
+  }
+  if (normalized === "hindi") {
+    return "hi";
+  }
+  if (/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+export function resolveRealtimeTranscriptionLanguageHint(args: {
+  conversationRuntime?: Record<string, unknown>;
+  voiceRuntime?: Record<string, unknown>;
+  runtimeFallbackLanguage?: string | null;
+}): string | undefined {
+  return (
+    normalizeRealtimeTranscriptionLanguageHint(
+      args.conversationRuntime?.languageLock,
+    ) ??
+    normalizeRealtimeTranscriptionLanguageHint(
+      args.voiceRuntime?.languageLock,
+    ) ??
+    normalizeRealtimeTranscriptionLanguageHint(args.voiceRuntime?.language) ??
+    normalizeRealtimeTranscriptionLanguageHint(
+      args.conversationRuntime?.language,
+    ) ??
+    normalizeRealtimeTranscriptionLanguageHint(args.runtimeFallbackLanguage) ??
+    undefined
+  );
 }
 
 const AMBIENT_TRANSCRIPT_BRACKETED_DESCRIPTOR_PATTERN =
@@ -4976,6 +5060,11 @@ export const ingestVoiceTransportEnvelope = action({
     const normalizedVoiceRuntime = normalizeObject(args.voiceRuntime);
     const normalizedTransportRuntime = normalizeObject(args.transportRuntime);
     const normalizedAvObservability = normalizeObject(args.avObservability);
+    const realtimeTranscriptionLanguage = resolveRealtimeTranscriptionLanguageHint({
+      conversationRuntime: normalizedConversationRuntime,
+      voiceRuntime: normalizedVoiceRuntime,
+      runtimeFallbackLanguage: runtimeContext.agentVoiceLanguage,
+    });
     const retentionConfig = resolveOperatorMediaRetentionConfig();
     const retainedVoiceMediaType = resolveVoiceEnvelopeRetainedMediaType(envelope.eventType);
     let retentionIngest:
@@ -5177,6 +5266,7 @@ export const ingestVoiceTransportEnvelope = action({
                 geminiBinding: runtimeContext.geminiBinding,
                 audioBytes: decodedAudioBytes,
                 mimeType: transcriptionMimeType,
+                language: realtimeTranscriptionLanguage,
               });
               const transcriptText = sanitizeTranscriptForVoiceTurn(
                 transcript.transcriptText,

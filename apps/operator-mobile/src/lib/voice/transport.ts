@@ -39,6 +39,67 @@ export type VoiceTransportDegradationReasonLabelKey =
   | 'chat.voiceTransportReason.websocket_runtime_error'
   | 'chat.voiceTransportReason.websocket_closed';
 
+export const MOBILE_VOICE_GATEWAY_READY_POLICY_VERSION =
+  'voice_gateway_ready_policy_v1' as const;
+export const MOBILE_VOICE_GATEWAY_READY_HEARTBEAT_CONTRACT_VERSION =
+  'voice_relay_heartbeat_v1' as const;
+export const MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_BASE_MS = 250;
+export const MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_MAX_MS = 4_000;
+export const MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_BUDGET_MS = 7_750;
+
+export type MobileVoiceWebsocketReconnectBudgetState = {
+  attemptsUsed: number;
+  consumedBackoffMs: number;
+};
+
+export type MobileVoiceWebsocketReconnectBudgetDecision =
+  | {
+      shouldRetry: true;
+      attemptNumber: number;
+      retryDelayMs: number;
+      budgetRemainingMs: number;
+      nextState: MobileVoiceWebsocketReconnectBudgetState;
+    }
+  | {
+      shouldRetry: false;
+      attemptNumber: number;
+      retryDelayMs: number;
+      budgetRemainingMs: number;
+      nextState: MobileVoiceWebsocketReconnectBudgetState;
+    };
+
+export type MobileVoiceGatewayReadyPolicy = {
+  version: string;
+  maxPayloadBytes: number;
+  maxBufferedBytes: number;
+  heartbeat: {
+    cadenceMs: number;
+    contractVersion: string;
+    sequenceGapTolerance?: number;
+    stallTimeoutMs?: number;
+  };
+};
+
+export type MobileVoiceGatewayReadyPolicyCompatibilityReason =
+  | 'compatible'
+  | 'missing_policy'
+  | 'unsupported_policy_version'
+  | 'invalid_max_payload_bytes'
+  | 'invalid_max_buffered_bytes'
+  | 'invalid_heartbeat_cadence_ms'
+  | 'unsupported_heartbeat_contract_version';
+
+export type MobileVoiceGatewayReadyPolicyCompatibility =
+  | {
+      compatible: true;
+      reasonCode: 'compatible';
+      policy: MobileVoiceGatewayReadyPolicy;
+    }
+  | {
+      compatible: false;
+      reasonCode: Exclude<MobileVoiceGatewayReadyPolicyCompatibilityReason, 'compatible'>;
+    };
+
 const VOICE_TRANSPORT_DEGRADATION_REASON_LABEL_KEYS: Record<
   VoiceTransportFallbackReason,
   VoiceTransportDegradationReasonLabelKey
@@ -50,6 +111,157 @@ const VOICE_TRANSPORT_DEGRADATION_REASON_LABEL_KEYS: Record<
   websocket_runtime_error: 'chat.voiceTransportReason.websocket_runtime_error',
   websocket_closed: 'chat.voiceTransportReason.websocket_closed',
 };
+
+function normalizePositiveInt(value: unknown): number | undefined {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return Math.floor(numeric);
+}
+
+function normalizeNonNegativeInt(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return fallback;
+  }
+  return Math.floor(numeric);
+}
+
+export function createMobileVoiceWebsocketReconnectBudgetState(): MobileVoiceWebsocketReconnectBudgetState {
+  return {
+    attemptsUsed: 0,
+    consumedBackoffMs: 0,
+  };
+}
+
+export function consumeMobileVoiceWebsocketReconnectBudget(args: {
+  state: MobileVoiceWebsocketReconnectBudgetState;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+  budgetMs?: number;
+}): MobileVoiceWebsocketReconnectBudgetDecision {
+  const baseDelayMs = normalizePositiveInt(args.baseDelayMs)
+    ?? MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_BASE_MS;
+  const maxDelayMs = normalizePositiveInt(args.maxDelayMs)
+    ?? MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_MAX_MS;
+  const budgetMs = normalizePositiveInt(args.budgetMs)
+    ?? MOBILE_VOICE_WEBSOCKET_RECONNECT_BACKOFF_BUDGET_MS;
+
+  const attemptsUsed = normalizeNonNegativeInt(args.state.attemptsUsed, 0);
+  const consumedBackoffMs = normalizeNonNegativeInt(args.state.consumedBackoffMs, 0);
+  const attemptNumber = attemptsUsed + 1;
+  const retryDelayMs = Math.min(baseDelayMs * (2 ** attemptsUsed), maxDelayMs);
+  const nextConsumedBackoffMs = consumedBackoffMs + retryDelayMs;
+
+  if (nextConsumedBackoffMs > budgetMs) {
+    return {
+      shouldRetry: false,
+      attemptNumber,
+      retryDelayMs,
+      budgetRemainingMs: Math.max(0, budgetMs - consumedBackoffMs),
+      nextState: {
+        attemptsUsed,
+        consumedBackoffMs,
+      },
+    };
+  }
+
+  return {
+    shouldRetry: true,
+    attemptNumber,
+    retryDelayMs,
+    budgetRemainingMs: Math.max(0, budgetMs - nextConsumedBackoffMs),
+    nextState: {
+      attemptsUsed: attemptNumber,
+      consumedBackoffMs: nextConsumedBackoffMs,
+    },
+  };
+}
+
+export function resolveGatewayReadyPolicyCompatibility(args: {
+  policy: unknown;
+}): MobileVoiceGatewayReadyPolicyCompatibility {
+  if (!args.policy || typeof args.policy !== 'object' || Array.isArray(args.policy)) {
+    return {
+      compatible: false,
+      reasonCode: 'missing_policy',
+    };
+  }
+  const policy = args.policy as {
+    version?: unknown;
+    maxPayloadBytes?: unknown;
+    maxBufferedBytes?: unknown;
+    heartbeat?: {
+      cadenceMs?: unknown;
+      contractVersion?: unknown;
+      sequenceGapTolerance?: unknown;
+      stallTimeoutMs?: unknown;
+    };
+  };
+  const version =
+    typeof policy.version === 'string' && policy.version.trim().length > 0
+      ? policy.version.trim()
+      : '';
+  if (version !== MOBILE_VOICE_GATEWAY_READY_POLICY_VERSION) {
+    return {
+      compatible: false,
+      reasonCode: 'unsupported_policy_version',
+    };
+  }
+  const maxPayloadBytes = normalizePositiveInt(policy.maxPayloadBytes);
+  if (!maxPayloadBytes) {
+    return {
+      compatible: false,
+      reasonCode: 'invalid_max_payload_bytes',
+    };
+  }
+  const maxBufferedBytes = normalizePositiveInt(policy.maxBufferedBytes);
+  if (!maxBufferedBytes) {
+    return {
+      compatible: false,
+      reasonCode: 'invalid_max_buffered_bytes',
+    };
+  }
+  const heartbeatCadenceMs = normalizePositiveInt(policy.heartbeat?.cadenceMs);
+  if (!heartbeatCadenceMs) {
+    return {
+      compatible: false,
+      reasonCode: 'invalid_heartbeat_cadence_ms',
+    };
+  }
+  const heartbeatContractVersion =
+    typeof policy.heartbeat?.contractVersion === 'string'
+      ? policy.heartbeat.contractVersion.trim()
+      : '';
+  if (heartbeatContractVersion !== MOBILE_VOICE_GATEWAY_READY_HEARTBEAT_CONTRACT_VERSION) {
+    return {
+      compatible: false,
+      reasonCode: 'unsupported_heartbeat_contract_version',
+    };
+  }
+  return {
+    compatible: true,
+    reasonCode: 'compatible',
+    policy: {
+      version,
+      maxPayloadBytes,
+      maxBufferedBytes,
+      heartbeat: {
+        cadenceMs: heartbeatCadenceMs,
+        contractVersion: heartbeatContractVersion,
+        sequenceGapTolerance:
+          Number.isFinite(Number(policy.heartbeat?.sequenceGapTolerance))
+            ? Math.max(
+                0,
+                Math.floor(Number(policy.heartbeat?.sequenceGapTolerance)),
+              )
+            : undefined,
+        stallTimeoutMs: normalizePositiveInt(policy.heartbeat?.stallTimeoutMs),
+      },
+    },
+  };
+}
 
 export function resolveVoiceTransportDegradationState(
   selection: VoiceTransportSelection
@@ -85,6 +297,8 @@ export function buildVoiceTransportRuntime(args: {
     lastIngestAttemptAtMs?: number;
     lastIngestAckAtMs?: number;
     consecutiveIngestFailures: number;
+    serverRelayHeartbeatSequenceGap?: number;
+    serverRelayHeartbeatAckAgeMs?: number;
     serverRelayReasonCode?: string;
     serverRelayQosAgeMs?: number;
     serverRelayContractVersionStatus?: 'ok' | 'missing' | 'mismatch';
@@ -114,9 +328,13 @@ export function buildVoiceTransportRuntime(args: {
     missingPayloadCount: number;
     qosContractMismatchCount: number;
     heartbeatContractMismatchCount: number;
+    heartbeatSequenceGapCount?: number;
+    heartbeatStallTimeoutCount?: number;
     lastMissingPayloadAtMs?: number;
     lastQosContractMismatchAtMs?: number;
     lastHeartbeatContractMismatchAtMs?: number;
+    lastHeartbeatSequenceGapAtMs?: number;
+    lastHeartbeatStallTimeoutAtMs?: number;
   };
   partialTranscript?: string;
   telemetry?: Record<string, unknown>;
@@ -155,6 +373,10 @@ export function buildVoiceTransportRuntime(args: {
       realtimeRelayHealth?.serverRelayContractVersionStatus ?? undefined,
     realtimeRelayServerHeartbeatContractVersionStatus:
       realtimeRelayHealth?.serverRelayHeartbeatContractVersionStatus ?? undefined,
+    realtimeRelayServerHeartbeatSequenceGap:
+      realtimeRelayHealth?.serverRelayHeartbeatSequenceGap ?? undefined,
+    realtimeRelayServerHeartbeatAckAgeMs:
+      realtimeRelayHealth?.serverRelayHeartbeatAckAgeMs ?? undefined,
     realtimeRelayServerQosAgeMs:
       realtimeRelayHealth?.serverRelayQosAgeMs ?? undefined,
     realtimeRelayServerHeartbeatStatus:
@@ -177,12 +399,20 @@ export function buildVoiceTransportRuntime(args: {
       args.relayServerMonitoring?.qosContractMismatchCount ?? undefined,
     realtimeRelayServerHeartbeatContractMismatchCount:
       args.relayServerMonitoring?.heartbeatContractMismatchCount ?? undefined,
+    realtimeRelayServerHeartbeatSequenceGapCount:
+      args.relayServerMonitoring?.heartbeatSequenceGapCount ?? undefined,
+    realtimeRelayServerHeartbeatStallTimeoutCount:
+      args.relayServerMonitoring?.heartbeatStallTimeoutCount ?? undefined,
     realtimeRelayServerLastMissingPayloadAtMs:
       args.relayServerMonitoring?.lastMissingPayloadAtMs ?? undefined,
     realtimeRelayServerLastQosContractMismatchAtMs:
       args.relayServerMonitoring?.lastQosContractMismatchAtMs ?? undefined,
     realtimeRelayServerLastHeartbeatContractMismatchAtMs:
       args.relayServerMonitoring?.lastHeartbeatContractMismatchAtMs ?? undefined,
+    realtimeRelayServerLastHeartbeatSequenceGapAtMs:
+      args.relayServerMonitoring?.lastHeartbeatSequenceGapAtMs ?? undefined,
+    realtimeRelayServerLastHeartbeatStallTimeoutAtMs:
+      args.relayServerMonitoring?.lastHeartbeatStallTimeoutAtMs ?? undefined,
     liveSessionId: args.liveSessionId,
     interviewSessionId: args.activeSession?.interviewSessionId,
     voiceSessionId: args.activeSession?.voiceSessionId,

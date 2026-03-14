@@ -300,7 +300,7 @@ export default defineSchema({
   aiConversations,        // Chat history for general AI assistant
   aiMessages,             // Individual messages in conversations
   aiMessageAttachments,   // Persisted chat attachments (Convex storage metadata)
-  aiToolExecutions,       // Audit trail of tool executions
+  aiToolExecutions,       // Audit trail of tool executions (+ optional WAE eval envelope metadata)
   // NOTE: Tool drafts use objects table with status="draft" + AI metadata in customProperties
   organizationAiSettings, // AI configuration per organization (LLM + embeddings)
   aiSettingsMigrations,   // Migration receipts for provider-agnostic AI settings contract

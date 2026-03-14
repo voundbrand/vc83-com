@@ -28,7 +28,8 @@ describe("layered context chat scoping contracts", () => {
     const source = readFileSync(USE_AI_CHAT_PATH, "utf8");
 
     expect(source).toContain("activeLayerWorkflowId?: Id<\"objects\">");
-    expect(source).toContain("layerWorkflowId: layerWorkflowId ?? activeLayerWorkflowId");
+    expect(source).toContain("layerWorkflowId: options?.ignoreActiveLayerContext");
+    expect(source).toContain(": (layerWorkflowId ?? activeLayerWorkflowId)");
   });
 
   it("propagates layerWorkflowId on sendMessage payloads", () => {

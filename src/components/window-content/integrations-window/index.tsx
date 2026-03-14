@@ -21,7 +21,6 @@ import { WhatsAppSettings } from "./whatsapp-settings";
 import { InfobipSettings } from "./infobip-settings";
 import { AIConnectionsSettings } from "./ai-connections-settings";
 import { ElevenLabsSettings } from "./elevenlabs-settings";
-import { PersonalOperatorSetup } from "./personal-operator-setup";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -65,16 +64,6 @@ interface BuiltInIntegrationDefinition {
 }
 
 const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
-  {
-    id: "personal-operator-setup",
-    name: "Personal Operator Setup",
-    description: "First-run setup for calendar, outreach defaults, and deployment handoff",
-    icon: "fas fa-user-check",
-    iconColor: "var(--tone-accent)",
-    status: "available",
-    type: "special",
-    accessCheck: { type: "feature", key: "apiKeysEnabled" },
-  },
   {
     id: "github",
     name: "GitHub",
@@ -825,7 +814,6 @@ interface IntegrationsWindowProps {
     | "telegram"
     | "infobip"
     | "elevenlabs"
-    | "personal-operator-setup"
     | null;
   /** When true, shows back-to-desktop navigation (for /integrations route) */
   fullScreen?: boolean;
@@ -869,7 +857,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     initialPanel === "telegram" ? { type: "builtin", id: "telegram" } :
     initialPanel === "infobip" ? { type: "builtin", id: "infobip" } :
     initialPanel === "elevenlabs" ? { type: "special", id: "elevenlabs" } :
-    initialPanel === "personal-operator-setup" ? { type: "special", id: "personal-operator-setup" } :
     null
   );
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -917,14 +904,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     api.oauth.microsoft.getUserMicrosoftConnection,
     isSignedIn ? {} : "skip"
   );
-  const googleConnection = useQuery(
-    api.oauth.google.getGoogleConnectionStatus,
-    isSignedIn && sessionId ? { sessionId } : "skip"
-  ) as {
-    personal?: {
-      status?: string;
-    } | null;
-  } | undefined;
 
   // Query Telegram integration status
   const telegramStatus = useQuery(
@@ -1208,18 +1187,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         </div>
       );
     }
-    if (selectedIntegration.type === "special" && selectedIntegration.id === "personal-operator-setup") {
-      return (
-        <div className="integration-ui-scope h-full">
-          <PersonalOperatorSetup
-            onBack={handleBack}
-            onOpenIntegration={(integrationId) =>
-              setSelectedIntegration({ type: "builtin", id: integrationId })
-            }
-          />
-        </div>
-      );
-    }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "ai-connections") {
       return (
         <div className="integration-ui-scope h-full">
@@ -1447,9 +1414,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                       status={
                         isLocked
                           ? "locked"
-                          : integration.id === "personal-operator-setup" &&
-                            googleConnection?.personal?.status === "active"
-                          ? "connected"
                           : integration.id === "ai-connections" &&
                             Boolean(
                               aiConnectionsCatalog?.providers?.some(

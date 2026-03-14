@@ -4,6 +4,8 @@ import {
   DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
   DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW,
   DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS,
+  MAX_REALTIME_VISION_FORWARDING_CADENCE_MS,
+  MIN_REALTIME_VISION_FORWARDING_CADENCE_MS,
   computePcm16FrameRms,
   createRealtimeMediaSession,
   detectVadSpeechFrame,
@@ -578,7 +580,7 @@ describe("realtime media session runtime", () => {
   });
 
   it("locks ORV-042 realtime vision forwarding throttle defaults", () => {
-    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1250);
+    expect(DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS).toBe(1000);
     expect(DEFAULT_REALTIME_VISION_FORWARDING_MAX_FRAMES_PER_WINDOW).toBe(8);
     expect(DEFAULT_REALTIME_VISION_FORWARDING_WINDOW_MS).toBe(10000);
 
@@ -588,7 +590,7 @@ describe("realtime media session runtime", () => {
       cadenceMs: DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
     });
     expect(throttled.throttled).toBe(true);
-    expect(throttled.retryAfterMs).toBe(500);
+    expect(throttled.retryAfterMs).toBe(250);
 
     const accepted = shouldThrottleRealtimeVisionForwarding({
       nowMs: 10_600,
@@ -596,6 +598,20 @@ describe("realtime media session runtime", () => {
       cadenceMs: DEFAULT_REALTIME_VISION_FORWARDING_CADENCE_MS,
     });
     expect(accepted.throttled).toBe(false);
+
+    const minClamped = shouldThrottleRealtimeVisionForwarding({
+      nowMs: 20_000,
+      lastForwardAtMs: 19_900,
+      cadenceMs: 10,
+    });
+    expect(minClamped.cadenceMs).toBe(MIN_REALTIME_VISION_FORWARDING_CADENCE_MS);
+
+    const maxClamped = shouldThrottleRealtimeVisionForwarding({
+      nowMs: 30_000,
+      lastForwardAtMs: 20_000,
+      cadenceMs: 99_999,
+    });
+    expect(maxClamped.cadenceMs).toBe(MAX_REALTIME_VISION_FORWARDING_CADENCE_MS);
   });
 
   it("locks ORV-043 explicit echo cancellation strategy resolution", () => {

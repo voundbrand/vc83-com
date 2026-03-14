@@ -42,6 +42,7 @@ interface AgentCreateFormProps {
 
 type FormSection = "identity" | "knowledge" | "model" | "guardrails" | "channels";
 type CreationLaunchMode = "talk" | "type";
+type AgentClass = "internal_operator" | "external_customer_facing";
 
 type ElevenLabsVoiceCatalogEntry = {
   voiceId: string;
@@ -51,6 +52,13 @@ type ElevenLabsVoiceCatalogEntry = {
   languages?: string[];
   labels?: Record<string, string>;
 };
+
+function normalizeAgentClass(value: unknown): AgentClass {
+  if (value === "external_customer_facing" || value === "customer_facing") {
+    return "external_customer_facing";
+  }
+  return "internal_operator";
+}
 
 export function AgentCreateForm({
   sessionId,
@@ -82,6 +90,10 @@ export function AgentCreateForm({
 
   const createAgent = useMutation(api.agentOntology.createAgent);
   const updateAgent = useMutation(api.agentOntology.updateAgent);
+  const toolSetupConfig = useQuery(
+    (api as any).ai.weekendMode.getAgentToolSetupConfig,
+    sessionId ? { sessionId } : "skip"
+  ) as { config?: { agentClass?: AgentClass } | null } | null | undefined;
   const listElevenLabsVoices = useAction(
     (api as any).integrations.elevenlabs.listElevenLabsVoices,
   );
@@ -90,6 +102,7 @@ export function AgentCreateForm({
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [subtype, setSubtype] = useState("general");
+  const [agentClass, setAgentClass] = useState<AgentClass>("internal_operator");
   const [personality, setPersonality] = useState("");
   const [language, setLanguage] = useState("en");
   const [voiceLanguage, setVoiceLanguage] = useState("en");
@@ -118,6 +131,7 @@ export function AgentCreateForm({
   const [overrideWarnReason, setOverrideWarnReason] = useState("");
   const [policyGateMessage, setPolicyGateMessage] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [agentClassHydratedFromPolicy, setAgentClassHydratedFromPolicy] = useState(false);
   const existingCustomProps = ((existingAgent?.customProperties || {}) as AgentCustomProps);
   const templateLineage = resolveTemplateLineage(existingCustomProps);
 
@@ -175,6 +189,7 @@ export function AgentCreateForm({
     setName(existingAgent.name || "");
     setDisplayName(p.displayName || "");
     setSubtype(existingAgent.subtype || "general");
+    setAgentClass(normalizeAgentClass(p.agentClass));
     setPersonality(p.personality || "");
     setLanguage(p.language || "en");
     setVoiceLanguage(p.voiceLanguage || p.language || "en");
@@ -233,7 +248,7 @@ export function AgentCreateForm({
           sessionId,
           agentId: editingAgentId,
           updates: {
-            name, displayName, subtype, personality, language,
+            name, displayName, subtype, agentClass, personality, language,
             voiceLanguage: voiceLanguage.trim() || language.trim() || "en",
             brandVoiceInstructions: brandVoice, systemPrompt, autonomyLevel,
             elevenLabsVoiceId: elevenLabsVoiceId.trim() || undefined,
@@ -255,7 +270,7 @@ export function AgentCreateForm({
         onSaved(editingAgentId);
       } else {
         const agentId = await createAgent({
-          sessionId, organizationId, name, displayName, subtype, personality, language,
+          sessionId, organizationId, name, displayName, subtype, agentClass, personality, language,
           voiceLanguage: voiceLanguage.trim() || language.trim() || "en",
           brandVoiceInstructions: brandVoice, systemPrompt, autonomyLevel,
           elevenLabsVoiceId: elevenLabsVoiceId.trim() || undefined,
@@ -310,6 +325,18 @@ export function AgentCreateForm({
       setVoiceCatalogLoaded(true);
     }
   }, [listElevenLabsVoices, organizationId, sessionId]);
+
+  useEffect(() => {
+    if (editingAgentId || agentClassHydratedFromPolicy) {
+      return;
+    }
+    const policyClass = toolSetupConfig?.config?.agentClass;
+    if (!policyClass) {
+      return;
+    }
+    setAgentClass(normalizeAgentClass(policyClass));
+    setAgentClassHydratedFromPolicy(true);
+  }, [agentClassHydratedFromPolicy, editingAgentId, toolSetupConfig?.config?.agentClass]);
 
   useEffect(() => {
     if (!selectedVoiceLanguageMismatch || !selectedVoice) {
@@ -586,6 +613,24 @@ export function AgentCreateForm({
                     className="w-full border px-2 py-1 text-xs"
                     style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, var(--window-document-bg))" }}>
                     {SUBTYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: "var(--win95-text)" }}>
+                    {tx("ui.agents.create_form.field.agent_class", "Agent Class")}
+                  </label>
+                  <select
+                    value={agentClass}
+                    onChange={(event) => setAgentClass(event.target.value as AgentClass)}
+                    className="w-full border px-2 py-1 text-xs"
+                    style={{ borderColor: "var(--win95-border)", background: "var(--win95-bg-light, var(--window-document-bg))" }}
+                  >
+                    <option value="internal_operator">
+                      {tx("ui.agents.create_form.agent_class.internal", "Internal operator")}
+                    </option>
+                    <option value="external_customer_facing">
+                      {tx("ui.agents.create_form.agent_class.external", "External customer-facing")}
+                    </option>
                   </select>
                 </div>
                 <FormField

@@ -5,6 +5,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 const landingPort = Number(process.env.PLAYWRIGHT_LANDING_PORT || 3200);
 const landingBaseURL = process.env.PLAYWRIGHT_LANDING_BASE_URL || `http://127.0.0.1:${landingPort}`;
 const isCI = Boolean(process.env.CI);
+const useWaeFixture = process.env.PLAYWRIGHT_WAE_ENABLE === "1";
 const devServerCommand = isCI
   ? `npx next dev --port ${port} --hostname 127.0.0.1`
   : `npm run dev -- --port ${port} --hostname 127.0.0.1`;
@@ -12,7 +13,11 @@ const landingDevServerCommand = `npm --prefix apps/one-of-one-landing run dev --
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["desktop-shell.spec.ts", "onboarding-audit-handoff.spec.ts"],
+  testMatch: [
+    "desktop-shell.spec.ts",
+    "onboarding-audit-handoff.spec.ts",
+    "wae-scenario-dsl.spec.ts",
+  ],
   timeout: 60_000,
   expect: {
     timeout: 10_000,
@@ -26,8 +31,10 @@ export default defineConfig({
       ]
     : [["list"]],
   outputDir: "tmp/test-results/desktop-shell",
+  globalSetup: useWaeFixture ? "./tests/e2e/wae-global-setup.ts" : undefined,
   use: {
     baseURL,
+    storageState: useWaeFixture ? "tmp/playwright/wae-storage-state.json" : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

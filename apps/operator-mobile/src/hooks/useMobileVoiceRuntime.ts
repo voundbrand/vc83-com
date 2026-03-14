@@ -6,9 +6,13 @@ import { ENV } from '../config/env';
 import { l4yercak3Client } from '../api/client';
 import {
   buildVoiceTransportRuntime,
+  consumeMobileVoiceWebsocketReconnectBudget,
+  createMobileVoiceWebsocketReconnectBudgetState,
   downgradeVoiceTransportSelection,
+  resolveGatewayReadyPolicyCompatibility,
   resolveVoiceTransportSelection,
   resolveVoiceTransportDegradationState,
+  type MobileVoiceWebsocketReconnectBudgetState,
   type VoiceTransportDegradationState,
   type VoiceTransportSelection,
 } from '../lib/voice/transport';
@@ -123,9 +127,13 @@ type MobileVoiceRelayServerMonitoringSnapshot = {
   missingPayloadCount: number;
   qosContractMismatchCount: number;
   heartbeatContractMismatchCount: number;
+  heartbeatSequenceGapCount: number;
+  heartbeatStallTimeoutCount: number;
   lastMissingPayloadAtMs?: number;
   lastQosContractMismatchAtMs?: number;
   lastHeartbeatContractMismatchAtMs?: number;
+  lastHeartbeatSequenceGapAtMs?: number;
+  lastHeartbeatStallTimeoutAtMs?: number;
 };
 
 function buildInitialRelayServerMonitoringSnapshot(): MobileVoiceRelayServerMonitoringSnapshot {
@@ -134,6 +142,8 @@ function buildInitialRelayServerMonitoringSnapshot(): MobileVoiceRelayServerMoni
     missingPayloadCount: 0,
     qosContractMismatchCount: 0,
     heartbeatContractMismatchCount: 0,
+    heartbeatSequenceGapCount: 0,
+    heartbeatStallTimeoutCount: 0,
   };
 }
 
@@ -452,6 +462,8 @@ const MOBILE_VOICE_REALTIME_RELAY_ACK_GRACE_MS = 3_000;
 const MOBILE_VOICE_REALTIME_RELAY_MAX_CONSECUTIVE_FAILURES = 2;
 const MOBILE_VOICE_REALTIME_SERVER_QOS_GRACE_MS = 3_500;
 const MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALE_MS = 5_000;
+const MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE = 0;
+const MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALL_TIMEOUT_MS = 7_500;
 
 function isNoTranscriptTextMessage(message: string): boolean {
   const normalized = message.toLowerCase();
@@ -654,6 +666,10 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const [lastSessionErrorReason, setLastSessionErrorReason] = useState<string | undefined>(undefined);
   const activeSessionRef = useRef<ActiveVoiceSession | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
+  const websocketReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const websocketReconnectBudgetRef = useRef<MobileVoiceWebsocketReconnectBudgetState>(
+    createMobileVoiceWebsocketReconnectBudgetState()
+  );
   const playbackRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const synthAbortControllerRef = useRef<AbortController | null>(null);
   const intentionalSocketCloseRef = useRef(false);
@@ -664,6 +680,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
   const lastRealtimeIngestAttemptAtMsRef = useRef<number | undefined>(undefined);
   const lastRealtimeIngestAckAtMsRef = useRef<number | undefined>(undefined);
   const consecutiveRealtimeIngestFailuresRef = useRef(0);
+  const relayHeartbeatSequenceGapToleranceRef = useRef(
+    MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE
+  );
+  const relayHeartbeatStallTimeoutMsRef = useRef(
+    MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALL_TIMEOUT_MS
+  );
   const latestServerRelayQosRef = useRef<MobileRealtimeRelayServerQosSnapshot | undefined>(
     undefined
   );
@@ -754,6 +776,9 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       serverRelayQos: latestServerRelayQosRef.current,
       serverQosGraceMs: MOBILE_VOICE_REALTIME_SERVER_QOS_GRACE_MS,
       serverHeartbeatStaleMs: MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALE_MS,
+      serverHeartbeatSequenceGapTolerance:
+        relayHeartbeatSequenceGapToleranceRef.current,
+      serverHeartbeatStallTimeoutMs: relayHeartbeatStallTimeoutMsRef.current,
     });
     const previousReasonCode = lastRelayHealthReasonCodeRef.current;
     const transitionedReasonCode = previousReasonCode !== snapshot.reasonCode;
@@ -773,6 +798,14 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         nextMonitoring.heartbeatContractMismatchCount += 1;
         nextMonitoring.lastHeartbeatContractMismatchAtMs = snapshot.evaluatedAtMs;
         monitoringChanged = true;
+      } else if (snapshot.reasonCode === 'relay_server_heartbeat_sequence_gap') {
+        nextMonitoring.heartbeatSequenceGapCount += 1;
+        nextMonitoring.lastHeartbeatSequenceGapAtMs = snapshot.evaluatedAtMs;
+        monitoringChanged = true;
+      } else if (snapshot.reasonCode === 'relay_server_heartbeat_stall_timeout') {
+        nextMonitoring.heartbeatStallTimeoutCount += 1;
+        nextMonitoring.lastHeartbeatStallTimeoutAtMs = snapshot.evaluatedAtMs;
+        monitoringChanged = true;
       }
       if (monitoringChanged) {
         relayServerMonitoringRef.current = nextMonitoring;
@@ -787,6 +820,10 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
           qosContractMismatchCount: nextMonitoring.qosContractMismatchCount,
           heartbeatContractMismatchCount:
             nextMonitoring.heartbeatContractMismatchCount,
+          heartbeatSequenceGapCount: nextMonitoring.heartbeatSequenceGapCount,
+          heartbeatStallTimeoutCount: nextMonitoring.heartbeatStallTimeoutCount,
+          heartbeatSequenceGap: snapshot.serverRelayHeartbeatSequenceGap,
+          heartbeatAckAgeMs: snapshot.serverRelayHeartbeatAckAgeMs,
         });
       }
     }
@@ -802,6 +839,27 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     return captureRealtimeRelayHealth(overrideSocketConnected);
   }, [captureRealtimeRelayHealth]);
 
+  const resetRelayHeartbeatPolicyThresholds = useCallback(() => {
+    relayHeartbeatSequenceGapToleranceRef.current =
+      MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE;
+    relayHeartbeatStallTimeoutMsRef.current =
+      MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALL_TIMEOUT_MS;
+  }, []);
+
+  const clearWebsocketReconnectTimer = useCallback(() => {
+    const reconnectTimer = websocketReconnectTimerRef.current;
+    if (!reconnectTimer) {
+      return;
+    }
+    clearTimeout(reconnectTimer);
+    websocketReconnectTimerRef.current = null;
+  }, []);
+
+  const resetWebsocketReconnectBudget = useCallback(() => {
+    websocketReconnectBudgetRef.current = createMobileVoiceWebsocketReconnectBudgetState();
+    clearWebsocketReconnectTimer();
+  }, [clearWebsocketReconnectTimer]);
+
   const applyTransportDowngrade = useCallback(
     (
       reason:
@@ -810,6 +868,8 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         | 'websocket_runtime_error'
         | 'websocket_closed'
     ) => {
+      resetWebsocketReconnectBudget();
+      resetRelayHeartbeatPolicyThresholds();
       setTransportSelection((previous) =>
         downgradeVoiceTransportSelection({
           current: previous,
@@ -820,7 +880,12 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       setIsRealtimeConnected(false);
       captureRealtimeRelayHealth(false);
     },
-    [captureRealtimeRelayHealth, configuredVoiceWebsocketUrl]
+    [
+      captureRealtimeRelayHealth,
+      configuredVoiceWebsocketUrl,
+      resetRelayHeartbeatPolicyThresholds,
+      resetWebsocketReconnectBudget,
+    ]
   );
 
   const resolveRealtimeWebsocketConnectUrl = useCallback(async (
@@ -904,47 +969,171 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       return;
     }
 
+    let disconnectHandled = false;
+    const handleSocketFailure = (
+      reason: 'websocket_connect_failed' | 'websocket_runtime_error' | 'websocket_closed',
+      failClosed: boolean = false
+    ) => {
+      if (disconnectHandled) {
+        return;
+      }
+      disconnectHandled = true;
+      websocketRef.current = null;
+      setIsRealtimeConnected(false);
+      captureRealtimeRelayHealth(false);
+
+      if (failClosed) {
+        applyTransportDowngrade(reason);
+        return;
+      }
+      if (intentionalSocketCloseRef.current) {
+        return;
+      }
+
+      const activeSession = activeSessionRef.current;
+      if (!activeSession || activeSession.voiceSessionId !== session.voiceSessionId) {
+        return;
+      }
+      const reconnectDecision = consumeMobileVoiceWebsocketReconnectBudget({
+        state: websocketReconnectBudgetRef.current,
+      });
+      if (!reconnectDecision.shouldRetry) {
+        emitVoiceTelemetry('realtime_ws_reconnect_budget_exhausted', {
+          voiceSessionId: session.voiceSessionId,
+          reasonCode: reason,
+          attemptsUsed: websocketReconnectBudgetRef.current.attemptsUsed,
+          consumedBackoffMs: websocketReconnectBudgetRef.current.consumedBackoffMs,
+          budgetRemainingMs: reconnectDecision.budgetRemainingMs,
+        });
+        applyTransportDowngrade(reason);
+        return;
+      }
+      websocketReconnectBudgetRef.current = reconnectDecision.nextState;
+      emitVoiceTelemetry('realtime_ws_reconnect_scheduled', {
+        voiceSessionId: session.voiceSessionId,
+        reasonCode: reason,
+        attemptNumber: reconnectDecision.attemptNumber,
+        retryDelayMs: reconnectDecision.retryDelayMs,
+        budgetRemainingMs: reconnectDecision.budgetRemainingMs,
+      });
+      clearWebsocketReconnectTimer();
+      websocketReconnectTimerRef.current = setTimeout(() => {
+        websocketReconnectTimerRef.current = null;
+        const latestActiveSession = activeSessionRef.current;
+        if (!latestActiveSession || latestActiveSession.voiceSessionId !== session.voiceSessionId) {
+          return;
+        }
+        if (intentionalSocketCloseRef.current) {
+          return;
+        }
+        void connectWebsocket(session);
+      }, reconnectDecision.retryDelayMs);
+    };
+
     try {
       const socket = new WebSocket(resolvedWebsocketUrl);
+      const connectionHandshake = {
+        policyAccepted: false,
+        sessionOpenSent: false,
+      };
       intentionalSocketCloseRef.current = false;
       websocketRef.current = socket;
       socket.onopen = () => {
-        setIsRealtimeConnected(true);
         consecutiveRealtimeIngestFailuresRef.current = 0;
-        captureRealtimeRelayHealth(true);
-        socket.send(
-          JSON.stringify({
-            type: 'voice_session_open',
-            voiceSessionId: session.voiceSessionId,
-            interviewSessionId: session.interviewSessionId,
-            conversationId: session.conversationId,
-          })
-        );
+        setIsRealtimeConnected(false);
+        captureRealtimeRelayHealth(false);
       };
       socket.onclose = () => {
-        websocketRef.current = null;
-        setIsRealtimeConnected(false);
-        captureRealtimeRelayHealth(false);
-        if (!intentionalSocketCloseRef.current) {
-          applyTransportDowngrade('websocket_closed');
-        }
+        handleSocketFailure('websocket_closed');
       };
       socket.onerror = () => {
-        websocketRef.current = null;
-        setIsRealtimeConnected(false);
-        captureRealtimeRelayHealth(false);
-        if (!intentionalSocketCloseRef.current) {
-          applyTransportDowngrade('websocket_runtime_error');
-        }
+        handleSocketFailure('websocket_runtime_error');
       };
       socket.onmessage = (event) => {
         try {
-          const payload = JSON.parse(event.data as string) as {
+          const rawData = typeof event.data === 'string' ? event.data : String(event.data ?? '');
+          const payload = JSON.parse(rawData) as {
             type?: string;
             partialTranscript?: string;
             eventType?: string;
             transcriptText?: string;
+            policy?: unknown;
           };
+
+          if (!connectionHandshake.policyAccepted) {
+            if (payload.type !== 'gateway_ready') {
+              emitVoiceTelemetry('realtime_ws_gateway_policy_missing', {
+                messageType: payload.type || 'unknown',
+              });
+              intentionalSocketCloseRef.current = true;
+              socket.close(1008, 'gateway_policy_missing');
+              handleSocketFailure('websocket_closed', true);
+              return;
+            }
+            const compatibility = resolveGatewayReadyPolicyCompatibility({
+              policy: payload.policy,
+            });
+            if (!compatibility.compatible) {
+              emitVoiceTelemetry('realtime_ws_gateway_policy_incompatible', {
+                reasonCode: compatibility.reasonCode,
+              });
+              intentionalSocketCloseRef.current = true;
+              socket.close(1008, 'gateway_policy_incompatible');
+              handleSocketFailure('websocket_closed', true);
+              return;
+            }
+            connectionHandshake.policyAccepted = true;
+            relayHeartbeatSequenceGapToleranceRef.current =
+              Number.isFinite(compatibility.policy.heartbeat.sequenceGapTolerance)
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      compatibility.policy.heartbeat.sequenceGapTolerance || 0
+                    )
+                  )
+                : MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_SEQUENCE_GAP_TOLERANCE;
+            relayHeartbeatStallTimeoutMsRef.current =
+              Number.isFinite(compatibility.policy.heartbeat.stallTimeoutMs)
+                ? Math.max(
+                    250,
+                    Math.floor(compatibility.policy.heartbeat.stallTimeoutMs || 0)
+                  )
+                : Math.max(
+                    MOBILE_VOICE_REALTIME_SERVER_HEARTBEAT_STALL_TIMEOUT_MS,
+                    compatibility.policy.heartbeat.cadenceMs * 3
+                  );
+            resetWebsocketReconnectBudget();
+            setIsRealtimeConnected(true);
+            captureRealtimeRelayHealth(true);
+            emitVoiceTelemetry('realtime_ws_gateway_policy_compatible', {
+              policyVersion: compatibility.policy.version,
+              maxPayloadBytes: compatibility.policy.maxPayloadBytes,
+              maxBufferedBytes: compatibility.policy.maxBufferedBytes,
+              heartbeatCadenceMs: compatibility.policy.heartbeat.cadenceMs,
+              heartbeatContractVersion:
+                compatibility.policy.heartbeat.contractVersion,
+              heartbeatSequenceGapTolerance:
+                relayHeartbeatSequenceGapToleranceRef.current,
+              heartbeatStallTimeoutMs:
+                relayHeartbeatStallTimeoutMsRef.current,
+            });
+            if (!connectionHandshake.sessionOpenSent) {
+              socket.send(
+                JSON.stringify({
+                  type: 'voice_session_open',
+                  voiceSessionId: session.voiceSessionId,
+                  interviewSessionId: session.interviewSessionId,
+                  conversationId: session.conversationId,
+                })
+              );
+              connectionHandshake.sessionOpenSent = true;
+            }
+            return;
+          }
+
+          if (payload.type === 'gateway_ready') {
+            return;
+          }
           if (payload.type === 'partial_transcript' && typeof payload.partialTranscript === 'string') {
             setPartialTranscript(payload.partialTranscript);
             partialTranscriptRef.current = payload.partialTranscript;
@@ -966,11 +1155,19 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
       };
     } catch (error) {
       console.warn('Voice websocket setup failed:', error);
-      applyTransportDowngrade('websocket_connect_failed');
+      handleSocketFailure('websocket_connect_failed');
     }
-  }, [applyTransportDowngrade, captureRealtimeRelayHealth, resolveRealtimeWebsocketConnectUrl]);
+  }, [
+    applyTransportDowngrade,
+    captureRealtimeRelayHealth,
+    clearWebsocketReconnectTimer,
+    resetWebsocketReconnectBudget,
+    resolveRealtimeWebsocketConnectUrl,
+  ]);
 
   const disconnectRealtime = useCallback(() => {
+    resetWebsocketReconnectBudget();
+    resetRelayHeartbeatPolicyThresholds();
     const socket = websocketRef.current;
     websocketRef.current = null;
     if (socket) {
@@ -979,11 +1176,21 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     }
     setIsRealtimeConnected(false);
     captureRealtimeRelayHealth(false);
-  }, [captureRealtimeRelayHealth]);
+  }, [
+    captureRealtimeRelayHealth,
+    resetRelayHeartbeatPolicyThresholds,
+    resetWebsocketReconnectBudget,
+  ]);
 
   useEffect(() => {
     captureRealtimeRelayHealth();
   }, [captureRealtimeRelayHealth]);
+
+  useEffect(() => {
+    return () => {
+      clearWebsocketReconnectTimer();
+    };
+  }, [clearWebsocketReconnectTimer]);
 
   const abortInFlightSynthesizeRequest = useCallback((reason: string) => {
     const controller = synthAbortControllerRef.current;
@@ -1278,6 +1485,8 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
         consecutiveRealtimeIngestFailuresRef.current = 0;
         latestServerRelayQosRef.current = undefined;
         captureRealtimeRelayHealth(false);
+        resetWebsocketReconnectBudget();
+        resetRelayHeartbeatPolicyThresholds();
         activeSessionRef.current = nextSession;
         void connectWebsocket(nextSession);
         return nextSession;
@@ -1316,6 +1525,8 @@ export function useMobileVoiceRuntime(args: UseMobileVoiceRuntimeArgs) {
     args.sourceRuntime?.sourceScope,
     captureRealtimeRelayHealth,
     connectWebsocket,
+    resetRelayHeartbeatPolicyThresholds,
+    resetWebsocketReconnectBudget,
     resolveRequestedVoiceId,
     transportSelection.effectiveMode,
     transportSelection.requestedMode,

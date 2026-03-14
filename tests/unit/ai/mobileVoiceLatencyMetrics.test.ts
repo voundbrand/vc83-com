@@ -4,6 +4,7 @@ import {
   MOBILE_VOICE_LATENCY_METRICS_CONTRACT_VERSION,
   createMobileVoiceLatencyMetricsCollector,
 } from "../../../apps/operator-mobile/src/lib/voice/latencyMetrics";
+import { evaluateMobileRealtimeRelayHealth } from "../../../apps/operator-mobile/src/lib/voice/realtimeHealth";
 
 describe("mobile voice latency metrics collector", () => {
   it("computes p50/p95 for interrupt and transcript metrics", () => {
@@ -44,5 +45,63 @@ describe("mobile voice latency metrics collector", () => {
     expect(snapshot.metrics.time_to_first_assistant_audio.sampleCount).toBe(3);
     expect(snapshot.metrics.time_to_first_assistant_audio.minMs).toBe(1_100);
     expect(snapshot.metrics.time_to_first_assistant_audio.maxMs).toBe(1_500);
+  });
+
+  it("flags deterministic relay heartbeat sequence-gap failures", () => {
+    const health = evaluateMobileRealtimeRelayHealth({
+      nowMs: 90_000,
+      isSocketConnected: true,
+      lastIngestAttemptAtMs: 89_000,
+      lastIngestAckAtMs: 89_700,
+      consecutiveIngestFailures: 0,
+      ingestAckGraceMs: 400,
+      serverRelayQos: {
+        contractVersion: "voice_relay_qos_v1",
+        observedAtMs: 89_800,
+        healthy: true,
+        reasonCode: "relay_gap_detected",
+        heartbeat: {
+          contractVersion: "voice_relay_heartbeat_v1",
+          status: "missing",
+          expectedSequence: 22,
+          ackSequence: 20,
+          acknowledgedAtMs: 89_700,
+        },
+      },
+      serverHeartbeatSequenceGapTolerance: 0,
+    });
+
+    expect(health.healthy).toBe(false);
+    expect(health.reasonCode).toBe("relay_server_heartbeat_sequence_gap");
+    expect(health.serverRelayHeartbeatSequenceGap).toBe(2);
+  });
+
+  it("flags deterministic relay heartbeat stall-timeout failures", () => {
+    const health = evaluateMobileRealtimeRelayHealth({
+      nowMs: 100_000,
+      isSocketConnected: true,
+      lastIngestAttemptAtMs: 99_000,
+      lastIngestAckAtMs: 99_500,
+      consecutiveIngestFailures: 0,
+      ingestAckGraceMs: 400,
+      serverRelayQos: {
+        contractVersion: "voice_relay_qos_v1",
+        observedAtMs: 99_900,
+        healthy: true,
+        reasonCode: "relay_healthy",
+        heartbeat: {
+          contractVersion: "voice_relay_heartbeat_v1",
+          status: "acknowledged",
+          expectedSequence: 30,
+          ackSequence: 30,
+          acknowledgedAtMs: 91_000,
+        },
+      },
+      serverHeartbeatStallTimeoutMs: 7_500,
+    });
+
+    expect(health.healthy).toBe(false);
+    expect(health.reasonCode).toBe("relay_server_heartbeat_stall_timeout");
+    expect(health.serverRelayHeartbeatAckAgeMs).toBe(9_000);
   });
 });

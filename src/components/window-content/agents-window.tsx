@@ -18,6 +18,7 @@ import {
   Shield,
   Sparkles,
   Terminal,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useConvex, useMutation, useQuery } from "convex/react";
@@ -32,6 +33,7 @@ import { AgentListPanel } from "./agents/agent-list-panel";
 import { AgentDetailPanel } from "./agents/agent-detail-panel";
 import { AgentCreateForm } from "./agents/agent-create-form";
 import { AgentStorePanel, type AgentCatalogCard } from "./agents/agent-store-panel";
+import { AgentToolSetupPanel } from "./agents/agent-tool-setup-panel";
 import {
   AGENT_NEED_OUTCOME_OPTIONS,
   SPECIALIST_ROLE_CONTRACTS,
@@ -367,6 +369,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const [editingAgentId, setEditingAgentId] = useState<Id<"objects"> | null>(null);
   const [showAgentOps, setShowAgentOps] = useState(true);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showToolSetup, setShowToolSetup] = useState(false);
   const [opsScopeMode, setOpsScopeMode] = useState<AgentOpsScopeMode>("org");
   const [opsScopeOrganizationId, setOpsScopeOrganizationId] = useState<Id<"organizations"> | null>(null);
   const [incidentActionMessage, setIncidentActionMessage] = useState<string | null>(null);
@@ -793,6 +796,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     setShowCreate(false);
     setEditingAgentId(null);
     setShowCatalog(false);
+    setShowToolSetup(false);
     setShowAgentOps(false);
     setActiveTab("trust");
   };
@@ -802,6 +806,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     setShowCreate(false);
     setEditingAgentId(null);
     setShowCatalog(false);
+    setShowToolSetup(false);
     setShowAgentOps(true);
     setActiveTab("trust");
   };
@@ -809,8 +814,18 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const openAgentCatalog = () => {
     setShowCreate(false);
     setEditingAgentId(null);
+    setShowToolSetup(false);
     setShowAgentOps(false);
     setShowCatalog(true);
+  };
+
+  const openAgentToolSetup = () => {
+    setSelectedAgentId(null);
+    setShowCreate(false);
+    setEditingAgentId(null);
+    setShowCatalog(false);
+    setShowAgentOps(false);
+    setShowToolSetup(true);
   };
 
   const openAgentCreationAssistant = (openContext: string) => {
@@ -890,6 +905,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     setSelectedAgentId(null);
     setEditingAgentId(null);
     setShowCatalog(false);
+    setShowToolSetup(false);
     setShowAgentOps(true);
     openAgentCreationAssistant("agent_creation:primary_operator");
   };
@@ -1009,6 +1025,19 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             <Sparkles size={14} />
             {tx("header.agent_catalog", "Agent Catalog")}
           </button>
+          <button
+            onClick={openAgentToolSetup}
+            className="px-3 py-1.5 text-xs font-bold flex items-center gap-2 border transition-colors"
+            style={{
+              borderColor: "var(--win95-border)",
+              background: showToolSetup ? "var(--desktop-shell-accent)" : "var(--win95-button-face)",
+              color: "var(--win95-text)",
+            }}
+            title="Open Agent Tool Setup"
+          >
+            <Wrench size={14} />
+            Tool Setup
+          </button>
           {creditBalance && !hasZeroCredits && (
             <CreditBalance
               dailyCredits={creditBalance.dailyCredits}
@@ -1058,6 +1087,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             setShowCreate(false);
             setEditingAgentId(null);
             setShowCatalog(false);
+            setShowToolSetup(false);
             setShowAgentOps(false);
             setActiveTab("trust");
           }}
@@ -1075,6 +1105,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               onSaved={(agentId) => {
                 setShowCreate(false);
                 setShowCatalog(false);
+                setShowToolSetup(false);
                 if (agentId) {
                   setSelectedAgentId(agentId);
                   setShowAgentOps(false);
@@ -1098,6 +1129,9 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               onOpenAssistant={openCatalogAssistant}
               onRequestCustomOrder={() => openAgentCreationAssistant("agent_catalog:custom_concierge")}
             />
+          )}
+          {!showCreate && !showCatalog && !showAgentOps && showToolSetup && (
+            <AgentToolSetupPanel onBack={openAgentOpsDashboard} />
           )}
           {!showCreate && !showCatalog && showAgentOps && (
             <AgentOpsSection
@@ -1139,7 +1173,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               tx={tx}
             />
           )}
-          {!showCreate && !showCatalog && !showAgentOps && selectedAgentId && (
+          {!showCreate && !showCatalog && !showAgentOps && !showToolSetup && selectedAgentId && (
             <AgentDetailPanel
               agentId={selectedAgentId}
               sessionId={sessionId}
@@ -1154,7 +1188,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               }}
             />
           )}
-          {!showCreate && !showCatalog && !showAgentOps && !selectedAgentId && (
+          {!showCreate && !showCatalog && !showAgentOps && !showToolSetup && !selectedAgentId && (
             <div className="h-full flex flex-col items-center justify-center gap-4">
               <Bot size={64} className="opacity-20" />
               <p className="text-sm" style={{ color: "var(--neutral-gray)" }}>

@@ -6,8 +6,33 @@ export type VoiceRealtimeTransportRoute =
 export type VoiceRealtimeSttRoute =
   | "scribe_v2_realtime_primary"
   | "gemini_native_audio_failover";
+export type GeminiLiveActivityHandlingContract =
+  "START_OF_ACTIVITY_INTERRUPTS";
+export type GeminiLiveTurnCoverageContract =
+  "TURN_INCLUDES_ALL_INPUT";
+
+export interface GeminiLiveRealtimeInputSetupContract {
+  contractVersion: typeof GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION;
+  automaticActivityDetection: {
+    disabled: false;
+    startOfSpeechSensitivity: "START_SENSITIVITY_HIGH";
+    endOfSpeechSensitivity: "END_SENSITIVITY_LOW";
+    silenceDurationMs: 500;
+    prefixPaddingMs: 40;
+  };
+  activityHandling: GeminiLiveActivityHandlingContract;
+  turnCoverage: GeminiLiveTurnCoverageContract;
+  inputAudioTranscriptionEnabled: true;
+  outputAudioTranscriptionEnabled: true;
+}
 
 export const VOICE_RUNTIME_POLICY_VERSION = "voice_runtime_policy_v1" as const;
+export const GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION =
+  "gemini_live_realtime_input_setup_v1" as const;
+export const GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT:
+  GeminiLiveActivityHandlingContract = "START_OF_ACTIVITY_INTERRUPTS";
+export const GEMINI_LIVE_TURN_COVERAGE_CONTRACT:
+  GeminiLiveTurnCoverageContract = "TURN_INCLUDES_ALL_INPUT";
 
 const DEFAULT_PROVIDER_ID: VoiceRuntimePolicyProviderId = "elevenlabs";
 
@@ -134,4 +159,22 @@ export function resolveVoiceRealtimeTransportRoutePrecedence(): readonly VoiceRe
 
 export function resolveVoiceRealtimeSttRoutePrecedence(): readonly VoiceRealtimeSttRoute[] {
   return REALTIME_STT_ROUTE_PRECEDENCE;
+}
+
+export function resolveGeminiLiveRealtimeInputSetupContract():
+  GeminiLiveRealtimeInputSetupContract {
+  return {
+    contractVersion: GEMINI_LIVE_REALTIME_INPUT_SETUP_CONTRACT_VERSION,
+    automaticActivityDetection: {
+      disabled: false,
+      startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+      endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+      silenceDurationMs: 500,
+      prefixPaddingMs: 40,
+    },
+    activityHandling: GEMINI_LIVE_ACTIVITY_HANDLING_CONTRACT,
+    turnCoverage: GEMINI_LIVE_TURN_COVERAGE_CONTRACT,
+    inputAudioTranscriptionEnabled: true,
+    outputAudioTranscriptionEnabled: true,
+  };
 }

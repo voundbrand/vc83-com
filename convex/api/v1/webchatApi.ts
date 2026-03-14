@@ -466,6 +466,117 @@ export const getWebchatSession = internalQuery({
   },
 });
 
+async function requireEvalTraceSessionScope(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: Id<"organizations">;
+  sessionToken: string;
+  channel?: PublicInboundChannel;
+}) {
+  const session = await args.ctx.runQuery(generatedApi.internal.api.v1.webchatApi.getWebchatSession, {
+    sessionToken: args.sessionToken,
+  });
+  if (!session) {
+    throw new Error("Unauthorized eval trace access: session not found.");
+  }
+  if (String(session.organizationId) !== String(args.organizationId)) {
+    throw new Error("Unauthorized eval trace access: session organization mismatch.");
+  }
+  if (args.channel && session.channel && session.channel !== args.channel) {
+    throw new Error("Unauthorized eval trace access: session channel mismatch.");
+  }
+  return session;
+}
+
+export const getWebchatEvalRunPlaybackTrace = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionToken: v.string(),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSessionToken = args.sessionToken.trim();
+    const channel =
+      typeof args.channel === "undefined" ? undefined : normalizePublicChannel(args.channel);
+    await requireEvalTraceSessionScope({
+      ctx,
+      organizationId: args.organizationId,
+      sessionToken: normalizedSessionToken,
+      channel,
+    });
+    return await (ctx as any).runQuery(
+      generatedApi.internal.ai.chat.getEvalRunPlaybackTraceInternal,
+      {
+        organizationId: args.organizationId,
+        runId: args.runId,
+        limit: args.limit,
+      }
+    );
+  },
+});
+
+export const getWebchatEvalRunDiffTrace = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionToken: v.string(),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    baselineRunId: v.string(),
+    candidateRunId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSessionToken = args.sessionToken.trim();
+    const channel =
+      typeof args.channel === "undefined" ? undefined : normalizePublicChannel(args.channel);
+    await requireEvalTraceSessionScope({
+      ctx,
+      organizationId: args.organizationId,
+      sessionToken: normalizedSessionToken,
+      channel,
+    });
+    return await (ctx as any).runQuery(
+      generatedApi.internal.ai.chat.getEvalRunDiffTraceInternal,
+      {
+        organizationId: args.organizationId,
+        baselineRunId: args.baselineRunId,
+        candidateRunId: args.candidateRunId,
+        limit: args.limit,
+      }
+    );
+  },
+});
+
+export const getWebchatEvalPromotionEvidencePacket = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    sessionToken: v.string(),
+    channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
+    runId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedSessionToken = args.sessionToken.trim();
+    const channel =
+      typeof args.channel === "undefined" ? undefined : normalizePublicChannel(args.channel);
+    await requireEvalTraceSessionScope({
+      ctx,
+      organizationId: args.organizationId,
+      sessionToken: normalizedSessionToken,
+      channel,
+    });
+    return await (ctx as any).runQuery(
+      generatedApi.internal.ai.chat.getEvalPromotionEvidencePacketInternal,
+      {
+        organizationId: args.organizationId,
+        runId: args.runId,
+        limit: args.limit,
+      }
+    );
+  },
+});
+
 /**
  * Update session activity timestamp
  */

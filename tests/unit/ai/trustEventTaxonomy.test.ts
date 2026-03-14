@@ -28,7 +28,7 @@ const BASE_PAYLOAD = {
 
 describe("trust event taxonomy contract", () => {
   it("registers deterministic trust event names without duplicates", () => {
-    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(66);
+    expect(TRUST_EVENT_NAME_VALUES).toHaveLength(67);
     expect(new Set(TRUST_EVENT_NAME_VALUES).size).toBe(TRUST_EVENT_NAME_VALUES.length);
     expect(
       TRUST_EVENT_NAME_VALUES.every((eventName) => isDeterministicTrustEventName(eventName)),
@@ -94,6 +94,9 @@ describe("trust event taxonomy contract", () => {
       isModeAllowedForTrustEvent("trust.lifecycle.operator_reply_in_stream.v1", "lifecycle"),
     ).toBe(true);
     expect(
+      isModeAllowedForTrustEvent("trust.lifecycle.eval_run_state_transition.v1", "lifecycle"),
+    ).toBe(true);
+    expect(
       isModeAllowedForTrustEvent("trust.voice.session_transition.v1", "lifecycle"),
     ).toBe(true);
     expect(
@@ -114,6 +117,9 @@ describe("trust event taxonomy contract", () => {
     ).toBe(false);
     expect(
       isModeAllowedForTrustEvent("trust.voice.session_transition.v1", "runtime"),
+    ).toBe(false);
+    expect(
+      isModeAllowedForTrustEvent("trust.lifecycle.eval_run_state_transition.v1", "runtime"),
     ).toBe(false);
     expect(
       isModeAllowedForTrustEvent("trust.guardrail.appointment_call_approval_requested.v1", "agents"),
