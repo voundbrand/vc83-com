@@ -1,6 +1,6 @@
 # Personal Life Operator Agent Task Queue
 
-**Last updated:** 2026-02-25  
+**Last updated:** 2026-03-11  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent`  
 **Source request:** Determine if the current system can act as a personal life organizer (calendar-aware, appointment outreach, outbound calling) and define an implementation plan that makes it production-real.
 
@@ -36,6 +36,7 @@
 | `V-LINT` | `npm run lint` |
 | `V-UNIT` | `npm run test:unit` |
 | `V-E2E` | `npm run test:e2e:desktop` |
+| `V-CODEGEN` | `npx convex codegen` |
 
 ---
 
@@ -50,6 +51,7 @@
 | `E` | Planner agent templates and tool-profile wiring | `convex/onboarding/seedPlatformAgents.ts`; tool scoping/docs | Reuse existing protected-template + clone policy mechanics |
 | `F` | Trust, compliance, approvals, and observability | `convex/ai/trustEvents.ts`; approvals/escalation surfaces | Do not bypass HITL gating for external actions |
 | `G` | Pilot validation and closeout | tests + workstream docs + runbooks | Close only when all `P0` rows are `DONE` or `BLOCKED` |
+| `H` | Weekend mode operations extension (schedule, pipeline, Monday briefing) | `convex/ai/weekendMode.ts`; session runtime + setup UI + workstream docs | Keep changes additive to existing personal-operator runtime and leave unrelated voice/evals edits untouched |
 
 ---
 
@@ -63,6 +65,7 @@
 6. `AGP-009` cannot be marked `DONE` until `PLO-010` is `DONE` (cross-queue done gate).
 7. Lane `F` may start after lane `D` and lane `E` `P0` rows are `DONE`.
 8. Lane `G` may start after lane `F` `P0` row is `DONE`.
+9. Lane `H` may start after lane `G` closes and must keep queue/docs artifacts synchronized with the shipped implementation.
 
 ---
 
@@ -87,11 +90,15 @@
 | `PLO-015` | `G` | 8 | `P1` | `DONE` | `PLO-014` | Final closeout: sync queue/docs/prompts, publish launch recommendation, and document unresolved blockers with rollback plan | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/INDEX.md`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/MASTER_PLAN.md`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/SESSION_PROMPTS.md`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/TASK_QUEUE.md` | `V-DOCS` | Done 2026-02-25: synchronized lane docs/prompts/queue, published limited-rollout recommendation and unresolved blocker + rollback sections in `MASTER_PLAN.md`, and aligned lane board/status in `INDEX.md` + `SESSION_PROMPTS.md`. Verify stack passed in exact row order: `npm run docs:guard` (`Docs guard passed.`). |
 | `PLO-016` | `G` | 8 | `P1` | `DONE` | `PLO-014`, `YAI-007@READY` | Validate pilot behavior in both personal and business org contexts (no personal-data leakage, context switching clarity, org-aware booking behavior) | `/Users/foundbrand_001/Development/vc83-com/tests/*`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/MASTER_PLAN.md` | `V-TYPE`; `V-UNIT`; `V-DOCS` | Done 2026-02-25: tightened cross-org checklist evidence so org-aware booking behavior requires non-empty per-context mutation artifacts and rejects cross-org mission/booking IDs, then added deterministic controls for booking-visibility leakage, context-banner ambiguity, cross-org mutation drift, and missing mutation evidence in `/Users/foundbrand_001/Development/vc83-com/tests/unit/ai/personalLifeOperatorPilotChecklist.test.ts`. Verify stack passed in exact row order: `npm run typecheck`; `npm run test:unit` (`133` files passed, `4` skipped; `645` tests passed, `80` skipped); `npm run docs:guard`. Ownership note: AGP lane `J` owns global 104+ recommender index/matrix scaling; PLO remains owner of personal-operator template/runtime behavior. |
 | `PLO-017` | `G` | 9 | `P1` | `DONE` | `PLO-016` | Re-run and stabilize cloud-only RBAC/VAT verification path (or capture deterministic blocker evidence) for `RUN_CONVEX_CLOUD_TESTS=1` in this environment | `/Users/foundbrand_001/Development/vc83-com/tests/unit/permissions/basic-checks.test.ts`; `/Users/foundbrand_001/Development/vc83-com/tests/unit/permissions/organization-scoped.test.ts`; `/Users/foundbrand_001/Development/vc83-com/tests/unit/permissions/wildcards.test.ts`; `/Users/foundbrand_001/Development/vc83-com/tests/unit/roles/role-assignment.test.ts`; `/Users/foundbrand_001/Development/vc83-com/tests/unit/vat-calculation.test.ts`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/MASTER_PLAN.md` | `V-TYPE`; `V-UNIT`; `V-DOCS` | Done 2026-02-25: row created `READY` and promoted to `IN_PROGRESS`, then verify stack passed in exact order. `npm run typecheck` passed (2026-02-25T15:12:47Z -> 2026-02-25T15:12:56Z). `RUN_CONVEX_CLOUD_TESTS=1 npm run test:unit -- tests/unit/permissions/basic-checks.test.ts tests/unit/permissions/organization-scoped.test.ts tests/unit/permissions/wildcards.test.ts tests/unit/roles/role-assignment.test.ts tests/unit/vat-calculation.test.ts` passed with final Vitest summary (`138` files passed, `732` tests passed, duration `18.62s`) and targeted RBAC/VAT suites green; prior websocket reconnect failure signature was not reproduced in this run (2026-02-25T15:13:00Z -> 2026-02-25T15:13:22Z). `npm run docs:guard` passed (`Docs guard passed.`; 2026-02-25T15:13:22Z -> 2026-02-25T15:13:31Z). Ownership note reaffirmed: AGP lane `J` owns global 104+ recommender index/matrix scaling; PLO remains owner of personal-operator template/runtime behavior. |
+| `PLO-018` | `H` | 10 | `P0` | `DONE` | `PLO-017` | Implement weekend mode runtime contract + schedule enforcement + prompt overlay wiring for Personal Life Operator | `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentPromptAssembly.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/crons.ts` | `V-TYPE`; `V-UNIT`; `V-CODEGEN`; `V-DOCS` | Done 2026-03-11: added weekend-mode config/runtime contract, schedule enforcement cron, onboarding default seeding, and weekend prompt overlay behavior. Verify stack passed: `npm run typecheck`; `npx vitest run tests/unit/ai/weekendMode.test.ts`; `npx convex codegen`; `npm run docs:guard`. |
+| `PLO-019` | `H` | 10 | `P0` | `DONE` | `PLO-018` | Implement weekend caller automation: contact auto-creation, Weekend Calls pipeline template/stages, session metadata, and task extraction to CRM-linked tasks | `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentSessions.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/schemas/agentSessionSchemas.ts` | `V-TYPE`; `V-UNIT`; `V-CODEGEN`; `V-DOCS` | Done 2026-03-11: added weekend caller coverage mutation path, deterministic weekend pipeline/stage creation (`New Call`, `Needs Follow-up`, `Appointment Set`, `Resolved`, `Escalated`), conversation-to-task extraction, and session weekend automation state tracking. Verify stack passed: `npm run typecheck`; `npx vitest run tests/unit/ai/weekendMode.test.ts`; `npx convex codegen`; `npm run docs:guard`. |
+| `PLO-020` | `H` | 10 | `P1` | `DONE` | `PLO-019` | Implement Monday morning weekend report generation/delivery and wire setup UI toggle to persisted weekend-mode config | `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/crons.ts`; `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/integrations-window/personal-operator-setup.tsx`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/*` | `V-TYPE`; `V-UNIT`; `V-CODEGEN`; `V-DOCS` | Done 2026-03-11: added Monday report aggregation + LLM synthesis + channel delivery (`in_app`/`email`/`telegram`) and persisted setup toggle (`getWeekendModeConfig`/`saveWeekendModeConfig`) from integrations UI. Verify stack passed: `npm run typecheck`; `npx vitest run tests/unit/ai/weekendMode.test.ts`; `npx convex codegen`; `npm run docs:guard`. |
 
 ---
 
 ## Current kickoff
 
 - Active task: none.
-- Next promotable task: none (lane `G` complete; queue has no remaining `READY` rows).
-- Immediate objective: queue complete for this workstream; monitor upstream/core contract changes before opening new rows.
+- Next promotable task: none (lane `H` complete; queue has no remaining `READY` rows).
+- Immediate objective: weekend-mode expansion is documented as complete; monitor production telemetry and open follow-up rows only for verified defects or policy deltas.
+- Cross-workstream note (2026-03-13 CET): Eleven rollout row `ELA-021` now owns the external telephony dependency contract for weekend-mode compatibility; no new PLO implementation row is reopened by that docs-only dependency sync.

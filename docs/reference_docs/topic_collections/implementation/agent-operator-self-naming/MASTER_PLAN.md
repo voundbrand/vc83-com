@@ -19,7 +19,7 @@ The current system has multiple independent name authorities and hardcoded ident
 1. Mobile currently has local name authority: `apps/operator-mobile/src/contexts/AppPreferencesContext.tsx` seeds `DEFAULT_AGENT_NAME = 'SevenLayers'`, and `apps/operator-mobile/app/(tabs)/index.tsx` speaks that name in starter text.
 2. Onboarding still auto-assigns names from a static list in `convex/onboarding/completeOnboarding.ts` (`Samantha`, `Mira`, `Nova`, etc.), which bypasses explicit co-creation.
 3. Desktop AI chat surfaces use hardcoded sender/placeholder labels (`SevenLayers`) in `slick-chat-input.tsx` and `slick-chat-messages.tsx`.
-4. Commercial kickoff paths embed hardcoded specialist display names (`Samantha`/`Samantha Warm`) in `src/components/window-content/ai-chat-window/index.tsx` and `convex/ai/agentExecution.ts`.
+4. Commercial kickoff paths embed hardcoded specialist display names (`Samantha` / warm-route compatibility alias assumptions) in `src/components/window-content/ai-chat-window/index.tsx` and `convex/ai/agentExecution.ts`.
 5. Legacy runtime compatibility still includes display-name Samantha detection (`resolveLegacySamanthaRuntimeModule` in `convex/ai/agentSpecRegistry.ts` and related migration heuristics).
 6. As a result, renaming at soul level can drift from visible runtime identity unless all read/write paths converge on one resolver contract.
 

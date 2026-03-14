@@ -1,7 +1,7 @@
 # Personal Life Operator Agent Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent`  
-**Last updated:** 2026-02-26
+**Last updated:** 2026-03-11
 
 ---
 
@@ -350,6 +350,39 @@ Generalization note:
 
 1. AGP lane `J` owns global 104+ recommender index/matrix scaling.
 2. This PLO queue remains owner of personal-operator template/runtime behavior.
+
+---
+
+## Lane H weekend mode operations extension (`PLO-018`..`PLO-020`)
+
+### Lane `H` risk check (before execution)
+
+1. Regression risk: weekend schedule activation/deactivation could mutate soul mode at the wrong times and produce inconsistent runtime behavior across timezones.
+   Impacted contracts: `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/crons.ts`.
+2. Regression risk: weekend caller automation could create duplicate contacts/pipeline links or fail to map sessions into deterministic follow-up stages.
+   Impacted contracts: `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentSessions.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/schemas/agentSessionSchemas.ts`.
+3. Regression risk: Monday reports could over-deliver stale/noisy summaries or fail silently on channel delivery (email/telegram) without artifact persistence.
+   Impacted contracts: `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`; `/Users/foundbrand_001/Development/vc83-com/convex/crons.ts`; `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/integrations-window/personal-operator-setup.tsx`.
+
+### Implementation outcome (2026-03-11)
+
+1. Added weekend mode runtime/config contract and schedule enforcement in `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts` with timezone-aware Friday-evening -> Monday-morning window evaluation, onboarding default seeding, and cron-driven state synchronization.
+2. Added weekend prompt overlay + runtime wiring in:
+   - `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentExecution.ts`
+   - `/Users/foundbrand_001/Development/vc83-com/convex/ai/agentPromptAssembly.ts`
+3. Added weekend caller automation in `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts`:
+   - contact auto-create/resolve from inbound phone calls,
+   - deterministic `Weekend Calls` pipeline creation with stages (`New Call`, `Needs Follow-up`, `Appointment Set`, `Resolved`, `Escalated`),
+   - conversation-to-task extraction that enriches CRM pipeline placement and creates follow-up task objects.
+4. Added Monday briefing generation/delivery in `/Users/foundbrand_001/Development/vc83-com/convex/ai/weekendMode.ts` with persisted in-app report artifacts plus optional email/Telegram dispatch.
+5. Added setup UI toggle wiring in `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/integrations-window/personal-operator-setup.tsx` using `getWeekendModeConfig` + `saveWeekendModeConfig`.
+
+### Verification outcome (row stack)
+
+1. `V-TYPE` passed (`npm run typecheck`).
+2. `V-UNIT` passed (`npx vitest run tests/unit/ai/weekendMode.test.ts`) with `4` tests passed.
+3. `V-CODEGEN` passed (`npx convex codegen`).
+4. `V-DOCS` passed (`npm run docs:guard`).
 
 ---
 

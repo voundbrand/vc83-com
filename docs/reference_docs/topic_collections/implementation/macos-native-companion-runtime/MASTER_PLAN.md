@@ -1,7 +1,7 @@
 # macOS Native Companion Runtime Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/macos-native-companion-runtime`  
-**Last updated:** 2026-03-09
+**Last updated:** 2026-03-11
 
 ---
 
@@ -431,15 +431,16 @@ Internal deterministic gates:
 
 ---
 
-## `MCR-019` strict credentialed release rehearsal (`BLOCKED` 2026-03-09)
+## `MCR-019` strict credentialed release rehearsal (`DONE` 2026-03-11)
 
 1. Row execution transitions:
    - `PENDING` -> `READY` after `MCR-025` reached `DONE`,
    - `READY` -> `IN_PROGRESS` for strict credentialed rehearsal using sanctioned automation surfaces only,
-   - `IN_PROGRESS` -> `BLOCKED` due missing live credential/URL prerequisites with fail-closed pipeline behavior.
+   - `IN_PROGRESS` -> `BLOCKED` on 2026-03-09 due missing live credential/URL prerequisites with fail-closed pipeline behavior,
+   - `BLOCKED` -> `DONE` on 2026-03-11 per operator confirmation that strict credentialed rehearsal completed and the full release workflow is operational.
 2. Evidence bundle:
    - `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
-3. Explicit prerequisite validation outcome:
+3. Prior strict-attempt prerequisite validation outcome (2026-03-09):
    - all required values were missing (`MACOS_DEVELOPER_ID_P12_BASE64`, `MACOS_DEVELOPER_ID_P12_PASSWORD`, `APPLE_TEAM_ID`, `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`, `NOTARY_KEY_P8_BASE64`, `SPARKLE_PRIVATE_KEY_BASE64`, `SPARKLE_PUBLIC_KEY`, `DOWNLOAD_URL_PREFIX`, `RELEASE_NOTES_URL_BASE`),
    - fail evidence captured in `prerequisite-check.txt` and `prerequisite-check.json`.
 4. Required verification profile outcome:
@@ -454,10 +455,12 @@ Internal deterministic gates:
    - attempted strict run with deterministic tag `v0.1.0` and publish enabled via `scripts/release-pipeline.sh`,
    - pipeline failed closed at preflight with `codesign_identity:missing` and `notary_credentials:missing`,
    - strict evidence captured in `release_pipeline_strict.log`, `release-dist/preflight-report.json`, and `release-dist/release-pipeline-evidence.json`,
-   - no signed/notarized/public release artifacts were published; rollback action not required because failure occurred before package/notarize/publish stages.
+   - prior blocked attempt produced no signed/notarized/public release artifacts and required no rollback because failure occurred before package/notarize/publish stages.
+6. Current status:
+   - `MCR-019` is now closed as `DONE` and lane `H` is fully complete.
 
 ---
 
 ## Immediate next action
 
-1. Unblock `MCR-019` by provisioning all required live secrets/URL values plus signing identity, then rerun the same strict sanctioned release path to completion and capture accepted notarization + signed appcast + GitHub/public URL evidence.
+1. Keep the credentialed release workflow healthy by running periodic strict rehearsal checks and preserving signed/notarized evidence continuity in release artifacts.

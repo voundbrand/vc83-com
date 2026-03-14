@@ -53,7 +53,9 @@ PRD v1.3 alignment scope:
 14. Lane `G` `P0` pilot validation is complete (`PLO-014` `DONE`): deterministic checklist evidence shipped for hair + dermatologist scenarios with a generalized scenario guard.
 15. Lane `G` cross-org validation is complete (`PLO-016` `DONE`): personal/business context checks now include explicit pass/fail controls for mission/booking leakage, context-switch labeling clarity, and org-scoped booking mutation evidence.
 16. Lane `G` cloud-only RBAC/VAT follow-up (`PLO-017`) is complete (2026-02-25): exact verify stack passed in row order: `npm run typecheck`; `RUN_CONVEX_CLOUD_TESTS=1 npm run test:unit -- tests/unit/permissions/basic-checks.test.ts tests/unit/permissions/organization-scoped.test.ts tests/unit/permissions/wildcards.test.ts tests/unit/roles/role-assignment.test.ts tests/unit/vat-calculation.test.ts`; `npm run docs:guard`. Final summary: `138` files passed, `732` tests passed; prior websocket reconnect failure signature was not reproduced.
-17. Current reality outcome: pilot and cloud-only RBAC/VAT verification evidence are both green in this environment, and lane `G` is fully complete.
+17. Lane `H` weekend-mode extension (`PLO-018`..`PLO-020`) is complete (2026-03-11): weekend schedule enforcement, weekend prompt overlay, weekend caller auto-CRM + dedicated pipeline, conversation-to-task extraction, and Monday morning report generation/delivery are now implemented.
+18. `PLO-018`..`PLO-020` verify stack passed in order: `npm run typecheck`; `npx vitest run tests/unit/ai/weekendMode.test.ts`; `npx convex codegen`; `npm run docs:guard`.
+19. Current reality outcome: pilot, cloud-only RBAC/VAT verification, and weekend-mode operations extension are complete in this environment.
 
 Cross-workstream ownership boundaries:
 
@@ -73,6 +75,7 @@ Cross-workstream ownership boundaries:
 - [x] Lane E: planner template + recommendations (`PLO-010`..`PLO-011`)
 - [x] Lane F: trust/compliance hardening (`PLO-012`..`PLO-013`)
 - [x] Lane G: pilot + closeout (`PLO-014`..`PLO-017`)
+- [x] Lane H: weekend mode operations extension (`PLO-018`..`PLO-020`)
 
 ---
 
@@ -80,3 +83,4 @@ Cross-workstream ownership boundaries:
 
 - Docs guard: `npm run docs:guard`
 - Code baseline checks for implementation rows: `npm run typecheck && npm run lint && npm run test:unit`
+- Weekend-mode verification slice: `npx vitest run tests/unit/ai/weekendMode.test.ts && npx convex codegen`

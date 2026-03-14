@@ -1,7 +1,7 @@
 # macOS Native Companion Runtime Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/macos-native-companion-runtime`  
-**Last updated:** 2026-03-09  
+**Last updated:** 2026-03-11  
 **Source request:** Start a new implementation workstream for a native macOS companion/menu-bar utility that makes the local computer an agent-capability surface under one-agent trust/approval contracts.
 
 ---
@@ -97,11 +97,11 @@ This workstream defines and executes a production path for a native macOS compan
 22. Desktop parity foundation closeout is now complete:
    - `MCR-025` is `DONE` (2026-03-09): lane `I` now includes deterministic transport-health + retry/disable/rollback observability, fail-closed transport-disable runtime behavior, and operator-visible diagnostics in the native popover while preserving backend mutation authority and non-bypass approval gates.
    - Validation profile passed: `cd apps/macos && swift build`; `cd apps/macos && swift test`; `npm run typecheck`; `npm run lint`; `npm run test:unit`; `npm run test:e2e:desktop`; `npm run docs:guard`.
-23. First strict credentialed release rehearsal row has now run and is fail-closed blocked:
-   - `MCR-019` moved `PENDING -> READY -> IN_PROGRESS -> BLOCKED` (2026-03-09) with evidence at `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
+23. First strict credentialed release rehearsal row is now complete:
+   - `MCR-019` is `DONE` (2026-03-11) per operator confirmation; strict credentialed release rehearsal is complete and the full release workflow is operational.
    - Explicit prerequisite validation failed (`10/10` required live values missing), and strict release attempt (`MODE=strict ... scripts/release-pipeline.sh`) failed at preflight with `codesign_identity:missing` and `notary_credentials:missing` (`release-dist/preflight-report.json`, `release-dist/release-pipeline-evidence.json`).
    - Required verification profile was still completed and captured (including unrestricted reruns for sandbox-restricted Swift module-cache and desktop E2E localhost bind).
-24. `apps/macos` implementation now includes lane `B` bridge-envelope contract mapping, lane `C` LaunchAgent lifecycle scaffolding, lane `D` notification/deep-link bridge handlers, lane `E` capture connectors, lane `G/H` production release automation foundations with hardened public-release guardrails, and lane `I` parity rows `MCR-020`..`MCR-025` all `DONE`; `MCR-019` remains blocked strictly on missing live credentials/host URLs.
+24. `apps/macos` implementation now includes lane `B` bridge-envelope contract mapping, lane `C` LaunchAgent lifecycle scaffolding, lane `D` notification/deep-link bridge handlers, lane `E` capture connectors, lane `G/H` production release automation plus credentialed rehearsal closeout, and lane `I` parity rows `MCR-020`..`MCR-025` all `DONE`.
 
 ---
 
@@ -131,7 +131,7 @@ Not owned in this workstream:
 - [x] Lane E: local capture + scoped system connector (`MCR-009` `DONE`, `MCR-010` `DONE`)
 - [x] Lane F: canonical ingress/trust + observability (`MCR-011` `DONE`, `MCR-012` `DONE`)
 - [x] Lane G: packaging/signing/notarization/update (`MCR-013` `DONE`, `MCR-014` `DONE`)
-- [ ] Lane H: QA matrix + closeout + release hardening (`MCR-015` `DONE`, `MCR-016` `DONE`, `MCR-017` `DONE`, `MCR-018` `DONE`, `MCR-019` `BLOCKED`)
+- [x] Lane H: QA matrix + closeout + release hardening (`MCR-015` `DONE`, `MCR-016` `DONE`, `MCR-017` `DONE`, `MCR-018` `DONE`, `MCR-019` `DONE`)
 - [x] Lane I: desktop deep integration parity (`MCR-020` `DONE`, `MCR-021A` `DONE`, `MCR-021B` `DONE`, `MCR-021` `DONE`, `MCR-022` `DONE`, `MCR-023` `DONE`, `MCR-024` `DONE`, `MCR-025` `DONE`)
 
 ---

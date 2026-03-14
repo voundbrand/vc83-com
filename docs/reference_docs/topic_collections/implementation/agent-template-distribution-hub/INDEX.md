@@ -39,13 +39,13 @@ This workstream defines and executes a centralized multi-tenant agent distributi
 4. Seeded migration bridge lock (`ATH-015`) is complete.
 5. Migration runbook operational drill (`ATH-018`) is complete.
 6. Pre-rollout readiness drill (`ATH-019`) is complete.
-7. Canary rollout runbook execution (`ATH-020`) is in progress.
+7. Canary rollout runbook execution (`ATH-020`) is complete.
 
 Immediate objective:
 
-1. execute `ATH-020` canary rollout runbook stage-by-stage using dry-run and staged apply gates,
-2. monitor rollout telemetry + entitlement audit streams during canary hold,
-3. promote to wider rollout only after canary exit criteria pass.
+1. monitor canary telemetry for stability and confirm no policy-gate regressions,
+2. preserve rollback readiness and staged rollout discipline for subsequent waves,
+3. promote to wider rollout only with the same dry-run/apply/hold criteria.
 
 ---
 
@@ -56,7 +56,7 @@ Immediate objective:
 - [x] Lane C super-admin hub UX (`ATH-007`..`ATH-009`, `ATH-016`) (`ATH-007`, `ATH-008`, `ATH-009`, `ATH-016` done)
 - [x] Lane D org clone controls and override gates (`ATH-010`..`ATH-012`, `ATH-017`) (`ATH-010`, `ATH-011`, `ATH-012`, `ATH-017` done)
 - [x] Lane E verification and closeout (`ATH-013`..`ATH-014`, `ATH-018`, `ATH-019`) (`ATH-013`, `ATH-014`, `ATH-018`, `ATH-019` done on 2026-03-09)
-- [ ] Lane E canary execution (`ATH-020`) (in progress)
+- [x] Lane E canary execution (`ATH-020`) (`DONE` on 2026-03-11 after operator-confirmed live canary success)
 
 ---
 

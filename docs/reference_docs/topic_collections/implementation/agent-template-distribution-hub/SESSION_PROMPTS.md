@@ -49,6 +49,8 @@ Always read first:
 19. 2026-03-09: `ATH-018` completed; operational drill log published for mock migration dry-run/apply/rollback validation with targeted verification evidence (`V-UNIT-AGENT`, `V-DOCS`).
 20. 2026-03-09: `ATH-019` completed; pre-rollout readiness drill log published with full compile/unit/docs verification evidence (`V-TYPE`, `V-UNIT`, `V-DOCS`) and no blocking regressions.
 21. 2026-03-09: `ATH-020` started; canary rollout runbook published with step-by-step staged execution gates and rollback criteria for first legacy-linkage wave.
+22. 2026-03-11: `ATH-020` verification profile rerun passed (`npm run typecheck`, `npm run test:unit`, `npm run docs:guard`), but live canary execution moved to `BLOCKED` due missing required rollout inputs (`SESSION_ID`, `TEMPLATE_ID`, canary org ids, optional `TEMPLATE_VERSION_ID`).
+23. 2026-03-11: `ATH-020` moved to `DONE` per operator confirmation that live canary execution succeeded and rollout flow gates held.
 
 ---
 

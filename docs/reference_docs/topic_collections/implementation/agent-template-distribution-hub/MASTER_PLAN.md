@@ -1,6 +1,6 @@
 # Agent Template Distribution Hub Master Plan
 
-**Date:** 2026-03-07  
+**Date:** 2026-03-11  
 **Scope:** Ship a centralized super-admin agent template hub with per-org clone distribution, deterministic override precedence, and auditable rollout controls.
 
 ---
@@ -339,6 +339,8 @@ Canary rollout execution contract:
 - `ATH-018` completed on 2026-03-09: operational drill executed for migration runbook with mock dry-run/apply/rollback validation, evidence log published (`ATH-018_MIGRATION_DRILL_2026-03-09.md`), and targeted verification passed (`V-UNIT-AGENT`, `V-DOCS`).
 - `ATH-019` completed on 2026-03-09: pre-rollout readiness drill executed with full compile/unit/docs verification (`V-TYPE`, `V-UNIT`, `V-DOCS`), evidence log published (`ATH-019_PRE_ROLLOUT_DRILL_2026-03-09.md`), and no blocking regressions detected.
 - `ATH-020` started on 2026-03-09: canary rollout runbook published with repo-specific execution steps for `listTemplateCloneInventory`, `getTemplateCloneDriftReport`, `distributeAgentTemplateToOrganizations`, and `listTemplateDistributionTelemetry`, including stage gates and rollback triggers.
+- `ATH-020` moved to `BLOCKED` on 2026-03-11 after verification profile rerun passed (`npm run typecheck`, `npm run test:unit`, `npm run docs:guard`) but live canary execution could not start without required rollout inputs (`SESSION_ID`, `TEMPLATE_ID`, canary org ids, optional `TEMPLATE_VERSION_ID`). Dry run Step 1 remained fail-closed until valid super-admin session context was supplied.
+- `ATH-020` moved to `DONE` on 2026-03-11 per operator confirmation that live canary execution succeeded and the rollout flow worked end-to-end.
 - `ATH-017` completed on 2026-03-09: published-agent activation now enforces deterministic package/license entitlement gates in preflight + `spawn_use_case_agent` fail-closed path, reusing licensing helpers with legacy descriptor fallback and deterministic reason-code/guidance payloads; activation decisions are auditable via `agent_store_activation_entitlement_evaluated` object/audit events and surfaced in agent store UI status/blocked guidance messaging.
 - `ATH-011` completed on 2026-03-09: managed clone override policy gates now enforce `locked` fail-closed and `warn` confirmation+reason requirements in org update + rollout/distribution mutation paths, with deterministic gate audit envelopes and UI confirmation prompts in org editing controls (`agent-create-form`, `agent-tools-config`).
 - `ATH-012` completed on 2026-03-09: operational distribution telemetry shipped with deterministic backend query (`listTemplateDistributionTelemetry`) and rollout-panel audit table for job status, error counts, operation kind (`rollout` vs `rollback`), and affected-org summaries; trust-event taxonomy now includes template-distribution admin event contracts for incident/audit indexing.

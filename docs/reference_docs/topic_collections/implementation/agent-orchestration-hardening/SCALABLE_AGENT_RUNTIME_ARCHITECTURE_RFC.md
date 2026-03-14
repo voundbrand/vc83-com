@@ -258,7 +258,7 @@ contractVersion: agent_spec_v1
 agent:
   key: one_of_one_samantha_warm
   identity:
-    displayName: Samantha Warm
+    displayName: Samantha
     role: lead_capture_consultant
     templateRole: one_of_one_warm_lead_capture_consultant_template
   channels:
@@ -307,7 +307,7 @@ JSON equivalent (compact):
   "agent": {
     "key": "one_of_one_samantha_warm",
     "identity": {
-      "displayName": "Samantha Warm",
+      "displayName": "Samantha",
       "role": "lead_capture_consultant",
       "templateRole": "one_of_one_warm_lead_capture_consultant_template"
     }

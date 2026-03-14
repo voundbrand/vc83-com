@@ -1,6 +1,6 @@
 # Agent Template Distribution Hub Task Queue
 
-**Last updated:** 2026-03-09  
+**Last updated:** 2026-03-11  
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub`  
 **Source request:** Design an implementable system where agents are centrally managed as templates, distributed as per-org clones by default, and managed through a super-admin hub.
 
@@ -79,12 +79,12 @@
 | `ATH-014` | `E` | 5 | `P1` | `DONE` | `ATH-013` | Final closeout: sync queue artifacts and publish ops runbook for rollout + rollback cadence | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/*` | `V-DOCS` | Completed 2026-03-09: queue-first artifacts synchronized (TASK_QUEUE/INDEX/MASTER_PLAN/SESSION_PROMPTS) with lane `E` closeout and promotable-next-task handoff. Existing rollback trigger guidance remains in `MASTER_PLAN.md` rollout section. |
 | `ATH-018` | `E` | 6 | `P1` | `DONE` | `ATH-002`, `ATH-014` | Run operational drill for legacy migration runbook (mock dry-run/apply gate/rollback simulation) | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/ATH-018_MIGRATION_DRILL_2026-03-09.md`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/MASTER_PLAN.md` | `V-UNIT-AGENT`; `V-DOCS` | Completed 2026-03-09: drill log captured deterministic partitioning and `migrationJobId` gate behavior; targeted validation passed (`agentOntologyMutationPaths`, `agentToolsConfig.dom`), docs guard passed, no new blockers. |
 | `ATH-019` | `E` | 6 | `P1` | `DONE` | `ATH-018` | Run pre-rollout readiness drill before large legacy-linkage campaign (full compile/unit/docs verification) | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/ATH-019_PRE_ROLLOUT_DRILL_2026-03-09.md`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/MASTER_PLAN.md` | `V-TYPE`; `V-UNIT`; `V-DOCS` | Completed 2026-03-09: readiness drill passed (`npm run typecheck`, `npm run test:unit`, `npm run docs:guard`) with no blocking regressions. |
-| `ATH-020` | `E` | 6 | `P1` | `IN_PROGRESS` | `ATH-019` | Execute canary rollout runbook step-by-step for first legacy-linkage wave (dry-run -> gated apply -> telemetry hold -> rollback criteria check) | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/ATH-020_CANARY_ROLLOUT_RUNBOOK.md`; `/Users/foundbrand_001/Development/vc83-com/convex/agentOntology.ts` | `V-TYPE`; `V-UNIT`; `V-DOCS` | Started 2026-03-09: concrete runbook drafted with repo-specific mutation/query endpoints and operator checkpoints. |
+| `ATH-020` | `E` | 6 | `P1` | `DONE` | `ATH-019` | Execute canary rollout runbook step-by-step for first legacy-linkage wave (dry-run -> gated apply -> telemetry hold -> rollback criteria check) | `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/ATH-020_CANARY_ROLLOUT_RUNBOOK.md`; `/Users/foundbrand_001/Development/vc83-com/convex/agentOntology.ts`; `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/agent-template-distribution-hub/ATH-020_CANARY_EXECUTION_LOG_2026-03-11.md` | `V-TYPE`; `V-UNIT`; `V-DOCS` | Started 2026-03-09: concrete runbook drafted with repo-specific mutation/query endpoints and operator checkpoints. 2026-03-11: reran required verification profile successfully (`npm run typecheck`, `npm run test:unit`, `npm run docs:guard` all pass). 2026-03-11: `BLOCKED` -> `DONE` per operator confirmation that live canary testing succeeded and rollout flow works end-to-end. |
 
 ---
 
 ## Current kickoff
 
-- Active task: `ATH-020`.
-- Immediate objective: execute canary rollout runbook in staged mode with explicit dry-run gate and rollback criteria checks.
+- Active task: none (`0` rows in `IN_PROGRESS`).
+- Immediate objective: monitor post-canary telemetry and preserve rollback readiness for wider rollout waves.
 - Release gate status: `PASSED` (lanes `A`..`E` complete as of 2026-03-09).

@@ -17,7 +17,7 @@
 9. Promote `MCR-019` only after `MCR-025` is `DONE`; if live credentials/URL prerequisites are missing, fail closed and mark `MCR-019` as `BLOCKED`.
 10. After each completed row, sync `TASK_QUEUE.md`, `INDEX.md`, and `MASTER_PLAN.md`.
 
-Status snapshot (2026-03-09):
+Status snapshot (2026-03-11):
 
 1. Lane `A` `P0` rows are complete (`MCR-001` and `MCR-002` are `DONE`).
 2. Lane `B` scaffold kickoff row `MCR-003` is `DONE`; lane `B` follow-up row `MCR-004` is now `DONE`.
@@ -30,7 +30,7 @@ Status snapshot (2026-03-09):
 9. Lane `H` closeout row `MCR-016` is now `DONE` with residual-risk/rollback/escalation evidence published under `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-016-20260227T094625Z/*`.
 10. Follow-on hardening row `MCR-017` is now `DONE` with monitoring/automation baseline evidence published under `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-017-20260227T095948Z/*`.
 11. Production release automation row `MCR-018` is now `DONE` after implementing strict notarization, Sparkle appcast signing, GitHub release upload scripts, and `macos-release` workflow wiring with queue-first doc sync.
-12. Credentialed release rehearsal row `MCR-019` is now `BLOCKED` after strict execution attempt failed closed on missing live credentials/URL prerequisites; evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-019-20260309T124642Z/*`.
+12. Credentialed release rehearsal row `MCR-019` is now `DONE` (2026-03-11) per operator confirmation that strict credentialed release rehearsal completed and the full release workflow is operational.
 13. Lane `I` parity kickoff row `MCR-020` is now `DONE` after unblock verification rerun; evidence bundle: `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-session-20260227T133053Z/*`.
 14. Lane `I` native chat window parity slice row `MCR-021A` is `DONE` with evidence at `/Users/foundbrand_001/Development/vc83-com/tmp/reports/macos-companion/mcr-021a-20260227T123334Z/*`.
 15. Lane `I` proactive workflow recommendation slice row `MCR-021B` is `DONE` after implementing native work-observation + recommendation session control under `/Users/foundbrand_001/Development/vc83-com/apps/macos/Sources/SevenLayersMac/WorkObservation/*` with coverage in `AgenticWorkflowRecommendationEngineTests` and `WorkflowRecommendationSessionControllerTests`.
@@ -42,7 +42,7 @@ Status snapshot (2026-03-09):
 19. Exec approvals UX/policy hardening row `MCR-023` is `DONE` after implementing prompt-contract + persisted deny policy bindings in `apps/macos/Sources/SevenLayersMac/SystemExec/*` and scope/hash visibility formatter support in `apps/macos/Sources/SevenLayersMac/UI/SystemExecApprovalPromptFormatter.swift`; row verify profile (`swift build`, `swift test`, `lint`, `test:unit`, `docs:guard`) passed.
 20. Lane `I` deep-link/trust-portal + notification action parity row `MCR-024` is `DONE` after adding capture route support, explicit requested-vs-effective trust-gate semantics, and fail-closed notification action follow-through handling with non-bypass `approval.action` evidence checks.
 21. Lane `I` parity foundation closeout row `MCR-025` is `DONE` after implementing deterministic transport-health + retry/disable/rollback observability, fail-closed transport-disable runtime behavior, and operator-visible diagnostics while preserving backend mutation authority and non-bypass trust/approval semantics.
-22. Deterministic next promotable row: none (`MCR-019` is currently `BLOCKED`; unblock requires provisioning live credentials/URL prerequisites and rerunning strict rehearsal).
+22. Deterministic next promotable row: none (all deterministic rows are currently `DONE`).
 23. Active row count: `0` rows in `IN_PROGRESS`.
 
 ---
@@ -214,5 +214,5 @@ Requirements:
 1. OpenClaw remains reference-only architecture input; do not copy source verbatim.
 2. `vc83` backend remains mutation authority; desktop actions remain fail-closed and approval-gated.
 3. Every vertical slice must emit telemetry with correlation/session context and gate outcomes.
-4. Lane `I` invariants remain release-blocking while `MCR-019` unblock/rehearsal work proceeds.
+4. Lane `I` invariants remain release-blocking and must stay preserved during ongoing release workflow operation.
 5. Run row `Verify` commands exactly.

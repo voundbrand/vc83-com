@@ -22,6 +22,7 @@ Lane milestone log:
 11. 2026-02-25: Lane `G` closeout row (`PLO-015`) completed with synchronized docs (`INDEX.md`, `MASTER_PLAN.md`, `TASK_QUEUE.md`, `SESSION_PROMPTS.md`), limited-rollout recommendation, unresolved blocker log (`PLO-016` + cloud-only RBAC/VAT environment gap), and rollback plan. `V-DOCS` passed (`npm run docs:guard`).
 12. 2026-02-25: Lane `G` final row (`PLO-016`) completed with deterministic personal/business cross-org validation controls in `tests/unit/ai/personalLifeOperatorPilotChecklist.test.ts` (no personal-data leakage, context-switch clarity, and org-aware booking behavior gates). Verify stack passed in row order: `npm run typecheck`; `npm run test:unit` (`133` files passed, `4` skipped; `645` tests passed, `80` skipped); `npm run docs:guard`. Closeout ownership note recorded: AGP lane `J` owns global 104+ recommender index/matrix scaling; PLO remains owner of personal-operator template/runtime behavior.
 13. 2026-02-25: Lane `G` follow-up row (`PLO-017`) completed to re-run cloud-only RBAC/VAT verification in this environment. Verify stack passed in row order: `npm run typecheck`; `RUN_CONVEX_CLOUD_TESTS=1 npm run test:unit -- tests/unit/permissions/basic-checks.test.ts tests/unit/permissions/organization-scoped.test.ts tests/unit/permissions/wildcards.test.ts tests/unit/roles/role-assignment.test.ts tests/unit/vat-calculation.test.ts` (`138` files passed; `732` tests passed); `npm run docs:guard`. Prior websocket reconnect failure signature was not reproduced. Ownership note reaffirmed: AGP lane `J` owns global 104+ recommender index/matrix scaling; PLO remains owner of personal-operator template/runtime behavior.
+14. 2026-03-11: Lane `H` weekend-mode extension (`PLO-018`..`PLO-020`) completed: weekend schedule activation/deactivation, weekend prompt overlay, weekend caller auto-CRM + dedicated pipeline stages, post-summary task extraction, Monday report generation/delivery, and setup toggle persistence are now shipped. Verify stack passed in row order: `npm run typecheck`; `npx vitest run tests/unit/ai/weekendMode.test.ts`; `npx convex codegen`; `npm run docs:guard`.
 
 ---
 
@@ -148,3 +149,19 @@ Rules:
 4. Close only when queue/docs/prompts are synchronized and verify logs are recorded.
 5. Run row `Verify` commands exactly.
 6. Stop when lane `G` has no promotable rows.
+
+---
+
+## Session H (Lane H: weekend mode operations extension)
+
+You are Codex in `/Users/foundbrand_001/Development/vc83-com`.
+Execute only lane `H` rows from:
+`/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/personal-life-operator-agent/TASK_QUEUE.md`
+
+Rules:
+1. Implement weekend mode as an additive overlay on the existing personal operator; do not fork core runtime contracts.
+2. Keep timezone-aware schedule transitions deterministic (Friday evening activate, Monday morning deactivate) and log state changes via existing object-action patterns.
+3. Ensure weekend call capture includes contact resolution/creation, dedicated pipeline routing, and session metadata needed for Monday handoff.
+4. Monday report flow must persist an in-app artifact even when external delivery (email/telegram) fails.
+5. Run row `Verify` commands exactly, including `npx convex codegen`.
+6. Stop when lane `H` has no promotable rows.
