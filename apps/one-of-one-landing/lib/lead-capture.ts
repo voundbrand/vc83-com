@@ -181,7 +181,7 @@ export function buildLeadConfirmationSubject(
   data: LeadCaptureFormData
 ): string {
   if (data.language === "de") {
-    return `Danke, ${data.firstName} \u2014 buche deine pers\u00f6nliche Demo`
+    return `Danke, ${data.firstName} \u2014 buchen Sie Ihre pers\u00f6nliche Demo`
   }
   return `Thanks, ${data.firstName} \u2014 book your personal demo`
 }
@@ -191,15 +191,15 @@ export function buildLeadConfirmationHtml(data: LeadCaptureFormData): string {
   const isDE = data.language === "de"
 
   const heading = isDE
-    ? `Danke f\u00fcr dein Interesse, ${escapeHtml(data.firstName)}!`
+    ? `Danke f\u00fcr Ihr Interesse, ${escapeHtml(data.firstName)}!`
     : `Thanks for your interest, ${escapeHtml(data.firstName)}!`
 
   const body1 = isDE
-    ? `Du hast gerade ${escapeHtml(data.requestedPersonaName)} auf unserer Seite getestet. Clara ruft dich an \u2014 oder hat es bereits getan.`
+    ? `Sie haben gerade ${escapeHtml(data.requestedPersonaName)} auf unserer Seite getestet. Clara ruft Sie an \u2014 oder hat es bereits getan.`
     : `You just tested ${escapeHtml(data.requestedPersonaName)} on our site. Clara is calling you \u2014 or already has.`
 
   const body2 = isDE
-    ? "M\u00f6chtest du sehen, wie das gesamte Team f\u00fcr dein Unternehmen arbeiten kann? Buche eine pers\u00f6nliche 30-Minuten-Demo mit unserem Gr\u00fcnder."
+    ? "M\u00f6chten Sie sehen, wie das gesamte Team f\u00fcr Ihr Unternehmen arbeiten kann? Buchen Sie eine pers\u00f6nliche 30-Minuten-Demo mit unserem Gr\u00fcnder."
     : "Want to see how the full team can work for your business? Book a personal 30-minute demo with our founder."
 
   const ctaLabel = isDE ? "Demo buchen" : "Book your demo"
