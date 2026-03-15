@@ -1,0 +1,30 @@
+{
+  "name": "clara-jonas-cross-lane-redirect",
+  "description": "Jonas should qualify the lead, then route appointment-booking requests back through Clara instead of booking them himself.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Jonas",
+      "text": "Please connect me with Jonas.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Jonas qualification scenario",
+      "text": "Jonas, qualify a site-assessment request for a property manager with three buildings and a two-week timeline."
+    },
+    {
+      "label": "Cross-lane request",
+      "text": "Now I need the appointment booking handled, so please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["jonas", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "jonas"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

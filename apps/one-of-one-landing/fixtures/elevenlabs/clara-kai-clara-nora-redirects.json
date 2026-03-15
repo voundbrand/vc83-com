@@ -1,0 +1,39 @@
+{
+  "name": "clara-kai-clara-nora-redirects",
+  "description": "Kai and Nora should stay in lane and route cross-lane requests back through Clara instead of answering outside their specialty.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Kai",
+      "text": "I want Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai operations scenario",
+      "text": "Kai, a Berlin technician wants vacation next Thursday and Potsdam is already short-staffed. How would you coordinate that?"
+    },
+    {
+      "label": "Cross-lane request away from Kai",
+      "text": "Actually I need Nora to explain why bookings are down across both locations.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Nora analytics scenario",
+      "text": "Nora, compare Berlin and Potsdam when Potsdam is missing more calls and converting fewer bookings."
+    },
+    {
+      "label": "Cross-lane request away from Nora",
+      "text": "Now I need Kai to coordinate coverage for the weak location.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["kai", "clara", "nora", "clara", "kai"],
+    "expectedFinalAgent": "kai",
+    "requiredAgentsVisited": ["clara", "kai", "nora"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

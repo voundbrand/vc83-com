@@ -1,0 +1,39 @@
+{
+  "name": "clara-kai-clara-nora-handoff",
+  "description": "Cross-specialist handoff check for Clara routing to Kai, returning to Clara, and then routing to Nora without persona leakage.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Kai",
+      "text": "I want Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai scenario",
+      "text": "Kai, a technician wants vacation next month and we need shift coverage. How would you coordinate that?"
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask for Nora",
+      "text": "Please transfer me to Nora.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Nora scenario",
+      "text": "Nora, compare three locations: Berlin booked 82 jobs at 18 percent quote acceptance, Potsdam booked 54 jobs at 29 percent, and Oranienburg booked 61 jobs at 11 percent. What stands out?"
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["kai", "clara", "nora"],
+    "expectedFinalAgent": "nora",
+    "requiredAgentsVisited": ["clara", "kai", "nora"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

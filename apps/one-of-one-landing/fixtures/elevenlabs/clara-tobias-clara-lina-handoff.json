@@ -1,0 +1,39 @@
+{
+  "name": "clara-tobias-clara-lina-handoff",
+  "description": "Cross-specialist handoff check for Clara routing to Tobias, returning to Clara, and then routing to Lina without persona leakage.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Tobias",
+      "text": "Please transfer me to Tobias.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Tobias scenario",
+      "text": "Tobias, turn this field note into a quote draft: leaking flat roof over 120 square meters, damaged insulation near the skylight, access by lift only."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask for Lina",
+      "text": "Please connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina scenario",
+      "text": "Lina, show me a follow-up for a customer who missed an estimate appointment and is now going cold."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["tobias", "clara", "lina"],
+    "expectedFinalAgent": "lina",
+    "requiredAgentsVisited": ["clara", "tobias", "lina"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

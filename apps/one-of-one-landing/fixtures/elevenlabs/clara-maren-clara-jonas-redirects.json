@@ -1,0 +1,39 @@
+{
+  "name": "clara-maren-clara-jonas-redirects",
+  "description": "Maren and Jonas should stay in lane and route cross-lane requests back through Clara instead of answering outside their specialty.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Maren",
+      "text": "Please connect me with Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scheduling scenario",
+      "text": "Maren, I need to reschedule two appointments from Potsdam to Berlin next week and I want the earliest useful slot."
+    },
+    {
+      "label": "Cross-lane request away from Maren",
+      "text": "Actually I need Jonas to qualify a quote for a second location before we book anything.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Jonas qualification scenario",
+      "text": "Jonas, qualify a site-assessment request for a property manager with three buildings and a two-week timeline."
+    },
+    {
+      "label": "Cross-lane request away from Jonas",
+      "text": "Now I need Maren to book the appointment.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara", "jonas", "clara", "maren"],
+    "expectedFinalAgent": "maren",
+    "requiredAgentsVisited": ["clara", "maren", "jonas"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

@@ -13,7 +13,7 @@ import { landingTranslations } from "@/content/landing-content"
 import { trackLandingEvent } from "@/lib/analytics"
 import { resolveLegacyPublicCutoverMode } from "@/lib/commercial-cutover"
 import { Footer } from "@/components/footer"
-import { LandingDemoCallModal, type LandingDemoCallModalLabels } from "@/components/landing-demo-call-modal"
+import { LeadCaptureModal, type LeadCaptureModalLabels } from "@/components/lead-capture-modal"
 import Link from "next/link"
 import {
   Apple,
@@ -288,21 +288,42 @@ export default function LandingPage() {
     phoneAvailableLabel: t.agentPhoneAvailable,
   }
 
-  const demoCallModalLabels: LandingDemoCallModalLabels = {
-    title: t.demoCallModalTitle,
-    bodyIntro: t.demoCallModalBodyIntro,
-    phoneLabel: t.demoCallModalPhoneLabel,
-    phonePlaceholder: t.demoCallModalPhonePlaceholder,
-    privacyNote: t.demoCallModalPrivacyNote,
-    submitLabel: t.demoCallModalSubmit,
-    submittingLabel: t.demoCallModalSubmitting,
-    readyEyebrow: t.demoCallModalReadyEyebrow,
-    readyTitlePrefix: t.demoCallModalReadyTitlePrefix,
-    readyBody: t.demoCallModalReadyBody,
-    callNowLabel: t.demoCallModalCallNow,
-    resetLabel: t.demoCallModalReset,
-    closeLabel: t.demoCallModalClose,
-    errorLabel: t.demoCallModalError,
+  const otpActive = process.env.NEXT_PUBLIC_LEAD_CAPTURE_OTP_ACTIVE !== "false"
+
+  const leadCaptureLabels: LeadCaptureModalLabels = {
+    title: t.leadCaptureTitle,
+    subtitle: t.leadCaptureSubtitle,
+    firstNameLabel: t.leadCaptureFirstName,
+    lastNameLabel: t.leadCaptureLastName,
+    languageLabel: t.leadCaptureLanguage,
+    languageEn: t.leadCaptureLanguageEn,
+    languageDe: t.leadCaptureLanguageDe,
+    phoneLabel: t.leadCapturePhone,
+    phonePlaceholder: t.leadCapturePhonePlaceholder,
+    phoneHint: t.leadCapturePhoneHint,
+    emailLabel: t.leadCaptureEmail,
+    emailPlaceholder: t.leadCaptureEmailPlaceholder,
+    submitLabel: otpActive ? t.leadCaptureSubmit : t.leadCaptureSubmitDirect,
+    submittingLabel: otpActive ? t.leadCaptureSubmitting : t.leadCaptureSubmittingDirect,
+    bookDemoLabel: t.leadCaptureBookDemo,
+    bookDemoSeparator: t.leadCaptureOr,
+    privacyNote: otpActive ? t.leadCapturePrivacy : t.leadCapturePrivacyDirect,
+    otpTitle: t.leadCaptureOtpTitle,
+    otpBody: t.leadCaptureOtpBody,
+    otpPlaceholder: t.leadCaptureOtpPlaceholder,
+    otpVerify: t.leadCaptureOtpVerify,
+    otpVerifying: t.leadCaptureOtpVerifying,
+    otpResend: t.leadCaptureOtpResend,
+    otpResendIn: t.leadCaptureOtpResendIn,
+    otpDifferentNumber: t.leadCaptureOtpDifferentNumber,
+    otpInvalid: t.leadCaptureOtpInvalid,
+    otpExpired: t.leadCaptureOtpExpired,
+    callingTitle: t.leadCaptureCallingTitle,
+    callingBody: t.leadCaptureCallingBody,
+    callingConfirmation: t.leadCaptureCallingConfirmation,
+    closeLabel: t.leadCaptureClose,
+    errorLabel: t.leadCaptureError,
+    rateLimitedLabel: t.leadCaptureRateLimited,
   }
 
   const sharedDemoPhoneNumber = process.env.NEXT_PUBLIC_LANDING_SHARED_DEMO_PHONE_NUMBER?.trim() || null
@@ -584,6 +605,14 @@ export default function LandingPage() {
                 </a>
               </Button>
             </div>
+            <a
+              href="#agents"
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-80"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {t.heroAnchor}
+              <ChevronDown className="w-3.5 h-3.5" />
+            </a>
           </div>
         </section>
 
@@ -629,7 +658,7 @@ export default function LandingPage() {
         </section>
 
         {/* Section 3: Clara + Agent Team — Tiered Layout */}
-        <section className="py-16 md:py-24 px-4 md:px-8">
+        <section id="agents" className="py-16 md:py-24 px-4 md:px-8">
           <div className="max-w-5xl mx-auto">
             <h2
               className="text-2xl md:text-3xl font-bold text-center mb-4"
@@ -1163,7 +1192,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Thomas Berger */}
+              {/* Thomas Berger — commented out until case study is confirmed
               <div className="proof-block">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -1233,6 +1262,7 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
+              */}
 
               {/* Kirsten Höner-March */}
               <div className="proof-block">
@@ -1620,11 +1650,14 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <LandingDemoCallModal
+      <LeadCaptureModal
         agent={selectedDemoAgent}
-        labels={demoCallModalLabels}
+        labels={leadCaptureLabels}
+        language={language}
+        founderDemoUrl={founderDemoUrl}
         isOpen={Boolean(selectedDemoAgent)}
         onClose={() => setSelectedDemoAgent(null)}
+        otpActive={otpActive}
       />
 
       <Footer language={language} />

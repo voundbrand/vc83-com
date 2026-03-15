@@ -1,0 +1,30 @@
+{
+  "name": "clara-kai-cross-lane-redirect",
+  "description": "Kai should handle operations coordination, then route analytics questions back through Clara instead of answering them himself.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Kai",
+      "text": "I want Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai operations scenario",
+      "text": "Kai, a Berlin technician wants vacation next Thursday and Potsdam is already short-staffed. How would you coordinate that?"
+    },
+    {
+      "label": "Cross-lane request",
+      "text": "This is really more of a reporting question than an operations question, so please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["kai", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "kai"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

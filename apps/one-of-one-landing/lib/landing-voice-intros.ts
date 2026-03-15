@@ -40,7 +40,7 @@ const LANDING_VOICE_INTRO_SCRIPTS: Record<
   },
   kai: {
     en: "Hi, I'm Kai. When someone calls in sick at 6 AM, the shift is covered by 6:05. I coordinate vacation planning, escalations, and handoffs through one assistant instead of scattered WhatsApp groups.",
-    de: "Hallo, ich bin Kai. Wenn sich um 6 Uhr jemand krankmeldet, ist die Schicht um 6:05 besetzt. Ich koordiniere Urlaubsplanung, Eskalationen und Uebergaben ueber einen Assistenten statt ueber verstreute WhatsApp-Gruppen.",
+    de: "Hallo, ich bin Kai. Wenn sich um 6 Uhr jemand krankmeldet, ist die Schicht um 6:05 besetzt. Ich koordiniere Urlaubsplanung, Eskalationen und Übergaben über einen Assistenten statt über verstreute WhatsApp-Gruppen.",
   },
   nora: {
     en: "Hi, I'm Nora. I turn your location data into clear insight about what's happening, why, and what to do next. Let me show you with an example.",

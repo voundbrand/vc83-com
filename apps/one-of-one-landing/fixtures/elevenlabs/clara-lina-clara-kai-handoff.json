@@ -1,0 +1,39 @@
+{
+  "name": "clara-lina-clara-kai-handoff",
+  "description": "Cross-specialist handoff check for Clara routing to Lina, returning to Clara, and then routing to Kai without persona leakage.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Lina",
+      "text": "Please connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina scenario",
+      "text": "Lina, show me a follow-up for a customer who missed an estimate appointment and is now going cold."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask for Kai",
+      "text": "I want Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai scenario",
+      "text": "Kai, a technician wants vacation next month and we need shift coverage. How would you coordinate that?"
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["lina", "clara", "kai"],
+    "expectedFinalAgent": "kai",
+    "requiredAgentsVisited": ["clara", "lina", "kai"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

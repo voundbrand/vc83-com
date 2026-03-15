@@ -1,0 +1,34 @@
+{
+  "name": "clara-jonas-clara-roundtrip",
+  "description": "Smoke test for Clara routing to Jonas, Jonas qualifying a lead scenario, and Jonas returning the caller to Clara cleanly.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Jonas",
+      "text": "Please connect me with Jonas.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lead qualification scenario",
+      "text": "Jonas, qualify a plumbing company with six vans that needs faster lead triage and wants to launch within a month."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Receptionist follow-up",
+      "text": "Clara, stay with me and show the receptionist demo."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["jonas", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "jonas"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

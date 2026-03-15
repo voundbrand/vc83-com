@@ -37,6 +37,7 @@ export function getPlatformOrganizationId(): string | null {
 
 type InternalQueryRef = FunctionReference<"query", "internal">;
 type InternalMutationRef = FunctionReference<"mutation", "internal">;
+type InternalActionRef = FunctionReference<"action", "internal">;
 
 export async function queryInternal<QueryRef extends InternalQueryRef>(
   convex: ConvexHttpClient,
@@ -66,4 +67,19 @@ export async function mutateInternal<MutationRef extends InternalMutationRef>(
       FunctionReturnType<MutationRef>
     >;
   return convex.mutation(publicMutationRef, args);
+}
+
+export async function actionInternal<ActionRef extends InternalActionRef>(
+  convex: ConvexHttpClient,
+  actionRef: ActionRef,
+  args: FunctionArgs<ActionRef>
+): Promise<FunctionReturnType<ActionRef>> {
+  const publicActionRef =
+    actionRef as unknown as FunctionReference<
+      "action",
+      "public",
+      FunctionArgs<ActionRef>,
+      FunctionReturnType<ActionRef>
+    >;
+  return convex.action(publicActionRef, args);
 }

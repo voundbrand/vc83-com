@@ -1,0 +1,39 @@
+{
+  "name": "clara-kai-clara-maren-regression",
+  "description": "Regression check for Clara routing to Kai, returning to Clara, and then routing to Maren without getting stuck or speaking as the wrong agent.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Kai",
+      "text": "I want Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Vacation planning scenario",
+      "text": "A technician wants vacation next month and we need shift coverage. How would you coordinate that?"
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask for Maren",
+      "text": "Please transfer me to Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scheduling follow-up",
+      "text": "Maren, I need help rescheduling appointments across locations."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["kai", "clara", "maren"],
+    "expectedFinalAgent": "maren",
+    "requiredAgentsVisited": ["clara", "kai", "maren"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

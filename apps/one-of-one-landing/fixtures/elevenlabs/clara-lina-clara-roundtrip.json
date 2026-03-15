@@ -1,0 +1,34 @@
+{
+  "name": "clara-lina-clara-roundtrip",
+  "description": "Smoke test for Clara routing to Lina, Lina handling a retention scenario, and Lina returning the caller to Clara cleanly.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Lina",
+      "text": "Please connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Follow-up scenario",
+      "text": "Lina, show me a follow-up for a customer who missed an estimate appointment and is now going cold."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Receptionist follow-up",
+      "text": "Clara, stay with me and show the receptionist demo."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["lina", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "lina"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

@@ -12,6 +12,7 @@
 
 import {
   action,
+  internalAction,
   mutation,
   query,
   internalQuery,
@@ -339,5 +340,49 @@ export const testResendConnection = action({
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  },
+});
+
+/**
+ * Resolve Resend API key for an org, decrypting if needed.
+ * Falls back to platform env var when no org settings exist.
+ */
+export const resolveCredentials = internalAction({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const settings = await ctx.runQuery(
+      generatedApi.internal.integrations.resend.getSettingsInternal,
+      { organizationId: args.organizationId }
+    ) as Record<string, unknown> | null;
+
+    if (settings?.resendApiKey && settings?.enabled !== false) {
+      const encryptedFields = (settings.encryptedFields as string[]) || [];
+      const needsDecrypt = encryptedFields.includes("resendApiKey");
+
+      const apiKey = needsDecrypt
+        ? (await ctx.runAction(
+            generatedApi.internal.oauth.encryption.decryptToken,
+            { encrypted: settings.resendApiKey as string }
+          ) as string)
+        : (settings.resendApiKey as string);
+
+      return {
+        apiKey,
+        senderEmail: (settings.senderEmail as string) || null,
+        replyToEmail: (settings.replyToEmail as string) || null,
+        source: "org" as const,
+      };
+    }
+
+    // Fall back to platform env var
+    const envKey = process.env.RESEND_API_KEY;
+    if (!envKey) return null;
+
+    return {
+      apiKey: envKey,
+      senderEmail: null,
+      replyToEmail: null,
+      source: "platform" as const,
+    };
   },
 });

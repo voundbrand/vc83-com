@@ -1,0 +1,30 @@
+{
+  "name": "clara-lina-cross-lane-redirect",
+  "description": "Lina should handle follow-up, then return the caller to Clara when the request shifts into scheduling.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Lina",
+      "text": "Clara, connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina follow-up scenario",
+      "text": "Lina, show me a quote follow-up for a customer who went quiet after three days and needs a gentle nudge."
+    },
+    {
+      "label": "Cross-lane request",
+      "text": "Actually I need to reschedule the appointment now, so please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["lina", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "lina"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

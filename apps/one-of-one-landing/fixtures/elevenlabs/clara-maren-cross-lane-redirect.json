@@ -1,0 +1,30 @@
+{
+  "name": "clara-maren-cross-lane-redirect",
+  "description": "Maren should handle scheduling, then return the caller to Clara when the request shifts into quote qualification.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Maren",
+      "text": "Please connect me with Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scheduling scenario",
+      "text": "Maren, I need to reschedule two appointments from Potsdam to Berlin next week and I want the earliest useful slot."
+    },
+    {
+      "label": "Cross-lane request",
+      "text": "Actually this is more about getting a quote for a second location first, so please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "maren"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

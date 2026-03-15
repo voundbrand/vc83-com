@@ -579,11 +579,28 @@
   .demo-call-modal {
     position: relative;
     width: min(100%, 560px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 28px;
     border-radius: var(--radius-xl);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-lg);
+  }
+
+  @media (max-width: 640px) {
+    .demo-call-modal-overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .demo-call-modal {
+      max-height: calc(100dvh - env(safe-area-inset-top, 20px));
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+      width: 100%;
+    }
   }
 
   .demo-call-modal-close {
@@ -627,6 +644,59 @@
     background: var(--color-bg);
     color: var(--color-text);
     font-weight: 600;
+  }
+
+  /* Lead capture modal */
+  .lead-capture-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .lead-capture-lang-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background-color var(--duration-normal) var(--easing-default),
+                border-color var(--duration-normal) var(--easing-default),
+                color var(--duration-normal) var(--easing-default);
+  }
+
+  .lead-capture-lang-btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .lead-capture-lang-btn-active {
+    border-color: var(--color-accent);
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .lead-capture-calling-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+    color: #fff;
+    animation: lead-capture-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes lead-capture-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.85; }
   }
 
   /* Language badge grid */

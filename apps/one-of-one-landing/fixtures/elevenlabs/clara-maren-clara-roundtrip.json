@@ -1,0 +1,34 @@
+{
+  "name": "clara-maren-clara-roundtrip",
+  "description": "Smoke test for Clara routing to Maren, Maren handling a scheduling scenario, and Maren returning the caller to Clara cleanly.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Maren",
+      "text": "Please transfer me to Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Scheduling scenario",
+      "text": "Maren, I need to reshuffle appointments across Berlin and Potsdam after two cancellations tomorrow afternoon."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Receptionist follow-up",
+      "text": "Clara, stay with me and show the receptionist demo."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "maren"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

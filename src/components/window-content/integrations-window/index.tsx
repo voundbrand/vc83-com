@@ -21,6 +21,8 @@ import { WhatsAppSettings } from "./whatsapp-settings";
 import { InfobipSettings } from "./infobip-settings";
 import { AIConnectionsSettings } from "./ai-connections-settings";
 import { ElevenLabsSettings } from "./elevenlabs-settings";
+import { ResendSettings } from "./resend-settings";
+import { TwilioSettings } from "./twilio-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -211,6 +213,26 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
     description: "SMS + voice bridge orchestration (BYOK or platform fallback)",
     icon: "fas fa-phone-volume",
     iconColor: "#FF6B00",
+    status: "available",
+    type: "builtin",
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "resend",
+    name: "Resend",
+    description: "Branded transactional email (BYOK or platform fallback)",
+    icon: "fas fa-envelope",
+    iconColor: "#000000",
+    status: "available",
+    type: "builtin",
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "twilio",
+    name: "Twilio",
+    description: "SMS verification & messaging (BYOK or platform fallback)",
+    icon: "fas fa-sms",
+    iconColor: "#F22F46",
     status: "available",
     type: "builtin",
     accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
@@ -814,6 +836,8 @@ interface IntegrationsWindowProps {
     | "telegram"
     | "infobip"
     | "elevenlabs"
+    | "resend"
+    | "twilio"
     | null;
   /** When true, shows back-to-desktop navigation (for /integrations route) */
   fullScreen?: boolean;
@@ -857,6 +881,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     initialPanel === "telegram" ? { type: "builtin", id: "telegram" } :
     initialPanel === "infobip" ? { type: "builtin", id: "infobip" } :
     initialPanel === "elevenlabs" ? { type: "special", id: "elevenlabs" } :
+    initialPanel === "resend" ? { type: "builtin", id: "resend" } :
+    initialPanel === "twilio" ? { type: "builtin", id: "twilio" } :
     null
   );
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -1177,6 +1203,20 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       return (
         <div className="integration-ui-scope h-full">
           <InfobipSettings onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "resend") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <ResendSettings onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "twilio") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <TwilioSettings onBack={handleBack} />
         </div>
       );
     }

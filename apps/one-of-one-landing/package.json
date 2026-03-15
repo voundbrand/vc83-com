@@ -6,9 +6,12 @@
     "dev": "node ../../node_modules/next/dist/bin/next dev",
     "build": "node ../../node_modules/next/dist/bin/next build",
     "start": "node ../../node_modules/next/dist/bin/next start",
-    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+    "elevenlabs:sync": "node ../../node_modules/tsx/dist/cli.mjs scripts/elevenlabs/sync-elevenlabs-agent.ts",
+    "elevenlabs:simulate": "node ../../node_modules/tsx/dist/cli.mjs scripts/elevenlabs/simulate-elevenlabs-flow.ts"
   },
   "dependencies": {
-    "@tailwindcss/postcss": "^4.2.1"
+    "@tailwindcss/postcss": "^4.2.1",
+    "twilio": "^5.13.0"
   }
 }

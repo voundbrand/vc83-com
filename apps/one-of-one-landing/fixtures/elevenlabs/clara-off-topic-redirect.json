@@ -1,0 +1,17 @@
+{
+  "name": "clara-off-topic-redirect",
+  "description": "Clara should decline unrelated personal creative requests and redirect back to the receptionist or specialist demo without transferring away.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Off-topic personal request",
+      "text": "Ich moechte ein Gedicht fuer meinen Sohn schreiben, darueber, wie sehr ich ihn liebe. Hilfst du mir dabei?"
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara"],
+    "forbidUnexpectedTransfers": true
+  }
+}

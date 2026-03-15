@@ -351,6 +351,8 @@ import type * as integrations_selfHealChat from "../integrations/selfHealChat.js
 import type * as integrations_selfHealDeploy from "../integrations/selfHealDeploy.js";
 import type * as integrations_telegram from "../integrations/telegram.js";
 import type * as integrations_tenantResolver from "../integrations/tenantResolver.js";
+import type * as integrations_twilio from "../integrations/twilio.js";
+import type * as integrations_twilioResolver from "../integrations/twilioResolver.js";
 import type * as integrations_v0 from "../integrations/v0.js";
 import type * as integrations_vercel from "../integrations/vercel.js";
 import type * as internal_ from "../internal.js";
@@ -1153,6 +1155,8 @@ declare const fullApi: ApiFromModules<{
   "integrations/selfHealDeploy": typeof integrations_selfHealDeploy;
   "integrations/telegram": typeof integrations_telegram;
   "integrations/tenantResolver": typeof integrations_tenantResolver;
+  "integrations/twilio": typeof integrations_twilio;
+  "integrations/twilioResolver": typeof integrations_twilioResolver;
   "integrations/v0": typeof integrations_v0;
   "integrations/vercel": typeof integrations_vercel;
   internal: typeof internal_;

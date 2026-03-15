@@ -1,0 +1,34 @@
+{
+  "name": "clara-tobias-clara-roundtrip",
+  "description": "Smoke test for Clara routing to Tobias, Tobias handling a field-note-to-quote scenario, and Tobias returning the caller to Clara cleanly.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Tobias",
+      "text": "Please transfer me to Tobias.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Field documentation scenario",
+      "text": "Tobias, turn this field note into a quote draft: leaking flat roof over 120 square meters, damaged insulation near the skylight, access by lift only."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Receptionist follow-up",
+      "text": "Clara, stay with me and show the receptionist demo."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["tobias", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "tobias"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

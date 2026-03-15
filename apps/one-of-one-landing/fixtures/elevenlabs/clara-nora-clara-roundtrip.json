@@ -1,0 +1,34 @@
+{
+  "name": "clara-nora-clara-roundtrip",
+  "description": "Smoke test for Clara routing to Nora, Nora handling an analytics scenario, and Nora returning the caller to Clara cleanly.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Nora",
+      "text": "Please transfer me to Nora.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Analytics scenario",
+      "text": "Nora, compare three locations: Berlin booked 82 jobs at 18 percent quote acceptance, Potsdam booked 54 jobs at 29 percent, and Oranienburg booked 61 jobs at 11 percent. What stands out?"
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Receptionist follow-up",
+      "text": "Clara, stay with me and show the receptionist demo."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["nora", "clara"],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara", "nora"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

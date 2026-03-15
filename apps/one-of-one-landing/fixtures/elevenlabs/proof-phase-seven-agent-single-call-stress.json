@@ -1,0 +1,95 @@
+{
+  "name": "proof-phase-seven-agent-single-call-stress",
+  "description": "Exploratory single-call proof stress fixture. This path intentionally pressures wrong-lane redirects between specialists and should stay separate from the proof-phase-gating publish gate.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Appointment trigger to Maren",
+      "text": "I would like to make an appointment for our Berlin office next week, so please transfer me to Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scheduling scenario",
+      "text": "Maren, give me the earliest useful slot next week for our Berlin office while the Potsdam satellite is still handling overflow."
+    },
+    {
+      "label": "Cross-lane pressure from Maren",
+      "text": "Before I confirm the slot, I need a quote for handling 30 to 50 calls a day across both locations.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Route from Clara to Jonas",
+      "text": "Please connect me with Jonas for that quote and qualification.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Jonas qualification scenario",
+      "text": "Jonas, qualify an eight-person multi-service business with two locations that wants lead triage and appointment routing live this month."
+    },
+    {
+      "label": "Cross-lane pressure from Jonas",
+      "text": "What happens after a customer books and how do you follow up without sounding automated?",
+      "expectTransfer": true
+    },
+    {
+      "label": "Route from Clara to Lina",
+      "text": "Please connect me with Lina for the follow-up flow.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina follow-up scenario",
+      "text": "Lina, show me the confirmation, reminder, and post-service satisfaction flow for a new customer."
+    },
+    {
+      "label": "Cross-lane pressure from Lina",
+      "text": "How do you handle team coverage if someone calls in sick at the Potsdam location?",
+      "expectTransfer": true
+    },
+    {
+      "label": "Route from Clara to Kai",
+      "text": "Please connect me with Kai for team operations.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai operations scenario",
+      "text": "Kai, cover a vacation request next Thursday when Potsdam is already short-staffed and Berlin is carrying more appointments."
+    },
+    {
+      "label": "Cross-lane pressure from Kai",
+      "text": "How do field workers turn voice notes into a quote draft without typing everything by hand?",
+      "expectTransfer": true
+    },
+    {
+      "label": "Route from Clara to Tobias",
+      "text": "Please transfer me to Tobias for the documentation flow.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Tobias documentation scenario",
+      "text": "Tobias, turn this field note into a draft: leak above two skylights at the Potsdam satellite, insulation damage, lift access only, and same-week quote requested."
+    },
+    {
+      "label": "Cross-lane pressure from Tobias",
+      "text": "How do I see which location is missing calls and converting fewer bookings in real time?",
+      "expectTransfer": true
+    },
+    {
+      "label": "Route from Clara to Nora",
+      "text": "Please transfer me to Nora for the reporting view.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Nora analytics scenario",
+      "text": "Nora, compare Berlin and Potsdam when Potsdam is missing more calls, converting fewer bookings, and responding more slowly. What is the main operational insight?"
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara", "jonas", "clara", "lina", "clara", "kai", "clara", "tobias", "clara", "nora"],
+    "expectedFinalAgent": "nora",
+    "requiredAgentsVisited": ["clara", "maren", "jonas", "lina", "kai", "tobias", "nora"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

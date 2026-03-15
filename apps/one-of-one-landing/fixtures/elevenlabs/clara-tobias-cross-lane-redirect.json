@@ -1,0 +1,29 @@
+{
+  "name": "clara-tobias-cross-lane-redirect",
+  "description": "Tobias should structure the field note, then hand follow-up requests back through Clara instead of continuing outside documentation.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Tobias",
+      "text": "Please transfer me to Tobias.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Tobias documentation scenario",
+      "text": "Tobias, turn this into a draft: leaking boiler in a basement room, tight access, travel plus materials, and we need a same-day quote."
+    },
+    {
+      "label": "Cross-lane request",
+      "text": "This is really more of a customer communication question than a documentation question, so please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["tobias", "clara"],
+    "requiredAgentsVisited": ["clara", "tobias"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": false,
+    "enforceTransferSpeakerState": false,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

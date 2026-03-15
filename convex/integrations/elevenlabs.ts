@@ -1077,3 +1077,45 @@ export const synthesizeElevenLabsVoiceSample = action({
     }
   },
 });
+
+/**
+ * Resolve ElevenLabs credentials for an org (no session required).
+ * Used by server-side callers like landing page API routes.
+ * Falls back to platform env var when no org settings exist.
+ */
+export const resolveCredentials = internalQuery({
+  args: { organizationId: v.id("organizations") },
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("organizationAiSettings")
+      .withIndex("by_organization", (q) =>
+        q.eq("organizationId", args.organizationId),
+      )
+      .first();
+
+    const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
+    const binding = resolveElevenLabsBindingFromSettings(settings);
+    const billingSource =
+      normalizeBillingSource(binding?.billingSource) ??
+      normalizeBillingSource(profile?.billingSource) ??
+      resolveBillingSource(settings);
+
+    const effectiveApiKey =
+      normalizeString(binding?.apiKey) ??
+      (billingSource === "platform"
+        ? getPlatformElevenLabsApiKey()
+        : normalizeString(profile?.apiKey));
+
+    if (!effectiveApiKey) return null;
+
+    return {
+      apiKey: effectiveApiKey,
+      baseUrl:
+        normalizeBaseUrl(binding?.baseUrl) ??
+        normalizeBaseUrl(profile?.baseUrl) ??
+        ELEVENLABS_BASE_URL,
+      defaultVoiceId: getDefaultVoiceId(profile) ?? null,
+      source: billingSource === "platform" ? ("platform" as const) : ("org" as const),
+    };
+  },
+});

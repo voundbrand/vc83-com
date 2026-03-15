@@ -2256,6 +2256,27 @@ export const insertObjectInternal = internalMutation({
   },
 });
 
+export const insertObjectLinkInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    fromObjectId: v.id("objects"),
+    toObjectId: v.id("objects"),
+    linkType: v.string(),
+    properties: v.optional(v.any()),
+    createdAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("objectLinks", {
+      organizationId: args.organizationId,
+      fromObjectId: args.fromObjectId,
+      toObjectId: args.toObjectId,
+      linkType: args.linkType,
+      properties: args.properties,
+      createdAt: args.createdAt,
+    });
+  },
+});
+
 export const patchObjectInternal = internalMutation({
   args: {
     objectId: v.id("objects"),

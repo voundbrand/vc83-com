@@ -1,0 +1,39 @@
+{
+  "name": "clara-maren-clara-jonas-handoff",
+  "description": "Cross-specialist handoff check for Clara routing to Maren, returning to Clara, and then routing to Jonas without persona leakage.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Maren",
+      "text": "Please transfer me to Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scenario",
+      "text": "Maren, I need to reshuffle appointments across Berlin and Potsdam after two cancellations tomorrow afternoon."
+    },
+    {
+      "label": "Return to Clara",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask for Jonas",
+      "text": "Please connect me with Jonas.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Jonas scenario",
+      "text": "Jonas, qualify a plumbing company with six vans that needs faster lead triage and wants to launch within a month."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara", "jonas"],
+    "expectedFinalAgent": "jonas",
+    "requiredAgentsVisited": ["clara", "maren", "jonas"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "clara-tobias-clara-lina-redirects",
+  "description": "Tobias and Lina should stay in lane and route cross-lane requests back through Clara instead of answering outside their specialty.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Tobias",
+      "text": "Please transfer me to Tobias.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Tobias documentation scenario",
+      "text": "Tobias, turn this into a draft: leaking boiler in a basement room, tight access, travel plus materials, and we need a same-day quote."
+    },
+    {
+      "label": "Cross-lane request away from Tobias",
+      "text": "Actually I need Lina to handle the customer follow-up sequence for that quote.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina follow-up scenario",
+      "text": "Lina, show me a quote follow-up for a customer who went quiet after three days and needs a gentle nudge."
+    },
+    {
+      "label": "Cross-lane request away from Lina",
+      "text": "Now I need Tobias to turn the site note into a draft.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["tobias", "clara", "lina", "clara", "tobias"],
+    "expectedFinalAgent": "tobias",
+    "requiredAgentsVisited": ["clara", "tobias", "lina"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

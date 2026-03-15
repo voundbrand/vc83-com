@@ -12,6 +12,8 @@
     "mobile:start": "npm --prefix apps/operator-mobile run start",
     "mobile:typecheck": "npm --prefix apps/operator-mobile run typecheck",
     "mobile:lint": "npm --prefix apps/operator-mobile run lint",
+    "landing:elevenlabs:sync": "npx tsx apps/one-of-one-landing/scripts/elevenlabs/sync-elevenlabs-agent.ts",
+    "landing:elevenlabs:simulate": "npx tsx apps/one-of-one-landing/scripts/elevenlabs/simulate-elevenlabs-flow.ts",
     "voice-gateway:deps": "node scripts/ci/ensure-voice-gateway-deps.mjs",
     "voice-gateway:start": "npm run voice-gateway:deps && npm --prefix apps/voice-ws-gateway run start",
     "voice-gateway:dev": "npm run voice-gateway:deps && npm --prefix apps/voice-ws-gateway run dev",
