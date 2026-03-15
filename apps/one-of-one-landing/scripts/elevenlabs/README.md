@@ -144,7 +144,7 @@ Shape:
 Built-in suites:
 
 - `regressions`: focused known regressions
-- `proof-phase-gating`: stable founder proof-demo gate, currently backed by `proof-phase-seven-agent-tour`
+- `proof-phase-gating`: intended founder proof-demo gate, currently backed by `proof-phase-seven-agent-tour`
 - `proof-phase-stress`: exploratory single-call proof path, currently backed by `proof-phase-seven-agent-single-call-stress`
 - `specialist-redirects`: cross-lane and off-topic specialist redirect checks back through Clara
 - `specialist-ring`: realistic specialist-to-specialist handoff paths via Clara, covering the whole demo roster as a cycle
@@ -154,7 +154,7 @@ Built-in suites:
 
 Proof fixture categories:
 
-- `proof-phase-seven-agent-tour`: the proof-specific gating artifact that mirrors the founder Phase 0 showcase path across Clara, Maren, Jonas, Lina, Kai, Tobias, and Nora
+- `proof-phase-seven-agent-tour`: the intended proof-specific gating artifact for the founder Phase 0 showcase path across Clara, Maren, Jonas, Tobias, Lina, Kai, and Nora
 - `proof-phase-seven-agent-single-call-stress`: the longer exploratory single-call path that leans on wrong-lane specialist redirects and should not be treated as the publish gate
 
 ## Notes

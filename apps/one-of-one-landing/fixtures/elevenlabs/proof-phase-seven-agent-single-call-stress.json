@@ -5,7 +5,7 @@
   "userTurns": [
     {
       "label": "Appointment trigger to Maren",
-      "text": "I would like to make an appointment for our Berlin office next week, so please transfer me to Maren.",
+      "text": "Please transfer me to Maren.",
       "expectTransfer": true
     },
     {
@@ -19,7 +19,7 @@
     },
     {
       "label": "Route from Clara to Jonas",
-      "text": "Please connect me with Jonas for that quote and qualification.",
+      "text": "Please connect me with Jonas.",
       "expectTransfer": true
     },
     {
@@ -33,7 +33,7 @@
     },
     {
       "label": "Route from Clara to Lina",
-      "text": "Please connect me with Lina for the follow-up flow.",
+      "text": "Please connect me with Lina.",
       "expectTransfer": true
     },
     {
@@ -47,7 +47,7 @@
     },
     {
       "label": "Route from Clara to Kai",
-      "text": "Please connect me with Kai for team operations.",
+      "text": "I want Kai.",
       "expectTransfer": true
     },
     {
@@ -61,7 +61,7 @@
     },
     {
       "label": "Route from Clara to Tobias",
-      "text": "Please transfer me to Tobias for the documentation flow.",
+      "text": "Please transfer me to Tobias.",
       "expectTransfer": true
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "label": "Route from Clara to Nora",
-      "text": "Please transfer me to Nora for the reporting view.",
+      "text": "Please transfer me to Nora.",
       "expectTransfer": true
     },
     {

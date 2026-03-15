@@ -1,92 +1,96 @@
 {
   "name": "proof-phase-seven-agent-tour",
-  "description": "Proof-phase gating fixture for the founder showcase call: Clara opens the Schmitt & Partner line, then the caller deliberately tours Maren, Jonas, Lina, Kai, Tobias, and Nora with stable returns through Clara.",
+  "description": "Intended proof-phase gating fixture for the founder showcase call: Clara opens the Schmitt & Partner line, then the caller deliberately tours Maren, Jonas, Tobias, Lina, Kai, and Nora with returns through Clara.",
   "entryAgent": "clara",
   "userTurns": [
     {
       "label": "Appointment trigger to Maren",
-      "text": "I would like to make an appointment for our Potsdam location next week, so please transfer me to Maren.",
+      "text": "Please transfer me to Maren.",
       "expectTransfer": true
     },
     {
       "label": "Maren scheduling scenario",
-      "text": "Maren, please book the earliest useful visit next week for our Potsdam satellite after two cancellations at the Berlin office."
+      "text": "Maren, in one short answer, offer the earliest useful visit next week for our Potsdam satellite after two cancellations at the Berlin office."
     },
     {
       "label": "Return to Clara for qualification",
-      "text": "Before I lock that in, I need a quote for handling 30 to 50 calls a day across two locations, so please send me back to Clara.",
+      "text": "Please send me back to Clara.",
       "expectTransfer": true
     },
     {
       "label": "Qualification trigger to Jonas",
-      "text": "I need a quote for an eight-person business with two locations and 30 to 50 calls a day. Please connect me with Jonas.",
+      "text": "Please connect me with Jonas.",
       "expectTransfer": true
     },
     {
       "label": "Jonas qualification scenario",
-      "text": "Jonas, qualify a multi-service business that wants lead triage, appointment routing, and a launch this month."
-    },
-    {
-      "label": "Return to Clara for follow-up",
-      "text": "Now I want to understand the follow-up process after booking, so please send me back to Clara.",
-      "expectTransfer": true
-    },
-    {
-      "label": "Follow-up trigger to Lina",
-      "text": "What happens after I book, and how do you handle reminders and check-ins? Please connect me with Lina.",
-      "expectTransfer": true
-    },
-    {
-      "label": "Lina follow-up scenario",
-      "text": "Lina, show me the follow-up flow for a customer who gets a confirmation, a reminder before the visit, and a satisfaction check afterward."
-    },
-    {
-      "label": "Return to Clara for operations",
-      "text": "I also want to see how you coordinate team coverage across Berlin and Potsdam, so please send me back to Clara.",
-      "expectTransfer": true
-    },
-    {
-      "label": "Operations trigger to Kai",
-      "text": "How do you handle team scheduling and coverage across two locations? Please connect me with Kai.",
-      "expectTransfer": true
-    },
-    {
-      "label": "Kai operations scenario",
-      "text": "Kai, show me how you would cover a technician vacation next Thursday when Potsdam is already short-staffed."
+      "text": "Jonas, in one short qualification summary, assess a multi-service business that wants lead triage, appointment routing, and a launch this month."
     },
     {
       "label": "Return to Clara for documentation",
-      "text": "I also need to see how field teams turn voice notes into quotes, so please send me back to Clara.",
+      "text": "Please send me back to Clara.",
       "expectTransfer": true
     },
     {
       "label": "Documentation trigger to Tobias",
-      "text": "How do you handle quotes in the field and voice-note documentation? Please transfer me to Tobias.",
+      "text": "Please transfer me to Tobias.",
       "expectTransfer": true
     },
     {
       "label": "Tobias documentation scenario",
-      "text": "Tobias, turn this voice note into a quote-ready draft: recurring leak at the satellite location, damaged insulation near two skylights, lift access only, and same-week turnaround requested."
+      "text": "Tobias, in one short quote-ready summary, turn this voice note into a draft: recurring leak at the satellite location, damaged insulation near two skylights, lift access only, and same-week turnaround requested."
+    },
+    {
+      "label": "Return to Clara for follow-up",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Clara receptionist reset",
+      "text": "Clara, stay with me and show the receptionist demo."
+    },
+    {
+      "label": "Follow-up trigger to Lina",
+      "text": "Please connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina follow-up scenario",
+      "text": "Lina, in one short demo summary, describe the confirmation, reminder, and satisfaction check after a booking."
+    },
+    {
+      "label": "Return to Clara for operations",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Operations trigger to Kai",
+      "text": "Please connect me with Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai operations scenario",
+      "text": "Kai, in one short operations plan, cover a technician vacation next Thursday when Potsdam is already short-staffed."
     },
     {
       "label": "Return to Clara for analytics",
-      "text": "I also want to know what is happening across both locations in real time, so please send me back to Clara.",
+      "text": "Please send me back to Clara.",
       "expectTransfer": true
     },
     {
       "label": "Analytics trigger to Nora",
-      "text": "How do I know what is happening across locations and which location is underperforming? Please transfer me to Nora.",
+      "text": "Please transfer me to Nora.",
       "expectTransfer": true
     },
     {
       "label": "Nora analytics scenario",
-      "text": "Nora, compare the Berlin main office and the Potsdam satellite when Potsdam is missing more calls, converting fewer bookings, and running slower response times. What stands out?"
+      "text": "Nora, in one short insight, compare the Berlin main office and the Potsdam satellite when Potsdam is missing more calls, converting fewer bookings, and running slower response times."
     }
   ],
   "assertions": {
-    "expectedTransferSequence": ["maren", "clara", "jonas", "clara", "lina", "clara", "kai", "clara", "tobias", "clara", "nora"],
+    "expectedTransferSequence": ["maren", "clara", "jonas", "clara", "tobias", "clara", "lina", "clara", "kai", "clara", "nora"],
     "expectedFinalAgent": "nora",
-    "requiredAgentsVisited": ["clara", "maren", "jonas", "lina", "kai", "tobias", "nora"],
+    "requiredAgentsVisited": ["clara", "maren", "jonas", "tobias", "lina", "kai", "nora"],
     "forbidUnexpectedTransfers": true,
     "requireAgentSpeechAfterTransfer": true,
     "enforceTransferSpeakerState": true,

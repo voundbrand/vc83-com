@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Image from "next/image"
 import { type LucideIcon, ArrowRight, Phone, Play, Pause, MessageCircle, Mail, MessageSquare, Globe, Smartphone } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { SUPPORTED_LANGUAGES, PRIMARY_LANGUAGE_CODES } from "@/lib/voice-catalog"
 
 type AgentChannel = {
@@ -108,6 +109,18 @@ export function AgentTileExpanded({
             >
               {agent.name}
             </p>
+            {agent.phoneNumber && (
+              <span
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider animate-pulse-slow"
+                style={{ color: "var(--color-success)" }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  style={{ backgroundColor: "var(--color-success)" }}
+                />
+                {labels.phoneAvailableLabel}
+              </span>
+            )}
           </div>
           <h3
             className="text-lg md:text-xl font-bold mb-2"
@@ -146,37 +159,26 @@ export function AgentTileExpanded({
         {(agent.phoneNumber && agent.phoneCta) || onPlayVoice ? (
           <div className="shrink-0 flex flex-col items-center gap-1.5 w-full md:w-auto">
             {agent.phoneNumber && agent.phoneCta && (
-              <>
-                {onPhoneCtaClick ? (
-                  <button
-                    type="button"
-                    className="phone-cta-pill w-full md:w-auto"
-                    onClick={() => onPhoneCtaClick(agent)}
-                  >
-                    <Phone className="w-4 h-4" />
-                    {agent.phoneCta}
-                  </button>
-                ) : (
-                  <a
-                    href={`tel:${agent.phoneNumber.replace(/\s/g, "")}`}
-                    className="phone-cta-pill w-full md:w-auto"
-                  >
-                    <Phone className="w-4 h-4" />
+              onPhoneCtaClick ? (
+                <Button
+                  className="btn-accent h-9 px-4 w-full md:w-auto gap-1.5 text-xs"
+                  onClick={() => onPhoneCtaClick(agent)}
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  {agent.phoneCta}
+                </Button>
+              ) : (
+                <Button asChild className="btn-accent h-9 px-4 w-full md:w-auto gap-1.5 text-xs">
+                  <a href={`tel:${agent.phoneNumber.replace(/\s/g, "")}`}>
+                    <Phone className="w-3.5 h-3.5" />
                     {agent.phoneCta}
                   </a>
-                )}
-                <span
-                  className="text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: "var(--color-success)" }}
-                >
-                  {labels.phoneAvailableLabel}
-                </span>
-              </>
+                </Button>
+              )
             )}
             {onPlayVoice && voiceIntroLabel && (
-              <button
-                type="button"
-                className="voice-intro-pill w-full md:w-auto mt-1"
+              <Button
+                className="btn-secondary h-9 px-4 w-full md:w-auto mt-1 gap-1.5 text-xs"
                 onClick={onPlayVoice}
               >
                 {isPlayingVoice ? (
@@ -185,7 +187,7 @@ export function AgentTileExpanded({
                   <Play className="w-3.5 h-3.5" />
                 )}
                 {voiceIntroLabel}
-              </button>
+              </Button>
             )}
           </div>
         ) : null}
