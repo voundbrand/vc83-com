@@ -9,7 +9,7 @@ import type {
 } from "convex/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
 // Dynamic require avoids excessively deep Convex API type instantiation in this route.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedInternalApi: any =
   require("../../../../../../convex/_generated/api").internal;
 

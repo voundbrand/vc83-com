@@ -27,7 +27,7 @@ import {
 } from "@/lib/lead-capture"
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedInternalApi: any =
   require("../../../../../../convex/_generated/api").internal
 

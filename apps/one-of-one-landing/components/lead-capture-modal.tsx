@@ -75,6 +75,7 @@ export function LeadCaptureModal({
   founderDemoUrl,
   isOpen,
   onClose,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   otpActive = true,
 }: {
   agent: LeadCaptureAgent | null
