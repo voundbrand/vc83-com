@@ -271,8 +271,8 @@ export function buildLeadConfirmationHtml(data: LeadCaptureFormData): string {
     : `Attached: Your sevenlayers Demo Kit (PDF)`
 
   const ctaLabel = isDE
-    ? `15 Minuten mit Remington buchen`
-    : `Book 15 minutes with Remington`
+    ? `30 Minuten mit Remington buchen`
+    : `Book 30 minutes with Remington`
 
   const ps = isDE
     ? `P.S. \u2014 Sie sind einer unserer ersten f\u00fcnf Kunden. Das bedeutet Gr\u00fcnder-Aufmerksamkeit zu Early-Adopter-Konditionen. Ich erkl\u00e4re es im Gespr\u00e4ch.`
