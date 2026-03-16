@@ -14,6 +14,8 @@ export type LeadCaptureFormData = {
   requestedAgentName: string
   requestedPersonaName: string
   landingPath?: string
+  salutation?: string
+  title?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ export function validateLeadForm(body: Record<string, unknown>): {
   const requestedAgentName = normalizeString(body.requestedAgentName)
   const requestedPersonaName = normalizeString(body.requestedPersonaName)
   const landingPath = normalizeString(body.landingPath) || undefined
+  const salutation = normalizeString(body.salutation) || "mr"
+  const title = normalizeString(body.title) || ""
 
   if (!firstName || !lastName) {
     return { valid: false, error: "First name and last name are required." }
@@ -105,6 +109,8 @@ export function validateLeadForm(body: Record<string, unknown>): {
       requestedAgentName,
       requestedPersonaName,
       landingPath,
+      salutation,
+      title,
     },
   }
 }
@@ -169,7 +175,55 @@ export function buildSalesNotificationHtml(data: LeadCaptureFormData): string {
 }
 
 // ---------------------------------------------------------------------------
-// Email: Lead Confirmation
+// Email: Lead Confirmation — Formal Greeting
+// ---------------------------------------------------------------------------
+
+const TITLE_LABELS: Record<string, string> = {
+  dr: "Dr.",
+  prof: "Prof.",
+  prof_dr: "Prof. Dr.",
+}
+
+export function buildFormalGreeting(data: LeadCaptureFormData): string {
+  const salutation = data.salutation || "mr"
+  const title = data.title || ""
+  const isDE = data.language === "de"
+  const lastName = escapeHtml(data.lastName)
+  const firstName = escapeHtml(data.firstName)
+  const titleStr = TITLE_LABELS[title] || ""
+
+  if (isDE) {
+    if (salutation === "mr") {
+      return titleStr
+        ? `Sehr geehrter Herr ${titleStr} ${lastName}`
+        : `Sehr geehrter Herr ${lastName}`
+    }
+    if (salutation === "mrs") {
+      return titleStr
+        ? `Sehr geehrte Frau ${titleStr} ${lastName}`
+        : `Sehr geehrte Frau ${lastName}`
+    }
+    // "none"
+    return titleStr
+      ? `Guten Tag ${titleStr} ${lastName}`
+      : `Guten Tag ${firstName} ${lastName}`
+  }
+
+  // English — academic titles supersede Mr./Mrs.
+  if (salutation === "mr") {
+    if (titleStr) return `Dear ${titleStr} ${lastName}`
+    return `Dear Mr. ${lastName}`
+  }
+  if (salutation === "mrs") {
+    if (titleStr) return `Dear ${titleStr} ${lastName}`
+    return `Dear Mrs. ${lastName}`
+  }
+  // "none"
+  return `Hi ${firstName}`
+}
+
+// ---------------------------------------------------------------------------
+// Email: Lead Confirmation — Demo Kit (Ogilvy style)
 // ---------------------------------------------------------------------------
 
 const FOUNDER_DEMO_URLS: Record<string, string> = {
@@ -181,42 +235,89 @@ export function buildLeadConfirmationSubject(
   data: LeadCaptureFormData
 ): string {
   if (data.language === "de") {
-    return `Danke, ${data.firstName} \u2014 buchen Sie Ihre pers\u00f6nliche Demo`
+    return "Ihr Demo-Kit \u2014 und ein Angebot f\u00fcr die ersten f\u00fcnf"
   }
-  return `Thanks, ${data.firstName} \u2014 book your personal demo`
+  return "Your demo kit \u2014 and an offer for the first five"
 }
 
 export function buildLeadConfirmationHtml(data: LeadCaptureFormData): string {
   const demoUrl = FOUNDER_DEMO_URLS[data.language] || FOUNDER_DEMO_URLS.en
   const isDE = data.language === "de"
+  const greeting = buildFormalGreeting(data)
+  const demoPhone = process.env.NEXT_PUBLIC_LANDING_SHARED_DEMO_PHONE_NUMBER?.trim() || ""
 
-  const heading = isDE
-    ? `Danke f\u00fcr Ihr Interesse, ${escapeHtml(data.firstName)}!`
-    : `Thanks for your interest, ${escapeHtml(data.firstName)}!`
+  const openingLine = isDE
+    ? `Sie haben gerade geh\u00f6rt, wie Clara den Anruf entgegennimmt. Innerhalb von zwei Klingelt\u00f6nen, mit vollem Kontext, zu einer Uhrzeit, zu der die meisten Unternehmen auf die Mailbox verweisen.`
+    : `You just heard Clara answer the phone. In under two rings, with full context, at a time when most businesses send callers to voicemail.`
 
-  const body1 = isDE
-    ? `Sie haben gerade ${escapeHtml(data.requestedPersonaName)} auf unserer Seite getestet. Clara ruft Sie an \u2014 oder hat es bereits getan.`
-    : `You just tested ${escapeHtml(data.requestedPersonaName)} on our site. Clara is calling you \u2014 or already has.`
+  const transitionLine = isDE
+    ? `Stellen Sie sich das auf Ihrer Leitung vor \u2014 nicht als Demo, sondern als Ihr Alltag.`
+    : `Now imagine that on your line \u2014 not as a demo, but as your reality.`
 
-  const body2 = isDE
-    ? "M\u00f6chten Sie sehen, wie das gesamte Team f\u00fcr Ihr Unternehmen arbeiten kann? Buchen Sie eine pers\u00f6nliche 30-Minuten-Demo mit unserem Gr\u00fcnder."
-    : "Want to see how the full team can work for your business? Book a personal 30-minute demo with our founder."
+  const pitchParagraph = isDE
+    ? `Jeder verpasste Anruf ist ein Kunde, der woanders bucht. Bei einem Unternehmen mit f\u00fcnf Standorten sind das leicht 200+ verpasste Anrufe pro Woche. Bei einem durchschnittlichen Auftragswert von 500\u00a0\u20ac sind das 100.000\u00a0\u20ac Jahresumsatz, die Ihnen entgehen. Nicht weil Ihr Team schlecht ist \u2014 sondern weil es nicht \u00fcberall gleichzeitig sein kann.`
+    : `Every missed call is a customer who books elsewhere. In a business with five locations, that\u2019s easily 200+ missed calls per week. At an average deal size of \u20ac500, that\u2019s \u20ac100,000 in annual revenue walking out the door. Not because your team isn\u2019t good \u2014 because they can\u2019t be everywhere at once.`
 
-  const ctaLabel = isDE ? "Demo buchen" : "Book your demo"
+  const offerParagraph = isDE
+    ? `Das biete ich unseren ersten Kunden an: einen 2-Wochen-Test an einem Standort, mit einer echten Assistentin, die echte Anrufe beantwortet. Keine Einrichtungsgeb\u00fchr. Keine Verpflichtung. Sie sehen jeden Anruf protokolliert, jeden Termin gebucht, jeden Lead erfasst \u2014 mit t\u00e4glichen Zusammenfassungen in Ihrem Posteingang. Nach 14 Tagen entscheiden die Daten f\u00fcr Sie.`
+    : `Here\u2019s what I\u2019m offering our first customers: a 2-week trial at one location, with a real assistant answering real calls. No setup fee. No commitment. You\u2019ll see every call logged, every appointment booked, every lead captured \u2014 with daily summaries in your inbox. After 14 days, the data makes the decision for you.`
 
-  const footer = isDE
-    ? "Fragen? Antworte einfach auf diese E-Mail oder schreibe an sales@sevenlayers.io."
-    : "Questions? Reply to this email or reach us at sales@sevenlayers.io."
+  const founderLine = isDE
+    ? `Ich konfiguriere jeden Assistenten pers\u00f6nlich f\u00fcr unsere ersten Kunden. Dieses Ma\u00df an Aufmerksamkeit skaliert nicht \u2014 aber im Moment geh\u00f6rt es Ihnen.`
+    : `I configure every agent personally for our first customers. That level of attention won\u2019t scale \u2014 but right now, it\u2019s yours.`
 
-  return emailWrapper(`
-    <h1 style="color:#EDEDED;font-size:22px;margin:0 0 16px;">${heading}</h1>
-    <p style="color:#CDCDCD;font-size:15px;line-height:1.6;margin:0 0 12px;">${body1}</p>
-    <p style="color:#CDCDCD;font-size:15px;line-height:1.6;margin:0 0 28px;">${body2}</p>
-    <div style="text-align:center;margin:0 0 28px;">
-      <a href="${demoUrl}" style="display:inline-block;background:#E8520A;color:#fff;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;text-decoration:none;">${ctaLabel}</a>
-    </div>
-    <p style="color:#666;font-size:13px;margin:0;">${footer}</p>
-  `)
+  const attachmentLine = isDE
+    ? `Im Anhang: Ihr sevenlayers Demo-Kit (PDF)`
+    : `Attached: Your sevenlayers Demo Kit (PDF)`
+
+  const ctaLabel = isDE
+    ? `15 Minuten mit Remington buchen`
+    : `Book 15 minutes with Remington`
+
+  const ps = isDE
+    ? `P.S. \u2014 Sie sind einer unserer ersten f\u00fcnf Kunden. Das bedeutet Gr\u00fcnder-Aufmerksamkeit zu Early-Adopter-Konditionen. Ich erkl\u00e4re es im Gespr\u00e4ch.`
+    : `P.S. \u2014 You\u2019re one of our first five customers. That means founder-level attention at early-adopter pricing. I\u2019ll explain on the call.`
+
+  const demoPhoneBlock = demoPhone
+    ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 24px;text-align:center;">
+        ${isDE ? "Demo-Nummer (jederzeit anrufen):" : "Demo number (call anytime):"} <strong style="color:#1a1a1a;">${escapeHtml(demoPhone)}</strong>
+      </p>`
+    : ""
+
+  return `<!DOCTYPE html>
+<html lang="${data.language}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f7f7f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
+        <tr><td align="center" style="padding:0 0 32px;">
+          <img src="https://www.sevenlayers.io/images/sevenlayers-logo.png" alt="sevenlayers" width="64" style="width:64px;height:auto;" />
+        </td></tr>
+        <tr><td style="background:#ffffff;border-radius:12px;padding:40px 32px;">
+          <p style="color:#1a1a1a;font-size:16px;line-height:1.6;margin:0 0 24px;">${greeting},</p>
+          <p style="color:#333;font-size:15px;line-height:1.7;margin:0 0 16px;">${openingLine}</p>
+          <p style="color:#333;font-size:15px;line-height:1.7;margin:0 0 24px;font-weight:600;">${transitionLine}</p>
+          <p style="color:#333;font-size:15px;line-height:1.7;margin:0 0 16px;">${pitchParagraph}</p>
+          <p style="color:#333;font-size:15px;line-height:1.7;margin:0 0 16px;">${offerParagraph}</p>
+          <p style="color:#333;font-size:15px;line-height:1.7;margin:0 0 28px;">${founderLine}</p>
+          ${demoPhoneBlock}
+          <p style="color:#1a1a1a;font-size:15px;font-weight:600;margin:0 0 24px;text-align:center;">\uD83D\uDCCE ${attachmentLine}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center" style="padding:0 0 32px;">
+              <a href="${demoUrl}" style="display:block;background:#1a1a1a;color:#ffffff;font-weight:600;font-size:16px;padding:16px 32px;border-radius:8px;text-decoration:none;text-align:center;max-width:400px;margin:0 auto;">${ctaLabel}</a>
+            </td></tr>
+          </table>
+          <p style="color:#555;font-size:14px;line-height:1.6;margin:0;font-style:italic;">${ps}</p>
+        </td></tr>
+        <tr><td style="padding:24px 0 0;text-align:center;">
+          <p style="color:#999;font-size:11px;margin:0;">Vound Brand UG (haftungsbeschr\u00e4nkt) \u00b7 Am Markt 11 \u00b7 17309 Pasewalk \u00b7 Germany</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 }
 
 // ---------------------------------------------------------------------------

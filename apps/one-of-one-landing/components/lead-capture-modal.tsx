@@ -18,6 +18,15 @@ type LeadCaptureAgent = {
 export type LeadCaptureModalLabels = {
   title: string
   subtitle: string
+  salutationLabel: string
+  salutationMr: string
+  salutationMrs: string
+  salutationNone: string
+  titleLabel: string
+  titleNone: string
+  titleDr: string
+  titleProf: string
+  titleProfDr: string
   firstNameLabel: string
   lastNameLabel: string
   languageLabel: string
@@ -87,6 +96,8 @@ export function LeadCaptureModal({
   otpActive?: boolean
 }) {
   // Form fields
+  const [salutation, setSalutation] = useState<string>("mr")
+  const [titleValue, setTitleValue] = useState<string>("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<"en" | "de">(language)
@@ -137,6 +148,8 @@ export function LeadCaptureModal({
     if (!isOpen) {
       return
     }
+    setSalutation("mr")
+    setTitleValue("")
     setFirstName("")
     setLastName("")
     setPhoneInput("")
@@ -212,6 +225,8 @@ export function LeadCaptureModal({
           requestedAgentKey: agent.agentKey,
           requestedAgentName: agent.name,
           requestedPersonaName: agent.personaName,
+          salutation,
+          title: titleValue,
         }),
       })
 
@@ -255,6 +270,8 @@ export function LeadCaptureModal({
             requestedAgentKey: agent.agentKey,
             requestedAgentName: agent.name,
             requestedPersonaName: agent.personaName,
+            salutation,
+            title: titleValue,
             landingPath:
               typeof window !== "undefined"
                 ? `${window.location.pathname}${window.location.search}`
@@ -323,6 +340,8 @@ export function LeadCaptureModal({
           requestedAgentKey: agent.agentKey,
           requestedAgentName: agent.name,
           requestedPersonaName: agent.personaName,
+          salutation,
+          title: titleValue,
           landingPath:
             typeof window !== "undefined"
               ? `${window.location.pathname}${window.location.search}`
@@ -389,6 +408,8 @@ export function LeadCaptureModal({
           requestedAgentKey: agent.agentKey,
           requestedAgentName: agent.name,
           requestedPersonaName: agent.personaName,
+          salutation,
+          title: titleValue,
         }),
       })
 
@@ -454,6 +475,54 @@ export function LeadCaptureModal({
             </p>
 
             <div className="mt-6 space-y-4">
+              {/* Salutation + Title row */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Salutation pills */}
+                <div className="flex-1">
+                  <label className="lead-capture-label">
+                    {labels.salutationLabel}
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    {(["mr", "mrs", "none"] as const).map((key) => {
+                      const labelMap: Record<string, string> = {
+                        mr: labels.salutationMr,
+                        mrs: labels.salutationMrs,
+                        none: labels.salutationNone,
+                      }
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`lead-capture-lang-btn ${salutation === key ? "lead-capture-lang-btn-active" : ""}`}
+                          onClick={() => setSalutation(key)}
+                        >
+                          {labelMap[key]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Title dropdown */}
+                <div className="flex-1">
+                  <label className="lead-capture-label" htmlFor="lc-title">
+                    {labels.titleLabel}
+                  </label>
+                  <select
+                    id="lc-title"
+                    value={titleValue}
+                    onChange={(e) => setTitleValue(e.target.value)}
+                    className="chat-input mt-1 w-full px-4 py-3 text-sm"
+                    style={{ minHeight: "44px" }}
+                  >
+                    <option value="">{labels.titleNone}</option>
+                    <option value="dr">{labels.titleDr}</option>
+                    <option value="prof">{labels.titleProf}</option>
+                    <option value="prof_dr">{labels.titleProfDr}</option>
+                  </select>
+                </div>
+              </div>
+
               {/* First name */}
               <div>
                 <label className="lead-capture-label" htmlFor="lc-first-name">

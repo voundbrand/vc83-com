@@ -350,5 +350,15 @@
   "leadCaptureRateLimited": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
   "leadCaptureSubmitDirect": "Jetzt anrufen",
   "leadCaptureSubmittingDirect": "Wird verbunden...",
-  "leadCapturePrivacyDirect": "Mit dem Absenden stimmen Sie einem Demo-Anruf und einer Follow-up-E-Mail zu."
+  "leadCapturePrivacyDirect": "Mit dem Absenden stimmen Sie einem Demo-Anruf und einer Follow-up-E-Mail zu.",
+
+  "leadCaptureSalutationLabel": "Anrede",
+  "leadCaptureSalutationMr": "Herr",
+  "leadCaptureSalutationMrs": "Frau",
+  "leadCaptureSalutationNone": "\u2014",
+  "leadCaptureTitleLabel": "Titel",
+  "leadCaptureTitleNone": "\u2014 Kein Titel",
+  "leadCaptureTitleDr": "Dr.",
+  "leadCaptureTitleProf": "Prof.",
+  "leadCaptureTitleProfDr": "Prof. Dr."
 }

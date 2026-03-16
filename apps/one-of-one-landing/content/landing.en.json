@@ -350,5 +350,15 @@
   "leadCaptureRateLimited": "Too many attempts. Please try again later.",
   "leadCaptureSubmitDirect": "Call now",
   "leadCaptureSubmittingDirect": "Connecting...",
-  "leadCapturePrivacyDirect": "By continuing, you agree to receive a demo call and a follow-up email."
+  "leadCapturePrivacyDirect": "By continuing, you agree to receive a demo call and a follow-up email.",
+
+  "leadCaptureSalutationLabel": "Salutation",
+  "leadCaptureSalutationMr": "Mr.",
+  "leadCaptureSalutationMrs": "Mrs.",
+  "leadCaptureSalutationNone": "\u2014",
+  "leadCaptureTitleLabel": "Title",
+  "leadCaptureTitleNone": "\u2014 No title",
+  "leadCaptureTitleDr": "Dr.",
+  "leadCaptureTitleProf": "Prof.",
+  "leadCaptureTitleProfDr": "Prof. Dr."
 }

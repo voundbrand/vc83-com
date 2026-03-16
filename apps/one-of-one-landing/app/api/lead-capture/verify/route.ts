@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic"
 
+import { readFile } from "fs/promises"
+import path from "path"
 import { NextResponse } from "next/server"
 import twilio from "twilio"
 import type { Id } from "../../../../../../convex/_generated/dataModel"
@@ -104,6 +106,38 @@ function resolveClaraAgentId(): string {
     process.env.CLARA_ELEVENLABS_AGENT_ID?.trim() ||
     "agent_4501kkk9m4fdezp8hby997w5v630"
   )
+}
+
+function normalizeConversationLanguage(value: unknown): "en" | "de" {
+  if (typeof value !== "string") {
+    return "en"
+  }
+
+  const normalized = value.trim().toLowerCase()
+  return normalized.startsWith("de") ? "de" : "en"
+}
+
+function buildOutboundFirstMessage(args: {
+  language: string
+  requestedPersonaName: string
+}): string {
+  const language = normalizeConversationLanguage(args.language)
+  const requestedPersonaName = args.requestedPersonaName.trim()
+  const isClaraDemo = requestedPersonaName.toLowerCase() === "clara"
+
+  if (language === "de") {
+    if (isClaraDemo) {
+      return "Guten Tag, hier ist Clara, die KI-Assistentin von Schmitt & Partner. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Sie wollten sich gerade die Rezeptionisten-Demo ansehen. Ich zeige Ihnen gern direkt, wie das fuer Ihren Betrieb aussehen kann."
+    }
+
+    return `Guten Tag, hier ist Clara, die KI-Assistentin von Schmitt & Partner. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Sie wollten sich gerade ${requestedPersonaName} ansehen. Ich kann Sie direkt in diese Demo fuehren oder kurz erklaeren, wie das in Ihrem Betrieb aussehen wuerde.`
+  }
+
+  if (isClaraDemo) {
+    return "Hi, this is Clara, the AI assistant for Schmitt & Partner. This call may be recorded and shared with service providers. You just asked to see the receptionist demo, and I can show you how that would work for your business."
+  }
+
+  return `Hi, this is Clara, the AI assistant for Schmitt & Partner. This call may be recorded and shared with service providers. You just asked to try ${requestedPersonaName}, and I can either take you straight into that demo or briefly explain how it would work for your business.`
 }
 
 // ---------------------------------------------------------------------------
@@ -344,6 +378,7 @@ export async function POST(request: Request) {
           toNumber: normalizedPhone,
           leadName: data.firstName,
           requestedAgent: data.requestedPersonaName,
+          language: data.language,
         }).catch((err) =>
           console.error("[LeadCapture:Verify] Outbound call failed:", err)
         )
@@ -406,12 +441,26 @@ async function sendConfirmationEmail(
   data: import("@/lib/lead-capture").LeadCaptureFormData
 ) {
   const resend = createResendClient(apiKey)
+
+  // Read PDF attachment (non-fatal if missing)
+  let attachments: { filename: string; content: Buffer }[] | undefined
+  try {
+    const pdfPath = path.join(process.cwd(), `public/pdf/demo-kit-${data.language}.pdf`)
+    const pdfBuffer = await readFile(pdfPath)
+    if (pdfBuffer.length > 0) {
+      attachments = [{ filename: "sevenlayers-demo-kit.pdf", content: pdfBuffer }]
+    }
+  } catch {
+    // PDF not available — send without attachment
+  }
+
   await resend.emails.send({
     from,
     to: data.email,
     replyTo: process.env.LANDING_LEAD_SALES_EMAIL || "sales@sevenlayers.io",
     subject: buildLeadConfirmationSubject(data),
     html: buildLeadConfirmationHtml(data),
+    ...(attachments ? { attachments } : {}),
     headers: {
       "X-Entity-Ref-ID": `lead-confirm-${Date.now()}`,
     },
@@ -429,6 +478,7 @@ async function triggerOutboundCall(args: {
   toNumber: string
   leadName: string
   requestedAgent: string
+  language: string
 }) {
   const response = await fetch(
     "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
@@ -443,9 +493,19 @@ async function triggerOutboundCall(args: {
         agent_phone_number_id: args.phoneNumberId,
         to_number: args.toNumber,
         conversation_initiation_client_data: {
+          conversation_config_override: {
+            agent: {
+              first_message: buildOutboundFirstMessage({
+                language: args.language,
+                requestedPersonaName: args.requestedAgent,
+              }),
+            },
+          },
           dynamic_variables: {
             lead_name: args.leadName,
             requested_agent: args.requestedAgent,
+            call_direction: "outbound",
+            call_entrypoint: "landing_callback",
           },
         },
       }),
