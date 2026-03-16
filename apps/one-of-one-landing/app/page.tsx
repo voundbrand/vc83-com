@@ -46,6 +46,7 @@ import {
   Mic,
   BarChart3,
   Scale,
+  Loader2,
 } from "lucide-react"
 import { AgentTileExpanded, CHANNEL_ICONS, type AgentTileData, type AgentTileLabels } from "@/components/agent-tile-expanded"
 
@@ -68,6 +69,7 @@ export default function LandingPage() {
   const [showSpecialists, setShowSpecialists] = useState(false)
   const [selectedDemoAgent, setSelectedDemoAgent] = useState<AgentTileData | null>(null)
   const [playingAgentKey, setPlayingAgentKey] = useState<string | null>(null)
+  const [loadingAgentKey, setLoadingAgentKey] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const voiceIntroObjectUrlCacheRef = useRef<Record<string, string>>({})
   const voiceIntroRequestIdRef = useRef(0)
@@ -164,6 +166,7 @@ export default function LandingPage() {
         const cacheKey = getVoiceIntroCacheKey(agentKey)
         let objectUrl = voiceIntroObjectUrlCacheRef.current[cacheKey] || null
         if (!objectUrl) {
+          setLoadingAgentKey(agentKey)
           const response = await fetch(
             `/api/voice-intro?agentKey=${encodeURIComponent(agentKey)}&language=${encodeURIComponent(language)}`,
             {
@@ -186,9 +189,11 @@ export default function LandingPage() {
         }
 
         if (voiceIntroRequestIdRef.current !== requestId || !objectUrl) {
+          setLoadingAgentKey(null)
           return
         }
 
+        setLoadingAgentKey(null)
         const audio = new Audio(objectUrl)
         audioRef.current = audio
         setPlayingAgentKey(agentKey)
@@ -221,6 +226,7 @@ export default function LandingPage() {
           audioRef.current.pause()
           audioRef.current = null
         }
+        setLoadingAgentKey(null)
         setPlayingAgentKey(null)
       }
     },
@@ -693,6 +699,7 @@ export default function LandingPage() {
                   onPhoneCtaClick={handleAgentPhoneCtaClick}
                   voiceIntroLabel={playingAgentKey === agents[0].agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
                   isPlayingVoice={playingAgentKey === agents[0].agentKey}
+                  isLoadingVoice={loadingAgentKey === agents[0].agentKey}
                   onPlayVoice={() => void handlePlayVoice(agents[0].agentKey)}
                 />
               </div>
@@ -763,12 +770,15 @@ export default function LandingPage() {
                             border: "1px solid var(--btn-secondary-border)",
                           }}
                           aria-label={playingAgentKey === agent.agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
+                          disabled={loadingAgentKey === agent.agentKey}
                           onClick={(e) => {
                             e.stopPropagation()
                             void handlePlayVoice(agent.agentKey)
                           }}
                         >
-                          {playingAgentKey === agent.agentKey ? (
+                          {loadingAgentKey === agent.agentKey ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : playingAgentKey === agent.agentKey ? (
                             <Pause className="w-3.5 h-3.5" />
                           ) : (
                             <Play className="w-3.5 h-3.5" />
@@ -809,6 +819,7 @@ export default function LandingPage() {
                     onPhoneCtaClick={handleAgentPhoneCtaClick}
                     voiceIntroLabel={playingAgentKey === agents[activeFrontlineIndex].agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
                     isPlayingVoice={playingAgentKey === agents[activeFrontlineIndex].agentKey}
+                    isLoadingVoice={loadingAgentKey === agents[activeFrontlineIndex].agentKey}
                     onPlayVoice={() => void handlePlayVoice(agents[activeFrontlineIndex].agentKey)}
                   />
                 </div>
@@ -888,6 +899,7 @@ export default function LandingPage() {
                         onPhoneCtaClick={handleAgentPhoneCtaClick}
                         voiceIntroLabel={playingAgentKey === agent.agentKey ? t.agentVoiceIntroPlayingLabel : t.agentVoiceIntroLabel}
                         isPlayingVoice={playingAgentKey === agent.agentKey}
+                        isLoadingVoice={loadingAgentKey === agent.agentKey}
                         onPlayVoice={() => void handlePlayVoice(agent.agentKey)}
                       />
                     )

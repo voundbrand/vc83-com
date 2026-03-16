@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { type LucideIcon, ArrowRight, Phone, Play, Pause, MessageCircle, Mail, MessageSquare, Globe, Smartphone } from "lucide-react"
+import { type LucideIcon, ArrowRight, Phone, Play, Pause, Loader2, MessageCircle, Mail, MessageSquare, Globe, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SUPPORTED_LANGUAGES, PRIMARY_LANGUAGE_CODES } from "@/lib/voice-catalog"
 
@@ -57,6 +57,7 @@ export function AgentTileExpanded({
   onPhoneCtaClick,
   voiceIntroLabel,
   isPlayingVoice,
+  isLoadingVoice,
   onPlayVoice,
 }: {
   agent: AgentTileData
@@ -66,6 +67,7 @@ export function AgentTileExpanded({
   onPhoneCtaClick?: (agent: AgentTileData) => void
   voiceIntroLabel?: string
   isPlayingVoice?: boolean
+  isLoadingVoice?: boolean
   onPlayVoice?: () => void
 }) {
   const [showAllLanguages, setShowAllLanguages] = useState(false)
@@ -180,8 +182,11 @@ export function AgentTileExpanded({
               <Button
                 className="btn-secondary h-9 px-4 w-full md:w-auto mt-1 gap-1.5 text-xs"
                 onClick={onPlayVoice}
+                disabled={isLoadingVoice}
               >
-                {isPlayingVoice ? (
+                {isLoadingVoice ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : isPlayingVoice ? (
                   <Pause className="w-3.5 h-3.5" />
                 ) : (
                   <Play className="w-3.5 h-3.5" />
