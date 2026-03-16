@@ -259,8 +259,8 @@ export function buildLeadConfirmationHtml(data: LeadCaptureFormData): string {
     : `Every missed call is a customer who books elsewhere. In a business with five locations, that\u2019s easily 200+ missed calls per week. At an average deal size of \u20ac500, that\u2019s \u20ac100,000 in annual revenue walking out the door. Not because your team isn\u2019t good \u2014 because they can\u2019t be everywhere at once.`
 
   const offerParagraph = isDE
-    ? `Das biete ich unseren ersten Kunden an: einen 2-Wochen-Test an einem Standort, mit einer echten Assistentin, die echte Anrufe beantwortet. Keine Einrichtungsgeb\u00fchr. Keine Verpflichtung. Sie sehen jeden Anruf protokolliert, jeden Termin gebucht, jeden Lead erfasst \u2014 mit t\u00e4glichen Zusammenfassungen in Ihrem Posteingang. Nach 14 Tagen entscheiden die Daten f\u00fcr Sie.`
-    : `Here\u2019s what I\u2019m offering our first customers: a 2-week trial at one location, with a real assistant answering real calls. No setup fee. No commitment. You\u2019ll see every call logged, every appointment booked, every lead captured \u2014 with daily summaries in your inbox. After 14 days, the data makes the decision for you.`
+    ? `Das biete ich unseren ersten Kunden an: einen 2-Wochen-Test. Ich konfiguriere eine Assistentin f\u00fcr Ihr Unternehmen \u2014 Ihre \u00d6ffnungszeiten, Ihre Regeln. Sie testen intern: mit Mitarbeitern, Freunden, Familie. Keine Einrichtungsgeb\u00fchr. Keine Verpflichtung. Wenn Sie und Ihr Team \u00fcberzeugt sind, gehen wir live.`
+    : `Here\u2019s what I\u2019m offering our first customers: a 2-week test. I configure an assistant for your business \u2014 your hours, your rules. You test internally: with employees, friends, family. No setup fee. No commitment. When you and your team are convinced, we go live.`
 
   const founderLine = isDE
     ? `Ich konfiguriere jeden Assistenten pers\u00f6nlich f\u00fcr unsere ersten Kunden. Dieses Ma\u00df an Aufmerksamkeit skaliert nicht \u2014 aber im Moment geh\u00f6rt es Ihnen.`

@@ -69,7 +69,10 @@ interface TranscriptTransferEvent {
 }
 
 const FIXTURE_SUITES: Record<string, string[]> = {
-  regressions: ["clara-kai-clara-maren-regression"],
+  regressions: [
+    "clara-kai-clara-maren-regression",
+    "clara-kai-clara-maren-recommendation",
+  ],
   "proof-phase-gating": ["proof-phase-seven-agent-tour"],
   "proof-phase-stress": ["proof-phase-seven-agent-single-call-stress"],
   "specialist-redirects": [
@@ -110,6 +113,7 @@ const FIXTURE_SUITES: Record<string, string[]> = {
     "clara-lina-clara-kai-handoff",
     "clara-kai-clara-nora-handoff",
     "clara-kai-clara-maren-regression",
+    "clara-kai-clara-maren-recommendation",
   ],
 };
 

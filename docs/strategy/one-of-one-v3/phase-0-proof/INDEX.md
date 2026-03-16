@@ -26,6 +26,7 @@ This workstream contains the proof-phase strategy docs for Track A and the queue
 - The default `all-handoffs` suite passes on staging after the `Schmitt & Partner` narrative alignment.
 - The proof-spec delta is now frozen in `RUNTIME_GAP_AUDIT.md`.
 - The proof-specific fixture layer now exists as `proof-phase-gating` and `proof-phase-stress` in the ElevenLabs simulator harness.
-- The intended proof-phase gating tour is still failing live on long-call specialist transfer drift, so proof validation is not complete yet.
+- The intended proof-phase gating tour still fails live on long-call specialist transfer drift, but the current blocker has moved later in the tour: Clara now reaches Lina cleanly after the receptionist reset, while the remaining failure is the later Clara -> Kai jump in the same single-call proof path.
+- The default `all-handoffs` suite passes again on staging after the latest Clara routing hardening.
 - The proof-spec alignment work is not complete yet.
 - The biggest open items are proof-grade voice, persona, and reliability validation.

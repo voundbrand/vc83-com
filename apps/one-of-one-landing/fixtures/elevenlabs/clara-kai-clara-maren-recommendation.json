@@ -1,0 +1,35 @@
+{
+  "name": "clara-kai-clara-maren-recommendation",
+  "description": "After Kai returns the caller to Clara, a clear appointment-booking recommendation request should route straight to Maren instead of triggering a long role explanation.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Kai",
+      "text": "Please connect me with Kai.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Kai operations scenario",
+      "text": "Kai, in one short operations answer, explain how you would cover a vacation request when the Potsdam team is already short-staffed."
+    },
+    {
+      "label": "Return to Clara only",
+      "text": "Please send me back to Clara, but do not connect me to anyone else yet.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Ask who handles appointment booking",
+      "text": "Ich habe einen Friseursalon und moechte Terminvergabe und Anfragen per E-Mail abbilden. Mit wem sollte ich dafuer sprechen?",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["kai", "clara", "maren"],
+    "expectedFinalAgent": "maren",
+    "requiredAgentsVisited": ["clara", "kai", "maren"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

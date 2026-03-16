@@ -1,0 +1,81 @@
+{
+  "name": "proof-phase-clara-kai-late-call-regression",
+  "description": "Reduced proof-phase regression for the late-call Clara to Kai handoff after several earlier specialist demos and a short Clara receptionist reset.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Appointment trigger to Maren",
+      "text": "Please transfer me to Maren.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Maren scheduling scenario",
+      "text": "Maren, in one short answer, offer the earliest useful visit next week for our Potsdam satellite after two cancellations at the Berlin office."
+    },
+    {
+      "label": "Return to Clara for qualification",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Qualification trigger to Jonas",
+      "text": "Please connect me with Jonas.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Jonas qualification scenario",
+      "text": "Jonas, in one short qualification summary, assess a multi-service business that wants lead triage, appointment routing, and a launch this month."
+    },
+    {
+      "label": "Return to Clara for documentation",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Documentation trigger to Tobias",
+      "text": "Please transfer me to Tobias.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Tobias documentation scenario",
+      "text": "Tobias, in one short quote-ready summary, turn this voice note into a draft: recurring leak at the satellite location, damaged insulation near two skylights, lift access only, and same-week turnaround requested."
+    },
+    {
+      "label": "Return to Clara for follow-up",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Clara receptionist reset",
+      "text": "Clara, stay with me and show the receptionist demo."
+    },
+    {
+      "label": "Follow-up trigger to Lina",
+      "text": "Please connect me with Lina.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Lina follow-up scenario",
+      "text": "Lina, in one short demo summary, describe the confirmation, reminder, and satisfaction check after a booking."
+    },
+    {
+      "label": "Return to Clara for operations",
+      "text": "Please send me back to Clara.",
+      "expectTransfer": true
+    },
+    {
+      "label": "Operations trigger to Kai",
+      "text": "Please connect me with Kai.",
+      "expectTransfer": true
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["maren", "clara", "jonas", "clara", "tobias", "clara", "lina", "clara", "kai"],
+    "expectedFinalAgent": "kai",
+    "requiredAgentsVisited": ["clara", "maren", "jonas", "tobias", "lina", "kai"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}
