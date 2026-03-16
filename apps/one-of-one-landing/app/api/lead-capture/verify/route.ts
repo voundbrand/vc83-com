@@ -108,38 +108,6 @@ function resolveClaraAgentId(): string {
   )
 }
 
-function normalizeConversationLanguage(value: unknown): "en" | "de" {
-  if (typeof value !== "string") {
-    return "en"
-  }
-
-  const normalized = value.trim().toLowerCase()
-  return normalized.startsWith("de") ? "de" : "en"
-}
-
-function buildOutboundFirstMessage(args: {
-  language: string
-  requestedPersonaName: string
-}): string {
-  const language = normalizeConversationLanguage(args.language)
-  const requestedPersonaName = args.requestedPersonaName.trim()
-  const isClaraDemo = requestedPersonaName.toLowerCase() === "clara"
-
-  if (language === "de") {
-    if (isClaraDemo) {
-      return "Guten Tag, hier ist Clara, die KI-Assistentin von Schmitt & Partner. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Sie wollten sich gerade die Rezeptionisten-Demo ansehen. Ich zeige Ihnen gern direkt, wie das fuer Ihren Betrieb aussehen kann."
-    }
-
-    return `Guten Tag, hier ist Clara, die KI-Assistentin von Schmitt & Partner. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Sie wollten sich gerade ${requestedPersonaName} ansehen. Ich kann Sie direkt in diese Demo fuehren oder kurz erklaeren, wie das in Ihrem Betrieb aussehen wuerde.`
-  }
-
-  if (isClaraDemo) {
-    return "Hi, this is Clara, the AI assistant for Schmitt & Partner. This call may be recorded and shared with service providers. You just asked to see the receptionist demo, and I can show you how that would work for your business."
-  }
-
-  return `Hi, this is Clara, the AI assistant for Schmitt & Partner. This call may be recorded and shared with service providers. You just asked to try ${requestedPersonaName}, and I can either take you straight into that demo or briefly explain how it would work for your business.`
-}
-
 // ---------------------------------------------------------------------------
 // POST /api/lead-capture/verify
 // ---------------------------------------------------------------------------
@@ -493,17 +461,12 @@ async function triggerOutboundCall(args: {
         agent_phone_number_id: args.phoneNumberId,
         to_number: args.toNumber,
         conversation_initiation_client_data: {
-          conversation_config_override: {
-            agent: {
-              first_message: buildOutboundFirstMessage({
-                language: args.language,
-                requestedPersonaName: args.requestedAgent,
-              }),
-            },
-          },
+          // Production Eleven config rejects runtime first_message overrides here.
+          // Keep callback context in dynamic variables and rely on Clara's base opener.
           dynamic_variables: {
             lead_name: args.leadName,
             requested_agent: args.requestedAgent,
+            requested_language: args.language,
             call_direction: "outbound",
             call_entrypoint: "landing_callback",
           },

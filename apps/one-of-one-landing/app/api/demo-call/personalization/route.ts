@@ -107,17 +107,11 @@ function buildPersonalizedPrompt(args: {
   return [
     "You are Clara, the live demo concierge for sevenlayers.",
     `The caller selected ${args.requestedPersonaName} (${args.requestedAgentName}) on the landing page before calling.`,
-    "Acknowledge that choice immediately and naturally in your first reply.",
+    "After the standard opener, acknowledge that choice immediately and naturally in your first model-generated reply.",
     "Keep the caller experience smooth, short, and confident.",
     "If your configured workflow supports specialist transfer, move them to the selected specialist quickly after a short confirmation.",
     "Do not mention webhooks, phone-number matching, routing logic, hidden agents, or implementation details.",
   ].join(" ");
-}
-
-function buildFirstMessage(args: {
-  requestedPersonaName: string;
-}): string {
-  return `Hi, you're in the right place. You wanted to try ${args.requestedPersonaName}. I can connect you now, or give you a quick overview first.`;
 }
 
 export async function POST(request: Request) {
@@ -217,7 +211,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        dynamic_variables: {},
+        dynamic_variables: {
+          requested_agent: resolvedIntent.requestedAgentKey,
+          requested_agent_name: resolvedIntent.requestedAgentName,
+          requested_persona_name: resolvedIntent.requestedPersonaName,
+          requested_language: resolvedIntent.language,
+          call_direction: "inbound",
+          call_entrypoint: "landing_demo_number",
+        },
         conversation_config_override: {
           agent: {
             prompt: {
@@ -226,9 +227,6 @@ export async function POST(request: Request) {
                 requestedPersonaName: resolvedIntent.requestedPersonaName,
               }),
             },
-            first_message: buildFirstMessage({
-              requestedPersonaName: resolvedIntent.requestedPersonaName,
-            }),
           },
         },
       },
