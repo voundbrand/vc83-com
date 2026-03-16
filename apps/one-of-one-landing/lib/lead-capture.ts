@@ -292,7 +292,7 @@ export function buildLeadConfirmationHtml(data: LeadCaptureFormData): string {
     <tr><td align="center" style="padding:40px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
         <tr><td align="center" style="padding:0 0 32px;">
-          <img src="https://www.sevenlayers.io/images/sevenlayers-logo.png" alt="sevenlayers" width="64" style="width:64px;height:auto;" />
+          <img src="https://www.sevenlayers.io/images/sevenlayers-email-logo.png" alt="sevenlayers" width="220" style="width:220px;height:auto;" />
         </td></tr>
         <tr><td style="background:#ffffff;border-radius:12px;padding:40px 32px;">
           <p style="color:#1a1a1a;font-size:16px;line-height:1.6;margin:0 0 24px;">${greeting},</p>
