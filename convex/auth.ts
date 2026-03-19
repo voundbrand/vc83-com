@@ -366,6 +366,15 @@ export const internalCreateSession = internalMutation({
     organizationId: v.id("organizations"), // Required for org-scoped security
   },
   handler: async (ctx, args) => {
+    // Auto-approve beta access for existing users who pre-date the beta gate
+    const user = await ctx.db.get(args.userId);
+    if (user && (!user.betaAccessStatus || user.betaAccessStatus === "none")) {
+      await ctx.db.patch(args.userId, {
+        betaAccessStatus: "approved",
+        betaAccessApprovedAt: Date.now(),
+      });
+    }
+
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
       email: args.email,
@@ -373,8 +382,6 @@ export const internalCreateSession = internalMutation({
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
-
-    const user = await ctx.db.get(args.userId);
 
     return {
       success: true,

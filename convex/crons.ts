@@ -469,4 +469,23 @@ crons.daily(
   }
 );
 
+/**
+ * Transition Past Events
+ *
+ * Runs every hour to automatically update event statuses based on dates:
+ * - Published events whose endDate has passed → "completed"
+ * - Published events that have started but not ended → "in_progress"
+ * - In-progress events whose endDate has passed → "completed"
+ *
+ * This ensures past events no longer accept registrations and display
+ * the correct status without manual intervention.
+ */
+crons.hourly(
+  "Transition past events to completed",
+  {
+    minuteUTC: 15,
+  },
+  generatedApi.internal.eventOntology.transitionPastEvents
+);
+
 export default crons;

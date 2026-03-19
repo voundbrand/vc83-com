@@ -1304,6 +1304,15 @@ export const createPlatformSession = internalMutation({
     organizationId: v.id("organizations"),
   },
   handler: async (ctx, args): Promise<Id<"sessions">> => {
+    // Auto-approve beta access for existing users who pre-date the beta gate
+    const user = await ctx.db.get(args.userId);
+    if (user && (!user.betaAccessStatus || user.betaAccessStatus === "none")) {
+      await ctx.db.patch(args.userId, {
+        betaAccessStatus: "approved",
+        betaAccessApprovedAt: Date.now(),
+      });
+    }
+
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
       email: args.email,

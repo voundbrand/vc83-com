@@ -2619,6 +2619,15 @@ export const internalRegisterAttendee = internalMutation({
       throw new Error("Event not found");
     }
 
+    // Block registration for non-active events
+    const eventProps = event.customProperties as { startDate?: number; endDate?: number; maxCapacity?: number };
+    if (event.status === "completed" || event.status === "cancelled" || event.status === "draft") {
+      throw new Error("Event is no longer accepting registrations");
+    }
+    if (eventProps.endDate && Date.now() > eventProps.endDate) {
+      throw new Error("Event is no longer accepting registrations");
+    }
+
     // Check capacity
     const props = event.customProperties as { maxCapacity?: number };
     if (props.maxCapacity) {

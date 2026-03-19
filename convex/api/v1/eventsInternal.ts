@@ -765,6 +765,15 @@ export const registerAttendeeInternal = internalMutation({
       throw new Error("Event not found");
     }
 
+    // 1b. Block registration for non-active events
+    if (event.status !== "published" && event.status !== "in_progress") {
+      throw new Error("Event is no longer accepting registrations");
+    }
+    const eventProps = event.customProperties as { endDate?: number } | undefined;
+    if (eventProps?.endDate && Date.now() > eventProps.endDate) {
+      throw new Error("Event is no longer accepting registrations");
+    }
+
     // 2. Verify contact exists
     const contact = await ctx.db.get(args.contactId as Id<"objects">);
     if (!contact || contact.type !== "crm_contact") {

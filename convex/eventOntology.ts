@@ -25,7 +25,7 @@
  * - ⏳ Attendee management (add when needed)
  */
 
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuthenticatedUser } from "./rbacHelpers";
@@ -1192,5 +1192,72 @@ export const getEventAttendees = query({
         formResponses: props.formResponses as Record<string, unknown> || {},
       };
     });
+  },
+});
+
+/**
+ * TRANSITION PAST EVENTS
+ *
+ * Cron-driven mutation that automatically transitions event statuses:
+ * - "published" events whose endDate has passed → "completed"
+ * - "published" events whose startDate has passed but endDate hasn't → "in_progress"
+ * - "in_progress" events whose endDate has passed → "completed"
+ */
+export const transitionPastEvents = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Get all events that could need transitioning
+    const allEvents = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "event"))
+      .collect();
+
+    const activeEvents = allEvents.filter(
+      (e) => e.status === "published" || e.status === "in_progress"
+    );
+
+    let completedCount = 0;
+    let inProgressCount = 0;
+
+    for (const event of activeEvents) {
+      const props = event.customProperties as {
+        startDate?: number;
+        endDate?: number;
+      } | undefined;
+
+      const endDate = props?.endDate;
+      const startDate = props?.startDate;
+
+      if (endDate && now > endDate) {
+        // Event has ended → mark completed
+        await ctx.db.patch(event._id, {
+          status: "completed",
+          updatedAt: now,
+        });
+        completedCount++;
+      } else if (
+        event.status === "published" &&
+        startDate &&
+        now >= startDate &&
+        (!endDate || now <= endDate)
+      ) {
+        // Event has started but not ended → mark in_progress
+        await ctx.db.patch(event._id, {
+          status: "in_progress",
+          updatedAt: now,
+        });
+        inProgressCount++;
+      }
+    }
+
+    if (completedCount > 0 || inProgressCount > 0) {
+      console.log(
+        `[Event Lifecycle] Transitioned ${completedCount} event(s) to completed, ${inProgressCount} to in_progress`
+      );
+    }
+
+    return { completedCount, inProgressCount };
   },
 });
