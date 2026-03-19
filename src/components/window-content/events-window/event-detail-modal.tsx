@@ -1,12 +1,13 @@
 "use client";
 
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
-import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
+import { X, Download, Loader2, Calendar, MapPin, Users, Clock, ExternalLink, FileSpreadsheet, ArrowLeft, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useWindowManager } from "@/hooks/use-window-manager";
+import { useAuth } from "@/hooks/use-auth";
 import { TicketsWindow } from "../tickets-window";
 
 interface EventDetailModalProps {
@@ -18,7 +19,10 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
   const { t, isLoading } = useNamespaceTranslations("ui.events");
   const [isDownloadingAttendees, setIsDownloadingAttendees] = useState(false);
   const [isDownloadingCSV, setIsDownloadingCSV] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { openWindow } = useWindowManager();
+  const { sessionId } = useAuth();
+  const updateEvent = useMutation(api.eventOntology.updateEvent);
 
   // PDF and CSV generation actions
   const generateAttendeeListPDF = useAction(api.pdfGeneration.generateEventAttendeeListPDF);
@@ -153,6 +157,22 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
     );
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (!sessionId || isUpdatingStatus) return;
+    setIsUpdatingStatus(true);
+    try {
+      await updateEvent({
+        sessionId,
+        eventId: event._id,
+        status: newStatus,
+      });
+    } catch (error) {
+      console.error("Failed to update event status:", error);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const customProps = event.customProperties || {};
   const attendeeCount = attendees?.length ?? 0;
   const maxCapacity = customProps.maxCapacity as number | undefined;
@@ -182,7 +202,36 @@ export function EventDetailModal({ event, onClose }: EventDetailModalProps) {
             {event.name}
           </h2>
           <div className="flex items-center gap-2 shrink-0">
-            {getStatusBadge(event.status || "draft")}
+            <div className="relative">
+              <select
+                value={event.status || "draft"}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={isUpdatingStatus || !sessionId}
+                className="appearance-none pl-2.5 pr-7 py-1 text-xs font-bold rounded border-0 cursor-pointer"
+                style={{
+                  background: {
+                    draft: "var(--neutral-gray)",
+                    published: "var(--success)",
+                    in_progress: "var(--tone-accent-strong)",
+                    completed: "var(--info)",
+                    cancelled: "var(--error)",
+                  }[event.status || "draft"] || "var(--neutral-gray)",
+                  color: "var(--window-document-text)",
+                  opacity: isUpdatingStatus ? 0.6 : 1,
+                }}
+              >
+                <option value="draft">{t("ui.events.status.draft")}</option>
+                <option value="published">{t("ui.events.status.published")}</option>
+                <option value="in_progress">{t("ui.events.status.in_progress")}</option>
+                <option value="completed">{t("ui.events.status.completed")}</option>
+                <option value="cancelled">{t("ui.events.status.cancelled")}</option>
+              </select>
+              <ChevronDown
+                size={12}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: "var(--window-document-text)" }}
+              />
+            </div>
             <span className="text-xs" style={mutedTextStyle}>
               {getSubtypeLabel(event.subtype || "")}
             </span>
