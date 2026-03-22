@@ -42,6 +42,9 @@ function resolveSupportedLanguage(value: string | null | undefined): Language | 
 }
 
 function resolveStarterLanguage(preferredLanguage: Language): Language {
+  const preferredResolved = resolveSupportedLanguage(preferredLanguage);
+  if (preferredResolved) return preferredResolved;
+
   if (typeof window !== "undefined") {
     const browserCandidates = [navigator.language, ...(navigator.languages || [])];
     for (const candidate of browserCandidates) {
@@ -50,8 +53,6 @@ function resolveStarterLanguage(preferredLanguage: Language): Language {
     }
   }
 
-  const preferredResolved = resolveSupportedLanguage(preferredLanguage);
-  if (preferredResolved) return preferredResolved;
   return "en";
 }
 
