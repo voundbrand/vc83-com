@@ -97,13 +97,25 @@ export const verifySession = internalQuery({
       return { valid: false, error: "Session expired" };
     }
 
-    // Check organization context - session must match the requested organization
-    // This prevents users from generating API keys for organizations they don't have active sessions for
-    if (!session.organizationId) {
-      return { valid: false, error: "Session has no organization context. Please log in again." };
+    // Check if user is a super admin (can generate keys for any org)
+    const user = await ctx.db.get(session.userId);
+    let isSuperAdmin = false;
+    if (user?.global_role_id) {
+      const globalRole = await ctx.db.get(user.global_role_id);
+      if (globalRole && globalRole.name === "super_admin") {
+        isSuperAdmin = true;
+      }
     }
-    if (session.organizationId !== args.organizationId) {
-      return { valid: false, error: "Session organization does not match. Please switch to the correct organization or log in again." };
+
+    // Check organization context - session must match the requested organization
+    // Super admins can generate API keys for any organization regardless of session context
+    if (!isSuperAdmin) {
+      if (!session.organizationId) {
+        return { valid: false, error: "Session has no organization context. Please log in again." };
+      }
+      if (session.organizationId !== args.organizationId) {
+        return { valid: false, error: "Session organization does not match. Please switch to the correct organization or log in again." };
+      }
     }
 
     return {

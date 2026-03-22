@@ -7,6 +7,7 @@ const { api } = require("../../../../../convex/_generated/api") as { api: any };
 import { UserManagementTable } from "./user-management-table";
 import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { AdminSecurityTab } from "./admin-security-tab";
+import { IntegrationCredentialsTab } from "./integration-credentials-tab";
 import { LicensingTab } from "./licensing-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
@@ -27,7 +28,13 @@ import {
   InteriorTabRow,
   InteriorTitle,
 } from "@/components/window-content/shared/interior-primitives";
-type TabType = "organization" | "users" | "roles" | "security" | "licensing";
+type TabType =
+  | "organization"
+  | "integrations"
+  | "users"
+  | "roles"
+  | "security"
+  | "licensing";
 
 interface AdminManageWindowProps {
   organizationId: Id<"organizations">;
@@ -121,6 +128,7 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
 
   const tabs: Array<{ id: TabType; label: string; icon: ReactNode }> = [
     { id: "organization", label: t("ui.manage.tab.organization"), icon: <Building2 size={14} /> },
+    { id: "integrations", label: "Integrations", icon: <Link2 size={14} /> },
     { id: "users", label: t("ui.manage.tab.users_invites"), icon: <Users size={14} /> },
     { id: "roles", label: t("ui.manage.tab.roles_permissions"), icon: <Shield size={14} /> },
     { id: "security", label: "Security & API", icon: <Key size={14} /> },
@@ -336,9 +344,17 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
             <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
               {organization?.name}
             </p>
-            <InteriorHelperText className="text-xs">
-              Organization ID: {organizationId.slice(0, 8)}...
-            </InteriorHelperText>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(organizationId);
+              }}
+              className="hover:opacity-80 transition-opacity cursor-pointer"
+              title="Click to copy Organization ID"
+            >
+              <InteriorHelperText className="text-xs" style={{ fontFamily: "monospace" }}>
+                ID: {organizationId}
+              </InteriorHelperText>
+            </button>
           </div>
         </div>
       </InteriorHeader>
@@ -685,6 +701,13 @@ export function AdminManageWindow({ organizationId }: AdminManageWindowProps) {
               isSubmitting={isSubmittingAddress}
             />
           </div>
+        )}
+
+        {activeTab === "integrations" && sessionId && (
+          <IntegrationCredentialsTab
+            organizationId={organizationId}
+            sessionId={sessionId}
+          />
         )}
 
         {activeTab === "users" && (

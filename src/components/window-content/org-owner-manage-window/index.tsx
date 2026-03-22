@@ -301,6 +301,19 @@ export function ManageWindow({
             <InteriorHelperText className="mt-1 text-xs">
               {t("ui.manage.your_role")}: {formatRoleName(currentOrganization?.role.name || "", t)}
             </InteriorHelperText>
+            {organizationId && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(organizationId as string);
+                }}
+                className="hover:opacity-80 transition-opacity cursor-pointer"
+                title="Click to copy Organization ID"
+              >
+                <InteriorHelperText className="text-xs" style={{ fontFamily: "monospace" }}>
+                  ID: {organizationId}
+                </InteriorHelperText>
+              </button>
+            )}
           </div>
         </div>
       </InteriorHeader>

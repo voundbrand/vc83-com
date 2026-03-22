@@ -837,8 +837,8 @@ export function OrganizationsListTab() {
                     )}
                   </div>
 
-                  {org.slug && (
-                    <div className="mt-2">
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {org.slug && (
                       <span className="text-xs px-2 py-0.5 border" style={{
                         backgroundColor: "var(--window-document-bg)",
                         borderColor: "var(--window-document-border)",
@@ -847,8 +847,23 @@ export function OrganizationsListTab() {
                       }}>
                         /{org.slug}
                       </span>
-                    </div>
-                  )}
+                    )}
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(org._id);
+                      }}
+                      className="text-xs px-2 py-0.5 border cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{
+                        backgroundColor: "var(--window-document-bg)",
+                        borderColor: "var(--window-document-border)",
+                        color: "var(--neutral-gray)",
+                        fontFamily: "monospace",
+                      }}
+                      title="Click to copy Organization ID"
+                    >
+                      ID: {org._id}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="ml-3 flex gap-2">
