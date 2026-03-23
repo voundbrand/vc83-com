@@ -175,7 +175,7 @@ These phrases push us into Logicc's category.
 
 - "one intelligent front door for the business"
 - "every missed call costs you a customer"
-- "real calls, real data, real results"
+- "test it with your team, then go live with confidence"
 - "prove it at one location, then scale"
 - "one visible number, multiple hidden specialists"
 

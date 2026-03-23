@@ -48,7 +48,7 @@ Then shut up. Let them call. Let them experience it. The product does the rest.
   - LinkedIn DMs to local business owners (Berlin and DACH region)
   - Local business events, meetups, chamber of commerce
 - Every conversation ends with one of two outcomes:
-  1. "I'll set up an AI team for your business for free for 2 weeks." (if they have the pain)
+  1. "I'll configure an AI team for your business — you and your team test it for 2 weeks, free." (if they have the pain)
   2. "Who do you know that's frustrated about missed calls?" (if they don't)
 - No cold email blasts. No paid ads. One human talking to another human.
 
@@ -58,10 +58,11 @@ Then shut up. Let them call. Let them experience it. The product does the rest.
 
 - 2-3 trials running simultaneously. More than 3 is unsustainable as a solo founder.
 - v3 trial playbook applies (see `04_TRIAL_PLAYBOOK.md`):
-  - Week 1: Founder monitors every interaction. Daily summary to customer.
-  - Week 2: Customer gets comfortable. Founder checks in every 2 days.
+  - Week 1: Guided testing with owner + key employees. Founder monitors and tunes. Daily summary.
+  - Week 2: Widen the circle — friends, family, more employees stress-test the agent. Founder checks in every 2 days.
+- No real customers call during the trial. The agent runs on a dedicated test number.
 - Direct WhatsApp support with Remington for every trial customer.
-- Document everything: call volumes, resolution rates, edge cases, customer feedback.
+- Document everything: scenarios tested, accuracy, edge cases, team feedback.
 
 **Exit criteria:** 3-4 trials completed with clear go/no-go signal from each.
 
@@ -137,9 +138,10 @@ The v3 sales structure (from `02_SALES_MOTION.md`) applies at Phase 0 scale:
 - Include the demo number so they can call again (they will).
 - "What to Watch For" checklist from `03_DEMO_KIT_SPEC.md` — adapted for Phase 0 (see `04_PROOF_PHASE_DEMO.md`).
 
-### Phase 3: Trial
-- 2-week free trial on their business.
+### Phase 3: Trial (Internal Testing)
+- 2-week free test on a dedicated number. No real customers involved.
 - Founder configures their agent team.
+- Owner, employees, friends, and family test the agent.
 - Daily summaries in Week 1, every-other-day in Week 2.
 - WhatsApp support line direct to Remington.
 
@@ -154,7 +156,7 @@ The v3 sales structure (from `02_SALES_MOTION.md`) applies at Phase 0 scale:
 
 Anchor at v3 pricing. Offer Phase 0 pricing as exclusive early-adopter positioning.
 
-> "You've seen what the platform does for your business over the last two weeks. Companies will pay €35K or more to implement this — and they will, once we have the case studies to prove it. Right now, I'm building those case studies. You're one of our first five customers, which means you get founder-level attention at early-adopter pricing: €2-3K per month, no setup fee, cancel anytime. The only thing I ask in return is permission to share your results — anonymized or named, your choice."
+> "Your team has tested this for two weeks. They've called it, tried to break it, and seen how it handles your business. Companies will pay €35K or more to implement this — and they will, once we have the case studies to prove it. Right now, I'm building those case studies. You're one of our first five customers, which means you get founder-level attention at early-adopter pricing: €2-3K per month, no setup fee, cancel anytime. The next step is simple: we put this on your real line and let it do the same thing for your actual customers. The only thing I ask in return is permission to share your results — anonymized or named, your choice."
 
 Key elements:
 - Anchor high (€35K) so €2-3K feels like a steal.
@@ -172,7 +174,7 @@ All objection handling from the v3 `02_SALES_MOTION.md` remains valid. Phase 0 a
 > "That's exactly why you're getting this pricing. In 6 months, when we have 15 customers and case studies from every industry, this will cost 5x more. You're getting in early."
 
 **"What if you shut down?"**
-> "Month-to-month. If we disappear, you stop paying. You've risked nothing except 2 weeks of your time on a free trial — and you've already seen it work."
+> "Month-to-month. If we disappear, you stop paying. You've risked nothing except 2 weeks of internal testing — and your team already knows it works."
 
 **"I need to think about it."**
 > "Totally fair. While you think, the demo number is live 24/7. Call it again whenever you want. I'll check in on Thursday."

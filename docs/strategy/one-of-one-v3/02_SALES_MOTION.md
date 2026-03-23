@@ -63,15 +63,16 @@ The owner demos to their board/leadership team using the Demo Kit (see 03_DEMO_K
 
 ## Phase 3: 2-Week Trial
 
-A real phone agent configured for one location/department. Actually answers real calls. See 04_TRIAL_PLAYBOOK.md for day-by-day structure.
+A real phone agent configured for one location/department. Tested internally by the owner, employees, friends, and family on a dedicated test number. No real customers involved. See 04_TRIAL_PLAYBOOK.md for day-by-day structure.
 
 | Aspect | Detail |
 |--------|--------|
-| **Setup** | Agent configured with real business knowledge, real phone number, real calendar integration |
+| **Setup** | Agent configured with real business knowledge, dedicated test number, calendar integration |
+| **Who tests** | Owner, employees, friends, family — internal circle only |
 | **Remington's role** | Monitors daily, tunes the agent, provides weekly data snapshots |
-| **Data collected** | Calls answered, appointments booked, response times, escalation rate, missed calls before vs. during |
+| **Data collected** | Scenarios tested, accuracy, appointments booked correctly, escalation rate, team confidence |
 
-**Outcome:** Hard data — calls answered, appointments booked, response times, leads captured.
+**Outcome:** Team confidence — the people who matter have tested it and are convinced. Go-live becomes the obvious next step.
 
 ---
 

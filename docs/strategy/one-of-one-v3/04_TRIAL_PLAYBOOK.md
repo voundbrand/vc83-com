@@ -3,16 +3,28 @@
 | Field | Value |
 |-------|-------|
 | **Document** | 04 — 2-Week Trial Playbook |
-| **Date** | 2026-03-13 |
+| **Date** | 2026-03-16 |
 | **Classification** | Internal — Founder's Eyes Only |
+| **Status** | Updated — internal testing model |
 
 ---
 
 ## Purpose
 
-The 2-week trial is the decisive sales event. A real agent answers real calls at one location for 14 days. The data it generates is the close.
+The 2-week trial is the decisive sales event — but no real customers are involved. The owner, their employees, friends, and family test the agent on a dedicated test number. The goal: build total confidence that this works for their business, so the decision to go live on their real line is obvious.
 
-The trial removes every objection. "Will it work for our business?" — the data answers. "Will our customers accept it?" — the recordings answer. "Is it worth the investment?" — the metrics answer. By Day 14, the conversation is not "should we buy this?" but "how fast can we expand?"
+The trial removes every objection through hands-on experience. "Will it work for our business?" — your team tests it. "Will it sound right?" — you hear it yourself. "Can it handle tricky questions?" — try to break it. By Day 14, the conversation is not "should we buy this?" but "when do we go live?"
+
+---
+
+## Two-Phase Model
+
+| Phase | Duration | What Happens | Who Calls |
+|-------|----------|-------------|-----------|
+| **Phase A: Internal Testing** | Day 0–14 (free) | Agent configured for the business, tested on a dedicated test number | Owner, employees, friends, family |
+| **Phase B: Go Live** | After Day 14 (paid) | Phone forwarding activated on real business line, real customers call | Real customers |
+
+Phase A is free. Phase B is the paid engagement. The trial is designed so that Phase B feels like an obvious next step, not a leap of faith.
 
 ---
 
@@ -21,17 +33,17 @@ The trial removes every objection. "Will it work for our business?" — the data
 | Day | Activity | Who | Duration |
 |-----|----------|-----|----------|
 | Day -3 | Kick-off call: collect business knowledge (FAQ, services, pricing, hours, team structure, appointment types) | Remington + Owner | 90 min |
-| Day -2 | Configure agent: input knowledge, set tone, connect phone number, integrate calendar | Remington | 3–4 hours |
-| Day -1 | Test phase: 10–20 test calls, owner listens and gives feedback on tone, accuracy, and handling | Remington + Owner | 60–90 min |
-| Day 0 | Go-live: phone forwarding activated, agent is live on real calls | Remington | 30 min |
+| Day -2 | Configure agent: input knowledge, set tone, connect dedicated test number, integrate calendar | Remington | 3–4 hours |
+| Day -1 | First test calls: 10–20 calls, owner listens and gives feedback on tone, accuracy, and handling | Remington + Owner | 60–90 min |
+| Day 0 | Test number goes live: shared with owner, team, and inner circle | Remington | 30 min |
 
-**Owner time investment:** Approximately 3–4 hours total across kick-off and test calls. Everything else is handled by Remington.
+**Owner time investment:** Approximately 3–4 hours total across kick-off and initial test calls. Everything else is handled by Remington.
 
 ---
 
 ## Baseline Measurement
 
-Captured before the trial starts. These numbers become the "before" in every comparison.
+Captured before the trial starts. These numbers become the "before" that motivates the go-live decision.
 
 | Metric | How to Measure | Example |
 |--------|---------------|---------|
@@ -42,47 +54,59 @@ Captured before the trial starts. These numbers become the "before" in every com
 | Current solution | Ask owner (call center, voicemail, nothing?) | Voicemail + callback list |
 | Staff time spent on phone per day | Ask owner | 2–3 hours |
 
-Document everything. These baselines are the foundation of the close presentation on Day 14.
+Document everything. These baselines are what make the ROI projection credible when you present the go-live proposal on Day 14.
 
 ---
 
-## Week 1: Monitored + Supervised
+## Week 1: Guided Testing
 
-### Day 1–3: Monitored Mode
+### Day 1–3: Active Testing with Owner
 
 | Aspect | Detail |
 |--------|--------|
-| **Agent status** | Live on real calls |
+| **Agent status** | Live on dedicated test number |
+| **Who calls** | Owner + key employees. Remington provides a testing script with realistic scenarios |
 | **Monitoring** | Remington monitors every call in real-time |
-| **Tuning** | Adjust answers, add knowledge gaps, refine tone after each call |
+| **Tuning** | Adjust answers, add knowledge gaps, refine tone after each test call |
 | **Reporting** | Daily summary to owner via email or support channel |
-| **Goal** | Zero embarrassing moments |
+| **Goal** | Owner hears the agent and thinks: "This sounds like someone who works here" |
 
 **Daily Summary Format:**
 
 | Field | Content |
 |-------|---------|
-| Calls handled today | [number] |
+| Test calls handled today | [number] |
 | Appointments booked | [number] |
 | Calls escalated | [number] |
 | Knowledge gaps identified | [list — addressed immediately] |
-| Notable interactions | [1–2 highlights, anonymised] |
+| Notable interactions | [1–2 highlights] |
 
-This is the make-or-break window. Any issue in Day 1–3 must be fixed within hours. The owner is watching closely. Their confidence in the product is being formed right now.
+This is the make-or-break window. Any issue in Day 1–3 must be fixed within hours. The owner is forming their opinion of the product right now.
+
+**Testing script prompts (share with the owner):**
+- Call as a new customer asking about services and pricing
+- Call to book an appointment at an unusual time
+- Call with a complaint or tricky question
+- Call in a different language (if relevant)
+- Call after hours / on a weekend
+- Try to confuse the agent with vague or contradictory requests
 
 ---
 
-### Day 4–7: Supervised Autonomous
+### Day 4–7: Widen the Circle
 
 | Aspect | Detail |
 |--------|--------|
-| **Agent status** | Handles calls independently |
+| **Agent status** | Handling test calls independently |
+| **Who calls** | Employees, friends, family — the inner circle. Share the test number broadly |
 | **Monitoring** | Remington reviews daily transcripts, not real-time |
 | **Tuning** | Improvements made based on transcript review |
 | **Reporting** | Daily email summary continues |
-| **Goal** | Owner starts seeing the pattern: "This actually works" |
+| **Goal** | Multiple people test it. The team starts saying: "This actually works" |
 
-By Day 7, the agent should be handling calls at a level that matches or exceeds the owner's expectations. The daily summaries build a data trail that makes the close conversation easy.
+By Day 7, the agent should be handling calls at a level that matches or exceeds the owner's expectations. Fresh callers who weren't involved in setup provide the most valuable feedback — they experience it the way a real customer would.
+
+**Encourage testers to be tough:** The whole point is to stress-test the agent before any real customer calls. Edge cases found now are fixed for free. Edge cases found after go-live cost reputation.
 
 ---
 
@@ -90,61 +114,68 @@ By Day 7, the agent should be handling calls at a level that matches or exceeds 
 
 | Time | Activity |
 |------|----------|
-| 0–5 min | "How did the first week feel?" — Open-ended, let them talk |
-| 5–15 min | Review Week 1 data together: calls handled, appointments booked, response times, escalations |
-| 15–20 min | Compare to baseline: "Before the trial, you were at X%. This week, Y%." |
+| 0–5 min | "How did the first week feel? What did your team think?" — Open-ended, let them talk |
+| 5–15 min | Review Week 1 data together: test calls handled, appointments booked, scenarios tested, escalations |
+| 15–20 min | Walk through the best interactions: "Listen to this one — your friend called at 10pm and got a perfect answer" |
 | 20–25 min | Identify adjustments: anything the agent should handle differently? |
-| 25–30 min | Tease the close: "Imagine this data across all your locations. We'll have the full picture in 7 more days." |
+| 25–30 min | Tease the close: "In Week 2, have everyone you can think of call this number. The more you test it, the more confident you'll be when we go live." |
 
 **Key principles for the check-in:**
-- Let the data do the talking. Do not oversell.
+- Let the team's reactions do the talking. "What did your receptionist say after she called it?"
 - If the owner raises concerns, treat them as configuration issues, not product issues. "We'll adjust that today."
-- Plant the seed for multi-location: every metric should be mentally multiplied by the number of locations.
+- Plant the seed for go-live: "Imagine this answering your real line — every call, every location, around the clock."
 
 ---
 
-## Week 2: Full Autonomous
+## Week 2: Stress Test
 
-### Day 8–14: Agent Operates Independently
+### Day 8–14: Broad Internal Testing
 
 | Aspect | Detail |
 |--------|--------|
-| **Agent status** | Fully autonomous, handling all forwarded calls |
-| **Monitoring** | Remington reviews weekly, not daily |
+| **Agent status** | Fully autonomous on test number |
+| **Who calls** | Everyone the owner can recruit — employees, friends, family, business partners |
+| **Monitoring** | Remington reviews every 2 days, not daily |
 | **Reporting** | Agent generates daily summary reports automatically |
-| **Owner experience** | Team gets used to having the agent — it becomes normal |
-| **Goal** | By Day 14, removing the agent feels like losing an employee |
+| **Owner experience** | Team tests increasingly creative scenarios. Agent handles them. Confidence builds |
+| **Goal** | By Day 14, the team says: "We should put this on our real line" |
 
-This is the critical psychological window. The agent is no longer a demo or an experiment. It is part of the operation. The team relies on it. When the trial ends, there is a gap. That gap closes deals.
+This is the critical psychological window. The more people who test it, the more the owner hears others say "this is impressive." Social proof from their own inner circle is more powerful than any sales pitch.
+
+**Encourage the owner to:**
+- Have employees call without warning (simulate real scenarios)
+- Ask friends to call as if they were real customers
+- Test evenings, weekends, unusual hours
+- Try to trip the agent up with edge cases
+- Share the test number in their team WhatsApp
 
 ---
 
 ## Day 14: Close Call (45 minutes)
 
-### The Metrics Dashboard
+### The Confidence Dashboard
 
-Presented live during the close call. Numbers speak louder than pitches.
+Presented live during the close call. The data shows the agent is ready for real customers.
 
-| Metric | Before Trial | During Trial | Impact |
-|--------|-------------|-------------|--------|
-| Answer rate | [baseline]% | [trial]% | +[diff]% improvement |
-| Missed calls per week | [baseline] | [trial] | -[diff] fewer missed calls |
-| Average response time | [baseline] | [trial] | [diff] faster |
-| Appointments booked per week | [baseline] | [trial] | +[diff] more per week |
-| Total calls handled | -- | [total] | -- |
-| Escalation rate | -- | [trial]% | -- |
-| Customer satisfaction signals | -- | [positive/neutral/negative] | -- |
+| Metric | Result | What It Proves |
+|--------|--------|----------------|
+| Total test calls handled | [total] | Agent has been battle-tested |
+| Scenarios tested | [list: booking, FAQ, complaint, after-hours, multilingual...] | Comprehensive coverage |
+| Appointments booked correctly | [number] | Calendar integration works |
+| Escalation rate | [%] | Agent handles the vast majority independently |
+| Knowledge accuracy | [%] | Agent knows the business |
+| Team confidence | [quotes from testers] | The people who matter are convinced |
 
 ### Close Call Agenda
 
 | Time | Activity | Notes |
 |------|----------|-------|
-| 0–5 min | "How did the second week go? Did your team notice a difference?" | Let them talk. Listen for "my team wants to keep it." |
-| 5–15 min | Present full metrics dashboard. Let the numbers speak. | Screen-share the dashboard. Walk through each row slowly. |
-| 15–25 min | Scale projection: "Across your [N] locations, that's [N x metrics]. Monthly revenue impact: EUR [amount]." | Use the ROI calculator from the Demo Kit, updated with real trial data. |
-| 25–35 min | Present pricing. Anchor with Enterprise (EUR 100K–195K), recommend Multi-Location (EUR 35K+) or Single Location (EUR 12K) based on their scale. | See 02_SALES_MOTION.md for pricing tiers and anchoring strategy. |
-| 35–40 min | Handle objections. | See 02_SALES_MOTION.md for objection handling framework. |
-| 40–45 min | Close: "Shall we keep this running and expand to the next locations? I can have Location 2 live in a week." | The close is a continuation, not a new decision. |
+| 0–5 min | "How did the second week go? Who else tested it? What did they say?" | Let them talk. Listen for "my team wants to keep it." |
+| 5–15 min | Present the confidence dashboard. Walk through scenarios tested. Play back the best calls | Screen-share. Let them hear their agent in action |
+| 15–25 min | ROI projection: "Based on your baselines — [X] missed calls/week, [Y] response time — here's what changes when this goes live on your real line." Use the ROI calculator with their baseline data | This is where baseline measurement pays off |
+| 25–35 min | Present pricing. Anchor with Enterprise (EUR 100K–195K), recommend Multi-Location (EUR 35K+) or Single Location (EUR 12K) based on their scale | See 02_SALES_MOTION.md for pricing tiers and anchoring strategy |
+| 35–40 min | Handle objections | See 02_SALES_MOTION.md for objection handling framework |
+| 40–45 min | Close: "Your team is convinced. The agent is configured. Shall we activate it on your real line? I can have you live by Monday." | The close is a flip of a switch, not a new project |
 
 ---
 
@@ -154,15 +185,15 @@ What "success" looks like at the end of 14 days.
 
 | Metric | Target | Why This Target |
 |--------|--------|-----------------|
-| Answer rate | 90%+ (vs. baseline) | Demonstrates clear improvement over current operations |
-| Average response time | < 3 minutes | Instant pickup vs. hours-long callback windows |
-| Appointments booked per week | 5+ | Tangible, countable value the owner can point to |
+| Test calls handled | 50+ | Enough variety to prove the agent handles real-world scenarios |
+| Unique testers | 10+ | Broad validation, not just the owner |
+| Knowledge accuracy | 95%+ | Agent knows the business cold |
 | Escalation rate | < 5% | Proves the agent handles the vast majority of calls independently |
-| Owner satisfaction | "My team wants to keep it" | The only metric that truly predicts conversion |
+| Owner satisfaction | "We should go live" | The only metric that truly predicts conversion |
 
 ---
 
-## If the Trial Does Not Convert to Multi-Location
+## If the Trial Does Not Convert
 
 Not every trial converts to a EUR 35K+ deal. That is acceptable. The trial data is never wasted.
 
@@ -170,11 +201,11 @@ Not every trial converts to a EUR 35K+ deal. That is acceptable. The trial data 
 
 | Priority | Offer | Pricing | Positioning |
 |----------|-------|---------|-------------|
-| **Fallback 1** | Single Location | EUR 12K setup + EUR 999/mo | "Keep the agent running at this location. When you're ready for more, we scale." |
+| **Fallback 1** | Single Location go-live | EUR 12K setup + EUR 999/mo | "The agent is ready. Let's put it on your real line at one location. When you see the data from real customers, we scale." |
 | **Fallback 2** | Foundation | EUR 7K setup + EUR 499/mo | "If budget is truly constrained, we keep it simple. One agent, one location, full capability." |
-| **Fallback 3** | Keep the door open | EUR 0 | "The trial data is yours. When you're ready, we pick up right where we left off." |
+| **Fallback 3** | Keep the door open | EUR 0 | "The test data is yours. The agent stays configured. When you're ready, we flip the switch." |
 
-The trial data is the proof for the next conversation. Even if the deal does not close today, the baseline-vs-trial comparison remains valid for months. Follow up at 30, 60, and 90 days with updated ROI projections.
+The trial data and configured agent are the proof for the next conversation. Even if the deal does not close today, the agent is ready to go live whenever they are. Follow up at 30, 60, and 90 days.
 
 ---
 
@@ -183,8 +214,8 @@ The trial data is the proof for the next conversation. Even if the deal does not
 | Item | Cost Range | Notes |
 |------|-----------|-------|
 | Remington time | ~10–15 hours | Setup, monitoring, tuning, reporting, close call |
-| Phone number | ~EUR 5–15 | Per-number monthly cost |
-| LLM inference (2 weeks) | ~EUR 15–40 | Depends on call volume and conversation length |
+| Phone number | ~EUR 5–15 | Dedicated test number, per-month cost |
+| LLM inference (2 weeks) | ~EUR 15–40 | Depends on test call volume and conversation length |
 | Platform (Convex/infra) | ~EUR 5–10 | Marginal cost per trial |
 | **Total COGS per trial** | **~EUR 35–80** | |
 
@@ -207,28 +238,30 @@ At these unit economics, the constraint is not cost — it is Remington's time. 
 | Day | Phase | Key Activity |
 |-----|-------|-------------|
 | -3 | Setup | Kick-off call, collect business knowledge |
-| -2 | Setup | Configure agent, connect systems |
-| -1 | Setup | Test calls with owner feedback |
-| 0 | Go-live | Phone forwarding activated |
-| 1–3 | Week 1 | Monitored mode, real-time tuning, daily reports |
-| 4–7 | Week 1 | Supervised autonomous, daily transcript review |
-| 7 | Check-in | 30-minute mid-trial call, review Week 1 data |
-| 8–14 | Week 2 | Full autonomous, weekly review, data accumulates |
-| 14 | Close | 45-minute close call, present metrics, propose expansion |
+| -2 | Setup | Configure agent, connect dedicated test number |
+| -1 | Setup | First test calls with owner feedback |
+| 0 | Test begins | Test number shared with owner and team |
+| 1–3 | Week 1 | Guided testing with owner + key employees, real-time tuning |
+| 4–7 | Week 1 | Widen the circle: friends, family, more employees test |
+| 7 | Check-in | 30-minute mid-trial call, review Week 1 testing |
+| 8–14 | Week 2 | Broad stress testing, everyone calls, confidence builds |
+| 14 | Close | 45-minute close call, present confidence data, propose go-live |
+| 15+ | Go-live | Phone forwarding activated on real line (paid engagement begins) |
 
 ---
 
 ## What Makes This Trial Different
 
-This is not a free trial where the customer self-serves and we hope they convert. This is a founder-led, high-touch, data-generating sales event disguised as a product evaluation.
+This is not a free trial where the customer self-serves and we hope they convert. This is a founder-led, high-touch, confidence-building sales event where the customer's own team validates the product before a single real customer calls.
 
 | Traditional SaaS Trial | Our 2-Week Trial |
 |------------------------|------------------|
 | Self-serve setup | Founder configures everything |
 | Generic product | Custom-configured for their business |
-| Customer figures it out | Daily reports and proactive support |
-| Hope they see value | Measure and present value with hard numbers |
-| "Your trial is expiring" email | Data-driven close conversation with ROI projection |
+| Customer figures it out | Testing scripts, daily reports, proactive support |
+| Risky — trial runs on real customers | Zero risk — only internal testers call |
+| Hope they see value | Team experiences the value firsthand |
+| "Your trial is expiring" email | Confidence-driven close: "Your team says go live" |
 | Convert at list price | Anchor high, recommend appropriate tier |
 
-The trial is the close. Everything before it is qualification. Everything after it is expansion.
+The trial builds conviction. Go-live is where the value starts. Everything before the trial is qualification. Everything after go-live is expansion.

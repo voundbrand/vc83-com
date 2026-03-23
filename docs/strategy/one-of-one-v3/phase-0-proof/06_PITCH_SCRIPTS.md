@@ -33,7 +33,7 @@ These scripts blend four communication frameworks:
 >
 > Ich hab ein KI-Team gebaut — sieben Spezialisten, die dein Büro führen. Einer nimmt jeden Anruf an. Einer koordiniert Termine. Einer qualifiziert Anfragen. Einer fasst nach. Du musst es nicht glauben. Ruf einfach diese Nummer an und hör es dir an.
 >
-> Ich suche 5 Unternehmen, die es zwei Wochen kostenlos testen. Echte Anrufe, echte Kunden, echte Daten. Kein Risiko. Danach: 2–3K im Monat, jederzeit kündbar. Kein Setup. Kein Vertrag.
+> Ich suche 5 Unternehmen, die es zwei Wochen kostenlos testen. Sie testen intern: mit Mitarbeitern, Freunden, Familie. Echte Gespräche, echte Daten — kein Risiko. Danach: 2–3K im Monat, jederzeit kündbar. Kein Setup.
 >
 > In 6 Monaten kostet das Zehnfache. Gerade gibt es Gründer-Zugang, weil ich Case Studies baue.
 >
@@ -51,7 +51,7 @@ These scripts blend four communication frameworks:
 | "sieben Spezialisten, die dein Büro führen" | Hormozi | Value stack. Not one assistant — a team. |
 | "Du musst es nicht glauben. Ruf einfach diese Nummer an" | Fisher | Closed door. No argument possible — just experience it. |
 | "Ich suche 5 Unternehmen" | Hormozi | Scarcity. Structural, not artificial. |
-| "Zwei Wochen kostenlos testen... jederzeit kündbar" | Hormozi | Risk reversal. Every objection pre-handled. |
+| "Sie testen intern: mit Mitarbeitern, Freunden, Familie" | Hormozi | Risk reversal. Internal testing removes all fear — no real customers involved. |
 | "In 6 Monaten kostet das Zehnfache" | Ogilvy | Anchoring at v3 pricing without naming specific tiers. |
 | "Gründer-Zugang, weil ich Case Studies baue" | Watts | Honesty as persuasion. The real reason it's cheap. |
 | "bei dem das Telefon klingelt und keiner rangeht" | Watts | Names the universal paradox — growth created the problem. |
@@ -88,7 +88,7 @@ Both paths are embedded in the DM. The reader self-selects.
 >
 > Das ist kein Chatbot. Das ist ein Team, das rund um die Uhr arbeitet und klingt wie ein Mensch.
 >
-> Ich suche gerade fünf Unternehmen, die es zwei Wochen kostenlos testen. Echte Anrufe, echte Kunden, echte Daten. Kein Risiko.
+> Ich suche gerade fünf Unternehmen, die es zwei Wochen kostenlos testen. Intern — mit Mitarbeitern, Freunden, Familie. Echte Gespräche, echte Daten. Kein Risiko.
 >
 > Wenn ihr jemanden kennt, bei dem das Telefon klingelt und keiner rangeht — stellt mir die Verbindung her. Dafür gibt es 20 Prozent Provision.
 >
@@ -106,7 +106,7 @@ Both paths are embedded in the DM. The reader self-selects.
 | Name + positioning | ~8 sec | Ogilvy — clear, specific, no fluff |
 | 7-agent value stack | ~10 sec | Hormozi — team, not tool |
 | "Kein Chatbot" reframe | ~5 sec | Fisher — closes the "is this a chatbot?" objection before it forms |
-| Offer (5 spots, free trial) | ~7 sec | Hormozi — scarcity + risk reversal |
+| Offer (5 spots, internal test) | ~7 sec | Hormozi — scarcity + risk reversal. Internal testing = zero fear |
 | Referral CTA + provision | ~5 sec | Hormozi — turns the room into a sales force |
 | Demo CTA | ~5 sec | Fisher — "just call and hear it" — undeniable |
 
