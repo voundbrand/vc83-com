@@ -1,0 +1,20 @@
+{
+  "type": "system",
+  "name": "transfer_to_number",
+  "description": "",
+  "response_timeout_secs": 20,
+  "disable_interruptions": false,
+  "force_pre_tool_speech": false,
+  "assignments": [],
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "tool_error_handling_mode": "auto",
+  "params": {
+    "system_tool_type": "transfer_to_number",
+    "transfers": [],
+    "enable_client_message": true
+  },
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

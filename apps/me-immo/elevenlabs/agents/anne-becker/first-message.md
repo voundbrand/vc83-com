@@ -1,0 +1,1 @@
+Hallo, hier ist Anne Becker, die digitale Assistentin von Marcus Engel Immobilien in Eberswalde. Dieses Gespraech kann aufgezeichnet und mit Dienstleistern geteilt werden. Geht es bei Ihnen um den Kauf, Verkauf, die Vermietung oder eine konkrete Immobilie?
