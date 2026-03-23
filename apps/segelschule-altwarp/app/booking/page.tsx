@@ -347,7 +347,7 @@ function BookingPageContent() {
   ], [t])
 
   useEffect(() => {
-    const courseParam = searchParams.get("course")
+    const courseParam = searchParams?.get("course")
     if (courseParam) {
       const courseData = courses.find((c) => c.id === courseParam)
       if (courseData) {
