@@ -208,7 +208,7 @@ const en: CaseStudyTranslations = {
       headline:
         "How an attorney in Eberswalde stopped losing clients to gaps in coverage.",
       problem: [
-        "Kirsten H\u00F6ner-March runs a solo law practice in Eberswalde, specializing in employment and social law. She has a human assistant who handles the phone during office hours \u2014 but office hours only cover 17 hours a week. Monday, Wednesday, Thursday mornings. Tuesday afternoons. The rest of the time, the line goes unanswered.",
+        "Kirsten H\u00F6ner-March runs a solo law practice in Eberswalde, specializing in employment and social law. She has a human assistant who handles the phone during office hours \u2014 but office hours only cover about 22 hours a week. Monday through Thursday mornings, plus Tuesday afternoons. The rest of the time, the line goes unanswered.",
         "Her clients typically call in crisis \u2014 they\u2019ve just been terminated, denied disability benefits, or received a legal notice they don\u2019t understand. For them, reaching a lawyer isn\u2019t a convenience. It\u2019s urgent. But crises don\u2019t wait for office hours. And even during office hours, life gets in the way: the assistant is on vacation, calls in sick, steps out for lunch, or is already on another call.",
         "People in legal distress don\u2019t leave voicemails \u2014 they call the next name on Google. Every gap in coverage is a potential mandate lost.",
       ],
@@ -224,7 +224,7 @@ const en: CaseStudyTranslations = {
         "Level D \u2014 No action: Sales calls, wrong numbers, or matters outside scope \u2192 handled politely, no appointment, no escalation",
       ],
       metrics: [
-        { label: "Reachability", before: "17 hrs/week", after: "24/7" },
+        { label: "Reachability", before: "~22 hrs/week", after: "24/7" },
         {
           label: "Qualified consults/mo",
           before: "~12",
@@ -416,7 +416,7 @@ const de: CaseStudyTranslations = {
       headline:
         "Wie eine Fachanw\u00E4ltin in Eberswalde aufgeh\u00F6rt hat, Mandanten an ihre Sprechzeiten zu verlieren.",
       problem: [
-        "Kirsten H\u00F6ner-March f\u00FChrt eine Einzelkanzlei in Eberswalde, spezialisiert auf Arbeits- und Sozialrecht. Sie hat eine Assistentin, die w\u00E4hrend der Sprechzeiten ans Telefon geht \u2014 aber Sprechzeiten sind nur 17 Stunden pro Woche. Montag, Mittwoch, Donnerstag vormittags. Dienstag nachmittags. Den Rest der Zeit geht niemand ran.",
+        "Kirsten H\u00F6ner-March f\u00FChrt eine Einzelkanzlei in Eberswalde, spezialisiert auf Arbeits- und Sozialrecht. Sie hat eine Assistentin, die w\u00E4hrend der Sprechzeiten ans Telefon geht \u2014 aber Sprechzeiten sind nur etwa 22 Stunden pro Woche. Montag bis Donnerstag vormittags, dazu Dienstag nachmittags. Den Rest der Zeit geht niemand ran.",
         "Ihre Mandanten rufen typischerweise in einer Krise an \u2014 sie wurden gerade gek\u00FCndigt, ihnen wurde Erwerbsminderungsrente verweigert, oder sie haben ein Schreiben bekommen, das sie nicht verstehen. F\u00FCr sie ist der Anruf bei einer Anw\u00E4ltin keine Formalit\u00E4t. Es ist dringend. Aber Krisen richten sich nicht nach Sprechzeiten. Und auch w\u00E4hrend der Sprechzeiten kommt das Leben dazwischen: Die Assistentin ist im Urlaub, krank, in der Mittagspause oder bereits im Gespr\u00E4ch.",
         "Menschen in rechtlicher Not hinterlassen keine Nachrichten \u2014 sie rufen den n\u00E4chsten Namen bei Google an. Jede L\u00FCcke in der Erreichbarkeit ist ein potenzielles Mandat, das verloren geht.",
       ],
@@ -432,7 +432,7 @@ const de: CaseStudyTranslations = {
         "Stufe D \u2014 Keine Aktion: Werbeanrufe, falsche Nummern oder Angelegenheiten au\u00DFerhalb des Fachgebiets \u2192 freundlich abgewickelt, kein Termin, keine Eskalation",
       ],
       metrics: [
-        { label: "Erreichbarkeit", before: "17 Std./Woche", after: "24/7" },
+        { label: "Erreichbarkeit", before: "~22 Std./Woche", after: "24/7" },
         {
           label: "Qualifizierte Beratungen/Mo.",
           before: "~12",
