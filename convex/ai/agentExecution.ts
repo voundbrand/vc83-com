@@ -25,6 +25,8 @@ import {
   DER_TERMINMACHER_BOOKING_TOOL_MANIFEST,
   MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
   MEETING_CONCIERGE_STAGE_SEQUENCE,
+  ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+  isBookingConciergeToolAction,
 } from "./tools/bookingTool";
 import { DER_TERMINMACHER_CRM_TOOL_MANIFEST } from "./tools/crmTool";
 import type { Id } from "../_generated/dataModel";
@@ -91,6 +93,7 @@ import {
   convertUsdToCredits,
   estimateCreditsFromPricing,
 } from "./modelPricing";
+import { toDeployableTelephonyConfig } from "../../src/lib/telephony/agent-telephony";
 import {
   buildEnvApiKeysByProvider,
   detectProvider,
@@ -124,6 +127,7 @@ import {
   resolveVoiceRuntimeAdapter,
   type VoiceRuntimeProviderId,
 } from "./voiceRuntimeAdapter";
+import { isPlatformMotherCustomerFacingRuntime } from "../platformMother";
 import { resolveDeterministicVoiceDefaults } from "./voiceDefaults";
 import {
   checkPreLLMEscalation,
@@ -179,7 +183,14 @@ import {
   buildSupportRuntimePolicy,
   resolveSupportRuntimeContext,
 } from "./prompts/supportRuntimePolicy";
-import { buildLayeredContextSystemPrompt } from "./prompts/layeredContextSystem";
+import {
+  buildLayeredContextSystemPrompt,
+  buildLayeredContextSystemPromptFromBundles,
+} from "./prompts/layeredContextSystem";
+import {
+  buildConfigureAgentFieldsProposalEnvelope,
+  CONFIGURE_AGENT_FIELDS_TOOL_NAME,
+} from "./tools/configureAgentFieldsTool";
 import {
   type AgentRuntimeToolHooks,
   collectSuccessfulToolNames,
@@ -3992,45 +4003,13 @@ export const processInboundMessage = action({
             customProperties?: Record<string, unknown>;
           })
         | null;
-      const explicitAgentProps =
-        (explicitAgentRecord?.customProperties || {}) as Record<string, unknown>;
-      const normalizedChannel = normalizeInboundRouteString(args.channel)?.toLowerCase();
-      const requiresWebchatBinding =
-        normalizedChannel === "native_guest" || normalizedChannel === "webchat";
-      const requiredPublicChannels =
-        normalizedChannel === "native_guest"
-          ? ["native_guest", "webchat"]
-          : normalizedChannel === "webchat"
-            ? ["webchat"]
-            : [];
-      const explicitChannelBindings = Array.isArray(explicitAgentProps.channelBindings)
-        ? explicitAgentProps.channelBindings
-        : [];
-      const explicitAgentClassAllowed = isAgentClassAllowedForInboundChannel({
+      const explicitEligibility = resolveExplicitInboundAgentEligibility({
+        explicitAgent: explicitAgentRecord,
+        organizationId: args.organizationId,
         channel: args.channel,
-        rawAgentClass: explicitAgentProps.agentClass,
       });
-      const explicitAgentSupportsChannel = !requiresWebchatBinding
-        || requiredPublicChannels.some((requiredChannel) =>
-          explicitChannelBindings.some((entry) => {
-            if (!entry || typeof entry !== "object") {
-              return false;
-            }
-            const record = entry as Record<string, unknown>;
-            const boundChannel = normalizeInboundRouteString(record.channel)?.toLowerCase();
-            return boundChannel === requiredChannel && record.enabled === true;
-          })
-        );
-      const explicitAgentEligible = Boolean(
-        explicitAgent &&
-        String(explicitAgent.organizationId) === String(args.organizationId) &&
-        (explicitAgent.type === "org_agent" || explicitAgent.type === "agent") &&
-        !explicitAgentRecord?.deletedAt &&
-        explicitAgentClassAllowed &&
-        explicitAgentSupportsChannel
-      );
 
-      if (explicitAgentEligible && explicitAgent) {
+      if (explicitEligibility.eligible && explicitAgent) {
         agent = explicitAgent;
         recordSamanthaRouterSelectionStage(
           "router_explicit_agent_id",
@@ -4045,8 +4024,10 @@ export const processInboundMessage = action({
           detail: {
             explicitInboundAgentId: String(explicitInboundAgentId),
             exists: Boolean(explicitAgent),
-            classAllowed: explicitAgentClassAllowed,
-            channelSupported: explicitAgentSupportsChannel,
+            sameOrg: explicitEligibility.sameOrg,
+            crossOrgPlatformMotherAccess: explicitEligibility.crossOrgPlatformMotherAccess,
+            classAllowed: explicitEligibility.classAllowed,
+            channelSupported: explicitEligibility.channelSupported,
           },
         });
       }
@@ -5415,6 +5396,7 @@ export const processInboundMessage = action({
     const meetingConciergeIntent = resolveInboundMeetingConciergeIntent({
       organizationId: args.organizationId,
       channel: args.channel,
+      externalContactIdentifier: args.externalContactIdentifier,
       metadata,
       message: inboundMessage,
       runtimeModuleKey:
@@ -6387,6 +6369,13 @@ export const processInboundMessage = action({
       channel: args.channel,
       actionCompletionContractConfig,
     });
+    const targetConfigurationAgentId = firstInboundString(
+      inboundMetadata.targetAgentId,
+    ) as Id<"objects"> | undefined;
+    const mandatoryRuntimeTools = normalizeDeterministicRuntimeStringArray([
+      ...mandatorySamanthaTools,
+      ...(targetConfigurationAgentId ? [CONFIGURE_AGENT_FIELDS_TOOL_NAME] : []),
+    ]);
     const effectiveRuntimeModuleManifest = derTerminmacherRuntimeContract
       ? {
           moduleKey: derTerminmacherRuntimeContract.moduleKey,
@@ -6406,18 +6395,18 @@ export const processInboundMessage = action({
       agentProfile: delegationAuthorityContract.authorityToolProfile,
       agentEnabled: delegationAuthorityContract.authorityEnabledTools,
       agentDisabled: delegationAuthorityContract.authorityDisabledTools,
-      mandatoryTools: mandatorySamanthaTools,
+      mandatoryTools: mandatoryRuntimeTools,
       runtimeModuleManifest: effectiveRuntimeModuleManifest,
     });
     const agentProfile = agentToolScopeResolution.agentProfile ?? undefined;
 
     const scopedOrgEnabledTools =
       orgToolPolicy.orgEnabled.length > 0
-        ? mergeRuntimeMandatoryTools(orgToolPolicy.orgEnabled, mandatorySamanthaTools)
+        ? mergeRuntimeMandatoryTools(orgToolPolicy.orgEnabled, mandatoryRuntimeTools)
         : orgToolPolicy.orgEnabled;
     const scopedOrgDisabledTools = removeRuntimeMandatoryTools(
       orgToolPolicy.orgDisabled,
-      mandatorySamanthaTools,
+      mandatoryRuntimeTools,
     );
     const scopedAgentEnabledTools = agentToolScopeResolution.enabledTools;
     const scopedAgentDisabledTools = agentToolScopeResolution.disabledTools;
@@ -6425,7 +6414,7 @@ export const processInboundMessage = action({
     // Session-level disabled tools (from degraded mode / error state)
     const sessionDisabledTools = removeRuntimeMandatoryTools(
       preflightErrorState?.disabledTools ?? [],
-      mandatorySamanthaTools,
+      mandatoryRuntimeTools,
     );
 
     const allToolDefs = getAllToolDefinitions();
@@ -6442,10 +6431,10 @@ export const processInboundMessage = action({
       sessionDisabled: sessionDisabledTools,
       channel: args.channel,
     });
-    if (mandatorySamanthaTools.length > 0) {
+    if (mandatoryRuntimeTools.length > 0) {
       const existingToolNames = new Set(scopedTools.tools.map((tool) => tool.name));
       const injectedToolNames: string[] = [];
-      for (const requiredToolName of mandatorySamanthaTools) {
+      for (const requiredToolName of mandatoryRuntimeTools) {
         if (existingToolNames.has(requiredToolName)) {
           continue;
         }
@@ -6488,7 +6477,7 @@ export const processInboundMessage = action({
         manifestOptionalTools: agentToolScopeResolution.manifestOptionalTools,
         manifestDeniedTools: agentToolScopeResolution.manifestDeniedTools,
       },
-      runtimeMandatoryTools: mandatorySamanthaTools,
+      runtimeMandatoryTools: mandatoryRuntimeTools,
       soulMode: soulModeRuntime.mode,
       soulModeSource: soulModeRuntime.source,
       soulModeToolScope: soulModeRuntime.config.toolScope,
@@ -6499,7 +6488,7 @@ export const processInboundMessage = action({
     const effectiveExecutableToolNames = activeToolDefs.map((toolDef) => toolDef.name);
     const nativeGuestRequiredToolInvariant = resolveNativeGuestRequiredToolInvariant({
       channel: args.channel,
-      requiredTools: mandatorySamanthaTools,
+      requiredTools: mandatoryRuntimeTools,
       effectiveExecutableToolNames,
     });
     if (nativeGuestRequiredToolInvariant.enforced) {
@@ -6525,7 +6514,7 @@ export const processInboundMessage = action({
           turnId: String(runtimeTurnId),
           channel: args.channel,
           requiredTool: missingTool,
-          requiredTools: mandatorySamanthaTools,
+          requiredTools: mandatoryRuntimeTools,
           executableTools: effectiveExecutableToolNames,
           finalScopedTools: toolScopingAudit.finalToolNames,
           runtimeMandatoryTools: toolScopingAudit.runtimeMandatoryTools,
@@ -6865,28 +6854,121 @@ export const processInboundMessage = action({
       inboundMetadata.layerWorkflowId,
       inboundMetadata.workflowId,
     ) as Id<"objects"> | undefined;
-    const inboundAuthSessionId = firstInboundString(inboundMetadata.sessionId);
-    let layeredContextSystemPrompt: string | undefined;
-    if (inboundLayerWorkflowId && inboundAuthSessionId) {
-      try {
-        const layeredContextBundle = await ctx.runQuery(
-          getApi().api.layers.layerWorkflowOntology.getLayeredContextBundle,
-          {
-            sessionId: inboundAuthSessionId,
-            workflowId: inboundLayerWorkflowId,
-          },
-        ) as { contractVersion?: string } | null;
-        if (layeredContextBundle?.contractVersion === "layered_context_bundle_v1") {
-          layeredContextSystemPrompt = buildLayeredContextSystemPrompt(
-            layeredContextBundle as Parameters<typeof buildLayeredContextSystemPrompt>[0],
-          );
+    const loadLayeredContextPromptForWorkflowIds = async (
+      workflowIds: Id<"objects">[],
+    ): Promise<string | undefined> => {
+      const layeredContextBundles: Array<Parameters<typeof buildLayeredContextSystemPrompt>[0]> = [];
+      for (const workflowId of workflowIds) {
+        try {
+          const layeredContextBundle = await ctx.runQuery(
+            getApi().internal.layers.layerWorkflowOntology.internalGetLayeredContextBundle,
+            {
+              organizationId: args.organizationId,
+              workflowId,
+            },
+          ) as { contractVersion?: string } | null;
+          if (layeredContextBundle?.contractVersion === "layered_context_bundle_v1") {
+            layeredContextBundles.push(
+              layeredContextBundle as Parameters<typeof buildLayeredContextSystemPrompt>[0],
+            );
+          }
+        } catch (error) {
+          console.warn("[AgentExecution] Failed to load layered context bundle", {
+            organizationId: String(args.organizationId),
+            sessionId: String(session._id),
+            workflowId: String(workflowId),
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
-      } catch (error) {
-        console.warn("[AgentExecution] Failed to load layered context bundle", {
-          organizationId: String(args.organizationId),
-          sessionId: String(session._id),
-          workflowId: String(inboundLayerWorkflowId),
-          error: error instanceof Error ? error.message : String(error),
+      }
+      if (layeredContextBundles.length === 1) {
+        return buildLayeredContextSystemPrompt(
+          layeredContextBundles[0],
+        );
+      }
+      if (layeredContextBundles.length > 1) {
+        return buildLayeredContextSystemPromptFromBundles(
+          layeredContextBundles,
+        );
+      }
+      return undefined;
+    };
+    const linkedLayerWorkflowIds = await ctx.runQuery(
+      getApi().internal.agentOntology.getAgentLayeredContextWorkflowIdsInternal,
+      {
+        agentId: agent._id,
+      },
+    ) as Id<"objects">[];
+    const orderedLayerWorkflowIds: Id<"objects">[] = [];
+    const seenLayerWorkflowIds = new Set<string>();
+    for (const workflowId of [inboundLayerWorkflowId, ...linkedLayerWorkflowIds]) {
+      if (!workflowId) {
+        continue;
+      }
+      const normalizedWorkflowId = String(workflowId);
+      if (seenLayerWorkflowIds.has(normalizedWorkflowId)) {
+        continue;
+      }
+      seenLayerWorkflowIds.add(normalizedWorkflowId);
+      orderedLayerWorkflowIds.push(workflowId);
+      if (orderedLayerWorkflowIds.length >= 4) {
+        break;
+      }
+    }
+    const layeredContextSystemPrompt =
+      orderedLayerWorkflowIds.length > 0
+        ? await loadLayeredContextPromptForWorkflowIds(orderedLayerWorkflowIds)
+        : undefined;
+    let targetAgentConfigurationContext: string | undefined;
+    if (targetConfigurationAgentId) {
+      const targetAgent = await ctx.runQuery(
+        getInternal().agentOntology.getAgentInternal,
+        {
+          agentId: targetConfigurationAgentId,
+        },
+      ) as {
+        _id?: Id<"objects">;
+        organizationId?: Id<"organizations">;
+        type?: string;
+        name?: string;
+        subtype?: string;
+        status?: string;
+        customProperties?: Record<string, unknown>;
+      } | null;
+      if (
+        targetAgent?._id
+        && targetAgent.organizationId === args.organizationId
+        && targetAgent.type === "org_agent"
+        && typeof targetAgent.name === "string"
+      ) {
+        let targetAgentLayeredContextPrompt: string | undefined;
+        if (inboundLayerWorkflowId) {
+          targetAgentLayeredContextPrompt = await loadLayeredContextPromptForWorkflowIds([
+            inboundLayerWorkflowId,
+          ]);
+        } else {
+          const targetAgentLinkedWorkflowIds = await ctx.runQuery(
+            getApi().internal.agentOntology.getAgentLayeredContextWorkflowIdsInternal,
+            {
+              agentId: targetConfigurationAgentId,
+            },
+          ) as Id<"objects">[];
+          const orderedTargetAgentWorkflowIds = targetAgentLinkedWorkflowIds.slice(0, 4);
+          if (orderedTargetAgentWorkflowIds.length > 0) {
+            targetAgentLayeredContextPrompt = await loadLayeredContextPromptForWorkflowIds(
+              orderedTargetAgentWorkflowIds,
+            );
+          }
+        }
+        targetAgentConfigurationContext = buildTargetAgentConfigurationContext({
+          targetAgent: {
+            _id: targetAgent._id,
+            name: targetAgent.name,
+            subtype: targetAgent.subtype,
+            status: targetAgent.status,
+            customProperties: targetAgent.customProperties,
+          },
+          layeredContextSystemPrompt: targetAgentLayeredContextPrompt,
         });
       }
     }
@@ -6993,6 +7075,7 @@ export const processInboundMessage = action({
       reactivationMemoryContext ?? "",
       contactMemoryContext ?? "",
       composerRuntimeContext ?? "",
+      targetAgentConfigurationContext ?? "",
       layeredContextSystemPrompt ?? "",
       planFeasibilityContext ?? "",
       commercialKickoffRuntimeContext ?? "",
@@ -7035,6 +7118,7 @@ export const processInboundMessage = action({
       reactivationMemoryContext,
       contactMemoryContext,
       composerRuntimeContext,
+      targetAgentConfigurationContext,
       layeredContextSystemPrompt,
       planFeasibilityContext,
       commercialKickoffRuntimeContext,
@@ -7849,8 +7933,8 @@ export const processInboundMessage = action({
     ) as { disabledTools?: string[]; failedToolCounts?: Record<string, number> } | null;
 
     const { failedToolCounts, disabledTools } = initializeToolFailureState(existingErrorState);
-    if (mandatorySamanthaTools.length > 0) {
-      for (const requiredToolName of mandatorySamanthaTools) {
+    if (mandatoryRuntimeTools.length > 0) {
+      for (const requiredToolName of mandatoryRuntimeTools) {
         disabledTools.delete(requiredToolName);
         delete failedToolCounts[requiredToolName];
       }
@@ -7880,10 +7964,14 @@ export const processInboundMessage = action({
       ...ctx,
       organizationId: args.organizationId,
       userId: authorityAgent.createdBy as Id<"users">,
-      sessionId: undefined,
-      conversationId: undefined,
+      sessionId: firstInboundString(inboundMetadata.sessionId),
+      conversationId: firstInboundString(
+        inboundMetadata.conversationId,
+      ) as Id<"aiConversations"> | undefined,
       agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
       agentSessionId: session._id,
+      channel: args.channel,
+      contactId: args.externalContactIdentifier,
       runtimePolicy: {
         appointmentBookingDomainDefault: resolveAppointmentBookingDomainDefault(
           authorityConfig
@@ -7919,6 +8007,32 @@ export const processInboundMessage = action({
       actionType: string;
       actionPayload: Record<string, unknown>;
     }) => {
+      if (request.actionType === CONFIGURE_AGENT_FIELDS_TOOL_NAME && toolCtx.conversationId) {
+        const conversation = await ctx.runQuery(
+          getInternal().ai.conversations.getConversationMetadataInternal,
+          {
+            conversationId: toolCtx.conversationId,
+          },
+        ) as {
+          userId?: Id<"users">;
+        } | null;
+        const proposal = await buildConfigureAgentFieldsProposalEnvelope(
+          toolCtx,
+          request.actionPayload as any,
+        );
+
+        await ctx.runMutation(getApi().api.ai.conversations.proposeToolExecution, {
+          conversationId: toolCtx.conversationId,
+          organizationId: args.organizationId,
+          userId: conversation?.userId || toolCtx.userId,
+          sessionId: toolCtx.sessionId,
+          toolName: request.actionType,
+          parameters: proposal.parameters,
+          proposalMessage: proposal.proposalMessage,
+        });
+        return;
+      }
+
       await ctx.runMutation(getInternal().ai.agentApprovals.createApprovalRequest, {
         agentId: delegationAuthorityContract.authorityAgentId as Id<"objects">,
         sessionId: session._id,
@@ -7992,7 +8106,7 @@ export const processInboundMessage = action({
       toolExecutionContext: toolCtx,
       failedToolCounts,
       disabledTools,
-      nonDisableableTools: mandatorySamanthaTools,
+      nonDisableableTools: mandatoryRuntimeTools,
       createApprovalRequest: createToolApprovalRequest,
       onToolDisabled: handleToolDisabled,
       runtimeHooks: runtimeToolHooks,
@@ -8453,7 +8567,7 @@ export const processInboundMessage = action({
           toolExecutionContext: toolCtx,
           failedToolCounts,
           disabledTools,
-          nonDisableableTools: mandatorySamanthaTools,
+          nonDisableableTools: mandatoryRuntimeTools,
           createApprovalRequest: createToolApprovalRequest,
           onToolDisabled: handleToolDisabled,
           runtimeHooks: runtimeToolHooks,
@@ -10857,6 +10971,8 @@ export interface InboundIngressEnvelope<IdLike extends string = string> {
   externalContactIdentifier: string;
   ingressEventId: string;
   occurredAt: number;
+  providerMessageId?: string;
+  providerConversationId?: string;
   authority: InboundMutationAuthorityContract<IdLike>;
   nativeVisionEdge: InboundNativeVisionEdgeBridgeContract;
 }
@@ -12131,6 +12247,16 @@ export function resolveInboundIngressEnvelope<IdLike extends string = string>(ar
       ingressSurface,
     }),
     occurredAt: resolveInboundIngressOccurredAt(args.metadata, now),
+    providerMessageId: firstInboundString(
+      args.metadata.providerMessageId,
+      args.metadata.providerCallId,
+      args.metadata.callId,
+      args.metadata.messageId,
+    ),
+    providerConversationId: firstInboundString(
+      args.metadata.providerConversationId,
+      args.metadata.conversationId,
+    ),
     authority,
     nativeVisionEdge,
   };
@@ -12182,6 +12308,87 @@ function isAgentClassAllowedForInboundChannel(args: {
     return true;
   }
   return normalizeInboundAgentClass(args.rawAgentClass) === expectedClass;
+}
+
+type ExplicitInboundAgentEligibilityCandidate = {
+  organizationId?: unknown;
+  type?: unknown;
+  status?: unknown;
+  name?: unknown;
+  deletedAt?: unknown;
+  customProperties?: Record<string, unknown> | null;
+};
+
+export function resolveExplicitInboundAgentEligibility(args: {
+  explicitAgent: ExplicitInboundAgentEligibilityCandidate | null | undefined;
+  organizationId: Id<"organizations"> | string;
+  channel: string;
+}): {
+  eligible: boolean;
+  sameOrg: boolean;
+  crossOrgPlatformMotherAccess: boolean;
+  classAllowed: boolean;
+  channelSupported: boolean;
+} {
+  const explicitAgent = args.explicitAgent;
+  const explicitAgentProps =
+    (explicitAgent?.customProperties || {}) as Record<string, unknown>;
+  const normalizedChannel = normalizeInboundRouteString(args.channel)?.toLowerCase();
+  const requiresWebchatBinding =
+    normalizedChannel === "native_guest" || normalizedChannel === "webchat";
+  const requiredPublicChannels =
+    normalizedChannel === "native_guest"
+      ? ["native_guest", "webchat"]
+      : normalizedChannel === "webchat"
+        ? ["webchat"]
+        : [];
+  const explicitChannelBindings = Array.isArray(explicitAgentProps.channelBindings)
+    ? explicitAgentProps.channelBindings
+    : [];
+  const classAllowed = isAgentClassAllowedForInboundChannel({
+    channel: args.channel,
+    rawAgentClass: explicitAgentProps.agentClass,
+  });
+  const channelSupported = !requiresWebchatBinding
+    || requiredPublicChannels.some((requiredChannel) =>
+      explicitChannelBindings.some((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return false;
+        }
+        const record = entry as Record<string, unknown>;
+        const boundChannel = normalizeInboundRouteString(record.channel)?.toLowerCase();
+        return boundChannel === requiredChannel && record.enabled === true;
+      })
+    );
+  const sameOrg = Boolean(
+    explicitAgent
+    && String(explicitAgent.organizationId) === String(args.organizationId)
+  );
+  const crossOrgPlatformMotherAccess = Boolean(
+    explicitAgent
+    && !sameOrg
+    && isPlatformMotherCustomerFacingRuntime({
+      name: explicitAgent.name,
+      status: explicitAgent.status,
+      customProperties: explicitAgentProps,
+    })
+  );
+  const eligible = Boolean(
+    explicitAgent
+    && (sameOrg || crossOrgPlatformMotherAccess)
+    && (explicitAgent.type === "org_agent" || explicitAgent.type === "agent")
+    && !explicitAgent.deletedAt
+    && classAllowed
+    && channelSupported
+  );
+
+  return {
+    eligible,
+    sameOrg,
+    crossOrgPlatformMotherAccess,
+    classAllowed,
+    channelSupported,
+  };
 }
 
 function normalizeInboundRouteProfileType(
@@ -16518,6 +16725,7 @@ function resolveMeetingConciergeIngestLatencyMs(args: {
 export function resolveInboundMeetingConciergeIntent(args: {
   organizationId: Id<"organizations">;
   channel: string;
+  externalContactIdentifier?: string;
   metadata: Record<string, unknown>;
   message: string;
   runtimeModuleKey?: string | null;
@@ -16635,9 +16843,14 @@ export function resolveInboundMeetingConciergeIntent(args: {
     normalizeConciergeOptionalString(concierge?.personEmail)
     || normalizeConciergeOptionalString(voiceRuntime?.personEmail)
     || (emailMatch ? emailMatch[0].toLowerCase() : undefined);
+  const phoneCallIdentity =
+    args.channel === "phone_call"
+      ? normalizeConciergeOptionalString(args.externalContactIdentifier)
+      : undefined;
   const personPhone =
     normalizeConciergeOptionalString(concierge?.personPhone)
     || normalizeConciergeOptionalString(voiceRuntime?.personPhone)
+    || phoneCallIdentity
     || (phoneMatch ? phoneMatch[0] : undefined);
   const personName =
     normalizeConciergeOptionalString(concierge?.personName)
@@ -16663,7 +16876,11 @@ export function resolveInboundMeetingConciergeIntent(args: {
     || (personName ? `Meeting with ${personName}` : undefined);
 
   const missingRequiredFields: string[] = [];
-  if (!personEmail) {
+  if (args.channel === "phone_call") {
+    if (!personEmail && !personPhone) {
+      missingRequiredFields.push("personPhone");
+    }
+  } else if (!personEmail) {
     missingRequiredFields.push("personEmail");
   }
 
@@ -16671,7 +16888,13 @@ export function resolveInboundMeetingConciergeIntent(args: {
   if (fallbackApplied) {
     fallbackReasons.push("scheduling_window_defaulted_7d");
   }
-  if (!personEmail) {
+  if (args.channel === "phone_call") {
+    if (!personEmail && !personPhone) {
+      fallbackReasons.push("missing_person_phone");
+    } else if (!personEmail && personPhone) {
+      fallbackReasons.push("phone_safe_identity_phone_only");
+    }
+  } else if (!personEmail) {
     fallbackReasons.push("missing_person_email");
   }
   if (!sourceMetadataTrusted) {
@@ -16708,7 +16931,7 @@ export function resolveInboundMeetingConciergeIntent(args: {
   const idempotencySeed = [
     args.organizationId,
     firstInboundString(args.metadata.liveSessionId) ?? "live",
-    personEmail ?? "unknown",
+    personEmail ?? personPhone ?? "unknown",
     schedulingWindowStart,
     schedulingWindowEnd,
   ].join(":");
@@ -16765,7 +16988,7 @@ function hasMeetingConciergeToolCall(args: {
     }
     try {
       const parsed = JSON.parse(rawArguments) as Record<string, unknown>;
-      if (normalizeConciergeOptionalString(parsed.action) !== "run_meeting_concierge_demo") {
+      if (!isBookingConciergeToolAction(normalizeConciergeOptionalString(parsed.action))) {
         return false;
       }
       if (!targetMode) {
@@ -16819,7 +17042,7 @@ function buildAutoPreviewMeetingConciergeToolCall(
     function: {
       name: "manage_bookings",
       arguments: JSON.stringify({
-        action: "run_meeting_concierge_demo",
+        action: ORG_BOOKING_CONCIERGE_TOOL_ACTION,
         mode: "preview",
         ...intent.payload,
       }),
@@ -17802,7 +18025,10 @@ export function buildInboundMeetingConciergeRuntimeContext(
     );
   } else {
     lines.push(
-      "When appropriate, call manage_bookings with action=run_meeting_concierge_demo and mode=preview."
+      `When appropriate, call manage_bookings with action=${ORG_BOOKING_CONCIERGE_TOOL_ACTION} and mode=preview.`
+    );
+    lines.push(
+      "Use native booking engine availability and booking mutations for booking writes; do not route booking writes through provider-specific APIs."
     );
   }
   if (intent.fallbackReasons.length > 0) {
@@ -17858,8 +18084,9 @@ function resolveMeetingConciergeStageContractTelemetry(
 
   const resultRecord = meetingToolResult.result as Record<string, unknown>;
   if (
-    normalizeConciergeOptionalString(resultRecord.action) !==
-    "run_meeting_concierge_demo"
+    !isBookingConciergeToolAction(
+      normalizeConciergeOptionalString(resultRecord.action),
+    )
   ) {
     return emptyTelemetry;
   }
@@ -18191,7 +18418,10 @@ export function buildMeetingConciergeDecisionTelemetry(args: {
 
   const requiredTotal = 1;
   const requiredPresent =
-    args.intent.payload?.personEmail && args.intent.payload.personEmail.trim().length > 0
+    (args.intent.payload?.personEmail &&
+      args.intent.payload.personEmail.trim().length > 0) ||
+    (args.intent.payload?.personPhone &&
+      args.intent.payload.personPhone.trim().length > 0)
       ? 1
       : 0;
   const optionalPresent = [
@@ -18340,6 +18570,88 @@ function normalizeRuntimeSystemContext(value: string | null | undefined): string
   return normalized.length > 0 ? normalized : null;
 }
 
+function buildTargetAgentConfigurationContext(args: {
+  targetAgent: {
+    _id: Id<"objects">;
+    name: string;
+    subtype?: string;
+    status?: string;
+    customProperties?: Record<string, unknown>;
+  };
+  layeredContextSystemPrompt?: string;
+}): string {
+  const customProperties =
+    (args.targetAgent.customProperties as Record<string, unknown> | undefined) ?? {};
+  const templateCloneLinkage =
+    customProperties.templateCloneLinkage
+    && typeof customProperties.templateCloneLinkage === "object"
+      ? customProperties.templateCloneLinkage
+      : undefined;
+  const targetSnapshot = {
+    agentId: String(args.targetAgent._id),
+    name: args.targetAgent.name,
+    displayName: normalizeExecutionString(customProperties.displayName),
+    subtype: normalizeExecutionString(args.targetAgent.subtype),
+    status: normalizeExecutionString(args.targetAgent.status),
+    templateContext: {
+      sourceTemplateId: normalizeExecutionString(
+        (templateCloneLinkage as Record<string, unknown> | undefined)?.sourceTemplateId
+          ?? customProperties.templateAgentId,
+      ),
+      sourceTemplateVersion: normalizeExecutionString(
+        (templateCloneLinkage as Record<string, unknown> | undefined)?.sourceTemplateVersion
+          ?? customProperties.templateVersion,
+      ),
+      cloneLifecycleState: normalizeExecutionString(
+        (templateCloneLinkage as Record<string, unknown> | undefined)?.cloneLifecycleState
+          ?? customProperties.cloneLifecycle,
+      ),
+      overridePolicyMode: normalizeExecutionString(
+        ((templateCloneLinkage as Record<string, unknown> | undefined)?.overridePolicy as
+          | Record<string, unknown>
+          | undefined)?.mode
+          ?? (customProperties.overridePolicy as Record<string, unknown> | undefined)?.mode,
+      ),
+    },
+    currentSettings: {
+      displayName: normalizeExecutionString(customProperties.displayName),
+      agentClass: normalizeExecutionString(customProperties.agentClass),
+      personality: normalizeExecutionString(customProperties.personality),
+      language: normalizeExecutionString(customProperties.language),
+      voiceLanguage: normalizeExecutionString(customProperties.voiceLanguage),
+      elevenLabsVoiceId: normalizeExecutionString(customProperties.elevenLabsVoiceId),
+      brandVoiceInstructions: normalizeExecutionString(customProperties.brandVoiceInstructions),
+      systemPrompt: normalizeExecutionString(customProperties.systemPrompt),
+      autonomyLevel: normalizeExecutionString(customProperties.autonomyLevel),
+      modelId: normalizeExecutionString(customProperties.modelId),
+      temperature:
+        typeof customProperties.temperature === "number"
+          ? customProperties.temperature
+          : null,
+      channelBindings: Array.isArray(customProperties.channelBindings)
+        ? customProperties.channelBindings
+        : [],
+      blockedTopics: Array.isArray(customProperties.blockedTopics)
+        ? customProperties.blockedTopics
+        : [],
+      telephonyConfig:
+        customProperties.telephonyConfig !== undefined
+          ? toDeployableTelephonyConfig(customProperties.telephonyConfig)
+          : null,
+    },
+  };
+
+  return [
+    "[TARGET_AGENT_CONFIGURATION_CONTEXT_V1]",
+    "This chat is scoped to configuring a target agent's saved settings.",
+    "When the operator requests concrete agent setting changes, use configure_agent_fields with only the fields you intend to change.",
+    `Target agent snapshot:\n${JSON.stringify(targetSnapshot, null, 2)}`,
+    args.layeredContextSystemPrompt
+      ? `Layered context grounding for the target agent:\n${args.layeredContextSystemPrompt}`
+      : "Layered context grounding for the target agent: none.",
+  ].join("\n\n");
+}
+
 export function assembleRuntimeSystemMessages(args: {
   systemPrompt: string;
   pinnedNotesContext?: string | null;
@@ -18347,6 +18659,7 @@ export function assembleRuntimeSystemMessages(args: {
   reactivationMemoryContext?: string | null;
   contactMemoryContext?: string | null;
   composerRuntimeContext?: string | null;
+  targetAgentConfigurationContext?: string | null;
   layeredContextSystemPrompt?: string | null;
   planFeasibilityContext?: string | null;
   commercialKickoffRuntimeContext?: string | null;
@@ -18391,6 +18704,15 @@ export function assembleRuntimeSystemMessages(args: {
     messages.push({
       role: "system",
       content: composerRuntimeContext,
+    });
+  }
+  const targetAgentConfigurationContext = normalizeRuntimeSystemContext(
+    args.targetAgentConfigurationContext
+  );
+  if (targetAgentConfigurationContext) {
+    messages.push({
+      role: "system",
+      content: targetAgentConfigurationContext,
     });
   }
   const layeredContextSystemPrompt = normalizeRuntimeSystemContext(

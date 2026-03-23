@@ -10,6 +10,10 @@
 
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
+import {
+  AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE,
+  AGENCY_CHILD_ORG_PM_TEMPLATE_ROLE,
+} from "./seedPlatformAgents";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _apiCache: any = null;
@@ -22,15 +26,99 @@ function getInternal(): any {
   return _apiCache;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _publicApiCache: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getPublicApi(): any {
-  if (!_publicApiCache) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    _publicApiCache = require("../_generated/api").api;
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
   }
-  return _publicApiCache;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildAgencyAdditionalLanguages(primaryLanguage: string | undefined): string[] {
+  const ordered = [primaryLanguage, "en"];
+  return Array.from(
+    new Set(
+      ordered.filter(
+        (language): language is string =>
+          typeof language === "string" && language.trim().length > 0
+      )
+    )
+  );
+}
+
+function buildPmSpecialistOverlay(args: {
+  businessName: string;
+  industry: string;
+  description: string;
+  targetAudience: string;
+  language?: string;
+  tonePreference?: string;
+  agentName: string;
+}) {
+  const primaryLanguage = normalizeOptionalString(args.language) || "en";
+  return {
+    displayName: args.agentName,
+    language: primaryLanguage,
+    voiceLanguage: primaryLanguage,
+    additionalLanguages: buildAgencyAdditionalLanguages(primaryLanguage),
+    personality:
+      `${args.agentName} is the internal project manager specialist for ${args.businessName}. `
+      + `They coordinate delivery for a ${args.industry} business, keep internal follow-through tight, `
+      + `and prepare issues for the default One-of-One Operator without becoming the default authority route.`,
+    brandVoiceInstructions:
+      normalizeOptionalString(args.tonePreference)
+      || `Use a calm, internal operations tone tailored to ${args.businessName}.`,
+    systemPrompt:
+      `You are the internal PM specialist for ${args.businessName}. `
+      + `Support the default One-of-One Operator, keep customer-facing work routed outward, `
+      + `and treat ${args.targetAudience} as the primary audience context for planning decisions. `
+      + `Business context: ${args.description}`,
+    soul: {
+      contractVersion: "agency_child_org_pm_overlay_v1",
+      name: args.agentName,
+      businessName: args.businessName,
+      industry: args.industry,
+      targetAudience: args.targetAudience,
+      tonePreference: normalizeOptionalString(args.tonePreference) || null,
+      context: args.description,
+    },
+  };
+}
+
+function buildCustomerServiceOverlay(args: {
+  businessName: string;
+  industry: string;
+  description: string;
+  targetAudience: string;
+  language?: string;
+  tonePreference?: string;
+  agentName: string;
+}) {
+  const primaryLanguage = normalizeOptionalString(args.language) || "en";
+  return {
+    displayName: args.agentName,
+    language: primaryLanguage,
+    voiceLanguage: primaryLanguage,
+    additionalLanguages: buildAgencyAdditionalLanguages(primaryLanguage),
+    personality:
+      `${args.agentName} is the customer-facing specialist for ${args.businessName}. `
+      + `They help ${args.targetAudience}, answer questions clearly, and escalate internal-only requests `
+      + `without exposing hierarchy.`,
+    brandVoiceInstructions:
+      normalizeOptionalString(args.tonePreference)
+      || `Use a helpful, customer-safe tone that fits ${args.businessName}.`,
+    systemPrompt:
+      `You are the customer-facing specialist for ${args.businessName}, a ${args.industry} business. `
+      + `Handle inbound Telegram and webchat conversations for ${args.targetAudience}. `
+      + `Do not impersonate the internal operator or PM. Business context: ${args.description}`,
+    soul: {
+      contractVersion: "agency_child_org_customer_service_overlay_v1",
+      name: args.agentName,
+      businessName: args.businessName,
+      targetAudience: args.targetAudience,
+      tonePreference: normalizeOptionalString(args.tonePreference) || null,
+    },
+  };
 }
 
 /**
@@ -123,104 +211,120 @@ export const bootstrapClientOrg = internalAction({
 
     const childOrgId = childOrgResult.childOrganizationId;
 
-    // 6. Add parent org owners as members of the child org
-    //    so sub-orgs appear in the org switcher
+    // 6. Resolve parent org owners so the child org inherits the same signed-in baseline.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parentOwners: any[] = await ctx.runQuery(
       getInternal().onboarding.agencySubOrgBootstrap.getOrgOwnerUserIds,
       { organizationId: args.parentOrganizationId }
     );
-    for (const ownerId of parentOwners) {
-      try {
-        await ctx.runMutation(
-          getInternal().organizations.addCreatorAsOwner,
-          { userId: ownerId, organizationId: childOrgId }
-        );
-      } catch {
-        // Non-fatal — owner may already be a member
-      }
+    const baselineUserId =
+      parentOwners[0]
+      || (parent as { createdBy?: string | null }).createdBy
+      || null;
+    if (!baselineUserId) {
+      throw new Error(
+        "Agency child-org bootstrap failed: parent org has no owner/creator available for baseline provisioning."
+      );
     }
 
-    // 7. Assign all apps to the new sub-org
-    if (parentOwners.length > 0) {
-      try {
-        await ctx.runMutation(
-          getInternal().onboarding.assignAllAppsToOrg,
-          { organizationId: childOrgId, userId: parentOwners[0] }
-        );
-      } catch {
-        // Non-fatal
-      }
-    }
-
-    // 8. Bootstrap PM agent for sub-org (creates agent + generates soul + activates)
-    const agentName = args.agentNameHint || `${args.businessName} Agent`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bootstrapResult: any = await ctx.runAction(
-      getPublicApi().ai.soulGenerator.bootstrapAgent,
+    // 7. Apply the same signed-in baseline used by normal org creation.
+    const baselineResult = await ctx.runMutation(
+      getInternal().organizations.provisionOrganizationBaselineInternal,
       {
         organizationId: childOrgId,
-        name: agentName,
-        subtype: "pm",
+        createdByUserId: baselineUserId,
+        ownerUserIds: parentOwners,
+        appProvisioningUserId: baselineUserId,
+        language: args.language,
         industry: args.industry,
-        targetAudience: args.targetAudience,
-        tonePreference: args.tonePreference || undefined,
-        additionalContext: args.description,
+        description: args.description,
+        appSurface: "platform_web",
       }
     );
 
-    // 8b. Bootstrap L4 customer_service agent for sub-org
-    //     This agent handles end-customer conversations; the PM handles internal ops.
-    let customerServiceAgentId = null;
-    try {
-      const csAgentName = `${args.businessName} Customer Service`;
-      customerServiceAgentId = await ctx.runMutation(
-        getInternal().agentOntology.createAgentInternal,
-        {
-          organizationId: childOrgId,
-          name: csAgentName,
-          subtype: "customer_service",
-          autonomyLevel: "supervised" as const,
-          displayName: csAgentName,
-          modelId: "anthropic/claude-haiku-4-5",
-          soul: bootstrapResult?.soul || null,
-        }
-      );
-      // Activate the customer service agent
-      if (customerServiceAgentId) {
-        await ctx.runMutation(
-          getInternal().agentOntology.activateAgentInternal,
-          { agentId: customerServiceAgentId }
-        );
+    // 8. Provision a managed PM specialist clone for the child org.
+    const projectManagerName =
+      normalizeOptionalString(args.agentNameHint) || `${args.businessName} Project Manager`;
+    const projectManagerProvisioning = await ctx.runMutation(
+      getInternal().agentOntology.ensureManagedTemplateSpecialistAgentForOrgInternal,
+      {
+        organizationId: childOrgId,
+        templateRole: AGENCY_CHILD_ORG_PM_TEMPLATE_ROLE,
+        name: projectManagerName,
+        description: `Internal PM specialist for ${args.businessName}`,
+        subtype: "pm",
+        agentClass: "internal_operator",
+        operatorId: "__org_default__",
+        isPrimary: false,
+        customPropertiesOverlay: buildPmSpecialistOverlay({
+          businessName: args.businessName,
+          industry: args.industry,
+          description: args.description,
+          targetAudience: args.targetAudience,
+          language: args.language,
+          tonePreference: args.tonePreference,
+          agentName: projectManagerName,
+        }),
       }
-    } catch (e) {
-      // Non-fatal — sub-org works fine with just the PM (backward compatible)
-      console.error("[bootstrapClientOrg] L4 agent creation failed:", e);
-    }
+    );
 
-    // 9. Register the deep link slug for routing
+    // 8b. Provision a managed customer-facing specialist clone for Telegram/webchat.
+    const customerServiceName = `${args.businessName} Customer Service`;
+    const customerServiceProvisioning = await ctx.runMutation(
+      getInternal().agentOntology.ensureManagedTemplateSpecialistAgentForOrgInternal,
+      {
+        organizationId: childOrgId,
+        templateRole: AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE,
+        name: customerServiceName,
+        description: `Customer-facing specialist for ${args.businessName}`,
+        subtype: "customer_service",
+        agentClass: "external_customer_facing",
+        isPrimary: false,
+        channelBindings: [
+          { channel: "desktop", enabled: false },
+          { channel: "slack", enabled: false },
+          { channel: "webchat", enabled: true },
+          { channel: "telegram", enabled: true },
+          { channel: "native_guest", enabled: true },
+          { channel: "phone_call", enabled: false },
+        ],
+        customPropertiesOverlay: buildCustomerServiceOverlay({
+          businessName: args.businessName,
+          industry: args.industry,
+          description: args.description,
+          targetAudience: args.targetAudience,
+          language: args.language,
+          tonePreference: args.tonePreference,
+          agentName: customerServiceName,
+        }),
+      }
+    );
+
+    // 9. Register the deep link slug for customer-facing routing.
     await ctx.runMutation(
       getInternal().onboarding.agencySubOrgBootstrap.registerDeepLinkSlug,
       {
         organizationId: childOrgId,
         slug,
+        targetAgentId: customerServiceProvisioning.agentId,
       }
     );
-
-    // 10. Get agent name from bootstrap result
-    const finalAgentName = bootstrapResult?.agentName || agentName;
 
     return {
       success: true,
       childOrganizationId: childOrgId,
       slug,
-      agentId: bootstrapResult?.agentId,
-      agentName: finalAgentName,
+      operatorAgentId: baselineResult?.operatorAgentId || null,
+      agentId: projectManagerProvisioning.agentId,
+      agentName: projectManagerName,
+      projectManagerAgentId: projectManagerProvisioning.agentId,
+      customerServiceAgentId: customerServiceProvisioning.agentId,
+      customerFacingAgentId: customerServiceProvisioning.agentId,
       deepLink: `${process.env.NEXT_PUBLIC_API_ENDPOINT_URL || "https://aromatic-akita-723.convex.site"}/start?slug=${slug}`,
       telegramMode: "testing" as const,
-      message: `Created "${args.businessName}" with agent "${finalAgentName}". ` +
-        `The deep link is for TESTING — messages go through the platform bot. ` +
-        `When ready to go live, create a bot via @BotFather and use deploy_telegram_bot.`,
+      message: `Created "${args.businessName}" with the default One-of-One Operator, `
+        + `an internal PM specialist, and a customer-facing specialist. `
+        + `The deep link is for TESTING through the platform bot until a dedicated Telegram bot is deployed.`,
     };
   },
 });
@@ -234,6 +338,7 @@ export const registerDeepLinkSlug = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     slug: v.string(),
+    targetAgentId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
     // Check if slug already registered
@@ -248,6 +353,7 @@ export const registerDeepLinkSlug = internalMutation({
       // Update to point to new org
       await ctx.db.patch(existing._id, {
         organizationId: args.organizationId,
+        targetAgentId: args.targetAgentId,
       });
       return;
     }
@@ -255,6 +361,7 @@ export const registerDeepLinkSlug = internalMutation({
     await ctx.db.insert("telegramMappings", {
       telegramChatId: `deeplink:${args.slug}`,
       organizationId: args.organizationId,
+      targetAgentId: args.targetAgentId,
       status: "active",
       createdAt: Date.now(),
     });
@@ -277,7 +384,10 @@ export const resolveDeepLink = internalQuery({
       .first();
 
     if (!mapping) return null;
-    return { organizationId: mapping.organizationId };
+    return {
+      organizationId: mapping.organizationId,
+      targetAgentId: mapping.targetAgentId || null,
+    };
   },
 });
 

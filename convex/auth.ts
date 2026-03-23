@@ -86,16 +86,10 @@ export const setupPassword = action({
     });
     if (setupAuthData.defaultOrgId) {
       await (ctx as any).runMutation(
-        generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+        generatedApi.internal.organizations.ensureOperatorAuthorityBootstrapInternal,
         {
           organizationId: setupAuthData.defaultOrgId,
-        }
-      );
-      await (ctx as any).runMutation(
-        generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
-        {
-          organizationId: setupAuthData.defaultOrgId,
-          channel: "desktop",
+          appSurface: "platform_web",
         }
       );
     }
@@ -287,16 +281,10 @@ export const signIn = action({
     }
 
     await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      generatedApi.internal.organizations.ensureOperatorAuthorityBootstrapInternal,
       {
         organizationId,
-      }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId,
-        channel: "desktop",
+        appSurface: "platform_web",
       }
     );
 

@@ -18,6 +18,10 @@ import {
   resolveTemplateSourceId,
   resolveTemplateSourceVersion,
 } from "./templateCloneLinkage";
+import {
+  hasPlatformMotherTemplateRole,
+  matchesPlatformMotherIdentityName,
+} from "../platformMother";
 
 // ============================================================================
 // CONSTANTS
@@ -251,14 +255,14 @@ function selectOnboardingTemplateAgent(agents: AgentLikeRecord[]): AgentLikeReco
 
   const explicitTemplate = templates.find((template) => {
     const props = asRecord(template.customProperties);
-    return readTemplateRole(props) === "platform_system_bot_template";
+    return hasPlatformMotherTemplateRole(props);
   });
   if (explicitTemplate) {
     return explicitTemplate;
   }
 
   const legacyQuinnTemplate = templates.find(
-    (template) => template.name.trim().toLowerCase() === "quinn"
+    (template) => matchesPlatformMotherIdentityName(template.name, asRecord(template.customProperties))
   );
   if (legacyQuinnTemplate) {
     return legacyQuinnTemplate;
@@ -386,7 +390,7 @@ export const getOnboardingWorker = internalMutation({
     const template = selectOnboardingTemplateAgent(allAgents);
 
     if (!template) {
-      throw new Error("Quinn template not found — run seedPlatformAgents first");
+      throw new Error("Platform onboarding template not found — run seedPlatformAgents first");
     }
 
     // 2. Get all active workers cloned from this template
@@ -539,8 +543,8 @@ export const spawnUseCaseAgent = internalMutation({
       lastTemplateSyncAt: now,
       lastTemplateSyncJobId,
     });
-    if (readTemplateRole(templateProps) === "platform_system_bot_template") {
-      throw new Error("Quinn onboarding template cannot be used for use-case clone spawning.");
+    if (hasPlatformMotherTemplateRole(templateProps)) {
+      throw new Error("Platform onboarding template cannot be used for use-case clone spawning.");
     }
 
     const templateScope = normalizeOptionalString(templateProps.templateScope);

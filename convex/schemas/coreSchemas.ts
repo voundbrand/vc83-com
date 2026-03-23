@@ -170,6 +170,15 @@ export const organizations = defineTable({
   )),
   isPersonalWorkspace: v.boolean(),
   isActive: v.boolean(),
+  onboardingLifecycleState: v.optional(v.union(
+    v.literal("provisional_onboarding"),
+    v.literal("live_unclaimed_workspace"),
+    v.literal("claimed_workspace")
+  )),
+  onboardingLifecycleSource: v.optional(v.string()),
+  onboardingActivatedAt: v.optional(v.number()),
+  onboardingClaimedAt: v.optional(v.number()),
+  onboardingClaimedByUserId: v.optional(v.id("users")),
 
   // Stripe Customer ID (for platform billing only - NOT Connect)
   // This is for when l4yercak3 charges the organization for subscriptions/usage

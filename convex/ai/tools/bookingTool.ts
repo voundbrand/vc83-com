@@ -12,16 +12,38 @@
 import { action } from "../../_generated/server";
 import { v } from "convex/values";
 import { Id } from "../../_generated/dataModel";
+import type { KanzleiBookingConciergeConfig } from "../../organizationOntology";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("../../_generated/api");
 
 export const DER_TERMINMACHER_BOOKING_TOOL_MANIFEST_CONTRACT_VERSION =
   "aoh_der_terminmacher_booking_tool_manifest_v1" as const;
 
+export const ORG_BOOKING_CONCIERGE_TOOL_ACTION =
+  "run_org_booking_concierge" as const;
+export const LEGACY_MEETING_CONCIERGE_TOOL_ACTION =
+  "run_meeting_concierge_demo" as const;
+
+export type BookingConciergeToolAction =
+  | typeof ORG_BOOKING_CONCIERGE_TOOL_ACTION
+  | typeof LEGACY_MEETING_CONCIERGE_TOOL_ACTION;
+
+export function isBookingConciergeToolAction(
+  value: unknown,
+): value is BookingConciergeToolAction {
+  return (
+    value === ORG_BOOKING_CONCIERGE_TOOL_ACTION
+    || value === LEGACY_MEETING_CONCIERGE_TOOL_ACTION
+  );
+}
+
 export const DER_TERMINMACHER_BOOKING_TOOL_MANIFEST = {
   contractVersion: DER_TERMINMACHER_BOOKING_TOOL_MANIFEST_CONTRACT_VERSION,
   toolName: "manage_bookings" as const,
-  requiredActions: ["run_meeting_concierge_demo"] as const,
+  requiredActions: [
+    ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+    LEGACY_MEETING_CONCIERGE_TOOL_ACTION,
+  ] as const,
   modeDefault: "preview" as const,
   previewFirst: true as const,
   executeRequiresExplicitConfirmation: true as const,
@@ -57,6 +79,71 @@ export interface MeetingConciergeStageContract {
   terminalStage: MeetingConciergeStageName;
   terminalOutcome: "success" | "blocked";
   stages: MeetingConciergeStageResult[];
+}
+
+export const ORG_BOOKING_CONCIERGE_PHONE_SAFE_CONTRACT_VERSION =
+  "org_booking_concierge_phone_safe_v1" as const;
+
+export type OrgBookingConciergeFallbackAction =
+  | "callback_capture"
+  | "human_escalation";
+
+export interface OrgBookingConciergePhoneSafeSlotOption {
+  startDateTime: string;
+  endDateTime: string | null;
+  label: string;
+}
+
+export interface OrgBookingConciergePhoneSafeFallbackOption {
+  action: OrgBookingConciergeFallbackAction;
+  reason: string;
+}
+
+export interface OrgBookingConciergePhoneSafeResult {
+  contractVersion: typeof ORG_BOOKING_CONCIERGE_PHONE_SAFE_CONTRACT_VERSION;
+  sourceChannel: "phone_call";
+  provider: "native_booking" | "calcom";
+  outcome:
+    | "preview_ready"
+    | "booking_confirmed"
+    | "blocked";
+  confirmationRequired: boolean;
+  recommendedSlot: OrgBookingConciergePhoneSafeSlotOption | null;
+  alternateSlots: OrgBookingConciergePhoneSafeSlotOption[];
+  selectedSlot: OrgBookingConciergePhoneSafeSlotOption | null;
+  fallbackOptions: OrgBookingConciergePhoneSafeFallbackOption[];
+  callerSafeConfirmation: {
+    previewLine: string;
+    confirmQuestion: string | null;
+    successLine: string | null;
+    failureLine: string | null;
+  };
+  bookingId?: string | null;
+  mirrorArtifactId?: string | null;
+  providerBookingUid?: string | null;
+}
+
+export type BookingConciergeLegalIntakeUrgency =
+  | "low"
+  | "normal"
+  | "high";
+
+type BookingConciergeIntakeCaptureMode =
+  | "live_call"
+  | "assistant_session";
+
+interface BookingConciergeLegalIntakeProvenance {
+  sourceChannel?: string;
+  providerCallId?: string;
+  providerConversationId?: string;
+  captureMode?: BookingConciergeIntakeCaptureMode;
+}
+
+interface NormalizedBookingConciergeLegalIntake {
+  practiceArea?: string;
+  urgency?: BookingConciergeLegalIntakeUrgency;
+  caseSummary?: string;
+  intakeProvenance?: BookingConciergeLegalIntakeProvenance;
 }
 
 type VacationDecisionVerdict = "approved" | "conflict" | "denied" | "blocked";
@@ -244,7 +331,8 @@ Use this tool to:
 2. Confirm, check-in, complete, or cancel bookings
 3. List and manage locations
 4. Check available time slots for resources
-5. View booking calendar for resources`,
+5. View booking calendar for resources
+6. Run an org-scoped booking concierge flow with preview-first and explicit-confirm execution`,
     parameters: {
       type: "object" as const,
       properties: {
@@ -266,7 +354,8 @@ Use this tool to:
             "get_available_slots",
             "get_resource_calendar",
             "execute_appointment_outreach",
-            "run_meeting_concierge_demo"
+            ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+            LEGACY_MEETING_CONCIERGE_TOOL_ACTION,
           ],
           description: "Action to perform"
         },
@@ -489,6 +578,22 @@ Use this tool to:
           type: "string",
           description: "Attendee company for CRM upsert"
         },
+        practiceArea: {
+          type: "string",
+          description:
+            "Optional structured legal intake practice area for the first Kanzlei wedge"
+        },
+        urgency: {
+          type: "string",
+          enum: ["low", "normal", "high"],
+          description:
+            "Optional structured legal intake urgency. Prefer stable values low, normal, or high."
+        },
+        caseSummary: {
+          type: "string",
+          description:
+            "Optional structured legal intake summary captured from the caller conversation"
+        },
         meetingTitle: {
           type: "string",
           description: "Meeting title shown in confirmation and calendar"
@@ -515,12 +620,18 @@ Use this tool to:
         },
         confirmationChannel: {
           type: "string",
-          enum: ["auto", "sms", "email", "none"],
-          description: "Confirmation delivery channel. auto prefers sms then email."
+          enum: ["auto", "sms", "email", "phone_call", "none"],
+          description:
+            "Confirmation delivery channel. auto prefers sms then email; phone_call means the caller-safe confirmation is spoken on the live call."
         },
         confirmationRecipient: {
           type: "string",
           description: "Optional explicit destination override (phone/email)"
+        },
+        selectedSlotStart: {
+          type: "string",
+          description:
+            "Preview-selected slot start in ISO 8601. Required for phone-safe execute mode so the confirmed slot is explicit."
         },
         conciergeIdempotencyKey: {
           type: "string",
@@ -546,6 +657,12 @@ export const executeManageBookings = action({
     organizationId: v.optional(v.id("organizations")),
     userId: v.optional(v.id("users")),
     conversationId: v.optional(v.id("aiConversations")),
+    agentSessionId: v.optional(v.id("agentSessions")),
+    agentId: v.optional(v.id("objects")),
+    channel: v.optional(v.string()),
+    externalContactIdentifier: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    providerConversationId: v.optional(v.string()),
     action: v.string(),
     mode: v.optional(v.string()),
     workItemId: v.optional(v.string()),
@@ -602,6 +719,9 @@ export const executeManageBookings = action({
     personEmail: v.optional(v.string()),
     personPhone: v.optional(v.string()),
     company: v.optional(v.string()),
+    practiceArea: v.optional(v.string()),
+    urgency: v.optional(v.string()),
+    caseSummary: v.optional(v.string()),
     meetingTitle: v.optional(v.string()),
     meetingDurationMinutes: v.optional(v.number()),
     schedulingWindowStart: v.optional(v.string()),
@@ -610,6 +730,7 @@ export const executeManageBookings = action({
     operatorCalendarConnectionId: v.optional(v.string()),
     confirmationChannel: v.optional(v.string()),
     confirmationRecipient: v.optional(v.string()),
+    selectedSlotStart: v.optional(v.string()),
     conciergeIdempotencyKey: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
     meetingConciergeExplicitConfirmDetected: v.optional(v.boolean()),
@@ -756,9 +877,10 @@ export const executeManageBookings = action({
           }
           return await executeAppointmentOutreach(ctx, organizationId, args);
 
-        case "run_meeting_concierge_demo":
+        case ORG_BOOKING_CONCIERGE_TOOL_ACTION:
+        case LEGACY_MEETING_CONCIERGE_TOOL_ACTION:
           if (!userId) {
-            throw new Error("userId is required for run_meeting_concierge_demo");
+            throw new Error("userId is required for org booking concierge execution");
           }
           if (
             args.meetingConciergePolicyRequired === true
@@ -766,7 +888,10 @@ export const executeManageBookings = action({
           ) {
             return {
               success: false,
-              action: "run_meeting_concierge_demo",
+              action:
+                isBookingConciergeToolAction(args.action)
+                  ? args.action
+                  : ORG_BOOKING_CONCIERGE_TOOL_ACTION,
               mode: args.mode === "preview" ? "preview" : "execute",
               error: "Meeting concierge command policy blocked execution",
               message:
@@ -780,7 +905,10 @@ export const executeManageBookings = action({
           ) {
             return {
               success: false,
-              action: "run_meeting_concierge_demo",
+              action:
+                isBookingConciergeToolAction(args.action)
+                  ? args.action
+                  : ORG_BOOKING_CONCIERGE_TOOL_ACTION,
               mode: "execute",
               error: "Explicit confirmation required",
               message:
@@ -794,7 +922,7 @@ export const executeManageBookings = action({
             success: false,
             action: args.action,
             error: "Invalid action",
-            message: "Action must be one of: list_bookings, get_booking, create_booking, confirm_booking, check_in_booking, complete_booking, cancel_booking, mark_no_show, list_locations, get_location, create_location, archive_location, get_available_slots, get_resource_calendar, execute_appointment_outreach, run_meeting_concierge_demo"
+            message: `Action must be one of: list_bookings, get_booking, create_booking, confirm_booking, check_in_booking, complete_booking, cancel_booking, mark_no_show, list_locations, get_location, create_location, archive_location, get_available_slots, get_resource_calendar, execute_appointment_outreach, ${ORG_BOOKING_CONCIERGE_TOOL_ACTION}, ${LEGACY_MEETING_CONCIERGE_TOOL_ACTION}`
           };
       }
     } catch (error: unknown) {
@@ -1030,6 +1158,18 @@ async function createBooking(
     }
   );
 
+  let calendarPush: { success?: boolean; error?: string; pushCount?: number } | null =
+    null;
+  if (result.status === "confirmed") {
+    calendarPush = await (ctx as any).runAction(
+      generatedApi.internal.calendarSyncOntology.pushBookingToCalendar,
+      {
+        bookingId: result.bookingId,
+        organizationId,
+      }
+    ) as { success?: boolean; error?: string; pushCount?: number };
+  }
+
   // Update work item
   if (args.workItemId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1055,7 +1195,8 @@ async function createBooking(
         name: `${args.subtype || "appointment"} - ${args.customerName}`,
         status: result.status,
       }],
-      summary: { total: 1, created: 1 }
+      summary: { total: 1, created: 1 },
+      calendarPush,
     },
     message: `✅ Created booking for ${args.customerName} (${result.status})`
   };
@@ -1360,6 +1501,48 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeBookingConciergeLegalIntakeUrgency(
+  value: unknown,
+): BookingConciergeLegalIntakeUrgency | undefined {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "low") {
+    return "low";
+  }
+  if (
+    normalized === "normal"
+    || normalized === "medium"
+    || normalized === "med"
+    || normalized === "standard"
+  ) {
+    return "normal";
+  }
+  if (
+    normalized === "high"
+    || normalized === "urgent"
+    || normalized === "immediate"
+    || normalized === "critical"
+    || normalized === "asap"
+  ) {
+    return "high";
+  }
+  return undefined;
+}
+
+function resolveBookingConciergeIntakeCaptureMode(
+  channel: unknown,
+): BookingConciergeIntakeCaptureMode | undefined {
+  const normalizedChannel = normalizeOptionalString(channel);
+  if (!normalizedChannel) {
+    return undefined;
+  }
+  return normalizedChannel === "phone_call"
+    ? "live_call"
+    : "assistant_session";
+}
+
 function toTimestamp(value: unknown): number | undefined {
   const normalized = normalizeOptionalString(value);
   if (!normalized) {
@@ -1487,6 +1670,7 @@ function selectBestContactMatch(args: {
   }>;
   personName?: string;
   personEmail?: string;
+  personPhone?: string;
 }): {
   _id: Id<"objects">;
   name?: string;
@@ -1507,6 +1691,18 @@ function selectBestContactMatch(args: {
     }
   }
 
+  const targetPhone = normalizeOptionalString(args.personPhone);
+  if (targetPhone) {
+    const exactPhoneMatch = args.contacts.find((contact) => {
+      const props = (contact.customProperties || {}) as Record<string, unknown>;
+      const phone = normalizeOptionalString(props.phone);
+      return phone === targetPhone;
+    });
+    if (exactPhoneMatch) {
+      return exactPhoneMatch;
+    }
+  }
+
   const targetName = normalizeOptionalString(args.personName)?.toLowerCase();
   if (targetName) {
     const nameMatch = args.contacts.find((contact) =>
@@ -1520,11 +1716,44 @@ function selectBestContactMatch(args: {
   return args.contacts[0];
 }
 
+async function getKanzleiBookingConciergeConfig(args: {
+  ctx: unknown;
+  organizationId: Id<"organizations">;
+}): Promise<KanzleiBookingConciergeConfig | null> {
+  return await (args.ctx as any).runQuery(
+    generatedApi.internal.organizationOntology
+      .getKanzleiBookingConciergeConfigInternal,
+    {
+      organizationId: args.organizationId,
+    },
+  );
+}
+
+type ConciergeResourceSource = "explicit" | "org_config" | "auto";
+
+interface ResolvedConciergeResource {
+  id: Id<"objects">;
+  name?: string;
+  source: ConciergeResourceSource;
+}
+
+interface ConciergeResourceResolution {
+  resource: ResolvedConciergeResource | null;
+  errorCode?:
+    | "explicit_resource_unavailable"
+    | "configured_resource_unavailable"
+    | "no_resource_available";
+  message?: string;
+  requestedResourceId?: string | null;
+  configuredResourceId?: string | null;
+}
+
 async function resolveConciergeResource(args: {
   ctx: unknown;
   organizationId: Id<"organizations">;
   resourceId?: string;
-}): Promise<{ id: Id<"objects">; name?: string; source: "explicit" | "auto" } | null> {
+  orgBookingConfig?: KanzleiBookingConciergeConfig | null;
+}): Promise<ConciergeResourceResolution> {
   const requestedResourceId = normalizeOptionalString(args.resourceId);
   if (requestedResourceId) {
     const resource = await (args.ctx as any).runQuery(
@@ -1535,13 +1764,57 @@ async function resolveConciergeResource(args: {
     ) as { _id: Id<"objects">; name?: string; organizationId: Id<"organizations"> } | null;
 
     if (!resource || resource.organizationId !== args.organizationId) {
-      return null;
+      return {
+        resource: null,
+        errorCode: "explicit_resource_unavailable",
+        message: `Resource ${requestedResourceId} is unavailable or inaccessible.`,
+        requestedResourceId,
+      };
     }
     return {
-      id: resource._id,
-      name: normalizeOptionalString(resource.name),
-      source: "explicit",
+      resource: {
+        id: resource._id,
+        name: normalizeOptionalString(resource.name),
+        source: "explicit",
+      },
     };
+  }
+
+  const configuredResourceId = normalizeOptionalString(
+    args.orgBookingConfig?.primaryResourceId,
+  );
+  if (configuredResourceId) {
+    const resource = await (args.ctx as any).runQuery(
+      generatedApi.internal.productOntology.getProductInternal,
+      {
+        productId: configuredResourceId as Id<"objects">,
+      },
+    ) as {
+      _id: Id<"objects">;
+      name?: string;
+      organizationId: Id<"organizations">;
+    } | null;
+
+    if (resource && resource.organizationId === args.organizationId) {
+      return {
+        resource: {
+          id: resource._id,
+          name: normalizeOptionalString(resource.name),
+          source: "org_config",
+        },
+        configuredResourceId,
+      };
+    }
+
+    if (args.orgBookingConfig?.requireConfiguredResource !== false) {
+      return {
+        resource: null,
+        errorCode: "configured_resource_unavailable",
+        message:
+          `Configured Kanzlei booking resource ${configuredResourceId} is unavailable or inaccessible.`,
+        configuredResourceId,
+      };
+    }
   }
 
   const productsResult = await (args.ctx as any).runQuery(
@@ -1568,13 +1841,22 @@ async function resolveConciergeResource(args: {
     bookableSubtypes.has(String(product.subtype || ""))
   );
   if (!selected) {
-    return null;
+    return {
+      resource: null,
+      errorCode: "no_resource_available",
+      message:
+        "No active bookable product found. Provide resourceId, or configure a Kanzlei booking resource.",
+      configuredResourceId,
+    };
   }
 
   return {
-    id: selected.id as Id<"objects">,
-    name: normalizeOptionalString(selected.name),
-    source: "auto",
+    resource: {
+      id: selected.id as Id<"objects">,
+      name: normalizeOptionalString(selected.name),
+      source: "auto",
+    },
+    configuredResourceId,
   };
 }
 
@@ -1674,6 +1956,482 @@ function formatMeetingWindowForMessage(args: {
   }
 }
 
+type KanzleiFirmNotificationOutcome =
+  | "booking_confirmed"
+  | "callback_ready";
+
+type KanzleiFirmNotificationIntakeSource =
+  | "booking"
+  | "artifact"
+  | "missing";
+
+interface KanzleiFirmNotificationResult {
+  attempted: boolean;
+  success: boolean;
+  outcome: KanzleiFirmNotificationOutcome;
+  recipients: string[];
+  sentCount: number;
+  skippedReason?: "no_recipients";
+  errors?: string[];
+  intakeResolution: {
+    practiceAreaSource: KanzleiFirmNotificationIntakeSource;
+    urgencySource: KanzleiFirmNotificationIntakeSource;
+    caseSummarySource: KanzleiFirmNotificationIntakeSource;
+  };
+}
+
+function normalizeEmailRecipients(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => normalizeEmailRecipients(entry));
+  }
+
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/[,\n;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && entry.includes("@"));
+}
+
+function dedupeCaseInsensitiveStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const value of values) {
+    const key = value.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(value);
+  }
+  return deduped;
+}
+
+function resolveFirmNotificationStringField(args: {
+  bookingProps: Record<string, unknown>;
+  artifactProps: Record<string, unknown>;
+  key: string;
+}): {
+  value: string | null;
+  source: KanzleiFirmNotificationIntakeSource;
+} {
+  const bookingValue = normalizeOptionalString(args.bookingProps[args.key]);
+  if (bookingValue) {
+    return {
+      value: bookingValue,
+      source: "booking",
+    };
+  }
+
+  const artifactValue = normalizeOptionalString(args.artifactProps[args.key]);
+  if (artifactValue) {
+    return {
+      value: artifactValue,
+      source: "artifact",
+    };
+  }
+
+  return {
+    value: null,
+    source: "missing",
+  };
+}
+
+function resolveFirmNotificationUrgencyField(args: {
+  bookingProps: Record<string, unknown>;
+  artifactProps: Record<string, unknown>;
+}): {
+  value: BookingConciergeLegalIntakeUrgency | null;
+  source: KanzleiFirmNotificationIntakeSource;
+} {
+  const bookingValue = normalizeBookingConciergeLegalIntakeUrgency(
+    args.bookingProps.urgency,
+  );
+  if (bookingValue) {
+    return {
+      value: bookingValue,
+      source: "booking",
+    };
+  }
+
+  const artifactValue = normalizeBookingConciergeLegalIntakeUrgency(
+    args.artifactProps.urgency,
+  );
+  if (artifactValue) {
+    return {
+      value: artifactValue,
+      source: "artifact",
+    };
+  }
+
+  return {
+    value: null,
+    source: "missing",
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatFirmNotificationValue(value: string | null): string {
+  return value || "Not captured";
+}
+
+function formatFirmNotificationUrgency(
+  value: BookingConciergeLegalIntakeUrgency | null,
+): string {
+  if (!value) {
+    return "Not captured";
+  }
+  if (value === "high") {
+    return "High";
+  }
+  if (value === "normal") {
+    return "Normal";
+  }
+  return "Low";
+}
+
+function buildKanzleiFirmNotificationEmail(args: {
+  outcome: KanzleiFirmNotificationOutcome;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  company: string | null;
+  meetingTitle: string | null;
+  resourceName: string | null;
+  bookingWindow: string | null;
+  bookingId: string | null;
+  artifactId: string | null;
+  practiceArea: string | null;
+  urgency: BookingConciergeLegalIntakeUrgency | null;
+  caseSummary: string | null;
+  intakeResolution: KanzleiFirmNotificationResult["intakeResolution"];
+}): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const contactLabel = args.contactName || "Unknown caller";
+  const subjectPrefix =
+    args.outcome === "callback_ready"
+      ? "Callback needed"
+      : "New intake booked";
+  const subject = `${subjectPrefix}: ${contactLabel}`;
+
+  const rows = [
+    ["Outcome", args.outcome === "callback_ready" ? "Callback needed" : "Booked consultation"],
+    ["Caller name", formatFirmNotificationValue(args.contactName)],
+    ["Caller phone", formatFirmNotificationValue(args.contactPhone)],
+    ["Caller email", formatFirmNotificationValue(args.contactEmail)],
+    ["Company", formatFirmNotificationValue(args.company)],
+    ["Meeting title", formatFirmNotificationValue(args.meetingTitle)],
+    ["Resource", formatFirmNotificationValue(args.resourceName)],
+    ["When", formatFirmNotificationValue(args.bookingWindow)],
+    ["Practice area", formatFirmNotificationValue(args.practiceArea)],
+    ["Urgency", formatFirmNotificationUrgency(args.urgency)],
+    ["Case summary", formatFirmNotificationValue(args.caseSummary)],
+    ["Booking ID", formatFirmNotificationValue(args.bookingId)],
+    ["Phone artifact ID", formatFirmNotificationValue(args.artifactId)],
+  ] as const;
+
+  const text = [
+    "Firm intake summary",
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    "",
+    `Intake sources: practiceArea=${args.intakeResolution.practiceAreaSource}, urgency=${args.intakeResolution.urgencySource}, caseSummary=${args.intakeResolution.caseSummarySource}`,
+  ].join("\n");
+
+  const htmlRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;font-weight:600;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("");
+
+  const html = [
+    "<div style=\"font-family:Arial,sans-serif;color:#111827;line-height:1.5;\">",
+    `<h2 style="margin:0 0 16px;">${escapeHtml(subject)}</h2>`,
+    "<table style=\"border-collapse:collapse;width:100%;max-width:720px;\">",
+    htmlRows,
+    "</table>",
+    `<p style="margin:16px 0 0;color:#6B7280;font-size:13px;">Intake sources: practiceArea=${escapeHtml(args.intakeResolution.practiceAreaSource)}, urgency=${escapeHtml(args.intakeResolution.urgencySource)}, caseSummary=${escapeHtml(args.intakeResolution.caseSummarySource)}</p>`,
+    "</div>",
+  ].join("");
+
+  return {
+    subject,
+    text,
+    html,
+  };
+}
+
+async function resolveKanzleiFirmNotificationRecipients(args: {
+  ctx: unknown;
+  organizationId: Id<"organizations">;
+}): Promise<string[]> {
+  const recipients: string[] = [];
+
+  try {
+    const contacts = await (args.ctx as any).runQuery(
+      generatedApi.api.ontologyHelpers.getObjects,
+      {
+        organizationId: args.organizationId,
+        type: "organization_contact",
+      },
+    ) as Array<{ customProperties?: unknown }>;
+
+    for (const contact of contacts || []) {
+      const props = (contact.customProperties || {}) as Record<string, unknown>;
+      recipients.push(
+        ...normalizeEmailRecipients(props.supportEmail),
+        ...normalizeEmailRecipients(props.contactEmail),
+        ...normalizeEmailRecipients(props.notificationEmails),
+        ...normalizeEmailRecipients(props.adminEmail),
+        ...normalizeEmailRecipients(props.billingEmail),
+      );
+    }
+  } catch {
+    // Non-critical: missing contact settings should not block the booking path.
+  }
+
+  if (recipients.length === 0) {
+    try {
+      const ownerEmail = await (args.ctx as any).runQuery(
+        generatedApi.internal.ai.escalation.getOrgOwnerEmail,
+        {
+          organizationId: args.organizationId,
+        },
+      ) as string | null;
+      recipients.push(...normalizeEmailRecipients(ownerEmail));
+    } catch {
+      // Non-critical fallback lookup.
+    }
+  }
+
+  return dedupeCaseInsensitiveStrings(recipients);
+}
+
+async function sendKanzleiFirmNotificationEmail(args: {
+  ctx: unknown;
+  organizationId: Id<"organizations">;
+  outcome: KanzleiFirmNotificationOutcome;
+  bookingId?: Id<"objects"> | null;
+  artifactId?: string | null;
+  meetingTitle?: string;
+  resourceName?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  company?: string;
+  timezone?: string;
+}): Promise<KanzleiFirmNotificationResult> {
+  const recipients = await resolveKanzleiFirmNotificationRecipients({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+  });
+
+  const emptyResolution = {
+    practiceAreaSource: "missing" as const,
+    urgencySource: "missing" as const,
+    caseSummarySource: "missing" as const,
+  };
+
+  if (recipients.length === 0) {
+    return {
+      attempted: false,
+      success: false,
+      outcome: args.outcome,
+      recipients: [],
+      sentCount: 0,
+      skippedReason: "no_recipients",
+      intakeResolution: emptyResolution,
+    };
+  }
+
+  try {
+    const booking = args.bookingId
+      ? await (args.ctx as any).runQuery(
+          generatedApi.internal.bookingOntology.getBookingInternal,
+          {
+            bookingId: args.bookingId,
+            organizationId: args.organizationId,
+          },
+        ) as {
+          _id: Id<"objects">;
+          name?: string;
+          customProperties?: Record<string, unknown>;
+        } | null
+      : null;
+    const bookingProps = (booking?.customProperties || {}) as Record<
+      string,
+      unknown
+    >;
+
+    const resolvedArtifactId =
+      normalizeOptionalString(args.artifactId) ||
+      normalizeOptionalString(bookingProps.phoneCallArtifactId) ||
+      null;
+    const artifact = resolvedArtifactId
+      ? await (args.ctx as any).runQuery(
+          generatedApi.internal.objectsInternal.getObjectInternal,
+          {
+            objectId: resolvedArtifactId as Id<"objects">,
+          },
+        ) as {
+          _id: Id<"objects">;
+          type?: string;
+          organizationId?: Id<"organizations">;
+          customProperties?: Record<string, unknown>;
+        } | null
+      : null;
+    const artifactProps =
+      artifact &&
+      artifact.type === "booking_phone_call_artifact" &&
+      artifact.organizationId === args.organizationId
+        ? (artifact.customProperties || {}) as Record<string, unknown>
+        : {};
+
+    const practiceArea = resolveFirmNotificationStringField({
+      bookingProps,
+      artifactProps,
+      key: "practiceArea",
+    });
+    const urgency = resolveFirmNotificationUrgencyField({
+      bookingProps,
+      artifactProps,
+    });
+    const caseSummary = resolveFirmNotificationStringField({
+      bookingProps,
+      artifactProps,
+      key: "caseSummary",
+    });
+
+    const bookingStart =
+      typeof bookingProps.startDateTime === "number"
+        ? bookingProps.startDateTime
+        : toTimestamp(artifactProps.selectedSlotStart);
+    const bookingEnd =
+      typeof bookingProps.endDateTime === "number"
+        ? bookingProps.endDateTime
+        : toTimestamp(artifactProps.selectedSlotEnd);
+    const bookingTimezone =
+      normalizeOptionalString(bookingProps.timezone) ||
+      normalizeOptionalString(artifactProps.timezone) ||
+      normalizeOptionalString(args.timezone);
+    const bookingWindow =
+      bookingStart && bookingEnd
+        ? formatMeetingWindowForMessage({
+            startDateTime: bookingStart,
+            endDateTime: bookingEnd,
+            timezone: bookingTimezone,
+          })
+        : null;
+
+    const emailPayload = buildKanzleiFirmNotificationEmail({
+      outcome: args.outcome,
+      contactName:
+        normalizeOptionalString(bookingProps.customerName) ||
+        normalizeOptionalString(artifactProps.personName) ||
+        normalizeOptionalString(args.contactName) ||
+        null,
+      contactEmail:
+        normalizeOptionalString(bookingProps.customerEmail) ||
+        normalizeOptionalString(artifactProps.personEmail) ||
+        normalizeOptionalString(args.contactEmail) ||
+        null,
+      contactPhone:
+        normalizeOptionalString(bookingProps.customerPhone) ||
+        normalizeOptionalString(artifactProps.personPhone) ||
+        normalizeOptionalString(args.contactPhone) ||
+        null,
+      company: normalizeOptionalString(args.company) || null,
+      meetingTitle:
+        normalizeOptionalString(args.meetingTitle) ||
+        normalizeOptionalString(booking?.name) ||
+        null,
+      resourceName: normalizeOptionalString(args.resourceName) || null,
+      bookingWindow,
+      bookingId: booking ? String(booking._id) : null,
+      artifactId: resolvedArtifactId,
+      practiceArea: practiceArea.value,
+      urgency: urgency.value,
+      caseSummary: caseSummary.value,
+      intakeResolution: {
+        practiceAreaSource: practiceArea.source,
+        urgencySource: urgency.source,
+        caseSummarySource: caseSummary.source,
+      },
+    });
+
+    const results = await Promise.all(
+      recipients.map(async (recipient) => {
+        const sendResult = await (args.ctx as any).runAction(
+          generatedApi.internal.channels.router.sendMessage,
+          {
+            organizationId: args.organizationId,
+            channel: "email",
+            recipientIdentifier: recipient,
+            content: emailPayload.text,
+            contentHtml: emailPayload.html,
+            subject: emailPayload.subject,
+            idempotencyKey: [
+              "kanzlei_firm_notification",
+              args.outcome,
+              args.bookingId ? String(args.bookingId) : "no_booking",
+              resolvedArtifactId || "no_artifact",
+              recipient.toLowerCase(),
+            ].join(":"),
+          },
+        ) as { success?: boolean; error?: string };
+
+        return {
+          recipient,
+          success: sendResult.success === true,
+          error: normalizeOptionalString(sendResult.error),
+        };
+      }),
+    );
+
+    const sentCount = results.filter((result) => result.success).length;
+    return {
+      attempted: true,
+      success: sentCount > 0,
+      outcome: args.outcome,
+      recipients,
+      sentCount,
+      errors: results
+        .filter((result) => !result.success && result.error)
+        .map((result) => `${result.recipient}: ${result.error}`),
+      intakeResolution: {
+        practiceAreaSource: practiceArea.source,
+        urgencySource: urgency.source,
+        caseSummarySource: caseSummary.source,
+      },
+    };
+  } catch (error) {
+    return {
+      attempted: false,
+      success: false,
+      outcome: args.outcome,
+      recipients,
+      sentCount: 0,
+      errors: [error instanceof Error ? error.message : String(error)],
+      intakeResolution: emptyResolution,
+    };
+  }
+}
+
 type MeetingConciergeStageState = Record<
   MeetingConciergeStageName,
   MeetingConciergeStageResult
@@ -1745,6 +2503,7 @@ function buildMeetingConciergeStageContract(args: {
 }
 
 function buildMeetingConciergeDemoResponse(args: {
+  action?: BookingConciergeToolAction;
   success: boolean;
   mode: MeetingConciergeFlowMode;
   stageState: MeetingConciergeStageState;
@@ -1762,7 +2521,7 @@ function buildMeetingConciergeDemoResponse(args: {
   });
   return {
     success: args.success,
-    action: "run_meeting_concierge_demo" as const,
+    action: args.action ?? ORG_BOOKING_CONCIERGE_TOOL_ACTION,
     mode: args.mode,
     data: {
       ...(args.data || {}),
@@ -1777,6 +2536,1255 @@ function buildMeetingConciergeDemoResponse(args: {
   };
 }
 
+interface MeetingConciergeSourceContext {
+  channel?: string;
+  agentSessionId?: Id<"agentSessions">;
+  agentId?: Id<"objects">;
+  externalContactIdentifier?: string;
+  providerMessageId?: string;
+  providerConversationId?: string;
+}
+
+function buildBookingConciergeLegalIntakeProvenance(args: {
+  sourceContext?: MeetingConciergeSourceContext;
+}): BookingConciergeLegalIntakeProvenance | undefined {
+  const sourceChannel = normalizeOptionalString(args.sourceContext?.channel);
+  const providerCallId = normalizeOptionalString(
+    args.sourceContext?.providerMessageId,
+  );
+  const providerConversationId = normalizeOptionalString(
+    args.sourceContext?.providerConversationId,
+  );
+  const captureMode = resolveBookingConciergeIntakeCaptureMode(
+    args.sourceContext?.channel,
+  );
+
+  if (
+    !sourceChannel
+    && !providerCallId
+    && !providerConversationId
+    && !captureMode
+  ) {
+    return undefined;
+  }
+
+  return {
+    sourceChannel,
+    providerCallId,
+    providerConversationId,
+    captureMode,
+  };
+}
+
+function normalizeBookingConciergeLegalIntake(args: {
+  practiceArea?: unknown;
+  urgency?: unknown;
+  caseSummary?: unknown;
+  sourceContext?: MeetingConciergeSourceContext;
+}): NormalizedBookingConciergeLegalIntake | null {
+  const practiceArea = normalizeOptionalString(args.practiceArea);
+  const urgency = normalizeBookingConciergeLegalIntakeUrgency(args.urgency);
+  const caseSummary = normalizeOptionalString(args.caseSummary);
+  const intakeProvenance = buildBookingConciergeLegalIntakeProvenance({
+    sourceContext: args.sourceContext,
+  });
+
+  if (!practiceArea && !urgency && !caseSummary && !intakeProvenance) {
+    return null;
+  }
+
+  return {
+    ...(practiceArea ? { practiceArea } : {}),
+    ...(urgency ? { urgency } : {}),
+    ...(caseSummary ? { caseSummary } : {}),
+    ...(intakeProvenance ? { intakeProvenance } : {}),
+  };
+}
+
+function buildBookingConciergeMetadataPatch(args: {
+  organizationId: Id<"organizations">;
+  bookingId: Id<"objects">;
+  conciergeIdempotencyKey?: string;
+  sourceContext?: MeetingConciergeSourceContext;
+  legalIntake?: NormalizedBookingConciergeLegalIntake | null;
+}): Record<string, unknown> | null {
+  const payload: Record<string, unknown> = {
+    organizationId: args.organizationId,
+    bookingId: args.bookingId,
+  };
+  let hasPatchField = false;
+
+  const conciergeIdempotencyKey = normalizeOptionalString(
+    args.conciergeIdempotencyKey,
+  );
+  if (conciergeIdempotencyKey) {
+    payload.conciergeIdempotencyKey = conciergeIdempotencyKey;
+    hasPatchField = true;
+  }
+
+  const sourceChannel = normalizeOptionalString(args.sourceContext?.channel);
+  if (sourceChannel) {
+    payload.sourceChannel = sourceChannel;
+    hasPatchField = true;
+  }
+
+  if (args.sourceContext?.externalContactIdentifier !== undefined) {
+    payload.sourceExternalContactIdentifier =
+      normalizeOptionalString(args.sourceContext.externalContactIdentifier);
+    hasPatchField = true;
+  }
+  if (args.sourceContext?.agentSessionId !== undefined) {
+    payload.sourceAgentSessionId = args.sourceContext.agentSessionId;
+    hasPatchField = true;
+  }
+  if (args.sourceContext?.agentId !== undefined) {
+    payload.sourceAgentId = args.sourceContext.agentId;
+    hasPatchField = true;
+  }
+  if (args.sourceContext?.providerMessageId !== undefined) {
+    payload.sourceProviderCallId =
+      normalizeOptionalString(args.sourceContext.providerMessageId);
+    hasPatchField = true;
+  }
+  if (args.sourceContext?.providerConversationId !== undefined) {
+    payload.sourceProviderConversationId =
+      normalizeOptionalString(args.sourceContext.providerConversationId);
+    hasPatchField = true;
+  }
+
+  if (args.legalIntake?.practiceArea) {
+    payload.practiceArea = args.legalIntake.practiceArea;
+    hasPatchField = true;
+  }
+  if (args.legalIntake?.urgency) {
+    payload.urgency = args.legalIntake.urgency;
+    hasPatchField = true;
+  }
+  if (args.legalIntake?.caseSummary) {
+    payload.caseSummary = args.legalIntake.caseSummary;
+    hasPatchField = true;
+  }
+  if (args.legalIntake?.intakeProvenance?.captureMode) {
+    payload.intakeCaptureMode = args.legalIntake.intakeProvenance.captureMode;
+    hasPatchField = true;
+  }
+
+  return hasPatchField ? payload : null;
+}
+
+function buildPhoneSafeFallbackOptions(
+  reason: string,
+): OrgBookingConciergePhoneSafeFallbackOption[] {
+  return [
+    {
+      action: "callback_capture",
+      reason,
+    },
+    {
+      action: "human_escalation",
+      reason,
+    },
+  ];
+}
+
+function toPhoneSafeSlotOption(args: {
+  slot: ConciergeSlot;
+  timezone?: string;
+}): OrgBookingConciergePhoneSafeSlotOption {
+  return {
+    startDateTime: new Date(args.slot.startDateTime).toISOString(),
+    endDateTime: new Date(args.slot.endDateTime).toISOString(),
+    label: formatMeetingWindowForMessage({
+      startDateTime: args.slot.startDateTime,
+      endDateTime: args.slot.endDateTime,
+      timezone: args.timezone,
+    }),
+  };
+}
+
+export function buildOrgBookingConciergePhoneSafeResult(args: {
+  outcome: OrgBookingConciergePhoneSafeResult["outcome"];
+  recommendedSlot: ConciergeSlot | null;
+  alternateSlots?: ConciergeSlot[];
+  selectedSlot?: ConciergeSlot | null;
+  timezone?: string;
+  bookingId?: string | null;
+  mirrorArtifactId?: string | null;
+  providerBookingUid?: string | null;
+  failureReason?: string | null;
+}): OrgBookingConciergePhoneSafeResult {
+  const recommendedSlot = args.recommendedSlot
+    ? toPhoneSafeSlotOption({
+        slot: args.recommendedSlot,
+        timezone: args.timezone,
+      })
+    : null;
+  const alternateSlots = (args.alternateSlots || []).map((slot) =>
+    toPhoneSafeSlotOption({
+      slot,
+      timezone: args.timezone,
+    }),
+  );
+  const selectedSlot = args.selectedSlot
+    ? toPhoneSafeSlotOption({
+        slot: args.selectedSlot,
+        timezone: args.timezone,
+      })
+    : null;
+  const previewLine = recommendedSlot
+    ? `The recommended slot is ${recommendedSlot.label}.`
+    : "I do not have a bookable live slot yet.";
+  const confirmQuestion = recommendedSlot
+    ? `Would you like me to book ${recommendedSlot.label}?`
+    : null;
+  const failureLine = normalizeOptionalString(args.failureReason)
+    ? `I could not complete the booking safely: ${normalizeOptionalString(args.failureReason)}.`
+    : "I could not complete the booking safely on this call.";
+
+  return {
+    contractVersion: ORG_BOOKING_CONCIERGE_PHONE_SAFE_CONTRACT_VERSION,
+    sourceChannel: "phone_call",
+    provider: "native_booking",
+    outcome: args.outcome,
+    confirmationRequired: true,
+    recommendedSlot,
+    alternateSlots,
+    selectedSlot,
+    fallbackOptions: buildPhoneSafeFallbackOptions(
+      normalizeOptionalString(args.failureReason) ||
+        "booking could not be completed during the live phone call",
+    ),
+    callerSafeConfirmation: {
+      previewLine,
+      confirmQuestion,
+      successLine:
+        args.outcome === "booking_confirmed" && selectedSlot
+          ? `Your booking is confirmed for ${selectedSlot.label}.`
+          : null,
+      failureLine: args.outcome === "blocked" ? failureLine : null,
+    },
+    bookingId: args.bookingId ?? null,
+    mirrorArtifactId: args.mirrorArtifactId ?? null,
+    providerBookingUid: args.providerBookingUid ?? null,
+  };
+}
+
+async function runPhoneCallNativeBookingConcierge(args: {
+  ctx: unknown;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  actionName: BookingConciergeToolAction;
+  mode: MeetingConciergeFlowMode;
+  stageState: MeetingConciergeStageState;
+  sourceContext: MeetingConciergeSourceContext;
+  resolvedName: string;
+  resolvedEmail?: string;
+  resolvedPhone?: string;
+  resolvedCompany?: string;
+  matchedContact?: {
+    _id: Id<"objects">;
+    name?: string;
+    customProperties?: unknown;
+  } | null;
+  matchedNormalizedContactId?: string | null;
+  updatedFields: string[];
+  resolvedFirstName: string;
+  resolvedLastName: string;
+  resolvedJobTitle?: string;
+  resourceId?: string;
+  meetingTitle: string;
+  meetingNotes?: string;
+  legalIntake?: NormalizedBookingConciergeLegalIntake | null;
+  meetingDurationMinutes: number;
+  schedulingWindowStart: string;
+  schedulingWindowEnd: string;
+  attendeeCalendarConnectionId?: string;
+  operatorCalendarConnectionId?: string;
+  timezone?: string;
+  selectedSlotStart?: string;
+  confirmationChannel?: string;
+  confirmationRecipient?: string;
+  conciergeIdempotencyKey?: string;
+  orgBookingConfig?: KanzleiBookingConciergeConfig | null;
+}) {
+  const timezone =
+    normalizeOptionalString(args.timezone) ||
+    normalizeOptionalString(args.orgBookingConfig?.timezone) ||
+    "Europe/Berlin";
+  const windowStartTs = Date.parse(args.schedulingWindowStart);
+  const windowEndTs = Date.parse(args.schedulingWindowEnd);
+  const resourceResolution = await resolveConciergeResource({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    resourceId: args.resourceId,
+    orgBookingConfig: args.orgBookingConfig,
+  });
+  if (!resourceResolution.resource) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_resource_unavailable",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: args.mode,
+      stageState: args.stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "No bookable resource available",
+      message:
+        resourceResolution.message ||
+        "No active bookable product found. Provide resourceId or configure a Kanzlei booking resource.",
+      data: {
+        requestedResourceId: resourceResolution.requestedResourceId || null,
+        configuredResourceId: resourceResolution.configuredResourceId || null,
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot: null,
+          alternateSlots: [],
+          timezone,
+          failureReason:
+            "no native booking resource is available for a safe phone booking preview",
+        }),
+      },
+    });
+  }
+  const resource = resourceResolution.resource;
+
+  let allSlots: Array<{ startDateTime?: number; endDateTime?: number }> = [];
+  try {
+    allSlots = await (args.ctx as any).runQuery(
+      generatedApi.internal.availabilityOntology.getAvailableSlotsInternal,
+      {
+        organizationId: args.organizationId,
+        resourceId: resource.id,
+        startDate: windowStartTs,
+        endDate: windowEndTs,
+        duration: args.meetingDurationMinutes,
+        timezone,
+      }
+    ) as Array<{ startDateTime?: number; endDateTime?: number }>;
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_lookup_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: args.mode,
+      stageState: args.stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "Slot lookup failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Native availability lookup failed before a safe phone booking preview could be returned.",
+      data: {
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot: null,
+          alternateSlots: [],
+          timezone,
+          failureReason:
+            "native availability could not be resolved",
+        }),
+      },
+    });
+  }
+
+  const normalizedSlots: ConciergeSlot[] = (allSlots || [])
+    .filter(
+      (slot): slot is { startDateTime: number; endDateTime: number } =>
+        typeof slot.startDateTime === "number" &&
+        typeof slot.endDateTime === "number"
+    )
+    .map((slot) => ({
+      startDateTime: slot.startDateTime,
+      endDateTime: slot.endDateTime,
+    }))
+    .sort((left, right) => left.startDateTime - right.startDateTime);
+
+  const connectionSnapshots: ConciergeConnectionSnapshot[] = [];
+  let filteredSlots = normalizedSlots;
+
+  const operatorConnectionId =
+    normalizeOptionalString(args.operatorCalendarConnectionId) ||
+    normalizeOptionalString(args.orgBookingConfig?.operatorCalendarConnectionId);
+  if (operatorConnectionId) {
+    const { snapshot, busyWindows } = await getConnectionBusyWindows({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      connectionId: operatorConnectionId,
+      startDateTime: windowStartTs,
+      endDateTime: windowEndTs,
+      source: "operator",
+    });
+    connectionSnapshots.push(snapshot);
+    if (snapshot.status === "resolved" && busyWindows.length > 0) {
+      filteredSlots = filteredSlots.filter((slot) =>
+        !busyWindows.some((busy) =>
+          rangesOverlap(
+            slot.startDateTime,
+            slot.endDateTime,
+            busy.startDateTime,
+            busy.endDateTime,
+          ),
+        ),
+      );
+    }
+  }
+
+  const attendeeConnectionId = normalizeOptionalString(
+    args.attendeeCalendarConnectionId,
+  );
+  if (attendeeConnectionId) {
+    const { snapshot, busyWindows } = await getConnectionBusyWindows({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      connectionId: attendeeConnectionId,
+      startDateTime: windowStartTs,
+      endDateTime: windowEndTs,
+      source: "attendee",
+    });
+    connectionSnapshots.push(snapshot);
+    if (snapshot.status === "resolved" && busyWindows.length > 0) {
+      filteredSlots = filteredSlots.filter((slot) =>
+        !busyWindows.some((busy) =>
+          rangesOverlap(
+            slot.startDateTime,
+            slot.endDateTime,
+            busy.startDateTime,
+            busy.endDateTime,
+          ),
+        ),
+      );
+    }
+  }
+
+  const liveSlots = filteredSlots;
+  const recommendedSlot = liveSlots[0] || null;
+  const alternateSlots = liveSlots.slice(1, 3);
+  if (!recommendedSlot) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "slot_parse",
+      status: "blocked",
+      outcomeCode: "slot_not_available",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: args.mode,
+      stageState: args.stageState,
+      terminalStage: "slot_parse",
+      terminalOutcome: "blocked",
+      error: "No shared slot found",
+      message:
+        "No native booking slot is currently available in the requested window. Offer callback capture or human escalation instead of promising a booking.",
+      data: {
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        totalSlotsBeforeConnectionFilters: normalizedSlots.length,
+        totalSlotsAfterConnectionFilters: filteredSlots.length,
+        connectionSnapshots,
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot: null,
+          alternateSlots: [],
+          timezone,
+          failureReason:
+            "no native booking slot is available in the requested window",
+        }),
+      },
+    });
+  }
+
+  setMeetingConciergeStageResult({
+    stageState: args.stageState,
+    stage: "slot_parse",
+    status: "success",
+    outcomeCode: "slot_selected_native_booking",
+  });
+
+  let contactId: Id<"objects"> | undefined = args.matchedContact?._id;
+  if (args.mode === "execute") {
+    if (args.matchedContact && args.updatedFields.length > 0) {
+      try {
+        await (args.ctx as any).runMutation(
+          generatedApi.internal.ai.tools.internalToolMutations.internalUpdateContact,
+          {
+            organizationId: args.organizationId,
+            userId: args.userId,
+            contactId: args.matchedContact._id,
+            email: args.resolvedEmail,
+            phone: args.resolvedPhone,
+            company: args.resolvedCompany,
+            jobTitle: args.resolvedJobTitle,
+          },
+        );
+      } catch (error) {
+        setMeetingConciergeStageResult({
+          stageState: args.stageState,
+          stage: "contact_capture",
+          status: "blocked",
+          outcomeCode: "contact_capture_update_failed",
+          failClosed: true,
+        });
+        return buildMeetingConciergeDemoResponse({
+          action: args.actionName,
+          success: false,
+          mode: args.mode,
+          stageState: args.stageState,
+          terminalStage: "contact_capture",
+          terminalOutcome: "blocked",
+          error: "Contact capture update failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Contact capture update failed before native booking execution.",
+          data: {
+            phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+              outcome: "blocked",
+              recommendedSlot,
+              alternateSlots,
+              timezone,
+              failureReason:
+                "the caller details could not be updated before booking",
+            }),
+          },
+        });
+      }
+    }
+
+    if (!args.matchedContact) {
+      try {
+        contactId = await (args.ctx as any).runMutation(
+          generatedApi.internal.ai.tools.internalToolMutations.internalCreateContact,
+          {
+            organizationId: args.organizationId,
+            userId: args.userId,
+            subtype: "customer",
+            firstName: args.resolvedFirstName,
+            lastName: args.resolvedLastName,
+            email: args.resolvedEmail,
+            phone: args.resolvedPhone,
+            company: args.resolvedCompany,
+            jobTitle: args.resolvedJobTitle,
+          },
+        ) as Id<"objects">;
+      } catch (error) {
+        setMeetingConciergeStageResult({
+          stageState: args.stageState,
+          stage: "contact_capture",
+          status: "blocked",
+          outcomeCode: "contact_capture_create_failed",
+          failClosed: true,
+        });
+        return buildMeetingConciergeDemoResponse({
+          action: args.actionName,
+          success: false,
+          mode: args.mode,
+          stageState: args.stageState,
+          terminalStage: "contact_capture",
+          terminalOutcome: "blocked",
+          error: "Contact capture create failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Contact capture creation failed before native booking execution.",
+          data: {
+            phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+              outcome: "blocked",
+              recommendedSlot,
+              alternateSlots,
+              timezone,
+              failureReason:
+                "the caller details could not be saved before booking",
+            }),
+          },
+        });
+      }
+    }
+
+    if (!contactId) {
+      setMeetingConciergeStageResult({
+        stageState: args.stageState,
+        stage: "contact_capture",
+        status: "blocked",
+        outcomeCode: "contact_capture_missing_contact_id",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        action: args.actionName,
+        success: false,
+        mode: args.mode,
+        stageState: args.stageState,
+          terminalStage: "contact_capture",
+          terminalOutcome: "blocked",
+          error: "Contact capture missing contact id",
+          message:
+          "Contact capture did not produce a contact identifier required for native booking execution.",
+        data: {
+          phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+            outcome: "blocked",
+            recommendedSlot,
+            alternateSlots,
+            timezone,
+            failureReason:
+              "the caller details are incomplete for a safe booking write",
+          }),
+        },
+      });
+    }
+  }
+
+  setMeetingConciergeStageResult({
+    stageState: args.stageState,
+    stage: "contact_capture",
+    status: "success",
+    outcomeCode:
+      args.mode === "preview"
+        ? args.matchedContact
+          ? args.updatedFields.length > 0
+            ? "contact_capture_preview_update_required"
+            : "contact_capture_preview_reuse"
+          : "contact_capture_preview_create_required"
+        : args.matchedContact
+          ? args.updatedFields.length > 0
+            ? "contact_capture_updated"
+            : "contact_capture_reused"
+          : "contact_capture_created",
+  });
+
+  if (args.mode === "preview") {
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: true,
+      mode: "preview",
+      stageState: args.stageState,
+      terminalStage: "contact_capture",
+      terminalOutcome: "success",
+      data: {
+        resource: resource
+          ? {
+              id: resource.id,
+              name: resource.name,
+              source: resource.source,
+            }
+          : null,
+        contact: {
+          id:
+            contactId
+              ? String(contactId)
+              : args.matchedNormalizedContactId ?? null,
+          name: args.resolvedName,
+          email: args.resolvedEmail,
+          phone: args.resolvedPhone,
+          company: args.resolvedCompany,
+        },
+        recommendedSlot: toPhoneSafeSlotOption({
+          slot: recommendedSlot,
+          timezone,
+        }),
+        alternateSlots: alternateSlots.map((slot) =>
+          toPhoneSafeSlotOption({
+            slot,
+            timezone,
+          }),
+        ),
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "preview_ready",
+          recommendedSlot,
+          alternateSlots,
+          timezone,
+        }),
+        connectionSnapshots,
+        totalSlotsBeforeConnectionFilters: normalizedSlots.length,
+        totalSlotsAfterConnectionFilters: filteredSlots.length,
+      },
+      message:
+        `Phone-safe preview ready. Recommended slot is ${formatMeetingWindowForMessage({
+          startDateTime: recommendedSlot.startDateTime,
+          endDateTime: recommendedSlot.endDateTime,
+          timezone,
+        })}.`,
+    });
+  }
+
+  const selectedSlotStart = normalizeOptionalString(args.selectedSlotStart);
+  if (!selectedSlotStart) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "booking",
+      status: "blocked",
+      outcomeCode: "booking_selected_slot_required",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: "execute",
+      stageState: args.stageState,
+      terminalStage: "booking",
+      terminalOutcome: "blocked",
+      error: "Selected slot required",
+      message:
+        "Phone-safe booking execute mode requires the confirmed native slot start time from the preview step before a real booking write can occur.",
+      data: {
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        recommendedSlot: toPhoneSafeSlotOption({
+          slot: recommendedSlot,
+          timezone,
+        }),
+        alternateSlots: alternateSlots.map((slot) =>
+          toPhoneSafeSlotOption({
+            slot,
+            timezone,
+          }),
+        ),
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot,
+          alternateSlots,
+          timezone,
+          failureReason:
+            "the caller has not explicitly confirmed which live slot should be booked",
+        }),
+      },
+    });
+  }
+
+  const selectedSlot = liveSlots.find(
+    (slot) => new Date(slot.startDateTime).toISOString() === selectedSlotStart,
+  );
+  if (!selectedSlot) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "booking",
+      status: "blocked",
+      outcomeCode: "booking_selected_slot_unavailable",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: "execute",
+      stageState: args.stageState,
+      terminalStage: "booking",
+      terminalOutcome: "blocked",
+      error: "Selected slot is no longer available",
+      message:
+        "The confirmed slot is no longer in native availability. Offer the new recommended slot or fall back to callback capture or human escalation.",
+      data: {
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        recommendedSlot: toPhoneSafeSlotOption({
+          slot: recommendedSlot,
+          timezone,
+        }),
+        alternateSlots: alternateSlots.map((slot) =>
+          toPhoneSafeSlotOption({
+            slot,
+            timezone,
+          }),
+        ),
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot,
+          alternateSlots,
+          timezone,
+          failureReason:
+            "the confirmed slot is no longer available live",
+        }),
+      },
+    });
+  }
+
+  let replayed = false;
+  let bookingId: Id<"objects"> | null = null;
+  let mirrorArtifactId: string | null = null;
+  const idempotencyKey = normalizeOptionalString(args.conciergeIdempotencyKey);
+
+  if (idempotencyKey) {
+    const existing = await (args.ctx as any).runQuery(
+      generatedApi.internal.bookingOntology.listBookingsInternal,
+      {
+        organizationId: args.organizationId,
+        subtype: "appointment",
+        startDate: selectedSlot.startDateTime - 24 * 60 * 60 * 1000,
+        endDate: selectedSlot.endDateTime + 24 * 60 * 60 * 1000,
+        limit: 200,
+      },
+    ) as {
+      bookings: Array<{
+        _id: Id<"objects">;
+        customProperties?: Record<string, unknown>;
+      }>;
+    };
+    const prior = (existing.bookings || []).find((booking) => {
+      const props = (booking.customProperties || {}) as Record<string, unknown>;
+      return normalizeOptionalString(props.conciergeIdempotencyKey) === idempotencyKey;
+    });
+    if (prior) {
+      bookingId = prior._id;
+      replayed = true;
+      const priorProps = (prior.customProperties || {}) as Record<string, unknown>;
+      mirrorArtifactId =
+        normalizeOptionalString(priorProps.phoneCallArtifactId) || null;
+    }
+  }
+
+  if (!bookingId) {
+    try {
+      const createBookingResult = await (args.ctx as any).runMutation(
+        generatedApi.internal.bookingOntology.createBookingInternal,
+        {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          subtype: "appointment",
+          startDateTime: selectedSlot.startDateTime,
+          endDateTime: selectedSlot.endDateTime,
+          timezone,
+          resourceIds: [resource.id],
+          customerId: contactId,
+          customerName: args.resolvedName,
+          customerEmail: args.resolvedEmail,
+          customerPhone: args.resolvedPhone,
+          participants: 2,
+          notes: [
+            args.meetingNotes,
+            `meetingTitle:${args.meetingTitle}`,
+            idempotencyKey ? `conciergeIdempotencyKey:${idempotencyKey}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          confirmationRequired: false,
+          isAdminBooking: true,
+        },
+      ) as { bookingId: Id<"objects"> };
+      bookingId = createBookingResult.bookingId;
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState: args.stageState,
+        stage: "booking",
+        status: "blocked",
+        outcomeCode: "booking_create_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        action: args.actionName,
+        success: false,
+        mode: "execute",
+        stageState: args.stageState,
+        terminalStage: "booking",
+        terminalOutcome: "blocked",
+        error: "Native booking create failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Native booking write failed. Offer callback capture or human escalation instead of claiming success.",
+        data: {
+          resource: {
+            id: resource.id,
+            name: resource.name,
+            source: resource.source,
+          },
+          selectedSlot: toPhoneSafeSlotOption({
+            slot: selectedSlot,
+            timezone,
+          }),
+          phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+            outcome: "blocked",
+            recommendedSlot,
+            alternateSlots,
+            selectedSlot,
+            timezone,
+            failureReason:
+              error instanceof Error
+                ? error.message
+                : "the native booking write failed during the live phone call",
+          }),
+        },
+      });
+    }
+
+  }
+
+  const bookingMetadataPatch = buildBookingConciergeMetadataPatch({
+    organizationId: args.organizationId,
+    bookingId: bookingId as Id<"objects">,
+    conciergeIdempotencyKey: idempotencyKey,
+    sourceContext: args.sourceContext,
+    legalIntake: args.legalIntake,
+  });
+  if (bookingMetadataPatch) {
+    try {
+      await (args.ctx as any).runMutation(
+        generatedApi.internal.bookingOntology.setBookingConciergeMetadataInternal,
+        bookingMetadataPatch,
+      );
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState: args.stageState,
+        stage: "booking",
+        status: "blocked",
+        outcomeCode: "booking_metadata_patch_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        action: args.actionName,
+        success: false,
+        mode: "execute",
+        stageState: args.stageState,
+        terminalStage: "booking",
+        terminalOutcome: "blocked",
+        error: "Booking metadata patch failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Native booking was created, but booking metadata patch failed.",
+        data: {
+          resource: {
+            id: resource.id,
+            name: resource.name,
+            source: resource.source,
+          },
+          selectedSlot: toPhoneSafeSlotOption({
+            slot: selectedSlot,
+            timezone,
+          }),
+          phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+            outcome: "blocked",
+            recommendedSlot,
+            alternateSlots,
+            selectedSlot,
+            timezone,
+            failureReason:
+              "the booking was created, but the platform could not persist booking metadata",
+          }),
+        },
+      });
+    }
+  }
+
+  let calendarPushResult: { success?: boolean; error?: string; pushCount?: number };
+  try {
+    calendarPushResult = await (args.ctx as any).runAction(
+      generatedApi.internal.calendarSyncOntology.pushBookingToCalendar,
+      {
+        bookingId,
+        organizationId: args.organizationId,
+      }
+    ) as { success?: boolean; error?: string; pushCount?: number };
+  } catch (error) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_calendar_push_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: "execute",
+      stageState: args.stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Calendar push failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Booking created but calendar push failed.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        selectedSlot: toPhoneSafeSlotOption({
+          slot: selectedSlot,
+          timezone,
+        }),
+        connectionSnapshots,
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot,
+          alternateSlots,
+          selectedSlot,
+          timezone,
+          bookingId: bookingId ? String(bookingId) : null,
+          failureReason:
+            "calendar reconciliation failed after the native booking write",
+        }),
+      },
+    });
+  }
+  if (calendarPushResult?.success !== true) {
+    setMeetingConciergeStageResult({
+      stageState: args.stageState,
+      stage: "invite",
+      status: "blocked",
+      outcomeCode: "invite_calendar_push_failed",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      action: args.actionName,
+      success: false,
+      mode: "execute",
+      stageState: args.stageState,
+      terminalStage: "invite",
+      terminalOutcome: "blocked",
+      error: "Calendar push failed",
+      message:
+        calendarPushResult?.error ||
+        "Booking created but calendar push did not report success.",
+      data: {
+        replayed,
+        bookingId: bookingId ? String(bookingId) : null,
+        resource: {
+          id: resource.id,
+          name: resource.name,
+          source: resource.source,
+        },
+        selectedSlot: toPhoneSafeSlotOption({
+          slot: selectedSlot,
+          timezone,
+        }),
+        connectionSnapshots,
+        calendarPush: {
+          success: false,
+          pushCount: calendarPushResult?.pushCount || 0,
+          error: calendarPushResult?.error,
+        },
+        phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+          outcome: "blocked",
+          recommendedSlot,
+          alternateSlots,
+          selectedSlot,
+          timezone,
+          bookingId: bookingId ? String(bookingId) : null,
+          failureReason:
+            calendarPushResult?.error ||
+            "calendar reconciliation failed after the native booking write",
+        }),
+      },
+    });
+  }
+
+  if (!mirrorArtifactId) {
+    try {
+      const mirrorResult = await (args.ctx as any).runMutation(
+        generatedApi.internal.bookingOntology.recordPhoneCallBookingMirrorInternal,
+        {
+          organizationId: args.organizationId,
+          bookingId,
+          providerId: "native_booking",
+          providerSource: "native_booking_engine",
+          sourceChannel: "phone_call",
+          externalContactIdentifier: args.sourceContext.externalContactIdentifier,
+          agentSessionId: args.sourceContext.agentSessionId,
+          agentId: args.sourceContext.agentId,
+          providerCallId: args.sourceContext.providerMessageId,
+          providerConversationId: args.sourceContext.providerConversationId,
+          personName: args.resolvedName,
+          personEmail: args.resolvedEmail,
+          personPhone: args.resolvedPhone,
+          timezone,
+          selectedSlotStart: new Date(selectedSlot.startDateTime).toISOString(),
+          selectedSlotEnd: new Date(selectedSlot.endDateTime).toISOString(),
+          confirmationChannel:
+            normalizeOptionalString(args.confirmationChannel) || "phone_call",
+          confirmationRecipient:
+            normalizeOptionalString(args.confirmationRecipient) ||
+            normalizeOptionalString(args.sourceContext.externalContactIdentifier) ||
+            args.resolvedPhone,
+          conciergeIdempotencyKey: idempotencyKey,
+          practiceArea: args.legalIntake?.practiceArea,
+          urgency: args.legalIntake?.urgency,
+          caseSummary: args.legalIntake?.caseSummary,
+          intakeCaptureMode: args.legalIntake?.intakeProvenance?.captureMode,
+        },
+      ) as { artifactId?: string | null };
+      mirrorArtifactId =
+        normalizeOptionalString(mirrorResult.artifactId) || null;
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState: args.stageState,
+        stage: "invite",
+        status: "blocked",
+        outcomeCode: "invite_phone_call_artifact_mirror_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        action: args.actionName,
+        success: false,
+        mode: "execute",
+        stageState: args.stageState,
+        terminalStage: "invite",
+        terminalOutcome: "blocked",
+        error: "Phone-call artifact mirror failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Native booking succeeded, but the phone-call booking artifact could not be persisted.",
+        data: {
+          booking: {
+            id: bookingId ? String(bookingId) : null,
+            title: args.meetingTitle,
+          },
+          selectedSlot: toPhoneSafeSlotOption({
+            slot: selectedSlot,
+            timezone,
+          }),
+          calendarPush: {
+            success: true,
+            pushCount: calendarPushResult?.pushCount || 0,
+            error: calendarPushResult?.error,
+          },
+          phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+            outcome: "blocked",
+            recommendedSlot,
+            alternateSlots,
+            selectedSlot,
+            timezone,
+            bookingId: bookingId ? String(bookingId) : null,
+            failureReason:
+              "the platform could not persist the phone-call booking artifact",
+          }),
+        },
+      });
+    }
+  }
+
+  const firmNotification = await sendKanzleiFirmNotificationEmail({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    outcome: "booking_confirmed",
+    bookingId,
+    artifactId: mirrorArtifactId,
+    meetingTitle: args.meetingTitle,
+    resourceName: resource.name,
+    contactName: args.resolvedName,
+    contactEmail: args.resolvedEmail,
+    contactPhone: args.resolvedPhone,
+    company: args.resolvedCompany,
+    timezone,
+  });
+
+  setMeetingConciergeStageResult({
+    stageState: args.stageState,
+    stage: "booking",
+    status: "success",
+    outcomeCode: replayed ? "booking_replayed" : "booking_created",
+  });
+  setMeetingConciergeStageResult({
+    stageState: args.stageState,
+    stage: "invite",
+    status: "success",
+    outcomeCode:
+      replayed
+        ? "invite_phone_call_confirmation_replayed"
+        : "invite_phone_call_confirmation_ready",
+  });
+
+  return buildMeetingConciergeDemoResponse({
+    action: args.actionName,
+    success: true,
+    mode: "execute",
+    stageState: args.stageState,
+    terminalStage: "invite",
+    terminalOutcome: "success",
+    data: {
+      replayed,
+      bookingEngine: {
+        kind: "native_booking",
+      },
+      resource: resource
+        ? {
+            id: resource.id,
+            name: resource.name,
+            source: resource.source,
+          }
+        : null,
+      contact: {
+        id:
+          contactId
+            ? String(contactId)
+            : args.matchedNormalizedContactId ?? null,
+        name: args.resolvedName,
+        email: args.resolvedEmail,
+        phone: args.resolvedPhone,
+        company: args.resolvedCompany,
+      },
+      booking: {
+        id: bookingId ? String(bookingId) : null,
+        title: args.meetingTitle,
+        startDateTime: new Date(selectedSlot.startDateTime).toISOString(),
+        endDateTime: new Date(selectedSlot.endDateTime).toISOString(),
+      },
+      calendarPush: {
+        success: calendarPushResult?.success === true,
+        pushCount: calendarPushResult?.pushCount || 0,
+        error: calendarPushResult?.error,
+      },
+      bookingArtifact: mirrorArtifactId
+        ? {
+            id: mirrorArtifactId,
+            type: "booking_phone_call_artifact",
+          }
+        : null,
+      firmNotification,
+      selectedSlot: toPhoneSafeSlotOption({
+        slot: selectedSlot,
+        timezone,
+      }),
+      connectionSnapshots,
+      phoneSafe: buildOrgBookingConciergePhoneSafeResult({
+        outcome: "booking_confirmed",
+        recommendedSlot,
+        alternateSlots,
+        selectedSlot,
+        timezone,
+        bookingId: bookingId ? String(bookingId) : null,
+        mirrorArtifactId,
+      }),
+    },
+    message:
+      `Booking confirmed for ${formatMeetingWindowForMessage({
+        startDateTime: selectedSlot.startDateTime,
+        endDateTime: selectedSlot.endDateTime,
+        timezone,
+      })}.`,
+  });
+}
+
 /**
  * Fast-path concierge flow for live glasses demo:
  * 1) CRM lookup/create/update, 2) overlap-aware slot pick, 3) booking create,
@@ -1787,11 +3795,15 @@ async function runMeetingConciergeDemo(
   organizationId: Id<"organizations">,
   userId: Id<"users">,
   args: {
+    action?: string;
     mode?: string;
     personName?: string;
     personEmail?: string;
     personPhone?: string;
     company?: string;
+    practiceArea?: string;
+    urgency?: string;
+    caseSummary?: string;
     meetingTitle?: string;
     meetingDurationMinutes?: number;
     schedulingWindowStart?: string;
@@ -1800,13 +3812,23 @@ async function runMeetingConciergeDemo(
     operatorCalendarConnectionId?: string;
     confirmationChannel?: string;
     confirmationRecipient?: string;
+    selectedSlotStart?: string;
     conciergeIdempotencyKey?: string;
     resourceId?: string;
     timezone?: string;
     notes?: string;
     jobTitle?: string;
+    channel?: string;
+    agentSessionId?: Id<"agentSessions">;
+    agentId?: Id<"objects">;
+    externalContactIdentifier?: string;
+    providerMessageId?: string;
+    providerConversationId?: string;
   }
 ) {
+  const actionName = isBookingConciergeToolAction(args.action)
+    ? args.action
+    : ORG_BOOKING_CONCIERGE_TOOL_ACTION;
   const mode: MeetingConciergeFlowMode =
     args.mode === "preview" ? "preview" : "execute";
   const stageState = createMeetingConciergeStageState(mode);
@@ -1821,6 +3843,7 @@ async function runMeetingConciergeDemo(
       failClosed: true,
     });
     return buildMeetingConciergeDemoResponse({
+      action: actionName,
       success: false,
       mode,
       stageState,
@@ -1848,8 +3871,15 @@ async function runMeetingConciergeDemo(
       ? Math.max(15, Math.min(180, Math.round(args.meetingDurationMinutes)))
       : 30;
 
+  const phoneCallIdentity =
+    normalizeOptionalString(args.channel) === "phone_call"
+      ? normalizeOptionalString(args.externalContactIdentifier)
+      : undefined;
+  const inputPhoneCandidate =
+    normalizeOptionalString(args.personPhone) || phoneCallIdentity;
   const lookupQuery =
     normalizeOptionalString(args.personEmail) ||
+    inputPhoneCandidate ||
     normalizeOptionalString(args.personName);
 
   let candidateContacts: Array<{
@@ -1899,6 +3929,7 @@ async function runMeetingConciergeDemo(
     contacts: candidateContacts || [],
     personName: args.personName,
     personEmail: args.personEmail,
+    personPhone: inputPhoneCandidate,
   });
   const matchedNormalized = matchedContact
     ? normalizeContactFromRecord(matchedContact)
@@ -1917,10 +3948,13 @@ async function runMeetingConciergeDemo(
     normalizeOptionalString(args.personName) ||
     normalizeOptionalString(matchedNormalized?.name) ||
     `${resolvedFirstName} ${resolvedLastName}`.trim();
+  const resolvedPhone =
+    inputPhoneCandidate || normalizeOptionalString(matchedNormalized?.phone);
   const resolvedEmail =
     normalizeOptionalString(args.personEmail) ||
     normalizeOptionalString(matchedNormalized?.email);
-  if (!resolvedEmail) {
+  const isPhoneCallChannel = normalizeOptionalString(args.channel) === "phone_call";
+  if (!resolvedEmail && !isPhoneCallChannel) {
     setMeetingConciergeStageResult({
       stageState,
       stage: "crm_lookup_create",
@@ -1944,9 +3978,30 @@ async function runMeetingConciergeDemo(
     });
   }
 
-  const resolvedPhone =
-    normalizeOptionalString(args.personPhone) ||
-    normalizeOptionalString(matchedNormalized?.phone);
+  if (!resolvedEmail && !resolvedPhone) {
+    setMeetingConciergeStageResult({
+      stageState,
+      stage: "crm_lookup_create",
+      status: "blocked",
+      outcomeCode: "crm_missing_phone_safe_identity",
+      failClosed: true,
+    });
+    return buildMeetingConciergeDemoResponse({
+      success: false,
+      mode,
+      stageState,
+      terminalStage: "crm_lookup_create",
+      terminalOutcome: "blocked",
+      error: "Missing caller contact identity",
+      message:
+        "Phone-call booking flow requires either attendee email or a caller phone number before CRM + booking flow can continue.",
+      data: {
+        contactLookupMatched: Boolean(matchedContact),
+        personName: resolvedName,
+      },
+    });
+  }
+
   const resolvedCompany =
     normalizeOptionalString(args.company) ||
     normalizeOptionalString(matchedNormalized?.company);
@@ -1996,12 +4051,86 @@ async function runMeetingConciergeDemo(
         : "crm_contact_create_required",
   });
 
-  const resource = await resolveConciergeResource({
+  const orgBookingConfig = await getKanzleiBookingConciergeConfig({
+    ctx,
+    organizationId,
+  });
+  const resolvedTimezone =
+    normalizeOptionalString(args.timezone) ||
+    normalizeOptionalString(orgBookingConfig?.timezone) ||
+    undefined;
+  const meetingTitle =
+    normalizeOptionalString(args.meetingTitle) ||
+    normalizeOptionalString(orgBookingConfig?.defaultMeetingTitle) ||
+    (orgBookingConfig
+      ? `${
+          normalizeOptionalString(orgBookingConfig.intakeLabel) ||
+          "Erstberatung"
+        } - ${resolvedName}`
+      : `Meeting with ${resolvedName}`);
+  const meetingNotes = normalizeOptionalString(args.notes);
+  const sourceContext: MeetingConciergeSourceContext = {
+    channel: normalizeOptionalString(args.channel),
+    agentSessionId: args.agentSessionId,
+    agentId: args.agentId,
+    externalContactIdentifier: normalizeOptionalString(
+      args.externalContactIdentifier,
+    ),
+    providerMessageId: normalizeOptionalString(args.providerMessageId),
+    providerConversationId: normalizeOptionalString(
+      args.providerConversationId,
+    ),
+  };
+  const legalIntake = normalizeBookingConciergeLegalIntake({
+    practiceArea: args.practiceArea,
+    urgency: args.urgency,
+    caseSummary: args.caseSummary,
+    sourceContext,
+  });
+  if (sourceContext.channel === "phone_call") {
+    return await runPhoneCallNativeBookingConcierge({
+      ctx,
+      organizationId,
+      userId,
+      actionName,
+      mode,
+      stageState,
+      sourceContext,
+      resolvedName,
+      resolvedEmail,
+      resolvedPhone,
+      resolvedCompany,
+      matchedContact,
+      matchedNormalizedContactId: matchedNormalized?.id || null,
+      updatedFields,
+      resolvedFirstName,
+      resolvedLastName,
+      resolvedJobTitle,
+      resourceId: args.resourceId,
+      meetingTitle,
+      meetingNotes,
+      legalIntake,
+      meetingDurationMinutes: durationMinutes,
+      schedulingWindowStart: args.schedulingWindowStart!,
+      schedulingWindowEnd: args.schedulingWindowEnd!,
+      attendeeCalendarConnectionId: args.attendeeCalendarConnectionId,
+      operatorCalendarConnectionId: args.operatorCalendarConnectionId,
+      timezone: resolvedTimezone,
+      selectedSlotStart: args.selectedSlotStart,
+      confirmationChannel: args.confirmationChannel,
+      confirmationRecipient: args.confirmationRecipient,
+      conciergeIdempotencyKey: args.conciergeIdempotencyKey,
+      orgBookingConfig,
+    });
+  }
+
+  const resourceResolution = await resolveConciergeResource({
     ctx,
     organizationId,
     resourceId: args.resourceId,
+    orgBookingConfig,
   });
-  if (!resource) {
+  if (!resourceResolution.resource) {
     setMeetingConciergeStageResult({
       stageState,
       stage: "slot_parse",
@@ -2017,14 +4146,15 @@ async function runMeetingConciergeDemo(
       terminalOutcome: "blocked",
       error: "No bookable resource available",
       message:
-        args.resourceId
-          ? `Resource ${args.resourceId} is unavailable or inaccessible.`
-          : "No active bookable product found. Provide resourceId or activate a bookable product.",
+        resourceResolution.message ||
+        "No active bookable product found. Provide resourceId or configure a Kanzlei booking resource.",
       data: {
-        requestedResourceId: args.resourceId || null,
+        requestedResourceId: resourceResolution.requestedResourceId || null,
+        configuredResourceId: resourceResolution.configuredResourceId || null,
       },
     });
   }
+  const resource = resourceResolution.resource;
 
   let allSlots: Array<{ startDateTime?: number; endDateTime?: number }> = [];
   try {
@@ -2036,7 +4166,7 @@ async function runMeetingConciergeDemo(
         startDate: windowStartTs,
         endDate: windowEndTs,
         duration: durationMinutes,
-        timezone: normalizeOptionalString(args.timezone),
+        timezone: resolvedTimezone,
       }
     ) as Array<{ startDateTime?: number; endDateTime?: number }>;
   } catch (error) {
@@ -2083,7 +4213,9 @@ async function runMeetingConciergeDemo(
   const connectionSnapshots: ConciergeConnectionSnapshot[] = [];
   let filteredSlots = normalizedSlots;
 
-  const operatorConnectionId = normalizeOptionalString(args.operatorCalendarConnectionId);
+  const operatorConnectionId =
+    normalizeOptionalString(args.operatorCalendarConnectionId) ||
+    normalizeOptionalString(orgBookingConfig?.operatorCalendarConnectionId);
   if (operatorConnectionId) {
     const { snapshot, busyWindows } = await getConnectionBusyWindows({
       ctx,
@@ -2166,14 +4298,10 @@ async function runMeetingConciergeDemo(
     outcomeCode: "slot_selected",
   });
 
-  const meetingTitle =
-    normalizeOptionalString(args.meetingTitle) ||
-    `Meeting with ${resolvedName}`;
-  const meetingNotes = normalizeOptionalString(args.notes);
   const slotLabel = formatMeetingWindowForMessage({
     startDateTime: selectedSlot.startDateTime,
     endDateTime: selectedSlot.endDateTime,
-    timezone: args.timezone,
+    timezone: resolvedTimezone,
   });
 
   let contactId: Id<"objects"> | undefined = matchedContact?._id;
@@ -2407,6 +4535,7 @@ async function runMeetingConciergeDemo(
           subtype: "appointment",
           startDateTime: selectedSlot.startDateTime,
           endDateTime: selectedSlot.endDateTime,
+          timezone: resolvedTimezone,
           resourceIds: [resource.id],
           customerId: contactId,
           customerName: resolvedName,
@@ -2453,53 +4582,45 @@ async function runMeetingConciergeDemo(
       });
     }
 
-    if (idempotencyKey) {
-      try {
-        const booking = await (ctx as any).runQuery(
-          generatedApi.internal.bookingOntology.getBookingInternal,
-          {
-            bookingId,
-            organizationId,
-          }
-        ) as { customProperties?: Record<string, unknown> } | null;
-        if (booking) {
-          await (ctx as any).runMutation(
-            generatedApi.internal.channels.router.patchObjectInternal,
-            {
-              objectId: bookingId,
-              customProperties: {
-                ...(booking.customProperties || {}),
-                conciergeIdempotencyKey: idempotencyKey,
-              },
-              updatedAt: Date.now(),
-            }
-          );
+  }
+
+  const bookingMetadataPatch = buildBookingConciergeMetadataPatch({
+    organizationId,
+    bookingId: bookingId as Id<"objects">,
+    conciergeIdempotencyKey: idempotencyKey,
+    sourceContext,
+    legalIntake,
+  });
+  if (bookingMetadataPatch) {
+    try {
+      await (ctx as any).runMutation(
+        generatedApi.internal.bookingOntology.setBookingConciergeMetadataInternal,
+        bookingMetadataPatch,
+      );
+    } catch (error) {
+      setMeetingConciergeStageResult({
+        stageState,
+        stage: "booking",
+        status: "blocked",
+        outcomeCode: "booking_metadata_patch_failed",
+        failClosed: true,
+      });
+      return buildMeetingConciergeDemoResponse({
+        success: false,
+        mode: "execute",
+        stageState,
+        terminalStage: "booking",
+        terminalOutcome: "blocked",
+        error: "Booking metadata patch failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Booking created but metadata patch failed.",
+        data: {
+          bookingId: bookingId ? String(bookingId) : null,
+          conciergeIdempotencyKey: idempotencyKey,
         }
-      } catch (error) {
-        setMeetingConciergeStageResult({
-          stageState,
-          stage: "booking",
-          status: "blocked",
-          outcomeCode: "booking_idempotency_patch_failed",
-          failClosed: true,
-        });
-        return buildMeetingConciergeDemoResponse({
-          success: false,
-          mode: "execute",
-          stageState,
-          terminalStage: "booking",
-          terminalOutcome: "blocked",
-          error: "Booking idempotency patch failed",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Booking created but idempotency patch failed.",
-          data: {
-            bookingId: bookingId ? String(bookingId) : null,
-            conciergeIdempotencyKey: idempotencyKey,
-          }
-        });
-      }
+      });
     }
   }
   setMeetingConciergeStageResult({

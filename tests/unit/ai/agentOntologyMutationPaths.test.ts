@@ -6,11 +6,13 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 }));
 
 import {
+  applyAgentFieldPatch,
   createAgentTemplate,
   createAgentTemplateVersionSnapshot,
   getTemplateCloneDriftReport,
   listTemplateDistributionTelemetry,
   listTemplateCloneInventory,
+  previewAgentFieldPatch,
   distributeAgentTemplateToOrganizations,
   deprecateAgentTemplateLifecycle,
   publishAgentTemplateVersion,
@@ -19,6 +21,10 @@ import {
   updateAgent,
 } from "../../../convex/agentOntology";
 import { getUserContext, requireAuthenticatedUser } from "../../../convex/rbacHelpers";
+import {
+  createAnneBeckerTelephonyConfigSeed,
+  normalizeAgentTelephonyConfig,
+} from "../../../src/lib/telephony/agent-telephony";
 
 type FakeRow = Record<string, any> & { _id: string };
 
@@ -698,6 +704,243 @@ describe("agentOntology mutation paths: updateAgent", () => {
     expect(gateAudit?.success).toBe(true);
     expect(gateAudit?.metadata?.freeFields).toEqual(["toolProfile"]);
   });
+
+  it("previews telephonyConfig as a supported patch and preserves runtime sync metadata", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    const currentTelephonyConfig = normalizeAgentTelephonyConfig({
+      ...createAnneBeckerTelephonyConfigSeed(),
+      elevenlabs: {
+        ...createAnneBeckerTelephonyConfigSeed().elevenlabs,
+        remoteAgentId: "agent_live_123",
+        syncState: {
+          status: "success",
+          lastSyncedAt: 1_700_000_000_000,
+          lastSyncedProviderAgentId: "agent_live_123",
+        },
+      },
+    });
+    seedAgent(db, {
+      _id: "objects_primary_preview",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: true,
+        displayName: "Current Operator",
+        systemPrompt: "Current prompt",
+        telephonyConfig: currentTelephonyConfig,
+      },
+    });
+
+    const preview = await (previewAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_preview",
+      patch: {
+        systemPrompt: "Updated from chat",
+        telephonyConfig: {
+          elevenlabs: {
+            systemPrompt: "Telephony prompt from chat",
+            firstMessage: "Guten Tag, hier ist Anne.",
+          },
+        },
+      },
+    });
+
+    expect(preview.summary.canApply).toBe(true);
+    expect(preview.changedFields).toEqual(["systemPrompt", "telephonyConfig"]);
+    expect(preview.deferredFields).toEqual([]);
+    expect(
+      preview.changes.find((change: any) => change.field === "systemPrompt")?.applyStatus,
+    ).toBe("ready");
+    const telephonyChange = preview.changes.find(
+      (change: any) => change.field === "telephonyConfig",
+    );
+    expect(telephonyChange?.applyStatus).toBe("ready");
+    expect(telephonyChange?.after?.elevenlabs?.systemPrompt).toBe(
+      "Telephony prompt from chat",
+    );
+    expect(preview.normalizedUpdates.telephonyConfig?.elevenlabs?.remoteAgentId).toBe(
+      "agent_live_123",
+    );
+    expect(
+      preview.normalizedUpdates.telephonyConfig?.elevenlabs?.syncState
+        ?.lastSyncedProviderAgentId,
+    ).toBe("agent_live_123");
+  });
+
+  it("applies supported field patches through the sanctioned updateAgent surface", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    seedAgent(db, {
+      _id: "objects_primary_apply",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: true,
+        displayName: "Before",
+        blockedTopics: ["billing"],
+        channelBindings: [{ channel: "webchat", enabled: true }],
+      },
+    });
+
+    const result = await (applyAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_apply",
+      patch: {
+        displayName: "After",
+        blockedTopics: ["finance", "billing", "finance"],
+        channelBindings: [
+          { channel: "webchat", enabled: true },
+          { channel: "desktop", enabled: false },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.appliedFields).toEqual([
+      "displayName",
+      "blockedTopics",
+      "channelBindings",
+    ]);
+
+    const updated = db.rows("objects").find((row) => row._id === "objects_primary_apply");
+    expect(updated?.customProperties?.displayName).toBe("After");
+    expect(updated?.customProperties?.blockedTopics).toEqual(["billing", "finance"]);
+    expect(updated?.customProperties?.channelBindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ channel: "desktop", enabled: false }),
+        expect.objectContaining({ channel: "webchat", enabled: true }),
+      ]),
+    );
+
+    const updatedAction = db.rows("objectActions").find((row) => row.actionType === "updated");
+    expect(updatedAction?.actionData?.updatedFields).toEqual([
+      "blockedTopics",
+      "channelBindings",
+      "displayName",
+    ]);
+  });
+
+  it("applies telephonyConfig patches through the sanctioned updateAgent surface without dropping sync state", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    const currentTelephonyConfig = normalizeAgentTelephonyConfig({
+      ...createAnneBeckerTelephonyConfigSeed(),
+      elevenlabs: {
+        ...createAnneBeckerTelephonyConfigSeed().elevenlabs,
+        remoteAgentId: "agent_live_456",
+        syncState: {
+          status: "success",
+          lastSyncedAt: 1_700_000_000_500,
+          lastSyncedProviderAgentId: "agent_live_456",
+        },
+      },
+    });
+    seedAgent(db, {
+      _id: "objects_primary_apply_telephony",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: true,
+        telephonyConfig: currentTelephonyConfig,
+      },
+    });
+
+    const result = await (applyAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_apply_telephony",
+      patch: {
+        telephonyConfig: {
+          elevenlabs: {
+            systemPrompt: "Updated telephony prompt",
+            firstMessage: "Willkommen bei FoundBrand.",
+          },
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.appliedFields).toEqual(["telephonyConfig"]);
+
+    const updated = db.rows("objects").find(
+      (row) => row._id === "objects_primary_apply_telephony",
+    );
+    expect(updated?.customProperties?.telephonyConfig?.elevenlabs?.systemPrompt).toBe(
+      "Updated telephony prompt",
+    );
+    expect(updated?.customProperties?.telephonyConfig?.elevenlabs?.firstMessage).toBe(
+      "Willkommen bei FoundBrand.",
+    );
+    expect(updated?.customProperties?.telephonyConfig?.elevenlabs?.remoteAgentId).toBe(
+      "agent_live_456",
+    );
+    expect(
+      updated?.customProperties?.telephonyConfig?.elevenlabs?.syncState
+        ?.lastSyncedProviderAgentId,
+    ).toBe("agent_live_456");
+
+    const updatedAction = db.rows("objectActions").find(
+      (row) =>
+        row.objectId === "objects_primary_apply_telephony"
+        && row.actionType === "updated",
+    );
+    expect(updatedAction?.actionData?.updatedFields).toEqual(["telephonyConfig"]);
+  });
+
+  it("keeps warn-gated field patches blocked until explicit override confirmation is provided", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    seedAgent(db, {
+      _id: "objects_warn_patch",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: false,
+        templateAgentId: "objects_template_warn_patch",
+        templateVersion: "v4",
+        cloneLifecycle: MANAGED_CLONE_LIFECYCLE,
+        systemPrompt: "Current prompt",
+        templateCloneLinkage: {
+          contractVersion: "ath_template_clone_linkage_v1",
+          sourceTemplateId: "objects_template_warn_patch",
+          sourceTemplateVersion: "v4",
+          cloneLifecycleState: "managed_in_sync",
+          overridePolicy: {
+            mode: "warn",
+            fields: {
+              systemPrompt: { mode: "warn" },
+            },
+          },
+        },
+      },
+    });
+
+    const blockedResult = await (applyAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_warn_patch",
+      patch: {
+        systemPrompt: "Proposed override",
+      },
+    });
+
+    expect(blockedResult.success).toBe(false);
+    expect(blockedResult.preview.summary.canApply).toBe(false);
+    expect(blockedResult.preview.overrideGate?.decision).toBe(
+      "blocked_warn_confirmation_required",
+    );
+
+    const allowedResult = await (applyAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_warn_patch",
+      patch: {
+        systemPrompt: "Confirmed override",
+      },
+      overridePolicyGate: {
+        confirmWarnOverride: true,
+        reason: "Org-specific operator instructions",
+      },
+    });
+
+    expect(allowedResult.success).toBe(true);
+    const updated = db.rows("objects").find((row) => row._id === "objects_warn_patch");
+    expect(updated?.customProperties?.systemPrompt).toBe("Confirmed override");
+  });
 });
 
 describe("agentOntology mutation paths: template lifecycle (ATH-004)", () => {
@@ -1133,6 +1376,199 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
       );
       expect(org4Clones).toHaveLength(1);
       expect(org4Clones[0]?.customProperties?.templateVersion).toBe("rollout_v1");
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("includes deployable telephony config in drift/apply while preserving clone runtime provider state", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+
+    getUserContextMock.mockResolvedValue({
+      userId: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      isGlobal: true,
+      roleName: "super_admin",
+    } as any);
+
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_505_000_000);
+    try {
+      const templateTelephonyConfig = normalizeAgentTelephonyConfig({
+        ...createAnneBeckerTelephonyConfigSeed(),
+        elevenlabs: {
+          ...createAnneBeckerTelephonyConfigSeed().elevenlabs,
+          remoteAgentId: "agent_template_platform",
+          transferDestinations: [
+            {
+              label: "Marcus",
+              phoneNumber: "+4930123456",
+              condition: "When the caller explicitly asks for Marcus.",
+              enabled: true,
+              transferType: "conference",
+            },
+          ],
+          syncState: {
+            status: "success",
+            lastSyncedAt: 1_700_500_000_000,
+            lastSyncedProviderAgentId: "agent_template_platform",
+          },
+        },
+      });
+
+      db.seed("objects", {
+        _id: "objects_telephony_template",
+        organizationId: ORG_ID,
+        type: "org_agent",
+        subtype: "customer_support",
+        name: "Anne Telephony Template",
+        description: "Telephony template",
+        status: "template",
+        createdAt: 1_700_500_000_000,
+        updatedAt: 1_700_500_000_000,
+        customProperties: {
+          templateRole: "customer_telephony_anne_becker_template",
+          protected: true,
+          telephonyConfig: templateTelephonyConfig,
+        },
+      } as any);
+
+      const snapshot = await (createAgentTemplateVersionSnapshot as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SESSION_ID,
+          templateId: "objects_telephony_template",
+          versionTag: "telephony_rollout_v1",
+        },
+      );
+      seedWaeGateArtifact(db, {
+        templateId: "objects_telephony_template",
+        templateVersionId: snapshot.templateVersionId,
+        templateVersionTag: "telephony_rollout_v1",
+        recordedAt: 1_700_505_000_000,
+      });
+
+      const cloneTelephonyConfig = normalizeAgentTelephonyConfig({
+        ...createAnneBeckerTelephonyConfigSeed(),
+        elevenlabs: {
+          ...createAnneBeckerTelephonyConfigSeed().elevenlabs,
+          remoteAgentId: "agent_clone_remote",
+          systemPrompt: "Outdated prompt",
+          transferDestinations: [
+            {
+              label: "Back Office",
+              phoneNumber: "+4930987654",
+              condition: "When the caller asks for back office.",
+              enabled: true,
+              transferType: "conference",
+            },
+          ],
+          syncState: {
+            status: "success",
+            lastSyncedAt: 1_700_504_000_000,
+            lastSyncedProviderAgentId: "agent_clone_remote",
+          },
+        },
+      });
+
+      seedAgent(db, {
+        _id: "objects_clone_telephony",
+        organizationId: "organizations_14",
+        customProperties: {
+          templateAgentId: "objects_telephony_template",
+          templateVersion: "telephony_rollout_v0",
+          cloneLifecycle: MANAGED_CLONE_LIFECYCLE,
+          telephonyConfig: cloneTelephonyConfig,
+          templateCloneLinkage: {
+            contractVersion: "ath_template_clone_linkage_v1",
+            sourceTemplateId: "objects_telephony_template",
+            sourceTemplateVersion: "telephony_rollout_v0",
+            cloneLifecycleState: "managed_in_sync",
+            overridePolicy: { mode: "free" },
+          },
+        },
+      });
+
+      const dryRun = await (distributeAgentTemplateToOrganizations as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SESSION_ID,
+          templateId: "objects_telephony_template",
+          templateVersionId: snapshot.templateVersionId,
+          targetOrganizationIds: ["organizations_14"],
+          dryRun: true,
+        },
+      );
+
+      expect(dryRun.plan[0]?.changedFields).toEqual(
+        expect.arrayContaining(["telephonyConfig"]),
+      );
+      expect(dryRun.plan[0]?.writableTemplateFields).toEqual(
+        expect.arrayContaining(["telephonyConfig"]),
+      );
+
+      const drift = await (getTemplateCloneDriftReport as any)._handler(createCtx(db), {
+        sessionId: SESSION_ID,
+        templateId: "objects_telephony_template",
+        templateVersionId: snapshot.templateVersionId,
+        targetOrganizationIds: ["organizations_14"],
+      });
+
+      expect(drift.fields).toContain("telephonyConfig");
+      expect(drift.targets[0]?.diff?.map((entry: any) => entry.field)).toContain(
+        "telephonyConfig",
+      );
+
+      const applied = await (distributeAgentTemplateToOrganizations as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SESSION_ID,
+          templateId: "objects_telephony_template",
+          templateVersionId: snapshot.templateVersionId,
+          targetOrganizationIds: ["organizations_14"],
+          dryRun: false,
+        },
+      );
+
+      expect(applied.summary.applied.updates).toBe(1);
+
+      const updatedClone = db.rows("objects").find(
+        (row) => row._id === "objects_clone_telephony",
+      );
+      expect(updatedClone?.customProperties?.telephonyConfig?.elevenlabs?.systemPrompt).toBe(
+        templateTelephonyConfig.elevenlabs.systemPrompt,
+      );
+      expect(
+        updatedClone?.customProperties?.telephonyConfig?.elevenlabs?.transferDestinations,
+      ).toEqual([
+        {
+          label: "Marcus",
+          phoneNumber: "+4930123456",
+          condition: "When the caller explicitly asks for Marcus.",
+          enabled: true,
+          transferType: "conference",
+        },
+      ]);
+      expect(
+        updatedClone?.customProperties?.telephonyConfig?.elevenlabs?.managedTools
+          ?.transfer_to_number?.params?.transfers,
+      ).toEqual([
+        {
+          transfer_destination: {
+            type: "phone",
+            phone_number: "+4930123456",
+          },
+          condition: "When the caller explicitly asks for Marcus.",
+          transfer_type: "conference",
+        },
+      ]);
+      expect(
+        updatedClone?.customProperties?.telephonyConfig?.elevenlabs?.remoteAgentId,
+      ).toBe("agent_clone_remote");
+      expect(
+        updatedClone?.customProperties?.telephonyConfig?.elevenlabs?.syncState
+          ?.lastSyncedProviderAgentId,
+      ).toBe("agent_clone_remote");
     } finally {
       nowSpy.mockRestore();
     }
@@ -1796,6 +2232,7 @@ describe("agentOntology query paths: template drift report (ATH-006)", () => {
         "modelId",
         "systemPrompt",
         "channelBindings",
+        "telephonyConfig",
       ]);
       expect(result.targets.map((row: any) => row.organizationId)).toEqual([
         "organizations_8",

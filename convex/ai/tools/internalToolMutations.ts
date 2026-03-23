@@ -1004,7 +1004,7 @@ export const internalCreateContact = internalMutation({
     subtype: v.string(),
     firstName: v.string(),
     lastName: v.string(),
-    email: v.string(),
+    email: v.optional(v.string()),
     phone: v.optional(v.string()),
     jobTitle: v.optional(v.string()),
     company: v.optional(v.string()),
@@ -2229,13 +2229,18 @@ export const internalSearchContacts = internalQuery({
       console.log(`[Search Contacts] Sample contact IDs:`, contacts.slice(0, 3).map(c => ({ id: c._id, name: c.name })));
     }
 
-    // Filter by search query (name or email match)
+    // Filter by search query (name, email, or phone match)
     if (args.searchQuery) {
       const searchLower = args.searchQuery.toLowerCase();
       contacts = contacts.filter(contact => {
         const email = (contact.customProperties as any)?.email?.toLowerCase() || "";
+        const phone = (contact.customProperties as any)?.phone?.toLowerCase() || "";
         const name = contact.name.toLowerCase();
-        return name.includes(searchLower) || email.includes(searchLower);
+        return (
+          name.includes(searchLower) ||
+          email.includes(searchLower) ||
+          phone.includes(searchLower)
+        );
       });
       console.log(`[Search Contacts] After search filter: ${contacts.length} contacts match "${args.searchQuery}"`);
     }

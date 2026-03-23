@@ -778,6 +778,7 @@ async function resolveVoiceRuntimeSessionContext(
       userId: auth.userId,
       conversationId,
       forcePrimaryAgent: true,
+      clientSurface: "operator_mobile",
     }
   ) as {
     conversationId: Id<"aiConversations">;
@@ -1086,10 +1087,10 @@ export const sendMessage = httpAction(async (ctx, request) => {
       }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
       {
         organizationId: auth.organizationId,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 
@@ -1124,6 +1125,7 @@ export const sendMessage = httpAction(async (ctx, request) => {
         geminiLive: parsedGeminiLive,
         attachments: parsedAttachments,
         forcePrimaryAgent: true,
+        clientSurface: "operator_mobile",
       });
 
     let result;
@@ -1144,10 +1146,10 @@ export const sendMessage = httpAction(async (ctx, request) => {
             channel: "desktop",
           };
       await (ctx as any).runMutation(
-        generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+        generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
         {
           organizationId: auth.organizationId,
-          channel: "desktop",
+          appSurface: "operator_mobile",
           routeSelectors,
         }
       );
@@ -2718,10 +2720,10 @@ export const switchOrganization = httpAction(async (ctx, request) => {
       }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
       {
         organizationId: organizationId as Id<"organizations">,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 

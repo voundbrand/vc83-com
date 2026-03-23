@@ -61,7 +61,7 @@ LOGIC NODE TYPES:
 Each node needs: { id, type, label, config, position: { x, y } }
 Each edge needs: { id, source, target }
 
-Returns the workflowId for use with link_objects and activate_workflow.`,
+Returns the workflowId for reuse as layered context. If attachToAgentId is provided, the workflow is linked directly to that agent after creation.`,
   status: "ready",
   parameters: {
     type: "object",
@@ -119,6 +119,10 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
           },
         },
       },
+      attachToAgentId: {
+        type: "string",
+        description: "Optional org_agent ID. When provided, the workflow is attached to that agent as reusable layered context after creation.",
+      },
     },
     required: ["name", "nodes", "edges"],
   },
@@ -141,6 +145,7 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
       type: string;
       config?: Record<string, unknown>;
     }>;
+    attachToAgentId?: string;
   }) => {
     if (!ctx.sessionId) {
       return {
@@ -150,6 +155,22 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
     }
 
     try {
+      if (args.attachToAgentId) {
+        const agent = await (ctx as any).runQuery(
+          generatedApi.api.agentOntology.getAgent,
+          {
+            sessionId: ctx.sessionId,
+            agentId: args.attachToAgentId as Id<"objects">,
+          }
+        );
+        if (!agent) {
+          return {
+            success: false,
+            error: "Target agent not found for workflow attachment",
+          };
+        }
+      }
+
       // Step 1: Create empty workflow
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const workflowId = await (ctx as any).runMutation(
@@ -183,6 +204,19 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
         }
       );
 
+      let attachedToAgentId: string | undefined;
+      if (args.attachToAgentId) {
+        await (ctx as any).runMutation(
+          generatedApi.api.agentOntology.attachLayeredContextWorkflow,
+          {
+            sessionId: ctx.sessionId,
+            agentId: args.attachToAgentId as Id<"objects">,
+            workflowId: workflowId as Id<"objects">,
+          }
+        );
+        attachedToAgentId = args.attachToAgentId;
+      }
+
       return {
         success: true,
         workflowId,
@@ -191,9 +225,14 @@ Returns the workflowId for use with link_objects and activate_workflow.`,
         edgeCount: args.edges.length,
         triggerCount: (args.triggers || []).length,
         status: "draft",
-        message: `Created Layers workflow "${args.name}" with ${args.nodes.length} nodes. Use link_objects to connect to forms/sequences, then activate_workflow to go live.`,
+        attachedToAgentId,
+        message: attachedToAgentId
+          ? `Created Layers workflow "${args.name}" with ${args.nodes.length} nodes and attached it to agent ${attachedToAgentId}.`
+          : `Created Layers workflow "${args.name}" with ${args.nodes.length} nodes. Use the agent layered context panel to attach it, then activate_workflow to go live.`,
         nextSteps: [
-          "Use link_objects to connect this workflow to forms, sequences, or products",
+          attachedToAgentId
+            ? "The linked agent can now use this workflow as layered context during runtime."
+            : "Attach this workflow to an agent from the Layers panel or agent detail view.",
           "Use enable_workflow to activate when ready",
         ],
       };

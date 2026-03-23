@@ -299,6 +299,182 @@ function toConnectedNodeSurface(
   };
 }
 
+type LayerWorkflowRecord = {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  name: string;
+  status: string;
+  updatedAt: number;
+  customProperties?: unknown;
+};
+
+async function buildLayeredContextBundleForWorkflow(args: {
+  ctx: { db: any };
+  workflow: LayerWorkflowRecord;
+  organizationId: Id<"organizations">;
+  recentExecutionLimit?: number;
+}): Promise<LayeredContextBundle> {
+  const { ctx, workflow, organizationId } = args;
+  const rawWorkflowData = isRecord(workflow.customProperties) ? workflow.customProperties : {};
+  const rawNodes = Array.isArray(rawWorkflowData.nodes) ? rawWorkflowData.nodes : [];
+  const rawEdges = Array.isArray(rawWorkflowData.edges) ? rawWorkflowData.edges : [];
+  const rawMetadata = isRecord(rawWorkflowData.metadata) ? rawWorkflowData.metadata : {};
+
+  const nodes = rawNodes.filter(isRecord);
+  const edges = rawEdges.filter(isRecord);
+
+  const aiChatNode = nodes.find((node) => node.type === LAYERED_CONTEXT_CHAT_NODE_TYPE);
+  const aiChatNodeId = typeof aiChatNode?.id === "string" ? aiChatNode.id : undefined;
+  const aiChatConfig = isRecord(aiChatNode?.config) ? aiChatNode.config : undefined;
+
+  const recentExecutionLimit = Math.max(1, Math.min(args.recentExecutionLimit ?? 8, 25));
+  const recentExecutionRows = await ctx.db
+    .query("layerExecutions")
+    .withIndex("by_workflow", (q: any) => q.eq("workflowId", workflow._id))
+    .order("desc")
+    .take(recentExecutionLimit * 3);
+
+  const recentExecutions: LayeredContextRecentExecution[] = recentExecutionRows
+    .filter((execution: any) => execution.organizationId === organizationId)
+    .slice(0, recentExecutionLimit)
+    .map((execution: any) => {
+      const status: LayeredContextRecentExecution["status"] =
+        execution.status === "completed"
+          ? "completed"
+          : execution.status === "failed" || execution.status === "timed_out"
+            ? "failed"
+            : execution.status === "cancelled"
+              ? "cancelled"
+              : "running";
+      return {
+        executionId: execution._id,
+        status,
+        startedAt: execution.startedAt,
+        completedAt: execution.completedAt,
+        triggerNodeId: execution.triggerNodeId,
+        summary: summarizeExecution(
+          execution.status,
+          execution.nodesSucceeded,
+          execution.nodesFailed,
+          execution.error,
+        ),
+      };
+    });
+
+  const tier1 = {
+    workflow: {
+      workflowId: workflow._id,
+      workflowName: workflow.name,
+      workflowStatus: workflow.status,
+      workflowUpdatedAt: workflow.updatedAt,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      workflowMode: toWorkflowMode(rawMetadata.mode),
+    },
+    recentExecutions,
+  };
+
+  if (!aiChatNodeId) {
+    return {
+      contractVersion: "layered_context_bundle_v1",
+      tier1,
+    };
+  }
+
+  const incomingNodeIds = new Set<string>();
+  const outgoingNodeIds = new Set<string>();
+  for (const edge of edges) {
+    const source = typeof edge.source === "string" ? edge.source : undefined;
+    const target = typeof edge.target === "string" ? edge.target : undefined;
+    if (!source || !target) {
+      continue;
+    }
+    if (target === aiChatNodeId && source !== aiChatNodeId) {
+      incomingNodeIds.add(source);
+    }
+    if (source === aiChatNodeId && target !== aiChatNodeId) {
+      outgoingNodeIds.add(target);
+    }
+  }
+
+  const nodeById = new Map<string, Record<string, unknown>>();
+  for (const node of nodes) {
+    const nodeId = typeof node.id === "string" ? node.id : undefined;
+    if (nodeId) {
+      nodeById.set(nodeId, node);
+    }
+  }
+
+  const connectedNodeIds = new Set<string>([
+    ...Array.from(incomingNodeIds),
+    ...Array.from(outgoingNodeIds),
+  ]);
+  const latestNodeExecutionByNodeId = new Map<string, Record<string, unknown>>();
+  for (const execution of recentExecutionRows) {
+    if (execution.organizationId !== organizationId) {
+      continue;
+    }
+    const nodeExecutions = await ctx.db
+      .query("layerNodeExecutions")
+      .withIndex("by_execution", (q: any) => q.eq("executionId", execution._id))
+      .collect();
+    for (const nodeExecution of nodeExecutions) {
+      if (!connectedNodeIds.has(nodeExecution.nodeId)) {
+        continue;
+      }
+      const candidateTimestamp =
+        (typeof nodeExecution.completedAt === "number" ? nodeExecution.completedAt : 0)
+        || (typeof nodeExecution.startedAt === "number" ? nodeExecution.startedAt : 0)
+        || 0;
+      const current = latestNodeExecutionByNodeId.get(nodeExecution.nodeId);
+      const currentTimestamp = current
+        ? (
+            (typeof current.completedAt === "number" ? current.completedAt : 0)
+            || (typeof current.startedAt === "number" ? current.startedAt : 0)
+            || 0
+          )
+        : -1;
+      if (candidateTimestamp > currentTimestamp) {
+        latestNodeExecutionByNodeId.set(
+          nodeExecution.nodeId,
+          nodeExecution as unknown as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
+  const connectedInputs = Array.from(incomingNodeIds)
+    .map((nodeId) => toConnectedNodeSurface(nodeById.get(nodeId), latestNodeExecutionByNodeId))
+    .filter((surface): surface is LayeredContextConnectedNodeSurface => Boolean(surface));
+  const connectedOutputs = Array.from(outgoingNodeIds)
+    .map((nodeId) => toConnectedNodeSurface(nodeById.get(nodeId), latestNodeExecutionByNodeId))
+    .filter((surface): surface is LayeredContextConnectedNodeSurface => Boolean(surface));
+
+  const tier2 = {
+    aiChatNodeId,
+    aiChatPrompt:
+      typeof aiChatConfig?.systemPrompt === "string"
+        ? aiChatConfig.systemPrompt
+        : typeof aiChatConfig?.prompt === "string"
+          ? aiChatConfig.prompt
+          : undefined,
+    aiChatModel:
+      typeof aiChatConfig?.model === "string"
+        ? aiChatConfig.model
+        : typeof aiChatConfig?.modelId === "string"
+          ? aiChatConfig.modelId
+          : undefined,
+    connectedInputs,
+    connectedOutputs,
+  };
+
+  return {
+    contractVersion: "layered_context_bundle_v1",
+    tier1,
+    tier2,
+  };
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -447,162 +623,33 @@ export const getLayeredContextBundle = query({
     if (!workflow || workflow.type !== OBJECT_TYPE || workflow.organizationId !== organizationId) {
       throw new Error("Workflow not found");
     }
+    return await buildLayeredContextBundleForWorkflow({
+      ctx,
+      workflow,
+      organizationId,
+      recentExecutionLimit: args.recentExecutionLimit,
+    });
+  },
+});
 
-    const rawWorkflowData = isRecord(workflow.customProperties) ? workflow.customProperties : {};
-    const rawNodes = Array.isArray(rawWorkflowData.nodes) ? rawWorkflowData.nodes : [];
-    const rawEdges = Array.isArray(rawWorkflowData.edges) ? rawWorkflowData.edges : [];
-    const rawMetadata = isRecord(rawWorkflowData.metadata) ? rawWorkflowData.metadata : {};
-
-    const nodes = rawNodes.filter(isRecord);
-    const edges = rawEdges.filter(isRecord);
-
-    const aiChatNode = nodes.find((node) => node.type === LAYERED_CONTEXT_CHAT_NODE_TYPE);
-    const aiChatNodeId = typeof aiChatNode?.id === "string" ? aiChatNode.id : undefined;
-    const aiChatConfig = isRecord(aiChatNode?.config) ? aiChatNode.config : undefined;
-
-    const recentExecutionLimit = Math.max(1, Math.min(args.recentExecutionLimit ?? 8, 25));
-    const recentExecutionRows = await ctx.db
-      .query("layerExecutions")
-      .withIndex("by_workflow", (q) => q.eq("workflowId", args.workflowId))
-      .order("desc")
-      .take(recentExecutionLimit * 3);
-
-    const recentExecutions: LayeredContextRecentExecution[] = recentExecutionRows
-      .filter((execution) => execution.organizationId === organizationId)
-      .slice(0, recentExecutionLimit)
-      .map((execution) => {
-        const status: LayeredContextRecentExecution["status"] =
-          execution.status === "completed"
-            ? "completed"
-            : execution.status === "failed" || execution.status === "timed_out"
-              ? "failed"
-              : execution.status === "cancelled"
-                ? "cancelled"
-                : "running";
-        return {
-          executionId: execution._id,
-          status,
-          startedAt: execution.startedAt,
-          completedAt: execution.completedAt,
-          triggerNodeId: execution.triggerNodeId,
-          summary: summarizeExecution(
-            execution.status,
-            execution.nodesSucceeded,
-            execution.nodesFailed,
-            execution.error,
-          ),
-        };
-      });
-
-    const tier1 = {
-      workflow: {
-        workflowId: workflow._id,
-        workflowName: workflow.name,
-        workflowStatus: workflow.status,
-        workflowUpdatedAt: workflow.updatedAt,
-        nodeCount: nodes.length,
-        edgeCount: edges.length,
-        workflowMode: toWorkflowMode(rawMetadata.mode),
-      },
-      recentExecutions,
-    };
-
-    if (!aiChatNodeId) {
-      return {
-        contractVersion: "layered_context_bundle_v1",
-        tier1,
-      };
+export const internalGetLayeredContextBundle = internalQuery({
+  args: {
+    workflowId: v.id("objects"),
+    organizationId: v.id("organizations"),
+    recentExecutionLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<LayeredContextBundle | null> => {
+    const workflow = await ctx.db.get(args.workflowId);
+    if (!workflow || workflow.type !== OBJECT_TYPE || workflow.organizationId !== args.organizationId) {
+      return null;
     }
 
-    const incomingNodeIds = new Set<string>();
-    const outgoingNodeIds = new Set<string>();
-    for (const edge of edges) {
-      const source = typeof edge.source === "string" ? edge.source : undefined;
-      const target = typeof edge.target === "string" ? edge.target : undefined;
-      if (!source || !target) {
-        continue;
-      }
-      if (target === aiChatNodeId && source !== aiChatNodeId) {
-        incomingNodeIds.add(source);
-      }
-      if (source === aiChatNodeId && target !== aiChatNodeId) {
-        outgoingNodeIds.add(target);
-      }
-    }
-
-    const nodeById = new Map<string, Record<string, unknown>>();
-    for (const node of nodes) {
-      const nodeId = typeof node.id === "string" ? node.id : undefined;
-      if (nodeId) {
-        nodeById.set(nodeId, node);
-      }
-    }
-
-    const connectedNodeIds = new Set<string>([
-      ...Array.from(incomingNodeIds),
-      ...Array.from(outgoingNodeIds),
-    ]);
-    const latestNodeExecutionByNodeId = new Map<string, Record<string, unknown>>();
-    for (const execution of recentExecutionRows) {
-      if (execution.organizationId !== organizationId) {
-        continue;
-      }
-      const nodeExecutions = await ctx.db
-        .query("layerNodeExecutions")
-        .withIndex("by_execution", (q) => q.eq("executionId", execution._id))
-        .collect();
-      for (const nodeExecution of nodeExecutions) {
-        if (!connectedNodeIds.has(nodeExecution.nodeId)) {
-          continue;
-        }
-        const candidateTimestamp =
-          (typeof nodeExecution.completedAt === "number" ? nodeExecution.completedAt : 0)
-          || (typeof nodeExecution.startedAt === "number" ? nodeExecution.startedAt : 0)
-          || 0;
-        const current = latestNodeExecutionByNodeId.get(nodeExecution.nodeId);
-        const currentTimestamp = current
-          ? (
-              (typeof current.completedAt === "number" ? current.completedAt : 0)
-              || (typeof current.startedAt === "number" ? current.startedAt : 0)
-              || 0
-            )
-          : -1;
-        if (candidateTimestamp > currentTimestamp) {
-          latestNodeExecutionByNodeId.set(nodeExecution.nodeId, nodeExecution as unknown as Record<string, unknown>);
-        }
-      }
-    }
-
-    const connectedInputs = Array.from(incomingNodeIds)
-      .map((nodeId) => toConnectedNodeSurface(nodeById.get(nodeId), latestNodeExecutionByNodeId))
-      .filter((surface): surface is LayeredContextConnectedNodeSurface => Boolean(surface));
-    const connectedOutputs = Array.from(outgoingNodeIds)
-      .map((nodeId) => toConnectedNodeSurface(nodeById.get(nodeId), latestNodeExecutionByNodeId))
-      .filter((surface): surface is LayeredContextConnectedNodeSurface => Boolean(surface));
-
-    const tier2 = {
-      aiChatNodeId,
-      aiChatPrompt:
-        typeof aiChatConfig?.systemPrompt === "string"
-          ? aiChatConfig.systemPrompt
-          : typeof aiChatConfig?.prompt === "string"
-            ? aiChatConfig.prompt
-            : undefined,
-      aiChatModel:
-        typeof aiChatConfig?.model === "string"
-          ? aiChatConfig.model
-          : typeof aiChatConfig?.modelId === "string"
-            ? aiChatConfig.modelId
-            : undefined,
-      connectedInputs,
-      connectedOutputs,
-    };
-
-    return {
-      contractVersion: "layered_context_bundle_v1",
-      tier1,
-      tier2,
-    };
+    return await buildLayeredContextBundleForWorkflow({
+      ctx,
+      workflow,
+      organizationId: args.organizationId,
+      recentExecutionLimit: args.recentExecutionLimit,
+    });
   },
 });
 

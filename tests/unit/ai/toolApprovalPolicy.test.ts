@@ -94,6 +94,24 @@ describe("tool approval policy", () => {
     ).toBe(true);
   });
 
+  it("always requires approval for configure_agent_fields", () => {
+    expect(
+      shouldRequireToolApproval({
+        autonomyLevel: "autonomous",
+        toolName: "configure_agent_fields",
+        requireApprovalFor: [],
+      })
+    ).toBe(true);
+
+    expect(
+      shouldRequireToolApproval({
+        autonomyLevel: "draft_only",
+        toolName: "configure_agent_fields",
+        requireApprovalFor: [],
+      })
+    ).toBe(true);
+  });
+
   it("maps chat approval settings to the shared policy modes", () => {
     const supervised = resolveChatToolApprovalPolicy({
       humanInLoopEnabled: true,

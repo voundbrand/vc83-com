@@ -29,6 +29,7 @@ export interface Conversation {
   organizationId: Id<"organizations">
   userId: Id<"users">
   layerWorkflowId?: Id<"objects">
+  targetAgentId?: Id<"objects">
   layerWorkflowTitle?: string
   title?: string
   status: "active" | "archived"
@@ -51,6 +52,7 @@ export interface ConversationRecord {
   organizationId: Id<"organizations">
   userId: Id<"users">
   layerWorkflowId?: Id<"objects">
+  targetAgentId?: Id<"objects">
   layerWorkflowTitle?: string
   title?: string
   status: "active" | "archived"
@@ -225,6 +227,7 @@ export interface AIChatConversationAttachment {
 
 export interface AIChatSendOptions {
   layerWorkflowId?: Id<"objects">
+  targetAgentId?: Id<"objects">
   mode?: AIChatComposerMode
   reasoningEffort?: AIChatReasoningEffort
   privacyMode?: boolean
@@ -796,7 +799,8 @@ export function useAIChat(
   conversationId?: Id<"aiConversations">,
   selectedModel?: string,
   superAdminQaMode?: AIChatSuperAdminQaMode,
-  activeLayerWorkflowId?: Id<"objects">
+  activeLayerWorkflowId?: Id<"objects">,
+  scopedTargetAgentId?: Id<"objects">
 ) {
   const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
@@ -830,6 +834,9 @@ export function useAIChat(
       ? { organizationId: organization.id as Id<"organizations">, userId: user.id as Id<"users"> }
       : "skip"
   )
+  const conversationTargetAgentId = (
+    conversation as ConversationRecord | undefined
+  )?.targetAgentId as Id<"objects"> | undefined
 
   // Mutations & Actions
   const sendMessageAction = useActionUntyped(apiUntyped.ai.chat.sendMessage) as (args: {
@@ -840,6 +847,7 @@ export function useAIChat(
     sessionId?: string
     selectedModel?: string
     layerWorkflowId?: Id<"objects">
+    targetAgentId?: Id<"objects">
     mode?: AIChatComposerMode
     reasoningEffort?: AIChatReasoningEffort
     privacyMode?: boolean
@@ -881,6 +889,7 @@ export function useAIChat(
     userId: Id<"users">
     title?: string
     layerWorkflowId?: Id<"objects">
+    targetAgentId?: Id<"objects">
   }) => Promise<Id<"aiConversations">>
 
   const updateConversationMutation = useMutationUntyped(apiUntyped.ai.conversations.updateConversation) as (args: {
@@ -925,6 +934,10 @@ export function useAIChat(
           sessionId: sessionId || undefined,
           selectedModel,
           layerWorkflowId: options?.layerWorkflowId ?? activeLayerWorkflowId,
+          targetAgentId:
+            options?.targetAgentId
+            ?? conversationTargetAgentId
+            ?? scopedTargetAgentId,
           mode: options?.mode,
           reasoningEffort: options?.reasoningEffort,
           privacyMode: options?.privacyMode,
@@ -950,7 +963,17 @@ export function useAIChat(
         throw err
       }
     },
-    [activeLayerWorkflowId, organization, selectedModel, sendMessageAction, sessionId, superAdminQaMode, user]
+    [
+      activeLayerWorkflowId,
+      conversationTargetAgentId,
+      organization,
+      scopedTargetAgentId,
+      selectedModel,
+      sendMessageAction,
+      sessionId,
+      superAdminQaMode,
+      user,
+    ]
   )
 
   const resolveVoiceRuntimeSession = useCallback(
@@ -991,6 +1014,7 @@ export function useAIChat(
           layerWorkflowId: options?.ignoreActiveLayerContext
             ? layerWorkflowId
             : (layerWorkflowId ?? activeLayerWorkflowId),
+          targetAgentId: scopedTargetAgentId,
         })
 
         return conversationId
@@ -1000,7 +1024,7 @@ export function useAIChat(
         throw err
       }
     },
-    [user, organization, createConversationMutation, activeLayerWorkflowId]
+    [user, organization, createConversationMutation, activeLayerWorkflowId, scopedTargetAgentId]
   )
 
   const createLayerWorkflowConversation = useCallback(

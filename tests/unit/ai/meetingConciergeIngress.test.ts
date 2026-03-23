@@ -21,6 +21,7 @@ import {
 import {
   MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
   MEETING_CONCIERGE_STAGE_SEQUENCE,
+  ORG_BOOKING_CONCIERGE_TOOL_ACTION,
 } from "../../../convex/ai/tools/bookingTool";
 
 const ORG_ID = "org_1" as Id<"organizations">;
@@ -179,8 +180,45 @@ describe("mobile meeting concierge ingress intent", () => {
     expect(injected).toHaveLength(2);
     const firstCall = injected[0] as { function?: { arguments?: string } };
     const firstArgs = JSON.parse(firstCall.function?.arguments || "{}") as Record<string, unknown>;
-    expect(firstArgs.action).toBe("run_meeting_concierge_demo");
+    expect(firstArgs.action).toBe(ORG_BOOKING_CONCIERGE_TOOL_ACTION);
     expect(firstArgs.mode).toBe("preview");
+  });
+
+  it("does not duplicate concierge preview call when the reusable org action already exists", () => {
+    const intent = resolveInboundMeetingConciergeIntent({
+      organizationId: ORG_ID,
+      channel: "desktop",
+      message: "Preview booking with jordan@example.com.",
+      metadata: {
+        liveSessionId: "live_session_preview_1b",
+        commandPolicy: PREVIEW_COMMAND_POLICY,
+        voiceRuntime: {
+          transcript: "jordan@example.com.",
+        },
+      },
+      now: 1_701_000_300_100,
+    });
+
+    const injected = injectAutoPreviewMeetingConciergeToolCall({
+      toolCalls: [
+        {
+          id: "llm_preview_org_1",
+          type: "function",
+          function: {
+            name: "manage_bookings",
+            arguments: JSON.stringify({
+              action: ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+              mode: "preview",
+              personEmail: "jordan@example.com",
+            }),
+          },
+        },
+      ],
+      meetingConciergeIntent: intent,
+      now: 1_701_000_300_101,
+    });
+
+    expect(injected).toHaveLength(1);
   });
 
   it("does not duplicate concierge preview call when one already exists", () => {
@@ -261,7 +299,8 @@ describe("mobile meeting concierge ingress intent", () => {
     const runtimeContext = buildInboundMeetingConciergeRuntimeContext(intent);
     expect(runtimeContext).toContain("preview first");
     expect(runtimeContext).toContain("explicit user confirmation");
-    expect(runtimeContext).toContain("run_meeting_concierge_demo");
+    expect(runtimeContext).toContain(ORG_BOOKING_CONCIERGE_TOOL_ACTION);
+    expect(runtimeContext).toContain("native booking engine");
   });
 
   it("surfaces ingest latency telemetry when capture timestamps are present", () => {

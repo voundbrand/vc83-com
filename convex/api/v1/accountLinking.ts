@@ -122,10 +122,10 @@ export const confirmLinking = httpAction(async (ctx, request) => {
       }
     );
     await ctx.runMutation(
-      internal.agentOntology.ensureActiveAgentForOrgInternal,
+      internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
       {
         organizationId: defaultOrganizationId,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 

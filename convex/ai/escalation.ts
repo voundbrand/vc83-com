@@ -27,6 +27,7 @@ import {
   normalizeHarnessContextEnvelope,
   type HarnessContextEnvelope,
 } from "./harnessContextEnvelope";
+import { CONFIGURE_AGENT_FIELDS_TOOL_NAME } from "./tools/configureAgentFieldsTool";
 
 const generatedApi: any = require("../_generated/api");
 
@@ -264,6 +265,10 @@ export function shouldRequireToolApproval(args: {
   requireApprovalFor?: string[];
   toolArgs?: Record<string, unknown>;
 }): boolean {
+  if (args.toolName === CONFIGURE_AGENT_FIELDS_TOOL_NAME) {
+    return true;
+  }
+
   if (requiresAppointmentCallHITL(args)) {
     return true;
   }

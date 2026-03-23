@@ -2098,6 +2098,7 @@ export const aiConversations = defineTable({
   organizationId: v.id("organizations"),
   userId: v.id("users"),
   layerWorkflowId: v.optional(v.id("objects")),
+  targetAgentId: v.optional(v.id("objects")),
 
   // Conversation metadata
   title: v.optional(v.string()),
@@ -2268,6 +2269,7 @@ export const aiToolExecutions = defineTable({
   conversationId: v.id("aiConversations"),
   organizationId: v.id("organizations"),
   userId: v.id("users"),
+  sessionId: v.optional(v.string()),
 
   // Tool info
   toolName: v.string(),

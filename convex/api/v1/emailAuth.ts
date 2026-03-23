@@ -325,16 +325,10 @@ export const signUpHandler = httpAction(async (ctx, request) => {
     });
 
     await ctx.runMutation(
-      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      internal.organizations.ensureOperatorAuthorityBootstrapInternal,
       {
         organizationId: createResult.organizationId,
-      }
-    );
-    await ctx.runMutation(
-      internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId: createResult.organizationId,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 
@@ -626,16 +620,10 @@ export const signInHandler = httpAction(async (ctx, request) => {
     });
 
     await ctx.runMutation(
-      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      internal.organizations.ensureOperatorAuthorityBootstrapInternal,
       {
         organizationId: user.defaultOrgId,
-      }
-    );
-    await ctx.runMutation(
-      internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId: user.defaultOrgId,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 

@@ -439,6 +439,7 @@ export const executeApprovedTool = action({
           ...ctx,
           organizationId: execution.organizationId,
           userId: execution.userId,
+          sessionId: typeof execution.sessionId === "string" ? execution.sessionId : undefined,
           conversationId: execution.conversationId,
           runtimePolicy: {
             codeExecution: {

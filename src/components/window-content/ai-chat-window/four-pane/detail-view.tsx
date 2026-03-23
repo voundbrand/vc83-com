@@ -6,9 +6,12 @@ import { EditableProposalView } from "./editable-proposal-view"
 import { AISettingsView } from "./ai-settings-view"
 import { useAIChatContext } from "@/contexts/ai-chat-context"
 import { useQuery, useMutation } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
 import { useNotification } from "@/hooks/use-notification"
+import { useAuth } from "@/hooks/use-auth"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const generatedApi: any = require("../../../../../convex/_generated/api").api
 
 interface WorkItem {
   id: Id<"contactSyncs"> | Id<"emailCampaigns"> | Id<"aiWorkItems">;
@@ -49,17 +52,63 @@ interface DetailViewProps {
 
 export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExecution, onClearToolExecution, showSettings, onCloseSettings }: DetailViewProps) {
   const { currentConversationId } = useAIChatContext()
+  const { sessionId } = useAuth()
   const notification = useNotification()
+  const selectedExecutionId = selectedToolExecution
+    ? (selectedToolExecution._id || selectedToolExecution.id as Id<"aiToolExecutions">)
+    : null
   // Query pending tool executions (approval prompts)
-  const pendingExecutions = useQuery(
-    api.ai.conversations.getPendingToolExecutions,
+  const pendingExecutions = (useQuery as any)(
+    generatedApi.ai.conversations.getPendingToolExecutions,
     currentConversationId ? { conversationId: currentConversationId } : "skip"
-  )
+  ) as
+    | Array<{
+        _id: Id<"aiToolExecutions">
+        toolName: string
+        parameters: Record<string, unknown>
+        proposalMessage?: string
+        status: ToolExecution["status"]
+      }>
+    | undefined
 
   // Mutations for approval/rejection
-  const approveExecution = useMutation(api.ai.conversations.approveToolExecution)
-  const rejectExecution = useMutation(api.ai.conversations.rejectToolExecution)
-  const customInstruction = useMutation(api.ai.conversations.customInstructionForExecution)
+  const approveExecution = (useMutation as any)(
+    generatedApi.ai.conversations.approveToolExecution
+  ) as (args: { executionId: Id<"aiToolExecutions">; dontAskAgain?: boolean }) => Promise<unknown>
+  const rejectExecution = (useMutation as any)(
+    generatedApi.ai.conversations.rejectToolExecution
+  ) as (args: { executionId: Id<"aiToolExecutions"> }) => Promise<unknown>
+  const customInstruction = (useMutation as any)(
+    generatedApi.ai.conversations.customInstructionForExecution
+  ) as (args: { executionId: Id<"aiToolExecutions">; instruction: string }) => Promise<unknown>
+  const updateExecutionParameters = (useMutation as any)(
+    generatedApi.ai.conversations.updateToolExecutionParameters
+  ) as (args: {
+    executionId: Id<"aiToolExecutions">
+    parameters: Record<string, unknown>
+    proposalMessage?: string
+  }) => Promise<unknown>
+  const previewAgentFieldPatch = (useMutation as any)(
+    generatedApi.agentOntology.previewAgentFieldPatch
+  ) as (args: {
+    sessionId: string
+    agentId: Id<"objects">
+    patch: unknown
+    overridePolicyGate?: {
+      confirmWarnOverride?: boolean
+      reason?: string
+    }
+  }) => Promise<{ proposalMessage?: string }>
+
+  const resolveExecution = (executionId: Id<"aiToolExecutions">) => {
+    if (
+      selectedToolExecution
+      && (selectedToolExecution._id || selectedToolExecution.id) === executionId
+    ) {
+      return selectedToolExecution
+    }
+    return pendingExecutions?.find((execution) => execution._id === executionId) || null
+  }
 
   const handleApprove = async (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean) => {
     try {
@@ -103,6 +152,70 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
     }
   }
 
+  const handleUpdateParameters = async (
+    executionId: Id<"aiToolExecutions">,
+    parameters: Record<string, unknown>
+  ) => {
+    try {
+      const execution = resolveExecution(executionId)
+      let nextParameters = parameters
+      let nextProposalMessage: string | undefined
+
+      if (execution?.toolName === "configure_agent_fields") {
+        if (!sessionId) {
+          throw new Error("Session required to refresh agent field proposals")
+        }
+        const targetAgentId =
+          typeof parameters.targetAgentId === "string"
+            ? parameters.targetAgentId
+            : (
+                parameters.proposalPreview as
+                  | { targetAgentId?: string | null }
+                  | undefined
+              )?.targetAgentId
+        if (!targetAgentId) {
+          throw new Error("Target agent could not be resolved for this proposal")
+        }
+
+        const preview = await previewAgentFieldPatch({
+          sessionId,
+          agentId: targetAgentId as Id<"objects">,
+          patch: parameters.patch ?? {},
+          overridePolicyGate: parameters.overridePolicyGate as
+            | { confirmWarnOverride?: boolean; reason?: string }
+            | undefined,
+        })
+
+        nextParameters = {
+          ...parameters,
+          targetAgentId,
+          proposalPreview: preview,
+        }
+        nextProposalMessage = preview.proposalMessage
+      }
+
+      await (updateExecutionParameters as any)({
+        executionId,
+        parameters: nextParameters,
+        ...(nextProposalMessage !== undefined
+          ? { proposalMessage: nextProposalMessage }
+          : {}),
+      })
+
+      notification.success("Proposal Updated", "Approval preview refreshed")
+      return {
+        parameters: nextParameters,
+        proposalMessage: nextProposalMessage,
+      }
+    } catch (error) {
+      notification.error(
+        "Update Failed",
+        error instanceof Error ? error.message : "Failed to refresh proposal"
+      )
+      return undefined
+    }
+  }
+
   // Priority 1: Show selected tool execution (if clicked from panel)
   if (selectedToolExecution) {
     // Only show editable form for "proposed" executions
@@ -111,7 +224,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
       return (
         <EditableProposalView
           execution={{
-            _id: selectedToolExecution._id || selectedToolExecution.id as Id<"aiToolExecutions">,
+            _id: selectedExecutionId as Id<"aiToolExecutions">,
             toolName: selectedToolExecution.toolName,
             parameters: selectedToolExecution.parameters || selectedToolExecution.input || {},
             proposalMessage: selectedToolExecution.proposalMessage,
@@ -120,6 +233,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
           onApprove={handleApprove}
           onReject={handleReject}
           onCustomInstruction={handleCustomInstruction}
+          onUpdateParameters={handleUpdateParameters}
         />
       )
     } else {
@@ -282,6 +396,7 @@ export function DetailView({ selectedWorkItem, onClearSelection, selectedToolExe
         onApprove={handleApprove}
         onReject={handleReject}
         onCustomInstruction={handleCustomInstruction}
+        onUpdateParameters={handleUpdateParameters}
       />
     )
   }

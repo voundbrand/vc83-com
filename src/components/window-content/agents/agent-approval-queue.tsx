@@ -93,18 +93,18 @@ export function AgentApprovalQueue({ agentId, sessionId, organizationId }: Agent
             <div className="flex gap-2">
               <button
                 onClick={() => approveAction({ sessionId, approvalId: approval._id })}
-                className="flex items-center gap-1 px-3 py-1 border-2 text-xs bg-green-50 hover:bg-green-100"
-                style={{ borderColor: "var(--win95-border)" }}
+                className="flex items-center gap-1 px-3 py-1 border-2 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--tone-success-soft)", color: "var(--tone-success)" }}
               >
-                <CheckCircle size={12} className="text-green-600" />
+                <CheckCircle size={12} />
                 Approve
               </button>
               <button
                 onClick={() => rejectAction({ sessionId, approvalId: approval._id })}
-                className="flex items-center gap-1 px-3 py-1 border-2 text-xs bg-red-50 hover:bg-red-100"
-                style={{ borderColor: "var(--win95-border)" }}
+                className="flex items-center gap-1 px-3 py-1 border-2 text-xs"
+                style={{ borderColor: "var(--win95-border)", background: "var(--tone-danger-soft)", color: "var(--tone-danger)" }}
               >
-                <XCircle size={12} className="text-red-600" />
+                <XCircle size={12} />
                 Reject
               </button>
             </div>

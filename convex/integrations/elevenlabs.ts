@@ -16,6 +16,11 @@ const generatedApi: any = require("../_generated/api");
 
 const ELEVENLABS_PROFILE_ID = "voice_runtime_default";
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1";
+const INTEGRATION_ACCESS_POLICY_OBJECT_TYPE = "integration_access_policy";
+const INTEGRATION_ACCESS_POLICY_OBJECT_NAME =
+  "Organization Integration Access Policy";
+const INTEGRATION_ACCESS_POLICY_CONTRACT_VERSION =
+  "org_integration_access_v1";
 const elevenLabsBillingSourceValidator = v.union(
   v.literal("platform"),
   v.literal("byok"),
@@ -71,6 +76,15 @@ type ElevenLabsCommercializationContract = {
     | "private_contract_requires_org_binding";
 };
 
+type ElevenLabsBindingLike = {
+  profileId: string;
+  source: AiProviderBindingSource;
+  credentialSource?: ElevenLabsProviderProfile["credentialSource"] | null;
+  billingSource: "platform" | "byok" | "private";
+  apiKey?: string;
+  baseUrl?: string;
+};
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -117,6 +131,52 @@ function getElevenLabsCommercializationContract(
 
 function getPlatformElevenLabsApiKey(): string | null {
   return normalizeString(process.env.ELEVENLABS_API_KEY);
+}
+
+async function getIntegrationAccessPolicyDoc(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<{
+  _id: Id<"objects">;
+  customProperties?: Record<string, unknown>;
+} | null> {
+  return (await db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", organizationId).eq("type", INTEGRATION_ACCESS_POLICY_OBJECT_TYPE),
+    )
+    .first()) as {
+    _id: Id<"objects">;
+    customProperties?: Record<string, unknown>;
+  } | null;
+}
+
+function readElevenLabsPlatformAccessGrant(
+  customProperties: Record<string, unknown> | undefined,
+): boolean {
+  const value = customProperties?.elevenlabs;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  return (value as Record<string, unknown>).usePlatformCredentials === true;
+}
+
+async function getElevenLabsPlatformAccessGrant(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<{
+  policyObjectId: Id<"objects"> | null;
+  usePlatformCredentials: boolean;
+}> {
+  const policyDoc = await getIntegrationAccessPolicyDoc(db, organizationId);
+  return {
+    policyObjectId: policyDoc?._id ?? null,
+    usePlatformCredentials: readElevenLabsPlatformAccessGrant(
+      policyDoc?.customProperties,
+    ),
+  };
 }
 
 async function isUserSuperAdminByUserId(
@@ -437,7 +497,10 @@ function buildElevenLabsProfile(args: {
   };
 }
 
-function summarizeProfileHealth(profile: ElevenLabsProviderProfile | null): {
+function summarizeProfileHealth(
+  profile: ElevenLabsProviderProfile | null,
+  billingSourceOverride?: "platform" | "byok" | "private",
+): {
   status: "healthy" | "degraded" | "offline";
   reason?: string;
 } {
@@ -455,7 +518,10 @@ function summarizeProfileHealth(profile: ElevenLabsProviderProfile | null): {
       reason: "provider_disabled",
     };
   }
-  const billingSource = normalizeBillingSource(profile.billingSource) ?? "platform";
+  const billingSource =
+    billingSourceOverride ??
+    normalizeBillingSource(profile.billingSource) ??
+    "platform";
   const hasActiveApiKey =
     billingSource === "platform"
       ? Boolean(platformApiKey)
@@ -500,8 +566,32 @@ function resolveElevenLabsBindingFromSettings(
         llm?: Record<string, unknown>;
       }
     | null
+  ,
+  options?: {
+    forcePlatformCredentials?: boolean;
+    profile?: ElevenLabsProviderProfile | null;
+  },
 ) {
-  const billingSource = resolveBillingSource(settings);
+  const profile =
+    options?.profile ??
+    findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
+  if (options?.forcePlatformCredentials) {
+    if (profile?.enabled === false) {
+      return null;
+    }
+    return {
+      profileId: profile?.profileId ?? ELEVENLABS_PROFILE_ID,
+      source: "platform_env",
+      credentialSource: "platform_env",
+      billingSource: "platform",
+      apiKey: getPlatformElevenLabsApiKey() ?? undefined,
+      baseUrl: normalizeBaseUrl(profile?.baseUrl) ?? ELEVENLABS_BASE_URL,
+    } satisfies ElevenLabsBindingLike;
+  }
+
+  const billingSource =
+    normalizeBillingSource(profile?.billingSource) ??
+    resolveBillingSource(settings);
   const commercialization =
     getElevenLabsCommercializationContract(billingSource);
   const bindings = resolveOrganizationProviderBindings({
@@ -524,6 +614,62 @@ function resolveElevenLabsBindingFromSettings(
   );
 }
 
+async function resolveOrganizationElevenLabsState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<{
+  settings:
+    | {
+        billingMode?: "platform" | "byok";
+        billingSource?: "platform" | "byok" | "private";
+        llm?: Record<string, unknown>;
+      }
+    | null;
+  profile: ElevenLabsProviderProfile | null;
+  binding: ElevenLabsBindingLike | null;
+  billingSource: "platform" | "byok" | "private";
+  effectiveApiKey: string | null;
+  baseUrl: string;
+  defaultVoiceId: string | null;
+  usePlatformCredentials: boolean;
+}> {
+  const settings = await db
+    .query("organizationAiSettings")
+    .withIndex("by_organization", (q: any) => q.eq("organizationId", organizationId))
+    .first();
+  const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
+  const platformGrant = await getElevenLabsPlatformAccessGrant(db, organizationId);
+  const binding = (resolveElevenLabsBindingFromSettings(settings, {
+    forcePlatformCredentials: platformGrant.usePlatformCredentials,
+    profile,
+  }) ?? null) as ElevenLabsBindingLike | null;
+  const billingSource = platformGrant.usePlatformCredentials
+    ? "platform"
+    : normalizeBillingSource(binding?.billingSource) ??
+      normalizeBillingSource(profile?.billingSource) ??
+      resolveBillingSource(settings);
+  const effectiveApiKey =
+    normalizeString(binding?.apiKey) ??
+    (billingSource === "platform"
+      ? getPlatformElevenLabsApiKey()
+      : normalizeString(profile?.apiKey));
+
+  return {
+    settings,
+    profile,
+    binding,
+    billingSource,
+    effectiveApiKey,
+    baseUrl:
+      normalizeBaseUrl(binding?.baseUrl) ??
+      normalizeBaseUrl(profile?.baseUrl) ??
+      ELEVENLABS_BASE_URL,
+    defaultVoiceId: getDefaultVoiceId(profile) ?? null,
+    usePlatformCredentials: platformGrant.usePlatformCredentials,
+  };
+}
+
 export const getElevenLabsSettings = query({
   args: {
     sessionId: v.string(),
@@ -537,55 +683,36 @@ export const getElevenLabsSettings = query({
       );
     }
 
-    const settings = await ctx.db
-      .query("organizationAiSettings")
-      .withIndex("by_organization", (q) =>
-        q.eq("organizationId", args.organizationId),
-      )
-      .first();
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
     const canUsePlatformManaged = await isUserSuperAdminByUserId(
       ctx,
       authenticated.userId,
     );
-    const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
-    const binding = resolveElevenLabsBindingFromSettings(settings);
-    const profileBillingSource = normalizeBillingSource(profile?.billingSource);
-    const resolvedBillingSource =
-      normalizeBillingSource(binding?.billingSource) ??
-      profileBillingSource ??
-      resolveBillingSource(settings);
-    const billingSource = resolvedBillingSource;
+    const health = summarizeProfileHealth(
+      resolved.profile,
+      resolved.billingSource,
+    );
     const commercialization =
-      getElevenLabsCommercializationContract(billingSource);
+      getElevenLabsCommercializationContract(resolved.billingSource);
     const platformApiKey = getPlatformElevenLabsApiKey();
-    const profileApiKey = normalizeString(profile?.apiKey);
-    const hasEffectiveApiKey = Boolean(normalizeString(binding?.apiKey));
-    const baseHealth = summarizeProfileHealth(profile);
-    const health =
-      binding && hasEffectiveApiKey
-        ? { status: "healthy" as const }
-        : {
-            status: baseHealth.status,
-            reason:
-              settings?.enabled === true &&
-              !binding &&
-              !commercialization.platformCredentialFallbackAllowed
-                ? commercialization.bindingRequirementReason
-                : baseHealth.reason,
-          };
+    const profileApiKey = normalizeString(resolved.profile?.apiKey);
+    const hasEffectiveApiKey = Boolean(resolved.effectiveApiKey);
 
     return {
-      enabled: Boolean(binding),
+      enabled: Boolean(resolved.binding),
       hasApiKey: Boolean(profileApiKey),
       hasPlatformApiKey: Boolean(platformApiKey),
       hasEffectiveApiKey,
       canUsePlatformManaged,
-      billingSource,
-      profileId: profile?.profileId ?? ELEVENLABS_PROFILE_ID,
-      baseUrl:
-        normalizeBaseUrl(profile?.baseUrl) ?? ELEVENLABS_BASE_URL,
-      defaultVoiceId: getDefaultVoiceId(profile) ?? null,
-      lastFailureReason: profile?.lastFailureReason ?? null,
+      platformAccessGranted: resolved.usePlatformCredentials,
+      billingSource: resolved.billingSource,
+      profileId: resolved.profile?.profileId ?? ELEVENLABS_PROFILE_ID,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      lastFailureReason: resolved.profile?.lastFailureReason ?? null,
       healthStatus: health.status,
       healthReason: health.reason ?? null,
       commercialization,
@@ -606,36 +733,274 @@ export const getAuthorizedElevenLabsBinding = internalQuery({
       );
     }
 
-    const settings = await ctx.db
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
+    const commercialization =
+      getElevenLabsCommercializationContract(resolved.billingSource);
+
+    return {
+      apiKey: resolved.effectiveApiKey ?? null,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      enabled: Boolean(resolved.binding),
+      billingSource: resolved.billingSource,
+      commercialization,
+      credentialSource: resolved.binding?.credentialSource ?? null,
+    };
+  },
+});
+
+export const getOrganizationElevenLabsRuntimeBinding = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
+    return {
+      apiKey: resolved.effectiveApiKey ?? null,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      enabled: Boolean(resolved.binding),
+      billingSource: resolved.billingSource,
+      credentialSource: resolved.binding?.credentialSource ?? null,
+    };
+  },
+});
+
+export const getOrganizationElevenLabsAdminState = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const authenticated = await requireAuthenticatedUser(ctx, args.sessionId);
+    const isSuperAdmin = await isUserSuperAdminByUserId(
+      ctx,
+      authenticated.userId,
+    );
+    if (!isSuperAdmin) {
+      throw new Error(
+        "Permission denied: super_admin required to manage organization ElevenLabs access.",
+      );
+    }
+
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
+    const health = summarizeProfileHealth(
+      resolved.profile,
+      resolved.billingSource,
+    );
+
+    return {
+      enabled: resolved.profile?.enabled ?? Boolean(resolved.binding),
+      usePlatformCredentials: resolved.usePlatformCredentials,
+      billingSource: resolved.billingSource,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      hasOrgApiKey: Boolean(normalizeString(resolved.profile?.apiKey)),
+      hasPlatformApiKey: Boolean(getPlatformElevenLabsApiKey()),
+      hasEffectiveApiKey: Boolean(resolved.effectiveApiKey),
+      runtimeSource: resolved.binding
+        ? resolved.billingSource === "platform"
+          ? "platform"
+          : "org"
+        : null,
+      credentialSource:
+        resolved.binding?.credentialSource ??
+        resolved.profile?.credentialSource ??
+        null,
+      healthStatus: health.status,
+      healthReason: health.reason ?? null,
+    };
+  },
+});
+
+export const saveOrganizationElevenLabsAdminState = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    enabled: v.boolean(),
+    usePlatformCredentials: v.boolean(),
+    baseUrl: v.optional(v.string()),
+    defaultVoiceId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const authenticated = await requireAuthenticatedUser(ctx, args.sessionId);
+    const isSuperAdmin = await isUserSuperAdminByUserId(
+      ctx,
+      authenticated.userId,
+    );
+    if (!isSuperAdmin) {
+      throw new Error(
+        "Permission denied: super_admin required to manage organization ElevenLabs access.",
+      );
+    }
+
+    const now = Date.now();
+    const existingSettings = await ctx.db
       .query("organizationAiSettings")
       .withIndex("by_organization", (q) =>
         q.eq("organizationId", args.organizationId),
       )
       .first();
-    const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
-    const binding = resolveElevenLabsBindingFromSettings(settings);
-    const billingSource =
-      normalizeBillingSource(binding?.billingSource) ??
-      normalizeBillingSource(profile?.billingSource) ??
-      resolveBillingSource(settings);
-    const commercialization =
-      getElevenLabsCommercializationContract(billingSource);
-    const effectiveApiKey =
-      normalizeString(binding?.apiKey) ??
-      (billingSource === "platform"
-        ? getPlatformElevenLabsApiKey()
-        : normalizeString(profile?.apiKey));
+    const existingProfiles =
+      existingSettings?.llm?.providerAuthProfiles ?? [];
+    const existingProfile = findElevenLabsProfile(existingProfiles);
+    const existingApiKey = normalizeString(existingProfile?.apiKey) ?? undefined;
+    const preservedBillingSource = existingApiKey
+      ? normalizeBillingSource(existingProfile?.billingSource) ?? "byok"
+      : "platform";
+    const nextProfile = buildElevenLabsProfile({
+      existingProfile,
+      enabled: args.enabled,
+      apiKey: existingApiKey,
+      baseUrl: args.baseUrl,
+      defaultVoiceId: args.defaultVoiceId,
+      billingSource: preservedBillingSource,
+    });
+    const remainingProfiles = existingProfiles.filter((profile) => {
+      if (typeof profile !== "object" || profile === null) {
+        return true;
+      }
+      return (profile as Record<string, unknown>).providerId !== "elevenlabs";
+    });
+    const providerAuthProfiles = [...remainingProfiles, nextProfile];
+
+    if (existingSettings) {
+      await ctx.db.patch(existingSettings._id, {
+        llm: {
+          ...existingSettings.llm,
+          providerAuthProfiles,
+          providerId: existingSettings.llm?.providerId ?? "openrouter",
+        },
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("organizationAiSettings", {
+        organizationId: args.organizationId,
+        enabled: true,
+        billingMode: "platform",
+        billingSource: "platform",
+        settingsContractVersion: "provider_agnostic_v1",
+        llm: {
+          providerId: "openrouter",
+          enabledModels: [
+            {
+              modelId: ONBOARDING_DEFAULT_MODEL_ID,
+              isDefault: true,
+              enabledAt: now,
+            },
+          ],
+          defaultModelId: ONBOARDING_DEFAULT_MODEL_ID,
+          temperature: 0.7,
+          maxTokens: 4000,
+          providerAuthProfiles,
+        },
+        embedding: {
+          provider: "none",
+          model: "",
+          dimensions: 0,
+        },
+        currentMonthSpend: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const policyState = await getElevenLabsPlatformAccessGrant(
+      ctx.db,
+      args.organizationId,
+    );
+    let policyObjectId = policyState.policyObjectId;
+    if (policyObjectId) {
+      const policyDoc = await ctx.db.get(policyObjectId);
+      await ctx.db.patch(policyObjectId, {
+        customProperties: {
+          ...(typeof policyDoc?.customProperties === "object" &&
+          policyDoc?.customProperties !== null
+            ? policyDoc.customProperties
+            : {}),
+          contractVersion: INTEGRATION_ACCESS_POLICY_CONTRACT_VERSION,
+          elevenlabs: {
+            usePlatformCredentials: args.usePlatformCredentials,
+            updatedAt: now,
+            updatedByUserId: authenticated.userId,
+          },
+        },
+        updatedAt: now,
+      });
+    } else if (args.usePlatformCredentials) {
+      policyObjectId = await ctx.db.insert("objects", {
+        organizationId: args.organizationId,
+        type: INTEGRATION_ACCESS_POLICY_OBJECT_TYPE,
+        name: INTEGRATION_ACCESS_POLICY_OBJECT_NAME,
+        status: "active",
+        customProperties: {
+          contractVersion: INTEGRATION_ACCESS_POLICY_CONTRACT_VERSION,
+          elevenlabs: {
+            usePlatformCredentials: true,
+            updatedAt: now,
+            updatedByUserId: authenticated.userId,
+          },
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    if (policyObjectId) {
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: policyObjectId,
+        actionType: "integration_access_policy_saved",
+        actionData: {
+          providerId: "elevenlabs",
+          usePlatformCredentials: args.usePlatformCredentials,
+          enabled: args.enabled,
+          baseUrl:
+            normalizeBaseUrl(args.baseUrl) ??
+            normalizeBaseUrl(nextProfile.baseUrl) ??
+            ELEVENLABS_BASE_URL,
+          defaultVoiceId: getDefaultVoiceId(nextProfile) ?? null,
+        },
+        performedBy: authenticated.userId,
+        performedAt: now,
+      });
+    }
+
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
+    const health = summarizeProfileHealth(
+      resolved.profile,
+      resolved.billingSource,
+    );
 
     return {
-      apiKey: effectiveApiKey ?? null,
-      baseUrl: normalizeBaseUrl(binding?.baseUrl) ??
-        normalizeBaseUrl(profile?.baseUrl) ??
-        ELEVENLABS_BASE_URL,
-      defaultVoiceId: getDefaultVoiceId(profile) ?? null,
-      enabled: Boolean(binding),
-      billingSource,
-      commercialization,
-      credentialSource: binding?.credentialSource ?? null,
+      success: true,
+      enabled: resolved.profile?.enabled ?? Boolean(resolved.binding),
+      usePlatformCredentials: resolved.usePlatformCredentials,
+      billingSource: resolved.billingSource,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      hasOrgApiKey: Boolean(normalizeString(resolved.profile?.apiKey)),
+      hasPlatformApiKey: Boolean(getPlatformElevenLabsApiKey()),
+      hasEffectiveApiKey: Boolean(resolved.effectiveApiKey),
+      runtimeSource: resolved.binding
+        ? resolved.billingSource === "platform"
+          ? "platform"
+          : "org"
+        : null,
+      healthStatus: health.status,
+      healthReason: health.reason ?? null,
     };
   },
 });
@@ -1086,36 +1451,18 @@ export const synthesizeElevenLabsVoiceSample = action({
 export const resolveCredentials = internalQuery({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    const settings = await ctx.db
-      .query("organizationAiSettings")
-      .withIndex("by_organization", (q) =>
-        q.eq("organizationId", args.organizationId),
-      )
-      .first();
+    const resolved = await resolveOrganizationElevenLabsState(
+      ctx.db,
+      args.organizationId,
+    );
 
-    const profile = findElevenLabsProfile(settings?.llm?.providerAuthProfiles);
-    const binding = resolveElevenLabsBindingFromSettings(settings);
-    const billingSource =
-      normalizeBillingSource(binding?.billingSource) ??
-      normalizeBillingSource(profile?.billingSource) ??
-      resolveBillingSource(settings);
-
-    const effectiveApiKey =
-      normalizeString(binding?.apiKey) ??
-      (billingSource === "platform"
-        ? getPlatformElevenLabsApiKey()
-        : normalizeString(profile?.apiKey));
-
-    if (!effectiveApiKey) return null;
+    if (!resolved.effectiveApiKey) return null;
 
     return {
-      apiKey: effectiveApiKey,
-      baseUrl:
-        normalizeBaseUrl(binding?.baseUrl) ??
-        normalizeBaseUrl(profile?.baseUrl) ??
-        ELEVENLABS_BASE_URL,
-      defaultVoiceId: getDefaultVoiceId(profile) ?? null,
-      source: billingSource === "platform" ? ("platform" as const) : ("org" as const),
+      apiKey: resolved.effectiveApiKey,
+      baseUrl: resolved.baseUrl,
+      defaultVoiceId: resolved.defaultVoiceId,
+      source: resolved.billingSource === "platform" ? ("platform" as const) : ("org" as const),
     };
   },
 });

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildLayeredContextSystemPrompt } from "../../../convex/ai/prompts/layeredContextSystem";
+import {
+  buildLayeredContextSystemPrompt,
+  buildLayeredContextSystemPromptFromBundles,
+} from "../../../convex/ai/prompts/layeredContextSystem";
 import type { LayeredContextBundle } from "../../../convex/layers/types";
 
 function makeBundle(overrides?: Partial<LayeredContextBundle>): LayeredContextBundle {
@@ -91,5 +94,31 @@ describe("layered context prompt builder", () => {
     expect(prompt).toContain("- recentExecutions:\n- none");
     expect(prompt).toContain("- connectedInputs:\n- none");
     expect(prompt).toContain("- connectedOutputs:\n- none");
+  });
+
+  it("builds a combined runtime prompt when multiple workflows are attached", () => {
+    const firstBundle = makeBundle();
+    const secondBundle = makeBundle({
+      tier1: {
+        ...makeBundle().tier1,
+        workflow: {
+          ...makeBundle().tier1.workflow,
+          workflowId: "wf_456" as never,
+          workflowName: "CRM Context Workflow",
+        },
+      },
+    });
+
+    const prompt = buildLayeredContextSystemPromptFromBundles([
+      firstBundle,
+      secondBundle,
+    ]);
+
+    expect(prompt).toContain("[LAYERED_CONTEXT_SYSTEM_V2]");
+    expect(prompt).toContain("workflowCount=2");
+    expect(prompt).toContain("## WORKFLOW 1");
+    expect(prompt).toContain("workflowName: Client Intake Workflow");
+    expect(prompt).toContain("## WORKFLOW 2");
+    expect(prompt).toContain("workflowName: CRM Context Workflow");
   });
 });

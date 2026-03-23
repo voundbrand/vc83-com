@@ -44,13 +44,36 @@ import {
   webchatChannelBindingValidator,
   type ChannelBindingContractRecord,
 } from "./webchatCustomizationContract";
+import {
+  mergeDeployableTelephonyConfigIntoRuntime,
+  normalizeAgentTelephonyConfig,
+  toDeployableTelephonyConfig,
+} from "../src/lib/telephony/agent-telephony";
+import type { LayerWorkflowData, WorkflowMode } from "./layers/types";
+import {
+  isPlatformMotherAuthorityRecord,
+  hasPlatformMotherTemplateRole,
+  matchesPlatformMotherIdentityName,
+} from "./platformMother";
 
 const OPERATOR_ROUTING_CHANNELS = new Set(["desktop", "slack"]);
 const PLATFORM_MANAGED_CHANNEL_BINDING_CHANNELS = new Set(["desktop", "slack"]);
 const TELEPHONY_ROUTING_CHANNELS = new Set(["phone_call"]);
 const ORCHESTRATOR_DEFAULT_SUBTYPE = "general";
-const DEFAULT_ORG_AGENT_TEMPLATE_ROLE = "personal_life_operator_template";
+const OPERATOR_AUTHORITY_BOOTSTRAP_CHANNEL = "desktop";
+export const DEFAULT_ORG_AGENT_TEMPLATE_ROLE = "personal_life_operator_template";
 const DEFAULT_ORG_AGENT_TEMPLATE_ID_ENV_KEY = "DEFAULT_ORG_AGENT_TEMPLATE_ID";
+export const AGENT_LAYERED_CONTEXT_LINK_TYPE = "uses_layered_context";
+
+type OperatorAuthorityAppSurface =
+  | "platform_web"
+  | "desktop_web"
+  | "macos_companion"
+  | "operator_mobile"
+  | "iphone"
+  | "android"
+  | "microsoft_app"
+  | "unknown_operator_app";
 
 const operatorCollaborationDefaultsValidator = v.object({
   defaultSurface: v.union(v.literal("group"), v.literal("dm")),
@@ -131,6 +154,45 @@ function resolveChannelCandidates(channel: string): string[] {
 function isOperatorRoutingChannel(channel: string | undefined): boolean {
   const normalizedChannel = normalizeOptionalString(channel)?.toLowerCase();
   return Boolean(normalizedChannel && OPERATOR_ROUTING_CHANNELS.has(normalizedChannel));
+}
+
+function normalizeOperatorAuthorityAppSurface(
+  value: unknown
+): OperatorAuthorityAppSurface {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  switch (normalized) {
+    case undefined:
+    case "platform":
+    case "platform_web":
+    case "web":
+      return "platform_web";
+    case "desktop_web":
+      return "desktop_web";
+    case "desktop":
+    case "macos":
+    case "macos_app":
+    case "macos_companion":
+      return "macos_companion";
+    case "mobile":
+    case "mobile_api_v1":
+    case "operator_mobile":
+      return "operator_mobile";
+    case "ios":
+    case "ios_app":
+    case "iphone":
+      return "iphone";
+    case "android":
+    case "android_app":
+      return "android";
+    case "microsoft":
+    case "microsoft_app":
+    case "microsoft_teams":
+    case "teams":
+    case "teams_app":
+      return "microsoft_app";
+    default:
+      return "unknown_operator_app";
+  }
 }
 
 function hasEnabledChannelBinding(
@@ -232,6 +294,66 @@ export function detectPlatformManagedChannelBindingOverride(
   return false;
 }
 
+type AgentLayeredContextWorkflowSummary = {
+  linkId: Id<"objectLinks">;
+  workflowId: Id<"objects">;
+  name: string;
+  description?: string;
+  status: string;
+  updatedAt: number;
+  nodeCount: number;
+  edgeCount: number;
+  workflowMode?: WorkflowMode;
+};
+
+function normalizeLayerWorkflowData(
+  value: unknown,
+): Partial<LayerWorkflowData> & { metadata?: { mode?: WorkflowMode } } {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  return value as Partial<LayerWorkflowData> & { metadata?: { mode?: WorkflowMode } };
+}
+
+async function loadAgentLayeredContextWorkflows(
+  ctx: { db: Pick<MutationCtx["db"], "query" | "get"> },
+  agentId: Id<"objects">,
+): Promise<AgentLayeredContextWorkflowSummary[]> {
+  const links = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q) =>
+      q.eq("fromObjectId", agentId).eq("linkType", AGENT_LAYERED_CONTEXT_LINK_TYPE)
+    )
+    .collect();
+
+  const workflows: AgentLayeredContextWorkflowSummary[] = [];
+  for (const link of links) {
+    const workflow = await ctx.db.get(link.toObjectId);
+    if (!workflow || workflow.type !== "layer_workflow") {
+      continue;
+    }
+    const workflowData = normalizeLayerWorkflowData(workflow.customProperties);
+    workflows.push({
+      linkId: link._id,
+      workflowId: workflow._id,
+      name: workflow.name,
+      description: workflow.description ?? undefined,
+      status: workflow.status,
+      updatedAt: workflow.updatedAt,
+      nodeCount: Array.isArray(workflowData.nodes) ? workflowData.nodes.length : 0,
+      edgeCount: Array.isArray(workflowData.edges) ? workflowData.edges.length : 0,
+      workflowMode: workflowData.metadata?.mode,
+    });
+  }
+
+  return workflows.sort((left, right) => {
+    if (left.updatedAt !== right.updatedAt) {
+      return right.updatedAt - left.updatedAt;
+    }
+    return String(left.workflowId).localeCompare(String(right.workflowId));
+  });
+}
+
 function normalizeOperatorCollaborationDefaults(
   value: unknown
 ): OperatorCollaborationDefaults {
@@ -308,6 +430,7 @@ const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
   "temperature",
   "maxTokens",
   "channelBindings",
+  "telephonyConfig",
   "unifiedPersonality",
   "teamAccessMode",
   "dreamTeamSpecialists",
@@ -329,12 +452,130 @@ const TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS = [
   "modelId",
   "systemPrompt",
   "channelBindings",
+  "telephonyConfig",
 ] as const;
 
 type TemplateCloneDriftField = (typeof TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS)[number];
 type TemplateClonePolicyState = "in_sync" | "overridden" | "stale" | "blocked";
 type TemplateClonePolicyMode = "locked" | "warn" | "free";
 type TemplateCloneRiskLevel = "low" | "medium" | "high";
+
+export const PLATFORM_MOTHER_POLICY_FAMILY_CONTRACT_VERSION =
+  "platform_mother_policy_family_v1" as const;
+export const PLATFORM_MOTHER_ROLLOUT_GATE_REQUIREMENTS_CONTRACT_VERSION =
+  "platform_mother_rollout_gate_requirements_v1" as const;
+
+const PLATFORM_MOTHER_LOCKED_OPERATOR_TEMPLATE_FIELDS = [
+  "templateAgentId",
+  "templateVersion",
+  "templateCloneLinkage",
+  "modelProvider",
+  "modelId",
+] as const;
+
+const PLATFORM_MOTHER_WARN_OPERATOR_TEMPLATE_FIELDS = [
+  "toolProfile",
+  "enabledTools",
+  "disabledTools",
+  "autonomyLevel",
+  "systemPrompt",
+] as const;
+
+const PLATFORM_MOTHER_OUT_OF_SCOPE_OPERATOR_TEMPLATE_FIELDS = [
+  "channelBindings",
+  "telephonyConfig",
+] as const;
+
+export const PLATFORM_MOTHER_FREE_OPERATOR_CONTEXT_FIELDS = [
+  "displayName",
+  "knowledgeBaseTags",
+  "faqEntries",
+  "soul",
+  "layeredContext",
+  "contacts",
+  "organizationContext",
+] as const;
+
+export interface PlatformMotherPolicyFamilyScope {
+  contractVersion: typeof PLATFORM_MOTHER_POLICY_FAMILY_CONTRACT_VERSION;
+  evaluatedFields: string[];
+  motherOwnedLockedFields: string[];
+  motherOwnedWarnFields: string[];
+  customerOwnedContextFields: string[];
+  outOfScopeFields: string[];
+  eligible: boolean;
+}
+
+export interface PlatformMotherRolloutGateRequirements {
+  contractVersion: typeof PLATFORM_MOTHER_ROLLOUT_GATE_REQUIREMENTS_CONTRACT_VERSION;
+  targetTemplateRole: string;
+  targetTemplateVersionId?: string;
+  targetTemplateVersionTag?: string;
+  requiredEvidence: string[];
+  satisfiedEvidence: string[];
+  status: "required_before_execution" | "satisfied_for_review";
+  dryRunCorrelationId?: string;
+}
+
+export function resolvePlatformMotherPolicyFamilyScope(
+  fields: readonly string[],
+): PlatformMotherPolicyFamilyScope {
+  const evaluatedFields = Array.from(
+    new Set(
+      fields
+        .map((field) => normalizeOptionalString(field))
+        .filter((field): field is string => Boolean(field))
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+  const motherOwnedLockedFields = evaluatedFields.filter((field) =>
+    (PLATFORM_MOTHER_LOCKED_OPERATOR_TEMPLATE_FIELDS as readonly string[]).includes(field),
+  );
+  const motherOwnedWarnFields = evaluatedFields.filter((field) =>
+    (PLATFORM_MOTHER_WARN_OPERATOR_TEMPLATE_FIELDS as readonly string[]).includes(field),
+  );
+  const outOfScopeFields = evaluatedFields.filter((field) =>
+    (PLATFORM_MOTHER_OUT_OF_SCOPE_OPERATOR_TEMPLATE_FIELDS as readonly string[]).includes(field),
+  );
+  const customerOwnedContextFields = (
+    PLATFORM_MOTHER_FREE_OPERATOR_CONTEXT_FIELDS as readonly string[]
+  )
+    .filter((field) => !evaluatedFields.includes(field))
+    .slice()
+    .sort((left, right) => left.localeCompare(right));
+
+  return {
+    contractVersion: PLATFORM_MOTHER_POLICY_FAMILY_CONTRACT_VERSION,
+    evaluatedFields,
+    motherOwnedLockedFields,
+    motherOwnedWarnFields,
+    customerOwnedContextFields,
+    outOfScopeFields,
+    eligible: outOfScopeFields.length === 0,
+  };
+}
+
+export function buildPlatformMotherRolloutGateRequirements(args: {
+  targetTemplateRole: string;
+  targetTemplateVersionId?: string | null;
+  targetTemplateVersionTag?: string | null;
+  dryRunCorrelationId?: string | null;
+}): PlatformMotherRolloutGateRequirements {
+  const targetTemplateVersionId = normalizeOptionalString(args.targetTemplateVersionId);
+  const targetTemplateVersionTag = normalizeOptionalString(args.targetTemplateVersionTag);
+  const dryRunCorrelationId = normalizeOptionalString(args.dryRunCorrelationId);
+  const satisfied = Boolean(dryRunCorrelationId);
+
+  return {
+    contractVersion: PLATFORM_MOTHER_ROLLOUT_GATE_REQUIREMENTS_CONTRACT_VERSION,
+    targetTemplateRole: args.targetTemplateRole,
+    ...(targetTemplateVersionId ? { targetTemplateVersionId } : {}),
+    ...(targetTemplateVersionTag ? { targetTemplateVersionTag } : {}),
+    requiredEvidence: ["wae_rollout_gate"],
+    satisfiedEvidence: satisfied ? ["wae_rollout_gate"] : [],
+    status: satisfied ? "satisfied_for_review" : "required_before_execution",
+    ...(dryRunCorrelationId ? { dryRunCorrelationId } : {}),
+  };
+}
 
 type TemplateCloneDriftFieldDiff = {
   field: TemplateCloneDriftField;
@@ -412,6 +653,13 @@ type SuperAdminMutationSession = {
   sessionId: string;
   userId: Id<"users">;
   roleName: "super_admin";
+};
+
+type TemplateLifecycleExecutionActor = {
+  performedBy?: Id<"users"> | Id<"objects">;
+  auditUserId?: Id<"users">;
+  roleName: string;
+  sessionId?: string;
 };
 
 type TemplateDistributionOperation = "create" | "update" | "skip" | "blocked";
@@ -521,6 +769,9 @@ function pickTemplateBaselineSnapshot(
     return {};
   }
   const snapshot = { ...customProperties };
+  if (Object.prototype.hasOwnProperty.call(snapshot, "telephonyConfig")) {
+    snapshot.telephonyConfig = toDeployableTelephonyConfig(snapshot.telephonyConfig);
+  }
   delete snapshot.totalMessages;
   delete snapshot.totalCostUsd;
   delete snapshot.templateLifecycleContractVersion;
@@ -600,7 +851,33 @@ function normalizeComparableTemplateCloneFieldValue(
     return normalizeOptionalString(value) || null;
   }
 
+  if (field === "telephonyConfig") {
+    if (value === undefined || value === null) {
+      return null;
+    }
+    return toComparablePrimitive(toDeployableTelephonyConfig(value));
+  }
+
   return toComparablePrimitive(value ?? null);
+}
+
+function resolveTemplateDistributionFieldPatchValue(args: {
+  field: TemplateCloneDriftField;
+  snapshotBaseline: Record<string, unknown>;
+  existingCustomProperties: Record<string, unknown>;
+}): unknown {
+  if (!Object.prototype.hasOwnProperty.call(args.snapshotBaseline, args.field)) {
+    return null;
+  }
+
+  if (args.field === "telephonyConfig") {
+    return mergeDeployableTelephonyConfigIntoRuntime({
+      templateConfig: args.snapshotBaseline.telephonyConfig,
+      currentConfig: args.existingCustomProperties.telephonyConfig,
+    });
+  }
+
+  return args.snapshotBaseline[args.field];
 }
 
 function resolveTemplateCloneFieldPolicyMode(
@@ -773,7 +1050,7 @@ async function writeTemplateWaeGateBlockedEvent(args: {
   actionType:
     | "agent_template.publish_blocked_wae_gate"
     | "agent_template.distribution_blocked_wae_gate";
-  actor: SuperAdminMutationSession;
+  actor: TemplateLifecycleExecutionActor;
   resource: "template_version" | "global_template";
   resourceId: string;
   templateId: string;
@@ -784,13 +1061,18 @@ async function writeTemplateWaeGateBlockedEvent(args: {
   gate: unknown;
   timestamp: number;
 }) {
+  const actorPayload = {
+    role: args.actor.roleName,
+    ...(args.actor.auditUserId ? { userId: String(args.actor.auditUserId) } : {}),
+    ...(args.actor.sessionId ? { sessionId: args.actor.sessionId } : {}),
+    ...(args.actor.performedBy
+      && String(args.actor.performedBy) !== String(args.actor.auditUserId ?? "")
+      ? { performerId: String(args.actor.performedBy) }
+      : {}),
+  };
   const payload = {
     contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-    actor: {
-      userId: String(args.actor.userId),
-      sessionId: args.actor.sessionId,
-      role: args.actor.roleName,
-    },
+    actor: actorPayload,
     reasonCode: args.reasonCode,
     message: args.message,
     templateId: args.templateId,
@@ -805,13 +1087,13 @@ async function writeTemplateWaeGateBlockedEvent(args: {
     objectId: args.objectId,
     actionType: args.actionType,
     actionData: payload,
-    performedBy: args.actor.userId,
+    performedBy: args.actor.performedBy,
     performedAt: args.timestamp,
   });
 
   await args.ctx.db.insert("auditLogs", {
     organizationId: args.organizationId,
-    userId: args.actor.userId,
+    userId: args.actor.auditUserId,
     action: args.actionType,
     resource: args.resource,
     resourceId: args.resourceId,
@@ -1064,6 +1346,564 @@ function resolveTemplateOverrideGateForManagedClone(args: {
     warnConfirmationAccepted: args.warnConfirmation,
     reason: args.reason,
     decision,
+  };
+}
+
+export const AGENT_FIELD_PATCH_CONTRACT_VERSION =
+  "agent_field_patch_contract_v1" as const;
+export const AGENT_FIELD_PATCH_SUPPORTED_FIELDS = [
+  "displayName",
+  "agentClass",
+  "personality",
+  "language",
+  "voiceLanguage",
+  "elevenLabsVoiceId",
+  "brandVoiceInstructions",
+  "systemPrompt",
+  "autonomyLevel",
+  "modelId",
+  "temperature",
+  "channelBindings",
+  "blockedTopics",
+  "telephonyConfig",
+] as const;
+export const AGENT_FIELD_PATCH_DEFERRED_FIELDS = [] as const;
+
+type AgentFieldPatchSupportedField =
+  (typeof AGENT_FIELD_PATCH_SUPPORTED_FIELDS)[number];
+type AgentFieldPatchDeferredField =
+  (typeof AGENT_FIELD_PATCH_DEFERRED_FIELDS)[number];
+type AgentFieldPatchApplyStatus =
+  | "ready"
+  | "no_change"
+  | "blocked_locked"
+  | "blocked_warn_confirmation_required"
+  | "unsupported"
+  | "deferred";
+
+export interface AgentFieldPatchInput {
+  displayName?: string;
+  agentClass?: AgentClass;
+  personality?: string;
+  language?: string;
+  voiceLanguage?: string;
+  elevenLabsVoiceId?: string;
+  brandVoiceInstructions?: string;
+  systemPrompt?: string;
+  autonomyLevel?: "supervised" | "sandbox" | "autonomous" | "delegation" | "draft_only";
+  modelId?: string;
+  temperature?: number;
+  channelBindings?: ChannelBindingContractRecord[];
+  blockedTopics?: string[];
+  telephonyConfig?: unknown;
+  [key: string]: unknown;
+}
+
+export interface AgentFieldPatchChange {
+  field: string;
+  label: string;
+  category: "supported" | "unsupported" | "deferred";
+  applyStatus: AgentFieldPatchApplyStatus;
+  before: unknown;
+  after: unknown;
+  changed: boolean;
+  reason?: string;
+}
+
+export interface AgentFieldPatchPreview {
+  contractVersion: typeof AGENT_FIELD_PATCH_CONTRACT_VERSION;
+  targetAgentId: Id<"objects">;
+  targetAgentName: string;
+  targetAgentDisplayName?: string;
+  proposedPatch: AgentFieldPatchInput;
+  normalizedUpdates: Record<string, unknown>;
+  changes: AgentFieldPatchChange[];
+  changedFields: string[];
+  unsupportedFields: string[];
+  deferredFields: string[];
+  overrideGate: TemplateOverrideGateSummary | null;
+  summary: {
+    canApply: boolean;
+    changedFieldCount: number;
+    readyFieldCount: number;
+    unsupportedFieldCount: number;
+    deferredFieldCount: number;
+    blockedReason?: string;
+  };
+  proposalMessage: string;
+}
+
+const AGENT_FIELD_PATCH_LABELS: Record<string, string> = {
+  displayName: "Display Name",
+  agentClass: "Agent Class",
+  personality: "Personality",
+  language: "Language",
+  voiceLanguage: "Voice Language",
+  elevenLabsVoiceId: "ElevenLabs Voice",
+  brandVoiceInstructions: "Brand Voice Instructions",
+  systemPrompt: "System Prompt",
+  autonomyLevel: "Autonomy Level",
+  modelId: "Model",
+  temperature: "Temperature",
+  channelBindings: "Channel Bindings",
+  blockedTopics: "Blocked Topics",
+  telephonyConfig: "Telephony Config",
+};
+
+function readAgentFieldPatchInput(value: unknown): AgentFieldPatchInput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as AgentFieldPatchInput;
+}
+
+function normalizeAgentFieldPatchString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  return value.trim();
+}
+
+function normalizeAgentFieldPatchStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const deduped = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const normalized = entry.trim();
+    if (!normalized) {
+      continue;
+    }
+    deduped.add(normalized);
+  }
+  return Array.from(deduped).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeAgentFieldPatchAutonomyLevel(
+  value: unknown
+): AgentFieldPatchInput["autonomyLevel"] | undefined {
+  return value === "supervised"
+    || value === "sandbox"
+    || value === "autonomous"
+    || value === "delegation"
+    || value === "draft_only"
+    ? value
+    : undefined;
+}
+
+function normalizeAgentFieldPatchTemperature(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isAgentFieldPatchRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveNormalizedTelephonyConfigPatch(args: {
+  currentValue: unknown;
+  proposedValue: unknown;
+}): { ok: true; value: unknown } | { ok: false; reason: string } {
+  if (!isAgentFieldPatchRecord(args.proposedValue)) {
+    return {
+      ok: false,
+      reason: "Expected telephonyConfig to be an object.",
+    };
+  }
+
+  const currentConfig = normalizeAgentTelephonyConfig(args.currentValue);
+  const proposedConfig = args.proposedValue;
+  if (
+    Object.prototype.hasOwnProperty.call(proposedConfig, "elevenlabs")
+    && proposedConfig.elevenlabs !== undefined
+    && !isAgentFieldPatchRecord(proposedConfig.elevenlabs)
+  ) {
+    return {
+      ok: false,
+      reason: "Expected telephonyConfig.elevenlabs to be an object when provided.",
+    };
+  }
+
+  const mergedConfig = normalizeAgentTelephonyConfig({
+    ...currentConfig,
+    ...proposedConfig,
+    ...(Object.prototype.hasOwnProperty.call(proposedConfig, "elevenlabs")
+      ? {
+          elevenlabs: {
+            ...currentConfig.elevenlabs,
+            ...(isAgentFieldPatchRecord(proposedConfig.elevenlabs)
+              ? proposedConfig.elevenlabs
+              : {}),
+          },
+        }
+      : {}),
+  });
+
+  return {
+    ok: true,
+    value: mergeDeployableTelephonyConfigIntoRuntime({
+      templateConfig: mergedConfig,
+      currentConfig: args.currentValue,
+    }),
+  };
+}
+
+function normalizeAgentFieldPatchComparableValue(
+  field: AgentFieldPatchSupportedField | AgentFieldPatchDeferredField,
+  value: unknown,
+): unknown {
+  switch (field) {
+    case "agentClass":
+      return typeof value === "string" ? normalizeAgentClass(value) : null;
+    case "displayName":
+    case "personality":
+    case "language":
+    case "voiceLanguage":
+    case "elevenLabsVoiceId":
+    case "brandVoiceInstructions":
+    case "systemPrompt":
+    case "modelId":
+      return normalizeAgentFieldPatchString(value) ?? null;
+    case "autonomyLevel":
+      return normalizeAgentFieldPatchAutonomyLevel(value) ?? null;
+    case "temperature":
+      return normalizeAgentFieldPatchTemperature(value) ?? null;
+    case "blockedTopics":
+      return normalizeAgentFieldPatchStringArray(value) ?? [];
+    case "channelBindings":
+      if (!Array.isArray(value)) {
+        return [];
+      }
+      return normalizeChannelBindingsContract(
+        value as ChannelBindingContractRecord[]
+      );
+    case "telephonyConfig":
+      return value === undefined || value === null
+        ? null
+        : toDeployableTelephonyConfig(value);
+    default:
+      return value ?? null;
+  }
+}
+
+function resolveAgentFieldPatchSupportedValue(args: {
+  field: AgentFieldPatchSupportedField;
+  value: unknown;
+  currentValue?: unknown;
+}): { ok: true; value: unknown } | { ok: false; reason: string } {
+  switch (args.field) {
+    case "agentClass": {
+      if (typeof args.value !== "string") {
+        return { ok: false, reason: "Expected agentClass to be a string." };
+      }
+      return { ok: true, value: normalizeAgentClass(args.value) };
+    }
+    case "displayName":
+    case "personality":
+    case "language":
+    case "voiceLanguage":
+    case "elevenLabsVoiceId":
+    case "brandVoiceInstructions":
+    case "systemPrompt":
+    case "modelId": {
+      if (typeof args.value !== "string") {
+        return { ok: false, reason: `Expected ${args.field} to be a string.` };
+      }
+      return { ok: true, value: args.value.trim() };
+    }
+    case "autonomyLevel": {
+      const normalized = normalizeAgentFieldPatchAutonomyLevel(args.value);
+      if (!normalized) {
+        return {
+          ok: false,
+          reason:
+            "Expected autonomyLevel to be one of supervised, sandbox, autonomous, delegation, or draft_only.",
+        };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "temperature": {
+      const normalized = normalizeAgentFieldPatchTemperature(args.value);
+      if (normalized === undefined) {
+        return { ok: false, reason: "Expected temperature to be a finite number." };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "blockedTopics": {
+      const normalized = normalizeAgentFieldPatchStringArray(args.value);
+      if (!normalized) {
+        return { ok: false, reason: "Expected blockedTopics to be an array of strings." };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "channelBindings": {
+      if (!Array.isArray(args.value)) {
+        return {
+          ok: false,
+          reason: "Expected channelBindings to be an array of channel binding records.",
+        };
+      }
+      try {
+        return {
+          ok: true,
+          value: normalizeChannelBindingsContract(
+            args.value as ChannelBindingContractRecord[]
+          ),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          reason:
+            error instanceof Error
+              ? error.message
+              : "Invalid channelBindings payload.",
+        };
+      }
+    }
+    case "telephonyConfig":
+      return resolveNormalizedTelephonyConfigPatch({
+        currentValue: args.currentValue,
+        proposedValue: args.value,
+      });
+    default:
+      return { ok: false, reason: `Unsupported field ${args.field}.` };
+  }
+}
+
+async function buildAgentFieldPatchPreview(
+  ctx: MutationCtx,
+  args: {
+    sessionId: string;
+    agentId: Id<"objects">;
+    patch: unknown;
+    overridePolicyGate?: {
+      confirmWarnOverride?: boolean;
+      reason?: string;
+    };
+  },
+): Promise<AgentFieldPatchPreview> {
+  const session = await ctx.db
+    .query("sessions")
+    .filter((q) => q.eq(q.field("_id"), args.sessionId))
+    .first();
+
+  if (!session) {
+    throw new Error("Invalid session");
+  }
+
+  const agent = await ctx.db.get(args.agentId);
+  if (!agent || agent.type !== "org_agent") {
+    throw new Error("Agent not found");
+  }
+
+  enforceNotProtected(agent);
+
+  const rawPatch = readAgentFieldPatchInput(args.patch);
+  const normalizedUpdates: Record<string, unknown> = {};
+  const changes: AgentFieldPatchChange[] = [];
+  const changedFields: string[] = [];
+  const unsupportedFields: string[] = [];
+  const deferredFields: string[] = [];
+  const customProperties =
+    (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+  const normalizedOverrideReason =
+    normalizeOptionalString(args.overridePolicyGate?.reason) || null;
+  const warnConfirmationAccepted =
+    args.overridePolicyGate?.confirmWarnOverride === true
+    && normalizedOverrideReason !== null;
+
+  for (const [field, proposedValue] of Object.entries(rawPatch)) {
+    const label = AGENT_FIELD_PATCH_LABELS[field] || field;
+    if (
+      (AGENT_FIELD_PATCH_DEFERRED_FIELDS as readonly string[]).includes(field)
+    ) {
+      deferredFields.push(field);
+      changes.push({
+        field,
+        label,
+        category: "deferred",
+        applyStatus: "deferred",
+        before: normalizeAgentFieldPatchComparableValue(
+          field as AgentFieldPatchDeferredField,
+          customProperties[field],
+        ),
+        after: proposedValue,
+        changed: true,
+        reason:
+          "This field is recognized but deferred in the first chat-apply slice.",
+      });
+      continue;
+    }
+
+    if (
+      !(AGENT_FIELD_PATCH_SUPPORTED_FIELDS as readonly string[]).includes(field)
+    ) {
+      unsupportedFields.push(field);
+      changes.push({
+        field,
+        label,
+        category: "unsupported",
+        applyStatus: "unsupported",
+        before: customProperties[field],
+        after: proposedValue,
+        changed: true,
+        reason: "This field is not supported by the current agent patch contract.",
+      });
+      continue;
+    }
+
+    const supportedField = field as AgentFieldPatchSupportedField;
+    const normalizedProposal = resolveAgentFieldPatchSupportedValue({
+      field: supportedField,
+      value: proposedValue,
+      currentValue: customProperties[supportedField],
+    });
+    const before = normalizeAgentFieldPatchComparableValue(
+      supportedField,
+      supportedField === "agentClass"
+        ? readAgentClass(customProperties)
+        : customProperties[supportedField],
+    );
+
+    if (!normalizedProposal.ok) {
+      unsupportedFields.push(field);
+      changes.push({
+        field,
+        label,
+        category: "unsupported",
+        applyStatus: "unsupported",
+        before,
+        after: proposedValue,
+        changed: true,
+        reason: normalizedProposal.reason,
+      });
+      continue;
+    }
+
+    const after = normalizeAgentFieldPatchComparableValue(
+      supportedField,
+      normalizedProposal.value,
+    );
+    const changed = JSON.stringify(before) !== JSON.stringify(after);
+    if (changed) {
+      normalizedUpdates[supportedField] = normalizedProposal.value;
+      changedFields.push(supportedField);
+    }
+    changes.push({
+      field,
+      label,
+      category: "supported",
+      applyStatus: changed ? "ready" : "no_change",
+      before,
+      after,
+      changed,
+    });
+  }
+
+  const recognizedUpdatedFields = normalizeDeterministicUpdatedFields([
+    ...changedFields,
+    ...deferredFields.filter((field): field is AgentFieldPatchDeferredField =>
+      (AGENT_FIELD_PATCH_DEFERRED_FIELDS as readonly string[]).includes(field)
+    ),
+  ]);
+
+  await enforceOneOfOneOperatorMutationAccess(ctx, {
+    userId: session.userId,
+    organizationId: agent.organizationId,
+    agent,
+    operation: "update",
+    updatedFields: recognizedUpdatedFields,
+  });
+
+  const overrideGate = resolveTemplateOverrideGateForManagedClone({
+    customProperties,
+    updates: normalizedUpdates,
+    warnConfirmation: warnConfirmationAccepted,
+    reason: normalizedOverrideReason,
+  });
+  const lockedFields = new Set(overrideGate?.lockedFields ?? []);
+  const warnFields = new Set(overrideGate?.warnFields ?? []);
+
+  let readyFieldCount = 0;
+  for (const change of changes) {
+    if (change.category !== "supported" || !change.changed) {
+      continue;
+    }
+    if (lockedFields.has(change.field as TemplateCloneDriftField)) {
+      change.applyStatus = "blocked_locked";
+      change.reason = "Managed-clone override policy locks this field.";
+      continue;
+    }
+    if (
+      warnFields.has(change.field as TemplateCloneDriftField)
+      && overrideGate?.decision === "blocked_warn_confirmation_required"
+    ) {
+      change.applyStatus = "blocked_warn_confirmation_required";
+      change.reason =
+        "Managed-clone warn override requires explicit confirmation and reason.";
+      continue;
+    }
+    readyFieldCount += 1;
+  }
+
+  const targetAgentDisplayName =
+    normalizeOptionalString(customProperties.displayName) || undefined;
+  const targetAgentName = targetAgentDisplayName || agent.name;
+  const blockedReasons: string[] = [];
+  if (changedFields.length === 0) {
+    blockedReasons.push("No supported field changes were proposed.");
+  }
+  if (unsupportedFields.length > 0) {
+    blockedReasons.push(
+      `Unsupported fields present: ${unsupportedFields.join(", ")}.`,
+    );
+  }
+  if (deferredFields.length > 0) {
+    blockedReasons.push(
+      `Deferred fields present: ${deferredFields.join(", ")}.`,
+    );
+  }
+  if (overrideGate?.decision === "blocked_locked") {
+    blockedReasons.push(
+      `Managed-clone override policy locked: ${overrideGate.lockedFields.join(", ")}.`,
+    );
+  }
+  if (overrideGate?.decision === "blocked_warn_confirmation_required") {
+    blockedReasons.push(
+      `Managed-clone warn confirmation required: ${overrideGate.warnFields.join(", ")}.`,
+    );
+  }
+  const canApply = blockedReasons.length === 0 && readyFieldCount > 0;
+  const readyLabels = changes
+    .filter((change) => change.applyStatus === "ready")
+    .map((change) => change.label.toLowerCase());
+  const proposalMessage = canApply
+    ? `Propose ${readyFieldCount} agent setting update${readyFieldCount === 1 ? "" : "s"} for ${targetAgentName}: ${readyLabels.join(", ")}.`
+    : `Proposed agent field patch for ${targetAgentName} is blocked: ${blockedReasons.join(" ")}`;
+
+  return {
+    contractVersion: AGENT_FIELD_PATCH_CONTRACT_VERSION,
+    targetAgentId: args.agentId,
+    targetAgentName: agent.name,
+    targetAgentDisplayName,
+    proposedPatch: rawPatch,
+    normalizedUpdates,
+    changes,
+    changedFields,
+    unsupportedFields,
+    deferredFields,
+    overrideGate,
+    summary: {
+      canApply,
+      changedFieldCount: changedFields.length,
+      readyFieldCount,
+      unsupportedFieldCount: unsupportedFields.length,
+      deferredFieldCount: deferredFields.length,
+      blockedReason: blockedReasons.length > 0 ? blockedReasons.join(" ") : undefined,
+    },
+    proposalMessage,
   };
 }
 
@@ -1493,6 +2333,15 @@ export function resolveActiveAgentForOrgCandidates<T extends ActiveAgentCandidat
     }
   }
 
+  // Mother remains explicit-target only and must never enter implicit org routing.
+  candidates = candidates.filter((agent) => {
+    const props = readAgentCustomProperties(agent);
+    return !isPlatformMotherAuthorityRecord(agent.name, props);
+  });
+  if (candidates.length === 0) {
+    return null;
+  }
+
   const operatorRoutingChannelRequested = isOperatorRoutingChannel(args.channel);
   const orchestratorCandidate = operatorRoutingChannelRequested
     ? resolveOrchestratorCandidate(candidates, args.channel)
@@ -1554,14 +2403,17 @@ export function selectOnboardingTemplateAgent<T extends ActiveAgentCandidate>(
 
   const explicitOnboardingTemplate = templates.find((template) => {
     const props = template.customProperties as Record<string, unknown> | undefined;
-    return readTemplateRole(props) === "platform_system_bot_template";
+    return hasPlatformMotherTemplateRole(props);
   });
   if (explicitOnboardingTemplate) {
     return explicitOnboardingTemplate;
   }
 
   const legacyQuinnTemplate = templates.find((template) =>
-    typeof template.name === "string" && template.name.trim().toLowerCase() === "quinn"
+    matchesPlatformMotherIdentityName(
+      template.name,
+      template.customProperties as Record<string, unknown> | undefined,
+    )
   );
   if (legacyQuinnTemplate) {
     return legacyQuinnTemplate;
@@ -1773,6 +2625,154 @@ export const getAgentInternal = internalQuery({
       return null;
     }
     return agent;
+  },
+});
+
+export const getAgentLayeredContextWorkflows = query({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.type !== "org_agent") {
+      return [];
+    }
+
+    return await loadAgentLayeredContextWorkflows(ctx, args.agentId);
+  },
+});
+
+export const getAgentLayeredContextWorkflowIdsInternal = internalQuery({
+  args: {
+    agentId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.type !== "org_agent") {
+      return [];
+    }
+
+    const workflows = await loadAgentLayeredContextWorkflows(ctx, args.agentId);
+    return workflows.map((workflow) => workflow.workflowId);
+  },
+});
+
+export const attachLayeredContextWorkflow = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    workflowId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.type !== "org_agent") {
+      throw new Error("Agent not found");
+    }
+
+    const workflow = await ctx.db.get(args.workflowId);
+    if (!workflow || workflow.type !== "layer_workflow") {
+      throw new Error("Layered context workflow not found");
+    }
+
+    if (workflow.organizationId !== agent.organizationId) {
+      throw new Error("Layered context workflow belongs to a different organization");
+    }
+
+    const existingLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.agentId).eq("linkType", AGENT_LAYERED_CONTEXT_LINK_TYPE)
+      )
+      .collect();
+    const existingLink = existingLinks.find((link) => link.toObjectId === args.workflowId);
+    if (existingLink) {
+      return {
+        success: true,
+        attached: false,
+        linkId: existingLink._id,
+      };
+    }
+
+    const now = Date.now();
+    const linkId = await ctx.db.insert("objectLinks", {
+      organizationId: agent.organizationId,
+      fromObjectId: args.agentId,
+      toObjectId: args.workflowId,
+      linkType: AGENT_LAYERED_CONTEXT_LINK_TYPE,
+      createdAt: now,
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: agent.organizationId,
+      objectId: args.agentId,
+      actionType: "layered_context_workflow_attached",
+      actionData: {
+        workflowId: args.workflowId,
+        linkType: AGENT_LAYERED_CONTEXT_LINK_TYPE,
+      },
+      performedBy: userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      attached: true,
+      linkId,
+    };
+  },
+});
+
+export const detachLayeredContextWorkflow = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    workflowId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent || agent.type !== "org_agent") {
+      throw new Error("Agent not found");
+    }
+
+    const existingLinks = await ctx.db
+      .query("objectLinks")
+      .withIndex("by_from_link_type", (q) =>
+        q.eq("fromObjectId", args.agentId).eq("linkType", AGENT_LAYERED_CONTEXT_LINK_TYPE)
+      )
+      .collect();
+    const existingLink = existingLinks.find((link) => link.toObjectId === args.workflowId);
+    if (!existingLink) {
+      return {
+        success: true,
+        detached: false,
+      };
+    }
+
+    const now = Date.now();
+    await ctx.db.delete(existingLink._id);
+    await ctx.db.insert("objectActions", {
+      organizationId: agent.organizationId,
+      objectId: args.agentId,
+      actionType: "layered_context_workflow_detached",
+      actionData: {
+        workflowId: args.workflowId,
+        linkType: AGENT_LAYERED_CONTEXT_LINK_TYPE,
+      },
+      performedBy: userId,
+      performedAt: now,
+    });
+
+    return {
+      success: true,
+      detached: true,
+    };
   },
 });
 
@@ -2091,6 +3091,77 @@ async function resolveDefaultTemplateForOrgBootstrap(
   };
 }
 
+async function resolveProtectedTemplateByRoleForOrgBootstrap(
+  ctx: MutationCtx,
+  args: {
+    templateRole: string;
+  }
+): Promise<{
+  template: {
+    _id: Id<"objects">;
+    organizationId: Id<"organizations">;
+    type: string;
+    subtype?: string;
+    name: string;
+    description?: string;
+    status: string;
+    customProperties?: Record<string, unknown>;
+    createdBy?: Id<"users">;
+    createdAt: number;
+    updatedAt: number;
+  };
+  resolutionSource: "platform_template_role";
+}> {
+  const normalizedTemplateRole = normalizeOptionalString(args.templateRole);
+  if (!normalizedTemplateRole) {
+    throw new Error("Managed specialist template role is required.");
+  }
+
+  const platformOrgId = resolvePlatformOrgIdFromEnv();
+  if (!platformOrgId) {
+    throw new Error(
+      "Protected template resolution failed: PLATFORM_ORG_ID/TEST_ORG_ID is not configured."
+    );
+  }
+  const platformAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", platformOrgId).eq("type", "org_agent")
+    )
+    .collect();
+
+  const templateCandidates = filterProtectedTemplateAgents(platformAgents, {
+    templateRole: normalizedTemplateRole,
+  });
+  const template = templateCandidates[0];
+  if (!template || !template._id) {
+    throw new Error(
+      `Protected template role not found on platform org: ${normalizedTemplateRole}.`
+    );
+  }
+  if (template.status !== "template") {
+    throw new Error(
+      `Protected template role is not template-status: ${normalizedTemplateRole}.`
+    );
+  }
+  return {
+    template: template as {
+      _id: Id<"objects">;
+      organizationId: Id<"organizations">;
+      type: string;
+      subtype?: string;
+      name: string;
+      description?: string;
+      status: string;
+      customProperties?: Record<string, unknown>;
+      createdBy?: Id<"users">;
+      createdAt: number;
+      updatedAt: number;
+    },
+    resolutionSource: "platform_template_role",
+  };
+}
+
 async function ensureManagedDefaultTemplateCloneForOrgHandler(
   ctx: MutationCtx,
   args: EnsureActiveAgentForOrgArgs
@@ -2366,6 +3437,257 @@ async function ensureManagedDefaultTemplateCloneForOrgHandler(
   };
 }
 
+async function ensureManagedTemplateSpecialistCloneForOrgHandler(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    templateRole: string;
+    name?: string;
+    description?: string;
+    subtype?: string;
+    agentClass?: AgentClass;
+    operatorId?: string;
+    isPrimary?: boolean;
+    channelBindings?: ChannelBindingContractRecord[];
+    customPropertiesOverlay?: Record<string, unknown>;
+  }
+): Promise<{
+  agentId: Id<"objects">;
+  provisioningAction: "template_clone_created" | "template_clone_updated";
+  templateAgentId: Id<"objects">;
+  templateResolutionSource: "platform_template_role";
+}> {
+  const now = Date.now();
+  const resolvedTemplate = await resolveProtectedTemplateByRoleForOrgBootstrap(ctx, {
+    templateRole: args.templateRole,
+  });
+  const template = resolvedTemplate.template;
+  const templateProps =
+    (template.customProperties as Record<string, unknown> | undefined) ?? {};
+  const templateLifecycleStatus = normalizeTemplateLifecycleStatus(
+    templateProps.templateLifecycleStatus
+  );
+  if (templateLifecycleStatus === "deprecated") {
+    throw new Error(
+      `Managed specialist template is deprecated and cannot be provisioned: ${args.templateRole}.`
+    );
+  }
+
+  const templateVersion = resolveDefaultOrgTemplateVersionTag({
+    templateId: template._id,
+    templateUpdatedAt: template.updatedAt,
+    templateCustomProperties: templateProps,
+  });
+  const templateBaseline = pickTemplateBaselineSnapshot(templateProps);
+  const syncJobId = [
+    "org_managed_specialist_template_sync",
+    String(args.organizationId),
+    String(template._id),
+    templateVersion,
+  ].join(":");
+  const overlayProps = {
+    ...((args.customPropertiesOverlay as Record<string, unknown> | undefined) ?? {}),
+  };
+  const normalizedChannelBindings = args.channelBindings
+    ? normalizeChannelBindingsContract(args.channelBindings)
+    : undefined;
+  const markPrimary = args.isPrimary === true;
+  const normalizedOperatorId = normalizeOptionalString(args.operatorId);
+  const hasExplicitOverlay =
+    Boolean(args.name || args.description || args.subtype || args.agentClass)
+    || Boolean(normalizedChannelBindings)
+    || Object.keys(overlayProps).length > 0;
+  const linkageLifecycleState = hasExplicitOverlay
+    ? "managed_override_pending_sync"
+    : "managed_in_sync";
+
+  const orgAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect();
+  const existingClone = orgAgents
+    .filter((agent) => {
+      const props = (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+      return resolveTemplateSourceId(props) === String(template._id);
+    })
+    .sort((left, right) => String(left._id).localeCompare(String(right._id)))[0];
+
+  if (existingClone?._id) {
+    const existingProps =
+      (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+    const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+    const nextCustomProperties: Record<string, unknown> = {
+      ...existingProps,
+      ...overlayProps,
+      templateAgentId: template._id,
+      templateVersion,
+      cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+      templateCloneLinkage: buildManagedTemplateCloneLinkage({
+        sourceTemplateId: String(template._id),
+        sourceTemplateVersion: templateVersion,
+        overridePolicy: existingLinkage?.overridePolicy,
+        lastTemplateSyncAt: now,
+        lastTemplateSyncJobId: syncJobId,
+        cloneLifecycleState: hasExplicitOverlay
+          ? "managed_override_pending_sync"
+          : existingLinkage?.cloneLifecycleState,
+      }),
+      lastTemplateSyncAt: now,
+      lastTemplateJobId: syncJobId,
+      creationSource: "catalog_clone",
+      protected: false,
+      isPrimary: markPrimary,
+      totalMessages:
+        typeof existingProps.totalMessages === "number" ? existingProps.totalMessages : 0,
+      totalCostUsd:
+        typeof existingProps.totalCostUsd === "number" ? existingProps.totalCostUsd : 0,
+    };
+    if (normalizedOperatorId) {
+      nextCustomProperties.operatorId = normalizedOperatorId;
+    } else {
+      delete nextCustomProperties.operatorId;
+    }
+    if (normalizedChannelBindings) {
+      nextCustomProperties.channelBindings = normalizedChannelBindings;
+    }
+    nextCustomProperties.agentClass = normalizeAgentClass(
+      args.agentClass ?? overlayProps.agentClass ?? existingProps.agentClass,
+      normalizeAgentClass(templateBaseline.agentClass, "internal_operator")
+    );
+
+    await ctx.db.patch(existingClone._id, {
+      subtype: args.subtype || template.subtype || existingClone.subtype || "general",
+      name: args.name || existingClone.name || template.name,
+      description:
+        normalizeOptionalString(args.description)
+        || normalizeOptionalString(existingClone.description)
+        || normalizeOptionalString(template.description)
+        || "Managed template specialist clone",
+      status: "active",
+      customProperties: nextCustomProperties,
+      updatedAt: now,
+    });
+
+    if (normalizedOperatorId) {
+      await applyPrimaryAgentRepairsForOrganization(ctx, {
+        organizationId: String(args.organizationId),
+        operatorId: normalizedOperatorId,
+        ...(markPrimary ? { forcePrimaryAgentId: String(existingClone._id) } : {}),
+      });
+    }
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: existingClone._id,
+      actionType: "org_managed_template_specialist_clone_upserted",
+      actionData: {
+        source: "ensureManagedTemplateSpecialistAgentForOrgInternal",
+        mode: "existing_clone",
+        templateAgentId: String(template._id),
+        templateRole: args.templateRole,
+        templateVersion,
+        templateResolutionSource: resolvedTemplate.resolutionSource,
+        syncJobId,
+        linkageLifecycleState,
+        isPrimary: markPrimary,
+      },
+      performedAt: now,
+    });
+
+    return {
+      agentId: existingClone._id,
+      provisioningAction: "template_clone_updated",
+      templateAgentId: template._id,
+      templateResolutionSource: resolvedTemplate.resolutionSource,
+    };
+  }
+
+  const customProperties: Record<string, unknown> = {
+    ...templateBaseline,
+    ...overlayProps,
+    agentClass: normalizeAgentClass(
+      args.agentClass ?? overlayProps.agentClass ?? templateBaseline.agentClass,
+      "internal_operator"
+    ),
+    protected: false,
+    templateAgentId: template._id,
+    templateVersion,
+    cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+    templateCloneLinkage: buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(template._id),
+      sourceTemplateVersion: templateVersion,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId: syncJobId,
+      cloneLifecycleState: linkageLifecycleState,
+    }),
+    lastTemplateSyncAt: now,
+    lastTemplateJobId: syncJobId,
+    creationSource: "catalog_clone",
+    isPrimary: markPrimary,
+    totalMessages:
+      typeof templateBaseline.totalMessages === "number" ? templateBaseline.totalMessages : 0,
+    totalCostUsd:
+      typeof templateBaseline.totalCostUsd === "number" ? templateBaseline.totalCostUsd : 0,
+  };
+  if (normalizedOperatorId) {
+    customProperties.operatorId = normalizedOperatorId;
+  }
+  if (normalizedChannelBindings) {
+    customProperties.channelBindings = normalizedChannelBindings;
+  }
+
+  const cloneId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: args.subtype || template.subtype || "general",
+    name: args.name || template.name,
+    description:
+      normalizeOptionalString(args.description)
+      || normalizeOptionalString(template.description)
+      || "Managed template specialist clone",
+    status: "active",
+    customProperties,
+    createdBy: template.createdBy,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  if (normalizedOperatorId) {
+    await applyPrimaryAgentRepairsForOrganization(ctx, {
+      organizationId: String(args.organizationId),
+      operatorId: normalizedOperatorId,
+      ...(markPrimary ? { forcePrimaryAgentId: String(cloneId) } : {}),
+    });
+  }
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: cloneId,
+    actionType: "org_managed_template_specialist_clone_upserted",
+    actionData: {
+      source: "ensureManagedTemplateSpecialistAgentForOrgInternal",
+      mode: "created",
+      templateAgentId: String(template._id),
+      templateRole: args.templateRole,
+      templateVersion,
+      templateResolutionSource: resolvedTemplate.resolutionSource,
+      syncJobId,
+      linkageLifecycleState,
+      isPrimary: markPrimary,
+    },
+    performedAt: now,
+  });
+
+  return {
+    agentId: cloneId,
+    provisioningAction: "template_clone_created",
+    templateAgentId: template._id,
+    templateResolutionSource: resolvedTemplate.resolutionSource,
+  };
+}
+
 export const ensureActiveAgentForOrgInternal = internalMutation({
   args: {
     organizationId: v.id("organizations"),
@@ -2384,8 +3706,50 @@ export const ensureActiveAgentForOrgInternal = internalMutation({
 });
 
 /**
+ * INTERNAL: Provision the org's default managed operator authority agent.
+ * This is the strict rail for desktop/mobile/native operator surfaces.
+ * It never falls back to legacy auto-created recovery agents.
+ */
+export const ensureOperatorAuthorityAgentForOrgInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    appSurface: v.optional(v.string()),
+    routeSelectors: v.optional(v.object({
+      channel: v.optional(v.string()),
+      providerId: v.optional(v.string()),
+      account: v.optional(v.string()),
+      team: v.optional(v.string()),
+      peer: v.optional(v.string()),
+      channelRef: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const provisioned = await ensureManagedDefaultTemplateCloneForOrgHandler(ctx, {
+        organizationId: args.organizationId,
+        channel: OPERATOR_AUTHORITY_BOOTSTRAP_CHANNEL,
+        routeSelectors: args.routeSelectors,
+      });
+      return {
+        agentId: provisioned.agentId,
+        provisioningAction: provisioned.provisioningAction,
+        fallbackUsed: false,
+        templateAgentId: provisioned.templateAgentId,
+        templateResolutionSource: provisioned.templateResolutionSource,
+        authorityChannel: OPERATOR_AUTHORITY_BOOTSTRAP_CHANNEL,
+        appSurface: normalizeOperatorAuthorityAppSurface(args.appSurface),
+      };
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : "unknown_operator_authority_bootstrap_error";
+      throw new Error(`OPERATOR_AUTHORITY_BOOTSTRAP_FAILED: ${reason}`);
+    }
+  },
+});
+
+/**
  * INTERNAL: Provision the org's default agent as a managed template clone.
- * Fail-closed behavior: falls back to ensureActiveAgentForOrgInternal recovery.
+ * Strict behavior: no legacy auto-recovery fallback.
  */
 export const ensureTemplateManagedDefaultAgentForOrgInternal = internalMutation({
   args: {
@@ -2402,26 +3766,50 @@ export const ensureTemplateManagedDefaultAgentForOrgInternal = internalMutation(
     })),
   },
   handler: async (ctx, args) => {
-    try {
-      const provisioned = await ensureManagedDefaultTemplateCloneForOrgHandler(ctx, args);
-      return {
-        agentId: provisioned.agentId,
-        provisioningAction: provisioned.provisioningAction,
-        fallbackUsed: false,
-        templateAgentId: provisioned.templateAgentId,
-        templateResolutionSource: provisioned.templateResolutionSource,
-      };
-    } catch (error) {
-      const fallback = await ensureActiveAgentForOrgInternalHandler(ctx, args);
-      return {
-        agentId: fallback.agentId,
-        provisioningAction: `fallback_${fallback.recoveryAction}` as const,
-        fallbackUsed: true,
-        templateAgentId: null,
-        templateResolutionSource: null,
-        fallbackReason: error instanceof Error ? error.message : "unknown_template_provisioning_error",
-      };
-    }
+    const provisioned = await ensureManagedDefaultTemplateCloneForOrgHandler(ctx, args);
+    return {
+      agentId: provisioned.agentId,
+      provisioningAction: provisioned.provisioningAction,
+      fallbackUsed: false,
+      templateAgentId: provisioned.templateAgentId,
+      templateResolutionSource: provisioned.templateResolutionSource,
+    };
+  },
+});
+
+export const ensureManagedTemplateSpecialistAgentForOrgInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    templateRole: v.string(),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    subtype: v.optional(v.string()),
+    agentClass: v.optional(agentClassValidator),
+    operatorId: v.optional(v.string()),
+    isPrimary: v.optional(v.boolean()),
+    channelBindings: v.optional(v.array(webchatChannelBindingValidator)),
+    customPropertiesOverlay: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const provisioned = await ensureManagedTemplateSpecialistCloneForOrgHandler(ctx, {
+      organizationId: args.organizationId,
+      templateRole: args.templateRole,
+      name: args.name,
+      description: args.description,
+      subtype: args.subtype,
+      agentClass: args.agentClass,
+      operatorId: args.operatorId,
+      isPrimary: args.isPrimary,
+      channelBindings: args.channelBindings as ChannelBindingContractRecord[] | undefined,
+      customPropertiesOverlay:
+        (args.customPropertiesOverlay as Record<string, unknown> | undefined) ?? undefined,
+    });
+    return {
+      agentId: provisioned.agentId,
+      provisioningAction: provisioned.provisioningAction,
+      templateAgentId: provisioned.templateAgentId,
+      templateResolutionSource: provisioned.templateResolutionSource,
+    };
   },
 });
 
@@ -3076,6 +4464,630 @@ export const deprecateAgentTemplateLifecycle = mutation({
   },
 });
 
+export async function runTemplateDistributionLifecycle(
+  ctx: MutationCtx,
+  args: {
+    actor: TemplateLifecycleExecutionActor;
+    templateId: Id<"objects">;
+    templateVersionId?: Id<"objects">;
+    targetOrganizationIds: Id<"organizations">[];
+    stagedRollout?: {
+      stageSize: number;
+      stageStartIndex?: number;
+    };
+    dryRun?: boolean;
+    reason?: string;
+    distributionJobId?: string;
+    operationKind?: TemplateDistributionOperationKind;
+    overridePolicyGate?: {
+      confirmWarnOverride?: boolean;
+      reason?: string;
+    };
+  },
+) {
+  const template = await ctx.db.get(args.templateId);
+  if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template agent not found.",
+    });
+  }
+
+  const templateProps =
+    (template.customProperties as Record<string, unknown> | undefined) ?? {};
+  const templateLifecycle = normalizeTemplateLifecycleStatus(
+    templateProps.templateLifecycleStatus
+  );
+  if (templateLifecycle === "deprecated") {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Deprecated templates cannot be distributed.",
+    });
+  }
+
+  const templateVersion = args.templateVersionId
+    ? await ctx.db.get(args.templateVersionId)
+    : null;
+  if (args.templateVersionId && (!templateVersion || templateVersion.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE)) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template version snapshot not found.",
+    });
+  }
+  const templateVersionProps =
+    (templateVersion?.customProperties as Record<string, unknown> | undefined) ?? {};
+  if (templateVersion) {
+    const sourceTemplateId = normalizeOptionalString(templateVersionProps.sourceTemplateId);
+    if (sourceTemplateId !== String(args.templateId)) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "Template version does not belong to template.",
+      });
+    }
+    const versionLifecycle = normalizeTemplateVersionLifecycleStatus(
+      templateVersionProps.lifecycleStatus
+    );
+    if (versionLifecycle === "deprecated") {
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: "Deprecated template versions cannot be distributed.",
+      });
+    }
+  }
+
+  const resolvedVersionTag =
+    resolveTemplateVersionTagFromVersionObject(templateVersionProps) ||
+    normalizeOptionalString(templateProps.templatePublishedVersion) ||
+    normalizeOptionalString(templateProps.templateVersion) ||
+    `${String(args.templateId)}@${template.updatedAt}`;
+  const resolvedTemplateVersionId =
+    args.templateVersionId
+    ?? (
+      normalizeOptionalString(templateProps.templatePublishedVersionId) as Id<"objects"> | null
+    );
+
+  const snapshotBaseline = templateVersion
+    ? (
+        (
+          templateVersionProps.snapshot as
+            | Record<string, unknown>
+            | undefined
+        )?.baselineCustomProperties as Record<string, unknown> | undefined
+      ) ?? pickTemplateBaselineSnapshot(templateProps)
+    : pickTemplateBaselineSnapshot(templateProps);
+
+  const requestedTargetOrganizationIds = dedupeAndSortObjectIds(args.targetOrganizationIds);
+  const rawStageSize = args.stagedRollout?.stageSize;
+  const rawStageStartIndex = args.stagedRollout?.stageStartIndex ?? 0;
+  if (rawStageSize !== undefined) {
+    if (!Number.isInteger(rawStageSize) || rawStageSize < 1) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "stagedRollout.stageSize must be an integer greater than 0.",
+      });
+    }
+  }
+  if (!Number.isInteger(rawStageStartIndex) || rawStageStartIndex < 0) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message: "stagedRollout.stageStartIndex must be a non-negative integer.",
+    });
+  }
+  const stageSize = rawStageSize ?? requestedTargetOrganizationIds.length;
+  const stageStartIndex = rawStageStartIndex;
+  const targetOrganizationIds = requestedTargetOrganizationIds.slice(
+    Math.min(stageStartIndex, requestedTargetOrganizationIds.length),
+    Math.min(stageStartIndex + stageSize, requestedTargetOrganizationIds.length),
+  );
+  const deterministicJobId =
+    normalizeOptionalString(args.distributionJobId) ||
+    buildDeterministicTemplateDistributionJobId({
+      templateId: String(args.templateId),
+      templateVersionTag: resolvedVersionTag,
+      targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
+    });
+  const dryRun = args.dryRun === true;
+  const operationKind: TemplateDistributionOperationKind =
+    args.operationKind === "rollout_rollback" ? "rollout_rollback" : "rollout_apply";
+  const now = Date.now();
+  const normalizedReason = normalizeOptionalString(args.reason) || "template_distribution_rollout";
+  const normalizedOverrideReason =
+    normalizeOptionalString(args.overridePolicyGate?.reason) || null;
+  const warnConfirmationAccepted =
+    args.overridePolicyGate?.confirmWarnOverride === true &&
+    normalizedOverrideReason !== null;
+
+  const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+    templateId: args.templateId,
+    templateVersionId: resolvedTemplateVersionId,
+    templateVersionTag: resolvedVersionTag,
+    now,
+  });
+  if (!waeGate.allowed) {
+    await writeTemplateWaeGateBlockedEvent({
+      ctx,
+      organizationId: template.organizationId,
+      objectId: args.templateId,
+      actionType: "agent_template.distribution_blocked_wae_gate",
+      actor: args.actor,
+      resource: "global_template",
+      resourceId: String(args.templateId),
+      templateId: String(args.templateId),
+      templateVersionId: resolvedTemplateVersionId ? String(resolvedTemplateVersionId) : null,
+      templateVersionTag: resolvedVersionTag,
+      reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
+      message: waeGate.message || "WAE rollout gate blocked template distribution.",
+      gate: waeGate.gate,
+      timestamp: now,
+    });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: waeGate.message || "WAE rollout gate blocked template distribution.",
+    });
+  }
+
+  const plan: Array<{
+    organizationId: Id<"organizations">;
+    operation: TemplateDistributionOperation;
+    reason: string;
+    existingCloneId?: Id<"objects">;
+    changedFields: string[];
+    writableTemplateFields: TemplateCloneDriftField[];
+    policyGate?: TemplateOverrideGateSummary;
+  }> = [];
+  const applyResults: Array<{
+    organizationId: Id<"organizations">;
+    cloneAgentId?: Id<"objects">;
+    operation: TemplateDistributionOperation;
+    reason?: string;
+    policyGate?: TemplateOverrideGateSummary;
+  }> = [];
+
+  for (const organizationId of targetOrganizationIds) {
+    const orgAgents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "org_agent")
+      )
+      .collect();
+
+    const managedTemplateClones = orgAgents
+      .filter((agent) => {
+        const customProperties =
+          (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+        return resolveTemplateSourceId(customProperties) === String(args.templateId);
+      })
+      .sort((left, right) => String(left._id).localeCompare(String(right._id)));
+
+    const existingClone = managedTemplateClones[0];
+    if (!existingClone) {
+      plan.push({
+        organizationId,
+        operation: "create",
+        reason: "missing_clone",
+        changedFields: [
+          "templateAgentId",
+          "templateVersion",
+          "templateCloneLinkage",
+        ],
+        writableTemplateFields: [],
+      });
+      continue;
+    }
+
+    const existingProps =
+      (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+    const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+    const nextLinkage = buildManagedTemplateCloneLinkage({
+      sourceTemplateId: String(args.templateId),
+      sourceTemplateVersion: resolvedVersionTag,
+      overridePolicy: existingLinkage?.overridePolicy,
+      lastTemplateSyncAt: now,
+      lastTemplateSyncJobId: deterministicJobId,
+      cloneLifecycleState: existingLinkage?.cloneLifecycleState,
+    });
+
+    const before = {
+      templateVersion: normalizeOptionalString(existingProps.templateVersion) || null,
+      templateAgentId: normalizeOptionalString(existingProps.templateAgentId) || null,
+      templateCloneLinkage: existingProps.templateCloneLinkage || null,
+    };
+    const after = {
+      templateVersion: resolvedVersionTag,
+      templateAgentId: String(args.templateId),
+      templateCloneLinkage: nextLinkage,
+    };
+    const changedFields = deriveChangedFields(before, after);
+    const changedTemplateFields = TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS.filter((field) => {
+      const existingValue = normalizeComparableTemplateCloneFieldValue(
+        field,
+        existingProps[field]
+      );
+      const templateValue = normalizeComparableTemplateCloneFieldValue(
+        field,
+        snapshotBaseline[field]
+      );
+      return JSON.stringify(existingValue) !== JSON.stringify(templateValue);
+    });
+    const overrideGateUpdates = Object.fromEntries(
+      changedTemplateFields
+        .filter((field) => Object.prototype.hasOwnProperty.call(existingProps, field))
+        .map((field) => [field, snapshotBaseline[field]])
+    );
+    const overrideGate = resolveTemplateOverrideGateForManagedClone({
+      customProperties: existingProps,
+      updates: overrideGateUpdates,
+      warnConfirmation: warnConfirmationAccepted,
+      reason: normalizedOverrideReason,
+    });
+    const writableTemplateFields = changedTemplateFields.filter((field) => {
+      if (!overrideGate?.changedFields.includes(field)) {
+        return true;
+      }
+      return !overrideGate.lockedFields.includes(field);
+    });
+    const blockedByLocked = (overrideGate?.lockedFields.length || 0) > 0;
+    const blockedByWarn =
+      overrideGate?.decision === "blocked_warn_confirmation_required";
+    const finalChangedFields = normalizeDeterministicUpdatedFields([
+      ...changedFields,
+      ...writableTemplateFields,
+    ]);
+    if (finalChangedFields.length === 0) {
+      plan.push({
+        organizationId,
+        existingCloneId: existingClone._id,
+        operation: "skip",
+        reason: "already_in_sync",
+        changedFields: finalChangedFields,
+        writableTemplateFields,
+        policyGate: overrideGate || undefined,
+      });
+    } else if (blockedByLocked || blockedByWarn) {
+      plan.push({
+        organizationId,
+        existingCloneId: existingClone._id,
+        operation: "blocked",
+        reason: blockedByLocked
+          ? "locked_override_fields"
+          : "warn_override_confirmation_required",
+        changedFields: finalChangedFields,
+        writableTemplateFields,
+        policyGate: overrideGate || undefined,
+      });
+    } else {
+      plan.push({
+        organizationId,
+        existingCloneId: existingClone._id,
+        operation: "update",
+        reason: "template_version_drift",
+        changedFields: finalChangedFields,
+        writableTemplateFields,
+        policyGate: overrideGate || undefined,
+      });
+    }
+  }
+
+  if (!dryRun) {
+    for (const row of plan) {
+      if (row.operation === "skip") {
+        applyResults.push({
+          organizationId: row.organizationId,
+          operation: row.operation,
+          reason: row.reason,
+          policyGate: row.policyGate,
+        });
+        continue;
+      }
+      if (row.operation === "blocked") {
+        if (row.existingCloneId) {
+          await ctx.db.insert("objectActions", {
+            organizationId: row.organizationId,
+            objectId: row.existingCloneId,
+            actionType: "template_distribution_blocked",
+            actionData: {
+              contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: row.reason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            performedBy: args.actor.performedBy,
+            performedAt: now,
+          });
+
+          await ctx.db.insert("auditLogs", {
+            organizationId: row.organizationId,
+            userId: args.actor.auditUserId,
+            action: "template_distribution_blocked",
+            resource: "org_agent",
+            resourceId: String(row.existingCloneId),
+            success: false,
+            metadata: {
+              distributionJobId: deterministicJobId,
+              templateId: String(args.templateId),
+              templateVersion: resolvedVersionTag,
+              reason: row.reason,
+              changedFields: row.changedFields,
+              policyGate: row.policyGate,
+            },
+            createdAt: now,
+          });
+        }
+        applyResults.push({
+          organizationId: row.organizationId,
+          operation: row.operation,
+          reason: row.reason,
+          policyGate: row.policyGate,
+        });
+        continue;
+      }
+
+      if (row.operation === "create") {
+        const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+          sourceTemplateId: String(args.templateId),
+          sourceTemplateVersion: resolvedVersionTag,
+          lastTemplateSyncAt: now,
+          lastTemplateSyncJobId: deterministicJobId,
+        });
+        const cloneId = await ctx.db.insert("objects", {
+          organizationId: row.organizationId,
+          type: "org_agent",
+          subtype: template.subtype,
+          name: template.name,
+          description: template.description,
+          status: "active",
+          customProperties: {
+            ...snapshotBaseline,
+            agentClass: normalizeAgentClass(
+              snapshotBaseline.agentClass,
+              "internal_operator"
+            ),
+            protected: false,
+            templateAgentId: args.templateId,
+            templateVersion: resolvedVersionTag,
+            cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+            templateCloneLinkage,
+            lastTemplateSyncAt: now,
+            lastTemplateJobId: deterministicJobId,
+            creationSource: "catalog_clone",
+          },
+          createdBy: args.actor.auditUserId,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        await ctx.db.insert("objectActions", {
+          organizationId: row.organizationId,
+          objectId: cloneId,
+          actionType: "template_distribution_created",
+          actionData: {
+            contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+            distributionJobId: deterministicJobId,
+            templateId: String(args.templateId),
+            templateVersion: resolvedVersionTag,
+            reason: normalizedReason,
+            changedFields: row.changedFields,
+            policyGate: row.policyGate,
+          },
+          performedBy: args.actor.performedBy,
+          performedAt: now,
+        });
+
+        await ctx.db.insert("auditLogs", {
+          organizationId: row.organizationId,
+          userId: args.actor.auditUserId,
+          action: "template_distribution_created",
+          resource: "org_agent",
+          resourceId: String(cloneId),
+          success: true,
+          metadata: {
+            distributionJobId: deterministicJobId,
+            templateId: String(args.templateId),
+            templateVersion: resolvedVersionTag,
+            reason: normalizedReason,
+            changedFields: row.changedFields,
+            policyGate: row.policyGate,
+          },
+          createdAt: now,
+        });
+
+        applyResults.push({
+          organizationId: row.organizationId,
+          cloneAgentId: cloneId,
+          operation: "create",
+          reason: row.reason,
+          policyGate: row.policyGate,
+        });
+        continue;
+      }
+
+      if (row.operation === "update" && row.existingCloneId) {
+        const existingClone = await ctx.db.get(row.existingCloneId);
+        if (!existingClone) {
+          applyResults.push({
+            organizationId: row.organizationId,
+            operation: "blocked",
+            reason: "missing_clone",
+            policyGate: row.policyGate,
+          });
+          continue;
+        }
+        const existingProps =
+          (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
+        const existingLinkage = readTemplateCloneLinkageContract(existingProps);
+        const templateCloneLinkage = buildManagedTemplateCloneLinkage({
+          sourceTemplateId: String(args.templateId),
+          sourceTemplateVersion: resolvedVersionTag,
+          overridePolicy: existingLinkage?.overridePolicy,
+          lastTemplateSyncAt: now,
+          lastTemplateSyncJobId: deterministicJobId,
+          cloneLifecycleState: existingLinkage?.cloneLifecycleState,
+        });
+        const templateFieldPatch = Object.fromEntries(
+          row.writableTemplateFields.map((field) => {
+            return [
+              field,
+              resolveTemplateDistributionFieldPatchValue({
+                field,
+                snapshotBaseline,
+                existingCustomProperties: existingProps,
+              }),
+            ];
+          })
+        );
+
+        await ctx.db.patch(row.existingCloneId, {
+          customProperties: {
+            ...existingProps,
+            ...templateFieldPatch,
+            templateAgentId: args.templateId,
+            templateVersion: resolvedVersionTag,
+            cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
+            templateCloneLinkage,
+            lastTemplateSyncAt: now,
+            lastTemplateJobId: deterministicJobId,
+          },
+          updatedAt: now,
+        });
+
+        await ctx.db.insert("objectActions", {
+          organizationId: row.organizationId,
+          objectId: row.existingCloneId,
+          actionType: "template_distribution_updated",
+          actionData: {
+            contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+            distributionJobId: deterministicJobId,
+            templateId: String(args.templateId),
+            templateVersion: resolvedVersionTag,
+            reason: normalizedReason,
+            changedFields: row.changedFields,
+            policyGate: row.policyGate,
+          },
+          performedBy: args.actor.performedBy,
+          performedAt: now,
+        });
+
+        await ctx.db.insert("auditLogs", {
+          organizationId: row.organizationId,
+          userId: args.actor.auditUserId,
+          action: "template_distribution_updated",
+          resource: "org_agent",
+          resourceId: String(row.existingCloneId),
+          success: true,
+          metadata: {
+            distributionJobId: deterministicJobId,
+            templateId: String(args.templateId),
+            templateVersion: resolvedVersionTag,
+            reason: normalizedReason,
+            changedFields: row.changedFields,
+            policyGate: row.policyGate,
+          },
+          createdAt: now,
+        });
+
+        applyResults.push({
+          organizationId: row.organizationId,
+          cloneAgentId: row.existingCloneId,
+          operation: "update",
+          reason: row.reason,
+          policyGate: row.policyGate,
+        });
+      }
+    }
+  }
+
+  const planSummary = summarizeTemplateDistributionOperations(plan);
+  const applySummary = summarizeTemplateDistributionOperations(applyResults);
+  const policyGateSummary = summarizeTemplateDistributionPolicyGates(plan);
+  const reasonCounts = {
+    plan: summarizeTemplateDistributionReasonCounts(plan),
+    applied: summarizeTemplateDistributionReasonCounts(
+      applyResults.map((row) => ({
+        reason: row.reason || row.operation,
+      }))
+    ),
+  };
+
+  const lifecycleActionId = await ctx.db.insert("objectActions", {
+    organizationId: template.organizationId,
+    objectId: args.templateId,
+    actionType: dryRun
+      ? "template_distribution_plan_generated"
+      : "template_distribution_applied",
+    actionData: {
+      contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+      distributionJobId: deterministicJobId,
+      templateId: String(args.templateId),
+      templateVersion: resolvedVersionTag,
+      operationKind,
+      reason: normalizedReason,
+      dryRun,
+      requestedTargetOrganizationIds: requestedTargetOrganizationIds.map((value) => String(value)),
+      targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
+      rolloutWindow: {
+        stageStartIndex,
+        stageSize,
+        requestedTargetCount: requestedTargetOrganizationIds.length,
+        stagedTargetCount: targetOrganizationIds.length,
+      },
+      summary: {
+        plan: planSummary,
+        applied: applySummary,
+      },
+      policyGates: policyGateSummary,
+      reasonCounts,
+      overridePolicyGate: {
+        confirmWarnOverride: warnConfirmationAccepted,
+        reason: normalizedOverrideReason,
+      },
+    },
+    performedBy: args.actor.performedBy,
+    performedAt: now,
+  });
+
+  return {
+    distributionJobId: deterministicJobId,
+    templateId: args.templateId,
+    templateVersionId: resolvedTemplateVersionId ?? null,
+    templateVersion: resolvedVersionTag,
+    operationKind,
+    dryRun,
+    requestedTargetOrganizationIds,
+    targetOrganizationIds,
+    rolloutWindow: {
+      stageStartIndex,
+      stageSize,
+      requestedTargetCount: requestedTargetOrganizationIds.length,
+      stagedTargetCount: targetOrganizationIds.length,
+    },
+    summary: {
+      plan: planSummary,
+      applied: applySummary,
+    },
+    policyGates: policyGateSummary,
+    reasonCounts,
+    plan: plan.map((row) => ({
+      organizationId: row.organizationId,
+      operation: row.operation,
+      reason: row.reason,
+      existingCloneId: row.existingCloneId,
+      changedFields: row.changedFields,
+      writableTemplateFields: row.writableTemplateFields,
+      policyGate: row.policyGate,
+    })),
+    applied: applyResults,
+    overridePolicyGate: {
+      confirmWarnOverride: warnConfirmationAccepted,
+      reason: normalizedOverrideReason,
+    },
+    lifecycleActionId,
+    recordedAt: now,
+  };
+}
+
 export const distributeAgentTemplateToOrganizations = mutation({
   args: {
     sessionId: v.string(),
@@ -3097,600 +5109,23 @@ export const distributeAgentTemplateToOrganizations = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
-    const template = await ctx.db.get(args.templateId);
-    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Template agent not found.",
-      });
-    }
-
-    const templateProps =
-      (template.customProperties as Record<string, unknown> | undefined) ?? {};
-    const templateLifecycle = normalizeTemplateLifecycleStatus(
-      templateProps.templateLifecycleStatus
-    );
-    if (templateLifecycle === "deprecated") {
-      throw new ConvexError({
-        code: "INVALID_STATE",
-        message: "Deprecated templates cannot be distributed.",
-      });
-    }
-
-    const templateVersion = args.templateVersionId
-      ? await ctx.db.get(args.templateVersionId)
-      : null;
-    if (args.templateVersionId && (!templateVersion || templateVersion.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE)) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Template version snapshot not found.",
-      });
-    }
-    const templateVersionProps =
-      (templateVersion?.customProperties as Record<string, unknown> | undefined) ?? {};
-    if (templateVersion) {
-      const sourceTemplateId = normalizeOptionalString(templateVersionProps.sourceTemplateId);
-      if (sourceTemplateId !== String(args.templateId)) {
-        throw new ConvexError({
-          code: "INVALID_ARGUMENT",
-          message: "Template version does not belong to template.",
-        });
-      }
-      const versionLifecycle = normalizeTemplateVersionLifecycleStatus(
-        templateVersionProps.lifecycleStatus
-      );
-      if (versionLifecycle === "deprecated") {
-        throw new ConvexError({
-          code: "INVALID_STATE",
-          message: "Deprecated template versions cannot be distributed.",
-        });
-      }
-    }
-
-    const resolvedVersionTag =
-      resolveTemplateVersionTagFromVersionObject(templateVersionProps) ||
-      normalizeOptionalString(templateProps.templatePublishedVersion) ||
-      normalizeOptionalString(templateProps.templateVersion) ||
-      `${String(args.templateId)}@${template.updatedAt}`;
-    const resolvedTemplateVersionId =
-      args.templateVersionId
-      ?? (
-        normalizeOptionalString(templateProps.templatePublishedVersionId) as Id<"objects"> | null
-      );
-
-    const snapshotBaseline = templateVersion
-      ? (
-          (
-            templateVersionProps.snapshot as
-              | Record<string, unknown>
-              | undefined
-          )?.baselineCustomProperties as Record<string, unknown> | undefined
-        ) ?? pickTemplateBaselineSnapshot(templateProps)
-      : pickTemplateBaselineSnapshot(templateProps);
-
-    const requestedTargetOrganizationIds = dedupeAndSortObjectIds(args.targetOrganizationIds);
-    const rawStageSize = args.stagedRollout?.stageSize;
-    const rawStageStartIndex = args.stagedRollout?.stageStartIndex ?? 0;
-    if (rawStageSize !== undefined) {
-      if (!Number.isInteger(rawStageSize) || rawStageSize < 1) {
-        throw new ConvexError({
-          code: "INVALID_ARGUMENT",
-          message: "stagedRollout.stageSize must be an integer greater than 0.",
-        });
-      }
-    }
-    if (!Number.isInteger(rawStageStartIndex) || rawStageStartIndex < 0) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "stagedRollout.stageStartIndex must be a non-negative integer.",
-      });
-    }
-    const stageSize = rawStageSize ?? requestedTargetOrganizationIds.length;
-    const stageStartIndex = rawStageStartIndex;
-    const targetOrganizationIds = requestedTargetOrganizationIds.slice(
-      Math.min(stageStartIndex, requestedTargetOrganizationIds.length),
-      Math.min(stageStartIndex + stageSize, requestedTargetOrganizationIds.length),
-    );
-    const deterministicJobId =
-      normalizeOptionalString(args.distributionJobId) ||
-      buildDeterministicTemplateDistributionJobId({
-        templateId: String(args.templateId),
-        templateVersionTag: resolvedVersionTag,
-        targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
-      });
-    const dryRun = args.dryRun === true;
-    const operationKind: TemplateDistributionOperationKind =
-      args.operationKind === "rollout_rollback" ? "rollout_rollback" : "rollout_apply";
-    const now = Date.now();
-    const normalizedReason = normalizeOptionalString(args.reason) || "template_distribution_rollout";
-    const normalizedOverrideReason =
-      normalizeOptionalString(args.overridePolicyGate?.reason) || null;
-    const warnConfirmationAccepted =
-      args.overridePolicyGate?.confirmWarnOverride === true &&
-      normalizedOverrideReason !== null;
-
-    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+    return await runTemplateDistributionLifecycle(ctx, {
+      actor: {
+        performedBy: actor.userId,
+        auditUserId: actor.userId,
+        roleName: actor.roleName,
+        sessionId: actor.sessionId,
+      },
       templateId: args.templateId,
-      templateVersionId: resolvedTemplateVersionId,
-      templateVersionTag: resolvedVersionTag,
-      now,
+      templateVersionId: args.templateVersionId,
+      targetOrganizationIds: args.targetOrganizationIds,
+      stagedRollout: args.stagedRollout,
+      dryRun: args.dryRun,
+      reason: args.reason,
+      distributionJobId: args.distributionJobId,
+      operationKind: args.operationKind,
+      overridePolicyGate: args.overridePolicyGate,
     });
-    if (!waeGate.allowed) {
-      await writeTemplateWaeGateBlockedEvent({
-        ctx,
-        organizationId: template.organizationId,
-        objectId: args.templateId,
-        actionType: "agent_template.distribution_blocked_wae_gate",
-        actor,
-        resource: "global_template",
-        resourceId: String(args.templateId),
-        templateId: String(args.templateId),
-        templateVersionId: resolvedTemplateVersionId ? String(resolvedTemplateVersionId) : null,
-        templateVersionTag: resolvedVersionTag,
-        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
-        message: waeGate.message || "WAE rollout gate blocked template distribution.",
-        gate: waeGate.gate,
-        timestamp: now,
-      });
-      throw new ConvexError({
-        code: "INVALID_STATE",
-        message: waeGate.message || "WAE rollout gate blocked template distribution.",
-      });
-    }
-
-    const plan: Array<{
-      organizationId: Id<"organizations">;
-      operation: TemplateDistributionOperation;
-      reason: string;
-      existingCloneId?: Id<"objects">;
-      changedFields: string[];
-      writableTemplateFields: TemplateCloneDriftField[];
-      policyGate?: TemplateOverrideGateSummary;
-    }> = [];
-    const applyResults: Array<{
-      organizationId: Id<"organizations">;
-      cloneAgentId?: Id<"objects">;
-      operation: TemplateDistributionOperation;
-      reason?: string;
-      policyGate?: TemplateOverrideGateSummary;
-    }> = [];
-
-    for (const organizationId of targetOrganizationIds) {
-      const orgAgents = await ctx.db
-        .query("objects")
-        .withIndex("by_org_type", (q) =>
-          q.eq("organizationId", organizationId).eq("type", "org_agent")
-        )
-        .collect();
-
-      const managedTemplateClones = orgAgents
-        .filter((agent) => {
-          const customProperties =
-            (agent.customProperties as Record<string, unknown> | undefined) ?? {};
-          return resolveTemplateSourceId(customProperties) === String(args.templateId);
-        })
-        .sort((left, right) => String(left._id).localeCompare(String(right._id)));
-
-      const existingClone = managedTemplateClones[0];
-      if (!existingClone) {
-        plan.push({
-          organizationId,
-          operation: "create",
-          reason: "missing_clone",
-          changedFields: [
-            "templateAgentId",
-            "templateVersion",
-            "templateCloneLinkage",
-          ],
-          writableTemplateFields: [],
-        });
-        continue;
-      }
-
-      const existingProps =
-        (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
-      const existingLinkage = readTemplateCloneLinkageContract(existingProps);
-      const nextLinkage = buildManagedTemplateCloneLinkage({
-        sourceTemplateId: String(args.templateId),
-        sourceTemplateVersion: resolvedVersionTag,
-        overridePolicy: existingLinkage?.overridePolicy,
-        lastTemplateSyncAt: now,
-        lastTemplateSyncJobId: deterministicJobId,
-        cloneLifecycleState: existingLinkage?.cloneLifecycleState,
-      });
-
-      const before = {
-        templateVersion: normalizeOptionalString(existingProps.templateVersion) || null,
-        templateAgentId: normalizeOptionalString(existingProps.templateAgentId) || null,
-        templateCloneLinkage: existingProps.templateCloneLinkage || null,
-      };
-      const after = {
-        templateVersion: resolvedVersionTag,
-        templateAgentId: String(args.templateId),
-        templateCloneLinkage: nextLinkage,
-      };
-      const changedFields = deriveChangedFields(before, after);
-      const changedTemplateFields = TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS.filter((field) => {
-        const existingValue = normalizeComparableTemplateCloneFieldValue(
-          field,
-          existingProps[field]
-        );
-        const templateValue = normalizeComparableTemplateCloneFieldValue(
-          field,
-          snapshotBaseline[field]
-        );
-        return JSON.stringify(existingValue) !== JSON.stringify(templateValue);
-      });
-      const overrideGateUpdates = Object.fromEntries(
-        changedTemplateFields
-          .filter((field) => Object.prototype.hasOwnProperty.call(existingProps, field))
-          .map((field) => [field, snapshotBaseline[field]])
-      );
-      const overrideGate = resolveTemplateOverrideGateForManagedClone({
-        customProperties: existingProps,
-        updates: overrideGateUpdates,
-        warnConfirmation: warnConfirmationAccepted,
-        reason: normalizedOverrideReason,
-      });
-      const writableTemplateFields = changedTemplateFields.filter((field) => {
-        if (!overrideGate?.changedFields.includes(field)) {
-          return true;
-        }
-        return !overrideGate.lockedFields.includes(field);
-      });
-      const blockedByLocked = (overrideGate?.lockedFields.length || 0) > 0;
-      const blockedByWarn =
-        overrideGate?.decision === "blocked_warn_confirmation_required";
-      const finalChangedFields = normalizeDeterministicUpdatedFields([
-        ...changedFields,
-        ...writableTemplateFields,
-      ]);
-      if (finalChangedFields.length === 0) {
-        plan.push({
-          organizationId,
-          existingCloneId: existingClone._id,
-          operation: "skip",
-          reason: "already_in_sync",
-          changedFields: finalChangedFields,
-          writableTemplateFields,
-          policyGate: overrideGate || undefined,
-        });
-      } else if (blockedByLocked || blockedByWarn) {
-        plan.push({
-          organizationId,
-          existingCloneId: existingClone._id,
-          operation: "blocked",
-          reason: blockedByLocked
-            ? "locked_override_fields"
-            : "warn_override_confirmation_required",
-          changedFields: finalChangedFields,
-          writableTemplateFields,
-          policyGate: overrideGate || undefined,
-        });
-      } else {
-        plan.push({
-          organizationId,
-          existingCloneId: existingClone._id,
-          operation: "update",
-          reason: "template_version_drift",
-          changedFields: finalChangedFields,
-          writableTemplateFields,
-          policyGate: overrideGate || undefined,
-        });
-      }
-    }
-
-    if (!dryRun) {
-      for (const row of plan) {
-        if (row.operation === "skip") {
-          applyResults.push({
-            organizationId: row.organizationId,
-            operation: row.operation,
-            reason: row.reason,
-            policyGate: row.policyGate,
-          });
-          continue;
-        }
-        if (row.operation === "blocked") {
-          if (row.existingCloneId) {
-            await ctx.db.insert("objectActions", {
-              organizationId: row.organizationId,
-              objectId: row.existingCloneId,
-              actionType: "template_distribution_blocked",
-              actionData: {
-                contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-                distributionJobId: deterministicJobId,
-                templateId: String(args.templateId),
-                templateVersion: resolvedVersionTag,
-                reason: row.reason,
-                changedFields: row.changedFields,
-                policyGate: row.policyGate,
-              },
-              performedBy: actor.userId,
-              performedAt: now,
-            });
-
-            await ctx.db.insert("auditLogs", {
-              organizationId: row.organizationId,
-              userId: actor.userId,
-              action: "template_distribution_blocked",
-              resource: "org_agent",
-              resourceId: String(row.existingCloneId),
-              success: false,
-              metadata: {
-                distributionJobId: deterministicJobId,
-                templateId: String(args.templateId),
-                templateVersion: resolvedVersionTag,
-                reason: row.reason,
-                changedFields: row.changedFields,
-                policyGate: row.policyGate,
-              },
-              createdAt: now,
-            });
-          }
-          applyResults.push({
-            organizationId: row.organizationId,
-            operation: row.operation,
-            reason: row.reason,
-            policyGate: row.policyGate,
-          });
-          continue;
-        }
-
-        if (row.operation === "create") {
-          const templateCloneLinkage = buildManagedTemplateCloneLinkage({
-            sourceTemplateId: String(args.templateId),
-            sourceTemplateVersion: resolvedVersionTag,
-            lastTemplateSyncAt: now,
-            lastTemplateSyncJobId: deterministicJobId,
-          });
-          const cloneId = await ctx.db.insert("objects", {
-            organizationId: row.organizationId,
-            type: "org_agent",
-            subtype: template.subtype,
-            name: template.name,
-            description: template.description,
-            status: "active",
-            customProperties: {
-              ...snapshotBaseline,
-              agentClass: normalizeAgentClass(
-                snapshotBaseline.agentClass,
-                "internal_operator"
-              ),
-              protected: false,
-              templateAgentId: args.templateId,
-              templateVersion: resolvedVersionTag,
-              cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
-              templateCloneLinkage,
-              lastTemplateSyncAt: now,
-              lastTemplateJobId: deterministicJobId,
-              creationSource: "catalog_clone",
-            },
-            createdBy: actor.userId,
-            createdAt: now,
-            updatedAt: now,
-          });
-
-          await ctx.db.insert("objectActions", {
-            organizationId: row.organizationId,
-            objectId: cloneId,
-            actionType: "template_distribution_created",
-            actionData: {
-              contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-              distributionJobId: deterministicJobId,
-              templateId: String(args.templateId),
-              templateVersion: resolvedVersionTag,
-              reason: normalizedReason,
-              changedFields: row.changedFields,
-              policyGate: row.policyGate,
-            },
-            performedBy: actor.userId,
-            performedAt: now,
-          });
-
-          await ctx.db.insert("auditLogs", {
-            organizationId: row.organizationId,
-            userId: actor.userId,
-            action: "template_distribution_created",
-            resource: "org_agent",
-            resourceId: String(cloneId),
-            success: true,
-            metadata: {
-              distributionJobId: deterministicJobId,
-              templateId: String(args.templateId),
-              templateVersion: resolvedVersionTag,
-              reason: normalizedReason,
-              changedFields: row.changedFields,
-              policyGate: row.policyGate,
-            },
-            createdAt: now,
-          });
-
-          applyResults.push({
-            organizationId: row.organizationId,
-            cloneAgentId: cloneId,
-            operation: "create",
-            reason: row.reason,
-            policyGate: row.policyGate,
-          });
-          continue;
-        }
-
-        if (row.operation === "update" && row.existingCloneId) {
-          const existingClone = await ctx.db.get(row.existingCloneId);
-          if (!existingClone) {
-            applyResults.push({
-              organizationId: row.organizationId,
-              operation: "blocked",
-              reason: "missing_clone",
-              policyGate: row.policyGate,
-            });
-            continue;
-          }
-          const existingProps =
-            (existingClone.customProperties as Record<string, unknown> | undefined) ?? {};
-          const existingLinkage = readTemplateCloneLinkageContract(existingProps);
-          const templateCloneLinkage = buildManagedTemplateCloneLinkage({
-            sourceTemplateId: String(args.templateId),
-            sourceTemplateVersion: resolvedVersionTag,
-            overridePolicy: existingLinkage?.overridePolicy,
-            lastTemplateSyncAt: now,
-            lastTemplateSyncJobId: deterministicJobId,
-            cloneLifecycleState: existingLinkage?.cloneLifecycleState,
-          });
-          const templateFieldPatch = Object.fromEntries(
-            row.writableTemplateFields.map((field) => {
-              if (Object.prototype.hasOwnProperty.call(snapshotBaseline, field)) {
-                return [field, snapshotBaseline[field]];
-              }
-              return [field, null];
-            })
-          );
-
-          await ctx.db.patch(row.existingCloneId, {
-            customProperties: {
-              ...existingProps,
-              ...templateFieldPatch,
-              templateAgentId: args.templateId,
-              templateVersion: resolvedVersionTag,
-              cloneLifecycle: MANAGED_USE_CASE_CLONE_LIFECYCLE,
-              templateCloneLinkage,
-              lastTemplateSyncAt: now,
-              lastTemplateJobId: deterministicJobId,
-            },
-            updatedAt: now,
-          });
-
-          await ctx.db.insert("objectActions", {
-            organizationId: row.organizationId,
-            objectId: row.existingCloneId,
-            actionType: "template_distribution_updated",
-            actionData: {
-              contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-              distributionJobId: deterministicJobId,
-              templateId: String(args.templateId),
-              templateVersion: resolvedVersionTag,
-              reason: normalizedReason,
-              changedFields: row.changedFields,
-              policyGate: row.policyGate,
-            },
-            performedBy: actor.userId,
-            performedAt: now,
-          });
-
-          await ctx.db.insert("auditLogs", {
-            organizationId: row.organizationId,
-            userId: actor.userId,
-            action: "template_distribution_updated",
-            resource: "org_agent",
-            resourceId: String(row.existingCloneId),
-            success: true,
-            metadata: {
-              distributionJobId: deterministicJobId,
-              templateId: String(args.templateId),
-              templateVersion: resolvedVersionTag,
-              reason: normalizedReason,
-              changedFields: row.changedFields,
-              policyGate: row.policyGate,
-            },
-            createdAt: now,
-          });
-
-          applyResults.push({
-            organizationId: row.organizationId,
-            cloneAgentId: row.existingCloneId,
-            operation: "update",
-            reason: row.reason,
-            policyGate: row.policyGate,
-          });
-        }
-      }
-    }
-
-    const planSummary = summarizeTemplateDistributionOperations(plan);
-    const applySummary = summarizeTemplateDistributionOperations(applyResults);
-    const policyGateSummary = summarizeTemplateDistributionPolicyGates(plan);
-    const reasonCounts = {
-      plan: summarizeTemplateDistributionReasonCounts(plan),
-      applied: summarizeTemplateDistributionReasonCounts(
-        applyResults.map((row) => ({
-          reason: row.reason || row.operation,
-        }))
-      ),
-    };
-
-    await ctx.db.insert("objectActions", {
-      organizationId: template.organizationId,
-      objectId: args.templateId,
-      actionType: dryRun
-        ? "template_distribution_plan_generated"
-        : "template_distribution_applied",
-      actionData: {
-        contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-        distributionJobId: deterministicJobId,
-        templateId: String(args.templateId),
-        templateVersion: resolvedVersionTag,
-        operationKind,
-        reason: normalizedReason,
-        dryRun,
-        requestedTargetOrganizationIds: requestedTargetOrganizationIds.map((value) => String(value)),
-        targetOrganizationIds: targetOrganizationIds.map((value) => String(value)),
-        rolloutWindow: {
-          stageStartIndex,
-          stageSize,
-          requestedTargetCount: requestedTargetOrganizationIds.length,
-          stagedTargetCount: targetOrganizationIds.length,
-        },
-        summary: {
-          plan: planSummary,
-          applied: applySummary,
-        },
-        policyGates: policyGateSummary,
-        reasonCounts,
-        overridePolicyGate: {
-          confirmWarnOverride: warnConfirmationAccepted,
-          reason: normalizedOverrideReason,
-        },
-      },
-      performedBy: actor.userId,
-      performedAt: now,
-    });
-
-    return {
-      distributionJobId: deterministicJobId,
-      templateId: args.templateId,
-      templateVersion: resolvedVersionTag,
-      operationKind,
-      dryRun,
-      requestedTargetOrganizationIds,
-      targetOrganizationIds,
-      rolloutWindow: {
-        stageStartIndex,
-        stageSize,
-        requestedTargetCount: requestedTargetOrganizationIds.length,
-        stagedTargetCount: targetOrganizationIds.length,
-      },
-      summary: {
-        plan: planSummary,
-        applied: applySummary,
-      },
-      policyGates: policyGateSummary,
-      reasonCounts,
-      plan: plan.map((row) => ({
-        organizationId: row.organizationId,
-        operation: row.operation,
-        reason: row.reason,
-        existingCloneId: row.existingCloneId,
-        changedFields: row.changedFields,
-        writableTemplateFields: row.writableTemplateFields,
-        policyGate: row.policyGate,
-      })),
-      applied: applyResults,
-      overridePolicyGate: {
-        confirmWarnOverride: warnConfirmationAccepted,
-        reason: normalizedOverrideReason,
-      },
-    };
   },
 });
 
@@ -4752,6 +6187,7 @@ export const updateAgent = mutation({
       temperature: v.optional(v.number()),
       maxTokens: v.optional(v.number()),
       channelBindings: v.optional(v.array(webchatChannelBindingValidator)),
+      telephonyConfig: v.optional(v.any()),
       unifiedPersonality: v.optional(v.boolean()),
       teamAccessMode: v.optional(teamAccessModeValidator),
       dreamTeamSpecialists: v.optional(v.array(dreamTeamSpecialistContractValidator)),
@@ -4792,16 +6228,27 @@ export const updateAgent = mutation({
           args.updates.channelBindings as ChannelBindingContractRecord[]
         )
       : undefined;
+    const agentCustomProperties =
+      (agent.customProperties as Record<string, unknown> | undefined) ?? {};
     const normalizedAgentClass =
       typeof args.updates.agentClass === "string"
         ? normalizeAgentClass(args.updates.agentClass, readAgentClass(
-            (agent.customProperties as Record<string, unknown> | undefined) ?? {}
+            agentCustomProperties
           ))
         : undefined;
+    const normalizedTelephonyConfig =
+      args.updates.telephonyConfig !== undefined
+        ? resolveNormalizedTelephonyConfigPatch({
+            currentValue: agentCustomProperties.telephonyConfig,
+            proposedValue: args.updates.telephonyConfig,
+          })
+        : undefined;
+    if (normalizedTelephonyConfig && !normalizedTelephonyConfig.ok) {
+      throw new Error(normalizedTelephonyConfig.reason);
+    }
     const hasPlatformManagedOverride = normalizedChannelBindings
       ? detectPlatformManagedChannelBindingOverride(
-          (agent.customProperties as Record<string, unknown> | undefined)
-            ?.channelBindings,
+          agentCustomProperties.channelBindings,
           normalizedChannelBindings
         )
       : false;
@@ -4826,6 +6273,9 @@ export const updateAgent = mutation({
       ...(normalizedAgentClass ? { agentClass: normalizedAgentClass } : {}),
       ...(normalizedChannelBindings
         ? { channelBindings: normalizedChannelBindings }
+        : {}),
+      ...(normalizedTelephonyConfig?.ok
+        ? { telephonyConfig: normalizedTelephonyConfig.value }
         : {}),
       ...(args.updates.operatorCollaborationDefaults
         ? {
@@ -4854,8 +6304,6 @@ export const updateAgent = mutation({
     });
 
     const now = Date.now();
-    const agentCustomProperties =
-      (agent.customProperties as Record<string, unknown> | undefined) ?? {};
     const overrideGate = resolveTemplateOverrideGateForManagedClone({
       customProperties: agentCustomProperties,
       updates: normalizedUpdates,
@@ -4947,6 +6395,60 @@ export const updateAgent = mutation({
         createdAt: now,
       });
     }
+  },
+});
+
+export const previewAgentFieldPatch = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    patch: v.any(),
+    overridePolicyGate: v.optional(v.object({
+      confirmWarnOverride: v.optional(v.boolean()),
+      reason: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    return await buildAgentFieldPatchPreview(ctx, args);
+  },
+});
+
+export const applyAgentFieldPatch = mutation({
+  args: {
+    sessionId: v.string(),
+    agentId: v.id("objects"),
+    patch: v.any(),
+    overridePolicyGate: v.optional(v.object({
+      confirmWarnOverride: v.optional(v.boolean()),
+      reason: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const preview = await buildAgentFieldPatchPreview(ctx, args);
+    if (!preview.summary.canApply) {
+      return {
+        success: false,
+        message:
+          preview.summary.blockedReason
+          || "Agent field patch could not be applied.",
+        preview,
+        appliedFields: [] as string[],
+      };
+    }
+
+    await (updateAgent as any)._handler(ctx, {
+      sessionId: args.sessionId,
+      agentId: args.agentId,
+      updates: preview.normalizedUpdates,
+      overridePolicyGate: args.overridePolicyGate,
+    });
+
+    return {
+      success: true,
+      message: preview.proposalMessage,
+      preview,
+      appliedFields: preview.changedFields,
+    };
   },
 });
 

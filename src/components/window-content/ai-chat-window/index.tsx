@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { useNotification } from "@/hooks/use-notification"
 import type { AIChatSuperAdminQaMode } from "@/hooks/use-ai-chat"
+import type { Id } from "../../../../convex/_generated/dataModel"
 import { resolveOperatorCollaborationShellResolution } from "@/lib/operator-collaboration-cutover"
 import { buildPlatformAgentCreationKickoff } from "./onboarding-kickoff-contract"
 import {
@@ -94,6 +95,8 @@ interface AIChatWindowProps {
   sourceSessionId?: string
   /** Optional source org context */
   sourceOrganizationId?: string
+  /** Optional target agent for configuration-scoped chat */
+  targetAgentId?: Id<"objects">
 }
 
 const SAMANTHA_QA_TEMPLATE_ROLES = new Set([
@@ -644,6 +647,7 @@ export function AIChatWindow({
   openContext,
   sourceSessionId,
   sourceOrganizationId,
+  targetAgentId,
 }: AIChatWindowProps = {}) {
   const { isSignedIn, isLoading, user, isSuperAdmin, sessionId } = useAuth()
   const searchParams = useSearchParams()
@@ -682,7 +686,10 @@ export function AIChatWindow({
   })
 
   return (
-    <AIChatProvider superAdminQaMode={superAdminQaMode}>
+    <AIChatProvider
+      superAdminQaMode={superAdminQaMode}
+      targetAgentId={targetAgentId}
+    >
       <LayoutModeProvider initialMode={shellResolution.resolvedLayoutMode}>
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
           {superAdminQaMode?.enabled ? (

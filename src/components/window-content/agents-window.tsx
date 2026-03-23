@@ -28,7 +28,7 @@ import { useWindowManager } from "@/hooks/use-window-manager";
 import { CreditWall } from "@/components/credit-wall";
 import { CreditBalance } from "@/components/credit-balance";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { AgentTab } from "./agents/types";
+import type { AgentFormSection, AgentTab } from "./agents/types";
 import { AgentListPanel } from "./agents/agent-list-panel";
 import { AgentDetailPanel } from "./agents/agent-detail-panel";
 import { AgentCreateForm } from "./agents/agent-create-form";
@@ -367,6 +367,9 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
   const [activeTab, setActiveTab] = useState<AgentTab>("trust");
   const [showCreate, setShowCreate] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<Id<"objects"> | null>(null);
+  const [editInitialSection, setEditInitialSection] = useState<
+    AgentFormSection | undefined
+  >(undefined);
   const [showAgentOps, setShowAgentOps] = useState(true);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showToolSetup, setShowToolSetup] = useState(false);
@@ -860,6 +863,38 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
     );
   };
 
+  const openAgentConfigurationAssistant = (agentId: Id<"objects">) => {
+    if (!sessionId || !currentOrg?.id) {
+      return;
+    }
+
+    const aiAssistantWindowContract = getVoiceAssistantWindowContract("ai-assistant");
+    const sourceOrganizationId = String(currentOrg.id);
+
+    openWindow(
+      aiAssistantWindowContract.windowId,
+      aiAssistantWindowContract.title,
+      <AIChatWindow
+        initialLayoutMode="slick"
+        openContext="agent_configuration"
+        sourceSessionId={sessionId}
+        sourceOrganizationId={sourceOrganizationId}
+        targetAgentId={agentId}
+      />,
+      aiAssistantWindowContract.position,
+      aiAssistantWindowContract.size,
+      aiAssistantWindowContract.titleKey,
+      aiAssistantWindowContract.iconId,
+      {
+        openContext: "agent_configuration",
+        initialLayoutMode: "slick",
+        sourceSessionId: sessionId,
+        sourceOrganizationId,
+        targetAgentId: String(agentId),
+      }
+    );
+  };
+
   const openCatalogAssistant = async (card: AgentCatalogCard) => {
     let payload: Record<string, unknown> = {
       catalogAgentNumber: card.catalogAgentNumber,
@@ -1086,6 +1121,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
             setSelectedAgentId(id);
             setShowCreate(false);
             setEditingAgentId(null);
+            setEditInitialSection(undefined);
             setShowCatalog(false);
             setShowToolSetup(false);
             setShowAgentOps(false);
@@ -1102,8 +1138,10 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               sessionId={sessionId}
               organizationId={organizationId}
               editingAgentId={editingAgentId}
+              initialSection={editInitialSection}
               onSaved={(agentId) => {
                 setShowCreate(false);
+                setEditInitialSection(undefined);
                 setShowCatalog(false);
                 setShowToolSetup(false);
                 if (agentId) {
@@ -1115,6 +1153,7 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               }}
               onCancel={() => {
                 setShowCreate(false);
+                setEditInitialSection(undefined);
                 if (!selectedAgentId) {
                   setShowAgentOps(true);
                 }
@@ -1180,10 +1219,12 @@ export function AgentsWindow({ fullScreen }: AgentsWindowProps) {
               organizationId={organizationId}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              onOpenConfigurationChat={() => openAgentConfigurationAssistant(selectedAgentId)}
               onOpenAgentOps={openAgentOpsDashboard}
               onOpenAgentCatalog={openAgentCatalog}
-              onEdit={() => {
+              onEdit={(section) => {
                 setEditingAgentId(selectedAgentId);
+                setEditInitialSection(section);
                 setShowCreate(true);
               }}
             />

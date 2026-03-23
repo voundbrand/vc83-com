@@ -32,6 +32,32 @@ describe("operator routing resolution", () => {
     expect(resolved?._id).toBe(orchestrator._id);
   });
 
+  it("keeps desktop authority on the orchestrator even when only a specialist is channel-bound", () => {
+    const specialist: Candidate = {
+      _id: "agent_a",
+      status: "active",
+      subtype: "sales_assistant",
+      customProperties: {
+        channelBindings: [{ channel: "desktop", enabled: true }],
+      },
+    };
+    const orchestrator: Candidate = {
+      _id: "agent_b",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        channelBindings: [{ channel: "webchat", enabled: true }],
+      },
+    };
+
+    const resolved = resolveActiveAgentForOrgCandidates(
+      [specialist, orchestrator],
+      { channel: "desktop" }
+    );
+
+    expect(resolved?._id).toBe(orchestrator._id);
+  });
+
   it("fails closed for desktop when only specialist candidates are available", () => {
     const specialist: Candidate = {
       _id: "agent_a",
@@ -164,6 +190,44 @@ describe("operator routing resolution", () => {
     );
 
     expect(resolved).toBeNull();
+  });
+
+  it("keeps desktop authority on the strict default operator when PM and customer_service specialists coexist", () => {
+    const operator: Candidate = {
+      _id: "agent_operator",
+      status: "active",
+      subtype: "general",
+      customProperties: {
+        agentClass: "internal_operator",
+        isPrimary: true,
+        channelBindings: [{ channel: "desktop", enabled: true }],
+      },
+    };
+    const pmSpecialist: Candidate = {
+      _id: "agent_pm",
+      status: "active",
+      subtype: "pm",
+      customProperties: {
+        agentClass: "internal_operator",
+        channelBindings: [{ channel: "desktop", enabled: false }],
+      },
+    };
+    const customerService: Candidate = {
+      _id: "agent_customer",
+      status: "active",
+      subtype: "customer_service",
+      customProperties: {
+        agentClass: "external_customer_facing",
+        channelBindings: [{ channel: "telegram", enabled: true }],
+      },
+    };
+
+    const resolved = resolveActiveAgentForOrgCandidates(
+      [customerService, pmSpecialist, operator],
+      { channel: "desktop" }
+    );
+
+    expect(resolved?._id).toBe(operator._id);
   });
 
   it("detects platform-managed channel binding overrides", () => {

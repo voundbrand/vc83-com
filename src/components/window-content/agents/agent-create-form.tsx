@@ -17,11 +17,13 @@ import { getVoiceAssistantWindowContract } from "@/components/window-content/ai-
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { AgentCustomProps } from "./types";
 import {
+  type AgentFormSection,
   CHANNELS,
   DEFAULT_AGENT_MODEL_ID,
   MODELS,
   SUBTYPES,
   evaluateTemplateOverrideGate,
+  formatAgentChannelLabel,
   resolveTemplateLineage,
 } from "./types";
 import { FormField } from "./form-field";
@@ -36,11 +38,11 @@ interface AgentCreateFormProps {
   sessionId: string;
   organizationId: Id<"organizations">;
   editingAgentId?: Id<"objects"> | null;
+  initialSection?: AgentFormSection;
   onSaved: (agentId?: Id<"objects">) => void;
   onCancel: () => void;
 }
 
-type FormSection = "identity" | "knowledge" | "model" | "guardrails" | "channels";
 type CreationLaunchMode = "talk" | "type";
 type AgentClass = "internal_operator" | "external_customer_facing";
 
@@ -64,6 +66,7 @@ export function AgentCreateForm({
   sessionId,
   organizationId,
   editingAgentId,
+  initialSection,
   onSaved,
   onCancel,
 }: AgentCreateFormProps) {
@@ -124,7 +127,9 @@ export function AgentCreateForm({
     CHANNELS.map((c) => ({ channel: c, enabled: false }))
   );
   const [blockedTopics, setBlockedTopics] = useState("");
-  const [formSection, setFormSection] = useState<FormSection>("identity");
+  const [formSection, setFormSection] = useState<AgentFormSection>(
+    initialSection || "identity",
+  );
   const [launchMode, setLaunchMode] = useState<CreationLaunchMode | null>(editingAgentId ? "type" : null);
   const [saving, setSaving] = useState(false);
   const [overrideWarnConfirmed, setOverrideWarnConfirmed] = useState(false);
@@ -209,6 +214,10 @@ export function AgentCreateForm({
     setBlockedTopics((p.blockedTopics || []).join(", "));
     setInitialized(true);
   }
+
+  useEffect(() => {
+    setFormSection(initialSection || "identity");
+  }, [editingAgentId, initialSection]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -389,7 +398,7 @@ export function AgentCreateForm({
     setFormSection("identity");
   };
 
-  const sections: Array<{ id: FormSection; label: string }> = [
+  const sections: Array<{ id: AgentFormSection; label: string }> = [
     { id: "identity", label: tx("ui.agents.create_form.section.identity", "Identity") },
     { id: "knowledge", label: tx("ui.agents.create_form.section.knowledge", "Knowledge") },
     { id: "model", label: tx("ui.agents.create_form.section.model", "Model") },
@@ -854,7 +863,7 @@ export function AgentCreateForm({
                 </p>
                 {channelBindings.map((binding, idx) => {
                   const providerBinding = configuredChannels?.find((c) => c.channel === binding.channel);
-                  const channelLabel = binding.channel.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                  const channelLabel = formatAgentChannelLabel(binding.channel);
                   return (
                     <label key={binding.channel} className="flex items-center gap-2 text-xs cursor-pointer py-1">
                       <input type="checkbox" checked={binding.enabled}

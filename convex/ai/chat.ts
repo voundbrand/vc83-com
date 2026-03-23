@@ -9,7 +9,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { v, ConvexError } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
-import { getToolSchemas, executeTool } from "./tools/registry";
+import { getToolSchemas, executeTool, type ToolExecutionContext } from "./tools/registry";
 import { calculateCostFromUsage } from "./modelPricing";
 import { getAgentMessageCost } from "../credits/index";
 import {
@@ -43,6 +43,10 @@ import {
   normalizeToolCallsForProvider,
   parseToolCallArguments,
 } from "./toolBroker";
+import {
+  buildConfigureAgentFieldsProposalEnvelope,
+  CONFIGURE_AGENT_FIELDS_TOOL_NAME,
+} from "./tools/configureAgentFieldsTool";
 import {
   buildOpenRouterMessages,
   executeChatCompletionWithFailover,
@@ -2823,6 +2827,7 @@ export const resolveVoiceRuntimeSession = action({
     userId: v.id("users"),
     conversationId: v.optional(v.id("aiConversations")),
     forcePrimaryAgent: v.optional(v.boolean()),
+    clientSurface: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     let conversationId = args.conversationId;
@@ -2844,10 +2849,10 @@ export const resolveVoiceRuntimeSession = action({
     });
 
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
       {
         organizationId: args.organizationId,
-        channel: "desktop",
+        appSurface: args.clientSurface,
       }
     );
 
@@ -3081,6 +3086,99 @@ export const getEvalPromotionEvidencePacketInternal = internalQuery({
   },
 });
 
+export const startPlatformMotherSupportConversation = action({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    title: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    conversationId: Id<"aiConversations">;
+    targetAgentId: Id<"objects">;
+    targetOrganizationId: Id<"organizations">;
+    runtimeMode: "support";
+    displayName?: string;
+  }> => {
+    const resolvedTarget = await (ctx as any).runAction(
+      generatedApi.internal.ai.platformMotherControlPlane.resolvePlatformMotherInvocationTargetInternal,
+      {
+        mode: "support",
+      }
+    ) as {
+      agentId: Id<"objects">;
+      organizationId: Id<"organizations">;
+      runtimeMode: "support";
+      name?: string;
+    };
+
+    const conversationId = await (ctx as any).runMutation(
+      generatedApi.api.ai.conversations.createConversation,
+      {
+        organizationId: args.organizationId,
+        userId: args.userId,
+        title: args.title,
+        targetAgentId: resolvedTarget.agentId,
+      }
+    ) as Id<"aiConversations">;
+
+    return {
+      conversationId,
+      targetAgentId: resolvedTarget.agentId,
+      targetOrganizationId: resolvedTarget.organizationId,
+      runtimeMode: resolvedTarget.runtimeMode,
+      displayName: resolvedTarget.name,
+    };
+  },
+});
+
+export const capturePlatformMotherSupportProposal = action({
+  args: {
+    conversationId: v.id("aiConversations"),
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    proposalSummary: v.string(),
+    proposalDetails: v.optional(v.string()),
+    sourceMessageId: v.optional(v.id("aiMessages")),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await (ctx as any).runQuery(
+      generatedApi.internal.ai.conversations.getConversationMetadataInternal,
+      {
+        conversationId: args.conversationId,
+      }
+    ) as {
+      _id: Id<"aiConversations">;
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+    } | null;
+
+    if (
+      !conversation
+      || String(conversation.organizationId) !== String(args.organizationId)
+      || String(conversation.userId) !== String(args.userId)
+    ) {
+      throw new ConvexError({
+        code: "INVALID_PLATFORM_MOTHER_SUPPORT_PROPOSAL_CONTEXT",
+        message: "Mother support proposal capture requires an owned support conversation.",
+        conversationId: String(args.conversationId),
+      });
+    }
+
+    return await (ctx as any).runMutation(
+      generatedApi.internal.ai.platformMotherReviewArtifacts.capturePlatformMotherProposalInternal,
+      {
+        runtimeMode: "support",
+        actorUserId: args.userId,
+        requestingOrganizationId: args.organizationId,
+        sourceConversationId: args.conversationId,
+        sourceMessageId: args.sourceMessageId,
+        proposalSummary: args.proposalSummary,
+        proposalDetails: args.proposalDetails,
+      }
+    );
+  },
+});
+
 export const sendMessage = action({
   args: {
     conversationId: v.optional(v.id("aiConversations")),
@@ -3089,6 +3187,7 @@ export const sendMessage = action({
     userId: v.id("users"),
     sessionId: v.optional(v.string()),
     layerWorkflowId: v.optional(v.id("objects")),
+    targetAgentId: v.optional(v.id("objects")),
     forcePrimaryAgent: v.optional(v.boolean()),
     selectedModel: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("auto"), v.literal("plan"), v.literal("plan_soft"))),
@@ -3143,6 +3242,7 @@ export const sendMessage = action({
     context: v.optional(v.union(v.literal("normal"), v.literal("page_builder"), v.literal("layers_builder"))), // Context for system prompt selection
     builderMode: v.optional(v.union(v.literal("prototype"), v.literal("connect"))), // Builder mode for tool filtering
     isSetupMode: v.optional(v.boolean()), // Setup mode for agent creation wizard (injects system knowledge)
+    clientSurface: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{
     conversationId: Id<"aiConversations">;
@@ -3174,10 +3274,10 @@ export const sendMessage = action({
       }
     );
     await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+      generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
       {
         organizationId: args.organizationId,
-        channel: "desktop",
+        appSurface: args.clientSurface,
       }
     );
     let qaMode = normalizeSuperAdminQaMode(args.qaMode);
@@ -3291,6 +3391,7 @@ export const sendMessage = action({
         userId: args.userId,
         title: sessionTitle,
         layerWorkflowId: args.layerWorkflowId,
+        targetAgentId: args.targetAgentId,
       }) as Id<"aiConversations">;
 
       console.log(`[AI Chat] Created new conversation with title: "${sessionTitle}"`);
@@ -3424,10 +3525,10 @@ export const sendMessage = action({
 
       if (!preflightRoutedOperatorAgent?._id) {
         const ensuredOperatorAgent = await (ctx as any).runMutation(
-          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
           {
             organizationId: args.organizationId,
-            channel: "desktop",
+            appSurface: args.clientSurface,
             routeSelectors: preflightOperatorRouteSelectors,
           }
         ) as { agentId?: Id<"objects"> } | null;
@@ -3525,6 +3626,7 @@ export const sendMessage = action({
       slug?: string;
       modelId?: string | null;
       routingPin?: unknown;
+      targetAgentId?: Id<"objects">;
     };
     const conversationHasImageAttachments = conversation.messages.some((message) =>
       (message.attachments || []).some((attachment) => attachment.kind === "image")
@@ -3541,6 +3643,9 @@ export const sendMessage = action({
     const conversationLayerWorkflowId =
       (conversation as { layerWorkflowId?: Id<"objects"> }).layerWorkflowId
       ?? args.layerWorkflowId;
+    const conversationTargetAgentId =
+      (conversation as { targetAgentId?: Id<"objects"> }).targetAgentId
+      ?? args.targetAgentId;
 
     // Capture slug for new conversations (to return for URL update)
     if (isNewConversation && conversation.slug) {
@@ -3568,10 +3673,10 @@ export const sendMessage = action({
 
       if (!routedOperatorAgent?._id) {
         const ensuredOperatorAgent = await (ctx as any).runMutation(
-          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
           {
             organizationId: args.organizationId,
-            channel: "desktop",
+            appSurface: args.clientSurface,
             routeSelectors: operatorRouteSelectors,
           }
         ) as { agentId?: Id<"objects"> } | null;
@@ -3971,6 +4076,7 @@ export const sendMessage = action({
           operatorCollaborationDefaults.proposalOnlyDmActions,
         conversationId,
         layerWorkflowId: conversationLayerWorkflowId,
+        targetAgentId: conversationTargetAgentId,
         userId: args.userId,
         sessionId: args.sessionId,
         selectedModel: args.selectedModel,
@@ -4094,10 +4200,10 @@ export const sendMessage = action({
         .includes("no active agent found") === true;
       if (agentResult.status === "error" && noActiveAgentFailure) {
         await (ctx as any).runMutation(
-          generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
+          generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
           {
             organizationId: args.organizationId,
-            channel: "desktop",
+            appSurface: args.clientSurface,
             routeSelectors: operatorRouteSelectors,
           }
         );
@@ -5253,13 +5359,29 @@ ${knowledgeBlock}`;
           if (shouldPropose) {
             // Create a proposal instead of executing
             const proposalRecordedAt = Date.now();
+            const configureAgentFieldProposal =
+              toolCall.function.name === CONFIGURE_AGENT_FIELDS_TOOL_NAME
+                ? await buildConfigureAgentFieldsProposalEnvelope(
+                    {
+                      ...ctx,
+                      organizationId: args.organizationId,
+                      userId: args.userId,
+                      sessionId: args.sessionId,
+                      conversationId,
+                    } as ToolExecutionContext,
+                    parsedArgs as any,
+                  )
+                : null;
             const executionId = await (ctx as any).runMutation(generatedApi.api.ai.conversations.proposeToolExecution, {
               conversationId,
               organizationId: args.organizationId,
               userId: args.userId,
+              sessionId: args.sessionId,
               toolName: toolCall.function.name,
-              parameters: parsedArgs,
-              proposalMessage: `AI wants to execute: ${toolCall.function.name}`,
+              parameters: configureAgentFieldProposal?.parameters ?? parsedArgs,
+              proposalMessage:
+                configureAgentFieldProposal?.proposalMessage
+                || `AI wants to execute: ${toolCall.function.name}`,
               evalEnvelope: buildEvalEnvelopeForToolExecution({
                 verdict: "blocked",
                 toolCompletedAt: proposalRecordedAt,
@@ -5289,6 +5411,7 @@ ${knowledgeBlock}`;
                 ...ctx,
                 organizationId: args.organizationId,
                 userId: args.userId,
+                sessionId: args.sessionId,
                 conversationId, // Pass conversationId for feature requests
                 runtimePolicy: {
                   codeExecution: {

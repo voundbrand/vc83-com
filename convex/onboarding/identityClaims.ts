@@ -14,6 +14,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { ONBOARDING_ORG_LIFECYCLE } from "./orgBootstrap";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const generatedApi: any = require("../_generated/api");
 
@@ -190,26 +191,6 @@ function sessionIdentityKey(channel: "webchat" | "native_guest", sessionToken: s
 
 function telegramIdentityKey(telegramChatId: string): string {
   return `telegram:${telegramChatId}`;
-}
-
-async function ensureOrgOwnerRoleId(ctx: any): Promise<Id<"roles">> {
-  let ownerRole = await ctx.db
-    .query("roles")
-    .filter((q: any) => q.eq(q.field("name"), "org_owner"))
-    .first();
-
-  if (!ownerRole) {
-    const ownerRoleId = await ctx.db.insert("roles", {
-      name: "org_owner",
-      description: "Organization owner with full permissions",
-      isActive: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    ownerRole = await ctx.db.get(ownerRoleId);
-  }
-
-  return ownerRole._id as Id<"roles">;
 }
 
 async function upsertGuestLedgerEntry(
@@ -805,35 +786,32 @@ export const consumeIdentityClaimToken = internalMutation({
       }
     } else if (tokenRecord.tokenType === "telegram_org_claim") {
       const telegramChatId = payload.telegramChatId || tokenRecord.telegramChatId;
-
-      const orgOwnerRoleId = await ensureOrgOwnerRoleId(ctx);
-      const membership = await ctx.db
-        .query("organizationMembers")
-        .withIndex("by_user_and_org", (q) =>
-          q.eq("userId", args.userId).eq("organizationId", tokenRecord.organizationId)
-        )
-        .first();
-
-      if (!membership) {
-        await ctx.db.insert("organizationMembers", {
-          userId: args.userId,
-          organizationId: tokenRecord.organizationId,
-          role: orgOwnerRoleId,
-          isActive: true,
-          joinedAt: now,
-          acceptedAt: now,
-          invitedBy: args.userId,
-        });
-      } else if (!membership.isActive) {
-        await ctx.db.patch(membership._id, {
-          isActive: true,
-          acceptedAt: membership.acceptedAt || now,
-        });
-      } else {
-        alreadyClaimed = true;
+      const user = await ctx.db.get(args.userId);
+      const organization = await ctx.db.get(tokenRecord.organizationId);
+      if (
+        organization?.onboardingLifecycleState === ONBOARDING_ORG_LIFECYCLE.CLAIMED
+        && organization.onboardingClaimedByUserId
+        && String(organization.onboardingClaimedByUserId) !== String(args.userId)
+      ) {
+        return { success: false, errorCode: "organization_already_claimed" };
       }
 
-      const user = await ctx.db.get(args.userId);
+      alreadyClaimed =
+        organization?.onboardingLifecycleState === ONBOARDING_ORG_LIFECYCLE.CLAIMED
+        && String(organization.onboardingClaimedByUserId || "") === String(args.userId);
+
+      if (!alreadyClaimed) {
+        await ctx.runMutation(
+          generatedApi.internal.onboarding.orgBootstrap.finalizeOnboardingOrgClaim,
+          {
+            organizationId: tokenRecord.organizationId,
+            userId: args.userId,
+            contactEmail: user?.email,
+            appSurface: "platform_web",
+          }
+        );
+      }
+
       if (user && !user.defaultOrgId) {
         await ctx.db.patch(args.userId, {
           defaultOrgId: tokenRecord.organizationId,
@@ -849,6 +827,7 @@ export const consumeIdentityClaimToken = internalMutation({
         if (mapping) {
           await ctx.db.patch(mapping._id, {
             organizationId: tokenRecord.organizationId,
+            onboardingOrganizationId: tokenRecord.organizationId,
             status: "active",
             userId: args.userId,
           });

@@ -185,14 +185,48 @@ export const resolveChatToOrg = action({
       const deepLinkResult = (await (ctx.runQuery as Function)(
         internalApi.onboarding.agencySubOrgBootstrap.resolveDeepLink,
         { slug: startParam }
-      )) as { organizationId: Id<"organizations"> } | null;
+      )) as {
+        organizationId: Id<"organizations">;
+        targetAgentId?: Id<"objects"> | null;
+      } | null;
 
       if (deepLinkResult) {
         // Check if this chat already has a mapping
         const existingDeepLink = (await (ctx.runQuery as Function)(
           internalApi.onboarding.telegramResolver.getMappingByChatId,
           { telegramChatId: args.telegramChatId }
-        )) as { organizationId: Id<"organizations">; status: string } | null;
+        )) as {
+          organizationId: Id<"organizations">;
+          status: string;
+          targetAgentId?: Id<"objects">;
+          testingOrganizationId?: Id<"organizations">;
+          testingTargetAgentId?: Id<"objects">;
+        } | null;
+
+        const targetAgentId = deepLinkResult.targetAgentId || undefined;
+        let testingMode = false;
+        let isExternalCustomer = true;
+        let shouldUseTestingOverride = false;
+        try {
+          const targetOrg = (await (ctx.runQuery as Function)(
+            internalApi.organizations.getOrgById,
+            { organizationId: deepLinkResult.organizationId }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          )) as any;
+
+          if (
+            targetOrg?.parentOrganizationId
+            && existingDeepLink
+            && String(existingDeepLink.organizationId) === String(targetOrg.parentOrganizationId)
+            && existingDeepLink.status === "active"
+          ) {
+            testingMode = true;
+            isExternalCustomer = false;
+            shouldUseTestingOverride = true;
+          }
+        } catch {
+          // Non-fatal — testing mode detection is optional
+        }
 
         if (!existingDeepLink) {
           // Create a mapping for this chat_id -> sub-org so future messages route correctly
@@ -202,6 +236,7 @@ export const resolveChatToOrg = action({
               telegramChatId: args.telegramChatId,
               organizationId: deepLinkResult.organizationId,
               senderName: args.senderName,
+              targetAgentId,
             }
           );
           // Immediately activate so messages go to the sub-org agent (not System Bot)
@@ -210,36 +245,27 @@ export const resolveChatToOrg = action({
             {
               telegramChatId: args.telegramChatId,
               organizationId: deepLinkResult.organizationId,
+              targetAgentId,
             }
           );
-        }
-
-        // Detect testing mode: check if sender is the parent org's owner
-        let testingMode = false;
-        let isExternalCustomer = true;
-        try {
-          const targetOrg = (await (ctx.runQuery as Function)(
-            internalApi.organizations.getOrgById,
-            { organizationId: deepLinkResult.organizationId }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          )) as any;
-
-          if (targetOrg?.parentOrganizationId) {
-            // Check if this telegram chat is mapped to the parent org (agency owner)
-            const parentMappings = (await (ctx.runQuery as Function)(
-              internalApi.onboarding.telegramResolver.getMappingByChatId,
-              { telegramChatId: args.telegramChatId }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            )) as any;
-
-            // If the chat was previously mapped to the parent org, this is the agency owner testing
-            if (parentMappings && String(parentMappings.organizationId) === String(targetOrg.parentOrganizationId)) {
-              testingMode = true;
-              isExternalCustomer = false;
-	    }
-    }
-        } catch {
-          // Non-fatal — testing mode detection is optional
+        } else if (shouldUseTestingOverride) {
+          await (ctx.runMutation as Function)(
+            internalApi.onboarding.telegramResolver.setTestingRoutingOverride,
+            {
+              telegramChatId: args.telegramChatId,
+              organizationId: deepLinkResult.organizationId,
+              targetAgentId,
+            }
+          );
+        } else {
+          await (ctx.runMutation as Function)(
+            internalApi.onboarding.telegramResolver.activateMapping,
+            {
+              telegramChatId: args.telegramChatId,
+              organizationId: deepLinkResult.organizationId,
+              targetAgentId,
+            }
+          );
         }
 
         return {
@@ -248,6 +274,7 @@ export const resolveChatToOrg = action({
           routeToSystemBot: false,
           testingMode,
           isExternalCustomer,
+          resolvedAgentId: targetAgentId,
         };
       }
     }
@@ -262,32 +289,50 @@ export const resolveChatToOrg = action({
     } | null;
 
     if (existing?.status === "active") {
+      const testingOrganizationId =
+        (existing as { testingOrganizationId?: Id<"organizations"> }).testingOrganizationId;
+      const testingTargetAgentId =
+        (existing as { testingTargetAgentId?: Id<"objects"> }).testingTargetAgentId;
+      const targetAgentId =
+        (existing as { targetAgentId?: Id<"objects"> }).targetAgentId;
+      const resolvedOrganizationId = testingOrganizationId || existing.organizationId;
       // Grant idempotent daily credits so Telegram users always have fresh credits
       await (ctx.runMutation as Function)(
         internalApi.credits.index.grantDailyCreditsInternalMutation,
-        { organizationId: existing.organizationId }
+        { organizationId: resolvedOrganizationId }
       );
       await (ctx.runMutation as Function)(
         internalApi.onboarding.identityClaims.syncTelegramIdentityLedger,
         {
           telegramChatId: args.telegramChatId,
-          organizationId: existing.organizationId,
+          organizationId: resolvedOrganizationId,
         }
       );
       await emitTelegramFunnelEvent(ctx, {
         eventName: "onboarding.funnel.activation",
-        organizationId: existing.organizationId,
+        organizationId: resolvedOrganizationId,
         telegramChatId: args.telegramChatId,
         eventKey: `onboarding.funnel.activation:telegram:${args.telegramChatId}`,
       });
       return {
-        organizationId: existing.organizationId,
+        organizationId: resolvedOrganizationId,
         isNew: false,
         routeToSystemBot: false,
+        testingMode: Boolean(testingOrganizationId),
+        isExternalCustomer: !testingOrganizationId,
+        resolvedAgentId: testingTargetAgentId || targetAgentId || undefined,
       };
     }
 
     if (existing?.status === "onboarding") {
+      await (ctx.runMutation as Function)(
+        internalApi.onboarding.orgBootstrap.ensureTelegramOnboardingOrgBinding,
+        {
+          telegramChatId: args.telegramChatId,
+          source: "telegram_onboarding",
+          senderName: args.senderName,
+        }
+      );
       return {
         organizationId: PLATFORM_ORG_ID,
         isNew: false,
@@ -305,9 +350,18 @@ export const resolveChatToOrg = action({
       }
     );
 
+    const onboardingWorkspace = await (ctx.runMutation as Function)(
+      internalApi.onboarding.orgBootstrap.ensureTelegramOnboardingOrgBinding,
+      {
+        telegramChatId: args.telegramChatId,
+        source: "telegram_onboarding",
+        senderName: args.senderName,
+      }
+    ) as { organizationId: Id<"organizations"> };
+
     await emitTelegramFunnelEvent(ctx, {
       eventName: "onboarding.funnel.first_touch",
-      organizationId: PLATFORM_ORG_ID,
+      organizationId: onboardingWorkspace.organizationId,
       telegramChatId: args.telegramChatId,
       eventKey: `onboarding.funnel.first_touch:telegram:${args.telegramChatId}`,
       metadata: {
@@ -344,11 +398,13 @@ export const createMapping = internalMutation({
     telegramChatId: v.string(),
     organizationId: v.id("organizations"),
     senderName: v.optional(v.string()),
+    targetAgentId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("telegramMappings", {
       telegramChatId: args.telegramChatId,
       organizationId: args.organizationId,
+      targetAgentId: args.targetAgentId,
       status: "onboarding",
       senderName: args.senderName,
       createdAt: Date.now(),
@@ -364,6 +420,7 @@ export const activateMapping = internalMutation({
   args: {
     telegramChatId: v.string(),
     organizationId: v.id("organizations"),
+    targetAgentId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
     const mapping = await ctx.db
@@ -377,7 +434,12 @@ export const activateMapping = internalMutation({
 
     await ctx.db.patch(mapping._id, {
       organizationId: args.organizationId,
+      onboardingOrganizationId: args.organizationId,
+      targetAgentId: args.targetAgentId,
       status: "active",
+      testingOrganizationId: undefined,
+      testingTargetAgentId: undefined,
+      testingActivatedAt: undefined,
     });
 
     const now = Date.now();
@@ -420,6 +482,33 @@ export const activateMapping = internalMutation({
       createdAt: now,
       updatedAt: now,
       lastActivityAt: now,
+    });
+  },
+});
+
+export const setTestingRoutingOverride = internalMutation({
+  args: {
+    telegramChatId: v.string(),
+    organizationId: v.id("organizations"),
+    targetAgentId: v.optional(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    const mapping = await ctx.db
+      .query("telegramMappings")
+      .withIndex("by_chat_id", (q) =>
+        q.eq("telegramChatId", args.telegramChatId)
+      )
+      .first();
+
+    if (!mapping) {
+      throw new Error(`No mapping for chat_id ${args.telegramChatId}`);
+    }
+
+    await ctx.db.patch(mapping._id, {
+      testingOrganizationId: args.organizationId,
+      testingTargetAgentId: args.targetAgentId,
+      testingActivatedAt: Date.now(),
+      status: "active",
     });
   },
 });

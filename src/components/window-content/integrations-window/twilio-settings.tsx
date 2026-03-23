@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
+import type { Id } from "../../../../convex/_generated/dataModel";
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
@@ -9,14 +10,47 @@ import { InteriorButton } from "@/components/ui/interior-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotification } from "@/hooks/use-notification";
 import { useRetroConfirm } from "@/components/retro-confirm-dialog";
-import { Loader2, CheckCircle2, ArrowLeft, Phone } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowLeft, Phone, RefreshCw } from "lucide-react";
 
 interface TwilioSettingsProps {
   onBack: () => void;
 }
 
+type TwilioSettingsSnapshot = {
+  configured: boolean;
+  enabled: boolean;
+  accountSidLast4?: string;
+  verifyServiceSid?: string;
+  smsPhoneNumber?: string;
+  runtimeSource?: "platform" | "org" | null;
+  platformAccessGranted?: boolean;
+  hasOrgCredentials?: boolean;
+  hasPlatformCredentials?: boolean;
+  hasEffectiveCredentials?: boolean;
+};
+
+type TwilioRuntimeProbe = {
+  success: boolean;
+  source: "platform" | "org" | null;
+  accountSidLast4?: string;
+  accountName?: string;
+  accountStatus?: string;
+  reason?: string;
+  checkedAt: number;
+};
+
+type TwilioInventoryNumber = {
+  sid: string;
+  phoneNumber: string;
+  friendlyName: string;
+  voiceEnabled: boolean;
+  smsEnabled: boolean;
+  mmsEnabled: boolean;
+};
+
 export function TwilioSettings({ onBack }: TwilioSettingsProps) {
-  const { sessionId } = useAuth();
+  const { sessionId, user } = useAuth();
+  const organizationId = user?.currentOrganization?.id as Id<"organizations"> | undefined;
   const notification = useNotification();
   const confirmDialog = useRetroConfirm();
 
@@ -31,15 +65,26 @@ export function TwilioSettings({ onBack }: TwilioSettingsProps) {
     accountName?: string;
     accountStatus?: string;
   } | null>(null);
+  const [runtimeProbe, setRuntimeProbe] = useState<TwilioRuntimeProbe | null>(null);
+  const [isProbingRuntime, setIsProbingRuntime] = useState(false);
+  const [inventory, setInventory] = useState<TwilioInventoryNumber[]>([]);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
 
   // Queries & mutations
   const twilioSettings = useQuery(
     api.integrations.twilio.getTwilioSettings,
     sessionId ? { sessionId } : "skip"
-  );
+  ) as TwilioSettingsSnapshot | undefined;
   const saveSettings = useMutation(api.integrations.twilio.saveTwilioSettings);
   const disconnect = useMutation(api.integrations.twilio.disconnectTwilio);
   const testConnection = useAction(api.integrations.twilio.testTwilioConnection);
+  const probeRuntime = useAction(
+    api.integrations.twilio.probeOrganizationTwilioRuntime,
+  ) as any;
+  const listInventory = useAction(
+    api.integrations.twilio.listOrganizationTwilioIncomingPhoneNumbers,
+  ) as any;
 
   const isLoading = twilioSettings === undefined;
   const isConnected = twilioSettings?.configured && twilioSettings?.enabled;
@@ -132,12 +177,73 @@ export function TwilioSettings({ onBack }: TwilioSettingsProps) {
     try {
       await disconnect({ sessionId });
       setTestResult(null);
+      setRuntimeProbe(null);
+      setInventory([]);
       notification.success("Disconnected", "Twilio has been disconnected");
     } catch (error) {
       notification.error(
         "Error",
         error instanceof Error ? error.message : "Disconnect failed"
       );
+    }
+  };
+
+  const handleProbeRuntime = async () => {
+    if (!sessionId || !organizationId) return;
+    setIsProbingRuntime(true);
+    try {
+      const result = (await probeRuntime({
+        sessionId,
+        organizationId,
+      })) as TwilioRuntimeProbe;
+      setRuntimeProbe(result);
+      if (!result.success) {
+        notification.error("Runtime Probe Failed", result.reason ?? "Twilio runtime probe failed");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Twilio runtime probe failed";
+      setRuntimeProbe({
+        success: false,
+        source: null,
+        reason: message,
+        checkedAt: Date.now(),
+      });
+      notification.error("Runtime Probe Failed", message);
+    } finally {
+      setIsProbingRuntime(false);
+    }
+  };
+
+  const handleLoadInventory = async () => {
+    if (!sessionId || !organizationId) return;
+    setIsLoadingInventory(true);
+    setInventoryError(null);
+    try {
+      const result = (await listInventory({
+        sessionId,
+        organizationId,
+        pageSize: 20,
+      })) as {
+        success: boolean;
+        reason?: string;
+        phoneNumbers?: TwilioInventoryNumber[];
+      };
+      if (!result.success) {
+        setInventory([]);
+        setInventoryError(result.reason ?? "Could not load Twilio numbers");
+        notification.error("Inventory Load Failed", result.reason ?? "Could not load Twilio numbers");
+        return;
+      }
+      setInventory(Array.isArray(result.phoneNumbers) ? result.phoneNumbers : []);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not load Twilio numbers";
+      setInventory([]);
+      setInventoryError(message);
+      notification.error("Inventory Load Failed", message);
+    } finally {
+      setIsLoadingInventory(false);
     }
   };
 
@@ -196,6 +302,18 @@ export function TwilioSettings({ onBack }: TwilioSettingsProps) {
                   <span className="text-xs font-bold" style={{ color: "#10b981" }}>Connected</span>
                 </div>
                 <div className="space-y-2">
+                  {twilioSettings?.runtimeSource && (
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                        Runtime Source
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                        {twilioSettings.runtimeSource === "platform"
+                          ? "Platform credentials"
+                          : "Org credentials"}
+                      </p>
+                    </div>
+                  )}
                   {twilioSettings?.accountSidLast4 && (
                     <div>
                       <p className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
@@ -229,9 +347,111 @@ export function TwilioSettings({ onBack }: TwilioSettingsProps) {
                 </div>
               </div>
 
-              <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
-                Disconnect
-              </InteriorButton>
+              {twilioSettings?.platformAccessGranted ? (
+                <div
+                  className="p-3 border-2 rounded text-xs"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  Platform-managed Twilio access is controlled from the super-admin
+                  org Integrations tab. This screen is read-only for the effective
+                  runtime while the platform grant is active.
+                </div>
+              ) : null}
+
+              {runtimeProbe ? (
+                <div
+                  className="p-3 border-2 rounded text-xs"
+                  style={{
+                    borderColor: runtimeProbe.success ? "#10b981" : "var(--warning)",
+                    background: "var(--window-document-bg-elevated)",
+                    color: "var(--window-document-text)",
+                  }}
+                >
+                  {runtimeProbe.success
+                    ? `Runtime probe succeeded via ${runtimeProbe.source || "unknown"} credentials (${runtimeProbe.accountName || "Twilio account"} / ${runtimeProbe.accountStatus || "unknown"}).`
+                    : runtimeProbe.reason || "Twilio runtime probe failed."}
+                </div>
+              ) : null}
+
+              <div
+                className="p-4 border-2 rounded space-y-3"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "var(--window-document-bg-elevated)",
+                }}
+              >
+                <div className="flex flex-wrap gap-2">
+                  <InteriorButton
+                    variant="secondary"
+                    onClick={handleProbeRuntime}
+                    disabled={isProbingRuntime}
+                    className="flex items-center gap-2"
+                  >
+                    {isProbingRuntime ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    {isProbingRuntime ? "Testing..." : "Test Runtime"}
+                  </InteriorButton>
+                  <InteriorButton
+                    variant="secondary"
+                    onClick={handleLoadInventory}
+                    disabled={isLoadingInventory}
+                    className="flex items-center gap-2"
+                  >
+                    {isLoadingInventory ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    {isLoadingInventory ? "Loading..." : "Load Phone Inventory"}
+                  </InteriorButton>
+                </div>
+
+                {inventoryError ? (
+                  <p className="text-xs" style={{ color: "var(--error)" }}>
+                    {inventoryError}
+                  </p>
+                ) : inventory.length === 0 ? (
+                  <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    No Twilio numbers loaded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {inventory.map((phoneNumber) => (
+                      <div
+                        key={phoneNumber.sid}
+                        className="p-2 border rounded"
+                        style={{
+                          borderColor: "var(--window-document-border)",
+                          color: "var(--window-document-text)",
+                        }}
+                      >
+                        <p className="text-xs font-bold">{phoneNumber.phoneNumber}</p>
+                        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                          {phoneNumber.friendlyName}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "var(--neutral-gray)" }}>
+                          {phoneNumber.voiceEnabled ? "Voice" : "No voice"} /{" "}
+                          {phoneNumber.smsEnabled ? "SMS" : "No SMS"} /{" "}
+                          {phoneNumber.mmsEnabled ? "MMS" : "No MMS"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {!twilioSettings?.platformAccessGranted ? (
+                <InteriorButton variant="secondary" onClick={handleDisconnect} className="w-full">
+                  Disconnect
+                </InteriorButton>
+              ) : null}
             </div>
           ) : (
             /* ======== NOT CONNECTED STATE ======== */

@@ -14,10 +14,12 @@ import { infobipProvider } from "./providers/infobipProvider";
 import { telegramProvider } from "./providers/telegramProvider";
 import { slackProvider } from "./providers/slackProvider";
 import { directCallProvider } from "./providers/directCallProvider";
+import { resendProvider } from "./providers/resendProvider";
 
 const PROVIDER_REGISTRY: Record<string, ChannelProvider> = {};
 const PROVIDER_ID_ALIASES = Object.freeze({
   eleven_telephony: "direct",
+  twilio_voice: "direct",
 });
 
 function normalizeProviderLookupId(id: string): string {
@@ -79,6 +81,7 @@ registerProvider(infobipProvider);
 registerProvider(telegramProvider);
 registerProvider(slackProvider);
 registerProvider(directCallProvider);
+registerProvider(resendProvider);
 
 export function getProvider(id: ProviderId): ChannelProvider | null {
   return PROVIDER_REGISTRY[normalizeProviderLookupId(id)] ?? null;

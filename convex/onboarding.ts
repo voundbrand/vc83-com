@@ -112,6 +112,27 @@ export const signupFreeAccount = action({
       password: apiKey,
     });
 
+    const identityClaimToken = args.identityClaimToken?.trim();
+    let claimedOrganizationId: Id<"organizations"> | undefined;
+    if (identityClaimToken) {
+      try {
+        const inspectedClaim = await (ctx as any).runAction(
+          generatedApi.internal.onboarding.identityClaims.inspectIdentityClaimToken,
+          { signedToken: identityClaimToken }
+        ) as {
+          valid: boolean;
+          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          organizationId?: Id<"organizations">;
+        };
+
+        if (inspectedClaim.valid && inspectedClaim.tokenType === "telegram_org_claim") {
+          claimedOrganizationId = inspectedClaim.organizationId;
+        }
+      } catch (claimInspectError) {
+        console.error("[Onboarding] Failed to inspect identity claim token during email signup:", claimInspectError);
+      }
+    }
+
     // 7. Call internal mutation to create all records
     const result: {
       success: boolean;
@@ -129,9 +150,9 @@ export const signupFreeAccount = action({
       betaCode: args.betaCode?.trim(),
       apiKeyHash,
       apiKeyPrefix: keyPrefix,
+      claimedOrganizationId,
     });
 
-    const identityClaimToken = args.identityClaimToken?.trim();
     if (identityClaimToken) {
       try {
         await (ctx as any).runMutation(generatedApi.internal.onboarding.identityClaims.consumeIdentityClaimToken, {
@@ -296,6 +317,7 @@ export const createFreeAccountInternal = internalMutation({
     betaCode: v.optional(v.string()),
     apiKeyHash: v.string(),
     apiKeyPrefix: v.string(),
+    claimedOrganizationId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args): Promise<{
     success: boolean;
@@ -402,21 +424,39 @@ export const createFreeAccountInternal = internalMutation({
       createdAt: Date.now(),
     });
 
-    // 4. Create organization (auto-name if not provided)
-    const orgName = args.organizationName || `${args.firstName}'s Organization`;
-    const orgSlug = await generateUniqueSlug(ctx, orgName);
+    // 4. Create or claim organization.
+    let orgName = args.organizationName || `${args.firstName}'s Organization`;
+    let orgSlug: string;
+    let organizationId: Id<"organizations">;
+    if (args.claimedOrganizationId) {
+      const claimedOrganization = await ctx.db.get(args.claimedOrganizationId);
+      if (!claimedOrganization) {
+        throw new Error("Claimed organization not found");
+      }
+      organizationId = args.claimedOrganizationId;
+      orgName = claimedOrganization.name || orgName;
+      orgSlug = claimedOrganization.slug;
 
-    const organizationId = await ctx.db.insert("organizations", {
-      name: orgName,
-      slug: orgSlug,
-      businessName: orgName,
-      // NOTE: Plan/tier is managed in organization_license object (created separately)
-      isPersonalWorkspace: true,
-      isActive: true,
-      email: args.email,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+      if (!claimedOrganization.email) {
+        await ctx.db.patch(organizationId, {
+          email: args.email,
+          updatedAt: Date.now(),
+        });
+      }
+    } else {
+      orgSlug = await generateUniqueSlug(ctx, orgName);
+      organizationId = await ctx.db.insert("organizations", {
+        name: orgName,
+        slug: orgSlug,
+        businessName: orgName,
+        // NOTE: Plan/tier is managed in organization_license object (created separately)
+        isPersonalWorkspace: true,
+        isActive: true,
+        email: args.email,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     // 5. Get or create "org_owner" role (standard RBAC role name)
     // Note: RBAC should be seeded before onboarding (run: npx convex run rbac:seedRBAC)
@@ -438,15 +478,28 @@ export const createFreeAccountInternal = internalMutation({
     }
 
     // 6. Add user as organization owner
-    await ctx.db.insert("organizationMembers", {
-      userId,
-      organizationId,
-      role: ownerRole!._id,
-      isActive: true,
-      joinedAt: Date.now(),
-      acceptedAt: Date.now(), // Auto-accepted (they created it)
-      invitedBy: userId, // Self-invited - enables isOwner check in auth
-    });
+    const existingMembership = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", userId).eq("organizationId", organizationId)
+      )
+      .first();
+    if (!existingMembership) {
+      await ctx.db.insert("organizationMembers", {
+        userId,
+        organizationId,
+        role: ownerRole!._id,
+        isActive: true,
+        joinedAt: Date.now(),
+        acceptedAt: Date.now(),
+        invitedBy: userId,
+      });
+    } else if (!existingMembership.isActive) {
+      await ctx.db.patch(existingMembership._id, {
+        isActive: true,
+        acceptedAt: existingMembership.acceptedAt || Date.now(),
+      });
+    }
 
     // 7. Set as default organization
     await ctx.db.patch(userId, {
@@ -455,42 +508,65 @@ export const createFreeAccountInternal = internalMutation({
     });
 
     // 8. Initialize organization storage (matching schema)
-    await ctx.db.insert("organizationStorage", {
-      organizationId,
-      totalSizeBytes: 0,
-      totalSizeGB: 0,
-      fileCount: 0,
-      byCategoryBytes: {},
-      lastCalculated: Date.now(),
-      updatedAt: Date.now(),
-    });
+    const existingOrgStorage = await ctx.db
+      .query("organizationStorage")
+      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+      .first();
+    if (!existingOrgStorage) {
+      await ctx.db.insert("organizationStorage", {
+        organizationId,
+        totalSizeBytes: 0,
+        totalSizeGB: 0,
+        fileCount: 0,
+        byCategoryBytes: {},
+        lastCalculated: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     // 10. Initialize user storage quota (matching schema)
-    await ctx.db.insert("userStorageQuotas", {
-      organizationId,
-      userId,
-      storageUsedBytes: 0,
-      fileCount: 0,
-      isEnforced: true,
-      storageLimitBytes: 250 * 1024 * 1024, // 250 MB for Free tier
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    const existingUserQuota = await ctx.db
+      .query("userStorageQuotas")
+      .withIndex("by_org_and_user", (q) =>
+        q.eq("organizationId", organizationId).eq("userId", userId)
+      )
+      .first();
+    if (!existingUserQuota) {
+      await ctx.db.insert("userStorageQuotas", {
+        organizationId,
+        userId,
+        storageUsedBytes: 0,
+        fileCount: 0,
+        isEnforced: true,
+        storageLimitBytes: 250 * 1024 * 1024, // 250 MB for Free tier
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     // 9a. Initialize API settings - enable API keys by default (per tier config)
-    await ctx.db.insert("objects", {
-      organizationId,
-      type: "organization_settings",
-      subtype: "api",
-      name: "API Settings",
-      status: "active",
-      customProperties: {
-        apiKeysEnabled: true, // Enabled by default for all tiers (per tierConfigs.ts)
-      },
-      createdBy: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    const existingApiSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "api"))
+      .first();
+    if (!existingApiSettings) {
+      await ctx.db.insert("objects", {
+        organizationId,
+        type: "organization_settings",
+        subtype: "api",
+        name: "API Settings",
+        status: "active",
+        customProperties: {
+          apiKeysEnabled: true, // Enabled by default for all tiers (per tierConfigs.ts)
+        },
+        createdBy: userId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     // 10. Create API key record (matching schema)
     await ctx.db.insert("apiKeys", {
@@ -538,21 +614,30 @@ export const createFreeAccountInternal = internalMutation({
       planTier: "free",
     });
 
-    // 14. Assign all apps to the new organization (teaser model)
-    // This enables the "show all apps, upgrade when they try to use premium features" approach
-    await assignAllAppsToOrgInternal(ctx, organizationId, userId);
-
-    await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
-      { organizationId }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId,
-        channel: "desktop",
-      }
-    );
+    // 14. Apply the canonical signed-in org baseline.
+    if (args.claimedOrganizationId) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.orgBootstrap.finalizeOnboardingOrgClaim,
+        {
+          organizationId,
+          userId,
+          contactEmail: args.email,
+          appSurface: "platform_web",
+        }
+      );
+    } else {
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizations.provisionOrganizationBaselineInternal,
+        {
+          organizationId,
+          createdByUserId: userId,
+          ownerUserIds: [userId],
+          appProvisioningUserId: userId,
+          contactEmail: args.email,
+          appSurface: "platform_web",
+        }
+      );
+    }
 
     // 15. Provision starter web app templates (Freelancer Portal, etc.)
     // This makes templates immediately available for one-click deployment

@@ -49,6 +49,18 @@ function getInternal(): any {
   return _internalCache;
 }
 
+const BOOKING_PHONE_CALL_ARTIFACT_CONTRACT_VERSION =
+  "booking_phone_call_artifact_v1" as const;
+
+type BookingConciergeLegalIntakeUrgency =
+  | "low"
+  | "normal"
+  | "high";
+
+type BookingConciergeIntakeCaptureMode =
+  | "live_call"
+  | "assistant_session";
+
 // ============================================================================
 // TYPES AND VALIDATORS
 // ============================================================================
@@ -1333,10 +1345,10 @@ export const createBookingInternal = internalMutation({
     startDateTime: v.number(),
     endDateTime: v.number(),
     timezone: v.optional(v.string()),
-    resourceIds: v.array(v.id("objects")),
+    resourceIds: v.optional(v.array(v.id("objects"))),
     customerId: v.optional(v.id("objects")),
     customerName: v.string(),
-    customerEmail: v.string(),
+    customerEmail: v.optional(v.string()),
     customerPhone: v.optional(v.string()),
     participants: v.optional(v.number()),
     guestDetails: v.optional(v.any()),
@@ -1355,8 +1367,10 @@ export const createBookingInternal = internalMutation({
     passengerCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const resourceIds = Array.isArray(args.resourceIds) ? args.resourceIds : [];
+
     // Validate resources
-    for (const resourceId of args.resourceIds) {
+    for (const resourceId of resourceIds) {
       const resource = await ctx.db.get(resourceId);
       if (!resource || resource.organizationId !== args.organizationId) {
         throw new Error(`Resource ${resourceId} not found`);
@@ -1364,12 +1378,14 @@ export const createBookingInternal = internalMutation({
     }
 
     // Determine availability model from primary resource
-    const primaryResource = await ctx.db.get(args.resourceIds[0]);
+    const primaryResource = resourceIds[0]
+      ? await ctx.db.get(resourceIds[0])
+      : null;
     const primaryProps = primaryResource?.customProperties as Record<string, unknown> | undefined;
     const availabilityModel = (primaryProps?.availabilityModel as string) || "time_slot";
 
     // Check conflicts based on model
-    for (const resourceId of args.resourceIds) {
+    for (const resourceId of resourceIds) {
       if (availabilityModel === "event_bound_seating" || availabilityModel === "departure_bound") {
         const result = await ctx.runQuery(getInternal().availabilityOntology.checkConflictByModel, {
           resourceId,
@@ -1412,7 +1428,7 @@ export const createBookingInternal = internalMutation({
         timezone: args.timezone || "UTC",
         customerId: args.customerId || null,
         customerName: args.customerName,
-        customerEmail: args.customerEmail,
+        customerEmail: normalizeOptionalString(args.customerEmail) || "",
         customerPhone: args.customerPhone || null,
         participants: args.participants || 1,
         guestDetails: args.guestDetails || [],
@@ -1451,7 +1467,7 @@ export const createBookingInternal = internalMutation({
     });
 
     // Link to resources
-    for (const resourceId of args.resourceIds) {
+    for (const resourceId of resourceIds) {
       await ctx.db.insert("objectLinks", {
         organizationId: args.organizationId,
         fromObjectId: bookingId,
@@ -1498,6 +1514,369 @@ export const createBookingInternal = internalMutation({
     }
 
     return { bookingId, status: initialStatus };
+  },
+});
+
+export const setBookingConciergeMetadataInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    bookingId: v.id("objects"),
+    conciergeIdempotencyKey: v.optional(v.string()),
+    sourceChannel: v.optional(v.string()),
+    sourceExternalContactIdentifier: v.optional(v.string()),
+    sourceAgentSessionId: v.optional(v.id("agentSessions")),
+    sourceAgentId: v.optional(v.id("objects")),
+    sourceProviderCallId: v.optional(v.string()),
+    sourceProviderConversationId: v.optional(v.string()),
+    practiceArea: v.optional(v.string()),
+    urgency: v.optional(
+      v.union(v.literal("low"), v.literal("normal"), v.literal("high"))
+    ),
+    caseSummary: v.optional(v.string()),
+    intakeCaptureMode: v.optional(
+      v.union(v.literal("live_call"), v.literal("assistant_session"))
+    ),
+  },
+  handler: async (ctx, args) => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+    if (booking.organizationId !== args.organizationId) {
+      throw new Error("Booking organization mismatch");
+    }
+
+    const currentProps = (booking.customProperties || {}) as Record<string, unknown>;
+    const baseUpdatedProps: Record<string, unknown> = {
+      ...currentProps,
+    };
+
+    const conciergeIdempotencyKey =
+      normalizeOptionalString(args.conciergeIdempotencyKey) || null;
+    if (conciergeIdempotencyKey) {
+      baseUpdatedProps.conciergeIdempotencyKey = conciergeIdempotencyKey;
+    }
+
+    const sourceChannel = normalizeOptionalString(args.sourceChannel);
+    if (sourceChannel) {
+      baseUpdatedProps.sourceChannel = sourceChannel;
+    }
+
+    if (args.sourceExternalContactIdentifier !== undefined) {
+      baseUpdatedProps.sourceExternalContactIdentifier =
+        normalizeOptionalString(args.sourceExternalContactIdentifier) || null;
+    }
+    if (args.sourceAgentSessionId !== undefined) {
+      baseUpdatedProps.sourceAgentSessionId = args.sourceAgentSessionId
+        ? String(args.sourceAgentSessionId)
+        : null;
+    }
+    if (args.sourceAgentId !== undefined) {
+      baseUpdatedProps.sourceAgentId = args.sourceAgentId
+        ? String(args.sourceAgentId)
+        : null;
+    }
+    if (args.sourceProviderCallId !== undefined) {
+      baseUpdatedProps.sourceProviderCallId =
+        normalizeOptionalString(args.sourceProviderCallId) || null;
+    }
+    if (args.sourceProviderConversationId !== undefined) {
+      baseUpdatedProps.sourceProviderConversationId =
+        normalizeOptionalString(args.sourceProviderConversationId) || null;
+    }
+    const updatedProps = mergeBookingConciergeStructuredIntake({
+      currentProps: baseUpdatedProps,
+      practiceArea: args.practiceArea,
+      urgency: args.urgency,
+      caseSummary: args.caseSummary,
+      sourceChannel,
+      providerCallId: args.sourceProviderCallId,
+      providerConversationId: args.sourceProviderConversationId,
+      intakeCaptureMode: args.intakeCaptureMode,
+    });
+
+    await ctx.db.patch(args.bookingId, {
+      customProperties: updatedProps,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      bookingId: args.bookingId,
+    };
+  },
+});
+
+export const recordPhoneCallBookingMirrorInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    bookingId: v.id("objects"),
+    providerId: v.string(),
+    providerBookingId: v.optional(v.string()),
+    providerBookingUid: v.optional(v.string()),
+    providerEventTypeId: v.optional(v.number()),
+    providerEventTypeName: v.optional(v.string()),
+    providerEventTypeSlug: v.optional(v.string()),
+    providerSource: v.optional(v.string()),
+    sourceChannel: v.literal("phone_call"),
+    externalContactIdentifier: v.optional(v.string()),
+    agentSessionId: v.optional(v.id("agentSessions")),
+    agentId: v.optional(v.id("objects")),
+    providerCallId: v.optional(v.string()),
+    providerConversationId: v.optional(v.string()),
+    personName: v.optional(v.string()),
+    personEmail: v.optional(v.string()),
+    personPhone: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    selectedSlotStart: v.string(),
+    selectedSlotEnd: v.optional(v.string()),
+    confirmationChannel: v.optional(v.string()),
+    confirmationRecipient: v.optional(v.string()),
+    conciergeIdempotencyKey: v.optional(v.string()),
+    practiceArea: v.optional(v.string()),
+    urgency: v.optional(
+      v.union(v.literal("low"), v.literal("normal"), v.literal("high"))
+    ),
+    caseSummary: v.optional(v.string()),
+    intakeCaptureMode: v.optional(
+      v.union(v.literal("live_call"), v.literal("assistant_session"))
+    ),
+    providerPayload: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.type !== "booking") {
+      throw new Error("Booking not found");
+    }
+    if (booking.organizationId !== args.organizationId) {
+      throw new Error("Booking organization mismatch");
+    }
+
+    const providerCallId = normalizeOptionalString(args.providerCallId);
+    const providerConversationId = normalizeOptionalString(
+      args.providerConversationId,
+    );
+    const now = Date.now();
+    const bookingProps = (booking.customProperties || {}) as Record<string, unknown>;
+    const existingArtifactId = normalizeOptionalString(
+      bookingProps.phoneCallArtifactId,
+    );
+    const practiceArea = normalizeOptionalString(args.practiceArea);
+    const caseSummary = normalizeOptionalString(args.caseSummary);
+    const intakeCaptureMode = normalizeBookingConciergeIntakeCaptureMode(
+      args.intakeCaptureMode,
+    );
+    if (existingArtifactId) {
+      const existingArtifact = await ctx.db.get(
+        existingArtifactId as Id<"objects">,
+      );
+      if (
+        existingArtifact
+        && existingArtifact.type === "booking_phone_call_artifact"
+        && existingArtifact.organizationId === args.organizationId
+      ) {
+        const artifactProps =
+          (existingArtifact.customProperties || {}) as Record<string, unknown>;
+        await ctx.db.patch(existingArtifact._id, {
+          updatedAt: now,
+          customProperties: mergeBookingConciergeStructuredIntake({
+            currentProps: artifactProps,
+            practiceArea,
+            urgency: args.urgency,
+            caseSummary,
+            sourceChannel: args.sourceChannel,
+            providerCallId,
+            providerConversationId,
+            intakeCaptureMode,
+          }),
+        });
+      }
+      return {
+        artifactId: existingArtifactId,
+        callRecordId:
+          normalizeOptionalString(bookingProps.phoneCallRecordId) || null,
+        replayed: true,
+      };
+    }
+
+    const callRecords = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "telephony_call_record")
+      )
+      .collect();
+    const callRecordByProviderCallId = providerCallId
+      ? callRecords.find((record) => {
+          const props = (record.customProperties || {}) as Record<string, unknown>;
+          return normalizeOptionalString(props.providerCallId) === providerCallId;
+        })
+      : null;
+    const callRecordByConversationId =
+      !callRecordByProviderCallId && providerConversationId
+        ? callRecords.filter((record) => {
+            const props = (record.customProperties || {}) as Record<string, unknown>;
+            return (
+              normalizeOptionalString(props.providerConversationId) ===
+              providerConversationId
+            );
+          })
+        : [];
+    const callRecord =
+      callRecordByProviderCallId ||
+      (callRecordByConversationId.length === 1
+        ? callRecordByConversationId[0]
+        : null);
+
+    const artifactId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "booking_phone_call_artifact",
+      subtype: normalizeOptionalString(args.providerId) || "provider",
+      name:
+        `Phone booking mirror ${normalizeOptionalString(booking.name) || normalizeOptionalString(args.personName) || String(args.bookingId)}`,
+      status: "confirmed",
+      customProperties: mergeBookingConciergeStructuredIntake({
+        currentProps: {
+          contractVersion: BOOKING_PHONE_CALL_ARTIFACT_CONTRACT_VERSION,
+          bookingId: String(args.bookingId),
+          providerId: normalizeOptionalString(args.providerId) || null,
+          providerSource: normalizeOptionalString(args.providerSource) || null,
+          providerBookingId: normalizeOptionalString(args.providerBookingId) || null,
+          providerBookingUid: normalizeOptionalString(args.providerBookingUid) || null,
+          providerEventTypeId:
+            typeof args.providerEventTypeId === "number"
+              ? args.providerEventTypeId
+              : null,
+          providerEventTypeName:
+            normalizeOptionalString(args.providerEventTypeName) || null,
+          providerEventTypeSlug:
+            normalizeOptionalString(args.providerEventTypeSlug) || null,
+          sourceChannel: "phone_call",
+          externalContactIdentifier:
+            normalizeOptionalString(args.externalContactIdentifier) || null,
+          agentSessionId: args.agentSessionId ? String(args.agentSessionId) : null,
+          agentId: args.agentId ? String(args.agentId) : null,
+          providerCallId: providerCallId || null,
+          providerConversationId: providerConversationId || null,
+          phoneCallKey:
+            providerCallId ||
+            providerConversationId ||
+            (args.agentSessionId ? String(args.agentSessionId) : null),
+          phoneCallRecordId: callRecord ? String(callRecord._id) : null,
+          personName: normalizeOptionalString(args.personName) || null,
+          personEmail: normalizeOptionalString(args.personEmail) || null,
+          personPhone: normalizeOptionalString(args.personPhone) || null,
+          timezone: normalizeOptionalString(args.timezone) || null,
+          selectedSlotStart: args.selectedSlotStart,
+          selectedSlotEnd: normalizeOptionalString(args.selectedSlotEnd) || null,
+          confirmationChannel:
+            normalizeOptionalString(args.confirmationChannel) || null,
+          confirmationRecipient:
+            normalizeOptionalString(args.confirmationRecipient) || null,
+          conciergeIdempotencyKey:
+            normalizeOptionalString(args.conciergeIdempotencyKey) || null,
+          providerPayload: args.providerPayload,
+        },
+        practiceArea,
+        urgency: args.urgency,
+        caseSummary,
+        sourceChannel: args.sourceChannel,
+        providerCallId,
+        providerConversationId,
+        intakeCaptureMode,
+      }),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("objectLinks", {
+      organizationId: args.organizationId,
+      fromObjectId: args.bookingId,
+      toObjectId: artifactId,
+      linkType: "has_phone_call_booking_artifact",
+      createdAt: now,
+    });
+
+    if (callRecord) {
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: callRecord._id,
+        toObjectId: artifactId,
+        linkType: "produced_booking_phone_call_artifact",
+        createdAt: now,
+      });
+      await ctx.db.insert("objectLinks", {
+        organizationId: args.organizationId,
+        fromObjectId: args.bookingId,
+        toObjectId: callRecord._id,
+        linkType: "booked_during_phone_call",
+        createdAt: now,
+      });
+    }
+
+    await ctx.db.patch(args.bookingId, {
+      updatedAt: now,
+      customProperties: mergeBookingConciergeStructuredIntake({
+        currentProps: {
+          ...bookingProps,
+          sourceChannel: "phone_call",
+          sourceExternalContactIdentifier:
+            normalizeOptionalString(args.externalContactIdentifier) || null,
+          sourceAgentSessionId: args.agentSessionId
+            ? String(args.agentSessionId)
+            : null,
+          sourceAgentId: args.agentId ? String(args.agentId) : null,
+          sourceProviderCallId: providerCallId || null,
+          sourceProviderConversationId: providerConversationId || null,
+          conciergeIdempotencyKey:
+            normalizeOptionalString(args.conciergeIdempotencyKey) ||
+            normalizeOptionalString(bookingProps.conciergeIdempotencyKey) ||
+            null,
+          providerId: normalizeOptionalString(args.providerId) || null,
+          providerSource: normalizeOptionalString(args.providerSource) || null,
+          providerBookingId: normalizeOptionalString(args.providerBookingId) || null,
+          providerBookingUid:
+            normalizeOptionalString(args.providerBookingUid) || null,
+          providerEventTypeId:
+            typeof args.providerEventTypeId === "number"
+              ? args.providerEventTypeId
+              : null,
+          providerEventTypeName:
+            normalizeOptionalString(args.providerEventTypeName) || null,
+          providerEventTypeSlug:
+            normalizeOptionalString(args.providerEventTypeSlug) || null,
+          phoneCallArtifactId: String(artifactId),
+          phoneCallRecordId: callRecord ? String(callRecord._id) : null,
+        },
+        practiceArea,
+        urgency: args.urgency,
+        caseSummary,
+        sourceChannel: args.sourceChannel,
+        providerCallId,
+        providerConversationId,
+        intakeCaptureMode,
+      }),
+    });
+
+    if (callRecord) {
+      const callProps = (callRecord.customProperties || {}) as Record<string, unknown>;
+      await ctx.db.patch(callRecord._id, {
+        updatedAt: now,
+        customProperties: {
+          ...callProps,
+          bookingId: String(args.bookingId),
+          bookingArtifactId: String(artifactId),
+          bookingArtifactIds: dedupeStrings([
+            ...normalizeStringArray(callProps.bookingArtifactIds),
+            String(artifactId),
+          ]),
+        },
+      });
+    }
+
+    return {
+      artifactId: String(artifactId),
+      callRecordId: callRecord ? String(callRecord._id) : null,
+      replayed: false,
+    };
   },
 });
 
@@ -1587,6 +1966,90 @@ function normalizeOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeBookingConciergeIntakeCaptureMode(
+  value: unknown,
+): BookingConciergeIntakeCaptureMode | undefined {
+  if (value === "live_call" || value === "assistant_session") {
+    return value;
+  }
+  return undefined;
+}
+
+function mergeBookingConciergeIntakeProvenance(args: {
+  current?: unknown;
+  sourceChannel?: unknown;
+  providerCallId?: unknown;
+  providerConversationId?: unknown;
+  intakeCaptureMode?: unknown;
+}): Record<string, unknown> | undefined {
+  const current =
+    args.current && typeof args.current === "object" && !Array.isArray(args.current)
+      ? { ...(args.current as Record<string, unknown>) }
+      : {};
+  const sourceChannel = normalizeOptionalString(args.sourceChannel);
+  const providerCallId = normalizeOptionalString(args.providerCallId);
+  const providerConversationId = normalizeOptionalString(
+    args.providerConversationId,
+  );
+  const captureMode = normalizeBookingConciergeIntakeCaptureMode(
+    args.intakeCaptureMode,
+  );
+
+  if (sourceChannel) {
+    current.sourceChannel = sourceChannel;
+  }
+  if (providerCallId) {
+    current.providerCallId = providerCallId;
+  }
+  if (providerConversationId) {
+    current.providerConversationId = providerConversationId;
+  }
+  if (captureMode) {
+    current.captureMode = captureMode;
+  }
+
+  return Object.keys(current).length > 0 ? current : undefined;
+}
+
+function mergeBookingConciergeStructuredIntake(args: {
+  currentProps: Record<string, unknown>;
+  practiceArea?: unknown;
+  urgency?: BookingConciergeLegalIntakeUrgency;
+  caseSummary?: unknown;
+  sourceChannel?: unknown;
+  providerCallId?: unknown;
+  providerConversationId?: unknown;
+  intakeCaptureMode?: unknown;
+}): Record<string, unknown> {
+  const updatedProps: Record<string, unknown> = {
+    ...args.currentProps,
+  };
+  const practiceArea = normalizeOptionalString(args.practiceArea);
+  const caseSummary = normalizeOptionalString(args.caseSummary);
+  const intakeProvenance = mergeBookingConciergeIntakeProvenance({
+    current: args.currentProps.intakeProvenance,
+    sourceChannel: args.sourceChannel,
+    providerCallId: args.providerCallId,
+    providerConversationId: args.providerConversationId,
+    intakeCaptureMode: args.intakeCaptureMode,
+  });
+
+  if (practiceArea) {
+    updatedProps.practiceArea = practiceArea;
+  }
+  if (args.urgency) {
+    updatedProps.urgency = args.urgency;
+  }
+  if (caseSummary) {
+    updatedProps.caseSummary = caseSummary;
+  }
+  if (intakeProvenance) {
+    updatedProps.intakeProvenance = intakeProvenance;
+  }
+
+  return updatedProps;
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -2199,32 +2662,116 @@ export const updateBookingStatusInternal = internalMutation({
 
     const currentProps = booking.customProperties as Record<string, unknown>;
     const updatedProps: Record<string, unknown> = { ...currentProps };
+    const nextStatus = args.status;
+    const now = Date.now();
 
-    // Handle status-specific updates
-    switch (args.status) {
+    switch (nextStatus) {
       case "confirmed":
+        if (booking.status !== "pending_confirmation") {
+          throw new Error("Booking is not pending confirmation");
+        }
         updatedProps.confirmedAt = Date.now();
         updatedProps.confirmedBy = args.userId;
         break;
       case "checked_in":
+        if (booking.status !== "confirmed") {
+          throw new Error("Booking must be confirmed before check-in");
+        }
         updatedProps.checkedInAt = Date.now();
         updatedProps.checkedInBy = args.userId;
         break;
+      case "completed":
+        if (booking.status !== "checked_in" && booking.status !== "confirmed") {
+          throw new Error("Booking must be checked in or confirmed to complete");
+        }
+        break;
       case "cancelled":
+        if (booking.status === "cancelled" || booking.status === "completed") {
+          throw new Error(
+            "Cannot cancel a booking that is already cancelled or completed"
+          );
+        }
         updatedProps.cancelledAt = Date.now();
         updatedProps.cancelledBy = args.userId;
         updatedProps.cancellationReason = args.reason || null;
         updatedProps.refundAmountCents = args.refundAmountCents || 0;
         break;
+      case "no_show":
+        if (booking.status !== "confirmed") {
+          throw new Error("Only confirmed bookings can be marked as no-show");
+        }
+        break;
     }
 
     await ctx.db.patch(args.bookingId, {
-      status: args.status,
+      status: nextStatus,
       customProperties: updatedProps,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
-    return { bookingId: args.bookingId, status: args.status };
+    switch (nextStatus) {
+      case "confirmed":
+        await ctx.runMutation(
+          getInternal().sequences.sequenceProcessor.processBookingTrigger,
+          {
+            bookingId: args.bookingId,
+            triggerEvent: "booking_confirmed",
+          }
+        );
+        await ctx.scheduler.runAfter(
+          0,
+          getInternal().calendarSyncOntology.pushBookingToCalendar,
+          {
+            bookingId: args.bookingId,
+            organizationId: booking.organizationId,
+          }
+        );
+        break;
+      case "checked_in":
+        await ctx.runMutation(
+          getInternal().sequences.sequenceProcessor.processBookingTrigger,
+          {
+            bookingId: args.bookingId,
+            triggerEvent: "booking_checked_in",
+          }
+        );
+        break;
+      case "completed":
+        await ctx.runMutation(
+          getInternal().sequences.sequenceProcessor.processBookingTrigger,
+          {
+            bookingId: args.bookingId,
+            triggerEvent: "booking_completed",
+          }
+        );
+        break;
+      case "cancelled":
+        await ctx.runMutation(
+          getInternal().sequences.sequenceProcessor.processBookingTrigger,
+          {
+            bookingId: args.bookingId,
+            triggerEvent: "booking_cancelled",
+          }
+        );
+        await ctx.scheduler.runAfter(
+          0,
+          getInternal().calendarSyncOntology.deleteBookingFromCalendar,
+          {
+            bookingId: args.bookingId,
+            organizationId: booking.organizationId,
+          }
+        );
+        await releaseSeatsOnCancellation(ctx, {
+          ...booking,
+          status: nextStatus,
+          customProperties: updatedProps,
+        });
+        break;
+      default:
+        break;
+    }
+
+    return { bookingId: args.bookingId, status: nextStatus };
   },
 });
 

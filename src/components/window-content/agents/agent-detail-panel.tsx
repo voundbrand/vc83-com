@@ -11,16 +11,19 @@ import {
   Sparkles,
   Crown,
   Play, Pause, Settings, Trash2, CheckCircle, XCircle,
-  Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle, Bug,
+  Brain, Wrench, MessageSquare, Shield, BarChart3, AlertTriangle, Bug, PhoneCall, Layers,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
+  type AgentFormSection,
   type AgentTab,
   type AgentCustomProps,
   resolveTemplateLineage,
 } from "./types";
+import { AgentLayeredContextPanel } from "./agent-layered-context-panel";
 import { AgentSoulEditor } from "./agent-soul-editor";
+import { AgentTelephonyPanel } from "./agent-telephony-panel";
 import { AgentToolsConfig } from "./agent-tools-config";
 import { AgentSessionsViewer } from "./agent-sessions-viewer";
 import { AgentApprovalQueue } from "./agent-approval-queue";
@@ -44,14 +47,17 @@ interface AgentDetailPanelProps {
   organizationId: Id<"organizations">;
   activeTab: AgentTab;
   onTabChange: (tab: AgentTab) => void;
-  onEdit: () => void;
+  onEdit: (section?: AgentFormSection) => void;
+  onOpenConfigurationChat?: () => void;
   onOpenAgentOps?: () => void;
   onOpenAgentCatalog?: () => void;
 }
 
 const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
   { id: "trust", label: "Trust", icon: <Shield size={12} /> },
+  { id: "layers", label: "Layers", icon: <Layers size={12} /> },
   { id: "soul", label: "Soul", icon: <Brain size={12} /> },
+  { id: "telephony", label: "Telephony", icon: <PhoneCall size={12} /> },
   { id: "tools", label: "Tools", icon: <Wrench size={12} /> },
   { id: "sessions", label: "Sessions", icon: <MessageSquare size={12} /> },
   { id: "approvals", label: "Approvals", icon: <Shield size={12} /> },
@@ -67,6 +73,7 @@ export function AgentDetailPanel({
   activeTab,
   onTabChange,
   onEdit,
+  onOpenConfigurationChat,
   onOpenAgentOps,
   onOpenAgentCatalog,
 }: AgentDetailPanelProps) {
@@ -141,6 +148,16 @@ export function AgentDetailPanel({
                 <Sparkles size={10} /> Catalog
               </button>
             )}
+            {onOpenConfigurationChat && (
+              <button
+                onClick={onOpenConfigurationChat}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+                title="Open configuration chat for this agent"
+              >
+                <MessageSquare size={10} /> Config Chat
+              </button>
+            )}
             <div
               className="w-px h-4 mx-0.5"
               style={{ background: "var(--window-document-border)" }}
@@ -177,12 +194,12 @@ export function AgentDetailPanel({
                 <Crown size={10} /> Primary
               </button>
             )}
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
-              style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
-            >
-              <Settings size={10} /> Edit
+              <button
+                onClick={() => onEdit()}
+                className="flex items-center gap-1 px-2 py-1 border text-[10px] transition-colors rounded-sm"
+                style={{ borderColor: "var(--window-document-border)", background: "var(--desktop-shell-accent)" }}
+              >
+                <Settings size={10} /> Edit
             </button>
             {confirmDelete ? (
               <div className="flex items-center gap-0.5">
@@ -302,8 +319,19 @@ export function AgentDetailPanel({
         {activeTab === "trust" && (
           <AgentTrustCockpit agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
         )}
+        {activeTab === "layers" && (
+          <AgentLayeredContextPanel agentId={agentId} sessionId={sessionId} />
+        )}
         {activeTab === "soul" && (
           <AgentSoulEditor agentId={agentId} sessionId={sessionId} organizationId={organizationId} />
+        )}
+        {activeTab === "telephony" && (
+          <AgentTelephonyPanel
+            agentId={agentId}
+            sessionId={sessionId}
+            organizationId={organizationId}
+            onOpenChannels={() => onEdit("channels")}
+          />
         )}
         {activeTab === "tools" && (
           <AgentToolsConfig agentId={agentId} sessionId={sessionId} organizationId={organizationId} />

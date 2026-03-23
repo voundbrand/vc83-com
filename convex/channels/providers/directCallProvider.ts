@@ -16,7 +16,10 @@ import type {
   TelephonyProviderIdentity,
   TelephonyRouteKeyPolicy,
 } from "../types";
-import { ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX } from "../types";
+import {
+  ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX,
+  TWILIO_VOICE_ROUTE_KEY_PREFIX,
+} from "../types";
 
 const capabilities: ChannelProviderCapabilities = {
   supportedChannels: ["phone_call"],
@@ -105,6 +108,12 @@ function resolveTelephonyProviderIdentity(
       providerIdentity: "eleven_telephony",
     };
   }
+  if (identity === "twilio_voice") {
+    return {
+      ok: true,
+      providerIdentity: "twilio_voice",
+    };
+  }
   return {
     ok: false,
     providerIdentity: "direct",
@@ -113,12 +122,15 @@ function resolveTelephonyProviderIdentity(
   };
 }
 
-function deriveElevenRouteKey(
+function deriveManagedRouteKey(
+  providerIdentity: Exclude<TelephonyProviderIdentity, "direct">,
   providerConnectionId: string,
   providerInstallationId: string
 ): string {
   return [
-    ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX,
+    providerIdentity === "twilio_voice"
+      ? TWILIO_VOICE_ROUTE_KEY_PREFIX
+      : ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX,
     providerConnectionId,
     providerInstallationId,
   ].join(":");
@@ -153,10 +165,13 @@ function validateTelephonyContract(
   if (!providerConnectionId) {
     return {
       ok: false,
-      providerIdentity: "eleven_telephony",
-      routeKeyPolicy: "eleven_route_v1",
+      providerIdentity: identityResult.providerIdentity,
+      routeKeyPolicy:
+        identityResult.providerIdentity === "twilio_voice"
+          ? "twilio_voice_v1"
+          : "eleven_route_v1",
       code: "missing_provider_connection_id",
-      reason: "eleven_telephony requires providerConnectionId",
+      reason: `${identityResult.providerIdentity} requires providerConnectionId`,
     };
   }
 
@@ -166,24 +181,31 @@ function validateTelephonyContract(
   if (!providerInstallationId) {
     return {
       ok: false,
-      providerIdentity: "eleven_telephony",
-      routeKeyPolicy: "eleven_route_v1",
+      providerIdentity: identityResult.providerIdentity,
+      routeKeyPolicy:
+        identityResult.providerIdentity === "twilio_voice"
+          ? "twilio_voice_v1"
+          : "eleven_route_v1",
       code: "missing_provider_installation_id",
-      reason: "eleven_telephony requires providerInstallationId",
+      reason: `${identityResult.providerIdentity} requires providerInstallationId`,
     };
   }
 
   if (credentials.providerProfileType !== "organization") {
     return {
       ok: false,
-      providerIdentity: "eleven_telephony",
-      routeKeyPolicy: "eleven_route_v1",
+      providerIdentity: identityResult.providerIdentity,
+      routeKeyPolicy:
+        identityResult.providerIdentity === "twilio_voice"
+          ? "twilio_voice_v1"
+          : "eleven_route_v1",
       code: "invalid_profile_type",
-      reason: "eleven_telephony requires providerProfileType=organization",
+      reason: `${identityResult.providerIdentity} requires providerProfileType=organization`,
     };
   }
 
-  const expectedRouteKey = deriveElevenRouteKey(
+  const expectedRouteKey = deriveManagedRouteKey(
+    identityResult.providerIdentity,
     providerConnectionId,
     providerInstallationId
   );
@@ -191,30 +213,39 @@ function validateTelephonyContract(
   if (!routeKey) {
     return {
       ok: false,
-      providerIdentity: "eleven_telephony",
-      routeKeyPolicy: "eleven_route_v1",
+      providerIdentity: identityResult.providerIdentity,
+      routeKeyPolicy:
+        identityResult.providerIdentity === "twilio_voice"
+          ? "twilio_voice_v1"
+          : "eleven_route_v1",
       expectedRouteKey,
       code: "missing_route_key",
-      reason: `eleven_telephony requires bindingRouteKey=${expectedRouteKey}`,
+      reason: `${identityResult.providerIdentity} requires bindingRouteKey=${expectedRouteKey}`,
     };
   }
 
   if (routeKey !== expectedRouteKey) {
     return {
       ok: false,
-      providerIdentity: "eleven_telephony",
-      routeKeyPolicy: "eleven_route_v1",
+      providerIdentity: identityResult.providerIdentity,
+      routeKeyPolicy:
+        identityResult.providerIdentity === "twilio_voice"
+          ? "twilio_voice_v1"
+          : "eleven_route_v1",
       routeKey,
       expectedRouteKey,
       code: "invalid_route_key",
-      reason: `eleven_telephony bindingRouteKey mismatch (${routeKey} != ${expectedRouteKey})`,
+      reason: `${identityResult.providerIdentity} bindingRouteKey mismatch (${routeKey} != ${expectedRouteKey})`,
     };
   }
 
   return {
     ok: true,
-    providerIdentity: "eleven_telephony",
-    routeKeyPolicy: "eleven_route_v1",
+    providerIdentity: identityResult.providerIdentity,
+    routeKeyPolicy:
+      identityResult.providerIdentity === "twilio_voice"
+        ? "twilio_voice_v1"
+        : "eleven_route_v1",
     routeKey,
     expectedRouteKey,
   };
@@ -230,6 +261,9 @@ function resolveProviderBaseUrl(
       normalizeOptionalString(credentials.directCallBaseUrl)
     );
   }
+  if (providerIdentity === "twilio_voice") {
+    return undefined;
+  }
   return normalizeOptionalString(credentials.directCallBaseUrl);
 }
 
@@ -242,6 +276,9 @@ function resolveProviderApiKey(
       normalizeOptionalString(credentials.elevenTelephonyApiKey) ||
       normalizeOptionalString(credentials.directCallApiKey)
     );
+  }
+  if (providerIdentity === "twilio_voice") {
+    return undefined;
   }
   return normalizeOptionalString(credentials.directCallApiKey);
 }
@@ -256,6 +293,13 @@ function resolveProviderFromNumber(
       normalizeOptionalString(credentials.directCallFromNumber)
     );
   }
+  if (providerIdentity === "twilio_voice") {
+    return (
+      normalizeOptionalString(credentials.twilioVoiceFromNumber) ||
+      normalizeOptionalString(credentials.directCallFromNumber) ||
+      normalizeOptionalString(credentials.elevenTelephonyFromNumber)
+    );
+  }
   return normalizeOptionalString(credentials.directCallFromNumber);
 }
 
@@ -268,6 +312,14 @@ function resolveProviderWebhookSecret(
       normalizeOptionalString(credentials.elevenTelephonyWebhookSecret) ||
       normalizeOptionalString(credentials.directCallWebhookSecret) ||
       normalizeOptionalString(process.env.ELEVEN_TELEPHONY_WEBHOOK_SECRET) ||
+      normalizeOptionalString(process.env.DIRECT_CALL_WEBHOOK_SECRET)
+    );
+  }
+  if (providerIdentity === "twilio_voice") {
+    return (
+      normalizeOptionalString(credentials.twilioVoiceWebhookSecret) ||
+      normalizeOptionalString(credentials.directCallWebhookSecret) ||
+      normalizeOptionalString(credentials.elevenTelephonyWebhookSecret) ||
       normalizeOptionalString(process.env.DIRECT_CALL_WEBHOOK_SECRET)
     );
   }
@@ -296,6 +348,63 @@ function buildRetryableHttpFailure(response: Response, errorText: string): SendR
     statusCode: response.status,
     retryable: response.status === 429 || response.status >= 500,
   };
+}
+
+function resolveTwilioAccountSid(credentials: ProviderCredentials): string | undefined {
+  return normalizeOptionalString(credentials.twilioAccountSid);
+}
+
+function resolveTwilioAuthToken(credentials: ProviderCredentials): string | undefined {
+  return normalizeOptionalString(credentials.twilioAuthToken);
+}
+
+function buildBasicAuthHeader(username: string, password: string): string {
+  return `Basic ${btoa(`${username}:${password}`)}`;
+}
+
+function resolveTelephonyWebhookBaseUrl(): string | undefined {
+  return (
+    normalizeOptionalString(process.env.CONVEX_SITE_URL) ||
+    normalizeOptionalString(process.env.NEXT_PUBLIC_API_ENDPOINT_URL) ||
+    normalizeOptionalString(process.env.NEXT_PUBLIC_CONVEX_SITE_URL)
+  );
+}
+
+function buildTwilioVoiceCallbackUrl(args: {
+  path: "/webhooks/twilio/voice/status";
+  routeKey?: string;
+  webhookSecret?: string;
+}): string | undefined {
+  const baseUrl = resolveTelephonyWebhookBaseUrl();
+  if (!baseUrl || !args.routeKey) {
+    return undefined;
+  }
+  const url = new URL(args.path, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+  url.searchParams.set("routeKey", args.routeKey);
+  if (args.webhookSecret) {
+    url.searchParams.set("secret", args.webhookSecret);
+  }
+  return url.toString();
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function buildTwilioOutboundTwiml(script: string): string {
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<Response>",
+    `<Say>${escapeXml(script)}</Say>`,
+    "<Pause length=\"1\"/>",
+    "<Hangup/>",
+    "</Response>",
+  ].join("");
 }
 
 export const directCallProvider: ChannelProvider = {
@@ -359,6 +468,104 @@ export const directCallProvider: ChannelProvider = {
         error: `Telephony provider contract validation failed: ${contract.reason || contract.code || "invalid_contract"}`,
         retryable: false,
       };
+    }
+
+    if (contract.providerIdentity === "twilio_voice") {
+      const accountSid = resolveTwilioAccountSid(credentials);
+      const authToken = resolveTwilioAuthToken(credentials);
+      const fromNumber = resolveProviderFromNumber(credentials, contract.providerIdentity);
+      const metadata = (message.metadata || {}) as Record<string, unknown>;
+      const idempotencyKey = normalizeOptionalString(metadata.idempotencyKey);
+      const webhookSecret = resolveProviderWebhookSecret(
+        credentials,
+        contract.providerIdentity,
+      );
+      const statusCallbackUrl = buildTwilioVoiceCallbackUrl({
+        path: "/webhooks/twilio/voice/status",
+        routeKey: contract.routeKey,
+        webhookSecret,
+      });
+
+      if (!accountSid || !authToken || !fromNumber || !webhookSecret) {
+        return {
+          success: false,
+          error: "Twilio voice provider credentials are incomplete",
+          retryable: false,
+        };
+      }
+
+      if (!statusCallbackUrl) {
+        return {
+          success: false,
+          error:
+            "Twilio voice status callback URL is unavailable. Set CONVEX_SITE_URL or NEXT_PUBLIC_API_ENDPOINT_URL.",
+          retryable: false,
+        };
+      }
+
+      const form = new URLSearchParams();
+      form.set("To", message.recipientIdentifier);
+      form.set("From", fromNumber);
+      form.set("Twiml", buildTwilioOutboundTwiml(message.content));
+      form.set("StatusCallback", statusCallbackUrl);
+      form.set("StatusCallbackMethod", "POST");
+      form.set("Timeout", "20");
+
+      try {
+        const response = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: buildBasicAuthHeader(accountSid, authToken),
+              "Content-Type": "application/x-www-form-urlencoded",
+              ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+            },
+            body: form.toString(),
+          }
+        );
+
+        const json = await safeReadJson(response);
+        if (!response.ok) {
+          const text = await safeReadText(response);
+          const fromBody =
+            normalizeOptionalString(json?.message) ||
+            normalizeOptionalString(json?.detail) ||
+            normalizeOptionalString(json?.code);
+          return buildRetryableHttpFailure(response, fromBody ?? text);
+        }
+
+        const providerCallId =
+          normalizeOptionalString(json?.sid) ||
+          normalizeOptionalString(json?.callSid);
+        const outcome =
+          normalizeOptionalString(json?.status) ||
+          normalizeOptionalString(json?.direction) ||
+          "queued";
+
+        if (!providerCallId) {
+          return {
+            success: false,
+            error: "Twilio voice response missing call SID",
+            retryable: true,
+          };
+        }
+
+        return {
+          success: true,
+          providerMessageId: providerCallId,
+          telephony: {
+            providerCallId,
+            outcome,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          retryable: true,
+        };
+      }
     }
 
     const baseUrl = resolveProviderBaseUrl(credentials, contract.providerIdentity);
@@ -506,6 +713,49 @@ export const directCallProvider: ChannelProvider = {
         success: false,
         error: `Telephony provider contract validation failed: ${contract.reason || contract.code || "invalid_contract"}`,
       };
+    }
+
+    if (contract.providerIdentity === "twilio_voice") {
+      const accountSid = resolveTwilioAccountSid(credentials);
+      const authToken = resolveTwilioAuthToken(credentials);
+      if (!accountSid || !authToken) {
+        return {
+          success: false,
+          error: "Twilio voice provider credentials are incomplete",
+        };
+      }
+
+      try {
+        const response = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: buildBasicAuthHeader(accountSid, authToken),
+            },
+          }
+        );
+        if (!response.ok) {
+          return {
+            success: false,
+            error: `HTTP ${response.status}`,
+          };
+        }
+
+        const json = await safeReadJson(response);
+        return {
+          success: true,
+          accountName:
+            normalizeOptionalString(json?.friendly_name) ||
+            normalizeOptionalString(json?.sid) ||
+            "Twilio Voice",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     }
 
     const baseUrl = resolveProviderBaseUrl(credentials, contract.providerIdentity);

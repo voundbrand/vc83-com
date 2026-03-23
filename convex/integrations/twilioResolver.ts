@@ -1,72 +1,61 @@
 /**
  * TWILIO CREDENTIAL RESOLVER
  *
- * Resolves per-org Twilio credentials, falls back to system env vars.
+ * Legacy shim kept for older callers. Resolution now delegates to the explicit
+ * org-level Twilio runtime binding contract instead of ambient env fallback.
  */
 
-import { internalQuery } from "../_generated/server";
+import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import type { QueryCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
 
-/** Resolve Twilio credentials: per-org first, then system env fallback. */
-export async function resolveTwilioCredentials(
-  ctx: QueryCtx,
-  organizationId: Id<"organizations">
-): Promise<{
-  accountSid: string;
-  authToken: string;
-  verifyServiceSid: string | null;
-  source: "org" | "platform";
-} | null> {
-  const settings = await ctx.db
-    .query("objects")
-    .withIndex("by_org_type", (q) =>
-      q.eq("organizationId", organizationId).eq("type", "twilio_settings")
-    )
-    .first();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generatedApi: any = require("../_generated/api");
 
-  const props = settings?.customProperties as Record<string, unknown> | undefined;
-  if (props?.accountSid && props?.authToken) {
-    return {
-      accountSid: props.accountSid as string,
-      authToken: props.authToken as string,
-      verifyServiceSid: (props.verifyServiceSid as string) || null,
-      source: "org",
-    };
-  }
-
-  const envSid = process.env.TWILIO_ACCOUNT_SID;
-  const envToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!envSid || !envToken) return null;
-
-  return {
-    accountSid: envSid,
-    authToken: envToken,
-    verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID || null,
-    source: "platform",
-  };
-}
-
-/** Get credentials with source info. */
-export const getTwilioCredentialsForOrg = internalQuery({
+/** Get effective Twilio credentials with source info. */
+export const getTwilioCredentialsForOrg = internalAction({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    return resolveTwilioCredentials(ctx, args.organizationId);
+    const runtime = await ctx.runAction(
+      generatedApi.internal.integrations.twilio.getOrganizationTwilioRuntimeBinding,
+      { organizationId: args.organizationId },
+    );
+
+    if (!runtime?.accountSid || !runtime?.authToken || !runtime?.source) {
+      return null;
+    }
+
+    return {
+      accountSid: runtime.accountSid,
+      authToken: runtime.authToken,
+      verifyServiceSid: runtime.verifyServiceSid || null,
+      source: runtime.source,
+    };
   },
 });
 
 /** Get Verify service config for an org. */
-export const getTwilioVerifyConfigForOrg = internalQuery({
+export const getTwilioVerifyConfigForOrg = internalAction({
   args: { organizationId: v.id("organizations") },
   handler: async (ctx, args) => {
-    const creds = await resolveTwilioCredentials(ctx, args.organizationId);
-    if (!creds || !creds.verifyServiceSid) return null;
+    const runtime = await ctx.runAction(
+      generatedApi.internal.integrations.twilio.getOrganizationTwilioRuntimeBinding,
+      { organizationId: args.organizationId },
+    );
+
+    if (
+      !runtime?.accountSid ||
+      !runtime?.authToken ||
+      !runtime?.verifyServiceSid ||
+      !runtime?.source
+    ) {
+      return null;
+    }
+
     return {
-      accountSid: creds.accountSid,
-      authToken: creds.authToken,
-      verifyServiceSid: creds.verifyServiceSid,
-      source: creds.source,
+      accountSid: runtime.accountSid,
+      authToken: runtime.authToken,
+      verifyServiceSid: runtime.verifyServiceSid,
+      source: runtime.source,
     };
   },
 });

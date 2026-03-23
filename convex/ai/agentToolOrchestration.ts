@@ -14,6 +14,7 @@ import {
 import {
   MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
   MEETING_CONCIERGE_STAGE_SEQUENCE,
+  isBookingConciergeToolAction,
   type MeetingConciergeFlowMode,
 } from "./tools/bookingTool";
 
@@ -186,7 +187,7 @@ function resolveMeetingConciergeStageContractFailure(
   record: Record<string, unknown>
 ): string | null {
   const action = normalizeToolResultString(record.action);
-  if (action !== "run_meeting_concierge_demo") {
+  if (!isBookingConciergeToolAction(action)) {
     return null;
   }
 
@@ -497,7 +498,7 @@ function isMeetingConciergePreviewOperation(
   const mode = normalizeOptionalString(parsedArgs.mode).toLowerCase();
   return (
     toolName === "manage_bookings"
-    && action === "run_meeting_concierge_demo"
+    && isBookingConciergeToolAction(action)
     && mode === "preview"
   );
 }
@@ -510,7 +511,7 @@ function isMeetingConciergeExecuteOperation(
   const mode = normalizeOptionalString(parsedArgs.mode).toLowerCase();
   return (
     toolName === "manage_bookings"
-    && action === "run_meeting_concierge_demo"
+    && isBookingConciergeToolAction(action)
     && mode === "execute"
   );
 }

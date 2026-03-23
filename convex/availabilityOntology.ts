@@ -50,6 +50,44 @@ interface WeeklyScheduleEntry {
   isAvailable: boolean;
 }
 
+const MICROSOFT_CALENDAR_READ_SCOPES = [
+  "Calendars.Read",
+  "Calendars.ReadWrite",
+  "Calendars.Read.Shared",
+  "Calendars.ReadWrite.Shared",
+];
+
+const GOOGLE_CALENDAR_READ_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+];
+
+function hasAnyScope(
+  scopes: string[] | undefined,
+  requiredScopes: readonly string[]
+): boolean {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return false;
+  }
+  return scopes.some((scope) => requiredScopes.includes(scope));
+}
+
+function getCalendarReadiness(provider: unknown, scopes: string[] | undefined) {
+  if (provider === "google") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_READ_SCOPES),
+    };
+  }
+  if (provider === "microsoft") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_READ_SCOPES),
+    };
+  }
+  return { canAccessCalendar: false };
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -156,12 +194,18 @@ export const getAvailableSlots = query({
     );
 
     // 4b. Get external calendar busy times (Google/Microsoft synced events)
-    const externalBusyTimes = await getExternalBusyTimes(
+    const {
+      busyTimes: externalBusyTimes,
+      blockedReasons: externalCalendarBlockedReasons,
+    } = await getExternalBusyTimes(
       ctx,
       args.resourceId,
-      args.startDate,
-      args.endDate
+      args.startDate - bufferBefore * 60000,
+      args.endDate + bufferAfter * 60000
     );
+    if (externalCalendarBlockedReasons.length > 0) {
+      return [];
+    }
 
     // 5. Generate slots (capacity-aware)
     const slots: TimeSlot[] = [];
@@ -264,6 +308,18 @@ export const checkConflict = internalQuery({
       effectiveStart,
       effectiveEnd
     );
+    const {
+      busyTimes: externalBusyTimes,
+      blockedReasons: externalCalendarBlockedReasons,
+    } = await getExternalBusyTimes(
+      ctx,
+      args.resourceId,
+      effectiveStart,
+      effectiveEnd
+    );
+    if (externalCalendarBlockedReasons.length > 0) {
+      return true;
+    }
 
     // Count overlapping non-cancelled bookings
     let overlapCount = 0;
@@ -280,8 +336,12 @@ export const checkConflict = internalQuery({
       }
     }
 
-    // Conflict only when at or over capacity
-    return overlapCount >= capacity;
+    const hasExternalConflict = externalBusyTimes.some((busy) =>
+      busy.startDateTime < effectiveEnd && busy.endDateTime > effectiveStart
+    );
+
+    // Conflict only when at or over capacity, or when external calendars block the slot.
+    return overlapCount >= capacity || hasExternalConflict;
   },
 });
 
@@ -1263,7 +1323,60 @@ async function getExternalBusyTimes(
   resourceId: Id<"objects">,
   startDate: number,
   endDate: number
-): Promise<Array<{ startDateTime: number; endDateTime: number }>> {
+): Promise<{
+  busyTimes: Array<{ startDateTime: number; endDateTime: number }>;
+  blockedReasons: string[];
+}> {
+  const calendarLinks = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_to_link_type", (q: any) =>
+      q.eq("toObjectId", resourceId).eq("linkType", "calendar_linked_to")
+    )
+    .collect();
+  const readyConnectionIds = new Set<string>();
+  const blockedReasons = new Set<string>();
+
+  for (const link of calendarLinks) {
+    const props = (link.properties || {}) as Record<string, unknown>;
+    const connectionId = props.connectionId as string | undefined;
+    if (!connectionId) continue;
+
+    const connection = await ctx.db.get(connectionId as Id<"oauthConnections">);
+    if (!connection) {
+      blockedReasons.add("missing_calendar_connection");
+      continue;
+    }
+    if (connection.status !== "active") {
+      blockedReasons.add("calendar_connection_inactive");
+      continue;
+    }
+
+    const syncSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+    if (syncSettings.calendar !== true) {
+      blockedReasons.add("calendar_sync_disabled");
+      continue;
+    }
+
+    const readiness = getCalendarReadiness(connection.provider, connection.scopes);
+    if (!readiness.canAccessCalendar) {
+      blockedReasons.add(
+        connection.provider === "google"
+          ? "missing_google_calendar_read_scope"
+          : "missing_calendar_read_scope"
+      );
+      continue;
+    }
+
+    readyConnectionIds.add(String(connection._id));
+  }
+
+  if (blockedReasons.size > 0) {
+    return {
+      busyTimes: [],
+      blockedReasons: Array.from(blockedReasons),
+    };
+  }
+
   // Find all calendar_event objects linked to this resource via blocks_resource
   const links = await ctx.db
     .query("objectLinks")
@@ -1280,6 +1393,13 @@ async function getExternalBusyTimes(
     if (event.status !== "active") continue;
 
     const props = event.customProperties as Record<string, unknown>;
+    const connectionId = props.connectionId as string | undefined;
+    if (
+      calendarLinks.length > 0 &&
+      (!connectionId || !readyConnectionIds.has(String(connectionId)))
+    ) {
+      continue;
+    }
     const eventStart = props.startDateTime as number;
     const eventEnd = props.endDateTime as number;
 
@@ -1289,7 +1409,10 @@ async function getExternalBusyTimes(
     }
   }
 
-  return busyTimes;
+  return {
+    busyTimes,
+    blockedReasons: [],
+  };
 }
 
 /**
@@ -1789,12 +1912,18 @@ export const getAvailableSlotsInternal = internalQuery({
     );
 
     // Get external calendar busy times
-    const externalBusyTimes = await getExternalBusyTimes(
+    const {
+      busyTimes: externalBusyTimes,
+      blockedReasons: externalCalendarBlockedReasons,
+    } = await getExternalBusyTimes(
       ctx,
       args.resourceId,
-      args.startDate,
-      args.endDate
+      args.startDate - bufferBefore * 60000,
+      args.endDate + bufferAfter * 60000
     );
+    if (externalCalendarBlockedReasons.length > 0) {
+      return [];
+    }
 
     // Generate slots (capacity-aware)
     const slots: TimeSlot[] = [];

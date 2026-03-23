@@ -15,6 +15,8 @@ import { v } from "convex/values";
 export const telegramMappings = defineTable({
   telegramChatId: v.string(),
   organizationId: v.id("organizations"),
+  onboardingOrganizationId: v.optional(v.id("organizations")),
+  targetAgentId: v.optional(v.id("objects")),
   status: v.union(
     v.literal("onboarding"),
     v.literal("active"),
@@ -29,6 +31,11 @@ export const telegramMappings = defineTable({
   // Team group chat (Step 8: Telegram Group Chat)
   teamGroupChatId: v.optional(v.string()),
   teamGroupEnabled: v.optional(v.boolean()),
+
+  // Agency child-org testing override
+  testingOrganizationId: v.optional(v.id("organizations")),
+  testingTargetAgentId: v.optional(v.id("objects")),
+  testingActivatedAt: v.optional(v.number()),
 })
   .index("by_chat_id", ["telegramChatId"])
   .index("by_org", ["organizationId"]);

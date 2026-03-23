@@ -42,9 +42,16 @@ export type ProviderCredentialSource =
   | "platform_fallback";
 
 export type ProviderProfileType = "platform" | "organization";
-export type TelephonyProviderIdentity = "direct" | "eleven_telephony";
-export type TelephonyRouteKeyPolicy = "legacy_direct_optional" | "eleven_route_v1";
+export type TelephonyProviderIdentity =
+  | "direct"
+  | "eleven_telephony"
+  | "twilio_voice";
+export type TelephonyRouteKeyPolicy =
+  | "legacy_direct_optional"
+  | "eleven_route_v1"
+  | "twilio_voice_v1";
 export const ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX = "eleven:phone" as const;
+export const TWILIO_VOICE_ROUTE_KEY_PREFIX = "twilio:phone" as const;
 
 export interface ChannelBindingInstallationIdentity {
   providerConnectionId?: string;
@@ -253,6 +260,11 @@ export interface ProviderCredentials {
   elevenTelephonyFromNumber?: string;
   elevenTelephonyWebhookSecret?: string;
   elevenTelephonyAgentId?: string;
+  // Twilio voice telephony contract extension (binds to direct provider runtime)
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
+  twilioVoiceFromNumber?: string;
+  twilioVoiceWebhookSecret?: string;
   // Slack (per-org OAuth bot)
   slackBotToken?: string;
   slackBotUserId?: string;

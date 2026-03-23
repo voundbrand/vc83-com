@@ -643,6 +643,7 @@ function resolveTelephonyWebhookSigningSecret(
   credentials: ProviderCredentials | null
 ): string | undefined {
   return (
+    asNonEmptyString(credentials?.twilioVoiceWebhookSecret) ||
     asNonEmptyString(credentials?.elevenTelephonyWebhookSecret) ||
     asNonEmptyString(credentials?.directCallWebhookSecret) ||
     asNonEmptyString(process.env.ELEVEN_TELEPHONY_WEBHOOK_SECRET) ||
@@ -687,6 +688,126 @@ function buildTelephonyWebhookRejectResponse(
       headers: { "Content-Type": "application/json" },
     }
   );
+}
+
+function encodeArrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+async function computeTwilioRequestSignature(args: {
+  url: string;
+  params: URLSearchParams;
+  authToken: string;
+}): Promise<string> {
+  let payload = args.url;
+  const pairs = Array.from(args.params.entries()).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  for (const [key, value] of pairs) {
+    payload += `${key}${value}`;
+  }
+
+  const encoder = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(args.authToken),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(payload));
+  return encodeArrayBufferToBase64(digest);
+}
+
+async function verifyTwilioRequestSignature(args: {
+  request: Request;
+  body: string;
+  authToken?: string | null;
+}): Promise<{ valid: boolean; reason?: string; params: URLSearchParams }> {
+  const params = new URLSearchParams(args.body);
+  const expectedToken = asNonEmptyString(args.authToken);
+  if (!expectedToken) {
+    return { valid: false, reason: "missing_twilio_auth_token", params };
+  }
+
+  const headerSignature = asNonEmptyString(
+    args.request.headers.get("x-twilio-signature"),
+  );
+  if (!headerSignature) {
+    return { valid: false, reason: "missing_twilio_signature", params };
+  }
+
+  const computed = await computeTwilioRequestSignature({
+    url: args.request.url,
+    params,
+    authToken: expectedToken,
+  });
+  if (!timingSafeEqual(computed, headerSignature)) {
+    return { valid: false, reason: "invalid_twilio_signature", params };
+  }
+
+  return { valid: true, params };
+}
+
+function xmlResponse(body: string): Response {
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function buildTwilioInboundGreetingTwiml(args: {
+  greeting: string;
+  actionUrl: string;
+}): string {
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<Response>",
+    `<Say>${escapeXml(args.greeting)}</Say>`,
+    `<Record action="${escapeXml(args.actionUrl)}" method="POST" maxLength="120" playBeep="true" trim="trim-silence"/>`,
+    "<Say>We did not receive a recording. Goodbye.</Say>",
+    "<Hangup/>",
+    "</Response>",
+  ].join("");
+}
+
+function buildTwilioInboundCompletionTwiml(): string {
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<Response>",
+    "<Say>Thank you. Goodbye.</Say>",
+    "<Hangup/>",
+    "</Response>",
+  ].join("");
+}
+
+function normalizeTwilioCallStatus(value: string | null): string | undefined {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "completed") return "completed";
+  if (normalized === "busy") return "busy";
+  if (normalized === "no-answer") return "no_answer";
+  if (normalized === "failed" || normalized === "canceled") return "failed";
+  if (normalized === "in-progress" || normalized === "ringing" || normalized === "queued") {
+    return "queued";
+  }
+  return normalized;
 }
 
 type TelegramWebhookAuthContext =
@@ -6037,6 +6158,281 @@ http.route({
 // DIRECT TELEPHONY WEBHOOK
 // ============================================================================
 
+async function resolveTwilioVoiceWebhookContext(args: {
+  ctx: unknown;
+  request: Request;
+  body: string;
+}): Promise<
+  | {
+      ok: true;
+      organizationId: Id<"organizations">;
+      providerConnectionId?: string;
+      providerAccountId?: string;
+      providerInstallationId?: string;
+      providerProfileId?: string;
+      providerProfileType?: "platform" | "organization";
+      routeKey: string;
+      params: URLSearchParams;
+    }
+  | {
+      ok: false;
+      response: Response;
+    }
+> {
+  const url = new URL(args.request.url);
+  const routeKey = asNonEmptyString(url.searchParams.get("routeKey"));
+  const presentedSecret = asNonEmptyString(url.searchParams.get("secret"));
+
+  if (!routeKey) {
+    return {
+      ok: false,
+      response: buildTelephonyWebhookRejectResponse(401, "missing_route_identity"),
+    };
+  }
+
+  const resolvedContext = await (args.ctx as any).runQuery(
+    generatedApi.internal.channels.router.resolveTelephonyWebhookIngressContext,
+    {
+      providerId: "direct",
+      routeKey,
+    }
+  );
+
+  if (resolvedContext.status !== "resolved") {
+    return {
+      ok: false,
+      response: buildTelephonyWebhookRejectResponse(
+        resolvedContext.status === "ambiguous_route" ? 403 : 401,
+        resolvedContext.status,
+      ),
+    };
+  }
+
+  const credentials = (await (args.ctx as any).runQuery(
+    generatedApi.internal.channels.router.getProviderCredentials,
+    {
+      organizationId: resolvedContext.organizationId,
+      providerId: resolvedContext.providerId,
+      providerConnectionId: resolvedContext.providerConnectionId,
+      providerAccountId: resolvedContext.providerAccountId,
+      providerInstallationId: resolvedContext.providerInstallationId,
+      providerProfileId: resolvedContext.providerProfileId,
+      providerProfileType: resolvedContext.providerProfileType || "organization",
+      routeKey: resolvedContext.routeKey || routeKey,
+      allowPlatformFallback: false,
+    }
+  )) as ProviderCredentials | null;
+
+  if (
+    asNonEmptyString(credentials?.telephonyProviderIdentity) !== "twilio_voice"
+  ) {
+    return {
+      ok: false,
+      response: buildTelephonyWebhookRejectResponse(409, "binding_not_twilio_voice"),
+    };
+  }
+
+  const expectedSecret = resolveTelephonyWebhookSigningSecret(credentials);
+  if (!expectedSecret || !presentedSecret || presentedSecret !== expectedSecret) {
+    return {
+      ok: false,
+      response: buildTelephonyWebhookRejectResponse(401, "invalid_binding_secret"),
+    };
+  }
+
+  const twilioRuntime = await (args.ctx as any).runAction(
+    generatedApi.internal.integrations.twilio.getOrganizationTwilioRuntimeBinding,
+    {
+      organizationId: resolvedContext.organizationId,
+    }
+  );
+  const signature = await verifyTwilioRequestSignature({
+    request: args.request,
+    body: args.body,
+    authToken: (twilioRuntime as { authToken?: unknown } | null)?.authToken as
+      | string
+      | null
+      | undefined,
+  });
+  if (!signature.valid) {
+    return {
+      ok: false,
+      response: buildTelephonyWebhookRejectResponse(
+        401,
+        signature.reason || "invalid_twilio_signature",
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    organizationId: resolvedContext.organizationId,
+    providerConnectionId: resolvedContext.providerConnectionId,
+    providerAccountId: resolvedContext.providerAccountId,
+    providerInstallationId: resolvedContext.providerInstallationId,
+    providerProfileId: resolvedContext.providerProfileId,
+    providerProfileType: resolvedContext.providerProfileType,
+    routeKey: resolvedContext.routeKey || routeKey,
+    params: signature.params,
+  };
+}
+
+const twilioVoiceInboundWebhookHandler = httpAction(async (ctx, request) => {
+  try {
+    const body = await request.text();
+    const context = await resolveTwilioVoiceWebhookContext({
+      ctx,
+      request,
+      body,
+    });
+    if (!context.ok) {
+      return context.response;
+    }
+
+    const callSid = asNonEmptyString(context.params.get("CallSid"));
+    const from = asNonEmptyString(context.params.get("From"));
+    const to = asNonEmptyString(context.params.get("To"));
+    if (!callSid) {
+      return buildTelephonyWebhookRejectResponse(400, "missing_provider_call_id");
+    }
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.channels.router.ensureTelephonyCallRecord,
+      {
+        organizationId: context.organizationId,
+        providerId: "direct",
+        providerCallId: callSid,
+        providerConversationId: callSid,
+        recipientIdentifier: to,
+        callerIdentifier: from,
+        routeKey: context.routeKey,
+        telephonyProviderIdentity: "twilio_voice",
+        direction: "inbound",
+        source: "twilio_voice_inbound",
+      }
+    );
+
+    const requestUrl = new URL(request.url);
+    const stage = asNonEmptyString(requestUrl.searchParams.get("stage"));
+    if (stage === "recording_complete") {
+      const durationValue =
+        asNumber(context.params.get("RecordingDuration")) ||
+        asNumber(context.params.get("CallDuration"));
+      await (ctx as any).runMutation(
+        generatedApi.internal.channels.router.recordTelephonyWebhookOutcome,
+        {
+          organizationId: context.organizationId,
+          providerCallId: callSid,
+          providerConversationId: callSid,
+          providerId: "direct",
+          outcome:
+            normalizeTwilioCallStatus(context.params.get("CallStatus")) || "completed",
+          disposition: "voicemail",
+          durationSeconds: durationValue,
+          endedAt: Date.now(),
+          voicemailDetected: true,
+        }
+      );
+
+      return xmlResponse(buildTwilioInboundCompletionTwiml());
+    }
+
+    const greeting = await (ctx as any).runQuery(
+      generatedApi.internal.integrations.telephony.getOrganizationTwilioVoiceGreeting,
+      {
+        organizationId: context.organizationId,
+      }
+    );
+    requestUrl.searchParams.set("stage", "recording_complete");
+
+    return xmlResponse(
+      buildTwilioInboundGreetingTwiml({
+        greeting:
+          asNonEmptyString((greeting as { firstMessage?: unknown } | null)?.firstMessage) ||
+          "Hello, please leave your name, number, and reason for calling after the tone.",
+        actionUrl: requestUrl.toString(),
+      })
+    );
+  } catch (error) {
+    console.error("[Twilio Voice Inbound] Error:", error);
+    return new Response("Internal server error", { status: 500 });
+  }
+});
+
+const twilioVoiceStatusWebhookHandler = httpAction(async (ctx, request) => {
+  try {
+    const body = await request.text();
+    const context = await resolveTwilioVoiceWebhookContext({
+      ctx,
+      request,
+      body,
+    });
+    if (!context.ok) {
+      return context.response;
+    }
+
+    const callSid = asNonEmptyString(context.params.get("CallSid"));
+    if (!callSid) {
+      return buildTelephonyWebhookRejectResponse(400, "missing_provider_call_id");
+    }
+
+    const to = asNonEmptyString(context.params.get("To"));
+    const from = asNonEmptyString(context.params.get("From"));
+    const directionRaw = asNonEmptyString(context.params.get("Direction")) || "outbound-api";
+    const direction = directionRaw.startsWith("inbound") ? "inbound" : "outbound";
+    const answeredBy = asNonEmptyString(context.params.get("AnsweredBy"));
+    const callStatus = normalizeTwilioCallStatus(context.params.get("CallStatus"));
+    const durationSeconds = asNumber(context.params.get("CallDuration"));
+    const isTerminal =
+      callStatus === "completed" ||
+      callStatus === "busy" ||
+      callStatus === "no_answer" ||
+      callStatus === "failed";
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.channels.router.ensureTelephonyCallRecord,
+      {
+        organizationId: context.organizationId,
+        providerId: "direct",
+        providerCallId: callSid,
+        providerConversationId: callSid,
+        recipientIdentifier: to,
+        callerIdentifier: from,
+        routeKey: context.routeKey,
+        telephonyProviderIdentity: "twilio_voice",
+        direction,
+        source: "twilio_voice_status_callback",
+      }
+    );
+
+    await (ctx as any).runMutation(
+      generatedApi.internal.channels.router.recordTelephonyWebhookOutcome,
+      {
+        organizationId: context.organizationId,
+        providerCallId: callSid,
+        providerConversationId: callSid,
+        providerId: "direct",
+        outcome: callStatus,
+        disposition: answeredBy || callStatus,
+        durationSeconds,
+        endedAt: isTerminal ? Date.now() : undefined,
+        voicemailDetected:
+          answeredBy === "machine_start" || answeredBy === "machine_end_beep",
+        errorMessage:
+          callStatus === "failed" ? "twilio_voice_status_failed" : undefined,
+      }
+    );
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("[Twilio Voice Status] Error:", error);
+    return new Response("Internal server error", { status: 500 });
+  }
+});
+
 const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
   try {
     const body = await request.text();
@@ -6309,6 +6705,18 @@ http.route({
   handler: directTelephonyWebhookHandler,
 });
 
+http.route({
+  path: "/webhooks/twilio/voice/inbound",
+  method: "POST",
+  handler: twilioVoiceInboundWebhookHandler,
+});
+
+http.route({
+  path: "/webhooks/twilio/voice/status",
+  method: "POST",
+  handler: twilioVoiceStatusWebhookHandler,
+});
+
 // ============================================================================
 // TELEGRAM WEBHOOK
 // ============================================================================
@@ -6429,6 +6837,9 @@ http.route({
       let organizationId: Id<"organizations"> | null = null;
       let routeToSystemBot = false;
       let isNew = false;
+      let resolvedAgentId: Id<"objects"> | null = null;
+      let testingMode = false;
+      let isExternalCustomer: boolean | null = null;
 
       if (authContext.mode === "custom") {
         organizationId = authContext.organizationId;
@@ -6450,6 +6861,12 @@ http.route({
         organizationId = resolution.organizationId as Id<"organizations">;
         routeToSystemBot = resolution.routeToSystemBot === true;
         isNew = resolution.isNew === true;
+        resolvedAgentId = (resolution.resolvedAgentId as Id<"objects"> | undefined) || null;
+        testingMode = resolution.testingMode === true;
+        isExternalCustomer =
+          typeof resolution.isExternalCustomer === "boolean"
+            ? resolution.isExternalCustomer
+            : null;
       }
 
       if (!organizationId) {
@@ -6527,6 +6944,9 @@ http.route({
               providerMessageId: String(msg.message_id || ""),
               senderName: senderName || undefined,
               isStartCommand: true,
+              ...(resolvedAgentId ? { resolvedAgentId } : {}),
+              ...(testingMode ? { testingMode: true } : {}),
+              ...(isExternalCustomer !== null ? { isExternalCustomer } : {}),
             },
           });
 
@@ -6557,6 +6977,9 @@ http.route({
           providerId: "telegram",
           providerMessageId: String(msg.message_id || ""),
           senderName: senderName || undefined,
+          ...(resolvedAgentId ? { resolvedAgentId } : {}),
+          ...(testingMode ? { testingMode: true } : {}),
+          ...(isExternalCustomer !== null ? { isExternalCustomer } : {}),
           raw: update,
         },
       });

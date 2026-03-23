@@ -7,6 +7,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, mutation, query, type QueryCtx } from "../_generated/server";
+import { canUsePlatformMotherConversationTarget } from "./platformMotherControlPlane";
 
 /**
  * Generate a URL-friendly slug from a title
@@ -577,9 +578,22 @@ export const createConversation = mutation({
     userId: v.id("users"),
     title: v.optional(v.string()),
     layerWorkflowId: v.optional(v.id("objects")),
+    targetAgentId: v.optional(v.id("objects")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    if (args.targetAgentId) {
+      const targetAgent = await ctx.db.get(args.targetAgentId);
+      if (
+        !targetAgent
+        || !canUsePlatformMotherConversationTarget({
+          conversationOrganizationId: args.organizationId,
+          targetAgent,
+        })
+      ) {
+        throw new Error("Target agent not found");
+      }
+    }
 
     // Generate slug from title or use a default
     const slug = generateSlug(args.title || "new-conversation");
@@ -588,6 +602,7 @@ export const createConversation = mutation({
       organizationId: args.organizationId,
       userId: args.userId,
       layerWorkflowId: args.layerWorkflowId,
+      targetAgentId: args.targetAgentId,
       title: args.title,
       slug,
       status: "active",
@@ -1013,6 +1028,7 @@ export const proposeToolExecution = mutation({
     conversationId: v.id("aiConversations"),
     organizationId: v.id("organizations"),
     userId: v.id("users"),
+    sessionId: v.optional(v.string()),
     toolName: v.string(),
     parameters: v.any(),
     proposalMessage: v.optional(v.string()),
@@ -1023,6 +1039,7 @@ export const proposeToolExecution = mutation({
       conversationId: args.conversationId,
       organizationId: args.organizationId,
       userId: args.userId,
+      sessionId: args.sessionId,
       toolName: args.toolName,
       parameters: args.parameters,
       proposalMessage: args.proposalMessage,
@@ -1224,6 +1241,7 @@ export const updateToolExecutionParameters = mutation({
   args: {
     executionId: v.id("aiToolExecutions"),
     parameters: v.any(),
+    proposalMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const execution = await ctx.db.get(args.executionId);
@@ -1233,9 +1251,34 @@ export const updateToolExecutionParameters = mutation({
 
     await ctx.db.patch(args.executionId, {
       parameters: args.parameters,
+      ...(args.proposalMessage !== undefined
+        ? { proposalMessage: args.proposalMessage }
+        : {}),
     });
 
     return { success: true };
+  },
+});
+
+export const getConversationMetadataInternal = internalQuery({
+  args: {
+    conversationId: v.id("aiConversations"),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      return null;
+    }
+    return {
+      _id: conversation._id,
+      organizationId: conversation.organizationId,
+      userId: conversation.userId,
+      layerWorkflowId: conversation.layerWorkflowId,
+      targetAgentId: (conversation as { targetAgentId?: Id<"objects"> }).targetAgentId,
+      status: conversation.status,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+    };
   },
 });
 

@@ -12,10 +12,12 @@ const SESSION_ID = "session_phase5" as Id<"agentSessions">;
 function createCompleteOnboardingContext(args: {
   channel: "telegram" | "webchat" | "native_guest";
   existingOrgId?: Id<"organizations">;
+  telegramOnboardingOrgId?: Id<"organizations">;
   extractedData?: Record<string, unknown>;
   provisionedAgentId?: Id<"objects">;
 }) {
   const createdOrganizations: Array<Record<string, unknown>> = [];
+  const promotionCalls: Array<Record<string, unknown>> = [];
   const rebindCalls: Array<Record<string, unknown>> = [];
   const activateMappingCalls: Array<Record<string, unknown>> = [];
 
@@ -56,7 +58,17 @@ function createCompleteOnboardingContext(args: {
     }
 
     if (Object.prototype.hasOwnProperty.call(payload, "telegramChatId")) {
-      return args.channel === "telegram" && args.existingOrgId
+      if (args.channel !== "telegram") {
+        return null;
+      }
+      if (args.telegramOnboardingOrgId) {
+        return {
+          organizationId: PLATFORM_ORG_ID,
+          onboardingOrganizationId: args.telegramOnboardingOrgId,
+          status: "onboarding",
+        };
+      }
+      return args.existingOrgId
         ? {
             organizationId: args.existingOrgId,
             status: "active",
@@ -68,22 +80,69 @@ function createCompleteOnboardingContext(args: {
   });
 
   const runMutation = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
-    if (Object.prototype.hasOwnProperty.call(payload, "workspaceName") && Object.prototype.hasOwnProperty.call(payload, "source")) {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "businessName")
+      && Object.prototype.hasOwnProperty.call(payload, "name")
+      && Object.prototype.hasOwnProperty.call(payload, "slug")
+      && Object.prototype.hasOwnProperty.call(payload, "createdBy")
+    ) {
+      createdOrganizations.push({
+        workspaceName: payload.name,
+        workspaceContext: payload.description,
+        source: "claimed_completion",
+      });
+      return NEW_ORG_ID;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "workspaceName")
+      && Object.prototype.hasOwnProperty.call(payload, "source")
+      && !Object.prototype.hasOwnProperty.call(payload, "organizationId")
+    ) {
       createdOrganizations.push(payload);
       return NEW_ORG_ID;
     }
 
     if (
       Object.prototype.hasOwnProperty.call(payload, "organizationId")
-      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && Object.prototype.hasOwnProperty.call(payload, "workspaceName")
+      && Object.prototype.hasOwnProperty.call(payload, "source")
+      && Object.prototype.hasOwnProperty.call(payload, "appSurface")
+    ) {
+      promotionCalls.push(payload);
+      return {
+        organizationId: payload.organizationId,
+        lifecycleState: "live_unclaimed_workspace",
+        operatorAgentId: args.provisionedAgentId,
+        operatorProvisioningAction: "template_clone_created",
+      };
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "organizationId")
+      && Object.prototype.hasOwnProperty.call(payload, "userId")
+      && Object.prototype.hasOwnProperty.call(payload, "appSurface")
+    ) {
+      return {
+        organizationId: payload.organizationId,
+        lifecycleState: "claimed_workspace",
+        operatorAgentId: args.provisionedAgentId,
+        operatorProvisioningAction: "template_clone_created",
+      };
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "organizationId")
+      && Object.prototype.hasOwnProperty.call(payload, "appSurface")
+      && !Object.prototype.hasOwnProperty.call(payload, "userId")
       && !Object.prototype.hasOwnProperty.call(payload, "sessionToken")
       && !Object.prototype.hasOwnProperty.call(payload, "telegramChatId")
     ) {
       return args.provisionedAgentId
         ? {
-            agentId: args.provisionedAgentId,
-            provisioningAction: "template_clone_created",
-            fallbackUsed: false,
+            operatorAgentId: args.provisionedAgentId,
+            operatorProvisioningAction: "template_clone_created",
+            authorityChannel: "desktop",
           }
         : { success: true };
     }
@@ -128,6 +187,7 @@ function createCompleteOnboardingContext(args: {
   return {
     ctx: { runQuery, runMutation, runAction },
     createdOrganizations,
+    promotionCalls,
     rebindCalls,
     activateMappingCalls,
   };
@@ -141,6 +201,7 @@ describe("complete onboarding phase 5 orchestration", () => {
       extractedData: {
         workspaceName: "Preserved Workspace",
       },
+      provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
     });
 
     const result = await (completeOnboardingRun as any)._handler(ctx, {
@@ -192,6 +253,7 @@ describe("complete onboarding phase 5 orchestration", () => {
         workspaceMutationAction: "recreate",
         confirmRecreateWorkspace: true,
       },
+      provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
     });
 
     const result = await (completeOnboardingRun as any)._handler(ctx, {
@@ -206,6 +268,7 @@ describe("complete onboarding phase 5 orchestration", () => {
     expect(createdOrganizations).toHaveLength(1);
     expect(createdOrganizations[0]?.workspaceName).toBe("Recreated Workspace");
     expect(createdOrganizations[0]?.workspaceContext).toBe("Consulting");
+    expect(createdOrganizations[0]?.source).toBe("claimed_completion");
     expect(rebindCalls).toHaveLength(1);
     expect(rebindCalls[0]?.organizationId).toBe(NEW_ORG_ID);
   });
@@ -217,6 +280,7 @@ describe("complete onboarding phase 5 orchestration", () => {
       extractedData: {
         workspaceName: "Telegram Workspace",
       },
+      provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
     });
 
     const result = await (completeOnboardingRun as any)._handler(ctx, {
@@ -231,5 +295,65 @@ describe("complete onboarding phase 5 orchestration", () => {
     expect(result.organizationId).toBe(CLAIMED_ORG_ID);
     expect(createdOrganizations).toHaveLength(0);
     expect(activateMappingCalls).toHaveLength(0);
+  });
+
+  it("reuses the first-touch Telegram provisional workspace through completion instead of creating a second org", async () => {
+    const { ctx, createdOrganizations, promotionCalls, activateMappingCalls } =
+      createCompleteOnboardingContext({
+        channel: "telegram",
+        telegramOnboardingOrgId: NEW_ORG_ID,
+        extractedData: {
+          workspaceName: "Telegram Workspace",
+          workspaceContext: "Neighborhood pharmacy",
+        },
+        provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
+      });
+
+    const result = await (completeOnboardingRun as any)._handler(ctx, {
+      sessionId: SESSION_ID,
+      channelContactIdentifier: "tg_phase5_bound",
+      channel: "telegram",
+      organizationId: PLATFORM_ORG_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.organizationId).toBe(NEW_ORG_ID);
+    expect(result.agentId).toBe(DEFAULT_TEMPLATE_AGENT_ID);
+    expect(createdOrganizations).toHaveLength(0);
+    expect(promotionCalls).toHaveLength(1);
+    expect(promotionCalls[0]).toMatchObject({
+      organizationId: NEW_ORG_ID,
+      workspaceName: "Telegram Workspace",
+      workspaceContext: "Neighborhood pharmacy",
+      source: "telegram_onboarding",
+      appSurface: "platform_web",
+    });
+    expect(activateMappingCalls).toContainEqual({
+      telegramChatId: "tg_phase5_bound",
+      organizationId: NEW_ORG_ID,
+    });
+  });
+
+  it("fails closed when default operator provisioning does not return an agent", async () => {
+    const { ctx } = createCompleteOnboardingContext({
+      channel: "webchat",
+      existingOrgId: CLAIMED_ORG_ID,
+      extractedData: {
+        workspaceName: "Broken Provisioning Workspace",
+      },
+    });
+
+    const result = await (completeOnboardingRun as any)._handler(ctx, {
+      sessionId: SESSION_ID,
+      channelContactIdentifier: "wc_session_phase5_missing_agent",
+      channel: "webchat",
+      organizationId: PLATFORM_ORG_ID,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "No agent created",
+    });
+    expect(ctx.runAction).not.toHaveBeenCalled();
   });
 });

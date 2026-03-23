@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { UNIVERSAL_ONBOARDING_CHANNELS } from "./universalOnboardingPolicy";
+import { hasPlatformMotherTemplateRole } from "../platformMother";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
 const { internal: internalApi, api: publicApi } = require("../_generated/api") as { internal: any; api: any };
@@ -23,13 +24,12 @@ export function isUniversalOnboardingAgent(agent: {
       ? agent.customProperties
       : {};
 
-  const templateRole = normalizeOptionalString(props.templateRole);
   const workerPoolRole = normalizeOptionalString(props.workerPoolRole);
   const enabledTools = Array.isArray(props.enabledTools)
     ? props.enabledTools.filter((entry): entry is string => typeof entry === "string")
     : [];
 
-  if (templateRole === "platform_system_bot_template") {
+  if (hasPlatformMotherTemplateRole(props)) {
     return true;
   }
   if (workerPoolRole === "onboarding_worker") {

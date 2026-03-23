@@ -26,7 +26,7 @@ import {
 
 // Dynamic require to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any
-const { api: publicApi, internal: internalApi } = require("../_generated/api") as { api: any; internal: any };
+const { internal: internalApi } = require("../_generated/api") as { internal: any };
 
 const GENERIC_AGENT_NAMES = new Set([
   "agent",
@@ -50,6 +50,16 @@ function asRecord(value: unknown): Record<string, unknown> {
     return {};
   }
   return value as Record<string, unknown>;
+}
+
+function buildOnboardingWorkspaceSlug(workspaceName: string): string {
+  const baseSlug = workspaceName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  const uniqueSuffix = Date.now().toString(36);
+  return `${baseSlug}-${uniqueSuffix}`;
 }
 
 function hashSeed(input: string): number {
@@ -201,18 +211,43 @@ export const run = internalAction({
 
     let existingOrganizationId: Id<"organizations"> | null = null;
     let hasActiveTelegramMapping = false;
+    let hasBoundAnonymousOnboardingOrg = false;
+    let telegramMapping:
+      | {
+          status: "onboarding" | "active" | "churned";
+          organizationId: Id<"organizations">;
+          onboardingOrganizationId?: Id<"organizations">;
+          senderName?: string;
+        }
+      | null = null;
 
     if (normalizedChannel === "telegram") {
-      // 2a. DUPLICATE-ORG GUARD (Telegram only): Check if this chat already has an active mapping.
-      const existingActiveMapping = await ctx.runQuery(
+      telegramMapping = await ctx.runQuery(
         internalApi.onboarding.telegramResolver.getMappingByChatId,
         { telegramChatId: channelContactIdentifier }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ) as any;
 
-      if (existingActiveMapping?.status === "active") {
+      if (telegramMapping?.status === "active") {
         hasActiveTelegramMapping = true;
-        existingOrganizationId = existingActiveMapping.organizationId as Id<"organizations">;
+        existingOrganizationId = telegramMapping.organizationId as Id<"organizations">;
+      } else if (telegramMapping?.status === "onboarding") {
+        if (telegramMapping.onboardingOrganizationId) {
+          existingOrganizationId =
+            telegramMapping.onboardingOrganizationId as Id<"organizations">;
+          hasBoundAnonymousOnboardingOrg = true;
+        } else {
+          const bindingResult = await ctx.runMutation(
+            internalApi.onboarding.orgBootstrap.ensureTelegramOnboardingOrgBinding,
+            {
+              telegramChatId: channelContactIdentifier,
+              source: `${normalizedChannel}_onboarding`,
+              senderName: telegramMapping.senderName,
+            }
+          ) as { organizationId: Id<"organizations"> };
+          existingOrganizationId = bindingResult.organizationId;
+          hasBoundAnonymousOnboardingOrg = true;
+        }
       }
     }
     if (requiresClaimedAccountForOnboardingCompletion(normalizedChannel) && guestSession?.claimedOrganizationId) {
@@ -250,20 +285,86 @@ export const run = internalAction({
     }
 
     const shouldReuseExistingOrganization =
-      Boolean(existingOrganizationId) && existingWorkspaceAction !== "recreate";
-    const orgId = shouldReuseExistingOrganization
-      ? (existingOrganizationId as Id<"organizations">)
-      : await ctx.runMutation(
-        internalApi.onboarding.orgBootstrap.createMinimalOrg,
+      Boolean(existingOrganizationId)
+      && (hasBoundAnonymousOnboardingOrg || existingWorkspaceAction !== "recreate");
+    const claimedUserId =
+      requiresClaimedAccountForOnboardingCompletion(normalizedChannel)
+      && guestSession?.claimedByUserId
+        ? guestSession.claimedByUserId
+        : null;
+
+    let lifecycleProvisioning:
+      | {
+          operatorAgentId?: Id<"objects"> | null;
+          operatorProvisioningAction?: string | null;
+        }
+      | null = null;
+    let orgId: Id<"organizations">;
+    if (shouldReuseExistingOrganization) {
+      orgId = existingOrganizationId as Id<"organizations">;
+    } else if (claimedUserId) {
+      orgId = await ctx.runMutation(
+        internalApi.organizations.createOrgRecord,
         {
+          businessName: workspaceName,
+          name: workspaceName,
+          slug: buildOnboardingWorkspaceSlug(workspaceName),
+          description: workspaceContext || undefined,
+          createdBy: claimedUserId,
+        }
+      );
+      lifecycleProvisioning = await ctx.runMutation(
+        internalApi.onboarding.orgBootstrap.finalizeOnboardingOrgClaim,
+        {
+          organizationId: orgId,
+          userId: claimedUserId,
+          appSurface: "platform_web",
+        }
+      );
+    } else {
+      if (normalizedChannel === "telegram") {
+        const bindingResult = await ctx.runMutation(
+          internalApi.onboarding.orgBootstrap.ensureTelegramOnboardingOrgBinding,
+          {
+            telegramChatId: channelContactIdentifier,
+            source: `${normalizedChannel}_onboarding`,
+            senderName: telegramMapping?.senderName,
+          }
+        ) as { organizationId: Id<"organizations"> };
+        orgId = bindingResult.organizationId;
+        hasBoundAnonymousOnboardingOrg = true;
+      } else {
+        orgId = await ctx.runMutation(
+          internalApi.onboarding.orgBootstrap.createProvisionalOnboardingOrg,
+          {
+            workspaceName,
+            workspaceContext,
+            source: `${normalizedChannel}_onboarding`,
+            channelContactIdentifier,
+          }
+        );
+      }
+    }
+
+    if (!claimedUserId) {
+      lifecycleProvisioning = await ctx.runMutation(
+        internalApi.onboarding.orgBootstrap.promoteOnboardingOrgToLiveUnclaimed,
+        {
+          organizationId: orgId,
           workspaceName,
           workspaceContext,
           source: `${normalizedChannel}_onboarding`,
           channelContactIdentifier,
+          appSurface: "platform_web",
         }
       );
+    }
 
-    if (shouldReuseExistingOrganization && existingWorkspaceAction === "rename") {
+    if (
+      shouldReuseExistingOrganization
+      && existingWorkspaceAction === "rename"
+      && !hasBoundAnonymousOnboardingOrg
+    ) {
       await ctx.runMutation(internalApi.onboarding.orgBootstrap.updateOrgFromOnboarding, {
         organizationId: orgId,
         workspaceName,
@@ -295,74 +396,36 @@ export const run = internalAction({
     }
 
     // 4. Resolve the template-managed default onboarding operator.
-    let onboardingAgentId: Id<"objects"> | null = null;
-    try {
-      const defaultAgentProvisioning = await ctx.runMutation(
-        internalApi.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
-        {
-          organizationId: orgId,
-          channel: "desktop",
-        }
-      );
-      onboardingAgentId =
-        (defaultAgentProvisioning?.agentId as Id<"objects"> | undefined) || null;
+    let onboardingAgentId =
+      (lifecycleProvisioning?.operatorAgentId as Id<"objects"> | undefined) || null;
+    if (onboardingAgentId) {
       console.log(
-        "[completeOnboarding] Default onboarding agent resolved:",
-        onboardingAgentId || "unknown",
+        "[completeOnboarding] Default onboarding agent resolved from lifecycle provisioning:",
+        onboardingAgentId,
         "provisioningAction:",
-        defaultAgentProvisioning?.provisioningAction || "unknown"
+        lifecycleProvisioning?.operatorProvisioningAction || "unknown"
       );
-    } catch (defaultAgentResolutionError) {
-      console.error(
-        "[completeOnboarding] Default onboarding agent resolution failed:",
-        defaultAgentResolutionError
-      );
-    }
-
-    // Backward-compatible fallback for environments that do not return agentId yet.
-    if (!onboardingAgentId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let agentResult: any;
-      const baselineHints = [
-        extractedData.socialEnergyPreference
-          ? `social_energy_preference=${String(extractedData.socialEnergyPreference)}`
-          : null,
-        extractedData.preferredVoiceStyle
-          ? `preferred_voice_style=${String(extractedData.preferredVoiceStyle)}`
-          : null,
-        extractedData.hesitationResponseStyle
-          ? `hesitation_response_style=${String(extractedData.hesitationResponseStyle)}`
-          : null,
-        extractedData.communicationStyle
-          ? `communication_style=${String(extractedData.communicationStyle)}`
-          : null,
-      ].filter(Boolean).join("; ");
+    } else {
       try {
-        agentResult = await ctx.runAction(
-          publicApi.ai.soulGenerator.bootstrapAgent,
+        const defaultAgentProvisioning = await ctx.runMutation(
+          internalApi.organizations.ensureOperatorAuthorityBootstrapInternal,
           {
             organizationId: orgId,
-            name: "Operator",
-            subtype: "general",
-            industry: workspaceContext,
-            targetAudience: extractedData.targetAudience || extractedData.target_audience,
-            tonePreference: extractedData.tonePreference || extractedData.tone_preference,
-            additionalContext: [
-              extractedData.primaryUseCase || extractedData.primary_use_case,
-              baselineHints.length > 0 ? `baseline_calibration: ${baselineHints}` : null,
-              "naming_directive: choose a personal first name for yourself (not generic placeholders like Agent/Assistant).",
-            ].filter(Boolean).join(" | "),
+            appSurface: "platform_web",
           }
         );
-        onboardingAgentId = (agentResult?.agentId as Id<"objects"> | undefined) || null;
+        onboardingAgentId =
+          (defaultAgentProvisioning?.operatorAgentId as Id<"objects"> | undefined) || null;
         console.log(
-          "[completeOnboarding] Fallback agent bootstrap:",
-          onboardingAgentId || "missing_agent_id"
+          "[completeOnboarding] Default onboarding agent resolved:",
+          onboardingAgentId || "unknown",
+          "provisioningAction:",
+          defaultAgentProvisioning?.operatorProvisioningAction || "unknown"
         );
-      } catch (fallbackBootstrapError) {
+      } catch (defaultAgentResolutionError) {
         console.error(
-          "[completeOnboarding] Fallback agent bootstrap failed:",
-          fallbackBootstrapError
+          "[completeOnboarding] Default onboarding agent resolution failed:",
+          defaultAgentResolutionError
         );
       }
     }

@@ -39,6 +39,14 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -898,58 +906,22 @@ export const createOrganization = action({
       parentOrganizationId: args.parentOrganizationId,
     });
 
-    // 7. Create organization_settings ontology object with provided locale settings
-    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
-      organizationId,
-      createdBy: userId,
-      timezone: args.timezone,
-      dateFormat: args.dateFormat,
-      language: args.language,
-    });
-
-    // 8. Save contact information (if provided)
-    if (args.contactEmail || args.contactPhone) {
-      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgContact, {
-        organizationId,
-        createdBy: userId,
-        primaryEmail: args.contactEmail,
-        primaryPhone: args.contactPhone,
-      });
-    }
-
-    // 9. Save profile information (if provided)
-    if (args.industry || args.description) {
-      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgProfile, {
-        organizationId,
-        createdBy: userId,
-        industry: args.industry,
-        bio: args.description,
-      });
-    }
-
-    // 10. Add creator as org_owner (if requested, default true)
-    if (args.addCreatorAsOwner !== false) {
-      await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
-        userId,
-        organizationId,
-      });
-    }
-
-    // 11. Assign all apps to new organization (automatic app availability)
-    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
-      organizationId,
-      userId,
-    });
-
+    // 7. Apply the signed-in new-org baseline contract.
     await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
-      { organizationId }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
+      generatedApi.internal.organizations.provisionOrganizationBaselineInternal,
       {
         organizationId,
-        channel: "desktop",
+        createdByUserId: userId,
+        ownerUserIds: args.addCreatorAsOwner === false ? [] : [userId],
+        appProvisioningUserId: userId,
+        timezone: args.timezone,
+        dateFormat: args.dateFormat,
+        language: args.language,
+        contactEmail: args.contactEmail,
+        contactPhone: args.contactPhone,
+        industry: args.industry,
+        description: args.description,
+        appSurface: "platform_web",
       }
     );
 
@@ -1049,57 +1021,21 @@ export const createBusinessOrganization = action({
       }
     );
 
-    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
-      organizationId,
-      createdBy: userId,
-      timezone: args.timezone,
-      dateFormat: args.dateFormat,
-      language: args.language,
-    });
-
-    if (args.contactEmail || args.contactPhone) {
-      await (ctx as any).runMutation(
-        generatedApi.internal.organizationOntology.createOrgContact,
-        {
-          organizationId,
-          createdBy: userId,
-          primaryEmail: args.contactEmail,
-          primaryPhone: args.contactPhone,
-        }
-      );
-    }
-
-    if (args.industry || args.description) {
-      await (ctx as any).runMutation(
-        generatedApi.internal.organizationOntology.createOrgProfile,
-        {
-          organizationId,
-          createdBy: userId,
-          industry: args.industry,
-          bio: args.description,
-        }
-      );
-    }
-
-    await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
-      userId,
-      organizationId,
-    });
-
-    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
-      organizationId,
-      userId,
-    });
-
     await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
-      { organizationId }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
+      generatedApi.internal.organizations.provisionOrganizationBaselineInternal,
       {
         organizationId,
-        channel: "desktop",
+        createdByUserId: userId,
+        ownerUserIds: [userId],
+        appProvisioningUserId: userId,
+        timezone: args.timezone,
+        dateFormat: args.dateFormat,
+        language: args.language,
+        contactEmail: args.contactEmail,
+        contactPhone: args.contactPhone,
+        industry: args.industry,
+        description: args.description,
+        appSurface: "platform_web",
       }
     );
 
@@ -1238,46 +1174,21 @@ export const createSubOrganization = action({
       parentOrganizationId: args.parentOrganizationId,
     });
 
-    // 10. Create organization_settings
-    await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
-      organizationId,
-      createdBy: userId,
-      timezone: args.timezone,
-      dateFormat: args.dateFormat,
-      language: args.language,
-    });
-
-    // 11. Save contact information (if provided)
-    if (args.contactEmail || args.contactPhone) {
-      await (ctx as any).runMutation(generatedApi.internal.organizationOntology.createOrgContact, {
-        organizationId,
-        createdBy: userId,
-        primaryEmail: args.contactEmail,
-        primaryPhone: args.contactPhone,
-      });
-    }
-
-    // 12. Add creator as org_owner of sub-org
-    await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
-      userId,
-      organizationId,
-    });
-
-    // 13. Assign all apps to new sub-organization
-    await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
-      organizationId,
-      userId,
-    });
-
+    // 10. Apply the same signed-in new-org baseline used for top-level org creation.
     await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
-      { organizationId }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureTemplateManagedDefaultAgentForOrgInternal,
+      generatedApi.internal.organizations.provisionOrganizationBaselineInternal,
       {
         organizationId,
-        channel: "desktop",
+        createdByUserId: userId,
+        ownerUserIds: [userId],
+        appProvisioningUserId: userId,
+        timezone: args.timezone,
+        dateFormat: args.dateFormat,
+        language: args.language,
+        contactEmail: args.contactEmail,
+        contactPhone: args.contactPhone,
+        description: args.description,
+        appSurface: "platform_web",
       }
     );
 
@@ -1508,6 +1419,164 @@ export const getOrgBySlug = internalQuery({
       .query("organizations")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
+  },
+});
+
+export const ensureOperatorAuthorityBootstrapInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    appSurface: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await (ctx as any).runMutation(
+      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      { organizationId: args.organizationId }
+    );
+    const operatorProvisioning = await (ctx as any).runMutation(
+      generatedApi.internal.agentOntology.ensureOperatorAuthorityAgentForOrgInternal,
+      {
+        organizationId: args.organizationId,
+        appSurface: normalizeOptionalString(args.appSurface) || "platform_web",
+      }
+    );
+    const operatorAgentId = operatorProvisioning?.agentId || null;
+    if (!operatorAgentId) {
+      throw new Error(
+        "OPERATOR_AUTHORITY_BOOTSTRAP_FAILED: managed One-of-One Operator clone was not returned."
+      );
+    }
+
+    return {
+      organizationId: args.organizationId,
+      operatorAgentId,
+      operatorProvisioningAction: operatorProvisioning?.provisioningAction || null,
+      authorityChannel: operatorProvisioning?.authorityChannel || "desktop",
+      templateAgentId: operatorProvisioning?.templateAgentId || null,
+      templateResolutionSource: operatorProvisioning?.templateResolutionSource || null,
+      appSurface: normalizeOptionalString(args.appSurface) || "platform_web",
+    };
+  },
+});
+
+export const provisionOrganizationBaselineInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    createdByUserId: v.id("users"),
+    ownerUserIds: v.optional(v.array(v.id("users"))),
+    appProvisioningUserId: v.optional(v.id("users")),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    description: v.optional(v.string()),
+    appSurface: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    const mainSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+      )
+      .filter((q) => q.eq(q.field("subtype"), "main"))
+      .first();
+    if (!mainSettings) {
+      await (ctx as any).runMutation(generatedApi.internal.organizations.createOrgSettings, {
+        organizationId: args.organizationId,
+        createdBy: args.createdByUserId,
+        timezone: args.timezone,
+        dateFormat: args.dateFormat,
+        language: args.language,
+      });
+    }
+
+    if (args.contactEmail || args.contactPhone) {
+      const existingContact = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "organization_contact")
+        )
+        .first();
+      if (!existingContact) {
+        await (ctx as any).runMutation(
+          generatedApi.internal.organizationOntology.createOrgContact,
+          {
+            organizationId: args.organizationId,
+            createdBy: args.createdByUserId,
+            primaryEmail: args.contactEmail,
+            primaryPhone: args.contactPhone,
+          }
+        );
+      }
+    }
+
+    if (args.industry || args.description) {
+      const existingProfile = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "organization_profile")
+        )
+        .first();
+      if (!existingProfile) {
+        await (ctx as any).runMutation(
+          generatedApi.internal.organizationOntology.createOrgProfile,
+          {
+            organizationId: args.organizationId,
+            createdBy: args.createdByUserId,
+            industry: args.industry,
+            bio: args.description,
+          }
+        );
+      }
+    }
+
+    const ownerUserIds = Array.from(
+      new Map(
+        (args.ownerUserIds ?? []).map((userId) => [String(userId), userId])
+      ).values()
+    );
+    for (const ownerUserId of ownerUserIds) {
+      const existingMembership = await (ctx as any).runQuery(
+        generatedApi.internal.organizations.getUserMembership,
+        {
+          userId: ownerUserId,
+          organizationId: args.organizationId,
+        }
+      );
+      if (!existingMembership?.isActive) {
+        await (ctx as any).runMutation(generatedApi.internal.organizations.addCreatorAsOwner, {
+          userId: ownerUserId,
+          organizationId: args.organizationId,
+        });
+      }
+    }
+
+    if (args.appProvisioningUserId) {
+      await (ctx as any).runMutation(generatedApi.internal.onboarding.assignAllAppsToOrg, {
+        organizationId: args.organizationId,
+        userId: args.appProvisioningUserId,
+      });
+    }
+
+    const operatorProvisioning = await (ctx as any).runMutation(
+      generatedApi.internal.organizations.ensureOperatorAuthorityBootstrapInternal,
+      {
+        organizationId: args.organizationId,
+        appSurface: args.appSurface || "platform_web",
+      }
+    );
+
+    return {
+      organizationId: args.organizationId,
+      operatorAgentId: operatorProvisioning?.operatorAgentId || null,
+      operatorProvisioningAction: operatorProvisioning?.operatorProvisioningAction || null,
+    };
   },
 });
 

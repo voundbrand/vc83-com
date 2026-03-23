@@ -75,9 +75,11 @@ const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
 export function AIChatProvider({
   children,
   superAdminQaMode,
+  targetAgentId,
 }: {
   children: ReactNode
   superAdminQaMode?: AIChatSuperAdminQaMode
+  targetAgentId?: Id<"objects">
 }) {
   const [currentConversationId, setCurrentConversationId] = useState<
     Id<"aiConversations"> | undefined
@@ -100,7 +102,8 @@ export function AIChatProvider({
     currentConversationId,
     selectedModel,
     superAdminQaMode,
-    activeLayerWorkflowId
+    activeLayerWorkflowId,
+    targetAgentId,
   )
 
   // Get current user's organization ID

@@ -19,6 +19,145 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 const generatedApi: any = require("./_generated/api");
 
+const GOOGLE_CALENDAR_READ_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+];
+
+const GOOGLE_CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+];
+
+type StoredSubCalendar = {
+  calendarId: string;
+  summary: string;
+  backgroundColor: string;
+  accessRole: string;
+  primary: boolean;
+  lastFetchedAt: number;
+};
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeStringArray(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const normalized = new Set<string>();
+  for (const value of values) {
+    const normalizedValue = normalizeOptionalString(value);
+    if (normalizedValue) {
+      normalized.add(normalizedValue);
+    }
+  }
+  return Array.from(normalized);
+}
+
+function getStoredSubCalendars(connection: {
+  customProperties?: unknown;
+} | null): StoredSubCalendar[] {
+  const cp = (connection?.customProperties || {}) as Record<string, unknown>;
+  return Array.isArray(cp.subCalendars)
+    ? (cp.subCalendars as StoredSubCalendar[])
+    : [];
+}
+
+function getPrimaryCalendarId(connection: {
+  customProperties?: unknown;
+} | null): string | undefined {
+  return getStoredSubCalendars(connection).find((calendar) => calendar.primary)
+    ?.calendarId;
+}
+
+function normalizeGoogleCalendarIdForConnection(
+  connection: { customProperties?: unknown } | null,
+  value: unknown
+): string | undefined {
+  const normalizedValue = normalizeOptionalString(value);
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  const subCalendars = getStoredSubCalendars(connection);
+  const primaryCalendarId = getPrimaryCalendarId(connection);
+  if (normalizedValue === "primary" && primaryCalendarId) {
+    return primaryCalendarId;
+  }
+  if (primaryCalendarId && normalizedValue === primaryCalendarId) {
+    return primaryCalendarId;
+  }
+  if (subCalendars.length === 0) {
+    return normalizedValue;
+  }
+
+  const knownCalendarIds = new Set(
+    subCalendars.map((calendar) => normalizeOptionalString(calendar.calendarId)).filter(
+      (calendarId): calendarId is string => Boolean(calendarId)
+    )
+  );
+  return knownCalendarIds.has(normalizedValue) ? normalizedValue : undefined;
+}
+
+function getDefaultBlockingCalendarIds(connection: {
+  customProperties?: unknown;
+} | null): string[] {
+  return [getPrimaryCalendarId(connection) || "primary"];
+}
+
+function normalizeBlockingCalendarIdsForConnection(
+  connection: { customProperties?: unknown } | null,
+  values: unknown
+): string[] {
+  const normalizedIds = new Set<string>();
+  for (const value of normalizeStringArray(values)) {
+    const normalizedCalendarId = normalizeGoogleCalendarIdForConnection(
+      connection,
+      value
+    );
+    if (normalizedCalendarId) {
+      normalizedIds.add(normalizedCalendarId);
+    }
+  }
+  return Array.from(normalizedIds);
+}
+
+function normalizePushCalendarIdForConnection(
+  connection: { customProperties?: unknown } | null,
+  value: unknown
+): string | null {
+  const normalizedCalendarId = normalizeGoogleCalendarIdForConnection(
+    connection,
+    value
+  );
+  return normalizedCalendarId || null;
+}
+
+function hasAnyScope(
+  scopes: string[] | undefined,
+  requiredScopes: readonly string[]
+): boolean {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return false;
+  }
+  return scopes.some((scope) => requiredScopes.includes(scope));
+}
+
+function getGoogleCalendarScopeReadiness(scopes: string[] | undefined) {
+  return {
+    canAccessCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_READ_SCOPES),
+    canWriteCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_WRITE_SCOPES),
+  };
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -39,15 +178,7 @@ export const getSubCalendars = query({
     const connection = await ctx.db.get(args.connectionId);
     if (!connection) return [];
 
-    const cp = (connection.customProperties || {}) as Record<string, unknown>;
-    return (cp.subCalendars || []) as Array<{
-      calendarId: string;
-      summary: string;
-      backgroundColor: string;
-      accessRole: string;
-      primary: boolean;
-      lastFetchedAt: number;
-    }>;
+    return getStoredSubCalendars(connection);
   },
 });
 
@@ -66,6 +197,22 @@ export const getCalendarLinkSettings = query({
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
     if (!session || session.expiresAt < Date.now()) return null;
 
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) {
+      return {
+        blockingCalendarIds: ["primary"] as string[],
+        pushCalendarId: null as string | null,
+        explicitBlockingConfigured: false,
+        calendarSyncEnabled: false,
+        canAccessCalendar: false,
+        canWriteCalendar: false,
+        connectionStatus: "missing" as const,
+        lastSyncError: null as string | null,
+        primaryCalendarId: null as string | null,
+        subCalendarCacheReady: false,
+      };
+    }
+
     const links = await ctx.db
       .query("objectLinks")
       .withIndex("by_org_link_type", (q) =>
@@ -75,24 +222,60 @@ export const getCalendarLinkSettings = query({
       )
       .collect();
 
-    const link = links.find((l) => {
-      const cp = (l.properties || {}) as Record<string, unknown>;
-      if (cp.connectionId !== args.connectionId) return false;
-      if (args.resourceId && l.toObjectId !== args.resourceId) return false;
-      return true;
-    });
+    let fallbackLink: (typeof links)[number] | undefined;
+    let link: (typeof links)[number] | undefined;
+    for (const candidate of links) {
+      const cp = (candidate.properties || {}) as Record<string, unknown>;
+      if (cp.connectionId !== args.connectionId) continue;
+      if (args.resourceId) {
+        if (candidate.toObjectId === args.resourceId) {
+          link = candidate;
+          break;
+        }
+        continue;
+      }
 
-    if (!link) {
-      return {
-        blockingCalendarIds: [] as string[],
-        pushCalendarId: null as string | null,
-      };
+      fallbackLink = fallbackLink || candidate;
+      const linkedObject = await ctx.db.get(candidate.toObjectId);
+      if (
+        linkedObject?.type === "calendar_settings" &&
+        linkedObject.subtype === "org_default"
+      ) {
+        link = candidate;
+        break;
+      }
     }
 
-    const cp = (link.properties || {}) as Record<string, unknown>;
+    if (!link) {
+      link = fallbackLink;
+    }
+
+    const cp = ((link?.properties || {}) as Record<string, unknown>) || {};
+    const storedBlockingCalendarIds = normalizeBlockingCalendarIdsForConnection(
+      connection,
+      cp.blockingCalendarIds
+    );
+    const blockingCalendarIds =
+      storedBlockingCalendarIds.length > 0
+        ? storedBlockingCalendarIds
+        : getDefaultBlockingCalendarIds(connection);
+    const scopeReadiness = getGoogleCalendarScopeReadiness(connection.scopes);
+    const syncSettings = (connection.syncSettings || {}) as Record<string, unknown>;
+
     return {
-      blockingCalendarIds: (cp.blockingCalendarIds || []) as string[],
-      pushCalendarId: (cp.pushCalendarId as string) || null,
+      blockingCalendarIds,
+      pushCalendarId: normalizePushCalendarIdForConnection(
+        connection,
+        cp.pushCalendarId
+      ),
+      explicitBlockingConfigured: storedBlockingCalendarIds.length > 0,
+      calendarSyncEnabled: syncSettings.calendar === true,
+      canAccessCalendar: scopeReadiness.canAccessCalendar,
+      canWriteCalendar: scopeReadiness.canWriteCalendar,
+      connectionStatus: connection.status,
+      lastSyncError: connection.lastSyncError || null,
+      primaryCalendarId: getPrimaryCalendarId(connection) || null,
+      subCalendarCacheReady: getStoredSubCalendars(connection).length > 0,
     };
   },
 });
@@ -124,11 +307,16 @@ export const getBlockingCalendarIdsForConnection = internalQuery({
     for (const link of links) {
       const cp = (link.properties || {}) as Record<string, unknown>;
       if (cp.connectionId !== args.connectionId) continue;
-      const blocking = (cp.blockingCalendarIds || []) as string[];
+      const blocking = normalizeBlockingCalendarIdsForConnection(
+        connection,
+        cp.blockingCalendarIds
+      );
       for (const id of blocking) calendarIds.add(id);
     }
 
-    return Array.from(calendarIds);
+    return calendarIds.size > 0
+      ? Array.from(calendarIds)
+      : getDefaultBlockingCalendarIds(connection);
   },
 });
 
@@ -162,14 +350,16 @@ export const getConnectionBlockingCalendarSnapshot = internalQuery({
     for (const link of links) {
       const cp = (link.properties || {}) as Record<string, unknown>;
       if (cp.connectionId !== args.connectionId) continue;
-      const blocking = (cp.blockingCalendarIds || []) as string[];
+      const blocking = normalizeBlockingCalendarIdsForConnection(
+        connection,
+        cp.blockingCalendarIds
+      );
       if (blocking.length > 0) {
         explicitBlockingConfigured = true;
       }
       for (const id of blocking) {
-        const normalized = typeof id === "string" ? id.trim() : "";
-        if (normalized) {
-          calendarIds.add(normalized);
+        if (id) {
+          calendarIds.add(id);
         }
       }
     }
@@ -178,7 +368,9 @@ export const getConnectionBlockingCalendarSnapshot = internalQuery({
     return {
       exists: true,
       blockingCalendarIds:
-        blockingCalendarIds.length > 0 ? blockingCalendarIds : ["primary"],
+        blockingCalendarIds.length > 0
+          ? blockingCalendarIds
+          : getDefaultBlockingCalendarIds(connection),
       explicitBlockingConfigured,
     };
   },
@@ -205,6 +397,34 @@ export const updateCalendarLinkSettings = mutation({
     const session = await ctx.db.get(args.sessionId as Id<"sessions">);
     if (!session || session.expiresAt < Date.now())
       throw new Error("Invalid session");
+
+    const connection = await ctx.db.get(args.connectionId);
+    if (!connection) {
+      throw new Error("Google calendar connection not found");
+    }
+    if (
+      connection.organizationId !== args.organizationId ||
+      connection.provider !== "google"
+    ) {
+      throw new Error("Invalid Google calendar connection");
+    }
+
+    const nextBlockingCalendarIds =
+      args.blockingCalendarIds !== undefined
+        ? (() => {
+            const normalizedIds = normalizeBlockingCalendarIdsForConnection(
+              connection,
+              args.blockingCalendarIds
+            );
+            return normalizedIds.length > 0
+              ? normalizedIds
+              : getDefaultBlockingCalendarIds(connection);
+          })()
+        : undefined;
+    const nextPushCalendarId =
+      args.pushCalendarId !== undefined
+        ? normalizePushCalendarIdForConnection(connection, args.pushCalendarId)
+        : undefined;
 
     // If no resourceId provided, find or create an org-level sentinel object
     let resourceId = args.resourceId;
@@ -252,11 +472,11 @@ export const updateCalendarLinkSettings = mutation({
       await ctx.db.patch(link._id, {
         properties: {
           ...existingProps,
-          ...(args.blockingCalendarIds !== undefined
-            ? { blockingCalendarIds: args.blockingCalendarIds }
+          ...(nextBlockingCalendarIds !== undefined
+            ? { blockingCalendarIds: nextBlockingCalendarIds }
             : {}),
-          ...(args.pushCalendarId !== undefined
-            ? { pushCalendarId: args.pushCalendarId }
+          ...(nextPushCalendarId !== undefined
+            ? { pushCalendarId: nextPushCalendarId }
             : {}),
         },
       });
@@ -269,8 +489,9 @@ export const updateCalendarLinkSettings = mutation({
         organizationId: args.organizationId,
         properties: {
           connectionId: args.connectionId,
-          blockingCalendarIds: args.blockingCalendarIds || [],
-          pushCalendarId: args.pushCalendarId || null,
+          blockingCalendarIds:
+            nextBlockingCalendarIds || getDefaultBlockingCalendarIds(connection),
+          pushCalendarId: nextPushCalendarId || null,
         },
         createdAt: Date.now(),
       });

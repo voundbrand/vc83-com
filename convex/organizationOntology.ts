@@ -15,8 +15,125 @@
 
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuthenticatedUser, requirePermission } from "./rbacHelpers";
+import {
+  checkPermission,
+  requireAuthenticatedUser,
+  requirePermission,
+} from "./rbacHelpers";
 import { translateObject, translateObjects } from "./translationResolver";
+
+export const KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE =
+  "booking_concierge" as const;
+export const KANZLEI_BOOKING_CONCIERGE_CONFIG_VERSION =
+  "kanzlei_booking_concierge_config_v1" as const;
+
+export interface KanzleiBookingConciergeConfig {
+  contractVersion: typeof KANZLEI_BOOKING_CONCIERGE_CONFIG_VERSION;
+  primaryResourceId: string | null;
+  primaryResourceLabel: string | null;
+  operatorCalendarConnectionId: string | null;
+  timezone: string | null;
+  defaultMeetingTitle: string | null;
+  intakeLabel: string | null;
+  requireConfiguredResource: boolean;
+}
+
+function normalizeOptionalOrganizationSettingString(
+  value: unknown,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOrganizationSettingBoolean(
+  value: unknown,
+  fallback: boolean,
+): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return fallback;
+}
+
+function getFirstOrganizationSettingString(
+  props: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = normalizeOptionalOrganizationSettingString(props[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+export function normalizeKanzleiBookingConciergeConfig(
+  value: unknown,
+): KanzleiBookingConciergeConfig | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const props = value as Record<string, unknown>;
+  const primaryResourceId = getFirstOrganizationSettingString(props, [
+    "primaryResourceId",
+    "resourceId",
+    "defaultResourceId",
+    "erstberatungResourceId",
+  ]);
+  const primaryResourceLabel = getFirstOrganizationSettingString(props, [
+    "primaryResourceLabel",
+    "resourceLabel",
+    "defaultResourceLabel",
+    "erstberatungLabel",
+  ]);
+  const operatorCalendarConnectionId = getFirstOrganizationSettingString(props, [
+    "operatorCalendarConnectionId",
+    "defaultOperatorCalendarConnectionId",
+    "lawyerCalendarConnectionId",
+  ]);
+  const timezone = getFirstOrganizationSettingString(props, ["timezone"]);
+  const defaultMeetingTitle = getFirstOrganizationSettingString(props, [
+    "defaultMeetingTitle",
+    "meetingTitle",
+  ]);
+  const intakeLabel = getFirstOrganizationSettingString(props, [
+    "intakeLabel",
+    "bookingLabel",
+    "consultationLabel",
+  ]);
+
+  const requireConfiguredResource = normalizeOrganizationSettingBoolean(
+    props.requireConfiguredResource ?? props.requirePrimaryResource,
+    primaryResourceId !== null,
+  );
+
+  if (
+    !primaryResourceId &&
+    !primaryResourceLabel &&
+    !operatorCalendarConnectionId &&
+    !timezone &&
+    !defaultMeetingTitle &&
+    !intakeLabel
+  ) {
+    return null;
+  }
+
+  return {
+    contractVersion: KANZLEI_BOOKING_CONCIERGE_CONFIG_VERSION,
+    primaryResourceId,
+    primaryResourceLabel,
+    operatorCalendarConnectionId,
+    timezone,
+    defaultMeetingTitle,
+    intakeLabel,
+    requireConfiguredResource,
+  };
+}
 
 /**
  * GET ORGANIZATION PROFILE
@@ -123,6 +240,45 @@ export const getOrganizationSettings = query({
   },
 });
 
+export const getKanzleiBookingConciergeConfig = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const canManageOrganization = await checkPermission(
+      ctx,
+      userId,
+      "manage_organization",
+      args.organizationId,
+    );
+    if (!canManageOrganization) {
+      throw new Error("Zugriff verweigert: Fehlende Berechtigung");
+    }
+
+    const settingsObj = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "organization_settings"),
+      )
+      .filter((q) =>
+        q.eq(
+          q.field("subtype"),
+          KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+        ),
+      )
+      .first();
+
+    return normalizeKanzleiBookingConciergeConfig(
+      settingsObj?.customProperties || null,
+    );
+  },
+});
+
 /**
  * GET ORGANIZATION ADDRESSES
  * Retrieves organization addresses, optionally filtered by subtype
@@ -213,6 +369,32 @@ export const getOrganizationSettingsInternal = internalQuery({
     }
 
     return await baseQuery.collect();
+  },
+});
+
+export const getKanzleiBookingConciergeConfigInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const settingsObj = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "organization_settings"),
+      )
+      .filter((q) =>
+        q.eq(
+          q.field("subtype"),
+          KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+        ),
+      )
+      .first();
+
+    return normalizeKanzleiBookingConciergeConfig(
+      settingsObj?.customProperties || null,
+    );
   },
 });
 
@@ -547,6 +729,83 @@ export const updateOrganizationSettings = mutation({
       console.log("✅ [BACKEND] New settings object created with ID:", newId);
       return newId;
     }
+  },
+});
+
+export const upsertKanzleiBookingConciergeConfig = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    primaryResourceId: v.optional(v.string()),
+    primaryResourceLabel: v.optional(v.string()),
+    operatorCalendarConnectionId: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    defaultMeetingTitle: v.optional(v.string()),
+    intakeLabel: v.optional(v.string()),
+    requireConfiguredResource: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    await requirePermission(ctx, userId, "manage_organization", {
+      organizationId: args.organizationId,
+    });
+
+    const normalizedConfig = normalizeKanzleiBookingConciergeConfig({
+      primaryResourceId: args.primaryResourceId,
+      primaryResourceLabel: args.primaryResourceLabel,
+      operatorCalendarConnectionId: args.operatorCalendarConnectionId,
+      timezone: args.timezone,
+      defaultMeetingTitle: args.defaultMeetingTitle,
+      intakeLabel: args.intakeLabel,
+      requireConfiguredResource: args.requireConfiguredResource,
+    });
+
+    if (!normalizedConfig) {
+      throw new Error(
+        "At least one Kanzlei booking concierge setting must be provided.",
+      );
+    }
+
+    const settingsObj = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "organization_settings"),
+      )
+      .filter((q) =>
+        q.eq(
+          q.field("subtype"),
+          KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+        ),
+      )
+      .first();
+
+    if (settingsObj) {
+      await ctx.db.patch(settingsObj._id, {
+        customProperties: normalizedConfig,
+        updatedAt: Date.now(),
+      });
+      return settingsObj._id;
+    }
+
+    const org = await ctx.db.get(args.organizationId);
+    if (!org) {
+      throw new Error("Organisation nicht gefunden");
+    }
+
+    return await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "organization_settings",
+      subtype: KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+      name: `${org.slug}-settings-${KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE}`,
+      status: "active",
+      customProperties: normalizedConfig,
+      createdBy: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
   },
 });
 
@@ -916,4 +1175,3 @@ export const getAndIncrementInvoiceNumber = internalMutation({
     };
   },
 });
-

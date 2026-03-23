@@ -45,6 +45,37 @@ import {
   UNIVERSAL_ONBOARDING_LIMITATION_DISCLOSURE_POLICY_LINES,
   UNIVERSAL_ONBOARDING_PROMPT_POLICY_LINES,
 } from "./universalOnboardingPolicy";
+import {
+  ANNE_BECKER_TEMPLATE_PLAYBOOK,
+  ANNE_BECKER_TEMPLATE_ROLE,
+  CLARA_TEMPLATE_PLAYBOOK,
+  CLARA_TEMPLATE_ROLE,
+  JONAS_TEMPLATE_PLAYBOOK,
+  JONAS_TEMPLATE_ROLE,
+  MAREN_TEMPLATE_PLAYBOOK,
+  MAREN_TEMPLATE_ROLE,
+  createAnneBeckerTelephonyConfigSeed,
+  createClaraTelephonyConfigSeed,
+  createJonasTelephonyConfigSeed,
+  createMarenTelephonyConfigSeed,
+  normalizeAgentTelephonyConfig,
+  toDeployableTelephonyConfig,
+} from "../../src/lib/telephony/agent-telephony";
+import {
+  LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+  PLATFORM_MOTHER_AUTHORITY_ROLE,
+  PLATFORM_MOTHER_CANONICAL_NAME,
+  PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+  PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+  PLATFORM_MOTHER_IDENTITY_ROLE,
+  PLATFORM_MOTHER_LEGACY_NAME,
+  PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
+  PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
+  PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+  PLATFORM_MOTHER_TEMPLATE_ROLE,
+  hasPlatformMotherTemplateRole,
+  matchesPlatformMotherIdentityName,
+} from "../platformMother";
 
 // ============================================================================
 // PLATFORM ORG IDENTIFICATION
@@ -71,6 +102,18 @@ const UNIVERSAL_AGENT_LANGUAGES = [
 
 type ReadCtx = QueryCtx | MutationCtx;
 type WriteCtx = MutationCtx;
+type OrgAgentRow = {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  type: string;
+  subtype?: string;
+  name: string;
+  description?: string;
+  status: string;
+  customProperties?: unknown;
+  createdAt: number;
+  updatedAt: number;
+};
 
 // Dynamic require to avoid TS2589 deep type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,6 +205,46 @@ function asRecord(value: unknown): Record<string, unknown> {
     return {};
   }
   return value as Record<string, unknown>;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+const TEMPLATE_LIFECYCLE_CONTRACT_VERSION = "ath_template_lifecycle_v1";
+const TEMPLATE_VERSION_OBJECT_TYPE = "org_agent_template_version";
+const PROTECTED_TEMPLATE_BOOTSTRAP_VERSION_TAG = "seed_bootstrap_v1";
+
+function pickProtectedTemplateLifecycleBaselineSnapshot(
+  customProperties: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!customProperties) {
+    return {};
+  }
+  const snapshot = { ...customProperties };
+  if (Object.prototype.hasOwnProperty.call(snapshot, "telephonyConfig")) {
+    snapshot.telephonyConfig = toDeployableTelephonyConfig(snapshot.telephonyConfig);
+  }
+  delete snapshot.totalMessages;
+  delete snapshot.totalCostUsd;
+  delete snapshot.templateLifecycleContractVersion;
+  delete snapshot.templateLifecycleStatus;
+  delete snapshot.templateLifecycleUpdatedAt;
+  delete snapshot.templateLifecycleUpdatedBy;
+  delete snapshot.templatePublishedVersion;
+  delete snapshot.templatePublishedVersionId;
+  delete snapshot.templateCurrentVersion;
+  delete snapshot.templateLastVersionSnapshotId;
+  return snapshot;
+}
+
+function buildProtectedTemplateBootstrapVersionTag(role: string): string {
+  const normalizedRole = role.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `${normalizedRole}_${PROTECTED_TEMPLATE_BOOTSTRAP_VERSION_TAG}`;
 }
 
 function assertOperatorSafeguards(args: {
@@ -382,8 +465,8 @@ async function insertAdminTrustEvent(
 // ============================================================================
 
 const QUINN_SOUL = {
-  name: "Quinn",
-  tagline: "Your first contact with sevenlayers operating system — here for a short setup handoff into your personal agent.",
+  name: PLATFORM_MOTHER_CANONICAL_NAME,
+  tagline: "Your direct line to the sevenlayers operating system — here for onboarding, platform help, and a clean handoff into your personal agent.",
   traits: [
     "warm",
     "efficient",
@@ -392,7 +475,7 @@ const QUINN_SOUL = {
     "encouraging",
   ],
   communicationStyle:
-    "Concise and friendly across every channel. Quinn keeps messages short, uses clean line breaks for readability, and adapts language and pacing to match the user.",
+    "Concise and friendly across every channel. Mother keeps messages short, uses clean line breaks for readability, and adapts language and pacing to match the user.",
   toneGuidelines:
     "Warm but professional. No corporate jargon. Emoji usage is minimal — one per message at most. Celebrates milestones with genuine enthusiasm.",
   coreValues: [
@@ -418,7 +501,7 @@ const QUINN_SOUL = {
     "Ask one question at a time",
     "Summarize collected info before finalizing workspace personalization",
     "Finalize handoff immediately once setup is complete",
-    "Explain that Quinn exits after handoff",
+    "Explain that Mother exits after handoff",
     "Keep messages under 3 lines on mobile",
   ],
   escalationTriggers: [
@@ -429,13 +512,13 @@ const QUINN_SOUL = {
     "Three consecutive misunderstandings",
   ],
   greetingStyle:
-    "Hey! I'm Quinn, your setup assistant on l4yercak3. I'll run a quick setup and then hand you to your personal agent.",
+    "Hey! I'm Mother, your platform guide on l4yercak3. I'll run a quick setup and then hand you to your personal agent.",
   closingStyle:
-    "All set. Your personal agent is now live, and Quinn signs off here.",
+    "All set. Your personal agent is now live, and Mother steps back here.",
   emojiUsage: "minimal" as const,
-  soulMarkdown: `# Quinn — l4yercak3 System Bot
+  soulMarkdown: `# Mother — l4yercak3 Platform Authority
 
-I'm Quinn, the first point of contact for everyone who discovers l4yercak3 via Telegram, webchat, or native guest chat.
+I'm Mother, the platform-owned point of contact for everyone who discovers l4yercak3 via Telegram, webchat, or native guest chat.
 
 My job is simple: turn a stranger into a happy user in under 2 minutes.
 
@@ -470,7 +553,7 @@ Once I have the basics, I check whether their workspace already exists. If it do
 // QUINN — SYSTEM PROMPT
 // ============================================================================
 
-const QUINN_SYSTEM_PROMPT = `You are Quinn, the l4yercak3 platform assistant.
+const QUINN_SYSTEM_PROMPT = `You are Mother, the l4yercak3 platform assistant.
 
 ROLE:
 - You are the global System Bot for Telegram, webchat, and native guest chat.
@@ -515,7 +598,7 @@ ONBOARDING LOGIC:
 - In audit mode, deliver one workflow recommendation before asking for email.
 - After the workflow recommendation is delivered, request email, then send the audit workflow results email.
 - Run full onboarding when user opts in to immersive personalization or requests a new workspace.
-- Never position Quinn as the user's permanent assistant.
+- Never position Mother as the user's permanent assistant.
 
 FULL ONBOARDING PATH:
 1. Baseline calibration (social energy, preferred voice, stress-response style)
@@ -541,7 +624,7 @@ RULES:
 
 export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
   templateName: UNIVERSAL_ONBOARDING_TEMPLATE_NAME,
-  description: "Global onboarding interview for Telegram, webchat, and native guest users. Quinn runs short first-contact setup, then hands off permanently to the user's personal agent.",
+  description: "Global onboarding interview for Telegram, webchat, and native guest users. Mother runs short first-contact setup, then hands off permanently to the user's personal agent.",
   version: 5,
   status: "active",
   estimatedMinutes: 4,
@@ -556,7 +639,7 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
       order: 1,
       isRequired: true,
       estimatedMinutes: 0.5,
-      introPrompt: "Detect the user's language from their greeting and respond in that language. Introduce yourself as Quinn.",
+      introPrompt: "Detect the user's language from their greeting and respond in that language. Introduce yourself as Mother.",
       completionPrompt: "Great. Next, identify their account status and primary goal.",
       questions: [
         {
@@ -781,7 +864,7 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
         value: "no",
       },
       introPrompt: "Reveal a compiled launch summary (workspace context first, trust teaser second), confirm one consistent operator voice, and ask for explicit confirmation.",
-      completionPrompt: "Your personal agent is ready. Quinn exits now, and the next message goes only to your agent.",
+      completionPrompt: "Your personal agent is ready. Mother exits now, and the next message goes only to your agent.",
       questions: [
         {
           questionId: "q_confirm",
@@ -829,8 +912,8 @@ export const ONBOARDING_INTERVIEW_TEMPLATE: InterviewTemplate = {
 // QUINN — FULL CUSTOM PROPERTIES (single source of truth for upsert)
 // ============================================================================
 
-const QUINN_CUSTOM_PROPERTIES = {
-  displayName: "Quinn",
+export const QUINN_CUSTOM_PROPERTIES = {
+  displayName: PLATFORM_MOTHER_CANONICAL_NAME,
   personality: "Warm, efficient, multilingual platform ambassador. Routes users through onboarding, account linking, and conversion flows in under 2 minutes.",
   language: "en",
   additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
@@ -869,12 +952,28 @@ const QUINN_CUSTOM_PROPERTIES = {
     { channel: "telegram", enabled: true },
     { channel: "webchat", enabled: true },
     { channel: "native_guest", enabled: true },
+    { channel: "phone_call", enabled: false },
   ],
   totalMessages: 0,
   totalCostUsd: 0,
   // System bot protection: template is the frozen canonical reference
   protected: true,
-  templateRole: "platform_system_bot_template",
+  authorityRole: PLATFORM_MOTHER_AUTHORITY_ROLE,
+  identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
+  runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
+  canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+  legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
+  canonicalTemplateRole: PLATFORM_MOTHER_TEMPLATE_ROLE,
+  templateRoleAliases: [
+    PLATFORM_MOTHER_TEMPLATE_ROLE,
+    LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+  ],
+  supportedRuntimeModes: [
+    PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
+    PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+    PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
+  ],
+  templateRole: LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
   templateLayer: "system_onboarding",
   templateScope: "platform",
   soulScope: {
@@ -888,6 +987,79 @@ const QUINN_CUSTOM_PROPERTIES = {
     spawnEnabled: false,
   },
 };
+
+const MOTHER_GOVERNANCE_SYSTEM_PROMPT = [
+  "You are Mother in governance mode, the platform-owned internal review authority for l4yercak3.",
+  "You never act as the customer's default operator and you never impersonate customer-owned agents.",
+  "Your job is to analyze platform changes, draft rollout and migration plans, and prepare approval packets.",
+  "Do not mutate customer-owned clones directly. All execution must remain approval-gated and auditable.",
+  "This runtime is internal and non-routable on customer transport channels.",
+].join("\n");
+
+const MOTHER_SUPPORT_SYSTEM_PROMPT = [
+  "You are Mother in support mode, the platform-owned customer-facing support authority for l4yercak3.",
+  "You help customers use the platform well, troubleshoot setup and workflow issues, and explain platform capabilities and constraints clearly.",
+  "You are never the customer's default operator and you never impersonate customer-owned One-of-One Operator clones or specialist agents.",
+  "You may capture improvement ideas and rollout requests, but you do not silently mutate customer-owned clones, templates, or org policy.",
+  "If a request would change canonical templates, managed clones, rollout policy, migrations, or governance rules, frame it as a proposal for review rather than executing it directly.",
+].join("\n");
+
+const {
+  canonicalTemplateRole: _motherCanonicalTemplateRole,
+  templateRole: _motherTemplateRole,
+  templateRoleAliases: _motherTemplateRoleAliases,
+  ...MOTHER_GOVERNANCE_BASE_CUSTOM_PROPERTIES
+} = QUINN_CUSTOM_PROPERTIES;
+
+export const MOTHER_SUPPORT_RUNTIME_SEED = {
+  name: "Mother Support",
+  subtype: "system",
+  description: "Protected Mother support runtime for explicit customer platform-help conversations.",
+  runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+  customProperties: {
+    ...MOTHER_GOVERNANCE_BASE_CUSTOM_PROPERTIES,
+    agentClass: "internal_operator",
+    displayName: PLATFORM_MOTHER_CANONICAL_NAME,
+    systemPrompt: MOTHER_SUPPORT_SYSTEM_PROMPT,
+    toolProfile: "support",
+    enabledTools: [],
+    disabledTools: [],
+    channelBindings: [
+      { channel: "telegram", enabled: false },
+      { channel: "webchat", enabled: true },
+      { channel: "native_guest", enabled: false },
+      { channel: "phone_call", enabled: false },
+    ],
+    runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+    runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+    sourceTemplateRole: LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+  },
+} as const;
+
+export const MOTHER_GOVERNANCE_RUNTIME_SEED = {
+  name: "Mother Governance",
+  subtype: "system",
+  description: "Protected Mother governance runtime for internal rollout review, migration planning, and approval-gated platform execution.",
+  runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+  customProperties: {
+    ...MOTHER_GOVERNANCE_BASE_CUSTOM_PROPERTIES,
+    agentClass: "internal_operator",
+    displayName: PLATFORM_MOTHER_CANONICAL_NAME,
+    systemPrompt: MOTHER_GOVERNANCE_SYSTEM_PROMPT,
+    toolProfile: "readonly",
+    enabledTools: [],
+    disabledTools: [],
+    channelBindings: [
+      { channel: "telegram", enabled: false },
+      { channel: "webchat", enabled: false },
+      { channel: "native_guest", enabled: false },
+      { channel: "phone_call", enabled: false },
+    ],
+    runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
+    runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    sourceTemplateRole: LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+  },
+} as const;
 
 const SAMANTHA_LEAD_CAPTURE_WORKER_NAME = "Samantha Lead Capture 1";
 const SAMANTHA_WARM_LEAD_CAPTURE_WORKER_NAME = "Samantha Warm Lead Capture 1";
@@ -984,6 +1156,7 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
     { channel: "webchat", enabled: true },
     { channel: "native_guest", enabled: true },
     { channel: "telegram", enabled: false },
+    { channel: "phone_call", enabled: true },
   ],
   totalMessages: 0,
   totalCostUsd: 0,
@@ -1026,7 +1199,7 @@ const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   },
 };
 
-const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
+export const SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
   name: "Samantha Lead Capture Consultant",
   subtype: "general",
   description:
@@ -1045,7 +1218,7 @@ const SAMANTHA_WARM_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   templateRole: SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_ROLE,
 };
 
-const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
+export const SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED: ProtectedTemplateAgentSeed = {
   name: "Samantha Warm Lead Capture Consultant",
   subtype: "general",
   description:
@@ -1099,6 +1272,14 @@ type ProtectedTemplateAgentSeed = {
   customProperties: Record<string, unknown>;
 };
 
+type ProtectedRuntimeSeed = {
+  name: string;
+  subtype: string;
+  description: string;
+  runtimeRole: string;
+  customProperties: Record<string, unknown>;
+};
+
 const USE_CASE_CLONE_POLICY_DEFAULTS = {
   spawnEnabled: true,
   maxClonesPerOrg: 12,
@@ -1108,6 +1289,12 @@ const USE_CASE_CLONE_POLICY_DEFAULTS = {
 };
 const PERSONAL_OPERATOR_TEMPLATE_PLAYBOOK = "personal_operator";
 const PERSONAL_OPERATOR_TEMPLATE_ROLE = "personal_life_operator_template";
+export const AGENCY_CHILD_ORG_PM_TEMPLATE_ROLE = "agency_child_org_pm_template";
+const AGENCY_CHILD_ORG_PM_TEMPLATE_PLAYBOOK = "agency_child_org_pm";
+export const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE =
+  "agency_child_org_customer_service_template";
+const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_PLAYBOOK =
+  "agency_child_org_customer_service";
 const DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLES = [
   "orchestration_runtime_planner_template",
   "orchestration_data_link_specialist_template",
@@ -1121,13 +1308,14 @@ const DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLE_SET = new Set<string>(
 
 function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown> {
   return {
+    agentClass: "internal_operator",
     displayName: "One-of-One Operator",
     personality:
-      "One-of-one operations specialist for calendar-aware coordination, Slack onboarding readiness, and vacation policy setup with deterministic outreach boundaries.",
+      "One-of-one operator orchestrator for calendar-aware coordination, Slack onboarding readiness, and vacation policy setup with deterministic outreach boundaries.",
     language: "en",
     additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
     systemPrompt:
-      "You are the One-of-One Operator template. Coordinate calendar/contacts/booking operations, run Slack+Calendar onboarding readiness before any Slack onboarding write, require explicit confirmation before each onboarding mutation, and keep appointment outreach in sandbox domain autonomy until explicit promotion evidence exists.",
+      "You are the One-of-One Operator template. Act as the default operator/orchestrator for desktop and Slack authority, coordinate calendar/contacts/booking operations, run Slack+Calendar onboarding readiness before any Slack onboarding write, require explicit confirmation before each onboarding mutation, and keep appointment outreach in sandbox domain autonomy until explicit promotion evidence exists.",
     faqEntries: [],
     knowledgeBaseTags: [
       "personal_operator",
@@ -1137,6 +1325,7 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
     ],
     toolProfile: "personal_operator",
     enabledTools: [
+      "configure_agent_fields",
       "check_slack_calendar_onboarding_readiness",
       "start_slack_workspace_connect",
       "save_pharmacist_vacation_policy",
@@ -1169,9 +1358,12 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
     temperature: 0.3,
     maxTokens: 4096,
     channelBindings: [
+      { channel: "desktop", enabled: true },
+      { channel: "slack", enabled: true },
       { channel: "webchat", enabled: true },
       { channel: "telegram", enabled: true },
       { channel: "native_guest", enabled: true },
+      { channel: "phone_call", enabled: true },
     ],
     unifiedPersonality: true,
     teamAccessMode: "invisible",
@@ -1197,17 +1389,374 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
   };
 }
 
-const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+export const PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
   name: "One-of-One Operator",
-  subtype: "booking_agent",
+  subtype: "general",
   description:
-    "Protected one-of-one operator template for appointment planning, Slack/vacation-policy onboarding readiness flows, and constrained booking outreach defaults.",
+    "Protected one-of-one operator template for default desktop/slack orchestration, appointment planning, Slack/vacation-policy onboarding readiness flows, and constrained booking outreach defaults.",
   role: PERSONAL_OPERATOR_TEMPLATE_ROLE,
   customProperties: buildPersonalOperatorTemplateCustomProperties(),
 };
-const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
+
+function buildAgencyChildOrgPmTemplateCustomProperties(): Record<string, unknown> {
+  return {
+    agentClass: "internal_operator",
+    displayName: "Client Project Manager",
+    personality:
+      "Internal child-org specialist for client delivery coordination, operational follow-through, and parent-agency escalation. Supports the default operator but is never the default authority route.",
+    language: "en",
+    additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
+    systemPrompt:
+      "You are the child-org project manager specialist template. Coordinate internal client setup, summarize customer issues for the operator, and escalate cross-org or authority-sensitive work instead of impersonating the default operator authority.",
+    faqEntries: [],
+    knowledgeBaseTags: [
+      "agency_child_org",
+      "pm_specialist",
+      "protected_template",
+    ],
+    toolProfile: "general",
+    enabledTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "list_events",
+      "create_event",
+      "update_event",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    disabledTools: [],
+    autonomyLevel: "supervised",
+    maxMessagesPerDay: 250,
+    maxCostPerDay: 12,
+    requireApprovalFor: [],
+    blockedTopics: [],
+    modelProvider: "openrouter",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
+    temperature: 0.3,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "desktop", enabled: false },
+      { channel: "slack", enabled: false },
+      { channel: "webchat", enabled: false },
+      { channel: "telegram", enabled: false },
+      { channel: "native_guest", enabled: false },
+      { channel: "phone_call", enabled: false },
+    ],
+    unifiedPersonality: true,
+    teamAccessMode: "invisible",
+    dreamTeamSpecialists: [],
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: "agency_child_org",
+    templateRole: AGENCY_CHILD_ORG_PM_TEMPLATE_ROLE,
+    templatePlaybook: AGENCY_CHILD_ORG_PM_TEMPLATE_PLAYBOOK,
+    clonePolicy: {
+      ...USE_CASE_CLONE_POLICY_DEFAULTS,
+      allowedPlaybooks: [AGENCY_CHILD_ORG_PM_TEMPLATE_PLAYBOOK],
+    },
+  };
+}
+
+export const AGENCY_CHILD_ORG_PM_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Agency Child Org Project Manager",
+  subtype: "pm",
+  description:
+    "Protected child-org PM specialist template for internal delivery coordination without taking over the default operator authority rail.",
+  role: AGENCY_CHILD_ORG_PM_TEMPLATE_ROLE,
+  customProperties: buildAgencyChildOrgPmTemplateCustomProperties(),
+};
+
+function buildAgencyChildOrgCustomerServiceTemplateCustomProperties(): Record<string, unknown> {
+  return {
+    agentClass: "external_customer_facing",
+    displayName: "Customer Service",
+    personality:
+      "Customer-facing child-org specialist for Telegram and webchat conversations. Handles questions, bookings, and clean escalation into internal operations without exposing internal hierarchy.",
+    language: "en",
+    additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
+    systemPrompt:
+      "You are the child-org customer service specialist template. Handle inbound customer conversations, keep the experience simple and helpful, and escalate operationally sensitive work to the internal PM/operator without exposing internal routing.",
+    faqEntries: [],
+    knowledgeBaseTags: [
+      "agency_child_org",
+      "customer_service",
+      "protected_template",
+    ],
+    toolProfile: "support",
+    enabledTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    disabledTools: [],
+    autonomyLevel: "supervised",
+    maxMessagesPerDay: 300,
+    maxCostPerDay: 15,
+    requireApprovalFor: [],
+    blockedTopics: [],
+    modelProvider: "openrouter",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
+    temperature: 0.3,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "desktop", enabled: false },
+      { channel: "slack", enabled: false },
+      { channel: "webchat", enabled: true },
+      { channel: "telegram", enabled: true },
+      { channel: "native_guest", enabled: true },
+      { channel: "phone_call", enabled: false },
+    ],
+    unifiedPersonality: true,
+    teamAccessMode: "invisible",
+    dreamTeamSpecialists: [],
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: "agency_child_org",
+    templateRole: AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE,
+    templatePlaybook: AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_PLAYBOOK,
+    clonePolicy: {
+      ...USE_CASE_CLONE_POLICY_DEFAULTS,
+      allowedPlaybooks: [AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_PLAYBOOK],
+    },
+  };
+}
+
+export const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Agency Child Org Customer Service",
+  subtype: "customer_service",
+  description:
+    "Protected child-org customer-facing specialist template for Telegram/webchat testing and customer routing.",
+  role: AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE,
+  customProperties: buildAgencyChildOrgCustomerServiceTemplateCustomProperties(),
+};
+
+function buildProtectedCustomerTelephonyTemplateCustomProperties(args: {
+  displayName: string;
+  personality: string;
+  knowledgeBaseTags: string[];
+  enabledTools: string[];
+  requiredTools: string[];
+  blockedTopics?: string[];
+  templateRole: string;
+  templatePlaybook: string;
+  telephonyConfig: unknown;
+}): Record<string, unknown> {
+  const normalizedBlockedTopics = args.blockedTopics ?? [
+    "legal advice",
+    "tax advice",
+    "medical advice",
+  ];
+  return {
+    agentClass: "external_customer_facing",
+    displayName: args.displayName,
+    personality: args.personality,
+    language: "de",
+    voiceLanguage: "de",
+    additionalLanguages: ["de", "en"],
+    systemPrompt: normalizeAgentTelephonyConfig(args.telephonyConfig).elevenlabs.systemPrompt,
+    faqEntries: [],
+    knowledgeBaseTags: args.knowledgeBaseTags,
+    toolProfile: "booking",
+    enabledTools: args.enabledTools,
+    disabledTools: [],
+    autonomyLevel: "supervised",
+    maxMessagesPerDay: 300,
+    maxCostPerDay: 20,
+    requireApprovalFor: [],
+    blockedTopics: normalizedBlockedTopics,
+    modelProvider: "openrouter",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
+    temperature: 0.3,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "phone_call", enabled: true },
+      { channel: "webchat", enabled: false },
+      { channel: "telegram", enabled: false },
+      { channel: "native_guest", enabled: false },
+    ],
+    requiredTools: args.requiredTools,
+    requiredCapabilities: ["channel:phone_call", "provider:elevenlabs"],
+    telephonyConfig: args.telephonyConfig,
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: "customer_telephony",
+    templateRole: args.templateRole,
+    templatePlaybook: args.templatePlaybook,
+    clonePolicy: {
+      ...USE_CASE_CLONE_POLICY_DEFAULTS,
+      allowedPlaybooks: [args.templatePlaybook],
+    },
+  };
+}
+
+function buildClaraTemplateCustomProperties(): Record<string, unknown> {
+  return buildProtectedCustomerTelephonyTemplateCustomProperties({
+    displayName: "Clara",
+    personality:
+      "German-first AI receptionist for the platform core wedge. Handles front-door phone intake, keeps the demo or deployment grounded, and routes callers cleanly into qualification or booking.",
+    knowledgeBaseTags: [
+      "customer_telephony",
+      "core_wedge",
+      "clara",
+      "reception",
+      "front_door",
+    ],
+    enabledTools: ["create_contact", "search_contacts", "update_contact", "escalate_to_human"],
+    requiredTools: ["create_contact", "search_contacts", "update_contact", "escalate_to_human"],
+    templateRole: CLARA_TEMPLATE_ROLE,
+    templatePlaybook: CLARA_TEMPLATE_PLAYBOOK,
+    telephonyConfig: createClaraTelephonyConfigSeed(),
+  });
+}
+
+export const CLARA_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Clara Customer Telephony",
+  subtype: "customer_support",
+  description:
+    "Protected platform telephony template for receptionist intake, front-door routing, and the Clara/Jonas/Maren core wedge.",
+  role: CLARA_TEMPLATE_ROLE,
+  customProperties: buildClaraTemplateCustomProperties(),
+};
+
+function buildJonasTemplateCustomProperties(): Record<string, unknown> {
+  return buildProtectedCustomerTelephonyTemplateCustomProperties({
+    displayName: "Jonas",
+    personality:
+      "German-first qualification specialist for the platform core wedge. Keeps intake short, identifies urgency, and produces a clear next route without drifting into booking.",
+    knowledgeBaseTags: [
+      "customer_telephony",
+      "core_wedge",
+      "jonas",
+      "qualification",
+      "intake_triage",
+    ],
+    enabledTools: ["create_contact", "search_contacts", "update_contact", "escalate_to_human"],
+    requiredTools: ["create_contact", "search_contacts", "update_contact", "escalate_to_human"],
+    templateRole: JONAS_TEMPLATE_ROLE,
+    templatePlaybook: JONAS_TEMPLATE_PLAYBOOK,
+    telephonyConfig: createJonasTelephonyConfigSeed(),
+  });
+}
+
+export const JONAS_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Jonas Lead Qualification Telephony",
+  subtype: "sales_agent",
+  description:
+    "Protected platform telephony template for qualification, urgency assessment, and routing inside the Clara/Jonas/Maren core wedge.",
+  role: JONAS_TEMPLATE_ROLE,
+  customProperties: buildJonasTemplateCustomProperties(),
+};
+
+function buildMarenTemplateCustomProperties(): Record<string, unknown> {
+  return buildProtectedCustomerTelephonyTemplateCustomProperties({
+    displayName: "Maren",
+    personality:
+      "German-first appointment coordinator for the platform core wedge. Demonstrates booking, rescheduling, cancellation recovery, and next-best slot logic cleanly.",
+    knowledgeBaseTags: [
+      "customer_telephony",
+      "core_wedge",
+      "maren",
+      "booking",
+      "appointment_coordination",
+    ],
+    enabledTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    requiredTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    templateRole: MAREN_TEMPLATE_ROLE,
+    templatePlaybook: MAREN_TEMPLATE_PLAYBOOK,
+    telephonyConfig: createMarenTelephonyConfigSeed(),
+  });
+}
+
+export const MAREN_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Maren Appointment Coordination Telephony",
+  subtype: "booking_agent",
+  description:
+    "Protected platform telephony template for booking, rescheduling, and scheduling recovery inside the Clara/Jonas/Maren core wedge.",
+  role: MAREN_TEMPLATE_ROLE,
+  customProperties: buildMarenTemplateCustomProperties(),
+};
+
+function buildAnneBeckerTemplateCustomProperties(): Record<string, unknown> {
+  return buildProtectedCustomerTelephonyTemplateCustomProperties({
+    displayName: "Anne Becker",
+    personality:
+      "Calm, discreet, German-first real-estate intake assistant for Marcus Engel Immobilien. Qualifies inbound phone requests, captures the minimum useful callback detail, and stays rigorously truth-first.",
+    knowledgeBaseTags: [
+      "marcus_engel_immobilien",
+      "customer_telephony",
+      "real_estate_intake",
+      "callback_capture",
+    ],
+    enabledTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    requiredTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    blockedTopics: ["legal advice", "tax advice"],
+    templateRole: ANNE_BECKER_TEMPLATE_ROLE,
+    templatePlaybook: ANNE_BECKER_TEMPLATE_PLAYBOOK,
+    telephonyConfig: createAnneBeckerTelephonyConfigSeed(),
+  });
+}
+
+export const ANNE_BECKER_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Anne Becker Customer Telephony",
+  subtype: "customer_support",
+  description:
+    "Protected Marcus Engel Immobilien customer-facing telephony template for inbound intake, callback capture, and telephony provider sync.",
+  role: ANNE_BECKER_TEMPLATE_ROLE,
+  customProperties: buildAnneBeckerTemplateCustomProperties(),
+};
+
+export const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
   PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
+  AGENCY_CHILD_ORG_PM_TEMPLATE_AGENT_SEED,
+  AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_AGENT_SEED,
+  CLARA_TEMPLATE_AGENT_SEED,
+  JONAS_TEMPLATE_AGENT_SEED,
+  MAREN_TEMPLATE_AGENT_SEED,
+  ANNE_BECKER_TEMPLATE_AGENT_SEED,
 ];
+
+function readRuntimeRole(customProperties: Record<string, unknown> | null | undefined): string | null {
+  if (!customProperties) {
+    return null;
+  }
+  const runtimeRole = customProperties.runtimeRole;
+  return typeof runtimeRole === "string" && runtimeRole.trim().length > 0
+    ? runtimeRole.trim()
+    : null;
+}
 
 async function upsertProtectedTemplateAgent(
   ctx: WriteCtx,
@@ -1268,6 +1817,197 @@ async function upsertProtectedTemplateAgent(
   });
 
   return { agentId, created: true };
+}
+
+async function upsertProtectedRuntimeAgent(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    now: number;
+    seed: ProtectedRuntimeSeed;
+  },
+): Promise<{ agentId: Id<"objects">; created: boolean }> {
+  const existingAgents = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "org_agent")
+    )
+    .collect() as OrgAgentRow[];
+
+  const existing = existingAgents.find((candidate) => {
+    const props = asRecord(candidate.customProperties);
+    return readRuntimeRole(props) === args.seed.runtimeRole || candidate.name === args.seed.name;
+  });
+
+  if (existing) {
+    const liveProps = asRecord(existing.customProperties);
+    await ctx.db.patch(existing._id, {
+      subtype: args.seed.subtype,
+      description: args.seed.description,
+      status: "active",
+      customProperties: {
+        ...args.seed.customProperties,
+        totalMessages: typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
+        totalCostUsd: typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
+      },
+      updatedAt: args.now,
+    });
+    return { agentId: existing._id, created: false };
+  }
+
+  const agentId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "org_agent",
+    subtype: args.seed.subtype,
+    name: args.seed.name,
+    description: args.seed.description,
+    status: "active",
+    customProperties: args.seed.customProperties,
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: agentId,
+    actionType: "seeded",
+    actionData: {
+      agent: args.seed.name,
+      subtype: args.seed.subtype,
+      runtimeRole: args.seed.runtimeRole,
+    },
+    performedAt: args.now,
+  });
+
+  return { agentId, created: true };
+}
+
+export async function ensureProtectedTemplateLifecycleBootstrap(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    now: number;
+    templateId: Id<"objects">;
+    seed: ProtectedTemplateAgentSeed;
+  },
+): Promise<{
+  bootstrapped: boolean;
+  templateVersionId: Id<"objects"> | null;
+  versionTag: string | null;
+  skippedReason?: "already_published" | "existing_versions_present" | "template_missing";
+}> {
+  const template = await ctx.db.get(args.templateId);
+  if (!template || template.type !== "org_agent" || template.status !== "template") {
+    return {
+      bootstrapped: false,
+      templateVersionId: null,
+      versionTag: null,
+      skippedReason: "template_missing",
+    };
+  }
+
+  const templateProps = asRecord(template.customProperties);
+  const publishedVersionId = normalizeOptionalString(
+    templateProps.templatePublishedVersionId,
+  );
+  const publishedVersionTag = normalizeOptionalString(
+    templateProps.templatePublishedVersion,
+  );
+  if (publishedVersionId && publishedVersionTag) {
+    return {
+      bootstrapped: false,
+      templateVersionId: publishedVersionId as Id<"objects">,
+      versionTag: publishedVersionTag,
+      skippedReason: "already_published",
+    };
+  }
+
+  const existingVersions = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", TEMPLATE_VERSION_OBJECT_TYPE),
+    )
+    .collect();
+  const templateVersions = existingVersions.filter((row) => {
+    const customProperties = asRecord(row.customProperties);
+    return normalizeOptionalString(customProperties.sourceTemplateId) === String(args.templateId);
+  });
+  if (templateVersions.length > 0) {
+    return {
+      bootstrapped: false,
+      templateVersionId: null,
+      versionTag: null,
+      skippedReason: "existing_versions_present",
+    };
+  }
+
+  const versionTag = buildProtectedTemplateBootstrapVersionTag(args.seed.role);
+  const snapshot = {
+    name: template.name,
+    description: template.description,
+    subtype: template.subtype,
+    status: template.status,
+    baselineCustomProperties: pickProtectedTemplateLifecycleBaselineSnapshot(templateProps),
+  };
+
+  const templateVersionId = await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: TEMPLATE_VERSION_OBJECT_TYPE,
+    subtype: normalizeOptionalString(template.subtype) || "general",
+    name: `${template.name} @ ${versionTag}`,
+    description: `Bootstrap lifecycle snapshot for protected template ${template.name}`,
+    status: "template_version",
+    customProperties: {
+      sourceTemplateId: String(args.templateId),
+      sourceTemplateName: template.name,
+      versionTag,
+      lifecycleStatus: "published",
+      immutableSnapshot: true,
+      summary: "Initial published lifecycle bootstrap created during protected template seed.",
+      snapshotCreatedAt: args.now,
+      snapshotCreatedBy: "platform_seed",
+      publishedAt: args.now,
+      publishedBy: "platform_seed",
+      snapshot,
+    },
+    createdAt: args.now,
+    updatedAt: args.now,
+  });
+
+  await ctx.db.patch(args.templateId, {
+    customProperties: {
+      ...templateProps,
+      templateVersion: versionTag,
+      templatePublishedVersion: versionTag,
+      templatePublishedVersionId: String(templateVersionId),
+      templateCurrentVersion: versionTag,
+      templateLastVersionSnapshotId: String(templateVersionId),
+      templateLifecycleContractVersion: TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+      templateLifecycleStatus: "published",
+      templateLifecycleUpdatedAt: args.now,
+      templateLifecycleUpdatedBy: "platform_seed",
+    },
+    updatedAt: args.now,
+  });
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: args.templateId,
+    actionType: "template_lifecycle_bootstrapped",
+    actionData: {
+      role: args.seed.role,
+      templateVersionId,
+      versionTag,
+      contractVersion: TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+    },
+    performedAt: args.now,
+  });
+
+  return {
+    bootstrapped: true,
+    templateVersionId,
+    versionTag,
+  };
 }
 
 async function upsertLeadCaptureWorker(
@@ -1387,9 +2127,14 @@ export const seedAll = internalMutation({
       )
       .collect();
 
-    const existingQuinn = existingAgents.find(
-      (a) => a.subtype === "system" && a.name === "Quinn"
-    );
+    const existingQuinn = existingAgents.find((a) => {
+      if (a.status !== "template" || a.subtype !== "system") {
+        return false;
+      }
+      const props = asRecord(a.customProperties);
+      return hasPlatformMotherTemplateRole(props)
+        || matchesPlatformMotherIdentityName(a.name, props);
+    });
 
     let quinnId: Id<"objects">;
 
@@ -1399,6 +2144,7 @@ export const seedAll = internalMutation({
       // Preserve runtime stats from the live record
       const liveProps = asRecord(existingQuinn.customProperties);
       await ctx.db.patch(quinnId, {
+        name: "Quinn",
         description: "l4yercak3 System Bot — template for onboarding workers",
         status: "template",
         customProperties: {
@@ -1441,7 +2187,9 @@ export const seedAll = internalMutation({
 
     const existingWorkers = existingAgents.filter((a) => {
       const props = asRecord(a.customProperties);
-      return a.status === "active" && `${props.templateAgentId || ""}` === `${quinnId}`;
+      return a.status === "active"
+        && `${props.templateAgentId || ""}` === `${quinnId}`
+        && props.workerPoolRole === "onboarding_worker";
     });
 
     let initialWorkerId: Id<"objects"> | null = null;
@@ -1456,7 +2204,7 @@ export const seedAll = internalMutation({
         status: "active",
         customProperties: {
           ...QUINN_CUSTOM_PROPERTIES,
-          displayName: "Quinn Worker 1",
+          displayName: PLATFORM_MOTHER_CANONICAL_NAME,
           status: "active",
           templateAgentId: quinnId,
           workerPoolRole: "onboarding_worker",
@@ -1476,8 +2224,53 @@ export const seedAll = internalMutation({
 
       console.log(`[seedPlatformAgents] Initial Quinn worker spawned: ${initialWorkerId}`);
     } else {
-      console.log(`[seedPlatformAgents] ${existingWorkers.length} worker(s) already exist — skipped`);
+      for (const worker of existingWorkers) {
+        const liveProps = asRecord(worker.customProperties);
+        await ctx.db.patch(worker._id, {
+          subtype: "system",
+          description: worker.description ?? "Quinn onboarding worker (seeded)",
+          status: "active",
+          customProperties: {
+            ...QUINN_CUSTOM_PROPERTIES,
+            displayName:
+              typeof liveProps.displayName === "string" && liveProps.displayName.trim().length > 0
+                ? liveProps.displayName
+                : PLATFORM_MOTHER_CANONICAL_NAME,
+            status: "active",
+            templateAgentId: quinnId,
+            workerPoolRole: "onboarding_worker",
+            lastActiveSessionAt:
+              typeof liveProps.lastActiveSessionAt === "number"
+                ? liveProps.lastActiveSessionAt
+                : now,
+            totalMessages:
+              typeof liveProps.totalMessages === "number" ? liveProps.totalMessages : 0,
+            totalCostUsd:
+              typeof liveProps.totalCostUsd === "number" ? liveProps.totalCostUsd : 0,
+          },
+          updatedAt: now,
+        });
+      }
+      console.log(`[seedPlatformAgents] ${existingWorkers.length} worker(s) already exist — refreshed`);
     }
+
+    const motherSupportRuntimeResult = await upsertProtectedRuntimeAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: MOTHER_SUPPORT_RUNTIME_SEED,
+    });
+    console.log(
+      `[seedPlatformAgents] ${MOTHER_SUPPORT_RUNTIME_SEED.name} upserted (${motherSupportRuntimeResult.created ? "created" : "updated"}): ${motherSupportRuntimeResult.agentId}`,
+    );
+
+    const motherGovernanceRuntimeResult = await upsertProtectedRuntimeAgent(ctx, {
+      organizationId: platformOrgId,
+      now,
+      seed: MOTHER_GOVERNANCE_RUNTIME_SEED,
+    });
+    console.log(
+      `[seedPlatformAgents] ${MOTHER_GOVERNANCE_RUNTIME_SEED.name} upserted (${motherGovernanceRuntimeResult.created ? "created" : "updated"}): ${motherGovernanceRuntimeResult.agentId}`,
+    );
 
     // ------------------------------------------------------------------
     // 1c. UPSERT PROTECTED SPECIALIST/PERSONAL-OPERATOR TEMPLATE AGENTS
@@ -1505,6 +2298,18 @@ export const seedAll = internalMutation({
       console.log(
         `[seedPlatformAgents] ${seed.name} upserted (${result.created ? "created" : "updated"}): ${result.agentId}`,
       );
+
+      const lifecycleBootstrap = await ensureProtectedTemplateLifecycleBootstrap(ctx, {
+        organizationId: platformOrgId,
+        now,
+        templateId: result.agentId,
+        seed,
+      });
+      if (lifecycleBootstrap.bootstrapped) {
+        console.log(
+          `[seedPlatformAgents] ${seed.name} lifecycle bootstrapped (${lifecycleBootstrap.versionTag}): ${lifecycleBootstrap.templateVersionId}`,
+        );
+      }
     }
 
     const personalOperatorTemplateResult = specialistTemplateResults.find(
@@ -1726,14 +2531,20 @@ export const seedAll = internalMutation({
       success: true,
       platformOrgId,
       quinnId,
+      platformMotherTemplateId: quinnId,
       specialistTemplateAgents: specialistTemplateResults,
       templateId,
       trustTrainingTemplateId: trustTrainingTemplateResult.templateId,
       customerBaselineTemplateId: customerBaselineTemplateResult.templateId,
       quinnCreated: !existingQuinn,
+      platformMotherTemplateCreated: !existingQuinn,
       templateCreated: !existingOnboardingTemplate,
       trustTrainingTemplateCreated: trustTrainingTemplateResult.created,
       customerBaselineTemplateCreated: customerBaselineTemplateResult.created,
+      motherSupportRuntimeId: motherSupportRuntimeResult.agentId,
+      motherSupportRuntimeCreated: motherSupportRuntimeResult.created,
+      motherGovernanceRuntimeId: motherGovernanceRuntimeResult.agentId,
+      motherGovernanceRuntimeCreated: motherGovernanceRuntimeResult.created,
       personalLifeOperatorTemplateId: personalOperatorTemplateResult?.agentId ?? null,
       personalLifeOperatorTemplateCreated: personalOperatorTemplateResult?.created ?? false,
       samanthaLeadCaptureTemplateId: samanthaTemplateResult.agentId,

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { ensureTemplateManagedDefaultAgentForOrgInternal } from "../../../convex/agentOntology";
+import {
+  ensureOperatorAuthorityAgentForOrgInternal,
+  ensureTemplateManagedDefaultAgentForOrgInternal,
+  resolveActiveAgentForOrgCandidates,
+} from "../../../convex/agentOntology";
 
 type FakeRow = Record<string, any> & { _id: string };
 
@@ -125,13 +129,18 @@ function seedDefaultTemplate(db: FakeDb, templateId: Id<"objects">) {
     description: "Template for org default operator",
     status: "template",
     customProperties: {
+      agentClass: "internal_operator",
       protected: true,
       templateRole: "personal_life_operator_template",
       displayName: "Personal Operator",
-      toolProfile: "admin",
+      toolProfile: "personal_operator",
       enabledTools: ["draft_message"],
       disabledTools: [],
-      channelBindings: [{ channel: "desktop", enabled: true }],
+      channelBindings: [
+        { channel: "desktop", enabled: true },
+        { channel: "slack", enabled: true },
+        { channel: "webchat", enabled: true },
+      ],
       templateLifecycleStatus: "published",
       templatePublishedVersion: "v1",
       totalMessages: 0,
@@ -190,7 +199,9 @@ describe("default template clone provisioning on org creation", () => {
 
     const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
     expect(orgAgents).toHaveLength(1);
+    expect(orgAgents[0]?.subtype).toBe("general");
     expect(orgAgents[0]?.status).toBe("active");
+    expect(orgAgents[0]?.customProperties?.agentClass).toBe("internal_operator");
     expect(orgAgents[0]?.customProperties?.templateAgentId).toBe(templateId);
     expect(orgAgents[0]?.customProperties?.cloneLifecycle).toBe(
       "managed_use_case_clone_v1",
@@ -201,27 +212,28 @@ describe("default template clone provisioning on org creation", () => {
     expect(
       orgAgents[0]?.customProperties?.templateCloneLinkage?.contractVersion,
     ).toBe("ath_template_clone_linkage_v1");
+
+    const routedDesktopAgent = resolveActiveAgentForOrgCandidates(orgAgents as any, {
+      channel: "desktop",
+    });
+    expect(routedDesktopAgent?._id).toBe(orgAgents[0]?._id);
   });
 
-  it("falls back to legacy ensureActive behavior when default template cannot be resolved", async () => {
+  it("fails closed when default template cannot be resolved", async () => {
     const db = new FakeDb();
 
-    const result = await (ensureTemplateManagedDefaultAgentForOrgInternal as any)._handler(
-      createCtx(db),
-      {
-        organizationId: TARGET_ORG_ID,
-        channel: "desktop",
-      },
-    );
-
-    expect(result.fallbackUsed).toBe(true);
-    expect(result.provisioningAction).toBe("fallback_created");
+    await expect(
+      (ensureTemplateManagedDefaultAgentForOrgInternal as any)._handler(
+        createCtx(db),
+        {
+          organizationId: TARGET_ORG_ID,
+          channel: "desktop",
+        },
+      )
+    ).rejects.toThrow(/Default org template role not found/);
 
     const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
-    expect(orgAgents).toHaveLength(1);
-    expect(orgAgents[0]?.name).toBe("One-of-One Operator");
-    expect(orgAgents[0]?.customProperties?.templateAgentId).toBeUndefined();
-    expect(orgAgents[0]?.customProperties?.templateCloneLinkage).toBeUndefined();
+    expect(orgAgents).toHaveLength(0);
   });
 
   it("is idempotent and upserts the same template clone without creating duplicates", async () => {
@@ -252,5 +264,136 @@ describe("default template clone provisioning on org creation", () => {
     const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
     expect(orgAgents).toHaveLength(1);
     expect(orgAgents[0]?.customProperties?.templateAgentId).toBe(templateId);
+  });
+
+  it("promotes a legacy desktop default agent into the managed operator clone", async () => {
+    const db = new FakeDb();
+    const templateId = "objects_default_template_promote" as Id<"objects">;
+    seedDefaultTemplate(db, templateId);
+    db.seed("objects", {
+      _id: "objects_legacy_default_agent",
+      organizationId: TARGET_ORG_ID,
+      type: "org_agent",
+      subtype: "general",
+      name: "One-of-One Operator",
+      description: "Auto-created primary operator agent",
+      status: "active",
+      customProperties: {
+        agentClass: "internal_operator",
+        displayName: "One-of-One Operator",
+        toolProfile: "admin",
+        creationSource: "admin_manual",
+        channelBindings: [{ channel: "desktop", enabled: true }],
+        totalMessages: 7,
+        totalCostUsd: 1.5,
+      },
+      createdAt: 1_700_000_000_100,
+      updatedAt: 1_700_000_000_100,
+    });
+
+    const result = await (ensureTemplateManagedDefaultAgentForOrgInternal as any)._handler(
+      createCtx(db),
+      {
+        organizationId: TARGET_ORG_ID,
+        channel: "desktop",
+      },
+    );
+
+    expect(result.fallbackUsed).toBe(false);
+    expect(result.provisioningAction).toBe("template_clone_promoted_legacy");
+    expect(result.agentId).toBe("objects_legacy_default_agent");
+
+    const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
+    expect(orgAgents).toHaveLength(1);
+    expect(orgAgents[0]?.customProperties?.templateAgentId).toBe(templateId);
+    expect(orgAgents[0]?.customProperties?.cloneLifecycle).toBe(
+      "managed_use_case_clone_v1",
+    );
+    expect(orgAgents[0]?.customProperties?.totalMessages).toBe(7);
+    expect(orgAgents[0]?.customProperties?.totalCostUsd).toBe(1.5);
+
+    const routedDesktopAgent = resolveActiveAgentForOrgCandidates(orgAgents as any, {
+      channel: "desktop",
+    });
+    expect(routedDesktopAgent?._id).toBe("objects_legacy_default_agent");
+  });
+
+  it("re-aligns an existing managed clone to the template's orchestrator subtype", async () => {
+    const db = new FakeDb();
+    const templateId = "objects_default_template_realign" as Id<"objects">;
+    seedDefaultTemplate(db, templateId);
+    db.seed("objects", {
+      _id: "objects_existing_managed_clone",
+      organizationId: TARGET_ORG_ID,
+      type: "org_agent",
+      subtype: "booking_agent",
+      name: "One-of-One Operator",
+      description: "Managed clone created before subtype normalization",
+      status: "active",
+      customProperties: {
+        agentClass: "internal_operator",
+        displayName: "One-of-One Operator",
+        toolProfile: "personal_operator",
+        templateAgentId: templateId,
+        templateVersion: "v0",
+        cloneLifecycle: "managed_use_case_clone_v1",
+        templateCloneLinkage: {
+          contractVersion: "ath_template_clone_linkage_v1",
+          sourceTemplateId: String(templateId),
+          sourceTemplateVersion: "v0",
+          overridePolicy: { mode: "warn", fields: {} },
+          cloneLifecycleState: "managed_in_sync",
+        },
+        channelBindings: [{ channel: "webchat", enabled: true }],
+      },
+      createdAt: 1_700_000_000_200,
+      updatedAt: 1_700_000_000_200,
+    });
+
+    const result = await (ensureTemplateManagedDefaultAgentForOrgInternal as any)._handler(
+      createCtx(db),
+      {
+        organizationId: TARGET_ORG_ID,
+        channel: "desktop",
+      },
+    );
+
+    expect(result.fallbackUsed).toBe(false);
+    expect(result.provisioningAction).toBe("template_clone_updated");
+    expect(result.agentId).toBe("objects_existing_managed_clone");
+
+    const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
+    expect(orgAgents).toHaveLength(1);
+    expect(orgAgents[0]?.subtype).toBe("general");
+
+    const routedDesktopAgent = resolveActiveAgentForOrgCandidates(orgAgents as any, {
+      channel: "desktop",
+    });
+    expect(routedDesktopAgent?._id).toBe("objects_existing_managed_clone");
+  });
+
+  it("routes future operator app surfaces onto the shared desktop authority bootstrap rail", async () => {
+    const db = new FakeDb();
+    const templateId = "objects_default_template_operator_surface" as Id<"objects">;
+    seedDefaultTemplate(db, templateId);
+
+    const result = await (ensureOperatorAuthorityAgentForOrgInternal as any)._handler(
+      createCtx(db),
+      {
+        organizationId: TARGET_ORG_ID,
+        appSurface: "iphone",
+      },
+    );
+
+    expect(result.fallbackUsed).toBe(false);
+    expect(result.authorityChannel).toBe("desktop");
+    expect(result.appSurface).toBe("iphone");
+
+    const orgAgents = listOrgAgents(db, TARGET_ORG_ID);
+    expect(orgAgents).toHaveLength(1);
+    const routedDesktopAgent = resolveActiveAgentForOrgCandidates(orgAgents as any, {
+      channel: "desktop",
+    });
+    expect(routedDesktopAgent?._id).toBe(result.agentId);
   });
 });

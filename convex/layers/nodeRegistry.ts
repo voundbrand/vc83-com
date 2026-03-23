@@ -582,7 +582,7 @@ const integrationNodes: NodeDefinition[] = [
     subcategory: "calendar",
     icon: "calcom",
     color: "#292929",
-    integrationStatus: "coming_soon",
+    integrationStatus: "available",
     requiresAuth: true,
     inputs: [standardInput],
     outputs: [standardOutput],

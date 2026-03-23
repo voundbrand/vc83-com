@@ -291,6 +291,7 @@ const BOOKING_PROFILE = [
 const PERSONAL_OPERATOR_PROFILE = [
   "check_oauth_connection",
   "escalate_to_human",
+  "configure_agent_fields",
   "create_contact",
   "search_contacts",
   "update_contact",

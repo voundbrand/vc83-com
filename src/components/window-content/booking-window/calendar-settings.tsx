@@ -22,14 +22,18 @@ interface GoogleConnectionResult {
     email: string
     status: string
     connectedAt: number
+    scopes?: string[]
     syncSettings?: { email: boolean; calendar: boolean; oneDrive: boolean; sharePoint: boolean }
+    lastSyncError?: string | null
   } | null
   organizational: {
     id: string
     email: string
     status: string
     connectedAt: number
+    scopes?: string[]
     syncSettings?: { email: boolean; calendar: boolean; oneDrive: boolean; sharePoint: boolean }
+    lastSyncError?: string | null
   } | null
 }
 
@@ -58,6 +62,19 @@ interface ConnectedCalendar {
   syncEnabled: boolean
   connectionId: string
   connectionType: "google" | "microsoft"
+}
+
+interface CalendarLinkSettings {
+  blockingCalendarIds: string[]
+  pushCalendarId: string | null
+  explicitBlockingConfigured: boolean
+  calendarSyncEnabled: boolean
+  canAccessCalendar: boolean
+  canWriteCalendar: boolean
+  connectionStatus: string
+  lastSyncError: string | null
+  primaryCalendarId: string | null
+  subCalendarCacheReady: boolean
 }
 
 export function CalendarSettings() {
@@ -99,10 +116,28 @@ export function CalendarSettings() {
     sessionId && organizationId && googleConnectionId
       ? { sessionId, organizationId, connectionId: googleConnectionId }
       : "skip"
-  ) as { blockingCalendarIds: string[]; pushCalendarId: string | null } | null | undefined
+  ) as CalendarLinkSettings | null | undefined
 
-  const blockingCalendarIds = calendarLinkSettings?.blockingCalendarIds ?? []
+  const googleCalendarConnection = googleConnection?.personal ?? null
+  const blockingCalendarIds = calendarLinkSettings?.blockingCalendarIds ?? (googleConnectionId ? ["primary"] : [])
   const pushCalendarId = calendarLinkSettings?.pushCalendarId ?? null
+  const googleSyncEnabled = calendarLinkSettings?.calendarSyncEnabled
+    ?? (googleCalendarConnection?.syncSettings?.calendar ?? false)
+  const googleCanAccessCalendar = calendarLinkSettings?.canAccessCalendar ?? false
+  const googleCanWriteCalendar = calendarLinkSettings?.canWriteCalendar ?? false
+  const googleConnectionStatus = calendarLinkSettings?.connectionStatus ?? googleCalendarConnection?.status ?? "missing"
+  const googleLastSyncError = calendarLinkSettings?.lastSyncError ?? googleCalendarConnection?.lastSyncError ?? null
+  const googleSubCalendarCacheReady = calendarLinkSettings?.subCalendarCacheReady ?? false
+  const googlePushControlsDisabled =
+    !googleConnectionId ||
+    googleConnectionStatus !== "active" ||
+    !googleSyncEnabled ||
+    !googleCanWriteCalendar
+  const googleBlockingControlsDisabled =
+    !googleConnectionId ||
+    googleConnectionStatus !== "active" ||
+    !googleSyncEnabled ||
+    !googleCanAccessCalendar
 
   // Mutations & actions
   const updateGoogleSync = useMutation(_api?.oauth?.google?.updateGoogleSyncSettings)
@@ -177,6 +212,7 @@ export function CalendarSettings() {
     const current = [...blockingCalendarIds]
     const idx = current.indexOf(calendarId)
     if (idx >= 0) {
+      if (current.length === 1) return
       current.splice(idx, 1)
     } else {
       current.push(calendarId)
@@ -195,7 +231,7 @@ export function CalendarSettings() {
       sessionId,
       organizationId,
       connectionId: googleConnectionId as any,
-      pushCalendarId: calendarId || undefined,
+      pushCalendarId: calendarId,
     })
   }, [sessionId, organizationId, googleConnectionId, updateCalendarLinkSettings])
 
@@ -257,6 +293,35 @@ export function CalendarSettings() {
           </p>
         </div>
 
+        {!googleConnectionId && (
+          <div
+            className="border px-3 py-2 text-xs"
+            style={{
+              borderColor: 'var(--shell-border)',
+              background: 'var(--shell-surface)',
+              color: 'var(--neutral-gray)',
+            }}
+          >
+            Connect Google Calendar to push confirmed bookings to an external calendar.
+          </div>
+        )}
+
+        {googleConnectionId && (
+          <div
+            className="border px-3 py-2 text-xs"
+            style={{
+              borderColor: googlePushControlsDisabled ? 'var(--warning)' : 'var(--shell-border)',
+              background: 'var(--shell-surface)',
+              color: googlePushControlsDisabled ? 'var(--warning)' : 'var(--neutral-gray)',
+            }}
+          >
+            {!googleSyncEnabled && "Google calendar sync is off. Native bookings stay internal until sync is re-enabled."}
+            {googleSyncEnabled && !googleCanWriteCalendar && "Reconnect Google with calendar write scope before outbound booking pushes can run."}
+            {googleSyncEnabled && googleCanWriteCalendar && !pushCalendarId && "No outbound calendar selected. Confirmed bookings stay native-only until you choose one."}
+            {googleSyncEnabled && googleCanWriteCalendar && pushCalendarId && "Confirmed bookings reconcile by target connection and selected Google calendar instead of always writing a new primary-calendar event."}
+          </div>
+        )}
+
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
             Add events to
@@ -268,25 +333,34 @@ export function CalendarSettings() {
               background: 'var(--shell-input-surface)',
               color: 'var(--shell-input-text)',
             }}
+            disabled={googlePushControlsDisabled}
             value={pushCalendarId || ""}
             onChange={(e) => handleSetPushCalendar(e.target.value)}
           >
             <option value="">None (do not add to calendar)</option>
             {(subCalendars ?? []).map((sc) => (
               <option key={sc.calendarId} value={sc.calendarId}>
-                {sc.summary}{sc.primary ? " (primary)" : ""} — {googleConnection?.personal?.email}
+                {sc.summary}{sc.primary ? " (primary)" : ""} — {googleCalendarConnection?.email}
               </option>
             ))}
-            {(!subCalendars || subCalendars.length === 0) && googleConnectionId && (
+            {googleConnectionId && (!subCalendars || subCalendars.length === 0) && (
               <option value="" disabled>
-                No calendars loaded — use &quot;Fetch calendars&quot; below
+                {googleSubCalendarCacheReady
+                  ? "No Google calendars available"
+                  : "No calendars loaded — use \"Fetch calendars\" below"}
               </option>
             )}
           </select>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            You can override this per-resource in the resource booking settings.
+            Clearing this keeps booking records native-only even when Google sync stays enabled.
           </p>
         </div>
+
+        {googleLastSyncError && (
+          <p className="text-xs" style={{ color: 'var(--warning)' }}>
+            Last Google sync error: {googleLastSyncError}
+          </p>
+        )}
 
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
@@ -434,16 +508,58 @@ export function CalendarSettings() {
                 {/* Sub-calendar toggles */}
                 {cal.connectionType === "google" && (
                   <div className="px-3 pb-3 space-y-1">
+                    <div className="flex items-center justify-between gap-3 py-2">
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color: 'var(--shell-text)' }}>
+                          Sync Google conflict data
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
+                          Conflict checks fail closed when sync is off, the connection is inactive, or Google read scope is missing.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={cal.syncEnabled}
+                        onClick={() => handleToggleSync(cal)}
+                        disabled={syncingConnectionId === cal.connectionId || cal.status !== "active"}
+                        className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors disabled:opacity-60"
+                        style={{
+                          background: cal.syncEnabled ? 'var(--success)' : 'var(--shell-border)',
+                        }}
+                      >
+                        <span
+                          className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform"
+                          style={{
+                            background: '#fff',
+                            transform: cal.syncEnabled ? 'translateX(16px)' : 'translateX(0)',
+                          }}
+                        />
+                      </button>
+                    </div>
+
                     {cal.status !== "active" ? (
                       <div className="py-2">
                         <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
                           Reconnect your {cal.provider} account to manage conflict calendars.
                         </p>
                       </div>
+                    ) : !googleSyncEnabled ? (
+                      <div className="py-2">
+                        <p className="text-xs" style={{ color: 'var(--warning)' }}>
+                          Google conflict checks are disabled. The booking engine will fail closed until sync is turned back on.
+                        </p>
+                      </div>
+                    ) : !googleCanAccessCalendar ? (
+                      <div className="py-2">
+                        <p className="text-xs" style={{ color: 'var(--warning)' }}>
+                          This Google connection is missing calendar read scope. Reconnect before using Google as a conflict source.
+                        </p>
+                      </div>
                     ) : subCalendars && subCalendars.length > 0 ? (
                       <>
                         <p className="text-xs mb-2" style={{ color: 'var(--neutral-gray)' }}>
-                          Toggle the calendars you want to check for conflicts to prevent double bookings.
+                          Select at least one Google calendar to block native bookings. The final selected blocker stays on until another blocker is enabled.
                         </p>
                         {subCalendars.map((sc) => {
                           const isBlocking = blockingCalendarIds.includes(sc.calendarId)
@@ -456,8 +572,9 @@ export function CalendarSettings() {
                                 type="button"
                                 role="switch"
                                 aria-checked={isBlocking}
+                                disabled={googleBlockingControlsDisabled}
                                 onClick={() => handleToggleBlockingCalendar(sc.calendarId)}
-                                className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
+                                className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors disabled:opacity-60"
                                 style={{
                                   background: isBlocking ? 'var(--success)' : 'var(--shell-border)',
                                 }}
@@ -484,8 +601,8 @@ export function CalendarSettings() {
                         {googleConnectionId && (
                           <button
                             onClick={handleRefreshSubCalendars}
-                            disabled={refreshing}
-                            className="flex items-center gap-1 mt-2 text-xs hover:opacity-80"
+                            disabled={refreshing || googleBlockingControlsDisabled}
+                            className="flex items-center gap-1 mt-2 text-xs hover:opacity-80 disabled:opacity-60"
                             style={{ color: 'var(--neutral-gray)' }}
                             title="Refresh calendar list from Google"
                           >
@@ -502,8 +619,8 @@ export function CalendarSettings() {
                         <div className="flex items-center gap-2 mt-2">
                           <button
                             onClick={handleRefreshSubCalendars}
-                            disabled={refreshing}
-                            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5"
+                            disabled={refreshing || googleBlockingControlsDisabled}
+                            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-60"
                             style={{ color: 'var(--shell-text)' }}
                           >
                             <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />

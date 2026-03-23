@@ -23,6 +23,7 @@ import { AIConnectionsSettings } from "./ai-connections-settings";
 import { ElevenLabsSettings } from "./elevenlabs-settings";
 import { ResendSettings } from "./resend-settings";
 import { TwilioSettings } from "./twilio-settings";
+import { CalcomSettings } from "./calcom-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
 import { CustomIntegrationModal } from "./custom-integration-modal";
 import { useWindowManager } from "@/hooks/use-window-manager";
@@ -233,6 +234,16 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
     description: "SMS verification & messaging (BYOK or platform fallback)",
     icon: "fas fa-sms",
     iconColor: "#F22F46",
+    status: "available",
+    type: "builtin",
+    accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
+  },
+  {
+    id: "calcom",
+    name: "Cal.com",
+    description: "Event types, availability, and booking via Cal.com",
+    icon: "fas fa-calendar-days",
+    iconColor: "#111827",
     status: "available",
     type: "builtin",
     accessCheck: { type: "limit", key: "maxThirdPartyIntegrations" },
@@ -838,6 +849,7 @@ interface IntegrationsWindowProps {
     | "elevenlabs"
     | "resend"
     | "twilio"
+    | "calcom"
     | null;
   /** When true, shows back-to-desktop navigation (for /integrations route) */
   fullScreen?: boolean;
@@ -866,6 +878,11 @@ type ElevenLabsIntegrationSnapshot = {
   billingSource?: "platform" | "byok" | "private";
 };
 
+type CalcomIntegrationSnapshot = {
+  source?: "platform" | "org" | null;
+  enabled?: boolean;
+};
+
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
   const { mode } = useAppearance();
@@ -883,6 +900,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     initialPanel === "elevenlabs" ? { type: "special", id: "elevenlabs" } :
     initialPanel === "resend" ? { type: "builtin", id: "resend" } :
     initialPanel === "twilio" ? { type: "builtin", id: "twilio" } :
+    initialPanel === "calcom" ? { type: "builtin", id: "calcom" } :
     null
   );
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -971,6 +989,10 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         }
       : "skip"
   ) as ElevenLabsIntegrationSnapshot | undefined;
+  const calcomSettings = useQuery(
+    api.integrations.calcom.getCalcomSettings,
+    isSignedIn && sessionId ? { sessionId } : "skip"
+  ) as CalcomIntegrationSnapshot | null | undefined;
 
   // Loading state only when we have an org and are waiting for data
   const isLoading = currentOrg?.id && (customApps === undefined || license === undefined);
@@ -1217,6 +1239,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       return (
         <div className="integration-ui-scope h-full">
           <TwilioSettings onBack={handleBack} />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "builtin" && selectedIntegration.id === "calcom") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <CalcomSettings onBack={handleBack} />
         </div>
       );
     }
@@ -1472,6 +1501,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                           : integration.id === "whatsapp" && whatsappConnection?.connected
                           ? "connected"
                           : integration.id === "infobip" && infobipSettings?.configured && infobipSettings?.enabled
+                          ? "connected"
+                          : integration.id === "calcom" && calcomSettings?.enabled && Boolean(calcomSettings?.source)
                           ? "connected"
                           : integration.status
                       }

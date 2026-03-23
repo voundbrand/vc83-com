@@ -552,6 +552,16 @@ export const findOrCreateUserFromOAuth = internalMutation({
           email,
         });
 
+        await (ctx as any).runMutation(
+          generatedApi.internal.onboarding.orgBootstrap.finalizeOnboardingOrgClaim,
+          {
+            organizationId: args.claimedOrganizationId,
+            userId: existingUser._id,
+            contactEmail: email,
+            appSurface: "platform_web",
+          }
+        );
+
         if (!existingUser.defaultOrgId) {
           await ctx.db.patch(existingUser._id, {
             defaultOrgId: args.claimedOrganizationId,
@@ -712,6 +722,30 @@ export const findOrCreateUserFromOAuth = internalMutation({
       email,
     });
 
+    if (args.claimedOrganizationId) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.onboarding.orgBootstrap.finalizeOnboardingOrgClaim,
+        {
+          organizationId,
+          userId,
+          contactEmail: email,
+          appSurface: "platform_web",
+        }
+      );
+    } else {
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizations.provisionOrganizationBaselineInternal,
+        {
+          organizationId,
+          createdByUserId: userId,
+          ownerUserIds: [userId],
+          appProvisioningUserId: userId,
+          contactEmail: email,
+          appSurface: "platform_web",
+        }
+      );
+    }
+
     // Log audit event (same as web onboarding)
     await ctx.db.insert("auditLogs", {
       organizationId,
@@ -736,12 +770,6 @@ export const findOrCreateUserFromOAuth = internalMutation({
       organizationId,
       email,
       planTier: "free",
-    });
-
-    // Assign all apps to the new organization (teaser model)
-    await (ctx.scheduler as any).runAfter(0, generatedApi.internal.onboarding.assignAllAppsToOrg, {
-      organizationId,
-      userId,
     });
 
     if (betaCodeValidation?.isValid && betaCodeValidation.codeId) {
@@ -1143,19 +1171,15 @@ export const completeOAuthSignup = action({
       }
     };
 
-    await (ctx as any).runMutation(
-      generatedApi.internal.ai.settings.ensureOrganizationModelDefaultsInternal,
-      {
-        organizationId: userResult.organizationId,
-      }
-    );
-    await (ctx as any).runMutation(
-      generatedApi.internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId: userResult.organizationId,
-        channel: "desktop",
-      }
-    );
+    if (!userResult.isNewUser) {
+      await (ctx as any).runMutation(
+        generatedApi.internal.organizations.ensureOperatorAuthorityBootstrapInternal,
+        {
+          organizationId: userResult.organizationId,
+          appSurface: "platform_web",
+        }
+      );
+    }
 
     // Create session based on sessionType
     if (args.sessionType === "cli") {

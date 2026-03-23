@@ -2048,6 +2048,8 @@ export const getProviderCredentials = internalQuery({
     if (settings) {
       const props = settings.customProperties as Record<string, unknown>;
       const encryptedFields = normalizeEncryptedFields(props.encryptedFields);
+      const telephonyProviderIdentity =
+        normalizeOptionalString(props.telephonyProviderIdentity) || undefined;
       const providerProfileId =
         normalizeOptionalString(args.providerProfileId) ||
         normalizeOptionalString(props.providerProfileId) ||
@@ -2079,6 +2081,28 @@ export const getProviderCredentials = internalQuery({
         normalizeOptionalString(args.routeKey) ||
         normalizeOptionalString(props.routeKey) ||
         normalizeOptionalString(props.bindingRouteKey);
+      let elevenRuntimeBinding:
+        | {
+            apiKey: string | null;
+            baseUrl: string;
+            enabled: boolean;
+          }
+        | null = null;
+
+      if (args.providerId === "direct" && telephonyProviderIdentity === "eleven_telephony") {
+        elevenRuntimeBinding = (await ctx.runQuery(
+          internalApi.integrations.elevenlabs
+            .getOrganizationElevenLabsRuntimeBinding as any,
+          {
+            organizationId: args.organizationId,
+          },
+        )) as {
+          apiKey: string | null;
+          baseUrl: string;
+          enabled: boolean;
+        } | null;
+      }
+
       return {
         providerId: args.providerId,
         credentialSource: "object_settings",
@@ -2090,6 +2114,19 @@ export const getProviderCredentials = internalQuery({
         providerProfileId,
         providerProfileType,
         bindingRouteKey: routeKey,
+        ...(telephonyProviderIdentity === "eleven_telephony"
+          ? {
+              elevenTelephonyApiKey:
+                normalizeOptionalString(props.elevenTelephonyApiKey) ||
+                normalizeOptionalString(elevenRuntimeBinding?.apiKey) ||
+                undefined,
+              elevenTelephonyBaseUrl:
+                normalizeOptionalString(props.elevenTelephonyBaseUrl) ||
+                normalizeOptionalString(elevenRuntimeBinding?.baseUrl) ||
+                undefined,
+              providerIntegrationReady: elevenRuntimeBinding?.enabled === true,
+            }
+          : {}),
       } as ProviderCredentials;
     }
 
@@ -2607,6 +2644,24 @@ export const sendMessage = internalAction({
         "directCallWebhookSecret",
         encryptedDirectSecret
       );
+      let twilioRuntimeBinding:
+        | {
+            accountSid: string | null;
+            authToken: string | null;
+            accountSidLast4: string | null;
+            smsPhoneNumber: string | null;
+            enabled: boolean;
+            source: "platform" | "org" | null;
+          }
+        | null = null;
+      if (credentials.telephonyProviderIdentity === "twilio_voice") {
+        twilioRuntimeBinding = await (ctx.runAction as Function)(
+          internalApi.integrations.twilio.getOrganizationTwilioRuntimeBinding,
+          {
+            organizationId: args.organizationId,
+          }
+        );
+      }
       credentials = {
         ...credentials,
         directCallApiKey: await decryptCredentialField(
@@ -2614,6 +2669,25 @@ export const sendMessage = internalAction({
           credentials.directCallApiKey
         ),
         directCallWebhookSecret: decryptedDirectSecret,
+        twilioAccountSid:
+          normalizeOptionalString(credentials.twilioAccountSid) ||
+          normalizeOptionalString(twilioRuntimeBinding?.accountSid) ||
+          undefined,
+        twilioAuthToken:
+          normalizeOptionalString(credentials.twilioAuthToken) ||
+          normalizeOptionalString(twilioRuntimeBinding?.authToken) ||
+          undefined,
+        twilioVoiceFromNumber:
+          normalizeOptionalString(credentials.twilioVoiceFromNumber) ||
+          normalizeOptionalString(credentials.directCallFromNumber) ||
+          normalizeOptionalString(credentials.elevenTelephonyFromNumber) ||
+          normalizeOptionalString(twilioRuntimeBinding?.smsPhoneNumber) ||
+          undefined,
+        twilioVoiceWebhookSecret:
+          normalizeOptionalString(credentials.twilioVoiceWebhookSecret) ||
+          normalizeOptionalString(decryptedDirectSecret) ||
+          normalizeOptionalString(credentials.elevenTelephonyWebhookSecret) ||
+          undefined,
       };
     }
 
@@ -4087,6 +4161,119 @@ export const recordTelephonyWebhookOutcome = internalMutation({
       callRecordId: callRecord?._id ?? null,
       transcriptArtifactId,
       outcomeArtifactId,
+    };
+  },
+});
+
+export const ensureTelephonyCallRecord = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    providerId: v.string(),
+    providerCallId: v.string(),
+    providerConversationId: v.optional(v.string()),
+    recipientIdentifier: v.optional(v.string()),
+    callerIdentifier: v.optional(v.string()),
+    routeKey: v.optional(v.string()),
+    telephonyProviderIdentity: v.optional(v.string()),
+    direction: v.optional(v.string()),
+    source: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const providerCallId = normalizeOptionalString(args.providerCallId);
+    if (!providerCallId) {
+      return { success: false, error: "providerCallId is required" };
+    }
+
+    const callRecords = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "telephony_call_record")
+      )
+      .collect();
+
+    const existing = callRecords.find((record) => {
+      const props = (record.customProperties || {}) as Record<string, unknown>;
+      return normalizeOptionalString(props.providerCallId) === providerCallId;
+    });
+
+    const providerConversationId = normalizeOptionalString(args.providerConversationId);
+    const providerId =
+      (normalizeOptionalString(args.providerId) as ProviderId | undefined) || "direct";
+
+    if (existing) {
+      const props = (existing.customProperties || {}) as Record<string, unknown>;
+      await ctx.db.patch(existing._id, {
+        customProperties: {
+          ...props,
+          providerConversationId:
+            providerConversationId || normalizeOptionalString(props.providerConversationId),
+          recipientIdentifier:
+            normalizeOptionalString(args.recipientIdentifier) ||
+            normalizeOptionalString(props.recipientIdentifier),
+          callerIdentifier:
+            normalizeOptionalString(args.callerIdentifier) ||
+            normalizeOptionalString(props.callerIdentifier),
+          routeKey:
+            normalizeOptionalString(args.routeKey) ||
+            normalizeOptionalString(props.routeKey),
+          telephonyProviderIdentity:
+            normalizeOptionalString(args.telephonyProviderIdentity) ||
+            normalizeOptionalString(props.telephonyProviderIdentity),
+          direction:
+            normalizeOptionalString(args.direction) ||
+            normalizeOptionalString(props.direction),
+          source:
+            normalizeOptionalString(args.source) ||
+            normalizeOptionalString(props.source),
+        },
+        updatedAt: now,
+      });
+
+      return {
+        success: true,
+        callRecordId: existing._id,
+        created: false,
+      };
+    }
+
+    const callRecordId = await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "telephony_call_record",
+      subtype: providerId,
+      name: `Call ${providerCallId}`,
+      status: "active",
+      customProperties: stripUndefinedProperties({
+        contractVersion: TELEPHONY_ARTIFACT_CONTRACT_VERSION,
+        providerId,
+        providerCallId,
+        providerConversationId,
+        providerMessageId: providerCallId,
+        recipientIdentifier: normalizeOptionalString(args.recipientIdentifier),
+        callerIdentifier: normalizeOptionalString(args.callerIdentifier),
+        routeKey: normalizeOptionalString(args.routeKey),
+        telephonyProviderIdentity: normalizeOptionalString(
+          args.telephonyProviderIdentity,
+        ),
+        direction: normalizeOptionalString(args.direction) || "inbound",
+        source: normalizeOptionalString(args.source) || "webhook_inbound",
+        createdAt: now,
+        auditContractVersion: TELEPHONY_AUDIT_CONTRACT_VERSION,
+        auditEventNames: {
+          ...TELEPHONY_AUDIT_EVENT_NAMES,
+        },
+        immutableEvidenceArtifactTypes: {
+          ...TELEPHONY_AUDIT_EVIDENCE_ARTIFACT_TYPES,
+        },
+      }),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      callRecordId,
+      created: true,
     };
   },
 });

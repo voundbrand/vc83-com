@@ -34,7 +34,7 @@ function formatRecentExecution(execution: LayeredContextRecentExecution): string
  * Builds a deterministic layered-context system instruction string from Tier 1/Tier 2 data.
  * This output is intended for system-message injection inside runtime agent execution.
  */
-export function buildLayeredContextSystemPrompt(bundle: LayeredContextBundle): string {
+function buildSingleLayeredContextSystemPrompt(bundle: LayeredContextBundle): string {
   const tier1 = bundle.tier1;
   const tier2 = bundle.tier2;
 
@@ -93,4 +93,31 @@ export function buildLayeredContextSystemPrompt(bundle: LayeredContextBundle): s
     "Do not present actions as already executed or approved.",
     "After an approval result returns, summarize outcome using tool evidence only.",
   ].join("\n");
+}
+
+export function buildLayeredContextSystemPrompt(bundle: LayeredContextBundle): string {
+  return buildSingleLayeredContextSystemPrompt(bundle);
+}
+
+export function buildLayeredContextSystemPromptFromBundles(
+  bundles: LayeredContextBundle[],
+): string {
+  if (bundles.length <= 1) {
+    return buildSingleLayeredContextSystemPrompt(bundles[0]);
+  }
+
+  const workflowSections = bundles.map((bundle, index) => [
+    `## WORKFLOW ${index + 1}`,
+    buildSingleLayeredContextSystemPrompt(bundle),
+  ].join("\n"));
+
+  return [
+    "[LAYERED_CONTEXT_SYSTEM_V2]",
+    "You are operating with multiple attached Layered Context workflows.",
+    "Treat them as advisory state for analysis, planning, and agent configuration decisions.",
+    "If workflows disagree, prefer the most directly relevant workflow for the current user intent and call out the ambiguity.",
+    "",
+    `workflowCount=${bundles.length}`,
+    ...workflowSections,
+  ].join("\n\n");
 }

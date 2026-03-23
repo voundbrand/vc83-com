@@ -49,6 +49,7 @@ import {
   createEventExperienceTool,
 } from "./orchestrationTools";
 import { layersWorkflowTool } from "./layersWorkflowTool";
+import { configureAgentFieldsTool } from "./configureAgentFieldsTool";
 import { linkObjectsTool } from "./linkObjectsTool";
 import {
   proposeSoulUpdateTool,
@@ -116,6 +117,8 @@ export interface ToolExecutionContext extends ActionCtx {
       externalContactIdentifier?: string;
       ingressEventId?: string;
       occurredAt?: number;
+      providerMessageId?: string;
+      providerConversationId?: string;
     };
     mutationAuthority?: {
       organizationId?: string;
@@ -1485,6 +1488,28 @@ const manageBenefitsTool: AITool = {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       conversationId: ctx.conversationId,
+      agentSessionId: ctx.agentSessionId,
+      agentId: ctx.agentId,
+      channel:
+        ctx.channel ||
+        (typeof ctx.runtimePolicy?.ingressEnvelope?.channel === "string"
+          ? ctx.runtimePolicy.ingressEnvelope.channel
+          : undefined),
+      externalContactIdentifier:
+        ctx.contactId ||
+        (typeof ctx.runtimePolicy?.ingressEnvelope?.externalContactIdentifier ===
+        "string"
+          ? ctx.runtimePolicy.ingressEnvelope.externalContactIdentifier
+          : undefined),
+      providerMessageId:
+        typeof ctx.runtimePolicy?.ingressEnvelope?.providerMessageId === "string"
+          ? ctx.runtimePolicy.ingressEnvelope.providerMessageId
+          : undefined,
+      providerConversationId:
+        typeof ctx.runtimePolicy?.ingressEnvelope?.providerConversationId ===
+        "string"
+          ? ctx.runtimePolicy.ingressEnvelope.providerConversationId
+          : undefined,
       action: args.action,
       mode: args.mode,
       workItemId: args.workItemId,
@@ -1532,7 +1557,7 @@ const manageBenefitsTool: AITool = {
 
 const manageBookingsTool: AITool = {
   name: "manage_bookings",
-  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots. Meeting concierge flow is preview-first and execute is explicit-confirm gated.",
+  description: "Comprehensive booking, location, and availability management: create bookings, manage appointments/reservations/rentals, confirm/check-in/complete bookings, manage locations, check available time slots. Org booking concierge flow is preview-first and execute is explicit-confirm gated.",
   status: "ready",
   parameters: bookingToolDefinition.function.parameters,
   execute: async (ctx, args) => {
@@ -1541,6 +1566,28 @@ const manageBookingsTool: AITool = {
       organizationId: ctx.organizationId,
       userId: ctx.userId,
       conversationId: ctx.conversationId,
+      agentSessionId: ctx.agentSessionId,
+      agentId: ctx.agentId,
+      channel:
+        ctx.channel ||
+        (typeof ctx.runtimePolicy?.ingressEnvelope?.channel === "string"
+          ? ctx.runtimePolicy.ingressEnvelope.channel
+          : undefined),
+      externalContactIdentifier:
+        ctx.contactId ||
+        (typeof ctx.runtimePolicy?.ingressEnvelope?.externalContactIdentifier ===
+        "string"
+          ? ctx.runtimePolicy.ingressEnvelope.externalContactIdentifier
+          : undefined),
+      providerMessageId:
+        typeof ctx.runtimePolicy?.ingressEnvelope?.providerMessageId === "string"
+          ? ctx.runtimePolicy.ingressEnvelope.providerMessageId
+          : undefined,
+      providerConversationId:
+        typeof ctx.runtimePolicy?.ingressEnvelope?.providerConversationId ===
+        "string"
+          ? ctx.runtimePolicy.ingressEnvelope.providerConversationId
+          : undefined,
       action: args.action,
       mode: args.mode,
       workItemId: args.workItemId,
@@ -1598,6 +1645,9 @@ const manageBookingsTool: AITool = {
       personEmail: args.personEmail,
       personPhone: args.personPhone,
       company: args.company,
+      practiceArea: args.practiceArea,
+      urgency: args.urgency,
+      caseSummary: args.caseSummary,
       meetingTitle: args.meetingTitle,
       meetingDurationMinutes: args.meetingDurationMinutes,
       schedulingWindowStart: args.schedulingWindowStart,
@@ -1606,6 +1656,7 @@ const manageBookingsTool: AITool = {
       operatorCalendarConnectionId: args.operatorCalendarConnectionId,
       confirmationChannel: args.confirmationChannel,
       confirmationRecipient: args.confirmationRecipient,
+      selectedSlotStart: args.selectedSlotStart,
       conciergeIdempotencyKey: args.conciergeIdempotencyKey,
       jobTitle: args.jobTitle,
       meetingConciergeExplicitConfirmDetected:
@@ -3921,6 +3972,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
     createWorkflowTool
   ),
   create_layers_workflow: layersWorkflowTool,
+  configure_agent_fields: configureAgentFieldsTool,
   link_objects: linkObjectsTool,
   enable_workflow: enableWorkflowTool,
   list_workflows: listWorkflowsTool,
@@ -4287,6 +4339,7 @@ export const DATABASE_WRITE_TOOLS = [
   // Workflows
   "create_workflow",
   "create_layers_workflow",
+  "configure_agent_fields",
   "link_objects",
   "enable_workflow",
   "add_behavior_to_workflow",

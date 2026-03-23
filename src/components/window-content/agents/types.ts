@@ -3,6 +3,7 @@
  */
 
 import { DEFAULT_AGENT_MODEL_ID } from "@/lib/ai/model-defaults";
+import type { AgentTelephonyConfig } from "@/lib/telephony/agent-telephony";
 
 export interface AgentCustomProps {
   agentClass?: "internal_operator" | "external_customer_facing";
@@ -32,6 +33,7 @@ export interface AgentCustomProps {
     holdMessage?: string;
     resumeMessage?: string;
   };
+  telephonyConfig?: AgentTelephonyConfig;
   channelBindings?: Array<{ channel: string; enabled: boolean }>;
   templateAgentId?: string;
   templateVersion?: string;
@@ -55,6 +57,13 @@ export interface AgentCustomProps {
     lastUpdatedBy?: string;
   };
 }
+
+export type AgentFormSection =
+  | "identity"
+  | "knowledge"
+  | "model"
+  | "guardrails"
+  | "channels";
 
 export type TemplateOverridePolicyMode = "locked" | "warn" | "free";
 export const TEMPLATE_OVERRIDE_GATED_FIELDS = [
@@ -253,9 +262,23 @@ export const SUBTYPES = [
 ] as const;
 
 export const CHANNELS = [
-  "whatsapp", "email", "webchat", "sms", "api",
+  "whatsapp", "email", "webchat", "sms", "phone_call", "api",
   "instagram", "facebook_messenger", "telegram",
 ] as const;
+
+const CHANNEL_LABELS: Record<string, string> = {
+  api: "API",
+  facebook_messenger: "Facebook Messenger",
+  phone_call: "Phone Calls",
+  sms: "SMS",
+};
+
+export function formatAgentChannelLabel(channel: string): string {
+  return (
+    CHANNEL_LABELS[channel]
+    || channel.replace(/_/g, " ").replace(/\b\w/g, (value) => value.toUpperCase())
+  );
+}
 
 export const MODELS = [
   { value: DEFAULT_AGENT_MODEL_ID, label: "Claude Sonnet 4.5" },
@@ -269,7 +292,9 @@ export { DEFAULT_AGENT_MODEL_ID };
 
 export type AgentTab =
   | "trust"
+  | "layers"
   | "soul"
+  | "telephony"
   | "tools"
   | "sessions"
   | "approvals"

@@ -78,6 +78,8 @@ import type * as ai_outboundDelivery from "../ai/outboundDelivery.js";
 import type * as ai_platformAlerts from "../ai/platformAlerts.js";
 import type * as ai_platformModelManagement from "../ai/platformModelManagement.js";
 import type * as ai_platformModels from "../ai/platformModels.js";
+import type * as ai_platformMotherControlPlane from "../ai/platformMotherControlPlane.js";
+import type * as ai_platformMotherReviewArtifacts from "../ai/platformMotherReviewArtifacts.js";
 import type * as ai_platformSoulAdmin from "../ai/platformSoulAdmin.js";
 import type * as ai_platformSoulScope from "../ai/platformSoulScope.js";
 import type * as ai_policyCompiler from "../ai/policyCompiler.js";
@@ -127,6 +129,7 @@ import type * as ai_tools_builderTools from "../ai/tools/builderTools.js";
 import type * as ai_tools_bulkCRMEmailTool from "../ai/tools/bulkCRMEmailTool.js";
 import type * as ai_tools_codeExecutionNodeRuntime from "../ai/tools/codeExecutionNodeRuntime.js";
 import type * as ai_tools_codeExecutionTool from "../ai/tools/codeExecutionTool.js";
+import type * as ai_tools_configureAgentFieldsTool from "../ai/tools/configureAgentFieldsTool.js";
 import type * as ai_tools_connectionToolActions from "../ai/tools/connectionToolActions.js";
 import type * as ai_tools_connectionTools from "../ai/tools/connectionTools.js";
 import type * as ai_tools_connectionTypeSupport from "../ai/tools/connectionTypeSupport.js";
@@ -276,6 +279,7 @@ import type * as channels_providers_chatwoot from "../channels/providers/chatwoo
 import type * as channels_providers_directCallProvider from "../channels/providers/directCallProvider.js";
 import type * as channels_providers_infobipProvider from "../channels/providers/infobipProvider.js";
 import type * as channels_providers_manychatAdapter from "../channels/providers/manychatAdapter.js";
+import type * as channels_providers_resendProvider from "../channels/providers/resendProvider.js";
 import type * as channels_providers_slackProvider from "../channels/providers/slackProvider.js";
 import type * as channels_providers_telegramProvider from "../channels/providers/telegramProvider.js";
 import type * as channels_providers_whatsappProvider from "../channels/providers/whatsappProvider.js";
@@ -336,6 +340,8 @@ import type * as helpers_orderEmailRenderer from "../helpers/orderEmailRenderer.
 import type * as http from "../http.js";
 import type * as icsGeneration from "../icsGeneration.js";
 import type * as integrations_aiConnections from "../integrations/aiConnections.js";
+import type * as integrations_calcom from "../integrations/calcom.js";
+import type * as integrations_calcomShared from "../integrations/calcomShared.js";
 import type * as integrations_chatwoot from "../integrations/chatwoot.js";
 import type * as integrations_elevenlabs from "../integrations/elevenlabs.js";
 import type * as integrations_endpointResolver from "../integrations/endpointResolver.js";
@@ -350,6 +356,7 @@ import type * as integrations_resendResolver from "../integrations/resendResolve
 import type * as integrations_selfHealChat from "../integrations/selfHealChat.js";
 import type * as integrations_selfHealDeploy from "../integrations/selfHealDeploy.js";
 import type * as integrations_telegram from "../integrations/telegram.js";
+import type * as integrations_telephony from "../integrations/telephony.js";
 import type * as integrations_tenantResolver from "../integrations/tenantResolver.js";
 import type * as integrations_twilio from "../integrations/twilio.js";
 import type * as integrations_twilioResolver from "../integrations/twilioResolver.js";
@@ -521,6 +528,7 @@ import type * as pdfTemplateResolver from "../pdfTemplateResolver.js";
 import type * as pdfTemplates from "../pdfTemplates.js";
 import type * as pdfTicketTemplateRenderer from "../pdfTicketTemplateRenderer.js";
 import type * as permissionErrors from "../permissionErrors.js";
+import type * as platformMother from "../platformMother.js";
 import type * as portalAuth from "../portalAuth.js";
 import type * as portalInvitations from "../portalInvitations.js";
 import type * as productOntology from "../productOntology.js";
@@ -616,6 +624,7 @@ import type * as sequences_sequenceProcessor from "../sequences/sequenceProcesso
 import type * as sequences_sequenceTriggers from "../sequences/sequenceTriggers.js";
 import type * as sequences_stepExecutor from "../sequences/stepExecutor.js";
 import type * as sequences_templateOntology from "../sequences/templateOntology.js";
+import type * as servicesOntology from "../servicesOntology.js";
 import type * as stripe_aiCheckout from "../stripe/aiCheckout.js";
 import type * as stripe_aiWebhooks from "../stripe/aiWebhooks.js";
 import type * as stripe_byokCommercialPolicy from "../stripe/byokCommercialPolicy.js";
@@ -882,6 +891,8 @@ declare const fullApi: ApiFromModules<{
   "ai/platformAlerts": typeof ai_platformAlerts;
   "ai/platformModelManagement": typeof ai_platformModelManagement;
   "ai/platformModels": typeof ai_platformModels;
+  "ai/platformMotherControlPlane": typeof ai_platformMotherControlPlane;
+  "ai/platformMotherReviewArtifacts": typeof ai_platformMotherReviewArtifacts;
   "ai/platformSoulAdmin": typeof ai_platformSoulAdmin;
   "ai/platformSoulScope": typeof ai_platformSoulScope;
   "ai/policyCompiler": typeof ai_policyCompiler;
@@ -931,6 +942,7 @@ declare const fullApi: ApiFromModules<{
   "ai/tools/bulkCRMEmailTool": typeof ai_tools_bulkCRMEmailTool;
   "ai/tools/codeExecutionNodeRuntime": typeof ai_tools_codeExecutionNodeRuntime;
   "ai/tools/codeExecutionTool": typeof ai_tools_codeExecutionTool;
+  "ai/tools/configureAgentFieldsTool": typeof ai_tools_configureAgentFieldsTool;
   "ai/tools/connectionToolActions": typeof ai_tools_connectionToolActions;
   "ai/tools/connectionTools": typeof ai_tools_connectionTools;
   "ai/tools/connectionTypeSupport": typeof ai_tools_connectionTypeSupport;
@@ -1080,6 +1092,7 @@ declare const fullApi: ApiFromModules<{
   "channels/providers/directCallProvider": typeof channels_providers_directCallProvider;
   "channels/providers/infobipProvider": typeof channels_providers_infobipProvider;
   "channels/providers/manychatAdapter": typeof channels_providers_manychatAdapter;
+  "channels/providers/resendProvider": typeof channels_providers_resendProvider;
   "channels/providers/slackProvider": typeof channels_providers_slackProvider;
   "channels/providers/telegramProvider": typeof channels_providers_telegramProvider;
   "channels/providers/whatsappProvider": typeof channels_providers_whatsappProvider;
@@ -1140,6 +1153,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   icsGeneration: typeof icsGeneration;
   "integrations/aiConnections": typeof integrations_aiConnections;
+  "integrations/calcom": typeof integrations_calcom;
+  "integrations/calcomShared": typeof integrations_calcomShared;
   "integrations/chatwoot": typeof integrations_chatwoot;
   "integrations/elevenlabs": typeof integrations_elevenlabs;
   "integrations/endpointResolver": typeof integrations_endpointResolver;
@@ -1154,6 +1169,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/selfHealChat": typeof integrations_selfHealChat;
   "integrations/selfHealDeploy": typeof integrations_selfHealDeploy;
   "integrations/telegram": typeof integrations_telegram;
+  "integrations/telephony": typeof integrations_telephony;
   "integrations/tenantResolver": typeof integrations_tenantResolver;
   "integrations/twilio": typeof integrations_twilio;
   "integrations/twilioResolver": typeof integrations_twilioResolver;
@@ -1325,6 +1341,7 @@ declare const fullApi: ApiFromModules<{
   pdfTemplates: typeof pdfTemplates;
   pdfTicketTemplateRenderer: typeof pdfTicketTemplateRenderer;
   permissionErrors: typeof permissionErrors;
+  platformMother: typeof platformMother;
   portalAuth: typeof portalAuth;
   portalInvitations: typeof portalInvitations;
   productOntology: typeof productOntology;
@@ -1420,6 +1437,7 @@ declare const fullApi: ApiFromModules<{
   "sequences/sequenceTriggers": typeof sequences_sequenceTriggers;
   "sequences/stepExecutor": typeof sequences_stepExecutor;
   "sequences/templateOntology": typeof sequences_templateOntology;
+  servicesOntology: typeof servicesOntology;
   "stripe/aiCheckout": typeof stripe_aiCheckout;
   "stripe/aiWebhooks": typeof stripe_aiWebhooks;
   "stripe/byokCommercialPolicy": typeof stripe_byokCommercialPolicy;

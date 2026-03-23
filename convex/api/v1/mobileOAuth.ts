@@ -528,16 +528,10 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
     }
 
     await ctx.runMutation(
-      internal.ai.settings.ensureOrganizationModelDefaultsInternal,
+      internal.organizations.ensureOperatorAuthorityBootstrapInternal,
       {
         organizationId: userResult.organizationId,
-      }
-    );
-    await ctx.runMutation(
-      internal.agentOntology.ensureActiveAgentForOrgInternal,
-      {
-        organizationId: userResult.organizationId,
-        channel: "desktop",
+        appSurface: "operator_mobile",
       }
     );
 

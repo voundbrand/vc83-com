@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FileText, AlertTriangle } from "lucide-react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
 
@@ -20,7 +20,47 @@ interface ToolParameters {
   jobTitle?: string
   location?: string
   notes?: string
+  rationale?: string
   [key: string]: unknown
+}
+
+interface AgentFieldPatchPreviewChange {
+  field: string
+  label: string
+  category: "supported" | "unsupported" | "deferred"
+  applyStatus:
+    | "ready"
+    | "no_change"
+    | "blocked_locked"
+    | "blocked_warn_confirmation_required"
+    | "unsupported"
+    | "deferred"
+  before: unknown
+  after: unknown
+  changed: boolean
+  reason?: string
+}
+
+interface AgentFieldPatchPreview {
+  targetAgentId?: string | null
+  targetAgentName: string
+  targetAgentDisplayName?: string
+  changes: AgentFieldPatchPreviewChange[]
+  summary?: {
+    canApply?: boolean
+    changedFieldCount?: number
+    readyFieldCount?: number
+    unsupportedFieldCount?: number
+    deferredFieldCount?: number
+    blockedReason?: string
+  }
+  overrideGate?: {
+    decision?: string
+    lockedFields?: string[]
+    warnFields?: string[]
+    freeFields?: string[]
+    reason?: string | null
+  }
 }
 
 interface ToolExecution {
@@ -36,6 +76,72 @@ interface EditableProposalViewProps {
   onApprove: (executionId: Id<"aiToolExecutions">, dontAskAgain: boolean) => void
   onReject: (executionId: Id<"aiToolExecutions">) => void
   onCustomInstruction?: (executionId: Id<"aiToolExecutions">, instruction: string) => void
+  onUpdateParameters?: (
+    executionId: Id<"aiToolExecutions">,
+    parameters: ToolParameters,
+  ) => Promise<
+    | {
+        parameters?: ToolParameters
+        proposalMessage?: string
+      }
+    | void
+  >
+}
+
+function readOverridePolicyGate(parameters: ToolParameters | undefined): {
+  confirmWarnOverride: boolean
+  reason: string
+} {
+  const gate =
+    parameters?.overridePolicyGate
+    && typeof parameters.overridePolicyGate === "object"
+    && !Array.isArray(parameters.overridePolicyGate)
+      ? parameters.overridePolicyGate as Record<string, unknown>
+      : null
+  return {
+    confirmWarnOverride: gate?.confirmWarnOverride === true,
+    reason: typeof gate?.reason === "string" ? gate.reason : "",
+  }
+}
+
+function isAgentFieldPatchPreview(value: unknown): value is AgentFieldPatchPreview {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return typeof record.targetAgentName === "string" && Array.isArray(record.changes)
+}
+
+function formatPreviewValue(value: unknown): string {
+  if (value === null || value === undefined) return "None"
+  if (typeof value === "string") return value || "(empty)"
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function formatOverrideGateMessage(
+  overrideGate: AgentFieldPatchPreview["overrideGate"] | undefined
+): string | null {
+  if (!overrideGate) {
+    return null
+  }
+  if (overrideGate.decision === "blocked_locked" && overrideGate.lockedFields?.length) {
+    return `Managed-clone policy locked: ${overrideGate.lockedFields.join(", ")}.`
+  }
+  if (
+    overrideGate.decision === "blocked_warn_confirmation_required"
+    && overrideGate.warnFields?.length
+  ) {
+    return `Managed-clone override confirmation required: ${overrideGate.warnFields.join(", ")}.`
+  }
+  if (overrideGate.decision === "allow" && overrideGate.warnFields?.length) {
+    return `Warn-gated override acknowledged: ${overrideGate.warnFields.join(", ")}.`
+  }
+  return null
 }
 
 export function EditableProposalView({
@@ -43,12 +149,61 @@ export function EditableProposalView({
   onApprove,
   onReject,
   onCustomInstruction,
+  onUpdateParameters,
 }: EditableProposalViewProps) {
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customText, setCustomText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [draftParameters, setDraftParameters] = useState(execution.parameters)
+  const [draftProposalMessage, setDraftProposalMessage] = useState(
+    execution.proposalMessage
+  )
+  const initialOverrideGate = readOverridePolicyGate(draftParameters)
+  const [overrideWarnConfirmed, setOverrideWarnConfirmed] = useState(
+    initialOverrideGate.confirmWarnOverride
+  )
+  const [overrideWarnReason, setOverrideWarnReason] = useState(
+    initialOverrideGate.reason
+  )
+  const agentFieldPatchPreview = isAgentFieldPatchPreview(
+    draftParameters?.proposalPreview
+  )
+    ? draftParameters.proposalPreview
+    : null
+  const approvalBlockedReason =
+    agentFieldPatchPreview?.summary?.canApply === false
+      ? agentFieldPatchPreview.summary.blockedReason || "This patch cannot be applied yet."
+      : null
+  const proposalRationale =
+    typeof draftParameters?.rationale === "string" && draftParameters.rationale.trim().length > 0
+      ? draftParameters.rationale.trim()
+      : null
+  const overrideGateMessage = formatOverrideGateMessage(
+    agentFieldPatchPreview?.overrideGate
+  )
+  const requiresWarnOverrideConfirmation =
+    execution.toolName === "configure_agent_fields"
+    && agentFieldPatchPreview?.overrideGate?.decision === "blocked_warn_confirmation_required"
+    && (agentFieldPatchPreview.overrideGate.warnFields?.length ?? 0) > 0
+  const canRefreshWarnOverride =
+    requiresWarnOverrideConfirmation
+    && overrideWarnConfirmed
+    && overrideWarnReason.trim().length > 0
+    && Boolean(onUpdateParameters)
+
+  useEffect(() => {
+    setDraftParameters(execution.parameters)
+    setDraftProposalMessage(execution.proposalMessage)
+  }, [execution._id, execution.parameters, execution.proposalMessage])
+
+  useEffect(() => {
+    const nextOverrideGate = readOverridePolicyGate(draftParameters)
+    setOverrideWarnConfirmed(nextOverrideGate.confirmWarnOverride)
+    setOverrideWarnReason(nextOverrideGate.reason)
+  }, [draftParameters])
 
   const handleApprove = async (dontAskAgain: boolean = false) => {
+    if (approvalBlockedReason) return
     setIsLoading(true)
     await onApprove(execution._id, dontAskAgain)
     setIsLoading(false)
@@ -69,35 +224,137 @@ export function EditableProposalView({
     setIsLoading(false)
   }
 
+  const handleWarnOverrideRefresh = async () => {
+    if (!canRefreshWarnOverride || !onUpdateParameters) return
+    setIsLoading(true)
+    const nextParameters = {
+      ...draftParameters,
+      overridePolicyGate: {
+        confirmWarnOverride: true,
+        reason: overrideWarnReason.trim(),
+      },
+    }
+    const updateResult = await onUpdateParameters(execution._id, nextParameters)
+    setDraftParameters(updateResult?.parameters || nextParameters)
+    if (updateResult?.proposalMessage !== undefined) {
+      setDraftProposalMessage(updateResult.proposalMessage)
+    }
+    setIsLoading(false)
+  }
+
   // Get read-only parameter preview
   const getParameterPreview = () => {
-    const action = execution.parameters?.action || ""
+    const action = draftParameters?.action || ""
+
+    if (execution.toolName === "configure_agent_fields" && agentFieldPatchPreview) {
+      return (
+        <div className="space-y-3">
+          <div className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
+            Target agent:{" "}
+            <span style={{ color: "var(--shell-text)" }}>
+              {agentFieldPatchPreview.targetAgentDisplayName || agentFieldPatchPreview.targetAgentName}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {agentFieldPatchPreview.changes.map((change) => {
+              const statusColor =
+                change.applyStatus === "ready" ? "var(--success)" :
+                change.applyStatus === "no_change" ? "var(--shell-text-dim)" :
+                change.applyStatus === "deferred" ? "var(--warning)" :
+                "var(--error)"
+              const statusBg =
+                change.applyStatus === "ready" ? "var(--success-bg)" :
+                change.applyStatus === "no_change" ? "var(--shell-surface-elevated)" :
+                change.applyStatus === "deferred" ? "var(--warning-bg)" :
+                "var(--error-bg)"
+              return (
+                <div
+                  key={change.field}
+                  className="rounded border p-2"
+                  style={{
+                    borderColor: "var(--shell-border)",
+                    background: "var(--shell-input-surface)",
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold" style={{ color: "var(--shell-text)" }}>
+                      {change.label}
+                    </div>
+                    <span
+                      className="rounded px-2 py-0.5 text-[10px] uppercase"
+                      style={{ color: statusColor, background: statusBg }}
+                    >
+                      {change.applyStatus.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    <div>
+                      <div className="mb-1 text-[10px] uppercase" style={{ color: "var(--shell-text-dim)" }}>
+                        Current
+                      </div>
+                      <pre
+                        className="whitespace-pre-wrap break-words rounded p-2 text-[11px]"
+                        style={{
+                          background: "var(--shell-surface)",
+                          color: "var(--shell-text)",
+                        }}
+                      >
+                        {formatPreviewValue(change.before)}
+                      </pre>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-[10px] uppercase" style={{ color: "var(--shell-text-dim)" }}>
+                        Proposed
+                      </div>
+                      <pre
+                        className="whitespace-pre-wrap break-words rounded p-2 text-[11px]"
+                        style={{
+                          background: "var(--shell-surface)",
+                          color: "var(--shell-text)",
+                        }}
+                      >
+                        {formatPreviewValue(change.after)}
+                      </pre>
+                    </div>
+                  </div>
+                  {change.reason && (
+                    <p className="mt-2 text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
+                      {change.reason}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
 
     if (execution.toolName === "manage_projects") {
       if (action === "create_project") {
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
+              <span className="font-semibold">Name:</span> {String(draftParameters.name || "N/A")}
             </div>
-            {execution.parameters.description && (
+            {draftParameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
+                <span className="font-semibold">Description:</span> {String(draftParameters.description)}
               </div>
             )}
-            {execution.parameters.status && (
+            {draftParameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
+                <span className="font-semibold">Status:</span> {String(draftParameters.status)}
               </div>
             )}
-            {execution.parameters.startDate && (
+            {draftParameters.startDate && (
               <div>
-                <span className="font-semibold">Start Date:</span> {new Date(String(execution.parameters.startDate)).toLocaleDateString()}
+                <span className="font-semibold">Start Date:</span> {new Date(String(draftParameters.startDate)).toLocaleDateString()}
               </div>
             )}
-            {execution.parameters.endDate && (
+            {draftParameters.endDate && (
               <div>
-                <span className="font-semibold">End Date:</span> {new Date(String(execution.parameters.endDate)).toLocaleDateString()}
+                <span className="font-semibold">End Date:</span> {new Date(String(draftParameters.endDate)).toLocaleDateString()}
               </div>
             )}
           </div>
@@ -108,26 +365,26 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
+              <span className="font-semibold">Name:</span> {String(draftParameters.name || "N/A")}
             </div>
-            {execution.parameters.description && (
+            {draftParameters.description && (
               <div>
-                <span className="font-semibold">Description:</span> {String(execution.parameters.description)}
+                <span className="font-semibold">Description:</span> {String(draftParameters.description)}
               </div>
             )}
-            {execution.parameters.dueDate && (
+            {draftParameters.dueDate && (
               <div>
-                <span className="font-semibold">Due Date:</span> {new Date(String(execution.parameters.dueDate)).toLocaleDateString()}
+                <span className="font-semibold">Due Date:</span> {new Date(String(draftParameters.dueDate)).toLocaleDateString()}
               </div>
             )}
-            {execution.parameters.status && (
+            {draftParameters.status && (
               <div>
-                <span className="font-semibold">Status:</span> {String(execution.parameters.status)}
+                <span className="font-semibold">Status:</span> {String(draftParameters.status)}
               </div>
             )}
-            {execution.parameters.progress !== undefined && (
+            {draftParameters.progress !== undefined && (
               <div>
-                <span className="font-semibold">Progress:</span> {String(execution.parameters.progress)}%
+                <span className="font-semibold">Progress:</span> {String(draftParameters.progress)}%
               </div>
             )}
           </div>
@@ -140,36 +397,36 @@ export function EditableProposalView({
         return (
           <div className="space-y-2 text-sm" style={{ color: 'var(--shell-text)' }}>
             <div>
-              <span className="font-semibold">Name:</span> {String(execution.parameters.name || "N/A")}
+              <span className="font-semibold">Name:</span> {String(draftParameters.name || "N/A")}
             </div>
-            {execution.parameters.email && (
+            {draftParameters.email && (
               <div>
-                <span className="font-semibold">Email:</span> {String(execution.parameters.email)}
+                <span className="font-semibold">Email:</span> {String(draftParameters.email)}
               </div>
             )}
-            {execution.parameters.phone && (
+            {draftParameters.phone && (
               <div>
-                <span className="font-semibold">Phone:</span> {String(execution.parameters.phone)}
+                <span className="font-semibold">Phone:</span> {String(draftParameters.phone)}
               </div>
             )}
-            {execution.parameters.organization && (
+            {draftParameters.organization && (
               <div>
-                <span className="font-semibold">Organization:</span> {String(execution.parameters.organization)}
+                <span className="font-semibold">Organization:</span> {String(draftParameters.organization)}
               </div>
             )}
-            {execution.parameters.jobTitle && (
+            {draftParameters.jobTitle && (
               <div>
-                <span className="font-semibold">Job Title:</span> {String(execution.parameters.jobTitle)}
+                <span className="font-semibold">Job Title:</span> {String(draftParameters.jobTitle)}
               </div>
             )}
-            {execution.parameters.location && (
+            {draftParameters.location && (
               <div>
-                <span className="font-semibold">Location:</span> {String(execution.parameters.location)}
+                <span className="font-semibold">Location:</span> {String(draftParameters.location)}
               </div>
             )}
-            {execution.parameters.notes && (
+            {draftParameters.notes && (
               <div>
-                <span className="font-semibold">Notes:</span> {String(execution.parameters.notes)}
+                <span className="font-semibold">Notes:</span> {String(draftParameters.notes)}
               </div>
             )}
           </div>
@@ -187,7 +444,7 @@ export function EditableProposalView({
           border: '2px solid var(--shell-border)'
         }}
       >
-        {JSON.stringify(execution.parameters, null, 2)}
+        {JSON.stringify(draftParameters, null, 2)}
       </pre>
     )
   }
@@ -211,7 +468,7 @@ export function EditableProposalView({
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
         {/* AI's Proposal Message */}
-        {execution.proposalMessage && (
+        {draftProposalMessage && (
           <div
             className="mb-4 p-3 border-2 rounded"
             style={{
@@ -226,10 +483,27 @@ export function EditableProposalView({
                   AI Proposal
                 </p>
                 <p className="text-xs" style={{ color: 'var(--shell-text)' }}>
-                  {execution.proposalMessage}
+                  {draftProposalMessage}
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {proposalRationale && (
+          <div
+            className="mb-4 rounded border p-3"
+            style={{
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-input-surface)",
+            }}
+          >
+            <p className="mb-1 text-[11px] font-semibold" style={{ color: "var(--shell-text)" }}>
+              Rationale
+            </p>
+            <p className="text-xs" style={{ color: "var(--shell-text-dim)" }}>
+              {proposalRationale}
+            </p>
           </div>
         )}
 
@@ -239,9 +513,115 @@ export function EditableProposalView({
             Tool: <span className="font-mono" style={{ color: 'var(--shell-text)' }}>{execution.toolName}</span>
           </p>
           <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
-            Action: <span className="font-mono" style={{ color: 'var(--shell-text)' }}>{String(execution.parameters?.action || "N/A")}</span>
+            Action: <span className="font-mono" style={{ color: 'var(--shell-text)' }}>
+              {execution.toolName === "configure_agent_fields"
+                ? "agent_field_patch"
+                : String(draftParameters?.action || "N/A")}
+            </span>
           </p>
         </div>
+
+        {agentFieldPatchPreview?.summary && (
+          <div
+            className="mb-4 rounded border p-3 text-[11px]"
+            style={{
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface)",
+              color: "var(--shell-text-dim)",
+            }}
+          >
+            Ready {agentFieldPatchPreview.summary.readyFieldCount ?? 0}
+            {" · "}
+            Changed {agentFieldPatchPreview.summary.changedFieldCount ?? 0}
+            {" · "}
+            Deferred {agentFieldPatchPreview.summary.deferredFieldCount ?? 0}
+            {" · "}
+            Unsupported {agentFieldPatchPreview.summary.unsupportedFieldCount ?? 0}
+          </div>
+        )}
+
+        {approvalBlockedReason && (
+          <div
+            className="mb-4 rounded border-2 p-3 text-xs"
+            style={{
+              borderColor: "var(--warning)",
+              background: "var(--warning-bg)",
+              color: "var(--shell-text)",
+            }}
+          >
+            {approvalBlockedReason}
+          </div>
+        )}
+
+        {overrideGateMessage && (
+          <div
+            className="mb-4 rounded border p-3 text-xs"
+            style={{
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface)",
+              color: "var(--shell-text)",
+            }}
+          >
+            {overrideGateMessage}
+          </div>
+        )}
+
+        {requiresWarnOverrideConfirmation && (
+          <div
+            className="mb-4 rounded border-2 p-3 text-xs space-y-3"
+            style={{
+              borderColor: "var(--warning)",
+              background: "var(--warning-bg)",
+              color: "var(--shell-text)",
+            }}
+          >
+            <p>
+              Warn-gated managed-clone overrides require explicit confirmation and a reason before approval.
+            </p>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={overrideWarnConfirmed}
+                onChange={(event) => setOverrideWarnConfirmed(event.target.checked)}
+                aria-label="Confirm warn policy override"
+              />
+              <span>I confirm this warn override.</span>
+            </label>
+            <div>
+              <label
+                htmlFor="proposal-override-reason"
+                className="mb-1 block text-[11px]"
+                style={{ color: "var(--shell-text-dim)" }}
+              >
+                Override reason
+              </label>
+              <input
+                id="proposal-override-reason"
+                value={overrideWarnReason}
+                onChange={(event) => setOverrideWarnReason(event.target.value)}
+                className="w-full rounded border px-2 py-1 text-xs"
+                style={{
+                  borderColor: "var(--shell-border)",
+                  background: "var(--shell-input-surface)",
+                  color: "var(--shell-text)",
+                }}
+                placeholder="Explain why this override is needed"
+              />
+            </div>
+            <button
+              onClick={handleWarnOverrideRefresh}
+              disabled={isLoading || !canRefreshWarnOverride}
+              className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+              style={{
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-surface)",
+                color: "var(--shell-text)",
+              }}
+            >
+              Refresh Proposal With Override
+            </button>
+          </div>
+        )}
 
         {/* Parameters */}
         <div className="mb-4">
@@ -256,6 +636,14 @@ export function EditableProposalView({
             }}
           >
             {getParameterPreview()}
+            {execution.toolName === "configure_agent_fields"
+              && agentFieldPatchPreview
+              && agentFieldPatchPreview.changes.length === 0 && (
+                <p className="mt-3 text-xs" style={{ color: "var(--shell-text-dim)" }}>
+                  No structured field diff is available for this proposal. Review the blocked reason and ask the AI to
+                  regenerate the patch within a target-agent-scoped chat.
+                </p>
+              )}
           </div>
         </div>
       </div>
@@ -300,7 +688,7 @@ export function EditableProposalView({
       >
         <button
           onClick={() => handleApprove(false)}
-          disabled={isLoading}
+          disabled={isLoading || Boolean(approvalBlockedReason)}
           className="w-full px-4 py-2 text-left rounded border-2 transition-colors disabled:opacity-50 text-sm"
           style={{
             borderColor: 'var(--shell-accent)',
@@ -320,7 +708,7 @@ export function EditableProposalView({
 
         <button
           onClick={() => handleApprove(true)}
-          disabled={isLoading}
+          disabled={isLoading || Boolean(approvalBlockedReason)}
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
             borderColor: 'var(--shell-border)',

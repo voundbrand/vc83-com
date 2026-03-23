@@ -4,6 +4,7 @@ import {
   TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE,
   executeToolCallsWithApproval,
 } from "../../../convex/ai/agentToolOrchestration";
+import { ORG_BOOKING_CONCIERGE_TOOL_ACTION } from "../../../convex/ai/tools/bookingTool";
 import { TOOL_REGISTRY, type AITool } from "../../../convex/ai/tools/registry";
 
 const ORG_ID = "org_1" as Id<"organizations">;
@@ -280,6 +281,86 @@ describe("agent tool orchestration authority invariants", () => {
       },
     ]);
     expect(createApprovalRequest).not.toHaveBeenCalled();
+    expect(executeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("executes reusable org booking concierge preview without approval and returns success", async () => {
+    const executeMock = vi.fn(async () => ({ mode: "preview", status: "ok" }));
+    registerTestTool(MANAGE_BOOKINGS_TOOL, {
+      name: MANAGE_BOOKINGS_TOOL,
+      description: "test manage bookings concierge tool",
+      status: "ready",
+      readOnly: false,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: executeMock,
+    });
+
+    const result = await executeToolCallsWithApproval({
+      toolCalls: [
+        {
+          function: {
+            name: MANAGE_BOOKINGS_TOOL,
+            arguments: JSON.stringify({
+              action: ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+              mode: "preview",
+              personEmail: "jordan@example.com",
+            }),
+          },
+        },
+      ],
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      sessionId: SESSION_ID,
+      autonomyLevel: "autonomous",
+      toolExecutionContext: {
+        runtimePolicy: {
+          mutationAuthority: {
+            mutatingToolExecutionAllowed: true,
+            invariantViolations: [],
+          },
+          nativeVisionEdge: {
+            actionableIntentCount: 1,
+            mutatingIntentCount: 1,
+            trustGateRequired: true,
+            approvalGatePolicy: "required_for_mutating_intents",
+            registryRoute: "vc83_tool_registry",
+            nativeAuthorityPrecedence: "vc83_runtime_policy",
+          },
+          meetingConcierge: {
+            explicitConfirmDetected: false,
+            previewIntentDetected: true,
+            extractedPayloadReady: true,
+            commandPolicy: {
+              policyRequired: true,
+              status: "allowed",
+              allowed: true,
+              reasonCode: "allowed",
+              evaluatedCommands: [
+                "assemble_concierge_payload",
+                "preview_meeting_concierge",
+              ],
+            },
+          },
+          runtimeAuthorityPrecedence: "vc83_runtime_policy",
+        },
+      } as any,
+      failedToolCounts: {},
+      disabledTools: new Set<string>(),
+      createApprovalRequest: async () => {},
+      onToolDisabled: () => {},
+    });
+
+    expect(result.errorStateDirty).toBe(false);
+    expect(result.toolResults).toEqual([
+      {
+        tool: MANAGE_BOOKINGS_TOOL,
+        status: "success",
+        result: { mode: "preview", status: "ok" },
+      },
+    ]);
     expect(executeMock).toHaveBeenCalledTimes(1);
   });
 
