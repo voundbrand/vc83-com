@@ -1,15 +1,9 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Montserrat } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { LanguageProvider } from "@/lib/language-context"
+import { CmsSiteProvider } from "@/components/cms-site-provider"
 import "./globals.css"
-
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-montserrat"
-})
 
 export const metadata: Metadata = {
   title: "Segelschule Altwarp - Segeln lernen in Ruhe am Stettiner Haff",
@@ -41,8 +35,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de">
-      <body className={`font-sans antialiased ${montserrat.className}`}>
-        <LanguageProvider>{children}</LanguageProvider>
+      <body className="font-sans antialiased">
+        <LanguageProvider>
+          <CmsSiteProvider>{children}</CmsSiteProvider>
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

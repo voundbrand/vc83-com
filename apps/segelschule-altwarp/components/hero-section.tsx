@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ChevronDown } from "lucide-react"
 
@@ -16,10 +17,13 @@ export function HeroSection({ title, subtitle, ctaText }: HeroSectionProps) {
 
   return (
     <section className="relative h-[90vh] min-h-[600px] flex items-center justify-center overflow-hidden">
-      <img
+      <Image
         src="/hero-plattboden.jpg"
         alt="Plattbodenschiff sailing on the Stettiner Haff"
-        className="absolute inset-0 w-full h-full object-cover"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
       />
       {/* Subtle dark overlay for light text readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#1E3926]/40 via-[#1E3926]/20 to-background/90" />

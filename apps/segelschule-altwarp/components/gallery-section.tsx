@@ -1,3 +1,5 @@
+import Image from "next/image"
+
 interface GallerySectionProps {
   title: string
   subtitle: string
@@ -29,7 +31,13 @@ export function GallerySection({ title, subtitle }: GallerySectionProps) {
               key={index}
               className="relative aspect-square overflow-hidden rounded-lg hover:scale-105 transition-transform duration-300 shadow-md"
             >
-              <img src={image.src || "/placeholder.svg"} alt={image.alt} className="w-full h-full object-cover" />
+              <Image
+                src={image.src || "/placeholder.svg"}
+                alt={image.alt}
+                fill
+                sizes="(min-width: 768px) 25vw, 50vw"
+                className="object-cover"
+              />
             </div>
           ))}
         </div>

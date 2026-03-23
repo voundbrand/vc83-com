@@ -41,6 +41,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@cms": path.resolve(__dirname, "./packages/cms/src/index.ts"),
+      react: path.resolve(__dirname, "./node_modules/react"),
+      "react/jsx-runtime": path.resolve(__dirname, "./node_modules/react/jsx-runtime.js"),
+      "react/jsx-dev-runtime": path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime.js"),
+      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
       "convex/server": path.resolve(__dirname, "./node_modules/convex/dist/cjs/server/index.js"),
       "convex/browser": path.resolve(__dirname, "./node_modules/convex/dist/cjs/browser/index.js"),
       "convex/values": path.resolve(__dirname, "./node_modules/convex/dist/cjs/values/index.js"),

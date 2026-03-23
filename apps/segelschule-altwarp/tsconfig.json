@@ -4,7 +4,9 @@
     "baseUrl": ".",
     "incremental": false,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@cms": ["../../packages/cms/src/index.ts"],
+      "@cms/*": ["../../packages/cms/src/*"]
     },
     "types": ["node"],
     "plugins": [

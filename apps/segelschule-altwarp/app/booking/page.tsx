@@ -517,7 +517,7 @@ function BookingPageContent() {
                       {language === "de" ? "Boot & Plätze:" : language === "nl" ? "Boot & Plaatsen:" : "Boat & Seats:"}
                     </span>
                     <span className="font-medium text-right">
-                      {getSelectedBoatInfo().map((b, i) => (
+                      {getSelectedBoatInfo().map((b) => (
                         <span key={b.name} className="block">
                           {b.name}: {language === "de" ? "Sitz" : language === "nl" ? "Stoel" : "Seat"} {b.seats.join(", ")}
                         </span>
