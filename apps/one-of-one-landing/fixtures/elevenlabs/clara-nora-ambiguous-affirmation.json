@@ -1,0 +1,28 @@
+{
+  "name": "clara-nora-ambiguous-affirmation",
+  "description": "Regression test for Nora staying in analytics when the caller answers a comparison prompt with a bare affirmation, without bouncing through Clara and back.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for Nora",
+      "text": "Ja, aehm, Nora."
+    },
+    {
+      "label": "Ask for location comparison",
+      "text": "Okay, ja, vergleichen wir mal die Standorte."
+    },
+    {
+      "label": "Bare affirmation stays in lane",
+      "text": "Ja, gerne."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": ["nora"],
+    "expectedFinalAgent": "nora",
+    "requiredAgentsVisited": ["clara", "nora"],
+    "forbidUnexpectedTransfers": true,
+    "requireAgentSpeechAfterTransfer": true,
+    "enforceTransferSpeakerState": true,
+    "forbidAgentSelfClaimMismatch": true
+  }
+}

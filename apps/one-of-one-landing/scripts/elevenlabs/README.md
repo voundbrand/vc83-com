@@ -9,6 +9,7 @@ It currently manages:
 - agent knowledge bases from `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/*/knowledge-base.md`
 - built-in transfer/end-call tools from the JSON files in the same reference folder
 - Clara's workflow from `.../clara/workflow.json`
+- client-owned agents from app-local folders such as `apps/me-immo/elevenlabs/agents/anne-becker/*`
 
 It intentionally preserves the rest of the live agent config:
 
@@ -34,6 +35,8 @@ Optional agent-id overrides:
 - `KAI_ELEVENLABS_AGENT_ID`
 - `NORA_ELEVENLABS_AGENT_ID`
 - `SAMANTHA_ELEVENLABS_AGENT_ID`
+- `VERONICA_ELEVENLABS_AGENT_ID`
+- `ANNE_BECKER_ELEVENLABS_AGENT_ID`
 
 If an override is not set, the harness falls back to the staging ids currently documented in the repo.
 
@@ -56,6 +59,24 @@ Write multiple agents:
 ```bash
 npm run landing:elevenlabs:sync -- --agent clara,kai,maren --write
 ```
+
+## Test Sync
+
+Create or attach the specialist landing-demo test inventory from repo-authored definitions:
+
+```bash
+export PATH="$HOME/.nvm/versions/node/v22.19.0/bin:$PATH"
+node --import tsx apps/one-of-one-landing/scripts/elevenlabs/sync-elevenlabs-tests.ts --all --write
+```
+
+Dry-run the specialist inventory without writing:
+
+```bash
+export PATH="$HOME/.nvm/versions/node/v22.19.0/bin:$PATH"
+node --import tsx apps/one-of-one-landing/scripts/elevenlabs/sync-elevenlabs-tests.ts --all
+```
+
+The helper currently manages the six specialist agents (`Maren`, `Jonas`, `Tobias`, `Lina`, `Kai`, `Nora`) and creates the minimum `llm`, `tool`, and `simulation` tests described in each `setup.md`, then attaches them to the live agent config while preserving other live-only settings.
 
 ## Simulation
 

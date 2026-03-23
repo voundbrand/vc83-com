@@ -72,6 +72,7 @@ const FIXTURE_SUITES: Record<string, string[]> = {
   regressions: [
     "clara-kai-clara-maren-regression",
     "clara-kai-clara-maren-recommendation",
+    "clara-nora-ambiguous-affirmation",
   ],
   "proof-phase-gating": ["proof-phase-seven-agent-tour"],
   "proof-phase-stress": ["proof-phase-seven-agent-single-call-stress"],
@@ -114,6 +115,7 @@ const FIXTURE_SUITES: Record<string, string[]> = {
     "clara-kai-clara-nora-handoff",
     "clara-kai-clara-maren-regression",
     "clara-kai-clara-maren-recommendation",
+    "clara-nora-ambiguous-affirmation",
   ],
 };
 

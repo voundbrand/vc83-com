@@ -69,11 +69,40 @@ export interface ElevenLabsCreatedKnowledgeBaseDocument {
   [key: string]: unknown;
 }
 
+export interface ElevenLabsCreatedAgent {
+  agent_id: string;
+  [key: string]: unknown;
+}
+
+export function resolveElevenLabsConvaiBaseUrl(baseUrl?: string | null): string {
+  if (typeof baseUrl !== "string") {
+    return ELEVENLABS_CONVAI_BASE_URL;
+  }
+  const normalized = baseUrl.trim().replace(/\/+$/, "");
+  if (!normalized) {
+    return ELEVENLABS_CONVAI_BASE_URL;
+  }
+  return normalized.endsWith("/convai")
+    ? normalized
+    : `${normalized}/convai`;
+}
+
 export class ElevenLabsClient {
   constructor(
     private readonly apiKey: string,
     private readonly baseUrl: string = ELEVENLABS_CONVAI_BASE_URL
   ) {}
+
+  async createAgent(payload: unknown): Promise<ElevenLabsCreatedAgent> {
+    return this.request<ElevenLabsCreatedAgent>({
+      path: "/agents/create",
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  }
 
   async getAgent(agentId: string): Promise<ElevenLabsAgent> {
     return this.request<ElevenLabsAgent>({

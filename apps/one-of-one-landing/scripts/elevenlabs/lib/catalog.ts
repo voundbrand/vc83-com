@@ -8,7 +8,9 @@ export type LandingDemoAgentKey =
   | "lina"
   | "kai"
   | "nora"
-  | "samantha";
+  | "samantha"
+  | "veronica"
+  | "anne_becker";
 
 export interface LandingDemoAgentDefinition {
   key: LandingDemoAgentKey;
@@ -25,10 +27,15 @@ export interface LandingDemoAgentDefinition {
 
 export const REPO_ROOT = resolve(__dirname, "../../../../../");
 export const LANDING_APP_ROOT = resolve(REPO_ROOT, "apps/one-of-one-landing");
+export const ME_IMMO_APP_ROOT = resolve(REPO_ROOT, "apps/me-immo");
 export const ELEVENLABS_FIXTURES_ROOT = resolve(LANDING_APP_ROOT, "fixtures/elevenlabs");
 export const LANDING_DEMO_AGENTS_ROOT = resolve(
   REPO_ROOT,
   "docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents"
+);
+export const ME_IMMO_ELEVENLABS_AGENTS_ROOT = resolve(
+  ME_IMMO_APP_ROOT,
+  "elevenlabs/agents"
 );
 
 const SHARED_TOOL_PATHS = {
@@ -46,6 +53,8 @@ const DEFAULT_AGENT_IDS: Record<LandingDemoAgentKey, string> = {
   kai: "agent_6301kknv5hd5fr89hby28wvrrzcb",
   nora: "agent_8301kknv8hc9e0pvdgyy7ve8h07t",
   samantha: "agent_9101kkkg56cde6hbf7k9mp86tp9h",
+  veronica: "agent_4701kkxzwavkecps3rgsmhfwyswy",
+  anne_becker: "agent_5801km2dzv9ye1btjthfeca9507k",
 };
 
 function agentDir(agentKey: LandingDemoAgentKey): string {
@@ -66,7 +75,7 @@ export const AGENT_CATALOG: Record<LandingDemoAgentKey, LandingDemoAgentDefiniti
     managedToolPaths: [
       SHARED_TOOL_PATHS.endCall,
       resolve(agentDir("clara"), "tools.json"),
-      SHARED_TOOL_PATHS.transferToHuman,
+      resolve(agentDir("clara"), "transfer_to_human.json"),
     ],
   },
   maren: {
@@ -163,6 +172,35 @@ export const AGENT_CATALOG: Record<LandingDemoAgentKey, LandingDemoAgentDefiniti
     knowledgeBasePath: resolve(agentDir("samantha"), "knowledge-base.md"),
     knowledgeBaseName: "Samantha Knowledge Base",
     managedToolPaths: [SHARED_TOOL_PATHS.endCall, SHARED_TOOL_PATHS.transferToHuman],
+  },
+  veronica: {
+    key: "veronica",
+    name: "Veronica",
+    envVar: "VERONICA_ELEVENLABS_AGENT_ID",
+    defaultAgentId: DEFAULT_AGENT_IDS.veronica,
+    promptPath: resolve(agentDir("veronica"), "system-prompt.md"),
+    firstMessagePath: resolve(agentDir("veronica"), "first-message.md"),
+    knowledgeBasePath: resolve(agentDir("veronica"), "knowledge-base.md"),
+    knowledgeBaseName: "Veronica Knowledge Base",
+    managedToolPaths: [
+      SHARED_TOOL_PATHS.endCall,
+      SHARED_TOOL_PATHS.transferToClara,
+      SHARED_TOOL_PATHS.transferToHuman,
+    ],
+  },
+  anne_becker: {
+    key: "anne_becker",
+    name: "Anne Becker",
+    envVar: "ANNE_BECKER_ELEVENLABS_AGENT_ID",
+    defaultAgentId: DEFAULT_AGENT_IDS.anne_becker,
+    promptPath: resolve(ME_IMMO_ELEVENLABS_AGENTS_ROOT, "anne-becker", "system-prompt.md"),
+    firstMessagePath: resolve(ME_IMMO_ELEVENLABS_AGENTS_ROOT, "anne-becker", "first-message.md"),
+    knowledgeBasePath: resolve(ME_IMMO_ELEVENLABS_AGENTS_ROOT, "anne-becker", "knowledge-base.md"),
+    knowledgeBaseName: "Anne Becker Knowledge Base",
+    managedToolPaths: [
+      SHARED_TOOL_PATHS.endCall,
+      resolve(ME_IMMO_ELEVENLABS_AGENTS_ROOT, "anne-becker", "transfer_to_human.json"),
+    ],
   },
 };
 
