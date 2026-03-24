@@ -105,6 +105,23 @@ function createAuditModeContext(db: InMemoryDb) {
 }
 
 describe("onboarding audit mode lifecycle", () => {
+  it("keeps native_guest audit mode independent from onboarding binding side tables", async () => {
+    const db = new InMemoryDb();
+    const ctx = createAuditModeContext(db);
+
+    const startResult = await (startAuditModeSession as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "native_guest",
+      sessionToken: "ng_audit_mode_regression",
+    });
+
+    expect(startResult.success).toBe(true);
+    expect(startResult.auditSessionKey).toBe("audit:native_guest:ng_audit_mode_regression");
+    expect(db.tableRows("guestOnboardingBindings")).toHaveLength(0);
+    expect(db.tableRows("anonymousClaimTokens")).toHaveLength(0);
+  });
+
   it("tracks deterministic status transitions and dedupes replayed lifecycle events", async () => {
     const db = new InMemoryDb();
     const ctx = createAuditModeContext(db);

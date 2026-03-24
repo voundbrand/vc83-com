@@ -19,6 +19,28 @@ export const EMAIL_BRAND = {
   tagline: "Business Operating System",
 } as const;
 
+/** Official social media links — source of truth for all email templates */
+export const EMAIL_SOCIAL_LINKS = {
+  linkedin: "https://www.linkedin.com/in/therealremington/",
+  x: "https://x.com/notcleverhandle",
+  instagram: "https://www.instagram.com/therealremington/",
+  youtube: "https://www.youtube.com/@therealremington",
+  github: "https://github.com/voundbrand",
+} as const;
+
+/**
+ * Resolve base URLs from environment variables with production fallbacks.
+ * Call inside action handlers (requires Node runtime for process.env).
+ */
+export function resolveEmailBaseUrls() {
+  const strip = (url: string) => url.replace(/\/+$/, "");
+  return {
+    site: strip(process.env.SITE_URL || "https://l4yercak3.com"),
+    app: strip(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com"),
+    docs: strip(process.env.DOCS_URL || "https://docs.l4yercak3.com"),
+  };
+}
+
 // ============================================================================
 // MIDNIGHT COLOR PALETTE
 // ============================================================================
@@ -127,7 +149,7 @@ export function emailHeader(options?: { subtitle?: string }): string {
     : "";
   return `<tr>
   <td style="padding:32px 40px 24px;border-bottom:1px solid ${EMAIL_COLORS.border};">
-    <img src="https://sevenlayers.io/sevenlayers-logo.png" alt="${EMAIL_BRAND.name}" style="max-height:28px;width:auto;" />
+    <img src="https://app.l4yercak3.com/sevenlayers-logo.png" alt="${EMAIL_BRAND.name}" style="max-height:28px;width:auto;" />
     ${subtitleHtml}
   </td>
 </tr>`;

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { createFreeAccountInternal, signupFreeAccount } from "../../../convex/onboarding";
+import { provisionOrganizationBaselineInternal } from "../../../convex/organizations";
+import {
+  STARTER_TEMPLATE_PROVISIONING_ENV_FLAG,
+  createFreeAccountInternal,
+  isStarterTemplateProvisioningEnabled,
+  maybeProvisionStarterTemplatesForSignup,
+  signupFreeAccount,
+} from "../../../convex/onboarding";
 import { findOrCreateUserFromOAuth } from "../../../convex/api/v1/oauthSignup";
 
 type FakeRow = Record<string, any> & { _id: string };
@@ -389,6 +396,149 @@ describe("main org creation baseline normalization", () => {
     });
   });
 
+  it("seeds default booking concierge scaffolding when a law-firm baseline is provisioned", async () => {
+    const db = new FakeDb();
+    db.seed("organizations", {
+      _id: "organizations_law_firm",
+      name: "Kanzlei Test",
+      slug: "kanzlei-test",
+      businessName: "Kanzlei Test",
+      isActive: true,
+      isPersonalWorkspace: false,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const mutationCalls: Array<Record<string, unknown>> = [];
+    const ctx = {
+      db,
+      runQuery: vi.fn(async () => null),
+      runMutation: vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+        mutationCalls.push(payload);
+        if (Object.prototype.hasOwnProperty.call(payload, "appSurface")) {
+          return {
+            organizationId: payload.organizationId,
+            operatorAgentId: "agent_law_firm_operator",
+            operatorProvisioningAction: "template_clone_created",
+          };
+        }
+        return null;
+      }),
+    };
+
+    const result = await (provisionOrganizationBaselineInternal as any)._handler(ctx, {
+      organizationId: "organizations_law_firm",
+      createdByUserId: "users_law_firm_owner",
+      timezone: "Europe/Berlin",
+      dateFormat: "DD.MM.YYYY",
+      language: "de",
+      contactEmail: "kontakt@example.com",
+      contactPhone: "+49 30 5550123",
+      industry: "law_firm",
+      description: "Inbound-first small-firm Kanzlei",
+      appSurface: "platform_web",
+    });
+
+    expect(result).toMatchObject({
+      organizationId: "organizations_law_firm",
+      operatorAgentId: "agent_law_firm_operator",
+      operatorProvisioningAction: "template_clone_created",
+    });
+    expect(mutationCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationId: "organizations_law_firm",
+          createdBy: "users_law_firm_owner",
+          timezone: "Europe/Berlin",
+          dateFormat: "DD.MM.YYYY",
+          language: "de",
+        }),
+        expect.objectContaining({
+          organizationId: "organizations_law_firm",
+          createdBy: "users_law_firm_owner",
+          primaryEmail: "kontakt@example.com",
+          primaryPhone: "+49 30 5550123",
+        }),
+        expect.objectContaining({
+          organizationId: "organizations_law_firm",
+          createdBy: "users_law_firm_owner",
+          industry: "law_firm",
+          bio: "Inbound-first small-firm Kanzlei",
+        }),
+        expect.objectContaining({
+          organizationId: "organizations_law_firm",
+          createdBy: "users_law_firm_owner",
+          timezone: "Europe/Berlin",
+          primaryResourceLabel: "Erstberatung",
+          defaultMeetingTitle: "Erstberatung",
+          intakeLabel: "Erstberatung",
+          requireConfiguredResource: false,
+        }),
+      ]),
+    );
+  });
+
+  it("does not overwrite existing booking concierge settings when the baseline is re-run", async () => {
+    const db = new FakeDb();
+    db.seed("organizations", {
+      _id: "organizations_law_firm_existing",
+      name: "Kanzlei Test",
+      slug: "kanzlei-test",
+      businessName: "Kanzlei Test",
+      isActive: true,
+      isPersonalWorkspace: false,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    db.seed("objects", {
+      _id: "objects_existing_booking_config",
+      organizationId: "organizations_law_firm_existing",
+      type: "organization_settings",
+      subtype: "booking_concierge",
+      name: "kanzlei-test-settings-booking_concierge",
+      status: "active",
+      customProperties: {
+        contractVersion: "kanzlei_booking_concierge_config_v1",
+        primaryResourceLabel: "Custom Erstberatung",
+      },
+      createdBy: "users_existing_owner",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+
+    const mutationCalls: Array<Record<string, unknown>> = [];
+    const ctx = {
+      db,
+      runQuery: vi.fn(async () => null),
+      runMutation: vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+        mutationCalls.push(payload);
+        if (Object.prototype.hasOwnProperty.call(payload, "appSurface")) {
+          return {
+            organizationId: payload.organizationId,
+            operatorAgentId: "agent_law_firm_operator_existing",
+            operatorProvisioningAction: "template_clone_created",
+          };
+        }
+        return null;
+      }),
+    };
+
+    await (provisionOrganizationBaselineInternal as any)._handler(ctx, {
+      organizationId: "organizations_law_firm_existing",
+      createdByUserId: "users_existing_owner",
+      timezone: "Europe/Berlin",
+      language: "de",
+      industry: "law_firm",
+      appSurface: "platform_web",
+    });
+
+    expect(
+      mutationCalls.find((payload) =>
+        Object.prototype.hasOwnProperty.call(payload, "primaryResourceLabel"),
+      ),
+    ).toBeUndefined();
+  });
+
   it("inspects telegram claim tokens before email signup so claimed workspaces are reused", async () => {
     const runMutation = vi
       .fn()
@@ -451,6 +601,122 @@ describe("main org creation baseline normalization", () => {
       signedToken: "signed_claim_token",
       organizationId: CLAIMED_ORG_ID,
       claimSource: "email_signup_complete",
+    });
+  });
+
+  it("inspects guest onboarding org claim tokens before email signup so bound workspaces are reused", async () => {
+    const runMutation = vi
+      .fn()
+      .mockResolvedValueOnce({
+        success: true,
+        sessionId: "session_signup_guest_claim" as Id<"sessions">,
+        user: {
+          id: "users_signup_guest_claim" as Id<"users">,
+          email: "guest-claimed@example.com",
+          firstName: "Taylor",
+          lastName: "Claim",
+        },
+        organization: {
+          id: CLAIMED_ORG_ID,
+          name: "Claimed Workspace",
+          slug: "claimed-workspace",
+        },
+        apiKeyPrefix: "pk_guest_claim",
+        betaAccessStatus: "approved" as const,
+      })
+      .mockResolvedValueOnce({ success: true });
+
+    const runAction = vi
+      .fn()
+      .mockResolvedValueOnce("password_hash")
+      .mockResolvedValueOnce("api_key_hash")
+      .mockResolvedValueOnce({
+        valid: true,
+        tokenType: "guest_onboarding_org_claim" as const,
+        organizationId: CLAIMED_ORG_ID,
+      })
+      .mockResolvedValueOnce({ success: true });
+
+    const ctx = {
+      runAction,
+      runMutation,
+      scheduler: {
+        runAfter: vi.fn(),
+      },
+    };
+
+    const result = await (signupFreeAccount as any)._handler(ctx, {
+      email: "guest-claimed@example.com",
+      password: "very-secure-password",
+      firstName: "Taylor",
+      lastName: "Claim",
+      identityClaimToken: "signed_guest_claim_token",
+    });
+
+    expect(result.success).toBe(true);
+    expect(runMutation.mock.calls[0]?.[1]).toMatchObject({
+      email: "guest-claimed@example.com",
+      claimedOrganizationId: CLAIMED_ORG_ID,
+    });
+    expect(
+      runMutation.mock.calls.find(
+        (call) => call[1] && typeof call[1] === "object" && "signedToken" in call[1]
+      )?.[1]
+    ).toMatchObject({
+      signedToken: "signed_guest_claim_token",
+      organizationId: CLAIMED_ORG_ID,
+      claimSource: "email_signup_complete",
+    });
+  });
+});
+
+describe("starter template provisioning rollout flag", () => {
+  it("defaults to disabled", () => {
+    const previousCanonical = process.env[STARTER_TEMPLATE_PROVISIONING_ENV_FLAG];
+    delete process.env[STARTER_TEMPLATE_PROVISIONING_ENV_FLAG];
+    expect(isStarterTemplateProvisioningEnabled()).toBe(false);
+    if (typeof previousCanonical === "string") {
+      process.env[STARTER_TEMPLATE_PROVISIONING_ENV_FLAG] = previousCanonical;
+    }
+  });
+
+  it("does not call provisioning when the flag is disabled", async () => {
+    vi.stubEnv(STARTER_TEMPLATE_PROVISIONING_ENV_FLAG, "false");
+    const provisioner = vi.fn(async () => {});
+
+    const result = await maybeProvisionStarterTemplatesForSignup({
+      ctx: {} as any,
+      organizationId: "organizations_test" as Id<"organizations">,
+      userId: "users_test" as Id<"users">,
+      provisioner,
+    });
+
+    expect(provisioner).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      enabled: false,
+      attempted: false,
+      success: false,
+    });
+  });
+
+  it("runs provisioning when enabled and degrades non-blocking on failure", async () => {
+    vi.stubEnv(STARTER_TEMPLATE_PROVISIONING_ENV_FLAG, "true");
+    const provisioner = vi.fn(async () => {
+      throw new Error("template bootstrap failed");
+    });
+
+    const result = await maybeProvisionStarterTemplatesForSignup({
+      ctx: {} as any,
+      organizationId: "organizations_test" as Id<"organizations">,
+      userId: "users_test" as Id<"users">,
+      provisioner,
+    });
+
+    expect(provisioner).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      enabled: true,
+      attempted: true,
+      success: false,
     });
   });
 });

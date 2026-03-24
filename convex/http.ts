@@ -426,23 +426,175 @@ function resolveTelephonyWebhookProviderCallId(
   );
 }
 
+type TelephonyWebhookDirection = "inbound" | "outbound";
+
+const TELEPHONY_CALLER_TRANSCRIPT_ROLES = new Set([
+  "user",
+  "caller",
+  "customer",
+  "human",
+  "contact",
+  "patient",
+  "guest",
+]);
+
+const TELEPHONY_CALLER_TRANSCRIPT_ROLE_PREFIX =
+  /^(user|caller|customer|human|contact|patient|guest)\s*:\s*/i;
+const TELEPHONY_AGENT_TRANSCRIPT_ROLE_PREFIX =
+  /^(agent|assistant|ai)\s*:\s*/i;
+
+function resolveTranscriptSegmentText(
+  segment: Record<string, unknown>
+): string | undefined {
+  return (
+    asNonEmptyString(segment.text) ||
+    asNonEmptyString(segment.message) ||
+    asNonEmptyString(segment.transcript) ||
+    asNonEmptyString(segment.content)
+  );
+}
+
+function resolveTranscriptSegmentRole(
+  segment: Record<string, unknown>
+): string | undefined {
+  return (
+    asNonEmptyString(segment.role) ||
+    asNonEmptyString(segment.speaker) ||
+    asNonEmptyString(segment.source)
+  );
+}
+
+function resolveTelephonyWebhookParticipantIdentifier(
+  ...candidates: unknown[]
+): string | undefined {
+  for (const candidate of candidates) {
+    const normalized = asNonEmptyString(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return undefined;
+}
+
+function normalizeTelephonyWebhookDirection(
+  value: unknown
+): TelephonyWebhookDirection | undefined {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (
+    normalized.startsWith("inbound") ||
+    normalized === "incoming" ||
+    normalized === "received"
+  ) {
+    return "inbound";
+  }
+  if (
+    normalized.startsWith("outbound") ||
+    normalized === "outgoing" ||
+    normalized === "placed" ||
+    normalized === "sent"
+  ) {
+    return "outbound";
+  }
+  return undefined;
+}
+
+function normalizeTelephonyComparableIdentifier(
+  value: unknown
+): string | undefined {
+  const normalized = asNonEmptyString(value);
+  if (!normalized) {
+    return undefined;
+  }
+  const digits = normalized.replace(/[^\d+]/g, "");
+  return digits.length > 0 ? digits : normalized.toLowerCase();
+}
+
+function telephonyIdentifiersMatch(
+  left: unknown,
+  right: unknown
+): boolean {
+  const normalizedLeft = normalizeTelephonyComparableIdentifier(left);
+  const normalizedRight = normalizeTelephonyComparableIdentifier(right);
+  return Boolean(
+    normalizedLeft &&
+      normalizedRight &&
+      normalizedLeft === normalizedRight
+  );
+}
+
+function buildCallerTranscriptTextFromSegments(
+  transcriptSegments: Array<Record<string, unknown>> | undefined
+): string | undefined {
+  if (!transcriptSegments || transcriptSegments.length === 0) {
+    return undefined;
+  }
+
+  const text = transcriptSegments
+    .map((segment) => {
+      const resolved = resolveTranscriptSegmentText(segment);
+      if (!resolved) {
+        return null;
+      }
+      const role = resolveTranscriptSegmentRole(segment)?.toLowerCase();
+      if (!role || !TELEPHONY_CALLER_TRANSCRIPT_ROLES.has(role)) {
+        return null;
+      }
+      return resolved;
+    })
+    .filter((segment): segment is string => Boolean(segment))
+    .join("\n")
+    .trim();
+
+  return text.length > 0 ? text : undefined;
+}
+
+function extractCallerTranscriptText(
+  transcriptText: string | undefined
+): string | undefined {
+  const normalized = asNonEmptyString(transcriptText);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  const callerLines = lines
+    .filter((line) => TELEPHONY_CALLER_TRANSCRIPT_ROLE_PREFIX.test(line))
+    .map((line) =>
+      line.replace(TELEPHONY_CALLER_TRANSCRIPT_ROLE_PREFIX, "").trim()
+    )
+    .filter((line) => line.length > 0);
+
+  if (callerLines.length > 0) {
+    return callerLines.join("\n");
+  }
+
+  if (lines.some((line) => TELEPHONY_AGENT_TRANSCRIPT_ROLE_PREFIX.test(line))) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
 function buildTranscriptTextFromSegments(
   transcriptSegments: Array<Record<string, unknown>>
 ): string | undefined {
   const text = transcriptSegments
     .map((segment) => {
-      const resolved =
-        asNonEmptyString(segment.text) ||
-        asNonEmptyString(segment.message) ||
-        asNonEmptyString(segment.transcript) ||
-        asNonEmptyString(segment.content);
+      const resolved = resolveTranscriptSegmentText(segment);
       if (!resolved) {
         return null;
       }
-      const role =
-        asNonEmptyString(segment.role) ||
-        asNonEmptyString(segment.speaker) ||
-        asNonEmptyString(segment.source);
+      const role = resolveTranscriptSegmentRole(segment);
       return role ? `${role}: ${resolved}` : resolved;
     })
     .filter((segment): segment is string => Boolean(segment))
@@ -546,6 +698,10 @@ export function normalizeTelephonyWebhookPayload(
     asNumber(payload.durationSeconds) ||
     asNumber(envelopeData.duration_seconds) ||
     asNumber(envelopeMetadata?.call_duration_secs);
+  const providerTimestamp =
+    resolveTelephonyWebhookEventTimestampMs(payload.providerTimestamp) ||
+    resolveTelephonyWebhookEventTimestampMs(payload.event_timestamp) ||
+    resolveTelephonyWebhookEventTimestampMs(envelopeData.event_timestamp);
   const routeKey =
     asNonEmptyString(payload.routeKey) ||
     asNonEmptyString(payload.bindingRouteKey) ||
@@ -553,6 +709,60 @@ export function normalizeTelephonyWebhookPayload(
     asNonEmptyString(dynamicVariables.routeKey) ||
     asNonEmptyString(dynamicVariables.bindingRouteKey) ||
     asNonEmptyString(dynamicVariables.providerRouteKey);
+  const callerIdentifier = resolveTelephonyWebhookParticipantIdentifier(
+    payload.callerIdentifier,
+    payload.from,
+    payload.fromNumber,
+    payload.caller,
+    payload.callerNumber,
+    payload.phoneNumberFrom,
+    envelopeData.caller_identifier,
+    envelopeData.from,
+    envelopeData.from_number,
+    envelopeData.caller,
+    envelopeData.caller_id,
+    envelopeMetadata?.from,
+    metadataBody?.from,
+    metadataBody?.From,
+    dynamicVariables.callerIdentifier,
+    dynamicVariables.from
+  );
+  const recipientIdentifier = resolveTelephonyWebhookParticipantIdentifier(
+    payload.recipientIdentifier,
+    payload.to,
+    payload.toNumber,
+    payload.recipient,
+    payload.phoneNumber,
+    envelopeData.recipient_identifier,
+    envelopeData.to,
+    envelopeData.to_number,
+    envelopeData.recipient,
+    envelopeData.phone_number,
+    envelopeMetadata?.to,
+    metadataBody?.to,
+    metadataBody?.To,
+    dynamicVariables.recipientIdentifier,
+    dynamicVariables.to
+  );
+  const direction =
+    normalizeTelephonyWebhookDirection(payload.direction) ||
+    normalizeTelephonyWebhookDirection(payload.callDirection) ||
+    normalizeTelephonyWebhookDirection(payload.call_direction) ||
+    normalizeTelephonyWebhookDirection(envelopeData.direction) ||
+    normalizeTelephonyWebhookDirection(envelopeData.callDirection) ||
+    normalizeTelephonyWebhookDirection(envelopeData.call_direction) ||
+    normalizeTelephonyWebhookDirection(envelopeMetadata?.direction) ||
+    normalizeTelephonyWebhookDirection(
+      (envelopeMetadata as Record<string, unknown> | undefined)?.callDirection
+    ) ||
+    normalizeTelephonyWebhookDirection(
+      (envelopeMetadata as Record<string, unknown> | undefined)?.call_direction
+    ) ||
+    normalizeTelephonyWebhookDirection(metadataBody?.direction) ||
+    normalizeTelephonyWebhookDirection(metadataBody?.Direction) ||
+    normalizeTelephonyWebhookDirection(dynamicVariables.direction) ||
+    normalizeTelephonyWebhookDirection(dynamicVariables.callDirection) ||
+    normalizeTelephonyWebhookDirection(dynamicVariables.call_direction);
   const normalizedMetadata = {
     ...topLevelMetadata,
     ...(envelopeMetadata || {}),
@@ -601,12 +811,16 @@ export function normalizeTelephonyWebhookPayload(
         : transcriptSegments,
     durationSeconds,
     endedAt,
+    providerTimestamp,
     voicemailDetected:
       payload.voicemailDetected === true ||
       envelopeData.voicemail_detected === true,
     errorMessage,
     error:
       asNonEmptyString(payload.error) || errorMessage,
+    callerIdentifier,
+    recipientIdentifier,
+    direction,
     organizationId:
       asNonEmptyString(payload.organizationId) ||
       asNonEmptyString(dynamicVariables.organizationId),
@@ -671,6 +885,217 @@ function isElevenTelephonyIngress(args: {
       telephonyProviderIdentity === "eleven_telephony" ||
       args.routeKey?.startsWith(`${ELEVEN_TELEPHONY_ROUTE_KEY_PREFIX}:`)
   );
+}
+
+function resolveTelephonyBindingLineIdentifier(
+  credentials: ProviderCredentials | null
+): string | undefined {
+  return (
+    asNonEmptyString(credentials?.elevenTelephonyFromNumber) ||
+    asNonEmptyString(credentials?.twilioVoiceFromNumber) ||
+    asNonEmptyString(credentials?.directCallFromNumber)
+  );
+}
+
+type ElevenInboundTelephonyRuntimeSkipReason =
+  | "non_inbound_call"
+  | "ambiguous_direction"
+  | "missing_external_contact_identifier"
+  | "missing_inbound_message";
+
+type ElevenInboundTelephonyRuntimeDecision =
+  | {
+      shouldEnsureCallRecord: false;
+      shouldDispatch: false;
+      reasonCode: "non_inbound_call" | "ambiguous_direction";
+      direction?: TelephonyWebhookDirection;
+      callerIdentifier?: string;
+      recipientIdentifier?: string;
+    }
+  | {
+      shouldEnsureCallRecord: true;
+      shouldDispatch: false;
+      reasonCode:
+        | "missing_external_contact_identifier"
+        | "missing_inbound_message";
+      direction: "inbound";
+      callerIdentifier?: string;
+      recipientIdentifier?: string;
+    }
+  | {
+      shouldEnsureCallRecord: true;
+      shouldDispatch: true;
+      direction: "inbound";
+      callerIdentifier?: string;
+      recipientIdentifier?: string;
+      externalContactIdentifier: string;
+      message: string;
+      metadata: Record<string, unknown>;
+    };
+
+export function resolveElevenInboundTelephonyRuntimeDecision(args: {
+  payload: Record<string, unknown>;
+  organizationId: string;
+  providerConnectionId?: string;
+  providerAccountId?: string;
+  providerInstallationId?: string;
+  providerProfileId?: string;
+  providerProfileType?: "platform" | "organization";
+  routeKey?: string;
+  telephonyProviderIdentity?: string;
+  lineIdentifier?: string;
+}): ElevenInboundTelephonyRuntimeDecision {
+  const callerIdentifier = asNonEmptyString(args.payload.callerIdentifier);
+  const recipientIdentifier = asNonEmptyString(args.payload.recipientIdentifier);
+  const explicitDirection = normalizeTelephonyWebhookDirection(
+    args.payload.direction
+  );
+  const lineIdentifier = asNonEmptyString(args.lineIdentifier);
+  const callerMatchesLine = telephonyIdentifiersMatch(
+    callerIdentifier,
+    lineIdentifier
+  );
+  const recipientMatchesLine = telephonyIdentifiersMatch(
+    recipientIdentifier,
+    lineIdentifier
+  );
+
+  let direction = explicitDirection;
+  if (!direction) {
+    if (recipientMatchesLine && !callerMatchesLine) {
+      direction = "inbound";
+    } else if (callerMatchesLine && !recipientMatchesLine) {
+      direction = "outbound";
+    }
+  }
+
+  if (direction === "outbound") {
+    return {
+      shouldEnsureCallRecord: false,
+      shouldDispatch: false,
+      reasonCode: "non_inbound_call",
+      direction,
+      callerIdentifier,
+      recipientIdentifier,
+    };
+  }
+
+  if (direction !== "inbound") {
+    return {
+      shouldEnsureCallRecord: false,
+      shouldDispatch: false,
+      reasonCode: "ambiguous_direction",
+      direction,
+      callerIdentifier,
+      recipientIdentifier,
+    };
+  }
+
+  if (!callerIdentifier) {
+    return {
+      shouldEnsureCallRecord: true,
+      shouldDispatch: false,
+      reasonCode: "missing_external_contact_identifier",
+      direction,
+      callerIdentifier,
+      recipientIdentifier,
+    };
+  }
+
+  const transcriptSegments = Array.isArray(args.payload.transcriptSegments)
+    ? (args.payload.transcriptSegments as Array<Record<string, unknown>>)
+    : undefined;
+  const transcriptText =
+    asNonEmptyString(args.payload.transcriptText) ||
+    asNonEmptyString(args.payload.transcript);
+  const callerTranscriptText =
+    buildCallerTranscriptTextFromSegments(transcriptSegments) ||
+    extractCallerTranscriptText(transcriptText);
+  const messageSource = transcriptText || callerTranscriptText;
+
+  if (!messageSource) {
+    return {
+      shouldEnsureCallRecord: true,
+      shouldDispatch: false,
+      reasonCode: "missing_inbound_message",
+      direction,
+      callerIdentifier,
+      recipientIdentifier,
+    };
+  }
+
+  const providerCallId = asNonEmptyString(args.payload.providerCallId);
+  const providerConversationId = asNonEmptyString(
+    args.payload.providerConversationId
+  );
+  const eventId = asNonEmptyString(args.payload.eventId);
+  const telephonyProviderIdentity =
+    asNonEmptyString(args.telephonyProviderIdentity) ||
+    asNonEmptyString(args.payload.telephonyProviderIdentity) ||
+    "eleven_telephony";
+  const message = transcriptText
+    ? `Inbound phone call transcript for post-call processing:\n${transcriptText}`
+    : callerTranscriptText!;
+  const metadata: Record<string, unknown> = {
+    providerId: "direct",
+    skipOutbound: true,
+    direction,
+    source: "eleven_telephony_webhook",
+    telephonyIngressSource: "eleven_telephony_webhook",
+    telephonyProviderIdentity,
+    callerIdentifier,
+    ...(recipientIdentifier ? { recipientIdentifier } : {}),
+    ...(providerCallId ? { providerCallId, providerMessageId: providerCallId } : {}),
+    ...(providerConversationId ? { providerConversationId, conversationId: providerConversationId } : {}),
+    ...(eventId ? { providerEventId: eventId } : {}),
+    ...(args.providerConnectionId ? { providerConnectionId: args.providerConnectionId } : {}),
+    ...(args.providerAccountId ? { providerAccountId: args.providerAccountId } : {}),
+    ...(args.providerInstallationId ? { providerInstallationId: args.providerInstallationId } : {}),
+    ...(args.providerProfileId ? { providerProfileId: args.providerProfileId } : {}),
+    ...(args.providerProfileType ? { providerProfileType: args.providerProfileType } : {}),
+    ...(args.routeKey
+      ? {
+          routeKey: args.routeKey,
+          bindingRouteKey: args.routeKey,
+          providerRouteKey: args.routeKey,
+        }
+      : {}),
+    ...(callerTranscriptText ? { callerTranscriptText } : {}),
+    ...(transcriptText ? { transcriptText } : {}),
+    ...(asNonEmptyString(args.payload.eventType)
+      ? { telephonyWebhookEventType: asNonEmptyString(args.payload.eventType) }
+      : {}),
+    ...(typeof args.payload.durationSeconds === "number"
+      ? { durationSeconds: args.payload.durationSeconds }
+      : {}),
+    ...(typeof args.payload.endedAt === "number"
+      ? { endedAt: args.payload.endedAt }
+      : {}),
+    ...(typeof args.payload.providerTimestamp === "number"
+      ? {
+          providerTimestamp: args.payload.providerTimestamp,
+          timestamp: args.payload.providerTimestamp,
+        }
+      : {}),
+    idempotencyKey: `telephony_inbound:${args.organizationId}:${providerCallId || providerConversationId || callerIdentifier}`,
+  };
+
+  if (transcriptText) {
+    metadata.voiceRuntime = {
+      transcript: transcriptText,
+    };
+  }
+
+  return {
+    shouldEnsureCallRecord: true,
+    shouldDispatch: true,
+    direction,
+    callerIdentifier,
+    recipientIdentifier,
+    externalContactIdentifier: callerIdentifier,
+    message,
+    metadata,
+  };
 }
 
 function buildTelephonyWebhookRejectResponse(
@@ -3194,6 +3619,13 @@ http.route({
       // Parse request body
       const body = await request.json();
       const { email, password, firstName, lastName, organizationName, refcode } = body;
+      const description = asNonEmptyString(body?.description);
+      const industry = asNonEmptyString(body?.industry);
+      const contactEmail = asNonEmptyString(body?.contactEmail) || asNonEmptyString(body?.contact_email);
+      const contactPhone = asNonEmptyString(body?.contactPhone) || asNonEmptyString(body?.contact_phone);
+      const timezone = asNonEmptyString(body?.timezone);
+      const dateFormat = asNonEmptyString(body?.dateFormat) || asNonEmptyString(body?.date_format);
+      const language = asNonEmptyString(body?.language);
       const referralCode = asNonEmptyString(refcode);
       const betaCode = asNonEmptyString(body?.betaCode)
         || asNonEmptyString(body?.beta_code)
@@ -3225,6 +3657,13 @@ http.route({
         firstName,
         lastName,
         organizationName,
+        description,
+        industry,
+        contactEmail,
+        contactPhone,
+        timezone,
+        dateFormat,
+        language,
         betaCode,
         identityClaimToken,
       });
@@ -3526,6 +3965,14 @@ http.route({
  * Customer authentication endpoints that create frontend_users (not platform users).
  * Organization is determined by the API key used for authentication.
  * Creates frontend_user + CRM contact for each new customer.
+ */
+
+/**
+ * Hub-GW OAuth note:
+ * `/api/v1/auth/sync-user` and `/api/v1/auth/validate-token` are intentionally
+ * not registered here. Hub-GW stage 1 uses a server-side admin Convex call into
+ * `internal.auth.syncFrontendUser` from `apps/hub-gw/lib/server-convex.ts`.
+ * HGO-014 will decide whether the legacy HTTP auth file is wired or deprecated.
  */
 
 // OPTIONS /api/v1/auth/customer/* - CORS preflight for all customer auth
@@ -4554,6 +5001,7 @@ http.route({
         organizationId,
         agentId,
         sessionToken,
+        onboardingSurface,
         idempotencyKey,
         requestCorrelationId,
         message,
@@ -4562,10 +5010,13 @@ http.route({
         deviceFingerprint,
         challengeToken,
         attribution,
+        language,
+        locale,
       } = body as {
         organizationId?: string;
         agentId?: string;
         sessionToken?: string;
+        onboardingSurface?: string;
         idempotencyKey?: string;
         requestCorrelationId?: string;
         message: string;
@@ -4573,6 +5024,8 @@ http.route({
         visitorInfo?: { name?: string; email?: string; phone?: string };
         deviceFingerprint?: string;
         challengeToken?: string;
+        language?: string;
+        locale?: string;
         attribution?: {
           source?: string;
           medium?: string;
@@ -4603,6 +5056,10 @@ http.route({
         typeof sessionToken === "string" && sessionToken.trim().length > 0
           ? sessionToken.trim()
           : undefined;
+      const normalizedOnboardingSurface =
+        typeof onboardingSurface === "string" && onboardingSurface.trim().length > 0
+          ? onboardingSurface.trim()
+          : undefined;
       const normalizedIdempotencyKey =
         typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0
           ? idempotencyKey.trim()
@@ -4615,6 +5072,19 @@ http.route({
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
         attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedAcceptLanguage = request.headers.get("accept-language")?.split(",")[0]?.trim() || undefined;
+      const normalizedLocale =
+        typeof locale === "string" && locale.trim().length > 0
+          ? locale.trim()
+          : normalizedAcceptLanguage;
+      const normalizedLanguageCandidate =
+        typeof language === "string" && language.trim().length > 0
+          ? language.trim().toLowerCase()
+          : normalizedLocale?.split(/[-_]/)[0]?.trim().toLowerCase();
+      const normalizedLanguage =
+        normalizedLanguageCandidate && normalizedLanguageCandidate.length > 0
+          ? normalizedLanguageCandidate
+          : undefined;
       const normalizedAttachments = Array.isArray(attachments)
         ? attachments
             .filter((entry) => entry && typeof entry === "object")
@@ -4821,6 +5291,8 @@ http.route({
         attachments: normalizedAttachments,
         visitorInfo,
         attribution: normalizedAttribution,
+        language: normalizedLanguage,
+        locale: normalizedLocale,
       });
 
       if (!result.success) {
@@ -5001,6 +5473,7 @@ http.route({
         organizationId,
         agentId,
         sessionToken,
+        onboardingSurface,
         idempotencyKey,
         requestCorrelationId,
         message,
@@ -5009,10 +5482,13 @@ http.route({
         deviceFingerprint,
         challengeToken,
         attribution,
+        language,
+        locale,
       } = body as {
         organizationId?: string;
         agentId?: string;
         sessionToken?: string;
+        onboardingSurface?: string;
         idempotencyKey?: string;
         requestCorrelationId?: string;
         message: string;
@@ -5020,6 +5496,8 @@ http.route({
         visitorInfo?: { name?: string; email?: string; phone?: string };
         deviceFingerprint?: string;
         challengeToken?: string;
+        language?: string;
+        locale?: string;
         attribution?: {
           source?: string;
           medium?: string;
@@ -5048,6 +5526,10 @@ http.route({
         typeof sessionToken === "string" && sessionToken.trim().length > 0
           ? sessionToken.trim()
           : undefined;
+      const normalizedOnboardingSurface =
+        typeof onboardingSurface === "string" && onboardingSurface.trim().length > 0
+          ? onboardingSurface.trim()
+          : undefined;
       const normalizedIdempotencyKey =
         typeof idempotencyKey === "string" && idempotencyKey.trim().length > 0
           ? idempotencyKey.trim()
@@ -5060,6 +5542,19 @@ http.route({
       const normalizedChallengeToken = typeof challengeToken === "string" ? challengeToken : undefined;
       const normalizedAttribution =
         attribution && typeof attribution === "object" ? attribution : undefined;
+      const normalizedAcceptLanguage = request.headers.get("accept-language")?.split(",")[0]?.trim() || undefined;
+      const normalizedLocale =
+        typeof locale === "string" && locale.trim().length > 0
+          ? locale.trim()
+          : normalizedAcceptLanguage;
+      const normalizedLanguageCandidate =
+        typeof language === "string" && language.trim().length > 0
+          ? language.trim().toLowerCase()
+          : normalizedLocale?.split(/[-_]/)[0]?.trim().toLowerCase();
+      const normalizedLanguage =
+        normalizedLanguageCandidate && normalizedLanguageCandidate.length > 0
+          ? normalizedLanguageCandidate
+          : undefined;
       const normalizedAttachments = Array.isArray(attachments)
         ? attachments
             .filter((entry) => entry && typeof entry === "object")
@@ -5268,12 +5763,15 @@ http.route({
         agentId: resolvedContext.agentId,
         channel: "native_guest",
         sessionToken: normalizedSessionToken,
+        onboardingSurface: normalizedOnboardingSurface,
         idempotencyKey: normalizedIdempotencyKey,
         requestCorrelationId: normalizedRequestCorrelationId,
         message,
         attachments: normalizedAttachments,
         visitorInfo,
         attribution: normalizedAttribution,
+        language: normalizedLanguage,
+        locale: normalizedLocale,
       });
 
       console.info("[NativeGuestReplayTrace] http_native_guest_result", {
@@ -6476,6 +6974,7 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
     let providerInstallationId: string | undefined;
     let providerProfileId: string | undefined;
     let providerProfileType: "platform" | "organization" | undefined;
+    let telephonyCredentials: ProviderCredentials | null = null;
     let routeKey = routingIdentity.routeKey;
     let payloadOrganizationId = asNonEmptyString(payload.organizationId);
 
@@ -6516,7 +7015,7 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
       providerProfileType = resolvedContext.providerProfileType;
       routeKey = resolvedContext.routeKey || routeKey;
 
-      const credentials = (await (ctx as any).runQuery(
+      telephonyCredentials = (await (ctx as any).runQuery(
         generatedApi.internal.channels.router.getProviderCredentials,
         {
           organizationId,
@@ -6530,7 +7029,7 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
           allowPlatformFallback: false,
         }
       )) as ProviderCredentials | null;
-      const signingSecret = resolveTelephonyWebhookSigningSecret(credentials);
+      const signingSecret = resolveTelephonyWebhookSigningSecret(telephonyCredentials);
       const signatureResult = await verifyTelephonyWebhookSignature({
         body,
         signatureHeader,
@@ -6622,7 +7121,62 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
       );
     }
 
-    await (ctx as any).runMutation(
+    let telephonyCallRecordId: string | null = null;
+    let telephonyCallRecordEnsureError: string | undefined;
+    let runtimeDispatchStatus:
+      | "not_attempted"
+      | "dispatched"
+      | "skipped"
+      | "failed" = "not_attempted";
+    let runtimeDispatchReasonCode: string | undefined;
+    let runtimeDispatchError: string | undefined;
+    let elevenRuntimeDecision: ElevenInboundTelephonyRuntimeDecision | null = null;
+
+    if (isElevenIngress) {
+      elevenRuntimeDecision = resolveElevenInboundTelephonyRuntimeDecision({
+        payload,
+        organizationId: String(organizationId),
+        providerConnectionId,
+        providerAccountId,
+        providerInstallationId,
+        providerProfileId,
+        providerProfileType,
+        routeKey,
+        telephonyProviderIdentity: asNonEmptyString(
+          payload.telephonyProviderIdentity
+        ),
+        lineIdentifier: resolveTelephonyBindingLineIdentifier(telephonyCredentials),
+      });
+
+      if (elevenRuntimeDecision.shouldEnsureCallRecord) {
+        const ensureResult = await (ctx as any).runMutation(
+          generatedApi.internal.channels.router.ensureTelephonyCallRecord,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            providerId: asNonEmptyString(payload.providerId) || "direct",
+            providerCallId,
+            providerConversationId: asNonEmptyString(payload.providerConversationId),
+            recipientIdentifier: asNonEmptyString(payload.recipientIdentifier),
+            callerIdentifier: asNonEmptyString(payload.callerIdentifier),
+            routeKey,
+            telephonyProviderIdentity:
+              asNonEmptyString(payload.telephonyProviderIdentity) ||
+              "eleven_telephony",
+            direction: "inbound",
+            source: "eleven_telephony_webhook_inbound",
+          }
+        );
+        telephonyCallRecordId =
+          asNonEmptyString(
+            (ensureResult as { callRecordId?: unknown } | null)?.callRecordId
+          ) || null;
+        telephonyCallRecordEnsureError = asNonEmptyString(
+          (ensureResult as { error?: unknown } | null)?.error
+        );
+      }
+    }
+
+    const outcomeMutationResult = await (ctx as any).runMutation(
       generatedApi.internal.channels.router.recordTelephonyWebhookOutcome,
       {
         organizationId: organizationId as Id<"organizations">,
@@ -6651,20 +7205,78 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
           asNonEmptyString(payload.error),
       }
     );
+    if (!telephonyCallRecordId) {
+      telephonyCallRecordId =
+        asNonEmptyString(
+          (outcomeMutationResult as { callRecordId?: unknown } | null)?.callRecordId
+        ) || null;
+    }
+
+    if (isElevenIngress && elevenRuntimeDecision) {
+      if (elevenRuntimeDecision.shouldDispatch) {
+        if (!telephonyCallRecordId) {
+          runtimeDispatchStatus = "skipped";
+          runtimeDispatchReasonCode = "missing_call_record_after_ingress";
+        } else {
+          try {
+            await (ctx as any).runAction(
+              generatedApi.api.ai.agentExecution.processInboundMessage,
+              {
+                organizationId: organizationId as Id<"organizations">,
+                channel: "phone_call",
+                externalContactIdentifier:
+                  elevenRuntimeDecision.externalContactIdentifier,
+                message: elevenRuntimeDecision.message,
+                metadata: {
+                  ...elevenRuntimeDecision.metadata,
+                  telephonyCallRecordId,
+                },
+              }
+            );
+            runtimeDispatchStatus = "dispatched";
+          } catch (dispatchError) {
+            runtimeDispatchStatus = "failed";
+            runtimeDispatchReasonCode = "dispatch_failed";
+            runtimeDispatchError = getErrorMessage(dispatchError);
+            console.error("[Direct Telephony Webhook] Failed to dispatch inbound runtime", {
+              organizationId: String(organizationId),
+              providerCallId,
+              routeKey,
+              telephonyCallRecordId,
+              error: runtimeDispatchError,
+            });
+          }
+        }
+      } else {
+        runtimeDispatchStatus = "skipped";
+        runtimeDispatchReasonCode = elevenRuntimeDecision.reasonCode;
+      }
+    }
 
     if (isElevenIngress) {
       const payloadOrganizationIdMismatch =
         Boolean(payloadOrganizationId) && payloadOrganizationId !== organizationId;
+      const runtimeDispatchWarning =
+        runtimeDispatchStatus === "failed" ||
+        (runtimeDispatchStatus === "skipped" &&
+          runtimeDispatchReasonCode !== "non_inbound_call");
       await recordIngressWebhookEvent({
         ctx,
         organizationId,
         provider: "direct",
         endpoint: "/webhooks/telephony/direct",
         action: "telephony_direct_ingress",
-        status: payloadOrganizationIdMismatch ? "warning" : "success",
-        message: payloadOrganizationIdMismatch
-          ? "Eleven telephony webhook accepted with route-derived org override"
-          : "Eleven telephony webhook accepted",
+        status:
+          payloadOrganizationIdMismatch || runtimeDispatchWarning
+            ? "warning"
+            : "success",
+        message: runtimeDispatchStatus === "failed"
+          ? "Eleven telephony webhook accepted but inbound runtime dispatch failed"
+          : runtimeDispatchStatus === "skipped" && runtimeDispatchWarning
+            ? "Eleven telephony webhook accepted but inbound runtime dispatch was skipped"
+            : payloadOrganizationIdMismatch
+              ? "Eleven telephony webhook accepted with route-derived org override"
+              : "Eleven telephony webhook accepted",
         providerEventId: asNonEmptyString(payload.eventId),
         providerConnectionId,
         providerAccountId,
@@ -6679,6 +7291,14 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
           resolvedOrganizationId: String(organizationId),
           payloadOrganizationIdIgnored: Boolean(payloadOrganizationId),
           payloadOrganizationIdMismatch,
+          telephonyCallRecordId,
+          telephonyCallRecordEnsureError,
+          runtimeDispatchStatus,
+          runtimeDispatchReasonCode,
+          runtimeDispatchError,
+          direction: asNonEmptyString(payload.direction),
+          callerIdentifier: asNonEmptyString(payload.callerIdentifier),
+          recipientIdentifier: asNonEmptyString(payload.recipientIdentifier),
         },
       });
     }

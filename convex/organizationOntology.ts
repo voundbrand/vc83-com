@@ -398,6 +398,55 @@ export const getKanzleiBookingConciergeConfigInternal = internalQuery({
   },
 });
 
+async function upsertKanzleiBookingConciergeConfigRecord(
+  ctx: any,
+  args: {
+    organizationId: string;
+    createdBy: string;
+    config: KanzleiBookingConciergeConfig;
+  },
+) {
+  const settingsObj = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q
+        .eq("organizationId", args.organizationId)
+        .eq("type", "organization_settings"),
+    )
+    .filter((q: any) =>
+      q.eq(
+        q.field("subtype"),
+        KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+      ),
+    )
+    .first();
+
+  if (settingsObj) {
+    await ctx.db.patch(settingsObj._id, {
+      customProperties: args.config,
+      updatedAt: Date.now(),
+    });
+    return settingsObj._id;
+  }
+
+  const org = await ctx.db.get(args.organizationId);
+  if (!org) {
+    throw new Error("Organisation nicht gefunden");
+  }
+
+  return await ctx.db.insert("objects", {
+    organizationId: args.organizationId,
+    type: "organization_settings",
+    subtype: KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
+    name: `${org.slug}-settings-${KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE}`,
+    status: "active",
+    customProperties: args.config,
+    createdBy: args.createdBy,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+}
+
 /**
  * GET PRIMARY ADDRESS (INTERNAL)
  * Internal version without auth check, for use in actions
@@ -767,44 +816,47 @@ export const upsertKanzleiBookingConciergeConfig = mutation({
       );
     }
 
-    const settingsObj = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q
-          .eq("organizationId", args.organizationId)
-          .eq("type", "organization_settings"),
-      )
-      .filter((q) =>
-        q.eq(
-          q.field("subtype"),
-          KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
-        ),
-      )
-      .first();
-
-    if (settingsObj) {
-      await ctx.db.patch(settingsObj._id, {
-        customProperties: normalizedConfig,
-        updatedAt: Date.now(),
-      });
-      return settingsObj._id;
-    }
-
-    const org = await ctx.db.get(args.organizationId);
-    if (!org) {
-      throw new Error("Organisation nicht gefunden");
-    }
-
-    return await ctx.db.insert("objects", {
+    return await upsertKanzleiBookingConciergeConfigRecord(ctx, {
       organizationId: args.organizationId,
-      type: "organization_settings",
-      subtype: KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE,
-      name: `${org.slug}-settings-${KANZLEI_BOOKING_CONCIERGE_SETTINGS_SUBTYPE}`,
-      status: "active",
-      customProperties: normalizedConfig,
       createdBy: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      config: normalizedConfig,
+    });
+  },
+});
+
+export const upsertKanzleiBookingConciergeConfigInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    createdBy: v.id("users"),
+    primaryResourceId: v.optional(v.string()),
+    primaryResourceLabel: v.optional(v.string()),
+    operatorCalendarConnectionId: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    defaultMeetingTitle: v.optional(v.string()),
+    intakeLabel: v.optional(v.string()),
+    requireConfiguredResource: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedConfig = normalizeKanzleiBookingConciergeConfig({
+      primaryResourceId: args.primaryResourceId,
+      primaryResourceLabel: args.primaryResourceLabel,
+      operatorCalendarConnectionId: args.operatorCalendarConnectionId,
+      timezone: args.timezone,
+      defaultMeetingTitle: args.defaultMeetingTitle,
+      intakeLabel: args.intakeLabel,
+      requireConfiguredResource: args.requireConfiguredResource,
+    });
+
+    if (!normalizedConfig) {
+      throw new Error(
+        "At least one Kanzlei booking concierge setting must be provided.",
+      );
+    }
+
+    return await upsertKanzleiBookingConciergeConfigRecord(ctx, {
+      organizationId: args.organizationId,
+      createdBy: args.createdBy,
+      config: normalizedConfig,
     });
   },
 });

@@ -646,14 +646,10 @@ export function LoginWindow() {
         betaAccessStatus: result.betaAccessStatus,
       });
 
-      // Clear form
-      setPassword("");
-      setConfirmPassword("");
-      setFirstName("");
-      setLastName("");
-      setOrganizationName("");
-      setBetaCode("");
-      setAgreedToTerms(false);
+      // Chat-first onboarding entry: immediately route into Quinn/Mother.
+      const chatEntrypointUrl = `${window.location.pathname}?app=ai-assistant&context=signup`;
+      window.location.assign(chatEntrypointUrl);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed. Please try again.");
     } finally {
@@ -817,15 +813,13 @@ L4YERCAK3_API_URL=${apiEndpointUrl}
 
         <button
           onClick={() => {
-            // Set flag to show onboarding tutorial after page reload
-            localStorage.setItem("show_onboarding_tutorial", "true");
-            // Reload page to trigger auth context update
-            window.location.reload();
+            const chatEntrypointUrl = `${window.location.pathname}?app=ai-assistant&context=signup`;
+            window.location.assign(chatEntrypointUrl);
           }}
           className="w-full beveled-button py-3"
         >
           <span className="font-pixel">
-            {tx("ui.login.signup_success.continue_to_dashboard", "Continue to Dashboard ->")}
+            {tx("ui.login.signup_success.continue_to_dashboard", "Continue with Quinn ->")}
           </span>
         </button>
       </div>

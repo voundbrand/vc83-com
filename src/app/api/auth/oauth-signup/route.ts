@@ -100,6 +100,10 @@ export async function GET(request: NextRequest) {
       console.log(`[OAuth Signup] Storing CLI token: ${cliToken.substring(0, 30)}... (length: ${cliToken.length})`);
     }
 
+    // Extract browser language from Accept-Language header
+    const acceptLanguage = request.headers.get("accept-language") || "";
+    const sessionLanguage = acceptLanguage.split(",")[0]?.split("-")[0]?.trim().toLowerCase() || undefined;
+
     // Store state
     const onboardingDeviceType = resolveOnboardingDeviceType(request);
     await runAction(generatedApi.api.api.v1.oauthSignup.storeOAuthSignupState, {
@@ -113,6 +117,7 @@ export async function GET(request: NextRequest) {
       onboardingChannel: onboardingChannel || undefined,
       onboardingDeviceType,
       onboardingCampaign: hasOnboardingCampaign ? onboardingCampaign : undefined,
+      language: sessionLanguage,
       cliToken,
       cliState: cliState || undefined, // CLI's original state for CSRF protection
       createdAt: Date.now(),

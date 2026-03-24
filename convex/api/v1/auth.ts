@@ -1,11 +1,13 @@
 /**
- * FRONTEND OAUTH AUTHENTICATION API
+ * LEGACY FRONTEND OAUTH HTTP API
  *
- * Handles OAuth user synchronization and validation for frontend applications.
- * Frontend users authenticate via OAuth (Google, Microsoft) and this API
- * manages their user records in the backend ontology system.
+ * This file is not registered in `convex/http.ts`, so Hub-GW must not treat it
+ * as the active OAuth sync boundary. Stage 1 Hub-GW OAuth uses a server-side
+ * admin Convex call into `internal.auth.syncFrontendUser` instead.
  *
- * Endpoints:
+ * Kept for evaluation until HGO-014 explicitly wires or deprecates it.
+ *
+ * Historical endpoints:
  * - POST /api/v1/auth/sync-user - Create/update frontend user after OAuth login
  * - POST /api/v1/auth/validate-token - Validate frontend user session
  * - GET /api/v1/auth/user - Get current user details

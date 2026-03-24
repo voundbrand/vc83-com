@@ -14,6 +14,7 @@ const NOW = Date.parse("2026-03-17T12:00:00.000Z");
 const ORG_ID = "organizations_booking_runtime";
 const USER_ID = "users_booking_runtime" as Id<"users">;
 const BOOKING_ID = "objects_booking_runtime" as Id<"objects">;
+const RESOURCE_ID = "objects_resource_runtime" as Id<"objects">;
 const AGENT_ID = "objects_agent_runtime" as Id<"objects">;
 const AGENT_SESSION_ID = "agentSessions_booking_runtime" as Id<"agentSessions">;
 const CALL_RECORD_ID = "objects_call_runtime" as Id<"objects">;
@@ -280,7 +281,29 @@ describe("booking ontology agent runtime convergence", () => {
 
   it("stores structured legal intake on booking customProperties", async () => {
     const ctx = createCtx({
-      bookingStatus: "confirmed",
+      objects: [
+        {
+          _id: BOOKING_ID,
+          organizationId: ORG_ID,
+          type: "booking",
+          subtype: "appointment",
+          status: "confirmed",
+          customProperties: {
+            participants: 1,
+            startDateTime: NOW,
+            endDateTime: NOW + 30 * 60 * 1000,
+            resourceIds: [RESOURCE_ID],
+            externalCalendarEvents: {
+              "google:oauthConnections_booking_runtime:lawyer@example.com": {
+                provider: "google",
+                connectionId: "oauthConnections_booking_runtime",
+                calendarId: "lawyer@example.com",
+                externalEventId: "evt_existing_lawyer",
+              },
+            },
+          },
+        },
+      ],
     });
 
     const result = await (setBookingConciergeMetadataInternal as any)._handler(ctx, {
@@ -305,6 +328,17 @@ describe("booking ontology agent runtime convergence", () => {
     });
     expect(booking?.customProperties).toMatchObject({
       participants: 1,
+      startDateTime: NOW,
+      endDateTime: NOW + 30 * 60 * 1000,
+      resourceIds: [RESOURCE_ID],
+      externalCalendarEvents: {
+        "google:oauthConnections_booking_runtime:lawyer@example.com": {
+          provider: "google",
+          connectionId: "oauthConnections_booking_runtime",
+          calendarId: "lawyer@example.com",
+          externalEventId: "evt_existing_lawyer",
+        },
+      },
       conciergeIdempotencyKey: "kanzlei_idem_123",
       sourceChannel: "phone_call",
       sourceExternalContactIdentifier: "+49123456789",

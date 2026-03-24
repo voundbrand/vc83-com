@@ -1,4 +1,5 @@
 import { action, mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1101,6 +1102,250 @@ export const getDefaultOrganization = internalQuery({
   },
 });
 
+type FrontendUserRecord = {
+  _id: Id<"objects">;
+  name: string;
+  customProperties?: Record<string, unknown>;
+};
+
+type FrontendIdentityContext = {
+  crmContactId: Id<"objects"> | null;
+  crmOrganizationId: Id<"objects"> | null;
+  subOrgId: Id<"organizations"> | null;
+  isSeller: boolean;
+};
+
+type FrontendUserSyncResult = FrontendIdentityContext & {
+  frontendUserId: Id<"objects">;
+  email: string;
+  displayName: string;
+};
+
+function omitAuthContextKeys(customProperties?: Record<string, unknown>) {
+  if (!customProperties) {
+    return {};
+  }
+
+  const {
+    crmContactId: _crmContactId,
+    crmOrganizationId: _crmOrganizationId,
+    subOrgId: _subOrgId,
+    isSeller: _isSeller,
+    ...rest
+  } = customProperties;
+  return rest;
+}
+
+function withIdentityContext(
+  customProperties: Record<string, unknown> | undefined,
+  identityContext: FrontendIdentityContext
+) {
+  const nextCustomProperties: Record<string, unknown> = {
+    ...omitAuthContextKeys(customProperties),
+    isSeller: identityContext.isSeller,
+  };
+
+  if (identityContext.crmContactId) {
+    nextCustomProperties.crmContactId = identityContext.crmContactId;
+  }
+  if (identityContext.crmOrganizationId) {
+    nextCustomProperties.crmOrganizationId = identityContext.crmOrganizationId;
+  }
+  if (identityContext.subOrgId) {
+    nextCustomProperties.subOrgId = identityContext.subOrgId;
+  }
+
+  return nextCustomProperties;
+}
+
+async function ensureObjectLink(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    fromObjectId: Id<"objects">;
+    toObjectId: Id<"objects">;
+    linkType: string;
+  }
+) {
+  const existingLink = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q) =>
+      q.eq("fromObjectId", args.fromObjectId).eq("linkType", args.linkType)
+    )
+    .filter((q) => q.eq(q.field("toObjectId"), args.toObjectId))
+    .first();
+
+  if (existingLink) {
+    return existingLink._id;
+  }
+
+  return await ctx.db.insert("objectLinks", {
+    organizationId: args.organizationId,
+    fromObjectId: args.fromObjectId,
+    toObjectId: args.toObjectId,
+    linkType: args.linkType,
+    createdAt: Date.now(),
+  });
+}
+
+async function resolveCrmOrganizationForContact(
+  ctx: MutationCtx,
+  contactId: Id<"objects">
+): Promise<{ crmOrganizationId: Id<"objects"> | null; relationship: "works_at" | "belongs_to_organization" | null }> {
+  const worksAtLink = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q) =>
+      q.eq("fromObjectId", contactId).eq("linkType", "works_at")
+    )
+    .first();
+
+  if (worksAtLink) {
+    return {
+      crmOrganizationId: worksAtLink.toObjectId,
+      relationship: "works_at",
+    };
+  }
+
+  const compatibilityLink = await ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q) =>
+      q.eq("fromObjectId", contactId).eq("linkType", "belongs_to_organization")
+    )
+    .first();
+
+  if (compatibilityLink) {
+    return {
+      crmOrganizationId: compatibilityLink.toObjectId,
+      relationship: "belongs_to_organization",
+    };
+  }
+
+  return {
+    crmOrganizationId: null,
+    relationship: null,
+  };
+}
+
+async function resolveSellerIdentityContext(
+  ctx: MutationCtx,
+  args: {
+    frontendUserId: Id<"objects">;
+    email: string;
+    parentOrganizationId: Id<"organizations">;
+  }
+): Promise<FrontendIdentityContext> {
+  const normalizedEmail = args.email.toLowerCase().trim();
+  const contacts = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.parentOrganizationId).eq("type", "crm_contact")
+    )
+    .collect();
+
+  const matchingContact = contacts.find((contact) => {
+    const email = contact.customProperties?.email;
+    return typeof email === "string" && email.toLowerCase().trim() === normalizedEmail;
+  });
+
+  if (!matchingContact) {
+    return {
+      crmContactId: null,
+      crmOrganizationId: null,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  await ensureObjectLink(ctx, {
+    organizationId: args.parentOrganizationId,
+    fromObjectId: args.frontendUserId,
+    toObjectId: matchingContact._id,
+    linkType: "authenticates_as",
+  });
+
+  const organizationResolution = await resolveCrmOrganizationForContact(ctx, matchingContact._id);
+  const crmOrganizationId = organizationResolution.crmOrganizationId;
+
+  if (organizationResolution.relationship === "belongs_to_organization") {
+    console.warn("[Hub-GW OAuth] Using legacy belongs_to_organization fallback for CRM org resolution", {
+      email: normalizedEmail,
+      crmContactId: String(matchingContact._id),
+      crmOrganizationId: crmOrganizationId ? String(crmOrganizationId) : null,
+    });
+  }
+
+  if (!crmOrganizationId) {
+    return {
+      crmContactId: matchingContact._id,
+      crmOrganizationId: null,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  await ensureObjectLink(ctx, {
+    organizationId: args.parentOrganizationId,
+    fromObjectId: args.frontendUserId,
+    toObjectId: crmOrganizationId,
+    linkType: "belongs_to_crm_org",
+  });
+
+  const crmOrganization = await ctx.db.get(crmOrganizationId);
+  if (!crmOrganization || crmOrganization.type !== "crm_organization") {
+    return {
+      crmContactId: matchingContact._id,
+      crmOrganizationId,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  const mappedSubOrgIdRaw = crmOrganization.customProperties?.platformSubOrgId;
+  if (typeof mappedSubOrgIdRaw !== "string") {
+    return {
+      crmContactId: matchingContact._id,
+      crmOrganizationId,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  const mappedSubOrg = await ctx.db.get(mappedSubOrgIdRaw as Id<"organizations">);
+  if (!mappedSubOrg) {
+    console.warn("[Hub-GW OAuth] Ignoring missing crm_organization.customProperties.platformSubOrgId", {
+      crmOrganizationId: String(crmOrganizationId),
+      platformSubOrgId: mappedSubOrgIdRaw,
+    });
+    return {
+      crmContactId: matchingContact._id,
+      crmOrganizationId,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  if (String(mappedSubOrg.parentOrganizationId) !== String(args.parentOrganizationId)) {
+    console.warn("[Hub-GW OAuth] Ignoring platformSubOrgId outside parent-org scope", {
+      crmOrganizationId: String(crmOrganizationId),
+      platformSubOrgId: mappedSubOrgIdRaw,
+      parentOrganizationId: String(args.parentOrganizationId),
+    });
+    return {
+      crmContactId: matchingContact._id,
+      crmOrganizationId,
+      subOrgId: null,
+      isSeller: false,
+    };
+  }
+
+  return {
+    crmContactId: matchingContact._id,
+    crmOrganizationId,
+    subOrgId: mappedSubOrg._id,
+    isSeller: true,
+  };
+}
+
 /**
  * Sync a frontend user (create or update after OAuth login)
  */
@@ -1112,22 +1357,55 @@ export const syncFrontendUser = internalMutation({
     oauthId: v.string(),
     organizationId: v.id("organizations"), // From API key auth context
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<FrontendUserSyncResult> => {
     // Organization ID comes from API key authentication
     // The API key contains the organization ID it was generated for
     const organizationId = args.organizationId;
-
-    type FrontendUserObject = {
-      _id: Id<"objects">;
-      customProperties?: Record<string, unknown>;
-    } | null;
+    const normalizedEmail = args.email.toLowerCase().trim();
+    const displayName = args.name.trim() || normalizedEmail;
+    if (!(await ctx.db.get(organizationId))) {
+      throw new Error("Organization not found for frontend auth sync");
+    }
 
     // Check by OAuth provider first
-    const existingUserByOAuth: FrontendUserObject = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByOAuth, {
+    const existingUserByOAuth = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByOAuth, {
       oauthProvider: args.oauthProvider,
       oauthId: args.oauthId,
       organizationId,
-    }) as FrontendUserObject;
+    }) as FrontendUserRecord | null;
+
+    const buildSyncResult = async (frontendUserId: Id<"objects">) => {
+      const identityContext = await resolveSellerIdentityContext(ctx, {
+        frontendUserId,
+        email: normalizedEmail,
+        parentOrganizationId: organizationId,
+      });
+      const frontendUser = await ctx.db.get(frontendUserId);
+
+      if (!frontendUser || frontendUser.type !== "frontend_user") {
+        throw new Error("Frontend user disappeared during sync");
+      }
+
+      const nextCustomProperties = withIdentityContext(
+        frontendUser.customProperties,
+        identityContext
+      );
+
+      await ctx.db.patch(frontendUserId, {
+        updatedAt: Date.now(),
+        customProperties: nextCustomProperties,
+      });
+
+      return {
+        frontendUserId,
+        email: normalizedEmail,
+        displayName: (nextCustomProperties.displayName as string | undefined) ?? displayName,
+        crmContactId: identityContext.crmContactId,
+        crmOrganizationId: identityContext.crmOrganizationId,
+        subOrgId: identityContext.subOrgId,
+        isSeller: identityContext.isSeller,
+      };
+    };
 
     if (existingUserByOAuth) {
       await ctx.db.patch(existingUserByOAuth._id, {
@@ -1135,17 +1413,20 @@ export const syncFrontendUser = internalMutation({
         customProperties: {
           ...existingUserByOAuth.customProperties,
           lastLogin: Date.now(),
-          displayName: args.name,
+          displayName,
+          oauthProvider: args.oauthProvider,
+          oauthId: args.oauthId,
+          email: normalizedEmail,
         },
       });
-      return await ctx.db.get(existingUserByOAuth._id);
+      return await buildSyncResult(existingUserByOAuth._id);
     }
 
     // Check by email
-    const existingUserByEmail: FrontendUserObject = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByEmail, {
-      email: args.email,
+    const existingUserByEmail = await (ctx as any).runQuery(generatedApi.internal.auth.findFrontendUserByEmail, {
+      email: normalizedEmail,
       organizationId,
-    }) as FrontendUserObject;
+    }) as FrontendUserRecord | null;
 
     if (existingUserByEmail) {
       await ctx.db.patch(existingUserByEmail._id, {
@@ -1153,11 +1434,14 @@ export const syncFrontendUser = internalMutation({
         customProperties: {
           ...existingUserByEmail.customProperties,
           lastLogin: Date.now(),
-          displayName: args.name,
+          displayName,
+          email: normalizedEmail,
+          oauthProvider: args.oauthProvider,
+          oauthId: args.oauthId,
           [`${args.oauthProvider}Id`]: args.oauthId,
         },
       });
-      return await ctx.db.get(existingUserByEmail._id);
+      return await buildSyncResult(existingUserByEmail._id);
     }
 
     // Create new frontend_user
@@ -1166,13 +1450,14 @@ export const syncFrontendUser = internalMutation({
       organizationId,
       type: "frontend_user",
       subtype: "oauth",
-      name: args.email,
+      name: normalizedEmail,
       description: `OAuth user from ${args.oauthProvider}`,
       status: "active",
       customProperties: {
+        email: normalizedEmail,
         oauthProvider: args.oauthProvider,
         oauthId: args.oauthId,
-        displayName: args.name,
+        displayName,
         lastLogin: Date.now(),
       },
       createdBy: SYSTEM_USER_ID,
@@ -1183,11 +1468,11 @@ export const syncFrontendUser = internalMutation({
     // Link to CRM contact if exists
     await (ctx as any).runMutation(generatedApi.internal.auth.linkFrontendUserToCRM, {
       userId,
-      email: args.email,
+      email: normalizedEmail,
       organizationId,
     });
 
-    return await ctx.db.get(userId);
+    return await buildSyncResult(userId);
   },
 });
 
@@ -1273,75 +1558,28 @@ export const linkFrontendUserToCRM = internalMutation({
     email: v.string(),
     organizationId: v.id("organizations"),
   },
-  handler: async (ctx, args) => {
-    // Find crm_contact with matching email
-    const contacts = await ctx.db
-      .query("objects")
-      .withIndex("by_org_type", (q) =>
-        q.eq("organizationId", args.organizationId).eq("type", "crm_contact")
-      )
-      .collect();
-
-    const matchingContact = contacts.find(
-      (c) => c.customProperties?.email === args.email
-    );
-
-    if (!matchingContact) {
-      console.log(`No matching crm_contact found for: ${args.email}`);
-      return;
-    }
-
-    // Create link: frontend_user -> crm_contact
-    await ctx.db.insert("objectLinks", {
-      organizationId: args.organizationId,
-      fromObjectId: args.userId,
-      toObjectId: matchingContact._id,
-      linkType: "authenticates_as",
-      createdAt: Date.now(),
+  handler: async (ctx, args): Promise<FrontendIdentityContext> => {
+    const identityContext = await resolveSellerIdentityContext(ctx, {
+      frontendUserId: args.userId,
+      email: args.email,
+      parentOrganizationId: args.organizationId,
     });
 
-    // Update user with CRM contact reference
     const user = await ctx.db.get(args.userId);
-    if (user) {
+    if (user && user.type === "frontend_user") {
       await ctx.db.patch(args.userId, {
-        customProperties: {
-          ...user.customProperties,
-          crmContactId: matchingContact._id,
-        },
+        updatedAt: Date.now(),
+        customProperties: withIdentityContext(user.customProperties, identityContext),
       });
     }
 
-    // Get CRM organization
-    const crmOrgLinks = await ctx.db
-      .query("objectLinks")
-      .withIndex("by_from_link_type", (q) =>
-        q.eq("fromObjectId", matchingContact._id).eq("linkType", "belongs_to_organization")
-      )
-      .collect();
-
-    if (crmOrgLinks.length > 0) {
-      const crmOrganizationId = crmOrgLinks[0].toObjectId;
-
-      await ctx.db.insert("objectLinks", {
-        organizationId: args.organizationId,
-        fromObjectId: args.userId,
-        toObjectId: crmOrganizationId,
-        linkType: "belongs_to_crm_org",
-        createdAt: Date.now(),
-      });
-
-      const updatedUser = await ctx.db.get(args.userId);
-      if (updatedUser) {
-        await ctx.db.patch(args.userId, {
-          customProperties: {
-            ...updatedUser.customProperties,
-            crmOrganizationId: crmOrganizationId,
-          },
-        });
-      }
+    if (!identityContext.crmContactId) {
+      console.log(`No matching crm_contact found for: ${args.email}`);
+      return identityContext;
     }
 
-    console.log(`✓ Linked frontend_user to crm_contact: ${matchingContact._id}`);
+    console.log(`✓ Linked frontend_user to crm_contact: ${identityContext.crmContactId}`);
+    return identityContext;
   },
 });
 

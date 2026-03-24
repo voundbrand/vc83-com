@@ -9,11 +9,12 @@ import { RolesPermissionsTab } from "./roles-permissions-tab";
 import { DomainConfigTab } from "./domain-config-tab";
 import { SecurityTab } from "./security-tab";
 import { AISettingsTab } from "./ai-settings-tab";
+import { BillingTab } from "./billing-tab";
 import { OrganizationSection } from "./components/organization-section";
 import { AddressCard } from "./components/address-card";
 import { AddressModal } from "./components/address-modal";
 import { OrganizationDetailsForm, OrganizationDetailsFormRef } from "./organization-details-form";
-import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain, Network, Sparkles } from "lucide-react";
+import { Users, Building2, AlertCircle, Loader2, Shield, Save, Crown, Edit2, X, MapPin, Plus, Key, Globe, Brain, Network, Sparkles, CreditCard } from "lucide-react";
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import {
   useAuth,
@@ -37,7 +38,7 @@ import {
   InteriorTitle,
 } from "@/components/window-content/shared/interior-primitives";
 
-type TabType = "organization" | "users" | "ai" | "integrations" | "roles" | "domains" | "security" | "sub-orgs" | "product-rollout";
+type TabType = "organization" | "users" | "ai" | "billing" | "integrations" | "roles" | "domains" | "security" | "sub-orgs" | "product-rollout";
 
 interface ManageWindowProps {
   initialTab?: TabType;
@@ -108,6 +109,7 @@ export function ManageWindow({
     { id: "organization", label: t("ui.manage.tab.organization"), icon: <Building2 size={14} /> },
     { id: "users", label: t("ui.manage.tab.users_invites"), icon: <Users size={14} /> },
     { id: "ai", label: t("ui.manage.tab.ai"), icon: <Brain size={14} /> },
+    { id: "billing", label: "Billing", icon: <CreditCard size={14} /> },
     { id: "integrations", label: t("ui.manage.tab.integrations"), icon: null },
     { id: "roles", label: t("ui.manage.tab.roles_permissions"), icon: <Shield size={14} /> },
     { id: "domains", label: t("ui.manage.tab.domains"), icon: <Globe size={14} /> },
@@ -652,6 +654,13 @@ export function ManageWindow({
 
         {activeTab === "ai" && (
           <AISettingsTab />
+        )}
+
+        {activeTab === "billing" && organizationId && (
+          <BillingTab
+            organizationId={organizationId as Id<"organizations">}
+            stripeCustomerId={organization?.stripeCustomerId}
+          />
         )}
 
         {activeTab === "integrations" && (

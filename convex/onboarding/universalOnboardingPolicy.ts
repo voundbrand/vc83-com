@@ -4,6 +4,8 @@ import type { PublicInboundChannel } from "../webchatCustomizationContract";
 export type UniversalOnboardingChannel = "telegram" | PublicInboundChannel;
 export type ExistingWorkspaceAction = "preserve" | "rename" | "recreate";
 export type LegacyAliasStatus = "active" | "deferred";
+export type ExplicitGuestOnboardingSurface =
+  typeof NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT;
 
 export interface UniversalWorkspaceProfile {
   workspaceName: string;
@@ -24,11 +26,18 @@ export interface LegacyTelegramAliasSurface {
 
 export const UNIVERSAL_ONBOARDING_POLICY_VERSION = "universal_onboarding_policy.v1";
 export const UNIVERSAL_ONBOARDING_TEMPLATE_NAME = "Platform Onboarding";
+export const NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT =
+  "one_of_one_landing_native_guest_audit";
 export const UNIVERSAL_ONBOARDING_CHANNELS = [
   "telegram",
   "webchat",
   "native_guest",
 ] as const satisfies readonly UniversalOnboardingChannel[];
+
+const EXPLICIT_GUEST_ONBOARDING_SURFACES = {
+  webchat: [] as const,
+  native_guest: [NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT] as const,
+} as const satisfies Record<PublicInboundChannel, readonly ExplicitGuestOnboardingSurface[]>;
 
 export const UNIVERSAL_WORKSPACE_EXTRACTED_FIELD_ALIASES = {
   workspaceName: ["workspaceName", "businessName", "business_name"] as const,
@@ -153,6 +162,25 @@ export function normalizePublicEntryChannel(
   channel?: PublicInboundChannel
 ): PublicInboundChannel {
   return channel === "native_guest" ? "native_guest" : "webchat";
+}
+
+export function resolveExplicitGuestOnboardingSurface(args: {
+  channel?: UniversalOnboardingChannel | PublicInboundChannel;
+  onboardingSurface?: string;
+}): ExplicitGuestOnboardingSurface | null {
+  const normalizedSurface = normalizeOptionalString(args.onboardingSurface);
+  if (!normalizedSurface) {
+    return null;
+  }
+
+  const channel = normalizePublicEntryChannel(
+    args.channel === "native_guest" ? "native_guest" : "webchat"
+  );
+  const allowedSurfaces =
+    EXPLICIT_GUEST_ONBOARDING_SURFACES[channel] as readonly string[];
+  return allowedSurfaces.includes(normalizedSurface)
+    ? (normalizedSurface as ExplicitGuestOnboardingSurface)
+    : null;
 }
 
 export function shouldOfferOnboardingWarmup(

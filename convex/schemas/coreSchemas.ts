@@ -757,6 +757,7 @@ export const oauthSignupStates = defineTable({
   onboardingChannel: v.optional(v.string()),   // Optional source channel attribution
   onboardingDeviceType: v.optional(v.string()), // Optional device attribution (mobile/desktop/cli/etc)
   onboardingCampaign: v.optional(v.any()),     // Optional campaign attribution payload
+  language: v.optional(v.string()),            // Browser language for i18n emails (e.g. "en", "de")
   cliToken: v.optional(v.string()),            // Pre-generated CLI token (only for CLI sessions)
   cliState: v.optional(v.string()),            // CLI's original state for CSRF protection (returned in callback)
   createdAt: v.number(),

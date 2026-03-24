@@ -48,6 +48,8 @@ import {
 import {
   ANNE_BECKER_TEMPLATE_PLAYBOOK,
   ANNE_BECKER_TEMPLATE_ROLE,
+  KANZLEI_MVP_TEMPLATE_PLAYBOOK,
+  KANZLEI_MVP_TEMPLATE_ROLE,
   CLARA_TEMPLATE_PLAYBOOK,
   CLARA_TEMPLATE_ROLE,
   JONAS_TEMPLATE_PLAYBOOK,
@@ -55,6 +57,7 @@ import {
   MAREN_TEMPLATE_PLAYBOOK,
   MAREN_TEMPLATE_ROLE,
   createAnneBeckerTelephonyConfigSeed,
+  createKanzleiMvpTelephonyConfigSeed,
   createClaraTelephonyConfigSeed,
   createJonasTelephonyConfigSeed,
   createMarenTelephonyConfigSeed,
@@ -63,6 +66,7 @@ import {
 } from "../../src/lib/telephony/agent-telephony";
 import {
   LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+  PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
   PLATFORM_MOTHER_AUTHORITY_ROLE,
   PLATFORM_MOTHER_CANONICAL_NAME,
   PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
@@ -72,6 +76,9 @@ import {
   PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
   PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
   PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_INTERNAL_ONLY,
+  PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_CONTRACT_VERSION,
   PLATFORM_MOTHER_TEMPLATE_ROLE,
   hasPlatformMotherTemplateRole,
   matchesPlatformMotherIdentityName,
@@ -1033,6 +1040,18 @@ export const MOTHER_SUPPORT_RUNTIME_SEED = {
     runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
     runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
     sourceTemplateRole: LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
+    platformMotherSupportRelease: {
+      contractVersion: PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+      stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_INTERNAL_ONLY,
+      canaryOrganizationIds: [],
+      aliasCompatibilityMode: PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
+      renameCleanupReady: false,
+    },
+    platformMotherSupportRouteFlags: {
+      contractVersion: PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_CONTRACT_VERSION,
+      identityEnabled: false,
+      supportRouteEnabled: false,
+    },
   },
 } as const;
 
@@ -1738,10 +1757,52 @@ export const ANNE_BECKER_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
   customProperties: buildAnneBeckerTemplateCustomProperties(),
 };
 
+function buildKanzleiMvpTemplateCustomProperties(): Record<string, unknown> {
+  return buildProtectedCustomerTelephonyTemplateCustomProperties({
+    displayName: "Kanzlei Assistenz",
+    personality:
+      "German-first single-agent Kanzlei intake assistant for small law firms. Handles reception, urgency-aware intake, and Erstberatung or callback coordination in one calm conversation.",
+    knowledgeBaseTags: [
+      "customer_telephony",
+      "kanzlei",
+      "single_agent_mvp",
+      "legal_intake",
+      "erstberatung",
+    ],
+    enabledTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    requiredTools: [
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+      "manage_bookings",
+      "escalate_to_human",
+    ],
+    templateRole: KANZLEI_MVP_TEMPLATE_ROLE,
+    templatePlaybook: KANZLEI_MVP_TEMPLATE_PLAYBOOK,
+    telephonyConfig: createKanzleiMvpTelephonyConfigSeed(),
+  });
+}
+
+export const KANZLEI_MVP_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "Kanzlei MVP Customer Telephony",
+  subtype: "customer_support",
+  description:
+    "Protected platform telephony template for a single-agent Kanzlei MVP: inbound intake, urgency capture, and Erstberatung or callback coordination.",
+  role: KANZLEI_MVP_TEMPLATE_ROLE,
+  customProperties: buildKanzleiMvpTemplateCustomProperties(),
+};
+
 export const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
   PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
   AGENCY_CHILD_ORG_PM_TEMPLATE_AGENT_SEED,
   AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_AGENT_SEED,
+  KANZLEI_MVP_TEMPLATE_AGENT_SEED,
   CLARA_TEMPLATE_AGENT_SEED,
   JONAS_TEMPLATE_AGENT_SEED,
   MAREN_TEMPLATE_AGENT_SEED,

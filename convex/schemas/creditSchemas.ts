@@ -48,6 +48,19 @@ export const creditBalances = defineTable({
   gracePeriodStart: v.optional(v.number()),
   gracePeriodEnd: v.optional(v.number()),
 
+  // Auto-replenish configuration (off-session Stripe payment when balance drops)
+  autoReplenish: v.optional(v.object({
+    enabled: v.boolean(),
+    thresholdCredits: v.number(),         // Trigger when total drops below this
+    amountEur: v.number(),                // EUR amount to charge (30, 60, 100, 250, 500)
+    stripeCustomerId: v.string(),         // Org's Stripe customer ID
+    stripePaymentMethodId: v.string(),    // Saved card (pm_...)
+    lastTriggeredAt: v.optional(v.number()),
+    consecutiveFailures: v.number(),
+    lastFailureReason: v.optional(v.string()),
+    cooldownUntil: v.optional(v.number()),
+  })),
+
   // Metadata
   lastUpdated: v.number(),
 })
@@ -107,6 +120,7 @@ export const creditTransactions = defineTable({
     v.literal("monthly_manual_adjustment"),
     v.literal("purchased_checkout_pack"),
     v.literal("purchased_manual_adjustment"),
+    v.literal("purchased_auto_replenish"),
     v.literal("consumption_runtime_action"),
     v.literal("consumption_parent_fallback"),
     v.literal("legacy_migration")

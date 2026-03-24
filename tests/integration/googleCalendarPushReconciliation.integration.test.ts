@@ -39,7 +39,7 @@ function buildBooking() {
   };
 }
 
-function buildGoogleConnection() {
+function buildGoogleConnection(args?: { secondaryCalendarId?: string }) {
   return {
     _id: GOOGLE_CONNECTION_ID,
     organizationId: ORGANIZATION_ID,
@@ -55,7 +55,9 @@ function buildGoogleConnection() {
     customProperties: {
       subCalendars: [
         { calendarId: "primary@example.com", primary: true },
-        { calendarId: "secondary@example.com" },
+        {
+          calendarId: args?.secondaryCalendarId || "secondary@example.com",
+        },
       ],
     },
   };
@@ -157,6 +159,119 @@ describe("Google calendar push reconciliation integration", () => {
         externalEventId: "evt_updated_primary",
         connectionId: GOOGLE_CONNECTION_ID,
         calendarId: "primary@example.com",
+      })
+    );
+  });
+
+  it("re-targets bookings onto the configured lawyer calendar and removes the stale prior target", async () => {
+    const booking = {
+      ...buildBooking(),
+      customProperties: {
+        ...buildBooking().customProperties,
+        externalCalendarEvents: {
+          "google:oauthConnections_booking_push_reconcile:primary@example.com": {
+            provider: "google",
+            connectionId: GOOGLE_CONNECTION_ID,
+            calendarId: "primary@example.com",
+            externalEventId: "evt_stale_primary",
+          },
+        },
+      },
+    };
+    const connection = buildGoogleConnection({
+      secondaryCalendarId: "lawyer@example.com",
+    });
+
+    const runQuery = vi.fn(async (_reference: unknown, args: Record<string, unknown>) => {
+      if ("bookingId" in args) {
+        return booking;
+      }
+      if ("resourceId" in args) {
+        return [
+          {
+            connectionId: GOOGLE_CONNECTION_ID,
+            provider: "google",
+            pushCalendarId: "lawyer@example.com",
+          },
+        ];
+      }
+      if ("connectionId" in args) {
+        return connection;
+      }
+      throw new Error(`Unexpected runQuery args: ${JSON.stringify(args)}`);
+    });
+
+    const runAction = vi.fn(async (_reference: unknown, args: Record<string, unknown>) => {
+      if (args.eventId === "evt_stale_primary" && !("eventData" in args)) {
+        return undefined;
+      }
+      if (args.calendarId === "lawyer@example.com" && "eventData" in args) {
+        return { id: "evt_new_lawyer" };
+      }
+      throw new Error(`Unexpected runAction args: ${JSON.stringify(args)}`);
+    });
+
+    const runMutation = vi.fn(async () => undefined);
+
+    const result = await (pushBookingToCalendar as any)._handler(
+      {
+        runQuery,
+        runAction,
+        runMutation,
+      },
+      {
+        bookingId: BOOKING_ID,
+        organizationId: ORGANIZATION_ID,
+      }
+    );
+
+    expect(result).toEqual({
+      success: true,
+      pushCount: 1,
+      deleteCount: 1,
+      targetCount: 1,
+    });
+
+    expect(runAction).toHaveBeenCalledTimes(2);
+    expect(runAction).toHaveBeenCalledWith(expect.anything(), {
+      connectionId: GOOGLE_CONNECTION_ID,
+      eventId: "evt_stale_primary",
+      calendarId: "primary@example.com",
+    });
+    expect(runAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        connectionId: GOOGLE_CONNECTION_ID,
+        calendarId: "lawyer@example.com",
+        eventData: {
+          summary: "Booking: Strategy Call",
+          description: "Customer: Jamie Example\nEmail: jamie@example.com\nType: consultation",
+          start: { dateTime: new Date(START_DATE_TIME).toISOString(), timeZone: "UTC" },
+          end: { dateTime: new Date(END_DATE_TIME).toISOString(), timeZone: "UTC" },
+          status: "confirmed",
+        },
+      })
+    );
+
+    expect(runMutation).toHaveBeenCalledTimes(2);
+    expect(runMutation).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        bookingId: BOOKING_ID,
+        recordKey:
+          "google:oauthConnections_booking_push_reconcile:primary@example.com",
+      })
+    );
+    expect(runMutation).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({
+        bookingId: BOOKING_ID,
+        provider: "google",
+        externalEventId: "evt_new_lawyer",
+        connectionId: GOOGLE_CONNECTION_ID,
+        calendarId: "lawyer@example.com",
       })
     );
   });

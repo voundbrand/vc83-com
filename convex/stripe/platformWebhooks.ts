@@ -213,6 +213,10 @@ export const processPlatformWebhook = internalAction({
           await handleSubscriptionDeleted(ctx, data);
           break;
 
+        case "payment_intent.succeeded":
+          await handlePaymentIntentSucceeded(ctx, data);
+          break;
+
         default:
           console.log(`[Platform Webhooks] Unhandled event type: ${args.eventType}`);
       }
@@ -224,6 +228,29 @@ export const processPlatformWebhook = internalAction({
     }
   },
 });
+
+/**
+ * Handle payment_intent.succeeded
+ *
+ * Safety net for auto-replenish off-session payments.
+ * Credits are already fulfilled inline by executeReplenishPayment,
+ * so this handler just logs for reconciliation. The idempotency key
+ * in addPurchasedCredits prevents double-crediting.
+ */
+async function handlePaymentIntentSucceeded(_ctx: ActionCtx, paymentIntent: { metadata?: Record<string, string | undefined> }) {
+  const metadata = paymentIntent.metadata || {};
+
+  // Only handle auto-replenish payment intents
+  if (metadata.type !== "credit-auto-replenish") return;
+
+  const organizationId = metadata.organizationId;
+  const credits = metadata.credits || "0";
+  const idempotencyKey = metadata.idempotencyKey || "";
+
+  console.log(
+    `[Platform Webhooks] Auto-replenish PI succeeded for org ${organizationId}: ${credits} credits (idempotency: ${idempotencyKey})`
+  );
+}
 
 /**
  * Handle checkout.session.completed

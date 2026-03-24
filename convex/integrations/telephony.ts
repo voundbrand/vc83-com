@@ -5,9 +5,11 @@ import {
   internalMutation,
   mutation,
   query,
+  type QueryCtx,
 } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "../rbacHelpers";
+import { normalizeKanzleiBookingConciergeConfig } from "../organizationOntology";
 import {
   ElevenLabsClient,
   resolveElevenLabsConvaiBaseUrl,
@@ -23,6 +25,8 @@ import {
 import {
   ANNE_BECKER_TEMPLATE_PLAYBOOK,
   ANNE_BECKER_TEMPLATE_ROLE,
+  KANZLEI_MVP_TEMPLATE_PLAYBOOK,
+  KANZLEI_MVP_TEMPLATE_ROLE,
   CLARA_TEMPLATE_PLAYBOOK,
   CLARA_TEMPLATE_ROLE,
   DEFAULT_TELEPHONY_INSTALLATION_ID,
@@ -41,6 +45,8 @@ import {
   type AgentTelephonyProviderKey,
   TELEPHONY_PROVIDER_OPTIONS,
 } from "../../src/lib/telephony/agent-telephony";
+import { evaluateTemplateCertificationForTemplateVersion } from "../ai/agentCatalogAdmin";
+import { evaluateTemplateOrgPreflight } from "../agentOntology";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
@@ -66,12 +72,181 @@ type TelephonyOrgBinding = {
   routeKey: string;
 };
 
+type TelephonyTemplateDeploymentContext = {
+  kind: "template" | "managed_clone" | "org_local_agent";
+  templateId: Id<"objects"> | null;
+  templateName: string | null;
+  templateRole: string | null;
+  templateVersionId: Id<"objects"> | null;
+  templateVersionTag: string | null;
+  templateBaseline: Record<string, unknown>;
+};
+
+const GOOGLE_CALENDAR_READ_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.events.readonly",
+] as const;
+
+const GOOGLE_CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+] as const;
+
+const MICROSOFT_CALENDAR_READ_SCOPES = [
+  "Calendars.Read",
+  "Calendars.ReadWrite",
+  "Calendars.Read.Shared",
+  "Calendars.ReadWrite.Shared",
+] as const;
+
+const MICROSOFT_CALENDAR_WRITE_SCOPES = [
+  "Calendars.ReadWrite",
+  "Calendars.ReadWrite.Shared",
+] as const;
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
 function normalizeOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeOptionalString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+function normalizeEmailRecipients(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => normalizeEmailRecipients(entry));
+  }
+
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/[,\n;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && entry.includes("@"));
+}
+
+function dedupeCaseInsensitiveStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const value of values) {
+    const key = value.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(value);
+  }
+  return deduped;
+}
+
+function hasAnyScope(
+  scopes: string[],
+  requiredScopes: readonly string[],
+): boolean {
+  return scopes.some((scope) => requiredScopes.includes(scope));
+}
+
+function resolveCalendarScopeReadiness(
+  provider: string | null,
+  scopes: string[],
+): {
+  canAccessCalendar: boolean;
+  canWriteCalendar: boolean;
+} {
+  if (provider === "google") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_READ_SCOPES),
+      canWriteCalendar: hasAnyScope(scopes, GOOGLE_CALENDAR_WRITE_SCOPES),
+    };
+  }
+  if (provider === "microsoft") {
+    return {
+      canAccessCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_READ_SCOPES),
+      canWriteCalendar: hasAnyScope(scopes, MICROSOFT_CALENDAR_WRITE_SCOPES),
+    };
+  }
+  return {
+    canAccessCalendar: false,
+    canWriteCalendar: false,
+  };
+}
+
+function buildCalendarConnectionReadiness(
+  connection: Record<string, unknown> | null,
+): {
+  exists: boolean;
+  provider: "google" | "microsoft" | null;
+  status: string | null;
+  syncEnabled: boolean;
+  canAccessCalendar: boolean;
+  canWriteCalendar: boolean;
+  calendarWriteReady: boolean;
+  providerEmail: string | null;
+  lastSyncAt: number | null;
+  lastSyncError: string | null;
+} {
+  if (!connection) {
+    return {
+      exists: false,
+      provider: null,
+      status: null,
+      syncEnabled: false,
+      canAccessCalendar: false,
+      canWriteCalendar: false,
+      calendarWriteReady: false,
+      providerEmail: null,
+      lastSyncAt: null,
+      lastSyncError: null,
+    };
+  }
+
+  const provider =
+    connection.provider === "google" || connection.provider === "microsoft"
+      ? connection.provider
+      : null;
+  const syncSettings = asRecord(connection.syncSettings);
+  const scopes = normalizeStringArray(connection.scopes);
+  const scopeReadiness = resolveCalendarScopeReadiness(provider, scopes);
+  const status = normalizeOptionalString(connection.status) || null;
+  const syncEnabled = syncSettings.calendar === true;
+
+  return {
+    exists: true,
+    provider,
+    status,
+    syncEnabled,
+    canAccessCalendar: scopeReadiness.canAccessCalendar,
+    canWriteCalendar: scopeReadiness.canWriteCalendar,
+    calendarWriteReady:
+      status === "active" && syncEnabled && scopeReadiness.canWriteCalendar,
+    providerEmail: normalizeOptionalString(connection.providerEmail) || null,
+    lastSyncAt:
+      typeof connection.lastSyncAt === "number" && Number.isFinite(connection.lastSyncAt)
+        ? connection.lastSyncAt
+        : null,
+    lastSyncError: normalizeOptionalString(connection.lastSyncError) || null,
+  };
 }
 
 function getPlatformOrgId(): Id<"organizations"> {
@@ -91,6 +266,126 @@ function normalizeProviderKey(value: unknown): AgentTelephonyProviderKey {
 
 function readTelephonyConfig(customProperties: Record<string, unknown> | undefined): AgentTelephonyConfig {
   return normalizeAgentTelephonyConfig(customProperties?.telephonyConfig);
+}
+
+function hasPhoneChannelEnabled(customProperties: Record<string, unknown> | undefined): boolean {
+  return (
+    Array.isArray(customProperties?.channelBindings)
+    && customProperties.channelBindings.some(
+      (binding) =>
+        binding
+        && typeof binding === "object"
+        && (binding as { channel?: unknown }).channel === "phone_call"
+        && (binding as { enabled?: unknown }).enabled === true,
+    )
+  );
+}
+
+function resolveTemplateVersionBaseline(
+  value: unknown,
+): Record<string, unknown> {
+  const customProperties = asRecord(value);
+  const snapshot = asRecord(customProperties.snapshot);
+  const baseline = asRecord(snapshot.baselineCustomProperties);
+  return Object.keys(baseline).length > 0 ? baseline : customProperties;
+}
+
+async function resolveTelephonyTemplateDeploymentContext(
+  ctx: QueryCtx,
+  agent: AgentDoc,
+): Promise<TelephonyTemplateDeploymentContext> {
+  const agentProps = asRecord(agent.customProperties);
+  if (agent.status === "template") {
+    const templateVersionId =
+      normalizeOptionalString(agentProps.templatePublishedVersionId) as Id<"objects"> | undefined;
+    const templateVersionTag =
+      normalizeOptionalString(agentProps.templatePublishedVersion)
+      || normalizeOptionalString(agentProps.templateVersion)
+      || null;
+    const templateVersion = templateVersionId ? await ctx.db.get(templateVersionId) : null;
+    return {
+      kind: "template",
+      templateId: agent._id,
+      templateName: normalizeOptionalString(agent.name) || null,
+      templateRole: normalizeOptionalString(agentProps.templateRole) || null,
+      templateVersionId: templateVersionId ?? null,
+      templateVersionTag,
+      templateBaseline: templateVersion
+        ? resolveTemplateVersionBaseline(templateVersion.customProperties)
+        : agentProps,
+    };
+  }
+
+  const linkage = asRecord(agentProps.templateCloneLinkage);
+  const sourceTemplateId =
+    normalizeOptionalString(linkage.sourceTemplateId)
+    || normalizeOptionalString(agentProps.templateAgentId);
+  if (!sourceTemplateId) {
+    return {
+      kind: "org_local_agent",
+      templateId: null,
+      templateName: null,
+      templateRole: null,
+      templateVersionId: null,
+      templateVersionTag: null,
+      templateBaseline: agentProps,
+    };
+  }
+
+  const sourceTemplateVersionTag =
+    normalizeOptionalString(linkage.sourceTemplateVersion)
+    || normalizeOptionalString(agentProps.templateVersion)
+    || null;
+  const template = await ctx.db.get(sourceTemplateId as Id<"objects">);
+  const templateProps = asRecord(template?.customProperties);
+  const publishedVersionId =
+    normalizeOptionalString(templateProps.templatePublishedVersionId) as Id<"objects"> | undefined;
+  const publishedVersionTag = normalizeOptionalString(templateProps.templatePublishedVersion) || null;
+
+  let templateVersionId: Id<"objects"> | null = null;
+  let templateVersionTag = sourceTemplateVersionTag || publishedVersionTag;
+
+  if (
+    publishedVersionId
+    && publishedVersionTag
+    && (!templateVersionTag || templateVersionTag === publishedVersionTag)
+  ) {
+    templateVersionId = publishedVersionId;
+    templateVersionTag = publishedVersionTag;
+  } else if (templateVersionTag) {
+    const versions = await ctx.db
+      .query("objects")
+      .withIndex("by_type", (q) => q.eq("type", "org_agent_template_version"))
+      .collect();
+    const matchingVersion = versions.find((version) => {
+      const props = asRecord(version.customProperties);
+      return (
+        normalizeOptionalString(props.sourceTemplateId) === sourceTemplateId
+        && normalizeOptionalString(props.versionTag) === templateVersionTag
+      );
+    });
+    if (matchingVersion) {
+      templateVersionId = matchingVersion._id as Id<"objects">;
+      templateVersionTag =
+        normalizeOptionalString(asRecord(matchingVersion.customProperties).versionTag)
+        || templateVersionTag;
+    }
+  }
+
+  const templateVersion = templateVersionId ? await ctx.db.get(templateVersionId) : null;
+  return {
+    kind: "managed_clone",
+    templateId: (sourceTemplateId as Id<"objects">) ?? null,
+    templateName: normalizeOptionalString(template?.name) || null,
+    templateRole: normalizeOptionalString(templateProps.templateRole) || null,
+    templateVersionId,
+    templateVersionTag,
+    templateBaseline: templateVersion
+      ? resolveTemplateVersionBaseline(templateVersion.customProperties)
+      : Object.keys(templateProps).length > 0
+        ? templateProps
+        : agentProps,
+  };
 }
 
 function requireAgentDoc(agent: AgentDoc | null, organizationId: Id<"organizations">): AgentDoc {
@@ -481,6 +776,7 @@ export const getAgentTelephonyPanelState = query({
       (await ctx.db.get(args.agentId)) as AgentDoc | null,
       args.organizationId,
     );
+    const templateDeployment = await resolveTelephonyTemplateDeploymentContext(ctx, agent);
     const telephonyConfig = readTelephonyConfig(agent.customProperties);
     const { directSettings, phoneBinding } = await resolveExistingTelephonyObjects(
       ctx.db,
@@ -501,19 +797,46 @@ export const getAgentTelephonyPanelState = query({
         sessionId: args.sessionId,
       },
     );
+    const certificationEvaluation =
+      templateDeployment.kind !== "org_local_agent"
+      && templateDeployment.templateId
+      && templateDeployment.templateVersionId
+      && templateDeployment.templateVersionTag
+        ? await evaluateTemplateCertificationForTemplateVersion(ctx, {
+            templateId: templateDeployment.templateId,
+            templateVersionId: templateDeployment.templateVersionId,
+            templateVersionTag: templateDeployment.templateVersionTag,
+          })
+        : null;
+    const orgPreflight = await evaluateTemplateOrgPreflight(ctx, {
+      organizationId: args.organizationId,
+      templateBaseline: templateDeployment.templateBaseline,
+    });
+    const deploymentBlockers: string[] = [];
+    if (templateDeployment.kind !== "org_local_agent") {
+      if (
+        !templateDeployment.templateId
+        || !templateDeployment.templateVersionId
+        || !templateDeployment.templateVersionTag
+      ) {
+        deploymentBlockers.push(
+          "Managed template linkage is missing a resolvable certified version.",
+        );
+      } else if (certificationEvaluation && !certificationEvaluation.allowed) {
+        deploymentBlockers.push(
+          certificationEvaluation.message
+          || "Template certification blocks deployment for this version.",
+        );
+      }
+    }
+    if (orgPreflight.status === "fail") {
+      deploymentBlockers.push(...orgPreflight.blockers);
+    }
 
     return {
       providerOptions: TELEPHONY_PROVIDER_OPTIONS,
       telephonyConfig,
-      phoneChannelEnabled:
-        Array.isArray(agent.customProperties?.channelBindings)
-          && agent.customProperties?.channelBindings.some(
-            (binding) =>
-              binding
-              && typeof binding === "object"
-              && (binding as { channel?: unknown }).channel === "phone_call"
-              && (binding as { enabled?: unknown }).enabled === true,
-          ),
+      phoneChannelEnabled: hasPhoneChannelEnabled(asRecord(agent.customProperties)),
       organizationBinding: {
         providerKey: normalizeProviderKey(directProps.providerKey),
         enabled: bindingProps.enabled === true,
@@ -562,6 +885,492 @@ export const getAgentTelephonyPanelState = query({
           accountSidLast4: twilioSettings?.accountSidLast4 ?? null,
         },
       },
+      templateDeployment: {
+        kind: templateDeployment.kind,
+        templateId: templateDeployment.templateId ?? null,
+        templateName: templateDeployment.templateName,
+        templateRole: templateDeployment.templateRole,
+        templateVersionId: templateDeployment.templateVersionId ?? null,
+        templateVersionTag: templateDeployment.templateVersionTag,
+        certification:
+          templateDeployment.kind === "org_local_agent"
+            ? {
+                status: "not_required",
+                message: "Org-local telephony agents do not require template certification.",
+                riskTier: null,
+                requiredVerification: [],
+                dependencyDigest: null,
+                recordedAt: null,
+                autoCertificationEligible: false,
+                evidenceSources: [] as string[],
+              }
+            : certificationEvaluation
+              ? {
+                  status: certificationEvaluation.allowed
+                    ? "certified"
+                    : certificationEvaluation.autoCertificationEligible
+                      ? "auto_certifiable"
+                      : "blocked",
+                  reasonCode: certificationEvaluation.reasonCode ?? null,
+                  message: certificationEvaluation.message ?? null,
+                  riskTier: certificationEvaluation.riskAssessment?.tier ?? null,
+                  requiredVerification:
+                    certificationEvaluation.riskAssessment?.requiredVerification ?? [],
+                  dependencyDigest:
+                    certificationEvaluation.dependencyManifest?.dependencyDigest ?? null,
+                  recordedAt: certificationEvaluation.certification?.recordedAt ?? null,
+                  autoCertificationEligible: certificationEvaluation.autoCertificationEligible,
+                  evidenceSources:
+                    certificationEvaluation.certification?.evidenceSources.map(
+                      (source) => source.sourceType,
+                    ) ?? [],
+                }
+              : {
+                  status: "blocked",
+                  reasonCode: "certification_missing",
+                  message: "Managed template linkage is missing a resolvable certified version.",
+                  riskTier: null,
+                  requiredVerification: [],
+                  dependencyDigest: null,
+                  recordedAt: null,
+                  autoCertificationEligible: false,
+                  evidenceSources: [] as string[],
+                },
+        orgPreflight,
+        deploymentReadiness: {
+          status: deploymentBlockers.length === 0 ? "ready" : "blocked",
+          blockers: deploymentBlockers,
+          warnings: hasPhoneChannelEnabled(asRecord(agent.customProperties))
+            ? []
+            : [
+                "Phone channel is disabled. Sync can run, but the agent cannot answer calls until the channel is enabled.",
+              ],
+        },
+      },
+    };
+  },
+});
+
+export const getKanzleiMvpLiveSetupAudit = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+  },
+  handler: async (ctx, args) => {
+    const authenticated = await requireAuthenticatedUser(ctx, args.sessionId);
+    if (authenticated.organizationId !== args.organizationId) {
+      throw new Error("Organization mismatch while loading Kanzlei MVP live setup audit.");
+    }
+
+    const platformOrgId = getPlatformOrgId();
+    const platformTemplates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", platformOrgId).eq("type", "org_agent"),
+      )
+      .collect();
+    const platformTemplate = (
+      platformTemplates.find((agent) => {
+        const props = asRecord(agent.customProperties);
+        return (
+          normalizeOptionalString(props.templateRole) === KANZLEI_MVP_TEMPLATE_ROLE
+          && props.protected === true
+        );
+      }) as AgentDoc | undefined
+    ) ?? null;
+    const platformTemplateProps = asRecord(platformTemplate?.customProperties);
+    const platformTemplateVersionId =
+      normalizeOptionalString(
+        platformTemplateProps.templatePublishedVersionId,
+      ) as Id<"objects"> | undefined;
+    const platformTemplateVersionTag =
+      normalizeOptionalString(platformTemplateProps.templatePublishedVersion)
+      || normalizeOptionalString(platformTemplateProps.templateVersion)
+      || null;
+    const platformTemplateCertification =
+      platformTemplate?._id && platformTemplateVersionId && platformTemplateVersionTag
+        ? await evaluateTemplateCertificationForTemplateVersion(ctx, {
+            templateId: platformTemplate._id,
+            templateVersionId: platformTemplateVersionId,
+            templateVersionTag: platformTemplateVersionTag,
+          })
+        : null;
+    const templateSeedBlockers: string[] = [];
+    if (!platformTemplate?._id) {
+      templateSeedBlockers.push(
+        "Platform Kanzlei MVP template is not seeded on the platform org.",
+      );
+    } else if (!platformTemplateVersionId || !platformTemplateVersionTag) {
+      templateSeedBlockers.push(
+        "Platform Kanzlei MVP template has no published lifecycle version yet.",
+      );
+    } else if (platformTemplateCertification && !platformTemplateCertification.allowed) {
+      templateSeedBlockers.push(
+        platformTemplateCertification.message
+        || "Platform Kanzlei MVP template certification is not deployment-ready.",
+      );
+    }
+
+    const orgAgents = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "org_agent"),
+      )
+      .collect();
+    const cloneCandidates = orgAgents
+      .filter((agent) => {
+        const props = asRecord(agent.customProperties);
+        return (
+          normalizeOptionalString(props.templateRole) === KANZLEI_MVP_TEMPLATE_ROLE
+          && props.protected !== true
+        );
+      })
+      .sort((left, right) => {
+        const leftIsActive = left.status === "active" ? 1 : 0;
+        const rightIsActive = right.status === "active" ? 1 : 0;
+        if (leftIsActive !== rightIsActive) {
+          return rightIsActive - leftIsActive;
+        }
+        return right.updatedAt - left.updatedAt;
+      });
+    const selectedClone = args.agentId
+      ? requireAgentDoc(
+          (await ctx.db.get(args.agentId)) as AgentDoc | null,
+          args.organizationId,
+        )
+      : ((cloneCandidates[0] as AgentDoc | undefined) ?? null);
+    const selectedTelephonyConfig = readTelephonyConfig(selectedClone?.customProperties);
+    const remoteAgentId =
+      normalizeOptionalString(selectedTelephonyConfig.elevenlabs.remoteAgentId)
+      || normalizeOptionalString(
+        selectedTelephonyConfig.elevenlabs.syncState.lastSyncedProviderAgentId,
+      )
+      || null;
+    const panelState = selectedClone
+      ? await ctx.runQuery(
+          generatedApi.api.integrations.telephony.getAgentTelephonyPanelState,
+          {
+            sessionId: args.sessionId,
+            organizationId: args.organizationId,
+            agentId: selectedClone._id,
+          },
+        )
+      : null;
+
+    const bookingSettings = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_settings"),
+      )
+      .collect();
+    const bookingConfigRecord =
+      bookingSettings.find((record) => record.subtype === "booking_concierge") ?? null;
+    const bookingConfig = normalizeKanzleiBookingConciergeConfig(
+      bookingConfigRecord?.customProperties || null,
+    );
+    const bookingConfigMissingFields: string[] = [];
+    if (!bookingConfig?.primaryResourceId) {
+      bookingConfigMissingFields.push("primaryResourceId");
+    }
+    if (!bookingConfig?.operatorCalendarConnectionId) {
+      bookingConfigMissingFields.push("operatorCalendarConnectionId");
+    }
+    if (!bookingConfig?.timezone) {
+      bookingConfigMissingFields.push("timezone");
+    }
+    if (!bookingConfig?.defaultMeetingTitle) {
+      bookingConfigMissingFields.push("defaultMeetingTitle");
+    }
+    if (!bookingConfig?.intakeLabel) {
+      bookingConfigMissingFields.push("intakeLabel");
+    }
+
+    const operatorCalendarConnection =
+      bookingConfig?.operatorCalendarConnectionId
+        ? asRecord(
+            await ctx.db.get(
+              bookingConfig.operatorCalendarConnectionId as Id<"oauthConnections">,
+            ),
+          )
+        : null;
+    const operatorCalendarReadiness = buildCalendarConnectionReadiness(
+      Object.keys(operatorCalendarConnection || {}).length > 0
+        ? operatorCalendarConnection
+        : null,
+    );
+    const resourceCalendarTargets =
+      bookingConfig?.primaryResourceId
+        ? await ctx.runQuery(
+            generatedApi.internal.calendarSyncOntology.getResourceCalendarConnections,
+            {
+              resourceId: bookingConfig.primaryResourceId as Id<"objects">,
+              organizationId: args.organizationId,
+            },
+          )
+        : [];
+    const resourceCalendarSnapshots = await Promise.all(
+      (resourceCalendarTargets as Array<{
+        connectionId: Id<"oauthConnections">;
+        provider: string;
+        pushCalendarId: string | null;
+      }>).map(async (target) => {
+        const connection = asRecord(await ctx.db.get(target.connectionId));
+        const readiness = buildCalendarConnectionReadiness(
+          Object.keys(connection).length > 0 ? connection : null,
+        );
+        return {
+          connectionId: String(target.connectionId),
+          provider:
+            target.provider === "google" || target.provider === "microsoft"
+              ? target.provider
+              : null,
+          pushCalendarId: normalizeOptionalString(target.pushCalendarId) || null,
+          readiness,
+        };
+      }),
+    );
+
+    const contactObjects = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("type", "organization_contact"),
+      )
+      .collect();
+    const explicitRecipients = dedupeCaseInsensitiveStrings(
+      contactObjects.flatMap((contact) => {
+        const props = asRecord(contact.customProperties);
+        return [
+          ...normalizeEmailRecipients(props.supportEmail),
+          ...normalizeEmailRecipients(props.contactEmail),
+          ...normalizeEmailRecipients(props.notificationEmails),
+          ...normalizeEmailRecipients(props.adminEmail),
+          ...normalizeEmailRecipients(props.billingEmail),
+        ];
+      }),
+    );
+    let ownerFallbackEmail: string | null = null;
+    if (explicitRecipients.length === 0) {
+      try {
+        ownerFallbackEmail = normalizeOptionalString(
+          await ctx.runQuery(
+            generatedApi.internal.ai.escalation.getOrgOwnerEmail,
+            {
+              organizationId: args.organizationId,
+            },
+          ),
+        ) || null;
+      } catch {
+        ownerFallbackEmail = null;
+      }
+    }
+    const effectiveRecipients =
+      explicitRecipients.length > 0
+        ? explicitRecipients
+        : dedupeCaseInsensitiveStrings(normalizeEmailRecipients(ownerFallbackEmail));
+
+    const cloneDeployBlockers: string[] = [];
+    if (!selectedClone?._id) {
+      cloneDeployBlockers.push("Target organization has no deployed Kanzlei MVP clone.");
+    }
+
+    const remoteSyncBlockers: string[] = [];
+    if (!selectedClone?._id) {
+      remoteSyncBlockers.push("No deployed Kanzlei MVP clone is available to sync.");
+    } else if (!remoteAgentId) {
+      remoteSyncBlockers.push(
+        "Selected Kanzlei MVP clone has no recorded ElevenLabs remote agent id yet.",
+      );
+    } else if (selectedTelephonyConfig.elevenlabs.syncState.status === "error") {
+      remoteSyncBlockers.push(
+        selectedTelephonyConfig.elevenlabs.syncState.lastSyncError
+        || "Selected Kanzlei MVP clone recorded a telephony sync error.",
+      );
+    }
+
+    const phoneBindingBlockers: string[] = [];
+    const organizationBinding = panelState?.organizationBinding ?? null;
+    if (!organizationBinding?.enabled) {
+      phoneBindingBlockers.push("Organization phone binding is disabled or missing.");
+    }
+    if (!organizationBinding?.fromNumber) {
+      phoneBindingBlockers.push("Organization phone binding is missing a phone number.");
+    }
+    if (!organizationBinding?.routeKey) {
+      phoneBindingBlockers.push("Organization phone binding is missing a route key.");
+    }
+    if (!organizationBinding?.hasWebhookSecret) {
+      phoneBindingBlockers.push("Organization phone binding is missing a webhook secret.");
+    }
+
+    const bookingConfigBlockers = bookingConfigMissingFields.map(
+      (field) => `Organization booking concierge config is missing ${field}.`,
+    );
+
+    const lawyerCalendarBlockers: string[] = [];
+    if (!bookingConfig?.operatorCalendarConnectionId) {
+      lawyerCalendarBlockers.push(
+        "Kanzlei booking concierge config is missing operatorCalendarConnectionId.",
+      );
+    } else if (!operatorCalendarReadiness.exists) {
+      lawyerCalendarBlockers.push(
+        `Configured operator calendar connection ${bookingConfig.operatorCalendarConnectionId} was not found.`,
+      );
+    } else {
+      if (!operatorCalendarReadiness.canAccessCalendar) {
+        lawyerCalendarBlockers.push(
+          "Configured operator calendar connection is missing read scope.",
+        );
+      }
+      if (!operatorCalendarReadiness.canWriteCalendar) {
+        lawyerCalendarBlockers.push(
+          "Configured operator calendar connection is missing write scope.",
+        );
+      }
+      if (!operatorCalendarReadiness.syncEnabled) {
+        lawyerCalendarBlockers.push(
+          "Configured operator calendar connection has calendar sync disabled.",
+        );
+      }
+      if (operatorCalendarReadiness.status !== "active") {
+        lawyerCalendarBlockers.push(
+          "Configured operator calendar connection is not active.",
+        );
+      }
+    }
+    if (!bookingConfig?.primaryResourceId) {
+      lawyerCalendarBlockers.push(
+        "Kanzlei booking concierge config is missing primaryResourceId for calendar push.",
+      );
+    } else if (resourceCalendarSnapshots.length === 0) {
+      lawyerCalendarBlockers.push(
+        "Configured Kanzlei primary resource has no linked external calendar push target.",
+      );
+    } else if (!resourceCalendarSnapshots.some((target) => target.readiness.calendarWriteReady)) {
+      lawyerCalendarBlockers.push(
+        "No linked resource calendar target is write-ready for booking push.",
+      );
+    }
+
+    const firmNotificationBlockers: string[] = [];
+    if (explicitRecipients.length === 0 && !ownerFallbackEmail) {
+      firmNotificationBlockers.push(
+        "No firm notification recipient is configured on organization contact settings.",
+      );
+    }
+
+    const ingressPreflightBlockers = dedupeCaseInsensitiveStrings([
+      ...templateSeedBlockers,
+      ...cloneDeployBlockers,
+      ...remoteSyncBlockers,
+      ...(panelState?.templateDeployment?.deploymentReadiness?.blockers ?? []),
+      ...phoneBindingBlockers,
+      ...bookingConfigBlockers,
+      ...lawyerCalendarBlockers,
+      ...firmNotificationBlockers,
+    ]);
+
+    return {
+      templateSeed: {
+        status: templateSeedBlockers.length === 0 ? "ready" : "blocked",
+        platformOrgId: String(platformOrgId),
+        templateAgentId: platformTemplate?._id ? String(platformTemplate._id) : null,
+        templateVersionId: platformTemplateVersionId ? String(platformTemplateVersionId) : null,
+        templateVersionTag: platformTemplateVersionTag,
+        certificationStatus:
+          !platformTemplate?._id
+            ? "missing"
+            : platformTemplateCertification
+              ? platformTemplateCertification.allowed
+                ? "certified"
+                : platformTemplateCertification.autoCertificationEligible
+                  ? "auto_certifiable"
+                  : "blocked"
+              : "missing",
+        blockers: templateSeedBlockers,
+      },
+      cloneDeploy: {
+        status: cloneDeployBlockers.length === 0 ? "ready" : "blocked",
+        selectedAgentId: selectedClone?._id ? String(selectedClone._id) : null,
+        selectedAgentName: normalizeOptionalString(selectedClone?.name) || null,
+        cloneCandidates: cloneCandidates.map((agent) => {
+          const props = asRecord(agent.customProperties);
+          const telephonyConfig = readTelephonyConfig(agent.customProperties);
+          const candidateRemoteAgentId =
+            normalizeOptionalString(telephonyConfig.elevenlabs.remoteAgentId)
+            || normalizeOptionalString(
+              telephonyConfig.elevenlabs.syncState.lastSyncedProviderAgentId,
+            )
+            || null;
+          return {
+            agentId: String(agent._id),
+            name: normalizeOptionalString(agent.name) || null,
+            status: agent.status,
+            updatedAt: agent.updatedAt,
+            remoteAgentId: candidateRemoteAgentId,
+            syncStatus: telephonyConfig.elevenlabs.syncState.status,
+            phoneChannelEnabled: hasPhoneChannelEnabled(props),
+          };
+        }),
+        blockers: cloneDeployBlockers,
+      },
+      remoteAgentSync: {
+        status: remoteSyncBlockers.length === 0 ? "ready" : "blocked",
+        remoteAgentId,
+        syncStatus: selectedTelephonyConfig.elevenlabs.syncState.status,
+        lastSyncedAt: selectedTelephonyConfig.elevenlabs.syncState.lastSyncedAt ?? null,
+        lastSyncError: selectedTelephonyConfig.elevenlabs.syncState.lastSyncError ?? null,
+        blockers: remoteSyncBlockers,
+      },
+      phoneBinding: {
+        status:
+          phoneBindingBlockers.length === 0
+          && panelState?.providerReadiness?.elevenlabs?.hasEffectiveApiKey === true
+            ? "ready"
+            : "blocked",
+        providerKey: organizationBinding?.providerKey ?? null,
+        providerIdentity: organizationBinding?.providerIdentity ?? null,
+        enabled: organizationBinding?.enabled === true,
+        fromNumber: organizationBinding?.fromNumber ?? null,
+        routeKey: organizationBinding?.routeKey ?? null,
+        hasWebhookSecret: organizationBinding?.hasWebhookSecret === true,
+        providerConnectionId: organizationBinding?.providerConnectionId ?? null,
+        providerInstallationId: organizationBinding?.providerInstallationId ?? null,
+        blockers: [
+          ...phoneBindingBlockers,
+          ...(
+            panelState?.providerReadiness?.elevenlabs?.hasEffectiveApiKey === true
+              ? []
+              : ["ElevenLabs provider credentials are not ready for this organization."]
+          ),
+        ],
+      },
+      bookingConcierge: {
+        status: bookingConfigBlockers.length === 0 ? "ready" : "blocked",
+        config: bookingConfig,
+        missingFields: bookingConfigMissingFields,
+        blockers: bookingConfigBlockers,
+      },
+      lawyerCalendar: {
+        status: lawyerCalendarBlockers.length === 0 ? "ready" : "blocked",
+        operatorConnectionId: bookingConfig?.operatorCalendarConnectionId ?? null,
+        operatorConnection: operatorCalendarReadiness,
+        resourceTargets: resourceCalendarSnapshots,
+        blockers: lawyerCalendarBlockers,
+      },
+      firmNotificationRecipients: {
+        status: firmNotificationBlockers.length === 0 ? "ready" : "blocked",
+        explicitRecipients,
+        ownerFallbackEmail,
+        effectiveRecipients,
+        blockers: firmNotificationBlockers,
+      },
+      ingressPreflight: {
+        status: ingressPreflightBlockers.length === 0 ? "ready" : "blocked",
+        blockers: ingressPreflightBlockers,
+        requiresAcceptedInboundCallEvidence: true,
+      },
+      selectedCloneTelephonyPanel: panelState,
     };
   },
 });
@@ -859,16 +1668,25 @@ export const syncAgentTelephonyProvider = action({
       args.organizationId,
     );
     const telephonyConfig = readTelephonyConfig(agent.customProperties);
+    const panelState = await ctx.runQuery(
+      generatedApi.api.integrations.telephony.getAgentTelephonyPanelState,
+      {
+        sessionId: args.sessionId,
+        organizationId: args.organizationId,
+        agentId: args.agentId,
+      },
+    );
+    if (panelState?.templateDeployment?.deploymentReadiness?.status === "blocked") {
+      return {
+        success: false,
+        status: "blocked",
+        message:
+          panelState.templateDeployment.deploymentReadiness.blockers[0]
+          || "Template certification or org preflight blocked telephony deployment.",
+        blockers: panelState.templateDeployment.deploymentReadiness.blockers,
+      };
+    }
     if (telephonyConfig.selectedProvider === "twilio_voice") {
-      const panelState = await ctx.runQuery(
-        generatedApi.api.integrations.telephony.getAgentTelephonyPanelState,
-        {
-          sessionId: args.sessionId,
-          organizationId: args.organizationId,
-          agentId: args.agentId,
-        },
-      );
-
       if (panelState?.organizationBinding?.providerKey !== "twilio_voice") {
         return {
           success: false,
@@ -1216,6 +2034,29 @@ export const deployAnneBeckerTemplateToOrganization = action({
       missingTemplateMessage:
         "Anne Becker template not found on the platform org. Run onboarding/seedPlatformAgents.seedAll first.",
       organizationMismatchMessage: "Organization mismatch while deploying Anne Becker.",
+    }),
+});
+
+export const deployKanzleiMvpTemplateToOrganization = action({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    preferredCloneName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) =>
+    deployProtectedTelephonyTemplateToOrganization(ctx, {
+      sessionId: args.sessionId,
+      organizationId: args.organizationId,
+      templateRole: KANZLEI_MVP_TEMPLATE_ROLE,
+      playbook: KANZLEI_MVP_TEMPLATE_PLAYBOOK,
+      preferredCloneName: args.preferredCloneName,
+      defaultCloneName: "Kanzlei Assistenz",
+      useCase: "Kanzlei Intake",
+      spawnReason: "kanzlei_mvp_platform_telephony_deploy",
+      deploymentFlow: "platform_kanzlei_mvp_telephony_beta_v1",
+      missingTemplateMessage:
+        "Kanzlei MVP template not found on the platform org. Run onboarding/seedPlatformAgents.seedAll first.",
+      organizationMismatchMessage: "Organization mismatch while deploying Kanzlei MVP template.",
     }),
 });
 

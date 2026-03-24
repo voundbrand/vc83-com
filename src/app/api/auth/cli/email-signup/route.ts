@@ -8,13 +8,29 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { api } from "@convex/_generated/api";
 import { fetchAction, fetchQuery, fetchMutation } from "convex/nextjs";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api: generatedApi } = require("@convex/_generated/api") as { api: any };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { state, email, password, firstName, lastName, organizationName } = body;
+    const {
+      state,
+      email,
+      password,
+      firstName,
+      lastName,
+      organizationName,
+      description,
+      industry,
+      contactEmail,
+      contactPhone,
+      timezone,
+      dateFormat,
+      language,
+    } = body;
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
@@ -27,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Validate state (if provided)
     let cliToken: string | null = null;
     if (state) {
-      const stateRecord = await fetchQuery(api.api.v1.cliAuth.getCliLoginState, {
+      const stateRecord = await (fetchQuery as any)(generatedApi.api.v1.cliAuth.getCliLoginState, {
         state,
       });
 
@@ -45,16 +61,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Create account using platform signup logic
-    const signupResult = await fetchAction(api.onboarding.signupFreeAccount, {
+    const signupResult = await (fetchAction as any)(generatedApi.onboarding.signupFreeAccount, {
       email,
       password,
       firstName,
       lastName,
       organizationName,
+      description,
+      industry,
+      contactEmail,
+      contactPhone,
+      timezone,
+      dateFormat,
+      language,
     });
 
     // Create CLI session (30 days expiration)
-    const sessionResult = await fetchAction(api.api.v1.cliAuth.createCliSessionFromSignup, {
+    const sessionResult = await (fetchAction as any)(generatedApi.api.v1.cliAuth.createCliSessionFromSignup, {
       userId: signupResult.user.id,
       email: signupResult.user.email,
       organizationId: signupResult.organization.id,
@@ -63,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Clean up state if it existed
     if (state) {
-      await fetchMutation(api.api.v1.cliAuth.deleteCliLoginState, {
+      await (fetchMutation as any)(generatedApi.api.v1.cliAuth.deleteCliLoginState, {
         state,
       });
     }
@@ -84,4 +107,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

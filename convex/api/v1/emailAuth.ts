@@ -191,6 +191,8 @@ function validateEmail(email: string): { valid: boolean; error?: string } {
 export const signUpHandler = httpAction(async (ctx, request) => {
   const startTime = Date.now();
   const origin = request.headers.get("origin");
+  const acceptLanguage = request.headers.get("accept-language") || "";
+  const sessionLanguage = acceptLanguage.split(",")[0]?.split("-")[0]?.trim().toLowerCase() || undefined;
 
   try {
     const body = await request.json();
@@ -375,6 +377,7 @@ export const signUpHandler = httpAction(async (ctx, request) => {
         ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
           email: normalizedEmail,
           firstName: firstName.trim(),
+          language: sessionLanguage,
         }),
       ]);
     } else {
@@ -385,6 +388,7 @@ export const signUpHandler = httpAction(async (ctx, request) => {
         firstName: firstName.trim(),
         organizationName: orgName,
         apiKeyPrefix: "n/a",
+        language: sessionLanguage,
       });
 
       // Send sales notification (async)

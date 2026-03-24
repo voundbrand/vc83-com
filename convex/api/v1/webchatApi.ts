@@ -22,6 +22,7 @@ import { normalizeClaimTokenForResponse } from "../../onboarding/claimTokenRespo
 import {
   UNIVERSAL_ONBOARDING_POLICY_VERSION,
   normalizePublicEntryChannel,
+  resolveExplicitGuestOnboardingSurface,
   shouldOfferOnboardingWarmup,
 } from "../../onboarding/universalOnboardingPolicy";
 import {
@@ -88,6 +89,7 @@ const SESSION_TOKEN_PREFIX: Record<PublicInboundChannel, string> = {
   webchat: "wc",
   native_guest: "ng",
 };
+const SUPPORTED_PUBLIC_CHAT_LANGUAGES = new Set(["en", "de", "pl", "es", "fr", "ja"]);
 const PUBLIC_MESSAGE_CONTEXT_FAILURE_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
 const PUBLIC_MESSAGE_CONTEXT_FAILURE_MAX_SCAN = 120;
 const PUBLIC_OPERATOR_NAME_FALLBACK = "Operator";
@@ -138,6 +140,19 @@ function normalizeAttribution(
   if (attribution.landingPath?.trim()) normalized.landingPath = attribution.landingPath.trim();
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizePublicChatLanguageHint(value?: string): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().split(/[-_]/)[0]?.toLowerCase() || "";
+  return SUPPORTED_PUBLIC_CHAT_LANGUAGES.has(normalized) ? normalized : undefined;
+}
+
+function normalizePublicChatLocaleHint(value?: string): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim();
+  if (normalized.length === 0) return undefined;
+  return normalized.slice(0, 24);
 }
 
 function quickHash(value: string): string {
@@ -600,8 +615,9 @@ export const updateSessionActivity = internalMutation({
 
     if (!session) return;
 
+    const now = Date.now();
     const updates: Partial<typeof session> = {
-      lastActivityAt: Date.now(),
+      lastActivityAt: now,
     };
 
     if (args.agentSessionId) {
@@ -616,6 +632,17 @@ export const updateSessionActivity = internalMutation({
     }
 
     await ctx.db.patch(session._id, updates);
+
+    const binding = await ctx.db
+      .query("guestOnboardingBindings")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+    if (binding) {
+      await ctx.db.patch(binding._id, {
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+    }
   },
 });
 
@@ -639,12 +666,25 @@ export const rebindSessionContext = internalMutation({
 
     if (!session) return { success: false as const, reason: "session_not_found" as const };
 
+    const now = Date.now();
     await ctx.db.patch(session._id, {
       organizationId: args.organizationId,
       agentId: args.agentId,
       agentSessionId: args.agentSessionId ?? session.agentSessionId,
-      lastActivityAt: Date.now(),
+      lastActivityAt: now,
     });
+
+    const binding = await ctx.db
+      .query("guestOnboardingBindings")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+    if (binding) {
+      await ctx.db.patch(binding._id, {
+        resolvedAgentId: args.agentId,
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+    }
 
     return { success: true as const };
   },
@@ -886,10 +926,13 @@ export const handleWebchatMessage = internalAction({
     agentId: v.id("objects"),
     channel: v.optional(v.union(v.literal("webchat"), v.literal("native_guest"))),
     sessionToken: v.optional(v.string()),
+    onboardingSurface: v.optional(v.string()),
     idempotencyKey: v.optional(v.string()),
     requestCorrelationId: v.optional(v.string()),
     message: v.string(),
     attachments: v.optional(v.array(v.any())),
+    language: v.optional(v.string()),
+    locale: v.optional(v.string()),
     attribution: v.optional(challengeMetadataValidator),
     visitorInfo: v.optional(
       v.object({
@@ -914,6 +957,14 @@ export const handleWebchatMessage = internalAction({
     try {
       const channel = normalizePublicChannel(args.channel);
       const attribution = normalizeAttribution(args.attribution);
+      const localeHint = normalizePublicChatLocaleHint(args.locale);
+      const languageHint =
+        normalizePublicChatLanguageHint(args.language)
+        ?? normalizePublicChatLanguageHint(localeHint);
+      const onboardingSurface = resolveExplicitGuestOnboardingSurface({
+        channel,
+        onboardingSurface: args.onboardingSurface,
+      });
       let sessionToken = args.sessionToken;
       let existingSession = null;
       let createdNewSession = false;
@@ -965,6 +1016,18 @@ export const handleWebchatMessage = internalAction({
           sessionToken: sessionToken!,
           visitorInfo: args.visitorInfo,
         });
+      }
+
+      if (onboardingSurface && sessionToken) {
+        await (ctx as any).runMutation(
+          generatedApi.internal.onboarding.orgBootstrap.ensureGuestOnboardingOrgBinding,
+          {
+            channel,
+            onboardingSurface,
+            sessionToken,
+            source: `${channel}:${onboardingSurface}:guest_onboarding`,
+          }
+        );
       }
 
       // Get agent config for response
@@ -1019,6 +1082,9 @@ export const handleWebchatMessage = internalAction({
           imageAttachmentCount: Array.isArray(args.attachments) ? args.attachments.length : 0,
           onboardingPolicyVersion: UNIVERSAL_ONBOARDING_POLICY_VERSION,
           onboardingWarmupOffered,
+          ...(languageHint ? { language: languageHint } : {}),
+          ...(localeHint ? { locale: localeHint } : {}),
+          ...(onboardingSurface ? { onboardingSurface } : {}),
           ...(skipOutbound ? { skipOutbound: true, transport: "native_guest_http" } : {}),
         },
       });

@@ -19,12 +19,55 @@ interface NativeGuestActiveAgentCandidate {
   customProperties?: Record<string, unknown>
 }
 
+const SUPPORTED_NATIVE_GUEST_LOCALES = new Set(["en", "de", "pl", "es", "fr", "ja"])
+const GUEST_WELCOME_NAMESPACE = "ui.ai_assistant"
+const GUEST_WELCOME_TRANSLATION_KEY = "ui.ai_assistant.guest.welcome"
+
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null
   }
   const normalized = value.trim()
   return normalized.length > 0 ? normalized : null
+}
+
+function normalizeLocaleCandidate(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) {
+    return null
+  }
+  const base = normalized.split(/[-_]/)[0]?.trim().toLowerCase() || ""
+  return SUPPORTED_NATIVE_GUEST_LOCALES.has(base) ? base : null
+}
+
+function parseAcceptLanguageHeader(value: string | null): string[] {
+  if (!value || value.trim().length === 0) {
+    return []
+  }
+  return value
+    .split(",")
+    .map((segment) => segment.split(";")[0]?.trim())
+    .filter((segment): segment is string => Boolean(segment))
+}
+
+export function resolvePreferredNativeGuestLocale(args: {
+  explicitLocale?: string | null
+  acceptLanguageHeader?: string | null
+}): string {
+  const explicit = normalizeLocaleCandidate(args.explicitLocale)
+  if (explicit) {
+    return explicit
+  }
+
+  const headerCandidates = parseAcceptLanguageHeader(args.acceptLanguageHeader || null)
+  for (const candidate of headerCandidates) {
+    const normalized = normalizeLocaleCandidate(candidate)
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  return "en"
 }
 
 function isPrimaryAgent(candidate: NativeGuestActiveAgentCandidate): boolean {
@@ -99,8 +142,52 @@ function getPlatformOrganizationId(): string | null {
   )
 }
 
-export async function GET() {
+async function getLocalizedGuestWelcomeMessage(args: {
+  convex: ConvexHttpClient
+  locale: string
+  fallbackMessage: string
+}): Promise<string> {
+  const loadTranslation = async (locale: string): Promise<string | null> => {
+    try {
+      const translations = await args.convex.query(
+        generatedApi.api.ontologyTranslations.getTranslationsByNamespace,
+        {
+          locale,
+          namespace: GUEST_WELCOME_NAMESPACE,
+        }
+      ) as Record<string, unknown> | null
+      return normalizeOptionalString(translations?.[GUEST_WELCOME_TRANSLATION_KEY])
+    } catch {
+      return null
+    }
+  }
+
+  const localeMessage = await loadTranslation(args.locale)
+  if (localeMessage) {
+    return localeMessage
+  }
+
+  if (args.locale !== "en") {
+    const fallbackEnglishMessage = await loadTranslation("en")
+    if (fallbackEnglishMessage) {
+      return fallbackEnglishMessage
+    }
+  }
+
+  return args.fallbackMessage
+}
+
+export async function GET(request: Request) {
   try {
+    const requestUrl = new URL(request.url)
+    const preferredLocale = resolvePreferredNativeGuestLocale({
+      explicitLocale:
+        requestUrl.searchParams.get("locale")
+        || requestUrl.searchParams.get("lang")
+        || requestUrl.searchParams.get("language"),
+      acceptLanguageHeader: request.headers.get("accept-language"),
+    })
+
     const organizationId = getPlatformOrganizationId()
     if (!organizationId) {
       return NextResponse.json(
@@ -207,19 +294,30 @@ export async function GET() {
       process.env.NEXT_PUBLIC_CONVEX_SITE_URL ||
       ""
     ).replace(/\/+$/, "")
+    const localizedWelcomeMessage = await getLocalizedGuestWelcomeMessage({
+      convex,
+      locale: preferredLocale,
+      fallbackMessage: bootstrapContract.config.welcomeMessage,
+    })
+    const localizedWidgetConfig = {
+      ...bootstrapContract.config,
+      welcomeMessage: localizedWelcomeMessage,
+      language: preferredLocale,
+    }
 
     return NextResponse.json(
       {
         organizationId: bootstrapContract.organizationId,
         agentId: bootstrapContract.agentId,
         agentName: bootstrapContract.config.agentName,
-        welcomeMessage: bootstrapContract.config.welcomeMessage,
+        welcomeMessage: localizedWelcomeMessage,
         apiBaseUrl: apiBaseUrl || undefined,
         channel: bootstrapContract.channel,
         contractVersion: bootstrapContract.contractVersion,
         resolvedAt: bootstrapContract.resolvedAt,
         deploymentDefaults: bootstrapContract.deploymentDefaults,
-        widgetConfig: bootstrapContract.config,
+        locale: preferredLocale,
+        widgetConfig: localizedWidgetConfig,
       },
       {
         status: 200,

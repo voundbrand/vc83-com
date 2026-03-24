@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   createProvisionalOnboardingOrg,
+  ensureGuestOnboardingOrgBinding,
   ensureTelegramOnboardingOrgBinding,
   finalizeOnboardingOrgClaim,
   ONBOARDING_ORG_LIFECYCLE,
@@ -243,6 +244,55 @@ describe("onboarding org lifecycle", () => {
       ONBOARDING_ORG_LIFECYCLE.PROVISIONAL,
     );
     expect(db.rows("organizations")).toHaveLength(1);
+  });
+
+  it("binds native guest onboarding first touch to one provisional workspace idempotently", async () => {
+    const db = new FakeDb();
+
+    const firstResult = await (ensureGuestOnboardingOrgBinding as any)._handler(
+      { db },
+      {
+        channel: "native_guest",
+        onboardingSurface: "one_of_one_landing_native_guest_audit",
+        sessionToken: "ng_binding_phase5",
+        source: "native_guest:one_of_one_landing_native_guest_audit:guest_onboarding",
+      },
+    );
+    const secondResult = await (ensureGuestOnboardingOrgBinding as any)._handler(
+      { db },
+      {
+        channel: "native_guest",
+        onboardingSurface: "one_of_one_landing_native_guest_audit",
+        sessionToken: "ng_binding_phase5",
+        source: "native_guest:one_of_one_landing_native_guest_audit:guest_onboarding",
+      },
+    );
+
+    const [binding] = db.rows("guestOnboardingBindings");
+    const organization = await db.get(firstResult.organizationId);
+
+    expect(firstResult.created).toBe(true);
+    expect(secondResult).toMatchObject({
+      bindingId: firstResult.bindingId,
+      organizationId: firstResult.organizationId,
+      created: false,
+      lifecycleState: ONBOARDING_ORG_LIFECYCLE.PROVISIONAL,
+      bindingStatus: "active",
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+    });
+    expect(binding).toMatchObject({
+      channel: "native_guest",
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+      sessionToken: "ng_binding_phase5",
+      onboardingOrganizationId: firstResult.organizationId,
+      organizationLifecycleState: ONBOARDING_ORG_LIFECYCLE.PROVISIONAL,
+      bindingStatus: "active",
+    });
+    expect(organization?.onboardingLifecycleState).toBe(
+      ONBOARDING_ORG_LIFECYCLE.PROVISIONAL,
+    );
+    expect(db.rows("organizations")).toHaveLength(1);
+    expect(db.rows("guestOnboardingBindings")).toHaveLength(1);
   });
 
   it("finalizes claimed onboarding workspaces onto the signed-in baseline", async () => {

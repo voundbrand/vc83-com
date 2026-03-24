@@ -4,6 +4,7 @@ import { getAuthenticatedUser, requireAuthenticatedUser, getUserContext } from "
 import { getLicenseInternal } from "./licensing/helpers";
 import { isAppEnabledByTier } from "./licensing/appFeatureMapping";
 import type { Id } from "./_generated/dataModel";
+import { collectVisibleOrdinaryOrganizationPage } from "./lib/organizationLifecycle";
 
 const releaseStageValidator = v.union(
   v.literal("none"),
@@ -365,15 +366,20 @@ export const getAvailabilityMatrix = query({
       const normalizedSearch = search?.trim().slice(0, 120);
       const pageLimit = Math.max(10, Math.min(pageSize ?? 25, 100));
 
-      const organizationsPage = normalizedSearch
-        ? await ctx.db
-            .query("organizations")
-            .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
-            .paginate({ cursor: cursor ?? null, numItems: pageLimit })
-        : await ctx.db
-            .query("organizations")
-            .order("desc")
-            .paginate({ cursor: cursor ?? null, numItems: pageLimit });
+      const organizationsPage = await collectVisibleOrdinaryOrganizationPage({
+        cursor: cursor ?? null,
+        pageSize: pageLimit,
+        fetchPage: async (pageCursor, numItems) =>
+          normalizedSearch
+            ? await ctx.db
+                .query("organizations")
+                .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
+                .paginate({ cursor: pageCursor, numItems })
+            : await ctx.db
+                .query("organizations")
+                .order("desc")
+                .paginate({ cursor: pageCursor, numItems }),
+      });
 
       // Only show active and approved apps in the matrix (exclude pending/rejected)
       const apps = await ctx.db

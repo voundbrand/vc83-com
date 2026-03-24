@@ -21,7 +21,10 @@ const generatedApi: any = require("../_generated/api");
 const guestChannelValidator = v.union(v.literal("webchat"), v.literal("native_guest"));
 
 type ClaimChannel = "webchat" | "native_guest" | "telegram";
-type ClaimTokenType = "guest_session_claim" | "telegram_org_claim";
+type ClaimTokenType =
+  | "guest_session_claim"
+  | "guest_onboarding_org_claim"
+  | "telegram_org_claim";
 
 type ClaimTokenPayload = {
   v: 1;
@@ -31,12 +34,18 @@ type ClaimTokenPayload = {
   organizationId: string;
   sessionToken?: string;
   telegramChatId?: string;
+  onboardingSurface?: string;
   iat: number;
   exp: number;
 };
 
 const GUEST_CLAIM_TTL_MS = 24 * 60 * 60 * 1000;
+const GUEST_ONBOARDING_ORG_CLAIM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const TELEGRAM_CLAIM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isOnboardingOrgClaimTokenType(tokenType?: ClaimTokenType): boolean {
+  return tokenType === "telegram_org_claim" || tokenType === "guest_onboarding_org_claim";
+}
 
 let warnedFallbackSecret = false;
 
@@ -460,6 +469,131 @@ export const issueGuestSessionClaimToken = internalMutation({
   },
 });
 
+export const issueGuestOnboardingOrgClaimToken = internalMutation({
+  args: {
+    bindingId: v.id("guestOnboardingBindings"),
+    sessionToken: v.string(),
+    organizationId: v.id("organizations"),
+    channel: guestChannelValidator,
+    issuedBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const binding = await ctx.db.get(args.bindingId);
+    if (!binding) {
+      return { claimToken: null, errorCode: "binding_not_found" as const };
+    }
+
+    if (binding.channel !== args.channel || binding.sessionToken !== args.sessionToken) {
+      return { claimToken: null, errorCode: "binding_session_mismatch" as const };
+    }
+
+    if (String(binding.onboardingOrganizationId) !== String(args.organizationId)) {
+      return { claimToken: null, errorCode: "binding_org_mismatch" as const };
+    }
+
+    const organization = await ctx.db.get(args.organizationId);
+    if (!organization) {
+      return { claimToken: null, errorCode: "organization_not_found" as const };
+    }
+
+    if (organization.onboardingLifecycleState === ONBOARDING_ORG_LIFECYCLE.CLAIMED) {
+      return { claimToken: null, alreadyClaimed: true as const };
+    }
+
+    const session = await ctx.db
+      .query("webchatSessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .first();
+    if (!session) {
+      return { claimToken: null, errorCode: "session_not_found" as const };
+    }
+    if (
+      String(session.organizationId) !== String(args.organizationId)
+      || (session.channel && session.channel !== args.channel)
+    ) {
+      return { claimToken: null, errorCode: "session_org_mismatch" as const };
+    }
+
+    const now = Date.now();
+    const ledgerEntry = await ctx.db
+      .query("anonymousIdentityLedger")
+      .withIndex("by_session_token", (q: any) => q.eq("sessionToken", args.sessionToken))
+      .first();
+
+    const tokenId = crypto.randomUUID();
+    const expiresAt = now + GUEST_ONBOARDING_ORG_CLAIM_TTL_MS;
+    const payload: ClaimTokenPayload = {
+      v: 1,
+      tokenId,
+      tokenType: "guest_onboarding_org_claim",
+      channel: args.channel,
+      organizationId: String(args.organizationId),
+      sessionToken: args.sessionToken,
+      onboardingSurface: binding.onboardingSurface,
+      iat: now,
+      exp: expiresAt,
+    };
+
+    const signedToken = await createSignedClaimToken(payload);
+
+    await ctx.db.insert("anonymousClaimTokens", {
+      tokenId,
+      tokenType: "guest_onboarding_org_claim",
+      channel: args.channel,
+      status: "issued",
+      organizationId: args.organizationId,
+      sessionToken: args.sessionToken,
+      ledgerEntryId: ledgerEntry?._id,
+      bindingId: args.bindingId,
+      onboardingSurface: binding.onboardingSurface,
+      signedToken,
+      issuedBy: args.issuedBy || "complete_onboarding",
+      issuedAt: now,
+      expiresAt,
+      metadata: {
+        bindingId: String(args.bindingId),
+        onboardingSurface: binding.onboardingSurface,
+      },
+    });
+
+    if (ledgerEntry) {
+      await ctx.db.patch(ledgerEntry._id, {
+        lastClaimTokenId: tokenId,
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+    }
+
+    await ctx.db.patch(binding._id, {
+      lastClaimTokenId: tokenId,
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+
+    await writeAuditLog(ctx, {
+      organizationId: args.organizationId,
+      action: "onboarding.identity_claim_token.issued",
+      resource: "anonymousClaimTokens",
+      resourceId: tokenId,
+      success: true,
+      metadata: {
+        tokenType: "guest_onboarding_org_claim",
+        channel: args.channel,
+        sessionToken: args.sessionToken,
+        onboardingSurface: binding.onboardingSurface,
+        bindingId: String(args.bindingId),
+        expiresAt,
+      },
+    });
+
+    return {
+      claimToken: signedToken,
+      tokenId,
+      expiresAt,
+    };
+  },
+});
+
 export const issueTelegramOrgClaimToken = internalMutation({
   args: {
     telegramChatId: v.string(),
@@ -545,6 +679,7 @@ export const inspectIdentityClaimToken = internalAction({
     tokenId?: string;
     sessionToken?: string;
     telegramChatId?: string;
+    onboardingSurface?: string;
     expiresAt?: number;
   }> => {
     const decoded = await decodeAndVerifyClaimToken(args.signedToken);
@@ -582,6 +717,7 @@ export const inspectIdentityClaimToken = internalAction({
       tokenId: payload.tokenId,
       sessionToken: payload.sessionToken,
       telegramChatId: payload.telegramChatId,
+      onboardingSurface: payload.onboardingSurface,
       expiresAt: tokenRecord.expiresAt,
     };
   },
@@ -784,10 +920,59 @@ export const consumeIdentityClaimToken = internalMutation({
           lastActivityAt: now,
         });
       }
-    } else if (tokenRecord.tokenType === "telegram_org_claim") {
+    } else if (isOnboardingOrgClaimTokenType(tokenRecord.tokenType as ClaimTokenType)) {
       const telegramChatId = payload.telegramChatId || tokenRecord.telegramChatId;
+      const sessionToken = payload.sessionToken || tokenRecord.sessionToken;
       const user = await ctx.db.get(args.userId);
       const organization = await ctx.db.get(tokenRecord.organizationId);
+      const binding =
+        tokenRecord.tokenType === "guest_onboarding_org_claim" && tokenRecord.bindingId
+          ? await ctx.db.get(tokenRecord.bindingId)
+          : null;
+      const webchatSession = sessionToken
+        ? await ctx.db
+            .query("webchatSessions")
+            .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+            .first()
+        : null;
+
+      if (tokenRecord.tokenType === "guest_onboarding_org_claim") {
+        if (!tokenRecord.bindingId || !binding) {
+          return { success: false, errorCode: "binding_not_found" };
+        }
+
+        if (
+          String(binding.onboardingOrganizationId) !== String(tokenRecord.organizationId)
+          || binding.channel !== tokenRecord.channel
+        ) {
+          return { success: false, errorCode: "binding_org_mismatch" };
+        }
+
+        if (binding.claimedByUserId && String(binding.claimedByUserId) !== String(args.userId)) {
+          return { success: false, errorCode: "binding_claim_conflict" };
+        }
+
+        if (sessionToken && !webchatSession) {
+          return { success: false, errorCode: "session_not_found" };
+        }
+
+        if (
+          webchatSession?.claimedByUserId
+          && String(webchatSession.claimedByUserId) !== String(args.userId)
+        ) {
+          return { success: false, errorCode: "session_already_claimed" };
+        }
+        if (
+          webchatSession
+          && (
+            String(webchatSession.organizationId) !== String(tokenRecord.organizationId)
+            || (webchatSession.channel && webchatSession.channel !== tokenRecord.channel)
+          )
+        ) {
+          return { success: false, errorCode: "session_org_mismatch" };
+        }
+      }
+
       if (
         organization?.onboardingLifecycleState === ONBOARDING_ORG_LIFECYCLE.CLAIMED
         && organization.onboardingClaimedByUserId
@@ -832,6 +1017,50 @@ export const consumeIdentityClaimToken = internalMutation({
             userId: args.userId,
           });
         }
+      }
+
+      if (tokenRecord.tokenType === "guest_onboarding_org_claim" && binding) {
+        if (webchatSession) {
+          await ctx.db.patch(webchatSession._id, {
+            claimedByUserId: args.userId,
+            claimedOrganizationId: tokenRecord.organizationId,
+            claimedAt: webchatSession.claimedAt || now,
+          });
+        }
+
+        const ledgerEntry = sessionToken
+          ? await ctx.db
+              .query("anonymousIdentityLedger")
+              .withIndex("by_session_token", (q) => q.eq("sessionToken", sessionToken))
+              .first()
+          : null;
+
+        if (ledgerEntry) {
+          if (ledgerEntry.claimedByUserId && String(ledgerEntry.claimedByUserId) !== String(args.userId)) {
+            return { success: false, errorCode: "ledger_claim_conflict" };
+          }
+          await ctx.db.patch(ledgerEntry._id, {
+            claimStatus: "claimed",
+            claimedByUserId: args.userId,
+            claimedOrganizationId: tokenRecord.organizationId,
+            claimedAt: ledgerEntry.claimedAt || now,
+            lastClaimTokenId: tokenRecord.tokenId,
+            updatedAt: now,
+            lastActivityAt: now,
+          });
+        }
+
+        await ctx.db.patch(binding._id, {
+          organizationLifecycleState: ONBOARDING_ORG_LIFECYCLE.CLAIMED,
+          bindingStatus: "claimed",
+          claimedByUserId: args.userId,
+          claimedAt: binding.claimedAt || now,
+          lastClaimTokenId: tokenRecord.tokenId,
+          updatedAt: now,
+          lastActivityAt: now,
+        });
+
+        linkedSessionToken = sessionToken || undefined;
       }
 
       const ledgerEntry = telegramChatId
@@ -991,5 +1220,27 @@ export const revokeTelegramOrgClaimTokensForChat = internalMutation({
     }
 
     return { revokedCount: issuedTokens.length };
+  },
+});
+
+export const cleanupExpiredIdentityClaimTokens = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const issuedTokens = await ctx.db
+      .query("anonymousClaimTokens")
+      .withIndex("by_status_expiry", (q) => q.eq("status", "issued"))
+      .collect();
+
+    let expiredCount = 0;
+    for (const token of issuedTokens) {
+      if (token.expiresAt > now) {
+        continue;
+      }
+      await ctx.db.patch(token._id, { status: "expired" });
+      expiredCount += 1;
+    }
+
+    return { expiredCount };
   },
 });

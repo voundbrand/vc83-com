@@ -11,6 +11,7 @@ const ORIGINAL_TEST_ORG_ID = process.env.TEST_ORG_ID;
 function createWebchatIngressContext(args: { channel: "webchat" | "native_guest" }) {
   const eventMutations: Array<Record<string, unknown>> = [];
   const metadataPayloads: Array<Record<string, unknown>> = [];
+  const bindingMutations: Array<Record<string, unknown>> = [];
 
   const runQuery = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
     if (Object.prototype.hasOwnProperty.call(payload, "sessionToken")) {
@@ -23,6 +24,23 @@ function createWebchatIngressContext(args: { channel: "webchat" | "native_guest"
   });
 
   const runMutation = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "onboardingSurface")
+      && Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && Object.prototype.hasOwnProperty.call(payload, "source")
+      && !Object.prototype.hasOwnProperty.call(payload, "organizationId")
+    ) {
+      bindingMutations.push(payload);
+      return {
+        bindingId: "guest_binding_phase5",
+        organizationId: "org_bound_phase5",
+        created: true,
+        lifecycleState: "provisional_onboarding",
+        bindingStatus: "active",
+      };
+    }
+
     if (
       Object.prototype.hasOwnProperty.call(payload, "organizationId")
       && Object.prototype.hasOwnProperty.call(payload, "agentId")
@@ -64,6 +82,7 @@ function createWebchatIngressContext(args: { channel: "webchat" | "native_guest"
     runAction,
     eventMutations,
     metadataPayloads,
+    bindingMutations,
   };
 }
 
@@ -78,7 +97,7 @@ afterEach(() => {
 
 describe("universal onboarding ingress matrix", () => {
   it("records first-touch and optional onboarding metadata for webchat ingress", async () => {
-    const { ctx, eventMutations, metadataPayloads } = createWebchatIngressContext({
+    const { ctx, eventMutations, metadataPayloads, bindingMutations } = createWebchatIngressContext({
       channel: "webchat",
     });
 
@@ -97,6 +116,25 @@ describe("universal onboarding ingress matrix", () => {
     expect(executionMetadata.onboardingPolicyVersion).toBe("universal_onboarding_policy.v1");
     expect(executionMetadata.onboardingWarmupOffered).toBe(true);
     expect(executionMetadata.skipOutbound).toBeUndefined();
+    expect(bindingMutations).toHaveLength(0);
+  });
+
+  it("does not create onboarding bindings for generic webchat even when a native_guest surface is supplied", async () => {
+    const { ctx, bindingMutations, metadataPayloads } = createWebchatIngressContext({
+      channel: "webchat",
+    });
+
+    const result = await (handleWebchatMessage as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "webchat",
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+      message: "hello generic webchat",
+    });
+
+    expect(result.success).toBe(true);
+    expect(bindingMutations).toHaveLength(0);
+    expect(metadataPayloads[0]?.onboardingSurface).toBeUndefined();
   });
 
   it("records first-touch and native_guest transport metadata for native guest ingress", async () => {
@@ -117,6 +155,54 @@ describe("universal onboarding ingress matrix", () => {
     expect(executionMetadata.onboardingWarmupOffered).toBe(true);
     expect(executionMetadata.skipOutbound).toBe(true);
     expect(executionMetadata.transport).toBe("native_guest_http");
+  });
+
+  it("forwards native_guest locale hints into execution metadata", async () => {
+    const { ctx, metadataPayloads } = createWebchatIngressContext({
+      channel: "native_guest",
+    });
+
+    const result = await (handleWebchatMessage as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "native_guest",
+      message: "hallo quinn",
+      language: "de-DE",
+      locale: "de-DE",
+    });
+
+    expect(result.success).toBe(true);
+    expect(metadataPayloads[0]).toMatchObject({
+      language: "de",
+      locale: "de-DE",
+    });
+  });
+
+  it("creates an onboarding-scoped guest binding only for explicit native_guest onboarding surfaces", async () => {
+    const { ctx, bindingMutations, metadataPayloads } = createWebchatIngressContext({
+      channel: "native_guest",
+    });
+
+    const result = await (handleWebchatMessage as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      channel: "native_guest",
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+      message: "hello scoped native guest",
+    });
+
+    expect(result.success).toBe(true);
+    expect(bindingMutations).toEqual([
+      expect.objectContaining({
+        channel: "native_guest",
+        onboardingSurface: "one_of_one_landing_native_guest_audit",
+        sessionToken: "ng_phase5_1",
+      }),
+    ]);
+    expect(metadataPayloads[0]).toMatchObject({
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+      transport: "native_guest_http",
+    });
   });
 
   it("returns success for native_guest when runtime provides fallback response despite non-success status", async () => {

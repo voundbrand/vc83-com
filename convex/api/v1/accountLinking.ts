@@ -20,6 +20,11 @@ import { getCorsHeaders, handleOptionsRequest } from "./corsHeaders";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const internal = require("../../_generated/api").internal;
 
+type IdentityClaimTokenType =
+  | "guest_session_claim"
+  | "guest_onboarding_org_claim"
+  | "telegram_org_claim";
+
 // Helper to create JSON response
 function jsonResponse(
   data: Record<string, unknown>,
@@ -143,7 +148,7 @@ export const confirmLinking = httpAction(async (ctx, request) => {
       | {
           success: boolean;
           alreadyClaimed?: boolean;
-          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          tokenType?: IdentityClaimTokenType;
           linkedOrganizationId?: Id<"organizations">;
           linkedSessionToken?: string;
           errorCode?: string;

@@ -145,7 +145,7 @@ export const createFrontendUserWithPassword = internalMutation({
 });
 
 /**
- * Create frontend_user from OAuth (Google/Apple)
+ * Create frontend_user from OAuth
  */
 export const createFrontendUserFromOAuth = internalMutation({
   args: {
@@ -153,7 +153,7 @@ export const createFrontendUserFromOAuth = internalMutation({
     email: v.string(),
     firstName: v.string(),
     lastName: v.optional(v.string()),
-    provider: v.union(v.literal("google"), v.literal("apple")),
+    provider: v.string(),
     providerUserId: v.string(),
   },
   handler: async (ctx, args): Promise<Id<"objects">> => {
@@ -196,7 +196,7 @@ export const createFrontendUserFromOAuth = internalMutation({
 export const findFrontendUserByOAuth = internalQuery({
   args: {
     organizationId: v.id("organizations"),
-    provider: v.union(v.literal("google"), v.literal("apple")),
+    provider: v.string(),
     providerUserId: v.string(),
   },
   handler: async (ctx, args) => {

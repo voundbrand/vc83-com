@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   ANNE_BECKER_TEMPLATE_AGENT_SEED,
+  KANZLEI_MVP_TEMPLATE_AGENT_SEED,
+  MOTHER_GOVERNANCE_RUNTIME_SEED,
+  MOTHER_SUPPORT_RUNTIME_SEED,
   PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
   QUINN_CUSTOM_PROPERTIES,
   SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED,
@@ -35,9 +38,23 @@ describe("platform agent phone-call seed coverage", () => {
     );
   });
 
+  it("keeps Mother support and governance runtimes explicitly off the telephony rail", () => {
+    for (const seed of [MOTHER_SUPPORT_RUNTIME_SEED, MOTHER_GOVERNANCE_RUNTIME_SEED]) {
+      expect(seed.customProperties.channelBindings).toContainEqual(
+        DISABLED_PHONE_CALL_BINDING,
+      );
+      expect(
+        seed.customProperties.channelBindings.some(
+          (binding) => binding.channel === "phone_call" && binding.enabled === true,
+        ),
+      ).toBe(false);
+    }
+  });
+
   it("enables phone_call on the telephony-capable protected seeds", () => {
     for (const seed of [
       ANNE_BECKER_TEMPLATE_AGENT_SEED,
+      KANZLEI_MVP_TEMPLATE_AGENT_SEED,
       PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
       SAMANTHA_LEAD_CAPTURE_TEMPLATE_SEED,
       SAMANTHA_WARM_LEAD_CAPTURE_TEMPLATE_SEED,

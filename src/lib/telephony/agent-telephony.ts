@@ -1,4 +1,5 @@
 import { ANNE_BECKER_AGENT_TEMPLATE } from "../../../apps/me-immo/elevenlabs/agents/anne-becker/template";
+import { KANZLEI_MVP_AGENT_TEMPLATE } from "../../../apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template";
 import {
   CLARA_AGENT_TEMPLATE,
   JONAS_AGENT_TEMPLATE,
@@ -83,6 +84,11 @@ const ANNE_BECKER_FIRST_MESSAGE = ANNE_BECKER_AGENT_TEMPLATE.firstMessage;
 const ANNE_BECKER_KNOWLEDGE_BASE = ANNE_BECKER_AGENT_TEMPLATE.knowledgeBase;
 const ANNE_BECKER_KNOWLEDGE_BASE_NAME = ANNE_BECKER_AGENT_TEMPLATE.knowledgeBaseName;
 const ANNE_BECKER_MANAGED_TOOLS = ANNE_BECKER_AGENT_TEMPLATE.managedTools;
+const KANZLEI_MVP_SYSTEM_PROMPT = KANZLEI_MVP_AGENT_TEMPLATE.systemPrompt;
+const KANZLEI_MVP_FIRST_MESSAGE = KANZLEI_MVP_AGENT_TEMPLATE.firstMessage;
+const KANZLEI_MVP_KNOWLEDGE_BASE = KANZLEI_MVP_AGENT_TEMPLATE.knowledgeBase;
+const KANZLEI_MVP_KNOWLEDGE_BASE_NAME = KANZLEI_MVP_AGENT_TEMPLATE.knowledgeBaseName;
+const KANZLEI_MVP_MANAGED_TOOLS = KANZLEI_MVP_AGENT_TEMPLATE.managedTools;
 const CLARA_SYSTEM_PROMPT = CLARA_AGENT_TEMPLATE.systemPrompt;
 const CLARA_FIRST_MESSAGE = CLARA_AGENT_TEMPLATE.firstMessage;
 const CLARA_KNOWLEDGE_BASE = CLARA_AGENT_TEMPLATE.knowledgeBase;
@@ -111,6 +117,8 @@ const DEFAULT_TELEPHONY_CONFIG: AgentTelephonyConfig = {
 
 export const ANNE_BECKER_TEMPLATE_ROLE = "customer_telephony_anne_becker_template";
 export const ANNE_BECKER_TEMPLATE_PLAYBOOK = "customer_telephony_intake";
+export const KANZLEI_MVP_TEMPLATE_ROLE = "customer_telephony_kanzlei_mvp_template";
+export const KANZLEI_MVP_TEMPLATE_PLAYBOOK = "customer_telephony_kanzlei_mvp";
 export const CLARA_TEMPLATE_ROLE = "customer_telephony_clara_template";
 export const CLARA_TEMPLATE_PLAYBOOK = "customer_telephony_reception";
 export const JONAS_TEMPLATE_ROLE = "customer_telephony_jonas_template";
@@ -239,6 +247,22 @@ export function createAnneBeckerTelephonyConfigSeed(): AgentTelephonyConfig {
       knowledgeBaseName: ANNE_BECKER_KNOWLEDGE_BASE_NAME,
       managedTools: {
         ...ANNE_BECKER_MANAGED_TOOLS,
+      },
+      syncState: { ...DEFAULT_SYNC_STATE },
+    },
+  });
+}
+
+export function createKanzleiMvpTelephonyConfigSeed(): AgentTelephonyConfig {
+  return normalizeAgentTelephonyConfig({
+    selectedProvider: "elevenlabs",
+    elevenlabs: {
+      systemPrompt: KANZLEI_MVP_SYSTEM_PROMPT,
+      firstMessage: KANZLEI_MVP_FIRST_MESSAGE,
+      knowledgeBase: KANZLEI_MVP_KNOWLEDGE_BASE,
+      knowledgeBaseName: KANZLEI_MVP_KNOWLEDGE_BASE_NAME,
+      managedTools: {
+        ...KANZLEI_MVP_MANAGED_TOOLS,
       },
       syncState: { ...DEFAULT_SYNC_STATE },
     },

@@ -4,6 +4,9 @@
 
 ## Active Workstreams
 
+Canonical note:
+- Organization onboarding/bootstrap runtime decisions, including explicit `native_guest` guest binding scope, deferred generic `webchat` onboarding adoption, and ordinary org-list lifecycle filtering, are documented in `docs/platform/codebase_atlas/flows/F7-organization-onboarding-bootstrap.md`.
+
 | # | Workstream | Status | Progress |
 |---|-----------|--------|----------|
 | 1 | **Platform Steward Agent (Mother)** | Active - Lane D-E | PSA-001→PSA-009 DONE. Mother identity, routing isolation, governance artifacts, org bootstrap. Active work in this changeset. |

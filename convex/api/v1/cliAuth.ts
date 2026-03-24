@@ -18,6 +18,7 @@ import { action, query, mutation, internalMutation, internalQuery, internalActio
 import { Id } from "../../_generated/dataModel";
 const generatedApi: any = require("../../_generated/api");
 import { getLicenseInternal } from "../../licensing/helpers";
+import { isVisibleInOrdinaryOrganizationListings } from "../../lib/organizationLifecycle";
 
 // Token prefix length for indexed lookup
 const CLI_TOKEN_PREFIX_LENGTH = 20; // "cli_session_" (12) + 8 random chars
@@ -1454,7 +1455,9 @@ export const getUserOrganizationsInternal = internalQuery({
       memberships.map(async (membership) => {
         const org = await ctx.db.get(membership.organizationId);
         const role = await ctx.db.get(membership.role);
-        if (!org || !org.isActive) return null;
+        if (!org || !org.isActive || !isVisibleInOrdinaryOrganizationListings(org)) {
+          return null;
+        }
         return {
           id: org._id,
           name: org.name,

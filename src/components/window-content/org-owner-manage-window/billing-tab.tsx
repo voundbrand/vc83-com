@@ -7,6 +7,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const api = (require("../../../../convex/_generated/api") as { api: any }).api;
 import { CreditBalance } from "@/components/credit-balance";
+import { AutoReplenishSettings } from "@/components/auto-replenish-settings";
 import {
   Loader2,
   ExternalLink,
@@ -35,7 +36,7 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
   const getSubscriptionStatus = useAction(api.stripe.platformCheckout.getSubscriptionStatus);
   const createPortalSession = useAction(api.stripe.aiCheckout.createCustomerPortalSession);
 
-  const creditBalance = useQuery(api.credits.getCreditBalance, { organizationId }) as {
+  const creditBalance = useQuery(api.credits.index.getCreditBalance, { organizationId }) as {
     exists: boolean;
     dailyCredits: number;
     monthlyCredits: number;
@@ -238,6 +239,14 @@ export function BillingTab({ organizationId, stripeCustomerId }: BillingTabProps
             No credit balance yet. Credits are granted on login and with paid plans.
           </p>
         )}
+      </div>
+
+      {/* Auto-Replenish */}
+      <div
+        className="border-2 p-4"
+        style={{ borderColor: "var(--window-document-border)", background: "var(--window-document-bg-elevated)" }}
+      >
+        <AutoReplenishSettings organizationId={organizationId} />
       </div>
 
       {/* Manage Billing - Stripe Portal */}

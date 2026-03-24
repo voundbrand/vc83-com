@@ -2,9 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   consumeIdentityClaimToken,
+  issueGuestOnboardingOrgClaimToken,
   issueTelegramOrgClaimToken,
 } from "../../../convex/onboarding/identityClaims";
-import { ONBOARDING_ORG_LIFECYCLE } from "../../../convex/onboarding/orgBootstrap";
+import {
+  finalizeOnboardingOrgClaim,
+  ONBOARDING_ORG_LIFECYCLE,
+} from "../../../convex/onboarding/orgBootstrap";
 
 type FakeRow = Record<string, any> & { _id: string };
 
@@ -119,6 +123,7 @@ class FakeDb {
 const ORG_ID = "organizations_claimed_lifecycle" as Id<"organizations">;
 const USER_ID = "users_claimed_lifecycle" as Id<"users">;
 const TELEGRAM_MAPPING_ID = "telegram_mapping_claimed_lifecycle" as Id<"telegramMappings">;
+const GUEST_BINDING_ID = "guest_binding_claimed_lifecycle" as Id<"guestOnboardingBindings">;
 
 describe("identity claim finalization lifecycle", () => {
   it("does not re-finalize a Telegram workspace already claimed by the same user", async () => {
@@ -211,6 +216,169 @@ describe("identity claim finalization lifecycle", () => {
       organizationId: ORG_ID,
       status: "active",
       userId: USER_ID,
+    });
+    expect(user?.defaultOrgId).toBe(ORG_ID);
+  });
+
+  it("finalizes a guest onboarding org claim token against the bound provisional workspace", async () => {
+    const db = new FakeDb();
+    db.seed("organizations", {
+      _id: ORG_ID,
+      name: "Bound Workspace",
+      slug: "bound-workspace",
+      businessName: "Bound Workspace",
+      isActive: true,
+      isPersonalWorkspace: false,
+      onboardingLifecycleState: ONBOARDING_ORG_LIFECYCLE.LIVE_UNCLAIMED,
+      onboardingActivatedAt: 150,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    db.seed("users", {
+      _id: USER_ID,
+      email: "owner@example.com",
+      firstName: "Taylor",
+      lastName: "Owner",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    db.seed("guestOnboardingBindings", {
+      _id: GUEST_BINDING_ID,
+      sourceIdentityKey: "native_guest:one_of_one_landing_native_guest_audit:ng_claimed_lifecycle",
+      channel: "native_guest",
+      onboardingSurface: "one_of_one_landing_native_guest_audit",
+      sessionToken: "ng_claimed_lifecycle",
+      onboardingOrganizationId: ORG_ID,
+      organizationLifecycleState: ONBOARDING_ORG_LIFECYCLE.LIVE_UNCLAIMED,
+      bindingStatus: "active",
+      createdAt: 1,
+      updatedAt: 1,
+      lastActivityAt: 1,
+    });
+    db.seed("webchatSessions", {
+      _id: "webchat_session_claimed_lifecycle",
+      sessionToken: "ng_claimed_lifecycle",
+      organizationId: ORG_ID,
+      agentId: "agent_claimed_lifecycle",
+      channel: "native_guest",
+      createdAt: 1,
+      lastActivityAt: 1,
+    });
+    db.seed("anonymousIdentityLedger", {
+      _id: "ledger_claimed_lifecycle",
+      identityKey: "native_guest:ng_claimed_lifecycle",
+      channel: "native_guest",
+      organizationId: ORG_ID,
+      agentId: "agent_claimed_lifecycle",
+      sessionToken: "ng_claimed_lifecycle",
+      claimStatus: "unclaimed",
+      createdAt: 1,
+      updatedAt: 1,
+      lastActivityAt: 1,
+    });
+
+    const issued = await (issueGuestOnboardingOrgClaimToken as any)._handler(
+      { db },
+      {
+        bindingId: GUEST_BINDING_ID,
+        sessionToken: "ng_claimed_lifecycle",
+        organizationId: ORG_ID,
+        channel: "native_guest",
+        issuedBy: "test",
+      },
+    );
+
+    const baselineCalls: Array<Record<string, unknown>> = [];
+    const result = await (consumeIdentityClaimToken as any)._handler(
+      {
+        db,
+        runQuery: vi.fn(),
+        runMutation: vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+          if (
+            Object.prototype.hasOwnProperty.call(payload, "organizationId")
+            && Object.prototype.hasOwnProperty.call(payload, "userId")
+            && Object.prototype.hasOwnProperty.call(payload, "appSurface")
+            && Object.prototype.hasOwnProperty.call(payload, "contactEmail")
+          ) {
+            return await (finalizeOnboardingOrgClaim as any)._handler(
+              {
+                db,
+                runMutation: vi.fn(async (_nestedRef: unknown, nestedPayload: Record<string, unknown>) => {
+                  baselineCalls.push(nestedPayload);
+                  return {
+                    organizationId: nestedPayload.organizationId,
+                    operatorAgentId: "agent_finalized_claimed_lifecycle",
+                    operatorProvisioningAction: "template_clone_created",
+                  };
+                }),
+              },
+              payload,
+            );
+          }
+          return { success: true };
+        }),
+      },
+      {
+        signedToken: issued.claimToken,
+        userId: USER_ID,
+        organizationId: ORG_ID,
+        claimSource: "test_claim",
+      },
+    );
+
+    const organization = await db.get(ORG_ID);
+    const binding = await db.get(GUEST_BINDING_ID);
+    const session = await db
+      .query("webchatSessions")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", "ng_claimed_lifecycle"))
+      .first();
+    const ledger = await db
+      .query("anonymousIdentityLedger")
+      .withIndex("by_session_token", (q) => q.eq("sessionToken", "ng_claimed_lifecycle"))
+      .first();
+    const token = await db
+      .query("anonymousClaimTokens")
+      .withIndex("by_token_id", (q) => q.eq("tokenId", issued.tokenId))
+      .first();
+    const user = await db.get(USER_ID);
+
+    expect(result).toMatchObject({
+      success: true,
+      tokenType: "guest_onboarding_org_claim",
+      linkedOrganizationId: ORG_ID,
+      linkedSessionToken: "ng_claimed_lifecycle",
+    });
+    expect(baselineCalls).toHaveLength(1);
+    expect(baselineCalls[0]).toMatchObject({
+      organizationId: ORG_ID,
+      createdByUserId: USER_ID,
+      ownerUserIds: [USER_ID],
+      appProvisioningUserId: USER_ID,
+      contactEmail: "owner@example.com",
+      appSurface: "platform_web",
+    });
+    expect(organization).toMatchObject({
+      onboardingLifecycleState: ONBOARDING_ORG_LIFECYCLE.CLAIMED,
+      onboardingClaimedByUserId: USER_ID,
+    });
+    expect(binding).toMatchObject({
+      organizationLifecycleState: ONBOARDING_ORG_LIFECYCLE.CLAIMED,
+      bindingStatus: "claimed",
+      claimedByUserId: USER_ID,
+    });
+    expect(session).toMatchObject({
+      claimedByUserId: USER_ID,
+      claimedOrganizationId: ORG_ID,
+    });
+    expect(ledger).toMatchObject({
+      claimStatus: "claimed",
+      claimedByUserId: USER_ID,
+      claimedOrganizationId: ORG_ID,
+    });
+    expect(token).toMatchObject({
+      status: "consumed",
+      consumedByUserId: USER_ID,
+      consumedByOrganizationId: ORG_ID,
     });
     expect(user?.defaultOrgId).toBe(ORG_ID);
   });

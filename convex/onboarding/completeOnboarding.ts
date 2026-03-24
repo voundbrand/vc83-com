@@ -147,6 +147,10 @@ export const run = internalAction({
 
     console.log("[completeOnboarding] Starting for channel contact:", channelContactIdentifier);
     const normalizedChannel = normalizeUniversalOnboardingChannel(args.channel);
+    const guestSessionToken =
+      normalizedChannel === "webchat" || normalizedChannel === "native_guest"
+        ? channelContactIdentifier.trim()
+        : null;
     let guestSession:
       | {
           claimedByUserId?: Id<"users">;
@@ -154,9 +158,35 @@ export const run = internalAction({
           organizationId: Id<"organizations">;
         }
       | null = null;
+    let guestOnboardingBinding:
+      | {
+          _id: Id<"guestOnboardingBindings">;
+          onboardingOrganizationId: Id<"organizations">;
+          organizationLifecycleState:
+            | "provisional_onboarding"
+            | "live_unclaimed_workspace"
+            | "claimed_workspace";
+          bindingStatus: "active" | "claimed" | "expired";
+        }
+      | null = null;
+
+    if (
+      (normalizedChannel === "webchat" || normalizedChannel === "native_guest")
+      && guestSessionToken
+    ) {
+      guestOnboardingBinding = await ctx.runQuery(
+        internalApi.onboarding.orgBootstrap.getGuestOnboardingBindingBySessionToken,
+        {
+          channel: normalizedChannel,
+          sessionToken: guestSessionToken,
+        }
+      );
+      if (guestOnboardingBinding?.bindingStatus === "expired") {
+        guestOnboardingBinding = null;
+      }
+    }
 
     if (requiresClaimedAccountForOnboardingCompletion(normalizedChannel)) {
-      const guestSessionToken = channelContactIdentifier.trim();
       if (!guestSessionToken) {
         return {
           success: false,
@@ -165,11 +195,11 @@ export const run = internalAction({
         };
       }
 
-      const webchatSession = await ctx.runQuery(
+      guestSession = await ctx.runQuery(
         internalApi.api.v1.webchatApi.getWebchatSession,
         { sessionToken: guestSessionToken }
       );
-      if (!webchatSession) {
+      if (!guestSession) {
         return {
           success: false,
           error: "account_required",
@@ -177,7 +207,14 @@ export const run = internalAction({
         };
       }
 
-      if (String(webchatSession.organizationId) !== String(args.organizationId)) {
+      const allowedGuestSessionOrgIds = guestOnboardingBinding
+        ? new Set([
+            String(args.organizationId),
+            String(guestOnboardingBinding.onboardingOrganizationId),
+          ])
+        : new Set([String(args.organizationId)]);
+
+      if (!allowedGuestSessionOrgIds.has(String(guestSession.organizationId))) {
         return {
           success: false,
           error: "account_required",
@@ -185,14 +222,13 @@ export const run = internalAction({
         };
       }
 
-      if (!webchatSession.claimedByUserId) {
+      if (!guestOnboardingBinding && !guestSession.claimedByUserId) {
         return {
           success: false,
           error: "account_required",
           reason: "guest_session_unclaimed",
         };
       }
-      guestSession = webchatSession;
     }
 
     const sessionDoc = await ctx.runQuery(
@@ -250,7 +286,13 @@ export const run = internalAction({
         }
       }
     }
-    if (requiresClaimedAccountForOnboardingCompletion(normalizedChannel) && guestSession?.claimedOrganizationId) {
+    if (guestOnboardingBinding) {
+      existingOrganizationId = guestOnboardingBinding.onboardingOrganizationId;
+      hasBoundAnonymousOnboardingOrg = guestOnboardingBinding.bindingStatus !== "expired";
+    } else if (
+      requiresClaimedAccountForOnboardingCompletion(normalizedChannel)
+      && guestSession?.claimedOrganizationId
+    ) {
       existingOrganizationId = guestSession.claimedOrganizationId;
     }
 
@@ -288,7 +330,8 @@ export const run = internalAction({
       Boolean(existingOrganizationId)
       && (hasBoundAnonymousOnboardingOrg || existingWorkspaceAction !== "recreate");
     const claimedUserId =
-      requiresClaimedAccountForOnboardingCompletion(normalizedChannel)
+      !guestOnboardingBinding
+      && requiresClaimedAccountForOnboardingCompletion(normalizedChannel)
       && guestSession?.claimedByUserId
         ? guestSession.claimedByUserId
         : null;
@@ -395,6 +438,20 @@ export const run = internalAction({
       console.error("[completeOnboarding] Credit seeding failed (non-blocking):", e);
     }
 
+    // 3.1 Persist detected language to user record
+    const detectedLanguage = normalizeOptionalString(extractedData.detectedLanguage);
+    if (claimedUserId && detectedLanguage) {
+      try {
+        await ctx.runMutation(
+          internalApi.onboarding.completeOnboarding.persistUserPreferredLanguage,
+          { userId: claimedUserId, preferredLanguage: detectedLanguage }
+        );
+        console.log("[completeOnboarding] Persisted preferredLanguage:", detectedLanguage);
+      } catch (e) {
+        console.error("[completeOnboarding] Failed to persist preferredLanguage (non-blocking):", e);
+      }
+    }
+
     // 4. Resolve the template-managed default onboarding operator.
     let onboardingAgentId =
       (lifecycleProvisioning?.operatorAgentId as Id<"objects"> | undefined) || null;
@@ -466,13 +523,23 @@ export const run = internalAction({
         const rebindResult = await ctx.runMutation(
           internalApi.api.v1.webchatApi.rebindSessionContext,
           {
-            sessionToken: channelContactIdentifier.trim(),
+            sessionToken: guestSessionToken!,
             organizationId: orgId,
             agentId: onboardingAgentId,
           }
         );
         if (rebindResult?.success) {
           console.log("[completeOnboarding] Guest session ownership switched to org:", orgId);
+          if (guestOnboardingBinding && guestSessionToken) {
+            await ctx.runMutation(
+              internalApi.onboarding.orgBootstrap.recordGuestOnboardingBindingHandoff,
+              {
+                channel: normalizedChannel,
+                sessionToken: guestSessionToken,
+                resolvedAgentId: onboardingAgentId,
+              }
+            );
+          }
         }
       } catch (guestSwitchError) {
         console.error("[completeOnboarding] Guest session ownership switch failed:", guestSwitchError);
@@ -501,27 +568,48 @@ export const run = internalAction({
             ? claimTokenResult.claimToken
             : null;
       } else if (requiresClaimedAccountForOnboardingCompletion(normalizedChannel)) {
-        const guestSessionToken = channelContactIdentifier.trim();
         await ctx.runMutation(internalApi.onboarding.identityClaims.syncGuestSessionLedger, {
-          sessionToken: guestSessionToken,
+          sessionToken: guestSessionToken!,
           organizationId: orgId,
           agentId: onboardingAgentId,
           channel: normalizedChannel,
           agentSessionId: undefined,
         });
-        const claimTokenResult = await ctx.runMutation(
-          internalApi.onboarding.identityClaims.issueGuestSessionClaimToken,
-          {
-            sessionToken: guestSessionToken,
-            organizationId: orgId,
-            agentId: onboardingAgentId,
-            channel: normalizedChannel,
-          }
-        ) as { claimToken?: string | null } | null;
+        const claimTokenResult = guestOnboardingBinding
+          ? await ctx.runMutation(
+              internalApi.onboarding.identityClaims.issueGuestOnboardingOrgClaimToken,
+              {
+                bindingId: guestOnboardingBinding._id,
+                sessionToken: guestSessionToken!,
+                organizationId: orgId,
+                channel: normalizedChannel,
+                issuedBy: "complete_onboarding",
+              }
+            ) as { claimToken?: string | null; tokenId?: string | null } | null
+          : await ctx.runMutation(
+              internalApi.onboarding.identityClaims.issueGuestSessionClaimToken,
+              {
+                sessionToken: guestSessionToken!,
+                organizationId: orgId,
+                agentId: onboardingAgentId,
+                channel: normalizedChannel,
+              }
+            ) as { claimToken?: string | null; tokenId?: string | null } | null;
         identityClaimToken =
           typeof claimTokenResult?.claimToken === "string" && claimTokenResult.claimToken.length > 0
             ? claimTokenResult.claimToken
             : null;
+        if (guestOnboardingBinding && guestSessionToken && claimTokenResult?.tokenId) {
+          await ctx.runMutation(
+            internalApi.onboarding.orgBootstrap.recordGuestOnboardingBindingHandoff,
+            {
+              channel: normalizedChannel,
+              sessionToken: guestSessionToken,
+              resolvedAgentId: onboardingAgentId,
+              lastClaimTokenId: claimTokenResult.tokenId,
+            }
+          );
+        }
       }
 
       if (appUrl && identityClaimToken) {
@@ -685,5 +773,22 @@ export const persistOnboardingAgentIdentity = internalMutation({
     });
 
     return { success: true };
+  },
+});
+
+export const persistUserPreferredLanguage = internalMutation({
+  args: {
+    userId: v.id("users"),
+    preferredLanguage: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return;
+    // Only set if user hasn't already chosen a preference
+    if (!user.preferredLanguage) {
+      await ctx.db.patch(args.userId, {
+        preferredLanguage: args.preferredLanguage,
+      });
+    }
   },
 });

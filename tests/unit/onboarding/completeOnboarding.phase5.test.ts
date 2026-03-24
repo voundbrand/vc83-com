@@ -13,24 +13,52 @@ function createCompleteOnboardingContext(args: {
   channel: "telegram" | "webchat" | "native_guest";
   existingOrgId?: Id<"organizations">;
   telegramOnboardingOrgId?: Id<"organizations">;
+  guestBindingOrgId?: Id<"organizations">;
   extractedData?: Record<string, unknown>;
   provisionedAgentId?: Id<"objects">;
+  sessionClaimedByUserId?: string | null;
 }) {
   const createdOrganizations: Array<Record<string, unknown>> = [];
   const promotionCalls: Array<Record<string, unknown>> = [];
   const rebindCalls: Array<Record<string, unknown>> = [];
   const activateMappingCalls: Array<Record<string, unknown>> = [];
+  const claimTokenCalls: Array<Record<string, unknown>> = [];
+  const bindingHandoffCalls: Array<Record<string, unknown>> = [];
 
   const runQuery = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && !Object.prototype.hasOwnProperty.call(payload, "organizationId")
+      && !Object.prototype.hasOwnProperty.call(payload, "agentId")
+    ) {
+      if (!args.guestBindingOrgId) {
+        return null;
+      }
+      return {
+        _id: "guest_binding_phase5" as Id<"guestOnboardingBindings">,
+        onboardingOrganizationId: args.guestBindingOrgId,
+        organizationLifecycleState: "provisional_onboarding" as const,
+        bindingStatus: "active" as const,
+      };
+    }
+
     if (Object.prototype.hasOwnProperty.call(payload, "sessionToken")) {
       if (args.channel === "telegram") {
         return null;
       }
+      const resolvedClaimedByUserId = Object.prototype.hasOwnProperty.call(args, "sessionClaimedByUserId")
+        ? args.sessionClaimedByUserId || undefined
+        : args.guestBindingOrgId
+          ? undefined
+          : "user_phase5";
       return {
         sessionToken: payload.sessionToken,
         organizationId: PLATFORM_ORG_ID,
-        claimedByUserId: "user_phase5",
-        claimedOrganizationId: args.existingOrgId || CLAIMED_ORG_ID,
+        claimedByUserId: resolvedClaimedByUserId,
+        claimedOrganizationId: resolvedClaimedByUserId
+          ? args.existingOrgId || CLAIMED_ORG_ID
+          : undefined,
       };
     }
 
@@ -148,15 +176,43 @@ function createCompleteOnboardingContext(args: {
     }
 
     if (
+      Object.prototype.hasOwnProperty.call(payload, "bindingId")
+      && Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      && Object.prototype.hasOwnProperty.call(payload, "organizationId")
+      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && Object.prototype.hasOwnProperty.call(payload, "issuedBy")
+    ) {
+      claimTokenCalls.push(payload);
+      return {
+        claimToken: "bound_claim_phase5",
+        tokenId: "token_bound_phase5",
+      };
+    }
+
+    if (
       Object.prototype.hasOwnProperty.call(payload, "sessionToken")
       && Object.prototype.hasOwnProperty.call(payload, "organizationId")
       && Object.prototype.hasOwnProperty.call(payload, "agentId")
-      && Object.prototype.hasOwnProperty.call(payload, "channel")
     ) {
+      if (!Object.prototype.hasOwnProperty.call(payload, "channel")) {
+        rebindCalls.push(payload);
+        return { success: true };
+      }
       if (Object.prototype.hasOwnProperty.call(payload, "agentSessionId")) {
         return { success: true };
       }
-      rebindCalls.push(payload);
+      return {
+        claimToken: "guest_session_phase5",
+        tokenId: "token_guest_phase5",
+      };
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(payload, "sessionToken")
+      && Object.prototype.hasOwnProperty.call(payload, "channel")
+      && Object.prototype.hasOwnProperty.call(payload, "resolvedAgentId")
+    ) {
+      bindingHandoffCalls.push(payload);
       return { success: true };
     }
 
@@ -190,6 +246,8 @@ function createCompleteOnboardingContext(args: {
     promotionCalls,
     rebindCalls,
     activateMappingCalls,
+    claimTokenCalls,
+    bindingHandoffCalls,
   };
 }
 
@@ -332,6 +390,82 @@ describe("complete onboarding phase 5 orchestration", () => {
       telegramChatId: "tg_phase5_bound",
       organizationId: NEW_ORG_ID,
     });
+  });
+
+  it("reuses a bound native guest provisional workspace through completion without a prior account claim", async () => {
+    const {
+      ctx,
+      createdOrganizations,
+      promotionCalls,
+      rebindCalls,
+      claimTokenCalls,
+      bindingHandoffCalls,
+    } = createCompleteOnboardingContext({
+      channel: "native_guest",
+      guestBindingOrgId: NEW_ORG_ID,
+      extractedData: {
+        workspaceName: "Bound Native Workspace",
+        workspaceContext: "Audit advisory",
+      },
+      provisionedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
+    });
+
+    const result = await (completeOnboardingRun as any)._handler(ctx, {
+      sessionId: SESSION_ID,
+      channelContactIdentifier: "ng_session_phase5_bound",
+      channel: "native_guest",
+      organizationId: PLATFORM_ORG_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.organizationId).toBe(NEW_ORG_ID);
+    expect(result.agentId).toBe(DEFAULT_TEMPLATE_AGENT_ID);
+    expect(result.identityClaimToken).toBe("bound_claim_phase5");
+    expect(createdOrganizations).toHaveLength(0);
+    expect(promotionCalls).toHaveLength(1);
+    expect(promotionCalls[0]).toMatchObject({
+      organizationId: NEW_ORG_ID,
+      workspaceName: "Bound Native Workspace",
+      workspaceContext: "Audit advisory",
+      source: "native_guest_onboarding",
+      appSurface: "platform_web",
+    });
+    expect(rebindCalls).toHaveLength(1);
+    expect(rebindCalls[0]).toMatchObject({
+      sessionToken: "ng_session_phase5_bound",
+      organizationId: NEW_ORG_ID,
+      agentId: DEFAULT_TEMPLATE_AGENT_ID,
+    });
+    expect(claimTokenCalls).toEqual([
+      expect.objectContaining({
+        bindingId: "guest_binding_phase5",
+        sessionToken: "ng_session_phase5_bound",
+        organizationId: NEW_ORG_ID,
+        channel: "native_guest",
+        issuedBy: "complete_onboarding",
+      }),
+    ]);
+    expect(bindingHandoffCalls).toHaveLength(2);
+    expect(bindingHandoffCalls[0]).toMatchObject({
+      sessionToken: "ng_session_phase5_bound",
+      channel: "native_guest",
+      resolvedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
+    });
+    expect(bindingHandoffCalls[1]).toMatchObject({
+      sessionToken: "ng_session_phase5_bound",
+      channel: "native_guest",
+      resolvedAgentId: DEFAULT_TEMPLATE_AGENT_ID,
+      lastClaimTokenId: "token_bound_phase5",
+    });
+    expect(
+      ctx.runMutation.mock.calls.some(
+        (call) =>
+          call[1]
+          && typeof call[1] === "object"
+          && "userId" in call[1]
+          && "appSurface" in call[1]
+      )
+    ).toBe(false);
   });
 
   it("fails closed when default operator provisioning does not return an agent", async () => {

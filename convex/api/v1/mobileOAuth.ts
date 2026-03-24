@@ -164,6 +164,8 @@ async function verifyAppleIdToken(
 export const mobileOAuthHandler = httpAction(async (ctx, request) => {
   const startTime = Date.now();
   const origin = request.headers.get("origin");
+  const acceptLanguage = request.headers.get("accept-language") || "";
+  const sessionLanguage = acceptLanguage.split(",")[0]?.split("-")[0]?.trim().toLowerCase() || undefined;
 
   try {
     // Parse request body
@@ -427,6 +429,7 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
             ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
               email: normalizedEmail,
               firstName,
+              language: sessionLanguage,
             }),
           ]);
         } else {
@@ -436,6 +439,7 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
             firstName,
             organizationName: orgName,
             apiKeyPrefix: "n/a", // Mobile OAuth users don't get API key on signup
+            language: sessionLanguage,
           });
 
           // Send sales notification (async)
@@ -491,6 +495,7 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
           betaRequestUseCase?: string;
           betaReferralSource?: string;
           defaultOrgId?: Id<"organizations">;
+          preferredLanguage?: string;
         } | null;
       };
 
@@ -509,6 +514,7 @@ export const mobileOAuthHandler = httpAction(async (ctx, request) => {
           ctx.scheduler.runAfter(0, internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
             email: pendingUser.email,
             firstName: pendingUser.firstName || firstName,
+            language: pendingUser.preferredLanguage,
           }),
         ]);
 

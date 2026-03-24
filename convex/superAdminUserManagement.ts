@@ -11,6 +11,7 @@ import {
   assertOrgOwnerNotOrphaned,
 } from "./superAdminUserManagementGuards";
 import { buildUserSortFields } from "./userSortKeys";
+import { isVisibleInOrdinaryOrganizationListings } from "./lib/organizationLifecycle";
 
 type MembershipWithRole = {
   _id: Id<"organizationMembers">;
@@ -436,6 +437,7 @@ export const listOrganizationsLite = query({
     const limit = Math.max(10, Math.min(args.limit ?? 100, 300));
     const organizations = await ctx.db.query("organizations").collect();
     return organizations
+      .filter(isVisibleInOrdinaryOrganizationListings)
       .filter((organization) => {
         if (!normalizedSearch) {
           return true;

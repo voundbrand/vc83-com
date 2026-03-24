@@ -13,6 +13,14 @@ describe("oauth signup runtime error classifier", () => {
     expect(isMissingOAuthSignupStoreStateFunctionError(error)).toBe(true);
   });
 
+  it("matches missing storeOAuthSignupState runtime errors for the api/ namespace alias", () => {
+    const error = new Error(
+      "Could not find public function for 'api/v1/oauthSignup:storeOAuthSignupState'. Did you forget to run npx convex dev or npx convex deploy?"
+    );
+
+    expect(isMissingOAuthSignupStoreStateFunctionError(error)).toBe(true);
+  });
+
   it("does not match unrelated function errors", () => {
     const error = new Error("Could not find public function for 'v1/oauthSignup:getOAuthSignupState'");
 

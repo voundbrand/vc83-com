@@ -151,40 +151,59 @@ export const sendBetaRequestConfirmation = internalAction({
   args: {
     email: v.string(),
     firstName: v.optional(v.string()),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
+    const siteBaseUrl = (process.env.SITE_URL || "https://l4yercak3.com").replace(/\/+$/, "");
 
-    const firstName = args.firstName || "there";
-    const subject = "Your Beta Access Request is Being Reviewed";
+    const language = args.language || "en";
+    const isDE = language === "de";
+    const firstName = args.firstName || (isDE ? "Hallo" : "there");
+
+    const subjects: Record<string, string> = {
+      en: "Your Beta Access Request is Being Reviewed",
+      de: "Ihre Beta-Zugangsanfrage wird geprüft",
+    };
+
     const html = emailDarkWrapper(
-      emailHeader({ subtitle: "Request Received" }) +
+      emailHeader({ subtitle: isDE ? "Anfrage erhalten" : "Request Received" }) +
       emailContentRow(
-        emailHeading(`Hi ${firstName}!`) +
-        emailParagraph(`Thank you for your interest in ${EMAIL_BRAND.name}! We've received your beta access request and it's currently under review.`) +
+        emailHeading(isDE ? `Hallo ${firstName}!` : `Hi ${firstName}!`) +
+        emailParagraph(isDE
+          ? `Vielen Dank für Ihr Interesse an ${EMAIL_BRAND.name}! Wir haben Ihre Beta-Zugangsanfrage erhalten und prüfen sie derzeit.`
+          : `Thank you for your interest in ${EMAIL_BRAND.name}! We've received your beta access request and it's currently under review.`
+        ) +
 
         emailInfoBox(`
-          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">What happens next?</p>
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">${isDE ? "Wie geht es weiter?" : "What happens next?"}</p>
           <ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:1.8;">
-            <li>Our team will review your request within 24-48 hours</li>
-            <li>We'll send you an email when we make a decision</li>
-            <li>If approved, you'll get instant access to the platform</li>
+            <li>${isDE ? "Unser Team wird Ihre Anfrage innerhalb von 24–48 Stunden prüfen" : "Our team will review your request within 24-48 hours"}</li>
+            <li>${isDE ? "Wir senden Ihnen eine E-Mail, sobald wir eine Entscheidung getroffen haben" : "We'll send you an email when we make a decision"}</li>
+            <li>${isDE ? "Bei Genehmigung erhalten Sie sofort Zugang zur Plattform" : "If approved, you'll get instant access to the platform"}</li>
           </ul>
         `) +
 
-        emailParagraph("We appreciate your patience as we carefully grow our beta community!") +
+        emailParagraph(isDE
+          ? "Wir schätzen Ihre Geduld, während wir unsere Beta-Community sorgfältig aufbauen!"
+          : "We appreciate your patience as we carefully grow our beta community!"
+        ) +
 
-        emailParagraph("In the meantime, feel free to:") +
+        emailParagraph(isDE ? "In der Zwischenzeit können Sie gerne:" : "In the meantime, feel free to:") +
         `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
-          <li>Check out our <a href="https://l4yercak3.com/docs" style="color:${EMAIL_COLORS.accent};">documentation</a></li>
-          <li>Follow us on <a href="https://twitter.com/l4yercak3" style="color:${EMAIL_COLORS.accent};">Twitter</a></li>
-          <li>Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord community</a></li>
+          <li>${isDE ? "Unsere" : "Check out our"} <a href="${siteBaseUrl}/docs" style="color:${EMAIL_COLORS.accent};">${isDE ? "Dokumentation ansehen" : "documentation"}</a></li>
+          <li>${isDE ? "Folgen Sie uns auf" : "Follow us on"} <a href="https://x.com/notcleverhandle" style="color:${EMAIL_COLORS.accent};">X (Twitter)</a></li>
+          <li>${isDE ? "Vernetzen Sie sich auf" : "Connect on"} <a href="https://www.linkedin.com/in/therealremington/" style="color:${EMAIL_COLORS.accent};">LinkedIn</a></li>
         </ul>` +
 
-        emailParagraph("<strong>Questions?</strong> Reply to this email anytime.")
+        emailParagraph(isDE
+          ? "<strong>Fragen?</strong> Antworten Sie jederzeit auf diese E-Mail."
+          : "<strong>Questions?</strong> Reply to this email anytime."
+        )
       ) +
-      emailFooter()
+      emailFooter(),
+      { lang: language }
     );
 
     try {
@@ -192,7 +211,7 @@ export const sendBetaRequestConfirmation = internalAction({
         from: fromEmail,
         replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
-        subject,
+        subject: subjects[language] || subjects.en,
         html,
         headers: {
           'X-Entity-Ref-ID': `beta-confirmation-${Date.now()}`,
@@ -221,13 +240,18 @@ export const sendBetaApprovalEmail = internalAction({
     email: v.string(),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
-    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com";
+    const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com").replace(/\/+$/, "");
+    const siteBaseUrl = (process.env.SITE_URL || "https://l4yercak3.com").replace(/\/+$/, "");
 
-    const firstName = args.firstName || "there";
+    const language = args.language || "en";
+    const isDE = language === "de";
+    const firstName = args.firstName || (isDE ? "Hallo" : "there");
+
     const issuedPrefill = await (ctx as any).runMutation(
       generatedApi.internal.authPrefill.issueOpaqueAuthPrefillToken,
       {
@@ -246,38 +270,50 @@ export const sendBetaApprovalEmail = internalAction({
       openLoginSource: "betaApprovalEmail",
       prefillToken,
     });
-    const subject = `Your Beta Access Has Been Approved!`;
+
+    const subjects: Record<string, string> = {
+      en: "Your Beta Access Has Been Approved!",
+      de: "Ihr Beta-Zugang wurde genehmigt!",
+    };
+
     const html = emailDarkWrapper(
-      emailHeader({ subtitle: `Welcome to ${EMAIL_BRAND.name}!` }) +
+      emailHeader({ subtitle: isDE ? `Willkommen bei ${EMAIL_BRAND.name}!` : `Welcome to ${EMAIL_BRAND.name}!` }) +
       emailContentRow(
-        emailHeading(`Hi ${firstName}!`) +
-        emailParagraph(`<strong>Great news!</strong> Your beta access request has been approved. You now have full access to ${EMAIL_BRAND.name}!`) +
+        emailHeading(isDE ? `Hallo ${firstName}!` : `Hi ${firstName}!`) +
+        emailParagraph(isDE
+          ? `<strong>Gute Neuigkeiten!</strong> Ihre Beta-Zugangsanfrage wurde genehmigt. Sie haben jetzt vollen Zugang zu ${EMAIL_BRAND.name}!`
+          : `<strong>Great news!</strong> Your beta access request has been approved. You now have full access to ${EMAIL_BRAND.name}!`
+        ) +
 
         emailInfoBox(`
-          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Getting Started:</p>
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">${isDE ? "Erste Schritte:" : "Getting Started:"}</p>
           <ol style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:1.8;">
-            <li>Open your personal sign-in link (email prefilled)</li>
-            <li>Complete your profile</li>
-            <li>Explore the platform features</li>
-            <li>Start building your first project</li>
+            <li>${isDE ? "Öffnen Sie Ihren persönlichen Anmeldelink (E-Mail vorausgefüllt)" : "Open your personal sign-in link (email prefilled)"}</li>
+            <li>${isDE ? "Vervollständigen Sie Ihr Profil" : "Complete your profile"}</li>
+            <li>${isDE ? "Erkunden Sie die Plattform-Funktionen" : "Explore the platform features"}</li>
+            <li>${isDE ? "Starten Sie Ihr erstes Projekt" : "Start building your first project"}</li>
           </ol>
         `, { borderColor: EMAIL_COLORS.success }) +
 
-        emailButton("Sign In Now", loginUrl) +
+        emailButton(isDE ? "Jetzt anmelden" : "Sign In Now", loginUrl) +
 
         emailDivider() +
-        emailHeading("What's Next?", { level: 2 }) +
+        emailHeading(isDE ? "Wie geht es weiter?" : "What's Next?", { level: 2 }) +
         `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
-          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Quick Start Guide:</strong> Check out our <a href="https://l4yercak3.com/docs/quickstart" style="color:${EMAIL_COLORS.accent};">quick start guide</a></li>
-          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Templates:</strong> Browse our <a href="https://l4yercak3.com/?openWindow=templates" style="color:${EMAIL_COLORS.accent};">template library</a></li>
-          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Support:</strong> Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord</a> for help</li>
-          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Feedback:</strong> We'd love to hear your thoughts!</li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">${isDE ? "Schnellstartanleitung:" : "Quick Start Guide:"}</strong> ${isDE ? "Sehen Sie unsere" : "Check out our"} <a href="${siteBaseUrl}/docs/quickstart" style="color:${EMAIL_COLORS.accent};">${isDE ? "Schnellstartanleitung" : "quick start guide"}</a></li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">${isDE ? "Vorlagen:" : "Templates:"}</strong> ${isDE ? "Durchstöbern Sie unsere" : "Browse our"} <a href="${appBaseUrl}/?openWindow=templates" style="color:${EMAIL_COLORS.accent};">${isDE ? "Vorlagen-Bibliothek" : "template library"}</a></li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">${isDE ? "Support:" : "Support:"}</strong> ${isDE ? "Kontaktieren Sie uns auf" : "Connect on"} <a href="https://www.linkedin.com/in/therealremington/" style="color:${EMAIL_COLORS.accent};">LinkedIn</a>${isDE ? " für Hilfe" : " for help"}</li>
+          <li><strong style="color:${EMAIL_COLORS.textPrimary};">Feedback:</strong> ${isDE ? "Wir freuen uns über Ihre Meinung!" : "We'd love to hear your thoughts!"}</li>
         </ul>` +
 
-        emailParagraph("As a beta user, your feedback is incredibly valuable. Please don't hesitate to reach out with questions, suggestions, or issues.") +
-        emailParagraph("<strong>Happy building!</strong>")
+        emailParagraph(isDE
+          ? "Als Beta-Nutzer ist Ihr Feedback besonders wertvoll. Zögern Sie nicht, sich mit Fragen, Vorschlägen oder Problemen an uns zu wenden."
+          : "As a beta user, your feedback is incredibly valuable. Please don't hesitate to reach out with questions, suggestions, or issues."
+        ) +
+        emailParagraph(isDE ? "<strong>Viel Erfolg!</strong>" : "<strong>Happy building!</strong>")
       ) +
-      emailFooter()
+      emailFooter(),
+      { lang: language }
     );
 
     try {
@@ -285,7 +321,7 @@ export const sendBetaApprovalEmail = internalAction({
         from: fromEmail,
         replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
-        subject,
+        subject: subjects[language] || subjects.en,
         html,
         headers: {
           'X-Entity-Ref-ID': `beta-approval-${Date.now()}`,
@@ -314,37 +350,56 @@ export const sendBetaRejectionEmail = internalAction({
     email: v.string(),
     firstName: v.optional(v.string()),
     reason: v.string(),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const resend = createResendClient();
     const fromEmail = process.env.AUTH_RESEND_FROM || "l4yercak3 <team@mail.l4yercak3.com>";
+    const siteBaseUrl = (process.env.SITE_URL || "https://l4yercak3.com").replace(/\/+$/, "");
 
-    const firstName = args.firstName || "there";
-    const subject = "Your Beta Access Request Update";
+    const language = args.language || "en";
+    const isDE = language === "de";
+    const firstName = args.firstName || (isDE ? "Hallo" : "there");
+
+    const subjects: Record<string, string> = {
+      en: "Your Beta Access Request Update",
+      de: "Aktualisierung Ihrer Beta-Zugangsanfrage",
+    };
+
     const html = emailDarkWrapper(
-      emailHeader({ subtitle: "Beta Access Request Update" }) +
+      emailHeader({ subtitle: isDE ? "Aktualisierung der Beta-Anfrage" : "Beta Access Request Update" }) +
       emailContentRow(
-        emailHeading(`Hi ${firstName},`) +
-        emailParagraph(`Thank you for your interest in ${EMAIL_BRAND.name}. After careful review, we're unable to approve your beta access request at this time.`) +
+        emailHeading(isDE ? `Hallo ${firstName},` : `Hi ${firstName},`) +
+        emailParagraph(isDE
+          ? `Vielen Dank für Ihr Interesse an ${EMAIL_BRAND.name}. Nach sorgfältiger Prüfung können wir Ihre Beta-Zugangsanfrage derzeit leider nicht genehmigen.`
+          : `Thank you for your interest in ${EMAIL_BRAND.name}. After careful review, we're unable to approve your beta access request at this time.`
+        ) +
 
         emailInfoBox(`
-          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">Reason:</p>
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:${EMAIL_COLORS.textPrimary};">${isDE ? "Begründung:" : "Reason:"}</p>
           <p style="margin:0;font-size:14px;color:${EMAIL_COLORS.textSecondary};">${args.reason}</p>
         `) +
 
-        emailParagraph("We appreciate your interest and encourage you to:") +
+        emailParagraph(isDE
+          ? "Wir schätzen Ihr Interesse und ermutigen Sie:"
+          : "We appreciate your interest and encourage you to:"
+        ) +
         `<ul style="margin:0;padding-left:20px;color:${EMAIL_COLORS.textSecondary};font-size:14px;line-height:2;">
-          <li>Stay connected with our community</li>
-          <li>Follow our progress on <a href="https://twitter.com/l4yercak3" style="color:${EMAIL_COLORS.accent};">Twitter</a></li>
-          <li>Join our <a href="https://discord.gg/l4yercak3" style="color:${EMAIL_COLORS.accent};">Discord</a> for updates</li>
-          <li>Sign up for our newsletter for launch announcements</li>
+          <li>${isDE ? "Bleiben Sie mit unserer Community verbunden" : "Stay connected with our community"}</li>
+          <li>${isDE ? "Verfolgen Sie unsere Fortschritte auf" : "Follow our progress on"} <a href="https://x.com/notcleverhandle" style="color:${EMAIL_COLORS.accent};">X (Twitter)</a></li>
+          <li>${isDE ? "Vernetzen Sie sich auf" : "Connect on"} <a href="https://www.linkedin.com/in/therealremington/" style="color:${EMAIL_COLORS.accent};">LinkedIn</a>${isDE ? " für Updates" : " for updates"}</li>
+          <li>${isDE ? "Abonnieren Sie unseren Newsletter für Neuigkeiten zum Launch" : "Sign up for our newsletter for launch announcements"}</li>
         </ul>` +
 
-        emailParagraph("You're welcome to apply again in the future when your circumstances change or when we open up more beta slots.") +
+        emailParagraph(isDE
+          ? "Sie können sich gerne erneut bewerben, wenn sich Ihre Situation ändert oder wenn wir weitere Beta-Plätze freigeben."
+          : "You're welcome to apply again in the future when your circumstances change or when we open up more beta slots."
+        ) +
 
-        emailButton("Visit Our Website", "https://l4yercak3.com", { variant: "secondary" })
+        emailButton(isDE ? "Unsere Website besuchen" : "Visit Our Website", siteBaseUrl, { variant: "secondary" })
       ) +
-      emailFooter()
+      emailFooter(),
+      { lang: language }
     );
 
     try {
@@ -352,7 +407,7 @@ export const sendBetaRejectionEmail = internalAction({
         from: fromEmail,
         replyTo: process.env.REPLY_TO_EMAIL || "support@l4yercak3.com",
         to: args.email,
-        subject,
+        subject: subjects[language] || subjects.en,
         html,
         headers: {
           'X-Entity-Ref-ID': `beta-rejection-${Date.now()}`,

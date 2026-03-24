@@ -4,6 +4,8 @@ const {
   createAgentSpy,
   createTextKnowledgeBaseDocumentSpy,
   deleteKnowledgeBaseDocumentSpy,
+  evaluateTemplateCertificationForTemplateVersionMock,
+  evaluateTemplateOrgPreflightMock,
   getAgentSpy,
   getKnowledgeBaseDocumentContentSpy,
   getUserContextMock,
@@ -13,6 +15,8 @@ const {
   createAgentSpy: vi.fn(),
   createTextKnowledgeBaseDocumentSpy: vi.fn(),
   deleteKnowledgeBaseDocumentSpy: vi.fn(),
+  evaluateTemplateCertificationForTemplateVersionMock: vi.fn(),
+  evaluateTemplateOrgPreflightMock: vi.fn(),
   getAgentSpy: vi.fn(),
   getKnowledgeBaseDocumentContentSpy: vi.fn(),
   getUserContextMock: vi.fn(),
@@ -38,13 +42,33 @@ vi.mock("../../../convex/rbacHelpers", () => ({
   getUserContext: getUserContextMock,
 }));
 
+vi.mock("../../../convex/ai/agentCatalogAdmin", () => ({
+  evaluateTemplateCertificationForTemplateVersion:
+    evaluateTemplateCertificationForTemplateVersionMock,
+}));
+
+vi.mock("../../../convex/agentOntology", () => ({
+  evaluateTemplateOrgPreflight: evaluateTemplateOrgPreflightMock,
+}));
+
 vi.mock("../../../convex/_generated/api", () => ({
   internal: {
     rbacHelpers: {
       requireAuthenticatedUserQuery: "__require_auth__",
     },
+    ai: {
+      escalation: {
+        getOrgOwnerEmail: "__get_org_owner_email__",
+      },
+      workerPool: {
+        spawnUseCaseAgent: "__spawn_use_case_agent__",
+      },
+    },
     agentOntology: {
       getAgentInternal: "__get_agent_internal__",
+    },
+    calendarSyncOntology: {
+      getResourceCalendarConnections: "__get_resource_calendar_connections__",
     },
     integrations: {
       elevenlabs: {
@@ -52,11 +76,6 @@ vi.mock("../../../convex/_generated/api", () => ({
       },
       telephony: {
         recordAgentTelephonySyncStateInternal: "__record_sync_state__",
-      },
-    },
-    ai: {
-      workerPool: {
-        spawnUseCaseAgent: "__spawn_use_case_agent__",
       },
     },
   },
@@ -78,6 +97,7 @@ vi.mock("../../../convex/_generated/api", () => ({
 }));
 
 import {
+  getKanzleiMvpLiveSetupAudit,
   saveAgentTelephonyConfig,
   saveOrganizationTelephonySettings,
   saveOrganizationTelephonySettingsAdmin,
@@ -86,19 +106,23 @@ import {
 import {
   buildElevenLabsAgentCreatePayload,
 } from "../../../src/lib/telephony/elevenlabs-agent-sync";
-import { normalizeAgentTelephonyConfig } from "../../../src/lib/telephony/agent-telephony";
+import {
+  KANZLEI_MVP_TEMPLATE_ROLE,
+  normalizeAgentTelephonyConfig,
+} from "../../../src/lib/telephony/agent-telephony";
 
 function createDb() {
   const tables = {
     objects: [] as Array<Record<string, unknown>>,
     objectActions: [] as Array<Record<string, unknown>>,
+    oauthConnections: [] as Array<Record<string, unknown>>,
   };
   let counter = 0;
 
   return {
     tables,
     api: {
-      query(table: "objects") {
+      query(table: "objects" | "oauthConnections") {
         return {
           withIndex(_indexName: string, cb: (q: { eq: (field: string, value: unknown) => unknown }) => unknown) {
             const clauses: Record<string, unknown> = {};
@@ -119,7 +143,10 @@ function createDb() {
           },
         };
       },
-      async insert(table: "objects" | "objectActions", value: Record<string, unknown>) {
+      async insert(
+        table: "objects" | "objectActions" | "oauthConnections",
+        value: Record<string, unknown>,
+      ) {
         counter += 1;
         const row = {
           _id: `${table}_${counter}`,
@@ -136,7 +163,11 @@ function createDb() {
         Object.assign(row, value);
       },
       async get(id: string) {
-        return tables.objects.find((entry) => entry._id === id) ?? null;
+        return (
+          tables.objects.find((entry) => entry._id === id)
+          ?? tables.oauthConnections.find((entry) => entry._id === id)
+          ?? null
+        );
       },
     },
   };
@@ -145,6 +176,8 @@ function createDb() {
 describe("telephony organization persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.PLATFORM_ORG_ID = "organizations_platform";
+    process.env.TEST_ORG_ID = "organizations_platform";
     requireAuthenticatedUserMock.mockResolvedValue({
       userId: "users_1",
       organizationId: "organizations_1",
@@ -152,6 +185,38 @@ describe("telephony organization persistence", () => {
     getUserContextMock.mockResolvedValue({
       isGlobal: false,
       roleName: "member",
+    });
+    evaluateTemplateCertificationForTemplateVersionMock.mockResolvedValue({
+      allowed: true,
+      autoCertificationEligible: false,
+      reasonCode: null,
+      message: null,
+      riskAssessment: {
+        tier: "low",
+        requiredVerification: [],
+      },
+      dependencyManifest: {
+        dependencyDigest: "digest_1",
+      },
+      certification: {
+        recordedAt: 1,
+        evidenceSources: [],
+      },
+    });
+    evaluateTemplateOrgPreflightMock.mockResolvedValue({
+      status: "pass",
+      blockers: [],
+      blockerCodes: [],
+      checks: [],
+      telephony: {
+        required: true,
+        providerKey: "elevenlabs",
+        bindingEnabled: true,
+        credentialReady: true,
+        fromNumberReady: true,
+        webhookSecretReady: true,
+        missingTransferRoles: [],
+      },
     });
   });
 
@@ -389,6 +454,267 @@ describe("agent telephony config persistence", () => {
         ],
       },
     });
+  });
+});
+
+describe("Kanzlei MVP live setup audit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.PLATFORM_ORG_ID = "organizations_platform";
+    process.env.TEST_ORG_ID = "organizations_platform";
+    requireAuthenticatedUserMock.mockResolvedValue({
+      userId: "users_1",
+      organizationId: "organizations_1",
+    });
+    evaluateTemplateCertificationForTemplateVersionMock.mockResolvedValue({
+      allowed: true,
+      autoCertificationEligible: false,
+      reasonCode: null,
+      message: null,
+      riskAssessment: {
+        tier: "low",
+        requiredVerification: [],
+      },
+      dependencyManifest: {
+        dependencyDigest: "digest_1",
+      },
+      certification: {
+        recordedAt: 1,
+        evidenceSources: [],
+      },
+    });
+    evaluateTemplateOrgPreflightMock.mockResolvedValue({
+      status: "pass",
+      blockers: [],
+      blockerCodes: [],
+      checks: [],
+      telephony: {
+        required: true,
+        providerKey: "elevenlabs",
+        bindingEnabled: true,
+        credentialReady: true,
+        fromNumberReady: true,
+        webhookSecretReady: true,
+        missingTransferRoles: [],
+      },
+    });
+  });
+
+  it("reports the live Kanzlei deploy/bind/sync path as ready when all required org state exists", async () => {
+    const db = createDb();
+    await db.api.insert("objects", {
+      _id: "objects_platform_kanzlei_template",
+      organizationId: "organizations_platform",
+      type: "org_agent",
+      status: "template",
+      name: "Kanzlei MVP Customer Telephony",
+      updatedAt: 100,
+      customProperties: {
+        protected: true,
+        templateRole: KANZLEI_MVP_TEMPLATE_ROLE,
+        templatePublishedVersionId: "objects_platform_kanzlei_template_version",
+        templatePublishedVersion: "kanzlei_mvp_v1",
+      },
+    });
+    await db.api.insert("objects", {
+      _id: "objects_kanzlei_clone",
+      organizationId: "organizations_1",
+      type: "org_agent",
+      status: "active",
+      name: "Kanzlei Assistenz",
+      updatedAt: 200,
+      customProperties: {
+        templateRole: KANZLEI_MVP_TEMPLATE_ROLE,
+        channelBindings: [{ channel: "phone_call", enabled: true }],
+        telephonyConfig: {
+          selectedProvider: "elevenlabs",
+          elevenlabs: {
+            remoteAgentId: "agent_remote_1",
+            systemPrompt: "Prompt",
+            firstMessage: "Hallo",
+            knowledgeBaseName: "KB",
+            knowledgeBase: "Body",
+            managedTools: {},
+            syncState: {
+              status: "success",
+              lastSyncedAt: 123,
+              lastSyncedProviderAgentId: "agent_remote_1",
+            },
+          },
+        },
+      },
+    });
+    await db.api.insert("objects", {
+      _id: "objects_booking_concierge",
+      organizationId: "organizations_1",
+      type: "organization_settings",
+      subtype: "booking_concierge",
+      status: "active",
+      customProperties: {
+        contractVersion: "kanzlei_booking_concierge_config_v1",
+        primaryResourceId: "objects_erstberatung_resource",
+        primaryResourceLabel: "Arbeitsrecht Erstberatung",
+        operatorCalendarConnectionId: "oauth_kanzlei_calendar",
+        timezone: "Europe/Berlin",
+        defaultMeetingTitle: "Arbeitsrecht Erstberatung",
+        intakeLabel: "Erstberatung",
+        requireConfiguredResource: true,
+      },
+    });
+    await db.api.insert("objects", {
+      _id: "objects_org_contact",
+      organizationId: "organizations_1",
+      type: "organization_contact",
+      status: "active",
+      customProperties: {
+        supportEmail: "kanzlei@example.com",
+      },
+    });
+    await db.api.insert("oauthConnections", {
+      _id: "oauth_kanzlei_calendar",
+      organizationId: "organizations_1",
+      provider: "google",
+      status: "active",
+      providerEmail: "calendar@kanzlei.example.com",
+      syncSettings: {
+        calendar: true,
+      },
+      scopes: ["https://www.googleapis.com/auth/calendar.events"],
+      lastSyncAt: 456,
+    });
+
+    const runQuery = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+      if ("agentId" in payload && "sessionId" in payload && "organizationId" in payload) {
+        expect(payload).toMatchObject({
+          sessionId: "sessions_1",
+          organizationId: "organizations_1",
+          agentId: "objects_kanzlei_clone",
+        });
+        return {
+          organizationBinding: {
+            providerKey: "elevenlabs",
+            providerIdentity: "eleven_telephony",
+            enabled: true,
+            fromNumber: "+49301234567",
+            routeKey: "eleven:phone:org_1:phone_call_default",
+            hasWebhookSecret: true,
+            providerConnectionId: "org_1_elevenlabs",
+            providerInstallationId: "phone_call_default",
+          },
+          providerReadiness: {
+            elevenlabs: {
+              hasEffectiveApiKey: true,
+            },
+          },
+          templateDeployment: {
+            deploymentReadiness: {
+              status: "ready",
+              blockers: [],
+            },
+          },
+        };
+      }
+      if ("resourceId" in payload && "organizationId" in payload) {
+        expect(payload).toEqual({
+          resourceId: "objects_erstberatung_resource",
+          organizationId: "organizations_1",
+        });
+        return [
+          {
+            connectionId: "oauth_kanzlei_calendar",
+            provider: "google",
+            pushCalendarId: "primary",
+          },
+        ];
+      }
+      throw new Error(`Unexpected runQuery payload: ${JSON.stringify(payload)}`);
+    });
+
+    const result = await (getKanzleiMvpLiveSetupAudit as any)._handler(
+      { db: db.api, runQuery },
+      {
+        sessionId: "sessions_1",
+        organizationId: "organizations_1",
+      },
+    );
+
+    expect(result.templateSeed).toMatchObject({
+      status: "ready",
+      templateAgentId: "objects_platform_kanzlei_template",
+      templateVersionId: "objects_platform_kanzlei_template_version",
+      templateVersionTag: "kanzlei_mvp_v1",
+      certificationStatus: "certified",
+    });
+    expect(result.cloneDeploy).toMatchObject({
+      status: "ready",
+      selectedAgentId: "objects_kanzlei_clone",
+    });
+    expect(result.remoteAgentSync).toMatchObject({
+      status: "ready",
+      remoteAgentId: "agent_remote_1",
+      syncStatus: "success",
+    });
+    expect(result.phoneBinding).toMatchObject({
+      status: "ready",
+      fromNumber: "+49301234567",
+      routeKey: "eleven:phone:org_1:phone_call_default",
+    });
+    expect(result.bookingConcierge).toMatchObject({
+      status: "ready",
+      missingFields: [],
+    });
+    expect(result.lawyerCalendar).toMatchObject({
+      status: "ready",
+      operatorConnectionId: "oauth_kanzlei_calendar",
+    });
+    expect(result.lawyerCalendar.operatorConnection).toMatchObject({
+      calendarWriteReady: true,
+      provider: "google",
+    });
+    expect(result.firmNotificationRecipients).toMatchObject({
+      status: "ready",
+      explicitRecipients: ["kanzlei@example.com"],
+      effectiveRecipients: ["kanzlei@example.com"],
+    });
+    expect(result.ingressPreflight).toMatchObject({
+      status: "ready",
+      blockers: [],
+      requiresAcceptedInboundCallEvidence: true,
+    });
+  });
+
+  it("narrows the live blocker to the missing deploy/sync/setup evidence", async () => {
+    const db = createDb();
+    const runQuery = vi.fn(async (_ref: unknown, payload: Record<string, unknown>) => {
+      if ("organizationId" in payload) {
+        return null;
+      }
+      throw new Error(`Unexpected runQuery payload: ${JSON.stringify(payload)}`);
+    });
+
+    const result = await (getKanzleiMvpLiveSetupAudit as any)._handler(
+      { db: db.api, runQuery },
+      {
+        sessionId: "sessions_1",
+        organizationId: "organizations_1",
+      },
+    );
+
+    expect(result.templateSeed.status).toBe("blocked");
+    expect(result.cloneDeploy.status).toBe("blocked");
+    expect(result.remoteAgentSync.status).toBe("blocked");
+    expect(result.bookingConcierge.status).toBe("blocked");
+    expect(result.firmNotificationRecipients.status).toBe("blocked");
+    expect(result.ingressPreflight.status).toBe("blocked");
+    expect(result.ingressPreflight.blockers).toEqual(
+      expect.arrayContaining([
+        "Platform Kanzlei MVP template is not seeded on the platform org.",
+        "Target organization has no deployed Kanzlei MVP clone.",
+        "No deployed Kanzlei MVP clone is available to sync.",
+        "Organization booking concierge config is missing primaryResourceId.",
+        "No firm notification recipient is configured on organization contact settings.",
+      ]),
+    );
   });
 });
 

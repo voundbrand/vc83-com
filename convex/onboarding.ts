@@ -16,6 +16,28 @@ import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 import { buildUserSortFields } from "./userSortKeys";
 
+type IdentityClaimTokenType =
+  | "guest_session_claim"
+  | "guest_onboarding_org_claim"
+  | "telegram_org_claim";
+
+function isOnboardingOrgClaimTokenType(tokenType?: IdentityClaimTokenType): boolean {
+  return tokenType === "telegram_org_claim" || tokenType === "guest_onboarding_org_claim";
+}
+
+export const STARTER_TEMPLATE_PROVISIONING_ENV_FLAG =
+  "STARTER_TEMPLATE_PROVISIONING_ON" as const;
+
+function isTruthyFlag(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+export function isStarterTemplateProvisioningEnabled(): boolean {
+  return isTruthyFlag(process.env[STARTER_TEMPLATE_PROVISIONING_ENV_FLAG]);
+}
+
 /**
  * Initialize Stripe client
  */
@@ -47,6 +69,13 @@ export const signupFreeAccount = action({
     firstName: v.string(),
     lastName: v.string(),
     organizationName: v.optional(v.string()),
+    description: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
     betaCode: v.optional(v.string()),
     identityClaimToken: v.optional(v.string()),
   },
@@ -121,11 +150,11 @@ export const signupFreeAccount = action({
           { signedToken: identityClaimToken }
         ) as {
           valid: boolean;
-          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          tokenType?: IdentityClaimTokenType;
           organizationId?: Id<"organizations">;
         };
 
-        if (inspectedClaim.valid && inspectedClaim.tokenType === "telegram_org_claim") {
+        if (inspectedClaim.valid && isOnboardingOrgClaimTokenType(inspectedClaim.tokenType)) {
           claimedOrganizationId = inspectedClaim.organizationId;
         }
       } catch (claimInspectError) {
@@ -147,6 +176,13 @@ export const signupFreeAccount = action({
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
       organizationName: args.organizationName?.trim(),
+      description: args.description?.trim(),
+      industry: args.industry?.trim(),
+      contactEmail: args.contactEmail?.trim(),
+      contactPhone: args.contactPhone?.trim(),
+      timezone: args.timezone?.trim(),
+      dateFormat: args.dateFormat?.trim(),
+      language: args.language?.trim(),
       betaCode: args.betaCode?.trim(),
       apiKeyHash,
       apiKeyPrefix: keyPrefix,
@@ -196,6 +232,7 @@ export const signupFreeAccount = action({
         (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
           email,
           firstName: args.firstName,
+          language: args.language,
         }),
       ]);
     } else {
@@ -206,6 +243,7 @@ export const signupFreeAccount = action({
         firstName: args.firstName,
         organizationName: result.organization.name,
         apiKeyPrefix: result.apiKeyPrefix,
+        language: args.language,
       });
 
       // 11. Send sales notification (async, don't wait)
@@ -314,6 +352,13 @@ export const createFreeAccountInternal = internalMutation({
     firstName: v.string(),
     lastName: v.string(),
     organizationName: v.optional(v.string()),
+    description: v.optional(v.string()),
+    industry: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    timezone: v.optional(v.string()),
+    dateFormat: v.optional(v.string()),
+    language: v.optional(v.string()),
     betaCode: v.optional(v.string()),
     apiKeyHash: v.string(),
     apiKeyPrefix: v.string(),
@@ -439,7 +484,7 @@ export const createFreeAccountInternal = internalMutation({
 
       if (!claimedOrganization.email) {
         await ctx.db.patch(organizationId, {
-          email: args.email,
+          email: args.contactEmail || args.email,
           updatedAt: Date.now(),
         });
       }
@@ -452,7 +497,7 @@ export const createFreeAccountInternal = internalMutation({
         // NOTE: Plan/tier is managed in organization_license object (created separately)
         isPersonalWorkspace: true,
         isActive: true,
-        email: args.email,
+        email: args.contactEmail || args.email,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -633,15 +678,25 @@ export const createFreeAccountInternal = internalMutation({
           createdByUserId: userId,
           ownerUserIds: [userId],
           appProvisioningUserId: userId,
-          contactEmail: args.email,
+          timezone: args.timezone,
+          dateFormat: args.dateFormat,
+          language: args.language,
+          contactEmail: args.contactEmail || args.email,
+          contactPhone: args.contactPhone,
+          industry: args.industry,
+          description: args.description,
           appSurface: "platform_web",
         }
       );
     }
 
-    // 15. Provision starter web app templates (Freelancer Portal, etc.)
-    // This makes templates immediately available for one-click deployment
-    await provisionStarterTemplatesInternal(ctx, organizationId, userId);
+    // 15. Optionally provision starter templates.
+    // This is deliberately non-blocking to keep signup/chat onboarding resilient.
+    await maybeProvisionStarterTemplatesForSignup({
+      ctx,
+      organizationId,
+      userId,
+    });
 
     // 16. If beta code is valid, redeem it against this new user/org
     if (betaCodeValidation?.isValid && betaCodeValidation.codeId) {
@@ -675,6 +730,52 @@ export const createFreeAccountInternal = internalMutation({
     };
   },
 });
+
+export async function maybeProvisionStarterTemplatesForSignup(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  userId: Id<"users">;
+  provisioner?: (
+    ctx: MutationCtx,
+    organizationId: Id<"organizations">,
+    userId: Id<"users">
+  ) => Promise<void>;
+}): Promise<{
+  enabled: boolean;
+  attempted: boolean;
+  success: boolean;
+}> {
+  if (!isStarterTemplateProvisioningEnabled()) {
+    console.log(
+      `[Onboarding] Starter template provisioning skipped (flag ${STARTER_TEMPLATE_PROVISIONING_ENV_FLAG}=false)`,
+    );
+    return {
+      enabled: false,
+      attempted: false,
+      success: false,
+    };
+  }
+
+  const provisioner = args.provisioner ?? provisionStarterTemplatesInternal;
+  try {
+    await provisioner(args.ctx, args.organizationId, args.userId);
+    return {
+      enabled: true,
+      attempted: true,
+      success: true,
+    };
+  } catch (error) {
+    console.error(
+      `[Onboarding] Starter template provisioning failed (non-blocking):`,
+      error,
+    );
+    return {
+      enabled: true,
+      attempted: true,
+      success: false,
+    };
+  }
+}
 
 /**
  * Generate Unique Organization Slug

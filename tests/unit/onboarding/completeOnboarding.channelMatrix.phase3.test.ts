@@ -34,8 +34,14 @@ describe("complete_onboarding channel matrix", () => {
   });
 
   it("blocks unclaimed native_guest completion", async () => {
-    const runQuery = vi.fn(async (_ref: unknown, payload?: { sessionToken?: string }) => {
+    const runQuery = vi.fn(async (_ref: unknown, payload?: {
+      sessionToken?: string;
+      channel?: string;
+    }) => {
       if (!payload?.sessionToken) return null;
+      if (payload.channel === "native_guest") {
+        return null;
+      }
       return {
         sessionToken: payload.sessionToken,
         organizationId: "org_platform",
@@ -64,9 +70,55 @@ describe("complete_onboarding channel matrix", () => {
     expect(runAction).not.toHaveBeenCalled();
   });
 
-  it("blocks unclaimed webchat completion", async () => {
-    const runQuery = vi.fn(async (_ref: unknown, payload?: { sessionToken?: string }) => {
+  it("allows unclaimed native_guest completion when an active onboarding binding exists", async () => {
+    const runQuery = vi.fn(async (_ref: unknown, payload?: {
+      sessionToken?: string;
+      channel?: string;
+    }) => {
       if (!payload?.sessionToken) return null;
+      if (payload.channel === "native_guest") {
+        return {
+          _id: "binding_phase3",
+          onboardingOrganizationId: "org_bound_guest",
+          bindingStatus: "active",
+        };
+      }
+      return {
+        sessionToken: payload.sessionToken,
+        organizationId: "org_platform",
+      };
+    });
+    const runMutation = vi.fn(async () => ({ claimToken: "unused" }));
+    const runAction = vi.fn(async () => ({ success: true, organizationId: "org_bound_guest" }));
+
+    const result = await INTERVIEW_TOOLS.complete_onboarding.execute(
+      {
+        organizationId: "org_platform",
+        agentId: "agent_quinn",
+        agentSessionId: "session_onboarding",
+        channel: "native_guest",
+        contactId: "ng_session_bound",
+        runQuery,
+        runMutation,
+        runAction,
+      } as never,
+      {} as never
+    );
+
+    expect(result.success).toBe(true);
+    expect(runAction).toHaveBeenCalledTimes(1);
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("blocks unclaimed webchat completion", async () => {
+    const runQuery = vi.fn(async (_ref: unknown, payload?: {
+      sessionToken?: string;
+      channel?: string;
+    }) => {
+      if (!payload?.sessionToken) return null;
+      if (payload.channel === "webchat") {
+        return null;
+      }
       return {
         sessionToken: payload.sessionToken,
         organizationId: "org_platform",
@@ -96,8 +148,14 @@ describe("complete_onboarding channel matrix", () => {
   });
 
   it("allows claimed native_guest completion", async () => {
-    const runQuery = vi.fn(async (_ref: unknown, payload?: { sessionToken?: string }) => {
+    const runQuery = vi.fn(async (_ref: unknown, payload?: {
+      sessionToken?: string;
+      channel?: string;
+    }) => {
       if (!payload?.sessionToken) return null;
+      if (payload.channel === "native_guest") {
+        return null;
+      }
       return {
         sessionToken: payload.sessionToken,
         organizationId: "org_platform",

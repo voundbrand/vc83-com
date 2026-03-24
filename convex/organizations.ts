@@ -4,6 +4,11 @@ import { Id } from "./_generated/dataModel";
 const generatedApi: any = require("./_generated/api");
 import { requireAuthenticatedUser, getUserContext, checkPermission, requirePermission } from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
+import {
+  collectVisibleOrdinaryOrganizationPage,
+  isVisibleInOrdinaryOrganizationListings,
+} from "./lib/organizationLifecycle";
+import { buildBookingConciergeDefaults } from "./lib/organizationProvisioningDefaults";
 
 const LEGACY_PRICING_MANUAL_REVEAL_FEATURE_KEY = "storeLegacyPricingManualReveal";
 const LEGACY_COMPATIBILITY_TIERS = new Set([
@@ -76,7 +81,8 @@ export const listAll = query({
     // NOTE: Keep this query lightweight to avoid Convex read limits on large datasets.
     // Consumers that need member counts should use listAllPaginated, which computes
     // member counts only for a small page.
-    return await ctx.db.query("organizations").collect();
+    const organizations = await ctx.db.query("organizations").collect();
+    return organizations.filter(isVisibleInOrdinaryOrganizationListings);
   },
 });
 
@@ -105,18 +111,23 @@ export const listAllPaginated = query({
     const pageSize = Math.max(10, Math.min(args.pageSize ?? 25, 100));
     const normalizedSearch = args.search?.trim().slice(0, 120);
 
-    const organizationPage = normalizedSearch
-      ? await ctx.db
-          .query("organizations")
-          .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
-          .paginate({ cursor: args.cursor ?? null, numItems: pageSize })
-      : await ctx.db
-          .query("organizations")
-          .order("desc")
-          .paginate({ cursor: args.cursor ?? null, numItems: pageSize });
+    const visibleOrganizationsPage = await collectVisibleOrdinaryOrganizationPage({
+      cursor: args.cursor ?? null,
+      pageSize,
+      fetchPage: async (cursor, numItems) =>
+        normalizedSearch
+          ? await ctx.db
+              .query("organizations")
+              .withSearchIndex("search_by_name", (q) => q.search("name", normalizedSearch))
+              .paginate({ cursor, numItems })
+          : await ctx.db
+              .query("organizations")
+              .order("desc")
+              .paginate({ cursor, numItems }),
+    });
 
     const organizationsWithDetails = await Promise.all(
-      organizationPage.page.map(async (org) => {
+      visibleOrganizationsPage.page.map(async (org) => {
         const activeMembers = await ctx.db
           .query("organizationMembers")
           .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
@@ -152,8 +163,8 @@ export const listAllPaginated = query({
 
     return {
       organizations: organizationsWithDetails,
-      continueCursor: organizationPage.continueCursor,
-      isDone: organizationPage.isDone,
+      continueCursor: visibleOrganizationsPage.continueCursor,
+      isDone: visibleOrganizationsPage.isDone,
       pageSize,
       search: normalizedSearch ?? null,
     };
@@ -281,8 +292,10 @@ export const getUserOrganizations = query({
       })
     );
 
-    // Filter out null organizations but keep inactive ones (for management UI)
-    return organizationsWithRoles.filter(item => item.organization);
+    // Filter out deleted organizations and hide onboarding lifecycle shells from ordinary org pickers.
+    return organizationsWithRoles.filter(
+      (item) => item.organization && isVisibleInOrdinaryOrganizationListings(item.organization)
+    );
   },
 });
 
@@ -1349,10 +1362,10 @@ export const getSubOrganizations = query({
     }
 
     // Get all sub-organizations
-    const subOrgs = await ctx.db
+    const subOrgs = (await ctx.db
       .query("organizations")
       .withIndex("by_parent", (q) => q.eq("parentOrganizationId", args.parentOrganizationId))
-      .collect();
+      .collect()).filter(isVisibleInOrdinaryOrganizationListings);
 
     // Get member counts for each sub-org
     const subOrgsWithDetails = await Promise.all(
@@ -1479,6 +1492,12 @@ export const provisionOrganizationBaselineInternal = internalMutation({
       throw new Error("Organization not found");
     }
 
+    const bookingConciergeDefaults = buildBookingConciergeDefaults({
+      industry: args.industry,
+      language: args.language,
+      timezone: args.timezone,
+    });
+
     const mainSettings = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -1531,6 +1550,27 @@ export const provisionOrganizationBaselineInternal = internalMutation({
             createdBy: args.createdByUserId,
             industry: args.industry,
             bio: args.description,
+          }
+        );
+      }
+    }
+
+    if (bookingConciergeDefaults) {
+      const existingBookingConciergeSettings = await ctx.db
+        .query("objects")
+        .withIndex("by_org_type", (q) =>
+          q.eq("organizationId", args.organizationId).eq("type", "organization_settings")
+        )
+        .filter((q) => q.eq(q.field("subtype"), "booking_concierge"))
+        .first();
+
+      if (!existingBookingConciergeSettings) {
+        await (ctx as any).runMutation(
+          generatedApi.internal.organizationOntology.upsertKanzleiBookingConciergeConfigInternal,
+          {
+            organizationId: args.organizationId,
+            createdBy: args.createdByUserId,
+            ...bookingConciergeDefaults,
           }
         );
       }

@@ -4192,12 +4192,26 @@ export const ensureTelephonyCallRecord = internalMutation({
       )
       .collect();
 
-    const existing = callRecords.find((record) => {
+    const existingByProviderCallId = callRecords.find((record) => {
       const props = (record.customProperties || {}) as Record<string, unknown>;
       return normalizeOptionalString(props.providerCallId) === providerCallId;
     });
-
     const providerConversationId = normalizeOptionalString(args.providerConversationId);
+    const existingByConversationId =
+      !existingByProviderCallId && providerConversationId
+        ? callRecords.filter((record) => {
+            const props = (record.customProperties || {}) as Record<string, unknown>;
+            return (
+              normalizeOptionalString(props.providerConversationId) ===
+              providerConversationId
+            );
+          })
+        : [];
+    const existing =
+      existingByProviderCallId ||
+      (existingByConversationId.length === 1
+        ? existingByConversationId[0]
+        : undefined);
     const providerId =
       (normalizeOptionalString(args.providerId) as ProviderId | undefined) || "direct";
 

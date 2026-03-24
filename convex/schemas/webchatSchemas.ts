@@ -7,6 +7,7 @@
  * - webchatSessions: Anonymous visitor sessions (24h expiry)
  * - anonymousIdentityLedger: Cross-channel identity ledger for anonymous sessions
  * - anonymousClaimTokens: Signed one-time claim token registry
+ * - guestOnboardingBindings: Explicit onboarding-scoped guest -> org bindings
  * - webchatRateLimits: IP-based rate limiting for public endpoints
  * - onboardingAuditSessions: Deterministic five-question audit session state
  *
@@ -33,6 +34,11 @@ const anonymousChannelValidator = v.union(
   v.literal("webchat"),
   v.literal("native_guest"),
   v.literal("telegram")
+);
+
+const guestOnboardingBindingChannelValidator = v.union(
+  v.literal("webchat"),
+  v.literal("native_guest")
 );
 
 export const onboardingChannelValidator = v.union(
@@ -237,6 +243,7 @@ export const anonymousClaimTokens = defineTable({
   tokenId: v.string(),
   tokenType: v.union(
     v.literal("guest_session_claim"),
+    v.literal("guest_onboarding_org_claim"),
     v.literal("telegram_org_claim")
   ),
   channel: anonymousChannelValidator,
@@ -252,6 +259,8 @@ export const anonymousClaimTokens = defineTable({
   sessionToken: v.optional(v.string()),
   telegramChatId: v.optional(v.string()),
   ledgerEntryId: v.optional(v.id("anonymousIdentityLedger")),
+  bindingId: v.optional(v.id("guestOnboardingBindings")),
+  onboardingSurface: v.optional(v.string()),
 
   // Signed token payload is retained for idempotent replay handling
   signedToken: v.string(),
@@ -268,7 +277,49 @@ export const anonymousClaimTokens = defineTable({
   .index("by_token_id", ["tokenId"])
   .index("by_status_expiry", ["status", "expiresAt"])
   .index("by_session_token", ["sessionToken"])
-  .index("by_telegram_chat", ["telegramChatId"]);
+  .index("by_telegram_chat", ["telegramChatId"])
+  .index("by_binding_id", ["bindingId"]);
+
+/**
+ * GUEST ONBOARDING BINDINGS
+ *
+ * Explicit source-of-truth for onboarding-owned guest surfaces that mint a
+ * provisional onboarding org on first touch before any account is claimed.
+ */
+export const guestOnboardingBindings = defineTable({
+  sourceIdentityKey: v.string(),
+  channel: guestOnboardingBindingChannelValidator,
+  onboardingSurface: v.string(),
+  sessionToken: v.string(),
+  onboardingOrganizationId: v.id("organizations"),
+
+  // Snapshot the org lifecycle directly on the binding so completion and claim
+  // flows do not need to infer onboarding state from webchat session records.
+  organizationLifecycleState: v.union(
+    v.literal("provisional_onboarding"),
+    v.literal("live_unclaimed_workspace"),
+    v.literal("claimed_workspace")
+  ),
+  bindingStatus: v.union(
+    v.literal("active"),
+    v.literal("claimed"),
+    v.literal("expired")
+  ),
+  resolvedAgentId: v.optional(v.id("objects")),
+  completedAt: v.optional(v.number()),
+  claimedByUserId: v.optional(v.id("users")),
+  claimedAt: v.optional(v.number()),
+  expiredAt: v.optional(v.number()),
+  lastClaimTokenId: v.optional(v.string()),
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  lastActivityAt: v.number(),
+})
+  .index("by_source_identity_key", ["sourceIdentityKey"])
+  .index("by_session_token", ["sessionToken"])
+  .index("by_org", ["onboardingOrganizationId"])
+  .index("by_binding_status_activity", ["bindingStatus", "lastActivityAt"]);
 
 /**
  * WEBCHAT RATE LIMITS

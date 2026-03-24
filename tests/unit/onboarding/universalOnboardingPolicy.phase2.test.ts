@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT,
   normalizeUniversalOnboardingChannel,
   ONBOARDING_TELEGRAM_ALIAS_DEPRECATION_PLAN,
   resolveCompletionContactIdentifier,
+  resolveExplicitGuestOnboardingSurface,
   resolveExistingWorkspaceAction,
   resolveWorkspaceProfileFromExtractedData,
   requiresClaimedAccountForOnboardingCompletion,
@@ -20,6 +22,21 @@ describe("universal onboarding channel policy", () => {
     expect(requiresClaimedAccountForOnboardingCompletion("telegram")).toBe(false);
     expect(requiresClaimedAccountForOnboardingCompletion("webchat")).toBe(true);
     expect(requiresClaimedAccountForOnboardingCompletion("native_guest")).toBe(true);
+  });
+
+  it("keeps explicit guest onboarding surfaces scoped to native_guest", () => {
+    expect(
+      resolveExplicitGuestOnboardingSurface({
+        channel: "webchat",
+        onboardingSurface: NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT,
+      })
+    ).toBeNull();
+    expect(
+      resolveExplicitGuestOnboardingSurface({
+        channel: "native_guest",
+        onboardingSurface: NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT,
+      })
+    ).toBe(NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT);
   });
 });
 

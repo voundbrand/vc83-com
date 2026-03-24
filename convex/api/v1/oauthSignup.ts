@@ -146,6 +146,10 @@ async function ensureOrganizationBootstrapRecords(
 
 type OAuthBetaAccessStatus = "approved" | "pending" | "rejected" | "none";
 type OAuthSignupProvider = "apple" | "microsoft" | "google" | "github";
+type OAuthIdentityClaimTokenType =
+  | "guest_session_claim"
+  | "guest_onboarding_org_claim"
+  | "telegram_org_claim";
 
 const oauthSignupProviderValidator = v.union(
   v.literal("apple"),
@@ -160,6 +164,10 @@ function normalizeOptionalText(value?: string | null): string | undefined {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isOnboardingOrgClaimTokenType(tokenType?: OAuthIdentityClaimTokenType): boolean {
+  return tokenType === "telegram_org_claim" || tokenType === "guest_onboarding_org_claim";
 }
 
 function throwBetaCodeValidationError(reason?: string): never {
@@ -823,7 +831,7 @@ export const completeOAuthSignup = action({
     identityClaim?: {
       success: boolean;
       alreadyClaimed?: boolean;
-      tokenType?: "guest_session_claim" | "telegram_org_claim";
+      tokenType?: OAuthIdentityClaimTokenType;
       linkedOrganizationId?: Id<"organizations">;
       linkedSessionToken?: string;
       errorCode?: string;
@@ -850,6 +858,7 @@ export const completeOAuthSignup = action({
         referrer?: string;
         landingPath?: string;
       };
+      language?: string;
       cliToken?: string;
       expiresAt: number;
     } | null;
@@ -875,7 +884,7 @@ export const completeOAuthSignup = action({
     let inspectedClaim:
       | {
           valid: boolean;
-          tokenType?: "guest_session_claim" | "telegram_org_claim";
+          tokenType?: OAuthIdentityClaimTokenType;
           channel?: "webchat" | "native_guest" | "telegram";
           organizationId?: Id<"organizations">;
           reason?: string;
@@ -883,11 +892,11 @@ export const completeOAuthSignup = action({
       | null = null;
 
     if (stateRecord.identityClaimToken) {
-      inspectedClaim = await (ctx as any).runAction(
-        generatedApi.internal.onboarding.identityClaims.inspectIdentityClaimToken,
-        {
-          signedToken: stateRecord.identityClaimToken,
-        }
+        inspectedClaim = await (ctx as any).runAction(
+          generatedApi.internal.onboarding.identityClaims.inspectIdentityClaimToken,
+          {
+            signedToken: stateRecord.identityClaimToken,
+          }
       );
     }
 
@@ -970,7 +979,7 @@ export const completeOAuthSignup = action({
         redemptionSource: signupSource,
         redemptionDeviceType: signupDeviceType,
         claimedOrganizationId:
-          inspectedClaim?.valid && inspectedClaim.tokenType === "telegram_org_claim"
+          inspectedClaim?.valid && isOnboardingOrgClaimTokenType(inspectedClaim.tokenType)
             ? inspectedClaim.organizationId
             : undefined,
       });
@@ -1038,6 +1047,7 @@ export const completeOAuthSignup = action({
           (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.betaAccessEmails.sendBetaRequestConfirmation, {
             email: resolvedUserEmail,
             firstName: userInfo.name.firstName,
+            language: stateRecord.language,
           }),
         ]);
       } else {
@@ -1048,6 +1058,7 @@ export const completeOAuthSignup = action({
           firstName: userInfo.name.firstName,
           organizationName: orgName,
           apiKeyPrefix: "n/a", // OAuth users don't get API key on signup
+          language: stateRecord.language,
         });
 
         // Send sales notification (async)
@@ -1366,6 +1377,7 @@ export const storeOAuthSignupState = action({
     onboardingChannel: v.optional(v.string()),
     onboardingDeviceType: v.optional(v.string()),
     onboardingCampaign: v.optional(v.any()),
+    language: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
@@ -1383,6 +1395,7 @@ export const storeOAuthSignupState = action({
       onboardingChannel: args.onboardingChannel,
       onboardingDeviceType: args.onboardingDeviceType,
       onboardingCampaign: args.onboardingCampaign,
+      language: args.language,
       cliToken: args.cliToken,
       cliState: args.cliState,
       createdAt: args.createdAt,
@@ -1408,6 +1421,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
     onboardingChannel: v.optional(v.string()),
     onboardingDeviceType: v.optional(v.string()),
     onboardingCampaign: v.optional(v.any()),
+    language: v.optional(v.string()),
     cliToken: v.optional(v.string()), // Only for CLI sessions
     cliState: v.optional(v.string()), // CLI's original state for CSRF protection
     createdAt: v.number(),
@@ -1425,6 +1439,7 @@ export const storeOAuthSignupStateInternal = internalMutation({
       onboardingChannel: args.onboardingChannel,
       onboardingDeviceType: args.onboardingDeviceType,
       onboardingCampaign: args.onboardingCampaign,
+      language: args.language,
       cliToken: args.cliToken,
       cliState: args.cliState,
       createdAt: args.createdAt,
@@ -1461,6 +1476,7 @@ export const getOAuthSignupState = action({
       referrer?: string;
       landingPath?: string;
     };
+    language?: string;
     cliToken?: string;
     cliState?: string;
     expiresAt: number;
@@ -1498,6 +1514,7 @@ export const getOAuthSignupStateInternal = internalQuery({
       onboardingChannel: stateRecord.onboardingChannel,
       onboardingDeviceType: stateRecord.onboardingDeviceType,
       onboardingCampaign: stateRecord.onboardingCampaign,
+      language: stateRecord.language,
       cliToken: stateRecord.cliToken,
       cliState: stateRecord.cliState,
       expiresAt: stateRecord.expiresAt,

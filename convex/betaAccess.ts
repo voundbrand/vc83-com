@@ -442,6 +442,7 @@ async function sendBetaApprovalNotifications(
     firstName?: string;
     lastName?: string;
     defaultOrgId?: Id<"organizations">;
+    preferredLanguage?: string;
   }
 ) {
   const org = user.defaultOrgId ? await ctx.db.get(user.defaultOrgId) : null;
@@ -453,6 +454,7 @@ async function sendBetaApprovalNotifications(
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        language: user.preferredLanguage,
       }),
       (ctx.scheduler as any).runAfter(0, generatedApi.internal.actions.salesNotificationEmail.sendSalesNotification, {
         eventType: "beta_approved",
@@ -569,6 +571,7 @@ export const rejectBetaAccess = mutation({
         email: user.email,
         firstName: user.firstName,
         reason: args.reason,
+        language: user.preferredLanguage,
       });
     } catch (emailError) {
       // Log but don't fail if email fails

@@ -64,7 +64,8 @@ const monthlyGrantReasonArgValidator = v.union(
 
 const purchaseGrantReasonArgValidator = v.union(
   v.literal("purchased_checkout_pack"),
-  v.literal("purchased_manual_adjustment")
+  v.literal("purchased_manual_adjustment"),
+  v.literal("purchased_auto_replenish")
 );
 
 const creditRedemptionCodeStatusArgValidator = v.union(
@@ -727,7 +728,7 @@ function normalizeTierRestrictions(
     }
   }
 
-  return [...unique];
+  return Array.from(unique);
 }
 
 function normalizeIdRestrictionList(
@@ -742,7 +743,7 @@ function normalizeIdRestrictionList(
       unique.add(value);
     }
   }
-  return unique.size > 0 ? [...unique] : undefined;
+  return unique.size > 0 ? Array.from(unique) : undefined;
 }
 
 function normalizeOptionalFutureTimestamp(value?: number): number | undefined {
@@ -1162,6 +1163,12 @@ type CreditBalance = {
   dailyCreditsLastReset: number;
   monthlyPeriodStart: number;
   monthlyPeriodEnd: number;
+  autoReplenish?: {
+    enabled: boolean;
+    thresholdCredits: number;
+    amountEur: number;
+    isCircuitBroken: boolean;
+  };
   parentOrganizationId?: Id<"organizations">;
   parentBalance?: {
     giftedCredits: number;
@@ -1185,6 +1192,15 @@ export async function getCreditBalanceInternal(
     .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
     .first();
 
+  const autoReplenishInfo = balance?.autoReplenish
+    ? {
+        enabled: balance.autoReplenish.enabled,
+        thresholdCredits: balance.autoReplenish.thresholdCredits,
+        amountEur: balance.autoReplenish.amountEur,
+        isCircuitBroken: (balance.autoReplenish.consecutiveFailures ?? 0) >= 3,
+      }
+    : undefined;
+
   const ownBalance = balance
     ? (() => {
         const snapshot = getBalanceSnapshot(balance);
@@ -1199,6 +1215,7 @@ export async function getCreditBalanceInternal(
           dailyCreditsLastReset: balance.dailyCreditsLastReset,
           monthlyPeriodStart: balance.monthlyPeriodStart,
           monthlyPeriodEnd: balance.monthlyPeriodEnd,
+          ...(autoReplenishInfo && { autoReplenish: autoReplenishInfo }),
         };
       })()
     : {
@@ -1836,6 +1853,22 @@ export async function deductCreditsInternal(
         currentBalance: totalRemaining,
         monthlyTotal,
       });
+    }
+
+    // Schedule auto-replenish check if balance dropped below threshold
+    if (balance.autoReplenish?.enabled) {
+      const thresholdCredits = balance.autoReplenish.thresholdCredits ?? 0;
+      if (newTotal < thresholdCredits) {
+        try {
+          (ctx.scheduler as any).runAfter(
+            0,
+            generatedApi.internal.credits.autoReplenish.checkAndTriggerReplenish,
+            { organizationId, currentTotalBalance: newTotal }
+          );
+        } catch (e) {
+          console.warn("[Credits] Failed to schedule auto-replenish:", e);
+        }
+      }
     }
   }
 

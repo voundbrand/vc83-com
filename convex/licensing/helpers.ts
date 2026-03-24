@@ -84,6 +84,7 @@ export async function getLicenseInternal(
     currency?: string;
     limits?: Partial<TierConfig["limits"]>;
     features?: Partial<TierConfig["features"]>;
+    featureOverrides?: Partial<TierConfig["features"]>;
     currentPeriodStart?: number;
     currentPeriodEnd?: number;
     trialEnd?: number;

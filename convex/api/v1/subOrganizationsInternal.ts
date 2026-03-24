@@ -10,6 +10,7 @@
 
 import { v, ConvexError } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
+import { filterVisibleOrdinaryOrganizations } from "../../lib/organizationLifecycle";
 
 /**
  * CREATE CHILD ORGANIZATION
@@ -80,12 +81,12 @@ export const getChildOrganizationsInternal = internalQuery({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const allChildren = await ctx.db
+    const allChildren = filterVisibleOrdinaryOrganizations(await ctx.db
       .query("organizations")
       .withIndex("by_parent", (q) =>
         q.eq("parentOrganizationId", args.parentOrganizationId)
       )
-      .collect();
+      .collect());
 
     const offset = args.offset || 0;
     const limit = args.limit || 50;

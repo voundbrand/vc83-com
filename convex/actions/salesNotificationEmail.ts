@@ -122,6 +122,7 @@ function generateSalesNotificationEmail(args: {
   metadata?: any;
 }) {
   const { eventType, user, organization, metadata } = args;
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.l4yercak3.com").replace(/\/+$/, "");
 
   let subject = "";
   let content = "";
@@ -143,7 +144,7 @@ function generateSalesNotificationEmail(args: {
           <li>Follow up in 3 days if no activity</li>
           <li>Track for upgrade opportunity (€199/month Starter)</li>
         </ul>` +
-        emailButton("View User Profile", `https://l4yercak3.com/admin/users/${user.email}`);
+        emailButton("View User Profile", `${appBaseUrl}/admin/users/${user.email}`);
       break;
 
     case "beta_approved":
@@ -163,7 +164,7 @@ function generateSalesNotificationEmail(args: {
           <li>Follow up in 7 days to check on their experience</li>
           <li>Track for upgrade opportunity (€199/month Starter)</li>
         </ul>` +
-        emailButton("View User Profile", `https://l4yercak3.com/admin/users/${user.email}`);
+        emailButton("View User Profile", `${appBaseUrl}/admin/users/${user.email}`);
       break;
 
     case "platform_tier_upgrade":
@@ -229,7 +230,7 @@ function generateSalesNotificationEmail(args: {
           <li>Send Build Sprint one-pager</li>
           <li>Prepare proposal template</li>
         </ul>` +
-        emailButton("View Application", "https://l4yercak3.com/admin/build-sprint-apps");
+        emailButton("View Application", `${appBaseUrl}/admin/build-sprint-apps`);
       break;
 
     case "credit_purchase": {

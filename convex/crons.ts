@@ -174,6 +174,24 @@ crons.daily(
   generatedApi.internal.authPrefill.cleanupExpiredAuthPrefillTokens
 );
 
+crons.daily(
+  "Cleanup expired onboarding identity claim tokens",
+  {
+    hourUTC: 6,
+    minuteUTC: 45,
+  },
+  generatedApi.internal.onboarding.identityClaims.cleanupExpiredIdentityClaimTokens
+);
+
+crons.daily(
+  "Cleanup stale guest onboarding bindings",
+  {
+    hourUTC: 7,
+    minuteUTC: 0,
+  },
+  generatedApi.internal.onboarding.orgBootstrap.cleanupStaleGuestOnboardingBindings
+);
+
 /**
  * Sync External Calendar Events
  *
