@@ -17,6 +17,7 @@ import { format } from "date-fns"
 import { de, enUS, nl } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { WaveDivider } from "@/components/wave-divider"
 
 // Boat seat types
 type SeatStatus = "available" | "booked" | "selected"
@@ -542,6 +543,9 @@ function BookingPageContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Background → Flaschengrün (footer) */}
+          <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
         </main>
         <Footer content={t.footer} />
         <Toaster />
@@ -568,6 +572,9 @@ function BookingPageContent() {
             </p>
           </div>
         </section>
+
+        {/* Flaschengrün → Background */}
+        <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
 
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-3xl">
@@ -1248,10 +1255,13 @@ function BookingPageContent() {
             )}
           </div>
         </section>
+
+        {/* Background → Flaschengrün (footer) */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
       </main>
 
       <Footer content={t.footer} />
-      
+
       {/* Floating "Fragen?" button */}
       <a
         href="tel:+4939778123456"

@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Phone, MapPin, Clock, Navigation, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { WaveDivider } from "@/components/wave-divider"
 
 export default function ContactPage() {
   const { language, setLanguage } = useLanguage()
@@ -84,6 +85,9 @@ export default function ContactPage() {
             <p className="text-lg md:text-xl text-white/90 text-balance max-w-2xl mx-auto">{t.contact.subtitle}</p>
           </div>
         </section>
+
+        {/* Flaschengrün → Background */}
+        <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
 
         <section className="py-16 px-4 bg-background">
           <div className="container mx-auto max-w-7xl">
@@ -334,6 +338,9 @@ export default function ContactPage() {
             </Card>
           </div>
         </section>
+
+        {/* Background → Flaschengrün (footer) */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
       </main>
 
       <Footer content={t.footer} />

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Check, Info } from "lucide-react"
 import Link from "next/link"
 import { translations } from "@/lib/translations"
+import { WaveDivider } from "@/components/wave-divider"
 
 export default function PricingPage() {
   const { language, setLanguage } = useLanguage()
@@ -312,6 +313,9 @@ export default function PricingPage() {
             </CardHeader>
           </Card>
         </div>
+
+        {/* Background → Flaschengrün (footer) */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
       </main>
 
       <Footer content={t.footer} />
