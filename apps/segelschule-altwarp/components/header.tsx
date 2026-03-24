@@ -108,6 +108,21 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
           </nav>
         )}
       </div>
+
+      {/* Mini wave at the bottom of the header – visible only when scrolled */}
+      <div
+        className={`w-full leading-[0] transition-opacity duration-300 ${
+          useScrolledStyle ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <svg viewBox="0 0 1200 40" preserveAspectRatio="none" className="w-full h-[12px] md:h-[16px]">
+          <path
+            d="M0,0 C150,30 350,0 500,20 C650,40 800,10 1000,26 C1100,34 1150,20 1200,14 L1200,0 L0,0 Z"
+            fill="var(--color-background)"
+            fillOpacity="0.95"
+          />
+        </svg>
+      </div>
     </header>
   )
 }
