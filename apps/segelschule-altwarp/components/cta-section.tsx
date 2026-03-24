@@ -11,7 +11,7 @@ interface CTASectionProps {
 
 export function CTASection({ title, description, buttonText }: CTASectionProps) {
   return (
-    <section className="relative px-4 overflow-hidden">
+    <section className="relative overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -30,7 +30,7 @@ export function CTASection({ title, description, buttonText }: CTASectionProps) 
         </svg>
       </div>
 
-      <div className="container mx-auto max-w-4xl text-center relative z-10 py-20 md:py-28">
+      <div className="container mx-auto max-w-4xl text-center relative z-10 py-20 md:py-28 px-4">
         <h2 className="mb-6 text-4xl font-semibold text-[#FFFBEA] md:text-5xl lg:text-6xl text-balance drop-shadow-lg">
           {title}
         </h2>
