@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import type { Language } from "./translations"
+import { SUPPORTED_LANGUAGES, type Language } from "./translations"
 
 interface LanguageContextType {
   language: Language
@@ -16,7 +16,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem("preferred-language") as Language | null
-    if (savedLanguage && ["de", "en", "nl", "ch"].includes(savedLanguage)) {
+    if (savedLanguage && SUPPORTED_LANGUAGES.includes(savedLanguage)) {
       setLanguage(savedLanguage)
     }
     setMounted(true)

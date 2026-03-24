@@ -23,31 +23,8 @@ export default function PricingPage() {
       price: t.courses.schnupper.price,
       description: t.courses.schnupper.description,
       features: t.courses.schnupper.features,
-      badge: language === "de" ? "Einstieg" : language === "en" ? "Starter" : language === "nl" ? "Instap" : "Iistig",
-      included: [
-        language === "de"
-          ? "Alle Sicherheitsausrüstung"
-          : language === "en"
-            ? "All safety equipment"
-            : language === "nl"
-              ? "Alle veiligheidsuitrusting"
-              : "Alli Sicherheitsusrüstig",
-        language === "de"
-          ? "Segelausrüstung"
-          : language === "en"
-            ? "Sailing equipment"
-            : language === "nl"
-              ? "Zeiluitrusting"
-              : "Segelusrüstig",
-        language === "de"
-          ? "Versicherung"
-          : language === "en"
-            ? "Insurance"
-            : language === "nl"
-              ? "Verzekering"
-              : "Versicherig",
-        language === "de" ? "Getränke" : language === "en" ? "Beverages" : language === "nl" ? "Drankjes" : "Getränk",
-      ],
+      badge: t.pricing.badges.starter,
+      included: t.pricing.schnupperIncluded,
     },
     {
       id: t.courses.grund.id,
@@ -56,129 +33,28 @@ export default function PricingPage() {
       price: t.courses.grund.price,
       description: t.courses.grund.description,
       features: t.courses.grund.features,
-      badge:
-        language === "de"
-          ? "Beliebt"
-          : language === "en"
-            ? "Popular"
-            : language === "nl"
-              ? "Populair"
-              : "Beliebt",
-      included: [
-        language === "de"
-          ? "Alle Materialien & Ausrüstung"
-          : language === "en"
-            ? "All materials & equipment"
-            : language === "nl"
-              ? "Alle materialen & uitrusting"
-              : "Alli Materiale & Usrüstig",
-        language === "de"
-          ? "Kursbuch & Lehrmaterial"
-          : language === "en"
-            ? "Course book & materials"
-            : language === "nl"
-              ? "Cursusboek & lesmateriaal"
-              : "Kursbuch & Lehrmaterial",
-        language === "de"
-          ? "Segelschule T-Shirt"
-          : language === "en"
-            ? "Sailing school T-Shirt"
-            : language === "nl"
-              ? "Zeilschool T-Shirt"
-              : "Segelschuel T-Shirt",
-        language === "de"
-          ? "Verpflegung"
-          : language === "en"
-            ? "Catering"
-            : language === "nl"
-              ? "Catering"
-              : "Verpflegig",
-      ],
+      badge: t.pricing.badges.popular,
+      included: t.pricing.grundIncluded,
     },
     {
-      id: t.courses.sbf.id,
-      title: t.courses.sbf.title,
-      duration: t.courses.sbf.duration,
-      price: t.courses.sbf.price,
-      description: t.courses.sbf.description,
-      features: t.courses.sbf.features,
-      badge:
-        language === "de"
-          ? "Flexibel"
-          : language === "en"
-            ? "Flexible"
-            : language === "nl"
-              ? "Flexibel"
-              : "Flexibel",
-      included: [
-        language === "de"
-          ? "10 Stunden auf dem Wasser"
-          : language === "en"
-            ? "10 hours on the water"
-            : language === "nl"
-              ? "10 uur op het water"
-              : "10 Stund ufem Wasser",
-        language === "de"
-          ? "1 Jahr gültig"
-          : language === "en"
-            ? "Valid for 1 year"
-            : language === "nl"
-              ? "1 jaar geldig"
-              : "1 Jahr gültig",
-        language === "de"
-          ? "Übertragbar auf Freunde"
-          : language === "en"
-            ? "Transferable to friends"
-            : language === "nl"
-              ? "Overdraagbaar aan vrienden"
-              : "Übertragbar uf Fründe",
-        language === "de"
-          ? "Flexibel buchbar"
-          : language === "en"
-            ? "Book flexibly"
-            : language === "nl"
-              ? "Flexibel te boeken"
-              : "Flexibel buechbar",
-      ],
+      id: t.courses.intensiv.id,
+      title: t.courses.intensiv.title,
+      duration: t.courses.intensiv.duration,
+      price: t.courses.intensiv.price,
+      description: t.courses.intensiv.description,
+      features: t.courses.intensiv.features,
+      badge: t.pricing.badges.intensive,
+      included: t.pricing.intensivIncluded,
     },
     {
-      id: t.courses.advanced.id,
-      title: t.courses.advanced.title,
-      duration: t.courses.advanced.duration,
-      price: t.courses.advanced.price,
-      description: t.courses.advanced.description,
-      features: t.courses.advanced.features,
-      badge: language === "de" ? "Intensiv" : language === "en" ? "Intensive" : language === "nl" ? "Intensief" : "Intensiv",
-      included: [
-        language === "de"
-          ? "Vollständige Ausbildung"
-          : language === "en"
-            ? "Complete training"
-            : language === "nl"
-              ? "Volledige opleiding"
-              : "Vollständigi Usbildig",
-        language === "de"
-          ? "Alle Lehrbücher & Materialien"
-          : language === "en"
-            ? "All textbooks & materials"
-            : language === "nl"
-              ? "Alle leerboeken & materialen"
-              : "Alli Lehrbüecher & Materiale",
-        language === "de"
-          ? "Segelschule T-Shirt"
-          : language === "en"
-            ? "Sailing school T-Shirt"
-            : language === "nl"
-              ? "Zeilschool T-Shirt"
-              : "Segelschuel T-Shirt",
-        language === "de"
-          ? "Prüfungsvorbereitung"
-          : language === "en"
-            ? "Exam preparation"
-            : language === "nl"
-              ? "Examenvoorbereiding"
-              : "Prüefigsvorbereitung",
-      ],
+      id: t.courses.praxis.id,
+      title: t.courses.praxis.title,
+      duration: t.courses.praxis.duration,
+      price: t.courses.praxis.price,
+      description: t.courses.praxis.description,
+      features: t.courses.praxis.features,
+      badge: t.pricing.badges.individual,
+      included: t.pricing.praxisIncluded,
     },
   ]
 
@@ -188,32 +64,20 @@ export default function PricingPage() {
 
       <main className="min-h-screen pt-20">
         <section
-          className="py-16 md:py-24 px-4"
-          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+          className="py-32 md:py-40 px-4"
+          style={{ background: "#1E3926" }}
         >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
-              {language === "de"
-                ? "Preise & Kurse"
-                : language === "en"
-                  ? "Pricing & Courses"
-                  : language === "nl"
-                    ? "Prijzen & Cursussen"
-                    : "Priis & Kurs"}
+              {t.pricing.pageTitle}
             </h1>
             <p className="text-xl text-white/90 max-w-3xl mx-auto text-balance">
-              {language === "de"
-                ? "Transparente Preise, faire Konditionen – alle Kosten inklusive ohne versteckte Gebühren"
-                : language === "en"
-                  ? "Transparent prices, fair conditions – all costs included without hidden fees"
-                  : language === "nl"
-                    ? "Transparante prijzen, eerlijke voorwaarden – alle kosten inbegrepen zonder verborgen kosten"
-                    : "Transparänti Priis, fairi Konditione – alli Koste inklusive ohni versteckti Gebüehre"}
+              {t.pricing.pageSubtitle}
             </p>
           </div>
         </section>
 
-        {/* Flaschengrün → Elfenbein */}
+        {/* Flaschengruen → Elfenbein */}
         <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
 
         <section className="py-16 px-4 bg-secondary">
@@ -242,13 +106,7 @@ export default function PricingPage() {
                 <CardContent className="flex-grow space-y-6">
                   <div>
                     <h4 className="font-semibold text-base uppercase tracking-wide mb-4 text-primary">
-                      {language === "de"
-                        ? "Kursinhalte"
-                        : language === "en"
-                          ? "Course Content"
-                          : language === "nl"
-                            ? "Cursusinhoud"
-                            : "Kursinhalt"}
+                      {t.pricing.courseContent}
                     </h4>
                     <ul className="space-y-3">
                       {course.features.map((feature, i) => (
@@ -261,13 +119,7 @@ export default function PricingPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-base uppercase tracking-wide mb-4 text-primary">
-                      {language === "de"
-                        ? "Inklusive"
-                        : language === "en"
-                          ? "Included"
-                          : language === "nl"
-                            ? "Inbegrepen"
-                            : "Inklusive"}
+                      {t.pricing.included}
                     </h4>
                     <ul className="space-y-3">
                       {course.included.map((item, i) => (
@@ -298,22 +150,10 @@ export default function PricingPage() {
                 <Info className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
                 <div>
                   <CardTitle className="text-xl font-serif mb-2">
-                    {language === "de"
-                      ? "Alle Preise verstehen sich inklusive"
-                      : language === "en"
-                        ? "All prices include"
-                        : language === "nl"
-                          ? "Alle prijzen zijn inclusief"
-                          : "Alli Priis verstönd sich inklusive"}
+                    {t.pricing.allPricesTitle}
                   </CardTitle>
                   <CardDescription className="text-base">
-                    {language === "de"
-                      ? "• Sämtliche Lehr- und Unterrichtsmaterialien • Komplette Segel- und Sicherheitsausrüstung • Versicherung während des Kurses • Getränke und Verpflegung • Bei mehrtägigen Kursen inklusive T-Shirt • Keine versteckten Gebühren – transparente Preisgestaltung"
-                      : language === "en"
-                        ? "• All teaching and instructional materials • Complete sailing and safety equipment • Insurance during the course • Beverages and catering • T-Shirt included with multi-day courses • No hidden fees – transparent pricing"
-                        : language === "nl"
-                          ? "• Alle les- en onderwijsmaterialen • Volledige zeil- en veiligheidsuitrusting • Verzekering tijdens de cursus • Drankjes en catering • T-Shirt inbegrepen bij meerdaagse cursussen • Geen verborgen kosten – transparante prijzen"
-                          : "• Sämtlichi Lehr- und Unterrichtsmateriale • Kompletti Segel- und Sicherheitsusrüstig • Versicherig während em Kurs • Getränk und Verpflegig • Bi mehrtägige Kurs inklusive T-Shirt • Kei versteckti Gebüehre – transparänti Priisgestaltig"}
+                    {t.pricing.allPricesDesc}
                   </CardDescription>
                 </div>
               </div>
@@ -322,7 +162,7 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Elfenbein → Flaschengrün (footer) */}
+        {/* Elfenbein → Flaschengruen (footer) */}
         <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
       </main>
 

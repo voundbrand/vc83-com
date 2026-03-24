@@ -33,7 +33,7 @@ const getMockedBookedSeats = (date: string, time: string): { fraukje: number[]; 
   // Simulate different bookings for different date/time combinations
   const hash = (date + time).split("").reduce((a, b) => a + b.charCodeAt(0), 0)
   const bookings: { fraukje: number[]; rose: number[] } = { fraukje: [], rose: [] }
-  
+
   if (hash % 5 === 0) {
     bookings.fraukje = [0, 1]
   } else if (hash % 5 === 1) {
@@ -44,24 +44,20 @@ const getMockedBookedSeats = (date: string, time: string): { fraukje: number[]; 
   } else if (hash % 5 === 3) {
     bookings.fraukje = [0, 1, 2, 3]
   }
-  
+
   return bookings
 }
 
 // Boat Seat Component
-function BoatSeatPicker({ 
-  boat, 
-  onSeatClick, 
-  language 
-}: { 
+function BoatSeatPicker({
+  boat,
+  onSeatClick,
+  labels
+}: {
   boat: Boat
   onSeatClick: (boatId: string, seatIndex: number) => void
-  language: string
+  labels: { seat: string; captain: string; seatFree: string; seatTaken: string; seatSelected: string; free: string }
 }) {
-  const seatLabels = language === "de" ? ["Sitz", "Sitz", "Sitz", "Sitz"] : 
-                     language === "nl" ? ["Stoel", "Stoel", "Stoel", "Stoel"] : 
-                     ["Seat", "Seat", "Seat", "Seat"]
-  
   const availableCount = boat.seats.filter(s => s === "available").length
   const selectedCount = boat.seats.filter(s => s === "selected").length
 
@@ -75,7 +71,7 @@ function BoatSeatPicker({
           </CardTitle>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{availableCount} {language === "de" ? "frei" : language === "nl" ? "vrij" : "free"}</span>
+            <span>{availableCount} {labels.free}</span>
           </div>
         </div>
       </CardHeader>
@@ -92,10 +88,10 @@ function BoatSeatPicker({
               strokeWidth="3"
               className="opacity-30"
             />
-            
+
             {/* Bow decoration */}
             <circle cx="100" cy="35" r="8" fill="oklch(0.32 0.08 240)" className="opacity-20" />
-            
+
             {/* Captain's seat at the back */}
             <g transform="translate(70, 210)">
               <rect
@@ -108,30 +104,30 @@ function BoatSeatPicker({
                 className="opacity-40"
               />
               <text x="30" y="24" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">
-                {language === "de" ? "Kapitän" : language === "nl" ? "Kapitein" : "Captain"}
+                {labels.captain}
               </text>
             </g>
-            
+
             {/* Passenger seats - 2 rows of 2 */}
             {boat.seats.map((status, index) => {
               const row = Math.floor(index / 2)
               const col = index % 2
               const x = col === 0 ? 35 : 105
               const y = 70 + row * 65
-              
+
               const colors = {
                 available: "oklch(0.88 0.04 60)", // sandy beige
                 booked: "oklch(0.7 0.02 240)", // gray
                 selected: "oklch(0.55 0.15 150)", // green
               }
-              
-              const hoverClass = status === "available" ? "cursor-pointer hover:opacity-80" : 
-                                status === "selected" ? "cursor-pointer hover:opacity-80" : 
+
+              const hoverClass = status === "available" ? "cursor-pointer hover:opacity-80" :
+                                status === "selected" ? "cursor-pointer hover:opacity-80" :
                                 "cursor-not-allowed"
-              
+
               return (
-                <g 
-                  key={index} 
+                <g
+                  key={index}
                   transform={`translate(${x}, ${y})`}
                   onClick={() => status !== "booked" && onSeatClick(boat.id, index)}
                   className={`transition-all ${hoverClass}`}
@@ -147,19 +143,19 @@ function BoatSeatPicker({
                     strokeWidth={status === "selected" ? "3" : "2"}
                     className="transition-all"
                   />
-                  <text 
-                    x="30" 
-                    y="22" 
-                    textAnchor="middle" 
-                    fontSize="10" 
+                  <text
+                    x="30"
+                    y="22"
+                    textAnchor="middle"
+                    fontSize="10"
                     fill={status === "booked" ? "#666" : status === "selected" ? "white" : "oklch(0.32 0.08 240)"}
                     fontWeight="bold"
                   >
-                    {seatLabels[index]} {index + 1}
+                    {labels.seat} {index + 1}
                   </text>
                   {status === "booked" && (
                     <text x="30" y="38" textAnchor="middle" fontSize="9" fill="#888">
-                      {language === "de" ? "Belegt" : language === "nl" ? "Bezet" : "Taken"}
+                      {labels.seatTaken}
                     </text>
                   )}
                   {status === "selected" && (
@@ -167,7 +163,7 @@ function BoatSeatPicker({
                   )}
                   {status === "available" && (
                     <text x="30" y="38" textAnchor="middle" fontSize="9" fill="oklch(0.32 0.08 240)">
-                      {language === "de" ? "Frei" : language === "nl" ? "Vrij" : "Available"}
+                      {labels.seatFree}
                     </text>
                   )}
                 </g>
@@ -175,20 +171,20 @@ function BoatSeatPicker({
             })}
           </svg>
         </div>
-        
+
         {/* Legend */}
         <div className="flex justify-center gap-4 mt-4 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-4 h-4 rounded bg-[oklch(0.88_0.04_60)] border border-primary/30" />
-            <span>{language === "de" ? "Frei" : language === "nl" ? "Vrij" : "Available"}</span>
+            <span>{labels.seatFree}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-4 h-4 rounded bg-[oklch(0.55_0.15_150)]" />
-            <span>{language === "de" ? "Gewählt" : language === "nl" ? "Gekozen" : "Selected"}</span>
+            <span>{labels.seatSelected}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-4 h-4 rounded bg-[oklch(0.7_0.02_240)]" />
-            <span>{language === "de" ? "Belegt" : language === "nl" ? "Bezet" : "Taken"}</span>
+            <span>{labels.seatTaken}</span>
           </div>
         </div>
       </CardContent>
@@ -235,7 +231,7 @@ function BookingPageContent() {
     cvc: "",
     name: "",
   })
-  
+
   // T-shirt sizes
   const tshirtSizes = ["XS", "S", "M", "L", "XL", "XXL"]
 
@@ -253,26 +249,26 @@ function BookingPageContent() {
     if (selectedDate && selectedTime) {
       const dateStr = format(selectedDate, "yyyy-MM-dd")
       const bookedSeats = getMockedBookedSeats(dateStr, selectedTime)
-      
+
       setBoats([
         {
           id: "fraukje",
           name: "Fraukje",
-          seats: [0, 1, 2, 3].map(i => 
+          seats: [0, 1, 2, 3].map(i =>
             bookedSeats.fraukje.includes(i) ? "booked" : "available"
           ) as SeatStatus[],
         },
         {
           id: "rose",
           name: "Rose",
-          seats: [0, 1, 2, 3].map(i => 
+          seats: [0, 1, 2, 3].map(i =>
             bookedSeats.rose.includes(i) ? "booked" : "available"
           ) as SeatStatus[],
         },
       ])
     }
   }, [selectedDate, selectedTime])
-  
+
   // Handle seat selection
   const handleSeatClick = (boatId: string, seatIndex: number) => {
     setBoats(prev => prev.map(boat => {
@@ -288,13 +284,13 @@ function BookingPageContent() {
       return boat
     }))
   }
-  
+
   // Calculate selected seats count
   const selectedSeatsCount = boats.reduce(
-    (total, boat) => total + boat.seats.filter(s => s === "selected").length, 
+    (total, boat) => total + boat.seats.filter(s => s === "selected").length,
     0
   )
-  
+
   // Get selected boat name for confirmation
   const getSelectedBoatInfo = () => {
     const selectedBoats = boats.filter(boat => boat.seats.some(s => s === "selected"))
@@ -303,12 +299,12 @@ function BookingPageContent() {
       seats: boat.seats.map((s, i) => s === "selected" ? i + 1 : null).filter(Boolean)
     }))
   }
-  
+
   // Check if selected date is within 24 hours
   const isWithin24Hours = selectedDate ? (
     (selectedDate.getTime() - new Date().getTime()) < (24 * 60 * 60 * 1000)
   ) : false
-  
+
   // Check if selected course is multi-day (needs T-shirt)
   const isMultiDayCourse = selectedCourseData ? selectedCourseData.isMultiDay : false
 
@@ -330,20 +326,20 @@ function BookingPageContent() {
       isMultiDay: t.courses.grund.isMultiDay,
     },
     {
-      id: t.courses.sbf.id,
-      title: t.courses.sbf.title,
-      duration: t.courses.sbf.duration,
-      price: t.courses.sbf.price,
-      description: t.courses.sbf.description,
-      isMultiDay: t.courses.sbf.isMultiDay,
+      id: t.courses.intensiv.id,
+      title: t.courses.intensiv.title,
+      duration: t.courses.intensiv.duration,
+      price: t.courses.intensiv.price,
+      description: t.courses.intensiv.description,
+      isMultiDay: t.courses.intensiv.isMultiDay,
     },
     {
-      id: t.courses.advanced.id,
-      title: t.courses.advanced.title,
-      duration: t.courses.advanced.duration,
-      price: t.courses.advanced.price,
-      description: t.courses.advanced.description,
-      isMultiDay: t.courses.advanced.isMultiDay,
+      id: t.courses.praxis.id,
+      title: t.courses.praxis.title,
+      duration: t.courses.praxis.duration,
+      price: t.courses.praxis.price,
+      description: t.courses.praxis.description,
+      isMultiDay: t.courses.praxis.isMultiDay,
     },
   ], [t])
 
@@ -360,9 +356,10 @@ function BookingPageContent() {
 
   const availableTimes = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"]
 
-  const totalPrice = selectedCourseData
-    ? Number.parseFloat(selectedCourseData.price.replace("€", "")) * selectedSeatsCount
+  const parsedPrice = selectedCourseData
+    ? Number.parseFloat(selectedCourseData.price.replace("€", ""))
     : 0
+  const totalPrice = Number.isNaN(parsedPrice) ? 0 : parsedPrice * selectedSeatsCount
 
   const handleComplete = useCallback(async () => {
     if (isSubmitting || !selectedCourseData || !selectedDate || !selectedTime) return
@@ -416,19 +413,17 @@ function BookingPageContent() {
       setBookingComplete(true)
     } catch (err) {
       toast({
-        title: language === "de" ? "Buchung fehlgeschlagen" : "Booking failed",
+        title: t.booking.bookingFailed,
         description:
           err instanceof Error
             ? err.message
-            : language === "de"
-              ? "Bitte versuchen Sie es erneut."
-              : "Please try again.",
+            : t.booking.tryAgain,
         variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
-  }, [isSubmitting, selectedCourseData, selectedDate, selectedTime, boats, selectedSeatsCount, formData, paymentMethod, totalPrice, language, toast])
+  }, [isSubmitting, selectedCourseData, selectedDate, selectedTime, boats, selectedSeatsCount, formData, paymentMethod, totalPrice, language, toast, t.booking.bookingFailed, t.booking.tryAgain])
 
   if (bookingComplete) {
     return (
@@ -461,18 +456,10 @@ function BookingPageContent() {
                   <CheckCircle2 className="w-12 h-12 text-green-600" />
                 </div>
                 <CardTitle className="text-4xl font-bold text-primary">
-                  {language === "de"
-                    ? "Herzlichen Glückwunsch!"
-                    : language === "nl"
-                      ? "Gefeliciteerd!"
-                      : "Congratulations!"}
+                  {t.booking.congratulations}
                 </CardTitle>
                 <CardDescription className="text-lg">
-                  {language === "de"
-                    ? "Ihre Buchung wurde erfolgreich abgeschlossen"
-                    : language === "nl"
-                      ? "Uw boeking is succesvol afgerond"
-                      : "Your booking has been successfully completed"}
+                  {t.booking.bookingConfirmed}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -480,20 +467,20 @@ function BookingPageContent() {
                   {bookingId && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {language === "de" ? "Buchungs-Nr.:" : language === "nl" ? "Boekingsnr.:" : "Booking Ref.:"}
+                        {t.booking.bookingRef}
                       </span>
                       <span className="font-mono font-medium text-sm">{bookingId}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Kurs:" : language === "nl" ? "Cursus:" : "Course:"}
+                      {t.booking.labelCourse}
                     </span>
                     <span className="font-medium">{selectedCourseData?.title}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Datum:" : language === "nl" ? "Datum:" : "Date:"}
+                      {t.booking.labelDate}
                     </span>
                     <span className="font-medium">
                       {selectedDate
@@ -503,31 +490,31 @@ function BookingPageContent() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Uhrzeit:" : language === "nl" ? "Tijd:" : "Time:"}
+                      {t.booking.labelTime}
                     </span>
                     <span className="font-medium">{selectedTime}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Teilnehmer:" : language === "nl" ? "Deelnemers:" : "Participants:"}
+                      {t.booking.labelParticipants}
                     </span>
                     <span className="font-medium">{selectedSeatsCount}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Boot & Plätze:" : language === "nl" ? "Boot & Plaatsen:" : "Boat & Seats:"}
+                      {t.booking.labelBoatSeats}
                     </span>
                     <span className="font-medium text-right">
                       {getSelectedBoatInfo().map((b) => (
                         <span key={b.name} className="block">
-                          {b.name}: {language === "de" ? "Sitz" : language === "nl" ? "Stoel" : "Seat"} {b.seats.join(", ")}
+                          {b.name}: {t.booking.seat} {b.seats.join(", ")}
                         </span>
                       ))}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      {language === "de" ? "Name:" : language === "nl" ? "Naam:" : "Name:"}
+                      {t.booking.labelName}
                     </span>
                     <span className="font-medium">{formData.name}</span>
                   </div>
@@ -536,15 +523,15 @@ function BookingPageContent() {
                     <span className="font-medium">{formData.email}</span>
                   </div>
                   <div className="border-t pt-3 flex justify-between text-lg font-bold">
-                    <span>{language === "de" ? "Gesamt:" : language === "nl" ? "Totaal:" : "Total:"}</span>
-                    <span className="text-primary">€{totalPrice.toFixed(2)}</span>
+                    <span>{t.booking.labelTotal}</span>
+                    <span className="text-primary">&euro;{totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Background → Flaschengrün (footer) */}
+          {/* Background -> Flaschengruen (footer) */}
           <div className="-mx-4">
             <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
           </div>
@@ -561,24 +548,20 @@ function BookingPageContent() {
 
       <main className="min-h-screen pt-20 px-4 bg-secondary">
         <section
-          className="py-24 px-4 -mx-4"
-          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+          className="py-32 md:py-40 px-4 -mx-4"
+          style={{ background: "#1E3926" }}
         >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
-              {language === "de" ? "Kurs buchen" : language === "nl" ? "Boek een cursus" : "Book a Course"}
+              {t.booking.pageTitle}
             </h1>
             <p className="text-xl text-white/90 text-balance">
-              {language === "de"
-                ? "Wähle deinen Kurs und buche direkt online"
-                : language === "nl"
-                  ? "Kies je cursus en boek direct online"
-                  : "Choose your course and book directly online"}
+              {t.booking.pageSubtitle}
             </p>
           </div>
         </section>
 
-        {/* Flaschengrün → Background */}
+        {/* Flaschengruen -> Background */}
         <div className="-mx-4">
           <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
         </div>
@@ -586,37 +569,47 @@ function BookingPageContent() {
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-3xl">
             <div className="mb-12">
-              <div className="flex items-start justify-center gap-4 mb-2">
+              <div className="flex items-center justify-center mb-2">
                 {[
                   {
                     num: 1,
-                    label: language === "de" ? "Kurs" : language === "nl" ? "Cursus" : "Course",
+                    label: t.booking.steps.course,
                   },
                   {
                     num: 2,
-                    label: language === "de" ? "Datum & Zeit" : language === "nl" ? "Datum & Tijd" : "Date & Time",
+                    label: t.booking.steps.dateTime,
                   },
                   {
                     num: 3,
-                    label: language === "de" ? "Deine Daten" : language === "nl" ? "Je gegevens" : "Your Details",
+                    label: t.booking.steps.details,
                   },
                   {
                     num: 4,
-                    label: language === "de" ? "Zahlung" : language === "nl" ? "Betaling" : "Payment",
+                    label: t.booking.steps.payment,
                   },
                 ].map((s, idx) => (
-                  <div key={s.num} className="flex flex-col items-center">
-                    <div className="flex items-center">
+                  <div key={s.num} className="flex items-center">
+                    <div className="flex flex-col items-center w-20">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all ${
-                          step >= s.num ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
+                          step >= s.num
+                            ? "bg-primary text-white shadow-md"
+                            : "bg-white border border-border text-primary"
                         }`}
                       >
                         {step > s.num ? <CheckCircle2 className="h-6 w-6" /> : s.num}
                       </div>
-                      {idx < 3 && <div className={`w-16 h-1 mx-2 ${step > s.num ? "bg-primary" : "bg-muted"}`} />}
+                      <span
+                        className={`text-xs mt-2 text-center transition-colors ${
+                          step >= s.num ? "text-primary font-semibold" : "text-muted-foreground"
+                        }`}
+                      >
+                        {s.label}
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground mt-2 text-center max-w-[80px]">{s.label}</span>
+                    {idx < 3 && (
+                      <div className={`w-12 md:w-16 h-px -mt-6 ${step > s.num ? "bg-primary" : "bg-border"}`} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -625,11 +618,7 @@ function BookingPageContent() {
             {step === 1 && (
               <div className="space-y-4">
                 <h2 className="text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de"
-                    ? "Wähle deinen Kurs"
-                    : language === "nl"
-                      ? "Kies je cursus"
-                      : "Choose your course"}
+                  {t.booking.chooseCourse}
                 </h2>
                 {courses.map((course) => (
                   <Card
@@ -659,11 +648,10 @@ function BookingPageContent() {
                 <Button
                   onClick={() => setStep(2)}
                   disabled={!selectedCourse}
-                  className="w-full shimmer-button"
+                  className="w-full bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                   size="lg"
                 >
-                  {language === "de" ? "Weiter" : language === "nl" ? "Volgende" : "Continue"}
-                  <Sparkles className="ml-2 h-5 w-5" />
+                  {t.booking.continue}
                 </Button>
               </div>
             )}
@@ -671,31 +659,19 @@ function BookingPageContent() {
             {step === 2 && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de"
-                    ? "Wähle Datum, Uhrzeit & Plätze"
-                    : language === "nl"
-                      ? "Kies datum, tijd & plaatsen"
-                      : "Choose date, time & seats"}
+                  {t.booking.chooseDateTimeSeats}
                 </h2>
-                
+
                 {/* 24h Warning Notice */}
                 {isWithin24Hours && selectedDate && (
                   <div className="p-4 bg-orange/10 border border-orange/30 rounded-lg flex items-start gap-3">
                     <Phone className="h-5 w-5 text-orange mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="font-medium text-orange">
-                        {language === "de" 
-                          ? "Kurzfristige Buchung" 
-                          : language === "nl"
-                            ? "Last-minute boeking"
-                            : "Short-notice booking"}
+                        {t.booking.shortNotice}
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {language === "de" 
-                          ? "Für Buchungen innerhalb von 24 Stunden rufen Sie uns bitte direkt an:" 
-                          : language === "nl"
-                            ? "Voor boekingen binnen 24 uur kunt u ons direct bellen:"
-                            : "For bookings within 24 hours, please call us directly:"}
+                        {t.booking.shortNoticeText}
                       </p>
                       <a href="tel:+4939778123456" className="text-lg font-bold text-orange hover:underline mt-1 block">
                         +49 (0) 39778 123456
@@ -703,13 +679,13 @@ function BookingPageContent() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Date and Time Selection */}
                 <div className="grid md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
                       <CardTitle>
-                        {language === "de" ? "Datum wählen" : language === "nl" ? "Kies datum" : "Select date"}
+                        {t.booking.selectDate}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="flex justify-center">
@@ -726,7 +702,7 @@ function BookingPageContent() {
                   <Card>
                     <CardHeader>
                       <CardTitle>
-                        {language === "de" ? "Uhrzeit wählen" : language === "nl" ? "Kies tijd" : "Select time"}
+                        {t.booking.selectTime}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -745,36 +721,35 @@ function BookingPageContent() {
                     </CardContent>
                   </Card>
                 </div>
-                
+
                 {/* Boat Seat Selection - Shows after date and time are selected */}
                 {selectedDate && selectedTime && (
                   <div className="space-y-4">
                     <h3 className="text-2xl font-serif font-bold text-primary">
-                      {language === "de"
-                        ? "Wähle deine Plätze"
-                        : language === "nl"
-                          ? "Kies je plaatsen"
-                          : "Choose your seats"}
+                      {t.booking.chooseSeats}
                     </h3>
                     <p className="text-muted-foreground">
-                      {language === "de"
-                        ? "Klicke auf die verfügbaren Sitze, um sie auszuwählen. Jedes Boot bietet Platz für 4 Teilnehmer."
-                        : language === "nl"
-                          ? "Klik op de beschikbare stoelen om ze te selecteren. Elke boot biedt plaats aan 4 deelnemers."
-                          : "Click on available seats to select them. Each boat accommodates 4 participants."}
+                      {t.booking.chooseSeatsDesc}
                     </p>
-                    
+
                     <div className="grid md:grid-cols-2 gap-6">
                       {boats.map((boat) => (
                         <BoatSeatPicker
                           key={boat.id}
                           boat={boat}
                           onSeatClick={handleSeatClick}
-                          language={language}
+                          labels={{
+                            seat: t.booking.seat,
+                            captain: t.booking.captain,
+                            seatFree: t.booking.seatFree,
+                            seatTaken: t.booking.seatTaken,
+                            seatSelected: t.booking.seatSelected,
+                            free: t.booking.free,
+                          }}
                         />
                       ))}
                     </div>
-                    
+
                     {/* Selected seats summary */}
                     {selectedSeatsCount > 0 && (
                       <Card className="bg-primary/5 border-primary/20">
@@ -782,23 +757,19 @@ function BookingPageContent() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium">
-                                {language === "de"
-                                  ? `${selectedSeatsCount} ${selectedSeatsCount === 1 ? "Platz" : "Plätze"} ausgewählt`
-                                  : language === "nl"
-                                    ? `${selectedSeatsCount} ${selectedSeatsCount === 1 ? "plaats" : "plaatsen"} geselecteerd`
-                                    : `${selectedSeatsCount} ${selectedSeatsCount === 1 ? "seat" : "seats"} selected`}
+                                {`${selectedSeatsCount} ${selectedSeatsCount === 1 ? t.booking.seatSingular : t.booking.seatsPlural} ${t.booking.seatsSelectedSuffix}`}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 {getSelectedBoatInfo().map((b, i) => (
                                   <span key={b.name}>
                                     {i > 0 ? ", " : ""}
-                                    {b.name}: {language === "de" ? "Sitz" : language === "nl" ? "Stoel" : "Seat"} {b.seats.join(", ")}
+                                    {b.name}: {t.booking.seat} {b.seats.join(", ")}
                                   </span>
                                 ))}
                               </p>
                             </div>
                             <div className="text-2xl font-bold text-primary">
-                              €{(selectedCourseData ? Number.parseFloat(selectedCourseData.price.replace("€", "")) * selectedSeatsCount : 0).toFixed(2)}
+                              &euro;{(selectedCourseData ? Number.parseFloat(selectedCourseData.price.replace("€", "")) * selectedSeatsCount : 0).toFixed(2)}
                             </div>
                           </div>
                         </CardContent>
@@ -806,20 +777,19 @@ function BookingPageContent() {
                     )}
                   </div>
                 )}
-                
+
                 <div className="flex gap-4">
                   <Button onClick={() => setStep(1)} variant="outline" className="flex-1" size="lg">
                     <Sparkles className="mr-2 h-5 w-5" />
-                    {language === "de" ? "Zurück" : language === "nl" ? "Terug" : "Back"}
+                    {t.booking.back}
                   </Button>
                   <Button
                     onClick={() => setStep(3)}
                     disabled={!selectedDate || !selectedTime || selectedSeatsCount === 0}
-                    className="flex-1 shimmer-button"
+                    className="flex-1 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                     size="lg"
                   >
-                    {language === "de" ? "Weiter" : language === "nl" ? "Volgende" : "Continue"}
-                    <Sparkles className="ml-2 h-5 w-5" />
+                    {t.booking.continue}
                   </Button>
                 </div>
               </div>
@@ -828,13 +798,13 @@ function BookingPageContent() {
             {step === 3 && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de" ? "Deine Daten" : language === "nl" ? "Je gegevens" : "Your details"}
+                  {t.booking.steps.details}
                 </h2>
                 <Card>
                   <CardContent className="pt-6 space-y-4">
                     <div>
                       <Label className="block text-sm font-medium mb-2">
-                        {language === "de" ? "Name" : language === "nl" ? "Naam" : "Name"}
+                        {t.booking.formName}
                       </Label>
                       <Input
                         type="text"
@@ -854,7 +824,7 @@ function BookingPageContent() {
                     </div>
                     <div>
                       <Label className="block text-sm font-medium mb-2">
-                        {language === "de" ? "Telefon" : language === "nl" ? "Telefoon" : "Phone"}
+                        {t.booking.formPhone}
                       </Label>
                       <Input
                         type="tel"
@@ -866,22 +836,16 @@ function BookingPageContent() {
                     {/* Selected seats summary */}
                     <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
                       <Label className="block text-sm font-medium mb-2">
-                        {language === "de"
-                          ? "Ausgewählte Plätze"
-                          : language === "nl"
-                            ? "Geselecteerde plaatsen"
-                            : "Selected seats"}
+                        {t.booking.selectedSeats}
                       </Label>
                       <div className="text-lg font-medium text-primary">
-                        {selectedSeatsCount} {language === "de" ? (selectedSeatsCount === 1 ? "Platz" : "Plätze") : 
-                                              language === "nl" ? (selectedSeatsCount === 1 ? "plaats" : "plaatsen") : 
-                                              (selectedSeatsCount === 1 ? "seat" : "seats")}
+                        {selectedSeatsCount} {selectedSeatsCount === 1 ? t.booking.seatSingular : t.booking.seatsPlural}
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         {getSelectedBoatInfo().map((b, i) => (
                           <span key={b.name}>
                             {i > 0 ? " | " : ""}
-                            {b.name}: {language === "de" ? "Sitz" : language === "nl" ? "Stoel" : "Seat"} {b.seats.join(", ")}
+                            {b.name}: {t.booking.seat} {b.seats.join(", ")}
                           </span>
                         ))}
                       </div>
@@ -890,15 +854,11 @@ function BookingPageContent() {
                     {isMultiDayCourse && (
                       <div>
                         <Label className="block text-sm font-medium mb-2">
-                          {language === "de" ? "T-Shirt Größe" : language === "nl" ? "T-Shirt Maat" : "T-Shirt Size"}
+                          {t.booking.tshirtSize}
                           <span className="text-orange ml-1">*</span>
                         </Label>
                         <p className="text-sm text-muted-foreground mb-3">
-                          {language === "de" 
-                            ? "Im Kurspreis ist ein Segelschule T-Shirt enthalten!" 
-                            : language === "nl"
-                              ? "Een T-shirt van de zeilschool is inbegrepen in de cursusprijs!"
-                              : "A sailing school T-shirt is included in the course price!"}
+                          {t.booking.tshirtIncluded}
                         </p>
                         <div className="grid grid-cols-6 gap-2">
                           {tshirtSizes.map((size) => (
@@ -907,7 +867,7 @@ function BookingPageContent() {
                               type="button"
                               variant={formData.tshirtSize === size ? "default" : "outline"}
                               onClick={() => setFormData({ ...formData, tshirtSize: size })}
-                              className={`${formData.tshirtSize === size ? "bg-orange hover:bg-orange/90 text-white" : ""}`}
+                              className={`${formData.tshirtSize === size ? "bg-accent hover:bg-[#AA2023] text-white" : ""}`}
                             >
                               {size}
                             </Button>
@@ -915,7 +875,7 @@ function BookingPageContent() {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Accommodation help checkbox */}
                     <div className="p-4 bg-orange/10 rounded-lg border border-orange/20">
                       <label className="flex items-start gap-3 cursor-pointer">
@@ -927,36 +887,24 @@ function BookingPageContent() {
                         />
                         <div>
                           <span className="font-medium">
-                            {language === "de" 
-                              ? "Ich benötige Hilfe bei der Unterkunftssuche" 
-                              : language === "nl"
-                                ? "Ik heb hulp nodig bij het vinden van accommodatie"
-                                : "I need help finding accommodation"}
+                            {t.booking.needAccommodation}
                           </span>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {language === "de" 
-                              ? "Wir helfen dir gerne bei der Suche nach einer passenden Unterkunft in Altwarp und Umgebung." 
-                              : language === "nl"
-                                ? "Wij helpen je graag bij het vinden van passende accommodatie in Altwarp en omgeving."
-                                : "We're happy to help you find suitable accommodation in Altwarp and the surrounding area."}
+                            {t.booking.accommodationHelp}
                           </p>
                         </div>
                       </label>
                     </div>
-                    
+
                     <div>
                       <Label className="block text-sm font-medium mb-2">
-                        {language === "de" ? "Nachricht (optional)" : language === "nl" ? "Bericht (optioneel)" : "Message (optional)"}
+                        {t.booking.messageOptional}
                       </Label>
                       <Textarea
                         value={formData.message}
                         onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                         className="resize-none"
-                        placeholder={language === "de" 
-                          ? "Besondere Wünsche oder Fragen?" 
-                          : language === "nl"
-                            ? "Speciale wensen of vragen?"
-                            : "Special requests or questions?"}
+                        placeholder={t.booking.messagePlaceholder}
                       />
                     </div>
                   </CardContent>
@@ -964,16 +912,15 @@ function BookingPageContent() {
                 <div className="flex gap-4">
                   <Button onClick={() => setStep(2)} variant="outline" className="flex-1" size="lg">
                     <Sparkles className="mr-2 h-5 w-5" />
-                    {language === "de" ? "Zurück" : language === "nl" ? "Terug" : "Back"}
+                    {t.booking.back}
                   </Button>
                   <Button
                     onClick={() => setStep(4)}
                     disabled={!formData.name || !formData.email || !formData.phone || (isMultiDayCourse && !formData.tshirtSize)}
-                    className="flex-1 shimmer-button"
+                    className="flex-1 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                     size="lg"
                   >
-                    {language === "de" ? "Weiter" : language === "nl" ? "Volgende" : "Continue"}
-                    <Sparkles className="ml-2 h-5 w-5" />
+                    {t.booking.continue}
                   </Button>
                 </div>
               </div>
@@ -982,29 +929,25 @@ function BookingPageContent() {
             {step === 4 && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de" ? "Zahlung" : language === "nl" ? "Betaling" : "Payment"}
+                  {t.booking.steps.payment}
                 </h2>
 
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      {language === "de"
-                        ? "Buchungsübersicht"
-                        : language === "nl"
-                          ? "Boekingsoverzicht"
-                          : "Booking summary"}
+                      {t.booking.bookingSummary}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {language === "de" ? "Kurs:" : language === "nl" ? "Cursus:" : "Course:"}
+                        {t.booking.labelCourse}
                       </span>
                       <span className="font-medium">{selectedCourseData?.title}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {language === "de" ? "Datum:" : language === "nl" ? "Datum:" : "Date:"}
+                        {t.booking.labelDate}
                       </span>
                       <span className="font-medium">
                         {selectedDate
@@ -1016,19 +959,19 @@ function BookingPageContent() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {language === "de" ? "Uhrzeit:" : language === "nl" ? "Tijd:" : "Time:"}
+                        {t.booking.labelTime}
                       </span>
                       <span className="font-medium">{selectedTime}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {language === "de" ? "Teilnehmer:" : language === "nl" ? "Deelnemers:" : "Participants:"}
+                        {t.booking.labelParticipants}
                       </span>
                       <span className="font-medium">{selectedSeatsCount}</span>
                     </div>
                     <div className="border-t pt-3 flex justify-between text-xl font-bold">
-                      <span>{language === "de" ? "Gesamt:" : language === "nl" ? "Totaal:" : "Total:"}</span>
-                      <span className="text-primary">€{totalPrice.toFixed(2)}</span>
+                      <span>{t.booking.labelTotal}</span>
+                      <span className="text-primary">&euro;{totalPrice.toFixed(2)}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -1036,11 +979,7 @@ function BookingPageContent() {
                 <Card>
                   <CardHeader>
                     <CardTitle>
-                      {language === "de"
-                        ? "Zahlungsinformationen"
-                        : language === "nl"
-                          ? "Betaalinformatie"
-                          : "Payment information"}
+                      {t.booking.paymentInfo}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -1079,7 +1018,7 @@ function BookingPageContent() {
                       <div className="space-y-4 pt-4">
                         <div>
                           <Label className="block text-sm font-medium mb-2">
-                            {language === "de" ? "Kartennummer" : language === "nl" ? "Kaartnummer" : "Card number"}
+                            {t.booking.cardNumber}
                           </Label>
                           <div className="relative">
                             <Input
@@ -1122,7 +1061,7 @@ function BookingPageContent() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label className="block text-sm font-medium mb-2">
-                              {language === "de" ? "Ablaufdatum" : language === "nl" ? "Vervaldatum" : "Expiry date"}
+                              {t.booking.expiryDate}
                             </Label>
                             <Input
                               type="text"
@@ -1155,11 +1094,7 @@ function BookingPageContent() {
 
                         <div>
                           <Label className="block text-sm font-medium mb-2">
-                            {language === "de"
-                              ? "Name auf der Karte"
-                              : language === "nl"
-                                ? "Naam op kaart"
-                                : "Cardholder name"}
+                            {t.booking.cardholderName}
                           </Label>
                           <Input
                             type="text"
@@ -1184,11 +1119,7 @@ function BookingPageContent() {
                             />
                           </svg>
                           <span className="text-muted-foreground">
-                            {language === "de"
-                              ? "Ihre Zahlung wird sicher verarbeitet"
-                              : language === "nl"
-                                ? "Je betaling wordt veilig verwerkt"
-                                : "Your payment is processed securely"}
+                            {t.booking.securePayment}
                           </span>
                         </div>
                       </div>
@@ -1200,11 +1131,7 @@ function BookingPageContent() {
                         <div className="bg-muted p-8 rounded-lg text-center">
                           <Apple className="h-12 w-12 mx-auto mb-4" />
                           <p className="text-muted-foreground">
-                            {language === "de"
-                              ? "Touch ID oder Face ID verwenden"
-                              : language === "nl"
-                                ? "Gebruik Touch ID of Face ID"
-                                : "Use Touch ID or Face ID"}
+                            {t.booking.useApplePay}
                           </p>
                         </div>
                       </div>
@@ -1216,11 +1143,7 @@ function BookingPageContent() {
                         <div className="bg-muted p-8 rounded-lg text-center">
                           <Euro className="h-12 w-12 mx-auto mb-4" />
                           <p className="text-muted-foreground">
-                            {language === "de"
-                              ? "Sie werden zu PayPal weitergeleitet"
-                              : language === "nl"
-                                ? "U wordt doorgestuurd naar PayPal"
-                                : "You will be redirected to PayPal"}
+                            {t.booking.paypalRedirect}
                           </p>
                         </div>
                       </div>
@@ -1231,7 +1154,7 @@ function BookingPageContent() {
                 <div className="flex gap-4">
                   <Button onClick={() => setStep(3)} variant="outline" className="flex-1" size="lg">
                     <Sparkles className="mr-2 h-5 w-5" />
-                    {language === "de" ? "Zurück" : language === "nl" ? "Terug" : "Back"}
+                    {t.booking.back}
                   </Button>
                   <Button
                     onClick={handleComplete}
@@ -1247,14 +1170,10 @@ function BookingPageContent() {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        {language === "de" ? "Wird verarbeitet..." : language === "nl" ? "Wordt verwerkt..." : "Processing..."}
+                        {t.booking.processing}
                       </>
                     ) : (
-                      language === "de"
-                        ? `€${totalPrice.toFixed(2)} bezahlen`
-                        : language === "nl"
-                          ? `€${totalPrice.toFixed(2)} betalen`
-                          : `Pay €${totalPrice.toFixed(2)}`
+                      t.booking.payLabel.replace("{amount}", `\u20AC${totalPrice.toFixed(2)}`)
                     )}
                   </Button>
                 </div>
@@ -1263,7 +1182,7 @@ function BookingPageContent() {
           </div>
         </section>
 
-        {/* Background → Flaschengrün (footer) */}
+        {/* Background -> Flaschengruen (footer) */}
         <div className="-mx-4">
           <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
         </div>
@@ -1274,12 +1193,12 @@ function BookingPageContent() {
       {/* Floating "Fragen?" button */}
       <a
         href="tel:+4939778123456"
-        className="fixed bottom-6 right-6 z-50 bg-orange hover:bg-orange/90 text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 bg-accent hover:bg-[#AA2023] text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium transition-all hover:scale-105"
       >
         <MessageCircle className="h-5 w-5" />
-        {language === "de" ? "Fragen?" : language === "nl" ? "Vragen?" : "Questions?"}
+        {t.booking.questions}
       </a>
-      
+
       <Toaster />
     </>
   )

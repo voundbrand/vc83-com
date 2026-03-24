@@ -2,8 +2,18 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
-import { getConvexClient, getOrganizationId, mutateInternal, queryInternal } from "@/lib/server-convex";
-import { EditorSessionError, requireEditorSession } from "@/lib/cms-editor";
+import {
+  getConvexClient,
+  getOrganizationId,
+  mutateInternal,
+  queryInternal,
+  resolveSegelschuleOrganizationId,
+} from "@/lib/server-convex";
+import {
+  clearEditorSessionCookie,
+  EditorSessionError,
+  requireEditorSession,
+} from "@/lib/cms-editor";
 import {
   buildCmsContentName,
   createEmptyCmsRecord,
@@ -11,6 +21,7 @@ import {
   toCmsBridgeRecord,
   serializeCmsContentInput,
 } from "@/lib/cms-bridge";
+import { getRequestHostFromRequest } from "@/lib/request-host";
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,8 +37,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function getCmsOrganizationId(): Id<"organizations"> {
-  const organizationId = getOrganizationId();
+async function getCmsOrganizationId(
+  requestHost: string | null
+): Promise<Id<"organizations">> {
+  const organizationId =
+    (await resolveSegelschuleOrganizationId({ requestHost })) ||
+    getOrganizationId();
   if (!organizationId) {
     throw new Error("Platform organization is not configured");
   }
@@ -113,6 +128,7 @@ async function loadContentRecord(args: {
 
 export async function GET(request: Request) {
   try {
+    const requestHost = getRequestHostFromRequest(request);
     const url = new URL(request.url);
     const page = readRequiredParam(url.searchParams, "page");
     const section = readRequiredParam(url.searchParams, "section");
@@ -126,13 +142,15 @@ export async function GET(request: Request) {
 
     let sessionId: string | undefined;
     if (includeUnpublished) {
-      const session = await requireEditorSession(["edit_published_pages"]);
+      const session = await requireEditorSession(["edit_published_pages"], {
+        requestHost,
+      });
       sessionId = session.sessionId;
     }
 
     const name = buildCmsContentName(page, section, key);
     const record = await loadContentRecord({
-      organizationId: getCmsOrganizationId(),
+      organizationId: await getCmsOrganizationId(requestHost),
       name,
       locale,
       defaultLocale,
@@ -145,10 +163,12 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     if (error instanceof EditorSessionError) {
-      return jsonResponse(
+      const response = jsonResponse(
         { error: error.message },
         error.status
       );
+      clearEditorSessionCookie(response);
+      return response;
     }
 
     return jsonResponse(
@@ -163,6 +183,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const requestHost = getRequestHostFromRequest(request);
     const body = (await request.json()) as Record<string, unknown>;
     const page = typeof body.page === "string" ? body.page.trim() : "";
     const section =
@@ -190,7 +211,8 @@ export async function POST(request: Request) {
     const session = await requireEditorSession(
       status === "published"
         ? [...requiredPermissions, "publish_pages"]
-        : [...requiredPermissions]
+        : [...requiredPermissions],
+      { requestHost }
     );
 
     const serializedInput = serializeCmsContentInput({
@@ -204,7 +226,7 @@ export async function POST(request: Request) {
 
     const args = {
       sessionId: session.sessionId,
-      organizationId: getCmsOrganizationId(),
+      organizationId: await getCmsOrganizationId(requestHost),
       name: buildCmsContentName(page, section, key),
       locale,
       value: serializedInput.value,
@@ -241,10 +263,12 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof EditorSessionError) {
-      return jsonResponse(
+      const response = jsonResponse(
         { error: error.message },
         error.status
       );
+      clearEditorSessionCookie(response);
+      return response;
     }
 
     return jsonResponse(

@@ -1,5 +1,9 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { EditableHeading, EditableParagraph, EditableText } from "@cms"
+import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
 
 interface TeamMember {
   name: string
@@ -14,12 +18,36 @@ interface TeamSectionProps {
 }
 
 export function TeamSection({ title, subtitle, members }: TeamSectionProps) {
+  const cmsEnabled = isCmsEditorEnabled()
+
   return (
     <section className="py-28 px-4 bg-background">
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary mb-4 text-balance">{title}</h2>
-          <p className="text-xl text-muted-foreground text-balance">{subtitle}</p>
+          {cmsEnabled ? (
+            <>
+              <EditableHeading
+                page="home"
+                section="team"
+                contentKey="title"
+                fallback={title}
+                level={2}
+                className="text-4xl md:text-5xl font-serif font-bold text-primary mb-4 text-balance"
+              />
+              <EditableParagraph
+                page="home"
+                section="team"
+                contentKey="subtitle"
+                fallback={subtitle}
+                className="text-xl text-muted-foreground text-balance"
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary mb-4 text-balance">{title}</h2>
+              <p className="text-xl text-muted-foreground text-balance">{subtitle}</p>
+            </>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -38,11 +66,44 @@ export function TeamSection({ title, subtitle, members }: TeamSectionProps) {
                       .join("")}
                   </AvatarFallback>
                 </Avatar>
-                <CardTitle className="text-2xl font-serif text-primary">{member.name}</CardTitle>
-                <CardDescription className="text-base font-medium">{member.role}</CardDescription>
+                <CardTitle className="text-2xl font-serif text-primary">
+                  {cmsEnabled ? (
+                    <EditableText
+                      page="home"
+                      section="team"
+                      contentKey={`member_${index + 1}_name`}
+                      fallback={member.name}
+                    />
+                  ) : (
+                    member.name
+                  )}
+                </CardTitle>
+                <CardDescription className="text-base font-medium">
+                  {cmsEnabled ? (
+                    <EditableText
+                      page="home"
+                      section="team"
+                      contentKey={`member_${index + 1}_role`}
+                      fallback={member.role}
+                    />
+                  ) : (
+                    member.role
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-foreground/80 leading-relaxed">{member.bio}</p>
+                <p className="text-foreground/80 leading-relaxed">
+                  {cmsEnabled ? (
+                    <EditableText
+                      page="home"
+                      section="team"
+                      contentKey={`member_${index + 1}_bio`}
+                      fallback={member.bio}
+                    />
+                  ) : (
+                    member.bio
+                  )}
+                </p>
               </CardContent>
             </Card>
           ))}

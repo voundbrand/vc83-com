@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
+import { EditableText, useCmsEditMode } from "@cms"
+import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
 import { LanguageSwitcher } from "./language-switcher"
 import { Logo } from "./logo"
 import type { Language } from "@/lib/translations"
@@ -24,6 +26,8 @@ interface HeaderProps {
 }
 
 export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrolledStyle = false }: HeaderProps) {
+  const cmsEnabled = isCmsEditorEnabled()
+  const { isEditMode } = useCmsEditMode()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -38,20 +42,24 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
   const useScrolledStyle = forceScrolledStyle || isScrolled
 
   const navigation = [
-    { name: navLinks.about, href: "/#about" },
-    { name: navLinks.courses, href: "/#courses" },
-    { name: navLinks.pricing, href: "/pricing" },
-    { name: navLinks.team, href: "/#team" },
-    { name: navLinks.gallery, href: "/#gallery" },
-    { name: navLinks.contact, href: "/contact" },
-    { name: navLinks.booking, href: "/booking" },
+    { key: "about", name: navLinks.about, href: "/#about" },
+    { key: "courses", name: navLinks.courses, href: "/#courses" },
+    { key: "pricing", name: navLinks.pricing, href: "/pricing" },
+    { key: "team", name: navLinks.team, href: "/#team" },
+    { key: "gallery", name: navLinks.gallery, href: "/#gallery" },
+    { key: "contact", name: navLinks.contact, href: "/contact" },
+    { key: "booking", name: navLinks.booking, href: "/booking" },
   ]
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
       <div
         className={`transition-all duration-300 ${
-          useScrolledStyle ? "bg-background/95 backdrop-blur-sm" : "bg-transparent"
+          forceScrolledStyle && !isScrolled
+            ? "bg-background"
+            : useScrolledStyle
+              ? "bg-background/95 backdrop-blur-sm"
+              : "bg-transparent"
         }`}
       >
         <div className="container mx-auto px-4">
@@ -61,13 +69,27 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
           <nav className="hidden md:flex items-center gap-6">
             {navigation.map((item) => (
               <Link
-                key={item.name}
+                key={item.key}
                 href={item.href}
+                onClick={(event) => {
+                  if (cmsEnabled && isEditMode) {
+                    event.preventDefault()
+                  }
+                }}
                 className={`font-sans font-medium transition-colors hover:text-accent ${
                   useScrolledStyle ? "text-foreground" : "text-[#FFFBEA]"
                 }`}
               >
-                {item.name}
+                {cmsEnabled ? (
+                  <EditableText
+                    page="home"
+                    section="nav"
+                    contentKey={item.key}
+                    fallback={item.name}
+                  />
+                ) : (
+                  item.name
+                )}
               </Link>
             ))}
             <LanguageSwitcher
@@ -98,12 +120,27 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
           <nav className="md:hidden py-4 border-t border-border">
             {navigation.map((item) => (
               <Link
-                key={item.name}
+                key={item.key}
                 href={item.href}
+                onClick={(event) => {
+                  if (cmsEnabled && isEditMode) {
+                    event.preventDefault()
+                    return
+                  }
+                  setIsMobileMenuOpen(false)
+                }}
                 className="block py-3 font-sans font-medium text-foreground hover:text-primary transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
               >
-                {item.name}
+                {cmsEnabled ? (
+                  <EditableText
+                    page="home"
+                    section="nav"
+                    contentKey={item.key}
+                    fallback={item.name}
+                  />
+                ) : (
+                  item.name
+                )}
               </Link>
             ))}
           </nav>
@@ -121,7 +158,7 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
           <path
             d="M0,0 C150,45 350,0 500,30 C650,60 800,15 1000,40 C1100,50 1150,30 1200,20 L1200,0 L0,0 Z"
             fill="var(--color-background)"
-            fillOpacity="0.95"
+            fillOpacity={forceScrolledStyle && !isScrolled ? "1" : "0.95"}
           />
         </svg>
       </div>

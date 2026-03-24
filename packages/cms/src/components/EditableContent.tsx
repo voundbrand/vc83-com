@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useCmsContent, useCmsEditMode } from "../hooks";
 import { LocaleFallbackIndicator } from "./LocaleFallbackIndicator";
+import { EditableFieldHint, getEditableFieldStyle } from "./editableFieldChrome";
 import type { CmsContentSubtype } from "../types";
 
 interface EditableContentProps {
@@ -14,6 +15,7 @@ interface EditableContentProps {
   className?: string;
   as?: React.ElementType;
   allowLineBreaks?: boolean;
+  showEditHint?: boolean;
   subtype?: Exclude<CmsContentSubtype, "image" | "text_with_links">;
 }
 
@@ -32,6 +34,7 @@ export function EditableContent({
   className,
   as: Component = "div",
   allowLineBreaks = false,
+  showEditHint = true,
   subtype = "text",
 }: EditableContentProps) {
   const contentRef = useRef<HTMLElement>(null);
@@ -101,14 +104,9 @@ export function EditableContent({
     contentRef.current.focus();
   }
 
-  const borderStyle = isEditMode
-    ? isEditing
-      ? "2px solid rgba(37, 99, 235, 0.8)"
-      : "2px dashed rgba(37, 99, 235, 0.35)"
-    : "2px solid transparent";
-
   return (
     <div style={{ display: "grid", gap: 8 }}>
+      <EditableFieldHint isEditMode={isEditMode && showEditHint} />
       <Component
         ref={contentRef as React.RefObject<HTMLElement>}
         className={className}
@@ -143,15 +141,12 @@ export function EditableContent({
           setTimeout(focusAtEnd, 0);
         }}
         style={{
-          border: borderStyle,
-          borderRadius: 10,
-          cursor: isEditMode ? "text" : "inherit",
-          minHeight: 24,
-          opacity: isSaving || isLoading ? 0.7 : 1,
-          outline: "none",
-          padding: isEditMode ? "4px 6px" : undefined,
-          transition: "border-color 120ms ease, opacity 120ms ease",
-          whiteSpace: allowLineBreaks ? "pre-wrap" : undefined,
+          ...getEditableFieldStyle({
+            isEditMode,
+            isActive: isEditing,
+            isBusy: isSaving || isLoading,
+            allowLineBreaks,
+          }),
         }}
       >
         {localValue}
@@ -162,7 +157,7 @@ export function EditableContent({
 }
 
 export function EditableText(props: Omit<EditableContentProps, "as">) {
-  return <EditableContent {...props} as="span" />;
+  return <EditableContent {...props} as="span" showEditHint={false} />;
 }
 
 export function EditableHeading(

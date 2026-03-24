@@ -122,7 +122,7 @@ export function BookingSection({ title, subtitle, formLabels, courseOptions }: B
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" className="w-full bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button">
                 {formLabels.submit}
               </Button>
             </form>

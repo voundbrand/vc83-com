@@ -3,7 +3,12 @@ import "server-only";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { getConvexClient, getOrganizationId, queryInternal } from "@/lib/server-convex";
+import {
+  getConvexClient,
+  getOrganizationId,
+  queryInternal,
+  resolveSegelschuleOrganizationId,
+} from "@/lib/server-convex";
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +72,12 @@ interface EditorSessionUserProfile {
   }>;
 }
 
+export interface EditorSessionScope {
+  organizationId?: string | null;
+  requestHost?: string | null;
+  sessionId?: string | null;
+}
+
 export class EditorSessionError extends Error {
   status: number;
 
@@ -76,8 +87,14 @@ export class EditorSessionError extends Error {
   }
 }
 
-function getCmsOrganizationId(): Id<"organizations"> {
-  const organizationId = getOrganizationId();
+async function getCmsOrganizationId(
+  scope: EditorSessionScope = {}
+): Promise<Id<"organizations">> {
+  const hostScopedOrganizationId = await resolveSegelschuleOrganizationId({
+    organizationId: scope.organizationId,
+    requestHost: scope.requestHost,
+  });
+  const organizationId = hostScopedOrganizationId || getOrganizationId();
   if (!organizationId) {
     throw new Error("Platform organization is not configured");
   }
@@ -135,7 +152,8 @@ export async function getEditorSessionIdFromCookie(): Promise<string | null> {
 }
 
 export async function resolveEditorSessionState(
-  sessionId: string
+  sessionId: string,
+  scope: EditorSessionScope = {}
 ): Promise<EditorSessionState | null> {
   const normalizedSessionId = normalizeSessionId(sessionId);
   if (!normalizedSessionId) {
@@ -143,7 +161,7 @@ export async function resolveEditorSessionState(
   }
 
   const convex = getConvexClient();
-  const siteOrganizationId = getCmsOrganizationId();
+  const siteOrganizationId = await getCmsOrganizationId(scope);
 
   try {
     const auth = await queryInternal(
@@ -223,14 +241,17 @@ export async function getEditorSessionStateFromCookie(): Promise<EditorSessionSt
 }
 
 export async function requireEditorSession(
-  requiredPermissions: CmsEditorPermission[] = []
+  requiredPermissions: CmsEditorPermission[] = [],
+  scope: EditorSessionScope = {}
 ): Promise<EditorSessionState> {
-  const sessionId = await getEditorSessionIdFromCookie();
+  const sessionId =
+    normalizeSessionId(scope.sessionId ?? undefined) ||
+    (await getEditorSessionIdFromCookie());
   if (!sessionId) {
     throw new EditorSessionError(401, "Editor session required");
   }
 
-  const session = await resolveEditorSessionState(sessionId);
+  const session = await resolveEditorSessionState(sessionId, scope);
   if (!session) {
     throw new EditorSessionError(401, "Editor session is invalid or expired");
   }

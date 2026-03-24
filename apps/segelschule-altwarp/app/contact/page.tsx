@@ -48,19 +48,17 @@ export default function ContactPage() {
       }
 
       toast({
-        title: language === "de" ? "Nachricht gesendet!" : language === "nl" ? "Bericht verzonden!" : "Message sent!",
-        description: language === "de" ? "Wir melden uns in K\u00fcrze bei Ihnen." : language === "nl" ? "We nemen spoedig contact met u op." : "We will get back to you shortly.",
+        title: t.contact.messageSent,
+        description: t.contact.messageSentDesc,
       })
       setFormData({ name: "", email: "", subject: "", message: "" })
     } catch (err) {
       toast({
-        title: language === "de" ? "Fehler" : language === "nl" ? "Fout" : "Error",
+        title: t.contact.error,
         description:
           err instanceof Error
             ? err.message
-            : language === "de"
-              ? "Bitte versuchen Sie es erneut."
-              : "Please try again.",
+            : t.contact.tryAgain,
         variant: "destructive",
       })
     } finally {
@@ -78,8 +76,8 @@ export default function ContactPage() {
 
       <main className="pt-20">
         <section
-          className="py-16 md:py-24 px-4"
-          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+          className="py-32 md:py-40 px-4"
+          style={{ background: "#1E3926" }}
         >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-6 text-balance">
@@ -98,13 +96,7 @@ export default function ContactPage() {
               {/* Contact Information - Left Side */}
               <div>
                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de"
-                    ? "Kontaktinformationen"
-                    : language === "nl"
-                      ? "Contactgegevens"
-                      : language === "ch"
-                        ? "Kontaktinformatione"
-                        : "Contact Information"}
+                  {t.contact.contactInfo}
                 </h2>
 
                 <div className="space-y-4">
@@ -116,13 +108,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {language === "de"
-                              ? "Adresse"
-                              : language === "nl"
-                                ? "Adres"
-                                : language === "ch"
-                                  ? "Adräss"
-                                  : "Address"}
+                            {t.contact.addressLabel}
                           </h3>
                           <p className="text-foreground/80">{t.contact.info.address}</p>
                           <p className="text-foreground/80">{t.contact.info.city}</p>
@@ -139,13 +125,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {language === "de"
-                              ? "Telefon"
-                              : language === "nl"
-                                ? "Telefoon"
-                                : language === "ch"
-                                  ? "Telefon"
-                                  : "Phone"}
+                            {t.contact.phoneLabel}
                           </h3>
                           <a
                             href={`tel:${t.contact.info.phone}`}
@@ -185,31 +165,13 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {language === "de"
-                              ? "Öffnungszeiten"
-                              : language === "nl"
-                                ? "Openingstijden"
-                                : language === "ch"
-                                  ? "Öffnigsziite"
-                                  : "Opening Hours"}
+                            {t.contact.openingHours}
                           </h3>
                           <p className="text-foreground/80">
-                            {language === "de"
-                              ? "Mo-Fr: 9:00 - 18:00 Uhr"
-                              : language === "nl"
-                                ? "Ma-Vr: 9:00 - 18:00"
-                                : language === "ch"
-                                  ? "Mo-Fr: 9:00 - 18:00"
-                                  : "Mon-Fri: 9:00 AM - 6:00 PM"}
+                            {t.contact.weekdayHours}
                           </p>
                           <p className="text-foreground/80">
-                            {language === "de"
-                              ? "Sa-So: 10:00 - 16:00 Uhr"
-                              : language === "nl"
-                                ? "Za-Zo: 10:00 - 16:00"
-                                : language === "ch"
-                                  ? "Sa-So: 10:00 - 16:00"
-                                  : "Sat-Sun: 10:00 AM - 4:00 PM"}
+                            {t.contact.weekendHours}
                           </p>
                         </div>
                       </div>
@@ -221,13 +183,7 @@ export default function ContactPage() {
               {/* Contact Form - Right Side */}
               <div>
                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-6">
-                  {language === "de"
-                    ? "Nachricht senden"
-                    : language === "nl"
-                      ? "Stuur een bericht"
-                      : language === "ch"
-                        ? "Nachricht schicke"
-                        : "Send a Message"}
+                  {t.contact.sendMessage}
                 </h2>
                 <Card className="shadow-lg">
                   <CardContent className="pt-6">
@@ -276,7 +232,7 @@ export default function ContactPage() {
                         {isSubmitting ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            {language === "de" ? "Wird gesendet..." : language === "nl" ? "Wordt verzonden..." : "Sending..."}
+                            {t.contact.sending}
                           </>
                         ) : (
                           t.contact.form.submit
@@ -297,32 +253,14 @@ export default function ContactPage() {
           <div className="container mx-auto max-w-7xl">
             <div className="text-center mb-8">
               <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#FFF6C3] mb-4">
-                {language === "de"
-                  ? "So finden Sie uns"
-                  : language === "nl"
-                    ? "Zo vindt u ons"
-                    : language === "ch"
-                      ? "So findet Sie öis"
-                      : "Find Your Way Here"}
+                {t.contact.findUs}
               </h2>
               <p className="text-[#FFFBEA]/80 text-lg max-w-2xl mx-auto mb-6">
-                {language === "de"
-                  ? "Wir befinden uns direkt am Hafen von Altwarp mit herrlichem Blick auf die Ostsee."
-                  : language === "nl"
-                    ? "We bevinden ons direct aan de haven van Altwarp met prachtig uitzicht op de Oostzee."
-                    : language === "ch"
-                      ? "Mir sin diräkt am Hafen vo Altwarp mit herrlichem Blick uf d'Ostsee."
-                      : "We are located directly at the Altwarp harbor with a magnificent view of the Baltic Sea."}
+                {t.contact.findUsDesc}
               </p>
               <Button onClick={openDirections} size="lg" className="bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button gap-2">
                 <Navigation className="h-5 w-5" />
-                {language === "de"
-                  ? "Route planen"
-                  : language === "nl"
-                    ? "Plan route"
-                    : language === "ch"
-                      ? "Route plane"
-                      : "Get Directions"}
+                {t.contact.getDirections}
               </Button>
             </div>
 

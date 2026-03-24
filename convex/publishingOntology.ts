@@ -23,6 +23,331 @@ import {
   updateCmsRequestApprovalRecord,
 } from "./cmsAgentRequestLifecycle";
 
+const CMS_SCOPE_PREFIX = "app";
+const CMS_SCOPE_DELIMITER = "__";
+const CMS_PAGE_NAME_DELIMITER = "_";
+const CMS_SCOPE_METADATA_VERSION = "web_publishing_cms_scope_v1";
+const CMS_SCOPE_METADATA_SOURCE = "web_publishing_window";
+const CMS_COPY_MAX_FIELDS = 250;
+const CMS_COPY_MAX_LOCALES = 25;
+const CMS_COPY_MAX_MIGRATION_OPERATIONS = 1000;
+
+const cmsCopyFieldValidator = v.object({
+  page: v.string(),
+  section: v.string(),
+  key: v.string(),
+  subtype: v.optional(v.string()),
+});
+
+type CmsCopyFieldInput = {
+  page: string;
+  section: string;
+  key: string;
+  subtype?: string;
+};
+
+type CmsContentRecord = {
+  _id: string;
+  name: string;
+  subtype?: string;
+  locale?: string;
+  value?: string;
+  description?: string;
+  status?: string;
+  customProperties?: Record<string, unknown>;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+// Lazy-load internal API refs to avoid TS2589 deep type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _internalCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getInternal(): any {
+  if (!_internalCache) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _internalCache = require("./_generated/api").internal;
+  }
+  return _internalCache;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeCmsToken(value: string, fieldName: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error(`${fieldName} must be a non-empty string`);
+  }
+  if (normalized.includes(CMS_SCOPE_DELIMITER)) {
+    throw new Error(`${fieldName} cannot include "${CMS_SCOPE_DELIMITER}"`);
+  }
+  return normalized;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildCmsBaseName(args: {
+  page: string;
+  section: string;
+  key: string;
+}): string {
+  const page = normalizeCmsToken(args.page, "page");
+  const section = normalizeCmsToken(args.section, "section");
+  const key = normalizeCmsToken(args.key, "key");
+  return `${page}${CMS_PAGE_NAME_DELIMITER}${section}${CMS_PAGE_NAME_DELIMITER}${key}`;
+}
+
+function buildScopedCmsName(applicationId: string, baseName: string): string {
+  return `${CMS_SCOPE_PREFIX}${CMS_PAGE_NAME_DELIMITER}${applicationId}${CMS_SCOPE_DELIMITER}${baseName}`;
+}
+
+function normalizeCmsFieldInput(field: CmsCopyFieldInput): CmsCopyFieldInput {
+  return {
+    page: normalizeCmsToken(field.page, "field.page"),
+    section: normalizeCmsToken(field.section, "field.section"),
+    key: normalizeCmsToken(field.key, "field.key"),
+    subtype: normalizeOptionalString(field.subtype),
+  };
+}
+
+async function requireApplicationCmsContext(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  sessionId: string;
+  applicationId: string;
+  requiredPermissions: string[];
+}) {
+  const { userId } = await requireAuthenticatedUser(args.ctx, args.sessionId);
+  const application = await args.ctx.db.get(args.applicationId);
+  if (!application || application.type !== "connected_application") {
+    throw new Error("Connected application not found");
+  }
+
+  for (const permission of args.requiredPermissions) {
+    const hasPermission = await checkPermission(
+      args.ctx,
+      userId,
+      permission,
+      application.organizationId
+    );
+    if (!hasPermission) {
+      throw new Error(`Permission denied: ${permission} required`);
+    }
+  }
+
+  return {
+    userId,
+    application,
+    organizationId: application.organizationId,
+  };
+}
+
+async function getCmsRecordByLocaleName(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: string;
+  sessionId: string;
+  name: string;
+  locale: string;
+}): Promise<CmsContentRecord | null> {
+  const record = await args.ctx.runQuery(
+    getInternal().cmsContent.getCmsObjectByLocaleName,
+    {
+      organizationId: args.organizationId,
+      name: args.name,
+      locale: args.locale,
+      includeUnpublished: true,
+      sessionId: args.sessionId,
+    }
+  );
+
+  return (record as CmsContentRecord | null) || null;
+}
+
+async function getCmsRecordByPreferredName(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: string;
+  sessionId: string;
+  name: string;
+  preferredLocale: string;
+}): Promise<CmsContentRecord | null> {
+  const record = await args.ctx.runQuery(
+    getInternal().cmsContent.getCmsObjectByName,
+    {
+      organizationId: args.organizationId,
+      name: args.name,
+      preferredLocale: args.preferredLocale,
+      includeUnpublished: true,
+      sessionId: args.sessionId,
+    }
+  );
+
+  return (record as CmsContentRecord | null) || null;
+}
+
+async function loadCmsRecordWithLocaleFallback(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  organizationId: string;
+  sessionId: string;
+  name: string;
+  locale: string;
+  defaultLocale?: string;
+}): Promise<{
+  record: CmsContentRecord | null;
+  resolvedLocale: string | null;
+}> {
+  const locale = normalizeCmsToken(args.locale, "locale");
+  const defaultLocale = normalizeOptionalString(args.defaultLocale);
+
+  const localizedExact = await getCmsRecordByLocaleName({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    sessionId: args.sessionId,
+    name: args.name,
+    locale,
+  });
+  if (localizedExact) {
+    return {
+      record: localizedExact,
+      resolvedLocale: localizedExact.locale || locale,
+    };
+  }
+
+  const localizedFallback = await getCmsRecordByPreferredName({
+    ctx: args.ctx,
+    organizationId: args.organizationId,
+    sessionId: args.sessionId,
+    name: args.name,
+    preferredLocale: locale,
+  });
+  if (localizedFallback) {
+    return {
+      record: localizedFallback,
+      resolvedLocale: localizedFallback.locale || locale,
+    };
+  }
+
+  if (defaultLocale && defaultLocale !== locale) {
+    const defaultExact = await getCmsRecordByLocaleName({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      sessionId: args.sessionId,
+      name: args.name,
+      locale: defaultLocale,
+    });
+    if (defaultExact) {
+      return {
+        record: defaultExact,
+        resolvedLocale: defaultExact.locale || defaultLocale,
+      };
+    }
+
+    const defaultFallback = await getCmsRecordByPreferredName({
+      ctx: args.ctx,
+      organizationId: args.organizationId,
+      sessionId: args.sessionId,
+      name: args.name,
+      preferredLocale: defaultLocale,
+    });
+    if (defaultFallback) {
+      return {
+        record: defaultFallback,
+        resolvedLocale: defaultFallback.locale || defaultLocale,
+      };
+    }
+  }
+
+  return {
+    record: null,
+    resolvedLocale: null,
+  };
+}
+
+function chooseCanonicalCmsRecord(args: {
+  scoped: CmsContentRecord | null;
+  scopedResolvedLocale: string | null;
+  legacy: CmsContentRecord | null;
+  legacyResolvedLocale: string | null;
+}): {
+  record: CmsContentRecord | null;
+  resolvedLocale: string | null;
+  source: "scoped" | "legacy" | "none";
+} {
+  if (!args.scoped && !args.legacy) {
+    return {
+      record: null,
+      resolvedLocale: null,
+      source: "none",
+    };
+  }
+
+  if (args.scoped && !args.legacy) {
+    return {
+      record: args.scoped,
+      resolvedLocale: args.scopedResolvedLocale,
+      source: "scoped",
+    };
+  }
+
+  if (!args.scoped && args.legacy) {
+    return {
+      record: args.legacy,
+      resolvedLocale: args.legacyResolvedLocale,
+      source: "legacy",
+    };
+  }
+
+  const scopedUpdatedAt = args.scoped?.updatedAt || 0;
+  const legacyUpdatedAt = args.legacy?.updatedAt || 0;
+  if (legacyUpdatedAt > scopedUpdatedAt) {
+    return {
+      record: args.legacy,
+      resolvedLocale: args.legacyResolvedLocale,
+      source: "legacy",
+    };
+  }
+
+  return {
+    record: args.scoped,
+    resolvedLocale: args.scopedResolvedLocale,
+    source: "scoped",
+  };
+}
+
+function buildScopedCmsCustomProperties(args: {
+  existingCustomProperties?: unknown;
+  applicationId: string;
+  baseName: string;
+  scopedName: string;
+}): Record<string, unknown> {
+  return {
+    ...(asRecord(args.existingCustomProperties) || {}),
+    cmsScopeVersion: CMS_SCOPE_METADATA_VERSION,
+    cmsScopeSource: CMS_SCOPE_METADATA_SOURCE,
+    cmsScope: {
+      applicationId: args.applicationId,
+      version: CMS_SCOPE_METADATA_VERSION,
+      source: CMS_SCOPE_METADATA_SOURCE,
+    },
+    cmsBaseName: args.baseName,
+    cmsScopedName: args.scopedName,
+    cmsLegacyName: args.baseName,
+  };
+}
+
 /**
  * PUBLISHING ONTOLOGY v2 - TEMPLATE + THEME ARCHITECTURE
  *
@@ -2164,6 +2489,442 @@ export const listCmsRequests = query({
     return {
       requests,
       total: filtered.length,
+    };
+  },
+});
+
+/**
+ * Get app-scoped CMS copy for deterministic field mappings.
+ *
+ * Scope is always derived from `applicationId` server-side.
+ * Client-supplied organization IDs are intentionally ignored.
+ */
+export const getApplicationCmsCopy = query({
+  args: {
+    sessionId: v.string(),
+    applicationId: v.id("objects"),
+    locale: v.string(),
+    defaultLocale: v.optional(v.string()),
+    fields: v.array(cmsCopyFieldValidator),
+  },
+  handler: async (ctx, args) => {
+    const { application, organizationId } = await requireApplicationCmsContext({
+      ctx,
+      sessionId: args.sessionId,
+      applicationId: args.applicationId,
+      requiredPermissions: ["view_published_pages", "edit_published_pages"],
+    });
+
+    if (args.fields.length === 0) {
+      return {
+        application: {
+          _id: application._id,
+          name: application.name,
+          organizationId,
+        },
+        locale: normalizeCmsToken(args.locale, "locale"),
+        defaultLocale: normalizeOptionalString(args.defaultLocale) || normalizeCmsToken(args.locale, "locale"),
+        fields: [],
+      };
+    }
+
+    if (args.fields.length > CMS_COPY_MAX_FIELDS) {
+      throw new Error(`fields cannot exceed ${CMS_COPY_MAX_FIELDS} entries`);
+    }
+
+    const locale = normalizeCmsToken(args.locale, "locale");
+    const defaultLocale = normalizeOptionalString(args.defaultLocale) || locale;
+    const normalizedFields = args.fields.map(normalizeCmsFieldInput);
+
+    const hydratedFields = await Promise.all(
+      normalizedFields.map(async (field) => {
+        const baseName = buildCmsBaseName(field);
+        const scopedName = buildScopedCmsName(String(args.applicationId), baseName);
+
+        const scopedResult = await loadCmsRecordWithLocaleFallback({
+          ctx,
+          organizationId,
+          sessionId: args.sessionId,
+          name: scopedName,
+          locale,
+          defaultLocale,
+        });
+
+        const legacyResult = await loadCmsRecordWithLocaleFallback({
+          ctx,
+          organizationId,
+          sessionId: args.sessionId,
+          name: baseName,
+          locale,
+          defaultLocale,
+        });
+
+        const canonical = chooseCanonicalCmsRecord({
+          scoped: scopedResult.record,
+          scopedResolvedLocale: scopedResult.resolvedLocale,
+          legacy: legacyResult.record,
+          legacyResolvedLocale: legacyResult.resolvedLocale,
+        });
+
+        const canonicalRecord = canonical.record
+          ? {
+              _id: canonical.record._id,
+              name: canonical.record.name,
+              subtype: canonical.record.subtype,
+              locale: canonical.record.locale,
+              value: canonical.record.value,
+              description: canonical.record.description,
+              status: canonical.record.status,
+              customProperties: canonical.record.customProperties,
+              createdAt: canonical.record.createdAt,
+              updatedAt: canonical.record.updatedAt,
+            }
+          : null;
+
+        return {
+          ...field,
+          baseName,
+          scopedName,
+          legacyName: baseName,
+          resolvedLocale: canonical.resolvedLocale,
+          recordSource: canonical.source,
+          record: canonicalRecord,
+          scopedRecordId: scopedResult.record?._id || null,
+          legacyRecordId: legacyResult.record?._id || null,
+        };
+      })
+    );
+
+    return {
+      application: {
+        _id: application._id,
+        name: application.name,
+        organizationId,
+      },
+      locale,
+      defaultLocale,
+      fields: hydratedFields,
+    };
+  },
+});
+
+/**
+ * Save an app-scoped CMS text field.
+ *
+ * Writes a canonical app-scoped key and mirrors into an existing legacy key when
+ * that locale-specific legacy record already exists, preserving segelschule fallback behavior.
+ */
+export const saveApplicationCmsCopyField = mutation({
+  args: {
+    sessionId: v.string(),
+    applicationId: v.id("objects"),
+    page: v.string(),
+    section: v.string(),
+    key: v.string(),
+    locale: v.string(),
+    value: v.string(),
+    status: v.optional(v.string()),
+    description: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const { application, organizationId } = await requireApplicationCmsContext({
+      ctx,
+      sessionId: args.sessionId,
+      applicationId: args.applicationId,
+      requiredPermissions: ["edit_published_pages"],
+    });
+
+    const locale = normalizeCmsToken(args.locale, "locale");
+    const baseName = buildCmsBaseName({
+      page: args.page,
+      section: args.section,
+      key: args.key,
+    });
+    const scopedName = buildScopedCmsName(String(args.applicationId), baseName);
+
+    const existingScopedRecord = await getCmsRecordByLocaleName({
+      ctx,
+      organizationId,
+      sessionId: args.sessionId,
+      name: scopedName,
+      locale,
+    });
+
+    const scopedRecord = (await ctx.runMutation(
+      getInternal().cmsContent.upsertCmsText,
+      {
+        sessionId: args.sessionId,
+        organizationId,
+        name: scopedName,
+        locale,
+        value: args.value,
+        description: args.description,
+        status: normalizeOptionalString(args.status),
+        customProperties: buildScopedCmsCustomProperties({
+          existingCustomProperties: existingScopedRecord?.customProperties,
+          applicationId: String(args.applicationId),
+          baseName,
+          scopedName,
+        }),
+      }
+    )) as CmsContentRecord;
+
+    const legacyExactRecord = await getCmsRecordByLocaleName({
+      ctx,
+      organizationId,
+      sessionId: args.sessionId,
+      name: baseName,
+      locale,
+    });
+
+    let mirroredLegacyRecord: CmsContentRecord | null = null;
+    if (legacyExactRecord) {
+      mirroredLegacyRecord = (await ctx.runMutation(
+        getInternal().cmsContent.upsertCmsText,
+        {
+          sessionId: args.sessionId,
+          organizationId,
+          name: baseName,
+          locale,
+          value: args.value,
+          description: args.description,
+          status: normalizeOptionalString(args.status),
+        }
+      )) as CmsContentRecord;
+    }
+
+    const canonical = chooseCanonicalCmsRecord({
+      scoped: scopedRecord,
+      scopedResolvedLocale: scopedRecord.locale || locale,
+      legacy: mirroredLegacyRecord,
+      legacyResolvedLocale: mirroredLegacyRecord?.locale || locale,
+    });
+
+    return {
+      application: {
+        _id: application._id,
+        name: application.name,
+        organizationId,
+      },
+      field: {
+        page: normalizeCmsToken(args.page, "page"),
+        section: normalizeCmsToken(args.section, "section"),
+        key: normalizeCmsToken(args.key, "key"),
+        locale,
+        baseName,
+        scopedName,
+      },
+      recordSource: canonical.source,
+      mirroredLegacy: Boolean(mirroredLegacyRecord),
+      record: canonical.record
+        ? {
+            _id: canonical.record._id,
+            name: canonical.record.name,
+            subtype: canonical.record.subtype,
+            locale: canonical.record.locale,
+            value: canonical.record.value,
+            description: canonical.record.description,
+            status: canonical.record.status,
+            customProperties: canonical.record.customProperties,
+            createdAt: canonical.record.createdAt,
+            updatedAt: canonical.record.updatedAt,
+          }
+        : null,
+    };
+  },
+});
+
+/**
+ * Migrate legacy CMS keys into canonical app-scoped CMS keys.
+ *
+ * This is intended as a safe backfill for applications that previously stored copy
+ * under legacy keys like `home_hero_title` before app scoping was introduced.
+ */
+export const migrateApplicationCmsCopyLegacyToScoped = mutation({
+  args: {
+    sessionId: v.string(),
+    applicationId: v.id("objects"),
+    locales: v.array(v.string()),
+    fields: v.array(cmsCopyFieldValidator),
+    overwriteScoped: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { application, organizationId } = await requireApplicationCmsContext({
+      ctx,
+      sessionId: args.sessionId,
+      applicationId: args.applicationId,
+      requiredPermissions: ["edit_published_pages"],
+    });
+
+    if (args.fields.length === 0) {
+      return {
+        application: {
+          _id: application._id,
+          name: application.name,
+          organizationId,
+        },
+        summary: {
+          requestedFields: 0,
+          requestedLocales: 0,
+          operations: 0,
+          migrated: 0,
+          skippedNoLegacy: 0,
+          skippedScopedNewerOrEqual: 0,
+        },
+        outcomes: [],
+      };
+    }
+
+    if (args.fields.length > CMS_COPY_MAX_FIELDS) {
+      throw new Error(`fields cannot exceed ${CMS_COPY_MAX_FIELDS} entries`);
+    }
+
+    if (args.locales.length === 0) {
+      throw new Error("locales must contain at least one locale");
+    }
+
+    if (args.locales.length > CMS_COPY_MAX_LOCALES) {
+      throw new Error(`locales cannot exceed ${CMS_COPY_MAX_LOCALES} entries`);
+    }
+
+    const normalizedFields = args.fields.map(normalizeCmsFieldInput);
+    const normalizedLocales = Array.from(
+      new Set(args.locales.map((locale) => normalizeCmsToken(locale, "locale")))
+    );
+    const operationCount = normalizedFields.length * normalizedLocales.length;
+    if (operationCount > CMS_COPY_MAX_MIGRATION_OPERATIONS) {
+      throw new Error(
+        `migration request too large: ${operationCount} operations exceeds limit ${CMS_COPY_MAX_MIGRATION_OPERATIONS}`
+      );
+    }
+
+    const overwriteScoped = args.overwriteScoped === true;
+    const outcomes: Array<{
+      page: string;
+      section: string;
+      key: string;
+      locale: string;
+      baseName: string;
+      scopedName: string;
+      action: "migrated" | "skipped_no_legacy" | "skipped_scoped_newer_or_equal";
+      legacyRecordId: string | null;
+      scopedRecordId: string | null;
+      resultingRecordId: string | null;
+    }> = [];
+
+    let migrated = 0;
+    let skippedNoLegacy = 0;
+    let skippedScopedNewerOrEqual = 0;
+
+    for (const locale of normalizedLocales) {
+      for (const field of normalizedFields) {
+        const baseName = buildCmsBaseName(field);
+        const scopedName = buildScopedCmsName(String(args.applicationId), baseName);
+
+        const legacyRecord = await getCmsRecordByLocaleName({
+          ctx,
+          organizationId,
+          sessionId: args.sessionId,
+          name: baseName,
+          locale,
+        });
+        if (!legacyRecord) {
+          skippedNoLegacy += 1;
+          outcomes.push({
+            page: field.page,
+            section: field.section,
+            key: field.key,
+            locale,
+            baseName,
+            scopedName,
+            action: "skipped_no_legacy",
+            legacyRecordId: null,
+            scopedRecordId: null,
+            resultingRecordId: null,
+          });
+          continue;
+        }
+
+        const scopedRecord = await getCmsRecordByLocaleName({
+          ctx,
+          organizationId,
+          sessionId: args.sessionId,
+          name: scopedName,
+          locale,
+        });
+
+        const shouldOverwriteByRecency =
+          (legacyRecord.updatedAt || 0) > (scopedRecord?.updatedAt || 0);
+        const shouldMigrate = !scopedRecord || overwriteScoped || shouldOverwriteByRecency;
+
+        if (!shouldMigrate) {
+          skippedScopedNewerOrEqual += 1;
+          outcomes.push({
+            page: field.page,
+            section: field.section,
+            key: field.key,
+            locale,
+            baseName,
+            scopedName,
+            action: "skipped_scoped_newer_or_equal",
+            legacyRecordId: legacyRecord._id,
+            scopedRecordId: scopedRecord?._id || null,
+            resultingRecordId: scopedRecord?._id || null,
+          });
+          continue;
+        }
+
+        const migratedRecord = (await ctx.runMutation(
+          getInternal().cmsContent.upsertCmsText,
+          {
+            sessionId: args.sessionId,
+            organizationId,
+            name: scopedName,
+            locale,
+            value: typeof legacyRecord.value === "string" ? legacyRecord.value : "",
+            description: legacyRecord.description,
+            status: normalizeOptionalString(legacyRecord.status),
+            customProperties: buildScopedCmsCustomProperties({
+              existingCustomProperties:
+                scopedRecord?.customProperties || legacyRecord.customProperties,
+              applicationId: String(args.applicationId),
+              baseName,
+              scopedName,
+            }),
+          }
+        )) as CmsContentRecord;
+
+        migrated += 1;
+        outcomes.push({
+          page: field.page,
+          section: field.section,
+          key: field.key,
+          locale,
+          baseName,
+          scopedName,
+          action: "migrated",
+          legacyRecordId: legacyRecord._id,
+          scopedRecordId: scopedRecord?._id || null,
+          resultingRecordId: migratedRecord._id,
+        });
+      }
+    }
+
+    return {
+      application: {
+        _id: application._id,
+        name: application.name,
+        organizationId,
+      },
+      summary: {
+        requestedFields: normalizedFields.length,
+        requestedLocales: normalizedLocales.length,
+        operations: operationCount,
+        migrated,
+        skippedNoLegacy,
+        skippedScopedNewerOrEqual,
+      },
+      outcomes,
     };
   },
 });

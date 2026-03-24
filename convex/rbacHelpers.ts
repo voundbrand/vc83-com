@@ -628,6 +628,25 @@ export const requireAuthenticatedUserQuery = internalQuery({
 });
 
 /**
+ * Internal query wrapper for checkPermissions (for use in actions and external bridges)
+ */
+export const checkPermissionsQuery = internalQuery({
+  args: {
+    userId: v.id("users"),
+    permissions: v.array(v.string()),
+    organizationId: v.optional(v.id("organizations")),
+  },
+  handler: async (ctx, args) => {
+    return await checkPermissions(
+      ctx,
+      args.userId,
+      args.permissions,
+      args.organizationId
+    );
+  },
+});
+
+/**
  * Internal mutation wrapper for requirePermission (for use in actions)
  * Uses mutation because it needs to write audit logs
  */

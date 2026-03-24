@@ -7,6 +7,7 @@ export {
   EditableParagraphWithLinks,
   EditableText,
   EditableTextWithLinks,
+  CmsLocaleSelect,
   LinkButtonEditor,
 } from "./components";
 export {

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCmsContent, useCmsEditMode } from "../hooks";
 import { LinkButtonEditor, getLinkIconLabel } from "./LinkButtonEditor";
 import { LocaleFallbackIndicator } from "./LocaleFallbackIndicator";
+import { EditableFieldHint, getEditableFieldStyle } from "./editableFieldChrome";
 import type { CmsContentLink, CmsTextWithLinksValue } from "../types";
 
 const MAX_LINKS = 5;
@@ -190,14 +191,9 @@ export function EditableTextWithLinks({
     setEditingLinkId(nextLink.id);
   }
 
-  const borderStyle = isEditMode
-    ? isEditingText
-      ? "2px solid rgba(37, 99, 235, 0.8)"
-      : "2px dashed rgba(37, 99, 235, 0.35)"
-    : "2px solid transparent";
-
   return (
     <div style={{ display: "grid", gap: 10 }} className={className}>
+      <EditableFieldHint isEditMode={isEditMode} />
       <TextComponent
         ref={contentRef as React.RefObject<HTMLElement>}
         className={textClassName}
@@ -243,15 +239,12 @@ export function EditableTextWithLinks({
           }, 0);
         }}
         style={{
-          border: borderStyle,
-          borderRadius: 10,
-          cursor: isEditMode ? "text" : "inherit",
-          minHeight: 24,
-          opacity: isSaving || isLoading ? 0.7 : 1,
-          outline: "none",
-          padding: isEditMode ? "4px 6px" : undefined,
-          transition: "border-color 120ms ease, opacity 120ms ease",
-          whiteSpace: allowLineBreaks ? "pre-wrap" : undefined,
+          ...getEditableFieldStyle({
+            isEditMode,
+            isActive: isEditingText,
+            isBusy: isSaving || isLoading,
+            allowLineBreaks,
+          }),
         }}
       >
         {localText}

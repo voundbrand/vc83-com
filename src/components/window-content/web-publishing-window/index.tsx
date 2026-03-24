@@ -9,6 +9,7 @@ import {
   Rocket,
   Settings,
   Box,
+  Type,
   ArrowLeft,
   Maximize2,
   MessageSquare,
@@ -24,6 +25,7 @@ import { ApplicationDetailsTab } from "./application-details-tab";
 import { WebchatDeploymentTab } from "./webchat-deployment-tab";
 import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
+import { CmsCopyTab } from "./cms-copy-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { InteriorTabButton } from "@/components/window-content/shared/interior-primitives";
@@ -50,6 +52,7 @@ type TabType =
   | "settings"
   | "applications"
   | "application-details"
+  | "cms-copy"
   | "webchat-deployment"
   | "analytics";
 
@@ -108,6 +111,7 @@ function resolveInitialTab(input?: string): TabType {
     input === "settings" ||
     input === "applications" ||
     input === "application-details" ||
+    input === "cms-copy" ||
     input === "analytics"
   ) {
     return input;
@@ -199,6 +203,15 @@ export function WebPublishingWindow({
       key: "applications",
       icon: Box,
       label: "Applications",
+    },
+    {
+      key: "cms-copy",
+      icon: Type,
+      label: "CMS Copy",
+      disabled: !selectedApplication,
+      title: selectedApplication
+        ? `CMS Copy for ${selectedApplication.name}`
+        : "Select an application first",
     },
     {
       key: "analytics",
@@ -368,6 +381,19 @@ export function WebPublishingWindow({
               setActiveTab("applications");
             }}
           />
+        )}
+
+        {activeTab === "cms-copy" && selectedApplication && (
+          <CmsCopyTab
+            applicationId={selectedApplication._id}
+            applicationName={selectedApplication.name}
+          />
+        )}
+
+        {activeTab === "cms-copy" && !selectedApplication && (
+          <div className="p-4 text-xs desktop-interior-subtitle">
+            Select an application in the Applications tab to edit CMS copy.
+          </div>
         )}
 
         {/* Analytics (future) */}

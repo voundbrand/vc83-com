@@ -22,13 +22,14 @@ function normalizeImageRecord(record: CmsContentRecord | null): CmsContentRecord
 }
 
 export function useCmsImage(options: UseCmsImageOptions): UseCmsImageResult {
-  const { transport } = useCms();
+  const { transport, locale: providerLocale } = useCms();
   const [record, setRecord] = useState<CmsContentRecord | null>(null);
   const [isLoading, setIsLoading] = useState(options.enabled !== false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const enabled = options.enabled !== false;
+  const locale = options.locale ?? providerLocale;
 
   useEffect(() => {
     if (!enabled) {
@@ -44,7 +45,7 @@ export function useCmsImage(options: UseCmsImageOptions): UseCmsImageResult {
         const nextRecord = normalizeImageRecord(
           await transport.getImage({
             usage: options.usage,
-            locale: options.locale,
+            locale,
           })
         );
         if (!cancelled) {
@@ -67,7 +68,7 @@ export function useCmsImage(options: UseCmsImageOptions): UseCmsImageResult {
     return () => {
       cancelled = true;
     };
-  }, [enabled, options.locale, options.usage, transport]);
+  }, [enabled, locale, options.usage, transport]);
 
   async function refresh(): Promise<CmsContentRecord | null> {
     if (!enabled) {
@@ -79,7 +80,7 @@ export function useCmsImage(options: UseCmsImageOptions): UseCmsImageResult {
       const nextRecord = normalizeImageRecord(
         await transport.getImage({
           usage: options.usage,
-          locale: options.locale,
+          locale,
         })
       );
       setRecord(nextRecord);
@@ -103,7 +104,7 @@ export function useCmsImage(options: UseCmsImageOptions): UseCmsImageResult {
         usage: options.usage,
         file: input.file,
         alt: input.alt,
-        locale: input.locale ?? options.locale,
+        locale: input.locale ?? locale,
       });
       await refresh();
       return result;

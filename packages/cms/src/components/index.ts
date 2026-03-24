@@ -10,3 +10,4 @@ export {
   EditableTextWithLinks,
 } from "./EditableTextWithLinks";
 export { LinkButtonEditor } from "./LinkButtonEditor";
+export { CmsLocaleSelect } from "./CmsLocaleSelect";

@@ -2,6 +2,8 @@
 
 import Image from "next/image"
 import { EditableHeading, EditableImage, EditableParagraph } from "@cms"
+import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
+import { PhotoWatermark } from "./photo-watermark"
 
 interface AboutSectionProps {
   title: string
@@ -9,7 +11,7 @@ interface AboutSectionProps {
 }
 
 export function AboutSection({ title, text }: AboutSectionProps) {
-  const cmsEnabled = process.env.NEXT_PUBLIC_CMS_EDITOR_ENABLED === "true"
+  const cmsEnabled = isCmsEditorEnabled()
 
   return (
     <section className="py-28 px-4 bg-secondary">
@@ -60,6 +62,7 @@ export function AboutSection({ title, text }: AboutSectionProps) {
                 sizes="(min-width: 768px) 50vw, 100vw"
                 className="object-cover"
               />
+              <PhotoWatermark size="md" />
             </div>
           )}
         </div>

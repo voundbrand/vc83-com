@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useCmsEditMode, useCmsImage } from "../hooks";
 import { LocaleFallbackIndicator } from "./LocaleFallbackIndicator";
+import { EditableFieldHint } from "./editableFieldChrome";
 
 interface EditableImageProps {
   usage: string;
@@ -15,6 +16,7 @@ interface EditableImageProps {
   fill?: boolean;
   isHeroBackground?: boolean;
   locale?: string;
+  showEditHint?: boolean;
 }
 
 function getPlaceholderLabel(isUploading: boolean): string {
@@ -32,6 +34,7 @@ export function EditableImage({
   fill = false,
   isHeroBackground = false,
   locale,
+  showEditHint = true,
 }: EditableImageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -73,6 +76,9 @@ export function EditableImage({
 
   return (
     <div style={{ display: "grid", gap: 8 }} className={className}>
+      {showEditHint ? (
+        <EditableFieldHint isEditMode={isEditMode} label="Editable image" />
+      ) : null}
       <div
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -80,9 +86,18 @@ export function EditableImage({
           position: "relative",
           overflow: "hidden",
           borderRadius: isHeroBackground ? 0 : 12,
+          border: isEditMode
+            ? isHovered || isUploading
+              ? "2px solid rgba(37, 99, 235, 0.85)"
+              : "2px dashed rgba(37, 99, 235, 0.5)"
+            : "2px solid transparent",
+          boxShadow: isEditMode
+            ? "0 0 0 1px rgba(37, 99, 235, 0.14)"
+            : undefined,
           backgroundColor: "#e2e8f0",
           aspectRatio: fill ? undefined : aspectRatio,
           minHeight: fill ? "100%" : 160,
+          transition: "border-color 120ms ease, box-shadow 120ms ease",
         }}
       >
         {imageUrl ? (

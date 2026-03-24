@@ -31,6 +31,7 @@ npm install @l4yercak3/cms
 - `EditableTextWithLinks`
 - `EditableParagraphWithLinks`
 - `EditableImage`
+- `CmsLocaleSelect`
 - `LinkButtonEditor`
 - `CmsTransport`
 - `CmsContextValue`
@@ -91,7 +92,11 @@ import { CmsProvider } from "@l4yercak3/cms";
 
 export function AppCmsProvider({ children }: { children: React.ReactNode }) {
   return (
-    <CmsProvider transport={transport} defaultLocale="de">
+    <CmsProvider
+      transport={transport}
+      defaultLocale="de"
+      availableLocales={["de", "en"]}
+    >
       {children}
     </CmsProvider>
   );

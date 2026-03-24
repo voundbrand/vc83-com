@@ -21,9 +21,10 @@ const romantica = localFont({
 })
 
 export const metadata: Metadata = {
-  title: "Segelschule Altwarp - Segeln lernen in Ruhe am Stettiner Haff",
+  title: "Segelschule Altwarp | Segeln lernen & Selbstvertrauen gewinnen | Segelkurs Berlin & Ostsee",
   description:
-    "Segeln lernen – in Ruhe, Schritt für Schritt. Nur 2,5 Stunden von Berlin. Erlebe das weite Stettiner Haff auf traditionellen Plattbodenschiffen mit erfahrenen Trainern.",
+    "Nur 2,5 h von Berlin: Lerne Segeln in Altwarp – kleine Gruppen, Plattbodenschiffe, ruhiges Revier. Mach deinen Segelschein oder trainiere Praxis mit Erfahrung und Freude.",
+  keywords: "Segelschule Altwarp, Segelkurs Berlin, Segeln lernen, Segelschein, Praxistraining Segeln, Plattbodenschiff, Segelurlaub Ostsee",
   icons: {
     icon: [
       {
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode

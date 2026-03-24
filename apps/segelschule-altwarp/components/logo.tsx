@@ -12,7 +12,7 @@ interface LogoProps {
 export function Logo({ isScrolled = true, size = "md", showText = false }: LogoProps) {
   const sizes = {
     sm: { img: "h-12 w-auto", text: "text-base" },
-    md: { img: "h-16 w-auto", text: "text-lg" },
+    md: { img: "h-[4.5rem] w-auto", text: "text-lg" },
     lg: { img: "h-24 w-auto", text: "text-2xl" },
   }
 
@@ -42,7 +42,7 @@ export function Logo({ isScrolled = true, size = "md", showText = false }: LogoP
             Segelschule
           </span>
           <span
-            className={`text-sm ${isScrolled ? "text-primary/70" : "text-white/80"} transition-colors -mt-1`}
+            className={`text-sm ${isScrolled ? "text-[#1E3926B3]" : "text-white/80"} transition-colors -mt-1`}
           >
             Altwarp
           </span>

@@ -100,6 +100,7 @@ export interface CmsContextValue {
   transport: CmsTransport;
   locale: string;
   defaultLocale: string;
+  availableLocales: string[];
   isEditMode: boolean;
   setLocale: (locale: string) => void;
   setEditMode: (enabled: boolean) => void;
@@ -111,12 +112,14 @@ export interface CmsProviderProps {
   transport: CmsTransport;
   defaultLocale: string;
   initialLocale?: string;
+  availableLocales?: string[];
   initialEditMode?: boolean;
 }
 
 export interface CmsLocaleState {
   locale: string;
   defaultLocale: string;
+  availableLocales: string[];
   setLocale: (locale: string) => void;
 }
 

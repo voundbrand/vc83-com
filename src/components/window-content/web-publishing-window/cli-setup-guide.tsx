@@ -112,10 +112,10 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
     steps.push({
       number: steps.length + 1,
       title: "Install the CLI",
-      description: "Install the sevenlayers CLI globally using npm, yarn, or pnpm.",
-      command: "npm install -g sevenlayers",
+      description: "Install the L4YERCAK3 CLI globally using npm, yarn, or pnpm.",
+      command: "npm install -g @l4yercak3/cli",
       icon: <Terminal size={16} />,
-      note: "Or use: yarn global add sevenlayers / pnpm add -g sevenlayers",
+      note: "Or use: yarn global add @l4yercak3/cli / pnpm add -g @l4yercak3/cli",
     });
   }
 
@@ -123,16 +123,16 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
     {
       number: steps.length + 1,
       title: "Authenticate",
-      description: "Log in to your sevenlayers account. This opens a browser window for secure authentication.",
-      command: "sevenlayers login",
+      description: "Log in to your L4YERCAK3 account. This opens a browser window for secure authentication.",
+      command: "l4yercak3 login",
       icon: <LogIn size={16} />,
       note: "Your credentials are stored securely in your system keychain.",
     },
     {
       number: steps.length + 2,
       title: "Initialize Your Project",
-      description: "Navigate to your project directory and run init. This connects your app to sevenlayers.",
-      command: "sevenlayers init",
+      description: "Navigate to your project directory and run init. This connects your app to L4YERCAK3.",
+      command: "l4yercak3 init",
       icon: <FolderPlus size={16} />,
       note: "The CLI will detect your framework and guide you through the setup.",
     }
@@ -165,7 +165,7 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
           Connect Your App via CLI
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Follow these steps to connect your application to sevenlayers
+          Follow these steps to connect your application to L4YERCAK3
         </p>
       </div>
 

@@ -155,6 +155,7 @@ import {
   webchatSessions,
   anonymousIdentityLedger,
   anonymousClaimTokens,
+  guestOnboardingBindings,
   webchatRateLimits,
   onboardingAuditSessions,
   onboardingFunnelEvents,
@@ -428,6 +429,7 @@ export default defineSchema({
   webchatSessions,           // Anonymous visitor sessions (24h expiry)
   anonymousIdentityLedger,   // Durable anonymous identity mapping + claim status
   anonymousClaimTokens,      // Signed one-time claim token lifecycle
+  guestOnboardingBindings,   // Explicit onboarding-owned guest -> provisional org bindings
   webchatRateLimits,         // IP-based rate limiting for public endpoints
   onboardingAuditSessions,   // Five-question audit mode state machine sessions
   onboardingFunnelEvents,    // Deterministic onboarding funnel telemetry

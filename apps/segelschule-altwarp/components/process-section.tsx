@@ -1,6 +1,8 @@
 "use client"
 
 import { Calendar, Ship, Award } from "lucide-react"
+import { EditableHeading, EditableParagraph } from "@cms"
+import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
 
 interface ProcessStep {
   icon: "calendar" | "ship" | "award"
@@ -21,12 +23,36 @@ const iconMap = {
 }
 
 export function ProcessSection({ title, subtitle, steps }: ProcessSectionProps) {
+  const cmsEnabled = isCmsEditorEnabled()
+
   return (
-    <section className="bg-primary py-24 px-4">
+    <section className="bg-primary py-24 px-4" style={{ background: "radial-gradient(ellipse at 30% 50%, #264332 0%, #1E3926 70%)" }}>
       <div className="container mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <h2 className="mb-4 font-serif text-4xl font-bold text-primary-foreground md:text-5xl text-balance">{title}</h2>
-          <p className="text-lg text-primary-foreground/80 md:text-xl text-pretty">{subtitle}</p>
+          {cmsEnabled ? (
+            <>
+              <EditableHeading
+                page="home"
+                section="process"
+                contentKey="title"
+                fallback={title}
+                level={2}
+                className="mb-4 font-serif text-4xl font-bold text-primary-foreground md:text-5xl text-balance"
+              />
+              <EditableParagraph
+                page="home"
+                section="process"
+                contentKey="subtitle"
+                fallback={subtitle}
+                className="text-lg text-primary-foreground/80 md:text-xl text-pretty"
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="mb-4 font-serif text-4xl font-bold text-primary-foreground md:text-5xl text-balance">{title}</h2>
+              <p className="text-lg text-primary-foreground/80 md:text-xl text-pretty">{subtitle}</p>
+            </>
+          )}
         </div>
 
         <div className="grid gap-8 md:grid-cols-3">
@@ -44,8 +70,30 @@ export function ProcessSection({ title, subtitle, steps }: ProcessSectionProps) 
                     </div>
                   </div>
                 </div>
-                <h3 className="mb-3 font-serif text-2xl font-bold text-primary-foreground">{step.title}</h3>
-                <p className="text-primary-foreground/80 leading-relaxed">{step.description}</p>
+                {cmsEnabled ? (
+                  <>
+                    <EditableHeading
+                      page="home"
+                      section="process"
+                      contentKey={`step_${index + 1}_title`}
+                      fallback={step.title}
+                      level={3}
+                      className="mb-3 font-serif text-2xl font-bold text-primary-foreground"
+                    />
+                    <EditableParagraph
+                      page="home"
+                      section="process"
+                      contentKey={`step_${index + 1}_description`}
+                      fallback={step.description}
+                      className="text-primary-foreground/80 leading-relaxed"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <h3 className="mb-3 font-serif text-2xl font-bold text-primary-foreground">{step.title}</h3>
+                    <p className="text-primary-foreground/80 leading-relaxed">{step.description}</p>
+                  </>
+                )}
               </div>
             )
           })}

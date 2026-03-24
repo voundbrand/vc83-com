@@ -19,7 +19,7 @@
 
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuthenticatedUser } from "./rbacHelpers";
+import { checkPermission, requireAuthenticatedUser } from "./rbacHelpers";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -108,6 +108,114 @@ const applicationPropertiesValidator = v.object({
   })),
 });
 
+const SEGELSCHULE_CMS_COPY_REGISTRY_ID = "segelschule.home.v1";
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function readExistingCmsCopyRegistryId(customProperties: unknown): string | undefined {
+  const props = asRecord(customProperties);
+  if (!props) {
+    return undefined;
+  }
+
+  const topLevel = normalizeOptionalString(props.cmsCopyRegistryId);
+  if (topLevel) {
+    return topLevel;
+  }
+
+  const cmsProps = asRecord(props.cms);
+  const cmsRegistryId = cmsProps ? normalizeOptionalString(cmsProps.copyRegistryId) : undefined;
+  if (cmsRegistryId) {
+    return cmsRegistryId;
+  }
+
+  const webPublishingProps = asRecord(props.webPublishing);
+  return webPublishingProps
+    ? normalizeOptionalString(webPublishingProps.cmsCopyRegistryId)
+    : undefined;
+}
+
+function inferDefaultCmsCopyRegistryId(args: {
+  name?: string;
+  description?: string;
+  subtype?: string;
+}): string | undefined {
+  const searchable = `${args.name || ""} ${args.description || ""} ${args.subtype || ""}`.toLowerCase();
+  if (searchable.includes("segelschule") || searchable.includes("altwarp")) {
+    return SEGELSCHULE_CMS_COPY_REGISTRY_ID;
+  }
+  return undefined;
+}
+
+function applyDefaultCmsCopyRegistry(args: {
+  name?: string;
+  description?: string;
+  subtype?: string;
+  customProperties?: Record<string, unknown>;
+}): {
+  customProperties: Record<string, unknown>;
+  changed: boolean;
+  registryId?: string;
+} {
+  const nextProps = { ...(args.customProperties || {}) };
+  const existingRegistryId = readExistingCmsCopyRegistryId(nextProps);
+  const inferredRegistryId =
+    existingRegistryId ||
+    inferDefaultCmsCopyRegistryId({
+      name: args.name,
+      description: args.description,
+      subtype: args.subtype,
+    });
+
+  if (!inferredRegistryId) {
+    return {
+      customProperties: nextProps,
+      changed: false,
+      registryId: undefined,
+    };
+  }
+
+  let changed = false;
+
+  if (normalizeOptionalString(nextProps.cmsCopyRegistryId) !== inferredRegistryId) {
+    nextProps.cmsCopyRegistryId = inferredRegistryId;
+    changed = true;
+  }
+
+  const cmsProps = { ...(asRecord(nextProps.cms) || {}) };
+  if (normalizeOptionalString(cmsProps.copyRegistryId) !== inferredRegistryId) {
+    cmsProps.copyRegistryId = inferredRegistryId;
+    changed = true;
+  }
+  nextProps.cms = cmsProps;
+
+  const webPublishingProps = { ...(asRecord(nextProps.webPublishing) || {}) };
+  if (normalizeOptionalString(webPublishingProps.cmsCopyRegistryId) !== inferredRegistryId) {
+    webPublishingProps.cmsCopyRegistryId = inferredRegistryId;
+    changed = true;
+  }
+  nextProps.webPublishing = webPublishingProps;
+
+  return {
+    customProperties: nextProps,
+    changed,
+    registryId: inferredRegistryId,
+  };
+}
+
 // ============================================================================
 // PUBLIC QUERIES
 // ============================================================================
@@ -157,6 +265,85 @@ export const getApplication = query({
     }
 
     return app;
+  },
+});
+
+/**
+ * Ensure CMS registry metadata exists for a connected application.
+ *
+ * This allows UI surfaces to safely backfill explicit registry IDs for existing
+ * apps that were registered before copy registries were introduced.
+ */
+export const ensureApplicationCmsRegistryMetadata = mutation({
+  args: {
+    sessionId: v.string(),
+    applicationId: v.id("objects"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const app = await ctx.db.get(args.applicationId);
+    if (!app || app.type !== "connected_application") {
+      throw new Error("Application not found");
+    }
+
+    const canEditPublishedPages = await checkPermission(
+      ctx,
+      userId,
+      "edit_published_pages",
+      app.organizationId
+    );
+    if (!canEditPublishedPages) {
+      throw new Error("Permission denied: edit_published_pages required");
+    }
+
+    const next = applyDefaultCmsCopyRegistry({
+      name: app.name,
+      description: app.description,
+      subtype: app.subtype,
+      customProperties: (app.customProperties || {}) as Record<string, unknown>,
+    });
+
+    if (!next.registryId) {
+      return {
+        applicationId: app._id,
+        updated: false,
+        registryId: null,
+        reason: "no_registry_match",
+      };
+    }
+
+    if (!next.changed) {
+      return {
+        applicationId: app._id,
+        updated: false,
+        registryId: next.registryId,
+        reason: "already_configured",
+      };
+    }
+
+    await ctx.db.patch(args.applicationId, {
+      customProperties: next.customProperties,
+      updatedAt: Date.now(),
+    });
+
+    await ctx.db.insert("objectActions", {
+      organizationId: app.organizationId,
+      objectId: args.applicationId,
+      actionType: "application_cms_registry_autoconfigured",
+      actionData: {
+        registryId: next.registryId,
+      },
+      performedBy: userId,
+      performedAt: Date.now(),
+    });
+
+    return {
+      applicationId: app._id,
+      updated: true,
+      registryId: next.registryId,
+      reason: "autoconfigured",
+    };
   },
 });
 
@@ -263,7 +450,7 @@ export const registerApplication = mutation({
     const backendUrl = process.env.CONVEX_SITE_URL || "https://agreeable-lion-828.convex.site";
 
     // Build custom properties
-    const customProperties = {
+    const baseCustomProperties = {
       source: args.source,
       connection: {
         ...args.connection,
@@ -279,6 +466,12 @@ export const registerApplication = mutation({
         generatedFiles: [],
       },
     };
+    const { customProperties } = applyDefaultCmsCopyRegistry({
+      name: args.name,
+      description: args.description,
+      subtype: args.source.framework,
+      customProperties: baseCustomProperties,
+    });
 
     // Create application object
     const applicationId = await ctx.db.insert("objects", {
@@ -376,7 +569,7 @@ export const updateApplication = mutation({
     if (args.status !== undefined) updates.status = args.status;
 
     // Update customProperties
-    const newProps = { ...currentProps };
+    let newProps = { ...currentProps };
 
     if (args.connection) {
       newProps.connection = {
@@ -400,6 +593,13 @@ export const updateApplication = mutation({
     if (newProps.cli) {
       (newProps.cli as Record<string, unknown>).lastActivityAt = Date.now();
     }
+
+    newProps = applyDefaultCmsCopyRegistry({
+      name: args.name ?? app.name,
+      description: args.description ?? app.description,
+      subtype: app.subtype,
+      customProperties: newProps,
+    }).customProperties;
 
     updates.customProperties = newProps;
 
@@ -803,7 +1003,7 @@ export const registerApplicationInternal = internalMutation({
 
     const backendUrl = process.env.CONVEX_SITE_URL || "https://agreeable-lion-828.convex.site";
 
-    const customProperties = {
+    const baseCustomProperties = {
       source: args.source,
       connection: {
         ...args.connection,
@@ -817,6 +1017,12 @@ export const registerApplicationInternal = internalMutation({
         generatedFiles: [],
       },
     };
+    const { customProperties } = applyDefaultCmsCopyRegistry({
+      name: args.name,
+      description: args.description,
+      subtype: args.source.framework,
+      customProperties: baseCustomProperties,
+    });
 
     const applicationId = await ctx.db.insert("objects", {
       organizationId: args.organizationId,
@@ -873,7 +1079,7 @@ export const updateApplicationInternal = internalMutation({
     if (args.description !== undefined) updates.description = args.description;
     if (args.status !== undefined) updates.status = args.status;
 
-    const newProps = { ...currentProps };
+    let newProps = { ...currentProps };
 
     if (args.connection) {
       newProps.connection = {
@@ -896,6 +1102,13 @@ export const updateApplicationInternal = internalMutation({
     if (newProps.cli) {
       (newProps.cli as Record<string, unknown>).lastActivityAt = Date.now();
     }
+
+    newProps = applyDefaultCmsCopyRegistry({
+      name: args.name ?? app.name,
+      description: args.description ?? app.description,
+      subtype: app.subtype,
+      customProperties: newProps,
+    }).customProperties;
 
     updates.customProperties = newProps;
 

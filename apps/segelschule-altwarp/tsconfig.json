@@ -24,6 +24,7 @@
     "lib/**/*.ts",
     "lib/**/*.tsx",
     "hooks/**/*.ts",
+    "types/**/*.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules", "prototype", "resources", "notes"]
