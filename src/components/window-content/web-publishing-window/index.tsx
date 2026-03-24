@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useQuery } from "convex/react";
 import { PublishedPagesTab } from "./published-pages-tab";
 import { CreatePageTab } from "./create-page-tab";
 import { DeploymentsTab } from "./deployments-tab";
@@ -27,9 +28,15 @@ import { VercelDeploymentModal } from "./vercel-deployment-modal";
 import { EnvVarsModal } from "./env-vars-modal";
 import { CmsCopyTab } from "./cms-copy-tab";
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability";
+import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { InteriorTabButton } from "@/components/window-content/shared/interior-primitives";
+import { InteriorButton } from "@/components/ui/interior-button";
 import type { Id } from "../../../../convex/_generated/dataModel";
+
+// Dynamic require avoids TS2589 deep type instantiation in window surface components.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api: apiAny } = require("../../../../convex/_generated/api") as { api: any };
 
 /**
  * Web Publishing Window - Org Owner Interface
@@ -59,6 +66,12 @@ type TabType =
 interface SelectedApplication {
   _id: Id<"objects">;
   name: string;
+}
+
+interface ConnectedApplicationListItem {
+  _id: Id<"objects">;
+  name: string;
+  status: string;
 }
 
 interface EditMode {
@@ -144,7 +157,37 @@ export function WebPublishingWindow({
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<SelectedApplication | null>(null);
+  const { sessionId } = useAuth();
+  const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.web_publishing");
+  const unsafeUseQuery = useQuery as unknown as (queryRef: unknown, args?: unknown) => unknown;
+
+  const connectedApplications = unsafeUseQuery(
+    apiAny.applicationOntology.getApplications,
+    sessionId && currentOrg?.id
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  ) as ConnectedApplicationListItem[] | undefined;
+
+  useEffect(() => {
+    if (!connectedApplications) {
+      return;
+    }
+    if (!selectedApplication) {
+      if (connectedApplications.length === 1) {
+        const only = connectedApplications[0];
+        setSelectedApplication({ _id: only._id, name: only.name });
+      }
+      return;
+    }
+    const stillExists = connectedApplications.find((app) => app._id === selectedApplication._id);
+    if (!stillExists) {
+      setSelectedApplication(null);
+    }
+  }, [connectedApplications, selectedApplication]);
 
   useEffect(() => {
     setActiveTab(requestedInitialTab);
@@ -208,10 +251,7 @@ export function WebPublishingWindow({
       key: "cms-copy",
       icon: Type,
       label: "CMS Copy",
-      disabled: !selectedApplication,
-      title: selectedApplication
-        ? `CMS Copy for ${selectedApplication.name}`
-        : "Select an application first",
+      title: selectedApplication ? `CMS Copy for ${selectedApplication.name}` : "Select app in CMS Copy",
     },
     {
       key: "analytics",
@@ -383,16 +423,86 @@ export function WebPublishingWindow({
           />
         )}
 
-        {activeTab === "cms-copy" && selectedApplication && (
-          <CmsCopyTab
-            applicationId={selectedApplication._id}
-            applicationName={selectedApplication.name}
-          />
-        )}
+        {activeTab === "cms-copy" && (
+          <div className="h-full flex flex-col">
+            <div
+              className="px-4 py-3 border-b flex items-center gap-2"
+              style={{ borderColor: "var(--window-document-border)" }}
+            >
+              <label
+                className="text-xs font-semibold"
+                style={{ color: "var(--neutral-gray)" }}
+                htmlFor="cms-copy-application-select"
+              >
+                Application
+              </label>
+              <select
+                id="cms-copy-application-select"
+                value={selectedApplication ? String(selectedApplication._id) : ""}
+                onChange={(event) => {
+                  const next = connectedApplications?.find(
+                    (app) => String(app._id) === event.target.value
+                  );
+                  setSelectedApplication(next ? { _id: next._id, name: next.name } : null);
+                }}
+                className="px-2 py-1 text-xs border-2 min-w-[260px]"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  background: "white",
+                  color: "var(--window-document-text)",
+                }}
+              >
+                <option value="">Select connected app</option>
+                {(connectedApplications || []).map((app) => (
+                  <option key={app._id} value={app._id}>
+                    {app.name} ({app.status})
+                  </option>
+                ))}
+              </select>
+              <InteriorButton
+                variant="secondary"
+                size="sm"
+                onClick={() => setActiveTab("applications")}
+              >
+                Manage Apps
+              </InteriorButton>
+            </div>
 
-        {activeTab === "cms-copy" && !selectedApplication && (
-          <div className="p-4 text-xs desktop-interior-subtitle">
-            Select an application in the Applications tab to edit CMS copy.
+            {!sessionId && (
+              <div className="p-4 text-xs desktop-interior-subtitle">
+                Please log in to edit CMS copy.
+              </div>
+            )}
+
+            {sessionId && connectedApplications === undefined && (
+              <div className="p-4 text-xs desktop-interior-subtitle">
+                Loading connected applications...
+              </div>
+            )}
+
+            {sessionId &&
+              connectedApplications &&
+              connectedApplications.length === 0 && (
+                <div className="p-4 text-xs desktop-interior-subtitle">
+                  No connected applications found. Connect an app first in the Applications tab.
+                </div>
+              )}
+
+            {sessionId &&
+              connectedApplications &&
+              connectedApplications.length > 0 &&
+              !selectedApplication && (
+                <div className="p-4 text-xs desktop-interior-subtitle">
+                  Select an application from the dropdown to load CMS copy.
+                </div>
+              )}
+
+            {sessionId && selectedApplication && (
+              <CmsCopyTab
+                applicationId={selectedApplication._id}
+                applicationName={selectedApplication.name}
+              />
+            )}
           </div>
         )}
 
