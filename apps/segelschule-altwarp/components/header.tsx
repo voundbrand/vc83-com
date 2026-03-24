@@ -50,7 +50,7 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        useScrolledStyle ? "bg-background/95 backdrop-blur-sm shadow-md" : "bg-transparent"
+        useScrolledStyle ? "bg-background/95 backdrop-blur-sm" : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-4">
@@ -115,9 +115,9 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
           useScrolledStyle ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        <svg viewBox="0 0 1200 40" preserveAspectRatio="none" className="w-full h-[12px] md:h-[16px]">
+        <svg viewBox="0 0 1200 60" preserveAspectRatio="none" className="w-full h-[20px] md:h-[28px]">
           <path
-            d="M0,0 C150,30 350,0 500,20 C650,40 800,10 1000,26 C1100,34 1150,20 1200,14 L1200,0 L0,0 Z"
+            d="M0,0 C150,45 350,0 500,30 C650,60 800,15 1000,40 C1100,50 1150,30 1200,20 L1200,0 L0,0 Z"
             fill="var(--color-background)"
             fillOpacity="0.95"
           />
