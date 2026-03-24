@@ -41,7 +41,7 @@ export function HeroSection({ title, subtitle, ctaText }: HeroSectionProps) {
       </div>
 
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-        <p className="font-script text-3xl md:text-4xl text-[#E2C786] mb-4 drop-shadow-md">
+        <p className="font-script text-4xl md:text-5xl lg:text-6xl text-[#E2C786] mb-4 drop-shadow-md">
           Wind, Wasser, Zeit – das ist Segeln
         </p>
         <h1 className="text-5xl md:text-6xl lg:text-7xl font-semibold text-[#FFFBEA] mb-6 text-balance drop-shadow-lg">

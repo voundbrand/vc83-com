@@ -5,12 +5,14 @@ interface WaveDividerProps {
   bgColor?: string
   /** Flip vertically to create bottom-of-section waves */
   flip?: boolean
+  /** Overlap into the next section (wave bleeds over the content below) */
+  overlap?: boolean
 }
 
-export function WaveDivider({ fillColor, bgColor = "transparent", flip = false }: WaveDividerProps) {
+export function WaveDivider({ fillColor, bgColor = "transparent", flip = false, overlap = false }: WaveDividerProps) {
   return (
     <div
-      className={`w-full overflow-hidden leading-[0] ${flip ? "rotate-180" : ""}`}
+      className={`w-full overflow-hidden leading-[0] ${flip ? "rotate-180" : ""} ${overlap ? "relative z-10 -mb-[60px] md:-mb-[80px]" : ""}`}
       style={{ backgroundColor: bgColor }}
     >
       <svg

@@ -30,7 +30,7 @@ export function TestimonialsSection({ title, reviews }: TestimonialsSectionProps
                     <Star key={i} className="h-5 w-5 fill-[#E2C786] text-[#E2C786]" />
                   ))}
                 </div>
-                <p className="text-foreground/80 mb-6 leading-relaxed font-script text-lg">"{review.text}"</p>
+                <p className="text-foreground/80 mb-6 leading-relaxed italic">"{review.text}"</p>
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarImage src={`/abstract-portrait.png?height=40&width=40&query=portrait of ${review.name}`} />
