@@ -28,6 +28,18 @@ export function HeroSection({ title, subtitle, ctaText }: HeroSectionProps) {
       {/* Subtle dark overlay for light text readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#1E3926]/60 via-[#1E3926]/30 to-[#FFF6C3]/80" />
 
+      {/* Logo watermark overlay (Boot im Halbkreis) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <Image
+          src="/logo-white.png"
+          alt=""
+          width={500}
+          height={500}
+          className="w-[300px] md:w-[400px] lg:w-[500px] h-auto opacity-[0.07]"
+          aria-hidden="true"
+        />
+      </div>
+
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <p className="font-script text-3xl md:text-4xl text-[#E2C786] mb-4 drop-shadow-md">
           Wind, Wasser, Zeit – das ist Segeln
