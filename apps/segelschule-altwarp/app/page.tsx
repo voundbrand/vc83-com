@@ -61,6 +61,9 @@ export default function Home() {
       <main>
         <HeroSection title={t.hero.title} subtitle={t.hero.subtitle} ctaText={t.hero.cta} />
 
+        {/* Hero → Elfenbein (cream wave curves into hero bottom) */}
+        <WaveDivider fillColor="#FFF6C3" overlapTop />
+
         <section id="about">
           <AboutSection title={t.about.title} text={t.about.text} />
         </section>
@@ -88,6 +91,9 @@ export default function Home() {
           <GallerySection title={t.gallery.title} subtitle={t.gallery.subtitle} />
         </section>
 
+        {/* Elfenbein → Background */}
+        <WaveDivider fillColor="#FFFBEA" bgColor="#FFF6C3" />
+
         <section id="team">
           <TeamSection title={t.team.title} subtitle={t.team.subtitle} members={t.team.members} />
         </section>
@@ -99,6 +105,9 @@ export default function Home() {
         {/* Flaschengrün → CTA (wave overlaps onto background image) */}
         <WaveDivider fillColor="transparent" bgColor="#1E3926" overlap />
         <CTASection title={t.cta.title} description={t.cta.description} buttonText={t.cta.button} />
+
+        {/* CTA → Footer (green wave curves into CTA bottom) */}
+        <WaveDivider fillColor="#1E3926" overlapTop />
       </main>
 
       <Footer content={t.footer} />

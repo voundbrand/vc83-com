@@ -7,12 +7,20 @@ interface WaveDividerProps {
   flip?: boolean
   /** Overlap into the next section (wave bleeds over the content below) */
   overlap?: boolean
+  /** Overlap into the previous section (wave bleeds over the content above) */
+  overlapTop?: boolean
 }
 
-export function WaveDivider({ fillColor, bgColor = "transparent", flip = false, overlap = false }: WaveDividerProps) {
+export function WaveDivider({ fillColor, bgColor = "transparent", flip = false, overlap = false, overlapTop = false }: WaveDividerProps) {
+  const overlapClass = overlap
+    ? "relative z-10 -mb-[60px] md:-mb-[80px]"
+    : overlapTop
+      ? "relative z-10 -mt-[60px] md:-mt-[80px]"
+      : ""
+
   return (
     <div
-      className={`w-full overflow-hidden leading-[0] ${flip ? "rotate-180" : ""} ${overlap ? "relative z-10 -mb-[60px] md:-mb-[80px]" : ""}`}
+      className={`w-full overflow-hidden leading-[0] ${flip ? "rotate-180" : ""} ${overlapClass}`}
       style={{ backgroundColor: bgColor }}
     >
       <svg
