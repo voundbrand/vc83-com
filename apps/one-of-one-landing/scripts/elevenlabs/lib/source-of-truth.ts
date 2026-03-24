@@ -20,6 +20,8 @@ export interface LocalAgentSource {
     name: string;
     path: string;
   };
+  guardrails?: unknown;
+  guardrailsPath?: string;
   workflow?: unknown;
   workflowPath?: string;
   managedBuiltInTools: Record<string, unknown>;
@@ -63,6 +65,8 @@ export function readLocalAgentSource(agentKey: LandingDemoAgentKey): LocalAgentS
           path: definition.knowledgeBasePath,
         }
       : undefined,
+    guardrails: definition.guardrailsPath ? readJsonFile(definition.guardrailsPath) : undefined,
+    guardrailsPath: definition.guardrailsPath,
     workflow: definition.workflowPath ? readJsonFile(definition.workflowPath) : undefined,
     workflowPath: definition.workflowPath,
     managedBuiltInTools,

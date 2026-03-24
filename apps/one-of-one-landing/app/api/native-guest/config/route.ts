@@ -8,6 +8,7 @@ import type {
   FunctionReturnType,
 } from "convex/server";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
+import { NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT } from "../../../../../../convex/onboarding/universalOnboardingPolicy";
 // Dynamic require avoids excessively deep Convex API type instantiation in this route.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedInternalApi: any =
@@ -337,6 +338,8 @@ export async function GET() {
         agentName: bootstrapContract.config.agentName,
         apiBaseUrl: apiBaseUrl || undefined,
         channel: bootstrapContract.channel,
+        onboardingSurface:
+          NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT,
         contractVersion: bootstrapContract.contractVersion,
       },
       {

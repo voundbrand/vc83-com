@@ -1,0 +1,25 @@
+{
+  "name": "clara-callback-intake-smoke",
+  "description": "Smoke test for Clara's callback intake path. The call should stay alive across callback-detail collection instead of ending after Clara asks for the caller's contact details.",
+  "entryAgent": "clara",
+  "userTurns": [
+    {
+      "label": "Ask for callback instead of live handoff",
+      "text": "Ich moechte gerade keinen Live-Transfer. Koennen Sie bitte einen Rueckruf fuer mich aufnehmen?"
+    },
+    {
+      "label": "Provide name and phone number",
+      "text": "Ja, gern. Ich bin Max Berger und Sie erreichen mich unter 0176 12345678."
+    },
+    {
+      "label": "Provide callback window and reason",
+      "text": "Am besten morgen Vormittag. Es geht um eine kurze Rueckfrage, und ich freue mich ueber einen Rueckruf."
+    }
+  ],
+  "assertions": {
+    "expectedTransferSequence": [],
+    "expectedFinalAgent": "clara",
+    "requiredAgentsVisited": ["clara"],
+    "forbidUnexpectedTransfers": true
+  }
+}

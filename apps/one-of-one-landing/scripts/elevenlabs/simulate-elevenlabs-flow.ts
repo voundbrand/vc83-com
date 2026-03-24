@@ -51,6 +51,7 @@ interface RuntimeLogEvent {
   type: string;
   text?: string;
   toolName?: string;
+  responseId?: string;
   timestamp: number;
 }
 
@@ -70,10 +71,12 @@ interface TranscriptTransferEvent {
 
 const FIXTURE_SUITES: Record<string, string[]> = {
   regressions: [
+    "clara-callback-intake-smoke",
     "clara-kai-clara-maren-regression",
     "clara-kai-clara-maren-recommendation",
     "clara-nora-ambiguous-affirmation",
   ],
+  "callback-smokes": ["clara-callback-intake-smoke"],
   "proof-phase-gating": ["proof-phase-seven-agent-tour"],
   "proof-phase-stress": ["proof-phase-seven-agent-single-call-stress"],
   "specialist-redirects": [
@@ -166,6 +169,8 @@ async function runConversationFixture(
   return new Promise<SimulationRunResult>((resolveResult, rejectResult) => {
     const ws = new WebSocket(signedUrl);
     const events: RuntimeLogEvent[] = [];
+    const streamedAgentResponses = new Map<string, string>();
+    const completedAgentResponseIds = new Set<string>();
 
     let conversationId = "";
     let currentTurnIndex = -1;
@@ -209,6 +214,13 @@ async function runConversationFixture(
         fail(new Error("ElevenLabs did not return a conversation id."));
         return;
       }
+      const completedTurnCount = currentTurnIndex + 1;
+      if (!runtimeFailure && completedTurnCount < fixture.userTurns.length) {
+        runtimeFailure =
+          currentTurnIndex < 0
+            ? "Conversation ended before the scripted user turns began."
+            : `Conversation ended after ${completedTurnCount} of ${fixture.userTurns.length} scripted user turn(s).`;
+      }
       resolved = true;
       cleanup();
       resolveResult({ conversationId, events, runtimeFailure });
@@ -247,6 +259,39 @@ async function runConversationFixture(
         }
         fail(new Error(runtimeFailure));
       }, options.turnTimeoutMs);
+      scheduleIdleCheck();
+    }
+
+    function recordAgentResponse(text: string, responseId?: string): void {
+      const normalizedResponseId = responseId?.trim();
+      if (normalizedResponseId && completedAgentResponseIds.has(normalizedResponseId)) {
+        return;
+      }
+      if (normalizedResponseId) {
+        completedAgentResponseIds.add(normalizedResponseId);
+      }
+      const normalizedText = text.trim();
+      events.push({
+        type: "agent_response",
+        text: normalizedText,
+        responseId: normalizedResponseId,
+        timestamp: Date.now(),
+      });
+      lastActivityAt = Date.now();
+      console.log(`ASSISTANT: ${normalizedText}`);
+
+      if (!greetingReceived) {
+        greetingReceived = true;
+        console.log("");
+        if (fixture.userTurns.length === 0) {
+          ws.close(1000, "simulation-complete");
+          return;
+        }
+        startTurn(fixture.userTurns[0].text);
+        return;
+      }
+
+      sawAgentResponseForTurn = true;
       scheduleIdleCheck();
     }
 
@@ -325,26 +370,41 @@ async function runConversationFixture(
         return;
       }
 
-      if (eventType === "agent_response") {
-        const response = payload.agent_response_event as { agent_response?: string };
-        const text = (response.agent_response || "").trim();
-        events.push({ type: eventType, text, timestamp: Date.now() });
-        lastActivityAt = Date.now();
-        console.log(`ASSISTANT: ${text}`);
-
-        if (!greetingReceived) {
-          greetingReceived = true;
-          console.log("");
-          if (fixture.userTurns.length === 0) {
-            ws.close(1000, "simulation-complete");
-            return;
-          }
-          startTurn(fixture.userTurns[0].text);
+      if (eventType === "agent_chat_response_part") {
+        const part = payload.text_response_part as {
+          event_id?: number | string;
+          text?: string;
+          type?: string;
+        };
+        const responseId = String(part.event_id ?? "");
+        const partType = String(part.type ?? "");
+        if (partType === "start") {
+          streamedAgentResponses.set(responseId, "");
           return;
         }
+        if (partType === "delta") {
+          streamedAgentResponses.set(responseId, `${streamedAgentResponses.get(responseId) ?? ""}${part.text ?? ""}`);
+          return;
+        }
+        if (partType === "stop") {
+          const text = streamedAgentResponses.get(responseId) ?? "";
+          streamedAgentResponses.delete(responseId);
+          if (text.trim().length > 0) {
+            recordAgentResponse(text, responseId);
+          }
+          return;
+        }
+      }
 
-        sawAgentResponseForTurn = true;
-        scheduleIdleCheck();
+      if (eventType === "agent_response") {
+        const response = payload.agent_response_event as { agent_response?: string };
+        const text = response.agent_response || "";
+        const responseId =
+          typeof (response as { event_id?: unknown }).event_id === "number" ||
+          typeof (response as { event_id?: unknown }).event_id === "string"
+            ? String((response as { event_id?: unknown }).event_id)
+            : undefined;
+        recordAgentResponse(text, responseId);
         return;
       }
 

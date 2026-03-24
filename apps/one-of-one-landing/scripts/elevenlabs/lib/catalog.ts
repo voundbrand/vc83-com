@@ -21,6 +21,7 @@ export interface LandingDemoAgentDefinition {
   firstMessagePath?: string;
   knowledgeBasePath?: string;
   knowledgeBaseName?: string;
+  guardrailsPath?: string;
   workflowPath?: string;
   managedToolPaths: string[];
 }
@@ -71,6 +72,7 @@ export const AGENT_CATALOG: Record<LandingDemoAgentKey, LandingDemoAgentDefiniti
     firstMessagePath: resolve(agentDir("clara"), "first-message.md"),
     knowledgeBasePath: resolve(agentDir("clara"), "knowledge-base.md"),
     knowledgeBaseName: "Clara Knowledge Base",
+    guardrailsPath: resolve(agentDir("clara"), "guardrails.json"),
     workflowPath: resolve(agentDir("clara"), "workflow.json"),
     managedToolPaths: [
       SHARED_TOOL_PATHS.endCall,
@@ -184,7 +186,7 @@ export const AGENT_CATALOG: Record<LandingDemoAgentKey, LandingDemoAgentDefiniti
     knowledgeBaseName: "Veronica Knowledge Base",
     managedToolPaths: [
       SHARED_TOOL_PATHS.endCall,
-      SHARED_TOOL_PATHS.transferToClara,
+      resolve(agentDir("veronica"), "transfer_to_clara.json"),
       SHARED_TOOL_PATHS.transferToHuman,
     ],
   },

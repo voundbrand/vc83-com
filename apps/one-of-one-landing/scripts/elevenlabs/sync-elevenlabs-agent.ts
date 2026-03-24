@@ -17,6 +17,9 @@ interface SyncOptions {
 }
 
 type JsonRecord = Record<string, unknown>;
+type AgentPlatformSettings = Record<string, unknown> & {
+  guardrails?: unknown;
+};
 
 interface RemoteKnowledgeBaseState {
   refs: ElevenLabsKnowledgeBaseDocumentRef[];
@@ -72,9 +75,17 @@ async function main(): Promise<void> {
     const workflowChanged =
       source.workflow !== undefined &&
       stableSerialize(remoteAgent.workflow ?? null) !== stableSerialize(source.workflow);
+    const guardrailsChanged =
+      source.guardrails !== undefined &&
+      stableSerialize(remoteAgent.platform_settings?.guardrails ?? null) !== stableSerialize(source.guardrails);
 
     const needsUpdate =
-      promptChanged || firstMessageChanged || builtInToolsChanged || knowledgeBaseChanged || workflowChanged;
+      promptChanged ||
+      firstMessageChanged ||
+      builtInToolsChanged ||
+      knowledgeBaseChanged ||
+      workflowChanged ||
+      guardrailsChanged;
     hasChanges = hasChanges || needsUpdate;
 
     console.log(`${needsUpdate ? "CHANGE" : "OK"} ${formatAgent(agentKey)} (${source.agentId})`);
@@ -103,6 +114,13 @@ async function main(): Promise<void> {
       console.log(
         `  workflow: ${workflowChanged ? "out of sync" : "in sync"} (${relativeToRepo(
           source.workflowPath
+        )})`
+      );
+    }
+    if (source.guardrailsPath) {
+      console.log(
+        `  guardrails: ${guardrailsChanged ? "out of sync" : "in sync"} (${relativeToRepo(
+          source.guardrailsPath
         )})`
       );
     }
@@ -144,6 +162,14 @@ async function main(): Promise<void> {
           ),
         },
       },
+      ...(source.guardrails !== undefined
+        ? {
+            platform_settings: {
+              ...(remoteAgent.platform_settings as AgentPlatformSettings | undefined),
+              guardrails: source.guardrails,
+            },
+          }
+        : {}),
       ...(source.workflow !== undefined ? { workflow: source.workflow } : {}),
     };
 

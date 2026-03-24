@@ -7,6 +7,7 @@ It currently manages:
 - system prompts from `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/*/system-prompt.md`
 - repo-managed first-message fields from `.../*/first-message.md` when an agent declares one
 - agent knowledge bases from `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/*/knowledge-base.md`
+- agent guardrails from `.../*/guardrails.json` when an agent declares one
 - built-in transfer/end-call tools from the JSON files in the same reference folder
 - Clara's workflow from `.../clara/workflow.json`
 - client-owned agents from app-local folders such as `apps/me-immo/elevenlabs/agents/anne-becker/*`

@@ -1,3 +1,5 @@
+import { NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT } from "../../../convex/onboarding/universalOnboardingPolicy";
+
 export interface LandingAuditMessage {
   id: string;
   role: "user" | "assistant";
@@ -26,11 +28,13 @@ interface NativeGuestMessageResponse {
 export interface LandingAuditRuntimeConfig {
   apiBaseUrl: string;
   agentId: string | null;
+  onboardingSurface: string | null;
 }
 
 interface NativeGuestConfigResponse {
   agentId?: string;
   apiBaseUrl?: string;
+  onboardingSurface?: string;
 }
 
 export interface LandingAuditStateSnapshot {
@@ -49,6 +53,7 @@ interface NativeGuestRequestPayload {
   agentId: string;
   message: string;
   sessionToken?: string;
+  onboardingSurface?: string;
   idempotencyKey?: string;
   requestCorrelationId?: string;
   deviceFingerprint?: string;
@@ -256,6 +261,7 @@ export function resolveLandingAuditRuntimeConfig(): LandingAuditRuntimeConfig {
   return {
     apiBaseUrl: normalizeApiBaseUrl(),
     agentId: typeof agentId === "string" && agentId.trim().length > 0 ? agentId.trim() : null,
+    onboardingSurface: NATIVE_GUEST_ONBOARDING_SURFACE_ONE_OF_ONE_LANDING_AUDIT,
   };
 }
 
@@ -294,7 +300,14 @@ async function resolveRuntimeConfigFromBootstrap(args: {
           ? payload.apiBaseUrl.trim()
           : baseUrl
       );
-      return { agentId, apiBaseUrl };
+      return {
+        agentId,
+        apiBaseUrl,
+        onboardingSurface:
+          typeof payload.onboardingSurface === "string" && payload.onboardingSurface.trim().length > 0
+            ? payload.onboardingSurface.trim()
+            : args.initialConfig.onboardingSurface,
+      };
     } catch {
       continue;
     }
@@ -452,6 +465,7 @@ export async function sendLandingAuditMessage(args: {
   let { response, body: payload } = await performSend({
     agentId: resolvedConfig.agentId,
     sessionToken: normalizedSessionToken,
+    onboardingSurface: resolvedConfig.onboardingSurface || undefined,
     message: trimmedMessage,
     idempotencyKey,
     requestCorrelationId,
@@ -475,6 +489,7 @@ export async function sendLandingAuditMessage(args: {
     persistLandingAuditTokens({ sessionToken: null, claimToken: null });
     const retryResult = await performSend({
       agentId: resolvedConfig.agentId,
+      onboardingSurface: resolvedConfig.onboardingSurface || undefined,
       message: trimmedMessage,
       idempotencyKey,
       requestCorrelationId,
@@ -514,6 +529,7 @@ export async function sendLandingAuditMessage(args: {
       retryCount += 1;
       const retryResult = await performSend({
         agentId: refreshedAgentId,
+        onboardingSurface: resolvedConfig.onboardingSurface || undefined,
         message: trimmedMessage,
         idempotencyKey,
         requestCorrelationId,
