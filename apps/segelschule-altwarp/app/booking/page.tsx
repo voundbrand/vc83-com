@@ -545,7 +545,9 @@ function BookingPageContent() {
           </div>
 
           {/* Background → Flaschengrün (footer) */}
-          <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+          <div className="-mx-4">
+            <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+          </div>
         </main>
         <Footer content={t.footer} />
         <Toaster />
@@ -574,7 +576,9 @@ function BookingPageContent() {
         </section>
 
         {/* Flaschengrün → Background */}
-        <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
+        <div className="-mx-4">
+          <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
+        </div>
 
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-3xl">
@@ -1257,7 +1261,9 @@ function BookingPageContent() {
         </section>
 
         {/* Background → Flaschengrün (footer) */}
-        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+        <div className="-mx-4">
+          <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+        </div>
       </main>
 
       <Footer content={t.footer} />
