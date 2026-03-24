@@ -123,7 +123,7 @@ const LOGIN_COPY: Record<
     oauthStartFailed: "Failed to start OAuth sign-in.",
     oidcNotConfigured: "OIDC provider is not configured for this organization.",
     mainAppUrlMissing:
-      "NEXT_PUBLIC_API_ENDPOINT_URL or NEXT_PUBLIC_APP_URL must point to the main app.",
+      "NEXT_PUBLIC_APP_URL must point to the main platform app.",
     browserRedirectUnavailable: "Browser redirect is unavailable.",
   },
   de: {
@@ -163,7 +163,7 @@ const LOGIN_COPY: Record<
     oidcNotConfigured:
       "OIDC-Provider ist für diese Organisation nicht konfiguriert.",
     mainAppUrlMissing:
-      "NEXT_PUBLIC_API_ENDPOINT_URL oder NEXT_PUBLIC_APP_URL muss auf die Haupt-App zeigen.",
+      "NEXT_PUBLIC_APP_URL muss auf die Hauptplattform zeigen.",
     browserRedirectUnavailable: "Browser-Weiterleitung ist nicht verfügbar.",
   },
 }
@@ -210,11 +210,6 @@ function mapSessionTokenSignInError(
 }
 
 function getMainAppBaseUrl(): string | null {
-  const endpointUrl = process.env.NEXT_PUBLIC_API_ENDPOINT_URL?.trim()
-  if (endpointUrl) {
-    return endpointUrl
-  }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
   if (appUrl) {
     return appUrl

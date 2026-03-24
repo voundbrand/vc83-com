@@ -1,0 +1,81 @@
+{
+  "version": "1.0.0",
+  "framework": "nextjs",
+  "routerType": "app",
+  "typescript": true,
+  "database": "convex",
+  "detectedModels": [
+    {
+      "name": "SegelschuleSessionAuthContext",
+      "source": "types/next-auth.d.ts",
+      "fields": [
+        "mode",
+        "provider",
+        "platformUserId",
+        "scopeOrganizationId"
+      ]
+    }
+  ],
+  "detectedRoutes": [
+    {
+      "path": "/api/auth/[...nextauth]",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/booking",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/cms/content",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/cms/image",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/contact",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/editor/session",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/editor/sign-in",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/editor/sign-out",
+      "methods": [
+        "POST"
+      ]
+    }
+  ],
+  "suggestedMappings": [
+    {
+      "localModel": "SegelschuleSessionAuthContext",
+      "platformType": "event",
+      "confidence": 85
+    }
+  ],
+  "lastSyncedAt": "2026-03-24T17:53:34.297Z"
+}
