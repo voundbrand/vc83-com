@@ -48,12 +48,13 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
   ]
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        useScrolledStyle ? "bg-background/95 backdrop-blur-sm" : "bg-transparent"
-      }`}
-    >
-      <div className="container mx-auto px-4">
+    <header className="fixed top-0 left-0 right-0 z-50">
+      <div
+        className={`transition-all duration-300 ${
+          useScrolledStyle ? "bg-background/95 backdrop-blur-sm" : "bg-transparent"
+        }`}
+      >
+        <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <Logo isScrolled={useScrolledStyle} size="md" />
 
@@ -107,9 +108,10 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
             ))}
           </nav>
         )}
+        </div>
       </div>
 
-      {/* Mini wave at the bottom of the header – visible only when scrolled */}
+      {/* Wave-shaped bottom edge – visible only when scrolled */}
       <div
         className={`w-full leading-[0] transition-opacity duration-300 ${
           useScrolledStyle ? "opacity-100" : "opacity-0 pointer-events-none"
