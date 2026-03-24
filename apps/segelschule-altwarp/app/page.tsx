@@ -102,12 +102,8 @@ export default function Home() {
         <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
         <FAQSection title={t.faq.title} subtitle={t.faq.subtitle} faqs={t.faq.items} />
 
-        {/* Flaschengrün → CTA (wave overlaps onto background image) */}
-        <WaveDivider fillColor="transparent" bgColor="#1E3926" overlap />
+        {/* CTA has internal top/bottom waves over the background image */}
         <CTASection title={t.cta.title} description={t.cta.description} buttonText={t.cta.button} />
-
-        {/* CTA → Footer (green wave curves into CTA bottom) */}
-        <WaveDivider fillColor="#1E3926" overlapTop />
       </main>
 
       <Footer content={t.footer} />
