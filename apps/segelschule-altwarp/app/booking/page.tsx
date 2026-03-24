@@ -434,7 +434,7 @@ function BookingPageContent() {
     return (
       <>
         <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
-        <main className="min-h-screen pt-20 px-4 bg-gradient-to-b from-background to-muted/20">
+        <main className="min-h-screen pt-20 px-4 bg-secondary">
           <div className="confetti-container fixed inset-0 pointer-events-none overflow-hidden z-50">
             {[...Array(50)].map((_, i) => (
               <div
@@ -546,7 +546,7 @@ function BookingPageContent() {
 
           {/* Background → Flaschengrün (footer) */}
           <div className="-mx-4">
-            <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+            <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
           </div>
         </main>
         <Footer content={t.footer} />
@@ -559,7 +559,7 @@ function BookingPageContent() {
     <>
       <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
 
-      <main className="min-h-screen pt-20 px-4 bg-gradient-to-b from-background to-muted/20">
+      <main className="min-h-screen pt-20 px-4 bg-secondary">
         <section
           className="py-24 px-4 -mx-4"
           style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
@@ -580,7 +580,7 @@ function BookingPageContent() {
 
         {/* Flaschengrün → Background */}
         <div className="-mx-4">
-          <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
+          <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
         </div>
 
         <section className="py-16 px-4">
@@ -1265,7 +1265,7 @@ function BookingPageContent() {
 
         {/* Background → Flaschengrün (footer) */}
         <div className="-mx-4">
-          <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+          <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
         </div>
       </main>
 

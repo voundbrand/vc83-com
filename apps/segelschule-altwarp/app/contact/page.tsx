@@ -77,7 +77,10 @@ export default function ContactPage() {
       <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
 
       <main className="pt-20">
-        <section className="py-16 md:py-24 px-4 bg-gradient-to-b from-primary to-primary/90">
+        <section
+          className="py-16 md:py-24 px-4"
+          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+        >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-6 text-balance">
               {t.contact.title}
@@ -86,10 +89,10 @@ export default function ContactPage() {
           </div>
         </section>
 
-        {/* Flaschengrün → Background */}
-        <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
+        {/* Flaschengrün → Elfenbein */}
+        <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
 
-        <section className="py-16 px-4 bg-background">
+        <section className="py-16 px-4 bg-secondary">
           <div className="container mx-auto max-w-7xl">
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
               {/* Contact Information - Left Side */}
@@ -269,7 +272,7 @@ export default function ContactPage() {
                           className="w-full"
                         />
                       </div>
-                      <Button type="submit" className="w-full shimmer-button" size="lg" disabled={isSubmitting}>
+                      <Button type="submit" className="w-full bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button" size="lg" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -287,10 +290,13 @@ export default function ContactPage() {
           </div>
         </section>
 
-        <section className="py-16 px-4 bg-muted/30">
+        {/* Elfenbein → Flaschengrün */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
+
+        <section className="py-16 px-4 bg-primary">
           <div className="container mx-auto max-w-7xl">
             <div className="text-center mb-8">
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-primary mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#FFF6C3] mb-4">
                 {language === "de"
                   ? "So finden Sie uns"
                   : language === "nl"
@@ -299,7 +305,7 @@ export default function ContactPage() {
                       ? "So findet Sie öis"
                       : "Find Your Way Here"}
               </h2>
-              <p className="text-foreground/70 text-lg max-w-2xl mx-auto mb-6">
+              <p className="text-[#FFFBEA]/80 text-lg max-w-2xl mx-auto mb-6">
                 {language === "de"
                   ? "Wir befinden uns direkt am Hafen von Altwarp mit herrlichem Blick auf die Ostsee."
                   : language === "nl"
@@ -308,7 +314,7 @@ export default function ContactPage() {
                       ? "Mir sin diräkt am Hafen vo Altwarp mit herrlichem Blick uf d'Ostsee."
                       : "We are located directly at the Altwarp harbor with a magnificent view of the Baltic Sea."}
               </p>
-              <Button onClick={openDirections} size="lg" className="shimmer-button gap-2">
+              <Button onClick={openDirections} size="lg" className="bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button gap-2">
                 <Navigation className="h-5 w-5" />
                 {language === "de"
                   ? "Route planen"
@@ -338,9 +344,6 @@ export default function ContactPage() {
             </Card>
           </div>
         </section>
-
-        {/* Background → Flaschengrün (footer) */}
-        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
       </main>
 
       <Footer content={t.footer} />

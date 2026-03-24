@@ -186,10 +186,13 @@ export default function PricingPage() {
     <>
       <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
 
-      <main className="min-h-screen bg-background pt-24">
-        <div className="container mx-auto px-4 py-16 max-w-7xl">
-          <div className="text-center mb-16">
-            <h1 className="text-5xl md:text-6xl font-serif font-bold text-primary mb-6 text-balance">
+      <main className="min-h-screen pt-20">
+        <section
+          className="py-16 md:py-24 px-4"
+          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+        >
+          <div className="container mx-auto max-w-7xl text-center">
+            <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
               {language === "de"
                 ? "Preise & Kurse"
                 : language === "en"
@@ -198,7 +201,7 @@ export default function PricingPage() {
                     ? "Prijzen & Cursussen"
                     : "Priis & Kurs"}
             </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto text-balance">
+            <p className="text-xl text-white/90 max-w-3xl mx-auto text-balance">
               {language === "de"
                 ? "Transparente Preise, faire Konditionen – alle Kosten inklusive ohne versteckte Gebühren"
                 : language === "en"
@@ -208,8 +211,14 @@ export default function PricingPage() {
                     : "Transparänti Priis, fairi Konditione – alli Koste inklusive ohni versteckti Gebüehre"}
             </p>
           </div>
+        </section>
 
-          <div className="grid md:grid-cols-2 gap-8 mb-16 max-w-6xl mx-auto">
+        {/* Flaschengrün → Elfenbein */}
+        <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
+
+        <section className="py-16 px-4 bg-secondary">
+          <div className="container mx-auto max-w-6xl">
+          <div className="grid md:grid-cols-2 gap-8 mb-16">
             {pricingDetails.map((course, index) => (
               <Card
                 key={index}
@@ -273,9 +282,7 @@ export default function PricingPage() {
                 <CardFooter className="pt-6">
                   <Link href={`/booking?course=${course.id}`} className="w-full">
                     <Button
-                      className={`w-full text-lg py-6 shimmer-button ${
-                        index === 1 ? "bg-primary hover:bg-primary/90" : "bg-primary/90 hover:bg-primary"
-                      }`}
+                      className="w-full text-lg py-6 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                     >
                       {t.courses.button}
                     </Button>
@@ -312,10 +319,11 @@ export default function PricingPage() {
               </div>
             </CardHeader>
           </Card>
-        </div>
+          </div>
+        </section>
 
-        {/* Background → Flaschengrün (footer) */}
-        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
+        {/* Elfenbein → Flaschengrün (footer) */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
       </main>
 
       <Footer content={t.footer} />
