@@ -22,11 +22,11 @@ const iconMap = {
 
 export function ProcessSection({ title, subtitle, steps }: ProcessSectionProps) {
   return (
-    <section className="bg-sand py-20 px-4">
+    <section className="bg-primary py-24 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <h2 className="mb-4 font-serif text-4xl font-bold text-primary md:text-5xl text-balance">{title}</h2>
-          <p className="text-lg text-muted-foreground md:text-xl text-pretty">{subtitle}</p>
+          <h2 className="mb-4 font-serif text-4xl font-bold text-primary-foreground md:text-5xl text-balance">{title}</h2>
+          <p className="text-lg text-primary-foreground/80 md:text-xl text-pretty">{subtitle}</p>
         </div>
 
         <div className="grid gap-8 md:grid-cols-3">
@@ -36,16 +36,16 @@ export function ProcessSection({ title, subtitle, steps }: ProcessSectionProps) 
               <div key={index} className="relative text-center">
                 <div className="mb-6 flex justify-center">
                   <div className="relative">
-                    <div className="rounded-full bg-primary p-6">
-                      <Icon className="h-10 w-10 text-white" />
+                    <div className="rounded-full bg-[#FFF6C3] p-6">
+                      <Icon className="h-10 w-10 text-primary" />
                     </div>
-                    <div className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary">
+                    <div className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground">
                       {index + 1}
                     </div>
                   </div>
                 </div>
-                <h3 className="mb-3 font-serif text-2xl font-bold text-primary">{step.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+                <h3 className="mb-3 font-serif text-2xl font-bold text-primary-foreground">{step.title}</h3>
+                <p className="text-primary-foreground/80 leading-relaxed">{step.description}</p>
               </div>
             )
           })}

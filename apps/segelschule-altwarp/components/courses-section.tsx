@@ -45,7 +45,7 @@ export function CoursesSection({ title, subtitle, courses, buttonText }: Courses
   const visibleCourses = getVisibleCourses()
 
   return (
-    <section id="courses" className="py-24 px-4 bg-muted/30">
+    <section id="courses" className="py-28 px-4 bg-secondary">
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary mb-4 text-balance">{title}</h2>
@@ -98,7 +98,7 @@ export function CoursesSection({ title, subtitle, courses, buttonText }: Courses
                   </CardContent>
                   <CardFooter>
                     <Link href={`/booking?course=${course.id || actualIndex}`} className="w-full">
-                      <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shimmer-button">
+                      <Button className="w-full bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button">
                         {buttonText}
                       </Button>
                     </Link>

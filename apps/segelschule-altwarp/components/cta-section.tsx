@@ -30,7 +30,7 @@ export function CTASection({ title, description, buttonText }: CTASectionProps) 
         <Button
           asChild
           size="lg"
-          className="text-lg px-10 py-7 bg-[#FFF6C3] text-primary hover:bg-[#E2C786] shadow-xl shimmer-button"
+          className="text-lg px-10 py-7 bg-accent hover:bg-[#AA2023] text-accent-foreground shadow-xl shimmer-button"
         >
           <Link href="/booking">{buttonText}</Link>
         </Button>

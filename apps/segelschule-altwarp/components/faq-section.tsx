@@ -15,20 +15,20 @@ interface FAQSectionProps {
 
 export function FAQSection({ title, subtitle, faqs }: FAQSectionProps) {
   return (
-    <section className="bg-background py-20 px-4">
+    <section className="bg-primary py-24 px-4">
       <div className="container mx-auto max-w-4xl">
         <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-4xl font-bold text-primary md:text-5xl text-balance">{title}</h2>
-          <p className="text-lg text-muted-foreground md:text-xl text-pretty">{subtitle}</p>
+          <h2 className="mb-4 font-serif text-4xl font-bold text-primary-foreground md:text-5xl text-balance">{title}</h2>
+          <p className="text-lg text-primary-foreground/80 md:text-xl text-pretty">{subtitle}</p>
         </div>
 
         <Accordion type="single" collapsible className="w-full">
           {faqs.map((faq, index) => (
-            <AccordionItem key={index} value={`item-${index}`}>
-              <AccordionTrigger className="text-left text-lg font-semibold text-primary">
+            <AccordionItem key={index} value={`item-${index}`} className="border-primary-foreground/20">
+              <AccordionTrigger className="text-left text-lg font-semibold text-primary-foreground hover:text-[#E2C786]">
                 {faq.question}
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground leading-relaxed">{faq.answer}</AccordionContent>
+              <AccordionContent className="text-primary-foreground/80 leading-relaxed">{faq.answer}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>

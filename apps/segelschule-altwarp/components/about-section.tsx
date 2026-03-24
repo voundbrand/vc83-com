@@ -12,7 +12,7 @@ export function AboutSection({ title, text }: AboutSectionProps) {
   const cmsEnabled = process.env.NEXT_PUBLIC_CMS_EDITOR_ENABLED === "true"
 
   return (
-    <section className="py-24 px-4 bg-background">
+    <section className="py-28 px-4 bg-secondary">
       <div className="container mx-auto max-w-7xl">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>

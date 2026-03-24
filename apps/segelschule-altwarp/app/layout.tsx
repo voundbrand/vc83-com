@@ -1,9 +1,24 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Montserrat } from "next/font/google"
+import localFont from "next/font/local"
 import { Analytics } from "@vercel/analytics/next"
 import { LanguageProvider } from "@/lib/language-context"
 import { CmsSiteProvider } from "@/components/cms-site-provider"
 import "./globals.css"
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-montserrat",
+  display: "swap",
+})
+
+const romantica = localFont({
+  src: "../resources/RomanticaSignature-Regular.otf",
+  variable: "--font-romantica",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "Segelschule Altwarp - Segeln lernen in Ruhe am Stettiner Haff",
@@ -34,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="de">
+    <html lang="de" className={`${montserrat.variable} ${romantica.variable}`}>
       <body className="font-sans antialiased">
         <LanguageProvider>
           <CmsSiteProvider>{children}</CmsSiteProvider>

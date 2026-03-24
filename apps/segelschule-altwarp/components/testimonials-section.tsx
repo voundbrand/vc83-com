@@ -15,22 +15,22 @@ interface TestimonialsSectionProps {
 
 export function TestimonialsSection({ title, reviews }: TestimonialsSectionProps) {
   return (
-    <section className="py-24 px-4 bg-background">
+    <section className="py-28 px-4 bg-primary">
       <div className="container mx-auto max-w-7xl">
-        <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary mb-16 text-center text-balance">
+        <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary-foreground mb-16 text-center text-balance">
           {title}
         </h2>
 
         <div className="grid md:grid-cols-3 gap-8">
           {reviews.map((review, index) => (
-            <Card key={index} className="bg-card hover:shadow-lg transition-shadow">
+            <Card key={index} className="bg-[#FFF6C3] border-[#E2C786] hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
                 <div className="flex gap-1 mb-4">
                   {[...Array(review.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+                    <Star key={i} className="h-5 w-5 fill-[#E2C786] text-[#E2C786]" />
                   ))}
                 </div>
-                <p className="text-foreground/80 mb-6 leading-relaxed italic">"{review.text}"</p>
+                <p className="text-foreground/80 mb-6 leading-relaxed font-script text-lg">"{review.text}"</p>
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarImage src={`/abstract-portrait.png?height=40&width=40&query=portrait of ${review.name}`} />

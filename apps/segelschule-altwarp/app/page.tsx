@@ -10,6 +10,7 @@ import { TeamSection } from "@/components/team-section"
 import { FAQSection } from "@/components/faq-section"
 import { CTASection } from "@/components/cta-section"
 import { Footer } from "@/components/footer"
+import { WaveDivider } from "@/components/wave-divider"
 import { translations } from "@/lib/translations"
 import { useLanguage } from "@/lib/language-context"
 import { Toaster } from "@/components/ui/toaster"
@@ -64,8 +65,12 @@ export default function Home() {
           <AboutSection title={t.about.title} text={t.about.text} />
         </section>
 
+        {/* Elfenbein → Flaschengrün */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
         <ProcessSection title={t.process.title} subtitle={t.process.subtitle} steps={t.process.steps} />
 
+        {/* Flaschengrün → Elfenbein */}
+        <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
         <CoursesSection
           title={t.courses.title}
           subtitle={t.courses.subtitle}
@@ -73,8 +78,12 @@ export default function Home() {
           buttonText={t.courses.button}
         />
 
+        {/* Elfenbein → Flaschengrün */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
         <TestimonialsSection title={t.testimonials.title} reviews={t.testimonials.reviews} />
 
+        {/* Flaschengrün → Elfenbein */}
+        <WaveDivider fillColor="#FFF6C3" bgColor="#1E3926" />
         <section id="gallery">
           <GallerySection title={t.gallery.title} subtitle={t.gallery.subtitle} />
         </section>
@@ -83,8 +92,12 @@ export default function Home() {
           <TeamSection title={t.team.title} subtitle={t.team.subtitle} members={t.team.members} />
         </section>
 
+        {/* Background → Flaschengrün */}
+        <WaveDivider fillColor="#1E3926" bgColor="#FFFBEA" />
         <FAQSection title={t.faq.title} subtitle={t.faq.subtitle} faqs={t.faq.items} />
 
+        {/* Flaschengrün → CTA overlay */}
+        <WaveDivider fillColor="#FFFBEA" bgColor="#1E3926" />
         <CTASection title={t.cta.title} description={t.cta.description} buttonText={t.cta.button} />
       </main>
 

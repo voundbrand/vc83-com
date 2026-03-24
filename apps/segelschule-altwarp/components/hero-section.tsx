@@ -26,16 +26,19 @@ export function HeroSection({ title, subtitle, ctaText }: HeroSectionProps) {
         className="object-cover"
       />
       {/* Subtle dark overlay for light text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1E3926]/40 via-[#1E3926]/20 to-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#1E3926]/60 via-[#1E3926]/30 to-[#FFF6C3]/80" />
 
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <p className="font-script text-3xl md:text-4xl text-[#E2C786] mb-4 drop-shadow-md">
+          Wind, Wasser, Zeit – das ist Segeln
+        </p>
         <h1 className="text-5xl md:text-6xl lg:text-7xl font-semibold text-[#FFFBEA] mb-6 text-balance drop-shadow-lg">
           {title}
         </h1>
-        <p className="text-xl md:text-2xl text-[#FFFBEA] mb-8 max-w-2xl mx-auto text-balance drop-shadow-md">{subtitle}</p>
+        <p className="text-xl md:text-2xl text-[#FFFBEA]/90 mb-10 max-w-2xl mx-auto text-balance drop-shadow-md leading-relaxed">{subtitle}</p>
         <Button
           size="lg"
-          className="text-lg px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shimmer-button"
+          className="text-lg px-10 py-7 bg-accent hover:bg-[#AA2023] text-accent-foreground shadow-xl shimmer-button"
           onClick={scrollToCourses}
         >
           {ctaText}
