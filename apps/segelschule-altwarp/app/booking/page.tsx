@@ -560,7 +560,10 @@ function BookingPageContent() {
       <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
 
       <main className="min-h-screen pt-20 px-4 bg-gradient-to-b from-background to-muted/20">
-        <section className="py-24 px-4 bg-gradient-to-b from-primary to-primary/90">
+        <section
+          className="py-24 px-4 -mx-4"
+          style={{ background: "linear-gradient(to bottom, #FFFBEA 0%, #1E3926 30%)" }}
+        >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
               {language === "de" ? "Kurs buchen" : language === "nl" ? "Boek een cursus" : "Book a Course"}
