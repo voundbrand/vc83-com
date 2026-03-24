@@ -24,8 +24,9 @@ import { ElevenLabsSettings } from "./elevenlabs-settings";
 import { ResendSettings } from "./resend-settings";
 import { TwilioSettings } from "./twilio-settings";
 import { CalcomSettings } from "./calcom-settings";
+import { FrontendOidcSettings } from "./frontend-oidc-settings";
 import { CreateIntegrationDialog } from "./create-integration-dialog";
-import { CustomIntegrationModal } from "./custom-integration-modal";
+import { CustomIntegrationSettings } from "./custom-integration-settings";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useAppearance } from "@/contexts/appearance-context";
@@ -270,6 +271,17 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
     accessCheck: { type: "feature", key: "aiEnabled" },
   },
   {
+    id: "frontend-oidc",
+    name: "Frontend OIDC",
+    description: "Per-organization OIDC for frontend app login",
+    icon: "fas fa-id-card",
+    iconColor: "var(--tone-accent-strong)",
+    status: "available",
+    type: "special",
+    // Available on all plans; permissions are enforced server-side.
+    accessCheck: { type: "feature", key: "apiKeysEnabled" },
+  },
+  {
     id: "api-keys",
     name: "API Keys",
     description: "Direct API access credentials",
@@ -287,7 +299,8 @@ const BUILT_IN_INTEGRATIONS: BuiltInIntegrationDefinition[] = [
 type SelectedIntegration =
   | { type: "builtin" | "verified" | "special"; id: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  | { type: "custom"; id: Id<"oauthApplications">; app: any };
+  | { type: "custom"; id: Id<"oauthApplications">; app: any }
+  | { type: "create" };
 
 interface CustomOAuthApplication {
   id: Id<"oauthApplications">;
@@ -843,6 +856,7 @@ function LimitReachedModal({ currentCount, limit, nextTier, onClose }: LimitReac
 interface IntegrationsWindowProps {
   initialPanel?:
     | "api-keys"
+    | "frontend-oidc"
     | "microsoft"
     | "telegram"
     | "infobip"
@@ -883,6 +897,11 @@ type CalcomIntegrationSnapshot = {
   enabled?: boolean;
 };
 
+type FrontendOidcIntegrationSnapshot = {
+  configured?: boolean;
+  enabled?: boolean;
+};
+
 export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: IntegrationsWindowProps = {}) {
   const { isSignedIn, sessionId } = useAuth();
   const { mode } = useAppearance();
@@ -894,6 +913,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
   const currentOrg = useCurrentOrganization();
   const [selectedIntegration, setSelectedIntegration] = useState<SelectedIntegration | null>(
     initialPanel === "api-keys" ? { type: "special", id: "api-keys" } :
+    initialPanel === "frontend-oidc" ? { type: "special", id: "frontend-oidc" } :
     initialPanel === "microsoft" ? { type: "builtin", id: "microsoft" } :
     initialPanel === "telegram" ? { type: "builtin", id: "telegram" } :
     initialPanel === "infobip" ? { type: "builtin", id: "infobip" } :
@@ -903,7 +923,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     initialPanel === "calcom" ? { type: "builtin", id: "calcom" } :
     null
   );
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState<{
     feature: string;
     requiredTier: string;
@@ -993,6 +1012,15 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     api.integrations.calcom.getCalcomSettings,
     isSignedIn && sessionId ? { sessionId } : "skip"
   ) as CalcomIntegrationSnapshot | null | undefined;
+  const frontendOidcIntegration = useQuery(
+    apiUntyped.frontendOidc.getFrontendOidcIntegration,
+    isSignedIn && sessionId && currentOrg?.id
+      ? {
+          sessionId,
+          organizationId: currentOrg.id as Id<"organizations">,
+        }
+      : "skip"
+  ) as FrontendOidcIntegrationSnapshot | null | undefined;
 
   // Loading state only when we have an org and are waiting for data
   const isLoading = currentOrg?.id && (customApps === undefined || license === undefined);
@@ -1129,8 +1157,8 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       return;
     }
 
-    // Check if at limit
-    if (currentCustomAppsCount >= maxCustomOAuthApps) {
+    // Check if at limit (-1 means unlimited)
+    if (maxCustomOAuthApps !== -1 && currentCustomAppsCount >= maxCustomOAuthApps) {
       setLimitReachedModal({
         currentCount: currentCustomAppsCount,
         limit: maxCustomOAuthApps,
@@ -1138,7 +1166,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
       });
       return;
     }
-    setShowCreateDialog(true);
+    setSelectedIntegration({ type: "create" });
   };
 
   // Handle back navigation
@@ -1256,6 +1284,13 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
         </div>
       );
     }
+    if (selectedIntegration.type === "special" && selectedIntegration.id === "frontend-oidc") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <FrontendOidcSettings onBack={handleBack} />
+        </div>
+      );
+    }
     if (selectedIntegration.type === "special" && selectedIntegration.id === "ai-connections") {
       return (
         <div className="integration-ui-scope h-full">
@@ -1273,10 +1308,20 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
     if (selectedIntegration.type === "custom") {
       return (
         <div className="integration-ui-scope h-full">
-          <CustomIntegrationModal
+          <CustomIntegrationSettings
             app={selectedIntegration.app}
             onBack={handleBack}
             onDeleted={handleBack}
+          />
+        </div>
+      );
+    }
+    if (selectedIntegration.type === "create") {
+      return (
+        <div className="integration-ui-scope h-full">
+          <CreateIntegrationDialog
+            onBack={handleBack}
+            onCreated={handleBack}
           />
         </div>
       );
@@ -1341,10 +1386,7 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                 </ol>
               </div>
               <button
-                onClick={() => {
-                  handleBack();
-                  handleAddNewClick();
-                }}
+                onClick={() => setSelectedIntegration({ type: "create" })}
                 className="desktop-interior-button px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2 mx-auto"
                 style={{
                   background: 'var(--tone-accent)',
@@ -1504,6 +1546,10 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
                           ? "connected"
                           : integration.id === "calcom" && calcomSettings?.enabled && Boolean(calcomSettings?.source)
                           ? "connected"
+                          : integration.id === "frontend-oidc" &&
+                            frontendOidcIntegration?.enabled &&
+                            frontendOidcIntegration?.configured
+                          ? "connected"
                           : integration.status
                       }
                       requiredTier={isLocked ? getRequiredTierForAccess(integration.accessCheck) : undefined}
@@ -1633,14 +1679,6 @@ export function IntegrationsWindow({ initialPanel = null, fullScreen = false }: 
             {tx("ui.integrations.footer_hint", "Click an integration to configure it")}
           </div>
         </>
-      )}
-
-      {/* Create Integration Dialog */}
-      {showCreateDialog && (
-        <CreateIntegrationDialog
-          onClose={() => setShowCreateDialog(false)}
-          onCreated={() => setShowCreateDialog(false)}
-        />
       )}
 
       {/* Upgrade Modal */}

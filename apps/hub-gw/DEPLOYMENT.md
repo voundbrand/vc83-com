@@ -25,15 +25,17 @@ Required:
 
 - `NEXT_PUBLIC_CONVEX_URL`
 - `CONVEX_DEPLOY_KEY`
-- `GW_ORG_ID`
+- `AUTH_SECRET`
 
 Optional / conditional:
 
-- No additional runtime env vars are required by the current app code.
+- `HUB_GW_AUTH_MODE` (`auto` by default; optional override: `platform`, `oidc`, or `mock`)
 
 Review manually:
 
-- Any future OAuth / NextAuth provider secrets are not wired into the current `apps/hub-gw` routes yet, so do not add them unless the auth implementation lands in app code.
+- Hub-GW resolves organization scope from request host/domain configuration.
+- `auto` mode uses platform auth by default and only switches to OIDC when a valid per-org `frontend_oidc` integration is active.
+- Real OIDC requires a per-org `frontend_oidc` integration in platform settings (not static `GW_ORG_ID` env wiring).
 
 ## Local validation
 

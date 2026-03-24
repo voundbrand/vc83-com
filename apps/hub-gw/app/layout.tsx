@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
-import { UserProvider } from "@/lib/user-context"
-import { DataProvider } from "@/lib/data-context"
+import { headers } from "next/headers"
+import { Providers } from "@/app/providers"
 import { fetchAllData } from "@/lib/data-server"
+import { resolveHubGwAuthClientConfig } from "@/lib/auth"
 import { Footer } from "@/components/footer"
 import "./globals.css"
 
@@ -15,7 +16,14 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const initialData = await fetchAllData()
+  const requestHeaders = await headers()
+  const requestHost =
+    requestHeaders.get("x-forwarded-host") || requestHeaders.get("host")
+
+  const initialData = await fetchAllData({ requestHost })
+  const authConfig = await resolveHubGwAuthClientConfig(process.env, {
+    requestHost,
+  })
 
   return (
     <html lang="de">
@@ -28,12 +36,14 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <UserProvider>
-          <DataProvider initialData={initialData}>
-            {children}
-            <Footer />
-          </DataProvider>
-        </UserProvider>
+        <Providers
+          initialData={initialData}
+          authMode={authConfig.mode}
+          authProviderId={authConfig.providerId}
+        >
+          {children}
+          <Footer />
+        </Providers>
       </body>
     </html>
   )

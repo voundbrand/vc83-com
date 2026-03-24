@@ -2,14 +2,14 @@
 
 import React, { useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { makeFunctionReference, type FunctionReference } from "convex/server";
 import { ArrowLeft, Copy, Check, Trash2, RefreshCw, AlertTriangle, Loader2, X, Plus } from "lucide-react";
 import { FAIconPicker } from "./fa-icon-picker";
 import { ScopeSelector } from "@/components/api-keys/scope-selector";
 import { formatScopeLabel } from "@/lib/scopes";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
-interface CustomIntegrationModalProps {
+interface CustomIntegrationSettingsProps {
   app: {
     id: Id<"oauthApplications">;
     name: string;
@@ -26,7 +26,17 @@ interface CustomIntegrationModalProps {
   onDeleted: () => void;
 }
 
-export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegrationModalProps) {
+const updateOAuthApplicationRef = makeFunctionReference<"mutation">(
+  "oauth/applications:updateOAuthApplication"
+);
+const deleteOAuthApplicationRef = makeFunctionReference<"mutation">(
+  "oauth/applications:deleteOAuthApplication"
+);
+const regenerateClientSecretRef = makeFunctionReference<"mutation">(
+  "oauth/applications:regenerateClientSecret"
+);
+
+export function CustomIntegrationSettings({ app, onBack, onDeleted }: CustomIntegrationSettingsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -41,9 +51,15 @@ export function CustomIntegrationModal({ app, onBack, onDeleted }: CustomIntegra
   const [redirectUris, setRedirectUris] = useState(app.redirectUris);
   const [selectedScopes, setSelectedScopes] = useState(app.scopes.split(" ").filter(Boolean));
 
-  const updateOAuthApp = useMutation(api.oauth.applications.updateOAuthApplication);
-  const deleteOAuthApp = useMutation(api.oauth.applications.deleteOAuthApplication);
-  const regenerateSecret = useMutation(api.oauth.applications.regenerateClientSecret);
+  const updateOAuthApp = useMutation(
+    updateOAuthApplicationRef as FunctionReference<"mutation">
+  );
+  const deleteOAuthApp = useMutation(
+    deleteOAuthApplicationRef as FunctionReference<"mutation">
+  );
+  const regenerateSecret = useMutation(
+    regenerateClientSecretRef as FunctionReference<"mutation">
+  );
 
   const handleCopy = async (value: string, key: string) => {
     await navigator.clipboard.writeText(value);

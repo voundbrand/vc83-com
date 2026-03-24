@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import {
   getConvexClient,
-  getGwOrganizationId,
   mutateInternal,
+  resolveHubGwOrganizationId,
 } from "@/lib/server-convex";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -18,10 +18,13 @@ const generatedInternalApi: any =
  */
 export async function POST(request: Request) {
   try {
-    const orgId = getGwOrganizationId();
+    const orgId = await resolveHubGwOrganizationId({
+      requestHost:
+        request.headers.get("x-forwarded-host") || request.headers.get("host"),
+    });
     if (!orgId) {
       return NextResponse.json(
-        { error: "GW_ORG_ID not configured" },
+        { error: "Unable to resolve organization scope from request host" },
         { status: 500 }
       );
     }

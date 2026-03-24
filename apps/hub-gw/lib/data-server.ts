@@ -1,8 +1,9 @@
 import type { Benefit, Provision, Leistung } from "./types";
 import {
   getConvexClient,
-  getGwOrganizationId,
   queryInternal,
+  resolveHubGwOrganizationId,
+  type HubGwOrganizationScope,
 } from "./server-convex";
 import {
   initialBenefits,
@@ -22,8 +23,10 @@ const generatedInternalApi: any =
 // ============================================================================
 
 function isConvexConfigured(): boolean {
-  return !!(process.env.NEXT_PUBLIC_CONVEX_URL && process.env.CONVEX_DEPLOY_KEY && process.env.GW_ORG_ID);
+  return !!(process.env.NEXT_PUBLIC_CONVEX_URL && process.env.CONVEX_DEPLOY_KEY);
 }
+
+export type HubGwDataScope = HubGwOrganizationScope;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConvexObject = Record<string, any>;
@@ -115,12 +118,18 @@ function mapLeistung(obj: ConvexObject): Leistung {
 // Server-side fetch functions
 // ============================================================================
 
-export async function fetchBenefits(): Promise<Benefit[]> {
+export async function fetchBenefits(
+  scope: HubGwDataScope = {}
+): Promise<Benefit[]> {
   if (!isConvexConfigured()) return initialBenefits;
 
   try {
     const convex = getConvexClient();
-    const orgId = getGwOrganizationId() as Id<"organizations">;
+    const organizationId = await resolveHubGwOrganizationId(scope);
+    if (!organizationId) {
+      return initialBenefits;
+    }
+    const orgId = organizationId as Id<"organizations">;
 
     const objects = await queryInternal(
       convex,
@@ -138,12 +147,18 @@ export async function fetchBenefits(): Promise<Benefit[]> {
   }
 }
 
-export async function fetchProvisionen(): Promise<Provision[]> {
+export async function fetchProvisionen(
+  scope: HubGwDataScope = {}
+): Promise<Provision[]> {
   if (!isConvexConfigured()) return initialProvisionen;
 
   try {
     const convex = getConvexClient();
-    const orgId = getGwOrganizationId() as Id<"organizations">;
+    const organizationId = await resolveHubGwOrganizationId(scope);
+    if (!organizationId) {
+      return initialProvisionen;
+    }
+    const orgId = organizationId as Id<"organizations">;
 
     const objects = await queryInternal(
       convex,
@@ -161,12 +176,18 @@ export async function fetchProvisionen(): Promise<Provision[]> {
   }
 }
 
-export async function fetchLeistungen(): Promise<Leistung[]> {
+export async function fetchLeistungen(
+  scope: HubGwDataScope = {}
+): Promise<Leistung[]> {
   if (!isConvexConfigured()) return initialLeistungen;
 
   try {
     const convex = getConvexClient();
-    const orgId = getGwOrganizationId() as Id<"organizations">;
+    const organizationId = await resolveHubGwOrganizationId(scope);
+    if (!organizationId) {
+      return initialLeistungen;
+    }
+    const orgId = organizationId as Id<"organizations">;
 
     const objects = await queryInternal(
       convex,
@@ -184,15 +205,17 @@ export async function fetchLeistungen(): Promise<Leistung[]> {
   }
 }
 
-export async function fetchAllData(): Promise<{
+export async function fetchAllData(
+  scope: HubGwDataScope = {}
+): Promise<{
   benefits: Benefit[];
   provisionen: Provision[];
   leistungen: Leistung[];
 }> {
   const [benefits, provisionen, leistungen] = await Promise.all([
-    fetchBenefits(),
-    fetchProvisionen(),
-    fetchLeistungen(),
+    fetchBenefits(scope),
+    fetchProvisionen(scope),
+    fetchLeistungen(scope),
   ]);
 
   return { benefits, provisionen, leistungen };

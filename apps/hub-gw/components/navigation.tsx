@@ -26,7 +26,7 @@ const navLinks: readonly { href: string; label: string; exact?: boolean }[] = [
 
 export function Navigation() {
   const pathname = usePathname()
-  const { user, isLoggedIn, login, logout } = useUser()
+  const { authMode, user, isLoggedIn, isLoading, login, logout } = useUser()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -143,11 +143,20 @@ export function Navigation() {
           </DropdownMenu>
         ) : (
           <Button
-            onClick={() => login()}
+            onClick={() => {
+              void login()
+            }}
+            disabled={isLoading}
             className="gap-2 border border-white/20 bg-white/10 text-white hover:bg-white/20"
           >
             <LogIn className="h-4 w-4" />
-            Anmelden
+            {isLoading
+              ? "Lädt..."
+              : authMode === "oidc"
+                ? "Mitgliedslogin"
+                : authMode === "platform"
+                  ? "Admin Login"
+                  : "Anmelden"}
           </Button>
         )}
       </div>

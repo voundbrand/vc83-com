@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useMutation } from "convex/react";
 import { useCurrentOrganization } from "@/hooks/use-auth";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
-import { X, ArrowRight, ArrowLeft, Check, Copy, AlertTriangle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Copy, AlertTriangle, X } from "lucide-react";
 import { FAIconPicker } from "./fa-icon-picker";
 import { ScopeSelector } from "@/components/api-keys/scope-selector";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -13,7 +13,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 const apiAny = require("../../../../convex/_generated/api").api as any;
 
 interface CreateIntegrationDialogProps {
-  onClose: () => void;
+  onBack: () => void;
   onCreated: () => void;
 }
 
@@ -25,7 +25,7 @@ type TranslateWithFallback = (
   params?: Record<string, string | number>
 ) => string;
 
-export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegrationDialogProps) {
+export function CreateIntegrationDialog({ onBack, onCreated }: CreateIntegrationDialogProps) {
   const currentOrg = useCurrentOrganization();
   const { t } = useNamespaceTranslations("ui.integrations.create_integration_dialog");
   const tx: TranslateWithFallback = (key, fallback, params) => {
@@ -135,7 +135,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
 
   const handleDone = () => {
     onCreated();
-    onClose();
+    onBack();
   };
 
   const goNext = () => {
@@ -172,33 +172,39 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div
-        className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border-4 shadow-lg"
-        style={{
-          borderColor: 'var(--window-document-border)',
-          background: 'var(--window-document-bg)',
-        }}
-      >
+    <div className="flex flex-col h-full" style={{ background: 'var(--window-document-bg)' }}>
         {/* Header */}
         <div
-          className="px-3 py-2 flex items-center justify-between shrink-0"
-          style={{
-            backgroundColor: 'var(--tone-accent)',
-            color: 'white',
-          }}
+          className="px-4 py-3 border-b-2 flex items-center gap-3 shrink-0"
+          style={{ borderColor: 'var(--window-document-border)' }}
         >
-          <span className="font-bold text-sm flex items-center gap-2">
-            <i className="fas fa-plus-circle" />
-            {currentStep === "success"
-              ? tx("header.created", "Integration Created!")
-              : tx("header.create_custom_integration", "Create Custom Integration")}
-          </span>
           {currentStep !== "success" && (
-            <button onClick={onClose} className="hover:bg-white/20 px-2 py-1 transition-colors">
-              <X size={16} />
+            <button
+              onClick={onBack}
+              className="p-1 hover:bg-opacity-80 transition-colors"
+              style={{ color: 'var(--tone-accent)' }}
+            >
+              <ArrowLeft size={20} />
             </button>
           )}
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded flex items-center justify-center"
+              style={{ background: 'var(--window-document-bg-elevated)' }}
+            >
+              <i className="fas fa-plus-circle text-xl" style={{ color: 'var(--tone-accent-strong)' }} />
+            </div>
+            <div>
+              <h2 className="font-bold" style={{ color: 'var(--window-document-text)' }}>
+                {currentStep === "success"
+                  ? tx("header.created", "Integration Created!")
+                  : tx("header.create_custom_integration", "Create Custom Integration")}
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+                {tx("header.subtitle", "Create a new OAuth application")}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Progress Steps (hidden on success) */}
@@ -566,7 +572,7 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
           {currentStep !== "success" ? (
             <>
               <button
-                onClick={currentStep === "info" ? onClose : goPrev}
+                onClick={currentStep === "info" ? onBack : goPrev}
                 className="desktop-interior-button px-4 py-2 text-xs font-bold flex items-center gap-1"
                 style={{
                   backgroundColor: 'var(--window-document-bg)',
@@ -614,7 +620,6 @@ export function CreateIntegrationDialog({ onClose, onCreated }: CreateIntegratio
             </button>
           )}
         </div>
-      </div>
     </div>
   );
 }
