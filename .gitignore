@@ -99,4 +99,5 @@ apps/macos/**/.env
 apps/macos/**/.env.*
 mcp-kb/node_modules/
 packages/sdk/node_modules/
+packages/cms/node_modules/
 apps/voice-ws-gateway/node_modules/
