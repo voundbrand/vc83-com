@@ -1,7 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
-
 interface EditableFieldStyleOptions {
   isEditMode: boolean;
   isActive: boolean;
@@ -14,7 +12,7 @@ export function getEditableFieldStyle({
   isActive,
   isBusy,
   allowLineBreaks = false,
-}: EditableFieldStyleOptions): CSSProperties {
+}: EditableFieldStyleOptions) {
   const border = isEditMode
     ? isActive
       ? "2px solid rgba(37, 99, 235, 0.85)"

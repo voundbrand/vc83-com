@@ -1,16 +1,17 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { useCmsLocale } from "../hooks";
+
+type StyleOverride = Record<string, string | number | undefined>;
 
 interface CmsLocaleSelectProps {
   label?: string;
   localeLabels?: Record<string, string>;
   disabled?: boolean;
   hideIfSingle?: boolean;
-  labelStyle?: CSSProperties;
-  selectStyle?: CSSProperties;
-  wrapperStyle?: CSSProperties;
+  labelStyle?: StyleOverride;
+  selectStyle?: StyleOverride;
+  wrapperStyle?: StyleOverride;
 }
 
 function normalizeLocaleLabel(locale: string): string {
@@ -40,18 +41,22 @@ export function CmsLocaleSelect({
 
   return (
     <label
-      style={{
-        display: "grid",
-        gap: 6,
-        ...wrapperStyle,
-      }}
+      style={
+        {
+          display: "grid",
+          gap: 6,
+          ...wrapperStyle,
+        } as any
+      }
     >
       <span
-        style={{
-          fontSize: 12,
-          color: "#64748b",
-          ...labelStyle,
-        }}
+        style={
+          {
+            fontSize: 12,
+            color: "#64748b",
+            ...labelStyle,
+          } as any
+        }
       >
         {label}
       </span>
@@ -59,15 +64,17 @@ export function CmsLocaleSelect({
         value={locale}
         onChange={(event) => setLocale(event.target.value)}
         disabled={disabled}
-        style={{
-          borderRadius: 10,
-          border: "1px solid rgba(30, 57, 38, 0.18)",
-          backgroundColor: "white",
-          color: "#1e3926",
-          fontSize: 13,
-          padding: "8px 10px",
-          ...selectStyle,
-        }}
+        style={
+          {
+            borderRadius: 10,
+            border: "1px solid rgba(30, 57, 38, 0.18)",
+            backgroundColor: "white",
+            color: "#1e3926",
+            fontSize: 13,
+            padding: "8px 10px",
+            ...selectStyle,
+          } as any
+        }
       >
         {uniqueLocales.map((localeCode) => (
           <option key={localeCode} value={localeCode}>
