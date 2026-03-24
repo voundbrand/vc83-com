@@ -127,7 +127,10 @@ import {
   resolveVoiceRuntimeAdapter,
   type VoiceRuntimeProviderId,
 } from "./voiceRuntimeAdapter";
-import { isPlatformMotherCustomerFacingRuntime } from "../platformMother";
+import {
+  canUsePlatformMotherCustomerFacingSupport,
+  isPlatformMotherAuthorityRecord,
+} from "../platformMother";
 import { resolveDeterministicVoiceDefaults } from "./voiceDefaults";
 import {
   checkPreLLMEscalation,
@@ -12345,7 +12348,17 @@ export function resolveExplicitInboundAgentEligibility(args: {
   const explicitChannelBindings = Array.isArray(explicitAgentProps.channelBindings)
     ? explicitAgentProps.channelBindings
     : [];
-  const classAllowed = isAgentClassAllowedForInboundChannel({
+  const motherAuthority = Boolean(
+    explicitAgent
+    && isPlatformMotherAuthorityRecord(explicitAgent.name, explicitAgentProps),
+  );
+  // Mother must never become an explicit telephony rail, even if runtime metadata drifts.
+  const platformMotherTelephonyBlocked = Boolean(
+    motherAuthority
+    && normalizedChannel
+    && TELEPHONY_ROUTING_CHANNELS.has(normalizedChannel),
+  );
+  const classAllowed = !platformMotherTelephonyBlocked && isAgentClassAllowedForInboundChannel({
     channel: args.channel,
     rawAgentClass: explicitAgentProps.agentClass,
   });
@@ -12364,14 +12377,20 @@ export function resolveExplicitInboundAgentEligibility(args: {
     explicitAgent
     && String(explicitAgent.organizationId) === String(args.organizationId)
   );
-  const crossOrgPlatformMotherAccess = Boolean(
+  const motherCustomerFacingRuntime = Boolean(
     explicitAgent
-    && !sameOrg
-    && isPlatformMotherCustomerFacingRuntime({
+    && canUsePlatformMotherCustomerFacingSupport({
+      requestingOrganizationId: String(args.organizationId),
       name: explicitAgent.name,
       status: explicitAgent.status,
       customProperties: explicitAgentProps,
-    })
+    }),
+  );
+  const crossOrgPlatformMotherAccess = Boolean(
+    explicitAgent
+    && !sameOrg
+    && !platformMotherTelephonyBlocked
+    && motherCustomerFacingRuntime
   );
   const eligible = Boolean(
     explicitAgent
@@ -18614,19 +18633,52 @@ function buildTargetAgentConfigurationContext(args: {
       ),
     },
     currentSettings: {
+      name: normalizeExecutionString(args.targetAgent.name),
+      subtype: normalizeExecutionString(args.targetAgent.subtype),
       displayName: normalizeExecutionString(customProperties.displayName),
       agentClass: normalizeExecutionString(customProperties.agentClass),
       personality: normalizeExecutionString(customProperties.personality),
       language: normalizeExecutionString(customProperties.language),
+      additionalLanguages: Array.isArray(customProperties.additionalLanguages)
+        ? customProperties.additionalLanguages
+        : [],
       voiceLanguage: normalizeExecutionString(customProperties.voiceLanguage),
       elevenLabsVoiceId: normalizeExecutionString(customProperties.elevenLabsVoiceId),
       brandVoiceInstructions: normalizeExecutionString(customProperties.brandVoiceInstructions),
       systemPrompt: normalizeExecutionString(customProperties.systemPrompt),
+      faqEntries: Array.isArray(customProperties.faqEntries)
+        ? customProperties.faqEntries
+        : [],
+      knowledgeBaseTags: Array.isArray(customProperties.knowledgeBaseTags)
+        ? customProperties.knowledgeBaseTags
+        : [],
+      toolProfile: normalizeExecutionString(customProperties.toolProfile),
+      enabledTools: Array.isArray(customProperties.enabledTools)
+        ? customProperties.enabledTools
+        : [],
+      disabledTools: Array.isArray(customProperties.disabledTools)
+        ? customProperties.disabledTools
+        : [],
       autonomyLevel: normalizeExecutionString(customProperties.autonomyLevel),
+      maxMessagesPerDay:
+        typeof customProperties.maxMessagesPerDay === "number"
+          ? customProperties.maxMessagesPerDay
+          : null,
+      maxCostPerDay:
+        typeof customProperties.maxCostPerDay === "number"
+          ? customProperties.maxCostPerDay
+          : null,
+      requireApprovalFor: Array.isArray(customProperties.requireApprovalFor)
+        ? customProperties.requireApprovalFor
+        : [],
       modelId: normalizeExecutionString(customProperties.modelId),
       temperature:
         typeof customProperties.temperature === "number"
           ? customProperties.temperature
+          : null,
+      maxTokens:
+        typeof customProperties.maxTokens === "number"
+          ? customProperties.maxTokens
           : null,
       channelBindings: Array.isArray(customProperties.channelBindings)
         ? customProperties.channelBindings
@@ -18634,6 +18686,35 @@ function buildTargetAgentConfigurationContext(args: {
       blockedTopics: Array.isArray(customProperties.blockedTopics)
         ? customProperties.blockedTopics
         : [],
+      escalationPolicy:
+        customProperties.escalationPolicy && typeof customProperties.escalationPolicy === "object"
+          ? customProperties.escalationPolicy
+          : null,
+      unifiedPersonality:
+        typeof customProperties.unifiedPersonality === "boolean"
+          ? customProperties.unifiedPersonality
+          : null,
+      teamAccessMode: normalizeExecutionString(customProperties.teamAccessMode),
+      operatorCollaborationDefaults:
+        customProperties.operatorCollaborationDefaults
+        && typeof customProperties.operatorCollaborationDefaults === "object"
+          ? customProperties.operatorCollaborationDefaults
+          : null,
+      dreamTeamSpecialists: Array.isArray(customProperties.dreamTeamSpecialists)
+        ? customProperties.dreamTeamSpecialists
+        : [],
+      activeSoulMode: normalizeExecutionString(customProperties.activeSoulMode),
+      activeArchetype: normalizeExecutionString(customProperties.activeArchetype),
+      modeChannelBindings: Array.isArray(customProperties.modeChannelBindings)
+        ? customProperties.modeChannelBindings
+        : [],
+      enabledArchetypes: Array.isArray(customProperties.enabledArchetypes)
+        ? customProperties.enabledArchetypes
+        : [],
+      soul:
+        customProperties.soul && typeof customProperties.soul === "object"
+          ? customProperties.soul
+          : null,
       telephonyConfig:
         customProperties.telephonyConfig !== undefined
           ? toDeployableTelephonyConfig(customProperties.telephonyConfig)

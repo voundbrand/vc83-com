@@ -89,6 +89,11 @@ export interface NativeGuestChatConfig {
   apiBaseUrl?: string
 }
 
+interface NativeGuestLanguageHint {
+  language: string
+  locale: string
+}
+
 export interface NativeGuestImageAttachment {
   type: "image"
   url: string
@@ -294,9 +299,62 @@ const GUEST_CLAIM_TOKEN_KEY = `${GUEST_STORAGE_PREFIX}claim_token`
 const GUEST_MESSAGES_KEY = `${GUEST_STORAGE_PREFIX}messages`
 const GUEST_CLAIMED_TOKEN_KEY = `${GUEST_STORAGE_PREFIX}claimed_token`
 const MAX_GUEST_MESSAGES = 80
+const SUPPORTED_GUEST_LANGUAGE_CODES = new Set(["en", "de", "pl", "es", "fr", "ja"])
 
 function isBrowser(): boolean {
   return typeof window !== "undefined"
+}
+
+function normalizeGuestLanguageCode(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const normalized = trimmed.split(/[-_]/)[0]?.toLowerCase() || ""
+  return SUPPORTED_GUEST_LANGUAGE_CODES.has(normalized) ? normalized : null
+}
+
+function normalizeGuestLocaleTag(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+export function resolveNativeGuestLanguageHint(args?: {
+  preferredLocale?: string | null
+  browserLanguages?: readonly string[]
+}): NativeGuestLanguageHint {
+  const preferredLocale = normalizeGuestLocaleTag(args?.preferredLocale)
+  const preferredLanguage = normalizeGuestLanguageCode(preferredLocale)
+  if (preferredLanguage && preferredLocale) {
+    return {
+      language: preferredLanguage,
+      locale: preferredLocale,
+    }
+  }
+
+  const browserLanguages = Array.isArray(args?.browserLanguages)
+    ? args?.browserLanguages
+    : isBrowser()
+      ? ((window.navigator.languages && window.navigator.languages.length > 0)
+          ? window.navigator.languages
+          : [window.navigator.language]).filter(Boolean)
+      : []
+
+  for (const candidate of browserLanguages) {
+    const locale = normalizeGuestLocaleTag(candidate)
+    const language = normalizeGuestLanguageCode(locale)
+    if (language && locale) {
+      return {
+        language,
+        locale,
+      }
+    }
+  }
+
+  return {
+    language: "en",
+    locale: "en",
+  }
 }
 
 function readStorageValue(key: string): string | null {
@@ -604,7 +662,12 @@ export async function claimPendingNativeGuestIdentity(args: {
   return { attempted: true, success: true, alreadyClaimed: payload.claim?.alreadyClaimed }
 }
 
-export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
+export function useNativeGuestChat(
+  config: NativeGuestChatConfig | null,
+  options?: {
+    preferredLocale?: string | null
+  }
+) {
   const [messages, setMessages] = useState<GuestChatMessage[]>([])
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -612,6 +675,10 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
   const [claimToken, setClaimToken] = useState<string | null>(null)
   const isSendingRef = useRef(false)
   const attribution = useMemo(() => getCampaignAttribution(), [])
+  const languageHint = useMemo(
+    () => resolveNativeGuestLanguageHint({ preferredLocale: options?.preferredLocale }),
+    [options?.preferredLocale]
+  )
 
   useEffect(() => {
     setMessages(safeParseMessages(readStorageValue(GUEST_MESSAGES_KEY)))
@@ -691,6 +758,8 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
             attachments: normalizedAttachments,
             deviceFingerprint,
             attribution,
+            language: languageHint.language,
+            locale: languageHint.locale,
           }),
         })
 
@@ -735,7 +804,7 @@ export function useNativeGuestChat(config: NativeGuestChatConfig | null) {
         setIsSending(false)
       }
     },
-    [appendMessage, attribution, claimToken, config, sessionToken]
+    [appendMessage, attribution, claimToken, config, languageHint.language, languageHint.locale, sessionToken]
   )
 
   const reset = useCallback(() => {

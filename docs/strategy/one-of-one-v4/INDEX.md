@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This workstream contains the v4 strategy documents plus the queue-first execution artifacts for turning the voice demo into a real law-firm deployment path.
+This workstream contains the v4 strategy docs plus the execution artifacts for turning the Kanzlei concept into a real single-agent MVP deployment path.
 
 ## Core Strategy Docs
 
@@ -25,12 +25,15 @@ This workstream contains the v4 strategy documents plus the queue-first executio
 - `TASK_QUEUE.md`
 - `SESSION_PROMPTS.md`
 - `IMPLEMENTATION_REALITY_AUDIT.md`
+- `LAWFIRM_SMOKE_CHECKLIST.md`
+- `LAWFIRM_SMOKE_NOTES.md`
 
 ## Current State
 
-- The repo already has reusable booking, CRM, calendar, and phone-safe booking primitives.
-- The Eleven telephony ingress route exists, but inbound law-firm calls are not yet wired into a complete booking runtime path.
-- The platform already has a protected-template telephony precedent through the Anne Becker immomakler flow in [convex/onboarding/seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts) and [convex/integrations/telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
-- The original Sprint 1 file mapping in `TECHNICAL_PRODUCT_PLAN.md` is directionally useful but not accurate enough to execute safely.
-- `IMPLEMENTATION_REALITY_AUDIT.md` is the current source of truth for what is already real versus what still needs implementation.
-- The corrected short-term target is a single-firm MVP built on platform-native Clara, Jonas, and Maren telephony templates: inbound ElevenLabs call -> qualified intake -> booking -> calendar push -> internal summary email.
+- The repo already has reusable booking, CRM, calendar, firm-notification email, and phone-safe booking primitives.
+- The direct Eleven telephony ingress path now creates or resolves a durable inbound `telephony_call_record` and can dispatch `api.ai.agentExecution.processInboundMessage` for accepted inbound calls.
+- The multi-agent Kanzlei wedge is no longer the live MVP target. The new live path is a platform-native single-agent Kanzlei template defined in [template.ts](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts).
+- The platform already has a protected-template telephony precedent through Anne Becker in [seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts) and [telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
+- The new single-agent Kanzlei template is seeded and deployable through the same protected-template lifecycle as Anne Becker.
+- The corrected short-term target is a single-firm MVP built on one customer-facing Kanzlei agent: inbound ElevenLabs call -> structured intake -> booking or callback-safe fallback -> lawyer calendar -> internal summary email.
+- The remaining gate is live setup on a real org: deploy the new template, sync the remote Eleven agent, verify org booking/calendar/email config, run an ingress preflight, then execute the manual smoke.

@@ -16,10 +16,11 @@ export interface AgentCustomProps {
   elevenLabsVoiceId?: string;
   systemPrompt?: string;
   faqEntries?: Array<{ q: string; a: string }>;
+  knowledgeBaseTags?: string[];
   toolProfile?: string;
   enabledTools?: string[];
   disabledTools?: string[];
-  autonomyLevel?: "supervised" | "autonomous" | "draft_only";
+  autonomyLevel?: "supervised" | "sandbox" | "autonomous" | "delegation" | "draft_only";
   maxMessagesPerDay?: number;
   maxCostPerDay?: number;
   requireApprovalFor?: string[];
@@ -28,6 +29,30 @@ export interface AgentCustomProps {
   modelId?: string;
   temperature?: number;
   maxTokens?: number;
+  unifiedPersonality?: boolean;
+  teamAccessMode?: "invisible" | "direct" | "meeting";
+  dreamTeamSpecialists?: Array<{
+    soulBlendId: string;
+    specialistSubtype?: string;
+    specialistName?: string;
+    specialistId?: string;
+    directAccessEnabled?: boolean;
+    meetingParticipant?: boolean;
+    activationHints?: string[];
+    accessModes?: Array<"invisible" | "direct" | "meeting">;
+    workspaceTypes?: Array<"personal" | "business">;
+    organizationTypes?: Array<"personal" | "business">;
+    orgTypes?: Array<"personal" | "business">;
+  }>;
+  activeSoulMode?: "work" | "private";
+  activeArchetype?: string | null;
+  modeChannelBindings?: Array<{ channel: string; mode: "work" | "private" }>;
+  enabledArchetypes?: string[];
+  operatorCollaborationDefaults?: {
+    defaultSurface: "group" | "dm";
+    allowSpecialistDmRouting: boolean;
+    proposalOnlyDmActions: boolean;
+  };
   escalationPolicy?: {
     triggers?: Record<string, { enabled?: boolean } | undefined>;
     holdMessage?: string;

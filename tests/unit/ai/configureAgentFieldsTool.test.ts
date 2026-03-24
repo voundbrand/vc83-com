@@ -6,6 +6,22 @@ import {
 } from "../../../convex/ai/tools/configureAgentFieldsTool";
 
 describe("configureAgentFieldsTool", () => {
+  it("advertises broader safe patch fields, including telephonyConfig, in the tool schema", () => {
+    const patchSchema = (configureAgentFieldsTool.parameters.properties.patch as Record<string, unknown>)
+      .properties as Record<string, unknown>;
+    const nameSchema = patchSchema.name as Record<string, unknown> | undefined;
+    const faqEntriesSchema = patchSchema.faqEntries as Record<string, unknown> | undefined;
+    const escalationPolicySchema = patchSchema.escalationPolicy as Record<string, unknown> | undefined;
+    const telephonyConfigSchema = patchSchema.telephonyConfig as Record<string, unknown> | undefined;
+
+    expect(nameSchema?.type).toBe("string");
+    expect(faqEntriesSchema?.type).toBe("array");
+    expect(escalationPolicySchema?.type).toBe("object");
+    expect(telephonyConfigSchema?.type).toBe("object");
+    expect(String(telephonyConfigSchema?.description || "")).toContain("approval-gated");
+    expect(String(telephonyConfigSchema?.description || "")).not.toContain("deferred");
+  });
+
   it("builds a structured proposal envelope from conversation-scoped target agent context", async () => {
     const runQuery = vi.fn(async () => ({
       targetAgentId: "objects_target_agent",
@@ -15,6 +31,9 @@ describe("configureAgentFieldsTool", () => {
       targetAgentId: "objects_target_agent",
       targetAgentName: "Anne Operator",
       targetAgentDisplayName: "Anne",
+      currentValues: {
+        displayName: "Anne",
+      },
       proposedPatch: {
         displayName: "Anne v2",
       },

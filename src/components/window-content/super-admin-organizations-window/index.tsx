@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck, Ticket, BarChart3, Database, DollarSign, Users, FlaskConical } from "lucide-react";
+import { Building2, Plus, Grid3x3, FileText, Package, Cpu, Shield, ShieldCheck, Ticket, BarChart3, Database, DollarSign, Users, FlaskConical, RadioTower } from "lucide-react";
 import { SystemOrganizationsTab } from "./system-organizations-tab";
 import { OrganizationsListTab } from "./organizations-list-tab";
 import { AppAvailabilityTab } from "./app-availability-tab";
@@ -16,6 +16,7 @@ import { QaRunsTab } from "./qa-runs-tab";
 import { AgentControlCenterTab } from "./agent-control-center-tab";
 import { PlatformEconomicsTab } from "./platform-economics-tab";
 import { SuperAdminUsersTab } from "./super-admin-users-tab";
+import { PlatformMotherRolloutTab } from "./platform-mother-rollout-tab";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 /**
@@ -44,6 +45,7 @@ type TabType =
   | "support-agent-quality"
   | "qa-runs"
   | "agent-control-center"
+  | "platform-mother"
   | "users";
 
 interface OrganizationsWindowProps {
@@ -65,6 +67,7 @@ const ORGANIZATIONS_WINDOW_TABS: TabType[] = [
   "support-agent-quality",
   "qa-runs",
   "agent-control-center",
+  "platform-mother",
   "users",
 ];
 
@@ -268,6 +271,18 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
           className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
           style={{
             borderColor: "var(--window-document-border)",
+            background: activeTab === "platform-mother" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
+            color: activeTab === "platform-mother" ? "var(--window-document-text)" : "var(--neutral-gray)",
+          }}
+          onClick={() => setActiveTab("platform-mother")}
+        >
+          <RadioTower size={14} />
+          Platform Mother
+        </button>
+        <button
+          className="px-4 py-2 text-xs font-bold border transition-colors flex items-center gap-2 shrink-0"
+          style={{
+            borderColor: "var(--window-document-border)",
             background: activeTab === "users" ? "var(--window-document-bg-elevated)" : "var(--window-document-bg)",
             color: activeTab === "users" ? "var(--window-document-text)" : "var(--neutral-gray)",
           }}
@@ -294,6 +309,7 @@ export function OrganizationsWindow({ initialTab, initialPanel }: OrganizationsW
         {activeTab === "support-agent-quality" && <SupportAgentQualityTab />}
         {activeTab === "qa-runs" && <QaRunsTab />}
         {activeTab === "agent-control-center" && <AgentControlCenterTab />}
+        {activeTab === "platform-mother" && <PlatformMotherRolloutTab />}
         {activeTab === "users" && <SuperAdminUsersTab />}
       </div>
     </div>

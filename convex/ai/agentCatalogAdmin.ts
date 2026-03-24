@@ -20,6 +20,7 @@ import {
 } from "./agentRecommendationResolver";
 import { TOOL_REGISTRY } from "./tools/registry";
 import { INTERVIEW_TOOLS } from "./tools/interviewTools";
+import { normalizeDeterministicToolNames } from "./toolScoping";
 import {
   normalizeWaeRunRecord,
   normalizeWaeScenarioRecords,
@@ -28,6 +29,10 @@ import {
   type WaeEvalScenarioRecordInput,
   type WaeEvalScorePacket,
 } from "./tools/evalAnalystTool";
+import {
+  normalizeAgentTelephonyConfig,
+  toDeployableTelephonyConfig,
+} from "../../src/lib/telephony/agent-telephony";
 
 const DEFAULT_DATASET_VERSION = "agp_v1";
 const EXPECTED_AGENT_COUNT = 104;
@@ -41,12 +46,31 @@ const TEMPLATE_CLONE_PRECEDENCE_ORDER = [
   "org_clone_overrides",
   "runtime_session_restrictions",
 ] as const;
+const PERSONAL_OPERATOR_TEMPLATE_ROLE = "personal_life_operator_template";
 export const WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION =
   "wae_rollout_gate_decision_v1" as const;
 export const WAE_ROLLOUT_GATE_ACTION_TYPE = "wae_rollout_gate.recorded" as const;
 export const WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION =
   "wae_rollout_promotion_contract_v1" as const;
 export const WAE_ROLLOUT_GATE_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+export const TEMPLATE_CERTIFICATION_DECISION_CONTRACT_VERSION =
+  "template_certification_decision_v1" as const;
+export const TEMPLATE_CERTIFICATION_DEPENDENCY_MANIFEST_CONTRACT_VERSION =
+  "template_certification_dependency_manifest_v1" as const;
+export const TEMPLATE_CERTIFICATION_RISK_ASSESSMENT_CONTRACT_VERSION =
+  "template_certification_risk_assessment_v1" as const;
+export const TEMPLATE_CERTIFICATION_ACTION_TYPE =
+  "template_certification.recorded" as const;
+export const TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION =
+  "template_certification_promotion_contract_v1" as const;
+export const TEMPLATE_CERTIFICATION_RISK_POLICY_CONTRACT_VERSION =
+  "template_certification_risk_policy_v1" as const;
+export const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION =
+  "template_certification_risk_policy_settings_v1" as const;
+const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_KEY =
+  "templateCertificationRiskPolicyV1";
+const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_DESCRIPTION =
+  "Template certification risk policy defaults plus optional per-template-family overlays for field-tier mapping, verification requirements, and auto-certification eligibility.";
 
 const WAE_ROLLOUT_GATE_CRITICAL_REASON_PREFIXES = [
   "expected_skipped_verdict",
@@ -66,6 +90,152 @@ export type WaeRolloutGateBlockReasonCode =
   | "wae_evidence_stale"
   | "wae_gate_failed"
   | "wae_evidence_mismatch";
+
+export type TemplateCertificationRiskTier = "low" | "medium" | "high";
+export type TemplateCertificationRequirement =
+  | "manifest_integrity"
+  | "risk_assessment"
+  | "wae_eval"
+  | "behavioral_eval"
+  | "tool_contract_eval"
+  | "policy_compliance_eval";
+export type TemplateCertificationEvidenceSourceType =
+  | "manifest_integrity"
+  | "risk_assessment"
+  | "wae_eval"
+  | "legacy_wae_bridge"
+  | "runtime_smoke_eval"
+  | "tool_contract_eval"
+  | "policy_compliance_eval";
+export type TemplateCertificationBlockReasonCode =
+  | "certification_missing"
+  | "certification_invalid"
+  | "certification_mismatch";
+
+export interface TemplateCertificationDependencyManifest {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_DEPENDENCY_MANIFEST_CONTRACT_VERSION;
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  baselineDigest: string;
+  toolingDigest: string;
+  telephonyDigest: string;
+  runtimeDigest: string;
+  dependencyDigest: string;
+  selectedTools: Array<{
+    name: string;
+    readOnly: boolean;
+  }>;
+  telephony: {
+    provider: string;
+    managedToolKeys: string[];
+    transferDestinationCount: number;
+    phoneChannelEnabled: boolean;
+  };
+  runtime: {
+    modelProvider: string | null;
+    modelId: string | null;
+    autonomyLevel: string | null;
+  };
+}
+
+export interface TemplateCertificationRiskAssessment {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_RISK_ASSESSMENT_CONTRACT_VERSION;
+  tier: TemplateCertificationRiskTier;
+  changedFields: string[];
+  lowRiskReasons: string[];
+  mediumRiskReasons: string[];
+  highRiskReasons: string[];
+  requiredVerification: TemplateCertificationRequirement[];
+  autoCertificationEligible: boolean;
+  referenceVersionId?: string;
+  referenceVersionTag?: string;
+}
+
+export interface TemplateCertificationRiskPolicy {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_RISK_POLICY_CONTRACT_VERSION;
+  explicitLowRiskFields: string[];
+  explicitMediumRiskFields: string[];
+  explicitHighRiskFields: string[];
+  highRiskFieldKeywords: string[];
+  requiredVerificationByTier: {
+    low: TemplateCertificationRequirement[];
+    medium: TemplateCertificationRequirement[];
+    high: TemplateCertificationRequirement[];
+  };
+  autoCertificationEligibleTiers: TemplateCertificationRiskTier[];
+}
+
+interface TemplateCertificationRiskPolicySettings {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION;
+  globalPolicy: TemplateCertificationRiskPolicy;
+  familyPolicies: Record<string, TemplateCertificationRiskPolicy>;
+}
+
+export interface TemplateCertificationEvidenceSource {
+  sourceType: TemplateCertificationEvidenceSourceType;
+  status: "pass" | "fail";
+  summary: string;
+  runId?: string;
+}
+
+export type TemplateCertificationEvaluationOutputOutcome =
+  | "pass"
+  | "fail"
+  | "missing"
+  | "skipped";
+
+export interface TemplateCertificationEvaluationOutput {
+  sourceType: TemplateCertificationEvidenceSourceType;
+  outcome: TemplateCertificationEvaluationOutputOutcome;
+  summary?: string;
+  runId?: string;
+}
+
+export interface TemplateCertificationEvidenceRecordingSummary {
+  riskTier: TemplateCertificationRiskTier;
+  requiredVerification: TemplateCertificationRequirement[];
+  defaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  ingestedEvaluationOutputs: Array<
+    TemplateCertificationEvaluationOutput & {
+      usedForEvidence: boolean;
+    }
+  >;
+  recordedEvidenceSources: TemplateCertificationEvidenceSource[];
+  missingRequiredVerification: TemplateCertificationRequirement[];
+  failedRequiredVerification: TemplateCertificationRequirement[];
+  missingDefaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  blocked: boolean;
+  blockedReason: TemplateCertificationDecisionArtifact["reasonCode"] | null;
+}
+
+export interface TemplateCertificationDecisionArtifact {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_DECISION_CONTRACT_VERSION;
+  promotionContractVersion: typeof TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION;
+  status: "certified" | "rejected";
+  reasonCode: "certified" | "verification_failed" | "missing_required_verification";
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  riskAssessment: TemplateCertificationRiskAssessment;
+  dependencyManifest: TemplateCertificationDependencyManifest;
+  requiredVerification: TemplateCertificationRequirement[];
+  evidenceSources: TemplateCertificationEvidenceSource[];
+  recordedAt: number;
+  recordedByUserId: string;
+  notes: string[];
+}
+
+export interface TemplateCertificationEvaluationResult {
+  allowed: boolean;
+  reasonCode?: TemplateCertificationBlockReasonCode;
+  message?: string;
+  certification: TemplateCertificationDecisionArtifact | null;
+  dependencyManifest: TemplateCertificationDependencyManifest | null;
+  riskAssessment: TemplateCertificationRiskAssessment | null;
+  autoCertificationEligible: boolean;
+  legacyWaeGate: WaeRolloutGateDecisionArtifact | null;
+}
 
 export interface WaeRolloutGateDecisionArtifact {
   contractVersion: typeof WAE_ROLLOUT_GATE_DECISION_CONTRACT_VERSION;
@@ -123,6 +293,16 @@ export interface WaeRolloutGateEvaluationResult {
   gate: WaeRolloutGateDecisionArtifact | null;
 }
 
+type CurrentDefaultTemplateWaeGateContext = {
+  templateId: Id<"objects">;
+  templateName: string;
+  templateOrganizationId: Id<"organizations">;
+  templateVersionId: Id<"objects">;
+  templateVersionTag: string;
+  templateLifecycleStatus: string;
+  templateVersionLifecycleStatus: string;
+};
+
 const categoryValidator = v.union(
   v.literal("core"),
   v.literal("legal"),
@@ -164,6 +344,32 @@ const recommendationActivationStateValidator = v.union(
   v.literal("needs_setup"),
   v.literal("planned_only"),
   v.literal("blocked"),
+);
+const templateCertificationRiskTierValidator = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+);
+const templateCertificationRequirementValidator = v.union(
+  v.literal("manifest_integrity"),
+  v.literal("risk_assessment"),
+  v.literal("wae_eval"),
+  v.literal("behavioral_eval"),
+  v.literal("tool_contract_eval"),
+  v.literal("policy_compliance_eval"),
+);
+const templateCertificationEvidenceSourceTypeValidator = v.union(
+  v.literal("wae_eval"),
+  v.literal("legacy_wae_bridge"),
+  v.literal("runtime_smoke_eval"),
+  v.literal("tool_contract_eval"),
+  v.literal("policy_compliance_eval"),
+);
+const templateCertificationEvaluationOutputOutcomeValidator = v.union(
+  v.literal("pass"),
+  v.literal("fail"),
+  v.literal("missing"),
+  v.literal("skipped"),
 );
 type RecommendationActivationState = AgentRecommendationActivationState;
 type RecommendationMetadata = AgentRecommendationMetadata;
@@ -284,6 +490,10 @@ type SyncRunRow = {
     seedsFull: number;
     runtimeLive: number;
     toolsMissing: number;
+    published?: number;
+    blockedAgents?: number;
+    recommendationTagged?: number;
+    recommendationMetadataStored?: number;
   };
   drift: {
     docsOutOfSync: boolean;
@@ -582,6 +792,1146 @@ function parseWaeRolloutGateDecisionArtifact(
       failedMetrics: normalizeLexicalStrings(normalizeUnknownArray(failureSnapshot.failedMetrics)),
       blockedReasons: normalizeLexicalStrings(normalizeUnknownArray(failureSnapshot.blockedReasons)),
     },
+  };
+}
+
+function toStableComparableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => toStableComparableValue(entry));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => [key, toStableComparableValue(record[key])]),
+  );
+}
+
+function stableJsonStringify(value: unknown): string {
+  return JSON.stringify(toStableComparableValue(value));
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return normalizeLexicalStrings(normalizeUnknownArray(value));
+}
+
+function isToolReadOnly(toolName: string): boolean {
+  return TOOL_REGISTRY[toolName]?.readOnly === true;
+}
+
+function resolveManagedToolKeys(value: unknown): string[] {
+  return Object.keys(asRecord(value)).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeTransferDestinations(
+  value: unknown,
+): Array<Record<string, unknown>> {
+  return normalizeAgentTelephonyConfig({
+    selectedProvider: "elevenlabs",
+    elevenlabs: {
+      transferDestinations: Array.isArray(value) ? value : [],
+    },
+  }).elevenlabs.transferDestinations.map((destination) =>
+    toStableComparableValue(destination) as Record<string, unknown>,
+  );
+}
+
+function normalizeTemplateCertificationBaselineSnapshot(
+  customProperties: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!customProperties) {
+    return {};
+  }
+  const snapshot = { ...customProperties };
+  if (Object.prototype.hasOwnProperty.call(snapshot, "telephonyConfig")) {
+    snapshot.telephonyConfig = toDeployableTelephonyConfig(snapshot.telephonyConfig);
+  }
+  delete snapshot.totalMessages;
+  delete snapshot.totalCostUsd;
+  delete snapshot.templateLifecycleContractVersion;
+  delete snapshot.templateLifecycleStatus;
+  delete snapshot.templateLifecycleUpdatedAt;
+  delete snapshot.templateLifecycleUpdatedBy;
+  delete snapshot.templatePublishedVersion;
+  delete snapshot.templatePublishedVersionId;
+  delete snapshot.templateCurrentVersion;
+  delete snapshot.templateLastVersionSnapshotId;
+  return snapshot;
+}
+
+function resolveTemplateVersionBaselineSnapshot(
+  versionCustomProperties: Record<string, unknown>,
+): Record<string, unknown> {
+  const snapshotRecord = asRecord(versionCustomProperties.snapshot);
+  const baseline = asRecord(snapshotRecord.baselineCustomProperties);
+  return Object.keys(baseline).length > 0
+    ? normalizeTemplateCertificationBaselineSnapshot(baseline)
+    : normalizeTemplateCertificationBaselineSnapshot(versionCustomProperties);
+}
+
+function deriveTemplateCertificationChangedFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): string[] {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return Array.from(keys)
+    .filter((key) => stableJsonStringify(before[key]) !== stableJsonStringify(after[key]))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function buildTemplateCertificationDependencyManifest(args: {
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  baselineSnapshot: Record<string, unknown>;
+}): TemplateCertificationDependencyManifest {
+  const enabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(args.baselineSnapshot.enabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const disabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(args.baselineSnapshot.disabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const selectedToolNames = normalizeDeterministicToolNames([
+    ...enabledTools,
+    ...disabledTools,
+  ]);
+  const selectedTools = selectedToolNames.map((name) => ({
+    name,
+    readOnly: isToolReadOnly(name),
+  }));
+  const telephonyConfig = normalizeAgentTelephonyConfig(
+    args.baselineSnapshot.telephonyConfig,
+  );
+  const deployableTelephonyConfig = toDeployableTelephonyConfig(
+    args.baselineSnapshot.telephonyConfig,
+  );
+  const toolingDigest = simpleHash(
+    stableJsonStringify({
+      enabledTools,
+      disabledTools,
+      selectedTools,
+    }),
+  );
+  const telephonyDigest = simpleHash(
+    stableJsonStringify({
+      deployableTelephonyConfig,
+      managedToolKeys: resolveManagedToolKeys(telephonyConfig.elevenlabs.managedTools),
+      transferDestinations: normalizeTransferDestinations(
+        telephonyConfig.elevenlabs.transferDestinations,
+      ),
+    }),
+  );
+  const runtimeDigest = simpleHash(
+    stableJsonStringify({
+      modelProvider: normalizeOptionalString(args.baselineSnapshot.modelProvider),
+      modelId: normalizeOptionalString(args.baselineSnapshot.modelId),
+      autonomyLevel: normalizeOptionalString(args.baselineSnapshot.autonomyLevel),
+      channelBindings: toStableComparableValue(args.baselineSnapshot.channelBindings ?? []),
+    }),
+  );
+  const baselineDigest = simpleHash(stableJsonStringify(args.baselineSnapshot));
+
+  const manifestBase = {
+    contractVersion: TEMPLATE_CERTIFICATION_DEPENDENCY_MANIFEST_CONTRACT_VERSION,
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: args.templateVersionTag,
+    baselineDigest,
+    toolingDigest,
+    telephonyDigest,
+    runtimeDigest,
+    selectedTools,
+    telephony: {
+      provider: telephonyConfig.selectedProvider,
+      managedToolKeys: resolveManagedToolKeys(telephonyConfig.elevenlabs.managedTools),
+      transferDestinationCount: telephonyConfig.elevenlabs.transferDestinations.length,
+      phoneChannelEnabled: Array.isArray(args.baselineSnapshot.channelBindings)
+        && args.baselineSnapshot.channelBindings.some((binding) => {
+          if (!binding || typeof binding !== "object") {
+            return false;
+          }
+          const record = binding as Record<string, unknown>;
+          return record.channel === "phone_call" && record.enabled === true;
+        }),
+    },
+    runtime: {
+      modelProvider: normalizeOptionalString(args.baselineSnapshot.modelProvider),
+      modelId: normalizeOptionalString(args.baselineSnapshot.modelId),
+      autonomyLevel: normalizeOptionalString(args.baselineSnapshot.autonomyLevel),
+    },
+  } satisfies Omit<TemplateCertificationDependencyManifest, "dependencyDigest">;
+
+  return {
+    ...manifestBase,
+    dependencyDigest: simpleHash(stableJsonStringify(manifestBase)),
+  };
+}
+
+function isTemplateCertificationRequirement(
+  value: string,
+): value is TemplateCertificationRequirement {
+  return value === "manifest_integrity"
+    || value === "risk_assessment"
+    || value === "wae_eval"
+    || value === "behavioral_eval"
+    || value === "tool_contract_eval"
+    || value === "policy_compliance_eval";
+}
+
+function normalizeTemplateCertificationRequirementList(
+  value: unknown,
+  fallback: TemplateCertificationRequirement[],
+): TemplateCertificationRequirement[] {
+  const normalized = normalizeStringArray(value).filter(isTemplateCertificationRequirement);
+  return normalized.length > 0 ? normalized : [...fallback];
+}
+
+function normalizeTemplateCertificationRiskTierList(
+  value: unknown,
+  fallback: TemplateCertificationRiskTier[],
+): TemplateCertificationRiskTier[] {
+  const normalized = normalizeStringArray(value).filter(
+    (entry): entry is TemplateCertificationRiskTier =>
+      entry === "low" || entry === "medium" || entry === "high",
+  );
+  return normalized.length > 0 ? normalized : [...fallback];
+}
+
+function normalizeTemplateCertificationFamilyKey(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+  const key = normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return key.length > 0 ? key : null;
+}
+
+const DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY: TemplateCertificationRiskPolicy = {
+  contractVersion: TEMPLATE_CERTIFICATION_RISK_POLICY_CONTRACT_VERSION,
+  explicitLowRiskFields: [
+    "displayName",
+    "faqEntries",
+    "knowledgeBaseTags",
+  ],
+  explicitMediumRiskFields: [
+    "systemPrompt",
+    "toolProfile",
+  ],
+  explicitHighRiskFields: [
+    "autonomyLevel",
+    "channelBindings",
+    "escalationPolicy",
+    "modeChannelBindings",
+    "modelId",
+    "modelProvider",
+    "operatorCollaborationDefaults",
+    "teamAccessMode",
+    "templateRole",
+    "templateScope",
+  ],
+  highRiskFieldKeywords: [
+    "binding",
+    "policy",
+    "provider",
+    "route",
+    "runtime",
+  ],
+  requiredVerificationByTier: {
+    low: ["manifest_integrity", "risk_assessment"],
+    medium: ["manifest_integrity", "risk_assessment", "wae_eval"],
+    high: ["manifest_integrity", "risk_assessment", "wae_eval"],
+  },
+  autoCertificationEligibleTiers: ["low"],
+};
+
+function normalizeTemplateCertificationRiskPolicy(
+  value: unknown,
+): TemplateCertificationRiskPolicy {
+  const record = asRecord(value);
+  const requiredVerificationByTier = asRecord(record.requiredVerificationByTier);
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_RISK_POLICY_CONTRACT_VERSION,
+    explicitLowRiskFields: normalizeStringArray(record.explicitLowRiskFields),
+    explicitMediumRiskFields: normalizeStringArray(record.explicitMediumRiskFields),
+    explicitHighRiskFields: normalizeStringArray(record.explicitHighRiskFields),
+    highRiskFieldKeywords: normalizeStringArray(record.highRiskFieldKeywords),
+    requiredVerificationByTier: {
+      low: normalizeTemplateCertificationRequirementList(
+        requiredVerificationByTier.low,
+        DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.low,
+      ),
+      medium: normalizeTemplateCertificationRequirementList(
+        requiredVerificationByTier.medium,
+        DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.medium,
+      ),
+      high: normalizeTemplateCertificationRequirementList(
+        requiredVerificationByTier.high,
+        DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.high,
+      ),
+    },
+    autoCertificationEligibleTiers: normalizeTemplateCertificationRiskTierList(
+      record.autoCertificationEligibleTiers,
+      DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.autoCertificationEligibleTiers,
+    ),
+  };
+}
+
+function mergeTemplateCertificationRiskPolicy(
+  current: TemplateCertificationRiskPolicy,
+  overrides: unknown,
+): TemplateCertificationRiskPolicy {
+  const record = asRecord(overrides);
+  const requiredVerificationByTier = asRecord(record.requiredVerificationByTier);
+  return normalizeTemplateCertificationRiskPolicy({
+    ...current,
+    ...(Object.prototype.hasOwnProperty.call(record, "explicitLowRiskFields")
+      ? { explicitLowRiskFields: record.explicitLowRiskFields }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "explicitMediumRiskFields")
+      ? { explicitMediumRiskFields: record.explicitMediumRiskFields }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "explicitHighRiskFields")
+      ? { explicitHighRiskFields: record.explicitHighRiskFields }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "highRiskFieldKeywords")
+      ? { highRiskFieldKeywords: record.highRiskFieldKeywords }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "requiredVerificationByTier")
+      ? {
+          requiredVerificationByTier: {
+            ...current.requiredVerificationByTier,
+            ...(Object.prototype.hasOwnProperty.call(requiredVerificationByTier, "low")
+              ? { low: requiredVerificationByTier.low }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(requiredVerificationByTier, "medium")
+              ? { medium: requiredVerificationByTier.medium }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(requiredVerificationByTier, "high")
+              ? { high: requiredVerificationByTier.high }
+              : {}),
+          },
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "autoCertificationEligibleTiers")
+      ? { autoCertificationEligibleTiers: record.autoCertificationEligibleTiers }
+      : {}),
+  });
+}
+
+function normalizeTemplateCertificationRiskPolicySettings(
+  value: unknown,
+): TemplateCertificationRiskPolicySettings {
+  const record = asRecord(value);
+  const hasExplicitSettingsShape =
+    Object.prototype.hasOwnProperty.call(record, "globalPolicy")
+    || Object.prototype.hasOwnProperty.call(record, "familyPolicies");
+
+  const globalPolicy = normalizeTemplateCertificationRiskPolicy(
+    hasExplicitSettingsShape ? record.globalPolicy : value,
+  );
+  const familyPoliciesRecord = hasExplicitSettingsShape ? asRecord(record.familyPolicies) : {};
+  const familyPolicies: Record<string, TemplateCertificationRiskPolicy> = {};
+  for (const [rawKey, rawPolicy] of Object.entries(familyPoliciesRecord)) {
+    const key = normalizeTemplateCertificationFamilyKey(rawKey);
+    if (!key) {
+      continue;
+    }
+    familyPolicies[key] = normalizeTemplateCertificationRiskPolicy(rawPolicy);
+  }
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION,
+    globalPolicy,
+    familyPolicies,
+  };
+}
+
+async function readTemplateCertificationRiskPolicy(
+  ctx: QueryCtx | MutationCtx,
+  args?: {
+    templateFamily?: string | null;
+  },
+): Promise<{
+  policy: TemplateCertificationRiskPolicy;
+  globalPolicy: TemplateCertificationRiskPolicy;
+  familyPolicies: Record<string, TemplateCertificationRiskPolicy>;
+  scope: "global" | "family";
+  templateFamily?: string;
+  overlayPolicy?: TemplateCertificationRiskPolicy;
+  source: "default" | "platform_setting";
+  updatedAt?: number;
+}> {
+  const requestedFamily = normalizeTemplateCertificationFamilyKey(args?.templateFamily);
+  const dbAny = ctx.db as any;
+  const settingRows = await dbAny
+    .query("platformSettings")
+    .withIndex("by_key", (q: any) => q.eq("key", TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_KEY))
+    .collect();
+  const setting = settingRows[0] ?? null;
+  const settings = setting
+    ? normalizeTemplateCertificationRiskPolicySettings(setting.value)
+    : {
+        contractVersion: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION,
+        globalPolicy: DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY,
+        familyPolicies: {},
+      } satisfies TemplateCertificationRiskPolicySettings;
+  const overlayPolicy = requestedFamily ? settings.familyPolicies[requestedFamily] : undefined;
+  const scope: "global" | "family" = overlayPolicy ? "family" : "global";
+
+  if (!setting) {
+    return {
+      policy: overlayPolicy ?? settings.globalPolicy,
+      globalPolicy: settings.globalPolicy,
+      familyPolicies: settings.familyPolicies,
+      scope,
+      ...(requestedFamily ? { templateFamily: requestedFamily } : {}),
+      ...(overlayPolicy ? { overlayPolicy } : {}),
+      source: "default",
+    };
+  }
+  return {
+    policy: overlayPolicy ?? settings.globalPolicy,
+    globalPolicy: settings.globalPolicy,
+    familyPolicies: settings.familyPolicies,
+    scope,
+    ...(requestedFamily ? { templateFamily: requestedFamily } : {}),
+    ...(overlayPolicy ? { overlayPolicy } : {}),
+    source: "platform_setting",
+    ...(typeof setting.updatedAt === "number" && Number.isFinite(setting.updatedAt)
+      ? { updatedAt: setting.updatedAt }
+      : {}),
+  };
+}
+
+function resolveRequiredVerificationForRiskTier(
+  tier: TemplateCertificationRiskTier,
+  policy: TemplateCertificationRiskPolicy,
+): TemplateCertificationRequirement[] {
+  return [...policy.requiredVerificationByTier[tier]];
+}
+
+function buildTemplateCertificationRiskAssessment(args: {
+  currentBaseline: Record<string, unknown>;
+  referenceBaseline?: Record<string, unknown> | null;
+  referenceVersionId?: string | null;
+  referenceVersionTag?: string | null;
+  riskPolicy: TemplateCertificationRiskPolicy;
+}): TemplateCertificationRiskAssessment {
+  const before = args.referenceBaseline ?? {};
+  const after = args.currentBaseline;
+  const changedFields = deriveTemplateCertificationChangedFields(before, after);
+  const lowRiskReasons: string[] = [];
+  const mediumRiskReasons: string[] = [];
+  const highRiskReasons: string[] = [];
+
+  const beforeEnabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(before.enabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const afterEnabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(after.enabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const beforeDisabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(before.disabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const afterDisabledTools = normalizeDeterministicToolNames(
+    normalizeUnknownArray(after.disabledTools).filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  const toolDelta = normalizeDeterministicToolNames([
+    ...beforeEnabledTools.filter((tool) => !afterEnabledTools.includes(tool)),
+    ...afterEnabledTools.filter((tool) => !beforeEnabledTools.includes(tool)),
+    ...beforeDisabledTools.filter((tool) => !afterDisabledTools.includes(tool)),
+    ...afterDisabledTools.filter((tool) => !beforeDisabledTools.includes(tool)),
+  ]);
+  const mutatingToolDelta = toolDelta.filter((tool) => !isToolReadOnly(tool));
+  if (mutatingToolDelta.length > 0) {
+    highRiskReasons.push(
+      `Mutating tool contract changed: ${mutatingToolDelta.join(", ")}.`,
+    );
+  } else if (toolDelta.length > 0) {
+    mediumRiskReasons.push(
+      `Non-mutating tool contract changed: ${toolDelta.join(", ")}.`,
+    );
+  }
+
+  const beforeTelephony = normalizeAgentTelephonyConfig(before.telephonyConfig);
+  const afterTelephony = normalizeAgentTelephonyConfig(after.telephonyConfig);
+  if (beforeTelephony.selectedProvider !== afterTelephony.selectedProvider) {
+    highRiskReasons.push("Telephony provider routing changed.");
+  }
+  if (
+    stableJsonStringify(beforeTelephony.elevenlabs.managedTools)
+    !== stableJsonStringify(afterTelephony.elevenlabs.managedTools)
+  ) {
+    highRiskReasons.push("Telephony managed tool behavior changed.");
+  }
+  if (
+    stableJsonStringify(beforeTelephony.elevenlabs.workflow)
+    !== stableJsonStringify(afterTelephony.elevenlabs.workflow)
+  ) {
+    mediumRiskReasons.push("Telephony workflow changed.");
+  }
+  if (beforeTelephony.elevenlabs.systemPrompt !== afterTelephony.elevenlabs.systemPrompt) {
+    mediumRiskReasons.push("Telephony system prompt changed.");
+  }
+  if (
+    beforeTelephony.elevenlabs.firstMessage !== afterTelephony.elevenlabs.firstMessage
+    || beforeTelephony.elevenlabs.knowledgeBase !== afterTelephony.elevenlabs.knowledgeBase
+    || beforeTelephony.elevenlabs.knowledgeBaseName
+      !== afterTelephony.elevenlabs.knowledgeBaseName
+    || stableJsonStringify(beforeTelephony.elevenlabs.transferDestinations)
+      !== stableJsonStringify(afterTelephony.elevenlabs.transferDestinations)
+  ) {
+    lowRiskReasons.push("Telephony copy, knowledge base, or transfer targets changed.");
+  }
+
+  const explicitLowRiskFields = new Set(args.riskPolicy.explicitLowRiskFields);
+  const explicitMediumRiskFields = new Set(args.riskPolicy.explicitMediumRiskFields);
+  const explicitHighRiskFields = new Set(args.riskPolicy.explicitHighRiskFields);
+  const highRiskFieldKeywords = args.riskPolicy.highRiskFieldKeywords.map((entry) =>
+    entry.toLowerCase(),
+  );
+
+  for (const field of changedFields) {
+    if (field === "enabledTools" || field === "disabledTools" || field === "telephonyConfig") {
+      continue;
+    }
+    if (explicitHighRiskFields.has(field)) {
+      highRiskReasons.push(`${field} changed.`);
+      continue;
+    }
+    if (explicitMediumRiskFields.has(field)) {
+      mediumRiskReasons.push(`${field} changed.`);
+      continue;
+    }
+    if (explicitLowRiskFields.has(field)) {
+      lowRiskReasons.push(`${field} changed.`);
+      continue;
+    }
+    if (highRiskFieldKeywords.some((keyword) => field.toLowerCase().includes(keyword))) {
+      highRiskReasons.push(`${field} changed.`);
+      continue;
+    }
+    mediumRiskReasons.push(`${field} changed.`);
+  }
+
+  const tier: TemplateCertificationRiskTier =
+    highRiskReasons.length > 0
+      ? "high"
+      : mediumRiskReasons.length > 0
+        ? "medium"
+        : "low";
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_RISK_ASSESSMENT_CONTRACT_VERSION,
+    tier,
+    changedFields,
+    lowRiskReasons: normalizeStringArray(lowRiskReasons),
+    mediumRiskReasons: normalizeStringArray(mediumRiskReasons),
+    highRiskReasons: normalizeStringArray(highRiskReasons),
+    requiredVerification: resolveRequiredVerificationForRiskTier(tier, args.riskPolicy),
+    autoCertificationEligible: args.riskPolicy.autoCertificationEligibleTiers.includes(tier),
+    ...(normalizeOptionalString(args.referenceVersionId)
+      ? { referenceVersionId: normalizeOptionalString(args.referenceVersionId)! }
+      : {}),
+    ...(normalizeOptionalString(args.referenceVersionTag)
+      ? { referenceVersionTag: normalizeOptionalString(args.referenceVersionTag)! }
+      : {}),
+  };
+}
+
+function requirementMatchesSourceType(
+  requirement: TemplateCertificationRequirement,
+  sourceType: TemplateCertificationEvidenceSourceType,
+): boolean {
+  if (requirement === "wae_eval") {
+    return sourceType === "wae_eval" || sourceType === "legacy_wae_bridge";
+  }
+  if (requirement === "behavioral_eval") {
+    return sourceType === "wae_eval"
+      || sourceType === "legacy_wae_bridge"
+      || sourceType === "runtime_smoke_eval";
+  }
+  if (requirement === "tool_contract_eval") {
+    return sourceType === "tool_contract_eval";
+  }
+  if (requirement === "policy_compliance_eval") {
+    return sourceType === "policy_compliance_eval";
+  }
+  return sourceType === requirement;
+}
+
+function requirementSatisfiedBySource(
+  requirement: TemplateCertificationRequirement,
+  source: TemplateCertificationEvidenceSource,
+): boolean {
+  return source.status === "pass"
+    && requirementMatchesSourceType(requirement, source.sourceType);
+}
+
+const TEMPLATE_CERTIFICATION_AUTOMATION_TIER_DEFAULT_EVIDENCE_SOURCES: Record<
+  TemplateCertificationRiskTier,
+  TemplateCertificationEvidenceSourceType[]
+> = {
+  low: ["runtime_smoke_eval"],
+  medium: ["runtime_smoke_eval", "tool_contract_eval", "policy_compliance_eval"],
+  high: [],
+};
+
+function normalizeTemplateCertificationEvidenceSourceType(
+  value: unknown,
+): TemplateCertificationEvidenceSourceType | null {
+  const sourceType = normalizeOptionalString(value);
+  if (
+    sourceType !== "manifest_integrity"
+    && sourceType !== "risk_assessment"
+    && sourceType !== "wae_eval"
+    && sourceType !== "legacy_wae_bridge"
+    && sourceType !== "runtime_smoke_eval"
+    && sourceType !== "tool_contract_eval"
+    && sourceType !== "policy_compliance_eval"
+  ) {
+    return null;
+  }
+  return sourceType;
+}
+
+function isTemplateCertificationEvaluationOutputOutcome(
+  value: unknown,
+): value is TemplateCertificationEvaluationOutputOutcome {
+  return value === "pass" || value === "fail" || value === "missing" || value === "skipped";
+}
+
+function isTemplateCertificationEvidenceStatusFromOutput(
+  value: TemplateCertificationEvaluationOutputOutcome,
+): value is "pass" | "fail" {
+  return value === "pass" || value === "fail";
+}
+
+function normalizeTemplateCertificationEvaluationOutput(
+  output: TemplateCertificationEvaluationOutput,
+): TemplateCertificationEvaluationOutput | null {
+  const sourceType = normalizeTemplateCertificationEvidenceSourceType(output.sourceType);
+  if (
+    !sourceType
+    || sourceType === "manifest_integrity"
+    || sourceType === "risk_assessment"
+    || sourceType === "legacy_wae_bridge"
+  ) {
+    return null;
+  }
+  if (!isTemplateCertificationEvaluationOutputOutcome(output.outcome)) {
+    return null;
+  }
+  const summary = normalizeOptionalString(output.summary);
+  const runId = normalizeOptionalString(output.runId);
+  return {
+    sourceType,
+    outcome: output.outcome,
+    ...(summary ? { summary } : {}),
+    ...(runId ? { runId } : {}),
+  };
+}
+
+function resolveTemplateCertificationEvaluationOutputRank(
+  output: TemplateCertificationEvaluationOutput,
+): number {
+  if (output.outcome === "fail") {
+    return 3;
+  }
+  if (output.outcome === "pass") {
+    return 2;
+  }
+  if (output.outcome === "missing") {
+    return 1;
+  }
+  return 0;
+}
+
+function dedupeTemplateCertificationEvaluationOutputs(
+  outputs: TemplateCertificationEvaluationOutput[],
+): TemplateCertificationEvaluationOutput[] {
+  const bySourceType = new Map<TemplateCertificationEvidenceSourceType, TemplateCertificationEvaluationOutput>();
+  for (const output of outputs) {
+    const current = bySourceType.get(output.sourceType);
+    if (!current) {
+      bySourceType.set(output.sourceType, output);
+      continue;
+    }
+    const currentRank = resolveTemplateCertificationEvaluationOutputRank(current);
+    const nextRank = resolveTemplateCertificationEvaluationOutputRank(output);
+    if (nextRank > currentRank) {
+      bySourceType.set(output.sourceType, output);
+      continue;
+    }
+    if (nextRank < currentRank) {
+      continue;
+    }
+    const currentTieBreaker = `${current.runId ?? ""}:${current.summary ?? ""}`;
+    const nextTieBreaker = `${output.runId ?? ""}:${output.summary ?? ""}`;
+    if (nextTieBreaker.localeCompare(currentTieBreaker) > 0) {
+      bySourceType.set(output.sourceType, output);
+    }
+  }
+  return Array.from(bySourceType.values()).sort((left, right) =>
+    left.sourceType.localeCompare(right.sourceType)
+  );
+}
+
+function resolveTemplateCertificationDefaultAutomationEvidenceSources(
+  riskAssessment: TemplateCertificationRiskAssessment,
+): TemplateCertificationEvidenceSourceType[] {
+  const defaults = new Set<TemplateCertificationEvidenceSourceType>(
+    TEMPLATE_CERTIFICATION_AUTOMATION_TIER_DEFAULT_EVIDENCE_SOURCES[riskAssessment.tier],
+  );
+  for (const requirement of riskAssessment.requiredVerification) {
+    if (requirement === "behavioral_eval") {
+      defaults.add("runtime_smoke_eval");
+      continue;
+    }
+    if (requirement === "tool_contract_eval") {
+      defaults.add("tool_contract_eval");
+      continue;
+    }
+    if (requirement === "policy_compliance_eval") {
+      defaults.add("policy_compliance_eval");
+      continue;
+    }
+  }
+  return Array.from(defaults).sort((left, right) => left.localeCompare(right));
+}
+
+function buildTemplateCertificationEvaluationOutputSummary(
+  output: TemplateCertificationEvaluationOutput,
+): string {
+  const explicitSummary = normalizeOptionalString(output.summary);
+  if (explicitSummary) {
+    return explicitSummary;
+  }
+  return `Automation output ${output.sourceType} reported ${output.outcome}.`;
+}
+
+function buildTemplateCertificationCoverageSummary(args: {
+  artifact: TemplateCertificationDecisionArtifact;
+  defaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  ingestedEvaluationOutputs: TemplateCertificationEvaluationOutput[];
+  usedOutputSourceTypes: TemplateCertificationEvidenceSourceType[];
+}): TemplateCertificationEvidenceRecordingSummary {
+  const missingRequiredVerification = args.artifact.requiredVerification.filter(
+    (requirement) =>
+      !args.artifact.evidenceSources.some((source) =>
+        requirementSatisfiedBySource(requirement, source)
+      ),
+  );
+  const failedRequiredVerification = args.artifact.requiredVerification.filter(
+    (requirement) =>
+      args.artifact.evidenceSources.some(
+        (source) =>
+          source.status === "fail"
+          && requirementMatchesSourceType(requirement, source.sourceType),
+      ),
+  );
+  const missingDefaultEvidenceSources = args.defaultEvidenceSources.filter(
+    (sourceType) =>
+      !args.ingestedEvaluationOutputs.some(
+        (output) =>
+          output.sourceType === sourceType
+          && (output.outcome === "pass" || output.outcome === "fail"),
+      )
+      && !args.artifact.evidenceSources.some((source) => source.sourceType === sourceType),
+  );
+
+  return {
+    riskTier: args.artifact.riskAssessment.tier,
+    requiredVerification: [...args.artifact.requiredVerification],
+    defaultEvidenceSources: [...args.defaultEvidenceSources],
+    ingestedEvaluationOutputs: args.ingestedEvaluationOutputs.map((output) => ({
+      ...output,
+      usedForEvidence:
+        (output.outcome === "pass" || output.outcome === "fail")
+        && args.usedOutputSourceTypes.includes(output.sourceType),
+    })),
+    recordedEvidenceSources: args.artifact.evidenceSources.filter(
+      (source) =>
+        source.sourceType !== "manifest_integrity" && source.sourceType !== "risk_assessment",
+    ),
+    missingRequiredVerification,
+    failedRequiredVerification,
+    missingDefaultEvidenceSources,
+    blocked: args.artifact.status !== "certified",
+    blockedReason: args.artifact.status === "certified" ? null : args.artifact.reasonCode,
+  };
+}
+
+function normalizeTemplateCertificationEvidenceSource(
+  source: TemplateCertificationEvidenceSource,
+): TemplateCertificationEvidenceSource | null {
+  const summary = normalizeOptionalString(source.summary);
+  if (!summary) {
+    return null;
+  }
+  if (
+    source.sourceType !== "manifest_integrity"
+    && source.sourceType !== "risk_assessment"
+    && source.sourceType !== "wae_eval"
+    && source.sourceType !== "legacy_wae_bridge"
+    && source.sourceType !== "runtime_smoke_eval"
+    && source.sourceType !== "tool_contract_eval"
+    && source.sourceType !== "policy_compliance_eval"
+  ) {
+    return null;
+  }
+  if (source.status !== "pass" && source.status !== "fail") {
+    return null;
+  }
+  return {
+    sourceType: source.sourceType,
+    status: source.status,
+    summary,
+    ...(normalizeOptionalString(source.runId)
+      ? { runId: normalizeOptionalString(source.runId)! }
+      : {}),
+  };
+}
+
+function buildTemplateCertificationArtifact(args: {
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  recordedAt: number;
+  recordedByUserId: string;
+  dependencyManifest: TemplateCertificationDependencyManifest;
+  riskAssessment: TemplateCertificationRiskAssessment;
+  waeArtifact?: WaeRolloutGateDecisionArtifact | null;
+  waeSourceType?: "wae_eval" | "legacy_wae_bridge";
+  additionalEvidenceSources?: TemplateCertificationEvidenceSource[];
+}): TemplateCertificationDecisionArtifact {
+  const evidenceSources: TemplateCertificationEvidenceSource[] = [
+    {
+      sourceType: "manifest_integrity",
+      status: "pass",
+      summary: `Pinned dependency digest ${args.dependencyManifest.dependencyDigest}.`,
+    },
+    {
+      sourceType: "risk_assessment",
+      status: "pass",
+      summary: `Risk tier ${args.riskAssessment.tier} across ${args.riskAssessment.changedFields.length} changed fields.`,
+    },
+  ];
+
+  if (args.waeArtifact) {
+    const passed =
+      args.waeArtifact.status === "pass"
+      && args.waeArtifact.reasonCode === "pass"
+      && args.waeArtifact.score.verdict === "passed"
+      && args.waeArtifact.score.decision === "proceed"
+      && args.waeArtifact.criticalReasonCodeBudget.observedCount
+        <= args.waeArtifact.criticalReasonCodeBudget.allowedCount
+      && args.waeArtifact.failureSnapshot.unresolvedCriticalFailures === 0;
+    evidenceSources.push({
+      sourceType: args.waeSourceType ?? "wae_eval",
+      status: passed ? "pass" : "fail",
+      summary: passed
+        ? `WAE bundle ${args.waeArtifact.runId} passed for ${args.templateVersionTag}.`
+        : `WAE bundle ${args.waeArtifact.runId} failed for ${args.templateVersionTag}.`,
+      runId: args.waeArtifact.runId,
+    });
+  }
+
+  if (Array.isArray(args.additionalEvidenceSources)) {
+    for (const source of args.additionalEvidenceSources) {
+      const normalized = normalizeTemplateCertificationEvidenceSource(source);
+      if (!normalized) {
+        continue;
+      }
+      if (normalized.sourceType === "manifest_integrity" || normalized.sourceType === "risk_assessment") {
+        continue;
+      }
+      evidenceSources.push(normalized);
+    }
+  }
+
+  const dedupedEvidenceByKey = new Map<string, TemplateCertificationEvidenceSource>();
+  for (const source of evidenceSources) {
+    const key = `${source.sourceType}:${source.runId ?? ""}:${source.summary}`;
+    if (!dedupedEvidenceByKey.has(key)) {
+      dedupedEvidenceByKey.set(key, source);
+    }
+  }
+  const dedupedEvidenceSources = Array.from(dedupedEvidenceByKey.values());
+
+  const requiredVerification = [...args.riskAssessment.requiredVerification];
+  const missingRequiredVerification = requiredVerification.filter(
+    (requirement) =>
+      !dedupedEvidenceSources.some((source) => requirementSatisfiedBySource(requirement, source)),
+  );
+  const failedRequiredVerification = requiredVerification.filter((requirement) =>
+    dedupedEvidenceSources.some(
+      (source) =>
+        source.status === "fail"
+        && requirementMatchesSourceType(requirement, source.sourceType),
+    ),
+  );
+  const rejected =
+    missingRequiredVerification.length > 0 || failedRequiredVerification.length > 0;
+  const notes = [
+    ...missingRequiredVerification.map(
+      (requirement) => `Missing required verification: ${requirement}.`,
+    ),
+    ...failedRequiredVerification.map(
+      (requirement) => `Required verification failed: ${requirement}.`,
+    ),
+  ];
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_DECISION_CONTRACT_VERSION,
+    promotionContractVersion: TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION,
+    status: rejected ? "rejected" : "certified",
+    reasonCode:
+      missingRequiredVerification.length > 0
+        ? "missing_required_verification"
+        : failedRequiredVerification.length > 0
+          ? "verification_failed"
+          : "certified",
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: args.templateVersionTag,
+    riskAssessment: args.riskAssessment,
+    dependencyManifest: args.dependencyManifest,
+    requiredVerification,
+    evidenceSources: dedupedEvidenceSources,
+    recordedAt: args.recordedAt,
+    recordedByUserId: args.recordedByUserId,
+    notes,
+  };
+}
+
+function parseTemplateCertificationDependencyManifest(
+  value: unknown,
+): TemplateCertificationDependencyManifest | null {
+  const record = asRecord(value);
+  if (
+    normalizeOptionalString(record.contractVersion)
+    !== TEMPLATE_CERTIFICATION_DEPENDENCY_MANIFEST_CONTRACT_VERSION
+  ) {
+    return null;
+  }
+  const templateId = normalizeOptionalString(record.templateId);
+  const templateVersionId = normalizeOptionalString(record.templateVersionId);
+  const templateVersionTag = normalizeOptionalString(record.templateVersionTag);
+  const baselineDigest = normalizeOptionalString(record.baselineDigest);
+  const toolingDigest = normalizeOptionalString(record.toolingDigest);
+  const telephonyDigest = normalizeOptionalString(record.telephonyDigest);
+  const runtimeDigest = normalizeOptionalString(record.runtimeDigest);
+  const dependencyDigest = normalizeOptionalString(record.dependencyDigest);
+  if (
+    !templateId
+    || !templateVersionId
+    || !templateVersionTag
+    || !baselineDigest
+    || !toolingDigest
+    || !telephonyDigest
+    || !runtimeDigest
+    || !dependencyDigest
+  ) {
+    return null;
+  }
+
+  const selectedTools = normalizeUnknownArray(record.selectedTools)
+    .map((entry) => {
+      const selectedTool = asRecord(entry);
+      const name = normalizeOptionalString(selectedTool.name);
+      return name
+        ? {
+            name,
+            readOnly: selectedTool.readOnly === true,
+          }
+        : null;
+    })
+    .filter(
+      (
+        entry,
+      ): entry is {
+        name: string;
+        readOnly: boolean;
+      } => entry !== null,
+    );
+  const telephony = asRecord(record.telephony);
+  const runtime = asRecord(record.runtime);
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_DEPENDENCY_MANIFEST_CONTRACT_VERSION,
+    templateId,
+    templateVersionId,
+    templateVersionTag,
+    baselineDigest,
+    toolingDigest,
+    telephonyDigest,
+    runtimeDigest,
+    dependencyDigest,
+    selectedTools,
+    telephony: {
+      provider: normalizeOptionalString(telephony.provider) || "elevenlabs",
+      managedToolKeys: normalizeStringArray(telephony.managedToolKeys),
+      transferDestinationCount:
+        normalizeFiniteNumber(telephony.transferDestinationCount) ?? 0,
+      phoneChannelEnabled: telephony.phoneChannelEnabled === true,
+    },
+    runtime: {
+      modelProvider: normalizeOptionalString(runtime.modelProvider),
+      modelId: normalizeOptionalString(runtime.modelId),
+      autonomyLevel: normalizeOptionalString(runtime.autonomyLevel),
+    },
+  };
+}
+
+function parseTemplateCertificationRiskAssessment(
+  value: unknown,
+): TemplateCertificationRiskAssessment | null {
+  const record = asRecord(value);
+  if (
+    normalizeOptionalString(record.contractVersion)
+    !== TEMPLATE_CERTIFICATION_RISK_ASSESSMENT_CONTRACT_VERSION
+  ) {
+    return null;
+  }
+  const tier = normalizeOptionalString(record.tier);
+  if (tier !== "low" && tier !== "medium" && tier !== "high") {
+    return null;
+  }
+
+  const requiredVerification = normalizeStringArray(record.requiredVerification).filter(
+    isTemplateCertificationRequirement,
+  );
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_RISK_ASSESSMENT_CONTRACT_VERSION,
+    tier,
+    changedFields: normalizeStringArray(record.changedFields),
+    lowRiskReasons: normalizeStringArray(record.lowRiskReasons),
+    mediumRiskReasons: normalizeStringArray(record.mediumRiskReasons),
+    highRiskReasons: normalizeStringArray(record.highRiskReasons),
+    requiredVerification,
+    autoCertificationEligible: record.autoCertificationEligible === true,
+    ...(normalizeOptionalString(record.referenceVersionId)
+      ? { referenceVersionId: normalizeOptionalString(record.referenceVersionId)! }
+      : {}),
+    ...(normalizeOptionalString(record.referenceVersionTag)
+      ? { referenceVersionTag: normalizeOptionalString(record.referenceVersionTag)! }
+      : {}),
+  };
+}
+
+function parseTemplateCertificationDecisionArtifact(
+  value: unknown,
+): TemplateCertificationDecisionArtifact | null {
+  const record = asRecord(value);
+  if (
+    normalizeOptionalString(record.contractVersion)
+    !== TEMPLATE_CERTIFICATION_DECISION_CONTRACT_VERSION
+    || normalizeOptionalString(record.promotionContractVersion)
+      !== TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION
+  ) {
+    return null;
+  }
+  const status = normalizeOptionalString(record.status);
+  const reasonCode = normalizeOptionalString(record.reasonCode);
+  const templateId = normalizeOptionalString(record.templateId);
+  const templateVersionId = normalizeOptionalString(record.templateVersionId);
+  const templateVersionTag = normalizeOptionalString(record.templateVersionTag);
+  const recordedAt = normalizeFiniteNumber(record.recordedAt);
+  const recordedByUserId = normalizeOptionalString(record.recordedByUserId);
+  if (
+    (status !== "certified" && status !== "rejected")
+    || (reasonCode !== "certified"
+      && reasonCode !== "verification_failed"
+      && reasonCode !== "missing_required_verification")
+    || !templateId
+    || !templateVersionId
+    || !templateVersionTag
+    || recordedAt === null
+    || !recordedByUserId
+  ) {
+    return null;
+  }
+
+  const riskAssessment = parseTemplateCertificationRiskAssessment(record.riskAssessment);
+  const dependencyManifest = parseTemplateCertificationDependencyManifest(
+    record.dependencyManifest,
+  );
+  if (!riskAssessment || !dependencyManifest) {
+    return null;
+  }
+
+  const requiredVerification = normalizeStringArray(record.requiredVerification).filter(
+    isTemplateCertificationRequirement,
+  );
+  const evidenceSources = normalizeUnknownArray(record.evidenceSources)
+    .map((entry) => {
+      const source = asRecord(entry);
+      const sourceType = normalizeOptionalString(source.sourceType);
+      const sourceStatus = normalizeOptionalString(source.status);
+      const summary = normalizeOptionalString(source.summary);
+      if (
+        (sourceType !== "manifest_integrity"
+          && sourceType !== "risk_assessment"
+          && sourceType !== "wae_eval"
+          && sourceType !== "legacy_wae_bridge"
+          && sourceType !== "runtime_smoke_eval"
+          && sourceType !== "tool_contract_eval"
+          && sourceType !== "policy_compliance_eval")
+        || (sourceStatus !== "pass" && sourceStatus !== "fail")
+        || !summary
+      ) {
+        return null;
+      }
+      return {
+        sourceType,
+        status: sourceStatus,
+        summary,
+        ...(normalizeOptionalString(source.runId)
+          ? { runId: normalizeOptionalString(source.runId)! }
+          : {}),
+      } satisfies TemplateCertificationEvidenceSource;
+    })
+    .filter(
+      (
+        entry,
+      ): entry is TemplateCertificationEvidenceSource => entry !== null,
+    );
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_DECISION_CONTRACT_VERSION,
+    promotionContractVersion: TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION,
+    status,
+    reasonCode,
+    templateId,
+    templateVersionId,
+    templateVersionTag,
+    riskAssessment,
+    dependencyManifest,
+    requiredVerification,
+    evidenceSources,
+    recordedAt,
+    recordedByUserId,
+    notes: normalizeStringArray(record.notes),
   };
 }
 
@@ -1043,6 +2393,394 @@ export async function getLatestWaeRolloutGateDecisionArtifact(
   return candidates[0]?.artifact ?? null;
 }
 
+export async function getLatestTemplateCertificationDecisionArtifact(
+  ctx: QueryCtx | MutationCtx,
+  templateVersionId: Id<"objects">,
+): Promise<TemplateCertificationDecisionArtifact | null> {
+  const dbAny = ctx.db as any;
+  const actions = (await dbAny
+    .query("objectActions")
+    .withIndex("by_object", (q: any) => q.eq("objectId", templateVersionId))
+    .collect()) as Array<{
+    _id: string;
+    actionType?: unknown;
+    actionData?: unknown;
+    performedAt?: unknown;
+  }>;
+
+  const candidates = actions
+    .filter((row) => row.actionType === TEMPLATE_CERTIFICATION_ACTION_TYPE)
+    .map((row) => ({
+      actionId: row._id,
+      performedAt: normalizeFiniteNumber(row.performedAt) ?? 0,
+      artifact: parseTemplateCertificationDecisionArtifact(row.actionData),
+    }))
+    .filter(
+      (row): row is {
+        actionId: string;
+        performedAt: number;
+        artifact: TemplateCertificationDecisionArtifact;
+      } => row.artifact !== null,
+    )
+    .sort((left, right) => {
+      if (left.performedAt !== right.performedAt) {
+        return right.performedAt - left.performedAt;
+      }
+      return right.actionId.localeCompare(left.actionId);
+    });
+
+  return candidates[0]?.artifact ?? null;
+}
+
+type ResolvedTemplateCertificationContext = CurrentDefaultTemplateWaeGateContext & {
+  templateFamily?: string;
+  riskPolicyScope: "global" | "family";
+  globalRiskPolicy: TemplateCertificationRiskPolicy;
+  overlayRiskPolicy?: TemplateCertificationRiskPolicy;
+  baselineSnapshot: Record<string, unknown>;
+  dependencyManifest: TemplateCertificationDependencyManifest;
+  riskAssessment: TemplateCertificationRiskAssessment;
+  riskPolicy: TemplateCertificationRiskPolicy;
+};
+
+async function resolveReferenceTemplateVersionForCertification(
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId: Id<"objects">;
+  },
+): Promise<{
+  templateVersionId: string;
+  templateVersionTag: string;
+  baselineSnapshot: Record<string, unknown>;
+} | null> {
+  const dbAny = ctx.db as any;
+  const versions = (await dbAny
+    .query("objects")
+    .withIndex("by_type", (q: any) => q.eq("type", "org_agent_template_version"))
+    .collect()) as Array<{
+    _id: Id<"objects">;
+    updatedAt: number;
+    customProperties?: unknown;
+  }>;
+
+  const candidates = versions
+    .filter((version) => version._id !== args.templateVersionId)
+    .map((version) => {
+      const props = asRecord(version.customProperties);
+      if (normalizeOptionalString(props.sourceTemplateId) !== String(args.templateId)) {
+        return null;
+      }
+      return {
+        templateVersionId: String(version._id),
+        templateVersionTag:
+          normalizeOptionalString(props.versionTag) || String(version._id),
+        lifecycleStatus: normalizeOptionalString(props.lifecycleStatus) || "draft",
+        updatedAt: normalizeFiniteNumber(version.updatedAt) ?? 0,
+        baselineSnapshot: resolveTemplateVersionBaselineSnapshot(props),
+      };
+    })
+    .filter(
+      (
+        row,
+      ): row is {
+        templateVersionId: string;
+        templateVersionTag: string;
+        lifecycleStatus: string;
+        updatedAt: number;
+        baselineSnapshot: Record<string, unknown>;
+      } => row !== null,
+    )
+    .sort((left, right) => {
+      const lifecycleRank = (status: string) => (status === "published" ? 0 : 1);
+      const lifecycleSort =
+        lifecycleRank(left.lifecycleStatus) - lifecycleRank(right.lifecycleStatus);
+      if (lifecycleSort !== 0) {
+        return lifecycleSort;
+      }
+      if (left.updatedAt !== right.updatedAt) {
+        return right.updatedAt - left.updatedAt;
+      }
+      return left.templateVersionId.localeCompare(right.templateVersionId);
+    });
+
+  return candidates[0] ?? null;
+}
+
+async function resolveTemplateVersionCertificationContext(
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId: Id<"objects">;
+    templateVersionTag?: string | null;
+  },
+): Promise<ResolvedTemplateCertificationContext> {
+  const template = await ctx.db.get(args.templateId);
+  if (!template || template.type !== "org_agent" || template.status !== "template") {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template agent not found.",
+    });
+  }
+  const templateVersion = await ctx.db.get(args.templateVersionId);
+  if (!templateVersion || templateVersion.type !== "org_agent_template_version") {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template version snapshot not found.",
+    });
+  }
+
+  const templateProps = asRecord(template.customProperties);
+  const versionProps = asRecord(templateVersion.customProperties);
+  if (normalizeOptionalString(versionProps.sourceTemplateId) !== String(args.templateId)) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message: "Template version does not belong to template.",
+    });
+  }
+
+  const templateVersionTag =
+    normalizeOptionalString(args.templateVersionTag)
+    || normalizeOptionalString(versionProps.versionTag)
+    || String(args.templateVersionId);
+  const baselineSnapshot = resolveTemplateVersionBaselineSnapshot(versionProps);
+  const templateFamily =
+    normalizeTemplateCertificationFamilyKey(templateProps.templateRole)
+    || normalizeTemplateCertificationFamilyKey(baselineSnapshot.templateRole)
+    || normalizeTemplateCertificationFamilyKey(versionProps.templateRole)
+    || normalizeTemplateCertificationFamilyKey(template.subtype);
+  const dependencyManifest = buildTemplateCertificationDependencyManifest({
+    templateId: String(args.templateId),
+    templateVersionId: String(args.templateVersionId),
+    templateVersionTag,
+    baselineSnapshot,
+  });
+  const referenceVersion = await resolveReferenceTemplateVersionForCertification(ctx, {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+  });
+  const riskPolicyResolution = await readTemplateCertificationRiskPolicy(ctx, {
+    templateFamily,
+  });
+  const riskPolicy = riskPolicyResolution.policy;
+  const riskAssessment = buildTemplateCertificationRiskAssessment({
+    currentBaseline: baselineSnapshot,
+    referenceBaseline: referenceVersion?.baselineSnapshot,
+    referenceVersionId: referenceVersion?.templateVersionId ?? null,
+    referenceVersionTag: referenceVersion?.templateVersionTag ?? null,
+    riskPolicy,
+  });
+
+  return {
+    templateId: args.templateId,
+    templateName: normalizeOptionalString(template.name) || "One-of-One Operator Template",
+    templateOrganizationId: template.organizationId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag,
+    templateLifecycleStatus:
+      normalizeOptionalString(templateProps.templateLifecycleStatus) || "unknown",
+    templateVersionLifecycleStatus:
+      normalizeOptionalString(versionProps.lifecycleStatus) || "unknown",
+    ...(templateFamily ? { templateFamily } : {}),
+    riskPolicyScope: riskPolicyResolution.scope,
+    globalRiskPolicy: riskPolicyResolution.globalPolicy,
+    ...(riskPolicyResolution.overlayPolicy
+      ? { overlayRiskPolicy: riskPolicyResolution.overlayPolicy }
+      : {}),
+    baselineSnapshot,
+    dependencyManifest,
+    riskAssessment,
+    riskPolicy,
+  };
+}
+
+async function recordTemplateCertificationDecisionArtifact(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  templateVersionId: Id<"objects">;
+  performedBy: Id<"users">;
+  artifact: TemplateCertificationDecisionArtifact;
+}) {
+  await args.ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: args.templateVersionId,
+    actionType: TEMPLATE_CERTIFICATION_ACTION_TYPE,
+    actionData: args.artifact as unknown as Record<string, unknown>,
+    performedBy: args.performedBy,
+    performedAt: args.artifact.recordedAt,
+  });
+
+  await args.ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.performedBy,
+    action: TEMPLATE_CERTIFICATION_ACTION_TYPE,
+    resource: "template_version",
+    resourceId: String(args.templateVersionId),
+    success: args.artifact.status === "certified",
+    metadata: args.artifact as unknown as Record<string, unknown>,
+    createdAt: args.artifact.recordedAt,
+  });
+}
+
+export async function ensureTemplateVersionCertificationForLifecycle(
+  ctx: MutationCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId: Id<"objects">;
+    templateVersionTag?: string | null;
+    recordedByUserId: Id<"users">;
+  },
+): Promise<TemplateCertificationEvaluationResult> {
+  const context = await resolveTemplateVersionCertificationContext(ctx, {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: args.templateVersionTag,
+  });
+  const existingCertification = await getLatestTemplateCertificationDecisionArtifact(
+    ctx,
+    args.templateVersionId,
+  );
+  const legacyWaeGate = await getLatestWaeRolloutGateDecisionArtifact(
+    ctx,
+    args.templateVersionId,
+  );
+
+  const shouldBridgeLegacyWae =
+    existingCertification === null
+    && legacyWaeGate !== null
+    && context.riskAssessment.requiredVerification.includes("wae_eval");
+  const shouldAutoCertifyLowRisk =
+    (!existingCertification
+      || existingCertification.dependencyManifest.dependencyDigest
+        !== context.dependencyManifest.dependencyDigest)
+    && context.riskAssessment.autoCertificationEligible;
+
+  if (shouldBridgeLegacyWae || shouldAutoCertifyLowRisk) {
+    const artifact = buildTemplateCertificationArtifact({
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag: context.templateVersionTag,
+      recordedAt: Date.now(),
+      recordedByUserId: String(args.recordedByUserId),
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      ...(shouldBridgeLegacyWae
+        ? {
+            waeArtifact: legacyWaeGate,
+            waeSourceType: "legacy_wae_bridge" as const,
+          }
+        : {}),
+    });
+    await recordTemplateCertificationDecisionArtifact({
+      ctx,
+      organizationId: context.templateOrganizationId,
+      templateVersionId: args.templateVersionId,
+      performedBy: args.recordedByUserId,
+      artifact,
+    });
+  }
+
+  return await evaluateTemplateCertificationForTemplateVersion(ctx, {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: context.templateVersionTag,
+  });
+}
+
+async function resolveCurrentDefaultTemplateWaeGateContext(
+  ctx: QueryCtx | MutationCtx,
+): Promise<CurrentDefaultTemplateWaeGateContext> {
+  const platformOrgId =
+    normalizeOptionalString(process.env.PLATFORM_ORG_ID)
+    || normalizeOptionalString(process.env.TEST_ORG_ID);
+  const dbAny = ctx.db as any;
+  const objects = (await dbAny.query("objects").collect()) as Array<{
+    _id: Id<"objects">;
+    organizationId: Id<"organizations">;
+    type?: string;
+    status?: string;
+    name?: string;
+    customProperties?: unknown;
+  }>;
+
+  const template = objects
+    .filter((row) => row.type === "org_agent" && row.status === "template")
+    .filter((row) => {
+      const props = asRecord(row.customProperties);
+      return (
+        props.protected === true
+        && normalizeOptionalString(props.templateRole) === PERSONAL_OPERATOR_TEMPLATE_ROLE
+      );
+    })
+    .sort((left, right) => {
+      const leftPlatform = platformOrgId && String(left.organizationId) === platformOrgId ? 0 : 1;
+      const rightPlatform = platformOrgId && String(right.organizationId) === platformOrgId ? 0 : 1;
+      if (leftPlatform !== rightPlatform) {
+        return leftPlatform - rightPlatform;
+      }
+      const orgSort = String(left.organizationId).localeCompare(String(right.organizationId));
+      if (orgSort !== 0) {
+        return orgSort;
+      }
+      return String(left._id).localeCompare(String(right._id));
+    })[0];
+
+  if (!template) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Current protected operator template was not found.",
+      templateRole: PERSONAL_OPERATOR_TEMPLATE_ROLE,
+    });
+  }
+
+  const templateProps = asRecord(template.customProperties);
+  const templateVersionId = normalizeOptionalString(
+    templateProps.templatePublishedVersionId,
+  ) as Id<"objects"> | null;
+  const templateVersionTag =
+    normalizeOptionalString(templateProps.templatePublishedVersion)
+    || normalizeOptionalString(templateProps.templateVersion);
+  if (!templateVersionId || !templateVersionTag) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Current protected operator template is missing a published version.",
+      templateId: String(template._id),
+    });
+  }
+
+  const templateVersion = await ctx.db.get(templateVersionId);
+  if (!templateVersion || templateVersion.type !== "org_agent_template_version") {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Current protected operator template version was not found.",
+      templateId: String(template._id),
+      templateVersionId: String(templateVersionId),
+    });
+  }
+
+  const versionProps = asRecord(templateVersion.customProperties);
+  if (normalizeOptionalString(versionProps.sourceTemplateId) !== String(template._id)) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Published operator template version does not belong to the current protected template.",
+      templateId: String(template._id),
+      templateVersionId: String(templateVersionId),
+    });
+  }
+
+  return {
+    templateId: template._id,
+    templateName: normalizeOptionalString(template.name) || "One-of-One Operator Template",
+    templateOrganizationId: template.organizationId,
+    templateVersionId,
+    templateVersionTag,
+    templateLifecycleStatus:
+      normalizeOptionalString(templateProps.templateLifecycleStatus) || "unknown",
+    templateVersionLifecycleStatus:
+      normalizeOptionalString(versionProps.lifecycleStatus) || "unknown",
+  };
+}
+
 export async function evaluateWaeRolloutGateForTemplateVersion(
   ctx: QueryCtx | MutationCtx,
   args: {
@@ -1052,81 +2790,386 @@ export async function evaluateWaeRolloutGateForTemplateVersion(
     now?: number;
   },
 ): Promise<WaeRolloutGateEvaluationResult> {
+  const evaluation = await evaluateTemplateCertificationForTemplateVersion(ctx, args);
+  const legacyReasonCode: WaeRolloutGateBlockReasonCode | undefined =
+    evaluation.reasonCode === "certification_missing"
+      ? "wae_evidence_missing"
+      : evaluation.reasonCode === "certification_mismatch"
+        ? "wae_evidence_mismatch"
+        : evaluation.reasonCode === "certification_invalid"
+          ? "wae_gate_failed"
+          : undefined;
+
+  return {
+    allowed: evaluation.allowed,
+    reasonCode: legacyReasonCode,
+    message: evaluation.message,
+    ageMs:
+      args.now && evaluation.certification
+        ? Math.max(0, args.now - evaluation.certification.recordedAt)
+        : undefined,
+    gate: evaluation.legacyWaeGate,
+  };
+}
+
+export async function evaluateTemplateCertificationForTemplateVersion(
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId?: Id<"objects"> | null;
+    templateVersionTag?: string | null;
+    now?: number;
+  },
+): Promise<TemplateCertificationEvaluationResult> {
   const templateVersionId = args.templateVersionId ?? null;
   const templateVersionTag = normalizeOptionalString(args.templateVersionTag);
-  const now = args.now ?? Date.now();
-
   if (!templateVersionId || !templateVersionTag) {
     return {
       allowed: false,
-      reasonCode: "wae_evidence_missing",
-      message: "WAE rollout gate evidence is missing for this template version.",
-      gate: null,
+      reasonCode: "certification_missing",
+      message: "Template certification is missing for this template version.",
+      certification: null,
+      dependencyManifest: null,
+      riskAssessment: null,
+      autoCertificationEligible: false,
+      legacyWaeGate: null,
     };
   }
 
-  const gate = await getLatestWaeRolloutGateDecisionArtifact(ctx, templateVersionId);
-  if (!gate) {
+  const context = await resolveTemplateVersionCertificationContext(ctx, {
+    templateId: args.templateId,
+    templateVersionId,
+    templateVersionTag,
+  });
+  const storedCertification = await getLatestTemplateCertificationDecisionArtifact(
+    ctx,
+    templateVersionId,
+  );
+  const legacyWaeGate = await getLatestWaeRolloutGateDecisionArtifact(ctx, templateVersionId);
+  const certification =
+    storedCertification
+    ?? (
+      legacyWaeGate
+        ? buildTemplateCertificationArtifact({
+            templateId: String(args.templateId),
+            templateVersionId: String(templateVersionId),
+            templateVersionTag: context.templateVersionTag,
+            recordedAt: legacyWaeGate.recordedAt,
+            recordedByUserId: legacyWaeGate.recordedByUserId,
+            dependencyManifest: context.dependencyManifest,
+            riskAssessment: context.riskAssessment,
+            waeArtifact: legacyWaeGate,
+            waeSourceType: "legacy_wae_bridge",
+          })
+        : null
+    );
+
+  if (!certification) {
+    const lowRiskEligible = context.riskAssessment.autoCertificationEligible;
     return {
       allowed: false,
-      reasonCode: "wae_evidence_missing",
-      message: `No WAE rollout gate artifact was recorded for template version ${templateVersionTag}.`,
-      gate: null,
+      reasonCode: "certification_missing",
+      message: lowRiskEligible
+        ? "Template certification has not been recorded yet. This low-risk version can be auto-certified on the next lifecycle write."
+        : `No certification artifact was recorded for template version ${templateVersionTag}.`,
+      certification: null,
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      autoCertificationEligible: lowRiskEligible,
+      legacyWaeGate,
     };
   }
 
-  const ageMs = Math.max(0, now - gate.recordedAt);
-  const freshnessWindowMs =
-    gate.freshnessWindowMs > 0 ? gate.freshnessWindowMs : WAE_ROLLOUT_GATE_MAX_AGE_MS;
-
   if (
-    gate.templateId !== String(args.templateId)
-    || gate.templateVersionId !== String(templateVersionId)
-    || gate.templateVersionTag !== templateVersionTag
-    || gate.rolloutContractVersion !== WAE_ROLLOUT_GATE_ROLLOUT_CONTRACT_VERSION
+    certification.templateId !== String(args.templateId)
+    || certification.templateVersionId !== String(templateVersionId)
+    || certification.templateVersionTag !== context.templateVersionTag
+    || certification.promotionContractVersion
+      !== TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION
   ) {
     return {
       allowed: false,
-      reasonCode: "wae_evidence_mismatch",
-      message: "WAE rollout gate evidence does not match the requested template/version contract.",
-      ageMs,
-      gate,
-    };
-  }
-
-  if (ageMs > freshnessWindowMs) {
-    return {
-      allowed: false,
-      reasonCode: "wae_evidence_stale",
-      message: `WAE rollout gate evidence is stale (${Math.floor(ageMs / 3_600_000)}h old).`,
-      ageMs,
-      gate,
+      reasonCode: "certification_mismatch",
+      message: "Template certification does not match the requested template/version contract.",
+      certification,
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      autoCertificationEligible: context.riskAssessment.autoCertificationEligible,
+      legacyWaeGate,
     };
   }
 
   if (
-    gate.status !== "pass"
-    || gate.reasonCode !== "pass"
-    || gate.score.verdict !== "passed"
-    || gate.score.decision !== "proceed"
-    || gate.criticalReasonCodeBudget.observedCount > gate.criticalReasonCodeBudget.allowedCount
-    || gate.failureSnapshot.unresolvedCriticalFailures > 0
+    certification.dependencyManifest.dependencyDigest
+    !== context.dependencyManifest.dependencyDigest
   ) {
     return {
       allowed: false,
-      reasonCode: "wae_gate_failed",
-      message: "WAE rollout gate did not pass for this template version.",
-      ageMs,
-      gate,
+      reasonCode: "certification_invalid",
+      message:
+        "Template certification is invalid because the dependency digest no longer matches this version manifest.",
+      certification,
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      autoCertificationEligible: context.riskAssessment.autoCertificationEligible,
+      legacyWaeGate,
+    };
+  }
+
+  const missingRequiredVerification = certification.requiredVerification.filter(
+    (requirement) =>
+      !certification.evidenceSources.some((source) =>
+        requirementSatisfiedBySource(requirement, source),
+      ),
+  );
+  if (
+    certification.status !== "certified"
+    || certification.reasonCode !== "certified"
+    || missingRequiredVerification.length > 0
+  ) {
+    return {
+      allowed: false,
+      reasonCode: "certification_invalid",
+      message:
+        certification.notes[0]
+        || "Template certification did not satisfy the required verification bundle.",
+      certification,
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      autoCertificationEligible: context.riskAssessment.autoCertificationEligible,
+      legacyWaeGate,
     };
   }
 
   return {
     allowed: true,
-    ageMs,
-    gate,
+    certification,
+    dependencyManifest: context.dependencyManifest,
+    riskAssessment: context.riskAssessment,
+    autoCertificationEligible: context.riskAssessment.autoCertificationEligible,
+    legacyWaeGate,
   };
 }
+
+export const getCurrentDefaultTemplateWaeRolloutGateStatus = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    const riskPolicy = await readTemplateCertificationRiskPolicy(ctx);
+    const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const certification = await getLatestTemplateCertificationDecisionArtifact(
+      ctx,
+      template.templateVersionId,
+    );
+    const gate = await getLatestWaeRolloutGateDecisionArtifact(ctx, template.templateVersionId);
+    const certificationEvaluation = await evaluateTemplateCertificationForTemplateVersion(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+    });
+    const evaluation = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+      now: Date.now(),
+    });
+
+    return {
+      generatedAt: Date.now(),
+      template,
+      certification,
+      certificationEvaluation,
+      riskAssessment: certificationEvaluation.riskAssessment,
+      dependencyManifest: certificationEvaluation.dependencyManifest,
+      autoCertificationEligible: certificationEvaluation.autoCertificationEligible,
+      riskPolicy,
+      gate,
+      evaluation,
+      evalCommands: [
+        "npm run wae:eval:contracts",
+        "npm run wae:eval:regression",
+      ],
+      bundlePaths: {
+        runRecord: "tmp/reports/wae/<runId>/bundle/run-records.jsonl",
+        scenarioRecords: "tmp/reports/wae/<runId>/bundle/scenario-records.jsonl",
+      },
+    };
+  },
+});
+
+export const getTemplateCertificationRiskPolicy = query({
+  args: {
+    sessionId: v.string(),
+    templateFamily: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    return await readTemplateCertificationRiskPolicy(ctx, {
+      templateFamily: args.templateFamily,
+    });
+  },
+});
+
+export const setTemplateCertificationRiskPolicy = mutation({
+  args: {
+    sessionId: v.string(),
+    templateFamily: v.optional(v.string()),
+    policy: v.object({
+      explicitLowRiskFields: v.optional(v.array(v.string())),
+      explicitMediumRiskFields: v.optional(v.array(v.string())),
+      explicitHighRiskFields: v.optional(v.array(v.string())),
+      highRiskFieldKeywords: v.optional(v.array(v.string())),
+      requiredVerificationByTier: v.optional(
+        v.object({
+          low: v.optional(v.array(templateCertificationRequirementValidator)),
+          medium: v.optional(v.array(templateCertificationRequirementValidator)),
+          high: v.optional(v.array(templateCertificationRequirementValidator)),
+        }),
+      ),
+      autoCertificationEligibleTiers: v.optional(v.array(templateCertificationRiskTierValidator)),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const templateFamily = normalizeTemplateCertificationFamilyKey(args.templateFamily);
+    if (args.templateFamily && !templateFamily) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "templateFamily must contain at least one alphanumeric character.",
+      });
+    }
+    const current = await readTemplateCertificationRiskPolicy(ctx, {
+      templateFamily,
+    });
+    const nextPolicy = mergeTemplateCertificationRiskPolicy(current.policy, args.policy);
+    const nextGlobalPolicy =
+      templateFamily ? current.globalPolicy : nextPolicy;
+    const nextFamilyPolicies =
+      templateFamily
+        ? {
+            ...current.familyPolicies,
+            [templateFamily]: nextPolicy,
+          }
+        : current.familyPolicies;
+    const now = Date.now();
+    const dbAny = ctx.db as any;
+    const settingsValue = {
+      contractVersion: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION,
+      globalPolicy: nextGlobalPolicy,
+      familyPolicies: nextFamilyPolicies,
+    } satisfies TemplateCertificationRiskPolicySettings;
+    const settingRows = await dbAny
+      .query("platformSettings")
+      .withIndex("by_key", (q: any) => q.eq("key", TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_KEY))
+      .collect();
+    const setting = settingRows[0] ?? null;
+    if (setting) {
+      await dbAny.patch(setting._id, {
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        updatedAt: now,
+      });
+    } else {
+      await dbAny.insert("platformSettings", {
+        key: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_KEY,
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return {
+      success: true,
+      source: "platform_setting" as const,
+      scope: templateFamily ? ("family" as const) : ("global" as const),
+      updatedAt: now,
+      ...(templateFamily ? { templateFamily } : {}),
+      policy: nextPolicy,
+      globalPolicy: nextGlobalPolicy,
+      familyPolicies: nextFamilyPolicies,
+    };
+  },
+});
+
+export const previewCurrentDefaultTemplateWaeRolloutGate = mutation({
+  args: {
+    sessionId: v.string(),
+    waeRunRecord: v.any(),
+    waeScenarioRecords: v.any(),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const runRecord = normalizeWaeRunRecord(args.waeRunRecord);
+    const scenarioRecords = normalizeWaeScenarioRecords(args.waeScenarioRecords);
+    if (!runRecord) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "waeRunRecord is missing or invalid.",
+      });
+    }
+    if (scenarioRecords.length === 0) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "waeScenarioRecords must contain at least one valid scenario record.",
+      });
+    }
+    if (runRecord.templateVersionTag !== template.templateVersionTag) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "WAE bundle does not match the current protected operator template version tag.",
+        expectedTemplateVersionTag: template.templateVersionTag,
+        receivedTemplateVersionTag: runRecord.templateVersionTag,
+      });
+    }
+
+    const score = scoreWaeEvalBundle({
+      runRecord,
+      scenarioRecords,
+    });
+    const recordedAt = Date.now();
+    const completedAt = args.completedAt ?? recordedAt;
+    const artifact = buildWaeRolloutGateDecisionArtifact({
+      templateId: String(template.templateId),
+      templateVersionId: String(template.templateVersionId),
+      templateVersionTag: template.templateVersionTag,
+      runRecord,
+      scenarioRecords,
+      score,
+      recordedAt,
+      completedAt,
+      recordedByUserId: String(userId),
+    });
+    const certificationContext = await resolveTemplateVersionCertificationContext(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+    });
+    const certification = buildTemplateCertificationArtifact({
+      templateId: String(template.templateId),
+      templateVersionId: String(template.templateVersionId),
+      templateVersionTag: template.templateVersionTag,
+      recordedAt,
+      recordedByUserId: String(userId),
+      dependencyManifest: certificationContext.dependencyManifest,
+      riskAssessment: certificationContext.riskAssessment,
+      waeArtifact: artifact,
+      waeSourceType: "wae_eval",
+    });
+
+    return {
+      template,
+      artifact,
+      certification,
+      canRecord: certification.status === "certified",
+    };
+  },
+});
 
 function buildSummary(entries: CatalogEntryRow[], toolRequirements: ToolRequirementRow[]) {
   const resolvedEntries = entries.map(resolveCatalogEntryRecommendationFields);
@@ -1748,6 +3791,10 @@ export const triggerCatalogSync = mutation({
         seedsFull: summary.seedsFull,
         runtimeLive: summary.runtimeLive,
         toolsMissing: summary.toolsMissing,
+        published: summary.published,
+        blockedAgents: summary.blockedAgents,
+        recommendationTagged: summary.recommendationTagged,
+        recommendationMetadataStored: summary.recommendationMetadataStored,
       },
       drift,
       hashes,
@@ -2082,6 +4129,229 @@ export const backfillCatalogPublishedFlags = mutation({
   },
 });
 
+export const recordTemplateCertificationEvidenceBundle = mutation({
+  args: {
+    sessionId: v.string(),
+    templateId: v.id("objects"),
+    templateVersionId: v.id("objects"),
+    templateVersionTag: v.optional(v.string()),
+    evidenceSources: v.optional(
+      v.array(
+        v.object({
+          sourceType: templateCertificationEvidenceSourceTypeValidator,
+          status: v.union(v.literal("pass"), v.literal("fail")),
+          summary: v.string(),
+          runId: v.optional(v.string()),
+        }),
+      ),
+    ),
+    evaluationOutputs: v.optional(
+      v.array(
+        v.object({
+          sourceType: templateCertificationEvidenceSourceTypeValidator,
+          outcome: templateCertificationEvaluationOutputOutcomeValidator,
+          summary: v.optional(v.string()),
+          runId: v.optional(v.string()),
+        }),
+      ),
+    ),
+    applyRiskTierDefaults: v.optional(v.boolean()),
+    notes: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const template = await ctx.db.get(args.templateId);
+    if (!template || template.type !== "org_agent" || template.status !== "template") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template agent not found.",
+      });
+    }
+    const templateVersion = await ctx.db.get(args.templateVersionId);
+    if (!templateVersion || templateVersion.type !== "org_agent_template_version") {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Template version snapshot not found.",
+      });
+    }
+    const context = await resolveTemplateVersionCertificationContext(ctx, {
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      templateVersionTag: args.templateVersionTag ?? null,
+    });
+    const providedEvidenceSources = (args.evidenceSources ?? [])
+      .map((source) =>
+        normalizeTemplateCertificationEvidenceSource({
+          sourceType: source.sourceType,
+          status: source.status,
+          summary: source.summary,
+          runId: source.runId,
+        }),
+      )
+      .filter(
+        (source): source is TemplateCertificationEvidenceSource =>
+          source !== null,
+      );
+    const ingestedEvaluationOutputs = dedupeTemplateCertificationEvaluationOutputs(
+      (args.evaluationOutputs ?? [])
+        .map((output) =>
+          normalizeTemplateCertificationEvaluationOutput({
+            sourceType: output.sourceType,
+            outcome: output.outcome,
+            summary: output.summary,
+            runId: output.runId,
+          }),
+        )
+        .filter(
+          (output): output is TemplateCertificationEvaluationOutput =>
+            output !== null,
+        ),
+    );
+    const applyRiskTierDefaults = args.applyRiskTierDefaults !== false;
+    const defaultEvidenceSources = applyRiskTierDefaults
+      ? resolveTemplateCertificationDefaultAutomationEvidenceSources(context.riskAssessment)
+      : [];
+    const automationSourceAllowlist = applyRiskTierDefaults
+      ? new Set<TemplateCertificationEvidenceSourceType>(defaultEvidenceSources)
+      : new Set<TemplateCertificationEvidenceSourceType>(
+        ingestedEvaluationOutputs.map((output) => output.sourceType),
+      );
+    automationSourceAllowlist.add("wae_eval");
+    const automationEvidenceSources = ingestedEvaluationOutputs
+      .filter(
+        (
+          output,
+        ): output is TemplateCertificationEvaluationOutput & { outcome: "pass" | "fail" } =>
+          isTemplateCertificationEvidenceStatusFromOutput(output.outcome)
+          && automationSourceAllowlist.has(output.sourceType),
+      )
+      .map((output) =>
+        normalizeTemplateCertificationEvidenceSource({
+          sourceType: output.sourceType,
+          status: output.outcome,
+          summary: buildTemplateCertificationEvaluationOutputSummary(output),
+          runId: output.runId,
+        }),
+      )
+      .filter(
+        (source): source is TemplateCertificationEvidenceSource =>
+          source !== null,
+      );
+    const usedAutomationOutputSourceTypes = Array.from(
+      new Set(automationEvidenceSources.map((source) => source.sourceType)),
+    ).sort((left, right) => left.localeCompare(right));
+    const additionalEvidenceSources = [
+      ...providedEvidenceSources,
+      ...automationEvidenceSources,
+    ];
+    const hasWaeFamilyEvidence = additionalEvidenceSources.some(
+      (source) => source.sourceType === "wae_eval" || source.sourceType === "legacy_wae_bridge",
+    );
+    const legacyWaeGate = hasWaeFamilyEvidence
+      ? null
+      : await getLatestWaeRolloutGateDecisionArtifact(ctx, args.templateVersionId);
+    const baseArtifact = buildTemplateCertificationArtifact({
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag: context.templateVersionTag,
+      recordedAt: Date.now(),
+      recordedByUserId: String(userId),
+      dependencyManifest: context.dependencyManifest,
+      riskAssessment: context.riskAssessment,
+      ...(legacyWaeGate
+        ? {
+            waeArtifact: legacyWaeGate,
+            waeSourceType: "legacy_wae_bridge" as const,
+          }
+        : {}),
+      additionalEvidenceSources,
+    });
+    const notePayload = normalizeStringArray(args.notes ?? []);
+    const artifact =
+      notePayload.length === 0
+        ? baseArtifact
+        : {
+            ...baseArtifact,
+            notes: normalizeStringArray([...baseArtifact.notes, ...notePayload]),
+          };
+    await recordTemplateCertificationDecisionArtifact({
+      ctx,
+      organizationId: template.organizationId,
+      templateVersionId: args.templateVersionId,
+      performedBy: userId,
+      artifact,
+    });
+    const evaluation = await evaluateTemplateCertificationForTemplateVersion(ctx, {
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      templateVersionTag: context.templateVersionTag,
+    });
+    const summary = buildTemplateCertificationCoverageSummary({
+      artifact,
+      defaultEvidenceSources,
+      ingestedEvaluationOutputs,
+      usedOutputSourceTypes: usedAutomationOutputSourceTypes,
+    });
+    return {
+      artifact,
+      evaluation,
+      summary,
+    };
+  },
+});
+
+export const recordCurrentDefaultTemplateCertificationEvidenceBundle = mutation({
+  args: {
+    sessionId: v.string(),
+    evidenceSources: v.optional(
+      v.array(
+        v.object({
+          sourceType: templateCertificationEvidenceSourceTypeValidator,
+          status: v.union(v.literal("pass"), v.literal("fail")),
+          summary: v.string(),
+          runId: v.optional(v.string()),
+        }),
+      ),
+    ),
+    evaluationOutputs: v.optional(
+      v.array(
+        v.object({
+          sourceType: templateCertificationEvidenceSourceTypeValidator,
+          outcome: templateCertificationEvaluationOutputOutcomeValidator,
+          summary: v.optional(v.string()),
+          runId: v.optional(v.string()),
+        }),
+      ),
+    ),
+    applyRiskTierDefaults: v.optional(v.boolean()),
+    notes: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const result = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: args.sessionId,
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+      evidenceSources: args.evidenceSources,
+      evaluationOutputs: args.evaluationOutputs,
+      applyRiskTierDefaults: args.applyRiskTierDefaults,
+      notes: args.notes,
+    }) as {
+      artifact: TemplateCertificationDecisionArtifact;
+      evaluation: TemplateCertificationEvaluationResult;
+      summary: TemplateCertificationEvidenceRecordingSummary;
+    };
+    return {
+      template,
+      artifact: result.artifact,
+      evaluation: result.evaluation,
+      summary: result.summary,
+    };
+  },
+});
+
 export const recordWaeRolloutGateDecision = mutation({
   args: {
     sessionId: v.string(),
@@ -2157,6 +4427,22 @@ export const recordWaeRolloutGateDecision = mutation({
       completedAt,
       recordedByUserId: String(userId),
     });
+    const certificationContext = await resolveTemplateVersionCertificationContext(ctx, {
+      templateId: args.templateId,
+      templateVersionId: args.templateVersionId,
+      templateVersionTag,
+    });
+    const certificationArtifact = buildTemplateCertificationArtifact({
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag,
+      recordedAt,
+      recordedByUserId: String(userId),
+      dependencyManifest: certificationContext.dependencyManifest,
+      riskAssessment: certificationContext.riskAssessment,
+      waeArtifact: artifact,
+      waeSourceType: "wae_eval",
+    });
 
     await ctx.db.insert("objectActions", {
       organizationId: template.organizationId,
@@ -2178,7 +4464,61 @@ export const recordWaeRolloutGateDecision = mutation({
       createdAt: recordedAt,
     });
 
-    return artifact;
+    await recordTemplateCertificationDecisionArtifact({
+      ctx,
+      organizationId: template.organizationId,
+      templateVersionId: args.templateVersionId,
+      performedBy: userId,
+      artifact: certificationArtifact,
+    });
+
+    return {
+      waeArtifact: artifact,
+      certificationArtifact,
+    };
+  },
+});
+
+export const recordCurrentDefaultTemplateWaeRolloutGate = mutation({
+  args: {
+    sessionId: v.string(),
+    waeRunRecord: v.any(),
+    waeScenarioRecords: v.any(),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const result = await (recordWaeRolloutGateDecision as any)._handler(ctx, {
+      sessionId: args.sessionId,
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      waeRunRecord: args.waeRunRecord,
+      waeScenarioRecords: args.waeScenarioRecords,
+      completedAt: args.completedAt,
+    }) as {
+      waeArtifact: WaeRolloutGateDecisionArtifact;
+      certificationArtifact: TemplateCertificationDecisionArtifact;
+    };
+    const certificationEvaluation = await evaluateTemplateCertificationForTemplateVersion(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+    });
+    const evaluation = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+      now: Date.now(),
+    });
+
+    return {
+      template,
+      artifact: result.waeArtifact,
+      certificationArtifact: result.certificationArtifact,
+      certificationEvaluation,
+      evaluation,
+    };
   },
 });
 

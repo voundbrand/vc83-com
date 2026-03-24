@@ -1042,6 +1042,18 @@ async function resolveGuestAccountCreationGate(args: {
   }
 
   try {
+    const guestOnboardingBinding = await args.ctx.runQuery(
+      getInternal().onboarding.orgBootstrap.getGuestOnboardingBindingBySessionToken,
+      {
+        channel: args.channel,
+        sessionToken,
+      }
+    );
+
+    if (guestOnboardingBinding && guestOnboardingBinding.bindingStatus !== "expired") {
+      return { allowed: true };
+    }
+
     const session = await args.ctx.runQuery(
       getInternal().api.v1.webchatApi.getWebchatSession,
       {

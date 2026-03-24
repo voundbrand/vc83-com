@@ -1,6 +1,6 @@
 "use client"
 
-import { type ComponentProps, useState, useEffect, useCallback, useMemo } from "react"
+import { type ComponentProps, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { ClientOnly } from "@/components/client-only"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { FloatingWindow } from "@/components/floating-window"
@@ -58,7 +58,6 @@ import {
   TEXT_EDITOR_OPEN_REQUEST_EVENT,
   type TextEditorOpenRequestDetail,
 } from "@/components/window-content/text-editor-window/bridge"
-import { WaitingForApprovalScreen } from "@/components/waiting-for-approval-screen"
 import { useIsDesktopShellFallback, useMediaQuery } from "@/hooks/use-media-query"
 import { useAuth, useOrganizations, useCurrentOrganization, useIsSuperAdmin, useAccountDeletionStatus } from "@/hooks/use-auth"
 import { useAvailableApps } from "@/hooks/use-app-availability"
@@ -112,8 +111,14 @@ import { LifeBuoy, MessageSquare, TicketPercent } from "lucide-react"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import { captureShellTelemetry } from "@/components/providers/posthog-provider"
+import {
+  isSignedInTransition,
+  shouldAutoOpenLeadMagnetChatForGuest,
+  isWindowAllowedWhenBetaRestricted,
+  shouldAutoOpenChatForSignedInUser,
+} from "@/lib/shell/chat-entrypoint-policy"
 
-const GUEST_DEEPLINK_ALLOWED_APPS = new Set(["store", "login"])
+const GUEST_DEEPLINK_ALLOWED_APPS = new Set(["store", "login", "ai-assistant"])
 const PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODE_SET = new Set<string>(PRODUCT_OS_PRIMARY_DISCOVERY_EXCLUDED_CODES)
 
 type ShellCreditBalanceSnapshot = {
@@ -218,6 +223,8 @@ export default function HomePage() {
     api.betaAccess.checkBetaAccessStatus,
     { sessionId: sessionId || undefined }
   )
+  // Super admins bypass beta-gating restrictions.
+  const shouldShowBetaBlock = isSignedIn && betaStatus && !betaStatus.hasAccess && !isSuperAdmin;
   const creditsBalance = useQuery(
     api.credits.index.getCreditBalance,
     isSignedIn && currentOrg?.id ? { organizationId: currentOrg.id as Id<"organizations"> } : "skip",
@@ -453,11 +460,10 @@ export default function HomePage() {
   }
 
   const openAIAssistantWindow = () => {
-    if (!isSignedIn) {
-      openLoginWindow()
-      return
-    }
-    openAIAssistantWindowWithOptions({ initialLayoutMode: "slick" })
+    openAIAssistantWindowWithOptions({
+      initialLayoutMode: "slick",
+      openContext: isSignedIn ? "manual_open_signed_in" : "guest_lead_magnet_manual_open",
+    })
   }
 
   const openBrainVoiceWindow = () => {
@@ -655,6 +661,16 @@ export default function HomePage() {
 
   // Track if we've already opened a window on mount
   const [hasOpenedInitialWindow, setHasOpenedInitialWindow] = useState(false);
+  const previousSignedInRef = useRef(isSignedIn);
+
+  useEffect(() => {
+    if (isSignedInTransition({ previousSignedIn: previousSignedInRef.current, isSignedIn })) {
+      // Re-run initial window logic after successful login so chat always opens.
+      setHasOpenedInitialWindow(false);
+      closeWindow("login");
+    }
+    previousSignedInRef.current = isSignedIn;
+  }, [closeWindow, isSignedIn]);
 
   const replaceUrlWithParams = (params: URLSearchParams) => {
     const currentSearch = window.location.search.startsWith("?")
@@ -748,6 +764,11 @@ export default function HomePage() {
       const params = new URLSearchParams(window.location.search);
       const openLogin = params.get('openLogin');
       const shellDeepLink = parseShellUrlState(params);
+      const shouldAutoOpenGuestLeadMagnetChat = shouldAutoOpenLeadMagnetChatForGuest({
+        isSignedIn,
+        openLoginRequested: Boolean(openLogin),
+        requestedApp: shellDeepLink.app,
+      });
 
       if (openLogin) {
         const cleanedParams = new URLSearchParams(params);
@@ -765,14 +786,21 @@ export default function HomePage() {
       }
 
       if (shellDeepLink.app === "ai-assistant") {
-        openLoginWindow();
+        openAIAssistantWindowWithOptions({
+          initialLayoutMode: "slick",
+          openContext: "guest_lead_magnet_deeplink",
+        });
         setHasOpenedInitialWindow(true);
         replaceUrlWithParams(stripShellQueryParams(params));
         return;
       }
 
-      // Let explicit guest-allowed deep-link handling open non-auth windows (e.g. store).
-      if (shellDeepLink.app && GUEST_DEEPLINK_ALLOWED_APPS.has(shellDeepLink.app)) {
+      if (shouldAutoOpenGuestLeadMagnetChat) {
+        openAIAssistantWindowWithOptions({
+          initialLayoutMode: "slick",
+          openContext: "guest_lead_magnet_first_run",
+        });
+        setHasOpenedInitialWindow(true);
         return;
       }
 
@@ -781,19 +809,27 @@ export default function HomePage() {
       return;
     }
 
-    // Signed in but no organization yet: Wait for org to load
-    if (!currentOrg) {
+    if (
+      !shouldAutoOpenChatForSignedInUser({
+        isSignedIn,
+        hasOrganization: Boolean(currentOrg),
+        tutorialProgressLoaded: tutorialProgress !== undefined,
+      })
+    ) {
       return;
     }
 
-    // Signed in with org: Wait for tutorial progress query to complete
-    // tutorialProgress will be undefined while loading
-    if (tutorialProgress === undefined) {
-      return; // Still loading, wait
+    if (shouldShowBetaBlock) {
+      // Beta-gated users are chat-first only.
+      openAIAssistantWindowWithOptions({
+        initialLayoutMode: "slick",
+        openContext: "beta_gate_chat_entry",
+      });
+      setHasOpenedInitialWindow(true);
+      return;
     }
 
-    // Now we know: isSignedIn=true, currentOrg exists, tutorialProgress loaded
-    // Show welcome + AI Assistant launch surface for signed-in users.
+    // Signed-in users default to Quinn/Mother as the first experience.
     openWelcomeWindow();
     openAIAssistantWindowWithOptions({
       initialLayoutMode: "slick",
@@ -801,7 +837,30 @@ export default function HomePage() {
     });
     setHasOpenedInitialWindow(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobileShellFallback, isSignedIn, currentOrg, tutorialProgress, hasOpenedInitialWindow, isRestored])
+  }, [
+    isMobileShellFallback,
+    isSignedIn,
+    currentOrg,
+    tutorialProgress,
+    hasOpenedInitialWindow,
+    isRestored,
+    shouldShowBetaBlock,
+  ])
+
+  useEffect(() => {
+    if (!shouldShowBetaBlock) {
+      return;
+    }
+
+    windows.forEach((window) => {
+      if (!window.isOpen || window.isClosing) {
+        return;
+      }
+      if (!isWindowAllowedWhenBetaRestricted(window.id)) {
+        closeWindow(window.id);
+      }
+    });
+  }, [closeWindow, shouldShowBetaBlock, windows])
 
   // Handle return from OAuth callbacks (Microsoft, etc.)
   useEffect(() => {
@@ -889,9 +948,6 @@ export default function HomePage() {
     }
 
     if (!isSignedIn && !guestAllowed) {
-      if (openWindowParam === "ai-assistant") {
-        openLoginWindow()
-      }
       removeShellStateFromCurrentUrl({
         cleanupReason: "auth_required_deeplink",
         windowId: openWindowParam,
@@ -1642,38 +1698,26 @@ export default function HomePage() {
     },
   ];
 
-  // Check if user needs beta access approval (block entire app if pending/rejected/none)
-  // Super admins bypass this check
-  const shouldShowBetaBlock = isSignedIn && betaStatus && !betaStatus.hasAccess && !isSuperAdmin;
   const openDesktopWindows = windows.filter((window) => window.isOpen)
+  const betaRestrictedDesktopWindows = shouldShowBetaBlock
+    ? openDesktopWindows.filter((window) => isWindowAllowedWhenBetaRestricted(window.id))
+    : openDesktopWindows
   const visibleWindows = useMemo(() => {
     if (!isMobileShellFallback) {
-      return openDesktopWindows
+      return betaRestrictedDesktopWindows
     }
 
-    const activeWindow = openDesktopWindows
+    const activeWindow = betaRestrictedDesktopWindows
       .filter((window) => !window.isClosing)
       .reduce((current, candidate) => {
         if (!current || candidate.zIndex > current.zIndex) {
           return candidate
         }
         return current
-      }, undefined as (typeof openDesktopWindows)[number] | undefined)
+      }, undefined as (typeof betaRestrictedDesktopWindows)[number] | undefined)
 
     return activeWindow ? [activeWindow] : []
-  }, [isMobileShellFallback, openDesktopWindows])
-
-  // If user needs beta approval, show the waiting screen instead of the normal UI
-  if (shouldShowBetaBlock) {
-    return (
-      <WaitingForApprovalScreen
-        status={betaStatus.status as "pending" | "rejected" | "none"}
-        requestedAt={betaStatus.requestedAt}
-        rejectionReason={betaStatus.rejectionReason}
-        userEmail={user?.email || ""}
-      />
-    );
-  }
+  }, [betaRestrictedDesktopWindows, isMobileShellFallback])
 
   return (
     <div className="min-h-screen relative" style={{
@@ -1693,6 +1737,23 @@ export default function HomePage() {
       )}
 
       <ClientOnly>
+      {shouldShowBetaBlock && (
+        <div
+          className="absolute left-1/2 top-3 z-50 w-11/12 max-w-3xl -translate-x-1/2 border px-4 py-3 text-sm"
+          style={{
+            background: "var(--warning-bg)",
+            borderColor: "var(--warning)",
+            color: "var(--foreground)",
+          }}
+        >
+          <p className="font-pixel text-xs uppercase tracking-wide mb-1">Beta Access Review</p>
+          <p>
+            {betaStatus?.status === "rejected"
+              ? "Access is currently rejected. Quinn is still available so you can continue onboarding and support chat."
+              : "Access is pending. Quinn is still available and remains the primary onboarding entrypoint."}
+          </p>
+        </div>
+      )}
 
       {/* Desktop Icons */}
       <div className={isMobileShellFallback ? "desktop-grid-mobile" : "absolute left-4 top-[calc(var(--taskbar-height,3rem)+0.75rem)] space-y-4 z-10 desktop-only"}>

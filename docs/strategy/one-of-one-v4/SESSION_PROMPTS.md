@@ -2,78 +2,86 @@
 
 ## Lane Gating
 
-- `LANE-A` is the single-writer lane for inbound telephony ingress and call-record plumbing.
-- `LANE-B` is the single-writer lane for booking concierge, booking model, and Kanzlei routing logic.
-- `LANE-C` validates after every material `LANE-A` or `LANE-B` change and owns tests plus live-smoke docs.
-- `LANE-D` is the single-writer lane for platform telephony template seeding and Kanzlei deployment scaffolding.
-- Do not start practice-area routing before the single-resource Kanzlei MVP is passing.
+- `LANE-A` is the single-writer lane for inbound telephony ingress and call-record plumbing. It is dormant unless the live cutover exposes a bridge bug.
+- `LANE-B` is the single-writer lane for booking concierge, booking model, and live Kanzlei org settings.
+- `LANE-C` owns preflight evidence capture, tests, and live-smoke docs after every material `LANE-B` or `LANE-D` step.
+- `LANE-D` is the single-writer lane for the single-agent Kanzlei template source, template seeding, and deployment scaffolding.
+- Do not start practice-area routing before the single-resource Kanzlei MVP is passing live.
 
 ## LANE-A Prompt
 
 You are working in `docs/strategy/one-of-one-v4`.
 
-Your job is to turn inbound Eleven telephony webhooks into first-class runtime events that the platform can actually use for a law-firm booking flow.
+Your job is to turn inbound Eleven telephony webhooks into first-class runtime events that the platform can actually use for the Kanzlei booking flow.
 
 Focus on:
-- `/webhooks/telephony/direct`
-- inbound call-record creation or reconciliation
-- routing trusted payloads into the runtime instead of only storing webhook outcomes
+
+- direct provider ingress
+- durable telephony call records
+- runtime dispatch compatibility
 - preserving provider identity, route key, transcript, and call identifiers
 
 Constraints:
-- do not widen scope into dashboard or template work
+
+- keep tenant resolution fail-closed
+- do not weaken identity checks just to make the smoke pass
 - do not hardcode the law-firm bridge into a one-off org agent path
-- keep the bridge deterministic and easy to validate
-- fail closed on ambiguous tenant routing
 
 ## LANE-B Prompt
 
-You are the implementation lane for the booking side of the Kanzlei MVP.
+You are working in `docs/strategy/one-of-one-v4`.
 
-Your job is to make the existing booking concierge usable for one real law-firm deployment.
+Your job is to make the existing booking concierge usable for one real single-agent Kanzlei deployment.
 
 Focus on:
-- single-resource Kanzlei booking
-- relaxing or redesigning the email requirement for phone-first intake
-- structured legal intake metadata
-- internal summary email to the firm
+
+- one explicit `booking_concierge` target on the live org
+- one writable lawyer calendar connection
+- one deterministic event label and timezone configuration
+- one deliverable firm-notification recipient set
 
 Constraints:
+
+- do not reopen solved code work unless live setup proves a real config gap
 - do not build generic multi-practice-area routing first
-- assume the agent entrypoint is the Clara/Jonas/Maren 3-agent wedge, not the full seven-agent roster
+- assume the live entrypoint is one customer-facing Kanzlei agent
 - prefer explicit resource configuration over clever auto-routing
-- keep the first deployment path narrow enough to ship in 2 weeks
 
 ## LANE-C Prompt
 
-You are the validation lane for the Kanzlei MVP.
+You are working in `docs/strategy/one-of-one-v4`.
 
 Your job is to produce trustworthy proof that the inbound call path now works beyond the demo.
 
 Focus on:
-- webhook-to-runtime coverage
-- phone-safe booking coverage
-- calendar reconciliation coverage
-- one live smoke checklist for the Schroeder demo firm
+
+- one accepted inbound-call preflight with provider ids, route key, org id, and runtime evidence
+- one live smoke checklist and notes set for the target Kanzlei org
+- manual proof for booking or deliberate phone-safe fallback
+- calendar and firm-email evidence on the same release window
 
 Constraints:
+
 - do not weaken assertions to make failures disappear
-- keep unit and integration coverage separate from live smoke steps
-- every failure must point to a concrete missing bridge, metadata field, or setup dependency
+- keep automated coverage separate from manual preflight and live smoke steps
+- every failure must point to a concrete missing deploy step, binding, metadata field, or org setup dependency
+- do not mark `V4-L1-009` done without timestamps, ids, and exact observed artifacts
 
 ## LANE-D Prompt
 
 You are working in `docs/strategy/one-of-one-v4`.
 
-Your job is to make the law-firm wedge reuse the same protected-template telephony lifecycle that already exists for Anne Becker.
+Your job is to make the live Kanzlei MVP reuse the same protected-template telephony lifecycle that already exists for Anne Becker, but with one customer-facing agent instead of the old wedge.
 
 Focus on:
-- protected platform templates for Clara, Jonas, and Maren
-- template lifecycle bootstrap and published-version readiness
-- org deployment flows that spawn managed Kanzlei clones
+
+- the live template source in [template.ts](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts)
+- protected platform template seeding for the new single-agent Kanzlei path
+- target-org deployment plus remote Eleven agent sync
 - telephony metadata that stays compatible with the inbound bridge
 
 Constraints:
-- do not expand scope to Tobias, Lina, Kai, or Nora
-- do not create a separate Kanzlei-only provisioning path if the Anne Becker pattern can be reused
+
+- do not reopen the Clara/Jonas/Maren demo path unless the user explicitly asks
+- do not create a separate Kanzlei-only provisioning bypass if the Anne Becker pattern can be reused
 - keep clone/deploy semantics explicit so later org rollout is operationally safe

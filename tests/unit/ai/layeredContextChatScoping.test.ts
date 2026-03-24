@@ -47,9 +47,29 @@ describe("layered context chat scoping contracts", () => {
     const source = readFileSync(AGENT_EXECUTION_PATH, "utf8");
 
     expect(source).toContain("buildLayeredContextSystemPrompt");
-    expect(source).toContain("getLayeredContextBundle");
+    expect(source).toContain("internalGetLayeredContextBundle");
     expect(source).toContain("layeredContextSystemPrompt");
     expect(source).toContain("layeredContextSystemPrompt ?? \"\"");
     expect(source).toContain("args.layeredContextSystemPrompt");
+  });
+
+  it("grounds target-agent configuration proposals in saved settings and layered context", () => {
+    const source = readFileSync(AGENT_EXECUTION_PATH, "utf8");
+
+    expect(source).toContain("[TARGET_AGENT_CONFIGURATION_CONTEXT_V1]");
+    expect(source).toContain("configure_agent_fields");
+    expect(source).toContain("Target agent snapshot:");
+    expect(source).toContain("currentSettings");
+    expect(source).toContain("additionalLanguages");
+    expect(source).toContain("faqEntries");
+    expect(source).toContain("knowledgeBaseTags");
+    expect(source).toContain("requireApprovalFor");
+    expect(source).toContain("maxTokens");
+    expect(source).toContain("escalationPolicy");
+    expect(source).toContain("unifiedPersonality");
+    expect(source).toContain("telephonyConfig");
+    expect(source).toContain("targetAgentLinkedWorkflowIds");
+    expect(source).toContain("getAgentLayeredContextWorkflowIdsInternal");
+    expect(source).toContain("Layered context grounding for the target agent:");
   });
 });

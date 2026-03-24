@@ -159,6 +159,16 @@ let createAgentTemplateVersionSnapshotMock: ReturnType<typeof vi.fn>;
 let publishAgentTemplateVersionMock: ReturnType<typeof vi.fn>;
 let deprecateAgentTemplateLifecycleMock: ReturnType<typeof vi.fn>;
 
+function makeCertificationSummary(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    status: "certified",
+    requiredVerification: ["manifest_integrity"],
+    autoCertificationEligible: false,
+    evidenceSources: ["manifest_integrity"],
+    ...overrides,
+  };
+}
+
 const TOOL_FOUNDRY_PENDING_PROPOSALS = [
   {
     _id: "tf_backlog_1",
@@ -251,6 +261,10 @@ const TEMPLATE_ROLLOUT_OPTIONS_RESPONSE = {
           lifecycleStatus: "published" as const,
           createdAt: 1_700_090_000_000,
           updatedAt: 1_700_100_000_000,
+          certification: makeCertificationSummary({
+            riskTier: "medium",
+            dependencyDigest: "digest_v2",
+          }),
         },
         {
           templateVersionId: "objects_template_version_v1",
@@ -258,6 +272,10 @@ const TEMPLATE_ROLLOUT_OPTIONS_RESPONSE = {
           lifecycleStatus: "deprecated" as const,
           createdAt: 1_700_080_000_000,
           updatedAt: 1_700_080_000_100,
+          certification: makeCertificationSummary({
+            riskTier: "low",
+            dependencyDigest: "digest_v1",
+          }),
         },
       ],
     },
@@ -549,24 +567,59 @@ beforeEach(() => {
 
   useQueryMock.mockImplementation((queryRef, args) => resolveUseQueryResult(queryRef, args));
 
-  let mutationCallIndex = 0;
   useMutationMock.mockImplementation(() => {
-    const handlers = [
-      triggerCatalogSyncMock,
-      setAgentBlockerMock,
-      setSeedStatusOverrideMock,
-      setSeedTemplateBindingMock,
-      setCatalogPublishedStatusMock,
-      backfillCatalogPublishedFlagsMock,
-      distributeTemplateToOrganizationsMock,
-      submitToolFoundryPromotionDecisionMock,
-      createAgentTemplateVersionSnapshotMock,
-      publishAgentTemplateVersionMock,
-      deprecateAgentTemplateLifecycleMock,
-    ];
-    const handler = handlers[mutationCallIndex % handlers.length];
-    mutationCallIndex += 1;
-    return handler;
+    return async (args: any) => {
+      if (args?.waeRunRecord && args?.waeScenarioRecords) {
+        return {
+          template: {
+            templateId: "objects_template_1",
+            templateName: "Revenue Template",
+            templateOrganizationId: "organizations_platform",
+            templateVersionId: "objects_template_version_v2",
+            templateVersionTag: "v2",
+            templateLifecycleStatus: "published",
+            templateVersionLifecycleStatus: "published",
+          },
+          artifact: { status: "pass" },
+          certification: { status: "certified" },
+          canRecord: true,
+        };
+      }
+      if (args?.mode) {
+        return triggerCatalogSyncMock(args);
+      }
+      if (args?.catalogAgentNumber && args?.action) {
+        return setAgentBlockerMock(args);
+      }
+      if (args?.catalogAgentNumber && args?.override) {
+        return setSeedStatusOverrideMock(args);
+      }
+      if (args?.catalogAgentNumber && "templateAgentId" in args) {
+        return setSeedTemplateBindingMock(args);
+      }
+      if (args?.catalogAgentNumber && "published" in args) {
+        return setCatalogPublishedStatusMock(args);
+      }
+      if (args?.dryRun !== undefined && args?.datasetVersion) {
+        return backfillCatalogPublishedFlagsMock(args);
+      }
+      if (args?.operationKind) {
+        return distributeTemplateToOrganizationsMock(args);
+      }
+      if (args?.proposalKey) {
+        return submitToolFoundryPromotionDecisionMock(args);
+      }
+      if (args?.target === "version") {
+        return deprecateAgentTemplateLifecycleMock(args);
+      }
+      if ("publishReason" in (args || {})) {
+        return publishAgentTemplateVersionMock(args);
+      }
+      if ("versionTag" in (args || {}) || "summary" in (args || {})) {
+        return createAgentTemplateVersionSnapshotMock(args);
+      }
+      return { success: true };
+    };
   });
 });
 
@@ -580,14 +633,10 @@ describe("Agent Control Center DOM click-through write flows", () => {
     expect(screen.getByRole("button", { name: /Rollout Actions/i })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /Version History/i }));
-    expect(
-      screen.getByText(/Version history view is active/i),
-    ).toBeTruthy();
+    expect(screen.getByText(/certification console/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /Rollout Actions/i }));
-    expect(
-      screen.getByText(/Rollout actions are confirmation-gated/i),
-    ).toBeTruthy();
+    expect(screen.getByText(/Rollout is now split cleanly/i)).toBeTruthy();
   });
 
   it("confirms and executes add blocker only after modal confirmation", async () => {

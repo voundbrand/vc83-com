@@ -4222,10 +4222,20 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
  * Used by the layered tool scoping resolver.
  */
 export function getAllToolDefinitions(): Array<{ name: string; readOnly?: boolean }> {
-  return Object.values(TOOL_REGISTRY).map(tool => ({
-    name: tool.name,
-    readOnly: tool.readOnly,
-  }));
+  return Object.entries(TOOL_REGISTRY)
+    .filter(([key, tool]) => {
+      if (!tool || typeof tool.name !== "string") {
+        console.warn(
+          `[TOOL_REGISTRY] Skipping undefined/invalid tool entry: "${key}"`
+        );
+        return false;
+      }
+      return true;
+    })
+    .map(([, tool]) => ({
+      name: tool.name,
+      readOnly: tool.readOnly,
+    }));
 }
 
 function normalizeDeterministicToolNameList(toolNames: string[]): string[] {

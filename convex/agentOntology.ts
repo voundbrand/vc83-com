@@ -22,14 +22,16 @@
  * - "draft_only" - Generates responses but never sends them
  */
 
-import { query, mutation, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "./rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./ai/modelDefaults";
 import {
-  evaluateWaeRolloutGateForTemplateVersion,
-  type WaeRolloutGateBlockReasonCode,
+  ensureTemplateVersionCertificationForLifecycle,
+  evaluateTemplateCertificationForTemplateVersion,
+  type TemplateCertificationBlockReasonCode,
+  type TemplateCertificationEvaluationResult,
 } from "./ai/agentCatalogAdmin";
 import { SUBTYPE_DEFAULT_PROFILES, normalizeDeterministicToolNames } from "./ai/toolScoping";
 import {
@@ -46,6 +48,7 @@ import {
 } from "./webchatCustomizationContract";
 import {
   mergeDeployableTelephonyConfigIntoRuntime,
+  extractTemplateRoleTransferDependencies,
   normalizeAgentTelephonyConfig,
   toDeployableTelephonyConfig,
 } from "../src/lib/telephony/agent-telephony";
@@ -55,6 +58,9 @@ import {
   hasPlatformMotherTemplateRole,
   matchesPlatformMotherIdentityName,
 } from "./platformMother";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generatedApi: any = require("./_generated/api");
 
 const OPERATOR_ROUTING_CHANNELS = new Set(["desktop", "slack"]);
 const PLATFORM_MANAGED_CHANNEL_BINDING_CHANNELS = new Set(["desktop", "slack"]);
@@ -387,7 +393,7 @@ interface ActiveAgentCandidate {
 }
 
 const PRIMARY_AGENT_INELIGIBLE_STATUSES = new Set(["archived", "deleted", "template"]);
-const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
+export const DEFAULT_OPERATOR_CONTEXT_ID = "__org_default__";
 export const AGENT_TEMPLATE_CLONE_PRECEDENCE_ORDER = [
   "platform_policy",
   "template_baseline",
@@ -404,6 +410,8 @@ const AGENT_TEMPLATE_VERSION_LIFECYCLE_STATUSES = [
   "deprecated",
 ] as const;
 const SANCTIONED_MANAGED_CLONE_TUNING_FIELDS = new Set([
+  "name",
+  "subtype",
   "agentClass",
   "displayName",
   "personality",
@@ -458,7 +466,7 @@ const TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS = [
 type TemplateCloneDriftField = (typeof TEMPLATE_CLONE_DRIFT_COMPARISON_FIELDS)[number];
 type TemplateClonePolicyState = "in_sync" | "overridden" | "stale" | "blocked";
 type TemplateClonePolicyMode = "locked" | "warn" | "free";
-type TemplateCloneRiskLevel = "low" | "medium" | "high";
+export type TemplateCloneRiskLevel = "low" | "medium" | "high";
 
 export const PLATFORM_MOTHER_POLICY_FAMILY_CONTRACT_VERSION =
   "platform_mother_policy_family_v1" as const;
@@ -570,10 +578,59 @@ export function buildPlatformMotherRolloutGateRequirements(args: {
     targetTemplateRole: args.targetTemplateRole,
     ...(targetTemplateVersionId ? { targetTemplateVersionId } : {}),
     ...(targetTemplateVersionTag ? { targetTemplateVersionTag } : {}),
-    requiredEvidence: ["wae_rollout_gate"],
-    satisfiedEvidence: satisfied ? ["wae_rollout_gate"] : [],
+    requiredEvidence: ["template_certification"],
+    satisfiedEvidence: satisfied ? ["template_certification"] : [],
     status: satisfied ? "satisfied_for_review" : "required_before_execution",
     ...(dryRunCorrelationId ? { dryRunCorrelationId } : {}),
+  };
+}
+
+type TemplateVersionAdminCertificationSummary = {
+  status: "certified" | "auto_certifiable" | "blocked";
+  reasonCode?: string;
+  message?: string;
+  riskTier?: "low" | "medium" | "high";
+  requiredVerification: string[];
+  dependencyDigest?: string;
+  recordedAt?: number;
+  autoCertificationEligible: boolean;
+  evidenceSources: string[];
+};
+
+async function buildTemplateVersionAdminCertificationSummary(
+  ctx: QueryCtx,
+  args: {
+    templateId: Id<"objects">;
+    templateVersionId: Id<"objects">;
+    templateVersionTag: string;
+  },
+): Promise<TemplateVersionAdminCertificationSummary> {
+  const evaluation = await evaluateTemplateCertificationForTemplateVersion(ctx, {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: args.templateVersionTag,
+  });
+
+  return {
+    status: evaluation.allowed
+      ? "certified"
+      : evaluation.autoCertificationEligible
+        ? "auto_certifiable"
+        : "blocked",
+    ...(evaluation.reasonCode ? { reasonCode: evaluation.reasonCode } : {}),
+    ...(evaluation.message ? { message: evaluation.message } : {}),
+    ...(evaluation.riskAssessment?.tier ? { riskTier: evaluation.riskAssessment.tier } : {}),
+    requiredVerification: evaluation.riskAssessment?.requiredVerification ?? [],
+    ...(evaluation.dependencyManifest?.dependencyDigest
+      ? { dependencyDigest: evaluation.dependencyManifest.dependencyDigest }
+      : {}),
+    ...(typeof evaluation.certification?.recordedAt === "number"
+      ? { recordedAt: evaluation.certification.recordedAt }
+      : {}),
+    autoCertificationEligible: evaluation.autoCertificationEligible,
+    evidenceSources: (evaluation.certification?.evidenceSources ?? []).map(
+      (source) => source.sourceType,
+    ),
   };
 }
 
@@ -584,7 +641,7 @@ type TemplateCloneDriftFieldDiff = {
   cloneValue: unknown;
 };
 
-type TemplateCloneDriftContract = {
+export type TemplateCloneDriftContract = {
   policyState: TemplateClonePolicyState;
   stale: boolean;
   blocked: boolean;
@@ -593,7 +650,7 @@ type TemplateCloneDriftContract = {
   diff: TemplateCloneDriftFieldDiff[];
 };
 
-function resolveTemplateCloneRiskLevel(
+export function resolveTemplateCloneRiskLevel(
   policyState: TemplateClonePolicyState
 ): TemplateCloneRiskLevel {
   if (policyState === "blocked" || policyState === "stale") {
@@ -655,7 +712,7 @@ type SuperAdminMutationSession = {
   roleName: "super_admin";
 };
 
-type TemplateLifecycleExecutionActor = {
+export type TemplateLifecycleExecutionActor = {
   performedBy?: Id<"users"> | Id<"objects">;
   auditUserId?: Id<"users">;
   roleName: string;
@@ -688,6 +745,90 @@ type TemplateDistributionPolicyGateSummary = {
   free: number;
 };
 type TemplateDistributionReasonCounts = Record<string, number>;
+type TemplateDistributionBlockCategory =
+  | "none"
+  | "policy"
+  | "org_preflight";
+
+export type TemplateOrgPreflightBlockerCode =
+  | "org_not_found"
+  | "telephony_binding_missing"
+  | "telephony_binding_disabled"
+  | "telephony_provider_credentials_missing"
+  | "telephony_from_number_missing"
+  | "telephony_webhook_secret_missing"
+  | "telephony_transfer_target_missing"
+  | "channel_binding_missing"
+  | "integration_dependency_missing"
+  | "domain_config_missing"
+  | "domain_verification_missing"
+  | "billing_credits_insufficient"
+  | "billing_credits_check_failed"
+  | "vertical_contract_missing";
+
+export interface TemplateOrgPreflightResult {
+  contractVersion: "template_org_preflight_v1";
+  organizationId: string;
+  status: "pass" | "fail";
+  blockerCodes: TemplateOrgPreflightBlockerCode[];
+  blockers: string[];
+  checks: Array<{
+    checkId: string;
+    status: "pass" | "fail";
+    summary: string;
+  }>;
+  channels: {
+    required: string[];
+    missing: string[];
+    bindings: Array<{
+      channel: string;
+      enabled: boolean;
+      providerId?: string;
+    }>;
+  };
+  integrations: {
+    required: string[];
+    available: string[];
+    missing: string[];
+    unknown: string[];
+  };
+  telephony: {
+    required: boolean;
+    providerKey: "elevenlabs" | "twilio_voice" | "custom_sip";
+    bindingEnabled: boolean;
+    credentialReady: boolean;
+    fromNumberReady: boolean;
+    webhookSecretReady: boolean;
+    missingTransferRoles: string[];
+  };
+  domain: {
+    required: boolean;
+    requireVerified: boolean;
+    requiredDomains: string[];
+    availableDomains: string[];
+    verifiedDomains: string[];
+    missingDomains: string[];
+    unverifiedDomains: string[];
+  };
+  billing: {
+    required: boolean;
+    requiredCredits: number;
+    billingSource: "platform" | "byok" | "private";
+    requestSource: "llm" | "platform_action";
+    checked: boolean;
+    hasCredits: boolean;
+    isUnlimited: boolean;
+    totalCredits: number;
+    shortfall: number;
+    skipped: boolean;
+    checkFailed: boolean;
+  };
+  verticalContracts: {
+    required: string[];
+    available: string[];
+    missing: string[];
+  };
+}
 
 interface AgentRoutePolicy {
   policyId?: string;
@@ -708,6 +849,1030 @@ function normalizeOptionalString(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+async function resolveOrganizationTelephonyBindingForPreflight(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<{
+  providerKey: "elevenlabs" | "twilio_voice" | "custom_sip";
+  bindingEnabled: boolean;
+  fromNumberReady: boolean;
+  webhookSecretReady: boolean;
+}> {
+  const directSettingsRows = await db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", organizationId).eq("type", "direct_settings"),
+    )
+    .collect();
+  const directSettings = directSettingsRows[0] ?? null;
+  const phoneBindingRows = await db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", organizationId).eq("type", "channel_provider_binding"),
+    )
+    .collect();
+  const phoneBinding =
+    phoneBindingRows.find(
+      (row: { customProperties?: unknown }) =>
+        asRecord(row.customProperties).channel === "phone_call",
+    ) ?? null;
+
+  const directProps = asRecord(directSettings?.customProperties);
+  const bindingProps = asRecord(phoneBinding?.customProperties);
+  const providerKey = normalizeOptionalString(directProps.providerKey);
+  return {
+    providerKey:
+      providerKey === "twilio_voice" || providerKey === "custom_sip"
+        ? providerKey
+        : "elevenlabs",
+    bindingEnabled: bindingProps.enabled === true,
+    fromNumberReady: Boolean(
+      normalizeOptionalString(directProps.twilioVoiceFromNumber)
+      || normalizeOptionalString(directProps.directCallFromNumber)
+      || normalizeOptionalString(directProps.elevenTelephonyFromNumber),
+    ),
+    webhookSecretReady: Boolean(
+      normalizeOptionalString(directProps.twilioVoiceWebhookSecret)
+      || normalizeOptionalString(directProps.directCallWebhookSecret)
+      || normalizeOptionalString(directProps.elevenTelephonyWebhookSecret),
+    ),
+  };
+}
+
+async function resolveTwilioCredentialReadinessForPreflight(
+  ctx: MutationCtx | QueryCtx,
+  organizationId: Id<"organizations">,
+): Promise<boolean> {
+  const twilioSettingsRows = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "twilio_settings"),
+    )
+    .collect();
+  const twilioSettings = twilioSettingsRows[0] ?? null;
+  const twilioSettingsProps = asRecord(twilioSettings?.customProperties);
+  const hasOrgCredentials = Boolean(
+    normalizeOptionalString(twilioSettingsProps.accountSid)
+    && normalizeOptionalString(twilioSettingsProps.authToken),
+  );
+  const accessPolicyRows = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", organizationId).eq("type", "integration_access_policy"),
+    )
+    .collect();
+  const accessPolicy = accessPolicyRows[0] ?? null;
+  const twilioAccess = asRecord(asRecord(accessPolicy?.customProperties).twilio);
+  const usePlatformCredentials = twilioAccess.usePlatformCredentials === true;
+  const hasPlatformCredentials = Boolean(
+    normalizeOptionalString(process.env.TWILIO_ACCOUNT_SID)
+    && normalizeOptionalString(process.env.TWILIO_AUTH_TOKEN),
+  );
+  return usePlatformCredentials ? hasPlatformCredentials : hasOrgCredentials;
+}
+
+function normalizePreflightStringArray(values: Iterable<string>): string[] {
+  return Array.from(new Set(Array.from(values))).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function resolveTemplateRequiredPreflightChannels(
+  templateBaseline: Record<string, unknown>,
+): string[] {
+  const required = new Set<string>();
+  const rawBindings = templateBaseline.channelBindings;
+  if (Array.isArray(rawBindings)) {
+    for (const binding of rawBindings) {
+      const record = asRecord(binding);
+      const channel = normalizeOptionalString(record.channel)?.toLowerCase();
+      if (!channel || record.enabled !== true) {
+        continue;
+      }
+      required.add(channel);
+    }
+  } else {
+    const legacyBindings = asRecord(rawBindings);
+    for (const [channel, config] of Object.entries(legacyBindings)) {
+      if (asRecord(config).enabled === true) {
+        required.add(channel.toLowerCase());
+      }
+    }
+  }
+
+  return normalizePreflightStringArray(
+    Array.from(required).filter(
+      (channel) =>
+        channel !== "phone_call"
+        && !PLATFORM_MANAGED_CHANNEL_BINDING_CHANNELS.has(channel),
+    ),
+  );
+}
+
+async function resolveOrganizationChannelBindingsForPreflight(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<Array<{ channel: string; enabled: boolean; providerId?: string }>> {
+  const rows = await db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", organizationId).eq("type", "channel_provider_binding"),
+    )
+    .collect();
+  const normalizedRows: Array<{
+    channel: string;
+    enabled: boolean;
+    providerId?: string;
+  }> = rows
+    .map((row: { customProperties?: unknown }) => {
+      const props = asRecord(row.customProperties);
+      const channel = normalizeOptionalString(props.channel)?.toLowerCase();
+      if (!channel) {
+        return null;
+      }
+      return {
+        channel,
+        enabled: props.enabled === true,
+        ...(normalizeOptionalString(props.providerId)
+          ? { providerId: normalizeOptionalString(props.providerId)!.toLowerCase() }
+          : {}),
+      };
+    })
+    .filter(
+      (
+        row: {
+          channel: string;
+          enabled: boolean;
+          providerId?: string;
+        } | null,
+      ): row is {
+        channel: string;
+        enabled: boolean;
+        providerId?: string;
+      } => row !== null,
+    );
+  return normalizedRows.sort((left, right) => left.channel.localeCompare(right.channel));
+}
+
+function normalizeIntegrationDependencyKey(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  const compact = normalized.replace(/[^a-z0-9]+/g, "_");
+  if (compact.includes("stripe")) {
+    return "stripe";
+  }
+  if (compact.includes("calendar")) {
+    return "calendar_api";
+  }
+  if (compact.includes("shipping")) {
+    return "shipping_api";
+  }
+  if (compact.includes("behavior")) {
+    return "behaviors_system";
+  }
+  if (compact.includes("twilio")) {
+    return "twilio_voice";
+  }
+  if (compact.includes("eleven")) {
+    return "elevenlabs";
+  }
+  if (compact.includes("resend")) {
+    return "resend";
+  }
+  if (compact.includes("chatwoot")) {
+    return "chatwoot";
+  }
+  if (compact.includes("telegram")) {
+    return "telegram";
+  }
+  if (compact.includes("infobip")) {
+    return "infobip";
+  }
+  if (compact.includes("openai")) {
+    return "openai";
+  }
+  if (compact.includes("anthropic")) {
+    return "anthropic";
+  }
+  if (compact.includes("gemini")) {
+    return "gemini";
+  }
+  if (compact.includes("openrouter")) {
+    return "openrouter";
+  }
+  return null;
+}
+
+function resolveTemplateRequiredIntegrationDependencies(
+  templateBaseline: Record<string, unknown>,
+): {
+  requiredIntegrationKeys: string[];
+  unknownIntegrationRequirements: string[];
+} {
+  const declaredRequirements = Array.isArray(templateBaseline.requiredIntegrations)
+    ? templateBaseline.requiredIntegrations
+    : [];
+  const known = new Set<string>();
+  const unknown = new Set<string>();
+  for (const requirement of declaredRequirements) {
+    const normalizedLabel = normalizeOptionalString(requirement);
+    if (!normalizedLabel) {
+      continue;
+    }
+    const normalizedKey = normalizeIntegrationDependencyKey(normalizedLabel);
+    if (normalizedKey) {
+      known.add(normalizedKey);
+    } else {
+      unknown.add(normalizedLabel);
+    }
+  }
+  return {
+    requiredIntegrationKeys: normalizePreflightStringArray(known),
+    unknownIntegrationRequirements: normalizePreflightStringArray(unknown),
+  };
+}
+
+async function resolveOrganizationIntegrationKeysForPreflight(
+  ctx: MutationCtx | QueryCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    channelBindings: Array<{ channel: string; enabled: boolean; providerId?: string }>;
+    telephonyProviderKey: "elevenlabs" | "twilio_voice" | "custom_sip";
+    telephonyBindingEnabled: boolean;
+    telephonyCredentialReady: boolean;
+  },
+): Promise<string[]> {
+  const available = new Set<string>();
+  for (const binding of args.channelBindings) {
+    if (!binding.enabled) {
+      continue;
+    }
+    const providerKey =
+      normalizeIntegrationDependencyKey(binding.providerId)
+      || normalizeIntegrationDependencyKey(binding.channel);
+    if (providerKey) {
+      available.add(providerKey);
+    }
+  }
+
+  const integrationConnectionRows = await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "integration_connection"),
+    )
+    .collect();
+  for (const row of integrationConnectionRows) {
+    if (row.status === "archived" || row.status === "deleted") {
+      continue;
+    }
+    const props = asRecord(row.customProperties);
+    if (props.enabled === false) {
+      continue;
+    }
+    const providerKey =
+      normalizeIntegrationDependencyKey(props.providerId)
+      || normalizeIntegrationDependencyKey(props.provider)
+      || normalizeIntegrationDependencyKey(props.integrationKey);
+    if (providerKey) {
+      available.add(providerKey);
+    }
+  }
+
+  const aiSettingsRows = await ctx.db
+    .query("organizationAiSettings")
+    .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+    .collect();
+  const aiSettings = aiSettingsRows[0] ?? null;
+  const llm = asRecord(aiSettings?.llm);
+  const providerProfiles = Array.isArray(llm.providerAuthProfiles)
+    ? llm.providerAuthProfiles
+    : [];
+  for (const profile of providerProfiles) {
+    const profileRecord = asRecord(profile);
+    if (profileRecord.enabled === false) {
+      continue;
+    }
+    const providerKey = normalizeIntegrationDependencyKey(profileRecord.providerId);
+    if (providerKey) {
+      available.add(providerKey);
+    }
+  }
+
+  if (args.telephonyBindingEnabled && args.telephonyCredentialReady) {
+    available.add(args.telephonyProviderKey);
+  }
+
+  return normalizePreflightStringArray(available);
+}
+
+type TemplateOrgPreflightRequirements = {
+  domain: {
+    requiredDomains: string[];
+    requireVerified: boolean;
+  };
+  billing: {
+    requiredCredits: number;
+    billingSource: "platform" | "byok" | "private";
+    requestSource: "llm" | "platform_action";
+  };
+  verticalContracts: {
+    requiredContracts: string[];
+  };
+};
+
+function normalizeDomainKey(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  return normalized
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "")
+    .trim() || null;
+}
+
+function normalizeVerticalContractKey(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value)?.toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  const compact = normalized.replace(/[^a-z0-9]+/g, "_");
+  if (compact.includes("law") || compact.includes("kanzlei")) {
+    return "law_firm";
+  }
+  if (compact.includes("health")) {
+    return "healthcare";
+  }
+  if (compact.includes("real_estate")) {
+    return "real_estate";
+  }
+  return compact || null;
+}
+
+function normalizeBillingSourceForPreflight(
+  value: unknown,
+): "platform" | "byok" | "private" {
+  return value === "byok" || value === "private" ? value : "platform";
+}
+
+function normalizeBillingRequestSourceForPreflight(
+  value: unknown,
+): "llm" | "platform_action" {
+  return value === "llm" ? "llm" : "platform_action";
+}
+
+function normalizeNonNegativeIntegerForPreflight(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function resolveTemplateOrgPreflightRequirements(
+  templateBaseline: Record<string, unknown>,
+): TemplateOrgPreflightRequirements {
+  const requirementsRecord = asRecord(templateBaseline.orgPreflightRequirements);
+  const domainRequirements = asRecord(requirementsRecord.domain);
+  const billingRequirements = asRecord(requirementsRecord.billing);
+  const verticalRequirements =
+    asRecord(requirementsRecord.verticalContracts);
+  const legacyVerticalRequirements = asRecord(requirementsRecord.vertical);
+
+  const rawDomainRequirements = [
+    ...(
+      Array.isArray(domainRequirements.requiredDomains)
+        ? domainRequirements.requiredDomains
+        : []
+    ),
+    ...(normalizeOptionalString(domainRequirements.requiredDomain)
+      ? [domainRequirements.requiredDomain]
+      : []),
+    ...(
+      Array.isArray(templateBaseline.requiredDomains)
+        ? templateBaseline.requiredDomains
+        : []
+    ),
+  ];
+  const requiredDomains = normalizePreflightStringArray(
+    rawDomainRequirements
+      .map((value) => normalizeDomainKey(value))
+      .filter((value): value is string => Boolean(value)),
+  );
+  const requireVerifiedDomains =
+    domainRequirements.requireVerified === true
+    || domainRequirements.requireVerifiedDomain === true
+    || requiredDomains.length > 0;
+
+  const requiredCredits = normalizeNonNegativeIntegerForPreflight(
+    billingRequirements.requiredCredits,
+  );
+  const requiredContracts = normalizePreflightStringArray(
+    [
+      ...(
+        Array.isArray(verticalRequirements.required)
+          ? verticalRequirements.required
+          : []
+      ),
+      ...(
+        Array.isArray(legacyVerticalRequirements.required)
+          ? legacyVerticalRequirements.required
+          : []
+      ),
+      ...(
+        Array.isArray(verticalRequirements.requiredContracts)
+          ? verticalRequirements.requiredContracts
+          : []
+      ),
+      ...(
+        Array.isArray(legacyVerticalRequirements.requiredContracts)
+          ? legacyVerticalRequirements.requiredContracts
+          : []
+      ),
+      ...(
+        Array.isArray(templateBaseline.requiredVerticalContracts)
+          ? templateBaseline.requiredVerticalContracts
+          : []
+      ),
+      ...(normalizeOptionalString(templateBaseline.requiredVerticalContract)
+        ? [templateBaseline.requiredVerticalContract]
+        : []),
+    ]
+      .map((value) => normalizeVerticalContractKey(value))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  return {
+    domain: {
+      requiredDomains,
+      requireVerified: requireVerifiedDomains,
+    },
+    billing: {
+      requiredCredits,
+      billingSource: normalizeBillingSourceForPreflight(billingRequirements.billingSource),
+      requestSource: normalizeBillingRequestSourceForPreflight(billingRequirements.requestSource),
+    },
+    verticalContracts: {
+      requiredContracts,
+    },
+  };
+}
+
+async function resolveOrganizationDomainReadinessForPreflight(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  organizationId: Id<"organizations">,
+): Promise<{
+  availableDomains: string[];
+  verifiedDomains: string[];
+}> {
+  const configRows = await db
+    .query("objects")
+    .withIndex("by_org_type", (q: any) =>
+      q.eq("organizationId", organizationId).eq("type", "configuration"),
+    )
+    .collect();
+
+  const available = new Set<string>();
+  const verified = new Set<string>();
+  for (const row of configRows) {
+    if (row.status === "archived" || row.status === "deleted" || row.subtype !== "domain") {
+      continue;
+    }
+    const props = asRecord(row.customProperties);
+    const domain = normalizeDomainKey(props.domainName);
+    if (!domain) {
+      continue;
+    }
+    available.add(domain);
+    if (props.domainVerified === true || props.verified === true) {
+      verified.add(domain);
+    }
+  }
+
+  return {
+    availableDomains: normalizePreflightStringArray(available),
+    verifiedDomains: normalizePreflightStringArray(verified),
+  };
+}
+
+function resolveOrganizationVerticalContractsForPreflight(
+  organization: unknown,
+): string[] {
+  const organizationRecord = asRecord(organization);
+  const orgProps = asRecord(organizationRecord.customProperties);
+  const workspaceContext = asRecord(orgProps.workspaceContext);
+  const candidates: unknown[] = [
+    ...(Array.isArray(orgProps.verticalContracts) ? orgProps.verticalContracts : []),
+    ...(Array.isArray(workspaceContext.verticalContracts) ? workspaceContext.verticalContracts : []),
+    organizationRecord.industry,
+    organizationRecord.businessType,
+    organizationRecord.vertical,
+    orgProps.industry,
+    workspaceContext.industry,
+    orgProps.vertical,
+    workspaceContext.vertical,
+    orgProps.businessType,
+    workspaceContext.businessType,
+  ];
+  return normalizePreflightStringArray(
+    candidates
+      .map((value) => normalizeVerticalContractKey(value))
+      .filter((value): value is string => Boolean(value)),
+  );
+}
+
+async function resolveOrganizationBillingReadinessForPreflight(
+  ctx: MutationCtx | QueryCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    requiredCredits: number;
+    billingSource: "platform" | "byok" | "private";
+    requestSource: "llm" | "platform_action";
+  },
+): Promise<{
+  checked: boolean;
+  hasCredits: boolean;
+  isUnlimited: boolean;
+  totalCredits: number;
+  shortfall: number;
+  skipped: boolean;
+  checkFailed: boolean;
+}> {
+  if (args.requiredCredits <= 0) {
+    return {
+      checked: false,
+      hasCredits: true,
+      isUnlimited: false,
+      totalCredits: -1,
+      shortfall: 0,
+      skipped: true,
+      checkFailed: false,
+    };
+  }
+
+  try {
+    const result = await (ctx as any).runQuery(
+      generatedApi.internal.credits.index.checkCreditsInternalQuery,
+      {
+        organizationId: args.organizationId,
+        requiredAmount: args.requiredCredits,
+        billingSource: args.billingSource,
+        requestSource: args.requestSource,
+      },
+    );
+    return {
+      checked: true,
+      hasCredits: result?.hasCredits !== false,
+      isUnlimited: result?.isUnlimited === true,
+      totalCredits: Number.isFinite(result?.totalCredits) ? result.totalCredits : -1,
+      shortfall: Number.isFinite(result?.shortfall) ? Math.max(0, result.shortfall) : 0,
+      skipped: result?.skipped === true,
+      checkFailed: false,
+    };
+  } catch {
+    return {
+      checked: true,
+      hasCredits: false,
+      isUnlimited: false,
+      totalCredits: 0,
+      shortfall: args.requiredCredits,
+      skipped: false,
+      checkFailed: true,
+    };
+  }
+}
+
+export async function evaluateTemplateOrgPreflight(
+  ctx: MutationCtx | QueryCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    templateBaseline: Record<string, unknown>;
+  },
+): Promise<TemplateOrgPreflightResult> {
+  const requirements = resolveTemplateOrgPreflightRequirements(args.templateBaseline);
+  const organization = await ctx.db.get(args.organizationId);
+  if (!organization) {
+    return {
+      contractVersion: "template_org_preflight_v1",
+      organizationId: String(args.organizationId),
+      status: "fail",
+      blockerCodes: ["org_not_found"],
+      blockers: ["Organization record not found."],
+      checks: [
+        {
+          checkId: "organization_exists",
+          status: "fail",
+          summary: "Organization record not found.",
+        },
+      ],
+      channels: {
+        required: [],
+        missing: [],
+        bindings: [],
+      },
+      integrations: {
+        required: [],
+        available: [],
+        missing: [],
+        unknown: [],
+      },
+      telephony: {
+        required: false,
+        providerKey: "elevenlabs",
+        bindingEnabled: false,
+        credentialReady: false,
+        fromNumberReady: false,
+        webhookSecretReady: false,
+        missingTransferRoles: [],
+      },
+      domain: {
+        required: requirements.domain.requireVerified || requirements.domain.requiredDomains.length > 0,
+        requireVerified: requirements.domain.requireVerified,
+        requiredDomains: requirements.domain.requiredDomains,
+        availableDomains: [],
+        verifiedDomains: [],
+        missingDomains: requirements.domain.requiredDomains,
+        unverifiedDomains: [],
+      },
+      billing: {
+        required: requirements.billing.requiredCredits > 0,
+        requiredCredits: requirements.billing.requiredCredits,
+        billingSource: requirements.billing.billingSource,
+        requestSource: requirements.billing.requestSource,
+        checked: false,
+        hasCredits: false,
+        isUnlimited: false,
+        totalCredits: 0,
+        shortfall: requirements.billing.requiredCredits,
+        skipped: false,
+        checkFailed: true,
+      },
+      verticalContracts: {
+        required: requirements.verticalContracts.requiredContracts,
+        available: [],
+        missing: requirements.verticalContracts.requiredContracts,
+      },
+    };
+  }
+
+  const phoneRequired = hasEnabledChannelBinding(args.templateBaseline, "phone_call");
+  const telephonyConfig = normalizeAgentTelephonyConfig(args.templateBaseline.telephonyConfig);
+  const requiredChannels = resolveTemplateRequiredPreflightChannels(args.templateBaseline);
+  const channelBindings = await resolveOrganizationChannelBindingsForPreflight(
+    ctx.db as any,
+    args.organizationId,
+  );
+  const missingChannels = requiredChannels.filter((requiredChannel) => {
+    const candidates = resolveChannelCandidates(requiredChannel);
+    return !channelBindings.some(
+      (binding) => binding.enabled && candidates.includes(binding.channel),
+    );
+  });
+  const integrationRequirements = resolveTemplateRequiredIntegrationDependencies(
+    args.templateBaseline,
+  );
+  const requiredTransferRoles = phoneRequired
+    ? extractTemplateRoleTransferDependencies(telephonyConfig.elevenlabs.managedTools)
+    : [];
+  const telephonyBinding = await resolveOrganizationTelephonyBindingForPreflight(
+    ctx.db as any,
+    args.organizationId,
+  );
+  const remoteAgentIdsByTemplateRole =
+    requiredTransferRoles.length > 0
+      ? await (ctx as any).runQuery(
+          generatedApi.internal.integrations.telephony.getOrganizationTemplateRoleRemoteAgentIds,
+          {
+            organizationId: args.organizationId,
+            templateRoles: requiredTransferRoles,
+          },
+        )
+      : {};
+  const missingTransferRoles = requiredTransferRoles.filter(
+    (role) => !normalizeOptionalString(remoteAgentIdsByTemplateRole?.[role]),
+  );
+
+  const credentialReady = phoneRequired
+      ? telephonyBinding.providerKey === "twilio_voice"
+        ? await resolveTwilioCredentialReadinessForPreflight(ctx, args.organizationId)
+        : telephonyBinding.providerKey === "custom_sip"
+          ? telephonyBinding.bindingEnabled
+          : Boolean(
+            (
+              await (ctx as any).runQuery(
+                generatedApi.internal.integrations.elevenlabs.getOrganizationElevenLabsRuntimeBinding,
+                {
+                  organizationId: args.organizationId,
+                },
+              )
+            )?.apiKey,
+          )
+    : true;
+  const availableIntegrationKeys = await resolveOrganizationIntegrationKeysForPreflight(ctx, {
+    organizationId: args.organizationId,
+    channelBindings,
+    telephonyProviderKey: telephonyBinding.providerKey,
+    telephonyBindingEnabled: telephonyBinding.bindingEnabled,
+    telephonyCredentialReady: credentialReady,
+  });
+  const missingIntegrationKeys = integrationRequirements.requiredIntegrationKeys.filter(
+    (integrationKey) => !availableIntegrationKeys.includes(integrationKey),
+  );
+  const domainReadiness = await resolveOrganizationDomainReadinessForPreflight(
+    ctx.db as any,
+    args.organizationId,
+  );
+  const missingRequiredDomains = requirements.domain.requiredDomains.filter(
+    (domain) => !domainReadiness.availableDomains.includes(domain),
+  );
+  const unverifiedRequiredDomains = requirements.domain.requiredDomains.filter(
+    (domain) =>
+      domainReadiness.availableDomains.includes(domain)
+      && !domainReadiness.verifiedDomains.includes(domain),
+  );
+  const domainRequired = requirements.domain.requireVerified
+    || requirements.domain.requiredDomains.length > 0;
+  const domainMissing =
+    domainRequired
+    && (
+      missingRequiredDomains.length > 0
+      || (
+        requirements.domain.requireVerified
+        && (
+          (requirements.domain.requiredDomains.length === 0
+            && domainReadiness.verifiedDomains.length === 0)
+          || unverifiedRequiredDomains.length > 0
+        )
+      )
+    );
+
+  const verticalAvailableContracts = resolveOrganizationVerticalContractsForPreflight(organization);
+  const missingVerticalContracts = requirements.verticalContracts.requiredContracts.filter(
+    (contract) => !verticalAvailableContracts.includes(contract),
+  );
+  const billingReadiness = await resolveOrganizationBillingReadinessForPreflight(ctx, {
+    organizationId: args.organizationId,
+    requiredCredits: requirements.billing.requiredCredits,
+    billingSource: requirements.billing.billingSource,
+    requestSource: requirements.billing.requestSource,
+  });
+
+  const checks: TemplateOrgPreflightResult["checks"] = [
+    {
+      checkId: "organization_exists",
+      status: "pass",
+      summary: "Organization record exists.",
+    },
+    {
+      checkId: "telephony_required",
+      status: phoneRequired ? "pass" : "pass",
+      summary: phoneRequired
+        ? `Template requires telephony provider ${telephonyConfig.selectedProvider}.`
+        : "Template does not require telephony preflight.",
+    },
+    {
+      checkId: "channel_bindings_ready",
+      status: missingChannels.length === 0 ? "pass" : "fail",
+      summary:
+        missingChannels.length === 0
+          ? "All required non-telephony channels are bound."
+          : `Missing required channels: ${missingChannels.join(", ")}.`,
+    },
+    {
+      checkId: "domain_readiness",
+      status: domainMissing ? "fail" : "pass",
+      summary: !domainRequired
+        ? "Template does not require domain readiness checks."
+        : domainMissing
+          ? missingRequiredDomains.length > 0
+            ? `Missing required domain configs: ${missingRequiredDomains.join(", ")}.`
+            : unverifiedRequiredDomains.length > 0
+              ? `Required domains are not verified: ${unverifiedRequiredDomains.join(", ")}.`
+              : "No verified domain config is available."
+          : "Required domain configuration is ready.",
+    },
+    {
+      checkId: "billing_credits_ready",
+      status:
+        requirements.billing.requiredCredits > 0
+          ? billingReadiness.checkFailed || !billingReadiness.hasCredits
+            ? "fail"
+            : "pass"
+          : "pass",
+      summary:
+        requirements.billing.requiredCredits <= 0
+          ? "Template does not require credit preflight checks."
+          : billingReadiness.checkFailed
+            ? "Credit readiness check failed."
+            : billingReadiness.hasCredits
+              ? billingReadiness.isUnlimited
+                ? "Organization has unlimited credit entitlement."
+                : `Organization has sufficient credits (${billingReadiness.totalCredits} available).`
+              : `Insufficient credits (${billingReadiness.shortfall} short).`,
+    },
+  ];
+  if (requirements.verticalContracts.requiredContracts.length > 0) {
+    checks.push({
+      checkId: "vertical_contracts_ready",
+      status: missingVerticalContracts.length === 0 ? "pass" : "fail",
+      summary:
+        missingVerticalContracts.length === 0
+          ? "Required vertical contracts are available."
+          : `Missing required vertical contracts: ${missingVerticalContracts.join(", ")}.`,
+    });
+  }
+
+  const blockerCodes: TemplateOrgPreflightBlockerCode[] = [];
+  const blockers: string[] = [];
+  if (phoneRequired && !telephonyBinding.bindingEnabled) {
+    blockerCodes.push("telephony_binding_disabled");
+    blockers.push("Organization phone binding is disabled or missing.");
+  }
+  if (phoneRequired && !credentialReady) {
+    blockerCodes.push("telephony_provider_credentials_missing");
+    blockers.push("Organization telephony provider credentials are not ready.");
+  }
+  if (phoneRequired && !telephonyBinding.fromNumberReady) {
+    blockerCodes.push("telephony_from_number_missing");
+    blockers.push("Organization telephony binding is missing a from number.");
+  }
+  if (phoneRequired && !telephonyBinding.webhookSecretReady) {
+    blockerCodes.push("telephony_webhook_secret_missing");
+    blockers.push("Organization telephony binding is missing a webhook secret.");
+  }
+  if (missingTransferRoles.length > 0) {
+    blockerCodes.push("telephony_transfer_target_missing");
+    blockers.push(
+      `Missing synced transfer targets for template roles: ${missingTransferRoles.join(", ")}.`,
+    );
+  }
+  if (missingChannels.length > 0) {
+    blockerCodes.push("channel_binding_missing");
+    blockers.push(
+      `Missing required non-telephony channel bindings: ${missingChannels.join(", ")}.`,
+    );
+  }
+  if (missingIntegrationKeys.length > 0) {
+    blockerCodes.push("integration_dependency_missing");
+    blockers.push(
+      `Missing required integrations: ${missingIntegrationKeys.join(", ")}.`,
+    );
+  }
+  if (domainRequired && missingRequiredDomains.length > 0) {
+    blockerCodes.push("domain_config_missing");
+    blockers.push(
+      `Missing required domain configs: ${missingRequiredDomains.join(", ")}.`,
+    );
+  } else if (
+    domainRequired
+    && requirements.domain.requireVerified
+    && (
+      (requirements.domain.requiredDomains.length === 0 && domainReadiness.verifiedDomains.length === 0)
+      || unverifiedRequiredDomains.length > 0
+    )
+  ) {
+    blockerCodes.push("domain_verification_missing");
+    blockers.push(
+      unverifiedRequiredDomains.length > 0
+        ? `Required domains are not verified: ${unverifiedRequiredDomains.join(", ")}.`
+        : "At least one verified custom domain is required.",
+    );
+  }
+  if (requirements.billing.requiredCredits > 0 && billingReadiness.checkFailed) {
+    blockerCodes.push("billing_credits_check_failed");
+    blockers.push("Credit readiness check failed for this organization.");
+  } else if (requirements.billing.requiredCredits > 0 && !billingReadiness.hasCredits) {
+    blockerCodes.push("billing_credits_insufficient");
+    blockers.push(
+      `Organization is short ${billingReadiness.shortfall} credits for this deployment requirement.`,
+    );
+  }
+  if (missingVerticalContracts.length > 0) {
+    blockerCodes.push("vertical_contract_missing");
+    blockers.push(
+      `Missing required vertical contracts: ${missingVerticalContracts.join(", ")}.`,
+    );
+  }
+  if (
+    integrationRequirements.requiredIntegrationKeys.length > 0
+    || integrationRequirements.unknownIntegrationRequirements.length > 0
+  ) {
+    checks.push({
+      checkId: "integration_dependencies_ready",
+      status: missingIntegrationKeys.length === 0 ? "pass" : "fail",
+      summary:
+        missingIntegrationKeys.length === 0
+          ? integrationRequirements.unknownIntegrationRequirements.length === 0
+            ? "Required integrations are available."
+            : `Required known integrations are available. Unknown integration labels not enforced: ${integrationRequirements.unknownIntegrationRequirements.join(", ")}.`
+          : `Missing required integrations: ${missingIntegrationKeys.join(", ")}.`,
+    });
+  }
+
+  if (phoneRequired) {
+    checks.push(
+      {
+        checkId: "telephony_binding_enabled",
+        status: telephonyBinding.bindingEnabled ? "pass" : "fail",
+        summary: telephonyBinding.bindingEnabled
+          ? "Organization phone binding is enabled."
+          : "Organization phone binding is disabled or missing.",
+      },
+      {
+        checkId: "telephony_credentials_ready",
+        status: credentialReady ? "pass" : "fail",
+        summary: credentialReady
+          ? "Organization telephony credentials are ready."
+          : "Organization telephony credentials are not ready.",
+      },
+      {
+        checkId: "telephony_from_number_ready",
+        status: telephonyBinding.fromNumberReady ? "pass" : "fail",
+        summary: telephonyBinding.fromNumberReady
+          ? "Organization telephony binding has a from number."
+          : "Organization telephony binding is missing a from number.",
+      },
+      {
+        checkId: "telephony_transfer_targets_ready",
+        status: missingTransferRoles.length === 0 ? "pass" : "fail",
+        summary:
+          missingTransferRoles.length === 0
+            ? "All transfer targets are synced."
+            : `Missing transfer targets: ${missingTransferRoles.join(", ")}.`,
+      },
+    );
+  }
+
+  return {
+    contractVersion: "template_org_preflight_v1",
+    organizationId: String(args.organizationId),
+    status: blockerCodes.length === 0 ? "pass" : "fail",
+    blockerCodes,
+    blockers,
+    checks,
+    channels: {
+      required: requiredChannels,
+      missing: missingChannels,
+      bindings: channelBindings,
+    },
+    integrations: {
+      required: integrationRequirements.requiredIntegrationKeys,
+      available: availableIntegrationKeys,
+      missing: missingIntegrationKeys,
+      unknown: integrationRequirements.unknownIntegrationRequirements,
+    },
+    telephony: {
+      required: phoneRequired,
+      providerKey: telephonyBinding.providerKey,
+      bindingEnabled: telephonyBinding.bindingEnabled,
+      credentialReady,
+      fromNumberReady: telephonyBinding.fromNumberReady,
+      webhookSecretReady: telephonyBinding.webhookSecretReady,
+      missingTransferRoles,
+    },
+    domain: {
+      required: domainRequired,
+      requireVerified: requirements.domain.requireVerified,
+      requiredDomains: requirements.domain.requiredDomains,
+      availableDomains: domainReadiness.availableDomains,
+      verifiedDomains: domainReadiness.verifiedDomains,
+      missingDomains: missingRequiredDomains,
+      unverifiedDomains: unverifiedRequiredDomains,
+    },
+    billing: {
+      required: requirements.billing.requiredCredits > 0,
+      requiredCredits: requirements.billing.requiredCredits,
+      billingSource: requirements.billing.billingSource,
+      requestSource: requirements.billing.requestSource,
+      checked: billingReadiness.checked,
+      hasCredits: billingReadiness.hasCredits,
+      isUnlimited: billingReadiness.isUnlimited,
+      totalCredits: billingReadiness.totalCredits,
+      shortfall: billingReadiness.shortfall,
+      skipped: billingReadiness.skipped,
+      checkFailed: billingReadiness.checkFailed,
+    },
+    verticalContracts: {
+      required: requirements.verticalContracts.requiredContracts,
+      available: verticalAvailableContracts,
+      missing: missingVerticalContracts,
+    },
+  };
 }
 
 export function normalizeAgentClass(
@@ -762,7 +1927,7 @@ function normalizeTemplateVersionLifecycleStatus(
   return value === "published" || value === "deprecated" ? value : "draft";
 }
 
-function pickTemplateBaselineSnapshot(
+export function pickTemplateBaselineSnapshot(
   customProperties: Record<string, unknown> | undefined
 ): Record<string, unknown> {
   if (!customProperties) {
@@ -888,7 +2053,7 @@ function resolveTemplateCloneFieldPolicyMode(
   return mode === "locked" || mode === "free" ? mode : "warn";
 }
 
-function resolveTemplateCloneDriftContract(args: {
+export function resolveTemplateCloneDriftContract(args: {
   templateBaseline: Record<string, unknown>;
   cloneCustomProperties: Record<string, unknown>;
   baselineTemplateVersion: string;
@@ -974,6 +2139,23 @@ async function requireSuperAdminMutationSession(
   };
 }
 
+function buildTemplateLifecycleActorPayload(
+  actor: TemplateLifecycleExecutionActor,
+) {
+  const fallbackUserId = (actor as { userId?: Id<"users"> }).userId;
+  return {
+    role: actor.roleName,
+    ...(actor.auditUserId || fallbackUserId
+      ? { userId: String(actor.auditUserId ?? fallbackUserId) }
+      : {}),
+    ...(actor.sessionId ? { sessionId: actor.sessionId } : {}),
+    ...(actor.performedBy
+      && String(actor.performedBy) !== String(actor.auditUserId ?? fallbackUserId ?? "")
+      ? { performerId: String(actor.performedBy) }
+      : {}),
+  };
+}
+
 async function writeTemplateLifecycleAuditEvent(args: {
   ctx: MutationCtx;
   organizationId: Id<"organizations">;
@@ -984,7 +2166,7 @@ async function writeTemplateLifecycleAuditEvent(args: {
     | "agent_template.version_published"
     | "agent_template.deprecated"
     | "agent_template.version_deprecated";
-  actor: SuperAdminMutationSession;
+  actor: TemplateLifecycleExecutionActor;
   objectScope: {
     scope: "global_template" | "template_version";
     templateId: string;
@@ -999,11 +2181,7 @@ async function writeTemplateLifecycleAuditEvent(args: {
   const changedFields = deriveChangedFields(args.before, args.after);
   const deterministicPayload = {
     contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-    actor: {
-      userId: String(args.actor.userId),
-      sessionId: args.actor.sessionId,
-      role: args.actor.roleName,
-    },
+    actor: buildTemplateLifecycleActorPayload(args.actor),
     actionType: args.actionType,
     objectScope: {
       ...args.objectScope,
@@ -1019,18 +2197,20 @@ async function writeTemplateLifecycleAuditEvent(args: {
     timestamp: args.timestamp,
   };
 
-  await args.ctx.db.insert("objectActions", {
+  const objectActionId = await args.ctx.db.insert("objectActions", {
     organizationId: args.organizationId,
     objectId: args.objectId,
     actionType: args.actionType,
     actionData: deterministicPayload,
-    performedBy: args.actor.userId,
+    performedBy:
+      args.actor.performedBy ?? (args.actor as { userId?: Id<"users"> }).userId,
     performedAt: args.timestamp,
   });
 
-  await args.ctx.db.insert("auditLogs", {
+  const auditLogId = await args.ctx.db.insert("auditLogs", {
     organizationId: args.organizationId,
-    userId: args.actor.userId,
+    userId:
+      args.actor.auditUserId ?? (args.actor as { userId?: Id<"users"> }).userId,
     action: args.actionType,
     resource: args.objectScope.scope,
     resourceId:
@@ -1041,6 +2221,11 @@ async function writeTemplateLifecycleAuditEvent(args: {
     metadata: deterministicPayload,
     createdAt: args.timestamp,
   });
+
+  return {
+    objectActionId,
+    auditLogId,
+  };
 }
 
 async function writeTemplateWaeGateBlockedEvent(args: {
@@ -1056,7 +2241,7 @@ async function writeTemplateWaeGateBlockedEvent(args: {
   templateId: string;
   templateVersionId?: string | null;
   templateVersionTag?: string | null;
-  reasonCode: WaeRolloutGateBlockReasonCode;
+  reasonCode: TemplateCertificationBlockReasonCode;
   message: string;
   gate: unknown;
   timestamp: number;
@@ -1131,6 +2316,40 @@ function summarizeTemplateDistributionReasonCounts(
   return Object.fromEntries(
     Array.from(counts.entries()).sort((left, right) => left[0].localeCompare(right[0]))
   );
+}
+
+function summarizeTemplateDistributionOrgPreflight(
+  rows: Array<{
+    operation: TemplateDistributionOperation;
+    orgPreflight?: TemplateOrgPreflightResult;
+  }>,
+) {
+  const blockerCounts = new Map<string, number>();
+  let passing = 0;
+  let failing = 0;
+  for (const row of rows) {
+    if (!row.orgPreflight) {
+      continue;
+    }
+    if (row.orgPreflight.status === "pass") {
+      passing += 1;
+      continue;
+    }
+    failing += 1;
+    for (const blockerCode of row.orgPreflight.blockerCodes) {
+      blockerCounts.set(blockerCode, (blockerCounts.get(blockerCode) || 0) + 1);
+    }
+  }
+
+  return {
+    passing,
+    failing,
+    blockers: Object.fromEntries(
+      Array.from(blockerCounts.entries()).sort((left, right) =>
+        left[0].localeCompare(right[0]),
+      ),
+    ),
+  };
 }
 
 function buildDeterministicTemplateDistributionJobId(args: {
@@ -1352,22 +2571,45 @@ function resolveTemplateOverrideGateForManagedClone(args: {
 export const AGENT_FIELD_PATCH_CONTRACT_VERSION =
   "agent_field_patch_contract_v1" as const;
 export const AGENT_FIELD_PATCH_SUPPORTED_FIELDS = [
+  "name",
   "displayName",
+  "subtype",
   "agentClass",
   "personality",
   "language",
+  "additionalLanguages",
   "voiceLanguage",
   "elevenLabsVoiceId",
   "brandVoiceInstructions",
   "systemPrompt",
+  "faqEntries",
+  "knowledgeBaseTags",
+  "toolProfile",
+  "enabledTools",
+  "disabledTools",
   "autonomyLevel",
+  "maxMessagesPerDay",
+  "maxCostPerDay",
+  "requireApprovalFor",
   "modelId",
   "temperature",
+  "maxTokens",
   "channelBindings",
   "blockedTopics",
   "telephonyConfig",
+  "escalationPolicy",
+  "unifiedPersonality",
 ] as const;
-export const AGENT_FIELD_PATCH_DEFERRED_FIELDS = [] as const;
+export const AGENT_FIELD_PATCH_DEFERRED_FIELDS = [
+  "teamAccessMode",
+  "operatorCollaborationDefaults",
+  "dreamTeamSpecialists",
+  "activeSoulMode",
+  "activeArchetype",
+  "modeChannelBindings",
+  "enabledArchetypes",
+  "soul",
+] as const;
 
 type AgentFieldPatchSupportedField =
   (typeof AGENT_FIELD_PATCH_SUPPORTED_FIELDS)[number];
@@ -1382,20 +2624,34 @@ type AgentFieldPatchApplyStatus =
   | "deferred";
 
 export interface AgentFieldPatchInput {
+  name?: string;
   displayName?: string;
+  subtype?: string;
   agentClass?: AgentClass;
   personality?: string;
   language?: string;
+  additionalLanguages?: string[];
   voiceLanguage?: string;
   elevenLabsVoiceId?: string;
   brandVoiceInstructions?: string;
   systemPrompt?: string;
+  faqEntries?: Array<{ q: string; a: string }>;
+  knowledgeBaseTags?: string[];
+  toolProfile?: string;
+  enabledTools?: string[];
+  disabledTools?: string[];
   autonomyLevel?: "supervised" | "sandbox" | "autonomous" | "delegation" | "draft_only";
+  maxMessagesPerDay?: number;
+  maxCostPerDay?: number;
+  requireApprovalFor?: string[];
   modelId?: string;
   temperature?: number;
+  maxTokens?: number;
   channelBindings?: ChannelBindingContractRecord[];
   blockedTopics?: string[];
   telephonyConfig?: unknown;
+  escalationPolicy?: unknown;
+  unifiedPersonality?: boolean;
   [key: string]: unknown;
 }
 
@@ -1415,6 +2671,7 @@ export interface AgentFieldPatchPreview {
   targetAgentId: Id<"objects">;
   targetAgentName: string;
   targetAgentDisplayName?: string;
+  currentValues: Record<string, unknown>;
   proposedPatch: AgentFieldPatchInput;
   normalizedUpdates: Record<string, unknown>;
   changes: AgentFieldPatchChange[];
@@ -1434,20 +2691,42 @@ export interface AgentFieldPatchPreview {
 }
 
 const AGENT_FIELD_PATCH_LABELS: Record<string, string> = {
+  name: "Name",
   displayName: "Display Name",
+  subtype: "Subtype",
   agentClass: "Agent Class",
   personality: "Personality",
   language: "Language",
+  additionalLanguages: "Additional Languages",
   voiceLanguage: "Voice Language",
   elevenLabsVoiceId: "ElevenLabs Voice",
   brandVoiceInstructions: "Brand Voice Instructions",
   systemPrompt: "System Prompt",
+  faqEntries: "FAQ Entries",
+  knowledgeBaseTags: "Knowledge Base Tags",
+  toolProfile: "Tool Profile",
+  enabledTools: "Enabled Tools",
+  disabledTools: "Disabled Tools",
   autonomyLevel: "Autonomy Level",
+  maxMessagesPerDay: "Max Messages / Day",
+  maxCostPerDay: "Max Cost / Day",
+  requireApprovalFor: "Require Approval For",
   modelId: "Model",
   temperature: "Temperature",
+  maxTokens: "Max Tokens",
   channelBindings: "Channel Bindings",
   blockedTopics: "Blocked Topics",
   telephonyConfig: "Telephony Config",
+  escalationPolicy: "Escalation Policy",
+  unifiedPersonality: "Unified Personality",
+  teamAccessMode: "Team Access Mode",
+  operatorCollaborationDefaults: "Operator Collaboration Defaults",
+  dreamTeamSpecialists: "Dream Team Specialists",
+  activeSoulMode: "Active Soul Mode",
+  activeArchetype: "Active Archetype",
+  modeChannelBindings: "Mode Channel Bindings",
+  enabledArchetypes: "Enabled Archetypes",
+  soul: "Soul",
 };
 
 function readAgentFieldPatchInput(value: unknown): AgentFieldPatchInput {
@@ -1462,6 +2741,13 @@ function normalizeAgentFieldPatchString(value: unknown): string | undefined {
     return undefined;
   }
   return value.trim();
+}
+
+function normalizeAgentFieldPatchNonEmptyString(
+  value: unknown,
+): string | undefined {
+  const normalized = normalizeAgentFieldPatchString(value);
+  return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
 function normalizeAgentFieldPatchStringArray(value: unknown): string[] | undefined {
@@ -1482,6 +2768,43 @@ function normalizeAgentFieldPatchStringArray(value: unknown): string[] | undefin
   return Array.from(deduped).sort((left, right) => left.localeCompare(right));
 }
 
+function normalizeAgentFieldPatchToolArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  return normalizeDeterministicToolNames(
+    value.filter((entry): entry is string => typeof entry === "string")
+  );
+}
+
+function normalizeAgentFieldPatchFaqEntries(
+  value: unknown,
+): Array<{ q: string; a: string }> | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalizedEntries: Array<{ q: string; a: string }> = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return undefined;
+    }
+    const record = entry as Record<string, unknown>;
+    const question = normalizeAgentFieldPatchString(record.q);
+    const answer = normalizeAgentFieldPatchString(record.a);
+    if (!question && !answer) {
+      continue;
+    }
+    if (!question || !answer) {
+      return undefined;
+    }
+    normalizedEntries.push({
+      q: question,
+      a: answer,
+    });
+  }
+  return normalizedEntries;
+}
+
 function normalizeAgentFieldPatchAutonomyLevel(
   value: unknown
 ): AgentFieldPatchInput["autonomyLevel"] | undefined {
@@ -1496,6 +2819,29 @@ function normalizeAgentFieldPatchAutonomyLevel(
 
 function normalizeAgentFieldPatchTemperature(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeAgentFieldPatchNumber(
+  value: unknown,
+  args: {
+    min?: number;
+    integer?: boolean;
+  } = {},
+): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  if (args.integer && !Number.isInteger(value)) {
+    return undefined;
+  }
+  if (args.min !== undefined && value < args.min) {
+    return undefined;
+  }
+  return value;
+}
+
+function normalizeAgentFieldPatchBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function isAgentFieldPatchRecord(value: unknown): value is Record<string, unknown> {
@@ -1550,26 +2896,61 @@ function resolveNormalizedTelephonyConfigPatch(args: {
   };
 }
 
+function readAgentFieldPatchCurrentValue(
+  agent: ActiveAgentCandidate,
+  field: AgentFieldPatchSupportedField | AgentFieldPatchDeferredField,
+  customProperties: Record<string, unknown>,
+): unknown {
+  switch (field) {
+    case "name":
+      return agent.name;
+    case "subtype":
+      return agent.subtype;
+    case "agentClass":
+      return readAgentClass(customProperties);
+    default:
+      return customProperties[field];
+  }
+}
+
 function normalizeAgentFieldPatchComparableValue(
   field: AgentFieldPatchSupportedField | AgentFieldPatchDeferredField,
   value: unknown,
 ): unknown {
   switch (field) {
+    case "name":
+    case "subtype":
+    case "toolProfile":
+      return normalizeAgentFieldPatchString(value) ?? null;
     case "agentClass":
       return typeof value === "string" ? normalizeAgentClass(value) : null;
     case "displayName":
     case "personality":
     case "language":
+    case "additionalLanguages":
     case "voiceLanguage":
     case "elevenLabsVoiceId":
     case "brandVoiceInstructions":
     case "systemPrompt":
+    case "knowledgeBaseTags":
     case "modelId":
+      if (field === "additionalLanguages" || field === "knowledgeBaseTags") {
+        return normalizeAgentFieldPatchStringArray(value) ?? [];
+      }
       return normalizeAgentFieldPatchString(value) ?? null;
+    case "faqEntries":
+      return normalizeAgentFieldPatchFaqEntries(value) ?? [];
+    case "enabledTools":
+    case "disabledTools":
+    case "requireApprovalFor":
+      return normalizeAgentFieldPatchToolArray(value) ?? [];
     case "autonomyLevel":
       return normalizeAgentFieldPatchAutonomyLevel(value) ?? null;
+    case "maxMessagesPerDay":
+    case "maxCostPerDay":
     case "temperature":
-      return normalizeAgentFieldPatchTemperature(value) ?? null;
+    case "maxTokens":
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
     case "blockedTopics":
       return normalizeAgentFieldPatchStringArray(value) ?? [];
     case "channelBindings":
@@ -1583,9 +2964,33 @@ function normalizeAgentFieldPatchComparableValue(
       return value === undefined || value === null
         ? null
         : toDeployableTelephonyConfig(value);
+    case "escalationPolicy":
+    case "operatorCollaborationDefaults":
+      return isAgentFieldPatchRecord(value)
+        ? toComparablePrimitive(value)
+        : value ?? null;
+    case "unifiedPersonality":
+      return typeof value === "boolean" ? value : null;
     default:
-      return value ?? null;
+      return toComparablePrimitive(value ?? null);
   }
+}
+
+function buildAgentFieldPatchCurrentValues(
+  agent: ActiveAgentCandidate,
+  customProperties: Record<string, unknown>,
+): Record<string, unknown> {
+  const currentValues: Record<string, unknown> = {};
+  for (const field of [
+    ...AGENT_FIELD_PATCH_SUPPORTED_FIELDS,
+    ...AGENT_FIELD_PATCH_DEFERRED_FIELDS,
+  ] as const) {
+    currentValues[field] = normalizeAgentFieldPatchComparableValue(
+      field,
+      readAgentFieldPatchCurrentValue(agent, field, customProperties),
+    );
+  }
+  return currentValues;
 }
 
 function resolveAgentFieldPatchSupportedValue(args: {
@@ -1594,6 +2999,17 @@ function resolveAgentFieldPatchSupportedValue(args: {
   currentValue?: unknown;
 }): { ok: true; value: unknown } | { ok: false; reason: string } {
   switch (args.field) {
+    case "name":
+    case "subtype": {
+      const normalized = normalizeAgentFieldPatchNonEmptyString(args.value);
+      if (!normalized) {
+        return {
+          ok: false,
+          reason: `Expected ${args.field} to be a non-empty string.`,
+        };
+      }
+      return { ok: true, value: normalized };
+    }
     case "agentClass": {
       if (typeof args.value !== "string") {
         return { ok: false, reason: "Expected agentClass to be a string." };
@@ -1607,11 +3023,46 @@ function resolveAgentFieldPatchSupportedValue(args: {
     case "elevenLabsVoiceId":
     case "brandVoiceInstructions":
     case "systemPrompt":
+    case "toolProfile":
     case "modelId": {
       if (typeof args.value !== "string") {
         return { ok: false, reason: `Expected ${args.field} to be a string.` };
       }
       return { ok: true, value: args.value.trim() };
+    }
+    case "additionalLanguages":
+    case "knowledgeBaseTags": {
+      const normalized = normalizeAgentFieldPatchStringArray(args.value);
+      if (!normalized) {
+        return {
+          ok: false,
+          reason: `Expected ${args.field} to be an array of strings.`,
+        };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "faqEntries": {
+      const normalized = normalizeAgentFieldPatchFaqEntries(args.value);
+      if (!normalized) {
+        return {
+          ok: false,
+          reason:
+            "Expected faqEntries to be an array of { q, a } records with non-empty strings.",
+        };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "enabledTools":
+    case "disabledTools":
+    case "requireApprovalFor": {
+      const normalized = normalizeAgentFieldPatchToolArray(args.value);
+      if (!normalized) {
+        return {
+          ok: false,
+          reason: `Expected ${args.field} to be an array of tool names.`,
+        };
+      }
+      return { ok: true, value: normalized };
     }
     case "autonomyLevel": {
       const normalized = normalizeAgentFieldPatchAutonomyLevel(args.value);
@@ -1624,10 +3075,48 @@ function resolveAgentFieldPatchSupportedValue(args: {
       }
       return { ok: true, value: normalized };
     }
+    case "maxMessagesPerDay": {
+      const normalized = normalizeAgentFieldPatchNumber(args.value, {
+        min: 0,
+        integer: true,
+      });
+      if (normalized === undefined) {
+        return {
+          ok: false,
+          reason: "Expected maxMessagesPerDay to be a non-negative integer.",
+        };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "maxCostPerDay": {
+      const normalized = normalizeAgentFieldPatchNumber(args.value, {
+        min: 0,
+      });
+      if (normalized === undefined) {
+        return {
+          ok: false,
+          reason: "Expected maxCostPerDay to be a non-negative number.",
+        };
+      }
+      return { ok: true, value: normalized };
+    }
     case "temperature": {
       const normalized = normalizeAgentFieldPatchTemperature(args.value);
       if (normalized === undefined) {
         return { ok: false, reason: "Expected temperature to be a finite number." };
+      }
+      return { ok: true, value: normalized };
+    }
+    case "maxTokens": {
+      const normalized = normalizeAgentFieldPatchNumber(args.value, {
+        min: 1,
+        integer: true,
+      });
+      if (normalized === undefined) {
+        return {
+          ok: false,
+          reason: "Expected maxTokens to be an integer greater than 0.",
+        };
       }
       return { ok: true, value: normalized };
     }
@@ -1667,6 +3156,27 @@ function resolveAgentFieldPatchSupportedValue(args: {
         currentValue: args.currentValue,
         proposedValue: args.value,
       });
+    case "escalationPolicy":
+      if (!isAgentFieldPatchRecord(args.value)) {
+        return {
+          ok: false,
+          reason: "Expected escalationPolicy to be an object.",
+        };
+      }
+      return {
+        ok: true,
+        value: toComparablePrimitive(args.value),
+      };
+    case "unifiedPersonality": {
+      const normalized = normalizeAgentFieldPatchBoolean(args.value);
+      if (normalized === undefined) {
+        return {
+          ok: false,
+          reason: "Expected unifiedPersonality to be a boolean.",
+        };
+      }
+      return { ok: true, value: normalized };
+    }
     default:
       return { ok: false, reason: `Unsupported field ${args.field}.` };
   }
@@ -1708,6 +3218,7 @@ async function buildAgentFieldPatchPreview(
   const deferredFields: string[] = [];
   const customProperties =
     (agent.customProperties as Record<string, unknown> | undefined) ?? {};
+  const currentValues = buildAgentFieldPatchCurrentValues(agent, customProperties);
   const normalizedOverrideReason =
     normalizeOptionalString(args.overridePolicyGate?.reason) || null;
   const warnConfirmationAccepted =
@@ -1725,10 +3236,7 @@ async function buildAgentFieldPatchPreview(
         label,
         category: "deferred",
         applyStatus: "deferred",
-        before: normalizeAgentFieldPatchComparableValue(
-          field as AgentFieldPatchDeferredField,
-          customProperties[field],
-        ),
+        before: currentValues[field],
         after: proposedValue,
         changed: true,
         reason:
@@ -1746,7 +3254,7 @@ async function buildAgentFieldPatchPreview(
         label,
         category: "unsupported",
         applyStatus: "unsupported",
-        before: customProperties[field],
+        before: currentValues[field] ?? customProperties[field],
         after: proposedValue,
         changed: true,
         reason: "This field is not supported by the current agent patch contract.",
@@ -1758,14 +3266,13 @@ async function buildAgentFieldPatchPreview(
     const normalizedProposal = resolveAgentFieldPatchSupportedValue({
       field: supportedField,
       value: proposedValue,
-      currentValue: customProperties[supportedField],
+      currentValue: readAgentFieldPatchCurrentValue(
+        agent,
+        supportedField,
+        customProperties,
+      ),
     });
-    const before = normalizeAgentFieldPatchComparableValue(
-      supportedField,
-      supportedField === "agentClass"
-        ? readAgentClass(customProperties)
-        : customProperties[supportedField],
-    );
+    const before = currentValues[supportedField];
 
     if (!normalizedProposal.ok) {
       unsupportedFields.push(field);
@@ -1888,6 +3395,7 @@ async function buildAgentFieldPatchPreview(
     targetAgentId: args.agentId,
     targetAgentName: agent.name,
     targetAgentDisplayName,
+    currentValues,
     proposedPatch: rawPatch,
     normalizedUpdates,
     changes,
@@ -2553,6 +4061,81 @@ async function applyPrimaryAgentRepairsForOrganization(
   }
 
   return appliedContexts;
+}
+
+export async function runPrimaryAgentContextRepairLifecycle(
+  ctx: MutationCtx,
+  args: {
+    actor: TemplateLifecycleExecutionActor;
+    organizationId: Id<"organizations">;
+    operatorId?: string;
+    forcePrimaryAgentId?: string;
+    reason?: string;
+    reviewArtifactId?: string;
+  },
+) {
+  const now = Date.now();
+  const repairs = await applyPrimaryAgentRepairsForOrganization(ctx, {
+    organizationId: String(args.organizationId),
+    operatorId: normalizeOptionalString(args.operatorId) || DEFAULT_OPERATOR_CONTEXT_ID,
+    forcePrimaryAgentId: normalizeOptionalString(args.forcePrimaryAgentId),
+  });
+
+  const patchedAgentIds = Array.from(
+    new Set(
+      repairs.flatMap((entry) => entry.patchedAgentIds)
+        .filter((value): value is string => typeof value === "string" && value.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+
+  const actionData = {
+    contractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+    actor: buildTemplateLifecycleActorPayload(args.actor),
+    organizationId: String(args.organizationId),
+    operatorId: normalizeOptionalString(args.operatorId) || DEFAULT_OPERATOR_CONTEXT_ID,
+    reason: normalizeOptionalString(args.reason) || "primary_agent_context_repair",
+    reviewArtifactId: normalizeOptionalString(args.reviewArtifactId) || null,
+    repairedContexts: repairs.length,
+    patchedAgentCount: patchedAgentIds.length,
+    repairs,
+    timestamp: now,
+  };
+
+  const objectActionIds: Id<"objectActions">[] = [];
+  const auditLogIds: Id<"auditLogs">[] = [];
+  for (const agentId of patchedAgentIds) {
+    objectActionIds.push(
+      await ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: agentId as Id<"objects">,
+        actionType: "primary_agent_context_repaired",
+        actionData,
+        performedBy: args.actor.performedBy,
+        performedAt: now,
+      }),
+    );
+    auditLogIds.push(
+      await ctx.db.insert("auditLogs", {
+        organizationId: args.organizationId,
+        userId: args.actor.auditUserId,
+        action: "primary_agent_context_repaired",
+        resource: "org_agent",
+        resourceId: agentId,
+        success: true,
+        metadata: actionData,
+        createdAt: now,
+      }),
+    );
+  }
+
+  return {
+    organizationId: args.organizationId,
+    repairedContexts: repairs.length,
+    patchedAgentCount: patchedAgentIds.length,
+    repairs,
+    objectActionIds,
+    auditLogIds,
+  };
 }
 
 // ============================================================================
@@ -4167,6 +5750,162 @@ export const createAgentTemplateVersionSnapshot = mutation({
   },
 });
 
+export async function runAgentTemplateVersionPublishLifecycle(
+  ctx: MutationCtx,
+  args: {
+    actor: TemplateLifecycleExecutionActor;
+    templateId: Id<"objects">;
+    templateVersionId: Id<"objects">;
+    publishReason?: string;
+  },
+) {
+  const template = await ctx.db.get(args.templateId);
+  if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template agent not found.",
+    });
+  }
+  const version = await ctx.db.get(args.templateVersionId);
+  if (!version || version.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "Template version snapshot not found.",
+    });
+  }
+  const versionProps =
+    (version.customProperties as Record<string, unknown> | undefined) ?? {};
+  const sourceTemplateId = normalizeOptionalString(versionProps.sourceTemplateId);
+  if (sourceTemplateId !== String(args.templateId)) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message: "Template version does not belong to template.",
+    });
+  }
+
+  const now = Date.now();
+  const templateProps =
+    (template.customProperties as Record<string, unknown> | undefined) ?? {};
+  const versionTag = normalizeOptionalString(versionProps.versionTag);
+  if (!versionTag) {
+    throw new ConvexError({
+      code: "INVALID_ARGUMENT",
+      message: "Template version snapshot is missing versionTag.",
+    });
+  }
+  const currentVersionLifecycle = normalizeTemplateVersionLifecycleStatus(
+    versionProps.lifecycleStatus
+  );
+  if (currentVersionLifecycle === "deprecated") {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Deprecated template version cannot be published.",
+    });
+  }
+
+  const certificationEvaluation = await ensureTemplateVersionCertificationForLifecycle(ctx, {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    templateVersionTag: versionTag,
+    recordedByUserId: args.actor.auditUserId ?? (args.actor.performedBy as Id<"users">),
+  });
+  if (!certificationEvaluation.allowed) {
+    await writeTemplateWaeGateBlockedEvent({
+      ctx,
+      organizationId: template.organizationId,
+      objectId: args.templateVersionId,
+      actionType: "agent_template.publish_blocked_wae_gate",
+      actor: args.actor,
+      resource: "template_version",
+      resourceId: String(args.templateVersionId),
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag: versionTag,
+      reasonCode: certificationEvaluation.reasonCode ?? "certification_invalid",
+      message:
+        certificationEvaluation.message
+        || "Template certification blocked template publication.",
+      gate: certificationEvaluation.certification,
+      timestamp: now,
+    });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message:
+        certificationEvaluation.message
+        || "Template certification blocked template publication.",
+    });
+  }
+
+  await ctx.db.patch(args.templateVersionId, {
+    customProperties: {
+      ...versionProps,
+      lifecycleStatus: "published",
+      publishedAt: now,
+      publishedBy: String(args.actor.auditUserId ?? args.actor.performedBy ?? ""),
+    },
+    updatedAt: now,
+  });
+
+  await ctx.db.patch(args.templateId, {
+    customProperties: {
+      ...templateProps,
+      templateVersion: versionTag,
+      templatePublishedVersion: versionTag,
+      templatePublishedVersionId: String(args.templateVersionId),
+      templateCurrentVersion: versionTag,
+      templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
+      templateLifecycleStatus: "published",
+      templateLifecycleUpdatedAt: now,
+      templateLifecycleUpdatedBy: String(
+        args.actor.auditUserId ?? args.actor.performedBy ?? "",
+      ),
+    },
+    updatedAt: now,
+  });
+
+  const lifecycleAudit = await writeTemplateLifecycleAuditEvent({
+    ctx,
+    organizationId: template.organizationId,
+    objectId: args.templateId,
+    actionType: "agent_template.version_published",
+    actor: args.actor,
+    objectScope: {
+      scope: "template_version",
+      templateId: String(args.templateId),
+      templateVersionId: String(args.templateVersionId),
+      templateVersionTag: versionTag,
+    },
+    before: {
+      templateLifecycleStatus: normalizeTemplateLifecycleStatus(
+        templateProps.templateLifecycleStatus
+      ),
+      templatePublishedVersion:
+        normalizeOptionalString(templateProps.templatePublishedVersion) || null,
+      versionLifecycleStatus: currentVersionLifecycle,
+    },
+    after: {
+      templateLifecycleStatus: "published",
+      templatePublishedVersion: versionTag,
+      versionLifecycleStatus: "published",
+    },
+    summary: {
+      event: "template_version_published",
+      publishReason: normalizeOptionalString(args.publishReason) || null,
+    },
+    timestamp: now,
+  });
+
+  return {
+    templateId: args.templateId,
+    templateVersionId: args.templateVersionId,
+    publishedVersion: versionTag,
+    templateLifecycleStatus: "published" as AgentTemplateLifecycleStatus,
+    versionLifecycleStatus: "published" as AgentTemplateVersionLifecycleStatus,
+    lifecycleObjectActionId: lifecycleAudit.objectActionId,
+    lifecycleAuditLogId: lifecycleAudit.auditLogId,
+  };
+}
+
 export const publishAgentTemplateVersion = mutation({
   args: {
     sessionId: v.string(),
@@ -4176,143 +5915,17 @@ export const publishAgentTemplateVersion = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await requireSuperAdminMutationSession(ctx, args.sessionId);
-    const template = await ctx.db.get(args.templateId);
-    if (!template || template.type !== AGENT_TEMPLATE_OBJECT_TYPE || template.status !== "template") {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Template agent not found.",
-      });
-    }
-    const version = await ctx.db.get(args.templateVersionId);
-    if (!version || version.type !== AGENT_TEMPLATE_VERSION_OBJECT_TYPE) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Template version snapshot not found.",
-      });
-    }
-    const versionProps =
-      (version.customProperties as Record<string, unknown> | undefined) ?? {};
-    const sourceTemplateId = normalizeOptionalString(versionProps.sourceTemplateId);
-    if (sourceTemplateId !== String(args.templateId)) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "Template version does not belong to template.",
-      });
-    }
-
-    const now = Date.now();
-    const templateProps =
-      (template.customProperties as Record<string, unknown> | undefined) ?? {};
-    const versionTag = normalizeOptionalString(versionProps.versionTag);
-    if (!versionTag) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "Template version snapshot is missing versionTag.",
-      });
-    }
-    const currentVersionLifecycle = normalizeTemplateVersionLifecycleStatus(
-      versionProps.lifecycleStatus
-    );
-    if (currentVersionLifecycle === "deprecated") {
-      throw new ConvexError({
-        code: "INVALID_STATE",
-        message: "Deprecated template version cannot be published.",
-      });
-    }
-
-    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
+    return await runAgentTemplateVersionPublishLifecycle(ctx, {
+      actor: {
+        performedBy: actor.userId,
+        auditUserId: actor.userId,
+        roleName: actor.roleName,
+        sessionId: actor.sessionId,
+      },
       templateId: args.templateId,
       templateVersionId: args.templateVersionId,
-      templateVersionTag: versionTag,
-      now,
+      publishReason: args.publishReason,
     });
-    if (!waeGate.allowed) {
-      await writeTemplateWaeGateBlockedEvent({
-        ctx,
-        organizationId: template.organizationId,
-        objectId: args.templateVersionId,
-        actionType: "agent_template.publish_blocked_wae_gate",
-        actor,
-        resource: "template_version",
-        resourceId: String(args.templateVersionId),
-        templateId: String(args.templateId),
-        templateVersionId: String(args.templateVersionId),
-        templateVersionTag: versionTag,
-        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
-        message: waeGate.message || "WAE rollout gate blocked template publication.",
-        gate: waeGate.gate,
-        timestamp: now,
-      });
-      throw new ConvexError({
-        code: "INVALID_STATE",
-        message: waeGate.message || "WAE rollout gate blocked template publication.",
-      });
-    }
-
-    await ctx.db.patch(args.templateVersionId, {
-      customProperties: {
-        ...versionProps,
-        lifecycleStatus: "published",
-        publishedAt: now,
-        publishedBy: String(actor.userId),
-      },
-      updatedAt: now,
-    });
-
-    await ctx.db.patch(args.templateId, {
-      customProperties: {
-        ...templateProps,
-        templateVersion: versionTag,
-        templatePublishedVersion: versionTag,
-        templatePublishedVersionId: String(args.templateVersionId),
-        templateCurrentVersion: versionTag,
-        templateLifecycleContractVersion: AGENT_TEMPLATE_LIFECYCLE_CONTRACT_VERSION,
-        templateLifecycleStatus: "published",
-        templateLifecycleUpdatedAt: now,
-        templateLifecycleUpdatedBy: String(actor.userId),
-      },
-      updatedAt: now,
-    });
-
-    await writeTemplateLifecycleAuditEvent({
-      ctx,
-      organizationId: template.organizationId,
-      objectId: args.templateId,
-      actionType: "agent_template.version_published",
-      actor,
-      objectScope: {
-        scope: "template_version",
-        templateId: String(args.templateId),
-        templateVersionId: String(args.templateVersionId),
-        templateVersionTag: versionTag,
-      },
-      before: {
-        templateLifecycleStatus: normalizeTemplateLifecycleStatus(
-          templateProps.templateLifecycleStatus
-        ),
-        templatePublishedVersion:
-          normalizeOptionalString(templateProps.templatePublishedVersion) || null,
-        versionLifecycleStatus: currentVersionLifecycle,
-      },
-      after: {
-        templateLifecycleStatus: "published",
-        templatePublishedVersion: versionTag,
-        versionLifecycleStatus: "published",
-      },
-      summary: {
-        event: "template_version_published",
-        publishReason: normalizeOptionalString(args.publishReason) || null,
-      },
-      timestamp: now,
-    });
-
-    return {
-      templateId: args.templateId,
-      templateVersionId: args.templateVersionId,
-      publishedVersion: versionTag,
-      templateLifecycleStatus: "published" as AgentTemplateLifecycleStatus,
-      versionLifecycleStatus: "published" as AgentTemplateVersionLifecycleStatus,
-    };
   },
 });
 
@@ -4555,6 +6168,9 @@ export async function runTemplateDistributionLifecycle(
         )?.baselineCustomProperties as Record<string, unknown> | undefined
       ) ?? pickTemplateBaselineSnapshot(templateProps)
     : pickTemplateBaselineSnapshot(templateProps);
+  const isDefaultOperatorTemplate =
+    normalizeOptionalString(templateProps.templateRole)
+    === DEFAULT_ORG_AGENT_TEMPLATE_ROLE;
 
   const requestedTargetOrganizationIds = dedupeAndSortObjectIds(args.targetOrganizationIds);
   const rawStageSize = args.stagedRollout?.stageSize;
@@ -4597,13 +6213,19 @@ export async function runTemplateDistributionLifecycle(
     args.overridePolicyGate?.confirmWarnOverride === true &&
     normalizedOverrideReason !== null;
 
-  const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
-    templateId: args.templateId,
-    templateVersionId: resolvedTemplateVersionId,
-    templateVersionTag: resolvedVersionTag,
-    now,
-  });
-  if (!waeGate.allowed) {
+  const certificationEvaluation = resolvedTemplateVersionId
+    ? await ensureTemplateVersionCertificationForLifecycle(ctx, {
+        templateId: args.templateId,
+        templateVersionId: resolvedTemplateVersionId,
+        templateVersionTag: resolvedVersionTag,
+        recordedByUserId: args.actor.auditUserId ?? (args.actor.performedBy as Id<"users">),
+      })
+    : await evaluateTemplateCertificationForTemplateVersion(ctx, {
+        templateId: args.templateId,
+        templateVersionId: null,
+        templateVersionTag: resolvedVersionTag,
+      });
+  if (!certificationEvaluation.allowed) {
     await writeTemplateWaeGateBlockedEvent({
       ctx,
       organizationId: template.organizationId,
@@ -4615,14 +6237,18 @@ export async function runTemplateDistributionLifecycle(
       templateId: String(args.templateId),
       templateVersionId: resolvedTemplateVersionId ? String(resolvedTemplateVersionId) : null,
       templateVersionTag: resolvedVersionTag,
-      reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
-      message: waeGate.message || "WAE rollout gate blocked template distribution.",
-      gate: waeGate.gate,
+      reasonCode: certificationEvaluation.reasonCode ?? "certification_invalid",
+      message:
+        certificationEvaluation.message
+        || "Template certification blocked template distribution.",
+      gate: certificationEvaluation.certification,
       timestamp: now,
     });
     throw new ConvexError({
       code: "INVALID_STATE",
-      message: waeGate.message || "WAE rollout gate blocked template distribution.",
+      message:
+        certificationEvaluation.message
+        || "Template certification blocked template distribution.",
     });
   }
 
@@ -4633,17 +6259,25 @@ export async function runTemplateDistributionLifecycle(
     existingCloneId?: Id<"objects">;
     changedFields: string[];
     writableTemplateFields: TemplateCloneDriftField[];
+    blockCategory?: TemplateDistributionBlockCategory;
     policyGate?: TemplateOverrideGateSummary;
+    orgPreflight?: TemplateOrgPreflightResult;
   }> = [];
   const applyResults: Array<{
     organizationId: Id<"organizations">;
     cloneAgentId?: Id<"objects">;
     operation: TemplateDistributionOperation;
     reason?: string;
+    blockCategory?: TemplateDistributionBlockCategory;
     policyGate?: TemplateOverrideGateSummary;
+    orgPreflight?: TemplateOrgPreflightResult;
   }> = [];
 
   for (const organizationId of targetOrganizationIds) {
+    const orgPreflight = await evaluateTemplateOrgPreflight(ctx, {
+      organizationId,
+      templateBaseline: snapshotBaseline,
+    });
     const orgAgents = await ctx.db
       .query("objects")
       .withIndex("by_org_type", (q) =>
@@ -4661,6 +6295,22 @@ export async function runTemplateDistributionLifecycle(
 
     const existingClone = managedTemplateClones[0];
     if (!existingClone) {
+      if (orgPreflight.status === "fail") {
+        plan.push({
+          organizationId,
+          operation: "blocked",
+          reason: "org_preflight_failed",
+          changedFields: [
+            "templateAgentId",
+            "templateVersion",
+            "templateCloneLinkage",
+          ],
+          writableTemplateFields: [],
+          blockCategory: "org_preflight",
+          orgPreflight,
+        });
+        continue;
+      }
       plan.push({
         organizationId,
         operation: "create",
@@ -4671,6 +6321,8 @@ export async function runTemplateDistributionLifecycle(
           "templateCloneLinkage",
         ],
         writableTemplateFields: [],
+        blockCategory: "none",
+        orgPreflight,
       });
       continue;
     }
@@ -4734,14 +6386,42 @@ export async function runTemplateDistributionLifecycle(
       ...writableTemplateFields,
     ]);
     if (finalChangedFields.length === 0) {
+      if (orgPreflight.status === "fail") {
+        plan.push({
+          organizationId,
+          existingCloneId: existingClone._id,
+          operation: "blocked",
+          reason: "org_preflight_failed",
+          changedFields: finalChangedFields,
+          writableTemplateFields,
+          blockCategory: "org_preflight",
+          policyGate: overrideGate || undefined,
+          orgPreflight,
+        });
+      } else {
+        plan.push({
+          organizationId,
+          existingCloneId: existingClone._id,
+          operation: "skip",
+          reason: "already_in_sync",
+          changedFields: finalChangedFields,
+          writableTemplateFields,
+          blockCategory: "none",
+          policyGate: overrideGate || undefined,
+          orgPreflight,
+        });
+      }
+    } else if (orgPreflight.status === "fail") {
       plan.push({
         organizationId,
         existingCloneId: existingClone._id,
-        operation: "skip",
-        reason: "already_in_sync",
+        operation: "blocked",
+        reason: "org_preflight_failed",
         changedFields: finalChangedFields,
         writableTemplateFields,
+        blockCategory: "org_preflight",
         policyGate: overrideGate || undefined,
+        orgPreflight,
       });
     } else if (blockedByLocked || blockedByWarn) {
       plan.push({
@@ -4753,7 +6433,9 @@ export async function runTemplateDistributionLifecycle(
           : "warn_override_confirmation_required",
         changedFields: finalChangedFields,
         writableTemplateFields,
+        blockCategory: "policy",
         policyGate: overrideGate || undefined,
+        orgPreflight,
       });
     } else {
       plan.push({
@@ -4763,7 +6445,9 @@ export async function runTemplateDistributionLifecycle(
         reason: "template_version_drift",
         changedFields: finalChangedFields,
         writableTemplateFields,
+        blockCategory: "none",
         policyGate: overrideGate || undefined,
+        orgPreflight,
       });
     }
   }
@@ -4775,7 +6459,9 @@ export async function runTemplateDistributionLifecycle(
           organizationId: row.organizationId,
           operation: row.operation,
           reason: row.reason,
+          blockCategory: row.blockCategory,
           policyGate: row.policyGate,
+          orgPreflight: row.orgPreflight,
         });
         continue;
       }
@@ -4791,8 +6477,10 @@ export async function runTemplateDistributionLifecycle(
               templateId: String(args.templateId),
               templateVersion: resolvedVersionTag,
               reason: row.reason,
+              blockCategory: row.blockCategory,
               changedFields: row.changedFields,
               policyGate: row.policyGate,
+              orgPreflight: row.orgPreflight,
             },
             performedBy: args.actor.performedBy,
             performedAt: now,
@@ -4810,8 +6498,10 @@ export async function runTemplateDistributionLifecycle(
               templateId: String(args.templateId),
               templateVersion: resolvedVersionTag,
               reason: row.reason,
+              blockCategory: row.blockCategory,
               changedFields: row.changedFields,
               policyGate: row.policyGate,
+              orgPreflight: row.orgPreflight,
             },
             createdAt: now,
           });
@@ -4820,7 +6510,9 @@ export async function runTemplateDistributionLifecycle(
           organizationId: row.organizationId,
           operation: row.operation,
           reason: row.reason,
+          blockCategory: row.blockCategory,
           policyGate: row.policyGate,
+          orgPreflight: row.orgPreflight,
         });
         continue;
       }
@@ -4853,6 +6545,9 @@ export async function runTemplateDistributionLifecycle(
             lastTemplateSyncAt: now,
             lastTemplateJobId: deterministicJobId,
             creationSource: "catalog_clone",
+            ...(isDefaultOperatorTemplate
+              ? { operatorId: DEFAULT_OPERATOR_CONTEXT_ID }
+              : {}),
           },
           createdBy: args.actor.auditUserId,
           createdAt: now,
@@ -4869,8 +6564,10 @@ export async function runTemplateDistributionLifecycle(
             templateId: String(args.templateId),
             templateVersion: resolvedVersionTag,
             reason: normalizedReason,
+            blockCategory: row.blockCategory,
             changedFields: row.changedFields,
             policyGate: row.policyGate,
+            orgPreflight: row.orgPreflight,
           },
           performedBy: args.actor.performedBy,
           performedAt: now,
@@ -4888,8 +6585,10 @@ export async function runTemplateDistributionLifecycle(
             templateId: String(args.templateId),
             templateVersion: resolvedVersionTag,
             reason: normalizedReason,
+            blockCategory: row.blockCategory,
             changedFields: row.changedFields,
             policyGate: row.policyGate,
+            orgPreflight: row.orgPreflight,
           },
           createdAt: now,
         });
@@ -4899,7 +6598,9 @@ export async function runTemplateDistributionLifecycle(
           cloneAgentId: cloneId,
           operation: "create",
           reason: row.reason,
+          blockCategory: row.blockCategory,
           policyGate: row.policyGate,
+          orgPreflight: row.orgPreflight,
         });
         continue;
       }
@@ -4911,7 +6612,9 @@ export async function runTemplateDistributionLifecycle(
             organizationId: row.organizationId,
             operation: "blocked",
             reason: "missing_clone",
+            blockCategory: "org_preflight",
             policyGate: row.policyGate,
+            orgPreflight: row.orgPreflight,
           });
           continue;
         }
@@ -4949,6 +6652,13 @@ export async function runTemplateDistributionLifecycle(
             templateCloneLinkage,
             lastTemplateSyncAt: now,
             lastTemplateJobId: deterministicJobId,
+            ...(isDefaultOperatorTemplate
+              ? {
+                  operatorId:
+                    normalizeOptionalString(existingProps.operatorId)
+                    || DEFAULT_OPERATOR_CONTEXT_ID,
+                }
+              : {}),
           },
           updatedAt: now,
         });
@@ -4963,8 +6673,10 @@ export async function runTemplateDistributionLifecycle(
             templateId: String(args.templateId),
             templateVersion: resolvedVersionTag,
             reason: normalizedReason,
+            blockCategory: row.blockCategory,
             changedFields: row.changedFields,
             policyGate: row.policyGate,
+            orgPreflight: row.orgPreflight,
           },
           performedBy: args.actor.performedBy,
           performedAt: now,
@@ -4982,8 +6694,10 @@ export async function runTemplateDistributionLifecycle(
             templateId: String(args.templateId),
             templateVersion: resolvedVersionTag,
             reason: normalizedReason,
+            blockCategory: row.blockCategory,
             changedFields: row.changedFields,
             policyGate: row.policyGate,
+            orgPreflight: row.orgPreflight,
           },
           createdAt: now,
         });
@@ -4993,7 +6707,9 @@ export async function runTemplateDistributionLifecycle(
           cloneAgentId: row.existingCloneId,
           operation: "update",
           reason: row.reason,
+          blockCategory: row.blockCategory,
           policyGate: row.policyGate,
+          orgPreflight: row.orgPreflight,
         });
       }
     }
@@ -5002,6 +6718,7 @@ export async function runTemplateDistributionLifecycle(
   const planSummary = summarizeTemplateDistributionOperations(plan);
   const applySummary = summarizeTemplateDistributionOperations(applyResults);
   const policyGateSummary = summarizeTemplateDistributionPolicyGates(plan);
+  const orgPreflightSummary = summarizeTemplateDistributionOrgPreflight(plan);
   const reasonCounts = {
     plan: summarizeTemplateDistributionReasonCounts(plan),
     applied: summarizeTemplateDistributionReasonCounts(
@@ -5038,6 +6755,7 @@ export async function runTemplateDistributionLifecycle(
         applied: applySummary,
       },
       policyGates: policyGateSummary,
+      orgPreflight: orgPreflightSummary,
       reasonCounts,
       overridePolicyGate: {
         confirmWarnOverride: warnConfirmationAccepted,
@@ -5068,6 +6786,7 @@ export async function runTemplateDistributionLifecycle(
       applied: applySummary,
     },
     policyGates: policyGateSummary,
+    orgPreflight: orgPreflightSummary,
     reasonCounts,
     plan: plan.map((row) => ({
       organizationId: row.organizationId,
@@ -5076,7 +6795,9 @@ export async function runTemplateDistributionLifecycle(
       existingCloneId: row.existingCloneId,
       changedFields: row.changedFields,
       writableTemplateFields: row.writableTemplateFields,
+      blockCategory: row.blockCategory,
       policyGate: row.policyGate,
+      orgPreflight: row.orgPreflight,
     })),
     applied: applyResults,
     overridePolicyGate: {
@@ -5593,6 +7314,7 @@ export const listTemplateRolloutOptions = query({
         lifecycleStatus: AgentTemplateVersionLifecycleStatus;
         createdAt: number;
         updatedAt: number;
+        certification: TemplateVersionAdminCertificationSummary;
       }>
     >();
     for (const version of versions) {
@@ -5605,6 +7327,11 @@ export const listTemplateRolloutOptions = query({
       const versionTag =
         resolveTemplateVersionTagFromVersionObject(customProperties) ||
         `${String(version._id)}@${version.updatedAt}`;
+      const certification = await buildTemplateVersionAdminCertificationSummary(ctx, {
+        templateId: sourceTemplateId as Id<"objects">,
+        templateVersionId: version._id,
+        templateVersionTag: versionTag,
+      });
       const row = {
         templateVersionId: version._id,
         versionTag,
@@ -5613,6 +7340,7 @@ export const listTemplateRolloutOptions = query({
         ),
         createdAt: version.createdAt,
         updatedAt: version.updatedAt,
+        certification,
       };
       const existing = versionsByTemplateId.get(sourceTemplateId);
       if (existing) {
@@ -5716,6 +7444,7 @@ export const listTemplateLifecycleOptions = query({
         lifecycleStatus: AgentTemplateVersionLifecycleStatus;
         createdAt: number;
         updatedAt: number;
+        certification: TemplateVersionAdminCertificationSummary;
       }>
     >();
     for (const version of versions) {
@@ -5728,6 +7457,11 @@ export const listTemplateLifecycleOptions = query({
       const versionTag =
         resolveTemplateVersionTagFromVersionObject(customProperties) ||
         `${String(version._id)}@${version.updatedAt}`;
+      const certification = await buildTemplateVersionAdminCertificationSummary(ctx, {
+        templateId: sourceTemplateId as Id<"objects">,
+        templateVersionId: version._id,
+        templateVersionTag: versionTag,
+      });
       const row = {
         templateVersionId: version._id,
         versionTag,
@@ -5736,6 +7470,7 @@ export const listTemplateLifecycleOptions = query({
         ),
         createdAt: version.createdAt,
         updatedAt: version.updatedAt,
+        certification,
       };
       const existing = versionsByTemplateId.get(sourceTemplateId);
       if (existing) {

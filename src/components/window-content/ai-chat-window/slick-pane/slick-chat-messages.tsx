@@ -24,6 +24,7 @@ import {
   CHAT_MESSAGE_TEXT_CLASS,
   CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
 } from "../message-content-styles"
+import { ChatMarkdownMessage } from "../chat-markdown-message"
 
 type ChatMessage = {
   _id?: string
@@ -577,9 +578,7 @@ export function SlickChatMessages({
                     background: "var(--shell-surface-elevated)",
                   }}
                 >
-                  <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
-                    <div className={CHAT_MESSAGE_TEXT_CLASS}>{content}</div>
-                  </div>
+                  <ChatMarkdownMessage content={content} />
                 </div>
               </div>
             </div>

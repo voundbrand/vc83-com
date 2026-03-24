@@ -10,6 +10,7 @@ import {
   CHAT_MESSAGE_TEXT_LEADING_CLASS,
   CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
 } from "../message-content-styles"
+import { ChatMarkdownMessage } from "../chat-markdown-message"
 
 // User Message Component - LEFT SIDE (flipped from original)
 function UserMessage({ content }: { content: string }) {
@@ -57,11 +58,10 @@ function AssistantMessage({ content }: { content: string }) {
             ) : (
               <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
             )}
-            <div className={`flex-1 ${CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}`}>
-              <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>
-                {content.replace("[Tool Result] ", "")}
-              </div>
-            </div>
+            <ChatMarkdownMessage
+              className="flex-1"
+              content={content.replace("[Tool Result] ", "")}
+            />
           </div>
         </div>
       </div>
@@ -77,9 +77,7 @@ function AssistantMessage({ content }: { content: string }) {
           color: 'var(--shell-text)',
         }}
       >
-        <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
-          <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
-        </div>
+        <ChatMarkdownMessage content={content} />
       </div>
     </div>
   )
@@ -109,9 +107,7 @@ function ToolMessage({ content }: { content: string }) {
           ) : (
             <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--info)' }} />
           )}
-          <div className={`flex-1 ${CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}`}>
-            <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
-          </div>
+          <ChatMarkdownMessage className="flex-1" content={content} />
         </div>
       </div>
     </div>

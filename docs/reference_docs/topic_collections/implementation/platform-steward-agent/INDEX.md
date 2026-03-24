@@ -39,14 +39,18 @@ This workstream defines the control-plane architecture for **Mother**, a distinc
 6. `PSA-007` is complete: Mother proposal capture now validates explicit support/governance context, resolves the canonical `personal_life_operator_template`, runs the existing managed-clone distribution engine in dry-run mode only, and persists review artifacts that point at the resulting lifecycle evidence.
 7. `PSA-008` is complete: Mother review artifacts now record policy-family scope plus rollout-gate requirements, and proposal capture fails closed if org-local channel routing or telephony fields appear in Mother governance scope.
 8. `PSA-009` is complete: org baseline, onboarding, and auth/login flows now share one idempotent operator bootstrap invariant, keeping the org-owned One-of-One Operator clone as the authenticated desktop authority while Mother onboarding still hands off to that clone.
+9. `PSA-010` is complete: Mother governance now captures read-only `drift_audit`, `migration_plan`, and `org_intervention_review` artifacts with persisted dry-run review context, partial-rollout summaries, org intervention packets, Quinn alias-safe evidence, and linked lifecycle plan evidence without enabling customer-clone writes.
+10. `PSA-011` is complete: Mother governance now dispatches approved execution only from persisted governance review artifacts with approver identity, dry-run lifecycle correlation, Quinn alias-safe target resolution, and explicit publish/distribute/repair plans, while missing approval or dry-run evidence still fails closed.
+11. `PSA-012` is complete: explicit Mother telephony targeting now fails closed even under runtime misconfiguration, Quinn literal-name fallback remains valid for onboarding lookup, protected Mother seeds keep platform-only non-cloning invariants, and approved execution/non-mutation coverage now proves review-linked lifecycle evidence plus alias-mismatch fail-closed behavior.
+12. `PSA-013` is complete: the explicit customer-facing Mother support entrypoint now reuses an existing support conversation contract instead of silently creating a second rail, and internal governance surfaces can list, approve, and reject persisted Mother review artifacts programmatically while keeping execution on the existing approval-gated path.
+13. `PSA-014` is complete: Mother support now stays fail closed behind explicit feature flags plus a platform-owned support-release contract, canary access can only be allowlisted from approved governance review artifacts, and Quinn alias compatibility remains required until rename safety is explicitly reviewed.
 
 Immediate objective:
 
-1. add read-only Mother drift-audit and migration-planning review flows on top of the current review artifact contract,
-2. keep the org-owned One-of-One Operator clone as the only default authenticated desktop authority,
-3. preserve onboarding continuity while broadening Quinn into Mother,
-4. keep authenticated Mother access explicit and isolated from default routing,
-5. keep Mother governance read-only until later approved-execution contracts exist.
+1. preserve the org-owned One-of-One Operator clone as the only default authenticated desktop authority,
+2. keep onboarding continuity while Quinn alias compatibility remains in place,
+3. keep authenticated Mother access explicit, isolated, and fail closed until a future scoped release intentionally changes the support rollout stage,
+4. keep Mother execution fail closed whenever review, approval, alias, or rollout evidence is missing.
 
 ---
 
@@ -78,8 +82,8 @@ Upstream reality anchors:
 - [x] Lane A architecture freeze and Quinn-to-Mother ontology decision (`PSA-001`, `PSA-002`)
 - [x] Lane B Mother identity evolution, alias compatibility, support reachability, and routing isolation (`PSA-003`..`PSA-005`)
 - [x] Lane C governance artifacts and template lifecycle hooks (`PSA-006`..`PSA-008`)
-- [ ] Lane D bootstrap, migration, and approved execution sequencing (`PSA-009`..`PSA-011`)
-- [ ] Lane E tests, internal ops wiring, and rollout closeout (`PSA-012`..`PSA-014`)
+- [x] Lane D bootstrap, migration, and approved execution sequencing (`PSA-009`..`PSA-011`)
+- [x] Lane E tests, internal ops wiring, and rollout closeout (`PSA-012`..`PSA-014`)
 
 ---
 

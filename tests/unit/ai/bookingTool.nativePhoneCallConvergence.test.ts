@@ -296,6 +296,192 @@ describe("manage_bookings native convergence", () => {
     expect(ctx.runMutation).not.toHaveBeenCalled();
   });
 
+  it("creates Kanzlei-configured phone-call bookings on the configured lawyer calendar path", async () => {
+    const ctx = buildCtx({
+      runQuery: async (ref, payload) => {
+        const functionName = getFunctionName(ref as any);
+        if (functionName === GET_KANZLEI_BOOKING_CONCIERGE_CONFIG_INTERNAL) {
+          return {
+            contractVersion: "kanzlei_booking_concierge_config_v1",
+            primaryResourceId: String(RESOURCE_ID),
+            primaryResourceLabel: "Arbeitsrecht Erstberatung",
+            operatorCalendarConnectionId: "oauth_kanzlei_calendar",
+            timezone: "Europe/Berlin",
+            defaultMeetingTitle: "Arbeitsrecht Erstberatung",
+            intakeLabel: "Erstberatung",
+            requireConfiguredResource: true,
+          };
+        }
+        if (functionName === SEARCH_CONTACTS) {
+          return [
+            {
+              _id: CONTACT_ID,
+              name: "Jordan Lee",
+              customProperties: {
+                email: "jordan@example.com",
+                phone: "+49123456789",
+              },
+            },
+          ];
+        }
+        if (functionName === GET_PRODUCT) {
+          expect(payload).toEqual({
+            productId: String(RESOURCE_ID),
+          });
+          return {
+            _id: RESOURCE_ID,
+            organizationId: ORG_ID,
+            name: "Arbeitsrecht Erstberatung",
+          };
+        }
+        if (functionName === GET_AVAILABLE_SLOTS_INTERNAL) {
+          expect(payload).toMatchObject({
+            organizationId: ORG_ID,
+            resourceId: RESOURCE_ID,
+            timezone: "Europe/Berlin",
+          });
+          return [
+            {
+              startDateTime: SLOT_ONE_START,
+              endDateTime: SLOT_ONE_START + SLOT_DURATION_MS,
+            },
+            {
+              startDateTime: SLOT_TWO_START,
+              endDateTime: SLOT_TWO_START + SLOT_DURATION_MS,
+            },
+          ];
+        }
+        if (functionName === GET_CONNECTION_BUSY_WINDOWS_INTERNAL) {
+          expect(payload).toEqual({
+            organizationId: ORG_ID,
+            connectionId: "oauth_kanzlei_calendar",
+            startDateTime: Date.parse("2026-03-18T08:00:00.000Z"),
+            endDateTime: Date.parse("2026-03-18T12:00:00.000Z"),
+          });
+          return {
+            status: "resolved",
+            blockedReasons: [],
+            busyWindows: [
+              {
+                startDateTime: SLOT_ONE_START,
+                endDateTime: SLOT_ONE_START + SLOT_DURATION_MS,
+              },
+            ],
+          };
+        }
+        if (functionName === GET_OBJECTS) {
+          return [];
+        }
+        throw new Error("Unexpected query ref");
+      },
+      runMutation: async (ref, payload) => {
+        const functionName = getFunctionName(ref as any);
+        if (functionName === CREATE_BOOKING_INTERNAL) {
+          expect(payload).toMatchObject({
+            organizationId: ORG_ID,
+            userId: USER_ID,
+            resourceIds: [RESOURCE_ID],
+            customerId: CONTACT_ID,
+            customerName: "Jordan Lee",
+            customerEmail: "jordan@example.com",
+            customerPhone: "+49123456789",
+            startDateTime: SLOT_TWO_START,
+            endDateTime: SLOT_TWO_START + SLOT_DURATION_MS,
+            timezone: "Europe/Berlin",
+          });
+          return {
+            bookingId: BOOKING_ID,
+          };
+        }
+        if (functionName === SET_BOOKING_CONCIERGE_METADATA_INTERNAL) {
+          expect(payload).toMatchObject({
+            organizationId: ORG_ID,
+            bookingId: BOOKING_ID,
+            sourceChannel: "phone_call",
+            sourceExternalContactIdentifier: "+49123456789",
+            sourceProviderCallId: "call_configured_kanzlei",
+            sourceProviderConversationId: "conv_configured_kanzlei",
+          });
+          return {
+            bookingId: BOOKING_ID,
+          };
+        }
+        if (functionName === RECORD_PHONE_CALL_BOOKING_MIRROR_INTERNAL) {
+          expect(payload).toMatchObject({
+            organizationId: ORG_ID,
+            bookingId: BOOKING_ID,
+            personEmail: "jordan@example.com",
+            personPhone: "+49123456789",
+            selectedSlotStart: "2026-03-18T10:00:00.000Z",
+            selectedSlotEnd: "2026-03-18T10:30:00.000Z",
+          });
+          return {
+            artifactId: "artifact_configured_kanzlei",
+          };
+        }
+        throw new Error("Unexpected mutation ref");
+      },
+      runAction: async (ref, payload) => {
+        expect(getFunctionName(ref as any)).toBe(PUSH_BOOKING_TO_CALENDAR);
+        expect(payload).toEqual({
+          bookingId: BOOKING_ID,
+          organizationId: ORG_ID,
+        });
+        return {
+          success: true,
+          pushCount: 1,
+        };
+      },
+    });
+
+    const result = await (executeManageBookings as any)._handler(ctx, {
+      organizationId: ORG_ID,
+      userId: USER_ID,
+      action: ORG_BOOKING_CONCIERGE_TOOL_ACTION,
+      mode: "execute",
+      channel: "phone_call",
+      meetingConciergeExplicitConfirmDetected: true,
+      personName: "Jordan Lee",
+      personEmail: "jordan@example.com",
+      externalContactIdentifier: "+49123456789",
+      schedulingWindowStart: "2026-03-18T08:00:00.000Z",
+      schedulingWindowEnd: "2026-03-18T12:00:00.000Z",
+      meetingDurationMinutes: 30,
+      selectedSlotStart: "2026-03-18T10:00:00.000Z",
+      providerMessageId: "call_configured_kanzlei",
+      providerConversationId: "conv_configured_kanzlei",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data.resource).toEqual({
+      id: RESOURCE_ID,
+      name: "Arbeitsrecht Erstberatung",
+      source: "org_config",
+    });
+    expect(result.data.booking).toEqual({
+      id: String(BOOKING_ID),
+      title: "Arbeitsrecht Erstberatung",
+      startDateTime: "2026-03-18T10:00:00.000Z",
+      endDateTime: "2026-03-18T10:30:00.000Z",
+    });
+    expect(result.data.connectionSnapshots).toEqual([
+      {
+        source: "operator",
+        connectionId: "oauth_kanzlei_calendar",
+        status: "resolved",
+        blockedReasons: [],
+        busyCount: 1,
+      },
+    ]);
+    expect(result.data.calendarPush).toEqual({
+      success: true,
+      pushCount: 1,
+      error: undefined,
+    });
+    expect(result.data.phoneSafe.outcome).toBe("booking_confirmed");
+    expect(ctx.runAction).toHaveBeenCalledTimes(1);
+  });
+
   it("fails closed when the configured Kanzlei booking resource is invalid", async () => {
     const ctx = buildCtx({
       runQuery: async (ref, payload) => {

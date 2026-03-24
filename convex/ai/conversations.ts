@@ -1282,6 +1282,53 @@ export const getConversationMetadataInternal = internalQuery({
   },
 });
 
+export const findLatestConversationByUserTargetInternal = internalQuery({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    targetAgentId: v.id("objects"),
+    status: v.optional(v.union(v.literal("active"), v.literal("archived"))),
+  },
+  handler: async (ctx, args) => {
+    const expectedStatus = args.status ?? "active";
+    const conversations = await ctx.db
+      .query("aiConversations")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const match = conversations
+      .filter((conversation) =>
+        conversation.organizationId === args.organizationId
+        && conversation.targetAgentId === args.targetAgentId
+        && conversation.status === expectedStatus
+      )
+      .sort((left, right) => {
+        const updatedAtDelta = (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
+        if (updatedAtDelta !== 0) {
+          return updatedAtDelta;
+        }
+        return String(left._id).localeCompare(String(right._id));
+      })[0];
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      _id: match._id,
+      organizationId: match.organizationId,
+      userId: match.userId,
+      layerWorkflowId: match.layerWorkflowId,
+      targetAgentId: (match as { targetAgentId?: Id<"objects"> }).targetAgentId,
+      status: match.status,
+      title: match.title,
+      slug: match.slug,
+      createdAt: match.createdAt,
+      updatedAt: match.updatedAt,
+    };
+  },
+});
+
 /**
  * Aggregate chat model fallback rate for an organization.
  * Uses assistant aiMessages.modelResolution payloads.

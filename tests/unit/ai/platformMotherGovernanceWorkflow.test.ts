@@ -1,5 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION,
+  startPlatformMotherSupportConversation,
+} from "../../../convex/ai/chat";
 import {
   buildPlatformMotherDispatchExternalContactIdentifier,
   buildPlatformMotherInvocationMetadata,
@@ -8,18 +12,33 @@ import {
   PLATFORM_MOTHER_INVOCATION_CONTRACT_VERSION,
 } from "../../../convex/ai/platformMotherControlPlane";
 import {
+  capturePlatformMotherGovernanceReviewInternal,
   capturePlatformMotherProposalInternal,
+  configurePlatformMotherSupportReleaseInternal,
+  getPlatformMotherReviewArtifactInternal,
+  PLATFORM_MOTHER_REVIEW_ACTION_APPROVED,
+  PLATFORM_MOTHER_REVIEW_ACTION_REJECTED,
   PLATFORM_MOTHER_REVIEW_ACTION_RECORDED,
   PLATFORM_MOTHER_REVIEW_OBJECT_TYPE,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_ACTION_UPDATED,
+  PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_ACTION_UPDATED,
+  reviewPlatformMotherArtifactInternal,
+  setPlatformMotherSupportRouteFlagsInternal,
 } from "../../../convex/ai/platformMotherReviewArtifacts";
 import { DEFAULT_ORG_AGENT_TEMPLATE_ROLE } from "../../../convex/agentOntology";
 import {
+  PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
   PLATFORM_MOTHER_AUTHORITY_ROLE,
   PLATFORM_MOTHER_CANONICAL_NAME,
   PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
   PLATFORM_MOTHER_IDENTITY_ROLE,
+  PLATFORM_MOTHER_LEGACY_NAME,
   PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
   PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+  PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_GENERAL_AVAILABILITY,
+  PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_CONTRACT_VERSION,
   PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
 } from "../../../convex/platformMother";
 
@@ -38,6 +57,7 @@ const PLATFORM_ORG_ID = "organizations_platform";
 const CUSTOMER_ORG_ID = "organizations_customer";
 const CUSTOMER_ORG_B_ID = "organizations_customer_b";
 const ACTOR_USER_ID = "users_customer";
+const REVIEWER_USER_ID = "users_reviewer";
 const TEMPLATE_ID = "objects_operator_template";
 const TEMPLATE_VERSION_ID = "objects_operator_template_version";
 const MOTHER_SUPPORT_ID = "objects_mother_support";
@@ -152,6 +172,7 @@ function buildMotherRuntimeCandidate(args: {
   mode: "support" | "governance";
   runtimeRole: string;
   updatedAt?: number;
+  supportRelease?: Record<string, unknown>;
 }): Candidate {
   return {
     _id: args.id,
@@ -167,7 +188,34 @@ function buildMotherRuntimeCandidate(args: {
       runtimeRole: args.runtimeRole,
       agentClass: "internal_operator",
       protected: true,
+      canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+      legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
+      ...(args.mode === "support"
+        ? {
+            platformMotherSupportRelease:
+              args.supportRelease ?? buildSupportRelease(),
+          }
+        : {}),
     },
+  };
+}
+
+function buildSupportRelease(
+  overrides: Partial<{
+    stage: string;
+    canaryOrganizationIds: string[];
+  }> = {},
+) {
+  return {
+    contractVersion: PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+    stage:
+      overrides.stage ?? PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_GENERAL_AVAILABILITY,
+    canaryOrganizationIds: overrides.canaryOrganizationIds ?? [],
+    aliasCompatibilityMode: PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
+    renameCleanupReady: false,
+    reviewArtifactId: "objects_review_artifact",
+    approvedByUserId: REVIEWER_USER_ID,
+    reviewedAt: CREATED_AT,
   };
 }
 
@@ -177,6 +225,7 @@ function seedMotherRuntime(
     id: string;
     mode: "support" | "governance";
     runtimeRole: string;
+    supportRelease?: Record<string, unknown>;
   },
 ) {
   db.seed("objects", {
@@ -193,9 +242,41 @@ function seedMotherRuntime(
       identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
       runtimeMode: args.mode,
       runtimeRole: args.runtimeRole,
+      canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+      legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
       agentClass: "internal_operator",
       protected: true,
+      ...(args.mode === "support"
+        ? {
+            platformMotherSupportRelease:
+              args.supportRelease ?? {
+                contractVersion: PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+                stage: "internal_only",
+                canaryOrganizationIds: [],
+                aliasCompatibilityMode:
+                  PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
+                renameCleanupReady: false,
+              },
+          }
+        : {}),
     },
+  });
+}
+
+function seedOrganization(
+  db: FakeDb,
+  args: {
+    id: string;
+    name: string;
+    onboardingLifecycleState?: string | null;
+  },
+) {
+  db.seed("organizations", {
+    _id: args.id,
+    name: args.name,
+    onboardingLifecycleState: args.onboardingLifecycleState ?? "claimed_workspace",
+    createdAt: CREATED_AT - 300,
+    updatedAt: CREATED_AT - 300,
   });
 }
 
@@ -368,10 +449,16 @@ function seedSupportConversation(db: FakeDb, targetAgentId: string) {
 describe("platform Mother governance workflow contracts", () => {
   const previousPlatformOrgId = process.env.PLATFORM_ORG_ID;
   const previousTestOrgId = process.env.TEST_ORG_ID;
+  const previousIdentityEnabled = process.env.PLATFORM_MOTHER_IDENTITY_ENABLED;
+  const previousSupportRouteEnabled = process.env.PLATFORM_MOTHER_SUPPORT_ROUTE_ENABLED;
+  const previousRenameQuinnEnabled = process.env.PLATFORM_MOTHER_RENAME_QUINN_ENABLED;
 
   beforeEach(() => {
     delete process.env.PLATFORM_ORG_ID;
     process.env.TEST_ORG_ID = PLATFORM_ORG_ID;
+    delete process.env.PLATFORM_MOTHER_IDENTITY_ENABLED;
+    delete process.env.PLATFORM_MOTHER_SUPPORT_ROUTE_ENABLED;
+    delete process.env.PLATFORM_MOTHER_RENAME_QUINN_ENABLED;
   });
 
   afterEach(() => {
@@ -386,7 +473,30 @@ describe("platform Mother governance workflow contracts", () => {
     } else {
       process.env.TEST_ORG_ID = previousTestOrgId;
     }
+
+    if (previousIdentityEnabled === undefined) {
+      delete process.env.PLATFORM_MOTHER_IDENTITY_ENABLED;
+    } else {
+      process.env.PLATFORM_MOTHER_IDENTITY_ENABLED = previousIdentityEnabled;
+    }
+
+    if (previousSupportRouteEnabled === undefined) {
+      delete process.env.PLATFORM_MOTHER_SUPPORT_ROUTE_ENABLED;
+    } else {
+      process.env.PLATFORM_MOTHER_SUPPORT_ROUTE_ENABLED = previousSupportRouteEnabled;
+    }
+
+    if (previousRenameQuinnEnabled === undefined) {
+      delete process.env.PLATFORM_MOTHER_RENAME_QUINN_ENABLED;
+    } else {
+      process.env.PLATFORM_MOTHER_RENAME_QUINN_ENABLED = previousRenameQuinnEnabled;
+    }
   });
+
+  function enableMotherSupportRouteFlags() {
+    process.env.PLATFORM_MOTHER_IDENTITY_ENABLED = "true";
+    process.env.PLATFORM_MOTHER_SUPPORT_ROUTE_ENABLED = "true";
+  }
 
   it("selects the support runtime without falling back to governance", () => {
     const selected = selectPlatformMotherRuntimeInvocationTarget(
@@ -465,13 +575,26 @@ describe("platform Mother governance workflow contracts", () => {
     ).toBe("platform_mother:governance:org_customer:org_platform:dry_run_1");
   });
 
-  it("allows Mother support conversations while blocking governance as a cross-org chat target", () => {
+  it("fails closed for Mother support conversations until the support route canary is opened", () => {
+    const supportBlocked = canUsePlatformMotherConversationTarget({
+      conversationOrganizationId: "org_customer",
+      targetAgent: buildMotherRuntimeCandidate({
+        id: "mother_support",
+        mode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+      }),
+    });
+    enableMotherSupportRouteFlags();
     const supportAllowed = canUsePlatformMotherConversationTarget({
       conversationOrganizationId: "org_customer",
       targetAgent: buildMotherRuntimeCandidate({
         id: "mother_support",
         mode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
         runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+        supportRelease: buildSupportRelease({
+          stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+          canaryOrganizationIds: ["org_customer"],
+        }),
       }),
     });
     const governanceAllowed = canUsePlatformMotherConversationTarget({
@@ -483,8 +606,162 @@ describe("platform Mother governance workflow contracts", () => {
       }),
     });
 
+    expect(supportBlocked).toBe(false);
     expect(supportAllowed).toBe(true);
     expect(governanceAllowed).toBe(false);
+  });
+
+  it("reuses the explicit Mother support entrypoint when an active support thread already exists", async () => {
+    enableMotherSupportRouteFlags();
+
+    const runAction = vi.fn(async () => ({
+      agentId: MOTHER_SUPPORT_ID,
+      organizationId: PLATFORM_ORG_ID,
+      runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+      name: "Mother Support",
+      status: "active",
+      customProperties: {
+        authorityRole: PLATFORM_MOTHER_AUTHORITY_ROLE,
+        identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+        legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
+        platformMotherSupportRelease: buildSupportRelease({
+          stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+          canaryOrganizationIds: [CUSTOMER_ORG_ID],
+        }),
+      },
+    }));
+    const runQuery = vi.fn(async () => ({
+      _id: SUPPORT_CONVERSATION_ID,
+      status: "active" as const,
+    }));
+    const runMutation = vi.fn(async () => {
+      throw new Error("createConversation should not run when an active Mother support thread exists.");
+    });
+
+    const result = await (startPlatformMotherSupportConversation as any)._handler(
+      {
+        runAction,
+        runQuery,
+        runMutation,
+      },
+      {
+        organizationId: CUSTOMER_ORG_ID,
+        userId: ACTOR_USER_ID,
+        title: "Need platform help",
+      },
+    );
+
+    expect(runMutation).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        contractVersion: PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION,
+        conversationId: SUPPORT_CONVERSATION_ID,
+        targetAgentId: MOTHER_SUPPORT_ID,
+        targetOrganizationId: PLATFORM_ORG_ID,
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        conversationStatus: "active",
+        entrypointStatus: "reused",
+      }),
+    );
+  });
+
+  it("creates an explicit Mother support conversation when no active support thread exists", async () => {
+    enableMotherSupportRouteFlags();
+
+    const runAction = vi.fn(async () => ({
+      agentId: MOTHER_SUPPORT_ID,
+      organizationId: PLATFORM_ORG_ID,
+      runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+      name: "Mother Support",
+      status: "active",
+      customProperties: {
+        authorityRole: PLATFORM_MOTHER_AUTHORITY_ROLE,
+        identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+        legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
+        platformMotherSupportRelease: buildSupportRelease({
+          stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+          canaryOrganizationIds: [CUSTOMER_ORG_ID],
+        }),
+      },
+    }));
+    const runQuery = vi.fn(async () => null);
+    const runMutation = vi.fn(async () => "aiConversations_new_support");
+
+    const result = await (startPlatformMotherSupportConversation as any)._handler(
+      {
+        runAction,
+        runQuery,
+        runMutation,
+      },
+      {
+        organizationId: CUSTOMER_ORG_ID,
+        userId: ACTOR_USER_ID,
+        title: "Need platform help",
+      },
+    );
+
+    expect(runMutation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        organizationId: CUSTOMER_ORG_ID,
+        userId: ACTOR_USER_ID,
+        title: "Need platform help",
+        targetAgentId: MOTHER_SUPPORT_ID,
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        contractVersion: PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION,
+        conversationId: "aiConversations_new_support",
+        entrypointStatus: "created",
+        conversationStatus: "active",
+      }),
+    );
+  });
+
+  it("fails closed when the explicit Mother support entrypoint is not rollout-enabled for the org", async () => {
+    const runAction = vi.fn(async () => ({
+      agentId: MOTHER_SUPPORT_ID,
+      organizationId: PLATFORM_ORG_ID,
+      runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+      name: "Mother Support",
+      status: "active",
+      customProperties: {
+        authorityRole: PLATFORM_MOTHER_AUTHORITY_ROLE,
+        identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        canonicalIdentityName: PLATFORM_MOTHER_CANONICAL_NAME,
+        legacyIdentityAliases: [PLATFORM_MOTHER_LEGACY_NAME],
+        platformMotherSupportRelease: buildSupportRelease({
+          stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+          canaryOrganizationIds: ["organizations_other_canary"],
+        }),
+      },
+    }));
+    const runQuery = vi.fn();
+    const runMutation = vi.fn();
+
+    await expect(
+      (startPlatformMotherSupportConversation as any)._handler(
+        {
+          runAction,
+          runQuery,
+          runMutation,
+        },
+        {
+          organizationId: CUSTOMER_ORG_ID,
+          userId: ACTOR_USER_ID,
+          title: "Need platform help",
+        },
+      ),
+    ).rejects.toThrow(/support entry is not enabled/i);
+
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(runMutation).not.toHaveBeenCalled();
   });
 
   it("captures support proposals as Mother review artifacts with dry-run lifecycle evidence only", async () => {
@@ -597,6 +874,303 @@ describe("platform Mother governance workflow contracts", () => {
     expect(afterClone?.customProperties).toEqual(beforeClone?.customProperties);
   });
 
+  it("approves a Mother review artifact through internal programmatic controls without executing lifecycle", async () => {
+    const db = new FakeDb();
+    seedCanonicalOperatorTemplate(db);
+    seedMotherRuntime(db, {
+      id: MOTHER_SUPPORT_ID,
+      mode: "support",
+      runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_GOVERNANCE_ID,
+      mode: "governance",
+      runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedManagedClone(db, {
+      organizationId: CUSTOMER_ORG_ID,
+      id: "objects_customer_clone_a",
+    });
+    seedSupportConversation(db, MOTHER_SUPPORT_ID);
+
+    const proposal = await (capturePlatformMotherProposalInternal as any)._handler(
+      createCtx(db),
+      {
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        actorUserId: ACTOR_USER_ID,
+        sourceConversationId: SUPPORT_CONVERSATION_ID,
+        proposalSummary: "Approve the Mother support proposal for internal review.",
+      },
+    );
+
+    const approved = await (reviewPlatformMotherArtifactInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: proposal.artifactId,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        decision: "approve",
+        approval: {
+          approverUserId: REVIEWER_USER_ID,
+          approverRole: "super_admin",
+          reason: "Programmatic review approved the proposal.",
+          ticketId: "OPS-PSA-013",
+        },
+      },
+    );
+
+    expect(approved.artifact.approvalStatus).toBe("approved");
+    expect(approved.artifact.executionStatus).toBe("approved_no_execution");
+    expect(approved.artifact.approval?.approverUserId).toBe(REVIEWER_USER_ID);
+
+    const loaded = await (getPlatformMotherReviewArtifactInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: proposal.artifactId,
+      },
+    );
+    expect(
+      loaded?.evidence.objectActions.some(
+        (row: any) => row.actionType === PLATFORM_MOTHER_REVIEW_ACTION_APPROVED,
+      ),
+    ).toBe(true);
+    expect(
+      loaded?.evidence.objectActions.some(
+        (row: any) => row.actionType === PLATFORM_MOTHER_REVIEW_ACTION_REJECTED,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a Mother review artifact through internal programmatic controls and records audit evidence", async () => {
+    const db = new FakeDb();
+    seedCanonicalOperatorTemplate(db);
+    seedMotherRuntime(db, {
+      id: MOTHER_SUPPORT_ID,
+      mode: "support",
+      runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_GOVERNANCE_ID,
+      mode: "governance",
+      runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedManagedClone(db, {
+      organizationId: CUSTOMER_ORG_ID,
+      id: "objects_customer_clone_a",
+    });
+    seedSupportConversation(db, MOTHER_SUPPORT_ID);
+
+    const proposal = await (capturePlatformMotherProposalInternal as any)._handler(
+      createCtx(db),
+      {
+        runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
+        actorUserId: ACTOR_USER_ID,
+        sourceConversationId: SUPPORT_CONVERSATION_ID,
+        proposalSummary: "Reject the Mother support proposal for missing detail.",
+      },
+    );
+
+    const rejected = await (reviewPlatformMotherArtifactInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: proposal.artifactId,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        decision: "reject",
+        rejection: {
+          reviewerUserId: REVIEWER_USER_ID,
+          reasonCode: "missing_risk_notes",
+          reason: "Rollback and blast-radius notes are missing.",
+          ticketId: "OPS-PSA-013-R",
+        },
+      },
+    );
+
+    expect(rejected.artifact.approvalStatus).toBe("rejected");
+    expect(rejected.artifact.executionStatus).toBe("not_requested");
+    expect(rejected.artifact.rejection?.reviewerUserId).toBe(REVIEWER_USER_ID);
+
+    const loaded = await (getPlatformMotherReviewArtifactInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: proposal.artifactId,
+      },
+    );
+    expect(
+      loaded?.evidence.objectActions.some(
+        (row: any) => row.actionType === PLATFORM_MOTHER_REVIEW_ACTION_REJECTED,
+      ),
+    ).toBe(true);
+  });
+
+  it("records a canary-approved Mother support release from an approved governance review artifact", async () => {
+    const db = new FakeDb();
+    seedCanonicalOperatorTemplate(db);
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_ID,
+      name: "Customer A",
+    });
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_B_ID,
+      name: "Customer B",
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_SUPPORT_ID,
+      mode: "support",
+      runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_GOVERNANCE_ID,
+      mode: "governance",
+      runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedManagedClone(db, {
+      organizationId: CUSTOMER_ORG_ID,
+      id: "objects_customer_clone_a",
+    });
+
+    const review = await (capturePlatformMotherGovernanceReviewInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactKind: "migration_plan",
+        actorUserId: ACTOR_USER_ID,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        targetOrganizationIds: [CUSTOMER_ORG_B_ID, CUSTOMER_ORG_ID],
+        stagedRollout: {
+          stageSize: 1,
+        },
+      },
+    );
+    await (reviewPlatformMotherArtifactInternal as any)._handler(createCtx(db), {
+      artifactId: review.artifactId,
+      sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+      decision: "approve",
+      approval: {
+        approverUserId: REVIEWER_USER_ID,
+        approverRole: "super_admin",
+        reason: "Reviewed canary scope and Quinn rename safety evidence.",
+      },
+    });
+
+    const release = await (configurePlatformMotherSupportReleaseInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: review.artifactId,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        supportRuntimeId: MOTHER_SUPPORT_ID,
+        releaseStage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+        canaryOrganizationIds: [CUSTOMER_ORG_ID],
+      },
+    );
+
+    expect(release.releaseStatus).toEqual(
+      expect.objectContaining({
+        contractVersion: PLATFORM_MOTHER_SUPPORT_RELEASE_CONTRACT_VERSION,
+        stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+        canaryOrganizationIds: [CUSTOMER_ORG_ID],
+        reviewArtifactId: review.artifactId,
+        approvedByUserId: REVIEWER_USER_ID,
+      }),
+    );
+    const supportRuntime = db.rows("objects").find((row) => row._id === MOTHER_SUPPORT_ID);
+    expect(
+      supportRuntime?.customProperties?.platformMotherSupportRelease,
+    ).toEqual(expect.objectContaining({
+      stage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_CANARY,
+      canaryOrganizationIds: [CUSTOMER_ORG_ID],
+      reviewArtifactId: review.artifactId,
+    }));
+    expect(
+      db.rows("objectActions").some(
+        (row) => row.actionType === PLATFORM_MOTHER_SUPPORT_RELEASE_ACTION_UPDATED,
+      ),
+    ).toBe(true);
+  });
+
+  it("records Mother support route flags when a reviewed release is set live", async () => {
+    const db = new FakeDb();
+    seedCanonicalOperatorTemplate(db);
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_ID,
+      name: "Customer A",
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_SUPPORT_ID,
+      mode: "support",
+      runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_GOVERNANCE_ID,
+      mode: "governance",
+      runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedManagedClone(db, {
+      organizationId: CUSTOMER_ORG_ID,
+      id: "objects_customer_clone_a",
+    });
+
+    const review = await (capturePlatformMotherGovernanceReviewInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactKind: "migration_plan",
+        actorUserId: ACTOR_USER_ID,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        targetOrganizationIds: [CUSTOMER_ORG_ID],
+      },
+    );
+    await (reviewPlatformMotherArtifactInternal as any)._handler(createCtx(db), {
+      artifactId: review.artifactId,
+      sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+      decision: "approve",
+      approval: {
+        approverUserId: REVIEWER_USER_ID,
+        approverRole: "super_admin",
+        reason: "Reviewed live rollout artifact and Quinn alias safety evidence.",
+      },
+    });
+    await (configurePlatformMotherSupportReleaseInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: review.artifactId,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        supportRuntimeId: MOTHER_SUPPORT_ID,
+        releaseStage: PLATFORM_MOTHER_SUPPORT_RELEASE_STAGE_GENERAL_AVAILABILITY,
+      },
+    );
+
+    const routeFlags = await (setPlatformMotherSupportRouteFlagsInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: review.artifactId,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        supportRuntimeId: MOTHER_SUPPORT_ID,
+        actorUserId: REVIEWER_USER_ID,
+        enabled: true,
+      },
+    );
+
+    expect(routeFlags.routeFlags).toEqual(
+      expect.objectContaining({
+        contractVersion: PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_CONTRACT_VERSION,
+        identityEnabled: true,
+        supportRouteEnabled: true,
+        reviewArtifactId: review.artifactId,
+        updatedByUserId: REVIEWER_USER_ID,
+      }),
+    );
+    const supportRuntime = db.rows("objects").find((row) => row._id === MOTHER_SUPPORT_ID);
+    expect(
+      supportRuntime?.customProperties?.platformMotherSupportRouteFlags,
+    ).toEqual(expect.objectContaining({
+      identityEnabled: true,
+      supportRouteEnabled: true,
+      reviewArtifactId: review.artifactId,
+    }));
+    expect(
+      db.rows("objectActions").some(
+        (row) => row.actionType === PLATFORM_MOTHER_SUPPORT_ROUTE_FLAGS_ACTION_UPDATED,
+      ),
+    ).toBe(true);
+  });
+
   it("captures governance proposals against explicit rollout targets via the existing dry-run engine", async () => {
     const db = new FakeDb();
     seedCanonicalOperatorTemplate(db);
@@ -641,6 +1215,104 @@ describe("platform Mother governance workflow contracts", () => {
       [CUSTOMER_ORG_B_ID, "create"],
     ]);
     expect(result.artifact.executionStatus).toBe("dry_run_pending");
+  });
+
+  it("captures read-only migration review packets with partial-rollout and org-intervention context", async () => {
+    const db = new FakeDb();
+    seedCanonicalOperatorTemplate(db);
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_ID,
+      name: "Customer A",
+    });
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_B_ID,
+      name: "Customer B",
+    });
+    seedMotherRuntime(db, {
+      id: MOTHER_GOVERNANCE_ID,
+      mode: "governance",
+      runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedManagedClone(db, {
+      organizationId: CUSTOMER_ORG_ID,
+      id: "objects_customer_clone_a",
+    });
+
+    const beforeClone = db.rows("objects").find(
+      (row) => row._id === "objects_customer_clone_a",
+    );
+
+    const result = await (capturePlatformMotherGovernanceReviewInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactKind: "migration_plan",
+        actorUserId: ACTOR_USER_ID,
+        sourceMotherRuntimeId: MOTHER_GOVERNANCE_ID,
+        targetOrganizationIds: [CUSTOMER_ORG_B_ID, CUSTOMER_ORG_ID],
+        stagedRollout: {
+          stageSize: 1,
+        },
+      },
+    );
+
+    expect(result.artifact.artifactKind).toBe("migration_plan");
+    expect(result.artifact.reviewContext).toEqual(
+      expect.objectContaining({
+        requestedTargetOrganizationIds: [CUSTOMER_ORG_ID, CUSTOMER_ORG_B_ID],
+        stagedTargetOrganizationIds: [CUSTOMER_ORG_ID],
+        rolloutWindow: expect.objectContaining({
+          requestedTargetCount: 2,
+          stagedTargetCount: 1,
+          partialRolloutDetected: true,
+        }),
+        driftSummary: expect.objectContaining({
+          totalOrganizations: 2,
+          missingCloneCount: 1,
+          interventionCount: 2,
+        }),
+      }),
+    );
+    expect(result.artifact.aliasMigrationEvidence?.legacyIdentityAlias).toBe("Quinn");
+    expect(result.artifact.execution.downstreamObjectActionIds).toEqual([
+      result.dryRun.lifecycleActionId,
+    ]);
+    expect(result.reviewContext.interventionPackets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationId: CUSTOMER_ORG_B_ID,
+          reviewState: "missing_clone",
+          reviewReasons: expect.arrayContaining([
+            "missing_managed_clone",
+            "partial_rollout_deferred",
+          ]),
+        }),
+      ]),
+    );
+
+    const loaded = await (getPlatformMotherReviewArtifactInternal as any)._handler(
+      createCtx(db),
+      {
+        artifactId: result.artifactId,
+      },
+    );
+    expect(loaded?.evidence.relatedObjectActions).toHaveLength(1);
+    expect(loaded?.evidence.relatedObjectActions[0]?.actionType).toBe(
+      "template_distribution_plan_generated",
+    );
+
+    const objectActions = db.rows("objectActions");
+    expect(
+      objectActions.some((row) =>
+        row.actionType === "template_distribution_applied"
+        || row.actionType === "template_distribution_created"
+        || row.actionType === "template_distribution_updated",
+      ),
+    ).toBe(false);
+
+    const afterClone = db.rows("objects").find(
+      (row) => row._id === "objects_customer_clone_a",
+    );
+    expect(afterClone?.customProperties).toEqual(beforeClone?.customProperties);
   });
 
   it("rejects support proposal capture when the conversation target is not an active Mother support runtime", async () => {

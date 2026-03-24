@@ -9,7 +9,8 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { DURATION_MS } from "../lib/constants";
-import { evaluateWaeRolloutGateForTemplateVersion } from "./agentCatalogAdmin";
+import { ensureTemplateVersionCertificationForLifecycle } from "./agentCatalogAdmin";
+import { evaluateTemplateOrgPreflight } from "../agentOntology";
 import {
   MANAGED_USE_CASE_CLONE_LIFECYCLE,
   buildManagedTemplateCloneLinkage,
@@ -213,6 +214,7 @@ async function writeWaeSpawnBlockedAudit(args: {
   reasonCode: string;
   message: string;
   gate: unknown;
+  orgPreflight?: unknown;
   useCase: string;
   timestamp: number;
 }) {
@@ -225,6 +227,7 @@ async function writeWaeSpawnBlockedAudit(args: {
     reasonCode: args.reasonCode,
     message: args.message,
     gate: args.gate,
+    orgPreflight: args.orgPreflight ?? null,
     useCase: args.useCase,
     timestamp: args.timestamp,
   };
@@ -569,13 +572,27 @@ export const spawnUseCaseAgent = internalMutation({
 
     const publishedTemplateVersionId =
       normalizeOptionalString(templateProps.templatePublishedVersionId) || null;
-    const waeGate = await evaluateWaeRolloutGateForTemplateVersion(ctx, {
-      templateId: template._id,
-      templateVersionId: publishedTemplateVersionId as Id<"objects"> | null,
-      templateVersionTag: templateSourceVersion,
-      now,
-    });
-    if (!waeGate.allowed) {
+    const publishedTemplateVersion = publishedTemplateVersionId
+      ? await ctx.db.get(publishedTemplateVersionId as Id<"objects">)
+      : null;
+    const publishedTemplateVersionProps = asRecord(publishedTemplateVersion?.customProperties);
+    const publishedTemplateBaseline = asRecord(
+      asRecord(publishedTemplateVersionProps.snapshot).baselineCustomProperties,
+    );
+    const certificationEvaluation = publishedTemplateVersionId
+      ? await ensureTemplateVersionCertificationForLifecycle(ctx, {
+          templateId: template._id,
+          templateVersionId: publishedTemplateVersionId as Id<"objects">,
+          templateVersionTag: templateSourceVersion,
+          recordedByUserId: requestedByUserId,
+        })
+      : {
+          allowed: false,
+          reasonCode: "certification_missing",
+          message: "Template certification is missing for this protected template version.",
+          certification: null,
+        };
+    if (!certificationEvaluation.allowed) {
       await writeWaeSpawnBlockedAudit({
         ctx,
         organizationId: args.organizationId,
@@ -584,13 +601,46 @@ export const spawnUseCaseAgent = internalMutation({
         templateVersionTag: templateSourceVersion,
         requestedByUserId,
         ownerUserId: args.ownerUserId,
-        reasonCode: waeGate.reasonCode ?? "wae_gate_failed",
-        message: waeGate.message || "WAE rollout gate blocked managed clone spawning.",
-        gate: waeGate.gate,
+        reasonCode: certificationEvaluation.reasonCode ?? "certification_invalid",
+        message:
+          certificationEvaluation.message
+          || "Template certification blocked managed clone spawning.",
+        gate: certificationEvaluation.certification,
         useCase: args.useCase,
         timestamp: now,
       });
-      throw new Error(waeGate.message || "WAE rollout gate blocked managed clone spawning.");
+      throw new Error(
+        certificationEvaluation.message
+        || "Template certification blocked managed clone spawning.",
+      );
+    }
+
+    const orgPreflight = await evaluateTemplateOrgPreflight(ctx, {
+      organizationId: args.organizationId,
+      templateBaseline:
+        Object.keys(publishedTemplateBaseline).length > 0
+          ? publishedTemplateBaseline
+          : templateProps,
+    });
+    if (orgPreflight.status === "fail") {
+      await writeWaeSpawnBlockedAudit({
+        ctx,
+        organizationId: args.organizationId,
+        template,
+        templateVersionId: publishedTemplateVersionId,
+        templateVersionTag: templateSourceVersion,
+        requestedByUserId,
+        ownerUserId: args.ownerUserId,
+        reasonCode: "org_preflight_failed",
+        message: orgPreflight.blockers[0] || "Organization preflight blocked managed clone spawning.",
+        gate: certificationEvaluation.certification,
+        orgPreflight,
+        useCase: args.useCase,
+        timestamp: now,
+      });
+      throw new Error(
+        orgPreflight.blockers[0] || "Organization preflight blocked managed clone spawning.",
+      );
     }
 
     const normalizedPlaybook = normalizeOptionalString(args.playbook)?.toLowerCase() ?? null;

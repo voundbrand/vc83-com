@@ -262,6 +262,10 @@ export const agentCatalogSyncRuns = defineTable({
     seedsFull: v.number(),
     runtimeLive: v.number(),
     toolsMissing: v.number(),
+    published: v.optional(v.number()),
+    blockedAgents: v.optional(v.number()),
+    recommendationTagged: v.optional(v.number()),
+    recommendationMetadataStored: v.optional(v.number()),
   }),
   drift: v.object({
     docsOutOfSync: v.boolean(),

@@ -81,6 +81,11 @@ export function AgentDetailPanel({
   const agent = useQuery(apiAny.agentOntology.getAgent, { sessionId, agentId }) as any | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allAgents = useQuery(apiAny.agentOntology.getAgents, { sessionId, organizationId }) as any[] | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const telephonyPanelState = useQuery(
+    apiAny.integrations.telephony.getAgentTelephonyPanelState,
+    { sessionId, organizationId, agentId },
+  ) as any | undefined;
   const activateAgent = useMutation(apiAny.agentOntology.activateAgent);
   const pauseAgent = useMutation(apiAny.agentOntology.pauseAgent);
   const setPrimaryAgent = useMutation(apiAny.agentOntology.setPrimaryAgent);
@@ -101,6 +106,7 @@ export function AgentDetailPanel({
   const activeAgentCount = countActiveAgents(allAgents || [agent]);
   const canPause = canPauseAgentInUi(agent, activeAgentCount);
   const canMakePrimary = canMakePrimaryInUi(agent);
+  const telephonyDeployment = telephonyPanelState?.templateDeployment;
 
   return (
     <div className="flex flex-col h-full">
@@ -284,6 +290,46 @@ export function AgentDetailPanel({
                   </span>
                 </>
               )}
+            </>
+          )}
+          {telephonyDeployment?.certification?.status && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span
+                className="px-1 py-px rounded border"
+                style={{
+                  borderColor:
+                    telephonyDeployment.certification.status === "certified"
+                      ? "#15803d"
+                      : telephonyDeployment.certification.status === "auto_certifiable"
+                        ? "#b45309"
+                        : "#dc2626",
+                  color:
+                    telephonyDeployment.certification.status === "certified"
+                      ? "#166534"
+                      : telephonyDeployment.certification.status === "auto_certifiable"
+                        ? "#92400e"
+                        : "#991b1b",
+                }}
+              >
+                cert: {String(telephonyDeployment.certification.status).replace(/_/g, " ")}
+              </span>
+            </>
+          )}
+          {telephonyDeployment?.orgPreflight?.status && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span
+                className="px-1 py-px rounded border"
+                style={{
+                  borderColor:
+                    telephonyDeployment.orgPreflight.status === "pass" ? "#15803d" : "#dc2626",
+                  color:
+                    telephonyDeployment.orgPreflight.status === "pass" ? "#166534" : "#991b1b",
+                }}
+              >
+                preflight: {telephonyDeployment.orgPreflight.status}
+              </span>
             </>
           )}
         </div>

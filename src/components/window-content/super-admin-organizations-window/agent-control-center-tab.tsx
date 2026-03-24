@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { TemplateHubEntryPanel } from "@/components/window-content/agents/template-hub-entry-panel";
+import { AgentControlCenterWaeGateCard } from "./agent-control-center-wae-gate-card";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { api } = require("../../../../convex/_generated/api") as { api: any };
@@ -25,6 +26,41 @@ type TemplateHubSection = "catalog" | "versions" | "rollout";
 type ClonePolicyState = "in_sync" | "overridden" | "stale" | "blocked";
 type CloneRiskLevel = "low" | "medium" | "high";
 type SeedStatus = "full" | "skeleton" | "missing";
+type TemplateCertificationStatus = "certified" | "auto_certifiable" | "blocked";
+
+type TemplateVersionCertificationSummary = {
+  status: TemplateCertificationStatus;
+  reasonCode?: string;
+  message?: string;
+  riskTier?: "low" | "medium" | "high";
+  requiredVerification: string[];
+  dependencyDigest?: string;
+  recordedAt?: number;
+  autoCertificationEligible: boolean;
+  evidenceSources: string[];
+};
+
+type OrgPreflightSummary = {
+  contractVersion: "template_org_preflight_v1";
+  organizationId: string;
+  status: "pass" | "fail";
+  blockerCodes: string[];
+  blockers: string[];
+  checks: Array<{
+    checkId: string;
+    status: "pass" | "fail";
+    summary: string;
+  }>;
+  telephony: {
+    required: boolean;
+    providerKey: "elevenlabs" | "twilio_voice" | "custom_sip";
+    bindingEnabled: boolean;
+    credentialReady: boolean;
+    fromNumberReady: boolean;
+    webhookSecretReady: boolean;
+    missingTransferRoles: string[];
+  };
+};
 
 export type SeedStatusOverrideState = {
   seedStatus: SeedStatus;
@@ -252,6 +288,7 @@ type TemplateRolloutOptionsResponse = {
       lifecycleStatus: "draft" | "published" | "deprecated";
       createdAt: number;
       updatedAt: number;
+      certification: TemplateVersionCertificationSummary;
     }>;
   }>;
 };
@@ -351,18 +388,27 @@ type RolloutPlanResponse = {
     plan: Record<string, number>;
     applied: Record<string, number>;
   };
+  orgPreflight?: {
+    passing: number;
+    failing: number;
+    blockers: Record<string, number>;
+  };
   plan: Array<{
     organizationId: string;
     operation: "create" | "update" | "skip" | "blocked";
     reason: string;
     existingCloneId?: string;
     changedFields: string[];
+    blockCategory?: "none" | "policy" | "org_preflight";
+    orgPreflight?: OrgPreflightSummary;
   }>;
   applied: Array<{
     organizationId: string;
     cloneAgentId?: string;
     operation: "create" | "update" | "skip" | "blocked";
     reason?: string;
+    blockCategory?: "none" | "policy" | "org_preflight";
+    orgPreflight?: OrgPreflightSummary;
   }>;
 };
 
@@ -557,6 +603,30 @@ function compactCell(value: string): string {
   return value.replace(/_/g, " ");
 }
 
+function certificationTone(
+  status: TemplateCertificationStatus,
+): { color: string; bg: string; label: string } {
+  if (status === "certified") {
+    return { color: "#166534", bg: "#f0fdf4", label: "Certified" };
+  }
+  if (status === "auto_certifiable") {
+    return { color: "#92400e", bg: "#fef3c7", label: "Auto-Certifiable" };
+  }
+  return { color: "#991b1b", bg: "#fee2e2", label: "Blocked" };
+}
+
+function resolveCertificationSummary(
+  value: TemplateVersionCertificationSummary | undefined,
+): TemplateVersionCertificationSummary {
+  return value ?? {
+    status: "blocked",
+    message: "Certification data unavailable.",
+    requiredVerification: [],
+    autoCertificationEligible: false,
+    evidenceSources: [],
+  };
+}
+
 function normalizeSeedStatus(value?: string): SeedStatus {
   if (value === "full" || value === "skeleton") {
     return value;
@@ -737,7 +807,6 @@ export function AgentControlCenterTab() {
   const [deprecateVersionReasonDraft, setDeprecateVersionReasonDraft] = useState<string>("");
   const [templateLifecycleMessage, setTemplateLifecycleMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pendingTemplateLifecycleConfirmAction, setPendingTemplateLifecycleConfirmAction] = useState<TemplateLifecycleConfirmAction | null>(null);
-
   const triggerCatalogSync = useMutation(api.ai.agentCatalogAdmin.triggerCatalogSync);
   const setAgentBlocker = useMutation(api.ai.agentCatalogAdmin.setAgentBlocker);
   const setSeedStatusOverride = useMutation(api.ai.agentCatalogAdmin.setSeedStatusOverride);
@@ -759,7 +828,6 @@ export function AgentControlCenterTab() {
   const deprecateAgentTemplateLifecycle = useMutation(
     api.agentOntology.deprecateAgentTemplateLifecycle,
   );
-
   const overview = useQuery(
     api.ai.agentCatalogAdmin.getOverview,
     sessionId && isSuperAdmin
@@ -1225,8 +1293,12 @@ export function AgentControlCenterTab() {
     ? "No templates are available for rollout options yet."
     : !selectedRolloutTemplate
       ? "Select a template before generating a rollout preview."
-      : !hasSelectedTemplateVersions
-        ? "Selected template has no version snapshots yet. Create/publish a version first."
+    : !hasSelectedTemplateVersions
+      ? "Selected template has no version snapshots yet. Create/publish a version first."
+    : !selectedRolloutVersion
+      ? "Select a target version before generating rollout preview."
+      : resolveCertificationSummary(selectedRolloutVersion.certification).status === "blocked"
+        ? resolveCertificationSummary(selectedRolloutVersion.certification).message || "Selected version is not certified for rollout."
         : effectiveRolloutTargetOrgIds.length === 0
           ? "No target organizations currently have clones for the selected template."
           : null;
@@ -1262,6 +1334,8 @@ export function AgentControlCenterTab() {
           ? "No publishable version available."
           : selectedOrPublishableVersion.lifecycleStatus !== "draft"
             ? "Only draft versions are publishable."
+            : resolveCertificationSummary(selectedOrPublishableVersion.certification).status === "blocked"
+              ? resolveCertificationSummary(selectedOrPublishableVersion.certification).message || "Selected draft version is not certified for publish."
             : isSubmittingWrite
               ? "Wait for current write operation to complete."
               : null;
@@ -1997,7 +2071,7 @@ export function AgentControlCenterTab() {
           )}
           {templateHubSection === "versions" && (
             <div className="space-y-3">
-              <p>Version history view is active. Use sync runs and drift status above as the timeline source of truth.</p>
+              <p>Version history is now the certification console. Publishability is determined by exact version digest, risk tier, and recorded evidence, not age-based gate staleness.</p>
 
               {templateLifecycleMessage && (
                 <div
@@ -2070,6 +2144,63 @@ export function AgentControlCenterTab() {
                     <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                       No versions created yet.
                     </p>
+                  )}
+
+                  {selectedLifecycleVersion && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="border rounded p-2 space-y-1" style={{ borderColor: "var(--window-document-border)" }}>
+                        <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>Certification</p>
+                        {(() => {
+                          const certification = resolveCertificationSummary(selectedLifecycleVersion.certification);
+                          return (
+                            <>
+                              <span
+                                className="inline-flex px-1.5 py-0.5 rounded"
+                                style={{
+                                  color: certificationTone(certification.status).color,
+                                  background: certificationTone(certification.status).bg,
+                                }}
+                              >
+                                {certificationTone(certification.status).label}
+                              </span>
+                              <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                {certification.message || "No certification blockers."}
+                              </p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="border rounded p-2 space-y-1" style={{ borderColor: "var(--window-document-border)" }}>
+                        <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>Risk + verification</p>
+                        {(() => {
+                          const certification = resolveCertificationSummary(selectedLifecycleVersion.certification);
+                          return (
+                            <>
+                              <p>{certification.riskTier ?? "n/a"}</p>
+                              <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                {(certification.requiredVerification ?? []).join(", ") || "none"}
+                              </p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="border rounded p-2 space-y-1" style={{ borderColor: "var(--window-document-border)" }}>
+                        <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>Dependency digest</p>
+                        {(() => {
+                          const certification = resolveCertificationSummary(selectedLifecycleVersion.certification);
+                          return (
+                            <>
+                              <p className="break-all">
+                                {certification.dependencyDigest ?? "n/a"}
+                              </p>
+                              <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                                Recorded {formatDateTime(certification.recordedAt)}
+                              </p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   )}
 
                   {hasTemplateLifecycleVersions && !fallbackPublishableVersion && (
@@ -2199,6 +2330,8 @@ export function AgentControlCenterTab() {
                     )}
                   </div>
 
+                  <AgentControlCenterWaeGateCard />
+
                   {hasTemplateLifecycleVersions && (
                     <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
                       <table className="w-full text-[11px]">
@@ -2206,6 +2339,8 @@ export function AgentControlCenterTab() {
                           <tr style={{ background: "var(--window-document-bg-elevated)" }}>
                             <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Version</th>
                             <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Lifecycle</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Certification</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Risk</th>
                             <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Updated</th>
                           </tr>
                         </thead>
@@ -2216,6 +2351,7 @@ export function AgentControlCenterTab() {
                               : version.lifecycleStatus === "draft"
                                 ? "skeleton"
                                 : "missing");
+                            const certification = resolveCertificationSummary(version.certification);
                             return (
                               <tr key={version.templateVersionId}>
                                 <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
@@ -2225,6 +2361,20 @@ export function AgentControlCenterTab() {
                                   <span className="px-1 py-0.5 rounded" style={{ color: tone.color, background: tone.bg }}>
                                     {version.lifecycleStatus}
                                   </span>
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  <span
+                                    className="px-1 py-0.5 rounded"
+                                    style={{
+                                      color: certificationTone(certification.status).color,
+                                      background: certificationTone(certification.status).bg,
+                                    }}
+                                  >
+                                    {certificationTone(certification.status).label}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                  {certification.riskTier ?? "n/a"}
                                 </td>
                                 <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
                                   {formatDateTime(version.updatedAt)}
@@ -2243,8 +2393,7 @@ export function AgentControlCenterTab() {
           {templateHubSection === "rollout" && (
             <div className="space-y-3">
               <p>
-                Rollout actions are confirmation-gated and preserve deterministic precedence:
-                platform policy -&gt; template baseline -&gt; org clone overrides -&gt; runtime/session restrictions.
+                Rollout is now split cleanly: certification answers whether the version is good enough, org preflight answers whether each target org can run it now, and drift shows what will change.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -2358,6 +2507,44 @@ export function AgentControlCenterTab() {
                   />
                 </label>
               </div>
+
+              {selectedRolloutVersion && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-[11px]">
+                  <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>Certification</p>
+                    {(() => {
+                      const certification = resolveCertificationSummary(selectedRolloutVersion.certification);
+                      return (
+                        <span
+                          className="inline-flex mt-1 px-1.5 py-0.5 rounded"
+                          style={{
+                            color: certificationTone(certification.status).color,
+                            background: certificationTone(certification.status).bg,
+                          }}
+                        >
+                          {certificationTone(certification.status).label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>Risk tier</p>
+                    <p className="mt-1">{resolveCertificationSummary(selectedRolloutVersion.certification).riskTier ?? "n/a"}</p>
+                  </div>
+                  <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>Required verification</p>
+                    <p className="mt-1">
+                      {resolveCertificationSummary(selectedRolloutVersion.certification).requiredVerification.join(", ") || "none"}
+                    </p>
+                  </div>
+                  <div className="border rounded p-2" style={{ borderColor: "var(--window-document-border)" }}>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>Dependency digest</p>
+                    <p className="mt-1 break-all">
+                      {resolveCertificationSummary(selectedRolloutVersion.certification).dependencyDigest ?? "n/a"}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
                 <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
@@ -2554,6 +2741,14 @@ export function AgentControlCenterTab() {
                     Plan creates: {lastRolloutResult?.summary.plan.creates ?? 0} | updates: {lastRolloutResult?.summary.plan.updates ?? 0} | skips: {lastRolloutResult?.summary.plan.skips ?? 0} | blocked: {lastRolloutResult?.summary.plan.blocked ?? 0}
                   </p>
                   <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Org preflight: pass {lastRolloutResult?.orgPreflight?.passing ?? 0} | fail {lastRolloutResult?.orgPreflight?.failing ?? 0}
+                  </p>
+                  {lastRolloutResult?.orgPreflight && Object.keys(lastRolloutResult.orgPreflight.blockers).length > 0 && (
+                    <p className="text-[11px]" style={{ color: "#92400e" }}>
+                      Org blockers: {Object.entries(lastRolloutResult.orgPreflight.blockers).map(([code, count]) => `${code} (${count})`).join(", ")}
+                    </p>
+                  )}
+                  <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
                     Rollout plan ID: {lastRolloutResult?.distributionJobId ?? "n/a"}
                   </p>
 
@@ -2561,19 +2756,21 @@ export function AgentControlCenterTab() {
                   <div className="border rounded overflow-auto" style={{ borderColor: "var(--window-document-border)" }}>
                     <table className="w-full text-[11px]">
                       <thead>
-                        <tr style={{ background: "var(--window-document-bg-elevated)" }}>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org</th>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Operation</th>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Template version</th>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Existing clone</th>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Reason</th>
-                          <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Changed fields</th>
-                        </tr>
-                      </thead>
+                          <tr style={{ background: "var(--window-document-bg-elevated)" }}>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Operation</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Blocker lane</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Template version</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Existing clone</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Reason</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Changed fields</th>
+                            <th className="text-left px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>Org preflight</th>
+                          </tr>
+                        </thead>
                       <tbody>
                         {plannedRolloutRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-2 py-2 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                            <td colSpan={8} className="px-2 py-2 text-center" style={{ color: "var(--desktop-menu-text-muted)" }}>
                               No staged rollout plan rows found.
                             </td>
                           </tr>
@@ -2588,6 +2785,9 @@ export function AgentControlCenterTab() {
                                 {row.operation}
                               </td>
                               <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.blockCategory ?? "none"}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
                                 {lastRolloutResult?.templateVersion ?? selectedRolloutVersion?.versionTag ?? "n/a"}
                               </td>
                               <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
@@ -2598,6 +2798,13 @@ export function AgentControlCenterTab() {
                               </td>
                               <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
                                 {row.changedFields.length}
+                              </td>
+                              <td className="px-2 py-1 border-b" style={{ borderColor: "var(--window-document-border)" }}>
+                                {row.orgPreflight
+                                  ? row.orgPreflight.status === "pass"
+                                    ? "pass"
+                                    : row.orgPreflight.blockers.join(", ")
+                                  : "n/a"}
                               </td>
                             </tr>
                           ))
@@ -2739,7 +2946,7 @@ export function AgentControlCenterTab() {
                 )}
               </div>
             </div>
-          )}
+            )}
         </div>
 
         <div className="border rounded p-3 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>

@@ -136,6 +136,7 @@ async function buildBlockedConfigureAgentFieldsProposalPreview(
     targetAgentId: args.targetAgentId ?? null,
     targetAgentName: targetAgentLabel.targetAgentName,
     targetAgentDisplayName: targetAgentLabel.targetAgentDisplayName,
+    currentValues: {},
     proposedPatch: args.patch,
     normalizedUpdates: {},
     changes: [],
@@ -279,26 +280,63 @@ export const configureAgentFieldsTool: AITool = {
       patch: {
         type: "object",
         description:
-          "Structured agent field patch. Unsupported or deferred fields will be surfaced explicitly in the approval preview instead of being silently applied.",
+          "Structured agent field patch. Safe fields in this slice include identity, knowledge, tool access, guardrails, model limits, escalation policy, telephony config, and unified personality. Lower-priority fields such as soul/archetype overlays remain deferred and will be surfaced explicitly in the approval preview instead of being silently applied.",
         additionalProperties: true,
         properties: {
+          name: { type: "string" },
           displayName: { type: "string" },
+          subtype: { type: "string" },
           agentClass: {
             type: "string",
             enum: ["internal_operator", "external_customer_facing"],
           },
           personality: { type: "string" },
           language: { type: "string" },
+          additionalLanguages: {
+            type: "array",
+            items: { type: "string" },
+          },
           voiceLanguage: { type: "string" },
           elevenLabsVoiceId: { type: "string" },
           brandVoiceInstructions: { type: "string" },
           systemPrompt: { type: "string" },
+          faqEntries: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                q: { type: "string" },
+                a: { type: "string" },
+              },
+              required: ["q", "a"],
+            },
+          },
+          knowledgeBaseTags: {
+            type: "array",
+            items: { type: "string" },
+          },
+          toolProfile: { type: "string" },
+          enabledTools: {
+            type: "array",
+            items: { type: "string" },
+          },
+          disabledTools: {
+            type: "array",
+            items: { type: "string" },
+          },
           autonomyLevel: {
             type: "string",
             enum: ["supervised", "sandbox", "autonomous", "delegation", "draft_only"],
           },
+          maxMessagesPerDay: { type: "number" },
+          maxCostPerDay: { type: "number" },
+          requireApprovalFor: {
+            type: "array",
+            items: { type: "string" },
+          },
           modelId: { type: "string" },
           temperature: { type: "number" },
+          maxTokens: { type: "number" },
           channelBindings: {
             type: "array",
             items: {
@@ -317,7 +355,15 @@ export const configureAgentFieldsTool: AITool = {
           telephonyConfig: {
             type: "object",
             description:
-              "Recognized but deferred in the first chat-side apply slice. Proposals including this will be blocked until telephony apply support lands.",
+              "Optional partial telephony configuration patch. This approval-gated slice supports merge-safe telephony updates and preserves existing runtime sync metadata.",
+          },
+          escalationPolicy: {
+            type: "object",
+            description:
+              "Optional escalation policy override. Use an object payload matching the agent escalation policy shape.",
+          },
+          unifiedPersonality: {
+            type: "boolean",
           },
         },
       },
@@ -328,7 +374,7 @@ export const configureAgentFieldsTool: AITool = {
       overridePolicyGate: {
         type: "object",
         description:
-          "Optional managed-clone override acknowledgement payload. The first slice surfaces warn-gated patches but does not auto-collect confirmation in chat.",
+          "Optional managed-clone override acknowledgement payload. The approval rail can refresh warn-gated proposals after explicit confirmation and reason are provided.",
         properties: {
           confirmWarnOverride: { type: "boolean" },
           reason: { type: "string" },

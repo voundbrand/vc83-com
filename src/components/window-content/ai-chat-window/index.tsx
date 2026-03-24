@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAppAvailabilityGuard } from "@/hooks/use-app-availability"
 import { LayoutModeProvider, useLayoutMode, type LayoutMode } from "./layout-mode-context"
 import { AIChatProvider, useAIChatContext } from "@/contexts/ai-chat-context"
@@ -13,9 +13,13 @@ import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { useNotification } from "@/hooks/use-notification"
 import type { AIChatSuperAdminQaMode } from "@/hooks/use-ai-chat"
+import { useNativeGuestChat, type NativeGuestChatConfig } from "@/hooks/use-ai-chat"
+import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
+import { useTranslation } from "@/contexts/translation-context"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { resolveOperatorCollaborationShellResolution } from "@/lib/operator-collaboration-cutover"
 import { buildPlatformAgentCreationKickoff } from "./onboarding-kickoff-contract"
+import { ChatMarkdownMessage } from "./chat-markdown-message"
 import {
   getCreditRecoveryAction,
   openCreditRecoveryAction,
@@ -445,6 +449,123 @@ function buildSupportIntakeKickoff(args: {
   ].join("\n")
 }
 
+interface CmsRewriteKickoffPayload {
+  contractVersion?: string
+  application?: {
+    id?: string
+    name?: string
+  }
+  field?: {
+    page?: string
+    section?: string
+    key?: string
+    label?: string
+    locale?: string
+  }
+  currentText?: string
+  instruction?: string
+}
+
+function decodeUtf8Base64(value: string): string | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const binary = window.atob(value)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    return new TextDecoder().decode(bytes)
+  } catch {
+    return null
+  }
+}
+
+function parseCmsRewriteKickoffPayload(openContext?: string): CmsRewriteKickoffPayload | null {
+  if (!openContext || !openContext.startsWith("cms_rewrite:")) {
+    return null
+  }
+
+  const encodedPayload = openContext.slice("cms_rewrite:".length).trim()
+  if (!encodedPayload) {
+    return null
+  }
+
+  const decoded = decodeUtf8Base64(encodedPayload)
+  if (!decoded) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(decoded) as CmsRewriteKickoffPayload
+    if (!parsed || typeof parsed !== "object") {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function cleanKickoffString(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback
+  }
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : fallback
+}
+
+function buildCmsRewriteKickoff(args: {
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}): string {
+  const payload = parseCmsRewriteKickoffPayload(args.openContext)
+
+  const appName = cleanKickoffString(payload?.application?.name, "Unknown app")
+  const appId = cleanKickoffString(payload?.application?.id, "unknown")
+  const page = cleanKickoffString(payload?.field?.page, "unknown")
+  const section = cleanKickoffString(payload?.field?.section, "unknown")
+  const key = cleanKickoffString(payload?.field?.key, "unknown")
+  const label = cleanKickoffString(payload?.field?.label, key)
+  const locale = cleanKickoffString(payload?.field?.locale, "unknown")
+  const currentText = cleanKickoffString(payload?.currentText, "(empty)")
+  const instruction = cleanKickoffString(
+    payload?.instruction,
+    "Rewrite this field with One-of-One clarity while preserving factual meaning."
+  )
+  const sourceSessionLine = args.sourceSessionId
+    ? `source_session_id=${args.sourceSessionId}`
+    : "source_session_id=unknown"
+  const sourceOrgLine = args.sourceOrganizationId
+    ? `source_organization_id=${args.sourceOrganizationId}`
+    : "source_organization_id=unknown"
+
+  return [
+    "Route this conversation through a CMS rewrite assist flow.",
+    "intent=cms_copy_rewrite",
+    `application_name=${appName}`,
+    `application_id=${appId}`,
+    `target_locale=${locale}`,
+    `target_field=${page}.${section}.${key}`,
+    `target_label=${label}`,
+    sourceSessionLine,
+    sourceOrgLine,
+    "",
+    "Rewrite instruction:",
+    instruction,
+    "",
+    "Current field text:",
+    currentText,
+    "",
+    "Response contract:",
+    "1) Return exactly 3 rewrite options in the target locale.",
+    "2) Keep each option concise and publication-ready.",
+    "3) Preserve factual meaning and avoid inventing claims.",
+    "4) End with one recommended option and a one-line rationale.",
+    "5) Do not perform any side effects or mutate CMS data.",
+  ].join("\n")
+}
+
 function AIChatEntryBootstrap({
   initialPanel,
   openContext,
@@ -466,27 +587,41 @@ function AIChatEntryBootstrap({
     const normalizedPanel = typeof initialPanel === "string" ? initialPanel.trim().toLowerCase() : ""
     const isAgentCreationPanel = normalizedPanel === "agent-creation"
     const isSupportIntakePanel = normalizedPanel === "support-intake"
+    const isCmsRewritePanel = normalizedPanel === "cms-rewrite"
     const isChatRoute = typeof window !== "undefined" && window.location.pathname === "/chat"
     const normalizedOpenContext = typeof openContext === "string" ? openContext.trim().toLowerCase() : ""
     const isStoreCommercialHandoff = normalizedOpenContext === STORE_COMMERCIAL_HANDOFF_CONTEXT
     const commercialKickoff =
-      !isAgentCreationPanel && !isSupportIntakePanel && (isChatRoute || isStoreCommercialHandoff)
+      !isAgentCreationPanel && !isSupportIntakePanel && !isCmsRewritePanel && (isChatRoute || isStoreCommercialHandoff)
         ? readLandingCommercialKickoffPayload()
         : null
     if (superAdminQaEnabled) {
       return
     }
-    if (!isAgentCreationPanel && !isSupportIntakePanel && !commercialKickoff) {
+    if (!isAgentCreationPanel && !isSupportIntakePanel && !isCmsRewritePanel && !commercialKickoff) {
       return
     }
 
-    if (chat.messages.length > 0 || isSending) {
+    const requiresEmptyConversation =
+      isAgentCreationPanel || isSupportIntakePanel || Boolean(commercialKickoff)
+
+    if (requiresEmptyConversation && (chat.messages.length > 0 || isSending)) {
+      return
+    }
+
+    if (!requiresEmptyConversation && isSending) {
       return
     }
 
     const entryKey = [
       normalizedPanel,
-      openContext || (isAgentCreationPanel ? "agent_creation" : "support_intake"),
+      openContext || (isAgentCreationPanel
+        ? "agent_creation"
+        : isSupportIntakePanel
+          ? "support_intake"
+          : isCmsRewritePanel
+            ? "cms_rewrite"
+            : "support_intake"),
       sourceSessionId || "none",
       sourceOrganizationId || "none",
       commercialKickoff?.intentCode || "none",
@@ -516,6 +651,12 @@ function AIChatEntryBootstrap({
             sourceSessionId,
             sourceOrganizationId,
           })
+        : isCmsRewritePanel
+          ? buildCmsRewriteKickoff({
+              openContext,
+              sourceSessionId,
+              sourceOrganizationId,
+            })
         : commercialKickoff
           ? buildCommercialKickoffStarterMessage(commercialKickoff)
           : null
@@ -578,16 +719,123 @@ function AIChatEntryBootstrap({
 }
 
 function AIChatSignedOutState({ fullScreen }: { fullScreen?: boolean }) {
-  const handleSignIn = () => {
-    if (typeof window !== "undefined") {
-      const returnPath = window.location.pathname === "/chat" ? "/chat" : "/"
-      window.sessionStorage.setItem("auth_return_url", returnPath)
-      window.location.href = "/?openLogin=aiAssistant"
+  const { t } = useMultipleNamespaces(["ui.ai_assistant", "ui.login"])
+  const { locale } = useTranslation()
+  const tx = useCallback(
+    (key: string, fallback: string, params?: Record<string, string | number>) => {
+      const translated = t(key, params)
+      return translated === key ? fallback : translated
+    },
+    [t]
+  )
+  const [input, setInput] = useState("")
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
+  const [configLoading, setConfigLoading] = useState(true)
+  const [configError, setConfigError] = useState<string | null>(null)
+  const [welcomeMessage, setWelcomeMessage] = useState<string>("")
+  const [config, setConfig] = useState<NativeGuestChatConfig | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const guestChat = useNativeGuestChat(config, { preferredLocale: locale })
+
+  useEffect(() => {
+    let isCancelled = false
+    setConfigLoading(true)
+    setConfigError(null)
+
+    void fetch("/api/native-guest/config", {
+      method: "GET",
+      cache: "no-store",
+      headers:
+        typeof window !== "undefined"
+          ? {
+              "Accept-Language":
+                (window.navigator.languages && window.navigator.languages.length > 0
+                  ? window.navigator.languages.join(",")
+                  : window.navigator.language) || locale,
+            }
+          : undefined,
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string
+          organizationId?: string
+          agentId?: string
+          apiBaseUrl?: string
+          welcomeMessage?: string
+        }
+
+        if (!response.ok || !payload.organizationId || !payload.agentId) {
+          throw new Error(payload.error || "Guest chat is not available right now.")
+        }
+
+        if (isCancelled) {
+          return
+        }
+
+        setConfig({
+          organizationId: payload.organizationId,
+          agentId: payload.agentId,
+          apiBaseUrl: payload.apiBaseUrl,
+        })
+        setWelcomeMessage(payload.welcomeMessage || "")
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return
+        }
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Guest chat is not available right now."
+        setConfigError(message)
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setConfigLoading(false)
+        }
+      })
+
+    return () => {
+      isCancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [guestChat.isSending, guestChat.messages.length])
+
+  const openAuthWindow = (mode: "signin" | "signup") => {
+    if (typeof window === "undefined") return
+    const returnPath = window.location.pathname === "/chat" ? "/chat" : "/"
+    const params = new URLSearchParams({
+      openLogin: "aiAssistant",
+      authMode: mode,
+    })
+    window.sessionStorage.setItem("auth_return_url", returnPath)
+    window.location.href = `/?${params.toString()}`
   }
 
+  const submitGuestMessage = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmed = input.trim()
+    if (!trimmed || guestChat.isSending) {
+      return
+    }
+    setInput("")
+    await guestChat.sendMessage(trimmed)
+    setShowAuthPrompt(true)
+  }
+
+  const showAuthCtas = showAuthPrompt || guestChat.messages.length > 0
+  const resolvedWelcomeMessage =
+    welcomeMessage
+    || tx(
+      "ui.ai_assistant.guest.welcome",
+      "Hey, I am Quinn. Tell me what you want to build and I will map the next steps."
+    )
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" lang={locale}>
       {fullScreen ? (
         <div
           className="flex items-center gap-2 px-3 py-2 border-b"
@@ -597,44 +845,156 @@ function AIChatSignedOutState({ fullScreen }: { fullScreen?: boolean }) {
             href="/"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors hover-menu-item"
             style={{ color: "var(--shell-text-dim)" }}
-            title="Back to Desktop"
+            title={tx("ui.ai_assistant.chat.back_to_desktop", "Back to Desktop")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <span className="text-sm font-medium" style={{ color: "var(--shell-text)" }}>
-            AI Assistant
+            {tx("ui.ai_assistant.chat.title", "AI Assistant")}
           </span>
           <div className="flex-1" />
         </div>
       ) : null}
 
-      <div className="flex flex-1 items-center justify-center px-4">
-        <div
-          className="w-full max-w-md rounded-2xl border p-6"
-          style={{
-            borderColor: "var(--shell-border-strong)",
-            background: "var(--shell-surface-elevated)",
-          }}
-        >
-          <h2 className="text-base font-semibold" style={{ color: "var(--shell-text)" }}>
-            Sign in to open SevenLayers chat
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden desktop-shell-surface">
+        <div className="px-4 py-3 border-b" style={{ borderColor: "var(--shell-border-soft)" }}>
+          <h2 className="font-pixel text-xs uppercase tracking-wide desktop-shell-text">
+            {tx("ui.ai_assistant.guest.entry_title", "Try Quinn Before You Sign In")}
           </h2>
-          <p className="mt-2 text-sm" style={{ color: "var(--shell-text-dim)" }}>
-            Chat requires an authenticated workspace. Sign in to continue.
+          <p className="mt-1 text-xs desktop-shell-text-muted">
+            {tx(
+              "ui.ai_assistant.guest.entry_subtitle",
+              "Describe your workflow goal. I will draft a plan, then you can create an account to continue."
+            )}
           </p>
-          <button
-            type="button"
-            onClick={handleSignIn}
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold"
-            style={{
-              borderColor: "var(--shell-border-soft)",
-              background: "var(--shell-button-primary-gradient)",
-              color: "var(--shell-on-accent)",
-            }}
-          >
-            Sign in
-          </button>
         </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+          {configLoading ? (
+            <div className="desktop-shell-note flex items-center gap-2 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {tx("ui.ai_assistant.guest.loading", "Preparing guest chat...")}
+            </div>
+          ) : null}
+
+          {!configLoading && configError ? (
+            <div className="desktop-shell-note text-xs" style={{ borderColor: "var(--warning)" }}>
+              {configError}
+            </div>
+          ) : null}
+
+          {!configLoading && !configError && guestChat.messages.length === 0 ? (
+            <div className="desktop-shell-note text-sm">{resolvedWelcomeMessage}</div>
+          ) : null}
+
+          {guestChat.messages.map((message) => (
+            <div key={message.id} className="flex flex-col gap-1">
+              <span className="font-pixel text-xs uppercase tracking-wide desktop-shell-text-muted">
+                {message.role === "user"
+                  ? tx("ui.ai_assistant.guest.you", "You")
+                  : tx("ui.ai_assistant.guest.quinn", "Quinn")}
+              </span>
+              <div
+                className="rounded-md border px-3 py-2 text-sm"
+                style={{
+                  borderColor:
+                    message.role === "user"
+                      ? "var(--shell-border-strong)"
+                      : "var(--shell-border-soft)",
+                  background:
+                    message.role === "user"
+                      ? "var(--shell-button-surface)"
+                      : "var(--shell-surface-elevated)",
+                }}
+              >
+                {message.role === "assistant" ? (
+                  <ChatMarkdownMessage content={message.content} />
+                ) : (
+                  <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {message.content}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {guestChat.isSending ? (
+            <div className="desktop-shell-note flex items-center gap-2 text-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {tx("ui.ai_assistant.guest.replying", "Quinn is replying...")}
+            </div>
+          ) : null}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {showAuthCtas ? (
+          <div className="px-4 py-3 border-t" style={{ borderColor: "var(--shell-border-soft)" }}>
+            <p className="text-xs desktop-shell-text-muted mb-2">
+              {tx(
+                "ui.ai_assistant.guest.auth_prompt",
+                "Keep this conversation and continue by creating an account or signing in."
+              )}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => openAuthWindow("signup")}
+                className="flex-1 beveled-button py-2"
+              >
+                <span className="font-pixel text-xs">
+                  {tx("ui.login.check.create_free_account", "Create Free Account")}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuthWindow("signin")}
+                className="flex-1 beveled-button py-2"
+              >
+                <span className="font-pixel text-xs">
+                  {tx("ui.login.button_sign_in", "Sign In")}
+                </span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <form
+          onSubmit={submitGuestMessage}
+          className="px-4 py-3 border-t"
+          style={{ borderColor: "var(--shell-border-soft)" }}
+        >
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              disabled={guestChat.isSending || !guestChat.isConfigured}
+              placeholder={tx(
+                "ui.ai_assistant.guest.input_placeholder",
+                "Example: I want a lead intake flow for my business."
+              )}
+              className="flex-1 h-10 px-3 rounded border text-sm desktop-shell-input"
+              style={{
+                borderColor: "var(--shell-border-strong)",
+                background: "var(--shell-surface-elevated)",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || guestChat.isSending || !guestChat.isConfigured}
+              className="beveled-button h-10 px-4"
+            >
+              <span className="font-pixel text-xs">
+                {tx("ui.ai_assistant.guest.send", "Send")}
+              </span>
+            </button>
+          </div>
+          {guestChat.error ? (
+            <p className="mt-2 text-xs" style={{ color: "var(--warning)" }}>
+              {guestChat.error}
+            </p>
+          ) : null}
+        </form>
       </div>
     </div>
   )

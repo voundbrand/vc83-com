@@ -58,4 +58,25 @@ describe("platform Mother alias selection", () => {
 
     expect(selected?._id).toBe("template_quinn_compat");
   });
+
+  it("falls back to the literal Quinn template name when legacy metadata is all that remains", () => {
+    const selected = selectOnboardingTemplateAgent<Candidate>([
+      {
+        _id: "template_other",
+        name: "Template A",
+        status: "template",
+        customProperties: { protected: true },
+      },
+      {
+        _id: "template_quinn_literal",
+        name: PLATFORM_MOTHER_LEGACY_NAME,
+        status: "template",
+        customProperties: {
+          protected: true,
+        },
+      },
+    ]);
+
+    expect(selected?._id).toBe("template_quinn_literal");
+  });
 });

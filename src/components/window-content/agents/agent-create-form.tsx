@@ -118,7 +118,9 @@ export function AgentCreateForm({
   const [voiceSelectionError, setVoiceSelectionError] = useState<string | null>(null);
   const [brandVoice, setBrandVoice] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [autonomyLevel, setAutonomyLevel] = useState<"supervised" | "autonomous" | "draft_only">("supervised");
+  const [autonomyLevel, setAutonomyLevel] = useState<
+    "supervised" | "sandbox" | "autonomous" | "delegation" | "draft_only"
+  >("supervised");
   const [maxMsgsPerDay, setMaxMsgsPerDay] = useState(100);
   const [maxCostPerDay, setMaxCostPerDay] = useState(5);
   const [modelId, setModelId] = useState(DEFAULT_AGENT_MODEL_ID);

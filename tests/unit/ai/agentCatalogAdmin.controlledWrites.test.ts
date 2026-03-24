@@ -12,6 +12,7 @@ import {
   setCatalogPublishedStatus,
   setSeedStatusOverride,
   setSeedTemplateBinding,
+  triggerCatalogSync,
 } from "../../../convex/ai/agentCatalogAdmin";
 import { getUserContext, requireAuthenticatedUser } from "../../../convex/rbacHelpers";
 
@@ -133,6 +134,12 @@ function seedAgentEntry(db: FakeDb, overrides: Partial<FakeRow> = {}) {
     _id: "agent_catalog_entry_1",
     datasetVersion: DEFAULT_DATASET,
     catalogAgentNumber: DEFAULT_AGENT_NUMBER,
+    name: "Agent 42",
+    category: "operations",
+    subtype: "workflow_automation",
+    tier: "foundation",
+    toolProfile: "core_tools",
+    toolCoverageStatus: "complete",
     catalogStatus: "done",
     runtimeStatus: "live",
     blockers: [],
@@ -267,6 +274,21 @@ async function invokeOverrideSeedTemplateBindingMigration(
     catalogAgentNumber: DEFAULT_AGENT_NUMBER,
     templateAgentId: "objects_seed_template",
     migrationReason: "Immutable seed mapping migration override",
+    ...overrides,
+  });
+}
+
+async function invokeTriggerCatalogSync(
+  db: FakeDb,
+  overrides: Partial<{
+    datasetVersion: string;
+    mode: "read_only_audit" | "sync_apply";
+  }> = {},
+) {
+  return await (triggerCatalogSync as any)._handler(createCtx(db), {
+    sessionId: "sessions_super",
+    datasetVersion: DEFAULT_DATASET,
+    mode: "read_only_audit",
     ...overrides,
   });
 }
@@ -530,6 +552,41 @@ describe("agent catalog controlled writes: setCatalogPublishedStatus + backfill"
     expect(hidden?.published).toBe(false);
     const actionTypes = db.rows("objectActions").map((row) => row.actionType);
     expect(actionTypes).toContain("agent_catalog.published_backfill");
+  });
+});
+
+describe("agent catalog controlled writes: triggerCatalogSync", () => {
+  it("records expanded sync-run summary fields used by automation runs", async () => {
+    const db = new FakeDb();
+    seedAgentEntry(db, {
+      blockers: ["Needs compliance approval"],
+      seedStatus: "full",
+      runtimeStatus: "live",
+      catalogStatus: "done",
+      intentTags: ["customer_support"],
+      recommendationMetadata: {
+        activationState: "suggest_activation",
+      },
+    });
+
+    const result = await invokeTriggerCatalogSync(db, {
+      mode: "read_only_audit",
+    });
+    expect(result.success).toBe(true);
+
+    const syncRuns = db.rows("agentCatalogSyncRuns");
+    expect(syncRuns).toHaveLength(1);
+    expect(syncRuns[0]?.summary).toMatchObject({
+      totalAgents: 1,
+      catalogDone: 1,
+      seedsFull: 1,
+      runtimeLive: 1,
+      toolsMissing: 0,
+      published: 1,
+      blockedAgents: 1,
+      recommendationTagged: 1,
+      recommendationMetadataStored: 1,
+    });
   });
 });
 

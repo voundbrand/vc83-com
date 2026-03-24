@@ -2,8 +2,8 @@ import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import {
+  canUsePlatformMotherCustomerFacingSupport,
   isPlatformMotherAuthorityRecord,
-  isPlatformMotherCustomerFacingRuntime,
   PLATFORM_MOTHER_RUNTIME_MODE_GOVERNANCE,
   PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
   PLATFORM_MOTHER_RUNTIME_MODE_SUPPORT,
@@ -70,7 +70,8 @@ export function canUsePlatformMotherConversationTarget(args: {
   if (String(targetAgent.organizationId) === String(args.conversationOrganizationId)) {
     return true;
   }
-  return isPlatformMotherCustomerFacingRuntime({
+  return canUsePlatformMotherCustomerFacingSupport({
+    requestingOrganizationId: String(args.conversationOrganizationId),
     name: targetAgent.name,
     status: targetAgent.status,
     customProperties: targetAgent.customProperties ?? undefined,
@@ -169,6 +170,8 @@ async function resolvePlatformMotherInvocationTarget(
   organizationId: Id<"organizations">;
   runtimeMode: PlatformMotherInvocationMode;
   name?: string;
+  status?: string;
+  customProperties?: Record<string, unknown> | null;
 }> {
   const generatedApi = getGeneratedApi();
   const platformOrgId = resolvePlatformOrgIdFromEnv();
@@ -188,6 +191,8 @@ async function resolvePlatformMotherInvocationTarget(
       organizationId: platformOrgId,
       runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
       name: worker.name,
+      status: worker.status,
+      customProperties: worker.customProperties ?? null,
     };
   }
 
@@ -206,6 +211,8 @@ async function resolvePlatformMotherInvocationTarget(
     organizationId: platformOrgId,
     runtimeMode: mode,
     name: runtimeTarget.name,
+    status: runtimeTarget.status,
+    customProperties: runtimeTarget.customProperties ?? null,
   };
 }
 

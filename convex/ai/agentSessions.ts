@@ -84,6 +84,7 @@ import {
   type Scope,
   type ScopedOrg,
 } from "../lib/layerScope";
+import { filterVisibleOrdinaryOrganizations } from "../lib/organizationLifecycle";
 import {
   CONTACT_MEMORY_FIELD_ORDER,
   buildSessionReactivationMemorySnapshot,
@@ -7472,8 +7473,10 @@ export const getAgentOpsScopeOptions = query({
       };
     }
 
-    const organizations = (await ctx.db.query("organizations").collect())
-      .filter((organization) => organization.isActive !== false);
+    const organizations = filterVisibleOrdinaryOrganizations(
+      (await ctx.db.query("organizations").collect())
+        .filter((organization) => organization.isActive !== false)
+    );
     const parentOrgIds = new Set(
       organizations
         .filter((organization) => Boolean(organization.parentOrganizationId))

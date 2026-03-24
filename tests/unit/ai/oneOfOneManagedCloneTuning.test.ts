@@ -21,6 +21,8 @@ describe("one-of-one managed clone tuning guard", () => {
 
   it("accepts sanctioned managed clone tuning fields", () => {
     const disallowed = resolveDisallowedManagedCloneTuningFields([
+      "name",
+      "subtype",
       "displayName",
       "systemPrompt",
       "toolProfile",
@@ -36,11 +38,11 @@ describe("one-of-one managed clone tuning guard", () => {
   it("rejects non-sanctioned managed clone tuning fields", () => {
     const disallowed = resolveDisallowedManagedCloneTuningFields([
       "displayName",
-      "name",
-      "subtype",
-      "name",
+      "templateAgentId",
+      "templateCloneLinkage",
+      "templateAgentId",
     ]);
 
-    expect(disallowed).toEqual(["name", "subtype"]);
+    expect(disallowed).toEqual(["templateAgentId", "templateCloneLinkage"]);
   });
 });

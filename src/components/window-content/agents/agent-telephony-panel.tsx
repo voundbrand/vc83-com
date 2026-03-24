@@ -105,6 +105,44 @@ export function AgentTelephonyPanel({
             accountSidLast4?: string | null;
           };
         };
+        templateDeployment: {
+          kind: "template" | "managed_clone" | "org_local_agent";
+          templateId?: string | null;
+          templateName?: string | null;
+          templateRole?: string | null;
+          templateVersionId?: string | null;
+          templateVersionTag?: string | null;
+          certification: {
+            status: "certified" | "auto_certifiable" | "blocked" | "not_required";
+            reasonCode?: string | null;
+            message?: string | null;
+            riskTier?: "low" | "medium" | "high" | null;
+            requiredVerification: string[];
+            dependencyDigest?: string | null;
+            recordedAt?: number | null;
+            autoCertificationEligible: boolean;
+            evidenceSources: string[];
+          };
+          orgPreflight: {
+            status: "pass" | "fail";
+            blockers: string[];
+            blockerCodes: string[];
+            telephony: {
+              required: boolean;
+              providerKey: AgentTelephonyProviderKey;
+              bindingEnabled: boolean;
+              credentialReady: boolean;
+              fromNumberReady: boolean;
+              webhookSecretReady: boolean;
+              missingTransferRoles: string[];
+            };
+          };
+          deploymentReadiness: {
+            status: "ready" | "blocked";
+            blockers: string[];
+            warnings: string[];
+          };
+        };
       }
     | undefined;
 
@@ -173,6 +211,15 @@ export function AgentTelephonyPanel({
   const elevenlabsReadiness = panelState?.providerReadiness.elevenlabs;
   const twilioReadiness = panelState?.providerReadiness.twilio;
   const phoneChannelLabel = formatAgentChannelLabel("phone_call");
+  const certification = panelState?.templateDeployment.certification;
+  const orgPreflight = panelState?.templateDeployment.orgPreflight;
+  const deploymentReadiness = panelState?.templateDeployment.deploymentReadiness;
+  const syncDisabledReason =
+    !selectedProviderOption.implemented
+      ? `${selectedProviderOption.label} is not implemented yet.`
+      : deploymentReadiness?.status === "blocked"
+        ? deploymentReadiness.blockers[0] || "Certification or org preflight blocks deployment."
+        : null;
 
   const updateTransferDestination = (
     index: number,
@@ -308,7 +355,27 @@ export function AgentTelephonyPanel({
             Status
           </h3>
         </div>
-        <div className="grid gap-2 md:grid-cols-2 text-xs">
+        <div className="grid gap-2 md:grid-cols-3 text-xs">
+          <div
+            className="rounded border p-2"
+            style={{ borderColor: "var(--window-document-border)" }}
+          >
+            <div style={{ color: "var(--neutral-gray)" }}>Certification + preflight</div>
+            <div style={{ color: certification?.status === "blocked" ? "var(--error)" : "var(--window-document-text)" }}>
+              Certification: {certification?.status?.replace(/_/g, " ") || "n/a"}
+            </div>
+            <div style={{ color: "var(--neutral-gray)" }}>
+              Risk: {certification?.riskTier || "n/a"} / verification {certification?.requiredVerification.join(", ") || "none"}
+            </div>
+            <div style={{ color: orgPreflight?.status === "fail" ? "var(--error)" : "var(--window-document-text)" }}>
+              Org preflight: {orgPreflight?.status || "n/a"}
+            </div>
+            {certification?.dependencyDigest ? (
+              <div className="break-all" style={{ color: "var(--neutral-gray)" }}>
+                Digest: {certification.dependencyDigest}
+              </div>
+            ) : null}
+          </div>
           <div
             className="rounded border p-2"
             style={{ borderColor: "var(--window-document-border)" }}
@@ -369,6 +436,26 @@ export function AgentTelephonyPanel({
             )}
           </div>
         </div>
+        {(deploymentReadiness?.blockers.length || deploymentReadiness?.warnings.length) ? (
+          <div
+            className="rounded border p-2 text-xs space-y-1"
+            style={{
+              borderColor: deploymentReadiness.blockers.length ? "var(--error)" : "var(--warning)",
+              background: "color-mix(in srgb, var(--window-document-bg) 88%, transparent)",
+            }}
+          >
+            {deploymentReadiness.blockers.length > 0 && (
+              <div style={{ color: "var(--error)" }}>
+                Blockers: {deploymentReadiness.blockers.join(" • ")}
+              </div>
+            )}
+            {deploymentReadiness.warnings.length > 0 && (
+              <div style={{ color: "var(--warning)" }}>
+                Warnings: {deploymentReadiness.warnings.join(" • ")}
+              </div>
+            )}
+          </div>
+        ) : null}
         {!panelState.phoneChannelEnabled && (
           <div
             className="rounded border p-2 flex flex-wrap items-center justify-between gap-3 text-xs"
@@ -828,13 +915,14 @@ export function AgentTelephonyPanel({
         <button
           type="button"
           onClick={handleSync}
-          disabled={isSaving || isSyncing || !selectedProviderOption.implemented}
+          disabled={isSaving || isSyncing || Boolean(syncDisabledReason)}
           className="flex items-center gap-1.5 px-3 py-1.5 border text-xs rounded-sm disabled:opacity-60"
           style={{
             borderColor: "var(--window-document-border)",
             background: "var(--desktop-shell-accent)",
             color: "var(--window-document-text)",
           }}
+          title={syncDisabledReason ?? undefined}
         >
           {isSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
           {selectedProvider === "twilio_voice" ? "Validate Provider" : "Sync To Provider"}

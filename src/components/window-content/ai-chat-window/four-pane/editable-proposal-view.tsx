@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { FileText, AlertTriangle } from "lucide-react"
 import type { Id } from "../../../../../convex/_generated/dataModel"
+import { AgentFieldPatchEditor } from "../../agents/agent-field-patch-editor"
 
 // Type for tool execution parameters with common fields
 interface ToolParameters {
@@ -45,6 +46,8 @@ interface AgentFieldPatchPreview {
   targetAgentId?: string | null
   targetAgentName: string
   targetAgentDisplayName?: string
+  currentValues?: Record<string, unknown>
+  proposedPatch?: Record<string, unknown>
   changes: AgentFieldPatchPreviewChange[]
   summary?: {
     canApply?: boolean
@@ -61,6 +64,32 @@ interface AgentFieldPatchPreview {
     freeFields?: string[]
     reason?: string | null
   }
+}
+
+function readPatchRecord(parameters: ToolParameters | undefined): Record<string, unknown> {
+  if (!parameters?.patch || typeof parameters.patch !== "object" || Array.isArray(parameters.patch)) {
+    return {}
+  }
+  return parameters.patch as Record<string, unknown>
+}
+
+function toComparablePreviewValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => toComparablePreviewValue(entry))
+  }
+  if (!value || typeof value !== "object") {
+    return value
+  }
+  const record = value as Record<string, unknown>
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => [key, toComparablePreviewValue(record[key])]),
+  )
+}
+
+function arePreviewValuesEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(toComparablePreviewValue(left)) === JSON.stringify(toComparablePreviewValue(right))
 }
 
 interface ToolExecution {
@@ -155,6 +184,10 @@ export function EditableProposalView({
   const [customText, setCustomText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [draftParameters, setDraftParameters] = useState(execution.parameters)
+  const [draftPatch, setDraftPatch] = useState<Record<string, unknown>>(
+    readPatchRecord(execution.parameters),
+  )
+  const [patchEditorHasErrors, setPatchEditorHasErrors] = useState(false)
   const [draftProposalMessage, setDraftProposalMessage] = useState(
     execution.proposalMessage
   )
@@ -190,9 +223,32 @@ export function EditableProposalView({
     && overrideWarnConfirmed
     && overrideWarnReason.trim().length > 0
     && Boolean(onUpdateParameters)
+  const persistedPatch = readPatchRecord(draftParameters)
+  const hasPatchEdits =
+    execution.toolName === "configure_agent_fields"
+    && !arePreviewValuesEqual(draftPatch, persistedPatch)
+  const persistedOverrideGate = readOverridePolicyGate(draftParameters)
+  const overrideControlsDirty =
+    execution.toolName === "configure_agent_fields"
+    && (
+      persistedOverrideGate.confirmWarnOverride !== overrideWarnConfirmed
+      || persistedOverrideGate.reason !== overrideWarnReason
+    )
+  const canRefreshProposal =
+    Boolean(onUpdateParameters)
+    && (
+      hasPatchEdits
+      || (
+        overrideControlsDirty
+        && (!requiresWarnOverrideConfirmation || canRefreshWarnOverride)
+      )
+    )
+  const approvalNeedsRefresh = hasPatchEdits || overrideControlsDirty
 
   useEffect(() => {
     setDraftParameters(execution.parameters)
+    setDraftPatch(readPatchRecord(execution.parameters))
+    setPatchEditorHasErrors(false)
     setDraftProposalMessage(execution.proposalMessage)
   }, [execution._id, execution.parameters, execution.proposalMessage])
 
@@ -203,7 +259,7 @@ export function EditableProposalView({
   }, [draftParameters])
 
   const handleApprove = async (dontAskAgain: boolean = false) => {
-    if (approvalBlockedReason) return
+    if (approvalBlockedReason || approvalNeedsRefresh || patchEditorHasErrors) return
     setIsLoading(true)
     await onApprove(execution._id, dontAskAgain)
     setIsLoading(false)
@@ -224,18 +280,36 @@ export function EditableProposalView({
     setIsLoading(false)
   }
 
-  const handleWarnOverrideRefresh = async () => {
-    if (!canRefreshWarnOverride || !onUpdateParameters) return
+  const handleConfigureAgentPatchRefresh = async () => {
+    if (!canRefreshProposal || !onUpdateParameters) return
     setIsLoading(true)
-    const nextParameters = {
+    const nextParameters: ToolParameters = {
       ...draftParameters,
-      overridePolicyGate: {
+      patch: draftPatch,
+    }
+
+    if (overrideWarnConfirmed && overrideWarnReason.trim().length > 0) {
+      nextParameters.overridePolicyGate = {
         confirmWarnOverride: true,
         reason: overrideWarnReason.trim(),
-      },
+      }
+    } else if (
+      !overrideControlsDirty
+      && persistedOverrideGate.confirmWarnOverride
+      && persistedOverrideGate.reason.trim().length > 0
+    ) {
+      nextParameters.overridePolicyGate = {
+        confirmWarnOverride: true,
+        reason: persistedOverrideGate.reason.trim(),
+      }
+    } else {
+      delete nextParameters.overridePolicyGate
     }
+
     const updateResult = await onUpdateParameters(execution._id, nextParameters)
-    setDraftParameters(updateResult?.parameters || nextParameters)
+    const nextDraftParameters = updateResult?.parameters || nextParameters
+    setDraftParameters(nextDraftParameters)
+    setDraftPatch(readPatchRecord(nextDraftParameters))
     if (updateResult?.proposalMessage !== undefined) {
       setDraftProposalMessage(updateResult.proposalMessage)
     }
@@ -254,6 +328,43 @@ export function EditableProposalView({
             <span style={{ color: "var(--shell-text)" }}>
               {agentFieldPatchPreview.targetAgentDisplayName || agentFieldPatchPreview.targetAgentName}
             </span>
+          </div>
+          <AgentFieldPatchEditor
+            patch={draftPatch}
+            currentValues={agentFieldPatchPreview.currentValues}
+            disabled={isLoading}
+            onPatchChange={setDraftPatch}
+            onValidationChange={setPatchEditorHasErrors}
+          />
+          <div
+            className="rounded border p-3 text-[11px] space-y-2"
+            style={{
+              borderColor: "var(--shell-border)",
+              background: "var(--shell-surface)",
+            }}
+          >
+            <p style={{ color: "var(--shell-text-dim)" }}>
+              {patchEditorHasErrors
+                ? "Fix invalid JSON fields before refreshing the proposal."
+                : approvalNeedsRefresh
+                  ? "Local edits are not in the structured preview yet. Refresh the proposal before approval."
+                  : "The diff below matches the saved proposal payload."}
+            </p>
+            <button
+              type="button"
+              onClick={handleConfigureAgentPatchRefresh}
+              disabled={isLoading || patchEditorHasErrors || !canRefreshProposal}
+              className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
+              style={{
+                borderColor: "var(--shell-border)",
+                background: "var(--shell-input-surface)",
+                color: "var(--shell-text)",
+              }}
+            >
+              {requiresWarnOverrideConfirmation
+                ? "Refresh Proposal With Override"
+                : "Refresh Proposal Preview"}
+            </button>
           </div>
           <div className="space-y-2">
             {agentFieldPatchPreview.changes.map((change) => {
@@ -608,18 +719,9 @@ export function EditableProposalView({
                 placeholder="Explain why this override is needed"
               />
             </div>
-            <button
-              onClick={handleWarnOverrideRefresh}
-              disabled={isLoading || !canRefreshWarnOverride}
-              className="rounded border px-3 py-1.5 text-xs disabled:opacity-50"
-              style={{
-                borderColor: "var(--shell-border)",
-                background: "var(--shell-surface)",
-                color: "var(--shell-text)",
-              }}
-            >
-              Refresh Proposal With Override
-            </button>
+            <p className="text-[11px]" style={{ color: "var(--shell-text-dim)" }}>
+              Save the confirmation into the proposal by refreshing the structured preview below.
+            </p>
           </div>
         )}
 
@@ -688,7 +790,12 @@ export function EditableProposalView({
       >
         <button
           onClick={() => handleApprove(false)}
-          disabled={isLoading || Boolean(approvalBlockedReason)}
+          disabled={
+            isLoading
+            || Boolean(approvalBlockedReason)
+            || patchEditorHasErrors
+            || approvalNeedsRefresh
+          }
           className="w-full px-4 py-2 text-left rounded border-2 transition-colors disabled:opacity-50 text-sm"
           style={{
             borderColor: 'var(--shell-accent)',
@@ -708,7 +815,12 @@ export function EditableProposalView({
 
         <button
           onClick={() => handleApprove(true)}
-          disabled={isLoading || Boolean(approvalBlockedReason)}
+          disabled={
+            isLoading
+            || Boolean(approvalBlockedReason)
+            || patchEditorHasErrors
+            || approvalNeedsRefresh
+          }
           className="w-full px-4 py-2 text-left rounded border transition-colors disabled:opacity-50 text-sm"
           style={{
             borderColor: 'var(--shell-border)',

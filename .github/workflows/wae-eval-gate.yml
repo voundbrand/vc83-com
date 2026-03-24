@@ -394,6 +394,199 @@ jobs:
           }
           NODE
 
+      - name: Record template certification evidence bundle
+        id: certification
+        if: always()
+        env:
+          WAE_MODE: ${{ steps.resolve.outputs.mode }}
+          WAE_RECORD_ROLLOUT_GATE: ${{ steps.resolve.outputs.record_rollout_gate }}
+          WAE_RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          WAE_ARTIFACT_ROOT: ${{ steps.resolve.outputs.artifact_root }}
+          WAE_TEMPLATE_ID: ${{ steps.resolve.outputs.template_id }}
+          WAE_TEMPLATE_VERSION_ID: ${{ steps.resolve.outputs.template_version_id }}
+          WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+          QA_GUARD_OUTCOME: ${{ steps.qa_guard.outcome }}
+          CONTRACTS_OUTCOME: ${{ steps.contracts.outcome }}
+          REGRESSION_OUTCOME: ${{ steps.regression.outcome }}
+        run: |
+          node --import tsx <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          import { ConvexHttpClient } from "convex/browser";
+          import { api } from "./convex/_generated/api";
+
+          const runId = process.env.WAE_RUN_ID || "wae-run-missing";
+          const artifactRoot = process.env.WAE_ARTIFACT_ROOT || path.join("tmp", "reports", "wae", runId);
+          const summaryDir = path.join(process.cwd(), artifactRoot, "summary");
+          const summaryPath = path.join(summaryDir, "template-certification-ci-summary.json");
+          const decisionPath = path.join(summaryDir, "template-certification-decision.json");
+          fs.mkdirSync(summaryDir, { recursive: true });
+
+          const writeOutput = (name, value) => {
+            if (!process.env.GITHUB_OUTPUT) {
+              return;
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}<<__WAE__\n${value}\n__WAE__\n`);
+          };
+
+          const toEvaluationOutcome = (value) => {
+            if (value === "success") {
+              return "pass";
+            }
+            if (value === "failure" || value === "cancelled") {
+              return "fail";
+            }
+            return "missing";
+          };
+
+          const result = {
+            contractVersion: "template_certification_ci_summary_v1",
+            runId,
+            status: "skipped",
+            reasonCode: "nightly_mode",
+            message: "Nightly mode does not persist template certification evidence bundles.",
+            artifactPath: path.relative(process.cwd(), decisionPath),
+            recordedAt: new Date().toISOString(),
+            riskTier: null,
+            requiredVerification: [],
+            defaultEvidenceSources: [],
+            missingRequiredVerification: [],
+            failedRequiredVerification: [],
+            missingDefaultEvidenceSources: [],
+            recordedEvidenceSources: [],
+            certificationArtifactStatus: "unknown",
+          };
+
+          if (process.env.WAE_RECORD_ROLLOUT_GATE === "true") {
+            const templateId = process.env.WAE_TEMPLATE_ID?.trim() || "";
+            const templateVersionId = process.env.WAE_TEMPLATE_VERSION_ID?.trim() || "";
+            const templateVersionTag = process.env.WAE_TEMPLATE_VERSION_TAG?.trim() || "";
+            const sessionId = process.env.TEST_SESSION_ID?.trim() || "";
+            const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+
+            if (!templateId || !templateVersionId || !templateVersionTag) {
+              result.status = "blocked";
+              result.reasonCode = "missing_template_inputs";
+              result.message =
+                "Pre-rollout mode requires template_id, template_version_id, and template_version_tag.";
+            } else if (!sessionId || !convexUrl) {
+              result.status = "blocked";
+              result.reasonCode = "missing_required_secret";
+              result.message =
+                "Pre-rollout mode requires NEXT_PUBLIC_CONVEX_URL and TEST_SESSION_ID.";
+            } else {
+              try {
+                const convex = new ConvexHttpClient(convexUrl);
+                const recording = await convex.mutation(
+                  api.ai.agentCatalogAdmin.recordTemplateCertificationEvidenceBundle,
+                  {
+                    sessionId,
+                    templateId,
+                    templateVersionId,
+                    templateVersionTag,
+                    applyRiskTierDefaults: true,
+                    evidenceSources: [],
+                    evaluationOutputs: [
+                      {
+                        sourceType: "runtime_smoke_eval",
+                        outcome: toEvaluationOutcome(process.env.REGRESSION_OUTCOME),
+                        summary: `Seeded-agent regression suite outcome: ${process.env.REGRESSION_OUTCOME || "unknown"}.`,
+                        runId,
+                      },
+                      {
+                        sourceType: "tool_contract_eval",
+                        outcome: toEvaluationOutcome(process.env.CONTRACTS_OUTCOME),
+                        summary: `Desktop contract suite outcome: ${process.env.CONTRACTS_OUTCOME || "unknown"}.`,
+                        runId,
+                      },
+                      {
+                        sourceType: "policy_compliance_eval",
+                        outcome: toEvaluationOutcome(process.env.QA_GUARD_OUTCOME),
+                        summary: `QA telemetry guard outcome: ${process.env.QA_GUARD_OUTCOME || "unknown"}.`,
+                        runId,
+                      },
+                    ],
+                    notes: [
+                      "ci_workflow:wae-eval-gate",
+                      `ci_mode:${process.env.WAE_MODE || "unknown"}`,
+                      `ci_run:${process.env.GITHUB_RUN_ID || "unknown"}:${process.env.GITHUB_RUN_ATTEMPT || "unknown"}`,
+                    ],
+                  },
+                );
+
+                const summary = recording.summary || null;
+                result.status = recording.evaluation?.allowed ? "certified" : "blocked";
+                result.reasonCode = recording.evaluation?.reasonCode || "certified";
+                result.message = recording.evaluation?.allowed
+                  ? "Recorded certification evidence bundle from CI defaults."
+                  : (recording.evaluation?.message || "Template certification evidence bundle is incomplete.");
+                result.recordedAt = new Date(recording.artifact?.recordedAt || Date.now()).toISOString();
+                result.riskTier = recording.artifact?.riskAssessment?.tier || null;
+                result.requiredVerification = Array.isArray(recording.artifact?.requiredVerification)
+                  ? recording.artifact.requiredVerification
+                  : [];
+                result.defaultEvidenceSources = Array.isArray(summary?.defaultEvidenceSources)
+                  ? summary.defaultEvidenceSources
+                  : [];
+                result.missingRequiredVerification = Array.isArray(summary?.missingRequiredVerification)
+                  ? summary.missingRequiredVerification
+                  : [];
+                result.failedRequiredVerification = Array.isArray(summary?.failedRequiredVerification)
+                  ? summary.failedRequiredVerification
+                  : [];
+                result.missingDefaultEvidenceSources = Array.isArray(summary?.missingDefaultEvidenceSources)
+                  ? summary.missingDefaultEvidenceSources
+                  : [];
+                result.recordedEvidenceSources = Array.isArray(summary?.recordedEvidenceSources)
+                  ? summary.recordedEvidenceSources.map((source) => source.sourceType).sort()
+                  : [];
+                result.certificationArtifactStatus = recording.artifact?.status || "unknown";
+                fs.writeFileSync(decisionPath, `${JSON.stringify(recording, null, 2)}\n`, "utf8");
+              } catch (error) {
+                result.status = "blocked";
+                result.reasonCode = "certification_recording_failed";
+                result.message = error instanceof Error ? error.message : String(error);
+              }
+            }
+          }
+
+          fs.writeFileSync(summaryPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+          writeOutput("certification_status", result.status);
+          writeOutput("certification_reason_code", result.reasonCode);
+          writeOutput("certification_risk_tier", result.riskTier ?? "");
+          writeOutput(
+            "certification_requires_wae",
+            result.requiredVerification.includes("wae_eval") ? "true" : "false",
+          );
+          writeOutput(
+            "certification_missing_wae",
+            result.missingRequiredVerification.includes("wae_eval") ? "true" : "false",
+          );
+          writeOutput("certification_artifact_status", result.certificationArtifactStatus);
+          writeOutput("certification_missing_required_csv", result.missingRequiredVerification.join(","));
+          writeOutput("certification_failed_required_csv", result.failedRequiredVerification.join(","));
+          writeOutput("certification_recorded_sources_csv", result.recordedEvidenceSources.join(","));
+          writeOutput("summary_path", path.relative(process.cwd(), summaryPath));
+
+          if (process.env.GITHUB_STEP_SUMMARY) {
+            fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              [
+                "### Template Certification Evidence Bundle",
+                `- Status: \`${result.status}\``,
+                `- Reason code: \`${result.reasonCode}\``,
+                `- Risk tier: \`${result.riskTier || "n/a"}\``,
+                `- Required verification: \`${result.requiredVerification.length > 0 ? result.requiredVerification.join(", ") : "none"}\``,
+                `- Missing required verification: \`${result.missingRequiredVerification.length > 0 ? result.missingRequiredVerification.join(", ") : "none"}\``,
+                `- Failed required verification: \`${result.failedRequiredVerification.length > 0 ? result.failedRequiredVerification.join(", ") : "none"}\``,
+                `- Recorded evidence sources: \`${result.recordedEvidenceSources.length > 0 ? result.recordedEvidenceSources.join(", ") : "none"}\``,
+                `- Message: ${result.message}`,
+                "",
+              ].join("\n"),
+            );
+          }
+          NODE
+
       - name: Record WAE rollout gate artifact
         id: rollout
         if: always()
@@ -405,6 +598,9 @@ jobs:
           WAE_TEMPLATE_ID: ${{ steps.resolve.outputs.template_id }}
           WAE_TEMPLATE_VERSION_ID: ${{ steps.resolve.outputs.template_version_id }}
           WAE_TEMPLATE_VERSION_TAG: ${{ steps.resolve.outputs.template_version_tag }}
+          CERTIFICATION_STATUS: ${{ steps.certification.outputs.certification_status }}
+          CERTIFICATION_REQUIRES_WAE: ${{ steps.certification.outputs.certification_requires_wae }}
+          CERTIFICATION_MISSING_WAE: ${{ steps.certification.outputs.certification_missing_wae }}
         run: |
           node --import tsx <<'NODE'
           import fs from "node:fs";
@@ -426,6 +622,10 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}<<__WAE__\n${value}\n__WAE__\n`);
           };
 
+          const certificationStatus = process.env.CERTIFICATION_STATUS || "unknown";
+          const requiresWae = process.env.CERTIFICATION_REQUIRES_WAE === "true";
+          const missingWae = process.env.CERTIFICATION_MISSING_WAE === "true";
+
           const result = {
             contractVersion: "wae_rollout_gate_ci_summary_v1",
             runId,
@@ -434,9 +634,19 @@ jobs:
             message: "Nightly mode does not persist rollout gate artifacts.",
             artifactPath: path.relative(process.cwd(), decisionPath),
             recordedAt: new Date().toISOString(),
+            certificationStatus,
+            requiresWae,
           };
 
-          if (process.env.WAE_RECORD_ROLLOUT_GATE === "true") {
+          if (process.env.WAE_RECORD_ROLLOUT_GATE === "true" && !requiresWae) {
+            result.reasonCode = "wae_not_required_for_template_risk_tier";
+            result.message =
+              "Certification requirements for this pre-rollout promotion do not require wae_eval evidence.";
+          } else if (process.env.WAE_RECORD_ROLLOUT_GATE === "true" && !missingWae) {
+            result.reasonCode = "wae_not_primary_blocker";
+            result.message =
+              "Certification remains blocked by non-WAE requirements; skipping WAE rollout recording.";
+          } else if (process.env.WAE_RECORD_ROLLOUT_GATE === "true") {
             const templateId = process.env.WAE_TEMPLATE_ID?.trim() || "";
             const templateVersionId = process.env.WAE_TEMPLATE_VERSION_ID?.trim() || "";
             const templateVersionTag = process.env.WAE_TEMPLATE_VERSION_TAG?.trim() || "";
@@ -470,7 +680,7 @@ jobs:
 
               try {
                 const convex = new ConvexHttpClient(convexUrl);
-                const artifact = await convex.mutation(
+                const recording = await convex.mutation(
                   api.ai.agentCatalogAdmin.recordWaeRolloutGateDecision,
                   {
                     sessionId,
@@ -480,14 +690,30 @@ jobs:
                     waeScenarioRecords: readJsonLines(scenarioRecordsPath),
                   },
                 );
-                result.status = artifact.status;
-                result.reasonCode = artifact.reasonCode;
+                const waeArtifact = recording?.waeArtifact ?? recording;
+                const certificationArtifact = recording?.certificationArtifact ?? null;
+                result.status = waeArtifact?.status ?? "blocked";
+                result.reasonCode = waeArtifact?.reasonCode ?? "rollout_gate_recording_failed";
                 result.message =
-                  artifact.status === "pass"
+                  waeArtifact?.status === "pass"
                     ? "Recorded pass rollout artifact."
                     : "Recorded fail rollout artifact.";
-                result.recordedAt = new Date(artifact.recordedAt).toISOString();
-                fs.writeFileSync(decisionPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+                result.recordedAt = new Date(waeArtifact?.recordedAt || Date.now()).toISOString();
+                if (certificationArtifact?.status) {
+                  result.certificationStatus = certificationArtifact.status;
+                }
+                fs.writeFileSync(
+                  decisionPath,
+                  `${JSON.stringify(
+                    {
+                      waeArtifact,
+                      certificationArtifact,
+                    },
+                    null,
+                    2,
+                  )}\n`,
+                  "utf8",
+                );
               } catch (error) {
                 result.status = "blocked";
                 result.reasonCode = "rollout_gate_recording_failed";
@@ -499,6 +725,7 @@ jobs:
           fs.writeFileSync(summaryPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
           writeOutput("rollout_status", result.status);
           writeOutput("rollout_reason_code", result.reasonCode);
+          writeOutput("certification_status", result.certificationStatus ?? "unknown");
           writeOutput("summary_path", path.relative(process.cwd(), summaryPath));
 
           if (process.env.GITHUB_STEP_SUMMARY) {
@@ -508,6 +735,8 @@ jobs:
                 "### WAE Rollout Gate Artifact",
                 `- Status: \`${result.status}\``,
                 `- Reason code: \`${result.reasonCode}\``,
+                `- WAE required for this promotion: \`${result.requiresWae ? "yes" : "no"}\``,
+                `- Certification status after rollout step: \`${result.certificationStatus || "unknown"}\``,
                 `- Message: ${result.message}`,
                 "",
               ].join("\n"),
@@ -541,25 +770,44 @@ jobs:
             go_no_go="NO-GO"
             reasons+=("missing required WAE secrets")
           fi
-          if [[ "${{ steps.qa_guard.outcome }}" != "success" ]]; then
-            go_no_go="NO-GO"
-            reasons+=("qa telemetry guard failed")
-          fi
-          if [[ "${{ steps.contracts.outcome }}" != "success" ]]; then
-            go_no_go="NO-GO"
-            reasons+=("desktop contract suite failed")
-          fi
-          if [[ "${{ steps.regression.outcome }}" != "success" ]]; then
-            go_no_go="NO-GO"
-            reasons+=("seeded-agent regression suite failed")
-          fi
-          if [[ "${{ steps.score.outputs.verdict }}" != "passed" || "${{ steps.score.outputs.decision }}" != "proceed" ]]; then
-            go_no_go="NO-GO"
-            reasons+=("wae scorer verdict=${{ steps.score.outputs.verdict }} decision=${{ steps.score.outputs.decision }}")
-          fi
-          if [[ "${{ steps.resolve.outputs.record_rollout_gate }}" == "true" && "${{ steps.rollout.outputs.rollout_status }}" != "pass" ]]; then
-            go_no_go="NO-GO"
-            reasons+=("rollout gate artifact status=${{ steps.rollout.outputs.rollout_status }} reason=${{ steps.rollout.outputs.rollout_reason_code }}")
+
+          if [[ "${{ steps.resolve.outputs.record_rollout_gate }}" == "true" ]]; then
+            final_certification_status="${{ steps.rollout.outputs.certification_status }}"
+            if [[ -z "$final_certification_status" || "$final_certification_status" == "unknown" ]]; then
+              final_certification_status="${{ steps.certification.outputs.certification_artifact_status }}"
+            fi
+            if [[ "$final_certification_status" != "certified" ]]; then
+              go_no_go="NO-GO"
+              reasons+=("template certification status=$final_certification_status reason=${{ steps.certification.outputs.certification_reason_code }}")
+            fi
+
+            if [[ "${{ steps.certification.outputs.certification_requires_wae }}" == "true" ]]; then
+              if [[ "${{ steps.score.outputs.verdict }}" != "passed" || "${{ steps.score.outputs.decision }}" != "proceed" ]]; then
+                go_no_go="NO-GO"
+                reasons+=("wae scorer verdict=${{ steps.score.outputs.verdict }} decision=${{ steps.score.outputs.decision }}")
+              fi
+              if [[ "${{ steps.rollout.outputs.rollout_status }}" != "pass" ]]; then
+                go_no_go="NO-GO"
+                reasons+=("rollout gate artifact status=${{ steps.rollout.outputs.rollout_status }} reason=${{ steps.rollout.outputs.rollout_reason_code }}")
+              fi
+            fi
+          else
+            if [[ "${{ steps.qa_guard.outcome }}" != "success" ]]; then
+              go_no_go="NO-GO"
+              reasons+=("qa telemetry guard failed")
+            fi
+            if [[ "${{ steps.contracts.outcome }}" != "success" ]]; then
+              go_no_go="NO-GO"
+              reasons+=("desktop contract suite failed")
+            fi
+            if [[ "${{ steps.regression.outcome }}" != "success" ]]; then
+              go_no_go="NO-GO"
+              reasons+=("seeded-agent regression suite failed")
+            fi
+            if [[ "${{ steps.score.outputs.verdict }}" != "passed" || "${{ steps.score.outputs.decision }}" != "proceed" ]]; then
+              go_no_go="NO-GO"
+              reasons+=("wae scorer verdict=${{ steps.score.outputs.verdict }} decision=${{ steps.score.outputs.decision }}")
+            fi
           fi
 
           {

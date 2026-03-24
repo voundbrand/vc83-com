@@ -2,118 +2,148 @@
 
 ## Objective
 
-Turn the current ElevenLabs demo, the Anne Becker telephony-template precedent, and the native booking primitives into a real law-firm pilot that can accept an inbound call, capture intake, create a booking, push it to a lawyer calendar, and notify the firm.
+Turn the current telephony bridge, booking primitives, and protected-template lifecycle into a real single-agent Kanzlei pilot that can accept an inbound call, capture intake, create a booking or callback-safe fallback, push the booking to a lawyer calendar, and notify the firm.
 
 ## What Is Already True
 
 - Eleven telephony webhook normalization, route resolution, and signature verification already exist in [convex/http.ts](/Users/foundbrand_001/Development/vc83-com/convex/http.ts).
+- Accepted Eleven inbound calls can now create or resolve a durable `telephony_call_record` and dispatch `api.ai.agentExecution.processInboundMessage` through the direct webhook path in [convex/http.ts](/Users/foundbrand_001/Development/vc83-com/convex/http.ts) and [convex/channels/router.ts](/Users/foundbrand_001/Development/vc83-com/convex/channels/router.ts).
 - The platform already has a reusable booking concierge, including phone-safe preview and execute stages, in [convex/ai/tools/bookingTool.ts](/Users/foundbrand_001/Development/vc83-com/convex/ai/tools/bookingTool.ts).
 - The platform already has booking persistence in [convex/bookingOntology.ts](/Users/foundbrand_001/Development/vc83-com/convex/bookingOntology.ts) and calendar reconciliation in [convex/calendarSyncOntology.ts](/Users/foundbrand_001/Development/vc83-com/convex/calendarSyncOntology.ts).
+- The phone-first Kanzlei path no longer hard-requires customer email when caller phone identity is present.
+- Structured legal intake fields and best-effort internal firm notification email already exist on the booking path.
 - The platform already has a protected template seed/bootstrap path for customer telephony in [convex/onboarding/seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts).
-- The platform already has an org deployment path that resolves the Anne Becker telephony template and spawns a managed org clone in [convex/integrations/telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
-- The current branch already includes tests for concierge ingress, native phone booking convergence, booking runtime convergence, and calendar push reconciliation.
+- The platform now has a dedicated single-agent Kanzlei telephony template in [template.ts](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts), seeded through [seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts) and deployable through [telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
+- The current branch includes unit coverage for the new Kanzlei template seed plus the existing telephony provisioning path.
 
 ## What Is Not Yet True
 
-- A real inbound ElevenLabs customer call does not yet become a first-class inbound runtime event that can reliably trigger the booking flow.
-- The current law-firm path still hard-requires customer email, which is too strict for a phone-first Kanzlei deployment.
+- The new single-agent Kanzlei template has not yet been seeded onto the live platform org in this turn.
+- There is no confirmed live deployment of the new template to a target Kanzlei org.
+- There is no captured target-org audit proving `booking_concierge`, lawyer calendar linkage, and firm email recipients are all configured on the same org that will receive the live call.
+- There is no recorded inbound-call preflight proving the live number resolves the intended tenant and produces the expected call record and runtime artifacts.
+- There is no live manual proof from a real inbound Eleven call to booking plus calendar plus firm notification.
 - There is no implemented practice-area to lawyer routing model.
-- There is no structured internal intake summary email for the firm.
-- There is no end-to-end validation path from Eleven telephony webhook to booking plus calendar plus firm notification.
 
 ## Strategy Correction
 
-Do not treat the original Layer 1 Sprint 1 as the real 2-week scope.
+Do not keep the live Kanzlei MVP on the Clara/Jonas/Maren wedge.
 
-The corrected 2-week target is:
+The corrected MVP target is:
+
 - one firm
-- one explicit `Erstberatung` resource or one lawyer calendar
+- one customer-facing Kanzlei agent
 - one inbound ElevenLabs webhook path
-- one platform-native Clara, Jonas, and Maren template path built the same way as Anne Becker, not a one-off Kanzlei-only agent setup
+- one platform-native Kanzlei telephony template built the same way as Anne Becker
 - one structured intake payload contract
 - one booking path
 - one internal notification path
-- one end-to-end validation path
+- one live setup path with explicit deploy, org config audit, preflight, and end-to-end validation
 
-Practice-area routing, reusable Kanzlei templates beyond the 3-agent wedge, dashboard work, audit mode, the other four specialist agents, and RA-MICRO integration stay outside that initial pilot gate.
+The old 3-agent wedge remains useful as a demo surface, not as the live small-firm MVP.
 
 ## Implementation Principle
 
-Build the Kanzlei wedge on the platform path that already exists.
+Build the live Kanzlei MVP on the platform path that already exists.
 
-- Clara, Jonas, and Maren should become protected platform telephony templates with managed org clones, following the same seed/bootstrap/deploy lifecycle already used for Anne Becker.
-- The pilot should stop at the 3-agent wedge. Do not front-load Tobias, Lina, Kai, and Nora into the initial law-firm rollout.
-- Do not build a Kanzlei-only agent provisioning path if the Anne Becker template lifecycle can be reused.
+- The live product should be one customer-facing agent for small law firms.
+- That agent should still use the protected-template lifecycle already proven by Anne Becker.
+- Do not build a Kanzlei-only provisioning bypass.
+- Do not force the live small-firm MVP through Clara/Jonas/Maren transfer logic if one agent can handle the real call cleanly.
 
 ## Milestones
 
 ### Milestone 1 - Reality Freeze
 
 Output:
-- one written audit of the current Layer 1 Sprint 1 assumptions
+
+- one written audit of the current Layer 1 assumptions
 - one queue that reflects the actual codebase
 
 Done when:
+
 - `V4-REALITY-001` is `DONE`
 
 ### Milestone 2 - Inbound Call Bridge
 
 Output:
+
 - inbound ElevenLabs webhook creates or resolves a durable telephony call record
 - inbound call data can trigger the runtime booking path instead of only updating webhook outcome state
 
 Done when:
+
 - `V4-L1-001` and `V4-L1-002` are `DONE`
 
-### Milestone 3 - Core Wedge Template Base
+### Milestone 3 - Single-Agent Template Base
 
 Output:
-- Clara, Jonas, and Maren exist as protected platform telephony templates
+
+- one protected platform Kanzlei telephony template exists
 - Kanzlei deployments can reuse the Anne Becker-style org clone flow instead of bespoke agent creation
-- the template rollout remains limited to the 3-agent law-firm wedge
+- the live path stops at one customer-facing Kanzlei agent
 
 Done when:
-- `V4-L1-003` is `DONE`
+
+- `V4-L1-003` and `V4-L1-010` are `DONE`
 
 ### Milestone 4 - Single-Firm Kanzlei MVP
 
 Output:
+
 - one configured firm resource or lawyer calendar
 - booking write succeeds from inbound phone-call payload
 - calendar push succeeds
 - internal intake summary email is sent
 
 Done when:
+
 - `V4-L1-004`, `V4-L1-005`, `V4-L1-006`, and `V4-L1-007` are `DONE`
 
 ### Milestone 5 - Pilot Validation
 
 Output:
-- automated ingress and booking coverage
-- automated calendar reconciliation coverage
-- live smoke checklist for the law-firm demo path
+
+- the single-agent Kanzlei template is deployed to the target org
+- the remote Eleven agent is provisioned or synced
+- org setup audit for booking, calendar, and firm email is recorded
+- accepted inbound-call preflight evidence exists
 
 Done when:
-- `V4-L1-008` and `V4-L1-009` are `DONE`
 
-### Milestone 6 - Post-Pilot Enhancements
+- `V4-L1-008`, `V4-L1-011`, `V4-L1-012`, and `V4-L1-013` are `DONE`
+
+### Milestone 6 - Live Smoke
 
 Output:
+
+- one real inbound Eleven call reaches the target Kanzlei org
+- booking or explicit phone-safe fallback is recorded
+- calendar and firm email outcomes are evidenced in the same run
+
+Done when:
+
+- `V4-L1-009` is `DONE`
+
+### Milestone 7 - Post-Pilot Enhancements
+
+Output:
+
 - practice-area to lawyer routing
 - multi-lawyer calendar targeting
 - reusable Kanzlei intake metadata model
 
 Done when:
+
 - `V4-L2-001` and `V4-L2-002` are `DONE`
 
 ## Risks
 
-- The inbound telephony bridge is the real critical path; if it slips, the rest of the MVP remains a demo.
-- If Clara, Jonas, and Maren are built as one-off org agents instead of platform templates, the pilot will bypass the rollout lifecycle already proven by Anne Becker.
-- The current email requirement can block otherwise-valid law-firm bookings.
-- Expanding to all seven agents before the 3-agent wedge works live would add template, telephony, and QA surface area without improving the first legal outcome.
-- Practice-area routing can easily balloon the scope if it is kept in the initial 2-week MVP.
-- Calendar linkage can look "done" in code while still failing at tenant setup time if resource-to-calendar bindings are not explicit.
+- The live org may still be wired to old demo-era telephony assumptions even after the new template exists in code.
+- Config drift between phone binding, target org id, route key, `booking_concierge`, calendar, and email recipients can make the bridge look broken when the issue is tenant setup.
+- The bridge is transcript-driven after the accepted inbound call, so poor or partial caller transcript detail can degrade booking success even when routing is correct.
+- The single-agent prompt can still fail if it drifts into legal advice or fake-confirmation language.
+- Practice-area routing can easily balloon the scope if it is pulled back into the initial MVP.
 
 ## Decision Rule
 

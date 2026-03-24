@@ -7,6 +7,7 @@ import {
   buildPlatformMotherReviewArtifactAuditEnvelope,
   createPlatformMotherReviewArtifactInternal,
   getPlatformMotherReviewArtifactInternal,
+  listPlatformMotherReviewArtifactsInternal,
   normalizePlatformMotherApprovalEnvelope,
   normalizePlatformMotherRejectionEnvelope,
   normalizePlatformMotherReviewArtifact,
@@ -236,6 +237,110 @@ describe("platform Mother audit contracts", () => {
     expect(rejectedArtifact?.executionStatus).toBe("not_requested");
   });
 
+  it("rejects approved review artifacts that omit persisted approver identity", () => {
+    expect(
+      normalizePlatformMotherReviewArtifact(
+        {
+          targetTemplateRole: "personal_life_operator_template",
+          proposalSummary: "Missing approver identity must fail closed.",
+          approvalStatus: "approved",
+          approval: {
+            reason: "Reviewed without actor attribution.",
+            decidedAt: CREATED_AT,
+          },
+        },
+        { defaultCreatedAt: CREATED_AT },
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects governance review artifacts that lack alias evidence, review context, or dry-run evidence", () => {
+    expect(
+      normalizePlatformMotherReviewArtifact(
+        {
+          artifactKind: "migration_plan",
+          targetTemplateRole: "personal_life_operator_template",
+          proposalSummary: "Missing review context should fail closed.",
+          aliasMigrationEvidence: {
+            evidenceSummary: "Mother runtime still carries Quinn alias support.",
+            matchedFields: ["canonicalIdentityName", "legacyIdentityAliases"],
+            recordedAt: CREATED_AT,
+          },
+          execution: {
+            dryRunCorrelationId: "dry_run_missing_evidence",
+            downstreamObjectActionIds: [],
+            downstreamAuditLogIds: [],
+          },
+        },
+        { defaultCreatedAt: CREATED_AT },
+      ),
+    ).toBeNull();
+
+    const artifact = normalizePlatformMotherReviewArtifact(
+      {
+        artifactKind: "migration_plan",
+        targetTemplateRole: "personal_life_operator_template",
+        proposalSummary: "Migration review packet is ready for audit.",
+        aliasMigrationEvidence: {
+          evidenceSummary: "Mother runtime still carries Quinn alias support.",
+          matchedFields: ["canonicalIdentityName", "legacyIdentityAliases"],
+          recordedAt: CREATED_AT,
+        },
+        execution: {
+          dryRunCorrelationId: "dry_run_1",
+          downstreamObjectActionIds: ["objectActions_dry_run_1"],
+          downstreamAuditLogIds: [],
+        },
+        reviewContext: {
+          requestedTargetOrganizationIds: [CUSTOMER_ORG_ID],
+          stagedTargetOrganizationIds: [CUSTOMER_ORG_ID],
+          recentDistributionJobIds: ["dry_run_1"],
+          rolloutWindow: {
+            stageStartIndex: 0,
+            stageSize: 1,
+            requestedTargetCount: 1,
+            stagedTargetCount: 1,
+            partialRolloutDetected: false,
+            historicalPartialRolloutDetected: false,
+          },
+          driftSummary: {
+            totalOrganizations: 1,
+            missingCloneCount: 0,
+            interventionCount: 1,
+            reviewStateCounts: {
+              missingClone: 0,
+              inSync: 0,
+              overridden: 0,
+              stale: 0,
+              blocked: 1,
+            },
+            riskLevelCounts: {
+              low: 0,
+              medium: 0,
+              high: 1,
+            },
+          },
+          interventionPackets: [
+            {
+              organizationId: CUSTOMER_ORG_ID,
+              reviewState: "blocked",
+              riskLevel: "high",
+              reviewReasons: ["warn_confirmation_required"],
+              changedFields: ["systemPrompt"],
+              blockedFields: [],
+              overriddenFields: ["systemPrompt"],
+            },
+          ],
+        },
+      },
+      { defaultCreatedAt: CREATED_AT },
+    );
+
+    expect(artifact?.artifactKind).toBe("migration_plan");
+    expect(artifact?.reviewContext?.driftSummary.interventionCount).toBe(1);
+    expect(artifact?.reviewContext?.rolloutWindow.partialRolloutDetected).toBe(false);
+  });
+
   it("rejects invalid review artifacts with missing required fields", async () => {
     expect(
       normalizePlatformMotherReviewArtifact(
@@ -382,6 +487,8 @@ describe("platform Mother audit contracts", () => {
     );
     expect(loaded?.evidence.objectActions).toHaveLength(1);
     expect(loaded?.evidence.auditLogs).toHaveLength(1);
+    expect(loaded?.evidence.relatedObjectActions).toHaveLength(0);
+    expect(loaded?.evidence.relatedAuditLogs).toHaveLength(0);
   });
 
   it("builds a stable audit envelope shape for downstream evidence rails", () => {
@@ -423,5 +530,76 @@ describe("platform Mother audit contracts", () => {
       }),
     );
     expect(envelope.aliasMigrationEvidence?.legacyIdentityAlias).toBe("Quinn");
+  });
+
+  it("lists Mother review artifacts for internal programmatic controls with stable filters", async () => {
+    const db = new FakeDb();
+
+    await (createPlatformMotherReviewArtifactInternal as any)._handler(createCtx(db), {
+      actorUserId: ACTOR_USER_ID,
+      artifact: {
+        targetTemplateRole: "personal_life_operator_template",
+        proposalSummary: "Pending customer proposal.",
+        requestingOrganizationId: CUSTOMER_ORG_ID,
+        createdAt: CREATED_AT,
+      },
+    });
+    await (createPlatformMotherReviewArtifactInternal as any)._handler(createCtx(db), {
+      actorUserId: ACTOR_USER_ID,
+      artifact: {
+        targetTemplateRole: "personal_life_operator_template",
+        proposalSummary: "Approved customer proposal.",
+        requestingOrganizationId: CUSTOMER_ORG_ID,
+        approvalStatus: "approved",
+        approval: {
+          approverUserId: ACTOR_USER_ID,
+          approverRole: "super_admin",
+          reason: "Reviewed and approved programmatically.",
+          decidedAt: CREATED_AT + 10,
+        },
+        createdAt: CREATED_AT + 10,
+      },
+    });
+    await (createPlatformMotherReviewArtifactInternal as any)._handler(createCtx(db), {
+      actorUserId: ACTOR_USER_ID,
+      artifact: {
+        targetTemplateRole: "personal_life_operator_template",
+        proposalSummary: "Other org proposal.",
+        requestingOrganizationId: "organizations_other",
+        createdAt: CREATED_AT + 20,
+      },
+    });
+
+    const filtered = await (listPlatformMotherReviewArtifactsInternal as any)._handler(
+      createCtx(db),
+      {
+        requestingOrganizationId: CUSTOMER_ORG_ID,
+        limit: 10,
+      },
+    );
+
+    expect(filtered.totalCount).toBe(2);
+    expect(filtered.statusCounts).toEqual({
+      pending: 1,
+      approved: 1,
+      rejected: 0,
+    });
+    expect(
+      filtered.artifacts.every(
+        (artifact: any) => artifact.requestingOrganizationId === CUSTOMER_ORG_ID,
+      ),
+    ).toBe(true);
+
+    const approvedOnly = await (listPlatformMotherReviewArtifactsInternal as any)._handler(
+      createCtx(db),
+      {
+        approvalStatus: "approved",
+        requestingOrganizationId: CUSTOMER_ORG_ID,
+        limit: 10,
+      },
+    );
+
+    expect(approvedOnly.totalCount).toBe(1);
+    expect(approvedOnly.artifacts[0]?.approvalStatus).toBe("approved");
   });
 });

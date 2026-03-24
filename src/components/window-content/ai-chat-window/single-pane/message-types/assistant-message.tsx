@@ -2,10 +2,7 @@
 
 import { Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { ShellBotIcon } from "@/components/icons/shell-icons"
-import {
-  CHAT_MESSAGE_TEXT_LEADING_CLASS,
-  CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS,
-} from "../../message-content-styles"
+import { ChatMarkdownMessage } from "../../chat-markdown-message"
 
 interface AssistantMessageProps {
   content: string
@@ -36,9 +33,7 @@ export function AssistantMessage({ content, toolExecution, quickActions }: Assis
             <ShellBotIcon size={16} tone="active" />
           </span>
           <div className="flex-1 min-w-0 space-y-2">
-            <div className={CHAT_MESSAGE_X_SCROLL_FALLBACK_CLASS}>
-              <div className={CHAT_MESSAGE_TEXT_LEADING_CLASS}>{content}</div>
-            </div>
+            <ChatMarkdownMessage content={content} />
 
             {/* Tool execution status */}
             {toolExecution && (

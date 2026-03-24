@@ -459,7 +459,7 @@ describe("agentOntology mutation paths: updateAgent", () => {
     }
   });
 
-  it("fails closed when managed clone update includes disallowed fields", async () => {
+  it("treats managed clone name/subtype edits as sanctioned updates in this slice", async () => {
     const db = new FakeDb();
     seedSession(db);
     seedAgent(db, {
@@ -471,18 +471,18 @@ describe("agentOntology mutation paths: updateAgent", () => {
       },
     });
 
-    await expect(
-      (updateAgent as any)._handler(createCtx(db), {
-        sessionId: SESSION_ID,
-        agentId: "objects_managed_clone",
-        updates: {
-          name: "Forbidden rename",
-        },
-      }),
-    ).rejects.toThrow(/ONE_OF_ONE_MANAGED_CLONE_TUNING_FIELD_FORBIDDEN/);
+    await (updateAgent as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_managed_clone",
+      updates: {
+        name: "Allowed rename",
+        subtype: "customer_support",
+      },
+    });
 
-    expect(db.rows("objectActions")).toHaveLength(0);
-    expect(db.rows("auditLogs")).toHaveLength(0);
+    const updated = db.rows("objects").find((row) => row._id === "objects_managed_clone");
+    expect(updated?.name).toBe("Allowed rename");
+    expect(updated?.subtype).toBe("customer_support");
   });
 
   it("keeps non-managed non-primary updates blocked", async () => {
@@ -816,6 +816,187 @@ describe("agentOntology mutation paths: updateAgent", () => {
       "blockedTopics",
       "channelBindings",
       "displayName",
+    ]);
+  });
+
+  it("previews and applies broader safe agent settings through the same patch rail", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    seedAgent(db, {
+      _id: "objects_primary_apply_broad",
+      name: "Anne Operator",
+      subtype: "general",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: true,
+        additionalLanguages: ["en"],
+        faqEntries: [{ q: "Hours?", a: "9-5" }],
+        knowledgeBaseTags: ["billing"],
+        toolProfile: "general",
+        enabledTools: ["list_forms"],
+        disabledTools: ["process_payment"],
+        maxMessagesPerDay: 100,
+        maxCostPerDay: 5,
+        requireApprovalFor: ["process_payment"],
+        maxTokens: 4096,
+        escalationPolicy: {
+          holdMessage: "Please hold while I connect you.",
+        },
+        unifiedPersonality: false,
+      },
+    });
+
+    const patch = {
+      name: "Anne Configured",
+      subtype: "customer_support",
+      additionalLanguages: ["de", "en", "de"],
+      faqEntries: [
+        { q: "Returns?", a: "We process returns within 14 days." },
+      ],
+      knowledgeBaseTags: ["shipping", "returns"],
+      toolProfile: "support",
+      enabledTools: ["query_org_data", "list_forms"],
+      disabledTools: ["manage_bookings", "process_payment", "process_payment"],
+      maxMessagesPerDay: 250,
+      maxCostPerDay: 12.5,
+      requireApprovalFor: ["manage_bookings", "process_payment"],
+      maxTokens: 8192,
+      escalationPolicy: {
+        holdMessage: "Let me connect you with our team.",
+        resumeMessage: "I am back with the latest update.",
+        triggers: {
+          explicitRequest: {
+            enabled: true,
+            urgency: "high",
+            patterns: ["human please"],
+          },
+        },
+      },
+      unifiedPersonality: true,
+    };
+
+    const preview = await (previewAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_apply_broad",
+      patch,
+    });
+
+    expect(preview.summary.canApply).toBe(true);
+    expect(preview.deferredFields).toEqual([]);
+    expect(preview.currentValues.name).toBe("Anne Operator");
+    expect(preview.currentValues.subtype).toBe("general");
+    expect(preview.changedFields).toEqual(Object.keys(patch));
+    expect(
+      preview.changes.find((change: any) => change.field === "faqEntries")?.applyStatus,
+    ).toBe("ready");
+
+    const result = await (applyAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_apply_broad",
+      patch,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.appliedFields).toEqual(Object.keys(patch));
+
+    const updated = db.rows("objects").find((row) => row._id === "objects_primary_apply_broad");
+    expect(updated?.name).toBe("Anne Configured");
+    expect(updated?.subtype).toBe("customer_support");
+    expect(updated?.customProperties?.additionalLanguages).toEqual(["de", "en"]);
+    expect(updated?.customProperties?.faqEntries).toEqual([
+      { q: "Returns?", a: "We process returns within 14 days." },
+    ]);
+    expect(updated?.customProperties?.knowledgeBaseTags).toEqual(["returns", "shipping"]);
+    expect(updated?.customProperties?.toolProfile).toBe("support");
+    expect(updated?.customProperties?.enabledTools).toEqual(["list_forms", "query_org_data"]);
+    expect(updated?.customProperties?.disabledTools).toEqual([
+      "manage_bookings",
+      "process_payment",
+    ]);
+    expect(updated?.customProperties?.maxMessagesPerDay).toBe(250);
+    expect(updated?.customProperties?.maxCostPerDay).toBe(12.5);
+    expect(updated?.customProperties?.requireApprovalFor).toEqual([
+      "manage_bookings",
+      "process_payment",
+    ]);
+    expect(updated?.customProperties?.maxTokens).toBe(8192);
+    expect(updated?.customProperties?.escalationPolicy).toEqual({
+      holdMessage: "Let me connect you with our team.",
+      resumeMessage: "I am back with the latest update.",
+      triggers: {
+        explicitRequest: {
+          enabled: true,
+          patterns: ["human please"],
+          urgency: "high",
+        },
+      },
+    });
+    expect(updated?.customProperties?.unifiedPersonality).toBe(true);
+
+    const updatedAction = db.rows("objectActions").find(
+      (row) =>
+        row.objectId === "objects_primary_apply_broad"
+        && row.actionType === "updated",
+    );
+    expect(updatedAction?.actionData?.updatedFields).toEqual([
+      "additionalLanguages",
+      "disabledTools",
+      "enabledTools",
+      "escalationPolicy",
+      "faqEntries",
+      "knowledgeBaseTags",
+      "maxCostPerDay",
+      "maxMessagesPerDay",
+      "maxTokens",
+      "name",
+      "requireApprovalFor",
+      "subtype",
+      "toolProfile",
+      "unifiedPersonality",
+    ]);
+  });
+
+  it("surfaces lower-priority target-agent chat fields as deferred", async () => {
+    const db = new FakeDb();
+    seedSession(db);
+    seedAgent(db, {
+      _id: "objects_primary_preview_deferred",
+      customProperties: {
+        operatorId: DEFAULT_OPERATOR_CONTEXT_ID,
+        isPrimary: true,
+        teamAccessMode: "invisible",
+        activeSoulMode: "work",
+        soul: {
+          name: "Anne",
+        },
+      },
+    });
+
+    const preview = await (previewAgentFieldPatch as any)._handler(createCtx(db), {
+      sessionId: SESSION_ID,
+      agentId: "objects_primary_preview_deferred",
+      patch: {
+        teamAccessMode: "meeting",
+        activeSoulMode: "private",
+        soul: {
+          name: "Anne Private",
+        },
+      },
+    });
+
+    expect(preview.summary.canApply).toBe(false);
+    expect(preview.changedFields).toEqual([]);
+    expect(preview.deferredFields).toEqual([
+      "teamAccessMode",
+      "activeSoulMode",
+      "soul",
+    ]);
+    expect(
+      preview.changes.map((change: any) => [change.field, change.applyStatus]),
+    ).toEqual([
+      ["teamAccessMode", "deferred"],
+      ["activeSoulMode", "deferred"],
+      ["soul", "deferred"],
     ]);
   });
 

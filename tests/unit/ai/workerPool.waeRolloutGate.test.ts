@@ -143,6 +143,13 @@ function seedOrganizationMember(db: FakeDb, userId: string) {
   });
 }
 
+function seedOrganization(db: FakeDb) {
+  db.seed("organizations", {
+    _id: ORG_ID,
+    name: "Customer Org",
+  });
+}
+
 function seedTemplate(db: FakeDb) {
   db.seed("objects", {
     _id: TEMPLATE_ID,
@@ -180,60 +187,75 @@ function seedTemplate(db: FakeDb) {
   });
 }
 
-function seedWaeGateArtifact(db: FakeDb, recordedAt: number) {
+function seedInvalidCertificationArtifact(db: FakeDb, recordedAt: number) {
   db.seed("objectActions", {
-    _id: "objectActions_wae_gate",
+    _id: "objectActions_template_certification",
     organizationId: ORG_ID,
     objectId: TEMPLATE_VERSION_ID,
-    actionType: "wae_rollout_gate.recorded",
+    actionType: "template_certification.recorded",
     actionData: {
-      contractVersion: "wae_rollout_gate_decision_v1",
-      rolloutContractVersion: "wae_rollout_promotion_contract_v1",
-      status: "pass",
-      reasonCode: "pass",
+      contractVersion: "template_certification_decision_v1",
+      promotionContractVersion: "template_certification_promotion_contract_v1",
+      status: "certified",
+      reasonCode: "certified",
       templateId: TEMPLATE_ID,
       templateVersionId: TEMPLATE_VERSION_ID,
       templateVersionTag: "template_v1",
-      runId: "wae_run_stale",
-      suiteKeyHash: "suite_hash_stale",
-      scenarioMatrixContractVersion: "wae_matrix_v1",
-      completedAt: recordedAt,
+      dependencyManifest: {
+        contractVersion: "template_certification_dependency_manifest_v1",
+        templateId: TEMPLATE_ID,
+        templateVersionId: TEMPLATE_VERSION_ID,
+        templateVersionTag: "template_v1",
+        baselineDigest: "baseline_old",
+        toolingDigest: "tooling_old",
+        telephonyDigest: "telephony_old",
+        runtimeDigest: "runtime_old",
+        dependencyDigest: "dependency_old",
+        selectedTools: [],
+        telephony: {
+          provider: "elevenlabs",
+          managedToolKeys: [],
+          transferDestinationCount: 0,
+          phoneChannelEnabled: false,
+        },
+        runtime: {
+          modelProvider: null,
+          modelId: null,
+          autonomyLevel: null,
+        },
+      },
+      riskAssessment: {
+        contractVersion: "template_certification_risk_assessment_v1",
+        tier: "high",
+        changedFields: ["systemPrompt"],
+        lowRiskReasons: [],
+        mediumRiskReasons: [],
+        highRiskReasons: ["System prompt changed."],
+        requiredVerification: ["manifest_integrity", "risk_assessment", "wae_eval"],
+        autoCertificationEligible: false,
+      },
+      requiredVerification: ["manifest_integrity", "risk_assessment", "wae_eval"],
+      evidenceSources: [
+        {
+          sourceType: "manifest_integrity",
+          status: "pass",
+          summary: "Manifest recorded.",
+        },
+        {
+          sourceType: "risk_assessment",
+          status: "pass",
+          summary: "Risk assessed.",
+        },
+        {
+          sourceType: "wae_eval",
+          status: "pass",
+          summary: "WAE bundle passed.",
+          runId: "wae_run_stale",
+        },
+      ],
       recordedAt,
       recordedByUserId: REQUESTER_USER_ID,
-      freshnessWindowMs: 72 * 60 * 60 * 1000,
-      score: {
-        verdict: "passed",
-        decision: "proceed",
-        resultLabel: "PASS",
-        weightedScore: 0.91,
-        thresholds: {
-          pass: 0.85,
-          hold: 0.7,
-        },
-        failedMetrics: [],
-        warnings: [],
-        blockedReasons: [],
-      },
-      scenarioCoverage: {
-        totalScenarios: 3,
-        runnableScenarios: 3,
-        skippedScenarios: 0,
-        passedScenarios: 3,
-        failedScenarios: 0,
-        evaluatedScenarioIds: ["OOO-001", "Q-001", "SAM-001"],
-        failedScenarioIds: [],
-        skippedScenarioIds: [],
-      },
-      criticalReasonCodeBudget: {
-        allowedCount: 0,
-        observedCount: 0,
-        observedReasonCodes: [],
-      },
-      failureSnapshot: {
-        unresolvedCriticalFailures: 0,
-        failedMetrics: [],
-        blockedReasons: [],
-      },
+      notes: ["Persisted certification no longer matches the current dependency digest."],
     },
     performedBy: REQUESTER_USER_ID,
     performedAt: recordedAt,
@@ -245,37 +267,32 @@ describe("workerPool WAE rollout gate", () => {
     vi.clearAllMocks();
   });
 
-  it("fails closed for stale WAE gate evidence before spawning a managed clone", async () => {
+  it("fails closed when certification dependency digests no longer match before spawning a managed clone", async () => {
     const db = new FakeDb();
+    seedOrganization(db);
     seedOrganizationMember(db, OWNER_USER_ID);
     seedOrganizationMember(db, REQUESTER_USER_ID);
     seedTemplate(db);
+    seedInvalidCertificationArtifact(db, 1_700_640_000_000);
 
-    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_900_000_001);
-    try {
-      seedWaeGateArtifact(db, 1_700_640_000_000);
-
-      await expect(
-        (spawnUseCaseAgent as any)._handler(createCtx(db), {
-          organizationId: ORG_ID,
-          templateAgentId: TEMPLATE_ID,
-          ownerUserId: OWNER_USER_ID,
-          requestedByUserId: REQUESTER_USER_ID,
-          useCase: "Lead capture",
-        }),
-      ).rejects.toThrow(/WAE rollout gate evidence is stale/);
-
-      const blockedAction = db.rows("objectActions").find(
-        (row) => row.actionType === "template_clone_spawn_blocked_wae_gate",
-      );
-      expect(blockedAction?.actionData).toMatchObject({
+    await expect(
+      (spawnUseCaseAgent as any)._handler(createCtx(db), {
+        organizationId: ORG_ID,
         templateAgentId: TEMPLATE_ID,
-        templateVersionId: TEMPLATE_VERSION_ID,
-        templateVersionTag: "template_v1",
-        reasonCode: "wae_evidence_stale",
-      });
-    } finally {
-      nowSpy.mockRestore();
-    }
+        ownerUserId: OWNER_USER_ID,
+        requestedByUserId: REQUESTER_USER_ID,
+        useCase: "Lead capture",
+      }),
+    ).rejects.toThrow(/dependency digest no longer matches/i);
+
+    const blockedAction = db.rows("objectActions").find(
+      (row) => row.actionType === "template_clone_spawn_blocked_wae_gate",
+    );
+    expect(blockedAction?.actionData).toMatchObject({
+      templateAgentId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_ID,
+      templateVersionTag: "template_v1",
+      reasonCode: "certification_invalid",
+    });
   });
 });

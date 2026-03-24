@@ -76,6 +76,7 @@ import {
   type VoiceRuntimeTelemetryEvent,
 } from "./trustTelemetry";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { canUsePlatformMotherCustomerFacingSupport } from "../platformMother";
 import {
   SUPER_ADMIN_AGENT_QA_MODE_VERSION,
   resolveSuperAdminAgentQaDeniedReason,
@@ -3086,17 +3087,24 @@ export const getEvalPromotionEvidencePacketInternal = internalQuery({
   },
 });
 
+export const PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION =
+  "platform_mother_support_entrypoint_v1" as const;
+
 export const startPlatformMotherSupportConversation = action({
   args: {
     organizationId: v.id("organizations"),
     userId: v.id("users"),
     title: v.optional(v.string()),
+    reuseExisting: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{
+    contractVersion: typeof PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION;
     conversationId: Id<"aiConversations">;
     targetAgentId: Id<"objects">;
     targetOrganizationId: Id<"organizations">;
     runtimeMode: "support";
+    conversationStatus: "active";
+    entrypointStatus: "created" | "reused";
     displayName?: string;
   }> => {
     const resolvedTarget = await (ctx as any).runAction(
@@ -3109,7 +3117,54 @@ export const startPlatformMotherSupportConversation = action({
       organizationId: Id<"organizations">;
       runtimeMode: "support";
       name?: string;
+      status?: string;
+      customProperties?: Record<string, unknown> | null;
     };
+
+    if (
+      !canUsePlatformMotherCustomerFacingSupport({
+        requestingOrganizationId: String(args.organizationId),
+        name: resolvedTarget.name,
+        status: resolvedTarget.status,
+        customProperties: resolvedTarget.customProperties ?? undefined,
+      })
+    ) {
+      throw new ConvexError({
+        code: "PLATFORM_MOTHER_SUPPORT_ROUTE_DISABLED",
+        message:
+          "Platform Mother support entry is not enabled for this organization.",
+        organizationId: String(args.organizationId),
+        targetAgentId: String(resolvedTarget.agentId),
+      });
+    }
+
+    if (args.reuseExisting !== false) {
+      const existingConversation = await (ctx as any).runQuery(
+        generatedApi.internal.ai.conversations.findLatestConversationByUserTargetInternal,
+        {
+          organizationId: args.organizationId,
+          userId: args.userId,
+          targetAgentId: resolvedTarget.agentId,
+          status: "active",
+        }
+      ) as {
+        _id: Id<"aiConversations">;
+        status: "active";
+      } | null;
+
+      if (existingConversation) {
+        return {
+          contractVersion: PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION,
+          conversationId: existingConversation._id,
+          targetAgentId: resolvedTarget.agentId,
+          targetOrganizationId: resolvedTarget.organizationId,
+          runtimeMode: resolvedTarget.runtimeMode,
+          conversationStatus: existingConversation.status,
+          entrypointStatus: "reused",
+          displayName: resolvedTarget.name,
+        };
+      }
+    }
 
     const conversationId = await (ctx as any).runMutation(
       generatedApi.api.ai.conversations.createConversation,
@@ -3122,10 +3177,13 @@ export const startPlatformMotherSupportConversation = action({
     ) as Id<"aiConversations">;
 
     return {
+      contractVersion: PLATFORM_MOTHER_SUPPORT_ENTRYPOINT_CONTRACT_VERSION,
       conversationId,
       targetAgentId: resolvedTarget.agentId,
       targetOrganizationId: resolvedTarget.organizationId,
       runtimeMode: resolvedTarget.runtimeMode,
+      conversationStatus: "active",
+      entrypointStatus: "created",
       displayName: resolvedTarget.name,
     };
   },
