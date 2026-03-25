@@ -106,32 +106,30 @@ export function CoursesSection({ title, subtitle, courses, buttonText }: Courses
               return (
                 <Card key={actualIndex} className="flex flex-col hover:shadow-xl transition-shadow bg-card">
                   <CardHeader>
-                    <div className="flex justify-between items-start mb-2">
-                      <CardTitle className="text-2xl font-serif text-primary">
-                        {cmsEnabled ? (
-                          <EditableText
-                            page="home"
-                            section="courses"
-                            contentKey={`${courseKey}_title`}
-                            fallback={course.title}
-                          />
-                        ) : (
-                          course.title
-                        )}
-                      </CardTitle>
-                      <span className="text-sm font-medium text-muted-foreground bg-secondary px-3 py-1 rounded-full">
-                        {cmsEnabled ? (
-                          <EditableText
-                            page="home"
-                            section="courses"
-                            contentKey={`${courseKey}_duration`}
-                            fallback={course.duration}
-                          />
-                        ) : (
-                          course.duration
-                        )}
-                      </span>
-                    </div>
+                    <CardTitle className="text-2xl font-serif text-primary">
+                      {cmsEnabled ? (
+                        <EditableText
+                          page="home"
+                          section="courses"
+                          contentKey={`${courseKey}_title`}
+                          fallback={course.title}
+                        />
+                      ) : (
+                        course.title
+                      )}
+                    </CardTitle>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {cmsEnabled ? (
+                        <EditableText
+                          page="home"
+                          section="courses"
+                          contentKey={`${courseKey}_duration`}
+                          fallback={course.duration}
+                        />
+                      ) : (
+                        course.duration
+                      )}
+                    </p>
                     <CardDescription className="text-base">
                       {cmsEnabled ? (
                         <EditableText
