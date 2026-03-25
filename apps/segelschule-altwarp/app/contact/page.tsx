@@ -19,6 +19,9 @@ import { WaveDivider } from "@/components/wave-divider"
 export default function ContactPage() {
   const { language, setLanguage } = useLanguage()
   const t = translations[language]
+  const navT = t.nav
+  const contactT = t.contact
+  const footerT = t.footer
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({

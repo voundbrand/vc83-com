@@ -3,7 +3,6 @@
 import Image from "next/image"
 import { EditableHeading, EditableParagraph } from "@cms"
 import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
-import { PhotoWatermark } from "./photo-watermark"
 
 interface RevierSectionProps {
   title: string
