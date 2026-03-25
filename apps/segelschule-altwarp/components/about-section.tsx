@@ -14,7 +14,7 @@ export function AboutSection({ title, text }: AboutSectionProps) {
   const cmsEnabled = isCmsEditorEnabled()
 
   return (
-    <section className="py-28 px-4 bg-secondary">
+    <section className="pt-28 pb-10 md:pb-28 px-4 bg-secondary">
       <div className="container mx-auto max-w-7xl">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="order-last md:order-first">

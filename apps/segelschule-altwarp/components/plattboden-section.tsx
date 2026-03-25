@@ -15,7 +15,7 @@ export function PlattbodenSection({ title, text, subtitle }: PlattbodenSectionPr
   const cmsEnabled = isCmsEditorEnabled()
 
   return (
-    <section className="py-28 px-4 bg-secondary">
+    <section className="pt-10 pb-28 md:pt-28 px-4 bg-secondary">
       <div className="container mx-auto max-w-7xl">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           {cmsEnabled ? (
