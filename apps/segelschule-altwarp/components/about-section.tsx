@@ -17,7 +17,7 @@ export function AboutSection({ title, text }: AboutSectionProps) {
     <section className="py-28 px-4 bg-secondary">
       <div className="container mx-auto max-w-7xl">
         <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div>
+          <div className="order-last md:order-first">
             {cmsEnabled ? (
               <>
                 <EditableHeading
@@ -45,26 +45,28 @@ export function AboutSection({ title, text }: AboutSectionProps) {
               </>
             )}
           </div>
-          {cmsEnabled ? (
-            <EditableImage
-              usage="home_about_image"
-              fallbackSrc="/stettiner-haff-panorama.jpg"
-              alt="Das Stettiner Haff - weite Natur"
-              className="shadow-2xl"
-              aspectRatio="4 / 3"
-            />
-          ) : (
-            <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden shadow-2xl">
-              <Image
-                src="/stettiner-haff-panorama.jpg"
+          <div className="order-first md:order-last">
+            {cmsEnabled ? (
+              <EditableImage
+                usage="home_about_image"
+                fallbackSrc="/stettiner-haff-panorama.jpg"
                 alt="Das Stettiner Haff - weite Natur"
-                fill
-                sizes="(min-width: 768px) 50vw, 100vw"
-                className="object-cover"
+                className="shadow-2xl"
+                aspectRatio="4 / 3"
               />
-              <PhotoWatermark size="md" />
-            </div>
-          )}
+            ) : (
+              <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden shadow-2xl">
+                <Image
+                  src="/stettiner-haff-panorama.jpg"
+                  alt="Das Stettiner Haff - weite Natur"
+                  fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  className="object-cover"
+                />
+                <PhotoWatermark size="md" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>
