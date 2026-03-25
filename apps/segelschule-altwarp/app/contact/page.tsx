@@ -48,17 +48,17 @@ export default function ContactPage() {
       }
 
       toast({
-        title: t.contact.messageSent,
-        description: t.contact.messageSentDesc,
+        title: contactT.messageSent,
+        description: contactT.messageSentDesc,
       })
       setFormData({ name: "", email: "", subject: "", message: "" })
     } catch (err) {
       toast({
-        title: t.contact.error,
+        title: contactT.error,
         description:
           err instanceof Error
             ? err.message
-            : t.contact.tryAgain,
+            : contactT.tryAgain,
         variant: "destructive",
       })
     } finally {
@@ -67,12 +67,12 @@ export default function ContactPage() {
   }, [isSubmitting, formData, language, toast])
 
   const openDirections = () => {
-    window.open("https://www.google.com/maps/dir/?api=1&destination=Hafenstraße+12,+17375+Altwarp,+Germany", "_blank")
+    window.open("https://www.google.com/maps/dir/?api=1&destination=Am+Hafen+12,+17375+Altwarp,+Germany", "_blank")
   }
 
   return (
     <>
-      <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
+      <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={navT} forceScrolledStyle />
 
       <main className="pt-20">
         <section
@@ -81,9 +81,9 @@ export default function ContactPage() {
         >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-6 text-balance">
-              {t.contact.title}
+              {contactT.title}
             </h1>
-            <p className="text-lg md:text-xl text-white/90 text-balance max-w-2xl mx-auto">{t.contact.subtitle}</p>
+            <p className="text-lg md:text-xl text-white/90 text-balance max-w-2xl mx-auto">{contactT.subtitle}</p>
           </div>
         </section>
 
@@ -96,7 +96,7 @@ export default function ContactPage() {
               {/* Contact Information - Left Side */}
               <div>
                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-6">
-                  {t.contact.contactInfo}
+                  {contactT.contactInfo}
                 </h2>
 
                 <div className="space-y-4">
@@ -108,10 +108,10 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {t.contact.addressLabel}
+                            {contactT.addressLabel}
                           </h3>
-                          <p className="text-foreground/80">{t.contact.info.address}</p>
-                          <p className="text-foreground/80">{t.contact.info.city}</p>
+                          <p className="text-foreground/80">{contactT.info.address}</p>
+                          <p className="text-foreground/80">{contactT.info.city}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -125,13 +125,13 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {t.contact.phoneLabel}
+                            {contactT.phoneLabel}
                           </h3>
                           <a
-                            href={`tel:${t.contact.info.phone}`}
+                            href={`tel:${contactT.info.phone}`}
                             className="text-foreground/80 hover:text-primary transition-colors"
                           >
-                            {t.contact.info.phone}
+                            {contactT.info.phone}
                           </a>
                         </div>
                       </div>
@@ -147,10 +147,10 @@ export default function ContactPage() {
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">Email</h3>
                           <a
-                            href={`mailto:${t.contact.info.email}`}
+                            href={`mailto:${contactT.info.email}`}
                             className="text-foreground/80 hover:text-primary transition-colors"
                           >
-                            {t.contact.info.email}
+                            {contactT.info.email}
                           </a>
                         </div>
                       </div>
@@ -165,13 +165,13 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h3 className="font-serif font-semibold text-lg mb-2">
-                            {t.contact.openingHours}
+                            {contactT.openingHours}
                           </h3>
                           <p className="text-foreground/80">
-                            {t.contact.weekdayHours}
+                            {contactT.weekdayHours}
                           </p>
                           <p className="text-foreground/80">
-                            {t.contact.weekendHours}
+                            {contactT.weekendHours}
                           </p>
                         </div>
                       </div>
@@ -183,13 +183,13 @@ export default function ContactPage() {
               {/* Contact Form - Right Side */}
               <div>
                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-primary mb-6">
-                  {t.contact.sendMessage}
+                  {contactT.sendMessage}
                 </h2>
                 <Card className="shadow-lg">
                   <CardContent className="pt-6">
                     <form onSubmit={handleSubmit} className="space-y-5">
                       <div>
-                        <label className="block text-sm font-medium mb-2 font-sans">{t.contact.form.name}</label>
+                        <label className="block text-sm font-medium mb-2 font-sans">{contactT.form.name}</label>
                         <Input
                           type="text"
                           value={formData.name}
@@ -199,7 +199,7 @@ export default function ContactPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2 font-sans">{t.contact.form.email}</label>
+                        <label className="block text-sm font-medium mb-2 font-sans">{contactT.form.email}</label>
                         <Input
                           type="email"
                           value={formData.email}
@@ -209,7 +209,7 @@ export default function ContactPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2 font-sans">{t.contact.form.subject}</label>
+                        <label className="block text-sm font-medium mb-2 font-sans">{contactT.form.subject}</label>
                         <Input
                           type="text"
                           value={formData.subject}
@@ -219,7 +219,7 @@ export default function ContactPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2 font-sans">{t.contact.form.message}</label>
+                        <label className="block text-sm font-medium mb-2 font-sans">{contactT.form.message}</label>
                         <Textarea
                           value={formData.message}
                           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -232,10 +232,10 @@ export default function ContactPage() {
                         {isSubmitting ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            {t.contact.sending}
+                            {contactT.sending}
                           </>
                         ) : (
-                          t.contact.form.submit
+                          contactT.form.submit
                         )}
                       </Button>
                     </form>
@@ -253,14 +253,14 @@ export default function ContactPage() {
           <div className="container mx-auto max-w-7xl">
             <div className="text-center mb-8">
               <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#FFF6C3] mb-4">
-                {t.contact.findUs}
+                {contactT.findUs}
               </h2>
               <p className="text-[#FFFBEA]/80 text-lg max-w-2xl mx-auto mb-6">
-                {t.contact.findUsDesc}
+                {contactT.findUsDesc}
               </p>
               <Button onClick={openDirections} size="lg" className="bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button gap-2">
                 <Navigation className="h-5 w-5" />
-                {t.contact.getDirections}
+                {contactT.getDirections}
               </Button>
             </div>
 
@@ -284,7 +284,7 @@ export default function ContactPage() {
         </section>
       </main>
 
-      <Footer content={t.footer} />
+      <Footer content={footerT} />
       <Toaster />
     </>
   )

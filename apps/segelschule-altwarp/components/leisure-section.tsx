@@ -87,7 +87,7 @@ export function LeisureSection({ title, text, buttonText }: LeisureSectionProps)
         </div>
 
         <div className="text-center">
-          <Link href="#">
+          <Link href="https://www.kapitaenshaus-altwarp.de" target="_blank" rel="noopener noreferrer">
             <Button className="bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button px-8 py-3 text-lg">
               {cmsEnabled ? (
                 <EditableText

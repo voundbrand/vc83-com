@@ -31,7 +31,7 @@ export function TestimonialsSection({ title, scriptText, reviews }: Testimonials
               section="testimonials"
               contentKey="scriptText"
               fallback={scriptText}
-              className="font-script text-4xl md:text-5xl lg:text-6xl text-[#E2C786] mb-3 text-center drop-shadow-md"
+              className="font-script text-5xl md:text-6xl lg:text-7xl text-[#E2C786] mb-3 text-center drop-shadow-md"
             />
             <EditableHeading
               page="home"
@@ -44,7 +44,7 @@ export function TestimonialsSection({ title, scriptText, reviews }: Testimonials
           </>
         ) : (
           <>
-            <p className="font-script text-4xl md:text-5xl lg:text-6xl text-[#E2C786] mb-3 text-center drop-shadow-md">
+            <p className="font-script text-5xl md:text-6xl lg:text-7xl text-[#E2C786] mb-3 text-center drop-shadow-md">
               {scriptText}
             </p>
             <h2 className="text-4xl md:text-5xl font-serif font-bold text-primary-foreground mb-16 text-center text-balance">

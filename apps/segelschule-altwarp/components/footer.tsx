@@ -169,10 +169,10 @@ export function Footer({ content }: FooterProps) {
               <h3 className="text-xl font-serif font-bold mb-4">{content.social}</h3>
             )}
             <div className="flex gap-4">
-              <a href="#" className="hover:scale-110 transition-transform" aria-label="Facebook">
+              <a href="https://www.facebook.com/segelschulealtwarp" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform" aria-label="Facebook">
                 <Facebook className="h-6 w-6" />
               </a>
-              <a href="#" className="hover:scale-110 transition-transform" aria-label="Instagram">
+              <a href="https://www.instagram.com/segelschulealtwarp/" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform" aria-label="Instagram">
                 <Instagram className="h-6 w-6" />
               </a>
             </div>

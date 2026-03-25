@@ -43,10 +43,10 @@ export function HeroSection({ title, subtitle, ctaText, scriptText }: HeroSectio
             section="hero"
             contentKey="eyebrow"
             fallback={scriptText}
-            className="font-script text-4xl md:text-5xl lg:text-6xl text-[#E2C786] mb-4 drop-shadow-md"
+            className="font-script text-5xl md:text-6xl lg:text-7xl text-[#E2C786] mb-4 drop-shadow-md"
           />
         ) : (
-          <p className="font-script text-4xl md:text-5xl lg:text-6xl text-[#E2C786] mb-4 drop-shadow-md">
+          <p className="font-script text-5xl md:text-6xl lg:text-7xl text-[#E2C786] mb-4 drop-shadow-md">
             {scriptText}
           </p>
         )}

@@ -106,7 +106,7 @@ function emailWrapper(content: string, lang = "de"): string {
           ${content}
         </td></tr>
         <tr><td style="padding:24px 0 0;text-align:center;">
-          <p style="color:#999;font-size:11px;margin:0;">Segelschule Altwarp &middot; Hafenstra&szlig;e 12 &middot; 17375 Altwarp &middot; Germany</p>
+          <p style="color:#999;font-size:11px;margin:0;">Segelschule Altwarp &middot; Am Hafen 12 &middot; 17375 Altwarp &middot; Germany</p>
         </td></tr>
       </table>
     </td></tr>

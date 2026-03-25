@@ -57,7 +57,7 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
         className={`transition-all duration-300 ${
           forceScrolledStyle && !isScrolled
             ? "bg-background"
-            : useScrolledStyle
+            : useScrolledStyle || isMobileMenuOpen
               ? "bg-background/95 backdrop-blur-sm"
               : "bg-transparent"
         }`}
@@ -109,7 +109,7 @@ export function Header({ currentLanguage, onLanguageChange, navLinks, forceScrol
               variant="ghost"
               size="icon"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={useScrolledStyle ? "text-foreground" : "text-[#FFFBEA]"}
+              className={useScrolledStyle || isMobileMenuOpen ? "text-foreground" : "text-[#FFFBEA]"}
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>

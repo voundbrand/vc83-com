@@ -83,10 +83,10 @@ export default function Home() {
               section="hero"
               contentKey="description"
               fallback={t.hero.description}
-              className="text-base md:text-lg font-medium text-primary-foreground/70 max-w-2xl mx-auto text-center text-balance leading-relaxed italic"
+              className="text-lg md:text-xl font-medium text-primary-foreground/70 max-w-2xl mx-auto text-center text-balance leading-relaxed italic"
             />
           ) : (
-            <p className="text-base md:text-lg font-medium text-primary-foreground/70 max-w-2xl mx-auto text-center text-balance leading-relaxed italic">
+            <p className="text-lg md:text-xl font-medium text-primary-foreground/70 max-w-2xl mx-auto text-center text-balance leading-relaxed italic">
               {t.hero.description}
             </p>
           )}

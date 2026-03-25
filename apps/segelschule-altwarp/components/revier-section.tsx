@@ -23,7 +23,6 @@ export function RevierSection({ title, text }: RevierSectionProps) {
         className="object-cover"
       />
       <div className="absolute inset-0 bg-[#1E3926]/80" />
-      <PhotoWatermark size="lg" />
 
       {/* Top wave – solid green curves into the image from SmallGroups above */}
       <div className="relative z-[1] w-full leading-[0]">
@@ -64,6 +63,16 @@ export function RevierSection({ title, text }: RevierSectionProps) {
             </p>
           </>
         )}
+
+        <div className="mt-10 flex justify-center">
+          <Image
+            src="/logo-white.png"
+            alt="Segelschule Altwarp"
+            width={120}
+            height={120}
+            className="w-[80px] md:w-[120px] h-auto opacity-30"
+          />
+        </div>
       </div>
 
       {/* Bottom wave – cream curves into the image from Leisure below */}

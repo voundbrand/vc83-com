@@ -11,14 +11,14 @@ interface GallerySectionProps {
 }
 
 const galleryImages = [
-  { src: "/hero-plattboden.jpg", alt: "Plattbodenschiff unter Segeln" },
+  { src: "/kayak-haff.jpg", alt: "Kajak fahren auf dem Stettiner Haff" },
   { src: "/people-on-boat.jpg", alt: "Menschen auf dem Boot" },
   { src: "/plattbodenschiff-detail.jpg", alt: "Traditionelles Plattbodenschiff" },
   { src: "/trainer-explaining.jpg", alt: "Trainer erklärt" },
   { src: "/training-maneuver.jpg", alt: "Segeltraining" },
   { src: "/group-course.jpg", alt: "Gruppenkurs" },
   { src: "/kapitaenshaus.jpg", alt: "Kapitänshaus" },
-  { src: "/sunset-boat.jpg", alt: "Sonnenuntergang auf dem Haff" },
+  { src: "/relaxation-terrace.jpg", alt: "Entspannung an der Terrasse" },
 ]
 
 export function GallerySection({ title, subtitle }: GallerySectionProps) {

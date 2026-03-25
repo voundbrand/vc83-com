@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { EditableHeading, EditableParagraph, EditableText } from "@cms"
 import { isCmsEditorEnabled } from "@/lib/cms-editor-config"
 
@@ -54,11 +54,7 @@ export function TeamSection({ title, subtitle, members }: TeamSectionProps) {
           {members.map((member, index) => (
             <Card key={index} className="text-center bg-card hover:shadow-lg transition-shadow">
               <CardHeader className="items-center">
-                <Avatar className="h-40 w-40 mb-4">
-                  <AvatarImage
-                    src={`/.jpg?height=200&width=200&query=${encodeURIComponent(`professional portrait ${member.name} sailing instructor`)}`}
-                    className="object-cover"
-                  />
+                <Avatar className="h-40 w-40 mb-4 mx-auto">
                   <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
                     {member.name
                       .split(" ")
