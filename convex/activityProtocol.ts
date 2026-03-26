@@ -26,6 +26,47 @@ const MAX_RETENTION_DAYS = 30;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
+function normalizeActivityProtocolRef(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+export interface OrgAgentActivityProtocolDetailRefs {
+  sessionAnchorObjectId?: string;
+  crmContactId?: string;
+  crmOrganizationId?: string;
+  actionItemObjectId?: string;
+  policySnapshotId?: string;
+  executionReceiptId?: string;
+  syncBindingId?: string;
+}
+
+export function buildOrgAgentActivityProtocolDetailRefs(args: {
+  sessionAnchorObjectId?: unknown;
+  crmContactId?: unknown;
+  crmOrganizationId?: unknown;
+  actionItemObjectId?: unknown;
+  policySnapshotId?: unknown;
+  executionReceiptId?: unknown;
+  syncBindingId?: unknown;
+}): OrgAgentActivityProtocolDetailRefs {
+  return {
+    sessionAnchorObjectId: normalizeActivityProtocolRef(args.sessionAnchorObjectId),
+    crmContactId: normalizeActivityProtocolRef(args.crmContactId),
+    crmOrganizationId: normalizeActivityProtocolRef(args.crmOrganizationId),
+    actionItemObjectId: normalizeActivityProtocolRef(args.actionItemObjectId),
+    policySnapshotId: normalizeActivityProtocolRef(args.policySnapshotId),
+    executionReceiptId: normalizeActivityProtocolRef(args.executionReceiptId),
+    syncBindingId: normalizeActivityProtocolRef(args.syncBindingId),
+  };
+}
+
 // ============================================================================
 // ACTIVITY EVENTS - LOGGING
 // ============================================================================
@@ -66,6 +107,24 @@ export const logEvent = internalMutation({
       sourceLine: v.optional(v.number()),
       parentEventId: v.optional(v.id("activityEvents")),
       correlationId: v.optional(v.string()),
+      sessionId: v.optional(v.string()),
+      turnId: v.optional(v.string()),
+      activityKind: v.optional(v.string()),
+      sessionAnchorObjectId: v.optional(v.string()),
+      crmContactId: v.optional(v.string()),
+      crmOrganizationId: v.optional(v.string()),
+      actionItemObjectId: v.optional(v.string()),
+      policySnapshotId: v.optional(v.string()),
+      executionReceiptId: v.optional(v.string()),
+      syncBindingId: v.optional(v.string()),
+      syncCandidateObjectId: v.optional(v.string()),
+      dispatchStatus: v.optional(v.string()),
+      idempotencyKey: v.optional(v.string()),
+      idempotencyScopeKey: v.optional(v.string()),
+      receiptId: v.optional(v.string()),
+      retryAttempt: v.optional(v.number()),
+      retryCount: v.optional(v.number()),
+      workflowStage: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
@@ -138,6 +197,24 @@ export const logEventFromApi = mutation({
       sourceFile: v.optional(v.string()),
       sourceLine: v.optional(v.number()),
       correlationId: v.optional(v.string()),
+      sessionId: v.optional(v.string()),
+      turnId: v.optional(v.string()),
+      activityKind: v.optional(v.string()),
+      sessionAnchorObjectId: v.optional(v.string()),
+      crmContactId: v.optional(v.string()),
+      crmOrganizationId: v.optional(v.string()),
+      actionItemObjectId: v.optional(v.string()),
+      policySnapshotId: v.optional(v.string()),
+      executionReceiptId: v.optional(v.string()),
+      syncBindingId: v.optional(v.string()),
+      syncCandidateObjectId: v.optional(v.string()),
+      dispatchStatus: v.optional(v.string()),
+      idempotencyKey: v.optional(v.string()),
+      idempotencyScopeKey: v.optional(v.string()),
+      receiptId: v.optional(v.string()),
+      retryAttempt: v.optional(v.number()),
+      retryCount: v.optional(v.number()),
+      workflowStage: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
@@ -325,6 +402,32 @@ export const getEventsByCorrelation = query({
 
     // Filter by correlation ID
     return events.filter((e) => e.details?.correlationId === args.correlationId);
+  },
+});
+
+/**
+ * Get organization-scoped events by correlation ID across all applications.
+ */
+export const getOrganizationEventsByCorrelation = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    correlationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const limit = Math.min(args.limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const events = await ctx.db
+      .query("activityEvents")
+      .withIndex("by_org_timestamp", (q) => q.eq("organizationId", args.organizationId))
+      .order("desc")
+      .take(Math.max(limit * 6, 300));
+
+    return events
+      .filter((event) => event.details?.correlationId === args.correlationId)
+      .slice(0, limit);
   },
 });
 

@@ -68,7 +68,13 @@ describe("free onboarding rollout guardrails", () => {
   });
 
   it("blocks onboarding completion for unclaimed guest webchat sessions", async () => {
-    const runQuery = vi.fn(async (_reference: unknown, payload?: { sessionToken?: string }) => {
+    const runQuery = vi.fn(async (
+      _reference: unknown,
+      payload?: { sessionToken?: string; channel?: string }
+    ) => {
+      if (payload?.channel && payload?.sessionToken) {
+        return null;
+      }
       if (payload?.sessionToken) {
         return {
           sessionToken: payload.sessionToken,
@@ -102,7 +108,13 @@ describe("free onboarding rollout guardrails", () => {
   });
 
   it("allows onboarding completion for claimed guest webchat sessions", async () => {
-    const runQuery = vi.fn(async (_reference: unknown, payload?: { sessionToken?: string }) => {
+    const runQuery = vi.fn(async (
+      _reference: unknown,
+      payload?: { sessionToken?: string; channel?: string }
+    ) => {
+      if (payload?.channel && payload?.sessionToken) {
+        return null;
+      }
       if (payload?.sessionToken) {
         return {
           sessionToken: payload.sessionToken,

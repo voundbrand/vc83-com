@@ -22,6 +22,184 @@ const { internal: internalApi } = require("../_generated/api") as {
   internal: Record<string, Record<string, Record<string, unknown>>>;
 };
 
+const INFOBIP_REQUEST_TIMEOUT_MS_DEFAULT = 15_000;
+const INFOBIP_REQUEST_TIMEOUT_MS_MIN = 250;
+const INFOBIP_REQUEST_TIMEOUT_MS_MAX = 120_000;
+const INFOBIP_REQUEST_MAX_ATTEMPTS_DEFAULT = 2;
+const INFOBIP_REQUEST_MAX_ATTEMPTS_MIN = 1;
+const INFOBIP_REQUEST_MAX_ATTEMPTS_MAX = 4;
+
+function normalizePositiveInteger(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  const normalized = Math.round(value);
+  if (normalized < min) {
+    return min;
+  }
+  if (normalized > max) {
+    return max;
+  }
+  return normalized;
+}
+
+export function normalizeInfobipRequestTimeoutMs(value: unknown): number {
+  return normalizePositiveInteger(
+    value,
+    INFOBIP_REQUEST_TIMEOUT_MS_DEFAULT,
+    INFOBIP_REQUEST_TIMEOUT_MS_MIN,
+    INFOBIP_REQUEST_TIMEOUT_MS_MAX,
+  );
+}
+
+export function normalizeInfobipRequestMaxAttempts(value: unknown): number {
+  return normalizePositiveInteger(
+    value,
+    INFOBIP_REQUEST_MAX_ATTEMPTS_DEFAULT,
+    INFOBIP_REQUEST_MAX_ATTEMPTS_MIN,
+    INFOBIP_REQUEST_MAX_ATTEMPTS_MAX,
+  );
+}
+
+function resolveInfobipRequestTimeoutMs(): number {
+  return normalizeInfobipRequestTimeoutMs(
+    process.env.INFOBIP_REQUEST_TIMEOUT_MS
+      ? Number(process.env.INFOBIP_REQUEST_TIMEOUT_MS)
+      : undefined,
+  );
+}
+
+function resolveInfobipRequestMaxAttempts(): number {
+  return normalizeInfobipRequestMaxAttempts(
+    process.env.INFOBIP_REQUEST_MAX_ATTEMPTS
+      ? Number(process.env.INFOBIP_REQUEST_MAX_ATTEMPTS)
+      : undefined,
+  );
+}
+
+function buildInfobipRequestTimeoutError(args: {
+  operation: string;
+  timeoutMs: number;
+}): Error {
+  return new Error(
+    `infobip_request_timeout:${args.operation}:${args.timeoutMs}ms`,
+  );
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.name === "AbortError" || /aborted/i.test(error.message);
+}
+
+function isRetryableInfobipError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if (isAbortError(error)) {
+    return true;
+  }
+  if (error.message.startsWith("infobip_request_timeout:")) {
+    return true;
+  }
+  // Node fetch throws TypeError for transient network failures.
+  return error.name === "TypeError";
+}
+
+function isRetryableInfobipStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function withInfobipRequestTimeout(args: {
+  operation: string;
+  timeoutMs: number;
+  request: (signal: AbortSignal) => Promise<Response>;
+}): Promise<Response> {
+  const controller = new AbortController();
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      args.request(controller.signal),
+      new Promise<Response>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          controller.abort();
+          reject(
+            buildInfobipRequestTimeoutError({
+              operation: args.operation,
+              timeoutMs: args.timeoutMs,
+            }),
+          );
+        }, args.timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw buildInfobipRequestTimeoutError({
+        operation: args.operation,
+        timeoutMs: args.timeoutMs,
+      });
+    }
+    throw error;
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+export async function executeInfobipRequestWithRetry(args: {
+  operation: string;
+  request: (signal: AbortSignal) => Promise<Response>;
+  timeoutMs?: number;
+  maxAttempts?: number;
+}): Promise<Response> {
+  const timeoutMs = normalizeInfobipRequestTimeoutMs(
+    args.timeoutMs ?? resolveInfobipRequestTimeoutMs(),
+  );
+  const maxAttempts = normalizeInfobipRequestMaxAttempts(
+    args.maxAttempts ?? resolveInfobipRequestMaxAttempts(),
+  );
+
+  let lastError: unknown;
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await withInfobipRequestTimeout({
+        operation: args.operation,
+        timeoutMs,
+        request: args.request,
+      });
+      lastResponse = response;
+      if (attempt < maxAttempts && isRetryableInfobipStatus(response.status)) {
+        await response.arrayBuffer().catch(() => null);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts && isRetryableInfobipError(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (lastResponse) {
+    return lastResponse;
+  }
+  throw (
+    lastError
+    ?? new Error(`infobip_request_failed:${args.operation}`)
+  );
+}
+
 // ============================================================================
 // QUERIES
 // ============================================================================
@@ -113,13 +291,18 @@ export const ensurePlatformApplication = internalAction({
     const applicationId = "l4yercak3-prod";
     const applicationName = "L4YERCAK3";
 
-    const response = await fetch(`${baseUrl}/provisioning/1/applications`, {
-      method: "POST",
-      headers: {
-        Authorization: `App ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ applicationId, applicationName }),
+    const response = await executeInfobipRequestWithRetry({
+      operation: "ensure_platform_application",
+      request: (signal) =>
+        fetch(`${baseUrl}/provisioning/1/applications`, {
+          method: "POST",
+          headers: {
+            Authorization: `App ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ applicationId, applicationName }),
+          signal,
+        }),
     });
 
     if (response.ok || response.status === 409) {
@@ -172,13 +355,18 @@ export const provisionOrgEntity = internalAction({
     const entityId = `org-${args.organizationId}`;
     const entityName = org || entityId;
 
-    const response = await fetch(`${baseUrl}/provisioning/1/entities`, {
-      method: "POST",
-      headers: {
-        Authorization: `App ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ entityId, entityName }),
+    const response = await executeInfobipRequestWithRetry({
+      operation: "provision_org_entity",
+      request: (signal) =>
+        fetch(`${baseUrl}/provisioning/1/entities`, {
+          method: "POST",
+          headers: {
+            Authorization: `App ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ entityId, entityName }),
+          signal,
+        }),
     });
 
     if (response.ok || response.status === 409) {
@@ -220,9 +408,15 @@ export const deleteOrgEntity = internalAction({
     // Best-effort delete from Infobip
     if (apiKey && baseUrl) {
       try {
-        await fetch(`${baseUrl}/provisioning/1/entities/${entityId}`, {
-          method: "DELETE",
-          headers: { Authorization: `App ${apiKey}` },
+        await executeInfobipRequestWithRetry({
+          operation: "delete_org_entity",
+          maxAttempts: 1,
+          request: (signal) =>
+            fetch(`${baseUrl}/provisioning/1/entities/${entityId}`, {
+              method: "DELETE",
+              headers: { Authorization: `App ${apiKey}` },
+              signal,
+            }),
         });
       } catch (e) {
         console.error("[CPaaS X] Failed to delete entity from Infobip:", e);

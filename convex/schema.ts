@@ -220,6 +220,11 @@ import {
   activityEvents,
   activityProtocolSettings
 } from "./schemas/activityProtocolSchemas";
+import {
+  orgActionExecutionReceipts,
+  orgActionPolicySnapshots,
+  orgActionSyncBindings,
+} from "./schemas/orgAgentActionRuntimeSchemas";
 
 // 🎨 DESIGN ENGINE SCHEMAS (RAG-based design pattern library)
 import {
@@ -293,7 +298,7 @@ export default defineSchema({
   workflowExecutionLogs,
 
   // 🥷 ONTOLOGY: Universal object system
-  objects,        // Universal storage for all entity types
+  objects,        // Universal storage for all entity types (includes compliance evidence vault records)
   objectLinks,    // Relationships between objects
   objectActions,  // Audit trail of actions
 
@@ -393,6 +398,11 @@ export default defineSchema({
   activityEvents,            // High-frequency event stream (rolling window)
   // NOTE: Application pages stored in objects table with type="application_page"
   activityProtocolSettings,  // Per-org activity tracking configuration
+
+  // 🧭 ORG AGENT ACTION RUNTIME (OAR): receipts, policy snapshots, and sync identity bindings
+  orgActionExecutionReceipts, // Replay-safe execution attempt receipts with idempotency/correlation keys
+  orgActionPolicySnapshots,   // Durable policy decisions for owner_only/approval_required/agent_auto_allowed
+  orgActionSyncBindings,      // Canonical object ↔ connector identity mapping for downstream CRM sync
 
   // 🎨 DESIGN ENGINE: RAG-based design pattern library for page builder
   designPatterns,            // Extracted design patterns with vector embeddings

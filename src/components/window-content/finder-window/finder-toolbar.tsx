@@ -21,6 +21,7 @@ import {
   Tag,
   HardDrive,
   FolderTree,
+  Bot,
 } from "lucide-react";
 import type { FinderMode } from "./finder-types";
 
@@ -44,6 +45,12 @@ interface FinderToolbarProps {
   onUploadFile?: () => void;
   onShareProject?: () => void;
   onOpenTagManager?: () => void;
+  onLaunchKnowledgeAssist?: () => void;
+  knowledgeAssistDisabled?: boolean;
+  knowledgeAssistLabel?: string;
+  knowledgeAssistScopeLabel?: string;
+  knowledgeAssistAuthorityLabel?: string;
+  knowledgeAssistCitationQualityLabel?: string;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   mode?: FinderMode;
 }
@@ -65,6 +72,12 @@ export function FinderToolbar({
   onUploadFile,
   onShareProject,
   onOpenTagManager,
+  onLaunchKnowledgeAssist,
+  knowledgeAssistDisabled = false,
+  knowledgeAssistLabel = "Ask AI",
+  knowledgeAssistScopeLabel,
+  knowledgeAssistAuthorityLabel,
+  knowledgeAssistCitationQualityLabel,
   searchInputRef,
   mode,
 }: FinderToolbarProps) {
@@ -202,6 +215,61 @@ export function FinderToolbar({
             <Tag size={14} />
             Tags
           </button>
+        )}
+
+        {onLaunchKnowledgeAssist && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onLaunchKnowledgeAssist}
+              className="desktop-interior-button flex items-center gap-2 px-3 py-2 text-xs"
+              disabled={knowledgeAssistDisabled}
+              style={knowledgeAssistDisabled ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+              title={knowledgeAssistDisabled ? "Select at least one document to open AI context." : "Open AI with selected docs"}
+            >
+              <Bot size={14} />
+              {knowledgeAssistLabel}
+            </button>
+            {(knowledgeAssistScopeLabel || knowledgeAssistAuthorityLabel || knowledgeAssistCitationQualityLabel) && (
+              <div className="hidden xl:flex flex-wrap items-center gap-1">
+                {knowledgeAssistScopeLabel && (
+                  <span
+                    className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--neutral-gray)",
+                    }}
+                  >
+                    {knowledgeAssistScopeLabel}
+                  </span>
+                )}
+                {knowledgeAssistAuthorityLabel && (
+                  <span
+                    className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--neutral-gray)",
+                    }}
+                  >
+                    {knowledgeAssistAuthorityLabel}
+                  </span>
+                )}
+                {knowledgeAssistCitationQualityLabel && (
+                  <span
+                    className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    style={{
+                      borderColor: "var(--window-document-border)",
+                      background: "var(--window-document-bg-elevated)",
+                      color: "var(--neutral-gray)",
+                    }}
+                  >
+                    {knowledgeAssistCitationQualityLabel}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Search */}

@@ -14,9 +14,5 @@ export default function LayersLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="h-screen w-screen overflow-hidden" style={{ background: "#09090b" }}>
-      {children}
-    </div>
-  );
+  return <div className="h-screen w-screen overflow-hidden bg-[var(--color-bg)]">{children}</div>;
 }

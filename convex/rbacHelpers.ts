@@ -510,6 +510,68 @@ export async function requireOrganizationMembership(
   }
 }
 
+export async function getOrganizationAuthorityContext(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  organizationId: Id<"organizations">,
+): Promise<{
+  roleName: string | null;
+  isOrgOwner: boolean;
+  isSuperAdmin: boolean;
+}> {
+  const userContext = await getUserContext(ctx, userId, organizationId);
+  const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+  if (isSuperAdmin) {
+    return {
+      roleName: "super_admin",
+      isOrgOwner: false,
+      isSuperAdmin: true,
+    };
+  }
+
+  const membership = await ctx.db
+    .query("organizationMembers")
+    .withIndex("by_user_and_org", (q) =>
+      q.eq("userId", userId).eq("organizationId", organizationId),
+    )
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .first();
+
+  if (!membership) {
+    return {
+      roleName: null,
+      isOrgOwner: false,
+      isSuperAdmin: false,
+    };
+  }
+
+  const role = await ctx.db.get(membership.role);
+  const roleName = role?.name ?? null;
+
+  return {
+    roleName,
+    isOrgOwner: roleName === "org_owner",
+    isSuperAdmin: false,
+  };
+}
+
+export async function requireOrgOwnerOrSuperAdmin(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  organizationId: Id<"organizations">,
+  errorMessage = "Only organization owners or super admins can perform this action.",
+): Promise<{
+  roleName: string | null;
+  isOrgOwner: boolean;
+  isSuperAdmin: boolean;
+}> {
+  const authority = await getOrganizationAuthorityContext(ctx, userId, organizationId);
+  if (!authority.isOrgOwner && !authority.isSuperAdmin) {
+    throw new Error(errorMessage);
+  }
+  return authority;
+}
+
 // ============================================================================
 // ROLE HIERARCHY HELPERS
 // ============================================================================

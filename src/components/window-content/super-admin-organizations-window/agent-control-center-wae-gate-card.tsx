@@ -90,6 +90,138 @@ type TemplateCertificationEvaluation = {
   certification: TemplateCertificationArtifact | null;
 };
 
+type TemplateCertificationAlertRecommendation = {
+  code: "certification_blocked" | "default_evidence_missing" | "policy_drift_detected";
+  severity: "critical" | "warning";
+  summary: string;
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  alertChannels: string[];
+};
+
+type TemplateCertificationAlertDispatch = {
+  contractVersion: string;
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  dependencyDigest: string;
+  recommendationCode: "certification_blocked" | "default_evidence_missing" | "policy_drift_detected";
+  recommendationSeverity: "critical" | "warning";
+  recommendationSummary: string;
+  channel: string;
+  deliveryStatus:
+    | "delivered_in_app"
+    | "queued"
+    | "suppressed_duplicate"
+    | "unsupported_channel"
+    | "dispatched"
+    | "dispatch_failed"
+    | "throttled"
+    | "acknowledged";
+  dedupeKey: string;
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  recordedAt: number;
+  recordedByUserId: string;
+  workerStatus?:
+    | "pending"
+    | "dispatched"
+    | "retry_scheduled"
+    | "failed_terminal"
+    | "throttled"
+    | "acknowledged";
+  attemptCount?: number;
+  maxAttempts?: number;
+  nextAttemptAt?: number;
+  lastAttemptAt?: number;
+  dispatchedAt?: number;
+  acknowledgedAt?: number;
+  acknowledgedByUserId?: string;
+  acknowledgementNote?: string;
+  throttleUntil?: number;
+  throttleReason?: string;
+  lastErrorCode?: string;
+  lastErrorMessage?: string;
+};
+
+type TemplateCertificationAlertDispatchControl = {
+  maxAttempts: number;
+  retryDelayMs: number;
+  channels: Record<
+    "slack" | "pagerduty" | "email",
+    {
+      enabled: boolean;
+      target: string | null;
+    }
+  >;
+  throttle: Record<
+    "slack" | "pagerduty" | "email",
+    {
+      windowMs: number;
+      maxDispatches: number;
+    }
+  >;
+  credentialGovernance: Record<
+    "slack" | "pagerduty" | "email",
+    {
+      requireDedicatedCredentials: boolean;
+      allowInlineTargetCredentials: boolean;
+      runbookUrl: string | null;
+    }
+  >;
+  strictMode: {
+    enabled: boolean;
+    rolloutMode: "manual" | "auto_promote_ready_channels";
+    guardrailMode: "advisory" | "enforced";
+    notifyOnPolicyDrift: boolean;
+  };
+};
+
+type TemplateCertificationAlertCredentialHealthStatus = {
+  ready: boolean;
+  policyCompliant: boolean;
+  credentialSource: string;
+  reasonCode?: string;
+  message: string;
+  runbookUrl?: string;
+};
+
+type TemplateCertificationAlertPolicyDriftIssue = {
+  code: string;
+  scope: "credential_governance" | "requirement_authoring";
+  channel?: "slack" | "pagerduty" | "email";
+  tier?: "low" | "medium" | "high";
+  message: string;
+};
+
+type TemplateCertificationAlertPolicyDriftStatus = {
+  strictModeEnabled: boolean;
+  detected: boolean;
+  issueCount: number;
+  issues: TemplateCertificationAlertPolicyDriftIssue[];
+};
+
+type TemplateCertificationAlertStrictModeRolloutStatus = {
+  enabled: boolean;
+  rolloutMode: "manual" | "auto_promote_ready_channels";
+  guardrailMode: "advisory" | "enforced";
+  promotedChannels: Array<"slack" | "pagerduty" | "email">;
+  blockedChannels: Array<{
+    channel: "slack" | "pagerduty" | "email";
+    reasonCode?: string;
+    message: string;
+  }>;
+};
+
+type TemplateCertificationAutomationPolicy = {
+  adoptionMode: "manual" | "shadow" | "enforced";
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  alertChannels: string[];
+  alertOnCertificationBlocked: boolean;
+  alertOnMissingDefaultEvidence: boolean;
+};
+
 type CurrentDefaultTemplateWaeGateStatusResponse = {
   generatedAt: number;
   template: WaeGateTemplateContext;
@@ -103,6 +235,23 @@ type CurrentDefaultTemplateWaeGateStatusResponse = {
     dependencyDigest: string;
   } | null;
   autoCertificationEligible: boolean;
+  alertOperations: {
+    templateFamily?: string;
+    automationPolicyScope: "global" | "family";
+    automationPolicy: TemplateCertificationAutomationPolicy;
+    dispatchControl: TemplateCertificationAlertDispatchControl;
+    dispatchControlSource: "default" | "platform_setting";
+    credentialHealth: Record<
+      "slack" | "pagerduty" | "email",
+      TemplateCertificationAlertCredentialHealthStatus
+    >;
+    policyDrift: TemplateCertificationAlertPolicyDriftStatus;
+    strictModeRollout: TemplateCertificationAlertStrictModeRolloutStatus;
+    defaultEvidenceSources: string[];
+    missingDefaultEvidenceSources: string[];
+    alertRecommendations: TemplateCertificationAlertRecommendation[];
+    recentDispatches: TemplateCertificationAlertDispatch[];
+  };
   gate: WaeGateArtifact | null;
   evaluation: WaeGateEvaluation;
   evalCommands: string[];
@@ -117,6 +266,18 @@ type WaeGatePreviewResponse = {
   artifact: WaeGateArtifact;
   certification: TemplateCertificationArtifact;
   canRecord: boolean;
+};
+
+type ComplianceFleetGateRow = {
+  organizationId: string;
+  organizationName: string;
+  effectiveGateStatus: "GO" | "NO_GO";
+  ownerGateDecision: "GO" | "NO_GO";
+  blockerIds: string[];
+  blockerCount: number;
+  platformSharedEvidenceAvailableCount: number;
+  avvOutreachOverdueCount: number;
+  updatedAt: number;
 };
 
 function parseJsonObjectOrFirstJsonLine(text: string): unknown {
@@ -191,6 +352,7 @@ export function AgentControlCenterWaeGateCard() {
   const [waeGatePreview, setWaeGatePreview] = useState<WaeGatePreviewResponse | null>(null);
   const [isPreviewingWaeGate, setIsPreviewingWaeGate] = useState(false);
   const [isRecordingWaeGate, setIsRecordingWaeGate] = useState(false);
+  const [activeAlertDispatchActionKey, setActiveAlertDispatchActionKey] = useState<string | null>(null);
 
   const previewCurrentDefaultTemplateWaeRolloutGate = useMutation(
     api.ai.agentCatalogAdmin.previewCurrentDefaultTemplateWaeRolloutGate,
@@ -198,10 +360,20 @@ export function AgentControlCenterWaeGateCard() {
   const recordCurrentDefaultTemplateWaeRolloutGate = useMutation(
     api.ai.agentCatalogAdmin.recordCurrentDefaultTemplateWaeRolloutGate,
   );
+  const acknowledgeTemplateCertificationAlertDispatch = useMutation(
+    api.ai.agentCatalogAdmin.acknowledgeTemplateCertificationAlertDispatch,
+  );
+  const throttleTemplateCertificationAlertDispatch = useMutation(
+    api.ai.agentCatalogAdmin.throttleTemplateCertificationAlertDispatch,
+  );
   const currentDefaultTemplateWaeGateStatus = useQuery(
     api.ai.agentCatalogAdmin.getCurrentDefaultTemplateWaeRolloutGateStatus,
     sessionId && isSuperAdmin ? { sessionId } : "skip",
   ) as CurrentDefaultTemplateWaeGateStatusResponse | undefined;
+  const complianceFleetGateStatus = useQuery(
+    api.complianceControlPlane.listComplianceFleetGateStatus,
+    sessionId && isSuperAdmin ? { sessionId } : "skip",
+  ) as ComplianceFleetGateRow[] | undefined;
 
   const currentWaeGateTemplate = currentDefaultTemplateWaeGateStatus?.template ?? null;
   const currentCertification = currentDefaultTemplateWaeGateStatus?.certification ?? null;
@@ -209,6 +381,16 @@ export function AgentControlCenterWaeGateCard() {
     currentDefaultTemplateWaeGateStatus?.certificationEvaluation ?? null;
   const currentWaeGateEvaluation = currentDefaultTemplateWaeGateStatus?.evaluation ?? null;
   const currentWaeGateArtifact = currentDefaultTemplateWaeGateStatus?.gate ?? null;
+  const currentAlertOperations = currentDefaultTemplateWaeGateStatus?.alertOperations ?? null;
+  const complianceFleetRows = Array.isArray(complianceFleetGateStatus)
+    ? complianceFleetGateStatus
+    : [];
+  const complianceFleetSummary = {
+    totalOrgs: complianceFleetRows.length,
+    noGoOrgs: complianceFleetRows.filter((row) => row.effectiveGateStatus === "NO_GO").length,
+    goOrgs: complianceFleetRows.filter((row) => row.effectiveGateStatus === "GO").length,
+    blockedOrgs: complianceFleetRows.filter((row) => row.blockerCount > 0).length,
+  };
   const manualWaeEvidenceRequired = Boolean(
     currentDefaultTemplateWaeGateStatus?.riskAssessment?.requiredVerification.includes("wae_eval"),
   );
@@ -222,6 +404,64 @@ export function AgentControlCenterWaeGateCard() {
       : !waeGatePreview.canRecord
         ? "Only passing WAE bundles can be recorded as certification evidence."
         : null;
+
+  const handleAcknowledgeDispatch = async (dispatch: TemplateCertificationAlertDispatch) => {
+    if (!sessionId || !currentWaeGateTemplate || !dispatch.dedupeKey) {
+      return;
+    }
+    const actionKey = `ack:${dispatch.dedupeKey}`;
+    try {
+      setActiveAlertDispatchActionKey(actionKey);
+      await acknowledgeTemplateCertificationAlertDispatch({
+        sessionId,
+        templateVersionId: currentWaeGateTemplate.templateVersionId,
+        dedupeKey: dispatch.dedupeKey,
+        acknowledgementNote: "Acknowledged from super-admin alert operations panel.",
+      });
+      setWaeGateMessage({
+        type: "success",
+        text: `Acknowledged ${dispatch.channel} dispatch ${dispatch.dedupeKey}.`,
+      });
+    } catch (error) {
+      setWaeGateMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to acknowledge alert dispatch.",
+      });
+    } finally {
+      setActiveAlertDispatchActionKey((current) => (current === actionKey ? null : current));
+    }
+  };
+
+  const handleSnoozeDispatch = async (
+    dispatch: TemplateCertificationAlertDispatch,
+    throttleMinutes: number,
+  ) => {
+    if (!sessionId || !currentWaeGateTemplate || !dispatch.dedupeKey) {
+      return;
+    }
+    const actionKey = `snooze:${dispatch.dedupeKey}:${throttleMinutes}`;
+    try {
+      setActiveAlertDispatchActionKey(actionKey);
+      await throttleTemplateCertificationAlertDispatch({
+        sessionId,
+        templateVersionId: currentWaeGateTemplate.templateVersionId,
+        dedupeKey: dispatch.dedupeKey,
+        throttleMinutes,
+        reason: "super_admin_snooze",
+      });
+      setWaeGateMessage({
+        type: "success",
+        text: `Snoozed ${dispatch.channel} dispatch ${dispatch.dedupeKey} for ${throttleMinutes}m.`,
+      });
+    } catch (error) {
+      setWaeGateMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to throttle alert dispatch.",
+      });
+    } finally {
+      setActiveAlertDispatchActionKey((current) => (current === actionKey ? null : current));
+    }
+  };
 
   const handleImportWaeGateFile = async (
     kind: "run" | "scenarios",
@@ -345,6 +585,57 @@ export function AgentControlCenterWaeGateCard() {
         </div>
       </div>
 
+      <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+        <p className="font-semibold">Compliance fleet optics (read-only)</p>
+        <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+          Super-admin can observe org gate posture, but org owners keep final GO/NO_GO decision authority.
+        </p>
+        {complianceFleetGateStatus === undefined ? (
+          <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+            Loading compliance fleet posture…
+          </p>
+        ) : (
+          <>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Organizations {complianceFleetSummary.totalOrgs} • GO {complianceFleetSummary.goOrgs}
+              {` • NO_GO ${complianceFleetSummary.noGoOrgs} • blocked ${complianceFleetSummary.blockedOrgs}`}
+            </p>
+            <div className="max-h-40 overflow-auto border rounded" style={{ borderColor: "var(--window-document-border)" }}>
+              <table className="w-full text-left text-[11px]">
+                <thead style={{ background: "var(--desktop-shell-accent)" }}>
+                  <tr>
+                    <th className="px-2 py-1 font-semibold">Organization</th>
+                    <th className="px-2 py-1 font-semibold">Effective gate</th>
+                    <th className="px-2 py-1 font-semibold">Owner decision</th>
+                    <th className="px-2 py-1 font-semibold">Blockers</th>
+                    <th className="px-2 py-1 font-semibold">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {complianceFleetRows.slice(0, 10).map((row) => (
+                    <tr key={row.organizationId} className="border-t" style={{ borderColor: "var(--window-document-border)" }}>
+                      <td className="px-2 py-1">{row.organizationName}</td>
+                      <td className="px-2 py-1" style={{ color: row.effectiveGateStatus === "GO" ? "#166534" : "#991b1b" }}>
+                        {row.effectiveGateStatus}
+                      </td>
+                      <td className="px-2 py-1" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {row.ownerGateDecision}
+                      </td>
+                      <td className="px-2 py-1" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {row.blockerCount > 0 ? row.blockerIds.join(", ") : "none"}
+                      </td>
+                      <td className="px-2 py-1" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        {formatDateTime(row.updatedAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
       {waeGateMessage && (
         <div
           className="text-xs border rounded px-2 py-1 flex items-center gap-2"
@@ -425,6 +716,212 @@ export function AgentControlCenterWaeGateCard() {
             Evidence: {currentCertification.evidenceSources.map((source) => source.sourceType).join(", ")}
           </p>
         ) : null}
+      </div>
+
+      <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>
+        <p className="font-semibold">Certification alert operations</p>
+        {currentAlertOperations ? (
+          <>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Policy scope {currentAlertOperations.automationPolicyScope}
+              {currentAlertOperations.templateFamily ? ` • family ${currentAlertOperations.templateFamily}` : ""}
+              {` • adoption ${currentAlertOperations.automationPolicy.adoptionMode}`}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Owners: {(currentAlertOperations.automationPolicy.ownerUserIds.length > 0
+                ? currentAlertOperations.automationPolicy.ownerUserIds.join(", ")
+                : "none")}
+              {currentAlertOperations.automationPolicy.ownerTeamIds.length > 0
+                ? ` • teams ${currentAlertOperations.automationPolicy.ownerTeamIds.join(", ")}`
+                : ""}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Channels: {currentAlertOperations.automationPolicy.alertChannels.join(", ") || "none"}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Worker control source {currentAlertOperations.dispatchControlSource}
+              {` • retry ${currentAlertOperations.dispatchControl.maxAttempts} attempts / ${Math.round(currentAlertOperations.dispatchControl.retryDelayMs / 1000)}s`}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Throttle windows: slack {currentAlertOperations.dispatchControl.throttle.slack.maxDispatches}/{Math.round(currentAlertOperations.dispatchControl.throttle.slack.windowMs / 60000)}m
+              {` • pagerduty ${currentAlertOperations.dispatchControl.throttle.pagerduty.maxDispatches}/${Math.round(currentAlertOperations.dispatchControl.throttle.pagerduty.windowMs / 60000)}m`}
+              {` • email ${currentAlertOperations.dispatchControl.throttle.email.maxDispatches}/${Math.round(currentAlertOperations.dispatchControl.throttle.email.windowMs / 60000)}m`}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Credential governance: slack dedicated {currentAlertOperations.dispatchControl.credentialGovernance?.slack?.requireDedicatedCredentials ? "yes" : "no"} / inline {currentAlertOperations.dispatchControl.credentialGovernance?.slack?.allowInlineTargetCredentials === false ? "blocked" : "allowed"}
+              {` • pagerduty inline ${currentAlertOperations.dispatchControl.credentialGovernance?.pagerduty?.allowInlineTargetCredentials === false ? "blocked" : "allowed"}`}
+              {` • email dedicated ${currentAlertOperations.dispatchControl.credentialGovernance?.email?.requireDedicatedCredentials ? "yes" : "no"}`}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+              Strict mode: {currentAlertOperations.dispatchControl.strictMode?.enabled ? "enabled" : "disabled"}
+              {` • rollout ${currentAlertOperations.dispatchControl.strictMode?.rolloutMode ?? "manual"}`}
+              {` • guardrail ${currentAlertOperations.dispatchControl.strictMode?.guardrailMode ?? "advisory"}`}
+              {` • drift notify ${currentAlertOperations.dispatchControl.strictMode?.notifyOnPolicyDrift === false ? "off" : "on"}`}
+            </p>
+            {currentAlertOperations.strictModeRollout ? (
+              <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                Strict rollout: promoted {currentAlertOperations.strictModeRollout.promotedChannels.join(", ") || "none"}
+                {` • blocked ${currentAlertOperations.strictModeRollout.blockedChannels.length}`}
+              </p>
+            ) : null}
+            {currentAlertOperations.policyDrift?.detected ? (
+              <div className="text-[11px] space-y-1">
+                <p style={{ color: "#991b1b" }}>
+                  Policy drift detected ({currentAlertOperations.policyDrift.issueCount}):
+                </p>
+                {currentAlertOperations.policyDrift.issues.slice(0, 4).map((issue) => (
+                  <p key={issue.code} style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    {issue.code}
+                    {issue.channel ? ` • ${issue.channel}` : ""}
+                    {issue.tier ? ` • ${issue.tier}` : ""}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px]" style={{ color: "#166534" }}>
+                Policy drift: none
+              </p>
+            )}
+            <div className="text-[11px] space-y-1">
+              <p style={{ color: "var(--desktop-menu-text-muted)" }}>Credential health:</p>
+              {currentAlertOperations.credentialHealth
+                ? (Object.entries(currentAlertOperations.credentialHealth) as Array<[
+                  "slack" | "pagerduty" | "email",
+                  TemplateCertificationAlertCredentialHealthStatus,
+                ]>).map(([channel, status]) => (
+                  <p key={channel} style={{ color: status.ready ? "#166534" : "#991b1b" }}>
+                    {channel}
+                    {` • ${status.ready ? "ready" : "blocked"}`}
+                    {` • source ${status.credentialSource}`}
+                    {` • policy ${status.policyCompliant ? "ok" : "violation"}`}
+                    {status.reasonCode ? ` • ${status.reasonCode}` : ""}
+                  </p>
+                ))
+                : (
+                  <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                    Credential health unavailable.
+                  </p>
+                )}
+            </div>
+            {currentAlertOperations.alertRecommendations.length > 0 ? (
+              <div className="text-[11px] space-y-1">
+                {currentAlertOperations.alertRecommendations.map((recommendation) => (
+                  <div
+                    key={`${recommendation.code}:${recommendation.severity}:${recommendation.summary}`}
+                    className="border rounded px-2 py-1"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                  >
+                    <p style={{ color: recommendation.severity === "critical" ? "#991b1b" : "#92400e" }}>
+                      {recommendation.code} ({recommendation.severity})
+                    </p>
+                    <p style={{ color: "var(--desktop-menu-text-muted)" }}>{recommendation.summary}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                No active alert recommendations for the current certification bundle.
+              </p>
+            )}
+            {currentAlertOperations.recentDispatches.length > 0 ? (
+              <div className="text-[11px] space-y-1">
+                <p style={{ color: "var(--desktop-menu-text-muted)" }}>Recent dispatches:</p>
+                {currentAlertOperations.recentDispatches.slice(0, 6).map((dispatch) => (
+                  <div
+                    key={`${dispatch.dedupeKey}:${dispatch.channel}`}
+                    className="border rounded px-2 py-1 space-y-1"
+                    style={{ borderColor: "var(--window-document-border)" }}
+                  >
+                    <p>
+                      {dispatch.channel}
+                      {` • ${dispatch.deliveryStatus}`}
+                      {dispatch.workerStatus ? ` / ${dispatch.workerStatus}` : ""}
+                      {` • ${dispatch.recommendationCode} • ${formatDateTime(dispatch.recordedAt)}`}
+                      {typeof dispatch.nextAttemptAt === "number"
+                        ? ` • next ${formatDateTime(dispatch.nextAttemptAt)}`
+                        : ""}
+                    </p>
+                    {(typeof dispatch.throttleUntil === "number" || dispatch.throttleReason) && (
+                      <p style={{ color: "var(--desktop-menu-text-muted)" }}>
+                        Throttle: {dispatch.throttleReason || "active"}
+                        {typeof dispatch.throttleUntil === "number"
+                          ? ` until ${formatDateTime(dispatch.throttleUntil)}`
+                          : ""}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-[11px] border rounded"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        onClick={() => {
+                          void handleAcknowledgeDispatch(dispatch);
+                        }}
+                        disabled={
+                          !sessionId
+                          || !currentWaeGateTemplate
+                          || dispatch.deliveryStatus === "acknowledged"
+                          || dispatch.workerStatus === "acknowledged"
+                          || activeAlertDispatchActionKey !== null
+                        }
+                      >
+                        {activeAlertDispatchActionKey === `ack:${dispatch.dedupeKey}`
+                          ? "Acknowledging..."
+                          : "Acknowledge"}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-[11px] border rounded"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        onClick={() => {
+                          void handleSnoozeDispatch(dispatch, 30);
+                        }}
+                        disabled={
+                          !sessionId
+                          || !currentWaeGateTemplate
+                          || dispatch.deliveryStatus === "acknowledged"
+                          || dispatch.workerStatus === "acknowledged"
+                          || activeAlertDispatchActionKey !== null
+                        }
+                      >
+                        {activeAlertDispatchActionKey === `snooze:${dispatch.dedupeKey}:30`
+                          ? "Snoozing..."
+                          : "Snooze 30m"}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-[11px] border rounded"
+                        style={{ borderColor: "var(--window-document-border)" }}
+                        onClick={() => {
+                          void handleSnoozeDispatch(dispatch, 120);
+                        }}
+                        disabled={
+                          !sessionId
+                          || !currentWaeGateTemplate
+                          || dispatch.deliveryStatus === "acknowledged"
+                          || dispatch.workerStatus === "acknowledged"
+                          || activeAlertDispatchActionKey !== null
+                        }
+                      >
+                        {activeAlertDispatchActionKey === `snooze:${dispatch.dedupeKey}:120`
+                          ? "Snoozing..."
+                          : "Snooze 2h"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+                No alert dispatch history recorded for this version digest.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-[11px]" style={{ color: "var(--desktop-menu-text-muted)" }}>
+            Loading alert operations…
+          </p>
+        )}
       </div>
 
       <div className="border rounded p-2 space-y-2" style={{ borderColor: "var(--window-document-border)" }}>

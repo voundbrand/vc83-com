@@ -18,7 +18,7 @@ import { LayersCanvas } from "@/components/layers/layers-canvas";
  *     ├── Canvas (React Flow workspace)
  *     │   ├── Custom Nodes
  *     │   ├── Custom Edges
- *     │   └── AIPromptOverlay (floating chat)
+ *     │   └── AIChatWindow panel (operator chat for workflow design)
  *     ├── NodeInspector (right panel, expandable)
  *     └── MiniMap (bottom-right corner)
  */

@@ -240,4 +240,102 @@ describe("platform economics aggregation", () => {
     expect(providerReportedSource?.platformRequests).toBe(1);
     expect(providerReportedSource?.platformCostPct).toBe(66.67);
   });
+
+  it("aggregates model validation telemetry by transport and credit status", () => {
+    const summary = aggregatePlatformEconomics({
+      startTs: 1,
+      endTs: 10,
+      records: [
+        {
+          organizationId: "org_platform",
+          provider: "openrouter",
+          model: "openai/gpt-4.1-mini",
+          requestType: "chat",
+          action: "model_validation_probe",
+          requestCount: 2,
+          billingSource: "platform",
+          nativeCostInCents: 50,
+          creditChargeStatus: "skipped_not_required",
+          usageMetadata: {
+            source: "platform_model_validation",
+            transport: "direct_runtime",
+          },
+        },
+        {
+          organizationId: "org_platform",
+          provider: "openrouter",
+          model: "openai/gpt-4.1-mini",
+          requestType: "chat",
+          action: "model_validation_probe",
+          requestCount: 1,
+          billingSource: "platform",
+          nativeCostInCents: 10,
+          creditsCharged: 20,
+          creditChargeStatus: "charged",
+          usageMetadata: {
+            source: "platform_model_validation",
+            transport: "chat_runtime",
+          },
+        },
+        {
+          organizationId: "org_byok",
+          provider: "openrouter",
+          model: "openai/gpt-4.1-mini",
+          requestType: "chat",
+          action: "model_validation_probe",
+          requestCount: 3,
+          billingSource: "byok",
+          nativeCostInCents: 5,
+          creditChargeStatus: "skipped_insufficient_credits",
+          usageMetadata: {
+            source: "platform_model_validation",
+          },
+        },
+        {
+          organizationId: "org_platform",
+          provider: "openrouter",
+          model: "openai/gpt-4.1-mini",
+          requestType: "chat",
+          action: "chat_completion",
+          requestCount: 4,
+          billingSource: "platform",
+          nativeCostInCents: 40,
+        },
+      ],
+    });
+
+    expect(summary.validationTelemetry.totals.requests).toBe(6);
+    expect(summary.validationTelemetry.totals.platformRequests).toBe(3);
+    expect(summary.validationTelemetry.totals.nativeCostInCents).toBe(65);
+    expect(summary.validationTelemetry.totals.platformCreditsCharged).toBe(20);
+
+    const directRuntime = summary.validationTelemetry.byTransport.find(
+      (row) => row.transport === "direct_runtime",
+    );
+    const chatRuntime = summary.validationTelemetry.byTransport.find(
+      (row) => row.transport === "chat_runtime",
+    );
+    const unknownTransport = summary.validationTelemetry.byTransport.find(
+      (row) => row.transport === "unknown",
+    );
+    expect(directRuntime?.requests).toBe(2);
+    expect(chatRuntime?.requests).toBe(1);
+    expect(unknownTransport?.requests).toBe(3);
+
+    const chargedStatus = summary.validationTelemetry.byCreditChargeStatus.find(
+      (row) => row.status === "charged",
+    );
+    const skippedNotRequiredStatus =
+      summary.validationTelemetry.byCreditChargeStatus.find(
+        (row) => row.status === "skipped_not_required",
+      );
+    const skippedInsufficientCreditsStatus =
+      summary.validationTelemetry.byCreditChargeStatus.find(
+        (row) => row.status === "skipped_insufficient_credits",
+      );
+    expect(chargedStatus?.requests).toBe(1);
+    expect(chargedStatus?.platformCreditsCharged).toBe(20);
+    expect(skippedNotRequiredStatus?.requests).toBe(2);
+    expect(skippedInsufficientCreditsStatus?.requests).toBe(3);
+  });
 });

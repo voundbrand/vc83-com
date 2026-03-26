@@ -12,9 +12,11 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import type { FinderMode } from "./finder-types";
+import type { FinderMode, ProjectFile } from "./finder-types";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import {
   HardDrive,
   FolderTree,
@@ -31,7 +33,10 @@ import {
   Clock,
   Tag,
   Upload,
+  ExternalLink,
 } from "lucide-react";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { getWindowFactory } from "@/hooks/window-registry";
 
 interface FinderSidebarProps {
   mode: FinderMode;
@@ -43,7 +48,7 @@ interface FinderSidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   pendingInviteCount: number;
-  onOpenFile?: (fileId: string) => void;
+  onOpenFile?: (file: ProjectFile) => void;
   onTagFilter?: (tag: string | null) => void;
   activeTagFilter?: string | null;
 }
@@ -62,51 +67,60 @@ export function FinderSidebar({
   onTagFilter,
   activeTagFilter,
 }: FinderSidebarProps) {
+  const { openWindow } = useWindowManager();
+
   // List org projects for the project picker
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const projects = useQuery(
-    api.projectOntology.getProjects,
+    (api as any).projectOntology.getProjects,
     mode === "project" || mode === "org"
       ? { sessionId, organizationId: organizationId as Id<"organizations"> }
       : "skip"
   );
 
   // File tree for selected project
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const projectFileTree = useQuery(
-    api.projectFileSystem.getFileTree,
+    (api as any).projectFileSystem.getFileTree,
     selectedProjectId && mode === "project"
       ? { sessionId, projectId: selectedProjectId as Id<"objects">, organizationId: organizationId as Id<"organizations"> }
       : "skip"
   );
 
   // Org file tree
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const orgFileTree = useQuery(
-    api.projectFileSystem.getFileTree,
+    (api as any).projectFileSystem.getFileTree,
     mode === "org"
       ? { sessionId, organizationId: organizationId as Id<"organizations"> }
       : "skip"
   );
 
   // Trash count
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const trashItemCount = useQuery(
-    api.projectFileSystem.trashCount,
+    (api as any).projectFileSystem.trashCount,
     { sessionId, organizationId: organizationId as Id<"organizations"> }
   );
 
   // Bookmarks
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const bookmarks = useQuery(
-    api.projectFileSystem.listBookmarks,
+    (api as any).projectFileSystem.listBookmarks,
     { sessionId, organizationId: organizationId as Id<"organizations"> }
   );
 
   // Recent files
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const recentFiles = useQuery(
-    api.projectFileSystem.listRecentFiles,
+    (api as any).projectFileSystem.listRecentFiles,
     { sessionId, organizationId: organizationId as Id<"organizations">, limit: 10 }
   );
 
   // Tags
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const tags = useQuery(
-    api.projectFileSystem.listTags,
+    (api as any).projectFileSystem.listTags,
     { sessionId, organizationId: organizationId as Id<"organizations"> }
   );
 
@@ -160,7 +174,7 @@ export function FinderSidebar({
               key={file._id}
               icon={<Star size={12} style={{ color: "var(--warning-amber)" }} />}
               name={file.name}
-              onClick={() => onOpenFile?.(file._id)}
+              onClick={() => onOpenFile?.(file as ProjectFile)}
             />
           ))}
         </CollapsibleSection>
@@ -175,7 +189,7 @@ export function FinderSidebar({
               icon={FILE_KIND_ICONS_SMALL[file.fileKind] || <FileText size={12} />}
               name={file.name}
               subtitle={formatRelativeTime(file.lastAccessedAt)}
-              onClick={() => onOpenFile?.(file._id)}
+              onClick={() => onOpenFile?.(file as ProjectFile)}
             />
           ))}
         </CollapsibleSection>
@@ -228,12 +242,35 @@ export function FinderSidebar({
             className="desktop-interior-select w-full py-1.5 pr-8 text-xs"
           >
             <option value="">Select a project...</option>
-            {projects?.map((p) => (
+            {projects?.map((p: any) => (
               <option key={p._id} value={p._id}>
                 {p.name}
               </option>
             ))}
           </select>
+          <button
+            onClick={() => {
+              const factory = getWindowFactory("projects");
+              if (!factory) return;
+              const { defaultConfig } = factory;
+              openWindow(
+                "projects",
+                defaultConfig.title,
+                factory.createComponent(),
+                defaultConfig.position,
+                defaultConfig.size,
+                defaultConfig.titleKey,
+                defaultConfig.icon,
+              );
+            }}
+            className="flex items-center gap-1.5 mt-1.5 px-1 py-1 text-[10px] transition-colors"
+            style={{ color: "var(--neutral-gray)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--finder-accent, var(--win95-text))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--neutral-gray)"; }}
+          >
+            <ExternalLink size={10} />
+            <span>Manage Projects</span>
+          </button>
         </div>
       )}
 
@@ -246,6 +283,7 @@ export function FinderSidebar({
               currentPath={currentPath}
               onNavigate={onNavigate}
               rootLabel="Project Root"
+              onOpenFile={onOpenFile}
             />
           ) : (
             <p className="text-xs p-2" style={{ color: "var(--neutral-gray)" }}>
@@ -264,6 +302,7 @@ export function FinderSidebar({
               currentPath={currentPath}
               onNavigate={onNavigate}
               rootLabel="Organization Root"
+              onOpenFile={onOpenFile}
             />
           ) : (
             <p className="text-xs p-2" style={{ color: "var(--neutral-gray)" }}>
@@ -415,6 +454,7 @@ const FILE_KIND_ICONS_SMALL: Record<string, React.ReactNode> = {
 };
 
 interface TreeNode {
+  file: ProjectFile;
   path: string;
   name: string;
   fileKind: string;
@@ -422,7 +462,7 @@ interface TreeNode {
 }
 
 function buildTree(
-  files: Array<{ path: string; name: string; fileKind: string; parentPath: string }>
+  files: Array<ProjectFile>
 ): TreeNode[] {
   const nodeMap = new Map<string, TreeNode>();
   const roots: TreeNode[] = [];
@@ -431,6 +471,7 @@ function buildTree(
 
   for (const file of sorted) {
     const node: TreeNode = {
+      file,
       path: file.path,
       name: file.name,
       fileKind: file.fileKind,
@@ -449,11 +490,12 @@ function buildTree(
   return roots;
 }
 
-function FileTree({ files, currentPath, onNavigate, rootLabel }: {
-  files: Array<{ path: string; name: string; fileKind: string; parentPath: string }>;
+function FileTree({ files, currentPath, onNavigate, rootLabel, onOpenFile }: {
+  files: Array<ProjectFile>;
   currentPath: string;
   onNavigate: (path: string) => void;
   rootLabel: string;
+  onOpenFile?: (file: ProjectFile) => void;
 }) {
   const tree = buildTree(files);
 
@@ -484,6 +526,7 @@ function FileTree({ files, currentPath, onNavigate, rootLabel }: {
           node={node}
           currentPath={currentPath}
           onNavigate={onNavigate}
+          onOpenFile={onOpenFile}
           level={1}
         />
       ))}
@@ -491,10 +534,11 @@ function FileTree({ files, currentPath, onNavigate, rootLabel }: {
   );
 }
 
-function TreeNodeView({ node, currentPath, onNavigate, level }: {
+function TreeNodeView({ node, currentPath, onNavigate, onOpenFile, level }: {
   node: TreeNode;
   currentPath: string;
   onNavigate: (path: string) => void;
+  onOpenFile?: (file: ProjectFile) => void;
   level: number;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -506,7 +550,11 @@ function TreeNodeView({ node, currentPath, onNavigate, level }: {
     <div>
       <button
         onClick={() => {
-          if (isFolder) onNavigate(node.path);
+          if (isFolder) {
+            onNavigate(node.path);
+          } else {
+            onOpenFile?.(node.file);
+          }
           if (hasChildren) setExpanded(!expanded);
         }}
         className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
@@ -533,6 +581,7 @@ function TreeNodeView({ node, currentPath, onNavigate, level }: {
               node={child}
               currentPath={currentPath}
               onNavigate={onNavigate}
+              onOpenFile={onOpenFile}
               level={level + 1}
             />
           ))}

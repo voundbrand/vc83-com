@@ -99,6 +99,18 @@ export const activityEvents = defineTable({
     // Related events (for tracing chains)
     parentEventId: v.optional(v.id("activityEvents")),
     correlationId: v.optional(v.string()), // Groups related events together
+    sessionId: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    activityKind: v.optional(v.string()),
+    syncBindingId: v.optional(v.string()),
+    syncCandidateObjectId: v.optional(v.string()),
+    dispatchStatus: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    idempotencyScopeKey: v.optional(v.string()),
+    receiptId: v.optional(v.string()),
+    retryAttempt: v.optional(v.number()),
+    retryCount: v.optional(v.number()),
+    workflowStage: v.optional(v.string()),
   })),
 
   // Timestamps

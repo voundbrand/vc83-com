@@ -1139,3 +1139,57 @@ export const getContactPipelines = query({
     return pipelinePositions.filter((p) => p.pipeline !== null && p.stage !== null);
   },
 });
+
+/**
+ * GET ORG CRM SYNC OUTBOX STATUS
+ * Returns a compact status summary for narrow outward CRM sync V1 candidates.
+ */
+export const getOrgCrmSyncOutboxStatus = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const candidates = await ctx.db
+      .query("objects")
+      .withIndex("by_org_type_subtype", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("type", "org_crm_sync_candidate")
+          .eq("subtype", "canonical_projection")
+      )
+      .collect();
+
+    const counts = candidates.reduce(
+      (acc, candidate) => {
+        const status = candidate.status;
+        if (status === "pending") {
+          acc.pending += 1;
+        } else if (status === "processing") {
+          acc.processing += 1;
+        } else if (status === "synced") {
+          acc.synced += 1;
+        } else if (status === "failed") {
+          acc.failed += 1;
+        } else {
+          acc.other += 1;
+        }
+        return acc;
+      },
+      { pending: 0, processing: 0, synced: 0, failed: 0, other: 0 },
+    );
+
+    const latestUpdatedAt = candidates.reduce((max, candidate) => {
+      return candidate.updatedAt > max ? candidate.updatedAt : max;
+    }, 0);
+
+    return {
+      contractVersion: "org_crm_narrow_sync_v1",
+      total: candidates.length,
+      counts,
+      latestUpdatedAt: latestUpdatedAt > 0 ? latestUpdatedAt : null,
+    };
+  },
+});

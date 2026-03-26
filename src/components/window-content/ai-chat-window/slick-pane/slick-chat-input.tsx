@@ -6421,6 +6421,19 @@ export function SlickChatInput({
     || conversationState === "reconnecting"
     || isVoiceListening
     || Boolean(voiceCaptureControllerRef.current)
+  const isSendingConversationTurn =
+    isSending
+    && (
+      isStartingConversation
+      || isConversationEnding
+      || isVoiceListening
+      || isVoiceTranscribing
+      || isConversationSessionActive
+      || Boolean(pendingVoiceRuntime)
+      || conversationState === "connecting"
+      || conversationState === "live"
+      || conversationState === "reconnecting"
+    )
   const shouldKeepConversationStageVisible =
     resolveConversationStageVisibility({
       isConversationStageOpen,
@@ -6443,7 +6456,7 @@ export function SlickChatInput({
 
   const controlDisabled = isSending || isFetchingReferences
   const conversationTurnHudLabel =
-    (isVoiceTranscribing || isSending)
+    (isVoiceTranscribing || isSendingConversationTurn)
       ? "THINKING"
       : isVoiceListening
         ? "LISTENING"
@@ -6497,7 +6510,7 @@ export function SlickChatInput({
   }, [chat.messages])
   const latestConversationAssistantMessage = latestConversationAssistantTurn?.content || ""
   const liveInterruptionMarker =
-    (isVoiceTranscribing || isSending)
+    (isVoiceTranscribing || isSendingConversationTurn)
       ? "thinking"
       : isVoiceListening
         ? "barge_in_armed"
@@ -6761,7 +6774,7 @@ export function SlickChatInput({
       isVoiceTranscribing,
       hasPendingVoiceRuntime: Boolean(pendingVoiceRuntime),
       hasConversationSessionActive: isConversationSessionActive,
-      isSendingAssistantTurn: isSending,
+      isSendingAssistantTurn: isSendingConversationTurn,
       blockingVisionError,
       voiceCaptureError,
     })
@@ -6784,7 +6797,7 @@ export function SlickChatInput({
     isVoiceListening,
     isVoiceTranscribing,
     isConversationSessionActive,
-    isSending,
+    isSendingConversationTurn,
     pendingVoiceRuntime,
     voiceCaptureError,
   ])

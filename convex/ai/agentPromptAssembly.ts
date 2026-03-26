@@ -14,6 +14,11 @@ import {
 import { buildInterviewPromptContext } from "./interviewRunner";
 import type { KnowledgeContextDocument } from "./memoryComposer";
 import { resolveSoulModeRuntimeContract } from "./soulModes";
+import type {
+  KnowledgeContextConfidenceContract,
+  KnowledgeContextProvenanceContract,
+  KnowledgeContextScopeContract,
+} from "../schemas/aiSchemas";
 
 export interface SemanticKnowledgeChunkSearchChunk {
   chunkId: string;
@@ -28,9 +33,12 @@ export interface SemanticKnowledgeChunkSearchChunk {
   confidence?: number;
   confidenceBand?: "high" | "medium" | "low";
   matchedTokens?: string[];
+  knowledgeContextProvenance?: KnowledgeContextProvenanceContract;
+  knowledgeContextConfidence?: KnowledgeContextConfidenceContract;
 }
 
 export interface SemanticKnowledgeChunkSearchResult {
+  knowledgeContextScope?: KnowledgeContextScopeContract;
   queryTokenCount: number;
   totalCandidates: number;
   filteredCandidates: number;
@@ -149,6 +157,8 @@ export function mapSemanticChunksToKnowledgeDocuments(
           )
         : undefined,
       retrievalMethod: "semantic_chunk_index",
+      knowledgeContextProvenance: chunk.knowledgeContextProvenance,
+      knowledgeContextConfidence: chunk.knowledgeContextConfidence,
     }));
 }
 

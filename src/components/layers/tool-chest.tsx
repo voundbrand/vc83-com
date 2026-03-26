@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 const { api } = require("../../../convex/_generated/api") as { api: any };
 import type { NodeDefinition, NodeCategory } from "../../../convex/layers/types";
 import { getAllNodeDefinitions } from "../../../convex/layers/nodeRegistry";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ToolChestProps {
   onNodeDragStart: (event: DragEvent, definition: NodeDefinition) => void;
@@ -16,12 +17,32 @@ interface ToolChestProps {
 
 const CATEGORY_META: Record<
   NodeCategory,
-  { label: string; description: string }
+  { labelKey: string; labelFallback: string; descriptionKey: string; descriptionFallback: string }
 > = {
-  trigger: { label: "Triggers", description: "Start your workflow" },
-  integration: { label: "Integrations", description: "Third-party services" },
-  logic: { label: "Logic & Flow", description: "Control flow" },
-  lc_native: { label: "Layer Cake", description: "Built-in tools" },
+  trigger: {
+    labelKey: "ui.app.layers.tool_chest.category.trigger",
+    labelFallback: "Triggers",
+    descriptionKey: "ui.app.layers.tool_chest.category_description.trigger",
+    descriptionFallback: "Start your workflow",
+  },
+  integration: {
+    labelKey: "ui.app.layers.tool_chest.category.integration",
+    labelFallback: "Integrations",
+    descriptionKey: "ui.app.layers.tool_chest.category_description.integration",
+    descriptionFallback: "Third-party services",
+  },
+  logic: {
+    labelKey: "ui.app.layers.tool_chest.category.logic",
+    labelFallback: "Logic & Flow",
+    descriptionKey: "ui.app.layers.tool_chest.category_description.logic",
+    descriptionFallback: "Control flow",
+  },
+  lc_native: {
+    labelKey: "ui.app.layers.tool_chest.category.lc_native",
+    labelFallback: "Layer Cake",
+    descriptionKey: "ui.app.layers.tool_chest.category_description.lc_native",
+    descriptionFallback: "Built-in tools",
+  },
 };
 
 const CATEGORY_ORDER: NodeCategory[] = [
@@ -31,32 +52,33 @@ const CATEGORY_ORDER: NodeCategory[] = [
   "lc_native",
 ];
 
-const SUBCATEGORY_LABELS: Record<string, string> = {
-  triggers: "Triggers",
-  crm: "CRM",
-  email_marketing: "Email Marketing",
-  messaging: "Messaging",
-  communication: "Communication",
-  email_delivery: "Email Delivery",
-  websites: "Websites",
-  payments: "Payments",
-  automation: "Automation",
-  calendar: "Calendar",
-  analytics: "Analytics",
-  dev_deploy: "Dev / Deploy",
-  office: "Office",
-  flow_control: "Flow Control",
-  data: "Data",
-  forms: "Forms",
-  support: "Support",
-  events: "Events",
-  email: "Email",
-  ai: "AI",
-  storage: "Storage",
-  certificates: "Certificates",
+const SUBCATEGORY_LABELS: Record<string, { key: string; fallback: string }> = {
+  triggers: { key: "ui.app.layers.tool_chest.subcategory.triggers", fallback: "Triggers" },
+  crm: { key: "ui.app.layers.tool_chest.subcategory.crm", fallback: "CRM" },
+  email_marketing: { key: "ui.app.layers.tool_chest.subcategory.email_marketing", fallback: "Email Marketing" },
+  messaging: { key: "ui.app.layers.tool_chest.subcategory.messaging", fallback: "Messaging" },
+  communication: { key: "ui.app.layers.tool_chest.subcategory.communication", fallback: "Communication" },
+  email_delivery: { key: "ui.app.layers.tool_chest.subcategory.email_delivery", fallback: "Email Delivery" },
+  websites: { key: "ui.app.layers.tool_chest.subcategory.websites", fallback: "Websites" },
+  payments: { key: "ui.app.layers.tool_chest.subcategory.payments", fallback: "Payments" },
+  automation: { key: "ui.app.layers.tool_chest.subcategory.automation", fallback: "Automation" },
+  calendar: { key: "ui.app.layers.tool_chest.subcategory.calendar", fallback: "Calendar" },
+  analytics: { key: "ui.app.layers.tool_chest.subcategory.analytics", fallback: "Analytics" },
+  dev_deploy: { key: "ui.app.layers.tool_chest.subcategory.dev_deploy", fallback: "Dev / Deploy" },
+  office: { key: "ui.app.layers.tool_chest.subcategory.office", fallback: "Office" },
+  flow_control: { key: "ui.app.layers.tool_chest.subcategory.flow_control", fallback: "Flow Control" },
+  data: { key: "ui.app.layers.tool_chest.subcategory.data", fallback: "Data" },
+  forms: { key: "ui.app.layers.tool_chest.subcategory.forms", fallback: "Forms" },
+  support: { key: "ui.app.layers.tool_chest.subcategory.support", fallback: "Support" },
+  events: { key: "ui.app.layers.tool_chest.subcategory.events", fallback: "Events" },
+  email: { key: "ui.app.layers.tool_chest.subcategory.email", fallback: "Email" },
+  ai: { key: "ui.app.layers.tool_chest.subcategory.ai", fallback: "AI" },
+  storage: { key: "ui.app.layers.tool_chest.subcategory.storage", fallback: "Storage" },
+  certificates: { key: "ui.app.layers.tool_chest.subcategory.certificates", fallback: "Certificates" },
 };
 
 export function ToolChest({ onNodeDragStart, sessionId, placedNodeTypes }: ToolChestProps) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers")
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<
     Set<NodeCategory>
@@ -134,16 +156,16 @@ export function ToolChest({ onNodeDragStart, sessionId, placedNodeTypes }: ToolC
   };
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-slate-800" style={{ background: "#0f0f12" }}>
+    <aside className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Search */}
-      <div className="border-b border-slate-800 p-2">
+      <div className="border-b border-[var(--color-border)] p-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search nodes..."
-          className="w-full rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          style={{ background: "#18181b" }}
+          placeholder={tWithFallback("ui.app.layers.tool_chest.search_placeholder", "Search nodes...")}
+          aria-label={tWithFallback("ui.app.layers.tool_chest.search_aria_label", "Search nodes")}
+          className="w-full rounded-md border border-[var(--color-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-border-focus)]"
         />
       </div>
 
@@ -172,13 +194,13 @@ export function ToolChest({ onNodeDragStart, sessionId, placedNodeTypes }: ToolC
                 >
                   <div>
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      {meta.label}
+                      {tWithFallback(meta.labelKey, meta.labelFallback)}
                     </span>
-                    <span className="ml-1.5 text-[10px] text-muted-foreground/60">
+                    <span className="ml-1.5 text-xs text-muted-foreground/60">
                       {categoryNodes.length}
                     </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {isExpanded ? "−" : "+"}
                   </span>
                 </button>
@@ -192,8 +214,13 @@ export function ToolChest({ onNodeDragStart, sessionId, placedNodeTypes }: ToolC
                       return (
                         <div key={sub}>
                           {subcategories.length > 1 && (
-                            <div className="px-2 pb-0.5 pt-1 text-[10px] font-medium text-muted-foreground/50">
-                              {SUBCATEGORY_LABELS[sub] ?? sub}
+                            <div className="px-2 pb-0.5 pt-1 text-xs font-medium text-muted-foreground/50">
+                              {SUBCATEGORY_LABELS[sub]
+                                ? tWithFallback(
+                                    SUBCATEGORY_LABELS[sub].key,
+                                    SUBCATEGORY_LABELS[sub].fallback,
+                                  )
+                                : sub}
                             </div>
                           )}
                           <div className="space-y-0.5">
@@ -242,10 +269,15 @@ function DraggableNode({
   onUpvote: (def: NodeDefinition) => void;
   isSingletonPlaced: boolean;
 }) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const isComingSoon = definition.integrationStatus === "coming_soon";
   const isDisabled = isComingSoon || isSingletonPlaced;
   const disabledTitle = isSingletonPlaced
-    ? `${definition.name} is already placed in this workflow. Only one is allowed.`
+    ? tWithFallback(
+        "ui.app.layers.tool_chest.singleton_disabled_title",
+        "{name} is already placed in this workflow. Only one is allowed.",
+        { name: definition.name },
+      )
     : definition.description;
 
   return (
@@ -255,12 +287,12 @@ function DraggableNode({
         if (isDisabled) return;
         onDragStart(e, definition);
       }}
-      className={`group flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-xs text-slate-200 transition-colors active:cursor-grabbing ${
+      className={`group flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 text-xs text-[var(--color-text)] transition-colors active:cursor-grabbing ${
         isDisabled
-          ? "cursor-default border-dashed border-slate-700 opacity-50"
-          : "border-slate-700 hover:border-blue-500/40 hover:bg-slate-800"
+          ? "cursor-default border-dashed border-[var(--color-border)] opacity-50"
+          : "border-[var(--color-border)] hover:border-[var(--color-info)] hover:bg-[var(--color-surface-hover)]"
       }`}
-      style={{ background: isDisabled ? "transparent" : "#18181b" }}
+      style={{ background: isDisabled ? "transparent" : "var(--color-surface-raised)" }}
       title={disabledTitle}
       aria-disabled={isDisabled}
     >
@@ -282,27 +314,40 @@ function DraggableNode({
               onUpvote(definition);
             }}
             disabled={hasVoted}
-            className={`flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] transition-colors ${
+            className={`flex items-center gap-0.5 rounded px-1 py-0.5 text-xs transition-colors ${
               hasVoted
                 ? "text-blue-400"
                 : "text-muted-foreground hover:bg-slate-700 hover:text-blue-400"
             }`}
-            title={hasVoted ? "You voted for this" : "Vote to prioritize this integration"}
+            title={
+              hasVoted
+                ? tWithFallback("ui.app.layers.tool_chest.upvote.already_voted", "You voted for this")
+                : tWithFallback("ui.app.layers.tool_chest.upvote.vote", "Vote to prioritize this integration")
+            }
           >
             <svg width="8" height="8" viewBox="0 0 24 24" fill={hasVoted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
             {upvoteCount > 0 && <span>{upvoteCount}</span>}
           </button>
-          <span className="text-[9px] uppercase text-muted-foreground">soon</span>
+          <span className="text-xs uppercase text-muted-foreground">
+            {tWithFallback("ui.app.layers.tool_chest.badge.soon", "soon")}
+          </span>
         </div>
       )}
       {!isComingSoon && isSingletonPlaced && (
-        <span className="shrink-0 text-[9px] uppercase text-amber-300">placed</span>
+        <>
+          <span className="shrink-0 text-xs uppercase text-amber-300">placed</span>
+          <span className="sr-only">
+            {tWithFallback("ui.app.layers.tool_chest.badge.placed", "placed")}
+          </span>
+        </>
       )}
       {definition.integrationStatus === "available" &&
         definition.requiresAuth && (
-          <span className="shrink-0 text-[9px] text-blue-500">key</span>
+          <span className="shrink-0 text-xs text-blue-500">
+            {tWithFallback("ui.app.layers.tool_chest.badge.key", "key")}
+          </span>
         )}
     </div>
   );

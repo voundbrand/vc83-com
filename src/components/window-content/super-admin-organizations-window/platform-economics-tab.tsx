@@ -95,6 +95,40 @@ type PlatformEconomicsSummaryResponse = {
   providerBreakdown: ProviderEconomicsRow[];
   modelBreakdown: ModelEconomicsRow[];
   actionBreakdown: ActionEconomicsRow[];
+  validationTelemetry: {
+    totals: {
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    };
+    byTransport: Array<{
+      transport: "direct_runtime" | "chat_runtime" | "unknown";
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    }>;
+    byCreditChargeStatus: Array<{
+      status:
+        | "charged"
+        | "skipped_unmetered"
+        | "skipped_insufficient_credits"
+        | "skipped_not_required"
+        | "failed"
+        | "unknown";
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    }>;
+  };
   platformOrganization: OrganizationEconomicsRow | null;
   generatedAt: number;
   recordCount: number;
@@ -282,6 +316,56 @@ export function PlatformEconomicsTab() {
     return { negative, low };
   }, [summary]);
 
+  const validationTelemetry = useMemo(() => {
+    if (!summary) {
+      return {
+        totalRequests: 0,
+        platformRequests: 0,
+        directRuntimeRequests: 0,
+        chatRuntimeRequests: 0,
+        directRuntimePct: 0,
+        creditsChargedRequests: 0,
+        insufficientCreditsRequests: 0,
+        skippedNotRequiredRequests: 0,
+      };
+    }
+
+    const directRuntimeRow = summary.validationTelemetry.byTransport.find(
+      (row) => row.transport === "direct_runtime"
+    );
+    const chatRuntimeRow = summary.validationTelemetry.byTransport.find(
+      (row) => row.transport === "chat_runtime"
+    );
+    const chargedRow = summary.validationTelemetry.byCreditChargeStatus.find(
+      (row) => row.status === "charged"
+    );
+    const insufficientCreditsRow =
+      summary.validationTelemetry.byCreditChargeStatus.find(
+        (row) => row.status === "skipped_insufficient_credits"
+      );
+    const skippedNotRequiredRow =
+      summary.validationTelemetry.byCreditChargeStatus.find(
+        (row) => row.status === "skipped_not_required"
+      );
+    const totalRequests = summary.validationTelemetry.totals.requests;
+
+    return {
+      totalRequests,
+      platformRequests: summary.validationTelemetry.totals.platformRequests,
+      directRuntimeRequests: directRuntimeRow?.requests ?? 0,
+      chatRuntimeRequests: chatRuntimeRow?.requests ?? 0,
+      directRuntimePct:
+        totalRequests > 0
+          ? Number(
+              (((directRuntimeRow?.requests ?? 0) / totalRequests) * 100).toFixed(2)
+            )
+          : 0,
+      creditsChargedRequests: chargedRow?.requests ?? 0,
+      insufficientCreditsRequests: insufficientCreditsRow?.requests ?? 0,
+      skippedNotRequiredRequests: skippedNotRequiredRow?.requests ?? 0,
+    };
+  }, [summary]);
+
   if (!isSuperAdmin) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -387,6 +471,51 @@ export function PlatformEconomicsTab() {
           value={formatCents(summary.totals.platformGrossMarginInCents)}
           subValue={`${formatPct(summary.totals.platformGrossMarginPct)} margin`}
         />
+      </div>
+
+      <div
+        className="rounded border p-3"
+        style={{ borderColor: "var(--window-document-border)" }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold" style={{ color: "var(--window-document-text)" }}>
+            {tx("validation_telemetry.title", "Model Validation Telemetry")}
+          </p>
+          {validationTelemetry.insufficientCreditsRequests > 0 ? (
+            <div className="text-[11px] inline-flex items-center gap-1" style={{ color: "var(--warning, #b45309)" }}>
+              <AlertTriangle size={12} />
+              {tx(
+                "validation_telemetry.insufficient_warning",
+                "Validation hit credit exhaustion in chat runtime"
+              )}
+            </div>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+          <CompactMetricCard
+            label={tx("validation_telemetry.requests", "Validation Requests")}
+            value={formatNumber(validationTelemetry.totalRequests)}
+            subValue={`Platform: ${formatNumber(validationTelemetry.platformRequests)}`}
+          />
+          <CompactMetricCard
+            label={tx("validation_telemetry.direct_runtime_share", "Direct Runtime Share")}
+            value={formatPct(validationTelemetry.directRuntimePct)}
+            subValue={`Direct: ${formatNumber(validationTelemetry.directRuntimeRequests)} | Chat: ${formatNumber(validationTelemetry.chatRuntimeRequests)}`}
+          />
+          <CompactMetricCard
+            label={tx("validation_telemetry.charged", "Charged Requests")}
+            value={formatNumber(validationTelemetry.creditsChargedRequests)}
+            subValue={`Skipped not required: ${formatNumber(validationTelemetry.skippedNotRequiredRequests)}`}
+          />
+          <CompactMetricCard
+            label={tx("validation_telemetry.credit_exhausted", "Credit Exhaustions")}
+            value={formatNumber(validationTelemetry.insufficientCreditsRequests)}
+            subValue={tx(
+              "validation_telemetry.credit_exhausted_sub",
+              "Chat runtime should surface upgrade CTA"
+            )}
+          />
+        </div>
       </div>
 
       <div

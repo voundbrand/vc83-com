@@ -621,7 +621,8 @@ async function runModelValidationSuite(args: {
 }): Promise<ModelValidationRunPayload> {
   const conversationStore = new Map<string, ValidationConversationMessage[]>();
   const transportState: ValidationTransportState = {
-    forceDirectRuntime: false,
+    // Platform model validation is always executed against direct runtime.
+    forceDirectRuntime: true,
   };
   const sendValidationProbeMessage = (input: {
     message: string;

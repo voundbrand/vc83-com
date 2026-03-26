@@ -9,8 +9,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+// Dynamic require to avoid TS2589 deep type instantiation on generated Convex API types.
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any };
 import {
   Folder,
   FileText,
@@ -91,8 +93,9 @@ export function FinderContent({
   isDropTarget,
 }: FinderContentProps) {
   // Shared projects
+  // @ts-ignore TS2589: Convex generated query type can exceed instantiation depth in this component.
   const sharedProjects = useQuery(
-    api.projectSharing.listSharedWithMe,
+    (api as any).projectSharing.listSharedWithMe,
     mode === "shared" ? { sessionId } : "skip"
   );
 
@@ -115,7 +118,7 @@ export function FinderContent({
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sharedProjects.map((share) => (
+          {sharedProjects.map((share: any) => (
             <SharedProjectCard
               key={share._id}
               projectName={share.projectName}
@@ -140,19 +143,8 @@ export function FinderContent({
     );
   }
 
-  // ---- ORG MODE ----
-  if (mode === "org") {
-    return (
-      <EmptyState
-        icon={<Image size={32} />}
-        title="Organization Files"
-        description="Switch to the Media Library window for org-scoped files, or select a project to browse project files."
-      />
-    );
-  }
-
   // ---- PROJECT MODE ----
-  if (!projectId) {
+  if (mode === "project" && !projectId) {
     return (
       <EmptyState
         icon={<Folder size={32} />}
@@ -471,7 +463,8 @@ function InlineRenameInput({
 }) {
   const [name, setName] = useState(file.name);
   const inputRef = useRef<HTMLInputElement>(null);
-  const renameFile = useMutation(api.projectFileSystem.renameFile);
+  // @ts-ignore TS2589: Convex generated mutation types can exceed instantiation depth in this component.
+  const renameFile = useMutation((api as any).projectFileSystem.renameFile);
 
   useEffect(() => {
     inputRef.current?.focus();

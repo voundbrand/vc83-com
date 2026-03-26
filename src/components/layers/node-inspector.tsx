@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Node } from "@xyflow/react";
 import type { NodeDefinition, ConfigField } from "../../../convex/layers/types";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface ExecutionDetailsData {
   nodeExecutions: Array<{
@@ -40,6 +41,7 @@ export function NodeInspector({
   onClose,
   executionDetails,
 }: NodeInspectorProps) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const [activeTab, setActiveTab] = useState<"config" | "logs">("config");
 
   if (!node) return null;
@@ -55,9 +57,9 @@ export function NodeInspector({
   );
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-slate-800 text-slate-100" style={{ background: "#09090b" }}>
+    <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
         <div className="flex items-center gap-2">
           <div
             className="h-3 w-3 rounded-full"
@@ -68,7 +70,7 @@ export function NodeInspector({
         <button
           onClick={onClose}
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          title="Close inspector"
+          title={tWithFallback("ui.app.layers.node_inspector.close", "Close inspector")}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -78,20 +80,20 @@ export function NodeInspector({
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-slate-800">
+      <div className="flex border-b border-[var(--color-border)]">
         <button
           onClick={() => setActiveTab("config")}
           className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "config" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-slate-300"}`}
         >
-          Config
+          {tWithFallback("ui.app.layers.node_inspector.tabs.config", "Config")}
         </button>
         <button
           onClick={() => setActiveTab("logs")}
           className={`flex-1 px-3 py-1.5 text-xs font-medium ${activeTab === "logs" ? "border-b-2 border-blue-500 text-blue-400" : "text-muted-foreground hover:text-slate-300"}`}
         >
-          Logs
+          {tWithFallback("ui.app.layers.node_inspector.tabs.logs", "Logs")}
           {nodeExecution && (
-            <span className={`ml-1 text-[10px] ${nodeExecution.status === "completed" ? "text-green-400" : nodeExecution.status === "failed" ? "text-red-400" : "text-yellow-400"}`}>
+            <span className={`ml-1 text-xs ${nodeExecution.status === "completed" ? "text-green-400" : nodeExecution.status === "failed" ? "text-red-400" : "text-yellow-400"}`}>
               ({nodeExecution.status})
             </span>
           )}
@@ -105,39 +107,50 @@ export function NodeInspector({
           <div className="space-y-3">
             {!nodeExecution ? (
               <div className="text-xs text-muted-foreground">
-                No execution data yet. Run the workflow to see logs.
+                {tWithFallback(
+                  "ui.app.layers.node_inspector.logs.empty",
+                  "No execution data yet. Run the workflow to see logs.",
+                )}
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">
+                    {tWithFallback("ui.app.layers.node_inspector.logs.status", "Status")}
+                  </span>
                   <span className={`font-medium ${nodeExecution.status === "completed" ? "text-green-400" : nodeExecution.status === "failed" ? "text-red-400" : "text-yellow-400"}`}>
                     {nodeExecution.status}
                   </span>
                 </div>
                 {nodeExecution.durationMs !== undefined && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Duration</span>
+                    <span className="text-muted-foreground">
+                      {tWithFallback("ui.app.layers.node_inspector.logs.duration", "Duration")}
+                    </span>
                     <span className="font-mono">{nodeExecution.durationMs}ms</span>
                   </div>
                 )}
                 {nodeExecution.error && (
-                  <div className="rounded-md border border-red-800 bg-red-950/30 p-2 text-[11px] text-red-400">
+                  <div className="rounded-md border border-red-800 bg-red-950/30 p-2 text-xs text-red-400">
                     {nodeExecution.error}
                   </div>
                 )}
                 {nodeExecution.inputData !== undefined && (
                   <div>
-                    <div className="mb-1 text-[10px] font-medium text-muted-foreground">Input</div>
-                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-[10px] text-slate-300">
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">
+                      {tWithFallback("ui.app.layers.node_inspector.logs.input", "Input")}
+                    </div>
+                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-xs text-slate-300">
                       {JSON.stringify(nodeExecution.inputData, null, 2)}
                     </pre>
                   </div>
                 )}
                 {nodeExecution.outputData !== undefined && (
                   <div>
-                    <div className="mb-1 text-[10px] font-medium text-muted-foreground">Output</div>
-                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-[10px] text-slate-300">
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">
+                      {tWithFallback("ui.app.layers.node_inspector.logs.output", "Output")}
+                    </div>
+                    <pre className="max-h-32 overflow-auto rounded bg-slate-900 p-2 text-xs text-slate-300">
                       {JSON.stringify(nodeExecution.outputData, null, 2)}
                     </pre>
                   </div>
@@ -150,7 +163,7 @@ export function NodeInspector({
         {/* Config tab */}
         {activeTab === "config" && <div className="space-y-4">
           {/* Label */}
-          <FieldGroup label="Label">
+          <FieldGroup label={tWithFallback("ui.app.layers.node_inspector.label", "Label")}>
             <input
               type="text"
               value={label}
@@ -160,7 +173,7 @@ export function NodeInspector({
           </FieldGroup>
 
           {/* Description */}
-          <div className="rounded-md bg-muted/30 p-2 text-[11px] text-muted-foreground">
+          <div className="rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
             {definition.description}
           </div>
 
@@ -168,7 +181,7 @@ export function NodeInspector({
           {definition.configFields.length > 0 && (
             <div className="space-y-3">
               <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Configuration
+                {tWithFallback("ui.app.layers.node_inspector.configuration", "Configuration")}
               </div>
               {definition.configFields.map((field) => (
                 <ConfigFieldInput
@@ -197,17 +210,17 @@ export function NodeInspector({
           {/* Handles info */}
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Connections
+              {tWithFallback("ui.app.layers.node_inspector.connections", "Connections")}
             </div>
             {definition.inputs.length > 0 && (
               <div className="space-y-0.5">
-                <div className="text-[10px] font-medium text-muted-foreground">
-                  Inputs
+                <div className="text-xs font-medium text-muted-foreground">
+                  {tWithFallback("ui.app.layers.node_inspector.inputs", "Inputs")}
                 </div>
                 {definition.inputs.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center gap-1.5 text-[11px]"
+                    className="flex items-center gap-1.5 text-xs"
                   >
                     <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                     {h.label}
@@ -222,13 +235,13 @@ export function NodeInspector({
             )}
             {definition.outputs.length > 0 && (
               <div className="space-y-0.5">
-                <div className="text-[10px] font-medium text-muted-foreground">
-                  Outputs
+                <div className="text-xs font-medium text-muted-foreground">
+                  {tWithFallback("ui.app.layers.node_inspector.outputs", "Outputs")}
                 </div>
                 {definition.outputs.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center gap-1.5 text-[11px]"
+                    className="flex items-center gap-1.5 text-xs"
                   >
                     <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
                     {h.label}
@@ -246,41 +259,46 @@ export function NodeInspector({
           {/* Action buttons */}
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Actions
+              {tWithFallback("ui.app.layers.node_inspector.actions", "Actions")}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={onDuplicate}
-                className="flex-1 rounded-md border border-slate-700 px-2 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800"
-                title="Duplicate node (Cmd+D)"
+                className="flex-1 rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+                title={tWithFallback("ui.app.layers.node_inspector.actions.duplicate_title", "Duplicate node (Cmd+D)")}
               >
-                Duplicate
+                {tWithFallback("ui.app.layers.node_inspector.actions.duplicate", "Duplicate")}
               </button>
               <button
                 onClick={() => onDelete(node.id)}
-                className="flex-1 rounded-md border border-red-800 px-2 py-1.5 text-[11px] text-red-300 hover:bg-red-950/30"
+                className="flex-1 rounded-md border border-red-800 px-2 py-1.5 text-xs text-red-300 hover:bg-red-950/30"
                 title="Delete node"
+                aria-label={tWithFallback("ui.app.layers.node_inspector.actions.delete_title", "Delete node")}
               >
-                Delete
+                {tWithFallback("ui.app.layers.node_inspector.actions.delete", "Delete")}
               </button>
               <button
                 onClick={() => onToggleDisabled(node.id)}
-                className={`flex-1 rounded-md border px-2 py-1.5 text-[11px] ${
+                className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
                   isDisabled
                     ? "border-green-700 text-green-400 hover:bg-green-950/30"
                     : "border-slate-700 text-slate-300 hover:bg-slate-800"
                 }`}
-                title={isDisabled ? "Enable this node" : "Disable this node"}
+                title={isDisabled
+                  ? tWithFallback("ui.app.layers.node_inspector.actions.enable_title", "Enable this node")
+                  : tWithFallback("ui.app.layers.node_inspector.actions.disable_title", "Disable this node")}
               >
-                {isDisabled ? "Enable" : "Disable"}
+                {isDisabled
+                  ? tWithFallback("ui.app.layers.node_inspector.actions.enable", "Enable")
+                  : tWithFallback("ui.app.layers.node_inspector.actions.disable", "Disable")}
               </button>
             </div>
           </div>
 
           {/* Credits */}
           {(definition.creditCost ?? 0) > 0 && (
-            <div className="text-[11px] text-muted-foreground">
-              Credits per execution:{" "}
+            <div className="text-xs text-muted-foreground">
+              {tWithFallback("ui.app.layers.node_inspector.credits_per_execution", "Credits per execution:")}{" "}
               <span className="font-medium">{definition.creditCost}</span>
             </div>
           )}
@@ -303,7 +321,7 @@ function FieldGroup({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium text-muted-foreground">
+      <label className="text-xs font-medium text-muted-foreground">
         {label}
       </label>
       {children}
@@ -324,17 +342,18 @@ function ConfigFieldInput({
   value: unknown;
   onChange: (val: unknown) => void;
 }) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const inputClasses =
     "w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500";
 
   return (
     <div className="space-y-1">
-      <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+      <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         {field.label}
         {field.required && <span className="text-red-500">*</span>}
       </label>
       {field.description && (
-        <div className="text-[10px] text-muted-foreground/70">
+        <div className="text-xs text-muted-foreground/70">
           {field.description}
         </div>
       )}
@@ -345,7 +364,7 @@ function ConfigFieldInput({
           onChange={(e) => onChange(e.target.value)}
           className={inputClasses}
         >
-          <option value="">Select...</option>
+          <option value="">{tWithFallback("ui.app.layers.node_inspector.select_placeholder", "Select...")}</option>
           {field.options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -408,7 +427,9 @@ function CredentialSection({
   onUpdateConfig: (nodeId: string, key: string, value: unknown) => void;
   onUpdateStatus: (nodeId: string, status: string) => void;
 }) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const isConnected = (node.data.status as string) === "ready" || !!(config.__credentialConnected);
 
   const handleOAuthConnect = () => {
@@ -447,64 +468,74 @@ function CredentialSection({
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Connect Account
+        {tWithFallback("ui.app.layers.node_inspector.connect_account", "Connect Account")}
       </div>
 
       {isConnected ? (
-        <div className="flex items-center gap-2 rounded-md border border-green-800 bg-green-950/30 p-2 text-[11px] text-green-400">
+        <div className="flex items-center gap-2 rounded-md border border-green-800 bg-green-950/30 p-2 text-xs text-green-400">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          Account connected
+          {tWithFallback("ui.app.layers.node_inspector.account_connected", "Account connected")}
         </div>
       ) : definition.oauthProvider ? (
         <button
           onClick={handleOAuthConnect}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-950/30 px-3 py-2 text-[11px] text-blue-300 hover:bg-blue-900/40"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-blue-950/30 px-3 py-2 text-xs text-blue-300 hover:bg-blue-900/40"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
             <polyline points="10 17 15 12 10 7" />
             <line x1="15" y1="12" x2="3" y2="12" />
           </svg>
-          Connect {definition.oauthProvider}
+          {tWithFallback(
+            "ui.app.layers.node_inspector.connect_provider",
+            "Connect {provider}",
+            { provider: definition.oauthProvider },
+          )}
         </button>
       ) : definition.settingsType ? (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
             <input
               type={showApiKey ? "text" : "password"}
-              placeholder="Enter API key..."
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder={tWithFallback("ui.app.layers.node_inspector.api_key_placeholder", "Enter API key...")}
               className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  handleApiKeySave((e.target as HTMLInputElement).value);
+                  handleApiKeySave(apiKeyInput);
                 }
               }}
             />
             <button
               onClick={() => setShowApiKey(!showApiKey)}
-              className="rounded-md border border-slate-700 px-1.5 py-1.5 text-[10px] text-slate-400 hover:bg-slate-800"
-              title={showApiKey ? "Hide" : "Show"}
+              className="rounded-md border border-slate-700 px-1.5 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
+              title={showApiKey
+                ? tWithFallback("ui.app.layers.node_inspector.hide", "Hide")
+                : tWithFallback("ui.app.layers.node_inspector.show", "Show")}
             >
-              {showApiKey ? "Hide" : "Show"}
+              {showApiKey
+                ? tWithFallback("ui.app.layers.node_inspector.hide", "Hide")
+                : tWithFallback("ui.app.layers.node_inspector.show", "Show")}
             </button>
           </div>
           <button
             onClick={() => {
-              const input = document.querySelector<HTMLInputElement>(
-                'input[type="password"], input[placeholder="Enter API key..."]'
-              );
-              if (input) handleApiKeySave(input.value);
+              handleApiKeySave(apiKeyInput);
             }}
-            className="w-full rounded-md border border-slate-700 px-2 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800"
+            className="w-full rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
           >
-            Save API Key
+            {tWithFallback("ui.app.layers.node_inspector.save_api_key", "Save API Key")}
           </button>
         </div>
       ) : (
-        <div className="rounded-md border border-slate-700 bg-slate-900/50 p-2 text-[11px] text-muted-foreground">
-          Credentials required. Configure in Integration Settings.
+        <div className="rounded-md border border-slate-700 bg-slate-900/50 p-2 text-xs text-muted-foreground">
+          {tWithFallback(
+            "ui.app.layers.node_inspector.credentials_required",
+            "Credentials required. Configure in Integration Settings.",
+          )}
         </div>
       )}
     </div>

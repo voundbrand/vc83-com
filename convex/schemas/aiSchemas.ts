@@ -542,6 +542,370 @@ export const agentExecutionBundleContractValidator = v.object({
   pinnedAt: v.number(),
 });
 
+export const AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION =
+  "oar_runtime_topology_v1" as const;
+export const AGENT_RUNTIME_TOPOLOGY_PROFILE_VALUES = [
+  "single_agent_loop",
+  "pipeline_router",
+  "multi_agent_dag",
+  "evaluator_loop",
+] as const;
+export type AgentRuntimeTopologyProfile =
+  (typeof AGENT_RUNTIME_TOPOLOGY_PROFILE_VALUES)[number];
+
+export const AGENT_RUNTIME_TOPOLOGY_PROFILE_DEFAULT =
+  "single_agent_loop" as const;
+
+export const AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES = [
+  "single_agent_loop_adapter_v1",
+  "pipeline_router_adapter_v1",
+  "multi_agent_dag_adapter_v1",
+  "evaluator_loop_adapter_v1",
+] as const;
+export type AgentRuntimeTopologyAdapter =
+  (typeof AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES)[number];
+
+export const agentRuntimeTopologyProfileValidator = v.union(
+  v.literal("single_agent_loop"),
+  v.literal("pipeline_router"),
+  v.literal("multi_agent_dag"),
+  v.literal("evaluator_loop"),
+);
+
+export const agentRuntimeTopologyAdapterValidator = v.union(
+  v.literal("single_agent_loop_adapter_v1"),
+  v.literal("pipeline_router_adapter_v1"),
+  v.literal("multi_agent_dag_adapter_v1"),
+  v.literal("evaluator_loop_adapter_v1"),
+);
+
+export const AGENT_RUNTIME_TOPOLOGY_SOURCE_VALUES = [
+  "agent_config",
+  "runtime_module",
+  "template_role",
+  "tool_profile",
+  "default_profile",
+] as const;
+export type AgentRuntimeTopologySource =
+  (typeof AGENT_RUNTIME_TOPOLOGY_SOURCE_VALUES)[number];
+
+export const agentRuntimeTopologySourceValidator = v.union(
+  v.literal("agent_config"),
+  v.literal("runtime_module"),
+  v.literal("template_role"),
+  v.literal("tool_profile"),
+  v.literal("default_profile"),
+);
+
+export const AGENT_RUNTIME_TOPOLOGY_ENFORCEMENT_VALUES = [
+  "enforced",
+  "blocked",
+] as const;
+export type AgentRuntimeTopologyEnforcement =
+  (typeof AGENT_RUNTIME_TOPOLOGY_ENFORCEMENT_VALUES)[number];
+
+export const agentRuntimeTopologyEnforcementValidator = v.union(
+  v.literal("enforced"),
+  v.literal("blocked"),
+);
+
+export interface AgentRuntimeTopologyContract {
+  contractVersion: typeof AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION;
+  profile: AgentRuntimeTopologyProfile;
+  adapter: AgentRuntimeTopologyAdapter;
+  source: AgentRuntimeTopologySource;
+  enforcement: AgentRuntimeTopologyEnforcement;
+  reasonCode?: string;
+  resolvedAt: number;
+}
+
+export const agentRuntimeTopologyContractValidator = v.object({
+  contractVersion: v.literal(AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION),
+  profile: agentRuntimeTopologyProfileValidator,
+  adapter: agentRuntimeTopologyAdapterValidator,
+  source: agentRuntimeTopologySourceValidator,
+  enforcement: agentRuntimeTopologyEnforcementValidator,
+  reasonCode: v.optional(v.string()),
+  resolvedAt: v.number(),
+});
+
+export function isAgentRuntimeTopologyProfile(
+  value: string,
+): value is AgentRuntimeTopologyProfile {
+  return (AGENT_RUNTIME_TOPOLOGY_PROFILE_VALUES as readonly string[]).includes(value);
+}
+
+export function resolveAgentRuntimeTopologyAdapter(
+  profile: AgentRuntimeTopologyProfile,
+): AgentRuntimeTopologyAdapter {
+  if (profile === "single_agent_loop") {
+    return "single_agent_loop_adapter_v1";
+  }
+  if (profile === "pipeline_router") {
+    return "pipeline_router_adapter_v1";
+  }
+  if (profile === "multi_agent_dag") {
+    return "multi_agent_dag_adapter_v1";
+  }
+  return "evaluator_loop_adapter_v1";
+}
+
+export function assertAgentRuntimeTopologyContract(
+  contract: AgentRuntimeTopologyContract,
+) {
+  if (!Number.isFinite(contract.resolvedAt) || contract.resolvedAt <= 0) {
+    throw new Error("Runtime topology contract requires a positive resolvedAt timestamp.");
+  }
+  if (
+    contract.enforcement === "blocked" &&
+    !normalizeRuntimeContractString(contract.reasonCode)
+  ) {
+    throw new Error("Blocked runtime topology contract requires reasonCode.");
+  }
+}
+
+export const AGENT_PACKAGE_CONTRACT_VERSION =
+  "oar_agent_package_v1" as const;
+export const AGENT_PACKAGE_MEMORY_MODE_VALUES = [
+  "stateless",
+  "session_context",
+  "session_and_org_memory",
+] as const;
+export type AgentPackageMemoryMode =
+  (typeof AGENT_PACKAGE_MEMORY_MODE_VALUES)[number];
+
+export const agentPackageMemoryModeValidator = v.union(
+  v.literal("stateless"),
+  v.literal("session_context"),
+  v.literal("session_and_org_memory"),
+);
+
+export const AGENT_PACKAGE_ROLLOUT_STAGE_VALUES = [
+  "disabled",
+  "internal",
+  "canary",
+  "production",
+] as const;
+export type AgentPackageRolloutStage =
+  (typeof AGENT_PACKAGE_ROLLOUT_STAGE_VALUES)[number];
+
+export const agentPackageRolloutStageValidator = v.union(
+  v.literal("disabled"),
+  v.literal("internal"),
+  v.literal("canary"),
+  v.literal("production"),
+);
+
+export interface AgentPackageContract {
+  contractVersion: typeof AGENT_PACKAGE_CONTRACT_VERSION;
+  goal: {
+    primaryOutcome: string;
+    successMetric: string;
+  };
+  tools: {
+    required: string[];
+    optional: string[];
+    denied: string[];
+  };
+  policy: {
+    orgPolicyRef: string;
+    channelPolicyRef: string;
+    runtimePolicyRef: string;
+  };
+  memory: {
+    mode: AgentPackageMemoryMode;
+    retentionPolicyRef: string;
+  };
+  eval: {
+    suiteRef: string;
+    passThreshold: number;
+    holdThreshold: number;
+  };
+  rollout: {
+    stage: AgentPackageRolloutStage;
+    owner: string;
+    enableFlag: string;
+  };
+}
+
+export const agentPackageContractValidator = v.object({
+  contractVersion: v.literal(AGENT_PACKAGE_CONTRACT_VERSION),
+  goal: v.object({
+    primaryOutcome: v.string(),
+    successMetric: v.string(),
+  }),
+  tools: v.object({
+    required: v.array(v.string()),
+    optional: v.array(v.string()),
+    denied: v.array(v.string()),
+  }),
+  policy: v.object({
+    orgPolicyRef: v.string(),
+    channelPolicyRef: v.string(),
+    runtimePolicyRef: v.string(),
+  }),
+  memory: v.object({
+    mode: agentPackageMemoryModeValidator,
+    retentionPolicyRef: v.string(),
+  }),
+  eval: v.object({
+    suiteRef: v.string(),
+    passThreshold: v.number(),
+    holdThreshold: v.number(),
+  }),
+  rollout: v.object({
+    stage: agentPackageRolloutStageValidator,
+    owner: v.string(),
+    enableFlag: v.string(),
+  }),
+});
+
+// ============================================================================
+// KNOWLEDGE CONTEXT RUNTIME CONTRACTS (KCA-004)
+// ============================================================================
+
+export const KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION =
+  "aoh_knowledge_context_scope_v1" as const;
+export const KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION =
+  "aoh_knowledge_context_provenance_v1" as const;
+export const KNOWLEDGE_CONTEXT_CONFIDENCE_CONTRACT_VERSION =
+  "aoh_knowledge_context_confidence_v1" as const;
+
+export const KNOWLEDGE_CONTEXT_SCOPE_VALUES = [
+  "platform",
+  "org",
+  "project",
+] as const;
+export type KnowledgeContextScope = (typeof KNOWLEDGE_CONTEXT_SCOPE_VALUES)[number];
+export const knowledgeContextScopeValidator = v.union(
+  v.literal("platform"),
+  v.literal("org"),
+  v.literal("project"),
+);
+
+export const KNOWLEDGE_CONTEXT_RETRIEVAL_SURFACE_VALUES = [
+  "semantic_chunks",
+  "knowledge_base_docs",
+] as const;
+export type KnowledgeContextRetrievalSurface =
+  (typeof KNOWLEDGE_CONTEXT_RETRIEVAL_SURFACE_VALUES)[number];
+export const knowledgeContextRetrievalSurfaceValidator = v.union(
+  v.literal("semantic_chunks"),
+  v.literal("knowledge_base_docs"),
+);
+
+export const KNOWLEDGE_CONTEXT_ENFORCED_BY_VALUES = [
+  "organizationKnowledgeChunks.by_organization",
+  "organizationMedia.by_organization",
+] as const;
+export type KnowledgeContextEnforcedBy =
+  (typeof KNOWLEDGE_CONTEXT_ENFORCED_BY_VALUES)[number];
+export const knowledgeContextEnforcedByValidator = v.union(
+  v.literal("organizationKnowledgeChunks.by_organization"),
+  v.literal("organizationMedia.by_organization"),
+);
+
+export interface KnowledgeContextScopeContract {
+  contractVersion: typeof KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION;
+  scope: KnowledgeContextScope;
+  scopeKey: string;
+  organizationId?: string;
+  projectId?: string;
+  retrievalSurface: KnowledgeContextRetrievalSurface;
+  enforcedBy: KnowledgeContextEnforcedBy;
+}
+
+export const knowledgeContextScopeContractValidator = v.object({
+  contractVersion: v.literal(KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION),
+  scope: knowledgeContextScopeValidator,
+  scopeKey: v.string(),
+  organizationId: v.optional(v.string()),
+  projectId: v.optional(v.string()),
+  retrievalSurface: knowledgeContextRetrievalSurfaceValidator,
+  enforcedBy: knowledgeContextEnforcedByValidator,
+});
+
+export const KNOWLEDGE_CONTEXT_PROVENANCE_SOURCE_KIND_VALUES = [
+  "organization_knowledge_chunk",
+  "layercake_document",
+  "knowledge_item_bridge",
+] as const;
+export type KnowledgeContextProvenanceSourceKind =
+  (typeof KNOWLEDGE_CONTEXT_PROVENANCE_SOURCE_KIND_VALUES)[number];
+export const knowledgeContextProvenanceSourceKindValidator = v.union(
+  v.literal("organization_knowledge_chunk"),
+  v.literal("layercake_document"),
+  v.literal("knowledge_item_bridge"),
+);
+
+export const KNOWLEDGE_CONTEXT_RETRIEVAL_METHOD_VALUES = [
+  "semantic_chunk_index",
+  "semantic_lexical",
+  "tag_recency_fallback",
+  "knowledge_base_docs_scan",
+] as const;
+export type KnowledgeContextRetrievalMethod =
+  (typeof KNOWLEDGE_CONTEXT_RETRIEVAL_METHOD_VALUES)[number];
+export const knowledgeContextRetrievalMethodValidator = v.union(
+  v.literal("semantic_chunk_index"),
+  v.literal("semantic_lexical"),
+  v.literal("tag_recency_fallback"),
+  v.literal("knowledge_base_docs_scan"),
+);
+
+export interface KnowledgeContextProvenanceContract {
+  contractVersion: typeof KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION;
+  sourceKind: KnowledgeContextProvenanceSourceKind;
+  sourceId: string;
+  sourceMediaId?: string;
+  sourceUpdatedAt: number;
+  retrievalMethod: KnowledgeContextRetrievalMethod;
+  retrievalSurface: KnowledgeContextRetrievalSurface;
+  indexVersion?: number;
+  indexedAt?: number;
+}
+
+export const knowledgeContextProvenanceContractValidator = v.object({
+  contractVersion: v.literal(KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION),
+  sourceKind: knowledgeContextProvenanceSourceKindValidator,
+  sourceId: v.string(),
+  sourceMediaId: v.optional(v.string()),
+  sourceUpdatedAt: v.number(),
+  retrievalMethod: knowledgeContextRetrievalMethodValidator,
+  retrievalSurface: knowledgeContextRetrievalSurfaceValidator,
+  indexVersion: v.optional(v.number()),
+  indexedAt: v.optional(v.number()),
+});
+
+export const KNOWLEDGE_CONTEXT_CONFIDENCE_BAND_VALUES = [
+  "high",
+  "medium",
+  "low",
+] as const;
+export type KnowledgeContextConfidenceBand =
+  (typeof KNOWLEDGE_CONTEXT_CONFIDENCE_BAND_VALUES)[number];
+export const knowledgeContextConfidenceBandValidator = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+);
+
+export interface KnowledgeContextConfidenceContract {
+  contractVersion: typeof KNOWLEDGE_CONTEXT_CONFIDENCE_CONTRACT_VERSION;
+  score: number;
+  band: KnowledgeContextConfidenceBand;
+  semanticScore?: number;
+  matchedTokens?: string[];
+}
+
+export const knowledgeContextConfidenceContractValidator = v.object({
+  contractVersion: v.literal(KNOWLEDGE_CONTEXT_CONFIDENCE_CONTRACT_VERSION),
+  score: v.number(),
+  band: knowledgeContextConfidenceBandValidator,
+  semanticScore: v.optional(v.number()),
+  matchedTokens: v.optional(v.array(v.string())),
+});
+
 // ============================================================================
 // LOC-020 AI AGENT MEMORY CONTRACT DECISION
 // ============================================================================
@@ -3076,6 +3440,14 @@ export const agentSpecRegistry = defineTable({
     runtimePolicyRef: v.string(),
   }),
   channelAllowList: v.array(v.string()),
+  runtimeTopologyContractVersion: v.optional(
+    v.literal(AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION),
+  ),
+  runtimeTopologyProfile: v.optional(agentRuntimeTopologyProfileValidator),
+  runtimeTopologyAdapter: v.optional(agentRuntimeTopologyAdapterValidator),
+  packageContractVersion: v.optional(v.literal(AGENT_PACKAGE_CONTRACT_VERSION)),
+  packageRolloutStage: v.optional(agentPackageRolloutStageValidator),
+  packageEvalSuiteRef: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
   updatedBy: v.optional(v.string()),

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useAuth, useCurrentOrganization } from "@/hooks/use-auth";
+import { useEffect, useRef, useState } from "react";
+import { useAuth, useCurrentOrganization, useIsOrgOwner, useIsSuperAdmin } from "@/hooks/use-auth";
 import { useAppAvailability } from "@/hooks/use-app-availability";
 import {
   FileText,
@@ -17,7 +17,8 @@ import {
   Shield,
   Lock,
   ArrowLeft,
-  Maximize2
+  Maximize2,
+  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -28,15 +29,26 @@ const { api: apiAny } = require("../../../convex/_generated/api") as { api: any 
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useWindowManager } from "@/hooks/use-window-manager";
 import MediaLibraryWindow from "./media-library-window";
+import { ComplianceInboxTab } from "./compliance-inbox-tab";
+import { ComplianceEvidenceVaultTab } from "./compliance-evidence-vault-tab";
+import { ComplianceOrgGovernanceTab } from "./compliance-org-governance-tab";
 
 type ViewState = "input" | "processing" | "success" | "error";
-type TabType = "documents" | "data-export" | "account-deletion";
+type TabType =
+  | "documents"
+  | "data-export"
+  | "inbox"
+  | "evidence-vault"
+  | "org-governance"
+  | "account-deletion";
 type ExportState = "idle" | "exporting" | "success" | "error";
 type DeletionState = "idle" | "confirming" | "deleting" | "deleted" | "error";
 
 interface ComplianceWindowProps {
   /** When true, shows back-to-desktop navigation (for /compliance route) */
   fullScreen?: boolean;
+  /** Optional initial tab override for deep-linked entrypoints */
+  initialTab?: TabType;
 }
 
 /**
@@ -48,10 +60,11 @@ interface ComplianceWindowProps {
  * This is a GDPR requirement - users must always be able to delete their data.
  * Other features (PDF conversion, data export) may be tier-gated.
  */
-export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps = {}) {
-  // Tab state - default to account-deletion if Compliance app isn't fully available
+export function ComplianceWindow({ fullScreen = false, initialTab }: ComplianceWindowProps = {}) {
+  // Tab state defaults are resolved once auth/license context is known.
   const { isAvailable: complianceAvailable, isLoading: licenseLoading } = useAppAvailability("compliance");
-  const [activeTab, setActiveTab] = useState<TabType>(complianceAvailable ? "documents" : "account-deletion");
+  const [activeTab, setActiveTab] = useState<TabType>("account-deletion");
+  const initialTabResolvedRef = useRef(false);
 
   // PDF converter state
   const [viewState, setViewState] = useState<ViewState>("input");
@@ -74,6 +87,8 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
 
   const { user, isLoading, sessionId, signOut } = useAuth();
   const currentOrganization = useCurrentOrganization();
+  const isOrgOwner = useIsOrgOwner();
+  const isSuperAdmin = useIsSuperAdmin();
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
   const { t } = useNamespaceTranslations("ui.compliance");
   const tx = (key: string, fallback: string, params?: Record<string, string | number>): string => {
@@ -85,6 +100,25 @@ export function ComplianceWindow({ fullScreen = false }: ComplianceWindowProps =
   const convertToPdf = useAction(apiAny.compliance.convertMarkdownToPdf);
   const exportUserData = useAction(apiAny.compliance.exportUserData);
   const permanentlyDeleteAccount = useAction(apiAny.compliance.permanentlyDeleteAccountImmediate);
+
+  useEffect(() => {
+    if (initialTabResolvedRef.current || licenseLoading) {
+      return;
+    }
+
+    let resolvedTab: TabType;
+    if (initialTab) {
+      const requiresComplianceLicense = initialTab === "documents" || initialTab === "data-export";
+      resolvedTab = requiresComplianceLicense && !complianceAvailable ? "account-deletion" : initialTab;
+    } else if (isOrgOwner || isSuperAdmin) {
+      resolvedTab = "inbox";
+    } else {
+      resolvedTab = complianceAvailable ? "documents" : "account-deletion";
+    }
+
+    setActiveTab(resolvedTab);
+    initialTabResolvedRef.current = true;
+  }, [complianceAvailable, initialTab, isOrgOwner, isSuperAdmin, licenseLoading]);
 
   // NOTE: We do NOT use useAppAvailabilityGuard here because Account Deletion
   // MUST always be accessible per GDPR requirements. Instead, we conditionally
@@ -340,6 +374,9 @@ Either party may terminate this Agreement with thirty (30) days written notice.
   const tabs = [
     { id: "documents" as const, label: "Documents", icon: FileText, requiresLicense: true },
     { id: "data-export" as const, label: "Data Export", icon: Database, requiresLicense: true },
+    { id: "inbox" as const, label: "Inbox", icon: ListChecks, requiresLicense: false },
+    { id: "evidence-vault" as const, label: "Evidence Vault", icon: FolderOpen, requiresLicense: false },
+    { id: "org-governance" as const, label: "Org Governance", icon: Shield, requiresLicense: false },
     { id: "account-deletion" as const, label: "Account Deletion", icon: Trash2, requiresLicense: false },
   ];
 
@@ -798,6 +835,42 @@ Either party may terminate this Agreement with thirty (30) days written notice.
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Inbox Tab */}
+        {activeTab === "inbox" && (
+          <div className="max-w-6xl mx-auto">
+            <ComplianceInboxTab
+              sessionId={sessionId}
+              organizationId={organizationId as Id<"organizations">}
+              isOrgOwner={isOrgOwner}
+              isSuperAdmin={isSuperAdmin}
+            />
+          </div>
+        )}
+
+        {/* Evidence Vault Tab */}
+        {activeTab === "evidence-vault" && (
+          <div className="max-w-6xl mx-auto">
+            <ComplianceEvidenceVaultTab
+              sessionId={sessionId}
+              organizationId={organizationId as Id<"organizations">}
+              isOrgOwner={isOrgOwner}
+              isSuperAdmin={isSuperAdmin}
+            />
+          </div>
+        )}
+
+        {/* Org Governance Tab */}
+        {activeTab === "org-governance" && (
+          <div className="max-w-6xl mx-auto">
+            <ComplianceOrgGovernanceTab
+              sessionId={sessionId}
+              organizationId={organizationId as Id<"organizations">}
+              isOrgOwner={isOrgOwner}
+              isSuperAdmin={isSuperAdmin}
+            />
           </div>
         )}
 

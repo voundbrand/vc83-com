@@ -1,4 +1,9 @@
 import type { Id } from "../_generated/dataModel";
+import {
+  type AgentRuntimeTopologyAdapter,
+  type AgentRuntimeTopologyProfile,
+  resolveAgentRuntimeTopologyAdapter,
+} from "../schemas/aiSchemas";
 
 export const INBOUND_RUNTIME_KERNEL_STAGE_ORDER = [
   "ingress",
@@ -9,6 +14,152 @@ export const INBOUND_RUNTIME_KERNEL_STAGE_ORDER = [
 
 export type InboundRuntimeKernelStage =
   (typeof INBOUND_RUNTIME_KERNEL_STAGE_ORDER)[number];
+
+export const INBOUND_RUNTIME_KERNEL_CONTRACT_VERSION =
+  "oar_inbound_runtime_kernel_v1" as const;
+export const INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES = [
+  "settle",
+  "finalize",
+] as const;
+export type InboundRuntimeKernelTerminalPhase =
+  (typeof INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES)[number];
+
+export const ORG_ACTION_FOLLOW_UP_REENTRY_CONTRACT_VERSION =
+  "org_action_follow_up_reentry_v1" as const;
+
+export type OrgActionFollowUpTrigger =
+  | "approved_dispatch"
+  | "queued_retry"
+  | "manual_dispatch";
+
+export interface OrgActionFollowUpReentryContract {
+  contractVersion: typeof ORG_ACTION_FOLLOW_UP_REENTRY_CONTRACT_VERSION;
+  actionItemObjectId: string;
+  sourceSessionId: string;
+  trigger: OrgActionFollowUpTrigger;
+  attemptNumber: number;
+  correlationId: string;
+  idempotencyKey: string;
+}
+
+export function buildOrgActionFollowUpReentryContract(args: {
+  actionItemObjectId: string;
+  sourceSessionId: string;
+  trigger: OrgActionFollowUpTrigger;
+  attemptNumber: number;
+  correlationId: string;
+  idempotencyKey: string;
+}): OrgActionFollowUpReentryContract {
+  return {
+    contractVersion: ORG_ACTION_FOLLOW_UP_REENTRY_CONTRACT_VERSION,
+    actionItemObjectId: args.actionItemObjectId,
+    sourceSessionId: args.sourceSessionId,
+    trigger: args.trigger,
+    attemptNumber: Number.isFinite(args.attemptNumber) && args.attemptNumber > 0
+      ? Math.floor(args.attemptNumber)
+      : 1,
+    correlationId: args.correlationId,
+    idempotencyKey: args.idempotencyKey,
+  };
+}
+
+export interface InboundRuntimeKernelAdapterCompatibility {
+  compatible: boolean;
+  reasonCode: string;
+}
+
+export interface InboundRuntimeKernelContract {
+  contractVersion: typeof INBOUND_RUNTIME_KERNEL_CONTRACT_VERSION;
+  topologyProfile: AgentRuntimeTopologyProfile;
+  topologyAdapter: AgentRuntimeTopologyAdapter;
+  stageOrder: readonly InboundRuntimeKernelStage[];
+  terminalPhases: readonly InboundRuntimeKernelTerminalPhase[];
+  adapterCompatibility: InboundRuntimeKernelAdapterCompatibility;
+}
+
+export interface InboundRuntimeTopologyAdapterSelection {
+  profile: AgentRuntimeTopologyProfile;
+  adapter: AgentRuntimeTopologyAdapter;
+  stageOrder: readonly InboundRuntimeKernelStage[];
+}
+
+export function resolveInboundRuntimeTopologyAdapterSelection(
+  profile: AgentRuntimeTopologyProfile,
+): InboundRuntimeTopologyAdapterSelection {
+  return {
+    profile,
+    adapter: resolveAgentRuntimeTopologyAdapter(profile),
+    stageOrder: INBOUND_RUNTIME_KERNEL_STAGE_ORDER,
+  };
+}
+
+function isCompatibleKernelAdapter(args: {
+  profile: AgentRuntimeTopologyProfile;
+  adapter: AgentRuntimeTopologyAdapter;
+}): InboundRuntimeKernelAdapterCompatibility {
+  const expectedAdapter = resolveAgentRuntimeTopologyAdapter(args.profile);
+  if (args.adapter === expectedAdapter) {
+    return {
+      compatible: true,
+      reasonCode: "adapter_profile_match",
+    };
+  }
+  return {
+    compatible: false,
+    reasonCode: "adapter_profile_mismatch",
+  };
+}
+
+export function resolveInboundRuntimeKernelContract(
+  profile: AgentRuntimeTopologyProfile,
+): InboundRuntimeKernelContract {
+  const adapterSelection = resolveInboundRuntimeTopologyAdapterSelection(profile);
+  return {
+    contractVersion: INBOUND_RUNTIME_KERNEL_CONTRACT_VERSION,
+    topologyProfile: profile,
+    topologyAdapter: adapterSelection.adapter,
+    stageOrder: adapterSelection.stageOrder,
+    terminalPhases: INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES,
+    adapterCompatibility: isCompatibleKernelAdapter({
+      profile,
+      adapter: adapterSelection.adapter,
+    }),
+  };
+}
+
+export function assertInboundRuntimeKernelContract(
+  contract: InboundRuntimeKernelContract,
+) {
+  if (contract.contractVersion !== INBOUND_RUNTIME_KERNEL_CONTRACT_VERSION) {
+    throw new Error("inbound_runtime_kernel_contract_version_mismatch");
+  }
+
+  const stageOrderMatches =
+    contract.stageOrder.length === INBOUND_RUNTIME_KERNEL_STAGE_ORDER.length
+    && contract.stageOrder.every(
+      (stage, index) => stage === INBOUND_RUNTIME_KERNEL_STAGE_ORDER[index],
+    );
+  if (!stageOrderMatches) {
+    throw new Error("inbound_runtime_kernel_stage_order_mismatch");
+  }
+
+  const terminalPhasesMatch =
+    contract.terminalPhases.length
+      === INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES.length
+    && contract.terminalPhases.every(
+      (phase, index) =>
+        phase === INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES[index],
+    );
+  if (!terminalPhasesMatch) {
+    throw new Error("inbound_runtime_kernel_terminal_phase_mismatch");
+  }
+
+  if (!contract.adapterCompatibility.compatible) {
+    throw new Error(
+      `inbound_runtime_kernel_adapter_incompatible:${contract.adapterCompatibility.reasonCode}`,
+    );
+  }
+}
 
 export interface InboundRuntimeKernelStageContext {
   organizationId: Id<"organizations">;

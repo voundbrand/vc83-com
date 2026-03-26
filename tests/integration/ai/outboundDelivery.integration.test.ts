@@ -23,6 +23,7 @@ function makeContext(): OutboundDeliveryContext & {
 describe("outbound delivery boundary integration", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("does not call provider adapters for api_test traffic", async () => {
@@ -55,6 +56,37 @@ describe("outbound delivery boundary integration", () => {
       sessionId: "session-dlq-failure",
       metadata: { providerConversationId: "whatsapp-thread-9" },
     });
+
+    expect(result).toEqual({ skipped: false, delivered: false, queuedToDeadLetter: false });
+    expect(ctx.runAction).toHaveBeenCalledTimes(2);
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("terminates when send and dead-letter operations both time out", async () => {
+    const ctx = makeContext();
+    ctx.runAction.mockImplementation(
+      () => new Promise<never>(() => {}),
+    );
+    ctx.runMutation.mockImplementation(
+      () => new Promise<never>(() => {}),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const resultPromise = deliverAssistantResponseWithFallback(ctx, refs, {
+      organizationId: "org_timeout" as never,
+      channel: "whatsapp",
+      recipientIdentifier: "contact-timeout",
+      assistantContent: "bounded",
+      sessionId: "session-timeout",
+      metadata: {
+        deliveryMaxAttempts: 1,
+        deliveryTimeoutMs: 80,
+        deadLetterTimeoutMs: 40,
+      },
+    });
+
+    const result = await resultPromise;
 
     expect(result).toEqual({ skipped: false, delivered: false, queuedToDeadLetter: false });
     expect(ctx.runAction).toHaveBeenCalledTimes(1);

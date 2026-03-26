@@ -1420,3 +1420,82 @@ export const updateCrmOrganization = httpAction(async (ctx, request) => {
     );
   }
 });
+
+/**
+ * DISPATCH OAR CRM SYNC OUTBOX (NARROW V1)
+ *
+ * Executes a bounded batch from pending `org_crm_sync_candidate` rows.
+ * This endpoint is fail-closed unless `externalWritesEnabled` is explicitly true.
+ *
+ * POST /api/v1/crm/sync/outbox
+ *
+ * Request Body:
+ * {
+ *   externalWritesEnabled?: boolean, // default false (fail closed)
+ *   connectorKey?: string,           // optional, currently supports "activecampaign"
+ *   limit?: number                   // default 25, max 100
+ * }
+ */
+export const dispatchCrmSyncOutbox = httpAction(async (ctx, request) => {
+  try {
+    const authResult = await authenticateRequest(ctx, request);
+    if (!authResult.success) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { status: authResult.status, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    const authContext = authResult.context;
+    const scopeCheck = requireScopes(authContext, ["contacts:write"]);
+    if (!scopeCheck.success) {
+      return new Response(
+        JSON.stringify({ error: scopeCheck.error }),
+        { status: scopeCheck.status, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const externalWritesEnabled = body?.externalWritesEnabled === true;
+    const connectorKey =
+      typeof body?.connectorKey === "string" ? body.connectorKey : undefined;
+    const limit =
+      typeof body?.limit === "number" && Number.isFinite(body.limit)
+        ? body.limit
+        : undefined;
+
+    const result = await (ctx as any).runAction(
+      generatedApi.internal.api.v1.crmInternal.dispatchOrgCrmSyncOutboxInternal,
+      {
+        organizationId: authContext.organizationId,
+        externalWritesEnabled,
+        connectorKey,
+        limit,
+      },
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        externalWritesEnabled,
+        ...result,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": authContext.organizationId,
+        },
+      },
+    );
+  } catch (error) {
+    console.error("API /crm/sync/outbox (POST) error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+});

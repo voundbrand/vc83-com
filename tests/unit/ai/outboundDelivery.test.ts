@@ -23,6 +23,7 @@ function makeContext(): OutboundDeliveryContext & {
 describe("deliverAssistantResponseWithFallback", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("skips outbound when metadata skip flag is enabled", async () => {
@@ -83,16 +84,113 @@ describe("deliverAssistantResponseWithFallback", () => {
     });
 
     expect(result).toEqual({ skipped: false, delivered: false, queuedToDeadLetter: true });
+    expect(ctx.runAction).toHaveBeenCalledTimes(2);
     expect(ctx.runMutation).toHaveBeenCalledTimes(1);
-    expect(ctx.runMutation).toHaveBeenCalledWith("addToDeadLetterQueueRef", {
-      organizationId: "org_456",
-      channel: "sms",
-      recipientIdentifier: "+15551234567",
-      content: "Fallback test",
-      error: "provider timeout",
-      sessionId: "session-3",
-      providerConversationId: "conv-sms-1",
-    });
+    expect(ctx.runMutation).toHaveBeenCalledWith(
+      "addToDeadLetterQueueRef",
+      expect.objectContaining({
+        organizationId: "org_456",
+        channel: "sms",
+        recipientIdentifier: "+15551234567",
+        content: "Fallback test",
+        error: "provider timeout",
+        sessionId: "session-3",
+        providerConversationId: "conv-sms-1",
+      }),
+    );
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("honors custom delivery max attempts before dead-letter fallback", async () => {
+    const ctx = makeContext();
+    ctx.runAction.mockRejectedValue(new Error("channel_down"));
+    ctx.runMutation.mockResolvedValue({ entryId: "dlq-123" });
+
+    const result = await deliverAssistantResponseWithFallback(ctx, refs, {
+      organizationId: "org_789" as never,
+      channel: "whatsapp",
+      recipientIdentifier: "recipient-1",
+      assistantContent: "Need fallback",
+      sessionId: "session-4",
+      metadata: {
+        deliveryMaxAttempts: 3,
+      },
+    });
+
+    expect(result).toEqual({
+      skipped: false,
+      delivered: false,
+      queuedToDeadLetter: true,
+      deadLetterEntryId: "dlq-123",
+    });
+    expect(ctx.runAction).toHaveBeenCalledTimes(3);
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it("times out hung outbound sends and writes timeout details to dead-letter payload", async () => {
+    const ctx = makeContext();
+    ctx.runAction.mockImplementation(
+      () => new Promise<never>(() => {}),
+    );
+    ctx.runMutation.mockResolvedValue({ entryId: "dlq-timeout" });
+
+    const resultPromise = deliverAssistantResponseWithFallback(ctx, refs, {
+      organizationId: "org_tmo" as never,
+      channel: "sms",
+      recipientIdentifier: "+15550000000",
+      assistantContent: "time-bounded message",
+      sessionId: "session-timeout",
+      metadata: {
+        deliveryTimeoutMs: 100,
+      },
+    });
+
+    const result = await resultPromise;
+
+    expect(result).toEqual({
+      skipped: false,
+      delivered: false,
+      queuedToDeadLetter: true,
+      deadLetterEntryId: "dlq-timeout",
+    });
+    expect(ctx.runAction).toHaveBeenCalledTimes(2);
+    expect(ctx.runMutation).toHaveBeenCalledWith(
+      "addToDeadLetterQueueRef",
+      expect.objectContaining({
+        error: "outbound_send_timeout:100ms",
+      }),
+    );
+  });
+
+  it("times out dead-letter writes and preserves runtime flow", async () => {
+    const ctx = makeContext();
+    ctx.runAction.mockRejectedValue(new Error("provider unavailable"));
+    ctx.runMutation.mockImplementation(
+      () => new Promise<never>(() => {}),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const resultPromise = deliverAssistantResponseWithFallback(ctx, refs, {
+      organizationId: "org_dlq_tmo" as never,
+      channel: "email",
+      recipientIdentifier: "contact@example.com",
+      assistantContent: "delivery failed",
+      sessionId: "session-dlq-timeout",
+      metadata: {
+        deliveryMaxAttempts: 1,
+        deadLetterTimeoutMs: 50,
+      },
+    });
+
+    const result = await resultPromise;
+
+    expect(result).toEqual({
+      skipped: false,
+      delivered: false,
+      queuedToDeadLetter: false,
+    });
+    expect(ctx.runAction).toHaveBeenCalledTimes(1);
+    expect(ctx.runMutation).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledTimes(2);
   });
 });

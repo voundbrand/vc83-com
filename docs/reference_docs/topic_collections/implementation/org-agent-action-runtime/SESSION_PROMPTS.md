@@ -16,14 +16,45 @@
 8. Do not start lane `H` before all prior `P0` rows are `DONE` or explicitly `BLOCKED` with named owner and mitigation.
 9. Internal-only V1 is the release target until `OAR-025` is `DONE`; connector-side execution beyond narrow sync remains fail closed.
 10. After each `DONE` row, sync `TASK_QUEUE.md`, `SESSION_PROMPTS.md`, `INDEX.md`, and `MASTER_PLAN.md`.
+11. Lane `I` architecture-preflight row `OAR-033` may start after `OAR-027`; do not start lane `I` enforcement rows (`OAR-028`, `OAR-029`, `OAR-030`, `OAR-031`, `OAR-032`, `OAR-034`, `OAR-035`) before `OAR-013` and `OAR-022` are `DONE`.
+12. Do not close lane `I` until existing-agent topology inventory, declaration enforcement, and migration evidence rows (`OAR-033`, `OAR-034`, `OAR-035`) are `DONE`.
 
-Status snapshot (2026-03-23):
+Status snapshot (2026-03-25):
 
 1. `OAR-001` and `OAR-002` are `DONE`.
-2. `OAR-003` is `READY`.
-3. All remaining rows are `PENDING`.
-4. Active row count is `0` (`IN_PROGRESS` rows: none).
-5. Deterministic next row is `OAR-003`.
+2. `OAR-003` and `OAR-004` are `DONE`.
+3. `OAR-005` is `DONE` (hardening pass complete).
+4. `OAR-006` is `DONE`.
+5. `OAR-007` is `DONE`.
+6. `OAR-008` is `DONE`.
+7. `OAR-009` is `DONE`.
+8. `OAR-011` is `DONE`.
+9. `OAR-012` is `DONE`.
+10. `OAR-013` is `DONE`.
+11. `OAR-014` is `DONE`.
+12. `OAR-015` is `DONE`.
+13. `OAR-016` is `DONE`.
+14. `OAR-017` is `DONE`.
+15. `OAR-019` is `DONE`.
+16. `OAR-020` is `DONE`.
+17. `OAR-022` is `DONE`.
+18. `OAR-024` is `DONE`.
+19. `OAR-025` is `DONE`.
+20. `OAR-027` is `DONE`.
+21. `OAR-028` is `DONE`.
+22. `OAR-029` is `DONE`.
+23. `OAR-033` is `DONE`.
+24. `OAR-030` and `OAR-034` are `DONE`.
+25. `OAR-010` is `DONE`.
+26. `OAR-018` is `DONE`.
+27. `OAR-021` is `DONE`.
+28. `OAR-023` is `DONE`.
+29. `OAR-026` is `DONE`.
+30. `OAR-031` is `DONE`.
+31. `OAR-032` is `DONE`.
+32. `OAR-035` is `DONE`.
+33. Active row count is `0` (`IN_PROGRESS` rows: none).
+34. Deterministic next row is none (queue complete).
 
 ---
 
@@ -59,7 +90,8 @@ Requirements:
 1. Reuse `objects`, `objectLinks`, and `objectActions` wherever possible.
 2. Do not write external CRM state in this lane.
 3. Activities are append-only; work-item state belongs elsewhere.
-4. Run each row's `Verify` commands exactly.
+4. Do not start `OAR-005` until `OAR-033` is `DONE`.
+5. Run each row's `Verify` commands exactly.
 
 ---
 
@@ -106,17 +138,17 @@ Requirements:
 You are executing lane `E` for owner-facing surfaces.
 Tasks:
 
-1. Complete `OAR-015`: Action Center list/query surface.
-2. Complete `OAR-016`: Action Center detail view and owner workflows.
-3. Complete `OAR-017`: immutable activity timeline UI.
-4. Complete `OAR-018`: CRM and control-center embeds.
+1. Complete `OAR-017`: immutable activity timeline UI.
+2. Complete `OAR-018`: CRM and control-center embeds.
 
 Requirements:
 
 1. Action Center is the operational workflow surface for org owners.
-2. Timeline UI must distinguish immutable activity from mutable action-item state.
-3. UI must consume canonical backend state only; no UI-local approval or action logic.
-4. Run each row's `Verify` commands exactly.
+2. Kanban columns must map one-to-one to canonical backend action-item states.
+3. Agent filters must use active catalog metadata (default `all` plus per-agent identities), not static UI-only labels.
+4. Timeline UI must distinguish immutable activity from mutable action-item state.
+5. UI must consume canonical backend state only; no UI-local approval or action logic.
+6. Run each row's `Verify` commands exactly.
 
 ---
 
@@ -170,3 +202,28 @@ Requirements:
 2. Feature flags must isolate capture, owner workflow, narrow sync, and external execution separately.
 3. Closeout requires named owner, rollback triggers, and explicit evidence of fail-closed behavior.
 4. Run each row's `Verify` commands exactly.
+
+---
+
+## Prompt I (Lane I: platform-finished hardening)
+
+You are executing lane `I` for reusable harness finish criteria.
+Tasks:
+
+1. `OAR-033` is complete and is now the baseline mapping for lane `I`.
+2. Complete `OAR-028`: topology-profile contract enforcement.
+3. Complete `OAR-029`: kernel contract versioning and adapter compatibility.
+4. Complete `OAR-030`: bounded execution and terminalization guarantees across delivery/provisioning/sync.
+5. Complete `OAR-031`: reusable agent-package contract for config-first onboarding.
+6. Complete `OAR-032`: eval + SLO rollout gates.
+7. Complete `OAR-034`: fail-closed topology declaration and compatibility enforcement for existing agents.
+8. Complete `OAR-035`: existing-agent migration evidence and blocked-agent remediation queue.
+
+Requirements:
+
+1. Keep `single_agent_loop` as explicit default while adding profile adapters.
+2. Treat `OAR-033` output as mandatory architecture baseline before remaining runtime implementation rows.
+3. No unbounded external await paths remain after lane `I`.
+4. Rollout must be blocked unless eval thresholds and SLO thresholds are met.
+5. Existing agents must not remain on implicit topology declarations after lane `I`.
+6. Run each row's `Verify` commands exactly.

@@ -125,6 +125,11 @@ type OverviewResponse = {
   };
 };
 
+type OrgActionContextView = {
+  totalsByPipelineState: Record<string, number>;
+  total: number;
+};
+
 type AgentListRow = {
   _id: string;
   catalogAgentNumber: number;
@@ -733,7 +738,7 @@ function buildTemplateLifecycleConfirmationMessage(action: TemplateLifecycleConf
 }
 
 export function AgentControlCenterTab() {
-  const { sessionId, isSuperAdmin } = useAuth();
+  const { sessionId, isSuperAdmin, user } = useAuth();
   const { t } = useNamespaceTranslations("ui.super_admin.agent_control_center");
   const tx = (
     key: string,
@@ -963,6 +968,41 @@ export function AgentControlCenterTab() {
     () => normalizeOrganizationOptions(allOrganizations),
     [allOrganizations],
   );
+  const actionContextOrganizationId = useMemo(() => {
+    if (cloneInventoryOrgFilter) {
+      return cloneInventoryOrgFilter;
+    }
+    if (user?.currentOrganization?.id) {
+      return user.currentOrganization.id;
+    }
+    if (organizationOptions.length > 0) {
+      return String(organizationOptions[0]._id);
+    }
+    return "";
+  }, [cloneInventoryOrgFilter, organizationOptions, user?.currentOrganization?.id]);
+  const orgActionContextView = useQuery(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (api.ai.orgActionCenter as any).getActionCenterView,
+    sessionId && isSuperAdmin && actionContextOrganizationId
+      ? {
+          sessionId,
+          organizationId: actionContextOrganizationId as any,
+        }
+      : "skip",
+  ) as OrgActionContextView | undefined;
+  const orgActionTotals =
+    orgActionContextView
+    && typeof orgActionContextView === "object"
+    && orgActionContextView.totalsByPipelineState
+    && typeof orgActionContextView.totalsByPipelineState === "object"
+      ? orgActionContextView.totalsByPipelineState
+      : {};
+  const orgActionOpenCount = (orgActionTotals.pending || 0)
+    + (orgActionTotals.assigned || 0)
+    + (orgActionTotals.approved || 0)
+    + (orgActionTotals.executing || 0);
+  const orgActionFailedCount = orgActionTotals.failed || 0;
+  const orgActionCompletedCount = orgActionTotals.completed || 0;
 
   useEffect(() => {
     if (!overview) {
@@ -1890,6 +1930,17 @@ export function AgentControlCenterTab() {
                 </select>
               </label>
 
+              <a
+                href="/agents?view=action-center"
+                className="px-2 py-1 text-xs border rounded"
+                style={{
+                  borderColor: "var(--window-document-border)",
+                  color: "var(--window-document-text)",
+                }}
+              >
+                {tx("controls.open_action_center", "Open Action Center")}
+              </a>
+
               <button
                 type="button"
                 onClick={handleAudit}
@@ -2035,6 +2086,26 @@ export function AgentControlCenterTab() {
                 {overview.summary.blockedAgents}
               </div>
             </div>
+          </div>
+
+          <div
+            className="border rounded p-2 text-xs flex flex-wrap items-center justify-between gap-2"
+            style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+            data-testid="agent-control-center-org-action-context"
+          >
+            <div className="space-y-0.5">
+              <div className="font-semibold">Org action context</div>
+              <div style={{ color: "var(--desktop-menu-text-muted)" }}>
+                org {actionContextOrganizationId || "n/a"} · open {orgActionOpenCount} · failed {orgActionFailedCount} · completed {orgActionCompletedCount}
+              </div>
+            </div>
+            <a
+              href="/agents?view=action-center"
+              className="px-2 py-1 border rounded text-xs"
+              style={{ borderColor: "var(--window-document-border)", color: "var(--window-document-text)" }}
+            >
+              Open Action Center
+            </a>
           </div>
 
           {overview.drift.reasons.length > 0 && (

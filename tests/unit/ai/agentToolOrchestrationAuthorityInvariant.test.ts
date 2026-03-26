@@ -13,7 +13,9 @@ const SESSION_ID = "session_1" as Id<"agentSessions">;
 const MUTATING_TOOL = "__yai014_mutating_tool";
 const READ_ONLY_TOOL = "__yai014_read_only_tool";
 const MANAGE_BOOKINGS_TOOL = "manage_bookings";
+const EXTERNAL_SEND_TOOL = "manage_sequences";
 const ORIGINAL_MANAGE_BOOKINGS_TOOL = TOOL_REGISTRY[MANAGE_BOOKINGS_TOOL];
+const ORIGINAL_EXTERNAL_SEND_TOOL = TOOL_REGISTRY[EXTERNAL_SEND_TOOL];
 
 function registerTestTool(name: string, tool: AITool) {
   TOOL_REGISTRY[name] = tool;
@@ -26,6 +28,11 @@ afterEach(() => {
     TOOL_REGISTRY[MANAGE_BOOKINGS_TOOL] = ORIGINAL_MANAGE_BOOKINGS_TOOL;
   } else {
     delete TOOL_REGISTRY[MANAGE_BOOKINGS_TOOL];
+  }
+  if (ORIGINAL_EXTERNAL_SEND_TOOL) {
+    TOOL_REGISTRY[EXTERNAL_SEND_TOOL] = ORIGINAL_EXTERNAL_SEND_TOOL;
+  } else {
+    delete TOOL_REGISTRY[EXTERNAL_SEND_TOOL];
   }
 });
 
@@ -985,5 +992,116 @@ describe("agent tool orchestration authority invariants", () => {
     ]);
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(onToolDisabled).not.toHaveBeenCalled();
+  });
+
+  it("blocks unallowlisted external-send tools in Kanzlei fail-closed mode with an explicit deny reason", async () => {
+    const executeMock = vi.fn(async () => ({ ok: true }));
+    const createApprovalRequest = vi.fn(async () => {});
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerTestTool(EXTERNAL_SEND_TOOL, {
+      name: EXTERNAL_SEND_TOOL,
+      description: "test external send tool",
+      status: "ready",
+      readOnly: false,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: executeMock,
+    });
+
+    const result = await executeToolCallsWithApproval({
+      toolCalls: [
+        {
+          function: {
+            name: EXTERNAL_SEND_TOOL,
+            arguments: "{}",
+          },
+        },
+      ],
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      sessionId: SESSION_ID,
+      autonomyLevel: "autonomous",
+      complianceMode: "kanzlei",
+      toolExecutionContext: {
+        runtimePolicy: {},
+      } as any,
+      failedToolCounts: {},
+      disabledTools: new Set<string>(),
+      createApprovalRequest,
+      onToolDisabled: () => {},
+    });
+
+    expect(result.toolResults).toEqual([
+      {
+        tool: EXTERNAL_SEND_TOOL,
+        status: "error",
+        error:
+          "Kanzlei external tool execution blocked (kanzlei_external_tool_not_allowlisted).",
+      },
+    ]);
+    expect(createApprovalRequest).not.toHaveBeenCalled();
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[AgentToolOrchestration] Kanzlei external tool allowlist blocked execution",
+      expect.objectContaining({
+        toolName: EXTERNAL_SEND_TOOL,
+        reasonCode: "kanzlei_external_tool_not_allowlisted",
+      }),
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("allows approved external-send tools in Kanzlei mode and keeps approval workflow active", async () => {
+    const executeMock = vi.fn(async () => ({ ok: true }));
+    const createApprovalRequest = vi.fn(async () => {});
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerTestTool(EXTERNAL_SEND_TOOL, {
+      name: EXTERNAL_SEND_TOOL,
+      description: "test external send tool",
+      status: "ready",
+      readOnly: false,
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+      execute: executeMock,
+    });
+
+    const result = await executeToolCallsWithApproval({
+      toolCalls: [
+        {
+          function: {
+            name: EXTERNAL_SEND_TOOL,
+            arguments: "{}",
+          },
+        },
+      ],
+      organizationId: ORG_ID,
+      agentId: AGENT_ID,
+      sessionId: SESSION_ID,
+      autonomyLevel: "autonomous",
+      complianceMode: "kanzlei",
+      requireApprovalFor: [EXTERNAL_SEND_TOOL],
+      toolExecutionContext: {
+        runtimePolicy: {},
+      } as any,
+      failedToolCounts: {},
+      disabledTools: new Set<string>(),
+      createApprovalRequest,
+      onToolDisabled: () => {},
+    });
+
+    expect(result.toolResults).toEqual([
+      {
+        tool: EXTERNAL_SEND_TOOL,
+        status: "pending_approval",
+      },
+    ]);
+    expect(createApprovalRequest).toHaveBeenCalledTimes(1);
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
   });
 });

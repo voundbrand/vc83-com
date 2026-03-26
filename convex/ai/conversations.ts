@@ -8,6 +8,10 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, mutation, query, type QueryCtx } from "../_generated/server";
 import { canUsePlatformMotherConversationTarget } from "./platformMotherControlPlane";
+import {
+  buildOrgAgentOutcomeEnvelope,
+  type OrgAgentOutcomeEnvelopeV1,
+} from "./orgAgentOutcomeExtraction";
 
 /**
  * Generate a URL-friendly slug from a title
@@ -297,6 +301,29 @@ export function buildConversationContinuityTelemetry(
       ),
     },
   };
+}
+
+export function buildConversationOutcomeEnvelope(args: {
+  organizationId: Id<"organizations"> | string;
+  conversationId: Id<"aiConversations"> | string;
+  channel: string;
+  targetAgentId?: Id<"objects"> | string | null;
+  summary?: string | null;
+  latestMessageText?: string | null;
+  checkpoints?: string[];
+  metadata?: Record<string, unknown>;
+}): OrgAgentOutcomeEnvelopeV1 {
+  return buildOrgAgentOutcomeEnvelope({
+    source: "conversation",
+    organizationId: String(args.organizationId),
+    conversationId: String(args.conversationId),
+    agentId: args.targetAgentId ? String(args.targetAgentId) : undefined,
+    channel: args.channel,
+    summary: args.summary ?? undefined,
+    messageText: args.latestMessageText ?? undefined,
+    checkpoints: args.checkpoints,
+    metadata: args.metadata,
+  });
 }
 
 interface ConversationModelResolutionRecord {

@@ -20,6 +20,7 @@ import {
   useAuth,
   useCurrentOrganization,
 } from "@/hooks/use-auth";
+import { useWindowManager } from "@/hooks/use-window-manager";
 import { usePermissions } from "@/contexts/permission-context";
 import { PermissionGuard, PermissionButton } from "@/components/permission";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
@@ -27,6 +28,8 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { IntegrationsTab } from "../settings-window/integrations-tab";
 import { SubOrganizationsTab } from "./sub-organizations-tab";
 import { ProductOSReleaseStageTab } from "./product-os-release-stage-tab";
+import { ComplianceWindow } from "../compliance-window";
+import { ComplianceGateCard } from "./components/compliance-gate-card";
 import {
   InteriorButton,
   InteriorHeader,
@@ -69,6 +72,7 @@ export function ManageWindow({
   // Use existing useAuth hooks
   const { user, isLoading, sessionId } = useAuth();
   const currentOrganization = useCurrentOrganization();
+  const { openWindow } = useWindowManager();
 
   // Get super admin status for UI display purposes only (not for permission checks)
   const { isSuperAdmin } = useAuth();
@@ -89,6 +93,7 @@ export function ManageWindow({
 
   // Get organization ID
   const organizationId = currentOrganization?.id || user?.defaultOrgId;
+  const isOrgOwner = currentOrganization?.role.name === "org_owner";
 
   // Get organization details with sessionId
   const organization = useQuery(api.organizations.getById,
@@ -254,6 +259,17 @@ export function ManageWindow({
     );
   }
 
+  const openComplianceCenter = () => {
+    openWindow(
+      "compliance",
+      "Compliance",
+      <ComplianceWindow initialTab="org-governance" />,
+      { x: 150, y: 100 },
+      { width: 900, height: 600 },
+      "ui.app.compliance",
+    );
+  };
+
   return (
     <InteriorRoot className={manageRootClassName}>
       <InteriorHeader className="px-4 py-3">
@@ -352,6 +368,15 @@ export function ManageWindow({
             }>
               {null}
             </PermissionGuard>
+
+            {sessionId && organizationId && (
+              <ComplianceGateCard
+                sessionId={sessionId}
+                organizationId={organizationId as Id<"organizations">}
+                visible={Boolean(isOrgOwner || isSuperAdmin)}
+                onOpenComplianceCenter={openComplianceCenter}
+              />
+            )}
 
             {/* Edit/Save Controls */}
             <PermissionGuard permission="manage_organization">

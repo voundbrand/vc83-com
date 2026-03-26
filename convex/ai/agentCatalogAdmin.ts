@@ -1,5 +1,12 @@
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "../rbacHelpers";
 import {
@@ -33,6 +40,34 @@ import {
   normalizeAgentTelephonyConfig,
   toDeployableTelephonyConfig,
 } from "../../src/lib/telephony/agent-telephony";
+import {
+  AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION,
+  isAgentRuntimeTopologyProfile,
+  resolveAgentRuntimeTopologyAdapter,
+  type AgentRuntimeTopologyAdapter,
+  type AgentRuntimeTopologyProfile,
+} from "../schemas/aiSchemas";
+import {
+  buildTemplateCertificationSlackStrictCredentialGovernancePolicy,
+  dispatchTemplateCertificationSlackAlert,
+  evaluateTemplateCertificationSlackCredentialState,
+  isTemplateCertificationSlackCredentialGovernanceStrict,
+} from "../channels/providers/slackProvider";
+import {
+  buildTemplateCertificationPagerDutyStrictCredentialGovernancePolicy,
+  dispatchTemplateCertificationPagerDutyAlert,
+  evaluateTemplateCertificationPagerDutyCredentialState,
+  isTemplateCertificationPagerDutyCredentialGovernanceStrict,
+} from "../channels/providers/templateCertificationPagerDutyAdapter";
+import {
+  buildTemplateCertificationEmailStrictCredentialGovernancePolicy,
+  dispatchTemplateCertificationEmailAlert,
+  evaluateTemplateCertificationEmailCredentialState,
+  isTemplateCertificationEmailCredentialGovernanceStrict,
+} from "../channels/providers/templateCertificationEmailAdapter";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generatedApi: any = require("../_generated/api");
 
 const DEFAULT_DATASET_VERSION = "agp_v1";
 const EXPECTED_AGENT_COUNT = 104;
@@ -65,12 +100,36 @@ export const TEMPLATE_CERTIFICATION_PROMOTION_CONTRACT_VERSION =
   "template_certification_promotion_contract_v1" as const;
 export const TEMPLATE_CERTIFICATION_RISK_POLICY_CONTRACT_VERSION =
   "template_certification_risk_policy_v1" as const;
+export const TEMPLATE_CERTIFICATION_REQUIREMENT_AUTHORING_STANDARDS_CONTRACT_VERSION =
+  "template_certification_requirement_authoring_standards_v1" as const;
 export const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION =
   "template_certification_risk_policy_settings_v1" as const;
+export const TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_CONTRACT_VERSION =
+  "template_certification_automation_policy_v1" as const;
+export const TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTINGS_CONTRACT_VERSION =
+  "template_certification_automation_policy_settings_v1" as const;
+export const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION =
+  "template_certification_alert_dispatch_v1" as const;
+export const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_CONTRACT_VERSION =
+  "template_certification_alert_dispatch_control_v1" as const;
+export const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTINGS_CONTRACT_VERSION =
+  "template_certification_alert_dispatch_control_settings_v1" as const;
 const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_KEY =
   "templateCertificationRiskPolicyV1";
 const TEMPLATE_CERTIFICATION_RISK_POLICY_SETTING_DESCRIPTION =
   "Template certification risk policy defaults plus optional per-template-family overlays for field-tier mapping, verification requirements, and auto-certification eligibility.";
+const TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_KEY =
+  "templateCertificationAutomationPolicyV1";
+const TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_DESCRIPTION =
+  "Template certification automation ownership and alert routing defaults plus optional per-template-family overlays.";
+const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_KEY =
+  "templateCertificationAlertDispatchControlV1";
+const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_DESCRIPTION =
+  "Template certification alert worker transport enablement, retry policy, acknowledgement, noise-throttle controls, and strict credential-governance rollout settings.";
+const TEMPLATE_CERTIFICATION_ALERT_CREDENTIAL_RUNBOOK_PATH =
+  "docs/reference_docs/topic_collections/implementation/template-certification-and-org-preflight/TRANSPORT_CREDENTIAL_RUNBOOK.md";
+const TEMPLATE_CERTIFICATION_ALERT_DISPATCH_ACTION_TYPE =
+  "template_certification.alert_dispatch" as const;
 
 const WAE_ROLLOUT_GATE_CRITICAL_REASON_PREFIXES = [
   "expected_skipped_verdict",
@@ -92,6 +151,14 @@ export type WaeRolloutGateBlockReasonCode =
   | "wae_evidence_mismatch";
 
 export type TemplateCertificationRiskTier = "low" | "medium" | "high";
+export type TemplateCertificationAutomationAdoptionMode =
+  | "manual"
+  | "shadow"
+  | "enforced";
+export type TemplateCertificationAlertStrictModeRolloutMode =
+  | "manual"
+  | "auto_promote_ready_channels";
+export type TemplateCertificationAlertStrictModeGuardrailMode = "advisory" | "enforced";
 export type TemplateCertificationRequirement =
   | "manifest_integrity"
   | "risk_assessment"
@@ -166,10 +233,189 @@ export interface TemplateCertificationRiskPolicy {
   autoCertificationEligibleTiers: TemplateCertificationRiskTier[];
 }
 
+export interface TemplateCertificationRequirementAuthoringStandards {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_REQUIREMENT_AUTHORING_STANDARDS_CONTRACT_VERSION;
+  foundationalRequirements: TemplateCertificationRequirement[];
+  operationalEvidenceRequirementByTier: {
+    low: TemplateCertificationRequirement[];
+    medium: TemplateCertificationRequirement[];
+    high: TemplateCertificationRequirement[];
+  };
+}
+
+export interface TemplateCertificationRequirementAuthoringCoverage {
+  standards: TemplateCertificationRequirementAuthoringStandards;
+  byTier: Record<
+    TemplateCertificationRiskTier,
+    {
+      requirements: TemplateCertificationRequirement[];
+      foundationalSatisfied: boolean;
+      operationalEvidenceSatisfied: boolean;
+    }
+  >;
+}
+
 interface TemplateCertificationRiskPolicySettings {
   contractVersion: typeof TEMPLATE_CERTIFICATION_RISK_POLICY_SETTINGS_CONTRACT_VERSION;
   globalPolicy: TemplateCertificationRiskPolicy;
   familyPolicies: Record<string, TemplateCertificationRiskPolicy>;
+}
+
+export interface TemplateCertificationAutomationPolicy {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_CONTRACT_VERSION;
+  adoptionMode: TemplateCertificationAutomationAdoptionMode;
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  alertChannels: string[];
+  alertOnCertificationBlocked: boolean;
+  alertOnMissingDefaultEvidence: boolean;
+}
+
+interface TemplateCertificationAutomationPolicySettings {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTINGS_CONTRACT_VERSION;
+  globalPolicy: TemplateCertificationAutomationPolicy;
+  familyPolicies: Record<string, TemplateCertificationAutomationPolicy>;
+}
+
+export type TemplateCertificationAlertRecommendationCode =
+  | "certification_blocked"
+  | "default_evidence_missing"
+  | "policy_drift_detected";
+export type TemplateCertificationAlertQueueChannel = "slack" | "pagerduty" | "email";
+
+export interface TemplateCertificationAlertRecommendation {
+  code: TemplateCertificationAlertRecommendationCode;
+  severity: "critical" | "warning";
+  summary: string;
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  alertChannels: string[];
+}
+
+export type TemplateCertificationAlertDeliveryStatus =
+  | "delivered_in_app"
+  | "queued"
+  | "suppressed_duplicate"
+  | "unsupported_channel"
+  | "dispatched"
+  | "dispatch_failed"
+  | "throttled"
+  | "acknowledged";
+
+export type TemplateCertificationAlertWorkerStatus =
+  | "pending"
+  | "dispatched"
+  | "retry_scheduled"
+  | "failed_terminal"
+  | "throttled"
+  | "acknowledged";
+
+export interface TemplateCertificationAlertDispatchRecord {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION;
+  templateId: string;
+  templateVersionId: string;
+  templateVersionTag: string;
+  dependencyDigest: string;
+  recommendationCode: TemplateCertificationAlertRecommendationCode;
+  recommendationSeverity: "critical" | "warning";
+  recommendationSummary: string;
+  channel: string;
+  deliveryStatus: TemplateCertificationAlertDeliveryStatus;
+  dedupeKey: string;
+  ownerUserIds: string[];
+  ownerTeamIds: string[];
+  recordedAt: number;
+  recordedByUserId: string;
+  workerStatus?: TemplateCertificationAlertWorkerStatus;
+  attemptCount?: number;
+  maxAttempts?: number;
+  nextAttemptAt?: number;
+  lastAttemptAt?: number;
+  dispatchedAt?: number;
+  acknowledgedAt?: number;
+  acknowledgedByUserId?: string;
+  acknowledgementNote?: string;
+  throttleUntil?: number;
+  throttleReason?: string;
+  lastErrorCode?: string;
+  lastErrorMessage?: string;
+}
+
+export interface TemplateCertificationAlertChannelTransportPolicy {
+  enabled: boolean;
+  target: string | null;
+}
+
+export interface TemplateCertificationAlertChannelThrottlePolicy {
+  windowMs: number;
+  maxDispatches: number;
+}
+
+export interface TemplateCertificationAlertCredentialGovernancePolicy {
+  requireDedicatedCredentials: boolean;
+  allowInlineTargetCredentials: boolean;
+  runbookUrl: string | null;
+}
+
+export interface TemplateCertificationAlertCredentialHealthStatus {
+  ready: boolean;
+  policyCompliant: boolean;
+  credentialSource: string;
+  reasonCode?: string;
+  message: string;
+  runbookUrl?: string;
+}
+
+export interface TemplateCertificationAlertStrictModePolicy {
+  enabled: boolean;
+  rolloutMode: TemplateCertificationAlertStrictModeRolloutMode;
+  guardrailMode: TemplateCertificationAlertStrictModeGuardrailMode;
+  notifyOnPolicyDrift: boolean;
+}
+
+export interface TemplateCertificationAlertPolicyDriftIssue {
+  code: string;
+  scope: "credential_governance" | "requirement_authoring";
+  channel?: TemplateCertificationAlertQueueChannel;
+  tier?: TemplateCertificationRiskTier;
+  message: string;
+}
+
+export interface TemplateCertificationAlertPolicyDriftStatus {
+  strictModeEnabled: boolean;
+  detected: boolean;
+  issueCount: number;
+  issues: TemplateCertificationAlertPolicyDriftIssue[];
+}
+
+export interface TemplateCertificationAlertStrictModeRolloutStatus {
+  enabled: boolean;
+  rolloutMode: TemplateCertificationAlertStrictModeRolloutMode;
+  guardrailMode: TemplateCertificationAlertStrictModeGuardrailMode;
+  promotedChannels: TemplateCertificationAlertQueueChannel[];
+  blockedChannels: Array<{
+    channel: TemplateCertificationAlertQueueChannel;
+    reasonCode?: string;
+    message: string;
+  }>;
+}
+
+export interface TemplateCertificationAlertDispatchControl {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_CONTRACT_VERSION;
+  maxAttempts: number;
+  retryDelayMs: number;
+  channels: Record<TemplateCertificationAlertQueueChannel, TemplateCertificationAlertChannelTransportPolicy>;
+  throttle: Record<TemplateCertificationAlertQueueChannel, TemplateCertificationAlertChannelThrottlePolicy>;
+  credentialGovernance: Record<
+    TemplateCertificationAlertQueueChannel,
+    TemplateCertificationAlertCredentialGovernancePolicy
+  >;
+  strictMode: TemplateCertificationAlertStrictModePolicy;
+}
+
+interface TemplateCertificationAlertDispatchControlSettings {
+  contractVersion: typeof TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTINGS_CONTRACT_VERSION;
+  policy: TemplateCertificationAlertDispatchControl;
 }
 
 export interface TemplateCertificationEvidenceSource {
@@ -195,7 +441,14 @@ export interface TemplateCertificationEvaluationOutput {
 export interface TemplateCertificationEvidenceRecordingSummary {
   riskTier: TemplateCertificationRiskTier;
   requiredVerification: TemplateCertificationRequirement[];
+  requirementAuthoring: TemplateCertificationRequirementAuthoringCoverage;
   defaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  templateFamily?: string;
+  automationPolicyScope: "global" | "family";
+  automationAdoptionMode: TemplateCertificationAutomationAdoptionMode;
+  automationOwnerUserIds: string[];
+  automationOwnerTeamIds: string[];
+  automationAlertChannels: string[];
   ingestedEvaluationOutputs: Array<
     TemplateCertificationEvaluationOutput & {
       usedForEvidence: boolean;
@@ -205,6 +458,10 @@ export interface TemplateCertificationEvidenceRecordingSummary {
   missingRequiredVerification: TemplateCertificationRequirement[];
   failedRequiredVerification: TemplateCertificationRequirement[];
   missingDefaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  alertRecommendations: TemplateCertificationAlertRecommendation[];
+  alertDispatches: TemplateCertificationAlertDispatchRecord[];
+  policyDrift: TemplateCertificationAlertPolicyDriftStatus;
+  strictModeRollout: TemplateCertificationAlertStrictModeRolloutStatus;
   blocked: boolean;
   blockedReason: TemplateCertificationDecisionArtifact["reasonCode"] | null;
 }
@@ -293,6 +550,27 @@ export interface WaeRolloutGateEvaluationResult {
   gate: WaeRolloutGateDecisionArtifact | null;
 }
 
+export const EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION =
+  "oar_existing_agent_topology_compatibility_v1" as const;
+
+type ExistingAgentTopologyCompatibilityStatus = "compatible" | "blocked";
+type ExistingAgentTopologyCompatibilityReasonCode =
+  | "topology_declaration_enforced"
+  | "topology_declaration_missing"
+  | "topology_profile_invalid"
+  | "topology_adapter_mismatch"
+  | "topology_runtime_module_mismatch";
+
+type ExistingAgentTopologyCompatibility = {
+  contractVersion: typeof EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION;
+  status: ExistingAgentTopologyCompatibilityStatus;
+  reasonCode: ExistingAgentTopologyCompatibilityReasonCode;
+  profile?: AgentRuntimeTopologyProfile;
+  adapter?: AgentRuntimeTopologyAdapter;
+  runtimeModuleKey?: string;
+  checkedAt: number;
+};
+
 type CurrentDefaultTemplateWaeGateContext = {
   templateId: Id<"objects">;
   templateName: string;
@@ -301,6 +579,7 @@ type CurrentDefaultTemplateWaeGateContext = {
   templateVersionTag: string;
   templateLifecycleStatus: string;
   templateVersionLifecycleStatus: string;
+  topologyCompatibility: ExistingAgentTopologyCompatibility;
 };
 
 const categoryValidator = v.union(
@@ -349,6 +628,19 @@ const templateCertificationRiskTierValidator = v.union(
   v.literal("low"),
   v.literal("medium"),
   v.literal("high"),
+);
+const templateCertificationAutomationAdoptionModeValidator = v.union(
+  v.literal("manual"),
+  v.literal("shadow"),
+  v.literal("enforced"),
+);
+const templateCertificationAlertStrictModeRolloutModeValidator = v.union(
+  v.literal("manual"),
+  v.literal("auto_promote_ready_channels"),
+);
+const templateCertificationAlertStrictModeGuardrailModeValidator = v.union(
+  v.literal("advisory"),
+  v.literal("enforced"),
 );
 const templateCertificationRequirementValidator = v.union(
   v.literal("manifest_integrity"),
@@ -537,6 +829,23 @@ function normalizeOptionalString(value: unknown): string | null {
 
 function normalizeFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeBoundedInteger(args: {
+  value: unknown;
+  fallback: number;
+  min: number;
+  max: number;
+}): number {
+  const candidate = normalizeFiniteNumber(args.value);
+  if (candidate === null) {
+    return args.fallback;
+  }
+  return Math.max(args.min, Math.min(args.max, Math.floor(candidate)));
+}
+
+function normalizeOptionalBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function normalizeLexicalStrings(values: Iterable<unknown>): string[] {
@@ -985,12 +1294,82 @@ function isTemplateCertificationRequirement(
     || value === "policy_compliance_eval";
 }
 
+const TEMPLATE_CERTIFICATION_REQUIREMENT_ORDER: TemplateCertificationRequirement[] = [
+  "manifest_integrity",
+  "risk_assessment",
+  "wae_eval",
+  "behavioral_eval",
+  "tool_contract_eval",
+  "policy_compliance_eval",
+];
+const TEMPLATE_CERTIFICATION_FOUNDATIONAL_REQUIREMENTS: TemplateCertificationRequirement[] = [
+  "manifest_integrity",
+  "risk_assessment",
+];
+const TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER: Record<
+  TemplateCertificationRiskTier,
+  TemplateCertificationRequirement[]
+> = {
+  low: [],
+  medium: [
+    "wae_eval",
+    "behavioral_eval",
+    "tool_contract_eval",
+    "policy_compliance_eval",
+  ],
+  high: [
+    "wae_eval",
+    "behavioral_eval",
+    "tool_contract_eval",
+    "policy_compliance_eval",
+  ],
+};
+export const TEMPLATE_CERTIFICATION_REQUIREMENT_AUTHORING_STANDARDS:
+TemplateCertificationRequirementAuthoringStandards = {
+  contractVersion: TEMPLATE_CERTIFICATION_REQUIREMENT_AUTHORING_STANDARDS_CONTRACT_VERSION,
+  foundationalRequirements: [...TEMPLATE_CERTIFICATION_FOUNDATIONAL_REQUIREMENTS],
+  operationalEvidenceRequirementByTier: {
+    low: [...TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER.low],
+    medium: [...TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER.medium],
+    high: [...TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER.high],
+  },
+};
+
+function orderTemplateCertificationRequirements(
+  values: Iterable<TemplateCertificationRequirement>,
+): TemplateCertificationRequirement[] {
+  const input = new Set(values);
+  return TEMPLATE_CERTIFICATION_REQUIREMENT_ORDER.filter((entry) => input.has(entry));
+}
+
 function normalizeTemplateCertificationRequirementList(
   value: unknown,
   fallback: TemplateCertificationRequirement[],
+  args?: {
+    tier?: TemplateCertificationRiskTier;
+  },
 ): TemplateCertificationRequirement[] {
   const normalized = normalizeStringArray(value).filter(isTemplateCertificationRequirement);
-  return normalized.length > 0 ? normalized : [...fallback];
+  const merged = new Set<TemplateCertificationRequirement>(
+    normalized.length > 0 ? normalized : [...fallback],
+  );
+  for (const foundationalRequirement of TEMPLATE_CERTIFICATION_FOUNDATIONAL_REQUIREMENTS) {
+    merged.add(foundationalRequirement);
+  }
+  const tier = args?.tier;
+  if (tier) {
+    const operationalRequirements = TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER[tier];
+    if (operationalRequirements.length > 0) {
+      const hasOperationalRequirement = operationalRequirements.some((entry) => merged.has(entry));
+      if (!hasOperationalRequirement) {
+        const fallbackOperational = fallback.find((entry) =>
+          operationalRequirements.includes(entry),
+        );
+        merged.add(fallbackOperational ?? operationalRequirements[0]);
+      }
+    }
+  }
+  return orderTemplateCertificationRequirements(merged);
 }
 
 function normalizeTemplateCertificationRiskTierList(
@@ -1002,6 +1381,39 @@ function normalizeTemplateCertificationRiskTierList(
       entry === "low" || entry === "medium" || entry === "high",
   );
   return normalized.length > 0 ? normalized : [...fallback];
+}
+
+function normalizeTemplateCertificationAutomationAdoptionMode(
+  value: unknown,
+  fallback: TemplateCertificationAutomationAdoptionMode,
+): TemplateCertificationAutomationAdoptionMode {
+  const normalized = normalizeOptionalString(value);
+  if (normalized === "manual" || normalized === "shadow" || normalized === "enforced") {
+    return normalized;
+  }
+  return fallback;
+}
+
+function normalizeTemplateCertificationAlertStrictModeRolloutMode(
+  value: unknown,
+  fallback: TemplateCertificationAlertStrictModeRolloutMode,
+): TemplateCertificationAlertStrictModeRolloutMode {
+  const normalized = normalizeOptionalString(value);
+  if (normalized === "manual" || normalized === "auto_promote_ready_channels") {
+    return normalized;
+  }
+  return fallback;
+}
+
+function normalizeTemplateCertificationAlertStrictModeGuardrailMode(
+  value: unknown,
+  fallback: TemplateCertificationAlertStrictModeGuardrailMode,
+): TemplateCertificationAlertStrictModeGuardrailMode {
+  const normalized = normalizeOptionalString(value);
+  if (normalized === "advisory" || normalized === "enforced") {
+    return normalized;
+  }
+  return fallback;
 }
 
 function normalizeTemplateCertificationFamilyKey(value: unknown): string | null {
@@ -1054,6 +1466,120 @@ const DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY: TemplateCertificationRiskPolic
   autoCertificationEligibleTiers: ["low"],
 };
 
+const DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY: TemplateCertificationAutomationPolicy = {
+  contractVersion: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_CONTRACT_VERSION,
+  adoptionMode: "shadow",
+  ownerUserIds: [],
+  ownerTeamIds: [],
+  alertChannels: ["slack"],
+  alertOnCertificationBlocked: true,
+  alertOnMissingDefaultEvidence: true,
+};
+
+const TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNEL_LIST: TemplateCertificationAlertQueueChannel[] = [
+  "slack",
+  "pagerduty",
+  "email",
+];
+const TEMPLATE_CERTIFICATION_ALERT_IMMEDIATE_CHANNELS = new Set<string>(["in_app"]);
+const TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNELS = new Set<string>(
+  TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNEL_LIST,
+);
+
+const DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL:
+TemplateCertificationAlertDispatchControl = {
+  contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_CONTRACT_VERSION,
+  maxAttempts: 3,
+  retryDelayMs: 5 * 60 * 1000,
+  channels: {
+    slack: {
+      enabled: true,
+      target: "certification-alerts",
+    },
+    pagerduty: {
+      enabled: true,
+      target: "template-certification",
+    },
+    email: {
+      enabled: true,
+      target: "certification-alerts@ops.local",
+    },
+  },
+  throttle: {
+    slack: {
+      windowMs: 15 * 60 * 1000,
+      maxDispatches: 8,
+    },
+    pagerduty: {
+      windowMs: 10 * 60 * 1000,
+      maxDispatches: 6,
+    },
+    email: {
+      windowMs: 30 * 60 * 1000,
+      maxDispatches: 12,
+    },
+  },
+  credentialGovernance: {
+    slack: {
+      requireDedicatedCredentials: false,
+      allowInlineTargetCredentials: true,
+      runbookUrl: `${TEMPLATE_CERTIFICATION_ALERT_CREDENTIAL_RUNBOOK_PATH}#slack`,
+    },
+    pagerduty: {
+      requireDedicatedCredentials: false,
+      allowInlineTargetCredentials: true,
+      runbookUrl: `${TEMPLATE_CERTIFICATION_ALERT_CREDENTIAL_RUNBOOK_PATH}#pagerduty`,
+    },
+    email: {
+      requireDedicatedCredentials: false,
+      allowInlineTargetCredentials: true,
+      runbookUrl: `${TEMPLATE_CERTIFICATION_ALERT_CREDENTIAL_RUNBOOK_PATH}#email`,
+    },
+  },
+  strictMode: {
+    enabled: false,
+    rolloutMode: "auto_promote_ready_channels",
+    guardrailMode: "advisory",
+    notifyOnPolicyDrift: true,
+  },
+};
+
+function buildTemplateCertificationRequirementAuthoringCoverage(
+  policy: TemplateCertificationRiskPolicy,
+): TemplateCertificationRequirementAuthoringCoverage {
+  const byTier = (["low", "medium", "high"] as const).reduce(
+    (accumulator, tier) => {
+      const requirements = [...policy.requiredVerificationByTier[tier]];
+      const foundationalSatisfied =
+        TEMPLATE_CERTIFICATION_FOUNDATIONAL_REQUIREMENTS.every((requirement) =>
+          requirements.includes(requirement),
+        );
+      const operationalRequirements = TEMPLATE_CERTIFICATION_OPERATIONAL_REQUIREMENT_BY_TIER[tier];
+      const operationalEvidenceSatisfied =
+        operationalRequirements.length === 0
+        || operationalRequirements.some((requirement) => requirements.includes(requirement));
+      accumulator[tier] = {
+        requirements,
+        foundationalSatisfied,
+        operationalEvidenceSatisfied,
+      };
+      return accumulator;
+    },
+    {} as Record<
+      TemplateCertificationRiskTier,
+      {
+        requirements: TemplateCertificationRequirement[];
+        foundationalSatisfied: boolean;
+        operationalEvidenceSatisfied: boolean;
+      }
+    >,
+  );
+  return {
+    standards: TEMPLATE_CERTIFICATION_REQUIREMENT_AUTHORING_STANDARDS,
+    byTier,
+  };
+}
+
 function normalizeTemplateCertificationRiskPolicy(
   value: unknown,
 ): TemplateCertificationRiskPolicy {
@@ -1069,14 +1595,17 @@ function normalizeTemplateCertificationRiskPolicy(
       low: normalizeTemplateCertificationRequirementList(
         requiredVerificationByTier.low,
         DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.low,
+        { tier: "low" },
       ),
       medium: normalizeTemplateCertificationRequirementList(
         requiredVerificationByTier.medium,
         DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.medium,
+        { tier: "medium" },
       ),
       high: normalizeTemplateCertificationRequirementList(
         requiredVerificationByTier.high,
         DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY.requiredVerificationByTier.high,
+        { tier: "high" },
       ),
     },
     autoCertificationEligibleTiers: normalizeTemplateCertificationRiskTierList(
@@ -1165,6 +1694,7 @@ async function readTemplateCertificationRiskPolicy(
   policy: TemplateCertificationRiskPolicy;
   globalPolicy: TemplateCertificationRiskPolicy;
   familyPolicies: Record<string, TemplateCertificationRiskPolicy>;
+  requirementAuthoring: TemplateCertificationRequirementAuthoringCoverage;
   scope: "global" | "family";
   templateFamily?: string;
   overlayPolicy?: TemplateCertificationRiskPolicy;
@@ -1185,6 +1715,150 @@ async function readTemplateCertificationRiskPolicy(
         globalPolicy: DEFAULT_TEMPLATE_CERTIFICATION_RISK_POLICY,
         familyPolicies: {},
       } satisfies TemplateCertificationRiskPolicySettings;
+  const overlayPolicy = requestedFamily ? settings.familyPolicies[requestedFamily] : undefined;
+  const activePolicy = overlayPolicy ?? settings.globalPolicy;
+  const scope: "global" | "family" = overlayPolicy ? "family" : "global";
+
+  if (!setting) {
+    return {
+      policy: activePolicy,
+      globalPolicy: settings.globalPolicy,
+      familyPolicies: settings.familyPolicies,
+      requirementAuthoring: buildTemplateCertificationRequirementAuthoringCoverage(activePolicy),
+      scope,
+      ...(requestedFamily ? { templateFamily: requestedFamily } : {}),
+      ...(overlayPolicy ? { overlayPolicy } : {}),
+      source: "default",
+    };
+  }
+  return {
+    policy: activePolicy,
+    globalPolicy: settings.globalPolicy,
+    familyPolicies: settings.familyPolicies,
+    requirementAuthoring: buildTemplateCertificationRequirementAuthoringCoverage(activePolicy),
+    scope,
+    ...(requestedFamily ? { templateFamily: requestedFamily } : {}),
+    ...(overlayPolicy ? { overlayPolicy } : {}),
+    source: "platform_setting",
+    ...(typeof setting.updatedAt === "number" && Number.isFinite(setting.updatedAt)
+      ? { updatedAt: setting.updatedAt }
+      : {}),
+  };
+}
+
+function normalizeTemplateCertificationAutomationPolicy(
+  value: unknown,
+): TemplateCertificationAutomationPolicy {
+  const record = asRecord(value);
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_CONTRACT_VERSION,
+    adoptionMode: normalizeTemplateCertificationAutomationAdoptionMode(
+      record.adoptionMode,
+      DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.adoptionMode,
+    ),
+    ownerUserIds: Object.prototype.hasOwnProperty.call(record, "ownerUserIds")
+      ? normalizeStringArray(record.ownerUserIds)
+      : [...DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.ownerUserIds],
+    ownerTeamIds: Object.prototype.hasOwnProperty.call(record, "ownerTeamIds")
+      ? normalizeStringArray(record.ownerTeamIds)
+      : [...DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.ownerTeamIds],
+    alertChannels: Object.prototype.hasOwnProperty.call(record, "alertChannels")
+      ? normalizeStringArray(record.alertChannels)
+      : [...DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.alertChannels],
+    alertOnCertificationBlocked:
+      typeof record.alertOnCertificationBlocked === "boolean"
+        ? record.alertOnCertificationBlocked
+        : DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.alertOnCertificationBlocked,
+    alertOnMissingDefaultEvidence:
+      typeof record.alertOnMissingDefaultEvidence === "boolean"
+        ? record.alertOnMissingDefaultEvidence
+        : DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY.alertOnMissingDefaultEvidence,
+  };
+}
+
+function mergeTemplateCertificationAutomationPolicy(
+  current: TemplateCertificationAutomationPolicy,
+  overrides: unknown,
+): TemplateCertificationAutomationPolicy {
+  const record = asRecord(overrides);
+  return normalizeTemplateCertificationAutomationPolicy({
+    ...current,
+    ...(Object.prototype.hasOwnProperty.call(record, "adoptionMode")
+      ? { adoptionMode: record.adoptionMode }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "ownerUserIds")
+      ? { ownerUserIds: record.ownerUserIds }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "ownerTeamIds")
+      ? { ownerTeamIds: record.ownerTeamIds }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "alertChannels")
+      ? { alertChannels: record.alertChannels }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "alertOnCertificationBlocked")
+      ? { alertOnCertificationBlocked: record.alertOnCertificationBlocked }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "alertOnMissingDefaultEvidence")
+      ? { alertOnMissingDefaultEvidence: record.alertOnMissingDefaultEvidence }
+      : {}),
+  });
+}
+
+function normalizeTemplateCertificationAutomationPolicySettings(
+  value: unknown,
+): TemplateCertificationAutomationPolicySettings {
+  const record = asRecord(value);
+  const hasExplicitSettingsShape =
+    Object.prototype.hasOwnProperty.call(record, "globalPolicy")
+    || Object.prototype.hasOwnProperty.call(record, "familyPolicies");
+  const globalPolicy = normalizeTemplateCertificationAutomationPolicy(
+    hasExplicitSettingsShape ? record.globalPolicy : value,
+  );
+  const familyPoliciesRecord = hasExplicitSettingsShape ? asRecord(record.familyPolicies) : {};
+  const familyPolicies: Record<string, TemplateCertificationAutomationPolicy> = {};
+  for (const [rawKey, rawPolicy] of Object.entries(familyPoliciesRecord)) {
+    const key = normalizeTemplateCertificationFamilyKey(rawKey);
+    if (!key) {
+      continue;
+    }
+    familyPolicies[key] = normalizeTemplateCertificationAutomationPolicy(rawPolicy);
+  }
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTINGS_CONTRACT_VERSION,
+    globalPolicy,
+    familyPolicies,
+  };
+}
+
+async function readTemplateCertificationAutomationPolicy(
+  ctx: QueryCtx | MutationCtx,
+  args?: {
+    templateFamily?: string | null;
+  },
+): Promise<{
+  policy: TemplateCertificationAutomationPolicy;
+  globalPolicy: TemplateCertificationAutomationPolicy;
+  familyPolicies: Record<string, TemplateCertificationAutomationPolicy>;
+  scope: "global" | "family";
+  templateFamily?: string;
+  overlayPolicy?: TemplateCertificationAutomationPolicy;
+  source: "default" | "platform_setting";
+  updatedAt?: number;
+}> {
+  const requestedFamily = normalizeTemplateCertificationFamilyKey(args?.templateFamily);
+  const dbAny = ctx.db as any;
+  const settingRows = await dbAny
+    .query("platformSettings")
+    .withIndex("by_key", (q: any) => q.eq("key", TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_KEY))
+    .collect();
+  const setting = settingRows[0] ?? null;
+  const settings = setting
+    ? normalizeTemplateCertificationAutomationPolicySettings(setting.value)
+    : {
+        contractVersion: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTINGS_CONTRACT_VERSION,
+        globalPolicy: DEFAULT_TEMPLATE_CERTIFICATION_AUTOMATION_POLICY,
+        familyPolicies: {},
+      } satisfies TemplateCertificationAutomationPolicySettings;
   const overlayPolicy = requestedFamily ? settings.familyPolicies[requestedFamily] : undefined;
   const scope: "global" | "family" = overlayPolicy ? "family" : "global";
 
@@ -1210,6 +1884,592 @@ async function readTemplateCertificationRiskPolicy(
     ...(typeof setting.updatedAt === "number" && Number.isFinite(setting.updatedAt)
       ? { updatedAt: setting.updatedAt }
       : {}),
+  };
+}
+
+function normalizeTemplateCertificationAlertQueueChannel(
+  value: unknown,
+): TemplateCertificationAlertQueueChannel | null {
+  const normalized = normalizeTemplateCertificationAlertChannel(value);
+  if (normalized === "slack" || normalized === "pagerduty" || normalized === "email") {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeTemplateCertificationAlertDispatchControl(
+  value: unknown,
+): TemplateCertificationAlertDispatchControl {
+  const record = asRecord(value);
+  const channelsRecord = asRecord(record.channels);
+  const throttleRecord = asRecord(record.throttle);
+  const credentialGovernanceRecord = asRecord(record.credentialGovernance);
+  const strictModeRecord = asRecord(record.strictMode);
+  const channels: Record<
+    TemplateCertificationAlertQueueChannel,
+    TemplateCertificationAlertChannelTransportPolicy
+  > = {
+    slack: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.channels.slack },
+    pagerduty: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.channels.pagerduty },
+    email: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.channels.email },
+  };
+  const throttle: Record<
+    TemplateCertificationAlertQueueChannel,
+    TemplateCertificationAlertChannelThrottlePolicy
+  > = {
+    slack: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.throttle.slack },
+    pagerduty: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.throttle.pagerduty },
+    email: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.throttle.email },
+  };
+  const credentialGovernance: Record<
+    TemplateCertificationAlertQueueChannel,
+    TemplateCertificationAlertCredentialGovernancePolicy
+  > = {
+    slack: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance.slack },
+    pagerduty: {
+      ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance.pagerduty,
+    },
+    email: { ...DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance.email },
+  };
+  const strictMode: TemplateCertificationAlertStrictModePolicy = {
+    enabled: normalizeOptionalBoolean(
+      strictModeRecord.enabled,
+      DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.strictMode.enabled,
+    ),
+    rolloutMode: normalizeTemplateCertificationAlertStrictModeRolloutMode(
+      strictModeRecord.rolloutMode,
+      DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.strictMode.rolloutMode,
+    ),
+    guardrailMode: normalizeTemplateCertificationAlertStrictModeGuardrailMode(
+      strictModeRecord.guardrailMode,
+      DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.strictMode.guardrailMode,
+    ),
+    notifyOnPolicyDrift: normalizeOptionalBoolean(
+      strictModeRecord.notifyOnPolicyDrift,
+      DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.strictMode.notifyOnPolicyDrift,
+    ),
+  };
+
+  for (const channel of TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNEL_LIST) {
+    const channelRecord = asRecord(channelsRecord[channel]);
+    channels[channel] = {
+      enabled: normalizeOptionalBoolean(
+        channelRecord.enabled,
+        DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.channels[channel].enabled,
+      ),
+      target: Object.prototype.hasOwnProperty.call(channelRecord, "target")
+        ? normalizeOptionalString(channelRecord.target)
+        : DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.channels[channel].target,
+    };
+
+    const throttlePolicyRecord = asRecord(throttleRecord[channel]);
+    throttle[channel] = {
+      windowMs: normalizeBoundedInteger({
+        value: throttlePolicyRecord.windowMs,
+        fallback: DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.throttle[channel].windowMs,
+        min: 60_000,
+        max: 24 * 60 * 60 * 1000,
+      }),
+      maxDispatches: normalizeBoundedInteger({
+        value: throttlePolicyRecord.maxDispatches,
+        fallback:
+          DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.throttle[channel].maxDispatches,
+        min: 1,
+        max: 1000,
+      }),
+    };
+
+    const credentialGovernancePolicy = asRecord(credentialGovernanceRecord[channel]);
+    credentialGovernance[channel] = {
+      requireDedicatedCredentials: normalizeOptionalBoolean(
+        credentialGovernancePolicy.requireDedicatedCredentials,
+        DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance[channel]
+          .requireDedicatedCredentials,
+      ),
+      allowInlineTargetCredentials: normalizeOptionalBoolean(
+        credentialGovernancePolicy.allowInlineTargetCredentials,
+        DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance[channel]
+          .allowInlineTargetCredentials,
+      ),
+      runbookUrl: Object.prototype.hasOwnProperty.call(credentialGovernancePolicy, "runbookUrl")
+        ? normalizeOptionalString(credentialGovernancePolicy.runbookUrl)
+        : DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.credentialGovernance[channel]
+          .runbookUrl,
+    };
+  }
+
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_CONTRACT_VERSION,
+    maxAttempts: normalizeBoundedInteger({
+      value: record.maxAttempts,
+      fallback: DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.maxAttempts,
+      min: 1,
+      max: 10,
+    }),
+    retryDelayMs: normalizeBoundedInteger({
+      value: record.retryDelayMs,
+      fallback: DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.retryDelayMs,
+      min: 1_000,
+      max: 24 * 60 * 60 * 1000,
+    }),
+    channels,
+    throttle,
+    credentialGovernance,
+    strictMode,
+  };
+}
+
+function mergeTemplateCertificationAlertDispatchControl(
+  current: TemplateCertificationAlertDispatchControl,
+  overrides: unknown,
+): TemplateCertificationAlertDispatchControl {
+  const record = asRecord(overrides);
+  const channelsRecord = asRecord(record.channels);
+  const throttleRecord = asRecord(record.throttle);
+  const credentialGovernanceRecord = asRecord(record.credentialGovernance);
+  const strictModeRecord = asRecord(record.strictMode);
+  const mergedChannels: Record<
+    TemplateCertificationAlertQueueChannel,
+    Record<string, unknown>
+  > = {
+    slack: {
+      ...current.channels.slack,
+      ...asRecord(channelsRecord.slack),
+    },
+    pagerduty: {
+      ...current.channels.pagerduty,
+      ...asRecord(channelsRecord.pagerduty),
+    },
+    email: {
+      ...current.channels.email,
+      ...asRecord(channelsRecord.email),
+    },
+  };
+  const mergedThrottle: Record<
+    TemplateCertificationAlertQueueChannel,
+    Record<string, unknown>
+  > = {
+    slack: {
+      ...current.throttle.slack,
+      ...asRecord(throttleRecord.slack),
+    },
+    pagerduty: {
+      ...current.throttle.pagerduty,
+      ...asRecord(throttleRecord.pagerduty),
+    },
+    email: {
+      ...current.throttle.email,
+      ...asRecord(throttleRecord.email),
+    },
+  };
+  const mergedCredentialGovernance: Record<
+    TemplateCertificationAlertQueueChannel,
+    Record<string, unknown>
+  > = {
+    slack: {
+      ...current.credentialGovernance.slack,
+      ...asRecord(credentialGovernanceRecord.slack),
+    },
+    pagerduty: {
+      ...current.credentialGovernance.pagerduty,
+      ...asRecord(credentialGovernanceRecord.pagerduty),
+    },
+    email: {
+      ...current.credentialGovernance.email,
+      ...asRecord(credentialGovernanceRecord.email),
+    },
+  };
+  const mergedStrictMode: Record<string, unknown> = {
+    ...current.strictMode,
+    ...strictModeRecord,
+  };
+  return normalizeTemplateCertificationAlertDispatchControl({
+    ...current,
+    ...(Object.prototype.hasOwnProperty.call(record, "maxAttempts")
+      ? { maxAttempts: record.maxAttempts }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(record, "retryDelayMs")
+      ? { retryDelayMs: record.retryDelayMs }
+      : {}),
+    channels: mergedChannels,
+    throttle: mergedThrottle,
+    credentialGovernance: mergedCredentialGovernance,
+    strictMode: mergedStrictMode,
+  });
+}
+
+function normalizeTemplateCertificationAlertDispatchControlSettings(
+  value: unknown,
+): TemplateCertificationAlertDispatchControlSettings {
+  const record = asRecord(value);
+  const hasPolicyShape = Object.prototype.hasOwnProperty.call(record, "policy");
+  const policy = normalizeTemplateCertificationAlertDispatchControl(
+    hasPolicyShape ? record.policy : value,
+  );
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTINGS_CONTRACT_VERSION,
+    policy,
+  };
+}
+
+async function readTemplateCertificationAlertDispatchControl(
+  ctx: QueryCtx | MutationCtx,
+): Promise<{
+  policy: TemplateCertificationAlertDispatchControl;
+  source: "default" | "platform_setting";
+  updatedAt?: number;
+}> {
+  const dbAny = ctx.db as any;
+  const settingRows = await dbAny
+    .query("platformSettings")
+    .withIndex("by_key", (q: any) =>
+      q.eq("key", TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_KEY))
+    .collect();
+  const setting = settingRows[0] ?? null;
+  if (!setting) {
+    return {
+      policy: DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL,
+      source: "default",
+    };
+  }
+  const settings = normalizeTemplateCertificationAlertDispatchControlSettings(setting.value);
+  return {
+    policy: settings.policy,
+    source: "platform_setting",
+    ...(typeof setting.updatedAt === "number" && Number.isFinite(setting.updatedAt)
+      ? { updatedAt: setting.updatedAt }
+      : {}),
+  };
+}
+
+function buildTemplateCertificationAlertCredentialHealth(args: {
+  control: TemplateCertificationAlertDispatchControl;
+}): Record<TemplateCertificationAlertQueueChannel, TemplateCertificationAlertCredentialHealthStatus> {
+  const slackState = evaluateTemplateCertificationSlackCredentialState({
+    target: args.control.channels.slack.target ?? undefined,
+    policy: {
+      requireDedicatedCredentials:
+        args.control.credentialGovernance.slack.requireDedicatedCredentials,
+      allowInlineTargetCredentials:
+        args.control.credentialGovernance.slack.allowInlineTargetCredentials,
+      runbookUrl: args.control.credentialGovernance.slack.runbookUrl,
+    },
+  });
+  const pagerDutyState = evaluateTemplateCertificationPagerDutyCredentialState({
+    target: args.control.channels.pagerduty.target ?? undefined,
+    policy: {
+      allowInlineTargetCredentials:
+        args.control.credentialGovernance.pagerduty.allowInlineTargetCredentials,
+      runbookUrl: args.control.credentialGovernance.pagerduty.runbookUrl,
+    },
+  });
+  const emailState = evaluateTemplateCertificationEmailCredentialState({
+    target: args.control.channels.email.target ?? undefined,
+    policy: {
+      requireDedicatedCredentials:
+        args.control.credentialGovernance.email.requireDedicatedCredentials,
+      runbookUrl: args.control.credentialGovernance.email.runbookUrl,
+    },
+  });
+  return {
+    slack: {
+      ready: slackState.ready,
+      policyCompliant: slackState.policyCompliant,
+      credentialSource: slackState.credentialSource,
+      ...(slackState.reasonCode ? { reasonCode: slackState.reasonCode } : {}),
+      message: slackState.message,
+      ...(slackState.runbookUrl ? { runbookUrl: slackState.runbookUrl } : {}),
+    },
+    pagerduty: {
+      ready: pagerDutyState.ready,
+      policyCompliant: pagerDutyState.policyCompliant,
+      credentialSource: pagerDutyState.credentialSource,
+      ...(pagerDutyState.reasonCode ? { reasonCode: pagerDutyState.reasonCode } : {}),
+      message: pagerDutyState.message,
+      ...(pagerDutyState.runbookUrl ? { runbookUrl: pagerDutyState.runbookUrl } : {}),
+    },
+    email: {
+      ready: emailState.ready,
+      policyCompliant: emailState.policyCompliant,
+      credentialSource: emailState.credentialSource,
+      ...(emailState.reasonCode ? { reasonCode: emailState.reasonCode } : {}),
+      message: emailState.message,
+      ...(emailState.runbookUrl ? { runbookUrl: emailState.runbookUrl } : {}),
+    },
+  };
+}
+
+function buildTemplateCertificationAlertStrictCredentialGovernance(args: {
+  channel: TemplateCertificationAlertQueueChannel;
+  policy: TemplateCertificationAlertCredentialGovernancePolicy;
+}): TemplateCertificationAlertCredentialGovernancePolicy {
+  if (args.channel === "slack") {
+    const strict = buildTemplateCertificationSlackStrictCredentialGovernancePolicy({
+      requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+      allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+      runbookUrl: args.policy.runbookUrl,
+    });
+    return {
+      requireDedicatedCredentials: strict.requireDedicatedCredentials === true,
+      allowInlineTargetCredentials:
+        strict.allowInlineTargetCredentials !== false ? false : strict.allowInlineTargetCredentials,
+      runbookUrl: strict.runbookUrl ?? args.policy.runbookUrl,
+    };
+  }
+  if (args.channel === "pagerduty") {
+    const strict = buildTemplateCertificationPagerDutyStrictCredentialGovernancePolicy({
+      allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+      runbookUrl: args.policy.runbookUrl,
+    });
+    return {
+      requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+      allowInlineTargetCredentials: false,
+      runbookUrl: strict.runbookUrl ?? args.policy.runbookUrl,
+    };
+  }
+  const strict = buildTemplateCertificationEmailStrictCredentialGovernancePolicy({
+    requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+    runbookUrl: args.policy.runbookUrl,
+  });
+  return {
+    requireDedicatedCredentials: strict.requireDedicatedCredentials === true,
+    allowInlineTargetCredentials: false,
+    runbookUrl: strict.runbookUrl ?? args.policy.runbookUrl,
+  };
+}
+
+function isTemplateCertificationAlertCredentialGovernanceStrict(args: {
+  channel: TemplateCertificationAlertQueueChannel;
+  policy: TemplateCertificationAlertCredentialGovernancePolicy;
+}): boolean {
+  if (args.channel === "slack") {
+    return isTemplateCertificationSlackCredentialGovernanceStrict({
+      requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+      allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+      runbookUrl: args.policy.runbookUrl,
+    });
+  }
+  if (args.channel === "pagerduty") {
+    return isTemplateCertificationPagerDutyCredentialGovernanceStrict({
+      allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+      runbookUrl: args.policy.runbookUrl,
+    });
+  }
+  return isTemplateCertificationEmailCredentialGovernanceStrict({
+    requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+    runbookUrl: args.policy.runbookUrl,
+  });
+}
+
+function evaluateTemplateCertificationStrictChannelCredentialState(args: {
+  channel: TemplateCertificationAlertQueueChannel;
+  target: string | null;
+  policy: TemplateCertificationAlertCredentialGovernancePolicy;
+}): {
+  ready: boolean;
+  reasonCode?: string;
+  message: string;
+} {
+  if (args.channel === "slack") {
+    const state = evaluateTemplateCertificationSlackCredentialState({
+      target: args.target ?? undefined,
+      policy: {
+        requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+        allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+        runbookUrl: args.policy.runbookUrl,
+      },
+    });
+    return {
+      ready: state.ready,
+      ...(state.reasonCode ? { reasonCode: state.reasonCode } : {}),
+      message: state.message,
+    };
+  }
+  if (args.channel === "pagerduty") {
+    const state = evaluateTemplateCertificationPagerDutyCredentialState({
+      target: args.target ?? undefined,
+      policy: {
+        allowInlineTargetCredentials: args.policy.allowInlineTargetCredentials,
+        runbookUrl: args.policy.runbookUrl,
+      },
+    });
+    return {
+      ready: state.ready,
+      ...(state.reasonCode ? { reasonCode: state.reasonCode } : {}),
+      message: state.message,
+    };
+  }
+  const state = evaluateTemplateCertificationEmailCredentialState({
+    target: args.target ?? undefined,
+    policy: {
+      requireDedicatedCredentials: args.policy.requireDedicatedCredentials,
+      runbookUrl: args.policy.runbookUrl,
+    },
+  });
+  return {
+    ready: state.ready,
+    ...(state.reasonCode ? { reasonCode: state.reasonCode } : {}),
+    message: state.message,
+  };
+}
+
+function buildTemplateCertificationAlertPolicyState(args: {
+  control: TemplateCertificationAlertDispatchControl;
+  requirementAuthoring: TemplateCertificationRequirementAuthoringCoverage;
+}): {
+  effectiveControl: TemplateCertificationAlertDispatchControl;
+  credentialHealth: Record<
+    TemplateCertificationAlertQueueChannel,
+    TemplateCertificationAlertCredentialHealthStatus
+  >;
+  policyDrift: TemplateCertificationAlertPolicyDriftStatus;
+  strictModeRollout: TemplateCertificationAlertStrictModeRolloutStatus;
+} {
+  const control = normalizeTemplateCertificationAlertDispatchControl(args.control);
+  const effectiveControl = normalizeTemplateCertificationAlertDispatchControl(control);
+  const promotedChannels: TemplateCertificationAlertQueueChannel[] = [];
+  const blockedChannels: Array<{
+    channel: TemplateCertificationAlertQueueChannel;
+    reasonCode?: string;
+    message: string;
+  }> = [];
+  const policyDriftIssues: TemplateCertificationAlertPolicyDriftIssue[] = [];
+
+  if (control.strictMode.enabled) {
+    for (const channel of TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNEL_LIST) {
+      const channelConfig = effectiveControl.channels[channel];
+      const target = normalizeOptionalString(channelConfig.target);
+      const channelActive = channelConfig.enabled && !!target;
+      const strictGovernance = buildTemplateCertificationAlertStrictCredentialGovernance({
+        channel,
+        policy: effectiveControl.credentialGovernance[channel],
+      });
+      const currentlyStrict = isTemplateCertificationAlertCredentialGovernanceStrict({
+        channel,
+        policy: effectiveControl.credentialGovernance[channel],
+      });
+      if (!channelActive) {
+        continue;
+      }
+
+      if (control.strictMode.guardrailMode === "enforced") {
+        if (!currentlyStrict) {
+          promotedChannels.push(channel);
+        }
+        effectiveControl.credentialGovernance[channel] = strictGovernance;
+        continue;
+      }
+
+      if (!currentlyStrict && control.strictMode.rolloutMode === "auto_promote_ready_channels") {
+        const strictState = evaluateTemplateCertificationStrictChannelCredentialState({
+          channel,
+          target,
+          policy: strictGovernance,
+        });
+        if (strictState.ready) {
+          effectiveControl.credentialGovernance[channel] = strictGovernance;
+          promotedChannels.push(channel);
+        } else {
+          blockedChannels.push({
+            channel,
+            ...(strictState.reasonCode ? { reasonCode: strictState.reasonCode } : {}),
+            message: strictState.message,
+          });
+        }
+      }
+
+      if (
+        !currentlyStrict
+        && control.strictMode.rolloutMode === "manual"
+      ) {
+        blockedChannels.push({
+          channel,
+          reasonCode: "strict_mode_manual_pending",
+          message:
+            `Strict credential-governance policy is pending for ${channel}. `
+            + "Enable dedicated credentials and block inline target credentials.",
+        });
+      }
+    }
+  }
+
+  if (control.strictMode.enabled) {
+    for (const channel of TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNEL_LIST) {
+      const channelConfig = effectiveControl.channels[channel];
+      const target = normalizeOptionalString(channelConfig.target);
+      const channelActive = channelConfig.enabled && !!target;
+      if (!channelActive) {
+        continue;
+      }
+      const strict = isTemplateCertificationAlertCredentialGovernanceStrict({
+        channel,
+        policy: effectiveControl.credentialGovernance[channel],
+      });
+      if (!strict) {
+        policyDriftIssues.push({
+          code: `${channel}_credential_governance_drift`,
+          scope: "credential_governance",
+          channel,
+          message:
+            `Strict credential governance drift detected for ${channel}. `
+            + "Dedicated credentials and inline-target guardrails are not fully enforced.",
+        });
+      }
+    }
+  }
+
+  for (const tier of ["low", "medium", "high"] as const) {
+    const coverage = args.requirementAuthoring.byTier[tier];
+    if (!coverage.foundationalSatisfied) {
+      policyDriftIssues.push({
+        code: `${tier}_foundational_requirement_drift`,
+        scope: "requirement_authoring",
+        tier,
+        message:
+          `${tier} tier requirement authoring drift: `
+          + "manifest integrity and risk assessment must be present.",
+      });
+    }
+    if (!coverage.operationalEvidenceSatisfied) {
+      policyDriftIssues.push({
+        code: `${tier}_operational_requirement_drift`,
+        scope: "requirement_authoring",
+        tier,
+        message:
+          `${tier} tier requirement authoring drift: `
+          + "at least one operational evidence requirement is required.",
+      });
+    }
+  }
+
+  const policyDrift = {
+    strictModeEnabled: control.strictMode.enabled,
+    detected: policyDriftIssues.length > 0,
+    issueCount: policyDriftIssues.length,
+    issues: [...policyDriftIssues].sort((left, right) => left.code.localeCompare(right.code)),
+  } satisfies TemplateCertificationAlertPolicyDriftStatus;
+
+  const strictModeRollout = {
+    enabled: control.strictMode.enabled,
+    rolloutMode: control.strictMode.rolloutMode,
+    guardrailMode: control.strictMode.guardrailMode,
+    promotedChannels: [...new Set(promotedChannels)].sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    blockedChannels: [...blockedChannels].sort((left, right) =>
+      left.channel === right.channel
+        ? (left.reasonCode ?? "").localeCompare(right.reasonCode ?? "")
+        : left.channel.localeCompare(right.channel)
+    ),
+  } satisfies TemplateCertificationAlertStrictModeRolloutStatus;
+
+  return {
+    effectiveControl,
+    credentialHealth: buildTemplateCertificationAlertCredentialHealth({
+      control: effectiveControl,
+    }),
+    policyDrift,
+    strictModeRollout,
   };
 }
 
@@ -1528,11 +2788,82 @@ function buildTemplateCertificationEvaluationOutputSummary(
   return `Automation output ${output.sourceType} reported ${output.outcome}.`;
 }
 
+function buildTemplateCertificationAlertRecommendations(args: {
+  artifact: TemplateCertificationDecisionArtifact;
+  missingDefaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
+  policy: TemplateCertificationAutomationPolicy;
+  strictMode: TemplateCertificationAlertStrictModePolicy;
+  policyDrift: TemplateCertificationAlertPolicyDriftStatus;
+}): TemplateCertificationAlertRecommendation[] {
+  const recommendations: TemplateCertificationAlertRecommendation[] = [];
+  if (args.policy.alertOnCertificationBlocked && args.artifact.status !== "certified") {
+    recommendations.push({
+      code: "certification_blocked",
+      severity: "critical",
+      summary:
+        `Template certification blocked for ${args.artifact.templateId}@${args.artifact.templateVersionTag} `
+        + `(${args.artifact.reasonCode}).`,
+      ownerUserIds: [...args.policy.ownerUserIds],
+      ownerTeamIds: [...args.policy.ownerTeamIds],
+      alertChannels: [...args.policy.alertChannels],
+    });
+  }
+  if (
+    args.policy.alertOnMissingDefaultEvidence
+    && args.missingDefaultEvidenceSources.length > 0
+  ) {
+    recommendations.push({
+      code: "default_evidence_missing",
+      severity: "warning",
+      summary:
+        `Default automation evidence missing for ${args.artifact.templateId}@${args.artifact.templateVersionTag}: `
+        + `${args.missingDefaultEvidenceSources.join(", ")}.`,
+      ownerUserIds: [...args.policy.ownerUserIds],
+      ownerTeamIds: [...args.policy.ownerTeamIds],
+      alertChannels: [...args.policy.alertChannels],
+    });
+  }
+  if (
+    args.strictMode.notifyOnPolicyDrift
+    && args.policyDrift.detected
+    && args.policyDrift.issueCount > 0
+  ) {
+    const issueCodes = args.policyDrift.issues
+      .map((issue) => issue.code)
+      .sort((left, right) => left.localeCompare(right));
+    const visibleCodes = issueCodes.slice(0, 4);
+    const overflow = issueCodes.length - visibleCodes.length;
+    const issueCodeSummary =
+      overflow > 0
+        ? `${visibleCodes.join(", ")} (+${overflow} more)`
+        : visibleCodes.join(", ");
+    recommendations.push({
+      code: "policy_drift_detected",
+      severity: "warning",
+      summary:
+        `Policy drift detected for ${args.artifact.templateId}@${args.artifact.templateVersionTag}: `
+        + `${issueCodeSummary}.`,
+      ownerUserIds: [...args.policy.ownerUserIds],
+      ownerTeamIds: [...args.policy.ownerTeamIds],
+      alertChannels: [...args.policy.alertChannels],
+    });
+  }
+  return recommendations;
+}
+
 function buildTemplateCertificationCoverageSummary(args: {
   artifact: TemplateCertificationDecisionArtifact;
+  requirementAuthoring: TemplateCertificationRequirementAuthoringCoverage;
+  templateFamily?: string;
+  automationPolicyScope: "global" | "family";
+  automationPolicy: TemplateCertificationAutomationPolicy;
+  dispatchStrictMode: TemplateCertificationAlertStrictModePolicy;
+  alertPolicyDrift: TemplateCertificationAlertPolicyDriftStatus;
+  strictModeRollout: TemplateCertificationAlertStrictModeRolloutStatus;
   defaultEvidenceSources: TemplateCertificationEvidenceSourceType[];
   ingestedEvaluationOutputs: TemplateCertificationEvaluationOutput[];
   usedOutputSourceTypes: TemplateCertificationEvidenceSourceType[];
+  alertDispatches?: TemplateCertificationAlertDispatchRecord[];
 }): TemplateCertificationEvidenceRecordingSummary {
   const missingRequiredVerification = args.artifact.requiredVerification.filter(
     (requirement) =>
@@ -1557,11 +2888,25 @@ function buildTemplateCertificationCoverageSummary(args: {
       )
       && !args.artifact.evidenceSources.some((source) => source.sourceType === sourceType),
   );
+  const alertRecommendations = buildTemplateCertificationAlertRecommendations({
+    artifact: args.artifact,
+    missingDefaultEvidenceSources,
+    policy: args.automationPolicy,
+    strictMode: args.dispatchStrictMode,
+    policyDrift: args.alertPolicyDrift,
+  });
 
   return {
     riskTier: args.artifact.riskAssessment.tier,
     requiredVerification: [...args.artifact.requiredVerification],
+    requirementAuthoring: args.requirementAuthoring,
     defaultEvidenceSources: [...args.defaultEvidenceSources],
+    ...(args.templateFamily ? { templateFamily: args.templateFamily } : {}),
+    automationPolicyScope: args.automationPolicyScope,
+    automationAdoptionMode: args.automationPolicy.adoptionMode,
+    automationOwnerUserIds: [...args.automationPolicy.ownerUserIds],
+    automationOwnerTeamIds: [...args.automationPolicy.ownerTeamIds],
+    automationAlertChannels: [...args.automationPolicy.alertChannels],
     ingestedEvaluationOutputs: args.ingestedEvaluationOutputs.map((output) => ({
       ...output,
       usedForEvidence:
@@ -1575,8 +2920,958 @@ function buildTemplateCertificationCoverageSummary(args: {
     missingRequiredVerification,
     failedRequiredVerification,
     missingDefaultEvidenceSources,
+    alertRecommendations,
+    alertDispatches: args.alertDispatches ? [...args.alertDispatches] : [],
+    policyDrift: args.alertPolicyDrift,
+    strictModeRollout: args.strictModeRollout,
     blocked: args.artifact.status !== "certified",
     blockedReason: args.artifact.status === "certified" ? null : args.artifact.reasonCode,
+  };
+}
+
+function normalizeTemplateCertificationAlertChannel(value: unknown): string | null {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+  const channel = normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return channel.length > 0 ? channel : null;
+}
+
+function normalizeTemplateCertificationAlertDeliveryStatus(
+  value: unknown,
+): TemplateCertificationAlertDeliveryStatus | null {
+  const normalized = normalizeOptionalString(value);
+  if (
+    normalized === "delivered_in_app"
+    || normalized === "queued"
+    || normalized === "suppressed_duplicate"
+    || normalized === "unsupported_channel"
+    || normalized === "dispatched"
+    || normalized === "dispatch_failed"
+    || normalized === "throttled"
+    || normalized === "acknowledged"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeTemplateCertificationAlertWorkerStatus(
+  value: unknown,
+): TemplateCertificationAlertWorkerStatus | null {
+  const normalized = normalizeOptionalString(value);
+  if (
+    normalized === "pending"
+    || normalized === "dispatched"
+    || normalized === "retry_scheduled"
+    || normalized === "failed_terminal"
+    || normalized === "throttled"
+    || normalized === "acknowledged"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+type TemplateCertificationAlertDispatchEntry = {
+  actionId: string;
+  performedAt: number;
+  record: TemplateCertificationAlertDispatchRecord;
+  organizationId: Id<"organizations"> | undefined;
+};
+
+function sortTemplateCertificationAlertDispatchEntriesDesc(
+  left: TemplateCertificationAlertDispatchEntry,
+  right: TemplateCertificationAlertDispatchEntry,
+): number {
+  if (left.record.recordedAt !== right.record.recordedAt) {
+    return right.record.recordedAt - left.record.recordedAt;
+  }
+  if (left.performedAt !== right.performedAt) {
+    return right.performedAt - left.performedAt;
+  }
+  return right.actionId.localeCompare(left.actionId);
+}
+
+function sortTemplateCertificationAlertDispatchEntriesAsc(
+  left: TemplateCertificationAlertDispatchEntry,
+  right: TemplateCertificationAlertDispatchEntry,
+): number {
+  if (left.record.recordedAt !== right.record.recordedAt) {
+    return left.record.recordedAt - right.record.recordedAt;
+  }
+  if (left.performedAt !== right.performedAt) {
+    return left.performedAt - right.performedAt;
+  }
+  return left.actionId.localeCompare(right.actionId);
+}
+
+function buildTemplateCertificationAlertDispatchDedupeKey(args: {
+  templateVersionId: string;
+  dependencyDigest: string;
+  recommendationCode: TemplateCertificationAlertRecommendationCode;
+  channel: string;
+}): string {
+  return simpleHash(
+    stableJsonStringify({
+      templateVersionId: args.templateVersionId,
+      dependencyDigest: args.dependencyDigest,
+      recommendationCode: args.recommendationCode,
+      channel: args.channel,
+    }),
+  );
+}
+
+function parseTemplateCertificationAlertDispatchRecord(
+  value: unknown,
+): TemplateCertificationAlertDispatchRecord | null {
+  const record = asRecord(value);
+  const contractVersion = normalizeOptionalString(record.contractVersion);
+  const templateId = normalizeOptionalString(record.templateId);
+  const templateVersionId = normalizeOptionalString(record.templateVersionId);
+  const templateVersionTag = normalizeOptionalString(record.templateVersionTag);
+  const dependencyDigest = normalizeOptionalString(record.dependencyDigest);
+  const recommendationCode = normalizeOptionalString(record.recommendationCode);
+  const recommendationSeverity = normalizeOptionalString(record.recommendationSeverity);
+  const recommendationSummary = normalizeOptionalString(record.recommendationSummary);
+  const channel = normalizeTemplateCertificationAlertChannel(record.channel);
+  const deliveryStatus = normalizeTemplateCertificationAlertDeliveryStatus(record.deliveryStatus);
+  const dedupeKey = normalizeOptionalString(record.dedupeKey);
+  const recordedAt = normalizeFiniteNumber(record.recordedAt);
+  const recordedByUserId = normalizeOptionalString(record.recordedByUserId);
+  const queueChannel = normalizeTemplateCertificationAlertQueueChannel(channel);
+  const workerStatus =
+    normalizeTemplateCertificationAlertWorkerStatus(record.workerStatus)
+    ?? (deliveryStatus === "queued"
+      ? "pending"
+      : deliveryStatus === "dispatched"
+        ? "dispatched"
+        : deliveryStatus === "dispatch_failed"
+          ? "failed_terminal"
+          : deliveryStatus === "throttled"
+            ? "throttled"
+            : deliveryStatus === "acknowledged"
+              ? "acknowledged"
+              : null);
+  const attemptCount =
+    queueChannel
+      ? normalizeBoundedInteger({
+        value: record.attemptCount,
+        fallback: 0,
+        min: 0,
+        max: 1000,
+      })
+      : undefined;
+  const maxAttempts =
+    queueChannel
+      ? normalizeBoundedInteger({
+        value: record.maxAttempts,
+        fallback: DEFAULT_TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL.maxAttempts,
+        min: 1,
+        max: 10,
+      })
+      : undefined;
+  const nextAttemptAtValue = normalizeFiniteNumber(record.nextAttemptAt);
+  const nextAttemptAt =
+    queueChannel && (
+      deliveryStatus === "queued"
+      || deliveryStatus === "dispatch_failed"
+      || deliveryStatus === "throttled"
+    )
+      ? (nextAttemptAtValue ?? recordedAt ?? Date.now())
+      : undefined;
+  const lastAttemptAt = normalizeFiniteNumber(record.lastAttemptAt);
+  const dispatchedAt = normalizeFiniteNumber(record.dispatchedAt);
+  const acknowledgedAt = normalizeFiniteNumber(record.acknowledgedAt);
+  const acknowledgedByUserId = normalizeOptionalString(record.acknowledgedByUserId);
+  const acknowledgementNote = normalizeOptionalString(record.acknowledgementNote);
+  const throttleUntil = normalizeFiniteNumber(record.throttleUntil);
+  const throttleReason = normalizeOptionalString(record.throttleReason);
+  const lastErrorCode = normalizeOptionalString(record.lastErrorCode);
+  const lastErrorMessage = normalizeOptionalString(record.lastErrorMessage);
+  if (
+    contractVersion !== TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION
+    || !templateId
+    || !templateVersionId
+    || !templateVersionTag
+    || !dependencyDigest
+    || (recommendationCode !== "certification_blocked"
+      && recommendationCode !== "default_evidence_missing"
+      && recommendationCode !== "policy_drift_detected")
+    || (recommendationSeverity !== "critical" && recommendationSeverity !== "warning")
+    || !recommendationSummary
+    || !channel
+    || !deliveryStatus
+    || !dedupeKey
+    || recordedAt === null
+    || !recordedByUserId
+  ) {
+    return null;
+  }
+  return {
+    contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION,
+    templateId,
+    templateVersionId,
+    templateVersionTag,
+    dependencyDigest,
+    recommendationCode,
+    recommendationSeverity,
+    recommendationSummary,
+    channel,
+    deliveryStatus,
+    dedupeKey,
+    ownerUserIds: normalizeStringArray(record.ownerUserIds),
+    ownerTeamIds: normalizeStringArray(record.ownerTeamIds),
+    recordedAt,
+    recordedByUserId,
+    ...(workerStatus ? { workerStatus } : {}),
+    ...(typeof attemptCount === "number" ? { attemptCount } : {}),
+    ...(typeof maxAttempts === "number" ? { maxAttempts } : {}),
+    ...(typeof nextAttemptAt === "number" ? { nextAttemptAt } : {}),
+    ...(typeof lastAttemptAt === "number" ? { lastAttemptAt } : {}),
+    ...(typeof dispatchedAt === "number" ? { dispatchedAt } : {}),
+    ...(typeof acknowledgedAt === "number" ? { acknowledgedAt } : {}),
+    ...(acknowledgedByUserId ? { acknowledgedByUserId } : {}),
+    ...(acknowledgementNote ? { acknowledgementNote } : {}),
+    ...(typeof throttleUntil === "number" ? { throttleUntil } : {}),
+    ...(throttleReason ? { throttleReason } : {}),
+    ...(lastErrorCode ? { lastErrorCode } : {}),
+    ...(lastErrorMessage ? { lastErrorMessage } : {}),
+  };
+}
+
+async function getTemplateCertificationAlertDispatchEntries(
+  ctx: QueryCtx | MutationCtx,
+  templateVersionId: Id<"objects">,
+): Promise<TemplateCertificationAlertDispatchEntry[]> {
+  const dbAny = ctx.db as any;
+  const actions = (await dbAny
+    .query("objectActions")
+    .withIndex("by_object_action_type", (q: any) =>
+      q.eq("objectId", templateVersionId).eq("actionType", TEMPLATE_CERTIFICATION_ALERT_DISPATCH_ACTION_TYPE))
+    .collect()) as Array<{
+    _id: string;
+    actionData?: unknown;
+    performedAt?: unknown;
+    organizationId?: Id<"organizations">;
+  }>;
+  return actions
+    .map((row) => ({
+      actionId: row._id,
+      performedAt: normalizeFiniteNumber(row.performedAt) ?? 0,
+      ...(row.organizationId ? { organizationId: row.organizationId } : {}),
+      record: parseTemplateCertificationAlertDispatchRecord(row.actionData),
+    }))
+    .filter(
+      (row): row is TemplateCertificationAlertDispatchEntry =>
+        row.record !== null,
+    );
+}
+
+async function getTemplateCertificationAlertDispatchHistory(
+  ctx: QueryCtx | MutationCtx,
+  templateVersionId: Id<"objects">,
+  limit: number,
+): Promise<TemplateCertificationAlertDispatchRecord[]> {
+  const entries = await getTemplateCertificationAlertDispatchEntries(ctx, templateVersionId);
+  return entries
+    .sort(sortTemplateCertificationAlertDispatchEntriesDesc)
+    .slice(0, Math.max(0, Math.floor(limit)))
+    .map((row) => row.record);
+}
+
+async function scheduleTemplateCertificationAlertDispatchWorker(args: {
+  ctx: MutationCtx;
+  templateVersionId: Id<"objects">;
+  delayMs?: number;
+  limit?: number;
+}): Promise<void> {
+  const scheduler = (args.ctx as any).scheduler;
+  if (!scheduler || typeof scheduler.runAfter !== "function") {
+    return;
+  }
+  await scheduler.runAfter(
+    Math.max(0, Math.floor(args.delayMs ?? 0)),
+    generatedApi.internal.ai.agentCatalogAdmin.processTemplateCertificationAlertDispatchQueueInternal,
+    {
+      templateVersionId: args.templateVersionId,
+      limit: Math.max(1, Math.min(100, Math.floor(args.limit ?? 25))),
+    },
+  );
+}
+
+async function recordTemplateCertificationAlertDispatches(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  templateVersionId: Id<"objects">;
+  performedBy: Id<"users">;
+  artifact: TemplateCertificationDecisionArtifact;
+  recommendations: TemplateCertificationAlertRecommendation[];
+}): Promise<TemplateCertificationAlertDispatchRecord[]> {
+  if (args.recommendations.length === 0) {
+    return [];
+  }
+  const existing = await getTemplateCertificationAlertDispatchHistory(
+    args.ctx,
+    args.templateVersionId,
+    1000,
+  );
+  const dispatchControl = await readTemplateCertificationAlertDispatchControl(args.ctx);
+  const existingDedupeKeys = new Set(existing.map((row) => row.dedupeKey));
+  const dispatches: TemplateCertificationAlertDispatchRecord[] = [];
+  const now = Date.now();
+  let queuedDispatchRecorded = false;
+
+  const sortedRecommendations = [...args.recommendations].sort((left, right) => {
+    if (left.code !== right.code) {
+      return left.code.localeCompare(right.code);
+    }
+    if (left.severity !== right.severity) {
+      return left.severity.localeCompare(right.severity);
+    }
+    return left.summary.localeCompare(right.summary);
+  });
+
+  for (const recommendation of sortedRecommendations) {
+    const channels = normalizeStringArray(recommendation.alertChannels)
+      .map((channel) => normalizeTemplateCertificationAlertChannel(channel))
+      .filter((channel): channel is string => channel !== null);
+    for (const channel of channels) {
+      const dedupeKey = buildTemplateCertificationAlertDispatchDedupeKey({
+        templateVersionId: String(args.templateVersionId),
+        dependencyDigest: args.artifact.dependencyManifest.dependencyDigest,
+        recommendationCode: recommendation.code,
+        channel,
+      });
+      if (existingDedupeKeys.has(dedupeKey)) {
+        dispatches.push({
+          contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION,
+          templateId: args.artifact.templateId,
+          templateVersionId: args.artifact.templateVersionId,
+          templateVersionTag: args.artifact.templateVersionTag,
+          dependencyDigest: args.artifact.dependencyManifest.dependencyDigest,
+          recommendationCode: recommendation.code,
+          recommendationSeverity: recommendation.severity,
+          recommendationSummary: recommendation.summary,
+          channel,
+          deliveryStatus: "suppressed_duplicate",
+          dedupeKey,
+          ownerUserIds: [...recommendation.ownerUserIds],
+          ownerTeamIds: [...recommendation.ownerTeamIds],
+          recordedAt: now,
+          recordedByUserId: String(args.performedBy),
+        });
+        continue;
+      }
+
+      let deliveryStatus: TemplateCertificationAlertDeliveryStatus;
+      if (TEMPLATE_CERTIFICATION_ALERT_IMMEDIATE_CHANNELS.has(channel)) {
+        deliveryStatus = "delivered_in_app";
+      } else if (TEMPLATE_CERTIFICATION_ALERT_QUEUE_CHANNELS.has(channel)) {
+        deliveryStatus = "queued";
+      } else {
+        deliveryStatus = "unsupported_channel";
+      }
+
+      const dispatch: TemplateCertificationAlertDispatchRecord = {
+        contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION,
+        templateId: args.artifact.templateId,
+        templateVersionId: args.artifact.templateVersionId,
+        templateVersionTag: args.artifact.templateVersionTag,
+        dependencyDigest: args.artifact.dependencyManifest.dependencyDigest,
+        recommendationCode: recommendation.code,
+        recommendationSeverity: recommendation.severity,
+        recommendationSummary: recommendation.summary,
+        channel,
+        deliveryStatus,
+        dedupeKey,
+        ownerUserIds: [...recommendation.ownerUserIds],
+        ownerTeamIds: [...recommendation.ownerTeamIds],
+        recordedAt: now,
+        recordedByUserId: String(args.performedBy),
+        ...(deliveryStatus === "queued"
+          ? {
+              workerStatus: "pending" as const,
+              attemptCount: 0,
+              maxAttempts: dispatchControl.policy.maxAttempts,
+              nextAttemptAt: now,
+            }
+          : {}),
+      };
+
+      await args.ctx.db.insert("objectActions", {
+        organizationId: args.organizationId,
+        objectId: args.templateVersionId,
+        actionType: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_ACTION_TYPE,
+        actionData: dispatch as unknown as Record<string, unknown>,
+        performedBy: args.performedBy,
+        performedAt: now,
+      });
+      await args.ctx.db.insert("auditLogs", {
+        organizationId: args.organizationId,
+        userId: args.performedBy,
+        action: `template_certification.alert.${channel}`,
+        resource: "template_version",
+        resourceId: String(args.templateVersionId),
+        success: deliveryStatus !== "unsupported_channel",
+        metadata: dispatch as unknown as Record<string, unknown>,
+        createdAt: now,
+      });
+
+      if (deliveryStatus === "queued") {
+        queuedDispatchRecorded = true;
+      }
+      existingDedupeKeys.add(dedupeKey);
+      dispatches.push(dispatch);
+    }
+  }
+
+  if (queuedDispatchRecorded) {
+    await scheduleTemplateCertificationAlertDispatchWorker({
+      ctx: args.ctx,
+      templateVersionId: args.templateVersionId,
+      delayMs: 0,
+      limit: 25,
+    });
+  }
+
+  return dispatches;
+}
+
+function shouldTemplateCertificationAlertDispatchBeProcessed(
+  record: TemplateCertificationAlertDispatchRecord,
+): boolean {
+  const queueChannel = normalizeTemplateCertificationAlertQueueChannel(record.channel);
+  if (!queueChannel) {
+    return false;
+  }
+  if (
+    record.deliveryStatus !== "queued"
+    && record.deliveryStatus !== "dispatch_failed"
+    && record.deliveryStatus !== "throttled"
+  ) {
+    return false;
+  }
+  if (record.workerStatus === "failed_terminal" || record.workerStatus === "acknowledged") {
+    return false;
+  }
+  if (typeof record.acknowledgedAt === "number") {
+    return false;
+  }
+  return true;
+}
+
+function resolveTemplateCertificationAlertDispatchNextAttemptAt(
+  record: TemplateCertificationAlertDispatchRecord,
+): number {
+  if (typeof record.nextAttemptAt === "number" && Number.isFinite(record.nextAttemptAt)) {
+    return record.nextAttemptAt;
+  }
+  return record.recordedAt;
+}
+
+function resolveTemplateCertificationAlertDispatchAttemptCount(
+  record: TemplateCertificationAlertDispatchRecord,
+): number {
+  if (typeof record.attemptCount === "number" && Number.isFinite(record.attemptCount)) {
+    return Math.max(0, Math.floor(record.attemptCount));
+  }
+  return 0;
+}
+
+function resolveTemplateCertificationAlertDispatchMaxAttempts(args: {
+  record: TemplateCertificationAlertDispatchRecord;
+  control: TemplateCertificationAlertDispatchControl;
+}): number {
+  return normalizeBoundedInteger({
+    value: args.record.maxAttempts,
+    fallback: args.control.maxAttempts,
+    min: 1,
+    max: 10,
+  });
+}
+
+type TemplateCertificationAlertDispatchTransportResult =
+  | {
+      ok: true;
+      channel: TemplateCertificationAlertQueueChannel;
+      target: string;
+      providerMessageId?: string;
+    }
+  | {
+      ok: false;
+      retryable: boolean;
+      errorCode: string;
+      errorMessage: string;
+      channel?: TemplateCertificationAlertQueueChannel;
+      target?: string;
+    };
+
+function evaluateTemplateCertificationAlertDispatchTransport(args: {
+  record: TemplateCertificationAlertDispatchRecord;
+  control: TemplateCertificationAlertDispatchControl;
+}): TemplateCertificationAlertDispatchTransportResult {
+  const queueChannel = normalizeTemplateCertificationAlertQueueChannel(args.record.channel);
+  if (!queueChannel) {
+    return {
+      ok: false,
+      retryable: false,
+      errorCode: "unsupported_channel",
+      errorMessage: `Unsupported queue channel ${args.record.channel}.`,
+    };
+  }
+  const channelControl = args.control.channels[queueChannel];
+  const credentialGovernance = args.control.credentialGovernance[queueChannel];
+  const runbookUrl = normalizeOptionalString(credentialGovernance.runbookUrl);
+  const target = normalizeOptionalString(channelControl.target);
+  if (!channelControl.enabled || !target) {
+    return {
+      ok: false,
+      retryable: false,
+      errorCode: "channel_transport_not_configured",
+      errorMessage: runbookUrl
+        ? `Channel transport for ${queueChannel} is disabled or missing target. Runbook: ${runbookUrl}`
+        : `Channel transport for ${queueChannel} is disabled or missing target.`,
+      channel: queueChannel,
+      ...(target ? { target } : {}),
+    };
+  }
+  if (target === "simulate_retryable_failure") {
+    return {
+      ok: false,
+      retryable: true,
+      errorCode: "simulated_retryable_failure",
+      errorMessage: `Simulated retryable dispatch failure for ${queueChannel}.`,
+      channel: queueChannel,
+      target,
+    };
+  }
+  if (target === "simulate_terminal_failure") {
+    return {
+      ok: false,
+      retryable: false,
+      errorCode: "simulated_terminal_failure",
+      errorMessage: `Simulated terminal dispatch failure for ${queueChannel}.`,
+      channel: queueChannel,
+      target,
+    };
+  }
+  return {
+    ok: true,
+    channel: queueChannel,
+    target,
+  };
+}
+
+function buildTemplateCertificationAlertDispatchText(
+  record: TemplateCertificationAlertDispatchRecord,
+): string {
+  return [
+    `[Template Certification][${record.recommendationSeverity.toUpperCase()}] ${record.recommendationCode}`,
+    record.recommendationSummary,
+    `Template: ${record.templateId}@${record.templateVersionTag}`,
+    `Version ID: ${record.templateVersionId}`,
+    `Dependency digest: ${record.dependencyDigest}`,
+    `Dedupe key: ${record.dedupeKey}`,
+  ].join("\n");
+}
+
+function buildTemplateCertificationAlertDispatchEmailSubject(
+  record: TemplateCertificationAlertDispatchRecord,
+): string {
+  return `[Template Certification][${record.recommendationSeverity.toUpperCase()}] ${record.recommendationCode} ${record.templateVersionTag}`;
+}
+
+async function executeTemplateCertificationAlertDispatchTransport(args: {
+  channel: TemplateCertificationAlertQueueChannel;
+  target: string;
+  record: TemplateCertificationAlertDispatchRecord;
+  control: TemplateCertificationAlertDispatchControl;
+}): Promise<TemplateCertificationAlertDispatchTransportResult> {
+  const messageText = buildTemplateCertificationAlertDispatchText(args.record);
+
+  if (args.channel === "slack") {
+    const result = await dispatchTemplateCertificationSlackAlert({
+      target: args.target,
+      text: messageText,
+      dedupeKey: args.record.dedupeKey,
+      credentialGovernance: {
+        requireDedicatedCredentials:
+          args.control.credentialGovernance.slack.requireDedicatedCredentials,
+        allowInlineTargetCredentials:
+          args.control.credentialGovernance.slack.allowInlineTargetCredentials,
+        runbookUrl: args.control.credentialGovernance.slack.runbookUrl,
+      },
+    });
+    if (!result.success) {
+      return {
+        ok: false,
+        retryable: result.retryable === true,
+        errorCode:
+          normalizeOptionalString(result.errorCode)
+          || (
+            typeof result.statusCode === "number"
+              ? `slack_http_${result.statusCode}`
+              : "slack_dispatch_failed"
+          ),
+        errorMessage:
+          normalizeOptionalString(result.error)
+          || `Slack dispatch failed for ${args.record.dedupeKey}.`,
+        channel: args.channel,
+        target: args.target,
+      };
+    }
+    return {
+      ok: true,
+      channel: args.channel,
+      target: args.target,
+      ...(normalizeOptionalString(result.providerMessageId)
+        ? { providerMessageId: normalizeOptionalString(result.providerMessageId)! }
+        : {}),
+    };
+  }
+
+  if (args.channel === "pagerduty") {
+    const result = await dispatchTemplateCertificationPagerDutyAlert({
+      target: args.target,
+      dedupeKey: args.record.dedupeKey,
+      summary: args.record.recommendationSummary,
+      severity: args.record.recommendationSeverity,
+      details: {
+        templateId: args.record.templateId,
+        templateVersionId: args.record.templateVersionId,
+        templateVersionTag: args.record.templateVersionTag,
+        dependencyDigest: args.record.dependencyDigest,
+        recommendationCode: args.record.recommendationCode,
+        recommendationSeverity: args.record.recommendationSeverity,
+      },
+      credentialGovernance: {
+        allowInlineTargetCredentials:
+          args.control.credentialGovernance.pagerduty.allowInlineTargetCredentials,
+        runbookUrl: args.control.credentialGovernance.pagerduty.runbookUrl,
+      },
+    });
+    if (!result.success) {
+      return {
+        ok: false,
+        retryable: result.retryable === true,
+        errorCode: result.errorCode ?? "pagerduty_dispatch_failed",
+        errorMessage:
+          normalizeOptionalString(result.errorMessage)
+          || `PagerDuty dispatch failed for ${args.record.dedupeKey}.`,
+        channel: args.channel,
+        target: args.target,
+      };
+    }
+    return {
+      ok: true,
+      channel: args.channel,
+      target: args.target,
+      ...(normalizeOptionalString(result.providerMessageId)
+        ? { providerMessageId: normalizeOptionalString(result.providerMessageId)! }
+        : {}),
+    };
+  }
+
+  const result = await dispatchTemplateCertificationEmailAlert({
+    target: args.target,
+    dedupeKey: args.record.dedupeKey,
+    subject: buildTemplateCertificationAlertDispatchEmailSubject(args.record),
+    text: messageText,
+    credentialGovernance: {
+      requireDedicatedCredentials:
+        args.control.credentialGovernance.email.requireDedicatedCredentials,
+      runbookUrl: args.control.credentialGovernance.email.runbookUrl,
+    },
+  });
+  if (!result.success) {
+    return {
+      ok: false,
+      retryable: result.retryable === true,
+      errorCode: result.errorCode ?? "email_dispatch_failed",
+      errorMessage:
+        normalizeOptionalString(result.errorMessage)
+        || `Email dispatch failed for ${args.record.dedupeKey}.`,
+      channel: args.channel,
+      target: args.target,
+    };
+  }
+  return {
+    ok: true,
+    channel: args.channel,
+    target: args.target,
+    ...(normalizeOptionalString(result.providerMessageId)
+      ? { providerMessageId: normalizeOptionalString(result.providerMessageId)! }
+      : {}),
+  };
+}
+
+function countTemplateCertificationAlertRecentDispatches(args: {
+  entries: TemplateCertificationAlertDispatchEntry[];
+  channel: TemplateCertificationAlertQueueChannel;
+  now: number;
+  windowMs: number;
+  ignoreActionId?: string;
+}): number {
+  const cutoff = args.now - args.windowMs;
+  let count = 0;
+  for (const entry of args.entries) {
+    if (args.ignoreActionId && entry.actionId === args.ignoreActionId) {
+      continue;
+    }
+    const entryChannel = normalizeTemplateCertificationAlertQueueChannel(entry.record.channel);
+    if (entryChannel !== args.channel) {
+      continue;
+    }
+    if (entry.record.deliveryStatus !== "dispatched") {
+      continue;
+    }
+    const dispatchedAt =
+      typeof entry.record.dispatchedAt === "number"
+        ? entry.record.dispatchedAt
+        : entry.record.recordedAt;
+    if (dispatchedAt >= cutoff) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+async function processTemplateCertificationAlertDispatchQueue(args: {
+  ctx: MutationCtx;
+  templateVersionId: Id<"objects">;
+  limit: number;
+  now: number;
+}): Promise<{
+  templateVersionId: string;
+  processed: number;
+  dispatched: number;
+  retryScheduled: number;
+  failedTerminal: number;
+  throttled: number;
+  pending: number;
+  nextAttemptAt: number | null;
+}> {
+  const entries = await getTemplateCertificationAlertDispatchEntries(args.ctx, args.templateVersionId);
+  const dispatchControlResolution = await readTemplateCertificationAlertDispatchControl(args.ctx);
+  const riskPolicyResolution = await readTemplateCertificationRiskPolicy(args.ctx);
+  const dispatchPolicyState = buildTemplateCertificationAlertPolicyState({
+    control: dispatchControlResolution.policy,
+    requirementAuthoring: riskPolicyResolution.requirementAuthoring,
+  });
+  const dispatchControl = dispatchPolicyState.effectiveControl;
+  const ordered = entries
+    .filter((entry) => shouldTemplateCertificationAlertDispatchBeProcessed(entry.record))
+    .sort(sortTemplateCertificationAlertDispatchEntriesAsc);
+  let processed = 0;
+  let dispatched = 0;
+  let retryScheduled = 0;
+  let failedTerminal = 0;
+  let throttled = 0;
+
+  for (const entry of ordered) {
+    if (processed >= args.limit) {
+      break;
+    }
+    const queueChannel = normalizeTemplateCertificationAlertQueueChannel(entry.record.channel);
+    if (!queueChannel) {
+      continue;
+    }
+    const nextAttemptAt = resolveTemplateCertificationAlertDispatchNextAttemptAt(entry.record);
+    if (nextAttemptAt > args.now) {
+      continue;
+    }
+    if (typeof entry.record.throttleUntil === "number" && entry.record.throttleUntil > args.now) {
+      continue;
+    }
+
+    const maxAttempts = resolveTemplateCertificationAlertDispatchMaxAttempts({
+      record: entry.record,
+      control: dispatchControl,
+    });
+    const attemptCount = resolveTemplateCertificationAlertDispatchAttemptCount(entry.record);
+    if (attemptCount >= maxAttempts) {
+      const terminalRecord: TemplateCertificationAlertDispatchRecord = {
+        ...entry.record,
+        deliveryStatus: "dispatch_failed",
+        workerStatus: "failed_terminal",
+        maxAttempts,
+        lastErrorCode: entry.record.lastErrorCode ?? "max_attempts_exhausted",
+        lastErrorMessage:
+          entry.record.lastErrorMessage
+          ?? `Dispatch exhausted ${maxAttempts} attempts for ${queueChannel}.`,
+      };
+      await args.ctx.db.patch(entry.actionId as any, {
+        actionData: terminalRecord as unknown as Record<string, unknown>,
+      });
+      failedTerminal += 1;
+      processed += 1;
+      continue;
+    }
+
+    const throttlePolicy = dispatchControl.throttle[queueChannel];
+    const recentDispatchCount = countTemplateCertificationAlertRecentDispatches({
+      entries,
+      channel: queueChannel,
+      now: args.now,
+      windowMs: throttlePolicy.windowMs,
+      ignoreActionId: entry.actionId,
+    });
+    if (recentDispatchCount >= throttlePolicy.maxDispatches) {
+      const throttleUntil = args.now + throttlePolicy.windowMs;
+      const throttledRecord: TemplateCertificationAlertDispatchRecord = {
+        ...entry.record,
+        deliveryStatus: "throttled",
+        workerStatus: "throttled",
+        maxAttempts,
+        nextAttemptAt: throttleUntil,
+        throttleUntil,
+        throttleReason: "channel_window_limit_reached",
+        lastErrorCode: "throttle_window_limit_reached",
+        lastErrorMessage:
+          `Throttle active for ${queueChannel}: ${recentDispatchCount}/${throttlePolicy.maxDispatches} dispatched in ${throttlePolicy.windowMs}ms window.`,
+      };
+      await args.ctx.db.patch(entry.actionId as any, {
+        actionData: throttledRecord as unknown as Record<string, unknown>,
+      });
+      throttled += 1;
+      processed += 1;
+      continue;
+    }
+
+    const transportResolution = evaluateTemplateCertificationAlertDispatchTransport({
+      record: entry.record,
+      control: dispatchControl,
+    });
+    const transportResult = transportResolution.ok
+      ? await executeTemplateCertificationAlertDispatchTransport({
+          channel: transportResolution.channel,
+          target: transportResolution.target,
+          record: entry.record,
+          control: dispatchControl,
+        })
+      : transportResolution;
+    const nextAttemptCount = attemptCount + 1;
+    if (transportResult.ok) {
+      const dispatchedRecord: TemplateCertificationAlertDispatchRecord = {
+        ...entry.record,
+        deliveryStatus: "dispatched",
+        workerStatus: "dispatched",
+        attemptCount: nextAttemptCount,
+        maxAttempts,
+        lastAttemptAt: args.now,
+        dispatchedAt: args.now,
+        lastErrorCode: undefined,
+        lastErrorMessage: undefined,
+      };
+      await args.ctx.db.patch(entry.actionId as any, {
+        actionData: dispatchedRecord as unknown as Record<string, unknown>,
+      });
+      if (entry.organizationId) {
+        await args.ctx.db.insert("auditLogs", {
+          organizationId: entry.organizationId,
+          userId: entry.record.recordedByUserId as Id<"users">,
+          action: `template_certification.alert.${transportResult.channel}.worker_dispatched`,
+          resource: "template_version",
+          resourceId: String(args.templateVersionId),
+          success: true,
+          metadata: {
+            dedupeKey: entry.record.dedupeKey,
+            recommendationCode: entry.record.recommendationCode,
+            target: transportResult.target,
+            providerMessageId: transportResult.providerMessageId ?? null,
+            dispatchedAt: args.now,
+          },
+          createdAt: args.now,
+        });
+      }
+      dispatched += 1;
+      processed += 1;
+      continue;
+    }
+
+    const hasRetryRemaining = nextAttemptCount < maxAttempts;
+    const shouldRetry = transportResult.retryable && hasRetryRemaining;
+    const nextRetryAt = args.now + dispatchControl.retryDelayMs;
+    const failedRecord: TemplateCertificationAlertDispatchRecord = {
+      ...entry.record,
+      deliveryStatus: "dispatch_failed",
+      workerStatus: shouldRetry ? "retry_scheduled" : "failed_terminal",
+      attemptCount: nextAttemptCount,
+      maxAttempts,
+      lastAttemptAt: args.now,
+      nextAttemptAt: shouldRetry ? nextRetryAt : entry.record.nextAttemptAt,
+      lastErrorCode: transportResult.errorCode,
+      lastErrorMessage: transportResult.errorMessage,
+    };
+    await args.ctx.db.patch(entry.actionId as any, {
+      actionData: failedRecord as unknown as Record<string, unknown>,
+    });
+    if (entry.organizationId) {
+      await args.ctx.db.insert("auditLogs", {
+        organizationId: entry.organizationId,
+        userId: entry.record.recordedByUserId as Id<"users">,
+        action: `template_certification.alert.${queueChannel}.worker_failed`,
+        resource: "template_version",
+        resourceId: String(args.templateVersionId),
+        success: false,
+        metadata: {
+          dedupeKey: entry.record.dedupeKey,
+          recommendationCode: entry.record.recommendationCode,
+          retryScheduled: shouldRetry,
+          nextAttemptAt: shouldRetry ? nextRetryAt : null,
+          errorCode: transportResult.errorCode,
+          errorMessage: transportResult.errorMessage,
+          target:
+            transportResult.target
+            || (transportResolution.ok ? transportResolution.target : null),
+        },
+        createdAt: args.now,
+      });
+    }
+    if (shouldRetry) {
+      retryScheduled += 1;
+    } else {
+      failedTerminal += 1;
+    }
+    processed += 1;
+  }
+
+  const refreshedEntries = await getTemplateCertificationAlertDispatchEntries(
+    args.ctx,
+    args.templateVersionId,
+  );
+  const pendingEntries = refreshedEntries
+    .filter((entry) => shouldTemplateCertificationAlertDispatchBeProcessed(entry.record))
+    .map((entry) => ({
+      ...entry,
+      nextAttemptAt: resolveTemplateCertificationAlertDispatchNextAttemptAt(entry.record),
+    }))
+    .sort((left, right) => left.nextAttemptAt - right.nextAttemptAt);
+  const nextAttemptAt = pendingEntries.length > 0 ? pendingEntries[0].nextAttemptAt : null;
+
+  if (pendingEntries.length > 0 && nextAttemptAt !== null) {
+    await scheduleTemplateCertificationAlertDispatchWorker({
+      ctx: args.ctx,
+      templateVersionId: args.templateVersionId,
+      delayMs: Math.max(0, nextAttemptAt - args.now),
+      limit: args.limit,
+    });
+  }
+
+  return {
+    templateVersionId: String(args.templateVersionId),
+    processed,
+    dispatched,
+    retryScheduled,
+    failedTerminal,
+    throttled,
+    pending: pendingEntries.length,
+    nextAttemptAt,
   };
 }
 
@@ -2570,6 +4865,11 @@ async function resolveTemplateVersionCertificationContext(
     referenceVersionTag: referenceVersion?.templateVersionTag ?? null,
     riskPolicy,
   });
+  const topologyCompatibility = resolveExistingAgentTopologyCompatibility({
+    templateProps,
+    versionProps,
+    now: Date.now(),
+  });
 
   return {
     templateId: args.templateId,
@@ -2581,6 +4881,7 @@ async function resolveTemplateVersionCertificationContext(
       normalizeOptionalString(templateProps.templateLifecycleStatus) || "unknown",
     templateVersionLifecycleStatus:
       normalizeOptionalString(versionProps.lifecycleStatus) || "unknown",
+    topologyCompatibility,
     ...(templateFamily ? { templateFamily } : {}),
     riskPolicyScope: riskPolicyResolution.scope,
     globalRiskPolicy: riskPolicyResolution.globalPolicy,
@@ -2687,6 +4988,92 @@ export async function ensureTemplateVersionCertificationForLifecycle(
   });
 }
 
+const EXISTING_AGENT_RUNTIME_MODULE_TOPOLOGY_PROFILE_BY_KEY: Record<
+  string,
+  AgentRuntimeTopologyProfile
+> = {
+  one_of_one_samantha_runtime_module_v1: "evaluator_loop",
+  der_terminmacher_runtime_module_v1: "pipeline_router",
+  david_ogilvy_runtime_module_v1: "single_agent_loop",
+};
+
+function resolveExistingAgentTopologyCompatibility(args: {
+  templateProps: Record<string, unknown>;
+  versionProps: Record<string, unknown>;
+  now: number;
+}): ExistingAgentTopologyCompatibility {
+  const profileToken = normalizeOptionalString(
+    args.templateProps.runtimeTopologyProfile,
+  ) || normalizeOptionalString(args.versionProps.runtimeTopologyProfile);
+  const adapterToken = normalizeOptionalString(
+    args.templateProps.runtimeTopologyAdapter,
+  ) || normalizeOptionalString(args.versionProps.runtimeTopologyAdapter);
+  const runtimeModuleKey = normalizeOptionalString(
+    args.templateProps.runtimeModuleKey,
+  ) || normalizeOptionalString(args.versionProps.runtimeModuleKey);
+
+  if (!profileToken) {
+    return {
+      contractVersion: EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION,
+      status: "blocked",
+      reasonCode: "topology_declaration_missing",
+      ...(runtimeModuleKey ? { runtimeModuleKey } : {}),
+      checkedAt: args.now,
+    };
+  }
+
+  if (!isAgentRuntimeTopologyProfile(profileToken)) {
+    return {
+      contractVersion: EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION,
+      status: "blocked",
+      reasonCode: "topology_profile_invalid",
+      ...(runtimeModuleKey ? { runtimeModuleKey } : {}),
+      checkedAt: args.now,
+    };
+  }
+
+  const expectedAdapter = resolveAgentRuntimeTopologyAdapter(profileToken);
+  if (adapterToken && adapterToken !== expectedAdapter) {
+    return {
+      contractVersion: EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION,
+      status: "blocked",
+      reasonCode: "topology_adapter_mismatch",
+      profile: profileToken,
+      adapter: expectedAdapter,
+      ...(runtimeModuleKey ? { runtimeModuleKey } : {}),
+      checkedAt: args.now,
+    };
+  }
+
+  const expectedRuntimeModuleProfile = runtimeModuleKey
+    ? EXISTING_AGENT_RUNTIME_MODULE_TOPOLOGY_PROFILE_BY_KEY[runtimeModuleKey] ?? null
+    : null;
+  if (
+    expectedRuntimeModuleProfile
+    && expectedRuntimeModuleProfile !== profileToken
+  ) {
+    return {
+      contractVersion: EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION,
+      status: "blocked",
+      reasonCode: "topology_runtime_module_mismatch",
+      profile: profileToken,
+      adapter: expectedAdapter,
+      ...(runtimeModuleKey ? { runtimeModuleKey } : {}),
+      checkedAt: args.now,
+    };
+  }
+
+  return {
+    contractVersion: EXISTING_AGENT_TOPOLOGY_COMPATIBILITY_CONTRACT_VERSION,
+    status: "compatible",
+    reasonCode: "topology_declaration_enforced",
+    profile: profileToken,
+    adapter: expectedAdapter,
+    ...(runtimeModuleKey ? { runtimeModuleKey } : {}),
+    checkedAt: args.now,
+  };
+}
+
 async function resolveCurrentDefaultTemplateWaeGateContext(
   ctx: QueryCtx | MutationCtx,
 ): Promise<CurrentDefaultTemplateWaeGateContext> {
@@ -2768,6 +5155,12 @@ async function resolveCurrentDefaultTemplateWaeGateContext(
     });
   }
 
+  const topologyCompatibility = resolveExistingAgentTopologyCompatibility({
+    templateProps,
+    versionProps,
+    now: Date.now(),
+  });
+
   return {
     templateId: template._id,
     templateName: normalizeOptionalString(template.name) || "One-of-One Operator Template",
@@ -2778,6 +5171,7 @@ async function resolveCurrentDefaultTemplateWaeGateContext(
       normalizeOptionalString(templateProps.templateLifecycleStatus) || "unknown",
     templateVersionLifecycleStatus:
       normalizeOptionalString(versionProps.lifecycleStatus) || "unknown",
+    topologyCompatibility,
   };
 }
 
@@ -2959,6 +5353,19 @@ export const getCurrentDefaultTemplateWaeRolloutGateStatus = query({
     await requireSuperAdminSession(ctx, args.sessionId);
     const riskPolicy = await readTemplateCertificationRiskPolicy(ctx);
     const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const certificationContext = await resolveTemplateVersionCertificationContext(ctx, {
+      templateId: template.templateId,
+      templateVersionId: template.templateVersionId,
+      templateVersionTag: template.templateVersionTag,
+    });
+    const automationPolicyResolution = await readTemplateCertificationAutomationPolicy(ctx, {
+      templateFamily: certificationContext.templateFamily ?? null,
+    });
+    const dispatchControlResolution = await readTemplateCertificationAlertDispatchControl(ctx);
+    const dispatchPolicyState = buildTemplateCertificationAlertPolicyState({
+      control: dispatchControlResolution.policy,
+      requirementAuthoring: riskPolicy.requirementAuthoring,
+    });
     const certification = await getLatestTemplateCertificationDecisionArtifact(
       ctx,
       template.templateVersionId,
@@ -2975,18 +5382,68 @@ export const getCurrentDefaultTemplateWaeRolloutGateStatus = query({
       templateVersionTag: template.templateVersionTag,
       now: Date.now(),
     });
+    const defaultEvidenceSources = certificationEvaluation.riskAssessment
+      ? resolveTemplateCertificationDefaultAutomationEvidenceSources(
+        certificationEvaluation.riskAssessment,
+      )
+      : [];
+    const missingDefaultEvidenceSources =
+      certificationEvaluation.certification && defaultEvidenceSources.length > 0
+        ? defaultEvidenceSources.filter(
+          (sourceType) =>
+            !certificationEvaluation.certification?.evidenceSources.some(
+              (source) => source.sourceType === sourceType,
+            ),
+        )
+        : [];
+    const alertRecommendations =
+      certificationEvaluation.certification
+        ? buildTemplateCertificationAlertRecommendations({
+          artifact: certificationEvaluation.certification,
+          missingDefaultEvidenceSources,
+          policy: automationPolicyResolution.policy,
+          strictMode: dispatchControlResolution.policy.strictMode,
+          policyDrift: dispatchPolicyState.policyDrift,
+        })
+        : [];
+    const recentAlertDispatches = await getTemplateCertificationAlertDispatchHistory(
+      ctx,
+      template.templateVersionId,
+      20,
+    );
+    const rolloutAllowed =
+      evaluation.allowed && template.topologyCompatibility.status === "compatible";
 
     return {
       generatedAt: Date.now(),
       template,
+      topologyCompatibility: template.topologyCompatibility,
       certification,
       certificationEvaluation,
       riskAssessment: certificationEvaluation.riskAssessment,
       dependencyManifest: certificationEvaluation.dependencyManifest,
       autoCertificationEligible: certificationEvaluation.autoCertificationEligible,
       riskPolicy,
+      requirementAuthoring: riskPolicy.requirementAuthoring,
+      alertOperations: {
+        ...(certificationContext.templateFamily
+          ? { templateFamily: certificationContext.templateFamily }
+          : {}),
+        automationPolicyScope: automationPolicyResolution.scope,
+        automationPolicy: automationPolicyResolution.policy,
+        dispatchControl: dispatchPolicyState.effectiveControl,
+        dispatchControlSource: dispatchControlResolution.source,
+        credentialHealth: dispatchPolicyState.credentialHealth,
+        policyDrift: dispatchPolicyState.policyDrift,
+        strictModeRollout: dispatchPolicyState.strictModeRollout,
+        defaultEvidenceSources,
+        missingDefaultEvidenceSources,
+        alertRecommendations,
+        recentDispatches: recentAlertDispatches,
+      },
       gate,
       evaluation,
+      rolloutAllowed,
       evalCommands: [
         "npm run wae:eval:contracts",
         "npm run wae:eval:regression",
@@ -3091,7 +5548,493 @@ export const setTemplateCertificationRiskPolicy = mutation({
       policy: nextPolicy,
       globalPolicy: nextGlobalPolicy,
       familyPolicies: nextFamilyPolicies,
+      requirementAuthoring: buildTemplateCertificationRequirementAuthoringCoverage(nextPolicy),
     };
+  },
+});
+
+export const getTemplateCertificationAutomationPolicy = query({
+  args: {
+    sessionId: v.string(),
+    templateFamily: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    return await readTemplateCertificationAutomationPolicy(ctx, {
+      templateFamily: args.templateFamily,
+    });
+  },
+});
+
+export const setTemplateCertificationAutomationPolicy = mutation({
+  args: {
+    sessionId: v.string(),
+    templateFamily: v.optional(v.string()),
+    policy: v.object({
+      adoptionMode: v.optional(templateCertificationAutomationAdoptionModeValidator),
+      ownerUserIds: v.optional(v.array(v.string())),
+      ownerTeamIds: v.optional(v.array(v.string())),
+      alertChannels: v.optional(v.array(v.string())),
+      alertOnCertificationBlocked: v.optional(v.boolean()),
+      alertOnMissingDefaultEvidence: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const templateFamily = normalizeTemplateCertificationFamilyKey(args.templateFamily);
+    if (args.templateFamily && !templateFamily) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "templateFamily must contain at least one alphanumeric character.",
+      });
+    }
+    const current = await readTemplateCertificationAutomationPolicy(ctx, {
+      templateFamily,
+    });
+    const nextPolicy = mergeTemplateCertificationAutomationPolicy(current.policy, args.policy);
+    const nextGlobalPolicy = templateFamily ? current.globalPolicy : nextPolicy;
+    const nextFamilyPolicies =
+      templateFamily
+        ? {
+            ...current.familyPolicies,
+            [templateFamily]: nextPolicy,
+          }
+        : current.familyPolicies;
+    const now = Date.now();
+    const settingsValue = {
+      contractVersion: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTINGS_CONTRACT_VERSION,
+      globalPolicy: nextGlobalPolicy,
+      familyPolicies: nextFamilyPolicies,
+    } satisfies TemplateCertificationAutomationPolicySettings;
+    const dbAny = ctx.db as any;
+    const settingRows = await dbAny
+      .query("platformSettings")
+      .withIndex(
+        "by_key",
+        (q: any) => q.eq("key", TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_KEY),
+      )
+      .collect();
+    const setting = settingRows[0] ?? null;
+    if (setting) {
+      await dbAny.patch(setting._id, {
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        updatedAt: now,
+      });
+    } else {
+      await dbAny.insert("platformSettings", {
+        key: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_KEY,
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_AUTOMATION_POLICY_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return {
+      success: true,
+      source: "platform_setting" as const,
+      scope: templateFamily ? ("family" as const) : ("global" as const),
+      updatedAt: now,
+      ...(templateFamily ? { templateFamily } : {}),
+      policy: nextPolicy,
+      globalPolicy: nextGlobalPolicy,
+      familyPolicies: nextFamilyPolicies,
+    };
+  },
+});
+
+export const getTemplateCertificationAlertDispatchControl = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    const control = await readTemplateCertificationAlertDispatchControl(ctx);
+    const riskPolicy = await readTemplateCertificationRiskPolicy(ctx);
+    const policyState = buildTemplateCertificationAlertPolicyState({
+      control: control.policy,
+      requirementAuthoring: riskPolicy.requirementAuthoring,
+    });
+    return {
+      ...control,
+      effectivePolicy: policyState.effectiveControl,
+      credentialHealth: policyState.credentialHealth,
+      policyDrift: policyState.policyDrift,
+      strictModeRollout: policyState.strictModeRollout,
+    };
+  },
+});
+
+export const setTemplateCertificationAlertDispatchControl = mutation({
+  args: {
+    sessionId: v.string(),
+    policy: v.object({
+      maxAttempts: v.optional(v.number()),
+      retryDelayMs: v.optional(v.number()),
+      channels: v.optional(
+        v.object({
+          slack: v.optional(v.object({
+            enabled: v.optional(v.boolean()),
+            target: v.optional(v.string()),
+          })),
+          pagerduty: v.optional(v.object({
+            enabled: v.optional(v.boolean()),
+            target: v.optional(v.string()),
+          })),
+          email: v.optional(v.object({
+            enabled: v.optional(v.boolean()),
+            target: v.optional(v.string()),
+          })),
+        }),
+      ),
+      throttle: v.optional(
+        v.object({
+          slack: v.optional(v.object({
+            windowMs: v.optional(v.number()),
+            maxDispatches: v.optional(v.number()),
+          })),
+          pagerduty: v.optional(v.object({
+            windowMs: v.optional(v.number()),
+            maxDispatches: v.optional(v.number()),
+          })),
+          email: v.optional(v.object({
+            windowMs: v.optional(v.number()),
+            maxDispatches: v.optional(v.number()),
+          })),
+        }),
+      ),
+      credentialGovernance: v.optional(
+        v.object({
+          slack: v.optional(v.object({
+            requireDedicatedCredentials: v.optional(v.boolean()),
+            allowInlineTargetCredentials: v.optional(v.boolean()),
+            runbookUrl: v.optional(v.string()),
+          })),
+          pagerduty: v.optional(v.object({
+            requireDedicatedCredentials: v.optional(v.boolean()),
+            allowInlineTargetCredentials: v.optional(v.boolean()),
+            runbookUrl: v.optional(v.string()),
+          })),
+          email: v.optional(v.object({
+            requireDedicatedCredentials: v.optional(v.boolean()),
+            allowInlineTargetCredentials: v.optional(v.boolean()),
+            runbookUrl: v.optional(v.string()),
+          })),
+        }),
+      ),
+      strictMode: v.optional(
+        v.object({
+          enabled: v.optional(v.boolean()),
+          rolloutMode: v.optional(templateCertificationAlertStrictModeRolloutModeValidator),
+          guardrailMode: v.optional(templateCertificationAlertStrictModeGuardrailModeValidator),
+          notifyOnPolicyDrift: v.optional(v.boolean()),
+        }),
+      ),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const current = await readTemplateCertificationAlertDispatchControl(ctx);
+    const nextPolicy = mergeTemplateCertificationAlertDispatchControl(
+      current.policy,
+      args.policy,
+    );
+    const riskPolicy = await readTemplateCertificationRiskPolicy(ctx);
+    const policyState = buildTemplateCertificationAlertPolicyState({
+      control: nextPolicy,
+      requirementAuthoring: riskPolicy.requirementAuthoring,
+    });
+    const persistedPolicy = policyState.effectiveControl;
+    const now = Date.now();
+    const settingsValue = {
+      contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTINGS_CONTRACT_VERSION,
+      policy: persistedPolicy,
+    } satisfies TemplateCertificationAlertDispatchControlSettings;
+    const dbAny = ctx.db as any;
+    const settingRows = await dbAny
+      .query("platformSettings")
+      .withIndex(
+        "by_key",
+        (q: any) => q.eq("key", TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_KEY),
+      )
+      .collect();
+    const setting = settingRows[0] ?? null;
+    if (setting) {
+      await dbAny.patch(setting._id, {
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        updatedAt: now,
+      });
+    } else {
+      await dbAny.insert("platformSettings", {
+        key: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_KEY,
+        value: settingsValue,
+        description: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTROL_SETTING_DESCRIPTION,
+        updatedBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    return {
+      success: true,
+      source: "platform_setting" as const,
+      updatedAt: now,
+      policy: persistedPolicy,
+      effectivePolicy: policyState.effectiveControl,
+      credentialHealth: policyState.credentialHealth,
+      policyDrift: policyState.policyDrift,
+      strictModeRollout: policyState.strictModeRollout,
+    };
+  },
+});
+
+export const processTemplateCertificationAlertDispatchQueueInternal = internalMutation({
+  args: {
+    templateVersionId: v.id("objects"),
+    limit: v.optional(v.number()),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await processTemplateCertificationAlertDispatchQueue({
+      ctx,
+      templateVersionId: args.templateVersionId,
+      limit: normalizeBoundedInteger({
+        value: args.limit,
+        fallback: 25,
+        min: 1,
+        max: 100,
+      }),
+      now: normalizeFiniteNumber(args.now) ?? Date.now(),
+    });
+  },
+});
+
+export const processTemplateCertificationAlertDispatchQueueSweep = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    perTemplateLimit: v.optional(v.number()),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = normalizeFiniteNumber(args.now) ?? Date.now();
+    const templateLimit = normalizeBoundedInteger({
+      value: args.limit,
+      fallback: 10,
+      min: 1,
+      max: 100,
+    });
+    const perTemplateLimit = normalizeBoundedInteger({
+      value: args.perTemplateLimit,
+      fallback: 25,
+      min: 1,
+      max: 100,
+    });
+    const dbAny = ctx.db as any;
+    const actions = (await dbAny
+      .query("objectActions")
+      .collect()) as Array<{
+      objectId?: Id<"objects">;
+      actionType?: unknown;
+      actionData?: unknown;
+    }>;
+    const pendingTemplateVersionIds = Array.from(
+      new Set(
+        actions
+          .filter((row) =>
+            normalizeOptionalString(row.actionType) === TEMPLATE_CERTIFICATION_ALERT_DISPATCH_ACTION_TYPE)
+          .map((row) => ({
+            templateVersionId: row.objectId,
+            record: parseTemplateCertificationAlertDispatchRecord(row.actionData),
+          }))
+          .filter(
+            (row): row is { templateVersionId: Id<"objects">; record: TemplateCertificationAlertDispatchRecord } =>
+              !!row.templateVersionId
+              && row.record !== null
+              && shouldTemplateCertificationAlertDispatchBeProcessed(row.record)
+              && resolveTemplateCertificationAlertDispatchNextAttemptAt(row.record) <= now,
+          )
+          .map((row) => String(row.templateVersionId)),
+      ),
+    )
+      .sort((left, right) => left.localeCompare(right))
+      .slice(0, templateLimit)
+      .map((id) => id as Id<"objects">);
+
+    const runs: Array<Awaited<ReturnType<typeof processTemplateCertificationAlertDispatchQueue>>> = [];
+    for (const templateVersionId of pendingTemplateVersionIds) {
+      const run = await processTemplateCertificationAlertDispatchQueue({
+        ctx,
+        templateVersionId,
+        limit: perTemplateLimit,
+        now,
+      });
+      runs.push(run);
+    }
+
+    return {
+      processedTemplateVersions: runs.length,
+      runs,
+    };
+  },
+});
+
+export const processTemplateCertificationAlertDispatchQueueNow = mutation({
+  args: {
+    sessionId: v.string(),
+    templateVersionId: v.id("objects"),
+    limit: v.optional(v.number()),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireSuperAdminSession(ctx, args.sessionId);
+    return await processTemplateCertificationAlertDispatchQueue({
+      ctx,
+      templateVersionId: args.templateVersionId,
+      limit: normalizeBoundedInteger({
+        value: args.limit,
+        fallback: 25,
+        min: 1,
+        max: 100,
+      }),
+      now: normalizeFiniteNumber(args.now) ?? Date.now(),
+    });
+  },
+});
+
+export const acknowledgeTemplateCertificationAlertDispatch = mutation({
+  args: {
+    sessionId: v.string(),
+    templateVersionId: v.id("objects"),
+    dedupeKey: v.string(),
+    acknowledgementNote: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const dedupeKey = normalizeOptionalString(args.dedupeKey);
+    if (!dedupeKey) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "dedupeKey is required.",
+      });
+    }
+    const entries = await getTemplateCertificationAlertDispatchEntries(ctx, args.templateVersionId);
+    const match = entries
+      .filter((entry) => entry.record.dedupeKey === dedupeKey)
+      .sort(sortTemplateCertificationAlertDispatchEntriesDesc)[0];
+    if (!match) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "No dispatch record found for dedupeKey on this template version.",
+      });
+    }
+    const now = Date.now();
+    const note = normalizeOptionalString(args.acknowledgementNote);
+    const acknowledgedRecord: TemplateCertificationAlertDispatchRecord = {
+      ...match.record,
+      deliveryStatus: "acknowledged",
+      workerStatus: "acknowledged",
+      acknowledgedAt: now,
+      acknowledgedByUserId: String(userId),
+      ...(note ? { acknowledgementNote: note } : {}),
+    };
+    await ctx.db.patch(match.actionId as any, {
+      actionData: acknowledgedRecord as unknown as Record<string, unknown>,
+    });
+    if (match.organizationId) {
+      await ctx.db.insert("auditLogs", {
+        organizationId: match.organizationId,
+        userId,
+        action: `template_certification.alert.${match.record.channel}.acknowledged`,
+        resource: "template_version",
+        resourceId: String(args.templateVersionId),
+        success: true,
+        metadata: {
+          dedupeKey,
+          acknowledgedAt: now,
+          acknowledgementNote: note ?? null,
+        },
+        createdAt: now,
+      });
+    }
+    return acknowledgedRecord;
+  },
+});
+
+export const throttleTemplateCertificationAlertDispatch = mutation({
+  args: {
+    sessionId: v.string(),
+    templateVersionId: v.id("objects"),
+    dedupeKey: v.string(),
+    throttleMinutes: v.optional(v.number()),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
+    const dedupeKey = normalizeOptionalString(args.dedupeKey);
+    if (!dedupeKey) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: "dedupeKey is required.",
+      });
+    }
+    const throttleMinutes = normalizeBoundedInteger({
+      value: args.throttleMinutes,
+      fallback: 30,
+      min: 1,
+      max: 24 * 60,
+    });
+    const reason = normalizeOptionalString(args.reason) ?? "manual_throttle";
+    const now = Date.now();
+    const throttleUntil = now + throttleMinutes * 60 * 1000;
+    const entries = await getTemplateCertificationAlertDispatchEntries(ctx, args.templateVersionId);
+    const match = entries
+      .filter((entry) => entry.record.dedupeKey === dedupeKey)
+      .sort(sortTemplateCertificationAlertDispatchEntriesDesc)[0];
+    if (!match) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "No dispatch record found for dedupeKey on this template version.",
+      });
+    }
+    const throttledRecord: TemplateCertificationAlertDispatchRecord = {
+      ...match.record,
+      deliveryStatus: "throttled",
+      workerStatus: "throttled",
+      throttleUntil,
+      throttleReason: reason,
+      nextAttemptAt: throttleUntil,
+      lastErrorCode: "manual_throttle",
+      lastErrorMessage: `Dispatch manually throttled until ${throttleUntil}.`,
+    };
+    await ctx.db.patch(match.actionId as any, {
+      actionData: throttledRecord as unknown as Record<string, unknown>,
+    });
+    if (match.organizationId) {
+      await ctx.db.insert("auditLogs", {
+        organizationId: match.organizationId,
+        userId,
+        action: `template_certification.alert.${match.record.channel}.throttled`,
+        resource: "template_version",
+        resourceId: String(args.templateVersionId),
+        success: true,
+        metadata: {
+          dedupeKey,
+          reason,
+          throttleUntil,
+        },
+        createdAt: now,
+      });
+    }
+    await scheduleTemplateCertificationAlertDispatchWorker({
+      ctx,
+      templateVersionId: args.templateVersionId,
+      delayMs: Math.max(0, throttleUntil - now),
+      limit: 25,
+    });
+    return throttledRecord;
   },
 });
 
@@ -3105,6 +6048,7 @@ export const previewCurrentDefaultTemplateWaeRolloutGate = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireSuperAdminSession(ctx, args.sessionId);
     const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    const topologyCompatibility = template.topologyCompatibility;
     const runRecord = normalizeWaeRunRecord(args.waeRunRecord);
     const scenarioRecords = normalizeWaeScenarioRecords(args.waeScenarioRecords);
     if (!runRecord) {
@@ -3164,9 +6108,12 @@ export const previewCurrentDefaultTemplateWaeRolloutGate = mutation({
 
     return {
       template,
+      topologyCompatibility,
       artifact,
       certification,
-      canRecord: certification.status === "certified",
+      canRecord:
+        certification.status === "certified"
+        && topologyCompatibility.status === "compatible",
     };
   },
 });
@@ -4179,6 +7126,12 @@ export const recordTemplateCertificationEvidenceBundle = mutation({
       templateVersionId: args.templateVersionId,
       templateVersionTag: args.templateVersionTag ?? null,
     });
+    const automationPolicyResolution = await readTemplateCertificationAutomationPolicy(ctx, {
+      templateFamily: context.templateFamily ?? null,
+    });
+    const riskPolicyResolution = await readTemplateCertificationRiskPolicy(ctx, {
+      templateFamily: context.templateFamily ?? null,
+    });
     const providedEvidenceSources = (args.evidenceSources ?? [])
       .map((source) =>
         normalizeTemplateCertificationEvidenceSource({
@@ -4286,12 +7239,36 @@ export const recordTemplateCertificationEvidenceBundle = mutation({
       templateVersionId: args.templateVersionId,
       templateVersionTag: context.templateVersionTag,
     });
-    const summary = buildTemplateCertificationCoverageSummary({
+    const dispatchControlResolution = await readTemplateCertificationAlertDispatchControl(ctx);
+    const dispatchPolicyState = buildTemplateCertificationAlertPolicyState({
+      control: dispatchControlResolution.policy,
+      requirementAuthoring: riskPolicyResolution.requirementAuthoring,
+    });
+    const summaryBase = buildTemplateCertificationCoverageSummary({
       artifact,
+      requirementAuthoring: riskPolicyResolution.requirementAuthoring,
+      templateFamily: context.templateFamily,
+      automationPolicyScope: automationPolicyResolution.scope,
+      automationPolicy: automationPolicyResolution.policy,
+      dispatchStrictMode: dispatchPolicyState.effectiveControl.strictMode,
+      alertPolicyDrift: dispatchPolicyState.policyDrift,
+      strictModeRollout: dispatchPolicyState.strictModeRollout,
       defaultEvidenceSources,
       ingestedEvaluationOutputs,
       usedOutputSourceTypes: usedAutomationOutputSourceTypes,
     });
+    const alertDispatches = await recordTemplateCertificationAlertDispatches({
+      ctx,
+      organizationId: template.organizationId,
+      templateVersionId: args.templateVersionId,
+      performedBy: userId,
+      artifact,
+      recommendations: summaryBase.alertRecommendations,
+    });
+    const summary = {
+      ...summaryBase,
+      alertDispatches,
+    } satisfies TemplateCertificationEvidenceRecordingSummary;
     return {
       artifact,
       evaluation,
@@ -4489,6 +7466,14 @@ export const recordCurrentDefaultTemplateWaeRolloutGate = mutation({
   handler: async (ctx, args) => {
     await requireSuperAdminSession(ctx, args.sessionId);
     const template = await resolveCurrentDefaultTemplateWaeGateContext(ctx);
+    if (template.topologyCompatibility.status !== "compatible") {
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message:
+          "Current protected operator template is blocked for rollout because topology declaration is missing or incompatible.",
+        reasonCode: template.topologyCompatibility.reasonCode,
+      });
+    }
     const result = await (recordWaeRolloutGateDecision as any)._handler(ctx, {
       sessionId: args.sessionId,
       templateId: template.templateId,
@@ -4514,6 +7499,7 @@ export const recordCurrentDefaultTemplateWaeRolloutGate = mutation({
 
     return {
       template,
+      topologyCompatibility: template.topologyCompatibility,
       artifact: result.waeArtifact,
       certificationArtifact: result.certificationArtifact,
       certificationEvaluation,

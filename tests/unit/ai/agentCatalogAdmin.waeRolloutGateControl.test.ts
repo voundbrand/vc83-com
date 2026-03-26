@@ -4,6 +4,7 @@ import {
   getCurrentDefaultTemplateWaeRolloutGateStatus,
   previewCurrentDefaultTemplateWaeRolloutGate,
   recordCurrentDefaultTemplateWaeRolloutGate,
+  TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION,
 } from "../../../convex/ai/agentCatalogAdmin";
 import {
   WAE_EVAL_RUN_RECORD_CONTRACT_VERSION,
@@ -44,7 +45,13 @@ function seedSuperAdmin(db: FakeDb) {
   } as any);
 }
 
-function seedProtectedOperatorTemplate(db: FakeDb) {
+function seedProtectedOperatorTemplate(
+  db: FakeDb,
+  options?: {
+    includeTopology?: boolean;
+  },
+) {
+  const includeTopology = options?.includeTopology ?? true;
   db.seed("objects", {
     _id: TEMPLATE_ID,
     organizationId: PLATFORM_ORG_ID,
@@ -61,6 +68,12 @@ function seedProtectedOperatorTemplate(db: FakeDb) {
       templatePublishedVersionId: TEMPLATE_VERSION_ID,
       templatePublishedVersion: "template_v1",
       templateVersion: "template_v1",
+      ...(includeTopology
+        ? {
+            runtimeTopologyProfile: "multi_agent_dag",
+            runtimeTopologyAdapter: "multi_agent_dag_adapter_v1",
+          }
+        : {}),
     },
   } as any);
   db.seed("objects", {
@@ -76,6 +89,12 @@ function seedProtectedOperatorTemplate(db: FakeDb) {
       sourceTemplateId: TEMPLATE_ID,
       versionTag: "template_v1",
       lifecycleStatus: "published",
+      ...(includeTopology
+        ? {
+            runtimeTopologyProfile: "multi_agent_dag",
+            runtimeTopologyAdapter: "multi_agent_dag_adapter_v1",
+          }
+        : {}),
     },
   } as any);
 }
@@ -175,6 +194,10 @@ describe("agentCatalogAdmin current template WAE rollout gate controls", () => {
     expect(result.evaluation.allowed).toBe(false);
     expect(result.evaluation.reasonCode).toBe("wae_evidence_missing");
     expect(result.gate).toBeNull();
+    expect(result.topologyCompatibility.status).toBe("compatible");
+    expect(result.rolloutAllowed).toBe(false);
+    expect(result.alertOperations.automationPolicy.adoptionMode).toBe("shadow");
+    expect(result.alertOperations.recentDispatches).toEqual([]);
   });
 
   it("previews and records a passing WAE rollout gate for the current protected operator template", async () => {
@@ -198,6 +221,7 @@ describe("agentCatalogAdmin current template WAE rollout gate controls", () => {
 
     expect(preview.template.templateVersionTag).toBe("template_v1");
     expect(preview.artifact.status).toBe("pass");
+    expect(preview.topologyCompatibility.status).toBe("compatible");
     expect(preview.canRecord).toBe(true);
 
     const recorded = await (recordCurrentDefaultTemplateWaeRolloutGate as any)._handler(
@@ -211,6 +235,7 @@ describe("agentCatalogAdmin current template WAE rollout gate controls", () => {
 
     expect(recorded.artifact.status).toBe("pass");
     expect(recorded.evaluation.allowed).toBe(true);
+    expect(recorded.topologyCompatibility.status).toBe("compatible");
 
     const gateAction = db.rows("objectActions").find(
       (row) => row.actionType === "wae_rollout_gate.recorded",
@@ -218,5 +243,100 @@ describe("agentCatalogAdmin current template WAE rollout gate controls", () => {
     expect(gateAction?.objectId).toBe(TEMPLATE_VERSION_ID);
     expect(gateAction?.actionData?.templateId).toBe(TEMPLATE_ID);
     expect(gateAction?.actionData?.templateVersionTag).toBe("template_v1");
+  });
+
+  it("includes recent certification alert dispatch history in current template status", async () => {
+    const db = new FakeDb();
+    seedSuperAdmin(db);
+    seedProtectedOperatorTemplate(db);
+
+    db.seed("objectActions", {
+      _id: "objectActions_dispatch_1",
+      organizationId: PLATFORM_ORG_ID,
+      objectId: TEMPLATE_VERSION_ID,
+      actionType: "template_certification.alert_dispatch",
+      performedBy: SUPER_ADMIN_USER_ID,
+      performedAt: 1_763_000_200_000,
+      actionData: {
+        contractVersion: TEMPLATE_CERTIFICATION_ALERT_DISPATCH_CONTRACT_VERSION,
+        templateId: TEMPLATE_ID,
+        templateVersionId: TEMPLATE_VERSION_ID,
+        templateVersionTag: "template_v1",
+        dependencyDigest: "digest_template_v1",
+        recommendationCode: "certification_blocked",
+        recommendationSeverity: "critical",
+        recommendationSummary: "Certification blocked for template_v1.",
+        channel: "slack",
+        deliveryStatus: "queued",
+        dedupeKey: "dispatch_dedupe_1",
+        ownerUserIds: ["users_ops_owner"],
+        ownerTeamIds: ["team_ops"],
+        recordedAt: 1_763_000_200_000,
+        recordedByUserId: SUPER_ADMIN_USER_ID,
+      },
+    } as any);
+
+    const result = await (getCurrentDefaultTemplateWaeRolloutGateStatus as any)._handler(
+      createCtx(db),
+      { sessionId: SUPER_ADMIN_SESSION_ID },
+    );
+
+    expect(result.alertOperations.recentDispatches[0]).toMatchObject({
+      channel: "slack",
+      deliveryStatus: "queued",
+      recommendationCode: "certification_blocked",
+      ownerUserIds: ["users_ops_owner"],
+    });
+    expect(result.alertOperations.dispatchControl.maxAttempts).toBe(3);
+    expect(result.alertOperations.dispatchControl.channels.slack.enabled).toBe(true);
+    expect(result.alertOperations.dispatchControl.strictMode.enabled).toBe(false);
+    expect(result.alertOperations.dispatchControlSource).toBe("default");
+    expect(result.alertOperations.dispatchControl.credentialGovernance.slack.runbookUrl).toContain(
+      "TRANSPORT_CREDENTIAL_RUNBOOK.md#slack",
+    );
+    expect(result.alertOperations.credentialHealth.slack.ready).toBe(false);
+    expect(result.alertOperations.policyDrift.detected).toBe(false);
+    expect(result.alertOperations.strictModeRollout.enabled).toBe(false);
+    expect(result.requirementAuthoring.byTier.medium.operationalEvidenceSatisfied).toBe(true);
+  });
+
+  it("fails closed when topology declaration is missing on the protected operator template", async () => {
+    const db = new FakeDb();
+    seedSuperAdmin(db);
+    seedProtectedOperatorTemplate(db, { includeTopology: false });
+    const runRecord = makeWaeRunRecord();
+    const scenarioRecords = [
+      makeWaeScenarioRecord("Q-001"),
+      makeWaeScenarioRecord("Q-002"),
+    ];
+
+    const preview = await (previewCurrentDefaultTemplateWaeRolloutGate as any)._handler(
+      createCtx(db),
+      {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        waeRunRecord: runRecord,
+        waeScenarioRecords: scenarioRecords,
+      },
+    );
+
+    expect(preview.topologyCompatibility.status).toBe("blocked");
+    expect(preview.topologyCompatibility.reasonCode).toBe("topology_declaration_missing");
+    expect(preview.canRecord).toBe(false);
+
+    await expect(
+      (recordCurrentDefaultTemplateWaeRolloutGate as any)._handler(
+        createCtx(db),
+        {
+          sessionId: SUPER_ADMIN_SESSION_ID,
+          waeRunRecord: runRecord,
+          waeScenarioRecords: scenarioRecords,
+        },
+      ),
+    ).rejects.toMatchObject({
+      data: expect.objectContaining({
+        code: "INVALID_STATE",
+        reasonCode: "topology_declaration_missing",
+      }),
+    });
   });
 });

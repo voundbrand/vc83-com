@@ -14,6 +14,8 @@ const { api } = require("../../../../convex/_generated/api") as { api: any };
 
 const DEFAULT_PROVIDER_ID = "frontend_oidc";
 const DEFAULT_PROVIDER_NAME = "Organization OIDC";
+const DEFAULT_EMAIL_VERIFIED_CLAIM = "email_verified";
+const DEFAULT_REQUIRE_VERIFIED_EMAIL = true;
 
 interface FrontendOidcSettingsProps {
   onBack: () => void;
@@ -34,6 +36,8 @@ interface FrontendOidcSettingsSnapshot {
   scope: string | null;
   subClaim: string | null;
   emailClaim: string | null;
+  emailVerifiedClaim: string | null;
+  requireVerifiedEmail: boolean;
   nameClaim: string | null;
 }
 
@@ -63,6 +67,12 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
   const [scope, setScope] = useState("openid profile email");
   const [subClaim, setSubClaim] = useState("sub");
   const [emailClaim, setEmailClaim] = useState("email");
+  const [emailVerifiedClaim, setEmailVerifiedClaim] = useState(
+    DEFAULT_EMAIL_VERIFIED_CLAIM
+  );
+  const [requireVerifiedEmail, setRequireVerifiedEmail] = useState(
+    DEFAULT_REQUIRE_VERIFIED_EMAIL
+  );
   const [nameClaim, setNameClaim] = useState("name");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -82,6 +92,10 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
     setScope(integration.scope || "openid profile email");
     setSubClaim(integration.subClaim || "sub");
     setEmailClaim(integration.emailClaim || "email");
+    setEmailVerifiedClaim(
+      integration.emailVerifiedClaim || DEFAULT_EMAIL_VERIFIED_CLAIM
+    );
+    setRequireVerifiedEmail(integration.requireVerifiedEmail !== false);
     setNameClaim(integration.nameClaim || "name");
   }, [integration]);
 
@@ -145,6 +159,8 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
         scope,
         subClaim,
         emailClaim,
+        emailVerifiedClaim,
+        requireVerifiedEmail,
         nameClaim,
       });
       setClientSecret("");
@@ -463,6 +479,31 @@ export function FrontendOidcSettings({ onBack }: FrontendOidcSettingsProps) {
                     color: "var(--window-document-text)",
                   }}
                 />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                  Email Verified Claim
+                </span>
+                <input
+                  value={emailVerifiedClaim}
+                  onChange={(event) => setEmailVerifiedClaim(event.target.value)}
+                  className="border-2 px-3 py-2 text-sm"
+                  style={{
+                    borderColor: "var(--window-document-border)",
+                    background: "var(--window-document-bg)",
+                    color: "var(--window-document-text)",
+                  }}
+                />
+              </label>
+              <label className="flex items-center gap-2 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={requireVerifiedEmail}
+                  onChange={(event) => setRequireVerifiedEmail(event.target.checked)}
+                />
+                <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>
+                  Require Verified Email
+                </span>
               </label>
               <label className="flex flex-col gap-1 md:col-span-2">
                 <span className="text-xs font-bold" style={{ color: "var(--window-document-text)" }}>

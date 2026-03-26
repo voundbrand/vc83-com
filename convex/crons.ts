@@ -193,6 +193,25 @@ crons.daily(
 );
 
 /**
+ * Cleanup frontend OIDC one-time transaction states.
+ *
+ * Runs hourly to:
+ * 1. Mark `active` state rows as `expired` once TTL passes
+ * 2. Delete `used` / `expired` rows beyond retention window
+ */
+crons.interval(
+  "Cleanup frontend OIDC state rows",
+  { minutes: 60 },
+  generatedApi.internal.frontendOidc.cleanupExpiredFrontendOidcStateInternal,
+  {
+    limit: 1000,
+    batchSize: 250,
+    maxBatches: 8,
+    retentionMs: 24 * 60 * 60 * 1000,
+  }
+);
+
+/**
  * Sync External Calendar Events
  *
  * Runs every 15 minutes to pull events from connected Google and Microsoft
@@ -263,6 +282,22 @@ crons.interval(
 );
 
 /**
+ * Process queued template certification alert dispatches
+ *
+ * Runs every 2 minutes to execute queued Slack/PagerDuty/Email certification
+ * alert dispatches with deterministic ordering, retry bounds, and throttle policy.
+ */
+crons.interval(
+  "Process template certification alert dispatch queue",
+  { minutes: 2 },
+  generatedApi.internal.ai.agentCatalogAdmin.processTemplateCertificationAlertDispatchQueueSweep,
+  {
+    limit: 15,
+    perTemplateLimit: 25,
+  }
+);
+
+/**
  * Process Pending Appointment Outreach Missions
  *
  * Runs every 10 minutes to advance deterministic outreach ladders for
@@ -278,6 +313,57 @@ crons.interval(
   "Process pending appointment outreach missions",
   { minutes: 10 },
   generatedApi.internal.channels.router.processPendingAppointmentOutreachMissions
+);
+
+/**
+ * Process AVV Outreach SLA Cadence
+ *
+ * Runs every 30 minutes to raise deterministic reminder/escalation alerts
+ * for provider non-response breaches in the AVV workflow.
+ *
+ * What it does:
+ * 1. Scans AVV outreach dossiers in deterministic order
+ * 2. Raises reminder alerts when reminder SLA windows are breached
+ * 3. Escalates dossiers when escalation SLA thresholds are breached
+ * 4. Emits immutable object actions for every reminder/escalation mutation
+ */
+crons.interval(
+  "Process AVV outreach SLA cadence sweep",
+  { minutes: 30 },
+  generatedApi.internal.complianceOutreachAgent.processAvvOutreachSlaCadenceSweepInternal,
+  {
+    limit: 500,
+  }
+);
+
+/**
+ * Refresh transfer workflow revalidation warnings
+ *
+ * Runs hourly to keep transfer evidence revalidation warnings current and
+ * route fail-closed warning metadata into downstream compliance inbox planning.
+ */
+crons.interval(
+  "Refresh transfer workflow revalidation warnings",
+  { minutes: 60 },
+  generatedApi.internal.complianceTransferWorkflow.refreshTransferWorkflowRevalidationWarningsInternal,
+  {
+    limit: 500,
+  }
+);
+
+/**
+ * Refresh security workflow revalidation warnings
+ *
+ * Runs hourly to keep security evidence revalidation warnings current and
+ * route fail-closed warning metadata into downstream compliance inbox planning.
+ */
+crons.interval(
+  "Refresh security workflow revalidation warnings",
+  { minutes: 60 },
+  generatedApi.internal.complianceSecurityWorkflow.refreshSecurityWorkflowRevalidationWarningsInternal,
+  {
+    limit: 500,
+  }
 );
 
 /**

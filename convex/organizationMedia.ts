@@ -11,13 +11,31 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { Id } from "./_generated/dataModel";
-import { requireAuthenticatedUser, requirePermission, checkPermission } from "./rbacHelpers";
+import {
+  requireAuthenticatedUser,
+  requirePermission,
+  checkPermission,
+  requireOrgOwnerOrSuperAdmin,
+} from "./rbacHelpers";
 import { getLicenseInternal } from "./licensing/helpers";
 import {
   getUtf8ByteLength,
   rankSemanticRetrievalChunks,
   tokenizeSemanticRetrievalText,
 } from "./ai/memoryComposer";
+import {
+  KNOWLEDGE_CONTEXT_CONFIDENCE_CONTRACT_VERSION,
+  KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION,
+  KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION,
+  type KnowledgeContextConfidenceBand,
+  type KnowledgeContextConfidenceContract,
+  type KnowledgeContextProvenanceContract,
+  type KnowledgeContextProvenanceSourceKind,
+  type KnowledgeContextRetrievalMethod,
+  type KnowledgeContextRetrievalSurface,
+  type KnowledgeContextScope,
+  type KnowledgeContextScopeContract,
+} from "./schemas/aiSchemas";
 
 /**
  * Get storage quota from licensing system (in bytes)
@@ -75,6 +93,65 @@ async function calculateStorageUsage(
   };
 }
 
+const SHA256_PATTERN = /^[a-fA-F0-9]{64}$/;
+
+function normalizeSha256Checksum(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!SHA256_PATTERN.test(normalized)) {
+    throw new Error("checksumSha256 must be a valid 64-character hex digest.");
+  }
+  return normalized;
+}
+
+export async function registerComplianceEvidenceMedia(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    uploadedBy: Id<"users">;
+    storageId: Id<"_storage">;
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    checksumSha256: string;
+    tags?: string[];
+    description?: string;
+  },
+): Promise<{
+  mediaId: Id<"organizationMedia">;
+  uploadedAt: number;
+  checksumSha256: string;
+  storagePointer: string;
+}> {
+  const checksumSha256 = normalizeSha256Checksum(args.checksumSha256);
+  const uploadedAt = Date.now();
+
+  const mediaId = await ctx.db.insert("organizationMedia", {
+    organizationId: args.organizationId,
+    uploadedBy: args.uploadedBy,
+    storageId: args.storageId,
+    filename: args.filename,
+    mimeType: args.mimeType,
+    sizeBytes: args.sizeBytes,
+    category: "compliance",
+    tags: args.tags,
+    description: args.description,
+    usageCount: 0,
+    createdAt: uploadedAt,
+    updatedAt: uploadedAt,
+    knowledgeIndexStatus: "not_indexed",
+    knowledgeIndexVersion: KNOWLEDGE_INDEX_VERSION,
+    knowledgeChunkCount: 0,
+    knowledgeIndexedAt: uploadedAt,
+  });
+
+  return {
+    mediaId,
+    uploadedAt,
+    checksumSha256,
+    storagePointer: `convex_storage:${String(args.storageId)}`,
+  };
+}
+
 const KNOWLEDGE_INDEX_VERSION = 1;
 const KNOWLEDGE_CHUNK_TARGET_CHARS = 1200;
 const KNOWLEDGE_CHUNK_MAX_CHARS = 1600;
@@ -104,25 +181,128 @@ export interface KnowledgeItemBridgeDocument {
   updatedAt: number;
 }
 
-export interface KnowledgeRetrievalScopeContract {
-  contractVersion: "aoh_knowledge_retrieval_scope_v1";
-  scopeType: "org";
+export interface KnowledgeRetrievalScopeContract extends KnowledgeContextScopeContract {
+  scopeType: KnowledgeContextScope;
   scopeOrganizationId: Id<"organizations">;
+  scopeProjectId?: Id<"objects">;
   enforcedBy: "organizationKnowledgeChunks.by_organization" | "organizationMedia.by_organization";
 }
 
 export function buildKnowledgeRetrievalScopeContract(args: {
   organizationId: Id<"organizations">;
+  projectId?: Id<"objects">;
+  scope?: KnowledgeContextScope;
   surface: "semantic_chunks" | "knowledge_base_docs";
 }): KnowledgeRetrievalScopeContract {
+  const scope = args.scope ?? "org";
+  if (scope === "platform") {
+    throw new Error("Platform-scoped retrieval is not supported by organization media indexes.");
+  }
+  if (scope === "project" && !args.projectId) {
+    throw new Error("Project-scoped retrieval requires projectId.");
+  }
+
+  const scopeKey =
+    scope === "project" && args.projectId
+      ? `project:${String(args.projectId)}`
+      : `org:${String(args.organizationId)}`;
+
   return {
-    contractVersion: "aoh_knowledge_retrieval_scope_v1",
-    scopeType: "org",
+    contractVersion: KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION,
+    scope,
+    scopeType: scope,
+    scopeKey,
+    organizationId: String(args.organizationId),
+    projectId:
+      scope === "project" && args.projectId
+        ? String(args.projectId)
+        : undefined,
     scopeOrganizationId: args.organizationId,
+    scopeProjectId: scope === "project" ? args.projectId : undefined,
+    retrievalSurface: args.surface as KnowledgeContextRetrievalSurface,
     enforcedBy:
       args.surface === "semantic_chunks"
         ? "organizationKnowledgeChunks.by_organization"
         : "organizationMedia.by_organization",
+  };
+}
+
+const KNOWLEDGE_BASE_DOC_SCAN_DEFAULT_CONFIDENCE = 0.58;
+
+function clampKnowledgeConfidenceScore(value: number): number {
+  if (!Number.isFinite(value)) {
+    return KNOWLEDGE_BASE_DOC_SCAN_DEFAULT_CONFIDENCE;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function resolveKnowledgeContextConfidenceBand(
+  score: number
+): KnowledgeContextConfidenceBand {
+  if (score >= 0.75) {
+    return "high";
+  }
+  if (score >= 0.5) {
+    return "medium";
+  }
+  return "low";
+}
+
+function buildKnowledgeContextConfidenceContract(args: {
+  score?: number;
+  band?: "high" | "medium" | "low";
+  semanticScore?: number;
+  matchedTokens?: string[];
+}): KnowledgeContextConfidenceContract {
+  const normalizedScore = clampKnowledgeConfidenceScore(
+    typeof args.score === "number"
+      ? args.score
+      : typeof args.semanticScore === "number"
+        ? args.semanticScore
+        : KNOWLEDGE_BASE_DOC_SCAN_DEFAULT_CONFIDENCE
+  );
+
+  const normalizedBand =
+    args.band === "high" || args.band === "medium" || args.band === "low"
+      ? args.band
+      : resolveKnowledgeContextConfidenceBand(normalizedScore);
+
+  return {
+    contractVersion: KNOWLEDGE_CONTEXT_CONFIDENCE_CONTRACT_VERSION,
+    score: Number(normalizedScore.toFixed(4)),
+    band: normalizedBand,
+    semanticScore:
+      typeof args.semanticScore === "number"
+        ? Number(clampKnowledgeConfidenceScore(args.semanticScore).toFixed(4))
+        : undefined,
+    matchedTokens: Array.isArray(args.matchedTokens)
+      ? args.matchedTokens
+          .filter((token): token is string => typeof token === "string")
+          .slice(0, 24)
+      : undefined,
+  };
+}
+
+function buildKnowledgeContextProvenanceContract(args: {
+  sourceKind: KnowledgeContextProvenanceSourceKind;
+  sourceId: string;
+  sourceMediaId?: string;
+  sourceUpdatedAt: number;
+  retrievalMethod: KnowledgeContextRetrievalMethod;
+  retrievalSurface: KnowledgeContextRetrievalSurface;
+  indexVersion?: number;
+  indexedAt?: number;
+}): KnowledgeContextProvenanceContract {
+  return {
+    contractVersion: KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION,
+    sourceKind: args.sourceKind,
+    sourceId: args.sourceId,
+    sourceMediaId: args.sourceMediaId,
+    sourceUpdatedAt: args.sourceUpdatedAt,
+    retrievalMethod: args.retrievalMethod,
+    retrievalSurface: args.retrievalSurface,
+    indexVersion: args.indexVersion,
+    indexedAt: args.indexedAt,
   };
 }
 
@@ -517,6 +697,52 @@ export const saveMedia = mutation({
 
     return {
       mediaId,
+      url,
+    };
+  },
+});
+
+export const saveComplianceEvidenceMedia = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    mimeType: v.string(),
+    sizeBytes: v.number(),
+    checksumSha256: v.string(),
+    tags: v.optional(v.array(v.string())),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+
+    await requirePermission(ctx, userId, "media_library.upload", {
+      organizationId: args.organizationId,
+    });
+
+    await requireOrgOwnerOrSuperAdmin(
+      ctx,
+      userId,
+      args.organizationId,
+      "Only organization owners or super admins can upload compliance evidence files.",
+    );
+
+    const saved = await registerComplianceEvidenceMedia(ctx, {
+      organizationId: args.organizationId,
+      uploadedBy: userId,
+      storageId: args.storageId,
+      filename: args.filename,
+      mimeType: args.mimeType,
+      sizeBytes: args.sizeBytes,
+      checksumSha256: args.checksumSha256,
+      tags: args.tags,
+      description: args.description,
+    });
+
+    const url = await ctx.storage.getUrl(args.storageId);
+    return {
+      ...saved,
       url,
     };
   },
@@ -1432,6 +1658,10 @@ async function listKnowledgeItemBridgeDocuments(
 export const searchKnowledgeChunksInternal = internalQuery({
   args: {
     organizationId: v.id("organizations"),
+    scope: v.optional(
+      v.union(v.literal("platform"), v.literal("org"), v.literal("project"))
+    ),
+    projectId: v.optional(v.id("objects")),
     queryText: v.string(),
     tags: v.optional(v.array(v.string())),
     mediaIds: v.optional(v.array(v.id("organizationMedia"))),
@@ -1452,6 +1682,8 @@ export const searchKnowledgeChunksInternal = internalQuery({
 
     const scopeContract = buildKnowledgeRetrievalScopeContract({
       organizationId: args.organizationId,
+      projectId: args.projectId,
+      scope: args.scope,
       surface: "semantic_chunks",
     });
     // Tenant-safe candidate prefilter from org-scoped index.
@@ -1477,19 +1709,50 @@ export const searchKnowledgeChunksInternal = internalQuery({
       .filter((doc) => matchesNormalizedTagSet(normalizedTagSet, doc.tags))
       .slice(0, candidateLimit);
 
+    const provenanceByChunkId = new Map<
+      string,
+      {
+        sourceKind: KnowledgeContextProvenanceSourceKind;
+        sourceId: string;
+        sourceMediaId?: string;
+        sourceUpdatedAt: number;
+        indexVersion?: number;
+        indexedAt?: number;
+      }
+    >();
+
     const mergedCandidates = [
-      ...filteredChunkCandidates.map((chunk) => ({
-        chunkId: chunk.chunkId,
-        mediaId: chunk.mediaId,
-        chunkOrdinal: chunk.chunkOrdinal,
-        chunkText: chunk.chunkText,
-        sourceFilename: chunk.sourceFilename,
-        sourceDescription: chunk.sourceDescription,
-        sourceTags: chunk.sourceTags ?? [],
-        sourceUpdatedAt: chunk.sourceUpdatedAt,
-      })),
+      ...filteredChunkCandidates.map((chunk) => {
+        provenanceByChunkId.set(chunk.chunkId, {
+          sourceKind: "organization_knowledge_chunk",
+          sourceId: chunk.chunkId,
+          sourceMediaId: String(chunk.mediaId),
+          sourceUpdatedAt: chunk.sourceUpdatedAt,
+          indexVersion: chunk.indexVersion,
+          indexedAt: chunk.indexedAt,
+        });
+        return {
+          chunkId: chunk.chunkId,
+          mediaId: chunk.mediaId,
+          chunkOrdinal: chunk.chunkOrdinal,
+          chunkText: chunk.chunkText,
+          sourceFilename: chunk.sourceFilename,
+          sourceDescription: chunk.sourceDescription,
+          sourceTags: chunk.sourceTags ?? [],
+          sourceUpdatedAt: chunk.sourceUpdatedAt,
+        };
+      }),
       ...filteredBridgeDocs.map((doc) => ({
-        chunkId: `knowledge_item:${doc.knowledgeItemId}`,
+        ...(() => {
+          const bridgeChunkId = `knowledge_item:${doc.knowledgeItemId}`;
+          provenanceByChunkId.set(bridgeChunkId, {
+            sourceKind: "knowledge_item_bridge",
+            sourceId: doc.knowledgeItemId,
+            sourceMediaId: doc.sourceMediaId,
+            sourceUpdatedAt: doc.updatedAt,
+          });
+          return { chunkId: bridgeChunkId };
+        })(),
         mediaId: doc.sourceMediaId ?? doc.knowledgeItemId,
         chunkOrdinal: 0,
         chunkText: doc.content,
@@ -1508,24 +1771,53 @@ export const searchKnowledgeChunksInternal = internalQuery({
     });
 
     return {
+      knowledgeContextScope: scopeContract,
       queryTokenCount: tokenizeSemanticRetrievalText(args.queryText).length,
       totalCandidates: candidateChunks.length + bridgeDocs.length,
       filteredCandidates: filteredChunkCandidates.length + filteredBridgeDocs.length,
       returned: rankedChunks.length,
-      chunks: rankedChunks.map((chunk) => ({
-        chunkId: chunk.chunkId,
-        mediaId: chunk.mediaId,
-        chunkOrdinal: chunk.chunkOrdinal,
-        chunkText: chunk.chunkText,
-        sourceFilename: chunk.sourceFilename,
-        sourceDescription: chunk.sourceDescription,
-        sourceTags: chunk.sourceTags ?? [],
-        sourceUpdatedAt: chunk.sourceUpdatedAt,
-        semanticScore: chunk.semanticScore,
-        confidence: chunk.confidence,
-        confidenceBand: chunk.confidenceBand,
-        matchedTokens: chunk.matchedTokens,
-      })),
+      chunks: rankedChunks.map((chunk) => {
+        const provenance = provenanceByChunkId.get(chunk.chunkId);
+        const sourceUpdatedAt =
+          typeof provenance?.sourceUpdatedAt === "number"
+            ? provenance.sourceUpdatedAt
+            : typeof chunk.sourceUpdatedAt === "number"
+              ? chunk.sourceUpdatedAt
+              : Date.now();
+
+        return {
+          chunkId: chunk.chunkId,
+          mediaId: chunk.mediaId,
+          chunkOrdinal: chunk.chunkOrdinal,
+          chunkText: chunk.chunkText,
+          sourceFilename: chunk.sourceFilename,
+          sourceDescription: chunk.sourceDescription,
+          sourceTags: chunk.sourceTags ?? [],
+          sourceUpdatedAt,
+          semanticScore: chunk.semanticScore,
+          confidence: chunk.confidence,
+          confidenceBand: chunk.confidenceBand,
+          matchedTokens: chunk.matchedTokens,
+          knowledgeContextProvenance: buildKnowledgeContextProvenanceContract({
+            sourceKind: provenance?.sourceKind ?? "organization_knowledge_chunk",
+            sourceId: provenance?.sourceId ?? chunk.chunkId,
+            sourceMediaId:
+              provenance?.sourceMediaId
+              ?? (chunk.mediaId ? String(chunk.mediaId) : undefined),
+            sourceUpdatedAt,
+            retrievalMethod: "semantic_chunk_index",
+            retrievalSurface: scopeContract.retrievalSurface,
+            indexVersion: provenance?.indexVersion,
+            indexedAt: provenance?.indexedAt,
+          }),
+          knowledgeContextConfidence: buildKnowledgeContextConfidenceContract({
+            score: chunk.confidence,
+            band: chunk.confidenceBand,
+            semanticScore: chunk.semanticScore,
+            matchedTokens: chunk.matchedTokens,
+          }),
+        };
+      }),
     };
   },
 });
@@ -1537,10 +1829,14 @@ export const searchKnowledgeChunksInternal = internalQuery({
 export const getKnowledgeBaseDocsInternal = internalQuery({
   args: {
     organizationId: v.id("organizations"),
+    scope: v.optional(
+      v.union(v.literal("platform"), v.literal("org"), v.literal("project"))
+    ),
+    projectId: v.optional(v.id("objects")),
     tags: v.optional(v.array(v.string())),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { organizationId, tags, limit }) => {
+  handler: async (ctx, { organizationId, scope, projectId, tags, limit }) => {
     const normalizedTagSet = new Set(
       (tags || [])
         .map((tag) => tag.trim().toLowerCase())
@@ -1550,6 +1846,8 @@ export const getKnowledgeBaseDocsInternal = internalQuery({
 
     const scopeContract = buildKnowledgeRetrievalScopeContract({
       organizationId,
+      projectId,
+      scope,
       surface: "knowledge_base_docs",
     });
     const docs = await ctx.db
@@ -1571,6 +1869,26 @@ export const getKnowledgeBaseDocsInternal = internalQuery({
         sizeBytes: doc.sizeBytes,
         source: "layercake_document" as const,
         updatedAt: doc.updatedAt,
+        knowledgeContextScope: scopeContract,
+        knowledgeContextProvenance: buildKnowledgeContextProvenanceContract({
+          sourceKind: "layercake_document",
+          sourceId: String(doc._id),
+          sourceMediaId: String(doc._id),
+          sourceUpdatedAt: doc.updatedAt,
+          retrievalMethod: "knowledge_base_docs_scan",
+          retrievalSurface: scopeContract.retrievalSurface,
+          indexVersion:
+            typeof doc.knowledgeIndexVersion === "number"
+              ? doc.knowledgeIndexVersion
+              : undefined,
+          indexedAt:
+            typeof doc.knowledgeIndexedAt === "number"
+              ? doc.knowledgeIndexedAt
+              : undefined,
+        }),
+        knowledgeContextConfidence: buildKnowledgeContextConfidenceContract({
+          score: KNOWLEDGE_BASE_DOC_SCAN_DEFAULT_CONFIDENCE,
+        }),
       }));
 
     const bridgeDocs = await listKnowledgeItemBridgeDocuments(ctx, organizationId);
@@ -1578,6 +1896,7 @@ export const getKnowledgeBaseDocsInternal = internalQuery({
       .filter((doc) => matchesNormalizedTagSet(normalizedTagSet, doc.tags))
       .map((doc) => ({
         mediaId: doc.sourceMediaId ?? doc.knowledgeItemId,
+        knowledgeItemId: doc.knowledgeItemId,
         filename: doc.filename,
         description: doc.description,
         content: doc.content,
@@ -1585,6 +1904,18 @@ export const getKnowledgeBaseDocsInternal = internalQuery({
         sizeBytes: getUtf8ByteLength(doc.content),
         source: doc.source,
         updatedAt: doc.updatedAt,
+        knowledgeContextScope: scopeContract,
+        knowledgeContextProvenance: buildKnowledgeContextProvenanceContract({
+          sourceKind: "knowledge_item_bridge",
+          sourceId: doc.knowledgeItemId,
+          sourceMediaId: doc.sourceMediaId,
+          sourceUpdatedAt: doc.updatedAt,
+          retrievalMethod: "knowledge_base_docs_scan",
+          retrievalSurface: scopeContract.retrievalSurface,
+        }),
+        knowledgeContextConfidence: buildKnowledgeContextConfidenceContract({
+          score: KNOWLEDGE_BASE_DOC_SCAN_DEFAULT_CONFIDENCE,
+        }),
       }));
 
     return [...layercakeDocs, ...filteredBridgeDocs]

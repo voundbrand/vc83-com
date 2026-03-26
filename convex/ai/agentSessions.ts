@@ -59,15 +59,27 @@ import {
   type ThreadDeliveryState,
 } from "./agentExecution";
 import {
+  assertInboundRuntimeKernelContract,
+  type InboundRuntimeKernelContract,
+} from "./agentTurnOrchestration";
+import {
   buildTrustTimelineCorrelationId,
   resolveTrustTimelineSurfaceFromWorkflow,
   type TrustTimelineSurface,
 } from "./trustEvents";
 import {
+  buildOrgAgentOutcomeEnvelope,
+  type OrgAgentOutcomeEnvelopeV1,
+} from "./orgAgentOutcomeExtraction";
+import {
   AGENT_OPS_ALERT_THRESHOLD_DEFINITIONS,
+  WAE_EVAL_BUDGET_DEFINITIONS,
+  buildOarProductionGateEvidence,
+  buildRuntimeReceiptRetryGuidance,
   evaluateAgentOpsAlertThreshold,
   normalizeActionCompletionMismatchReasonCode,
   normalizeActionCompletionTemplateIdentifier,
+  resolveRuntimeReceiptRetryDisposition,
   type ActionCompletionMismatchReasonCode,
   type AgentOpsAlertMetricKey,
   type AgentOpsAlertSeverity,
@@ -267,6 +279,78 @@ export function normalizeSessionRoutingMetadata(
     workflowKey,
     updatedAt: record.updatedAt,
     updatedBy,
+  };
+}
+
+export function buildSessionOutcomeEnvelope(args: {
+  organizationId: Id<"organizations"> | string;
+  agentId: Id<"objects"> | string;
+  sessionId: Id<"agentSessions"> | string;
+  channel: string;
+  externalContactIdentifier?: string | null;
+  crmContactId?: Id<"objects"> | string | null;
+  summary?: string | null;
+  latestMessageText?: string | null;
+  checkpoints?: string[];
+  metadata?: Record<string, unknown>;
+}): OrgAgentOutcomeEnvelopeV1 {
+  return buildOrgAgentOutcomeEnvelope({
+    source: "agent_session",
+    organizationId: String(args.organizationId),
+    agentId: String(args.agentId),
+    sessionId: String(args.sessionId),
+    channel: args.channel,
+    summary: args.summary ?? undefined,
+    messageText: args.latestMessageText ?? undefined,
+    checkpoints: args.checkpoints,
+    contactCandidate: {
+      objectId: args.crmContactId ? String(args.crmContactId) : undefined,
+      externalIdentifier: args.externalContactIdentifier ?? undefined,
+    },
+    metadata: args.metadata,
+  });
+}
+
+function normalizeSessionOutcomeArtifactRef(
+  value: unknown
+): string | undefined {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+export interface SessionOutcomeActivityArtifactRefs {
+  sessionId: string;
+  externalContactIdentifier?: string;
+  crmContactId?: string;
+  crmOrganizationId?: string;
+  actionItemObjectId?: string;
+}
+
+export function buildSessionOutcomeActivityArtifactRefs(args: {
+  sessionId: Id<"agentSessions"> | string;
+  externalContactIdentifier?: string | null;
+  crmContactId?: Id<"objects"> | string | null;
+  crmOrganizationId?: Id<"objects"> | string | null;
+  actionItemObjectId?: Id<"objects"> | string | null;
+}): SessionOutcomeActivityArtifactRefs {
+  return {
+    sessionId: String(args.sessionId),
+    externalContactIdentifier: normalizeSessionOutcomeArtifactRef(
+      args.externalContactIdentifier,
+    ),
+    crmContactId: normalizeSessionOutcomeArtifactRef(args.crmContactId),
+    crmOrganizationId: normalizeSessionOutcomeArtifactRef(
+      args.crmOrganizationId,
+    ),
+    actionItemObjectId: normalizeSessionOutcomeArtifactRef(
+      args.actionItemObjectId,
+    ),
   };
 }
 
@@ -1669,6 +1753,7 @@ export const createInboundTurn = internalMutation({
     idempotencyContract: v.optional(runtimeIdempotencyContractValidator),
     runAttempt: v.optional(agentTurnRunAttemptContractValidator),
     executionBundle: v.optional(agentExecutionBundleContractValidator),
+    kernelContract: v.optional(v.any()),
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -1685,6 +1770,23 @@ export const createInboundTurn = internalMutation({
         args.executionBundle as AgentExecutionBundleContract
       );
     }
+    const kernelContract =
+      args.kernelContract && typeof args.kernelContract === "object"
+        ? (args.kernelContract as InboundRuntimeKernelContract)
+        : undefined;
+    if (kernelContract) {
+      assertInboundRuntimeKernelContract(kernelContract);
+    }
+    const persistedKernelContract = kernelContract
+      ? {
+          ...kernelContract,
+          stageOrder: [...kernelContract.stageOrder],
+          terminalPhases: [...kernelContract.terminalPhases],
+          adapterCompatibility: {
+            ...kernelContract.adapterCompatibility,
+          },
+        }
+      : undefined;
 
     const normalizedIdempotencyKey =
       typeof args.idempotencyKey === "string" && args.idempotencyKey.trim().length > 0
@@ -1854,6 +1956,7 @@ export const createInboundTurn = internalMutation({
       queueOrderingKey: args.queueContract?.orderingKey,
       runAttempt: args.runAttempt as AgentTurnRunAttemptContract | undefined,
       executionBundle: args.executionBundle as AgentExecutionBundleContract | undefined,
+      kernelContract: persistedKernelContract,
       metadata: args.metadata,
       queuedAt: now,
       createdAt: now,
@@ -4498,12 +4601,47 @@ export const getSessionSummaryBillingContext = internalQuery({
   },
 });
 
+async function resolveSessionCrmOrganizationId(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any;
+  crmContactId: Id<"objects">;
+}): Promise<Id<"objects"> | undefined> {
+  const contactToOrganizationLink = await args.ctx.db
+    .query("objectLinks")
+    .withIndex("by_from_link_type", (q: any) =>
+      q.eq("fromObjectId", args.crmContactId).eq("linkType", "works_at"),
+    )
+    .first();
+  return contactToOrganizationLink?.toObjectId;
+}
+
 export const getSessionByIdInternal = internalQuery({
   args: {
     sessionId: v.id("agentSessions"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.sessionId);
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const crmOrganizationId = session.crmContactId
+      ? await resolveSessionCrmOrganizationId({
+          ctx,
+          crmContactId: session.crmContactId,
+        })
+      : undefined;
+
+    return {
+      ...session,
+      crmOrganizationId,
+      activityArtifactRefs: buildSessionOutcomeActivityArtifactRefs({
+        sessionId: session._id,
+        externalContactIdentifier: session.externalContactIdentifier,
+        crmContactId: session.crmContactId,
+        crmOrganizationId,
+      }),
+    };
   },
 });
 
@@ -9036,12 +9174,24 @@ export const getControlCenterThreadDrillDown = query({
       const queueContract = (receipt.queueContract || {}) as Record<string, unknown>;
       const idempotencyContract =
         (receipt.idempotencyContract || {}) as Record<string, unknown>;
+      const receiptMetadata = readReceiptMetadata(receipt);
+      const idempotencyScopeKey = resolveReceiptIdempotencyScopeKey(receipt);
+      const receiptCorrelationId = resolveReceiptCorrelationId(receipt);
       const workflowKey = resolveControlCenterWorkflowKey(
         queueContract.workflowKey ?? idempotencyContract.intentType
       );
       const lineageId = normalizeControlCenterTraceString(queueContract.lineageId);
       const threadIdFromContract = normalizeControlCenterTraceString(queueContract.threadId);
       const turnId = receipt.turnId ? String(receipt.turnId) : undefined;
+      const timelineCorrelationId =
+        receiptCorrelationId
+        || buildTrustTimelineCorrelationId({
+          lineageId,
+          threadId: threadIdFromContract,
+          fallbackThreadId: args.threadId,
+          surface: "session",
+          sourceId: `receipt:${String(receipt._id)}:accepted`,
+        });
       const receiptSourceObjectIds = [String(receipt.agentId)];
       const common = {
         sessionId: args.threadId,
@@ -9059,7 +9209,13 @@ export const getControlCenterThreadDrillDown = query({
             receiptId: String(receipt._id),
             receiptStatus: receipt.status,
             idempotencyKey: receipt.idempotencyKey,
+            idempotencyScopeKey,
             duplicateCount: receipt.duplicateCount,
+            retryDisposition: resolveRuntimeReceiptRetryDisposition({
+              status: receipt.status,
+              duplicateCount: receipt.duplicateCount,
+            }),
+            correlationId: timelineCorrelationId,
             queueConcurrencyKey: receipt.queueConcurrencyKey,
             queueOrderingKey: receipt.queueOrderingKey,
             turnId,
@@ -9067,7 +9223,7 @@ export const getControlCenterThreadDrillDown = query({
           superAdminDebug: {
             queueContract: receipt.queueContract,
             idempotencyContract: receipt.idempotencyContract,
-            receiptMetadata: receipt.metadata,
+            receiptMetadata,
           },
         }),
       };
@@ -9086,13 +9242,7 @@ export const getControlCenterThreadDrillDown = query({
         title: acceptedPresentation.title,
         summary: `Ingress receipt accepted for ${receipt.channel}:${receipt.externalContactIdentifier}.`,
         sourceIdForCorrelation: turnId ?? String(receipt._id),
-        correlationId: buildTrustTimelineCorrelationId({
-          lineageId,
-          threadId: threadIdFromContract,
-          fallbackThreadId: args.threadId,
-          surface: "session",
-          sourceId: `receipt:${String(receipt._id)}:accepted`,
-        }),
+        correlationId: timelineCorrelationId,
       });
 
       if (typeof receipt.processingStartedAt === "number") {
@@ -9110,6 +9260,7 @@ export const getControlCenterThreadDrillDown = query({
           title: processingPresentation.title,
           summary: `Runtime acquired processing lease${turnId ? ` for turn ${turnId}` : ""}.`,
           sourceIdForCorrelation: turnId ?? String(receipt._id),
+          correlationId: timelineCorrelationId,
         });
       }
 
@@ -9140,6 +9291,7 @@ export const getControlCenterThreadDrillDown = query({
           summary: terminalSummary,
           reason: receipt.failureReason ?? undefined,
           sourceIdForCorrelation: turnId ?? String(receipt._id),
+          correlationId: timelineCorrelationId,
         });
       }
     }
@@ -9383,6 +9535,21 @@ const RECEIPT_STATUSES = [
   "failed",
   "duplicate",
 ] as const;
+const TURN_STATE_VALUES = [
+  "queued",
+  "running",
+  "suspended",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+const SESSION_STATUS_VALUES = [
+  "active",
+  "closed",
+  "expired",
+  "handed_off",
+] as const;
+const WAE_ROLLOUT_GATE_RECORDED_ACTION_TYPE = "wae_rollout_gate.recorded" as const;
 
 async function collectOrgReceipts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9405,6 +9572,146 @@ async function collectOrgReceipts(
     return flattened;
   }
   return flattened.filter((receipt) => receipt.agentId === agentId);
+}
+
+async function collectOrgTurns(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: Id<"organizations">,
+  agentId?: Id<"objects">
+) {
+  const turns = await Promise.all(
+    TURN_STATE_VALUES.map((state) =>
+      ctx.db
+        .query("agentTurns")
+        .withIndex("by_org_state", (q: any) =>
+          q.eq("organizationId", organizationId).eq("state", state)
+        )
+        .collect()
+    )
+  );
+  const flattened = turns.flat();
+  if (!agentId) {
+    return flattened;
+  }
+  return flattened.filter((turn) => turn.agentId === agentId);
+}
+
+async function collectOrgSessionsForSlo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  organizationId: Id<"organizations">,
+  agentId?: Id<"objects">
+) {
+  const sessions = await Promise.all(
+    SESSION_STATUS_VALUES.map((status) =>
+      ctx.db
+        .query("agentSessions")
+        .withIndex("by_org_status", (q: any) =>
+          q.eq("organizationId", organizationId).eq("status", status)
+        )
+        .collect()
+    )
+  );
+  const flattened = sessions.flat();
+  if (!agentId) {
+    return flattened;
+  }
+  return flattened.filter((session) => session.agentId === agentId);
+}
+
+function computePercentile(values: number[], percentile: number): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const clamped = Math.min(1, Math.max(0, percentile));
+  const rank = Math.max(0, Math.ceil(clamped * sorted.length) - 1);
+  const value = sorted[Math.min(sorted.length - 1, rank)];
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(0, Math.round(value));
+}
+
+function parseWaeRolloutGateScoreSnapshot(actionData: unknown): {
+  runId: string | null;
+  status: string | null;
+  reasonCode: string | null;
+  recordedAt: number | null;
+  weightedScore: number | null;
+  passThreshold: number | null;
+  holdThreshold: number | null;
+  failedMetrics: string[];
+} | null {
+  if (!actionData || typeof actionData !== "object" || Array.isArray(actionData)) {
+    return null;
+  }
+  const root = actionData as Record<string, unknown>;
+  const score = root.score && typeof root.score === "object" && !Array.isArray(root.score)
+    ? (root.score as Record<string, unknown>)
+    : null;
+  const thresholds = score?.thresholds
+    && typeof score.thresholds === "object"
+    && !Array.isArray(score.thresholds)
+    ? (score.thresholds as Record<string, unknown>)
+    : null;
+  const failedMetrics = Array.isArray(score?.failedMetrics)
+    ? score!.failedMetrics.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  const weightedScore =
+    typeof score?.weightedScore === "number" && Number.isFinite(score.weightedScore)
+      ? score.weightedScore
+      : null;
+  const passThreshold =
+    typeof thresholds?.pass === "number" && Number.isFinite(thresholds.pass)
+      ? thresholds.pass
+      : null;
+  const holdThreshold =
+    typeof thresholds?.hold === "number" && Number.isFinite(thresholds.hold)
+      ? thresholds.hold
+      : null;
+  return {
+    runId: typeof root.runId === "string" ? root.runId : null,
+    status: typeof root.status === "string" ? root.status : null,
+    reasonCode: typeof root.reasonCode === "string" ? root.reasonCode : null,
+    recordedAt:
+      typeof root.recordedAt === "number" && Number.isFinite(root.recordedAt)
+        ? root.recordedAt
+        : null,
+    weightedScore,
+    passThreshold,
+    holdThreshold,
+    failedMetrics,
+  };
+}
+
+function readReceiptMetadata(
+  receipt: { metadata?: unknown },
+): Record<string, unknown> {
+  return receipt.metadata && typeof receipt.metadata === "object"
+    ? (receipt.metadata as Record<string, unknown>)
+    : {};
+}
+
+function resolveReceiptCorrelationId(receipt: { metadata?: unknown }): string | null {
+  const metadata = readReceiptMetadata(receipt);
+  return normalizeControlCenterTraceString(metadata.correlationId) || null;
+}
+
+function resolveReceiptIdempotencyScopeKey(receipt: {
+  idempotencyScopeKey?: unknown;
+  idempotencyContract?: unknown;
+}): string | null {
+  const fromRecord = normalizeControlCenterTraceString(receipt.idempotencyScopeKey);
+  if (fromRecord) {
+    return fromRecord;
+  }
+  const idempotencyContract =
+    receipt.idempotencyContract && typeof receipt.idempotencyContract === "object"
+      ? (receipt.idempotencyContract as Record<string, unknown>)
+      : {};
+  return normalizeControlCenterTraceString(idempotencyContract.scopeKey) || null;
 }
 
 /**
@@ -9440,6 +9747,12 @@ export const getAgingReceipts = query({
         status: receipt.status,
         turnId: receipt.turnId,
         idempotencyKey: receipt.idempotencyKey,
+        idempotencyScopeKey: resolveReceiptIdempotencyScopeKey(receipt),
+        correlationId: resolveReceiptCorrelationId(receipt),
+        retryDisposition: resolveRuntimeReceiptRetryDisposition({
+          status: receipt.status,
+          duplicateCount: receipt.duplicateCount,
+        }),
         ageMs: now - receipt.firstSeenAt,
         duplicateCount: receipt.duplicateCount,
         firstSeenAt: receipt.firstSeenAt,
@@ -9482,6 +9795,12 @@ export const getDuplicateReceipts = query({
         status: receipt.status,
         turnId: receipt.turnId,
         idempotencyKey: receipt.idempotencyKey,
+        idempotencyScopeKey: resolveReceiptIdempotencyScopeKey(receipt),
+        correlationId: resolveReceiptCorrelationId(receipt),
+        retryDisposition: resolveRuntimeReceiptRetryDisposition({
+          status: receipt.status,
+          duplicateCount: receipt.duplicateCount,
+        }),
         duplicateCount: receipt.duplicateCount,
         firstSeenAt: receipt.firstSeenAt,
         lastSeenAt: receipt.lastSeenAt,
@@ -9535,6 +9854,12 @@ export const getStuckReceipts = query({
           status: receipt.status,
           turnId: receipt.turnId,
           idempotencyKey: receipt.idempotencyKey,
+          idempotencyScopeKey: resolveReceiptIdempotencyScopeKey(receipt),
+          correlationId: resolveReceiptCorrelationId(receipt),
+          retryDisposition: resolveRuntimeReceiptRetryDisposition({
+            status: receipt.status,
+            duplicateCount: receipt.duplicateCount,
+          }),
           processingAgeMs: now - startedAt,
           startedAt,
           duplicateCount: receipt.duplicateCount,
@@ -9544,6 +9869,182 @@ export const getStuckReceipts = query({
       .filter((receipt) => receipt.processingAgeMs >= staleMs)
       .sort((a, b) => b.processingAgeMs - a.processingAgeMs)
       .slice(0, args.limit ?? 50);
+  },
+});
+
+/**
+ * Build fail-closed runtime SLO + eval threshold gate evidence for rollout decisions.
+ */
+export const getRuntimeSloGateEvidence = query({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    agentId: v.optional(v.id("objects")),
+    hours: v.optional(v.number()),
+    staleMinutes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthenticatedUser(ctx, args.sessionId);
+
+    const now = Date.now();
+    const windowHours = Math.min(Math.max(Math.floor(args.hours ?? 24), 1), 24 * 30);
+    const staleMinutes = Math.min(Math.max(Math.floor(args.staleMinutes ?? 10), 1), 24 * 60);
+    const staleMs = staleMinutes * 60 * 1000;
+    const since = now - windowHours * 60 * 60 * 1000;
+
+    const turns = await collectOrgTurns(ctx, args.organizationId, args.agentId);
+    const scopedTurns = turns.filter((turn) => turn.createdAt >= since);
+    const totalTurns = scopedTurns.length;
+    const terminalizedTurns = scopedTurns.filter((turn) =>
+      turn.state === "completed"
+      || turn.state === "failed"
+      || turn.state === "cancelled"
+    );
+    const failedTurns = scopedTurns.filter((turn) => turn.state === "failed");
+    const stuckTurns = scopedTurns.filter((turn) => {
+      if (
+        turn.state !== "queued"
+        && turn.state !== "running"
+        && turn.state !== "suspended"
+      ) {
+        return false;
+      }
+      const startedAt = turn.startedAt ?? turn.suspendedAt ?? turn.queuedAt;
+      return now - startedAt >= staleMs;
+    });
+    const latencySamples = terminalizedTurns
+      .map((turn) => {
+        const terminalAt = turn.completedAt ?? turn.failedAt ?? turn.cancelledAt;
+        if (typeof turn.startedAt !== "number" || typeof terminalAt !== "number") {
+          return null;
+        }
+        if (terminalAt < turn.startedAt) {
+          return null;
+        }
+        return terminalAt - turn.startedAt;
+      })
+      .filter((value): value is number => typeof value === "number");
+    const p95TurnLatencyMs = computePercentile(latencySamples, 0.95);
+
+    const sessions = await collectOrgSessionsForSlo(ctx, args.organizationId, args.agentId);
+    const scopedSessions = sessions.filter((session) => {
+      const activityAt =
+        typeof session.lastMessageAt === "number" ? session.lastMessageAt : session.createdAt;
+      return activityAt >= since;
+    });
+    const totalSessionCostUsd = scopedSessions.reduce(
+      (sum, session) => sum + (typeof session.costUsd === "number" ? session.costUsd : 0),
+      0,
+    );
+    const totalSessionMessages = scopedSessions.reduce(
+      (sum, session) => sum + (typeof session.messageCount === "number" ? session.messageCount : 0),
+      0,
+    );
+    const avgCostUsdPerTurn = totalSessionMessages > 0
+      ? Number((totalSessionCostUsd / totalSessionMessages).toFixed(6))
+      : null;
+
+    const runtimeObservations: Partial<Record<
+      | "stuck_turn_rate"
+      | "delivery_terminalization_rate"
+      | "runtime_error_rate"
+      | "p95_turn_latency_ms"
+      | "avg_cost_usd_per_turn",
+      number
+    >> = {};
+    if (totalTurns > 0) {
+      runtimeObservations.stuck_turn_rate = Number((stuckTurns.length / totalTurns).toFixed(6));
+      runtimeObservations.delivery_terminalization_rate = Number(
+        (terminalizedTurns.length / totalTurns).toFixed(6),
+      );
+      runtimeObservations.runtime_error_rate = Number((failedTurns.length / totalTurns).toFixed(6));
+    }
+    if (typeof p95TurnLatencyMs === "number") {
+      runtimeObservations.p95_turn_latency_ms = p95TurnLatencyMs;
+    }
+    if (typeof avgCostUsdPerTurn === "number" && Number.isFinite(avgCostUsdPerTurn)) {
+      runtimeObservations.avg_cost_usd_per_turn = avgCostUsdPerTurn;
+    }
+
+    const gateActions = await ctx.db
+      .query("objectActions")
+      .withIndex("by_org_action_type", (q) =>
+        q.eq("organizationId", args.organizationId).eq("actionType", WAE_ROLLOUT_GATE_RECORDED_ACTION_TYPE)
+      )
+      .collect();
+    const latestWaeGate = gateActions
+      .sort((left, right) => right.performedAt - left.performedAt)
+      .map((action) => parseWaeRolloutGateScoreSnapshot(action.actionData))
+      .find((snapshot): snapshot is NonNullable<typeof snapshot> => Boolean(snapshot))
+      ?? null;
+
+    let evalLatencyMs: number | undefined;
+    let evalCostUsd: number | undefined;
+    if (latestWaeGate) {
+      const failedMetricTokens = latestWaeGate.failedMetrics.map((metric) =>
+        metric.trim().toLowerCase(),
+      );
+      const hasLatencyFailure = failedMetricTokens.some(
+        (metric) => metric === "latency" || metric.endsWith(":latency"),
+      );
+      const hasCostFailure = failedMetricTokens.some(
+        (metric) => metric === "cost" || metric.endsWith(":cost"),
+      );
+      evalLatencyMs = hasLatencyFailure
+        ? WAE_EVAL_BUDGET_DEFINITIONS.latency.criticalThreshold + 1
+        : WAE_EVAL_BUDGET_DEFINITIONS.latency.target;
+      evalCostUsd = hasCostFailure
+        ? Number((WAE_EVAL_BUDGET_DEFINITIONS.cost.criticalThreshold + 0.001).toFixed(6))
+        : WAE_EVAL_BUDGET_DEFINITIONS.cost.target;
+    }
+
+    const productionGate = buildOarProductionGateEvidence({
+      runtimeObservations,
+      evalScore: latestWaeGate?.weightedScore ?? undefined,
+      evalPassThreshold: latestWaeGate?.passThreshold ?? undefined,
+      evalHoldThreshold: latestWaeGate?.holdThreshold ?? undefined,
+      evalLatencyMs,
+      evalCostUsd,
+      generatedAt: now,
+    });
+
+    return {
+      windowHours,
+      staleMinutes,
+      since,
+      turnTotals: {
+        total: totalTurns,
+        terminalized: terminalizedTurns.length,
+        failed: failedTurns.length,
+        stuck: stuckTurns.length,
+        latencySamples: latencySamples.length,
+      },
+      sessionCostTotals: {
+        sessions: scopedSessions.length,
+        totalMessages: totalSessionMessages,
+        totalCostUsd: Number(totalSessionCostUsd.toFixed(6)),
+      },
+      observedRuntimeMetrics: {
+        stuckTurnRate: runtimeObservations.stuck_turn_rate ?? null,
+        deliveryTerminalizationRate: runtimeObservations.delivery_terminalization_rate ?? null,
+        runtimeErrorRate: runtimeObservations.runtime_error_rate ?? null,
+        p95TurnLatencyMs: runtimeObservations.p95_turn_latency_ms ?? null,
+        avgCostUsdPerTurn: runtimeObservations.avg_cost_usd_per_turn ?? null,
+      },
+      latestWaeGate: latestWaeGate
+        ? {
+            runId: latestWaeGate.runId,
+            status: latestWaeGate.status,
+            reasonCode: latestWaeGate.reasonCode,
+            recordedAt: latestWaeGate.recordedAt,
+            weightedScore: latestWaeGate.weightedScore,
+            passThreshold: latestWaeGate.passThreshold,
+            holdThreshold: latestWaeGate.holdThreshold,
+            failedMetrics: latestWaeGate.failedMetrics,
+          }
+        : null,
+      productionGate,
+    };
   },
 });
 
@@ -9564,8 +10065,19 @@ export const getReplaySafeReceiptDebug = query({
       return null;
     }
 
-    const canReplay = receipt.status !== "processing";
     const now = Date.now();
+    const correlationId = resolveReceiptCorrelationId(receipt);
+    const idempotencyScopeKey = resolveReceiptIdempotencyScopeKey(receipt);
+    const retryDisposition = resolveRuntimeReceiptRetryDisposition({
+      status: receipt.status,
+      duplicateCount: receipt.duplicateCount,
+    });
+    const retryGuidance = buildRuntimeReceiptRetryGuidance({
+      status: receipt.status,
+      duplicateCount: receipt.duplicateCount,
+      retryDisposition,
+    });
+    const canReplay = retryGuidance.retrySafe;
     return {
       receiptId: receipt._id,
       agentId: receipt.agentId,
@@ -9574,10 +10086,14 @@ export const getReplaySafeReceiptDebug = query({
       status: receipt.status,
       turnId: receipt.turnId,
       idempotencyKey: receipt.idempotencyKey,
+      idempotencyScopeKey,
+      correlationId,
+      retryDisposition,
       duplicateCount: receipt.duplicateCount,
       queueConcurrencyKey: receipt.queueConcurrencyKey,
       queueOrderingKey: receipt.queueOrderingKey,
       canReplay,
+      retryGuidance,
       replayMetadata: canReplay
         ? {
           replayOfReceiptId: receipt._id,
@@ -9606,9 +10122,20 @@ export const requestReplaySafeReceipt = mutation({
       throw new Error("Receipt not found");
     }
 
-    const canReplay = receipt.status !== "processing";
     const now = Date.now();
     const replayIdempotencyKey = `${receipt.idempotencyKey}:debug:${now}`;
+    const correlationId = resolveReceiptCorrelationId(receipt);
+    const idempotencyScopeKey = resolveReceiptIdempotencyScopeKey(receipt);
+    const retryDisposition = resolveRuntimeReceiptRetryDisposition({
+      status: receipt.status,
+      duplicateCount: receipt.duplicateCount,
+    });
+    const retryGuidance = buildRuntimeReceiptRetryGuidance({
+      status: receipt.status,
+      duplicateCount: receipt.duplicateCount,
+      retryDisposition,
+    });
+    const canReplay = retryGuidance.retrySafe;
 
     await ctx.db.insert("objectActions", {
       organizationId: args.organizationId,
@@ -9621,13 +10148,20 @@ export const requestReplaySafeReceipt = mutation({
         reason: args.reason,
         canReplay,
         replayIdempotencyKey: canReplay ? replayIdempotencyKey : undefined,
+        correlationId,
+        idempotencyScopeKey,
+        retryDisposition,
+        retryGuidance,
       },
       performedAt: now,
     });
 
     return {
       accepted: canReplay,
-      reason: canReplay ? "queued_for_operator_replay" : "receipt_still_processing",
+      reason: canReplay
+        ? "queued_for_operator_replay"
+        : `receipt_retry_blocked:${retryGuidance.blockReasonCode}`,
+      retryDisposition,
       replayMetadata: canReplay
         ? {
             replayOfReceiptId: receipt._id,

@@ -17,6 +17,7 @@ export default defineConfig({
     "desktop-shell.spec.ts",
     "onboarding-audit-handoff.spec.ts",
     "wae-scenario-dsl.spec.ts",
+    "compliance/**/*.spec.ts",
   ],
   timeout: 60_000,
   expect: {

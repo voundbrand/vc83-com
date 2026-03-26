@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildAgentSystemPrompt,
   resolveAuditDeliverableInvocationGuardrail,
 } from "../../../convex/ai/agentExecution";
+import { persistRuntimeTurnArtifacts } from "../../../convex/ai/agentTurnOrchestration";
 import {
   buildModelResolutionPayload,
   resolveChatToolApprovalPolicy,
@@ -194,5 +195,89 @@ describe("runtime hotspot characterization", () => {
         rewriteSnippet: true,
       },
     ]);
+  });
+
+  it("finalizes receipt as completed when runtime exits without fatal error", async () => {
+    const recordTurnTerminalDeliverable = vi
+      .fn()
+      .mockResolvedValue({ success: true });
+    const completeInboundReceipt = vi.fn().mockResolvedValue({ success: true });
+
+    const terminalDeliverable = await persistRuntimeTurnArtifacts({
+      receiptId: "agentInboxReceipts_1" as never,
+      turnId: "agentTurns_1" as never,
+      runtimeError: null,
+      recordTurnTerminalDeliverable,
+      completeInboundReceipt,
+    });
+
+    expect(terminalDeliverable.status).toBe("success");
+    expect(recordTurnTerminalDeliverable).toHaveBeenCalledTimes(1);
+    expect(recordTurnTerminalDeliverable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "agentTurns_1",
+        status: "success",
+      }),
+    );
+    expect(completeInboundReceipt).toHaveBeenCalledTimes(1);
+    expect(completeInboundReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receiptId: "agentInboxReceipts_1",
+        turnId: "agentTurns_1",
+        status: "completed",
+      }),
+    );
+  });
+
+  it("finalizes receipt as failed under runtime error and preserves terminal pointer evidence", async () => {
+    const recordTurnTerminalDeliverable = vi
+      .fn()
+      .mockResolvedValue({ success: true });
+    const completeInboundReceipt = vi.fn().mockResolvedValue({ success: true });
+
+    const terminalDeliverable = await persistRuntimeTurnArtifacts({
+      receiptId: "agentInboxReceipts_2" as never,
+      turnId: "agentTurns_2" as never,
+      runtimeError: "outbound_delivery_timeout",
+      terminalDeliverable: {
+        pointerType: "dead_letter_queue",
+        pointerId: "dlq-entry-1",
+        status: "failed",
+        recordedAt: 123,
+      },
+      recordTurnTerminalDeliverable,
+      completeInboundReceipt,
+    });
+
+    expect(terminalDeliverable).toEqual({
+      pointerType: "dead_letter_queue",
+      pointerId: "dlq-entry-1",
+      status: "failed",
+      recordedAt: 123,
+    });
+    expect(recordTurnTerminalDeliverable).toHaveBeenCalledTimes(1);
+    expect(recordTurnTerminalDeliverable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turnId: "agentTurns_2",
+        pointerType: "dead_letter_queue",
+        pointerId: "dlq-entry-1",
+        status: "failed",
+      }),
+    );
+    expect(completeInboundReceipt).toHaveBeenCalledTimes(1);
+    expect(completeInboundReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receiptId: "agentInboxReceipts_2",
+        turnId: "agentTurns_2",
+        status: "failed",
+        failureReason: "outbound_delivery_timeout",
+        terminalDeliverable: {
+          pointerType: "dead_letter_queue",
+          pointerId: "dlq-entry-1",
+          status: "failed",
+          recordedAt: 123,
+        },
+      }),
+    );
   });
 });

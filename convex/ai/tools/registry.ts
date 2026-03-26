@@ -41,6 +41,7 @@ import {
   checkDeployStatusTool,
 } from "./builderTools";
 import {
+  listConnectedAppsTool,
   detectWebAppConnectionsTool,
   connectWebAppDataTool,
 } from "./connectionTools";
@@ -3995,6 +3996,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   create_webapp: createWebAppTool,
   deploy_webapp: deployWebAppTool,
   check_deploy_status: checkDeployStatusTool,
+  list_connected_apps: listConnectedAppsTool,
   detect_webapp_connections: detectWebAppConnectionsTool,
   connect_webapp_data: connectWebAppDataTool,
 
@@ -4217,6 +4219,48 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
   ...INTERVIEW_TOOLS,
 };
 
+function isSchemaCompatibleTool(tool: unknown): tool is {
+  name: string;
+  description: string;
+  status: ToolStatus;
+  parameters: Record<string, unknown>;
+} {
+  if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
+    return false;
+  }
+  const candidate = tool as Record<string, unknown>;
+  if (typeof candidate.name !== "string" || candidate.name.trim().length === 0) {
+    return false;
+  }
+  if (
+    typeof candidate.description !== "string"
+    || candidate.description.trim().length === 0
+  ) {
+    return false;
+  }
+  if (
+    candidate.status !== "ready"
+    && candidate.status !== "placeholder"
+    && candidate.status !== "beta"
+  ) {
+    return false;
+  }
+  if (
+    !candidate.parameters
+    || typeof candidate.parameters !== "object"
+    || Array.isArray(candidate.parameters)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function warnInvalidToolSchemaEntry(toolKey: string) {
+  console.warn(
+    `[TOOL_REGISTRY] Skipping invalid tool schema entry: "${toolKey}"`
+  );
+}
+
 /**
  * Get all tool definitions with readOnly metadata.
  * Used by the layered tool scoping resolver.
@@ -4224,7 +4268,7 @@ export const TOOL_REGISTRY: Record<string, AITool> = {
 export function getAllToolDefinitions(): Array<{ name: string; readOnly?: boolean }> {
   return Object.entries(TOOL_REGISTRY)
     .filter(([key, tool]) => {
-      if (!tool || typeof tool.name !== "string") {
+      if (!isSchemaCompatibleTool(tool)) {
         console.warn(
           `[TOOL_REGISTRY] Skipping undefined/invalid tool entry: "${key}"`
         );
@@ -4399,7 +4443,14 @@ export type BuilderMode = "prototype" | "connect";
 export function getToolSchemas(builderMode?: BuilderMode): OpenAIFunctionSchema[] {
   // Return ALL tools (ready + placeholder) so AI can attempt to use them
   // The execute() function will return tutorial guidance for placeholder tools
-  let tools = Object.values(TOOL_REGISTRY);
+  let tools = Object.entries(TOOL_REGISTRY)
+    .flatMap(([key, tool]) => {
+      if (!isSchemaCompatibleTool(tool)) {
+        warnInvalidToolSchemaEntry(key);
+        return [];
+      }
+      return [tool];
+    });
 
   // In prototype mode, only allow read-only/search tools
   if (builderMode === "prototype") {
@@ -4433,7 +4484,8 @@ export function getToolSchemasForNames(
       continue;
     }
     const tool = TOOL_REGISTRY[toolName];
-    if (!tool) {
+    if (!isSchemaCompatibleTool(tool)) {
+      warnInvalidToolSchemaEntry(toolName);
       continue;
     }
     schemas.push({

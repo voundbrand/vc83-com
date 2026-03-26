@@ -28,8 +28,15 @@ import { edgeTypes } from "./custom-edges";
 import { ToolChest } from "./tool-chest";
 import { NodeInspector } from "./node-inspector";
 import { useLayersStore } from "./use-layers-store";
-import { AIPromptOverlay } from "./ai-prompt-overlay";
-import type { AIWorkflowResponse } from "./ai-workflow-schema";
+import { WorkflowLensPanel } from "./workflow-lens-panel";
+import { ExecutionTimelinePanel } from "./execution-timeline-panel";
+import { AIChatWindow } from "@/components/window-content/ai-chat-window";
+import {
+  addAIWritebackEventListener,
+  LAYERS_WORKFLOW_WRITEBACK_EVENT,
+  type LayersWorkflowWritebackEventDetail,
+} from "@/lib/ai/ui-writeback-bridge";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 interface LayersWorkflowListItem {
   _id: Id<"objects">;
@@ -39,6 +46,12 @@ interface LayersWorkflowListItem {
   updatedAt?: number;
   isActive?: boolean;
 }
+
+type LayersTranslator = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>,
+) => string;
 
 /**
  * LayersCanvas - Main container for the visual automation canvas.
@@ -52,17 +65,23 @@ interface LayersWorkflowListItem {
  * - Undo/redo with keyboard shortcuts
  */
 export function LayersCanvas() {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const { sessionId, user, signOut, isSignedIn } = useAuth();
   const currentOrg = useCurrentOrganization();
+  const sourceOrganizationId = currentOrg?.id ? String(currentOrg.id) : undefined;
   const searchParams = useSearchParams();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   // Workflow selection
   const [workflowId, setWorkflowId] = useState<Id<"objects"> | null>(null);
-  const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+  const [workflowName, setWorkflowName] = useState(() =>
+    tWithFallback("ui.app.layers.top_bar.untitled_workflow", "Untitled Workflow"),
+  );
   const [showOverlay, setShowOverlay] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showAIOverlay, setShowAIOverlay] = useState(false);
+  const [showSystemLens, setShowSystemLens] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(true);
   const [showWorkflowMenu, setShowWorkflowMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -338,15 +357,22 @@ export function LayersCanvas() {
       }
     } catch (err) {
       console.error("Failed to save workflow:", err);
-      const msg = err instanceof Error ? err.message : "Save failed";
+      const msg = err instanceof Error
+        ? err.message
+        : tWithFallback("ui.app.layers.autosave.error.save_failed", "Save failed");
       if (msg.includes("Sitzung abgelaufen") || msg.includes("Sitzung nicht gefunden")) {
-        setSaveError("Session expired — please sign in again");
+        setSaveError(
+          tWithFallback(
+            "ui.app.layers.autosave.error.session_expired",
+            "Session expired, please sign in again",
+          ),
+        );
         return;
       }
       setSaveError(msg);
       autoSaveFailCount.current += 1;
     }
-  }, [sessionId, workflowId, workflowName, selectedProjectId, serialize, saveWorkflow, createWorkflow, setIsDirty]);
+  }, [sessionId, workflowId, workflowName, selectedProjectId, serialize, saveWorkflow, createWorkflow, setIsDirty, tWithFallback]);
 
   // --- auto-save (debounced 2s after changes, with backoff on repeated failures) ---
   useEffect(() => {
@@ -382,6 +408,7 @@ export function LayersCanvas() {
       });
       if (result?.executionId) {
         setExecutionId(result.executionId);
+        setShowTimeline(true);
       }
     } catch (err) {
       console.error("[Layers] Run failed:", err);
@@ -410,8 +437,19 @@ export function LayersCanvas() {
   // --- AI workflow apply handler ---
   const handleAIApply = useCallback(
     (
-      aiNodes: AIWorkflowResponse["nodes"],
-      aiEdges: AIWorkflowResponse["edges"],
+      aiNodes: Array<{
+        id: string;
+        type: string;
+        position: { x: number; y: number };
+        label?: string;
+        config?: Record<string, unknown>;
+      }>,
+      aiEdges: Array<{
+        source: string;
+        target: string;
+        sourceHandle?: string;
+        targetHandle?: string;
+      }>,
     ) => {
       const nodeDefs = aiNodes
         .map((n) => {
@@ -452,6 +490,101 @@ export function LayersCanvas() {
     });
   }, [nodes, edges]);
 
+  const layersKickoffScopeLabel = workflowId
+    ? "scope:organization_workflow"
+    : "scope:organization_canvas";
+  const layersKickoffAuthorityLabel = "authority:workflow_editor";
+  const layersKickoffCitationQualityLabel =
+    nodes.length > 0
+      ? "citation:advisory_snapshot"
+      : "citation:no_graph_evidence";
+
+  const layersWorkflowOpenContext = useMemo(() => {
+    const payload = {
+      contractVersion: "layers_workflow_context_v1",
+      workflowId: workflowId ?? undefined,
+      workflowName,
+      workflowSummary: getWorkflowSummary(),
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      scopeLabel: layersKickoffScopeLabel,
+      authorityLabel: layersKickoffAuthorityLabel,
+      citationQualityLabel: layersKickoffCitationQualityLabel,
+      requestedAt: Date.now(),
+    };
+    const encoded = encodeUtf8Base64(JSON.stringify(payload));
+    return encoded ? `layers_workflow:${encoded}` : "layers_workflow";
+  }, [
+    workflowId,
+    workflowName,
+    getWorkflowSummary,
+    nodes.length,
+    edges.length,
+    layersKickoffScopeLabel,
+    layersKickoffAuthorityLabel,
+    layersKickoffCitationQualityLabel,
+  ]);
+
+  useEffect(() => {
+    return addAIWritebackEventListener<LayersWorkflowWritebackEventDetail>(
+      LAYERS_WORKFLOW_WRITEBACK_EVENT,
+      (detail) => {
+        const normalizedNodes: Array<{
+          id: string;
+          type: string;
+          position: { x: number; y: number };
+          label?: string;
+          config?: Record<string, unknown>;
+        }> = [];
+        for (const node of detail.nodes ?? []) {
+          const nodeId = typeof node.id === "string" ? node.id.trim() : "";
+          const nodeType = typeof node.type === "string" ? node.type.trim() : "";
+          const x = node.position?.x;
+          const y = node.position?.y;
+          if (!nodeId || !nodeType || typeof x !== "number" || typeof y !== "number") {
+            continue;
+          }
+          normalizedNodes.push({
+            id: nodeId,
+            type: nodeType,
+            label: typeof node.label === "string" ? node.label : undefined,
+            position: { x, y },
+            config:
+              node.config && typeof node.config === "object"
+                ? (node.config as Record<string, unknown>)
+                : undefined,
+          });
+        }
+
+        if (normalizedNodes.length === 0) {
+          return;
+        }
+
+        const normalizedEdges: Array<{
+          source: string;
+          target: string;
+          sourceHandle?: string;
+          targetHandle?: string;
+        }> = [];
+        for (const edge of detail.edges ?? []) {
+          const source = typeof edge.source === "string" ? edge.source.trim() : "";
+          const target = typeof edge.target === "string" ? edge.target.trim() : "";
+          if (!source || !target) {
+            continue;
+          }
+          normalizedEdges.push({
+            source,
+            target,
+            sourceHandle: typeof edge.sourceHandle === "string" ? edge.sourceHandle : undefined,
+            targetHandle: typeof edge.targetHandle === "string" ? edge.targetHandle : undefined,
+          });
+        }
+
+        handleAIApply(normalizedNodes, normalizedEdges);
+      },
+    );
+  }, [handleAIApply]);
+
   // --- keyboard shortcuts ---
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -476,6 +609,12 @@ export function LayersCanvas() {
       } else if (mod && e.key === "k") {
         e.preventDefault();
         setShowAIOverlay((prev) => !prev);
+      } else if (mod && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        setShowSystemLens((prev) => !prev);
+      } else if (mod && e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        setShowTimeline((prev) => !prev);
       } else if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
         const active = document.activeElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
@@ -493,18 +632,18 @@ export function LayersCanvas() {
 
   // Mobile gate
   if (isMobile) {
-    return <MobileGate />;
+    return <MobileGate tWithFallback={tWithFallback} />;
   }
 
   return (
-    <div className="flex h-full w-full flex-col text-slate-100" style={{ background: "#09090b", color: "#fafafa" }}>
+    <div className="flex h-full w-full flex-col bg-[var(--color-bg)] text-[var(--color-text)]">
       {/* Top Bar */}
-      <header className="flex h-12 items-center justify-between border-b border-slate-800 px-4" style={{ background: "#0a0a0b" }}>
+      <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--titlebar-bg)] px-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center justify-center rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
-            title="Back to home"
+            className="flex items-center justify-center rounded-md p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            title={tWithFallback("ui.app.layers.top_bar.back_home", "Back to home")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
@@ -513,7 +652,7 @@ export function LayersCanvas() {
           <span className="text-sm font-semibold tracking-wide">
             LAYERS
           </span>
-          <span className="text-slate-500">/</span>
+          <span className="text-[var(--color-text-secondary)]">/</span>
           <input
             type="text"
             value={workflowName}
@@ -521,8 +660,8 @@ export function LayersCanvas() {
               setWorkflowName(e.target.value);
               setIsDirty(true);
             }}
-            className="max-w-[200px] bg-transparent text-xs font-medium focus:outline-none focus:underline"
-            placeholder="Untitled Workflow"
+            className="w-48 bg-transparent text-xs font-medium text-[var(--color-text)] focus:outline-none focus:underline"
+            placeholder={tWithFallback("ui.app.layers.top_bar.untitled_workflow", "Untitled Workflow")}
           />
           {/* Save status indicator */}
           <AutoSaveIndicator
@@ -531,6 +670,7 @@ export function LayersCanvas() {
             manualSaveFlash={manualSaveFlash}
             isDirty={isDirty}
             onRetry={() => handleSave({ manual: true })}
+            tWithFallback={tWithFallback}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -538,33 +678,35 @@ export function LayersCanvas() {
           <button
             onClick={() => {
               setWorkflowId(null);
-              setWorkflowName("Untitled Workflow");
+              setWorkflowName(tWithFallback("ui.app.layers.top_bar.untitled_workflow", "Untitled Workflow"));
               setSelectedProjectId(null);
               setLastSavedAt(null);
               setSaveError(null);
               loadWorkflow([], []);
               setIsDirty(false);
             }}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
-            title="Create new workflow"
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            title={tWithFallback("ui.app.layers.top_bar.new_workflow_title", "Create new workflow")}
           >
-            + New
+            {tWithFallback("ui.app.layers.top_bar.new_workflow", "+ New")}
           </button>
           {/* Open Workflow */}
           <div className="relative">
             <button
               onClick={() => setShowWorkflowMenu((prev) => !prev)}
-              className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
-              title="Open existing workflow"
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+              title={tWithFallback("ui.app.layers.top_bar.open_workflow_title", "Open existing workflow")}
             >
-              Open ▾
+              {tWithFallback("ui.app.layers.top_bar.open_workflow", "Open")} ▾
             </button>
             {showWorkflowMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowWorkflowMenu(false)} />
-                <div className="absolute top-full right-0 mt-1 w-72 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="absolute right-0 top-full z-50 mt-1 max-h-80 w-72 overflow-y-auto rounded-md border border-[var(--color-border)] bg-[var(--menu-bg)]">
                   {workflowList.length === 0 ? (
-                    <div className="px-3 py-4 text-center text-xs text-slate-500">No workflows yet</div>
+                    <div className="px-3 py-4 text-center text-xs text-[var(--color-text-secondary)]">
+                      {tWithFallback("ui.app.layers.top_bar.no_workflows", "No workflows yet")}
+                    </div>
                   ) : (
                     workflowList.filter((w) => w.status !== "archived").map((w) => (
                       <button
@@ -574,17 +716,26 @@ export function LayersCanvas() {
                           lastLoadedVersion.current = null;
                           setShowWorkflowMenu(false);
                         }}
-                        className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 transition-colors ${workflowId === w._id ? "bg-slate-800" : ""}`}
+                        className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--menu-hover)] ${workflowId === w._id ? "bg-[var(--menu-hover)]" : ""}`}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-slate-100">{w.name}</div>
-                          <div className="mt-0.5 text-slate-500">
-                            {w.nodeCount} node{w.nodeCount !== 1 ? "s" : ""}
-                            {w.updatedAt ? ` · ${formatTimeAgo(w.updatedAt)}` : ""}
+                          <div className="truncate font-medium text-[var(--color-text)]">{w.name}</div>
+                          <div className="mt-0.5 text-[var(--color-text-secondary)]">
+                            {tWithFallback(
+                              "ui.app.layers.top_bar.node_count",
+                              "{count} node{suffix}",
+                              {
+                                count: w.nodeCount,
+                                suffix: w.nodeCount !== 1 ? "s" : "",
+                              },
+                            )}
+                            {w.updatedAt ? ` · ${formatTimeAgo(w.updatedAt, tWithFallback)}` : ""}
                           </div>
                         </div>
                         {w.isActive && (
-                          <span className="mt-0.5 rounded bg-green-900/40 px-1.5 py-0.5 text-[10px] text-green-400">Active</span>
+                          <span className="mt-0.5 rounded border border-[var(--color-success)] bg-[var(--color-success-subtle)] px-2 py-0.5 text-xs text-[var(--color-success)]">
+                            {tWithFallback("ui.app.layers.top_bar.active", "Active")}
+                          </span>
                         )}
                       </button>
                     ))
@@ -607,10 +758,10 @@ export function LayersCanvas() {
                   });
                 }
               }}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100"
-              title="Link to project"
+              className="rounded-md border border-[var(--color-border)] bg-[var(--input-bg)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+              title={tWithFallback("ui.app.layers.top_bar.link_project_title", "Link to project")}
             >
-              <option value="">No project</option>
+              <option value="">{tWithFallback("ui.app.layers.top_bar.no_project", "No project")}</option>
               {projects.map((p: { _id: string; name: string }) => (
                 <option key={p._id} value={p._id}>
                   {p.name}
@@ -618,108 +769,143 @@ export function LayersCanvas() {
               ))}
             </select>
           )}
-          {/* AI */}
+          <button
+            onClick={() => setShowSystemLens((prev) => !prev)}
+            className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+              showSystemLens
+                ? "border-[var(--color-accent)] bg-[var(--color-accent-subtle)] text-[var(--color-text)]"
+                : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            }`}
+            title={tWithFallback("ui.app.layers.top_bar.toggle_system_lens_title", "Toggle system lens (Cmd+L)")}
+          >
+            {tWithFallback("ui.app.layers.top_bar.system_lens", "System Lens")}
+          </button>
+          <button
+            onClick={() => setShowTimeline((prev) => !prev)}
+            className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+              showTimeline
+                ? "border-[var(--color-info)] bg-[var(--color-info-subtle)] text-[var(--color-text)]"
+                : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            }`}
+            title={tWithFallback("ui.app.layers.top_bar.toggle_timeline_title", "Toggle execution timeline (Cmd+Shift+E)")}
+          >
+            {tWithFallback("ui.app.layers.top_bar.timeline", "Timeline")}
+          </button>
+          {/* Operator Chat */}
           <button
             onClick={() => setShowAIOverlay((prev) => !prev)}
-            className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${showAIOverlay ? "border-blue-500 bg-blue-600/20 text-blue-300" : "border-blue-500/50 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20"}`}
-            title="AI Workflow Builder (Cmd+K)"
+            className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+              showAIOverlay
+                ? "border-[var(--color-info)] bg-[var(--color-info-subtle)] text-[var(--color-text)]"
+                : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            }`}
+            title={tWithFallback("ui.app.layers.top_bar.chat_title", "Operator chat (Cmd+K)")}
           >
-            AI
+            {tWithFallback("ui.app.layers.top_bar.chat", "Chat")}
           </button>
           <Link
             href="/builder/new?launch=event&source=layers"
-            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/20 transition-colors"
-            title="Open Builder launch flow"
+            className="rounded-md border border-[var(--color-accent)] bg-[var(--color-accent-subtle)] px-3 py-1.5 text-xs text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-hover)]"
+            title={tWithFallback("ui.app.layers.top_bar.launch_flow_title", "Open Builder launch flow")}
           >
-            Launch Flow
+            {tWithFallback("ui.app.layers.top_bar.launch_flow", "Launch Flow")}
           </Link>
           {/* Save */}
           <button
             onClick={() => handleSave({ manual: true })}
             disabled={!mounted || !sessionId}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] disabled:opacity-50"
           >
-            Save
+            {tWithFallback("ui.app.layers.top_bar.save", "Save")}
           </button>
           {/* Help */}
           <button
             onClick={() => setShowHelp((prev) => !prev)}
-            className={`rounded-md border px-2 py-1.5 text-xs hover:bg-slate-800 ${showHelp ? "border-blue-500 text-blue-400" : "border-slate-700 text-slate-400"}`}
-            title="Keyboard shortcuts (?)"
+            className={`rounded-md border px-2 py-1.5 text-xs ${
+              showHelp
+                ? "border-[var(--color-info)] bg-[var(--color-info-subtle)] text-[var(--color-text)]"
+                : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+            }`}
+            title={tWithFallback("ui.app.layers.top_bar.keyboard_shortcuts_title", "Keyboard shortcuts (?)")}
           >
             <HelpIcon />
           </button>
           {/* Settings stub */}
           <button
-            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-40"
+            className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] disabled:opacity-40"
             disabled
-            title="Workflow settings (coming soon)"
+            title={tWithFallback("ui.app.layers.top_bar.workflow_settings_soon", "Workflow settings (coming soon)")}
           >
             <SettingsIcon />
           </button>
           {/* Share stub */}
           <button
-            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-40"
+            className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] disabled:opacity-40"
             disabled
-            title="Share workflow (coming soon)"
+            title={tWithFallback("ui.app.layers.top_bar.share_workflow_soon", "Share workflow (coming soon)")}
           >
             <ShareIcon />
           </button>
           {/* Run */}
           <button
-            className="rounded-md bg-green-600 px-3 py-1.5 text-xs text-white hover:bg-green-500 disabled:opacity-50"
+            className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-subtle)] px-3 py-1.5 text-xs text-[var(--color-success)] hover:bg-[var(--color-surface-hover)] disabled:opacity-50"
             disabled={!workflowId || !mounted || !sessionId || isRunning}
             onClick={() => handleRun("manual")}
-            title={isRunning ? "Running..." : "Run workflow"}
+            title={isRunning
+              ? tWithFallback("ui.app.layers.top_bar.running", "Running...")
+              : tWithFallback("ui.app.layers.top_bar.run_workflow_title", "Run workflow")}
           >
-            {isRunning ? "Running..." : "Run"}
+            {isRunning
+              ? tWithFallback("ui.app.layers.top_bar.running", "Running...")
+              : tWithFallback("ui.app.layers.top_bar.run", "Run")}
           </button>
           <button
-            className="rounded-md border border-slate-700 px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md border border-[var(--color-border)] px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] disabled:opacity-50"
             disabled={!workflowId || !mounted || !sessionId || isRunning}
             onClick={() => handleRun("test")}
-            title="Test run (mocks LC native and integration nodes)"
+            title={tWithFallback("ui.app.layers.top_bar.test_run_title", "Test run (mocks LC native and integration nodes)")}
           >
-            Test
+            {tWithFallback("ui.app.layers.top_bar.test", "Test")}
           </button>
           {/* Divider */}
-          <div className="mx-1 h-5 w-px bg-slate-700" />
+          <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
           {/* User menu */}
           {isSignedIn && user ? (
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu((prev) => !prev)}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg, #f97316, #eab308, #22c55e)" }}
-                title={user.email || "Account"}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-subtle)] text-xs font-bold text-[var(--color-text)]"
+                title={user.email || tWithFallback("ui.app.layers.top_bar.account", "Account")}
               >
-                {(user.firstName?.[0] || user.email?.[0] || "U").toUpperCase()}
+                {(user.firstName?.[0] || user.email?.[0] || tWithFallback("ui.app.layers.top_bar.user_initial_fallback", "U")).toUpperCase()}
               </button>
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute top-full right-0 mt-1 w-56 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50">
-                    <div className="border-b border-slate-700 px-3 py-2">
-                      <div className="truncate text-xs font-medium text-slate-100">{user.firstName || "User"}</div>
-                      <div className="truncate text-[10px] text-slate-500">{user.email}</div>
+                  <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-[var(--color-border)] bg-[var(--menu-bg)]">
+                    <div className="border-b border-[var(--color-border)] px-3 py-2">
+                      <div className="truncate text-xs font-medium text-[var(--color-text)]">
+                        {user.firstName || tWithFallback("ui.app.layers.top_bar.user", "User")}
+                      </div>
+                      <div className="truncate text-xs text-[var(--color-text-secondary)]">{user.email}</div>
                     </div>
                     <div className="p-1">
                       <Link
                         href="/"
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--menu-hover)] hover:text-[var(--color-text)]"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                        Home
+                        {tWithFallback("ui.app.layers.top_bar.home", "Home")}
                       </Link>
                       <button
                         onClick={async () => {
                           setShowUserMenu(false);
                           await signOut();
                         }}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-red-400 hover:bg-slate-800"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--color-error)] hover:bg-[var(--menu-hover)]"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                        Sign Out
+                        {tWithFallback("ui.app.layers.top_bar.sign_out", "Sign Out")}
                       </button>
                     </div>
                   </div>
@@ -729,9 +915,9 @@ export function LayersCanvas() {
           ) : (
             <Link
               href="/?openLogin=layers"
-              className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:bg-slate-800"
+              className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
             >
-              Sign In
+              {tWithFallback("ui.app.layers.top_bar.sign_in", "Sign In")}
             </Link>
           )}
         </div>
@@ -769,16 +955,16 @@ export function LayersCanvas() {
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             <Controls
               position="bottom-left"
-              className="!bg-slate-900 !border-slate-700 !shadow-lg [&>button]:!bg-slate-800 [&>button]:!border-slate-700 [&>button]:!fill-slate-300 [&>button:hover]:!bg-slate-700 [&>button:hover]:!fill-slate-100"
+              className="!border-[var(--color-border)] !bg-[var(--menu-bg)] [&>button]:!border-[var(--color-border)] [&>button]:!bg-[var(--color-surface-raised)] [&>button]:!fill-[var(--color-text-secondary)] [&>button:hover]:!bg-[var(--color-surface-hover)] [&>button:hover]:!fill-[var(--color-text)]"
             />
             <MiniMap
               position="bottom-right"
               zoomable
               pannable
-              className="!bg-slate-900/80"
+              className="!border-[var(--color-border)] !bg-[var(--menu-bg)]"
               nodeColor={(n) => {
                 const def = n.data?.definition as NodeDefinition | undefined;
-                return def?.color ?? "#9CA3AF";
+                return def?.color ?? "var(--color-text-secondary)";
               }}
             />
           </ReactFlow>
@@ -791,20 +977,83 @@ export function LayersCanvas() {
                 setShowAIOverlay(true);
                 setShowOverlay(false);
               }}
+              tWithFallback={tWithFallback}
             />
           )}
 
-          {/* AI Prompt Overlay */}
-          <AIPromptOverlay
-            open={showAIOverlay}
-            onClose={() => setShowAIOverlay(false)}
-            onApplyWorkflow={handleAIApply}
-            currentWorkflowSummary={getWorkflowSummary()}
-          />
+          {/* Operator Chat Panel */}
+          {showAIOverlay && (
+            <div className="pointer-events-none absolute inset-y-4 right-4 z-50 w-[min(520px,calc(100%-2rem))]">
+              <div className="pointer-events-auto flex h-full max-h-[calc(100vh-6.5rem)] flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--menu-bg)] shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold tracking-wide text-[var(--color-text)]">
+                      {tWithFallback("ui.app.layers.operator_chat.title", "Operator Chat")}
+                    </span>
+                    <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-text-secondary)]">
+                      Cmd+K
+                    </kbd>
+                  </div>
+                  <button
+                    onClick={() => setShowAIOverlay(false)}
+                    className="rounded p-1 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
+                    title={tWithFallback("ui.app.layers.operator_chat.close", "Close chat")}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-border)] px-3 py-1.5">
+                  <span className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                    {layersKickoffScopeLabel}
+                  </span>
+                  <span className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                    {layersKickoffAuthorityLabel}
+                  </span>
+                  <span className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                    {layersKickoffCitationQualityLabel}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <AIChatWindow
+                    initialLayoutMode="slick"
+                    initialPanel="layers-workflow"
+                    openContext={layersWorkflowOpenContext}
+                    sourceSessionId={sessionId ?? undefined}
+                    sourceOrganizationId={sourceOrganizationId}
+                    initialLayerWorkflowId={workflowId}
+                    forcePrimaryAgent
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Help overlay */}
-          {showHelp && <HelpOverlay onClose={() => setShowHelp(false)} />}
+          {showHelp && <HelpOverlay onClose={() => setShowHelp(false)} tWithFallback={tWithFallback} />}
+
+          <ExecutionTimelinePanel
+            open={showTimeline}
+            onToggle={() => setShowTimeline((prev) => !prev)}
+            executionId={executionId}
+            executionDetails={executionDetails ?? undefined}
+            isRunning={isRunning}
+            nodes={nodes}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
+          />
         </div>
+
+        {showSystemLens && (
+          <WorkflowLensPanel
+            nodes={nodes}
+            edges={edges}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
+          />
+        )}
 
         {/* Node Inspector */}
           <NodeInspector
@@ -828,30 +1077,32 @@ export function LayersCanvas() {
 // MOBILE GATE
 // ============================================================================
 
-function MobileGate() {
+function MobileGate({ tWithFallback }: { tWithFallback: LayersTranslator }) {
   return (
-    <div
-      className="flex h-screen w-full flex-col items-center justify-center gap-6 px-6 text-center"
-      style={{ background: "#09090b", color: "#fafafa" }}
-    >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-700 bg-slate-800">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-6 bg-[var(--color-bg)] px-6 text-center text-[var(--color-text)]">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-info)]">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
       </div>
       <div>
-        <h1 className="mb-2 text-lg font-semibold">Layers works best on desktop</h1>
-        <p className="text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
-          The visual workflow canvas needs a larger screen for drag-and-drop, node connections, and canvas navigation.
+        <h1 className="mb-2 text-lg font-semibold">
+          {tWithFallback("ui.app.layers.mobile_gate.title", "Layers works best on desktop")}
+        </h1>
+        <p className="mx-auto max-w-xs text-sm leading-relaxed text-[var(--color-text-secondary)]">
+          {tWithFallback(
+            "ui.app.layers.mobile_gate.description",
+            "The visual workflow canvas needs a larger screen for drag-and-drop, node connections, and canvas navigation.",
+          )}
         </p>
       </div>
       <Link
         href="/"
-        className="rounded-lg border border-slate-700 px-5 py-2.5 text-sm text-slate-200 hover:bg-slate-800 transition-colors"
+        className="rounded-lg border border-[var(--color-border)] px-5 py-2.5 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
       >
-        Back to dashboard
+        {tWithFallback("ui.app.layers.mobile_gate.back_to_dashboard", "Back to dashboard")}
       </Link>
     </div>
   );
@@ -864,26 +1115,55 @@ function MobileGate() {
 function EmptyCanvasOverlay({
   onClose,
   onOpenAI,
+  tWithFallback,
 }: {
   onClose: () => void;
   onOpenAI: () => void;
+  tWithFallback: LayersTranslator;
 }) {
   const tips = [
-    { icon: "drag", label: "Drag nodes from the Tool Chest on the left" },
-    { icon: "connect", label: "Connect nodes by dragging between handles" },
-    { icon: "save", label: "Cmd+S to save, Cmd+Z to undo" },
-    { icon: "help", label: "Press ? for all keyboard shortcuts" },
+    {
+      icon: "drag",
+      label: tWithFallback(
+        "ui.app.layers.empty_overlay.tip.drag_nodes",
+        "Drag nodes from the Tool Chest on the left",
+      ),
+    },
+    {
+      icon: "connect",
+      label: tWithFallback(
+        "ui.app.layers.empty_overlay.tip.connect_nodes",
+        "Connect nodes by dragging between handles",
+      ),
+    },
+    {
+      icon: "save",
+      label: tWithFallback("ui.app.layers.empty_overlay.tip.save_undo", "Cmd+S to save, Cmd+Z to undo"),
+    },
+    {
+      icon: "map",
+      label: tWithFallback(
+        "ui.app.layers.empty_overlay.tip.system_lens",
+        "Use System Lens to inspect branches and disconnected paths",
+      ),
+    },
+    {
+      icon: "help",
+      label: tWithFallback(
+        "ui.app.layers.empty_overlay.tip.keyboard_help",
+        "Press ? for all keyboard shortcuts",
+      ),
+    },
   ];
 
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <div
-        className="pointer-events-auto relative w-[540px] rounded-xl border border-slate-700 p-8 shadow-2xl backdrop-blur-sm"
-        style={{ background: "rgba(9, 9, 11, 0.97)" }}
-      >
+      <div className="pointer-events-auto relative w-full max-w-2xl rounded-xl border border-[var(--color-border)] bg-[var(--menu-bg)] p-8">
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 text-slate-500 hover:text-slate-200 transition-colors"
+          className="absolute right-3 top-3 text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text)]"
+          title={tWithFallback("ui.app.layers.empty_overlay.close", "Close")}
+          aria-label={tWithFallback("ui.app.layers.empty_overlay.close", "Close")}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -892,19 +1172,24 @@ function EmptyCanvasOverlay({
         </button>
 
         <div className="mb-5 text-center">
-          <h2 className="text-base font-semibold">Welcome to Layers</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Build workflows visually, or let AI generate one from a description.
+          <h2 className="text-base font-semibold">
+            {tWithFallback("ui.app.layers.empty_overlay.title", "Welcome to Layers")}
+          </h2>
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+            {tWithFallback(
+              "ui.app.layers.empty_overlay.subtitle",
+              "Build workflows visually, or use operator chat to draft a workflow.",
+            )}
           </p>
         </div>
 
-        {/* Describe with AI */}
+        {/* Open Operator Chat */}
         <button
           onClick={onOpenAI}
-          className="mb-5 w-full rounded-lg border border-blue-500/30 bg-blue-600/10 px-4 py-3 text-left hover:bg-blue-600/20 transition-colors group"
+          className="group mb-5 w-full rounded-lg border border-[var(--color-info)] bg-[var(--color-info-subtle)] px-4 py-3 text-left transition-colors hover:bg-[var(--color-surface-hover)]"
         >
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600/20 text-blue-400">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--color-info-subtle)] text-[var(--color-info)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
@@ -912,10 +1197,17 @@ function EmptyCanvasOverlay({
               </svg>
             </span>
             <div>
-              <p className="text-sm font-medium text-blue-300 group-hover:text-blue-200">Describe with AI</p>
-              <p className="text-xs text-slate-500">Tell AI what to build and it generates the workflow</p>
+              <p className="text-sm font-medium text-[var(--color-text)]">
+                {tWithFallback("ui.app.layers.empty_overlay.chat_cta.title", "Open Operator Chat")}
+              </p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                {tWithFallback(
+                  "ui.app.layers.empty_overlay.chat_cta.subtitle",
+                  "Use your main organization agent to design workflow steps",
+                )}
+              </p>
             </div>
-            <kbd className="ml-auto rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+            <kbd className="ml-auto rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-1.5 py-0.5 font-mono text-xs text-[var(--color-text-secondary)]">
               Cmd+K
             </kbd>
           </div>
@@ -924,8 +1216,8 @@ function EmptyCanvasOverlay({
         {/* Quick tips */}
         <div className="mb-5 space-y-2">
           {tips.map((tip) => (
-            <div key={tip.icon} className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-800/60 text-slate-500">
+            <div key={tip.icon} className="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]">
                 {tip.icon === "drag" && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
                 )}
@@ -934,6 +1226,9 @@ function EmptyCanvasOverlay({
                 )}
                 {tip.icon === "save" && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                )}
+                {tip.icon === "map" && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="8" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="16" cy="18" r="2"/><path d="M8 8h8M16.4 8l-0.8 8M7.4 9.4l7.2 7.2"/></svg>
                 )}
                 {tip.icon === "help" && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -948,9 +1243,9 @@ function EmptyCanvasOverlay({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 transition-colors"
+            className="flex-1 rounded-lg border border-[var(--color-border)] px-4 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
           >
-            Start from scratch
+            {tWithFallback("ui.app.layers.empty_overlay.start_from_scratch", "Start from scratch")}
           </button>
         </div>
       </div>
@@ -962,25 +1257,49 @@ function EmptyCanvasOverlay({
 // HELP OVERLAY (keyboard shortcuts)
 // ============================================================================
 
-function HelpOverlay({ onClose }: { onClose: () => void }) {
+function HelpOverlay({
+  onClose,
+  tWithFallback,
+}: {
+  onClose: () => void;
+  tWithFallback: LayersTranslator;
+}) {
   const shortcuts: { key: string; label: string }[] = [
-    { key: "Cmd+S", label: "Save workflow" },
-    { key: "Cmd+Z", label: "Undo" },
-    { key: "Cmd+Shift+Z", label: "Redo" },
-    { key: "Cmd+D", label: "Duplicate selected" },
-    { key: "Delete / Backspace", label: "Delete selected" },
-    { key: "Cmd+K", label: "AI Workflow Builder" },
-    { key: "?", label: "Toggle this help panel" },
-    { key: "Scroll", label: "Zoom in/out" },
-    { key: "Click + drag", label: "Pan canvas" },
-    { key: "Escape", label: "Close panels" },
+    { key: "Cmd+S", label: tWithFallback("ui.app.layers.help_overlay.shortcut.save", "Save workflow") },
+    { key: "Cmd+Z", label: tWithFallback("ui.app.layers.help_overlay.shortcut.undo", "Undo") },
+    { key: "Cmd+Shift+Z", label: tWithFallback("ui.app.layers.help_overlay.shortcut.redo", "Redo") },
+    { key: "Cmd+D", label: tWithFallback("ui.app.layers.help_overlay.shortcut.duplicate", "Duplicate selected") },
+    {
+      key: "Delete / Backspace",
+      label: tWithFallback("ui.app.layers.help_overlay.shortcut.delete", "Delete selected"),
+    },
+    {
+      key: "Cmd+K",
+      label: tWithFallback("ui.app.layers.help_overlay.shortcut.chat", "Toggle operator chat panel"),
+    },
+    { key: "Cmd+L", label: tWithFallback("ui.app.layers.help_overlay.shortcut.system_lens", "Toggle System Lens") },
+    {
+      key: "Cmd+Shift+E",
+      label: tWithFallback("ui.app.layers.help_overlay.shortcut.timeline", "Toggle execution timeline"),
+    },
+    { key: "?", label: tWithFallback("ui.app.layers.help_overlay.shortcut.help", "Toggle this help panel") },
+    { key: "Scroll", label: tWithFallback("ui.app.layers.help_overlay.shortcut.zoom", "Zoom in/out") },
+    { key: "Click + drag", label: tWithFallback("ui.app.layers.help_overlay.shortcut.pan", "Pan canvas") },
+    { key: "Escape", label: tWithFallback("ui.app.layers.help_overlay.shortcut.close", "Close panels") },
   ];
 
   return (
-    <div className="absolute right-4 top-4 z-50 w-[280px] rounded-xl border border-slate-700 p-5 shadow-2xl backdrop-blur-sm" style={{ background: "rgba(9, 9, 11, 0.97)" }}>
+    <div className="absolute right-4 top-4 z-50 w-80 rounded-xl border border-[var(--color-border)] bg-[var(--menu-bg)] p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Keyboard Shortcuts</h3>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-200 transition-colors">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text)]">
+          {tWithFallback("ui.app.layers.help_overlay.title", "Keyboard Shortcuts")}
+        </h3>
+        <button
+          onClick={onClose}
+          className="text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text)]"
+          title={tWithFallback("ui.app.layers.help_overlay.close", "Close help")}
+          aria-label={tWithFallback("ui.app.layers.help_overlay.close", "Close help")}
+        >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -990,8 +1309,8 @@ function HelpOverlay({ onClose }: { onClose: () => void }) {
       <div className="space-y-2">
         {shortcuts.map((s) => (
           <div key={s.key} className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">{s.label}</span>
-            <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+            <span className="text-[var(--color-text-secondary)]">{s.label}</span>
+            <kbd className="rounded border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-1.5 py-0.5 font-mono text-xs text-[var(--color-text)]">
               {s.key}
             </kbd>
           </div>
@@ -1005,13 +1324,33 @@ function HelpOverlay({ onClose }: { onClose: () => void }) {
 // AUTO-SAVE INDICATOR (silent success, loud failure)
 // ============================================================================
 
-function formatTimeAgo(timestamp: number): string {
+function encodeUtf8Base64(value: string): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return window.btoa(binary);
+}
+
+function formatTimeAgo(timestamp: number, tWithFallback: LayersTranslator): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) {
+    return tWithFallback("ui.app.layers.autosave.time.just_now", "just now");
+  }
+  if (seconds < 60) {
+    return tWithFallback("ui.app.layers.autosave.time.seconds_ago", "{count}s ago", { count: seconds });
+  }
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ago`;
+  if (minutes < 60) {
+    return tWithFallback("ui.app.layers.autosave.time.minutes_ago", "{count}m ago", { count: minutes });
+  }
+  return tWithFallback("ui.app.layers.autosave.time.hours_ago", "{count}h ago", {
+    count: Math.floor(minutes / 60),
+  });
 }
 
 function AutoSaveIndicator({
@@ -1020,12 +1359,14 @@ function AutoSaveIndicator({
   manualSaveFlash,
   isDirty,
   onRetry,
+  tWithFallback,
 }: {
   lastSavedAt: number | null;
   saveError: string | null;
   manualSaveFlash: boolean;
   isDirty: boolean;
   onRetry: () => void;
+  tWithFallback: LayersTranslator;
 }) {
   // Tick every 30s to update "X ago" text
   const [, setTick] = useState(0);
@@ -1038,18 +1379,18 @@ function AutoSaveIndicator({
   // Error state (persistent, prominent)
   if (saveError) {
     return (
-      <span className="flex items-center gap-1.5 text-[10px] text-red-400">
+      <span className="flex items-center gap-1.5 text-xs text-[var(--color-error)]">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        Save failed
+        {tWithFallback("ui.app.layers.autosave.error.save_failed", "Save failed")}
         <button
           onClick={onRetry}
-          className="ml-0.5 underline hover:text-red-300"
+          className="ml-0.5 underline"
         >
-          Retry
+          {tWithFallback("ui.app.layers.autosave.error.retry", "Retry")}
         </button>
       </span>
     );
@@ -1058,11 +1399,11 @@ function AutoSaveIndicator({
   // Manual save flash (brief confirmation)
   if (manualSaveFlash) {
     return (
-      <span className="flex items-center gap-1 text-[10px] text-green-400">
+      <span className="flex items-center gap-1 text-xs text-[var(--color-success)]">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Saved!
+        {tWithFallback("ui.app.layers.autosave.saved", "Saved!")}
       </span>
     );
   }
@@ -1070,19 +1411,23 @@ function AutoSaveIndicator({
   // No save has happened yet
   if (!lastSavedAt) {
     if (isDirty) {
-      return <span className="text-[10px] text-slate-500">Unsaved changes</span>;
+      return (
+        <span className="text-xs text-[var(--color-text-secondary)]">
+          {tWithFallback("ui.app.layers.autosave.unsaved_changes", "Unsaved changes")}
+        </span>
+      );
     }
     return null;
   }
 
   // Default quiet state — static indicator with passive timestamp
-  const agoText = formatTimeAgo(lastSavedAt);
+  const agoText = formatTimeAgo(lastSavedAt, tWithFallback);
   return (
-    <span className="flex items-center gap-1 text-[10px] text-slate-500">
+    <span className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12" />
       </svg>
-      Auto-saved {agoText}
+      {tWithFallback("ui.app.layers.autosave.auto_saved", "Auto-saved {time}", { time: agoText })}
     </span>
   );
 }

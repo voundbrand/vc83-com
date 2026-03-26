@@ -191,6 +191,7 @@ export interface SendResult {
   success: boolean;
   providerMessageId?: string;
   error?: string;
+  errorCode?: string;
   retryable?: boolean;
   statusCode?: number;
   retryAfterMs?: number;

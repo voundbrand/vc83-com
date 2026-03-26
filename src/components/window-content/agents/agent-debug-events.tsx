@@ -178,6 +178,18 @@ export function AgentDebugEvents({ agentId, sessionId, organizationId }: AgentDe
       <div className="space-y-2">
         {events.map((event) => {
           const isOpen = expanded[event.actionId] === true;
+          const dispatchDecision = event.summary?.dispatchDecision || "n/a";
+          const blockedReason =
+            event.summary?.preflightReasonCode
+            || (dispatchDecision === "blocked"
+              ? event.summary?.reasonCode || "blocked_without_reason_code"
+              : undefined);
+          const retrySafeLabel =
+            dispatchDecision === "blocked"
+              ? "no"
+              : dispatchDecision === "allowed" || dispatchDecision === "safe_retry"
+                ? "yes"
+                : "unknown";
           return (
             <div
               key={event.actionId}
@@ -206,8 +218,13 @@ export function AgentDebugEvents({ agentId, sessionId, organizationId }: AgentDe
                       {new Date(event.performedAt).toLocaleString()} · actionId={shortId(event.actionId)} · session={shortId(event.sessionId)} · turn={shortId(event.turnId)}
                     </div>
                     <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
-                      reason={event.summary?.reasonCode || "n/a"} · dispatch={event.summary?.dispatchDecision || "n/a"} · invocation={event.summary?.dispatchInvocationStatus || "n/a"}
+                      reason={event.summary?.reasonCode || "n/a"} · dispatch={dispatchDecision} · invocation={event.summary?.dispatchInvocationStatus || "n/a"} · outcome={event.summary?.outcome || "n/a"} · retry_safe={retrySafeLabel}
                     </div>
+                    {blockedReason && (
+                      <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+                        blocked_reason={blockedReason}
+                      </div>
+                    )}
                     {Array.isArray(event.summary?.toolsUsed) && event.summary?.toolsUsed.length > 0 && (
                       <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
                         tools={event.summary?.toolsUsed.join(", ")}

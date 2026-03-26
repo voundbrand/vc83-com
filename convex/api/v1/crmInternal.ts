@@ -6,9 +6,50 @@
  */
 
 import { v } from "convex/values";
-import { internalQuery, internalMutation, MutationCtx } from "../../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+  type MutationCtx,
+} from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { addressesValidator } from "../../crmOntology";
+import { normalizeCrmConnectorKey } from "../../crmIntegrations";
+import {
+  normalizeOrgCrmSyncCandidateEnvelope,
+  resolveOrgActionSyncDispatchMode,
+  type OrgCrmSyncCandidateEnvelope,
+} from "../../ai/orgActionSyncOutbox";
+
+const generatedApi: any = require("../../_generated/api");
+
+export const ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION =
+  "org_crm_narrow_sync_v1" as const;
+
+const ORG_CRM_NARROW_SYNC_DEFAULT_BATCH_LIMIT = 25;
+const ORG_CRM_NARROW_SYNC_MAX_BATCH_LIMIT = 100;
+const ACTIVE_CAMPAIGN_CONNECTOR_KEY = "activecampaign" as const;
+const ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_DEFAULT = 20_000;
+const ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_MIN = 100;
+const ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_MAX = 120_000;
+const ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_DEFAULT = 2;
+const ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_MIN = 1;
+const ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_MAX = 4;
+
+type SupportedNarrowSyncConnectorKey = typeof ACTIVE_CAMPAIGN_CONNECTOR_KEY;
+
+export type OrgCrmSyncOperationStatus =
+  | "applied"
+  | "failed"
+  | "skipped_missing_data"
+  | "skipped_unsupported";
+
+export interface OrgCrmSyncOperationPlan {
+  contact: OrgCrmSyncOperationStatus;
+  organization: OrgCrmSyncOperationStatus;
+  activity: OrgCrmSyncOperationStatus;
+}
 
 /**
  * HELPER: Find or create CRM organization
@@ -22,6 +63,310 @@ interface AddressData {
   state?: string;
   postalCode?: string;
   country?: string;
+}
+
+interface SyncObjectSnapshot {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  type: string;
+  name: string;
+  description?: string;
+  customProperties?: unknown;
+}
+
+interface OrgCrmSyncContactPayload {
+  email: string | null;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
+interface OrgCrmSyncOrganizationPayload {
+  name: string | null;
+  website?: string;
+  industry?: string;
+}
+
+interface OrgCrmSyncDispatchOutcome {
+  connectorKey: string;
+  dispatchStatus: "succeeded" | "failed" | "skipped";
+  canonicalObjectId?: Id<"objects">;
+  canonicalObjectType?: string;
+  externalRecordId?: string;
+  externalRecordType?: string;
+  errorMessage?: string;
+  metadata: Record<string, unknown>;
+}
+
+interface PendingSyncCandidateRow {
+  syncCandidateObjectId: Id<"objects">;
+  name: string;
+  status: string;
+  createdAt: number;
+  updatedAt: number;
+  attemptNumber: number;
+  envelope: OrgCrmSyncCandidateEnvelope;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toObjectId(value: unknown): Id<"objects"> | null {
+  const normalized = normalizeNonEmptyString(value);
+  return normalized ? (normalized as Id<"objects">) : null;
+}
+
+function normalizePositiveInteger(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  const normalized = Math.round(value);
+  if (normalized < min) {
+    return min;
+  }
+  if (normalized > max) {
+    return max;
+  }
+  return normalized;
+}
+
+function splitName(name: string | null): { firstName?: string; lastName?: string } {
+  if (!name) {
+    return {};
+  }
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return {};
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0] };
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+function resolveContactPayload(
+  contactObject: SyncObjectSnapshot | null,
+): OrgCrmSyncContactPayload {
+  if (!contactObject || contactObject.type !== "crm_contact") {
+    return { email: null };
+  }
+  const customProperties = asRecord(contactObject.customProperties);
+  const email = normalizeNonEmptyString(customProperties.email);
+  const nameParts = splitName(normalizeNonEmptyString(contactObject.name));
+
+  const firstName =
+    normalizeNonEmptyString(customProperties.firstName)
+    || nameParts.firstName;
+  const lastName =
+    normalizeNonEmptyString(customProperties.lastName)
+    || nameParts.lastName;
+  const phone = normalizeNonEmptyString(customProperties.phone) || undefined;
+
+  return {
+    email,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    phone,
+  };
+}
+
+function resolveOrganizationPayload(
+  organizationObject: SyncObjectSnapshot | null,
+): OrgCrmSyncOrganizationPayload {
+  if (!organizationObject || organizationObject.type !== "crm_organization") {
+    return { name: null };
+  }
+  const customProperties = asRecord(organizationObject.customProperties);
+  return {
+    name: normalizeNonEmptyString(organizationObject.name),
+    website: normalizeNonEmptyString(customProperties.website) || undefined,
+    industry: normalizeNonEmptyString(customProperties.industry) || undefined,
+  };
+}
+
+export function normalizeOrgCrmSyncOutboxBatchLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return ORG_CRM_NARROW_SYNC_DEFAULT_BATCH_LIMIT;
+  }
+  const normalized = Math.floor(value);
+  if (normalized < 1) {
+    return 1;
+  }
+  if (normalized > ORG_CRM_NARROW_SYNC_MAX_BATCH_LIMIT) {
+    return ORG_CRM_NARROW_SYNC_MAX_BATCH_LIMIT;
+  }
+  return normalized;
+}
+
+export function normalizeOrgCrmSyncDispatchTimeoutMs(value: unknown): number {
+  return normalizePositiveInteger(
+    value,
+    ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_DEFAULT,
+    ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_MIN,
+    ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS_MAX,
+  );
+}
+
+export function normalizeOrgCrmSyncDispatchMaxAttempts(value: unknown): number {
+  return normalizePositiveInteger(
+    value,
+    ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_DEFAULT,
+    ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_MIN,
+    ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS_MAX,
+  );
+}
+
+function resolveOrgCrmSyncDispatchTimeoutMs(): number {
+  return normalizeOrgCrmSyncDispatchTimeoutMs(
+    process.env.ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS
+      ? Number(process.env.ORG_CRM_SYNC_DISPATCH_TIMEOUT_MS)
+      : undefined,
+  );
+}
+
+function resolveOrgCrmSyncDispatchMaxAttempts(): number {
+  return normalizeOrgCrmSyncDispatchMaxAttempts(
+    process.env.ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS
+      ? Number(process.env.ORG_CRM_SYNC_DISPATCH_MAX_ATTEMPTS)
+      : undefined,
+  );
+}
+
+function buildOrgCrmSyncDispatchTimeoutError(timeoutMs: number): Error {
+  return new Error(`org_crm_sync_dispatch_timeout:${timeoutMs}ms`);
+}
+
+function isRetryableOrgCrmSyncDispatchError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if (error.message.startsWith("org_crm_sync_dispatch_timeout:")) {
+    return true;
+  }
+  const normalized = error.message.toLowerCase();
+  return (
+    normalized.includes("request_timeout")
+    || normalized.includes("timeout")
+    || normalized.includes("timed out")
+    || normalized.includes("429")
+    || normalized.includes("5xx")
+  );
+}
+
+export async function withOrgCrmSyncDispatchTimeout<T>(args: {
+  timeoutMs: number;
+  operation: () => Promise<T>;
+}): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race<T>([
+      args.operation(),
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(buildOrgCrmSyncDispatchTimeoutError(args.timeoutMs));
+        }, args.timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+export async function executeOrgCrmSyncDispatchWithRetry<T>(args: {
+  timeoutMs: number;
+  maxAttempts: number;
+  operation: () => Promise<T>;
+}): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= args.maxAttempts; attempt += 1) {
+    try {
+      return await withOrgCrmSyncDispatchTimeout({
+        timeoutMs: args.timeoutMs,
+        operation: args.operation,
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt < args.maxAttempts && isRetryableOrgCrmSyncDispatchError(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw (
+    lastError
+    ?? new Error("org_crm_sync_dispatch_failed")
+  );
+}
+
+export function buildOrgCrmSyncActivitySummary(args: {
+  summary?: string;
+  projectionName?: string;
+  sessionId?: string;
+  turnId?: string;
+  correlationId?: string;
+}): string {
+  const baseSummary =
+    normalizeNonEmptyString(args.summary)
+    || normalizeNonEmptyString(args.projectionName)
+    || "Org CRM projection sync";
+  const contextParts = [
+    normalizeNonEmptyString(args.sessionId)
+      ? `session=${args.sessionId}`
+      : null,
+    normalizeNonEmptyString(args.turnId)
+      ? `turn=${args.turnId}`
+      : null,
+    normalizeNonEmptyString(args.correlationId)
+      ? `correlation=${args.correlationId}`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+  const summary =
+    contextParts.length > 0
+      ? `${baseSummary} [${contextParts.join(", ")}]`
+      : baseSummary;
+  return summary.length > 1200 ? summary.slice(0, 1200) : summary;
+}
+
+export function resolveNarrowCrmSyncOperationPlan(args: {
+  hasContactEmail: boolean;
+  hasOrganizationPayload: boolean;
+  hasActivitySummary: boolean;
+  supportsOrganizationUpsert: boolean;
+  supportsActivityAppend: boolean;
+}): OrgCrmSyncOperationPlan {
+  return {
+    contact: args.hasContactEmail ? "applied" : "skipped_missing_data",
+    organization: args.hasOrganizationPayload
+      ? (args.supportsOrganizationUpsert ? "applied" : "skipped_unsupported")
+      : "skipped_missing_data",
+    activity: args.hasActivitySummary
+      ? (args.supportsActivityAppend ? "applied" : "skipped_unsupported")
+      : "skipped_missing_data",
+  };
 }
 
 async function findOrCreateOrganization(
@@ -1577,6 +1922,384 @@ export const exportContactsInternal = internalQuery({
       format: "json" as const,
       total: contacts.length,
       contacts,
+    };
+  },
+});
+
+async function getScopedObjectSnapshot(args: {
+  ctx: ActionCtx;
+  organizationId: Id<"organizations">;
+  objectId: Id<"objects"> | null;
+}): Promise<SyncObjectSnapshot | null> {
+  if (!args.objectId) {
+    return null;
+  }
+  const object = await (args.ctx as any).runQuery(
+    generatedApi.internal.objectsInternal.getObjectInternal,
+    { objectId: args.objectId },
+  );
+  if (!object || object.organizationId !== args.organizationId) {
+    return null;
+  }
+  return object as SyncObjectSnapshot;
+}
+
+async function resolveActiveCampaignConnectionId(args: {
+  ctx: ActionCtx;
+  organizationId: Id<"organizations">;
+}): Promise<Id<"oauthConnections"> | null> {
+  const connection = await (args.ctx as any).runQuery(
+    generatedApi.internal.oauth.activecampaign.getConnectionByOrg,
+    { organizationId: args.organizationId },
+  );
+  return (connection?._id as Id<"oauthConnections"> | undefined) || null;
+}
+
+function resolveSupportedConnectorKey(
+  connectorKey: string | null,
+): SupportedNarrowSyncConnectorKey | null {
+  if (connectorKey === ACTIVE_CAMPAIGN_CONNECTOR_KEY) {
+    return connectorKey;
+  }
+  return null;
+}
+
+async function dispatchCandidateToActiveCampaign(args: {
+  ctx: ActionCtx;
+  organizationId: Id<"organizations">;
+  connectionId: Id<"oauthConnections">;
+  candidate: PendingSyncCandidateRow;
+  projectionObject: SyncObjectSnapshot | null;
+  contactObject: SyncObjectSnapshot | null;
+  organizationObject: SyncObjectSnapshot | null;
+}): Promise<OrgCrmSyncDispatchOutcome> {
+  const contactPayload = resolveContactPayload(args.contactObject);
+  const organizationPayload = resolveOrganizationPayload(args.organizationObject);
+  const activitySummary = buildOrgCrmSyncActivitySummary({
+    summary:
+      normalizeNonEmptyString(args.projectionObject?.description)
+      || normalizeNonEmptyString(asRecord(args.projectionObject?.customProperties).summary)
+      || undefined,
+    projectionName: normalizeNonEmptyString(args.projectionObject?.name) || undefined,
+    sessionId: args.candidate.envelope.sessionId,
+    turnId: args.candidate.envelope.turnId,
+    correlationId: args.candidate.envelope.correlationId,
+  });
+
+  const operationPlan = resolveNarrowCrmSyncOperationPlan({
+    hasContactEmail: Boolean(contactPayload.email),
+    hasOrganizationPayload: Boolean(organizationPayload.name),
+    hasActivitySummary: Boolean(activitySummary),
+    supportsOrganizationUpsert: false,
+    supportsActivityAppend: false,
+  });
+
+  const canonicalObjectId =
+    args.contactObject?._id || args.organizationObject?._id || args.projectionObject?._id;
+  const canonicalObjectType =
+    args.contactObject?.type
+    || args.organizationObject?.type
+    || args.projectionObject?.type;
+
+  if (!contactPayload.email) {
+    return {
+      connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+      dispatchStatus: "skipped",
+      canonicalObjectId,
+      canonicalObjectType,
+      errorMessage: "Missing contact email for ActiveCampaign narrow sync.",
+      metadata: {
+        contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+        connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+        skipReason: "missing_contact_email",
+        operationPlan,
+        activitySummary,
+        candidateName: args.candidate.name,
+      },
+    };
+  }
+
+  const dispatchTimeoutMs = resolveOrgCrmSyncDispatchTimeoutMs();
+  const dispatchMaxAttempts = resolveOrgCrmSyncDispatchMaxAttempts();
+
+  try {
+    const upsertedContact = await executeOrgCrmSyncDispatchWithRetry({
+      timeoutMs: dispatchTimeoutMs,
+      maxAttempts: dispatchMaxAttempts,
+      operation: async () =>
+        await (args.ctx as any).runAction(
+          generatedApi.internal.oauth.activecampaign.upsertContact,
+          {
+            connectionId: args.connectionId,
+            email: contactPayload.email,
+            firstName: contactPayload.firstName,
+            lastName: contactPayload.lastName,
+            phone: contactPayload.phone,
+          },
+        ),
+    });
+    const upsertedContactRecord = asRecord(upsertedContact);
+    const externalRecordId = normalizeNonEmptyString(upsertedContactRecord.id);
+
+    return {
+      connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+      dispatchStatus: "succeeded",
+      canonicalObjectId,
+      canonicalObjectType,
+      externalRecordId: externalRecordId || undefined,
+      externalRecordType: "activecampaign_contact",
+      metadata: {
+        contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+        connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+        operationPlan,
+        activitySummary,
+        candidateName: args.candidate.name,
+        contactEmail: contactPayload.email,
+        organizationName: organizationPayload.name || undefined,
+      },
+    };
+  } catch (error) {
+    return {
+      connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+      dispatchStatus: "failed",
+      canonicalObjectId,
+      canonicalObjectType,
+      errorMessage:
+        error instanceof Error ? error.message : "ActiveCampaign dispatch failed.",
+      metadata: {
+        contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+        connectorKey: ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+        operationPlan: {
+          ...operationPlan,
+          contact: "failed",
+        },
+        activitySummary,
+        candidateName: args.candidate.name,
+        contactEmail: contactPayload.email,
+      },
+    };
+  }
+}
+
+/**
+ * DISPATCH ORG CRM SYNC OUTBOX (INTERNAL ACTION)
+ *
+ * Runs narrow external CRM sync V1 for pending OAR sync candidates.
+ * Scope: contact upsert plus organization/activity payload planning with fail-closed
+ * connector behavior. Broad external action execution remains out of scope.
+ */
+export const dispatchOrgCrmSyncOutboxInternal = internalAction({
+  args: {
+    organizationId: v.id("organizations"),
+    externalWritesEnabled: v.boolean(),
+    connectorKey: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = normalizeOrgCrmSyncOutboxBatchLimit(args.limit);
+    const normalizedConnectorKey = normalizeCrmConnectorKey(args.connectorKey);
+    const supportedConnectorKey = normalizedConnectorKey
+      ? resolveSupportedConnectorKey(normalizedConnectorKey)
+      : ACTIVE_CAMPAIGN_CONNECTOR_KEY;
+
+    const pendingCandidates = (await (ctx as any).runQuery(
+      generatedApi.internal.ai.orgActionSyncOutbox.listPendingSyncCandidates,
+      {
+        organizationId: args.organizationId,
+        limit,
+      },
+    )) as PendingSyncCandidateRow[];
+
+    if (!pendingCandidates.length) {
+      return {
+        contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+        processed: 0,
+        results: [],
+        counts: { succeeded: 0, failed: 0, skipped: 0 },
+      };
+    }
+
+    const activeCampaignConnectionId = supportedConnectorKey
+      ? await resolveActiveCampaignConnectionId({
+          ctx,
+          organizationId: args.organizationId,
+        })
+      : null;
+
+    const results: Array<{
+      syncCandidateObjectId: Id<"objects">;
+      dispatchStatus: "succeeded" | "failed" | "skipped";
+      outboxStatus: string;
+      connectorKey: string;
+      attemptNumber: number;
+      bindingId: string | null;
+      errorMessage?: string;
+      externalRecordId?: string;
+      externalRecordType?: string;
+    }> = [];
+
+    for (const candidate of pendingCandidates) {
+      const attemptNumber =
+        typeof candidate.attemptNumber === "number"
+        && Number.isFinite(candidate.attemptNumber)
+        && candidate.attemptNumber > 0
+          ? Math.floor(candidate.attemptNumber)
+          : 1;
+      const envelope = normalizeOrgCrmSyncCandidateEnvelope(candidate.envelope);
+
+      let outcome: OrgCrmSyncDispatchOutcome;
+
+      if (!envelope) {
+        outcome = {
+          connectorKey: normalizedConnectorKey || ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+          dispatchStatus: "failed",
+          errorMessage: "Invalid sync candidate envelope.",
+          metadata: {
+            contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+            failureReason: "invalid_envelope",
+          },
+        };
+      } else if (normalizedConnectorKey && !supportedConnectorKey) {
+        outcome = {
+          connectorKey: normalizedConnectorKey,
+          dispatchStatus: "skipped",
+          errorMessage: `Unsupported narrow sync connector: ${normalizedConnectorKey}.`,
+          metadata: {
+            contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+            skipReason: "unsupported_connector",
+          },
+        };
+      } else {
+        const dispatchMode = resolveOrgActionSyncDispatchMode({
+          externalWritesEnabled: args.externalWritesEnabled,
+          targetSystemClass: "external_connector",
+        });
+        const projectionObject = await getScopedObjectSnapshot({
+          ctx,
+          organizationId: args.organizationId,
+          objectId: toObjectId(envelope.projectionObjectId),
+        });
+        const contactObject = await getScopedObjectSnapshot({
+          ctx,
+          organizationId: args.organizationId,
+          objectId: toObjectId(envelope.targetContactObjectId),
+        });
+        const organizationObject = await getScopedObjectSnapshot({
+          ctx,
+          organizationId: args.organizationId,
+          objectId: toObjectId(envelope.targetOrganizationObjectId),
+        });
+
+        if (dispatchMode !== "dispatch") {
+          outcome = {
+            connectorKey: supportedConnectorKey || ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+            dispatchStatus: "skipped",
+            canonicalObjectId:
+              contactObject?._id || organizationObject?._id || projectionObject?._id,
+            canonicalObjectType:
+              contactObject?.type || organizationObject?.type || projectionObject?.type,
+            errorMessage: "External writes are disabled for narrow CRM sync.",
+            metadata: {
+              contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+              skipReason: "external_writes_disabled",
+            },
+          };
+        } else if (!activeCampaignConnectionId) {
+          outcome = {
+            connectorKey: supportedConnectorKey || ACTIVE_CAMPAIGN_CONNECTOR_KEY,
+            dispatchStatus: "skipped",
+            canonicalObjectId:
+              contactObject?._id || organizationObject?._id || projectionObject?._id,
+            canonicalObjectType:
+              contactObject?.type || organizationObject?.type || projectionObject?.type,
+            errorMessage: "No active ActiveCampaign connection found for organization.",
+            metadata: {
+              contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+              skipReason: "no_active_connection",
+            },
+          };
+        } else {
+          outcome = await dispatchCandidateToActiveCampaign({
+            ctx,
+            organizationId: args.organizationId,
+            connectionId: activeCampaignConnectionId,
+            candidate,
+            projectionObject,
+            contactObject,
+            organizationObject,
+          });
+        }
+      }
+
+      try {
+        const receipt = await (ctx as any).runMutation(
+          generatedApi.internal.ai.orgActionSyncOutbox.recordSyncDispatchReceipt,
+          {
+            organizationId: args.organizationId,
+            syncCandidateObjectId: candidate.syncCandidateObjectId,
+            dispatchStatus: outcome.dispatchStatus,
+            connectorKey: outcome.connectorKey,
+            canonicalObjectId: outcome.canonicalObjectId,
+            canonicalObjectType: outcome.canonicalObjectType,
+            externalRecordId: outcome.externalRecordId,
+            externalRecordType: outcome.externalRecordType,
+            correlationId: envelope?.correlationId,
+            sessionId: envelope?.sessionId,
+            syncedAt: outcome.dispatchStatus === "succeeded" ? Date.now() : undefined,
+            errorMessage: outcome.errorMessage,
+            attemptNumber,
+            metadata: outcome.metadata,
+          },
+        );
+
+        results.push({
+          syncCandidateObjectId: candidate.syncCandidateObjectId,
+          dispatchStatus: outcome.dispatchStatus,
+          outboxStatus: receipt.outboxStatus,
+          connectorKey: outcome.connectorKey,
+          attemptNumber: receipt.attemptNumber,
+          bindingId: receipt.bindingId ? String(receipt.bindingId) : null,
+          errorMessage: outcome.errorMessage,
+          externalRecordId: outcome.externalRecordId,
+          externalRecordType: outcome.externalRecordType,
+        });
+      } catch (error) {
+        results.push({
+          syncCandidateObjectId: candidate.syncCandidateObjectId,
+          dispatchStatus: "failed",
+          outboxStatus: "failed",
+          connectorKey: outcome.connectorKey,
+          attemptNumber,
+          bindingId: null,
+          errorMessage:
+            error instanceof Error
+              ? `Failed to persist sync receipt: ${error.message}`
+              : "Failed to persist sync receipt.",
+          externalRecordId: outcome.externalRecordId,
+          externalRecordType: outcome.externalRecordType,
+        });
+      }
+    }
+
+    const counts = results.reduce(
+      (acc, result) => {
+        if (result.dispatchStatus === "succeeded") {
+          acc.succeeded += 1;
+        } else if (result.dispatchStatus === "failed") {
+          acc.failed += 1;
+        } else {
+          acc.skipped += 1;
+        }
+        return acc;
+      },
+      { succeeded: 0, failed: 0, skipped: 0 },
+    );
+
+    return {
+      contractVersion: ORG_CRM_NARROW_SYNC_V1_CONTRACT_VERSION,
+      processed: results.length,
+      counts,
+      results,
     };
   },
 });

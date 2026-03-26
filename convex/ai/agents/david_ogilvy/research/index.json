@@ -1,0 +1,42 @@
+{
+  "agentId": "david-ogilvy",
+  "updatedAt": "2026-03-24",
+  "documents": [
+    {
+      "id": "source-index",
+      "path": "research/00-source-index.md",
+      "type": "registry"
+    },
+    {
+      "id": "biography-and-context",
+      "path": "research/01-biography-and-context.md",
+      "type": "facts"
+    },
+    {
+      "id": "principles-and-heuristics",
+      "path": "research/02-principles-and-heuristics.md",
+      "type": "method"
+    },
+    {
+      "id": "campaign-case-patterns",
+      "path": "research/03-campaign-case-patterns.md",
+      "type": "patterns"
+    },
+    {
+      "id": "open-questions",
+      "path": "research/04-open-questions.md",
+      "type": "backlog"
+    }
+  ],
+  "primarySources": [
+    "https://www.britannica.com/biography/David-Ogilvy",
+    "https://www.ogilvy.com/about",
+    "https://www.ogilvy.com/careers/who-we-are",
+    "https://openlibrary.org/books/OL3160174M/Ogilvy_on_advertising",
+    "https://openlibrary.org/works/OL3346502W/An_autobiography"
+  ],
+  "secondarySources": [
+    "https://en.wikipedia.org/wiki/David_Ogilvy_(businessman)",
+    "https://en.wikipedia.org/wiki/Confessions_of_an_Advertising_Man"
+  ]
+}

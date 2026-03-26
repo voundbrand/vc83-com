@@ -30,6 +30,11 @@ function buildValidSpec() {
           ],
         },
       ],
+      runtimeTopology: {
+        contractVersion: "oar_runtime_topology_v1",
+        profile: "evaluator_loop",
+        adapter: "evaluator_loop_adapter_v1",
+      },
       policyProfiles: {
         orgPolicyRef: "org_policy_default_v3",
         channelPolicyRef: "native_guest_policy_v2",

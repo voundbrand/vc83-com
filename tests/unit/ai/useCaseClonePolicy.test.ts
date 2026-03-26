@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildUseCaseCloneName,
   normalizeUseCaseKey,
+  normalizeSpawnMetadataForPromptInputMinimization,
   resolveTemplateClonePolicy,
 } from "../../../convex/ai/workerPool";
 import {
@@ -102,6 +103,64 @@ describe("template clone linkage contract helpers", () => {
       lastTemplateSyncJobId: "job_legacy_1",
       overridePolicy: {
         mode: "free",
+      },
+    });
+  });
+});
+
+describe("Kanzlei prompt-input minimization metadata", () => {
+  it("trims spawn promptInput payloads to need-to-know fields and emits drop audit", () => {
+    const normalized = normalizeSpawnMetadataForPromptInputMinimization({
+      templateProps: {
+        templateRole: "kanzlei_mvp_customer_telephony_template",
+      },
+      metadata: {
+        promptInput: {
+          matterType: "erstberatung",
+          urgency: "hoch",
+          mandantName: "Max Mustermann",
+          freeFormNotes: "Bevorzugte Rueckrufzeit 17 Uhr.",
+        },
+        originSurface: "operator_desktop",
+      },
+    });
+
+    expect(normalized.promptInputMinimizationContract).toMatchObject({
+      mode: "need_to_know",
+      requiresExplicitFieldMapping: true,
+    });
+    expect(normalized.spawnMetadata.promptInput).toEqual({
+      matterType: "erstberatung",
+      urgency: "hoch",
+    });
+    expect(normalized.promptInputMinimizationAudit).toMatchObject({
+      droppedFields: ["freeFormNotes", "mandantName"],
+      droppedDeniedFields: ["mandantName"],
+      droppedFieldCount: 2,
+      retainedFields: ["matterType", "urgency"],
+    });
+    expect(normalized.spawnMetadata.originSurface).toBe("operator_desktop");
+  });
+
+  it("keeps spawn metadata unchanged outside Kanzlei policy context", () => {
+    const normalized = normalizeSpawnMetadataForPromptInputMinimization({
+      templateProps: {
+        templateRole: "customer_support_template",
+      },
+      metadata: {
+        promptInput: {
+          mandantName: "Max Mustermann",
+          urgency: "hoch",
+        },
+      },
+    });
+
+    expect(normalized.promptInputMinimizationContract).toBeNull();
+    expect(normalized.promptInputMinimizationAudit).toBeNull();
+    expect(normalized.spawnMetadata).toEqual({
+      promptInput: {
+        mandantName: "Max Mustermann",
+        urgency: "hoch",
       },
     });
   });

@@ -12,7 +12,11 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { useNotification } from "@/hooks/use-notification"
-import type { AIChatSuperAdminQaMode } from "@/hooks/use-ai-chat"
+import type {
+  AIChatMessageReference,
+  AIChatPromptContext,
+  AIChatSuperAdminQaMode,
+} from "@/hooks/use-ai-chat"
 import { useNativeGuestChat, type NativeGuestChatConfig } from "@/hooks/use-ai-chat"
 import { useMultipleNamespaces } from "@/hooks/use-namespace-translations"
 import { useTranslation } from "@/contexts/translation-context"
@@ -24,6 +28,17 @@ import {
   getCreditRecoveryAction,
   openCreditRecoveryAction,
 } from "@/lib/credits/credit-recovery"
+import {
+  BOOKING_SETUP_WRITEBACK_CONTRACT_VERSION,
+  LAYERS_WORKFLOW_WRITEBACK_CONTRACT_VERSION,
+} from "@/lib/ai/ui-writeback-bridge"
+import {
+  runAIChatUIWritebackRegistry,
+  type AIChatWritebackMessage,
+} from "@/lib/ai/ui-writeback-registry"
+import {
+  parseKnowledgeContextOpenContext,
+} from "@/lib/ai/knowledge-context-contract"
 
 const ONBOARDING_ATTRIBUTION_STORAGE_KEY = "l4yercak3_onboarding_attribution"
 const LANDING_COMMERCIAL_INTENT_MAX_AGE_MS = 1000 * 60 * 60 * 12
@@ -101,6 +116,12 @@ interface AIChatWindowProps {
   sourceOrganizationId?: string
   /** Optional target agent for configuration-scoped chat */
   targetAgentId?: Id<"objects">
+  /** Optional layer workflow context pin (pass null to clear stored layer context) */
+  initialLayerWorkflowId?: Id<"objects"> | null
+  /** Optional prompt context routing override */
+  chatContext?: AIChatPromptContext
+  /** Force routing through the organization's active primary operator agent */
+  forcePrimaryAgent?: boolean
 }
 
 const SAMANTHA_QA_TEMPLATE_ROLES = new Set([
@@ -449,6 +470,536 @@ function buildSupportIntakeKickoff(args: {
   ].join("\n")
 }
 
+interface BookingSetupKickoffPayload {
+  contractVersion?: string
+  appSlug?: string
+  surfaceType?: string
+  surfaceKey?: string
+  setupTemplate?: string
+  bindingEnabled?: boolean
+  priority?: number
+  availableAppSlugs?: string[]
+  catalogInput?: Record<string, unknown>
+  diagnostics?: Array<Record<string, unknown>>
+  warnings?: string[]
+  operatorPrompt?: string
+}
+
+interface LayersWorkflowKickoffPayload {
+  contractVersion?: string
+  workflowId?: string
+  workflowName?: string
+  workflowSummary?: string
+  nodeCount?: number
+  edgeCount?: number
+  scopeLabel?: string
+  authorityLabel?: string
+  citationQualityLabel?: string
+}
+
+interface ComplianceInboxKickoffPayload {
+  contractVersion?: string
+  organizationId?: string
+  organizationName?: string
+  canEdit?: boolean
+  gateStatus?: "GO" | "NO_GO" | string
+  gateBlockerCount?: number
+  summary?: {
+    totalActions?: number
+    criticalActions?: number
+    highActions?: number
+    blockerRiskIds?: string[]
+    invalidEvidenceCount?: number
+    missingArtifactCount?: number
+  }
+  selectedAction?: {
+    actionId?: string
+    riskId?: string | null
+    title?: string
+    reason?: string
+    requiredArtifactLabel?: string | null
+  } | null
+  scopeLabel?: string
+  authorityLabel?: string
+  citationQualityLabel?: string
+}
+
+function parseLayersWorkflowKickoffPayload(
+  openContext?: string
+): LayersWorkflowKickoffPayload | null {
+  if (!openContext || !openContext.startsWith("layers_workflow:")) {
+    return null
+  }
+
+  const encodedPayload = openContext.slice("layers_workflow:".length).trim()
+  if (!encodedPayload) {
+    return null
+  }
+
+  const decoded = decodeUtf8Base64(encodedPayload)
+  if (!decoded) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(decoded) as LayersWorkflowKickoffPayload
+    if (!parsed || typeof parsed !== "object") {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function parseComplianceInboxKickoffPayload(openContext?: string): ComplianceInboxKickoffPayload | null {
+  if (!openContext || !openContext.startsWith("compliance_inbox:")) {
+    return null
+  }
+
+  const encodedPayload = openContext.slice("compliance_inbox:".length).trim()
+  if (!encodedPayload) {
+    return null
+  }
+
+  const decoded = decodeUtf8Base64(encodedPayload)
+  if (!decoded) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(decoded) as ComplianceInboxKickoffPayload
+    if (!parsed || typeof parsed !== "object") {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+interface KickoffContextLabels {
+  scope: string
+  authority: string
+  citationQuality: string
+}
+
+function resolveKnowledgeKickoffContextLabels(openContext?: string): KickoffContextLabels | null {
+  const payload = parseKnowledgeContextOpenContext(openContext)
+  if (!payload) {
+    return null
+  }
+  const references = Array.isArray(payload.references) ? payload.references : []
+  const readyReferenceCount = references.filter((reference) => reference.status === "ready").length
+
+  const scope =
+    payload.scopeLabel
+    || (payload.projectScope === "project"
+      ? "scope:project"
+      : payload.projectScope === "org"
+        ? "scope:org"
+        : "scope:unknown")
+  const authority = payload.authorityLabel || "authority:org_read"
+  const citationQuality =
+    payload.citationQualityLabel
+    || (readyReferenceCount === 0
+      ? "citation:unreadable_selection"
+      : readyReferenceCount < references.length
+        ? "citation:mixed_preview"
+        : "citation:advisory_preview")
+
+  return { scope, authority, citationQuality }
+}
+
+function resolveLayersKickoffContextLabels(openContext?: string): KickoffContextLabels | null {
+  const payload = parseLayersWorkflowKickoffPayload(openContext)
+  if (!payload) {
+    return null
+  }
+  const hasGraphEvidence =
+    typeof payload.nodeCount === "number"
+    && Number.isFinite(payload.nodeCount)
+    && payload.nodeCount > 0
+  return {
+    scope: payload.scopeLabel || (payload.workflowId ? "scope:organization_workflow" : "scope:organization_canvas"),
+    authority: payload.authorityLabel || "authority:workflow_editor",
+    citationQuality: payload.citationQualityLabel || (hasGraphEvidence ? "citation:advisory_snapshot" : "citation:no_graph_evidence"),
+  }
+}
+
+function resolveComplianceKickoffContextLabels(openContext?: string): KickoffContextLabels | null {
+  const payload = parseComplianceInboxKickoffPayload(openContext)
+  if (!payload) {
+    return null
+  }
+  const invalidEvidenceCount = payload.summary?.invalidEvidenceCount ?? 0
+  const missingArtifactCount = payload.summary?.missingArtifactCount ?? 0
+  const hasEvidenceGaps = invalidEvidenceCount > 0 || missingArtifactCount > 0
+
+  return {
+    scope: payload.scopeLabel || "scope:organization_compliance",
+    authority: payload.authorityLabel || (payload.canEdit ? "authority:owner_superadmin_mutation" : "authority:read_only_handoff"),
+    citationQuality: payload.citationQualityLabel || (hasEvidenceGaps ? "citation:evidence_gap" : "citation:evidence_complete"),
+  }
+}
+
+function resolveKickoffContextLabels(args: {
+  initialPanel?: string
+  openContext?: string
+}): KickoffContextLabels | null {
+  const normalizedPanel = typeof args.initialPanel === "string"
+    ? args.initialPanel.trim().toLowerCase()
+    : ""
+  if (normalizedPanel === "knowledge-context") {
+    return resolveKnowledgeKickoffContextLabels(args.openContext)
+  }
+  if (normalizedPanel === "layers-workflow") {
+    return resolveLayersKickoffContextLabels(args.openContext)
+  }
+  if (normalizedPanel === "compliance-inbox") {
+    return resolveComplianceKickoffContextLabels(args.openContext)
+  }
+  return null
+}
+
+function parseBookingSetupKickoffPayload(openContext?: string): BookingSetupKickoffPayload | null {
+  if (!openContext || !openContext.startsWith("booking_setup:")) {
+    return null
+  }
+
+  const encodedPayload = openContext.slice("booking_setup:".length).trim()
+  if (!encodedPayload) {
+    return null
+  }
+
+  const decoded = decodeUtf8Base64(encodedPayload)
+  if (!decoded) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(decoded) as BookingSetupKickoffPayload
+    if (!parsed || typeof parsed !== "object") {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function buildBookingSetupKickoff(args: {
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}): string {
+  const payload = parseBookingSetupKickoffPayload(args.openContext)
+  const appSlug = cleanKickoffString(payload?.appSlug, "my-app")
+  const surfaceType = cleanKickoffString(payload?.surfaceType, "booking")
+  const surfaceKey = cleanKickoffString(payload?.surfaceKey, "default")
+  const setupTemplate = cleanKickoffString(payload?.setupTemplate, "custom")
+  const sourceSessionLine = args.sourceSessionId
+    ? `source_session_id=${args.sourceSessionId}`
+    : "source_session_id=unknown"
+  const sourceOrgLine = args.sourceOrganizationId
+    ? `source_organization_id=${args.sourceOrganizationId}`
+    : "source_organization_id=unknown"
+  const knownAppSlugs = Array.isArray(payload?.availableAppSlugs)
+    ? payload.availableAppSlugs.filter((slug) => typeof slug === "string" && slug.trim()).join(", ")
+    : ""
+  const catalogJson = payload?.catalogInput
+    ? JSON.stringify(payload.catalogInput, null, 2)
+    : "{}"
+  const diagnosticsJson = payload?.diagnostics
+    ? JSON.stringify(payload.diagnostics, null, 2)
+    : "[]"
+  const warningsJson = payload?.warnings
+    ? JSON.stringify(payload.warnings, null, 2)
+    : "[]"
+  const operatorPrompt = cleanKickoffString(
+    payload?.operatorPrompt,
+    "Configure universal booking setup for this app and report PASS/FAIL."
+  )
+
+  return [
+    "Route this conversation through booking setup wizard orchestration.",
+    "intent=booking_setup_wizard",
+    `app_slug=${appSlug}`,
+    `surface=${surfaceType}/${surfaceKey}`,
+    `template=${setupTemplate}`,
+    sourceSessionLine,
+    sourceOrgLine,
+    knownAppSlugs ? `known_app_slugs=${knownAppSlugs}` : "known_app_slugs=unknown",
+    "response_contract:",
+    "1) Ask only for missing booking data and missing mappings.",
+    "2) Run booking workflow tools end-to-end for this organization.",
+    "3) Return PASS/FAIL with unresolved warnings and exact next action if blocked.",
+    "4) When you want to update wizard UI fields, include a fenced `booking_writeback_v1` JSON block exactly matching this contract version.",
+    "",
+    "writeback_block_example:",
+    "```booking_writeback_v1",
+    "{",
+    `  "contractVersion": "${BOOKING_SETUP_WRITEBACK_CONTRACT_VERSION}",`,
+    '  "appSlug": "my-app",',
+    '  "surfaceType": "booking",',
+    '  "surfaceKey": "default",',
+    '  "timezone": "Europe/Berlin",',
+    '  "defaultAvailableTimes": ["09:00","13:00"],',
+    '  "inventoryGroups": [{"id":"main","label":"Main","capacity":12}],',
+    '  "courses": [{"courseId":"intro","bookingResourceId":"obj_x","checkoutProductId":"obj_y"}],',
+    '  "warnings": []',
+    "}",
+    "```",
+    "",
+    "operator_request:",
+    operatorPrompt,
+    "",
+    "wizard_catalog_input_json:",
+    catalogJson,
+    "",
+    "wizard_diagnostics_json:",
+    diagnosticsJson,
+    "",
+    "wizard_warnings_json:",
+    warningsJson,
+  ].join("\n")
+}
+
+function buildLayersWorkflowKickoff(args: {
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}): string {
+  const payload = parseLayersWorkflowKickoffPayload(args.openContext)
+  const kickoffLabels = resolveLayersKickoffContextLabels(args.openContext)
+  const workflowId = cleanKickoffString(payload?.workflowId, "unknown")
+  const workflowName = cleanKickoffString(payload?.workflowName, "Untitled Workflow")
+  const sourceSessionLine = args.sourceSessionId
+    ? `source_session_id=${args.sourceSessionId}`
+    : "source_session_id=unknown"
+  const sourceOrgLine = args.sourceOrganizationId
+    ? `source_organization_id=${args.sourceOrganizationId}`
+    : "source_organization_id=unknown"
+  const nodeCount =
+    typeof payload?.nodeCount === "number" && Number.isFinite(payload.nodeCount)
+      ? payload.nodeCount
+      : null
+  const edgeCount =
+    typeof payload?.edgeCount === "number" && Number.isFinite(payload.edgeCount)
+      ? payload.edgeCount
+      : null
+  const workflowSummary = cleanKickoffString(
+    payload?.workflowSummary,
+    "Empty canvas - no nodes or edges."
+  )
+
+  return [
+    "Route this conversation through Layers workflow design assistance.",
+    "intent=layers_workflow_design",
+    `workflow_id=${workflowId}`,
+    `workflow_name=${workflowName}`,
+    sourceSessionLine,
+    sourceOrgLine,
+    nodeCount !== null ? `current_node_count=${nodeCount}` : "current_node_count=unknown",
+    edgeCount !== null ? `current_edge_count=${edgeCount}` : "current_edge_count=unknown",
+    `context_scope_label=${kickoffLabels?.scope || "scope:organization_canvas"}`,
+    `context_authority_label=${kickoffLabels?.authority || "authority:workflow_editor"}`,
+    `context_citation_quality_label=${kickoffLabels?.citationQuality || "citation:no_graph_evidence"}`,
+    "response_contract:",
+    "1) Keep explanations concise and implementation-focused.",
+    "2) When proposing canvas changes, include a fenced `layers_workflow_writeback_v1` JSON block.",
+    "3) Use valid Layers node type IDs and connect only existing node IDs.",
+    "4) Do not include prose inside the JSON block.",
+    "",
+    "writeback_block_example:",
+    "```layers_workflow_writeback_v1",
+    "{",
+    `  "contractVersion": "${LAYERS_WORKFLOW_WRITEBACK_CONTRACT_VERSION}",`,
+    '  "workflowId": "obj_xxx",',
+    '  "description": "Workflow for lead capture and follow-up",',
+    '  "nodes": [',
+    '    {"id":"trigger_1","type":"webhook_trigger","label":"Webhook","position":{"x":120,"y":120},"config":{}}',
+    "  ],",
+    '  "edges": [{"source":"trigger_1","target":"next_node","sourceHandle":"output","targetHandle":"input"}],',
+    '  "warnings": []',
+    "}",
+    "```",
+    "",
+    "current_workflow_summary_json:",
+    workflowSummary,
+  ].join("\n")
+}
+
+function buildComplianceInboxKickoff(args: {
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}): string {
+  const payload = parseComplianceInboxKickoffPayload(args.openContext)
+  const kickoffLabels = resolveComplianceKickoffContextLabels(args.openContext)
+  const organizationName = cleanKickoffString(payload?.organizationName, "Unknown organization")
+  const organizationId = cleanKickoffString(payload?.organizationId, "unknown")
+  const gateStatus = payload?.gateStatus === "GO" ? "GO" : "NO_GO"
+  const gateBlockerCount =
+    typeof payload?.gateBlockerCount === "number" && Number.isFinite(payload.gateBlockerCount)
+      ? payload.gateBlockerCount
+      : 0
+  const canEdit = payload?.canEdit === true
+  const sourceSessionLine = args.sourceSessionId
+    ? `source_session_id=${args.sourceSessionId}`
+    : "source_session_id=unknown"
+  const sourceOrgLine = args.sourceOrganizationId
+    ? `source_organization_id=${args.sourceOrganizationId}`
+    : "source_organization_id=unknown"
+  const summaryJson = JSON.stringify(
+    {
+      totalActions: payload?.summary?.totalActions ?? 0,
+      criticalActions: payload?.summary?.criticalActions ?? 0,
+      highActions: payload?.summary?.highActions ?? 0,
+      blockerRiskIds: Array.isArray(payload?.summary?.blockerRiskIds)
+        ? payload?.summary?.blockerRiskIds
+        : [],
+      invalidEvidenceCount: payload?.summary?.invalidEvidenceCount ?? 0,
+      missingArtifactCount: payload?.summary?.missingArtifactCount ?? 0,
+    },
+    null,
+    2,
+  )
+  const selectedActionJson = JSON.stringify(payload?.selectedAction ?? null, null, 2)
+
+  return [
+    "Route this conversation through compliance inbox copilot.",
+    "intent=compliance_inbox_assist",
+    `organization_id=${organizationId}`,
+    `organization_name=${organizationName}`,
+    sourceSessionLine,
+    sourceOrgLine,
+    `gate_status=${gateStatus}`,
+    `gate_blocker_count=${gateBlockerCount}`,
+    `operator_can_edit=${canEdit ? "true" : "false"}`,
+    `context_scope_label=${kickoffLabels?.scope || "scope:organization_compliance"}`,
+    `context_authority_label=${kickoffLabels?.authority || (canEdit ? "authority:owner_superadmin_mutation" : "authority:read_only_handoff")}`,
+    `context_citation_quality_label=${kickoffLabels?.citationQuality || "citation:evidence_gap"}`,
+    "response_contract:",
+    "1) Prioritize the next deterministic compliance action and explain why.",
+    "2) Produce step-by-step operator actions using Inbox, Evidence Vault, and Org Governance tabs.",
+    "3) Flag fail-closed blockers explicitly and separate mandatory evidence from advisory context.",
+    "4) If operator_can_edit=false, provide read-only review guidance and owner handoff instructions.",
+    "",
+    "compliance_summary_json:",
+    summaryJson,
+    "",
+    "active_compliance_action_json:",
+    selectedActionJson,
+  ].join("\n")
+}
+
+function buildKnowledgeContextReferences(openContext?: string): AIChatMessageReference[] {
+  const payload = parseKnowledgeContextOpenContext(openContext)
+  if (!payload || !Array.isArray(payload.references)) {
+    return []
+  }
+
+  return payload.references
+    .slice(0, 12)
+    .map((reference) => {
+      const url =
+        typeof reference.retrievalUrl === "string" && reference.retrievalUrl.trim().length > 0
+          ? reference.retrievalUrl
+          : `finder://projectFiles/${reference.fileId || "unknown"}`
+      const content =
+        typeof reference.content === "string" && reference.content.trim().length > 0
+          ? reference.content.trim()
+          : undefined
+      const status: AIChatMessageReference["status"] =
+        reference.status === "ready" && content ? "ready" : "error"
+      const error =
+        status === "error"
+          ? (typeof reference.error === "string" && reference.error.trim().length > 0
+              ? reference.error.trim()
+              : "No readable preview provided.")
+          : undefined
+      return {
+        url,
+        content,
+        status,
+        error,
+      }
+    })
+}
+
+function buildKnowledgeContextKickoff(args: {
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}): string {
+  const payload = parseKnowledgeContextOpenContext(args.openContext)
+  const kickoffLabels = resolveKnowledgeKickoffContextLabels(args.openContext)
+  const sourceSessionLine = args.sourceSessionId
+    ? `source_session_id=${args.sourceSessionId}`
+    : "source_session_id=unknown"
+  const sourceOrgLine = args.sourceOrganizationId
+    ? `source_organization_id=${args.sourceOrganizationId}`
+    : "source_organization_id=unknown"
+
+  if (!payload) {
+    return [
+      "Route this conversation through knowledge context assist.",
+      "intent=knowledge_context_assist",
+      sourceSessionLine,
+      sourceOrgLine,
+      "context_scope_label=scope:unknown",
+      "context_authority_label=authority:org_read",
+      "context_citation_quality_label=citation:invalid_payload",
+      "response_contract:",
+      "1) Ask for explicit documents before making factual claims.",
+      "2) Keep guidance fail-closed when references are missing or unreadable.",
+      "3) Distinguish confirmed facts from assumptions.",
+      "",
+      "knowledge_context_status=invalid_or_missing",
+    ].join("\n")
+  }
+
+  const references = Array.isArray(payload.references) ? payload.references : []
+  const readyReferences = references.filter((reference) => reference.status === "ready")
+  const erroredReferences = references.filter((reference) => reference.status !== "ready")
+  const referenceManifest = references.map((reference) => ({
+    fileId: reference.fileId,
+    name: reference.name,
+    path: reference.path,
+    fileKind: reference.fileKind,
+    mimeType: reference.mimeType,
+    language: reference.language,
+    status: reference.status,
+    hasContent: typeof reference.content === "string" && reference.content.trim().length > 0,
+    retrievalUrl: reference.retrievalUrl,
+    error: reference.error,
+  }))
+
+  return [
+    "Route this conversation through knowledge context assist.",
+    "intent=knowledge_context_assist",
+    `context_source=${payload.contextSource || "finder"}`,
+    `context_contract_version=${payload.contractVersion || "unknown"}`,
+    `context_project_scope=${payload.projectScope || "unknown"}`,
+    sourceSessionLine,
+    sourceOrgLine,
+    `context_scope_label=${kickoffLabels?.scope || "scope:unknown"}`,
+    `context_authority_label=${kickoffLabels?.authority || "authority:org_read"}`,
+    `context_citation_quality_label=${kickoffLabels?.citationQuality || "citation:unreadable_selection"}`,
+    `payload_reference_count=${payload.referenceCount ?? references.length}`,
+    `ready_reference_count=${readyReferences.length}`,
+    `errored_reference_count=${erroredReferences.length}`,
+    "response_contract:",
+    "1) Use provided reference summaries as primary context and cite file names/paths in your answer.",
+    "2) If required evidence is missing, ask for specific documents and keep conclusions fail-closed.",
+    "3) Separate confirmed facts from assumptions and list unresolved gaps explicitly.",
+    "",
+    "knowledge_reference_manifest_json:",
+    JSON.stringify(referenceManifest, null, 2),
+  ].join("\n")
+}
+
 interface CmsRewriteKickoffPayload {
   contractVersion?: string
   application?: {
@@ -531,7 +1082,7 @@ function buildCmsRewriteKickoff(args: {
   const currentText = cleanKickoffString(payload?.currentText, "(empty)")
   const instruction = cleanKickoffString(
     payload?.instruction,
-    "Rewrite this field with One-of-One clarity while preserving factual meaning."
+    "Rewrite this field with clear, conversion-focused copy while preserving factual meaning."
   )
   const sourceSessionLine = args.sourceSessionId
     ? `source_session_id=${args.sourceSessionId}`
@@ -588,22 +1139,47 @@ function AIChatEntryBootstrap({
     const isAgentCreationPanel = normalizedPanel === "agent-creation"
     const isSupportIntakePanel = normalizedPanel === "support-intake"
     const isCmsRewritePanel = normalizedPanel === "cms-rewrite"
+    const isBookingSetupPanel = normalizedPanel === "booking-setup"
+    const isLayersWorkflowPanel = normalizedPanel === "layers-workflow"
+    const isComplianceInboxPanel = normalizedPanel === "compliance-inbox"
+    const isKnowledgeContextPanel = normalizedPanel === "knowledge-context"
     const isChatRoute = typeof window !== "undefined" && window.location.pathname === "/chat"
     const normalizedOpenContext = typeof openContext === "string" ? openContext.trim().toLowerCase() : ""
     const isStoreCommercialHandoff = normalizedOpenContext === STORE_COMMERCIAL_HANDOFF_CONTEXT
     const commercialKickoff =
-      !isAgentCreationPanel && !isSupportIntakePanel && !isCmsRewritePanel && (isChatRoute || isStoreCommercialHandoff)
+      !isAgentCreationPanel
+      && !isSupportIntakePanel
+      && !isCmsRewritePanel
+      && !isBookingSetupPanel
+      && !isLayersWorkflowPanel
+      && !isComplianceInboxPanel
+      && !isKnowledgeContextPanel
+      && (isChatRoute || isStoreCommercialHandoff)
         ? readLandingCommercialKickoffPayload()
         : null
     if (superAdminQaEnabled) {
       return
     }
-    if (!isAgentCreationPanel && !isSupportIntakePanel && !isCmsRewritePanel && !commercialKickoff) {
+    if (
+      !isAgentCreationPanel
+      && !isSupportIntakePanel
+      && !isCmsRewritePanel
+      && !isBookingSetupPanel
+      && !isLayersWorkflowPanel
+      && !isComplianceInboxPanel
+      && !isKnowledgeContextPanel
+      && !commercialKickoff
+    ) {
       return
     }
 
     const requiresEmptyConversation =
-      isAgentCreationPanel || isSupportIntakePanel || Boolean(commercialKickoff)
+      isAgentCreationPanel
+      || isSupportIntakePanel
+      || isComplianceInboxPanel
+      || isLayersWorkflowPanel
+      || isKnowledgeContextPanel
+      || Boolean(commercialKickoff)
 
     if (requiresEmptyConversation && (chat.messages.length > 0 || isSending)) {
       return
@@ -621,6 +1197,14 @@ function AIChatEntryBootstrap({
           ? "support_intake"
           : isCmsRewritePanel
             ? "cms_rewrite"
+            : isBookingSetupPanel
+              ? "booking_setup"
+              : isLayersWorkflowPanel
+                ? "layers_workflow"
+                : isComplianceInboxPanel
+                  ? "compliance_inbox"
+                  : isKnowledgeContextPanel
+                    ? "knowledge_context"
             : "support_intake"),
       sourceSessionId || "none",
       sourceOrganizationId || "none",
@@ -657,9 +1241,36 @@ function AIChatEntryBootstrap({
               sourceSessionId,
               sourceOrganizationId,
             })
+        : isBookingSetupPanel
+            ? buildBookingSetupKickoff({
+                openContext,
+                sourceSessionId,
+                sourceOrganizationId,
+              })
+          : isLayersWorkflowPanel
+            ? buildLayersWorkflowKickoff({
+                openContext,
+                sourceSessionId,
+                sourceOrganizationId,
+              })
+            : isComplianceInboxPanel
+              ? buildComplianceInboxKickoff({
+                  openContext,
+                  sourceSessionId,
+                  sourceOrganizationId,
+                })
+              : isKnowledgeContextPanel
+                ? buildKnowledgeContextKickoff({
+                    openContext,
+                    sourceSessionId,
+                    sourceOrganizationId,
+                  })
         : commercialKickoff
           ? buildCommercialKickoffStarterMessage(commercialKickoff)
           : null
+    const kickoffReferences = isKnowledgeContextPanel
+      ? buildKnowledgeContextReferences(openContext)
+      : undefined
     const kickoffContract = commercialKickoff
       ? buildCommercialMotionKickoffContract(commercialKickoff)
       : undefined
@@ -673,7 +1284,14 @@ function AIChatEntryBootstrap({
       .sendMessage(
         kickoffMessage,
         currentConversationId,
-        kickoffContract ? { kickoffContract } : undefined
+        kickoffContract || (kickoffReferences && kickoffReferences.length > 0)
+          ? {
+              ...(kickoffContract ? { kickoffContract } : {}),
+              ...(kickoffReferences && kickoffReferences.length > 0
+                ? { references: kickoffReferences }
+                : {}),
+            }
+          : undefined
       )
       .then((result) => {
         if (!currentConversationId && result.conversationId) {
@@ -713,6 +1331,47 @@ function AIChatEntryBootstrap({
     sourceOrganizationId,
     sourceSessionId,
     superAdminQaEnabled,
+  ])
+
+  return null
+}
+
+function AIChatUIWritebackBridge({
+  initialPanel,
+  openContext,
+  sourceSessionId,
+  sourceOrganizationId,
+}: {
+  initialPanel?: string
+  openContext?: string
+  sourceSessionId?: string
+  sourceOrganizationId?: string
+}) {
+  const { chat } = useAIChatContext()
+  const emittedMessageFingerprintRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const messages = Array.isArray(chat.messages)
+      ? (chat.messages as AIChatWritebackMessage[])
+      : []
+
+    const emittedFingerprint = runAIChatUIWritebackRegistry({
+      initialPanel,
+      openContext,
+      sourceSessionId,
+      sourceOrganizationId,
+      messages,
+      lastEmittedMessageFingerprint: emittedMessageFingerprintRef.current,
+    })
+    if (emittedFingerprint) {
+      emittedMessageFingerprintRef.current = emittedFingerprint
+    }
+  }, [
+    chat.messages,
+    initialPanel,
+    openContext,
+    sourceOrganizationId,
+    sourceSessionId,
   ])
 
   return null
@@ -1008,6 +1667,9 @@ export function AIChatWindow({
   sourceSessionId,
   sourceOrganizationId,
   targetAgentId,
+  initialLayerWorkflowId,
+  chatContext,
+  forcePrimaryAgent,
 }: AIChatWindowProps = {}) {
   const { isSignedIn, isLoading, user, isSuperAdmin, sessionId } = useAuth()
   const searchParams = useSearchParams()
@@ -1018,6 +1680,10 @@ export function AIChatWindow({
     }
     return readSuperAdminQaModeFromSearch(search ? `?${search}` : "", sessionId || undefined)
   }, [isSuperAdmin, search, sessionId])
+  const kickoffContextLabels = useMemo(
+    () => resolveKickoffContextLabels({ initialPanel, openContext }),
+    [initialPanel, openContext],
+  )
 
   const guard = useAppAvailabilityGuard({
     code: "ai-assistant",
@@ -1049,9 +1715,43 @@ export function AIChatWindow({
     <AIChatProvider
       superAdminQaMode={superAdminQaMode}
       targetAgentId={targetAgentId}
+      initialLayerWorkflowId={initialLayerWorkflowId}
+      chatContext={chatContext}
+      forcePrimaryAgent={forcePrimaryAgent}
     >
       <LayoutModeProvider initialMode={shellResolution.resolvedLayoutMode}>
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+          {kickoffContextLabels ? (
+            <div
+              className="mx-3 mt-3 rounded-lg border px-3 py-2 text-xs"
+              style={{
+                borderColor: "var(--shell-border-strong)",
+                background: "var(--shell-surface-elevated)",
+                color: "var(--shell-text)",
+              }}
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ borderColor: "var(--shell-border-strong)", background: "var(--shell-surface-raised)" }}
+                >
+                  {kickoffContextLabels.scope}
+                </span>
+                <span
+                  className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ borderColor: "var(--shell-border-strong)", background: "var(--shell-surface-raised)" }}
+                >
+                  {kickoffContextLabels.authority}
+                </span>
+                <span
+                  className="rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ borderColor: "var(--shell-border-strong)", background: "var(--shell-surface-raised)" }}
+                >
+                  {kickoffContextLabels.citationQuality}
+                </span>
+              </div>
+            </div>
+          ) : null}
           {superAdminQaMode?.enabled ? (
             <div
               className="mx-3 mt-3 rounded-lg border px-3 py-2 text-xs"
@@ -1088,13 +1788,21 @@ export function AIChatWindow({
             </div>
           ) : null}
           {isSignedIn ? (
-            <AIChatEntryBootstrap
-              initialPanel={initialPanel}
-              openContext={openContext}
-              sourceSessionId={sourceSessionId}
-              sourceOrganizationId={sourceOrganizationId}
-              superAdminQaEnabled={superAdminQaMode?.enabled === true}
-            />
+            <>
+              <AIChatEntryBootstrap
+                initialPanel={initialPanel}
+                openContext={openContext}
+                sourceSessionId={sourceSessionId}
+                sourceOrganizationId={sourceOrganizationId}
+                superAdminQaEnabled={superAdminQaMode?.enabled === true}
+              />
+              <AIChatUIWritebackBridge
+                initialPanel={initialPanel}
+                openContext={openContext}
+                sourceSessionId={sourceSessionId}
+                sourceOrganizationId={sourceOrganizationId}
+              />
+            </>
           ) : null}
           <AIChatWindowContent
             fullScreen={fullScreen}

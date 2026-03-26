@@ -23,7 +23,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { InterviewTemplate } from "../schemas/interviewSchemas";
 import { SEED_TEMPLATES } from "../seeds/interviewTemplates";
-import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
+import { requireAuthenticatedUser, getUserContext, checkPermission } from "../rbacHelpers";
 import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
 import {
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
@@ -334,6 +334,303 @@ async function upsertTemplateFromSeed(
   return { templateId, created: true };
 }
 
+type MediaFolderRecord = {
+  _id: Id<"objects">;
+  organizationId: Id<"organizations">;
+  type: string;
+  name: string;
+  status: string;
+  customProperties?: unknown;
+};
+
+type LayerCakeDocumentRecord = {
+  _id: Id<"organizationMedia">;
+  organizationId: Id<"organizations">;
+  itemType?: "file" | "layercake_document";
+  folderId?: string;
+  filename: string;
+  description?: string;
+  tags?: string[];
+  documentContent?: string;
+};
+
+function readParentFolderId(customProperties: unknown): string | null {
+  const props = asRecord(customProperties);
+  return normalizeOptionalString(props.parentFolderId) ?? null;
+}
+
+function findMediaFolderByName(args: {
+  folders: MediaFolderRecord[];
+  name: string;
+  parentFolderId: string | null;
+}): MediaFolderRecord | null {
+  for (const folder of args.folders) {
+    if (folder.name !== args.name) {
+      continue;
+    }
+    if (readParentFolderId(folder.customProperties) === args.parentFolderId) {
+      return folder;
+    }
+  }
+  return null;
+}
+
+async function ensureMediaFolderPathForOrganization(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    performedBy: Id<"users">;
+    now: number;
+    path: readonly string[];
+    source: string;
+  },
+): Promise<Id<"objects">> {
+  const existingFolders = (await ctx.db
+    .query("objects")
+    .withIndex("by_org_type", (q) =>
+      q.eq("organizationId", args.organizationId).eq("type", "media_folder")
+    )
+    .collect()) as MediaFolderRecord[];
+
+  let parentFolderId: string | null = null;
+  let currentFolderId: Id<"objects"> | null = null;
+  for (const segment of args.path) {
+    const existing = findMediaFolderByName({
+      folders: existingFolders,
+      name: segment,
+      parentFolderId,
+    });
+
+    if (existing) {
+      currentFolderId = existing._id;
+      parentFolderId = String(existing._id);
+      continue;
+    }
+
+    const folderId = (await ctx.db.insert("objects", {
+      organizationId: args.organizationId,
+      type: "media_folder",
+      subtype: "folder",
+      name: segment,
+      status: "active",
+      customProperties: {
+        description: `Auto-created for ${args.path.join("/")}`,
+        parentFolderId,
+        createdBy: args.performedBy,
+      },
+      createdBy: args.performedBy,
+      createdAt: args.now,
+      updatedAt: args.now,
+    })) as Id<"objects">;
+
+    await ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: folderId,
+      actionType: "created",
+      actionData: {
+        source: args.source,
+        folderName: segment,
+        folderPath: args.path.join("/"),
+      },
+      performedBy: args.performedBy,
+      performedAt: args.now,
+    });
+
+    const newFolder: MediaFolderRecord = {
+      _id: folderId,
+      organizationId: args.organizationId,
+      type: "media_folder",
+      name: segment,
+      status: "active",
+      customProperties: {
+        parentFolderId,
+      },
+    };
+    existingFolders.push(newFolder);
+
+    currentFolderId = folderId;
+    parentFolderId = String(folderId);
+  }
+
+  if (!currentFolderId) {
+    throw new Error("Failed to resolve target media folder path.");
+  }
+  return currentFolderId;
+}
+
+async function ensureDavidOgilvyKnowledgeBaseForOrganization(
+  ctx: WriteCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    performedBy: Id<"users">;
+    source: string;
+  },
+): Promise<{
+  folderPath: string;
+  folderId: Id<"objects">;
+  createdCount: number;
+  updatedCount: number;
+  documentIds: string[];
+}> {
+  const generatedApi = getGeneratedApi();
+  const now = Date.now();
+  const folderId = await ensureMediaFolderPathForOrganization(ctx, {
+    organizationId: args.organizationId,
+    performedBy: args.performedBy,
+    now,
+    path: DAVID_OGILVY_KB_FOLDER_PATH,
+    source: args.source,
+  });
+
+  const existingDocs = (await ctx.db
+    .query("organizationMedia")
+    .withIndex("by_organization", (q) => q.eq("organizationId", args.organizationId))
+    .collect()) as LayerCakeDocumentRecord[];
+
+  const existingByFilename = new Map<string, LayerCakeDocumentRecord>();
+  for (const doc of existingDocs) {
+    if (doc.itemType !== "layercake_document") {
+      continue;
+    }
+    if (normalizeOptionalString(doc.folderId) !== String(folderId)) {
+      continue;
+    }
+    existingByFilename.set(doc.filename, doc);
+  }
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  const documentIds: string[] = [];
+
+  for (const kbDoc of DAVID_OGILVY_TEMPLATE_KB_DOCUMENTS) {
+    const normalizedFilename = kbDoc.filename.endsWith(".md")
+      ? kbDoc.filename
+      : `${kbDoc.filename}.md`;
+    const sizeBytes = new TextEncoder().encode(kbDoc.content).length;
+    const existing = existingByFilename.get(normalizedFilename);
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        itemType: "layercake_document",
+        folderId: String(folderId),
+        documentContent: kbDoc.content,
+        filename: normalizedFilename,
+        mimeType: "text/markdown",
+        sizeBytes,
+        category: "general",
+        description: kbDoc.description,
+        tags: Array.from(DAVID_OGILVY_KB_TAGS),
+        updatedAt: Date.now(),
+        knowledgeIndexStatus: "pending",
+        knowledgeIndexError: undefined,
+      });
+      await ctx.runMutation(
+        generatedApi.internal.organizationMedia.reindexKnowledgeDocumentInternal,
+        {
+          mediaId: existing._id,
+        },
+      );
+      const refreshed = await ctx.db.get(existing._id);
+      if (!refreshed || refreshed.knowledgeIndexStatus === "failed") {
+        throw new Error(`Failed to reindex Ogilvy KB document: ${normalizedFilename}`);
+      }
+      existingByFilename.set(normalizedFilename, {
+        ...(existing as LayerCakeDocumentRecord),
+        filename: normalizedFilename,
+        description: kbDoc.description,
+        tags: Array.from(DAVID_OGILVY_KB_TAGS),
+        documentContent: kbDoc.content,
+      });
+      updatedCount += 1;
+      documentIds.push(String(existing._id));
+      continue;
+    }
+
+    const createdId = await ctx.db.insert("organizationMedia", {
+      organizationId: args.organizationId,
+      uploadedBy: args.performedBy,
+      folderId: String(folderId),
+      itemType: "layercake_document",
+      documentContent: kbDoc.content,
+      filename: normalizedFilename,
+      mimeType: "text/markdown",
+      sizeBytes,
+      category: "general",
+      description: kbDoc.description,
+      tags: Array.from(DAVID_OGILVY_KB_TAGS),
+      usageCount: 0,
+      createdAt: now,
+      updatedAt: now,
+      knowledgeIndexStatus: "pending",
+      knowledgeIndexVersion: 1,
+      knowledgeChunkCount: 0,
+      knowledgeIndexedAt: now,
+    });
+    await ctx.runMutation(
+      generatedApi.internal.organizationMedia.reindexKnowledgeDocumentInternal,
+      {
+        mediaId: createdId,
+      },
+    );
+    const refreshed = await ctx.db.get(createdId);
+    if (!refreshed || refreshed.knowledgeIndexStatus === "failed") {
+      throw new Error(`Failed to reindex Ogilvy KB document: ${normalizedFilename}`);
+    }
+    createdCount += 1;
+    documentIds.push(String(createdId));
+    existingByFilename.set(normalizedFilename, {
+      _id: createdId,
+      organizationId: args.organizationId,
+      itemType: "layercake_document",
+      folderId: String(folderId),
+      filename: normalizedFilename,
+      description: kbDoc.description,
+      tags: Array.from(DAVID_OGILVY_KB_TAGS),
+      documentContent: kbDoc.content,
+    });
+  }
+
+  await ctx.db.insert("objectActions", {
+    organizationId: args.organizationId,
+    objectId: folderId,
+    actionType: "template_kb_upserted",
+    actionData: {
+      source: args.source,
+      templateRole: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+      createdCount,
+      updatedCount,
+      documentCount: documentIds.length,
+      folderPath: DAVID_OGILVY_KB_FOLDER_PATH.join("/"),
+    },
+    performedBy: args.performedBy,
+    performedAt: Date.now(),
+  });
+
+  return {
+    folderPath: DAVID_OGILVY_KB_FOLDER_PATH.join("/"),
+    folderId,
+    createdCount,
+    updatedCount,
+    documentIds,
+  };
+}
+
+export const ensureDavidOgilvyKnowledgeBaseForOrganizationInternal = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    performedBy: v.id("users"),
+    source: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return ensureDavidOgilvyKnowledgeBaseForOrganization(ctx, {
+      organizationId: args.organizationId,
+      performedBy: args.performedBy,
+      source:
+        normalizeOptionalString(args.source)
+        || "ensureDavidOgilvyKnowledgeBaseForOrganizationInternal",
+    });
+  },
+});
+
 async function ensureTrustTrainingTemplates(
   ctx: WriteCtx,
   organizationId: Id<"organizations">,
@@ -586,6 +883,7 @@ TOOL USAGE:
 - Personalized setup and workspace warmup are the priority.
 - Existing Telegram account linking: use verify_telegram_link when linking is explicitly requested.
 - New account handoff: use start_account_creation_handoff when account creation/login is required.
+- Connected app inventory requests: use list_connected_apps to show apps connected to the current org.
 - Slack + Calendar onboarding readiness: use check_slack_calendar_onboarding_readiness before any Slack/Calendar onboarding write and again after each write.
 - Slack workspace connect: use start_slack_workspace_connect only when user asks for it, and only after explicit owner/admin confirmation.
 - Vacation policy setup: use save_pharmacist_vacation_policy only after explicit admin confirmation.
@@ -938,6 +1236,7 @@ export const QUINN_CUSTOM_PROPERTIES = {
     AUDIT_DELIVERABLE_TOOL_NAME,
     "verify_telegram_link",
     "start_account_creation_handoff",
+    "list_connected_apps",
     "check_slack_calendar_onboarding_readiness",
     "start_slack_workspace_connect",
     "save_pharmacist_vacation_policy",
@@ -1314,6 +1613,158 @@ export const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE =
   "agency_child_org_customer_service_template";
 const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_PLAYBOOK =
   "agency_child_org_customer_service";
+export const DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE =
+  "david_ogilvy_copywriter_template";
+const DAVID_OGILVY_COPYWRITER_TEMPLATE_PLAYBOOK = "copywriting_ogilvy";
+const DAVID_OGILVY_KB_FOLDER_PATH = ["agents", "david-ogilvy", "kb"] as const;
+const DAVID_OGILVY_KB_TAGS = [
+  "agent:david-ogilvy",
+  "copywriting",
+  "direct-response",
+  "research-first",
+] as const;
+
+type TemplateKnowledgeDocumentSeed = {
+  filename: string;
+  description: string;
+  content: string;
+};
+
+export const DAVID_OGILVY_TEMPLATE_KB_DOCUMENTS: TemplateKnowledgeDocumentSeed[] = [
+  {
+    filename: "00-operating-manual.md",
+    description: "Operating contract for the Ogilvy-style copywriting specialist.",
+    content: `# Ogilvy Copy Agent - Operating Manual
+
+## Mission
+
+Write copy that sells through reader respect, specific claims, and evidence-backed persuasion.
+
+## Mandatory Workflow
+
+1. Brief intake (offer, audience, objective, proof, constraints)
+2. Evidence check (claim-to-proof mapping)
+3. Message architecture (headline, lead, body proof, CTA)
+4. Draft generation (primary + tighter variant)
+5. QA scoring (rubric pass before release)
+
+## Non-Negotiables
+
+- No unsupported factual claims.
+- No vague hype language.
+- No decorative filler that weakens clarity.
+- No final output without a concrete CTA.
+`,
+  },
+  {
+    filename: "01-brief-template.md",
+    description: "Standardized copy brief used before any Ogilvy-style draft.",
+    content: `# Copy Brief Template
+
+## Offer
+
+- Product/service:
+- Price:
+- Primary outcome:
+- Delivery mechanism:
+
+## Audience
+
+- ICP:
+- Pain points:
+- Objections:
+- Alternatives currently used:
+
+## Proof
+
+- Case studies:
+- Metrics:
+- Testimonials:
+- External validation:
+
+## Channel + Objective
+
+- Channel:
+- Primary objective:
+- CTA target:
+`,
+  },
+  {
+    filename: "02-headline-and-body-formulas.md",
+    description: "Formula library for headlines, leads, body blocks, and CTA structure.",
+    content: `# Headline and Body Formulas
+
+## Headlines
+
+1. Specific benefit + audience
+2. Proof-led observation
+3. Reason-why contrast
+4. Mechanism-forward promise
+
+## Body Block Pattern
+
+1. Claim
+2. Why it is true
+3. Evidence
+4. Transition
+
+## CTA Pattern
+
+Action verb + concrete outcome + low-friction next step.
+`,
+  },
+  {
+    filename: "03-channel-playbooks.md",
+    description: "Channel-specific structure for landing, email, social, ads, and sales pages.",
+    content: `# Channel Playbooks
+
+## Landing Page
+
+Headline -> Subhead -> Proof strip -> Problem/solution -> Objection handling -> CTA repeat
+
+## Email
+
+Subject -> Relevance lead -> Core argument -> Proof -> Single CTA
+
+## Social
+
+Hook -> One argument thread -> One proof line -> One CTA
+
+## Ads
+
+Headline set -> Primary text -> Reason-to-believe -> CTA
+`,
+  },
+  {
+    filename: "04-quality-rubric.md",
+    description: "Draft-quality scoring rubric for copy release decisions.",
+    content: `# Copy Quality Rubric
+
+Score 1-5 per dimension:
+
+1. Clarity
+2. Specificity
+3. Proof strength
+4. Reader respect
+5. Reason-why logic
+6. Structural fit
+7. CTA precision
+
+Release gate: average >= 4 and no proof-critical dimension below 3.
+`,
+  },
+  {
+    filename: "05-constraints-and-ethics.md",
+    description: "Safety and ethics constraints for Ogilvy-inspired persona behavior.",
+    content: `# Constraints and Ethics
+
+- Do not impersonate the historical David Ogilvy.
+- Do not fabricate quotes, testimonials, or performance metrics.
+- Route medical/legal/financial claims through qualified review.
+- If proof is missing, explicitly label assumptions and request evidence.
+`,
+  },
+];
 const DECOMMISSIONED_ORCHESTRATION_TEMPLATE_ROLES = [
   "orchestration_runtime_planner_template",
   "orchestration_data_link_specialist_template",
@@ -1554,6 +2005,101 @@ export const AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_AGENT_SEED: ProtectedTem
     "Protected child-org customer-facing specialist template for Telegram/webchat testing and customer routing.",
   role: AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_ROLE,
   customProperties: buildAgencyChildOrgCustomerServiceTemplateCustomProperties(),
+};
+
+function buildDavidOgilvyCopywriterTemplateCustomProperties(): Record<string, unknown> {
+  return {
+    agentClass: "internal_operator",
+    displayName: "David Ogilvy Copywriter",
+    personality:
+      "Research-first direct-response copywriting specialist inspired by David Ogilvy principles: reader respect, specificity, reason-why argumentation, and disciplined editing.",
+    language: "en",
+    additionalLanguages: ["en", "de"],
+    brandVoiceInstructions:
+      "Write with precision, restraint, and commercial intent. Prefer concrete nouns, real evidence, and measurable claims. Avoid hype and vague jargon.",
+    systemPrompt: [
+      "You are an Ogilvy-inspired copywriting specialist.",
+      "You do not roleplay as the historical person.",
+      "Lead with a concrete promise, respect the reader's intelligence, and support claims with evidence.",
+      "If proof is missing, ask for evidence first and mark assumptions explicitly.",
+      "Default output shape: headline, lead, reason-why blocks, proof, objection handling, CTA.",
+      "Avoid manipulative urgency, fabricated claims, and decorative fluff.",
+    ].join(" "),
+    faqEntries: [
+      {
+        q: "What makes this agent different from a generic writer?",
+        a: "It writes using a research-first, reason-why, specificity-heavy persuasion model and runs every draft through an explicit quality rubric.",
+      },
+      {
+        q: "Will it fabricate facts to make copy sound better?",
+        a: "No. If proof is missing, it flags the gap, asks for evidence, and drafts provisional copy with placeholders.",
+      },
+      {
+        q: "Can it write in multiple channels?",
+        a: "Yes. It supports landing pages, emails, ads, social posts, and offer pages with channel-specific structure.",
+      },
+    ],
+    knowledgeBaseTags: [
+      "agent:david-ogilvy",
+      "copywriting",
+      "direct-response",
+      "research-first",
+    ],
+    toolProfile: "readonly",
+    enabledTools: [],
+    disabledTools: [],
+    autonomyLevel: "draft_only",
+    maxMessagesPerDay: 300,
+    maxCostPerDay: 15,
+    requireApprovalFor: [],
+    blockedTopics: [
+      "medical claims without evidence",
+      "legal claims without qualified review",
+      "financial return guarantees without validated data",
+    ],
+    modelProvider: "openrouter",
+    modelId: ONBOARDING_DEFAULT_MODEL_ID,
+    temperature: 0.35,
+    maxTokens: 4096,
+    channelBindings: [
+      { channel: "desktop", enabled: true },
+      { channel: "webchat", enabled: true },
+      { channel: "slack", enabled: true },
+      { channel: "telegram", enabled: false },
+      { channel: "native_guest", enabled: false },
+      { channel: "phone_call", enabled: false },
+    ],
+    unifiedPersonality: true,
+    teamAccessMode: "invisible",
+    dreamTeamSpecialists: [],
+    totalMessages: 0,
+    totalCostUsd: 0,
+    protected: true,
+    templateScope: "platform",
+    templateLayer: "copywriting",
+    templateRole: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+    templatePlaybook: DAVID_OGILVY_COPYWRITER_TEMPLATE_PLAYBOOK,
+    soulScope: {
+      capability: "platform_soul_admin",
+      layer: "L2",
+      domain: "platform",
+      classification: "platform_l2",
+      allowPlatformSoulAdmin: true,
+    },
+    clonePolicy: {
+      ...USE_CASE_CLONE_POLICY_DEFAULTS,
+      allowedPlaybooks: [DAVID_OGILVY_COPYWRITER_TEMPLATE_PLAYBOOK],
+    },
+  };
+}
+
+export const DAVID_OGILVY_COPYWRITER_TEMPLATE_AGENT_SEED: ProtectedTemplateAgentSeed = {
+  name: "David Ogilvy Copywriter Template",
+  subtype: "general",
+  description:
+    "Protected platform copywriting template for research-first, evidence-backed direct-response drafting across landing pages, ads, email, and social copy.",
+  role: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+  customProperties: buildDavidOgilvyCopywriterTemplateCustomProperties(),
 };
 
 function buildProtectedCustomerTelephonyTemplateCustomProperties(args: {
@@ -1802,6 +2348,7 @@ export const PROTECTED_TEMPLATE_AGENT_SEEDS: ProtectedTemplateAgentSeed[] = [
   PERSONAL_OPERATOR_TEMPLATE_AGENT_SEED,
   AGENCY_CHILD_ORG_PM_TEMPLATE_AGENT_SEED,
   AGENCY_CHILD_ORG_CUSTOMER_SERVICE_TEMPLATE_AGENT_SEED,
+  DAVID_OGILVY_COPYWRITER_TEMPLATE_AGENT_SEED,
   KANZLEI_MVP_TEMPLATE_AGENT_SEED,
   CLARA_TEMPLATE_AGENT_SEED,
   JONAS_TEMPLATE_AGENT_SEED,
@@ -2376,6 +2923,9 @@ export const seedAll = internalMutation({
     const personalOperatorTemplateResult = specialistTemplateResults.find(
       (entry) => entry.role === PERSONAL_OPERATOR_TEMPLATE_ROLE,
     ) ?? null;
+    const davidOgilvyTemplateResult = specialistTemplateResults.find(
+      (entry) => entry.role === DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+    ) ?? null;
 
     // ------------------------------------------------------------------
     // 1d. UPSERT SAMANTHA LEAD CAPTURE TEMPLATE + WORKER
@@ -2608,6 +3158,8 @@ export const seedAll = internalMutation({
       motherGovernanceRuntimeCreated: motherGovernanceRuntimeResult.created,
       personalLifeOperatorTemplateId: personalOperatorTemplateResult?.agentId ?? null,
       personalLifeOperatorTemplateCreated: personalOperatorTemplateResult?.created ?? false,
+      davidOgilvyCopywriterTemplateId: davidOgilvyTemplateResult?.agentId ?? null,
+      davidOgilvyCopywriterTemplateCreated: davidOgilvyTemplateResult?.created ?? false,
       samanthaLeadCaptureTemplateId: samanthaTemplateResult.agentId,
       samanthaLeadCaptureTemplateCreated: samanthaTemplateResult.created,
       samanthaLeadCaptureWorkerId: samanthaWorkerResult.workerId,
@@ -2618,6 +3170,83 @@ export const seedAll = internalMutation({
       samanthaWarmLeadCaptureWorkerCreated: samanthaWarmWorkerResult.created,
       initialWorkerId,
       workerCreated: existingWorkers.length === 0,
+    };
+  },
+});
+
+export const deployDavidOgilvyTemplateToOrganization = mutation({
+  args: {
+    sessionId: v.string(),
+    organizationId: v.id("organizations"),
+    preferredCloneName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthenticatedUser(ctx, args.sessionId);
+    const userContext = await getUserContext(ctx, userId, args.organizationId);
+    const isSuperAdmin = userContext.isGlobal && userContext.roleName === "super_admin";
+
+    if (!isSuperAdmin) {
+      const canManageOrganization = await checkPermission(
+        ctx,
+        userId,
+        "manage_organization",
+        args.organizationId,
+      );
+      if (!canManageOrganization) {
+        throw new Error(
+          "Insufficient permissions. manage_organization or super_admin access required.",
+        );
+      }
+    }
+
+    const generatedApi = getGeneratedApi();
+    const platformOrgId = getPlatformOrgId();
+    const template = await ctx.runQuery(
+      generatedApi.internal.agentOntology.getProtectedTemplateAgentByRole,
+      {
+        organizationId: platformOrgId,
+        templateRole: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+      },
+    );
+
+    if (!template?._id) {
+      return {
+        success: false,
+        status: "blocked" as const,
+        message:
+          "David Ogilvy copywriter template is not seeded on the platform org. Run onboarding/seedPlatformAgents.seedAll first.",
+      };
+    }
+
+    const result = await ctx.runMutation(
+      generatedApi.internal.ai.workerPool.spawnUseCaseAgent,
+      {
+        organizationId: args.organizationId,
+        templateAgentId: template._id,
+        ownerUserId: userId,
+        requestedByUserId: userId,
+        useCase: "Copywriting",
+        playbook: DAVID_OGILVY_COPYWRITER_TEMPLATE_PLAYBOOK,
+        preferredCloneName:
+          normalizeOptionalString(args.preferredCloneName) || "David Ogilvy Copywriter",
+        spawnReason: "david_ogilvy_platform_template_deploy",
+        metadata: {
+          templateRole: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+          deploymentFlow: "platform_copywriting_template_v1",
+        },
+      },
+    );
+
+    const knowledgeBaseImport =
+      (result as { knowledgeBaseImport?: unknown }).knowledgeBaseImport ?? null;
+
+    return {
+      success: true,
+      status: "success" as const,
+      templateAgentId: template._id,
+      templateRole: DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE,
+      knowledgeBaseImport,
+      ...result,
     };
   },
 });

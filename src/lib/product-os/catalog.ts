@@ -151,6 +151,16 @@ export const PRODUCT_OS_CATALOG: ProductOSCatalogEntry[] = [
     releaseStage: "none",
   },
   {
+    code: "compliance",
+    displayName: "Compliance",
+    translationKey: "ui.app.compliance",
+    description: "Run owner-managed DSGVO release checks with evidence tracking and fail-closed gate control.",
+    category: "Utilities & Tools",
+    iconId: "compliance",
+    featured: featuredFlags("compliance"),
+    releaseStage: "none",
+  },
+  {
     code: "crm",
     displayName: "CRM",
     translationKey: "ui.app.crm",

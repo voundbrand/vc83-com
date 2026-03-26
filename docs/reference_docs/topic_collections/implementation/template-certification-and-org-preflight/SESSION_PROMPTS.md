@@ -10,6 +10,7 @@ Always read first:
 4. `/Users/foundbrand_001/Development/vc83-com/convex/agentOntology.ts`
 5. `/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts`
 6. `/Users/foundbrand_001/Development/vc83-com/src/components/window-content/super-admin-organizations-window/agent-control-center-tab.tsx`
+7. `/Users/foundbrand_001/Development/vc83-com/docs/reference_docs/topic_collections/implementation/template-certification-and-org-preflight/TRANSPORT_CREDENTIAL_RUNBOOK.md`
 
 ---
 
@@ -21,8 +22,11 @@ Always read first:
 
 Current queue focus:
 
-1. `TCP-012` is complete.
-2. Next move: define `TCP-013` ownership + alerting rollout around CI certification evidence ingestion.
+1. `TCP-015` is complete.
+2. `TCP-016` is complete (provider-specific Slack/PagerDuty/Email worker adapters + direct super-admin dispatch ack/snooze actions).
+3. `TCP-017` is complete (credential governance policy, adapter runbook hardening, requirement-authoring standards coverage, and runbook artifact).
+4. `TCP-018` is complete (strict-mode credential-governance rollout automation, policy-drift notifications, and guardrail telemetry are live across alert worker transports).
+5. Next move: define `TCP-019` for scheduled drift sweeps + owner escalation workflows.
 
 ---
 

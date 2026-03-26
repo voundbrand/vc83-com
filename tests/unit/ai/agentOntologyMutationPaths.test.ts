@@ -199,6 +199,16 @@ function seedSession(db: FakeDb) {
   });
 }
 
+function seedOrganization(db: FakeDb, organizationId: string) {
+  db.seed("organizations", {
+    _id: organizationId,
+    name: `Org ${organizationId}`,
+    onboardingLifecycleState: "claimed_workspace",
+    createdAt: 1,
+    updatedAt: 1,
+  });
+}
+
 function seedAgent(
   db: FakeDb,
   overrides: Partial<FakeRow> & { _id: string },
@@ -1363,7 +1373,7 @@ describe("agentOntology mutation paths: template lifecycle (ATH-004)", () => {
             throw new Error("expected publishAgentTemplateVersion to fail");
           },
           (error: unknown) => {
-            expect(String(error)).toContain("No WAE rollout gate artifact was recorded");
+            expect(String(error)).toContain("No certification artifact was recorded");
           },
         );
 
@@ -1374,7 +1384,7 @@ describe("agentOntology mutation paths: template lifecycle (ATH-004)", () => {
         templateId: created.templateId,
         templateVersionId: snapshot.templateVersionId,
         templateVersionTag: "v_gate_missing",
-        reasonCode: "wae_evidence_missing",
+        reasonCode: "certification_missing",
       });
     } finally {
       nowSpy.mockRestore();
@@ -1412,6 +1422,9 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
   it("builds deterministic dry-run plans with sorted target org order and idempotent operations", async () => {
     const db = new FakeDb();
     seedSession(db);
+    seedOrganization(db, "organizations_1");
+    seedOrganization(db, "organizations_2");
+    seedOrganization(db, "organizations_3");
 
     getUserContextMock.mockResolvedValue({
       userId: OWNER_USER_ID,
@@ -1495,6 +1508,7 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
   it("applies idempotent upsert rollout and skips on repeat apply", async () => {
     const db = new FakeDb();
     seedSession(db);
+    seedOrganization(db, "organizations_4");
 
     getUserContextMock.mockResolvedValue({
       userId: OWNER_USER_ID,
@@ -1565,6 +1579,7 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
   it("includes deployable telephony config in drift/apply while preserving clone runtime provider state", async () => {
     const db = new FakeDb();
     seedSession(db);
+    seedOrganization(db, "organizations_14");
 
     getUserContextMock.mockResolvedValue({
       userId: OWNER_USER_ID,
@@ -1758,6 +1773,9 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
   it("supports staged rollout windows with deterministic job ids and auditable summaries", async () => {
     const db = new FakeDb();
     seedSession(db);
+    seedOrganization(db, "organizations_1");
+    seedOrganization(db, "organizations_2");
+    seedOrganization(db, "organizations_3");
 
     getUserContextMock.mockResolvedValue({
       userId: OWNER_USER_ID,
@@ -1914,6 +1932,9 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
   it("applies locked/warn/free policy gates deterministically in rollout plans and summaries", async () => {
     const db = new FakeDb();
     seedSession(db);
+    seedOrganization(db, "organizations_11");
+    seedOrganization(db, "organizations_12");
+    seedOrganization(db, "organizations_13");
 
     getUserContextMock.mockResolvedValue({
       userId: OWNER_USER_ID,
@@ -2148,7 +2169,7 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
             throw new Error("expected distributeAgentTemplateToOrganizations to fail");
           },
           (error: unknown) => {
-            expect(String(error)).toContain("WAE rollout gate did not pass");
+            expect(String(error)).toContain("Missing required verification");
           },
         );
 
@@ -2165,7 +2186,7 @@ describe("agentOntology mutation paths: template distribution (ATH-005)", () => 
         templateId: created.templateId,
         templateVersionId: snapshot.templateVersionId,
         templateVersionTag: "rollout_gate_fail_v1",
-        reasonCode: "wae_gate_failed",
+        reasonCode: "certification_invalid",
       });
     } finally {
       nowSpy.mockRestore();

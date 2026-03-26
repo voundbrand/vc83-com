@@ -25,6 +25,7 @@ import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 import { useAuth } from "@/hooks/use-auth";
 import type { AgentCustomProps } from "./types";
 import { isPlatformManagedL2Soul } from "./platform-soul-scope";
+import { OrgActivityTimeline } from "./org-activity-timeline";
 import {
   deriveMemoryProvenanceEvidence,
   deriveRetrievalCitationEvidence,
@@ -134,6 +135,7 @@ interface ReceiptAgingDiagnostic {
   status: string;
   turnId?: Id<"agentTurns">;
   idempotencyKey: string;
+  retryDisposition?: "safe_retry" | "blocked_processing" | "terminal_completed";
   ageMs: number;
   duplicateCount: number;
   firstSeenAt: number;
@@ -148,6 +150,7 @@ interface ReceiptDuplicateDiagnostic {
   status: string;
   turnId?: Id<"agentTurns">;
   idempotencyKey: string;
+  retryDisposition?: "safe_retry" | "blocked_processing" | "terminal_completed";
   duplicateCount: number;
   firstSeenAt: number;
   lastSeenAt: number;
@@ -161,6 +164,7 @@ interface ReceiptStuckDiagnostic {
   status: string;
   turnId?: Id<"agentTurns">;
   idempotencyKey: string;
+  retryDisposition?: "safe_retry" | "blocked_processing" | "terminal_completed";
   processingAgeMs: number;
   startedAt: number;
   duplicateCount: number;
@@ -175,10 +179,18 @@ interface ReplaySafeReceiptDebug {
   status: string;
   turnId?: Id<"agentTurns">;
   idempotencyKey: string;
+  retryDisposition: "safe_retry" | "blocked_processing" | "terminal_completed";
   duplicateCount: number;
   queueConcurrencyKey?: string;
   queueOrderingKey?: string;
   canReplay: boolean;
+  retryGuidance?: {
+    retrySafe: boolean;
+    blockReasonCode: string;
+    blockReason: string;
+    unblockActor: "none" | "runtime_worker" | "org_operator";
+    retryHint: string;
+  };
   replayMetadata: {
     replayOfReceiptId: Id<"agentInboxReceipts">;
     debugReplay: boolean;
@@ -195,6 +207,10 @@ interface ReliabilityDiagnosticItem {
   channel: string;
   externalContactIdentifier: string;
   idempotencyKey: string;
+  retryDisposition: "safe_retry" | "blocked_processing" | "terminal_completed";
+  retrySafe: boolean;
+  blockReason: string;
+  unblockActor: "none" | "runtime_worker" | "org_operator";
   ageLabel: string;
   duplicateCount: number;
   observedAt: number;
@@ -516,6 +532,76 @@ interface ActionCompletionMismatchTelemetryAggregation {
   incidents: ActionCompletionMismatchIncident[];
 }
 
+interface RuntimeSloBudgetEvaluation {
+  metric: string;
+  observedValue: number;
+  severity: "ok" | "warning" | "critical";
+  thresholdValue: number | null;
+  scoreRatio: number;
+}
+
+interface RuntimeSloGateEvidenceAggregation {
+  windowHours: number;
+  since: number;
+  staleMinutes: number;
+  turnTotals: {
+    total: number;
+    terminalized: number;
+    failed: number;
+    stuck: number;
+    latencySamples: number;
+  };
+  sessionCostTotals: {
+    sessions: number;
+    totalMessages: number;
+    totalCostUsd: number;
+  };
+  observedRuntimeMetrics: {
+    stuckTurnRate: number | null;
+    deliveryTerminalizationRate: number | null;
+    runtimeErrorRate: number | null;
+    p95TurnLatencyMs: number | null;
+    avgCostUsdPerTurn: number | null;
+  };
+  latestWaeGate: {
+    runId: string | null;
+    status: string | null;
+    reasonCode: string | null;
+    recordedAt: number | null;
+    weightedScore: number | null;
+    passThreshold: number | null;
+    holdThreshold: number | null;
+    failedMetrics: string[];
+  } | null;
+  productionGate: {
+    contractVersion: string;
+    generatedAt: number;
+    decision: "proceed" | "hold" | "rollback";
+    blockedReasonCodes: string[];
+    eval: {
+      score: number | null;
+      scoreStatus: "pass" | "hold" | "rollback" | "missing";
+      passThreshold: number;
+      holdThreshold: number;
+      latencyBudget: RuntimeSloBudgetEvaluation | null;
+      costBudget: RuntimeSloBudgetEvaluation | null;
+    };
+    runtimeSlo: {
+      status: "proceed" | "hold" | "rollback";
+      missingMetrics: string[];
+      warningMetrics: string[];
+      criticalMetrics: string[];
+      evaluations: Array<{
+        metric: string;
+        status: "observed" | "missing";
+        observedValue: number | null;
+        severity: "ok" | "warning" | "critical";
+        thresholdValue: number | null;
+      }>;
+    };
+  };
+}
+
 interface ActionItem {
   id: string;
   severity: TimelineSeverity;
@@ -717,6 +803,16 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
       limit: 20,
     },
   ) as ActionCompletionMismatchTelemetryAggregation | undefined;
+  const runtimeSloGateEvidence = unsafeUseQuery(
+    apiAny.ai.agentSessions.getRuntimeSloGateEvidence,
+    {
+      sessionId,
+      organizationId,
+      agentId,
+      hours: RUNTIME_KPI_WINDOW_HOURS,
+      staleMinutes: 10,
+    },
+  ) as RuntimeSloGateEvidenceAggregation | undefined;
 
   const [selectedInterventionId, setSelectedInterventionId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<InterventionTemplateId>("override_draft");
@@ -824,6 +920,7 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
   const reliabilityDiagnostics = useMemo<ReliabilityDiagnosticItem[]>(() => {
     const rows: ReliabilityDiagnosticItem[] = [];
     for (const receipt of stuckReceipts || []) {
+      const retryGuidance = buildReceiptRetryGuidanceView(receipt.retryDisposition);
       rows.push({
         receiptId: receipt.receiptId,
         category: "stuck",
@@ -831,12 +928,17 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         channel: receipt.channel,
         externalContactIdentifier: receipt.externalContactIdentifier,
         idempotencyKey: receipt.idempotencyKey,
+        retryDisposition: retryGuidance.retryDisposition,
+        retrySafe: retryGuidance.retrySafe,
+        blockReason: retryGuidance.blockReason,
+        unblockActor: retryGuidance.unblockActor,
         ageLabel: formatDurationMs(receipt.processingAgeMs),
         duplicateCount: receipt.duplicateCount,
         observedAt: receipt.lastSeenAt,
       });
     }
     for (const receipt of agingReceipts || []) {
+      const retryGuidance = buildReceiptRetryGuidanceView(receipt.retryDisposition);
       rows.push({
         receiptId: receipt.receiptId,
         category: "aging",
@@ -844,12 +946,17 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         channel: receipt.channel,
         externalContactIdentifier: receipt.externalContactIdentifier,
         idempotencyKey: receipt.idempotencyKey,
+        retryDisposition: retryGuidance.retryDisposition,
+        retrySafe: retryGuidance.retrySafe,
+        blockReason: retryGuidance.blockReason,
+        unblockActor: retryGuidance.unblockActor,
         ageLabel: formatDurationMs(receipt.ageMs),
         duplicateCount: receipt.duplicateCount,
         observedAt: receipt.lastSeenAt,
       });
     }
     for (const receipt of duplicateReceipts || []) {
+      const retryGuidance = buildReceiptRetryGuidanceView(receipt.retryDisposition);
       rows.push({
         receiptId: receipt.receiptId,
         category: "duplicate",
@@ -857,6 +964,10 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         channel: receipt.channel,
         externalContactIdentifier: receipt.externalContactIdentifier,
         idempotencyKey: receipt.idempotencyKey,
+        retryDisposition: retryGuidance.retryDisposition,
+        retrySafe: retryGuidance.retrySafe,
+        blockReason: retryGuidance.blockReason,
+        unblockActor: retryGuidance.unblockActor,
         ageLabel: `x${receipt.duplicateCount}`,
         duplicateCount: receipt.duplicateCount,
         observedAt: receipt.lastSeenAt,
@@ -1106,14 +1217,16 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
     };
   }, [toolScopingAudit]);
   const runtimeWindowHours =
-    modelFallbackRate?.windowHours
+    runtimeSloGateEvidence?.windowHours
+    || modelFallbackRate?.windowHours
     || toolSuccessFailureRatio?.windowHours
     || retrievalTelemetry?.windowHours
     || toolScopingAudit?.windowHours
     || actionCompletionMismatchTelemetry?.windowHours
     || RUNTIME_KPI_WINDOW_HOURS;
   const runtimeSince =
-    modelFallbackRate?.since
+    runtimeSloGateEvidence?.since
+    || modelFallbackRate?.since
     || toolSuccessFailureRatio?.since
     || retrievalTelemetry?.since
     || toolScopingAudit?.since
@@ -1419,6 +1532,14 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
       action: "Open Approvals and approve/reject queued actions.",
     });
   }
+  if (pendingEscalations > 0 || pendingApprovals > 0) {
+    actionItems.push({
+      id: "action-center-workflow",
+      severity: "medium",
+      label: "Owner workflow items are available in Action Center",
+      action: "Open /agents?view=action-center to review list, Kanban state, receipts, and takeover context in one workflow surface.",
+    });
+  }
   if (pendingProposals > 0) {
     actionItems.push({
       id: "pending-proposals",
@@ -1604,7 +1725,15 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                         ageLabel: item.ageLabel,
                       })}{" "}
                     · {tx("cards.receipt_reliability.status", "status")} {item.status}
+                    · {tx("cards.receipt_reliability.retry_safe", "retry safe")} {item.retrySafe ? "yes" : "no"}
                   </div>
+                  {!item.retrySafe && (
+                    <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {tx("cards.receipt_reliability.blocked_reason", "Blocked:")} {item.blockReason}{" "}
+                      ({tx("cards.receipt_reliability.unblock_actor", "unblock actor")}{" "}
+                      {humanizeText(item.unblockActor)})
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -1636,6 +1765,27 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
                   label={tx("cards.receipt_reliability.can_replay", "Can replay")}
                   value={selectedReliabilityReceiptDebug.canReplay ? "Yes" : "No"}
                 />
+                <MetricLine
+                  label={tx("cards.receipt_reliability.retry_disposition", "Retry disposition")}
+                  value={humanizeText(selectedReliabilityReceiptDebug.retryDisposition)}
+                />
+                {selectedReliabilityReceiptDebug.retryGuidance && (
+                  <>
+                    <MetricLine
+                      label={tx("cards.receipt_reliability.blocked_reason", "Blocked reason")}
+                      value={selectedReliabilityReceiptDebug.retryGuidance.blockReason}
+                    />
+                    <MetricLine
+                      label={tx("cards.receipt_reliability.unblock_actor", "Who can unblock")}
+                      value={humanizeText(
+                        selectedReliabilityReceiptDebug.retryGuidance.unblockActor,
+                      )}
+                    />
+                    <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+                      {selectedReliabilityReceiptDebug.retryGuidance.retryHint}
+                    </div>
+                  </>
+                )}
                 <CopyableKeyField
                   label={tx("cards.receipt_reliability.idempotency", "Idempotency")}
                   value={selectedReliabilityReceiptDebug.idempotencyKey}
@@ -1690,6 +1840,96 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
           {tx("cards.runtime_kpis.hours_suffix", "h since")} {formatDateTime(runtimeSince)}
         </div>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <div
+            className="border p-2.5 xl:col-span-2"
+            style={{
+              borderColor: "var(--window-document-border)",
+              background: "var(--window-document-panel-bg, var(--window-document-bg))",
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium" style={{ color: "var(--window-document-text)" }}>
+                {tx("cards.runtime_kpis.production_gate", "Production rollout gate")}
+              </div>
+              {runtimeSloGateEvidence && (
+                <StatusPill
+                  label={humanizeText(runtimeSloGateEvidence.productionGate.decision)}
+                  tone={productionGateDecisionTone(runtimeSloGateEvidence.productionGate.decision)}
+                />
+              )}
+            </div>
+            {!runtimeSloGateEvidence && (
+              <div className="mt-1 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                {tx("cards.runtime_kpis.loading_production_gate", "Loading production gate telemetry...")}
+              </div>
+            )}
+            {runtimeSloGateEvidence && (
+              <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--window-document-text)" }}>
+                <MetricLine
+                  label={tx("cards.runtime_kpis.eval_score", "Eval score")}
+                  value={runtimeSloGateEvidence.productionGate.eval.score !== null
+                    ? `${runtimeSloGateEvidence.productionGate.eval.score.toFixed(3)} (pass >= ${runtimeSloGateEvidence.productionGate.eval.passThreshold.toFixed(2)}, hold >= ${runtimeSloGateEvidence.productionGate.eval.holdThreshold.toFixed(2)})`
+                    : "missing"}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.eval_budget_latency", "Eval latency budget")}
+                  value={formatBudgetStatus(runtimeSloGateEvidence.productionGate.eval.latencyBudget)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.eval_budget_cost", "Eval cost budget")}
+                  value={formatBudgetStatus(runtimeSloGateEvidence.productionGate.eval.costBudget)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_gate_status", "Runtime SLO status")}
+                  value={humanizeText(runtimeSloGateEvidence.productionGate.runtimeSlo.status)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_stuck_turn_rate", "Stuck turn rate")}
+                  value={formatOptionalRate(runtimeSloGateEvidence.observedRuntimeMetrics.stuckTurnRate)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_terminalization_rate", "Delivery terminalization rate")}
+                  value={formatOptionalRate(runtimeSloGateEvidence.observedRuntimeMetrics.deliveryTerminalizationRate)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_error_rate", "Runtime error rate")}
+                  value={formatOptionalRate(runtimeSloGateEvidence.observedRuntimeMetrics.runtimeErrorRate)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_latency_p95", "P95 turn latency")}
+                  value={formatOptionalDuration(runtimeSloGateEvidence.observedRuntimeMetrics.p95TurnLatencyMs)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_avg_cost", "Avg cost per turn")}
+                  value={formatOptionalCurrency(runtimeSloGateEvidence.observedRuntimeMetrics.avgCostUsdPerTurn)}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.slo_turn_coverage", "Turn coverage")}
+                  value={formatCountRatio(
+                    runtimeSloGateEvidence.turnTotals.terminalized,
+                    runtimeSloGateEvidence.turnTotals.total,
+                  )}
+                />
+                <MetricLine
+                  label={tx("cards.runtime_kpis.wae_run", "Latest WAE run")}
+                  value={runtimeSloGateEvidence.latestWaeGate?.runId || "n/a"}
+                />
+                {runtimeSloGateEvidence.productionGate.blockedReasonCodes.length > 0 && (
+                  <div className="mt-2 text-xs" style={{ color: "var(--neutral-gray)" }}>
+                    {tx("cards.runtime_kpis.blocked_reasons", "Blocked reasons:")}{" "}
+                    {runtimeSloGateEvidence.productionGate.blockedReasonCodes
+                      .slice(0, 4)
+                      .map((reasonCode) => humanizeText(reasonCode))
+                      .join(", ")}
+                    {runtimeSloGateEvidence.productionGate.blockedReasonCodes.length > 4
+                      ? "..."
+                      : ""}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div
             className="border p-2.5"
             style={{
@@ -2779,6 +3019,22 @@ export function AgentTrustCockpit({ agentId, sessionId, organizationId }: AgentT
         </div>
       </Card>
 
+      <Card title={tx("cards.org_activity_timeline.title", "Org Activity Timeline")}>
+        {!selectedThreadRow && (
+          <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+            {tx("cards.org_activity_timeline.select_thread", "Select a thread to inspect immutable activity, approvals, receipts, and sync markers in one stream.")}
+          </div>
+        )}
+        {selectedThreadRow && (
+          <OrgActivityTimeline
+            sessionId={sessionId}
+            organizationId={organizationId}
+            sourceSessionId={selectedThreadRow.sessionId}
+            embedded
+          />
+        )}
+      </Card>
+
       <Card title={tx("cards.checkpoint_timeline.title", "Checkpoint Timeline")}>
         {!selectedThreadRow && (
           <div className="text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -3161,6 +3417,39 @@ function reliabilityCategoryRank(category: ReliabilityDiagnosticCategory): numbe
   return 2;
 }
 
+function buildReceiptRetryGuidanceView(
+  retryDisposition: "safe_retry" | "blocked_processing" | "terminal_completed" | undefined,
+): {
+  retryDisposition: "safe_retry" | "blocked_processing" | "terminal_completed";
+  retrySafe: boolean;
+  blockReason: string;
+  unblockActor: "none" | "runtime_worker" | "org_operator";
+} {
+  const resolvedDisposition = retryDisposition || "safe_retry";
+  if (resolvedDisposition === "blocked_processing") {
+    return {
+      retryDisposition: resolvedDisposition,
+      retrySafe: false,
+      blockReason: "Receipt is still processing.",
+      unblockActor: "runtime_worker",
+    };
+  }
+  if (resolvedDisposition === "terminal_completed") {
+    return {
+      retryDisposition: resolvedDisposition,
+      retrySafe: false,
+      blockReason: "Receipt is already terminal.",
+      unblockActor: "org_operator",
+    };
+  }
+  return {
+    retryDisposition: "safe_retry",
+    retrySafe: true,
+    blockReason: "No active retry block.",
+    unblockActor: "none",
+  };
+}
+
 function lifecycleBadgeTone(state: AgentLifecycleState): StatusPillTone {
   if (state === "draft") {
     return { background: "#e5e7eb", border: "#9ca3af", color: "#374151" };
@@ -3210,6 +3499,18 @@ function actionCompletionDataQualityTone(
     };
   }
   if (dataQuality === "artifact_backed_with_fallback_available") {
+    return { background: "var(--warning-bg)", border: "var(--warning)", color: "var(--warning)" };
+  }
+  return { background: "var(--error-bg)", border: "var(--error)", color: "var(--error)" };
+}
+
+function productionGateDecisionTone(
+  decision: "proceed" | "hold" | "rollback"
+): StatusPillTone {
+  if (decision === "proceed") {
+    return { background: "var(--success-bg)", border: "var(--success)", color: "var(--success)" };
+  }
+  if (decision === "hold") {
     return { background: "var(--warning-bg)", border: "var(--warning)", color: "var(--warning)" };
   }
   return { background: "var(--error-bg)", border: "var(--error)", color: "var(--error)" };
@@ -3449,6 +3750,42 @@ function formatRatePercent(rate: number): string {
     return "0.0%";
   }
   return `${(rate * 100).toFixed(1)}%`;
+}
+
+function formatOptionalRate(rate: number | null | undefined): string {
+  if (typeof rate !== "number" || !Number.isFinite(rate)) {
+    return "n/a";
+  }
+  return formatRatePercent(rate);
+}
+
+function formatOptionalCurrency(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "n/a";
+  }
+  return `$${value.toFixed(4)}`;
+}
+
+function formatOptionalDuration(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "n/a";
+  }
+  return formatDurationMs(value);
+}
+
+function formatBudgetStatus(
+  budget: RuntimeSloBudgetEvaluation | null
+): string {
+  if (!budget) {
+    return "missing";
+  }
+  if (budget.metric === "latency") {
+    return `${humanizeText(budget.severity)} (${formatOptionalDuration(budget.observedValue)})`;
+  }
+  if (budget.metric === "cost") {
+    return `${humanizeText(budget.severity)} (${formatOptionalCurrency(budget.observedValue)})`;
+  }
+  return humanizeText(budget.severity);
 }
 
 function formatCountRatio(numerator: number, denominator: number): string {

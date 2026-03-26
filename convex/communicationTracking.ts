@@ -50,6 +50,7 @@ export const logEmailCommunication = internalMutation({
       v.literal("sales_notification"),
       v.literal("survey"),
       v.literal("marketing"),
+      v.literal("compliance_avv_outreach"),
       v.literal("system")
     ),
     success: v.boolean(),

@@ -2,6 +2,11 @@ import {
   normalizeTeamAccessModeToken,
   type TeamAccessMode,
 } from "./harness";
+import type {
+  KnowledgeContextConfidenceContract,
+  KnowledgeContextProvenanceContract,
+  KnowledgeContextScopeContract,
+} from "../schemas/aiSchemas";
 
 export interface KnowledgeContextDocument {
   mediaId?: string;
@@ -20,6 +25,9 @@ export interface KnowledgeContextDocument {
   confidenceBand?: "high" | "medium" | "low";
   matchedTokens?: string[];
   retrievalMethod?: string;
+  knowledgeContextScope?: KnowledgeContextScopeContract;
+  knowledgeContextProvenance?: KnowledgeContextProvenanceContract;
+  knowledgeContextConfidence?: KnowledgeContextConfidenceContract;
 }
 
 export interface KnowledgeContextComposition {

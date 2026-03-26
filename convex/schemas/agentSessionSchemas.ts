@@ -19,6 +19,8 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   COLLABORATION_CONTRACT_VERSION,
+  agentRuntimeTopologyAdapterValidator,
+  agentRuntimeTopologyProfileValidator,
   agentExecutionBundleContractValidator,
   agentTurnRunAttemptContractValidator,
   agentTurnStateValidator,
@@ -67,6 +69,30 @@ const sessionRoutingMetadataValidator = v.object({
   workflowKey: v.string(),
   updatedAt: v.number(),
   updatedBy: v.optional(v.string()),
+});
+
+const inboundRuntimeKernelStageValidator = v.union(
+  v.literal("ingress"),
+  v.literal("routing"),
+  v.literal("tool_dispatch"),
+  v.literal("delivery"),
+);
+
+const inboundRuntimeKernelTerminalPhaseValidator = v.union(
+  v.literal("settle"),
+  v.literal("finalize"),
+);
+
+const inboundRuntimeKernelContractValidator = v.object({
+  contractVersion: v.literal("oar_inbound_runtime_kernel_v1"),
+  topologyProfile: agentRuntimeTopologyProfileValidator,
+  topologyAdapter: agentRuntimeTopologyAdapterValidator,
+  stageOrder: v.array(inboundRuntimeKernelStageValidator),
+  terminalPhases: v.array(inboundRuntimeKernelTerminalPhaseValidator),
+  adapterCompatibility: v.object({
+    compatible: v.boolean(),
+    reasonCode: v.string(),
+  }),
 });
 
 /**
@@ -554,6 +580,7 @@ export const agentTurns = defineTable({
   // Retry/run-attempt and bundle pinning contracts
   runAttempt: v.optional(agentTurnRunAttemptContractValidator),
   executionBundle: v.optional(agentExecutionBundleContractValidator),
+  kernelContract: v.optional(inboundRuntimeKernelContractValidator),
 
   // Terminal delivery pointer (Plan 15 contract target)
   terminalDeliverable: v.optional(v.object({

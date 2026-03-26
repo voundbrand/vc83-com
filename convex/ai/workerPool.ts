@@ -23,6 +23,11 @@ import {
   hasPlatformMotherTemplateRole,
   matchesPlatformMotherIdentityName,
 } from "../platformMother";
+import {
+  applyKanzleiPromptInputMinimization,
+  resolveKanzleiPromptInputMinimizationContract,
+  type KanzleiPromptInputMinimizationContract,
+} from "./agentSpecRegistry";
 
 // ============================================================================
 // CONSTANTS
@@ -38,6 +43,29 @@ const DEFAULT_CLONE_LIMITS = {
   maxClonesPerOrg: 12,
   maxClonesPerTemplatePerOrg: 4,
   maxClonesPerOwner: 3,
+};
+const DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE = "david_ogilvy_copywriter_template";
+
+// Dynamic require to avoid TS2589 deep type instantiation.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _generatedApiCache: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getGeneratedApi(): any {
+  if (!_generatedApiCache) {
+    _generatedApiCache = require("../_generated/api");
+  }
+  return _generatedApiCache;
+}
+
+type TemplateKnowledgeBaseImportResult = {
+  status: "skipped" | "success" | "failed";
+  templateRole: string | null;
+  folderPath?: string;
+  folderId?: string;
+  createdCount?: number;
+  updatedCount?: number;
+  documentIds?: string[];
+  message?: string;
 };
 
 type AgentLikeRecord = {
@@ -120,6 +148,91 @@ function normalizeDeterministicStringArray(value: unknown): string[] {
   ).sort((left, right) => left.localeCompare(right));
 }
 
+export interface SpawnMetadataPromptInputMinimizationAudit {
+  contractVersion: string;
+  mode: "need_to_know";
+  retainedFields: string[];
+  droppedFields: string[];
+  droppedDeniedFields: string[];
+  droppedFieldCount: number;
+}
+
+export interface SpawnMetadataNormalizationResult {
+  spawnMetadata: Record<string, unknown>;
+  promptInputMinimizationContract: KanzleiPromptInputMinimizationContract | null;
+  promptInputMinimizationAudit: SpawnMetadataPromptInputMinimizationAudit | null;
+}
+
+function collectTemplatePromptInputPolicyTokens(
+  templateProps: Record<string, unknown>,
+): string[] {
+  const deduped = new Set<string>();
+  for (const token of [
+    templateProps.orgPolicyRef,
+    templateProps.policyMode,
+    templateProps.complianceMode,
+    templateProps.templateRole,
+    templateProps.templatePlaybook,
+    templateProps.templateLayer,
+  ]) {
+    const normalized = normalizeOptionalString(token);
+    if (normalized) {
+      deduped.add(normalized);
+    }
+  }
+  for (const token of [
+    ...normalizeDeterministicStringArray(templateProps.knowledgeBaseTags),
+    ...normalizeDeterministicStringArray(templateProps.policyTags),
+    ...normalizeDeterministicStringArray(templateProps.complianceTags),
+  ]) {
+    deduped.add(token);
+  }
+  return Array.from(deduped).sort((left, right) => left.localeCompare(right));
+}
+
+export function normalizeSpawnMetadataForPromptInputMinimization(args: {
+  templateProps: Record<string, unknown>;
+  metadata: unknown;
+}): SpawnMetadataNormalizationResult {
+  const spawnMetadata = asRecord(args.metadata);
+  const promptInputMinimizationContract =
+    resolveKanzleiPromptInputMinimizationContract({
+      modeTokens: collectTemplatePromptInputPolicyTokens(args.templateProps),
+      customProperties: args.templateProps,
+    });
+
+  if (!promptInputMinimizationContract) {
+    return {
+      spawnMetadata,
+      promptInputMinimizationContract: null,
+      promptInputMinimizationAudit: null,
+    };
+  }
+
+  const minimization = applyKanzleiPromptInputMinimization(
+    spawnMetadata.promptInput,
+    promptInputMinimizationContract,
+  );
+  const promptInputMinimizationAudit: SpawnMetadataPromptInputMinimizationAudit = {
+    contractVersion: promptInputMinimizationContract.contractVersion,
+    mode: promptInputMinimizationContract.mode,
+    retainedFields: minimization.retainedFields,
+    droppedFields: minimization.droppedFields,
+    droppedDeniedFields: minimization.droppedDeniedFields,
+    droppedFieldCount: minimization.droppedFields.length,
+  };
+
+  return {
+    spawnMetadata: {
+      ...spawnMetadata,
+      promptInput: minimization.minimizedPayload,
+      promptInputMinimization: promptInputMinimizationAudit,
+    },
+    promptInputMinimizationContract,
+    promptInputMinimizationAudit,
+  };
+}
+
 function arraysAreEqual(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
     return false;
@@ -196,6 +309,83 @@ export function buildUseCaseCloneName(args: {
 
 function readTemplateRole(customProperties: Record<string, unknown> | undefined): string | null {
   return normalizeOptionalString(customProperties?.templateRole);
+}
+
+async function maybeEnsureTemplateKnowledgeBase(args: {
+  ctx: MutationCtx;
+  organizationId: Id<"organizations">;
+  cloneAgentId: Id<"objects">;
+  templateProps: Record<string, unknown>;
+  requestedByUserId: Id<"users">;
+  timestamp: number;
+}): Promise<TemplateKnowledgeBaseImportResult> {
+  const templateRole = readTemplateRole(args.templateProps);
+  if (templateRole !== DAVID_OGILVY_COPYWRITER_TEMPLATE_ROLE) {
+    return {
+      status: "skipped",
+      templateRole,
+    };
+  }
+
+  try {
+    const generatedApi = getGeneratedApi();
+    const importResult = await args.ctx.runMutation(
+      generatedApi.internal.onboarding.seedPlatformAgents.ensureDavidOgilvyKnowledgeBaseForOrganizationInternal,
+      {
+        organizationId: args.organizationId,
+        performedBy: args.requestedByUserId,
+        source: "workerPool.spawnUseCaseAgent",
+      },
+    );
+
+    await args.ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.cloneAgentId,
+      actionType: "template_clone_kb_imported",
+      actionData: {
+        templateRole,
+        ...importResult,
+      },
+      performedBy: args.requestedByUserId,
+      performedAt: args.timestamp,
+    });
+
+    return {
+      status: "success",
+      templateRole,
+      ...(importResult as {
+        folderPath: string;
+        folderId: string;
+        createdCount: number;
+        updatedCount: number;
+        documentIds: string[];
+      }),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "knowledge_base_import_failed";
+    await args.ctx.db.insert("objectActions", {
+      organizationId: args.organizationId,
+      objectId: args.cloneAgentId,
+      actionType: "template_clone_kb_import_failed",
+      actionData: {
+        templateRole,
+        message,
+      },
+      performedBy: args.requestedByUserId,
+      performedAt: args.timestamp,
+    });
+    console.error("[workerPool] template knowledge base import failed", {
+      organizationId: args.organizationId,
+      cloneAgentId: args.cloneAgentId,
+      templateRole,
+      message,
+    });
+    return {
+      status: "failed",
+      templateRole,
+      message,
+    };
+  }
 }
 
 function isProtectedTemplateAgent(agent: AgentLikeRecord): boolean {
@@ -528,12 +718,21 @@ export const spawnUseCaseAgent = internalMutation({
     }
 
     const templateProps = asRecord(template.customProperties);
+    const spawnMetadataNormalization = normalizeSpawnMetadataForPromptInputMinimization({
+      templateProps,
+      metadata: args.metadata,
+    });
+    const spawnMetadata = spawnMetadataNormalization.spawnMetadata;
+    const promptInputMinimizationContract =
+      spawnMetadataNormalization.promptInputMinimizationContract;
+    const promptInputMinimizationAudit =
+      spawnMetadataNormalization.promptInputMinimizationAudit;
     const templateSourceVersion = resolveTemplateSourceVersion(
       template._id,
       templateProps,
       template.updatedAt
     );
-    const metadataRecord = asRecord(args.metadata);
+    const metadataRecord = spawnMetadata;
     const lastTemplateSyncJobId =
       normalizeOptionalString(metadataRecord.templateJobId) ||
       normalizeOptionalString(metadataRecord.lastTemplateJobId) ||
@@ -740,6 +939,10 @@ export const spawnUseCaseAgent = internalMutation({
             lastTemplateSyncJobId,
             cloneLifecycleState: existingTemplateLinkage?.cloneLifecycleState,
           }),
+          ...(promptInputMinimizationContract
+            ? { promptInputMinimization: promptInputMinimizationContract }
+            : {}),
+          spawnMetadata,
         },
         updatedAt: now,
       });
@@ -766,9 +969,21 @@ export const spawnUseCaseAgent = internalMutation({
           linkageRefreshReason: requiresContractUpdate
             ? "required_capability_drift"
             : "spawn_reuse",
+          ...(promptInputMinimizationAudit
+            ? { promptInputMinimization: promptInputMinimizationAudit }
+            : {}),
         },
         performedBy: requestedByUserId,
         performedAt: now,
+      });
+
+      const knowledgeBaseImport = await maybeEnsureTemplateKnowledgeBase({
+        ctx,
+        organizationId: args.organizationId,
+        cloneAgentId: matchingClone._id,
+        templateProps,
+        requestedByUserId,
+        timestamp: now,
       });
 
       return {
@@ -777,6 +992,12 @@ export const spawnUseCaseAgent = internalMutation({
         created: false,
         useCase: useCaseLabel,
         useCaseKey,
+        ...(knowledgeBaseImport.status === "skipped"
+          ? {}
+          : { knowledgeBaseImport }),
+        ...(promptInputMinimizationAudit
+          ? { promptInputMinimization: promptInputMinimizationAudit }
+          : {}),
         quota: {
           orgUsed: allOrgAgents.filter((agent) => isManagedUseCaseClone(agent)).length,
           templateUsed: templateClonesForOrg.length,
@@ -867,10 +1088,13 @@ export const spawnUseCaseAgent = internalMutation({
           maxClonesPerOwner: clonePolicy.maxClonesPerOwner,
           allowedPlaybooks: clonePolicy.allowedPlaybooks,
         },
+        ...(promptInputMinimizationContract
+          ? { promptInputMinimization: promptInputMinimizationContract }
+          : {}),
         requiredTools,
         requiredCapabilities,
         specialistScopeContract: specialistContract,
-        spawnMetadata: asRecord(args.metadata),
+        spawnMetadata,
       },
       createdBy: requestedByUserId,
       createdAt: now,
@@ -897,6 +1121,9 @@ export const spawnUseCaseAgent = internalMutation({
       requiredTools,
       requiredCapabilities,
       specialistScopeContract: specialistContract,
+      ...(promptInputMinimizationAudit
+        ? { promptInputMinimization: promptInputMinimizationAudit }
+        : {}),
     };
 
     await ctx.db.insert("objectActions", {
@@ -928,12 +1155,27 @@ export const spawnUseCaseAgent = internalMutation({
       createdAt: now,
     });
 
+    const knowledgeBaseImport = await maybeEnsureTemplateKnowledgeBase({
+      ctx,
+      organizationId: args.organizationId,
+      cloneAgentId: cloneId,
+      templateProps,
+      requestedByUserId,
+      timestamp: now,
+    });
+
     return {
       cloneAgentId: cloneId,
       reused: false,
       created: true,
       useCase: useCaseLabel,
       useCaseKey,
+      ...(knowledgeBaseImport.status === "skipped"
+        ? {}
+        : { knowledgeBaseImport }),
+      ...(promptInputMinimizationAudit
+        ? { promptInputMinimization: promptInputMinimizationAudit }
+        : {}),
       quota: {
         orgUsed: managedUseCaseClones.length + 1,
         templateUsed: templateClonesForOrg.length + 1,

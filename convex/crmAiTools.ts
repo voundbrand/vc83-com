@@ -16,6 +16,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import {
+  buildOrgExternalActionDispatchIdentity,
+  resolveOrgExternalActionDispatchGate,
+  resolveOrgExternalActionRollbackDecision,
+  type OrgExternalActionDispatchStatus,
+} from "./ai/orgExternalActionDispatch";
 
 // Helper to get CRM AI settings
 async function getCrmAiSettings(ctx: {db: any}, organizationId: Id<"organizations">) {
@@ -27,6 +33,65 @@ async function getCrmAiSettings(ctx: {db: any}, organizationId: Id<"organization
     .first();
 
   return settings;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizePositiveOrdinal(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+  const normalized = Math.floor(value);
+  return normalized > 0 ? normalized : 1;
+}
+
+function normalizeConnectorAllowlist(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      value
+        .map((entry) => normalizeOptionalString(entry))
+        .filter((entry): entry is string => Boolean(entry))
+        .map((entry) => entry.toLowerCase()),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+function readExternalExecutionConfig(
+  crmAiSettings: unknown,
+): {
+  enabled: boolean;
+  connectorAllowlist: string[];
+  compensationMode: "log_only" | "reverse_canonical_mutation";
+} {
+  const settingsRecord = asRecord(crmAiSettings);
+  const externalExecution = asRecord(settingsRecord.externalExecution);
+  const compensationMode =
+    externalExecution.compensationMode === "reverse_canonical_mutation"
+      ? "reverse_canonical_mutation"
+      : "log_only";
+  return {
+    enabled: externalExecution.enabled === true,
+    connectorAllowlist: normalizeConnectorAllowlist(
+      externalExecution.connectorAllowlist,
+    ),
+    compensationMode,
+  };
 }
 
 // ============================================================================
@@ -689,6 +754,108 @@ export const approveAiAction = mutation({
             performedAt: Date.now(),
           });
         }
+      } else if (actionType === "external_connector_dispatch") {
+        const rawActionArgs = asRecord(actionArgs);
+        const requestedConnectorKey =
+          normalizeOptionalString(rawActionArgs.connectorKey)
+          || "unknown_connector";
+        const sourceSessionId =
+          normalizeOptionalString(rawActionArgs.sourceSessionId)
+          || normalizeOptionalString(
+            (approval.customProperties as { sessionId?: unknown } | undefined)?.sessionId,
+          )
+          || args.sessionId;
+        const attemptNumber = normalizePositiveOrdinal(rawActionArgs.attemptNumber);
+        const actionItemObjectId =
+          normalizeOptionalString(rawActionArgs.actionItemObjectId)
+          || String(args.approvalId);
+        const policyDecision =
+          normalizeOptionalString(rawActionArgs.policyDecision)
+          || "approval_required";
+        const targetSystemClass =
+          normalizeOptionalString(rawActionArgs.targetSystemClass)
+          || "external_connector";
+        const simulatedDispatchStatusRaw =
+          normalizeOptionalString(rawActionArgs.dispatchStatus);
+        const simulatedDispatchStatus: OrgExternalActionDispatchStatus =
+          simulatedDispatchStatusRaw === "succeeded"
+            ? "succeeded"
+            : simulatedDispatchStatusRaw === "skipped"
+              ? "skipped"
+              : "failed";
+        const canonicalMutationApplied =
+          rawActionArgs.canonicalMutationApplied === true;
+
+        const crmAiSettings = await getCrmAiSettings(ctx, approval.organizationId);
+        const externalExecutionConfig = readExternalExecutionConfig(
+          crmAiSettings?.customProperties,
+        );
+
+        const dispatchGate = resolveOrgExternalActionDispatchGate({
+          orgExternalExecutionEnabled: externalExecutionConfig.enabled,
+          policyDecision,
+          targetSystemClass,
+          approvalState: "approved",
+          connectorKey: requestedConnectorKey,
+          connectorAllowlist: externalExecutionConfig.connectorAllowlist,
+        });
+
+        const dispatchIdentity = buildOrgExternalActionDispatchIdentity({
+          organizationId: String(approval.organizationId),
+          sessionId: sourceSessionId,
+          actionItemObjectId,
+          connectorKey: requestedConnectorKey,
+          attemptNumber,
+        });
+        const dispatchStatus =
+          dispatchGate === "allowed" ? simulatedDispatchStatus : "skipped";
+        const rollbackDecision = resolveOrgExternalActionRollbackDecision({
+          dispatchGate,
+          dispatchStatus,
+          canonicalMutationApplied,
+          compensationMode: externalExecutionConfig.compensationMode,
+        });
+
+        await ctx.db.insert("objectActions", {
+          organizationId: approval.organizationId,
+          objectId: args.approvalId,
+          actionType: "external_connector_dispatch_attempt",
+          actionData: {
+            dispatchGate,
+            dispatchStatus,
+            connectorKey: dispatchIdentity.connectorKey,
+            attemptNumber: dispatchIdentity.attemptNumber,
+            correlationId: dispatchIdentity.correlationId,
+            idempotencyKey: dispatchIdentity.idempotencyKey,
+            rollbackDecision: rollbackDecision.decision,
+            rollbackReasonCode: rollbackDecision.reasonCode,
+            compensationRequired: rollbackDecision.compensation.required,
+            compensationMode: rollbackDecision.compensation.mode || undefined,
+            compensationReasonCode: rollbackDecision.compensation.reasonCode,
+          },
+          performedBy: session.userId,
+          performedAt: Date.now(),
+        });
+
+        await ctx.db.patch(args.approvalId, {
+          customProperties: {
+            ...approval.customProperties,
+            externalDispatch: {
+              connectorKey: dispatchIdentity.connectorKey,
+              attemptNumber: dispatchIdentity.attemptNumber,
+              dispatchGate,
+              dispatchStatus,
+              correlationId: dispatchIdentity.correlationId,
+              idempotencyKey: dispatchIdentity.idempotencyKey,
+              rollbackDecision: rollbackDecision.decision,
+              rollbackReasonCode: rollbackDecision.reasonCode,
+              compensationRequired: rollbackDecision.compensation.required,
+              compensationMode:
+                rollbackDecision.compensation.mode || undefined,
+            },
+          },
+          updatedAt: Date.now(),
+        });
       }
     }
 

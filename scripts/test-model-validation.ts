@@ -145,19 +145,35 @@ function isNoReleaseReadyPlatformModelError(error: unknown): boolean {
   );
 }
 
-function parseToolCallArguments(rawArguments: unknown): Record<string, unknown> {
-  if (typeof rawArguments !== "string") {
-    return {};
+type ValidationTransportMode = "direct_runtime" | "chat_runtime";
+
+function resolveValidationTransportMode(): ValidationTransportMode {
+  const rawMode = process.env.MODEL_VALIDATION_TRANSPORT;
+  if (typeof rawMode !== "string") {
+    return "direct_runtime";
   }
-  try {
-    const parsed = JSON.parse(rawArguments);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    // no-op
+  const normalized = rawMode.trim().toLowerCase();
+  if (normalized === "chat" || normalized === "chat_runtime") {
+    return "chat_runtime";
   }
-  return {};
+  return "direct_runtime";
+}
+
+function isStrictModelSelectionEnabled(): boolean {
+  const raw = process.env.MODEL_VALIDATION_STRICT_MODEL;
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return true;
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (
+    normalized === "0"
+    || normalized === "false"
+    || normalized === "off"
+    || normalized === "no"
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function buildValidationConversationId(): string {
@@ -165,7 +181,8 @@ function buildValidationConversationId(): string {
 }
 
 const validationConversationStore = new Map<string, ValidationConversationMessage[]>();
-let forceDirectRuntimeTransport = false;
+const VALIDATION_TRANSPORT_MODE = resolveValidationTransportMode();
+let forceDirectRuntimeTransport = VALIDATION_TRANSPORT_MODE === "direct_runtime";
 
 async function sendValidationMessageViaDirectRuntime(args: {
   conversationId?: string;
@@ -243,6 +260,12 @@ async function sendValidationMessageViaDirectRuntime(args: {
       args.modelId
     )
     : 0;
+  const resolvedModel =
+    typeof runtimeResponse?.model === "string"
+      ? runtimeResponse.model.trim()
+      : "";
+  const selectedModel = resolvedModel.length > 0 ? resolvedModel : args.modelId;
+  const fallbackUsed = selectedModel !== args.modelId;
   validationConversationStore.set(conversationId, [
     ...nextHistory,
     {
@@ -259,6 +282,17 @@ async function sendValidationMessageViaDirectRuntime(args: {
       toolCalls: normalizedToolCalls,
       usage,
       cost,
+      modelResolution: {
+        requestedModel: args.modelId,
+        selectedModel,
+        selectionSource: "direct_runtime",
+        fallbackUsed,
+        ...(fallbackUsed
+          ? {
+            fallbackReason: "runtime_selected_model_mismatch",
+          }
+          : {}),
+      },
     },
     latencyMs: Date.now() - startedAt,
   };
@@ -815,7 +849,8 @@ async function ensureExpectedModelWasUsed(
   if (
     !resolution &&
     response.conversationId &&
-    response.conversationId.trim().length > 0
+    response.conversationId.trim().length > 0 &&
+    !response.conversationId.startsWith("validation_")
   ) {
     resolution = await loadConversationModelResolution(response.conversationId);
   }
@@ -922,7 +957,7 @@ async function resolveDefaultModelId(): Promise<string> {
 
   const runtimeProbe = await probeRuntimeModelSelection(candidateModelId);
   if (runtimeProbe?.selectedModel && runtimeProbe.selectedModel !== candidateModelId) {
-    const strictModelSelection = process.env.MODEL_VALIDATION_STRICT_MODEL === "1";
+    const strictModelSelection = isStrictModelSelectionEnabled();
     const rerouteNote = `${candidateModelId} -> ${runtimeProbe.selectedModel}${
       runtimeProbe.selectionSource ? ` (${runtimeProbe.selectionSource})` : ""
     }`;
@@ -1504,7 +1539,7 @@ async function validateModel(modelId: string): Promise<ValidationRunResult> {
   console.log(`🔍 Validating Model: ${modelId}`);
   console.log(`${"=".repeat(70)}`);
   validationConversationStore.clear();
-  forceDirectRuntimeTransport = false;
+  forceDirectRuntimeTransport = VALIDATION_TRANSPORT_MODE === "direct_runtime";
 
   const results: ValidationResult = {
     basicChat: false,
@@ -1627,6 +1662,12 @@ async function main() {
         `ℹ️  Validation harness reasoning effort: ${VALIDATION_REASONING_EFFORT}`
       );
     }
+    console.log(
+      `ℹ️  Validation transport mode: ${VALIDATION_TRANSPORT_MODE}`
+    );
+    console.log(
+      `ℹ️  Strict model selection mode: ${isStrictModelSelectionEnabled() ? "enabled" : "disabled"}`
+    );
 
     if (modelArg) {
       // Test single model

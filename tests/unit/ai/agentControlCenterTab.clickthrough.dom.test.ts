@@ -36,6 +36,9 @@ import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
 import { AgentControlCenterTab } from "../../../src/components/window-content/super-admin-organizations-window/agent-control-center-tab";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
+
 const useAuthMock = vi.mocked(useAuth);
 const useQueryMock = vi.mocked(useQuery as any);
 const useMutationMock = vi.mocked(useMutation as any);
@@ -145,6 +148,28 @@ const AGENT_DETAILS_RESPONSE = {
     sourcePath: "convex/onboarding/seedPlatformAgents.ts",
   },
   recentSyncRuns: SYNC_RUNS_RESPONSE.runs,
+};
+
+const ORG_ACTION_CONTEXT_VIEW = {
+  pipelineStates: [
+    "pending",
+    "assigned",
+    "approved",
+    "executing",
+    "failed",
+    "completed",
+  ],
+  totalsByPipelineState: {
+    pending: 2,
+    assigned: 1,
+    approved: 1,
+    executing: 0,
+    failed: 1,
+    completed: 3,
+  },
+  agentFilters: [],
+  items: [],
+  total: 8,
 };
 
 let triggerCatalogSyncMock: ReturnType<typeof vi.fn>;
@@ -427,9 +452,39 @@ const DISTRIBUTION_TELEMETRY_RESPONSE = {
   ],
 };
 
+const COMPLIANCE_FLEET_GATE_STATUS = [
+  {
+    organizationId: "organizations_1",
+    organizationName: "Alpha Org",
+    effectiveGateStatus: "NO_GO",
+    ownerGateDecision: "NO_GO",
+    blockerIds: ["R-003"],
+    blockerCount: 1,
+    platformSharedEvidenceAvailableCount: 2,
+    avvOutreachOverdueCount: 0,
+    updatedAt: 1_700_100_000_000,
+  },
+];
+
 function resolveUseQueryResult(queryRef: any, args: any) {
   if (args === "skip") {
     return undefined;
+  }
+  if (queryRef === api.ai.orgActionCenter.getActionCenterView) {
+    return ORG_ACTION_CONTEXT_VIEW;
+  }
+  if (
+    args &&
+    typeof args === "object" &&
+    "sessionId" in args &&
+    "organizationId" in args &&
+    !("filters" in args) &&
+    !("catalogAgentNumber" in args)
+  ) {
+    return ORG_ACTION_CONTEXT_VIEW;
+  }
+  if (queryRef === api.complianceControlPlane.listComplianceFleetGateStatus) {
+    return COMPLIANCE_FLEET_GATE_STATUS;
   }
   if (args && typeof args === "object" && "templateId" in args && "targetOrganizationIds" in args) {
     return ROLLOUT_DRIFT_PREVIEW_RESPONSE;
@@ -563,6 +618,11 @@ beforeEach(() => {
   useAuthMock.mockReturnValue({
     sessionId: "sessions_super_admin",
     isSuperAdmin: true,
+    user: {
+      currentOrganization: {
+        id: "organizations_super_admin",
+      },
+    },
   } as any);
 
   useQueryMock.mockImplementation((queryRef, args) => resolveUseQueryResult(queryRef, args));
@@ -628,6 +688,8 @@ describe("Agent Control Center DOM click-through write flows", () => {
     render(React.createElement(AgentControlCenterTab));
 
     expect(await screen.findByText("Template Hub")).toBeTruthy();
+    expect(screen.getByTestId("agent-control-center-org-action-context")).toBeTruthy();
+    expect(screen.getByText(/Org action context/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Template Catalog/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Version History/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Rollout Actions/i })).toBeTruthy();

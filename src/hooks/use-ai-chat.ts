@@ -107,6 +107,7 @@ export interface NativeGuestImageAttachment {
 export type AIChatComposerMode = "auto" | "plan" | "plan_soft"
 export type AIChatReasoningEffort = "low" | "medium" | "high" | "extra_high"
 export type AIChatReferenceStatus = "loading" | "ready" | "error"
+export type AIChatPromptContext = "normal" | "page_builder" | "layers_builder"
 
 export interface AIChatMessageCollaboration {
   surface: "group" | "dm"
@@ -233,6 +234,8 @@ export interface AIChatConversationAttachment {
 export interface AIChatSendOptions {
   layerWorkflowId?: Id<"objects">
   targetAgentId?: Id<"objects">
+  context?: AIChatPromptContext
+  forcePrimaryAgent?: boolean
   mode?: AIChatComposerMode
   reasoningEffort?: AIChatReasoningEffort
   privacyMode?: boolean
@@ -869,7 +872,9 @@ export function useAIChat(
   selectedModel?: string,
   superAdminQaMode?: AIChatSuperAdminQaMode,
   activeLayerWorkflowId?: Id<"objects">,
-  scopedTargetAgentId?: Id<"objects">
+  scopedTargetAgentId?: Id<"objects">,
+  defaultChatContext?: AIChatPromptContext,
+  forcePrimaryAgentRouting?: boolean
 ) {
   const { user, sessionId } = useAuth()
   const organization = user?.currentOrganization
@@ -917,6 +922,8 @@ export function useAIChat(
     selectedModel?: string
     layerWorkflowId?: Id<"objects">
     targetAgentId?: Id<"objects">
+    context?: AIChatPromptContext
+    forcePrimaryAgent?: boolean
     mode?: AIChatComposerMode
     reasoningEffort?: AIChatReasoningEffort
     privacyMode?: boolean
@@ -1007,6 +1014,8 @@ export function useAIChat(
             options?.targetAgentId
             ?? conversationTargetAgentId
             ?? scopedTargetAgentId,
+          context: options?.context ?? defaultChatContext,
+          forcePrimaryAgent: options?.forcePrimaryAgent ?? forcePrimaryAgentRouting,
           mode: options?.mode,
           reasoningEffort: options?.reasoningEffort,
           privacyMode: options?.privacyMode,
@@ -1035,6 +1044,8 @@ export function useAIChat(
     [
       activeLayerWorkflowId,
       conversationTargetAgentId,
+      defaultChatContext,
+      forcePrimaryAgentRouting,
       organization,
       scopedTargetAgentId,
       selectedModel,

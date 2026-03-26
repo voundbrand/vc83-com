@@ -7,6 +7,8 @@ const INTERNAL_KICKOFF_PREFIXES = [
   "Route this conversation through Samantha commercial intake.",
   "Route this conversation through one-visible-operator activation.",
   "Route this conversation through the platform support intake workflow.",
+  "Route this conversation through booking setup wizard orchestration.",
+  "Route this conversation through compliance inbox copilot.",
   "You are now the frontline product partner in this same conversation.",
 ] as const
 
@@ -15,6 +17,13 @@ const INTERNAL_KICKOFF_MARKERS = [
   "response_contract:",
   "required_lead_fields=",
   "required_sequence=triage.v1 -> troubleshooting.v1 -> escalation_decision.v1",
+  "intent=booking_setup_wizard",
+  "intent=compliance_inbox_assist",
+  "wizard_catalog_input_json:",
+  "wizard_diagnostics_json:",
+  "wizard_warnings_json:",
+  "compliance_summary_json:",
+  "active_compliance_action_json:",
   "coverage_specialist_hint=",
   "entry_context=",
   "trigger=manual_intake",

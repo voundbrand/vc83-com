@@ -36,6 +36,9 @@ import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@/hooks/use-auth";
 import { AgentControlCenterTab } from "../../../src/components/window-content/super-admin-organizations-window/agent-control-center-tab";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { api } = require("../../../convex/_generated/api") as { api: any };
+
 const useAuthMock = vi.mocked(useAuth);
 const useQueryMock = vi.mocked(useQuery as any);
 const useMutationMock = vi.mocked(useMutation as any);
@@ -165,6 +168,20 @@ const CLONE_INVENTORY_RESPONSE = {
 
 const TOOL_FOUNDRY_PENDING_PROPOSALS: any[] = [];
 
+const COMPLIANCE_FLEET_GATE_STATUS = [
+  {
+    organizationId: "organizations_1",
+    organizationName: "Alpha Org",
+    effectiveGateStatus: "NO_GO",
+    ownerGateDecision: "NO_GO",
+    blockerIds: ["R-002"],
+    blockerCount: 1,
+    platformSharedEvidenceAvailableCount: 1,
+    avvOutreachOverdueCount: 0,
+    updatedAt: 1_700_100_000_000,
+  },
+];
+
 let templateRolloutOptionsResponse: any;
 
 let triggerCatalogSyncMock: ReturnType<typeof vi.fn>;
@@ -189,9 +206,12 @@ function makeCertificationSummary(overrides: Partial<Record<string, unknown>> = 
   };
 }
 
-function resolveUseQueryResult(args: any) {
+function resolveUseQueryResult(queryRef: any, args: any) {
   if (args === "skip") {
     return undefined;
+  }
+  if (queryRef === api.complianceControlPlane.listComplianceFleetGateStatus) {
+    return COMPLIANCE_FLEET_GATE_STATUS;
   }
   if (args && typeof args === "object" && "templateId" in args && "targetOrganizationIds" in args) {
     return {
@@ -383,7 +403,7 @@ beforeEach(() => {
     isSuperAdmin: true,
   } as any);
 
-  useQueryMock.mockImplementation((_queryRef, args) => resolveUseQueryResult(args));
+  useQueryMock.mockImplementation((queryRef, args) => resolveUseQueryResult(queryRef, args));
 
   useMutationMock.mockImplementation(() => {
     return async (args: any) => {

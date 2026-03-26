@@ -17,6 +17,11 @@ import {
   isBookingConciergeToolAction,
   type MeetingConciergeFlowMode,
 } from "./tools/bookingTool";
+import { isKanzleiFailClosedModeToken } from "./agentSpecRegistry";
+import {
+  getExternalSendSkillToolNames,
+  resolveKanzleiApprovedExternalToolNames,
+} from "./skills";
 
 export type AgentToolExecutionStatus =
   | "success"
@@ -490,6 +495,86 @@ function normalizeOptionalString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeDeterministicPolicyTokens(values?: string[]): string[] {
+  if (!values) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeOptionalString(value).toLowerCase())
+        .filter((value) => value.length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+interface KanzleiExternalToolPolicy {
+  failClosedMode: boolean;
+  externalSendTools: Set<string>;
+  approvedExternalTools: Set<string>;
+}
+
+function resolveKanzleiExternalToolPolicy(args: {
+  complianceMode?: string;
+  industry?: string;
+  orgPolicyRef?: string;
+  kanzleiFailClosedMode?: boolean;
+  requireApprovalFor?: string[];
+  approvedExternalToolNames?: string[];
+  approvedSkillIds?: string[];
+}): KanzleiExternalToolPolicy {
+  const failClosedMode =
+    args.kanzleiFailClosedMode === true
+    || isKanzleiFailClosedModeToken(args.complianceMode)
+    || isKanzleiFailClosedModeToken(args.industry)
+    || isKanzleiFailClosedModeToken(args.orgPolicyRef);
+  const approvedToolSource =
+    typeof args.approvedExternalToolNames !== "undefined"
+      ? args.approvedExternalToolNames
+      : args.requireApprovalFor;
+  const externalSendTools = new Set(getExternalSendSkillToolNames());
+  const approvedExternalTools = new Set(
+    resolveKanzleiApprovedExternalToolNames({
+      approvedToolNames: approvedToolSource,
+      approvedSkillIds: args.approvedSkillIds,
+    }),
+  );
+  return {
+    failClosedMode,
+    externalSendTools,
+    approvedExternalTools,
+  };
+}
+
+function resolveKanzleiExternalToolAllowlistBlock(args: {
+  policy: KanzleiExternalToolPolicy;
+  toolName: string;
+  toolReadOnly: boolean;
+}): {
+  blocked: boolean;
+  reasonCode: string;
+  normalizedToolName: string;
+} | null {
+  if (!args.policy.failClosedMode || args.toolReadOnly) {
+    return null;
+  }
+  const normalizedToolName = normalizeOptionalString(args.toolName).toLowerCase();
+  if (!normalizedToolName) {
+    return null;
+  }
+  if (!args.policy.externalSendTools.has(normalizedToolName)) {
+    return null;
+  }
+  if (args.policy.approvedExternalTools.has(normalizedToolName)) {
+    return null;
+  }
+  return {
+    blocked: true,
+    reasonCode: "kanzlei_external_tool_not_allowlisted",
+    normalizedToolName,
+  };
+}
+
 function isMeetingConciergePreviewOperation(
   toolName: string,
   parsedArgs: Record<string, unknown>
@@ -791,6 +876,12 @@ export async function executeToolCallsWithApproval(args: {
   sessionId: Id<"agentSessions">;
   autonomyLevel: ToolApprovalAutonomyLevel;
   requireApprovalFor?: string[];
+  complianceMode?: string;
+  industry?: string;
+  orgPolicyRef?: string;
+  kanzleiFailClosedMode?: boolean;
+  kanzleiApprovedExternalToolNames?: string[];
+  kanzleiApprovedSkillIds?: string[];
   toolExecutionContext: ToolExecutionContext;
   failedToolCounts: Record<string, number>;
   disabledTools: Set<string>;
@@ -809,6 +900,22 @@ export async function executeToolCallsWithApproval(args: {
   const toolResults: AgentToolResult[] = [];
   let errorStateDirty = false;
   const nonDisableableTools = new Set(args.nonDisableableTools || []);
+  const kanzleiExternalToolPolicy = resolveKanzleiExternalToolPolicy({
+    complianceMode: args.complianceMode,
+    industry: args.industry,
+    orgPolicyRef: args.orgPolicyRef,
+    kanzleiFailClosedMode: args.kanzleiFailClosedMode,
+    requireApprovalFor: normalizeDeterministicPolicyTokens(
+      args.requireApprovalFor,
+    ),
+    approvedExternalToolNames:
+      typeof args.kanzleiApprovedExternalToolNames !== "undefined"
+        ? normalizeDeterministicPolicyTokens(args.kanzleiApprovedExternalToolNames)
+        : undefined,
+    approvedSkillIds: normalizeDeterministicPolicyTokens(
+      args.kanzleiApprovedSkillIds,
+    ),
+  });
 
   for (const toolCall of args.toolCalls) {
     const toolName = toolCall.function?.name;
@@ -921,6 +1028,33 @@ export async function executeToolCallsWithApproval(args: {
           postToolHookResult.error || "agent_runtime_tool_hook_post_tool_invalid",
       };
     };
+    const kanzleiExternalToolAllowlistBlock =
+      resolveKanzleiExternalToolAllowlistBlock({
+        policy: kanzleiExternalToolPolicy,
+        toolName,
+        toolReadOnly: toolDefinition?.readOnly === true,
+      });
+    if (kanzleiExternalToolAllowlistBlock?.blocked) {
+      console.warn(
+        "[AgentToolOrchestration] Kanzlei external tool allowlist blocked execution",
+        {
+          organizationId: String(args.organizationId),
+          agentId: String(args.agentId),
+          sessionId: String(args.sessionId),
+          toolName: kanzleiExternalToolAllowlistBlock.normalizedToolName,
+          reasonCode: kanzleiExternalToolAllowlistBlock.reasonCode,
+          approvedExternalTools: Array.from(
+            kanzleiExternalToolPolicy.approvedExternalTools,
+          ).sort((left, right) => left.localeCompare(right)),
+        },
+      );
+      toolResults.push(await applyPostToolHookResult({
+        tool: toolName,
+        status: "error",
+        error: `Kanzlei external tool execution blocked (${kanzleiExternalToolAllowlistBlock.reasonCode}).`,
+      }));
+      continue;
+    }
 
     const conciergePreviewOperation = isMeetingConciergePreviewOperation(
       toolName,

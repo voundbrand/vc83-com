@@ -1,0 +1,20 @@
+{
+  "agentId": "david-ogilvy",
+  "displayName": "David Ogilvy Copywriter",
+  "configPath": "knowledge-base/agent-config.json",
+  "knowledgeDocs": [
+    "knowledge-base/kb/00-operating-manual.md",
+    "knowledge-base/kb/01-brief-template.md",
+    "knowledge-base/kb/02-headline-and-body-formulas.md",
+    "knowledge-base/kb/03-channel-playbooks.md",
+    "knowledge-base/kb/04-quality-rubric.md",
+    "knowledge-base/kb/05-constraints-and-ethics.md"
+  ],
+  "requiredTags": [
+    "agent:david-ogilvy",
+    "copywriting",
+    "direct-response",
+    "research-first"
+  ],
+  "autonomyDefault": "draft_only"
+}

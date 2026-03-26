@@ -3,6 +3,7 @@
 import { memo, type CSSProperties } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { NodeDefinition, NodeStatus, HandleDefinition } from "../../../convex/layers/types";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // ============================================================================
 // SHARED NODE SHELL
@@ -15,13 +16,13 @@ interface NodeData {
   label: string;
 }
 
-const STATUS_INDICATOR: Record<NodeStatus, { color: string; label: string }> = {
-  draft: { color: "#9CA3AF", label: "Draft" },
-  configuring: { color: "#F59E0B", label: "Configuring" },
-  ready: { color: "#3B82F6", label: "Ready" },
-  active: { color: "#10B981", label: "Active" },
-  error: { color: "#EF4444", label: "Error" },
-  disabled: { color: "#6B7280", label: "Disabled" },
+const STATUS_INDICATOR: Record<NodeStatus, { color: string }> = {
+  draft: { color: "#9CA3AF" },
+  configuring: { color: "#F59E0B" },
+  ready: { color: "#3B82F6" },
+  active: { color: "#10B981" },
+  error: { color: "#EF4444" },
+  disabled: { color: "#6B7280" },
 };
 
 function NodeShell({
@@ -37,7 +38,9 @@ function NodeShell({
   icon: React.ReactNode;
   children?: React.ReactNode;
 }) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const status = STATUS_INDICATOR[data.status] ?? STATUS_INDICATOR.draft;
+  const statusLabel = getNodeStatusLabel(tWithFallback, data.status);
   const isExecuting = data.status === "active";
   const borderStyle: CSSProperties = {
     borderColor: selected ? accentColor : isExecuting ? "#10B981" : undefined,
@@ -73,7 +76,7 @@ function NodeShell({
         <div
           className="h-2 w-2 rounded-full"
           style={{ backgroundColor: status.color }}
-          title={status.label}
+          title={statusLabel}
         />
       </div>
 
@@ -165,6 +168,7 @@ export const IntegrationNode = memo(function IntegrationNode({
   data,
   selected,
 }: NodeProps) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const d = data as unknown as NodeData;
   return (
     <NodeShell
@@ -175,7 +179,7 @@ export const IntegrationNode = memo(function IntegrationNode({
     >
       {d.definition.integrationStatus === "coming_soon" && (
         <div className="mt-1 rounded bg-yellow-500/10 px-1.5 py-0.5 text-center text-[9px] font-medium text-yellow-600">
-          Coming Soon
+          {tWithFallback("ui.app.layers.custom_nodes.coming_soon", "Coming Soon")}
         </div>
       )}
     </NodeShell>
@@ -224,6 +228,28 @@ export const nodeTypes = {
   logic: LogicNode,
   lc_native: LcNativeNode,
 };
+
+function getNodeStatusLabel(
+  tWithFallback: (key: string, fallback: string) => string,
+  status: NodeStatus,
+): string {
+  switch (status) {
+    case "draft":
+      return tWithFallback("ui.app.layers.custom_nodes.status.draft", "Draft");
+    case "configuring":
+      return tWithFallback("ui.app.layers.custom_nodes.status.configuring", "Configuring");
+    case "ready":
+      return tWithFallback("ui.app.layers.custom_nodes.status.ready", "Ready");
+    case "active":
+      return tWithFallback("ui.app.layers.custom_nodes.status.active", "Active");
+    case "error":
+      return tWithFallback("ui.app.layers.custom_nodes.status.error", "Error");
+    case "disabled":
+      return tWithFallback("ui.app.layers.custom_nodes.status.disabled", "Disabled");
+    default:
+      return tWithFallback("ui.app.layers.custom_nodes.status.draft", "Draft");
+  }
+}
 
 // ============================================================================
 // TINY SVG ICONS (inline to avoid dependency)

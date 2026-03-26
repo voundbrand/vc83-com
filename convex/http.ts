@@ -1884,6 +1884,7 @@ import {
   createCrmOrganization,
   getCrmOrganization,
   updateCrmOrganization,
+  dispatchCrmSyncOutbox,
 } from "./api/v1/crm";
 import { createBooking } from "./api/v1/bookings";
 import {
@@ -2579,6 +2580,13 @@ http.route({
   pathPrefix: "/api/v1/crm/organizations/",
   method: "PATCH",
   handler: updateCrmOrganization,
+});
+
+// POST /api/v1/crm/sync/outbox - Dispatch narrow OAR CRM sync outbox batch
+http.route({
+  path: "/api/v1/crm/sync/outbox",
+  method: "POST",
+  handler: dispatchCrmSyncOutbox,
 });
 
 /**
@@ -3868,6 +3876,13 @@ import {
   domainLookupOptionsHandler,
 } from "./api/v1/domainLookup";
 
+// Import reusable Frontend OIDC handlers
+import {
+  frontendOidcStartHandler,
+  frontendOidcCallbackHandler,
+  frontendOidcOptionsHandler,
+} from "./api/v1/frontendOidc";
+
 /**
  * ==========================================
  * MOBILE OAUTH API
@@ -4008,6 +4023,51 @@ http.route({
   path: "/api/v1/auth/customer/oauth",
   method: "POST",
   handler: customerOAuthHandler,
+});
+
+/**
+ * ==========================================
+ * REUSABLE FRONTEND OIDC API
+ * ==========================================
+ *
+ * Reusable per-org OIDC authorization start/callback flow.
+ * This is intentionally abstraction-owned in Convex so apps like Hub-GW
+ * can consume it as a compatibility bridge.
+ */
+
+// OPTIONS /api/v1/frontend-oidc/* - CORS preflight
+http.route({
+  pathPrefix: "/api/v1/frontend-oidc/",
+  method: "OPTIONS",
+  handler: frontendOidcOptionsHandler,
+});
+
+// GET /api/v1/frontend-oidc/start - Start OIDC flow (query/redirect mode)
+http.route({
+  path: "/api/v1/frontend-oidc/start",
+  method: "GET",
+  handler: frontendOidcStartHandler,
+});
+
+// POST /api/v1/frontend-oidc/start - Start OIDC flow (JSON mode)
+http.route({
+  path: "/api/v1/frontend-oidc/start",
+  method: "POST",
+  handler: frontendOidcStartHandler,
+});
+
+// GET /api/v1/frontend-oidc/callback - Provider callback
+http.route({
+  path: "/api/v1/frontend-oidc/callback",
+  method: "GET",
+  handler: frontendOidcCallbackHandler,
+});
+
+// POST /api/v1/frontend-oidc/callback - Provider callback (form_post mode)
+http.route({
+  path: "/api/v1/frontend-oidc/callback",
+  method: "POST",
+  handler: frontendOidcCallbackHandler,
 });
 
 /**

@@ -16,6 +16,7 @@ import type {
 const SLACK_SIGNATURE_VERSION = "v0";
 const SLACK_REPLAY_WINDOW_SECONDS = 60 * 5;
 const SLACK_API_BASE = "https://slack.com/api";
+const SLACK_WEBHOOK_URL_PREFIX = "https://hooks.slack.com/";
 const SLACK_TS_PATTERN = /^\d{10}\.\d+$/;
 const SLACK_ISO_DATE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b/g;
 const SLACK_US_DATE_PATTERN = /\b(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])[/-](\d{4})\b/g;
@@ -67,6 +68,14 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function parseRetryAfterMs(response: Response): number | undefined {
+  const retryAfterRaw = response.headers.get("retry-after");
+  const retryAfterSeconds = retryAfterRaw
+    ? Number.parseInt(retryAfterRaw, 10)
+    : Number.NaN;
+  return Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : undefined;
 }
 
 function buildSignatureBaseString(body: string, timestamp: number): string {
@@ -157,6 +166,318 @@ export function parseSlackConversationIdentifier(recipientIdentifier: string): {
   }
 
   return null;
+}
+
+function normalizeSlackAlertChannelTarget(target: string): string {
+  const normalized = target.trim();
+  if (normalized.startsWith("#") || normalized.startsWith("@")) {
+    return normalized;
+  }
+  if (/^[CDGU][A-Z0-9]+$/i.test(normalized)) {
+    return normalized;
+  }
+  return `#${normalized}`;
+}
+
+function appendRunbookHint(message: string, runbookUrl?: string | null): string {
+  const normalizedRunbookUrl = asString(runbookUrl);
+  if (!normalizedRunbookUrl) {
+    return message;
+  }
+  return `${message} Runbook: ${normalizedRunbookUrl}`;
+}
+
+function normalizeErrorCodeToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export interface TemplateCertificationSlackCredentialGovernancePolicy {
+  requireDedicatedCredentials?: boolean;
+  allowInlineTargetCredentials?: boolean;
+  runbookUrl?: string | null;
+}
+
+type NormalizedTemplateCertificationSlackCredentialGovernancePolicy = {
+  requireDedicatedCredentials: boolean;
+  allowInlineTargetCredentials: boolean;
+  runbookUrl: string | null;
+};
+
+export interface TemplateCertificationSlackCredentialState {
+  ready: boolean;
+  policyCompliant: boolean;
+  mode: "inline_webhook" | "bot_token";
+  credentialSource: "inline_target" | "dedicated_env" | "fallback_env" | "missing";
+  target: string | null;
+  botToken?: string;
+  reasonCode?: string;
+  message: string;
+  runbookUrl?: string;
+}
+
+function normalizeTemplateCertificationSlackCredentialGovernancePolicy(
+  policy?: TemplateCertificationSlackCredentialGovernancePolicy | null,
+): NormalizedTemplateCertificationSlackCredentialGovernancePolicy {
+  return {
+    requireDedicatedCredentials: policy?.requireDedicatedCredentials === true,
+    allowInlineTargetCredentials: policy?.allowInlineTargetCredentials !== false,
+    runbookUrl: asString(policy?.runbookUrl) ?? null,
+  };
+}
+
+export function buildTemplateCertificationSlackStrictCredentialGovernancePolicy(
+  policy?: TemplateCertificationSlackCredentialGovernancePolicy | null,
+): TemplateCertificationSlackCredentialGovernancePolicy {
+  const normalized = normalizeTemplateCertificationSlackCredentialGovernancePolicy(policy);
+  return {
+    requireDedicatedCredentials: true,
+    allowInlineTargetCredentials: false,
+    ...(normalized.runbookUrl ? { runbookUrl: normalized.runbookUrl } : {}),
+  };
+}
+
+export function isTemplateCertificationSlackCredentialGovernanceStrict(
+  policy?: TemplateCertificationSlackCredentialGovernancePolicy | null,
+): boolean {
+  const normalized = normalizeTemplateCertificationSlackCredentialGovernancePolicy(policy);
+  return normalized.requireDedicatedCredentials && !normalized.allowInlineTargetCredentials;
+}
+
+export function evaluateTemplateCertificationSlackCredentialState(args: {
+  target?: string | null;
+  policy?: TemplateCertificationSlackCredentialGovernancePolicy | null;
+}): TemplateCertificationSlackCredentialState {
+  const governance = normalizeTemplateCertificationSlackCredentialGovernancePolicy(args.policy);
+  const target = asString(args.target);
+  if (!target) {
+    return {
+      ready: false,
+      policyCompliant: false,
+      mode: "bot_token",
+      credentialSource: "missing",
+      target: null,
+      reasonCode: "slack_target_missing",
+      message: appendRunbookHint(
+        "Slack alert transport target is missing.",
+        governance.runbookUrl,
+      ),
+      ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+    };
+  }
+
+  if (target.startsWith(SLACK_WEBHOOK_URL_PREFIX)) {
+    if (!governance.allowInlineTargetCredentials) {
+      return {
+        ready: false,
+        policyCompliant: false,
+        mode: "inline_webhook",
+        credentialSource: "inline_target",
+        target,
+        reasonCode: "slack_inline_target_disallowed",
+        message: appendRunbookHint(
+          "Slack inline webhook targets are disallowed by credential governance policy.",
+          governance.runbookUrl,
+        ),
+        ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+      };
+    }
+    return {
+      ready: true,
+      policyCompliant: true,
+      mode: "inline_webhook",
+      credentialSource: "inline_target",
+      target,
+      message: "Slack inline webhook target is configured.",
+      ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+    };
+  }
+
+  const dedicatedBotToken = asString(
+    process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN,
+  );
+  const fallbackBotToken = asString(process.env.SLACK_BOT_TOKEN);
+  const botToken = dedicatedBotToken || fallbackBotToken;
+  if (!botToken) {
+    return {
+      ready: false,
+      policyCompliant: false,
+      mode: "bot_token",
+      credentialSource: "missing",
+      target,
+      reasonCode: "slack_transport_not_configured",
+      message: appendRunbookHint(
+        "Slack alert bot token not configured.",
+        governance.runbookUrl,
+      ),
+      ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+    };
+  }
+  if (governance.requireDedicatedCredentials && !dedicatedBotToken) {
+    return {
+      ready: false,
+      policyCompliant: false,
+      mode: "bot_token",
+      credentialSource: "fallback_env",
+      target,
+      reasonCode: "slack_transport_credential_policy_violation",
+      message: appendRunbookHint(
+        "Slack alert transport requires TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN.",
+        governance.runbookUrl,
+      ),
+      ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+    };
+  }
+  return {
+    ready: true,
+    policyCompliant: true,
+    mode: "bot_token",
+    credentialSource: dedicatedBotToken ? "dedicated_env" : "fallback_env",
+    target,
+    botToken,
+    message: dedicatedBotToken
+      ? "Slack alert dedicated credential is configured."
+      : "Slack alert fallback credential is configured.",
+    ...(governance.runbookUrl ? { runbookUrl: governance.runbookUrl } : {}),
+  };
+}
+
+export async function dispatchTemplateCertificationSlackAlert(args: {
+  target: string;
+  text: string;
+  dedupeKey: string;
+  credentialGovernance?: TemplateCertificationSlackCredentialGovernancePolicy;
+}): Promise<SendResult> {
+  const text = asString(args.text);
+  if (!text) {
+    return {
+      success: false,
+      error: "Slack alert text is required",
+      errorCode: "slack_payload_invalid",
+      retryable: false,
+    };
+  }
+  const credentialState = evaluateTemplateCertificationSlackCredentialState({
+    target: args.target,
+    policy: args.credentialGovernance,
+  });
+  if (!credentialState.ready || !credentialState.target) {
+    return {
+      success: false,
+      error: credentialState.message,
+      errorCode: credentialState.reasonCode || "slack_transport_not_configured",
+      retryable: false,
+    };
+  }
+  const target = credentialState.target;
+
+  if (credentialState.mode === "inline_webhook") {
+    try {
+      const response = await fetch(target, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify({
+          text,
+          username: "Template Certification Alerts",
+        }),
+      });
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => "");
+        return {
+          success: false,
+          error: bodyText || `Slack webhook HTTP ${response.status}`,
+          errorCode: `slack_http_${response.status}`,
+          retryable: response.status === 429 || response.status >= 500,
+          statusCode: response.status,
+          retryAfterMs: parseRetryAfterMs(response),
+        };
+      }
+      return {
+        success: true,
+        providerMessageId: args.dedupeKey,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        errorCode: "slack_network_error",
+        retryable: true,
+      };
+    }
+  }
+
+  const botToken = credentialState.botToken;
+  if (!botToken) {
+    return {
+      success: false,
+      error: "Slack alert bot token not configured",
+      errorCode: "slack_transport_not_configured",
+      retryable: false,
+    };
+  }
+
+  try {
+    const response = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${botToken}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        channel: normalizeSlackAlertChannelTarget(target),
+        text,
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    });
+    const payload = (await response
+      .json()
+      .catch(() => ({}))) as Record<string, unknown>;
+    const slackOk = payload.ok === true;
+    const slackError = asString(payload.error);
+    const normalizedStatus =
+      response.status === 200 && slackError === "ratelimited"
+        ? 429
+        : response.status;
+    if (!response.ok || !slackOk) {
+      const retryableErrorCodes = new Set([
+        "ratelimited",
+        "internal_error",
+        "fatal_error",
+        "request_timeout",
+        "service_unavailable",
+      ]);
+      return {
+        success: false,
+        error: slackError || `Slack API ${normalizedStatus}`,
+        errorCode: slackError
+          ? `slack_api_${normalizeErrorCodeToken(slackError)}`
+          : `slack_http_${normalizedStatus}`,
+        retryable:
+          normalizedStatus === 429
+          || normalizedStatus >= 500
+          || (slackError ? retryableErrorCodes.has(slackError) : false),
+        statusCode: normalizedStatus,
+        retryAfterMs: parseRetryAfterMs(response),
+      };
+    }
+    return {
+      success: true,
+      providerMessageId: asString(payload.ts) || asString(payload.message_ts),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      errorCode: "slack_network_error",
+      retryable: true,
+    };
+  }
 }
 
 export async function verifySlackRequestSignature(args: {

@@ -8,12 +8,16 @@ import {
   TRUST_KPI_DEFINITIONS,
   TRUST_TELEMETRY_DASHBOARDS,
   VOICE_TRUST_PRE_ROLLOUT_BASELINES,
+  OAR_RUNTIME_SLO_DEFINITIONS,
   WAE_EVAL_BUDGET_DEFINITIONS,
   WAE_EVAL_SCORING_WEIGHTS,
+  buildOarProductionGateEvidence,
   buildEvalRunLifecycleTrustPayload,
+  buildRuntimeReceiptRetryGuidance,
   buildRuntimeTurnTelemetryDimensions,
   buildTrustKpiCheckpointPayload,
   buildTrustTelemetryDashboardSnapshots,
+  evaluateOarRuntimeSloGate,
   evaluateWaeEvalBudget,
   evaluateTrustKpiMetric,
   evaluateTrustRolloutGuardrails,
@@ -211,6 +215,44 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
     expect(dimensionsB).toEqual(dimensionsA);
   });
 
+  it("builds deterministic receipt retry guidance for blocked and safe paths", () => {
+    expect(
+      buildRuntimeReceiptRetryGuidance({
+        status: "processing",
+        duplicateCount: 0,
+      }),
+    ).toMatchObject({
+      retryDisposition: "blocked_processing",
+      retrySafe: false,
+      blockReasonCode: "runtime_processing_lock",
+      unblockActor: "runtime_worker",
+    });
+
+    expect(
+      buildRuntimeReceiptRetryGuidance({
+        status: "completed",
+        duplicateCount: 0,
+      }),
+    ).toMatchObject({
+      retryDisposition: "terminal_completed",
+      retrySafe: false,
+      blockReasonCode: "terminal_receipt",
+      unblockActor: "org_operator",
+    });
+
+    expect(
+      buildRuntimeReceiptRetryGuidance({
+        status: "duplicate",
+        duplicateCount: 2,
+      }),
+    ).toMatchObject({
+      retryDisposition: "safe_retry",
+      retrySafe: true,
+      blockReasonCode: "none",
+      unblockActor: "none",
+    });
+  });
+
   it("normalizes eval lifecycle reason codes with deterministic lexical ordering", () => {
     const normalized = normalizeEvalRunLifecycleReasonCodes([
       " Missing Lifecycle Evidence ",
@@ -359,5 +401,130 @@ describe("trust telemetry dashboards and rollout guardrails", () => {
       thresholdValue: null,
       scoreRatio: 0,
     });
+  });
+
+  it("keeps runtime SLO threshold contracts deterministic for rollout gating", () => {
+    expect(OAR_RUNTIME_SLO_DEFINITIONS).toEqual({
+      stuck_turn_rate: {
+        displayName: "Stuck turn rate",
+        unit: "ratio",
+        direction: "max",
+        warningThreshold: 0.03,
+        criticalThreshold: 0.08,
+      },
+      delivery_terminalization_rate: {
+        displayName: "Delivery terminalization rate",
+        unit: "ratio",
+        direction: "min",
+        warningThreshold: 0.97,
+        criticalThreshold: 0.9,
+      },
+      runtime_error_rate: {
+        displayName: "Runtime error rate",
+        unit: "ratio",
+        direction: "max",
+        warningThreshold: 0.04,
+        criticalThreshold: 0.09,
+      },
+      p95_turn_latency_ms: {
+        displayName: "P95 turn latency",
+        unit: "ms",
+        direction: "max",
+        warningThreshold: 20000,
+        criticalThreshold: 45000,
+      },
+      avg_cost_usd_per_turn: {
+        displayName: "Average cost per turn",
+        unit: "usd",
+        direction: "max",
+        warningThreshold: 0.03,
+        criticalThreshold: 0.06,
+      },
+    });
+  });
+
+  it("evaluates runtime SLO gate with proceed, hold, and rollback decisions", () => {
+    expect(
+      evaluateOarRuntimeSloGate({
+        stuck_turn_rate: 0.01,
+        delivery_terminalization_rate: 0.99,
+        runtime_error_rate: 0.02,
+        p95_turn_latency_ms: 9000,
+        avg_cost_usd_per_turn: 0.012,
+      }).status,
+    ).toBe("proceed");
+
+    const hold = evaluateOarRuntimeSloGate({
+      stuck_turn_rate: 0.04,
+      delivery_terminalization_rate: 0.98,
+      runtime_error_rate: 0.02,
+      p95_turn_latency_ms: 9000,
+      avg_cost_usd_per_turn: 0.012,
+    });
+    expect(hold.status).toBe("hold");
+    expect(hold.warningMetrics).toContain("stuck_turn_rate");
+
+    const rollback = evaluateOarRuntimeSloGate({
+      stuck_turn_rate: 0.09,
+      delivery_terminalization_rate: 0.88,
+      runtime_error_rate: 0.02,
+      p95_turn_latency_ms: 9000,
+      avg_cost_usd_per_turn: 0.012,
+    });
+    expect(rollback.status).toBe("rollback");
+    expect(rollback.criticalMetrics).toEqual(
+      expect.arrayContaining([
+        "stuck_turn_rate",
+        "delivery_terminalization_rate",
+      ]),
+    );
+  });
+
+  it("builds fail-closed OAR production gate evidence with eval + runtime budget decisions", () => {
+    const holdEvidence = buildOarProductionGateEvidence({
+      runtimeObservations: {
+        stuck_turn_rate: 0.01,
+        delivery_terminalization_rate: 0.99,
+        runtime_error_rate: 0.02,
+        p95_turn_latency_ms: 9000,
+        avg_cost_usd_per_turn: 0.012,
+      },
+      evalScore: 0.82,
+      evalPassThreshold: 0.85,
+      evalHoldThreshold: 0.7,
+      evalLatencyMs: 3500,
+      evalCostUsd: 0.009,
+      generatedAt: 1_739_900_000_321,
+    });
+
+    expect(holdEvidence.contractVersion).toBe("oar_production_gate_v1");
+    expect(holdEvidence.generatedAt).toBe(1_739_900_000_321);
+    expect(holdEvidence.decision).toBe("hold");
+    expect(holdEvidence.eval.scoreStatus).toBe("hold");
+    expect(holdEvidence.blockedReasonCodes).toContain(
+      "eval_score_below_pass_threshold",
+    );
+
+    const rollbackEvidence = buildOarProductionGateEvidence({
+      runtimeObservations: {
+        stuck_turn_rate: 0.01,
+        delivery_terminalization_rate: 0.99,
+        runtime_error_rate: 0.02,
+        p95_turn_latency_ms: 9000,
+        avg_cost_usd_per_turn: 0.012,
+      },
+      evalScore: 0.9,
+      evalPassThreshold: 0.85,
+      evalHoldThreshold: 0.7,
+      evalLatencyMs: 20000,
+      evalCostUsd: 0.08,
+    });
+    expect(rollbackEvidence.decision).toBe("rollback");
+    expect(rollbackEvidence.blockedReasonCodes).toEqual(
+      expect.arrayContaining([
+        "eval_latency_budget_critical",
+        "eval_cost_budget_critical",
+      ]),
+    );
   });
 });

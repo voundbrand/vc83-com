@@ -141,9 +141,11 @@ type AiUsageTelemetryRecord = {
   requestCount?: number | null;
   billingSource?: AiUsageBillingSource | null;
   creditsCharged?: number | null;
+  creditChargeStatus?: AiUsageCreditChargeStatus | string | null;
   costInCents?: number | null;
   nativeCostInCents?: number | null;
   nativeCostSource?: AiUsageNativeCostSource | string | null;
+  usageMetadata?: unknown;
 };
 
 type EconomicsAggregateRow = {
@@ -163,6 +165,10 @@ type CostQualitySource =
   | "estimated_unit_pricing"
   | "not_available"
   | "unspecified";
+
+type ValidationTransport = "direct_runtime" | "chat_runtime" | "unknown";
+
+type ValidationCreditChargeStatus = AiUsageCreditChargeStatus | "unknown";
 
 type CostQualityAggregateRow = {
   requests: number;
@@ -290,6 +296,34 @@ type PlatformEconomicsOverview = {
     platformGrossMarginInCents: number;
     platformGrossMarginPct: number;
   }>;
+  validationTelemetry: {
+    totals: {
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    };
+    byTransport: Array<{
+      transport: ValidationTransport;
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    }>;
+    byCreditChargeStatus: Array<{
+      status: ValidationCreditChargeStatus;
+      requests: number;
+      platformRequests: number;
+      nativeCostInCents: number;
+      platformNativeCostInCents: number;
+      creditsCharged: number;
+      platformCreditsCharged: number;
+    }>;
+  };
   platformOrganization: {
     organizationId: string;
     name: string | null;
@@ -346,6 +380,51 @@ function normalizeAiUsageNativeCostSource(value: unknown): CostQualitySource {
     return value;
   }
   return "unspecified";
+}
+
+function normalizeAiUsageCreditChargeStatus(
+  value: unknown
+): ValidationCreditChargeStatus {
+  if (
+    value === "charged"
+    || value === "skipped_unmetered"
+    || value === "skipped_insufficient_credits"
+    || value === "skipped_not_required"
+    || value === "failed"
+  ) {
+    return value;
+  }
+  return "unknown";
+}
+
+function normalizeValidationTransport(value: unknown): ValidationTransport {
+  if (value === "direct_runtime" || value === "chat_runtime") {
+    return value;
+  }
+  return "unknown";
+}
+
+function readUsageMetadataField(
+  usageMetadata: unknown,
+  field: string
+): unknown {
+  if (!usageMetadata || typeof usageMetadata !== "object") {
+    return undefined;
+  }
+  return (usageMetadata as Record<string, unknown>)[field];
+}
+
+function isValidationTelemetryRecord(args: {
+  action: string;
+  usageMetadata: unknown;
+}): boolean {
+  if (args.action === "model_validation_probe") {
+    return true;
+  }
+  const source = normalizeOptionalString(
+    readUsageMetadataField(args.usageMetadata, "source")
+  );
+  return source === "platform_model_validation";
 }
 
 function resolvePct(numerator: number, denominator: number): number {
@@ -486,6 +565,12 @@ export function aggregatePlatformEconomics(args: {
   const modelRows = new Map<string, EconomicsAggregateRow>();
   const actionRows = new Map<string, EconomicsAggregateRow>();
   const costQualityRows = new Map<CostQualitySource, CostQualityAggregateRow>();
+  const validationTotals = createEconomicsAggregateRow();
+  const validationTransportRows = new Map<ValidationTransport, EconomicsAggregateRow>();
+  const validationCreditChargeStatusRows = new Map<
+    ValidationCreditChargeStatus,
+    EconomicsAggregateRow
+  >();
 
   for (const record of args.records) {
     const organizationId = normalizeOptionalString(record.organizationId);
@@ -501,6 +586,9 @@ export function aggregatePlatformEconomics(args: {
 
     const billingSource = normalizeAiUsageBillingSource(record.billingSource);
     const nativeCostSource = normalizeAiUsageNativeCostSource(record.nativeCostSource);
+    const creditChargeStatus = normalizeAiUsageCreditChargeStatus(
+      record.creditChargeStatus
+    );
     const requests = Math.max(1, normalizeNonNegativeInt(record.requestCount));
     const nativeCostInCents = normalizeNonNegativeInt(
       record.nativeCostInCents ?? record.costInCents
@@ -565,6 +653,46 @@ export function aggregatePlatformEconomics(args: {
       nativeCostInCents,
     });
     costQualityRows.set(nativeCostSource, costQualityRow);
+
+    if (isValidationTelemetryRecord({ action, usageMetadata: record.usageMetadata })) {
+      accumulateEconomicsRow({
+        row: validationTotals,
+        billingSource,
+        requests,
+        nativeCostInCents,
+        creditsCharged,
+      });
+
+      const validationTransport = normalizeValidationTransport(
+        readUsageMetadataField(record.usageMetadata, "transport")
+      );
+      const validationTransportRow =
+        validationTransportRows.get(validationTransport) ??
+        createEconomicsAggregateRow();
+      accumulateEconomicsRow({
+        row: validationTransportRow,
+        billingSource,
+        requests,
+        nativeCostInCents,
+        creditsCharged,
+      });
+      validationTransportRows.set(validationTransport, validationTransportRow);
+
+      const validationCreditChargeStatusRow =
+        validationCreditChargeStatusRows.get(creditChargeStatus) ??
+        createEconomicsAggregateRow();
+      accumulateEconomicsRow({
+        row: validationCreditChargeStatusRow,
+        billingSource,
+        requests,
+        nativeCostInCents,
+        creditsCharged,
+      });
+      validationCreditChargeStatusRows.set(
+        creditChargeStatus,
+        validationCreditChargeStatusRow
+      );
+    }
   }
 
   const organizations = Array.from(orgRows.entries())
@@ -632,6 +760,51 @@ export function aggregatePlatformEconomics(args: {
         || right.platformCreditsCharged - left.platformCreditsCharged
         || right.requests - left.requests
     );
+
+  const validationTransportOrder: ValidationTransport[] = [
+    "direct_runtime",
+    "chat_runtime",
+    "unknown",
+  ];
+  const validationTelemetryByTransport = validationTransportOrder.map(
+    (transport) => {
+      const row =
+        validationTransportRows.get(transport) ?? createEconomicsAggregateRow();
+      return {
+        transport,
+        requests: row.requests,
+        platformRequests: row.platformRequests,
+        nativeCostInCents: row.nativeCostInCents,
+        platformNativeCostInCents: row.platformNativeCostInCents,
+        creditsCharged: row.creditsCharged,
+        platformCreditsCharged: row.platformCreditsCharged,
+      };
+    }
+  );
+
+  const validationCreditChargeStatusOrder: ValidationCreditChargeStatus[] = [
+    "charged",
+    "skipped_not_required",
+    "skipped_unmetered",
+    "skipped_insufficient_credits",
+    "failed",
+    "unknown",
+  ];
+  const validationTelemetryByCreditChargeStatus =
+    validationCreditChargeStatusOrder.map((status) => {
+      const row =
+        validationCreditChargeStatusRows.get(status) ??
+        createEconomicsAggregateRow();
+      return {
+        status,
+        requests: row.requests,
+        platformRequests: row.platformRequests,
+        nativeCostInCents: row.nativeCostInCents,
+        platformNativeCostInCents: row.platformNativeCostInCents,
+        creditsCharged: row.creditsCharged,
+        platformCreditsCharged: row.platformCreditsCharged,
+      };
+    });
 
   const platformCreditRevenueInCents = creditsToRevenueInCents(
     totals.platformCreditsCharged
@@ -728,6 +901,18 @@ export function aggregatePlatformEconomics(args: {
     providerBreakdown,
     modelBreakdown,
     actionBreakdown,
+    validationTelemetry: {
+      totals: {
+        requests: validationTotals.requests,
+        platformRequests: validationTotals.platformRequests,
+        nativeCostInCents: validationTotals.nativeCostInCents,
+        platformNativeCostInCents: validationTotals.platformNativeCostInCents,
+        creditsCharged: validationTotals.creditsCharged,
+        platformCreditsCharged: validationTotals.platformCreditsCharged,
+      },
+      byTransport: validationTelemetryByTransport,
+      byCreditChargeStatus: validationTelemetryByCreditChargeStatus,
+    },
     platformOrganization,
   };
 }
@@ -1049,9 +1234,11 @@ export const getPlatformEconomicsSummary = query({
         requestCount: record.requestCount,
         billingSource: record.billingSource ?? null,
         creditsCharged: record.creditsCharged ?? null,
+        creditChargeStatus: record.creditChargeStatus ?? null,
         costInCents: record.costInCents ?? null,
         nativeCostInCents: record.nativeCostInCents ?? null,
         nativeCostSource: record.nativeCostSource ?? null,
+        usageMetadata: record.usageMetadata ?? null,
       })),
       startTs,
       endTs,

@@ -40,6 +40,7 @@ describe("platform Mother seed metadata", () => {
         LEGACY_PLATFORM_SYSTEM_BOT_TEMPLATE_ROLE,
       ]),
     );
+    expect(QUINN_CUSTOM_PROPERTIES.enabledTools).toContain("list_connected_apps");
   });
 
   it("seeds a protected governance runtime that is not treated as an onboarding agent", () => {

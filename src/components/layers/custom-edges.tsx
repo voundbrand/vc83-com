@@ -7,6 +7,7 @@ import {
   getBezierPath,
   type EdgeProps,
 } from "@xyflow/react";
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations";
 
 // Inject keyframe animation for active edge flow
 if (typeof document !== "undefined" && !document.getElementById("edge-dash-flow-style")) {
@@ -45,6 +46,7 @@ export const WorkflowEdge: FC<EdgeProps> = memo(function WorkflowEdge({
   selected,
   markerEnd,
 }) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.layers");
   const status = ((data?.status as string) ?? "draft") as EdgeStatus;
   const color = EDGE_COLORS[status] ?? EDGE_COLORS.draft;
   const hasMapping = data?.dataMapping && Object.keys(data.dataMapping as Record<string, string>).length > 0;
@@ -99,7 +101,9 @@ export const WorkflowEdge: FC<EdgeProps> = memo(function WorkflowEdge({
                   ? "border-yellow-500/60 bg-yellow-500/10 text-yellow-400"
                   : "border-slate-600 bg-slate-800 text-slate-400 opacity-0 hover:opacity-100"
             }`}
-            title={hasMapping ? "Data mapping configured" : "Configure data mapping (Phase 3)"}
+            title={hasMapping
+              ? tWithFallback("ui.app.layers.custom_edges.mapping_configured", "Data mapping configured")
+              : tWithFallback("ui.app.layers.custom_edges.configure_mapping", "Configure data mapping (Phase 3)")}
             onClick={(e) => {
               e.stopPropagation();
               // Stub: will open data mapping editor in Phase 3

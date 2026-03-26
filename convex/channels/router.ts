@@ -2781,12 +2781,19 @@ export const sendMessage = internalAction({
     };
 
     const retryPolicy = CHANNEL_RETRY_POLICIES[args.channel] || CHANNEL_RETRY_POLICIES.telegram;
+    const providerSendTimeoutMs = resolveProviderSendTimeoutMs(args.channel);
     let result: SendResult;
 
     try {
       const retryResult = await withRetry(
         async () => {
-          const sendResult = await provider.sendMessage(credentials, message);
+          const sendResult = await withProviderSendTimeout({
+            operation: () => provider.sendMessage(credentials, message),
+            timeoutMs: providerSendTimeoutMs,
+            providerId,
+            channel: args.channel,
+            recipientIdentifier: args.recipientIdentifier,
+          });
           if (!sendResult.success) {
             throw buildProviderSendError(sendResult);
           }
@@ -2805,10 +2812,17 @@ export const sendMessage = internalAction({
       // All retries exhausted — check if it's a markdown formatting issue
       if (isMarkdownParseError(e)) {
         try {
-          const plainResult = await provider.sendMessage(credentials, {
-            ...message,
-            content: stripMarkdown(message.content),
-            contentHtml: undefined,
+          const plainResult = await withProviderSendTimeout({
+            operation: () =>
+              provider.sendMessage(credentials, {
+                ...message,
+                content: stripMarkdown(message.content),
+                contentHtml: undefined,
+              }),
+            timeoutMs: providerSendTimeoutMs,
+            providerId,
+            channel: args.channel,
+            recipientIdentifier: args.recipientIdentifier,
           });
           if (plainResult.success) {
             result = plainResult;
@@ -2881,6 +2895,74 @@ export const sendMessage = internalAction({
     return result;
   },
 });
+
+const DEFAULT_PROVIDER_SEND_TIMEOUT_MS = 20_000;
+const CHANNEL_PROVIDER_SEND_TIMEOUT_MS: Partial<Record<ChannelType | string, number>> = {
+  phone_call: 45_000,
+  email: 30_000,
+};
+
+function resolveProviderSendTimeoutMs(channel: string): number {
+  const configured = CHANNEL_PROVIDER_SEND_TIMEOUT_MS[channel];
+  if (typeof configured === "number" && Number.isFinite(configured) && configured > 0) {
+    return Math.round(configured);
+  }
+  return DEFAULT_PROVIDER_SEND_TIMEOUT_MS;
+}
+
+function buildProviderSendTimeoutError(args: {
+  timeoutMs: number;
+  providerId: string;
+  channel: string;
+  recipientIdentifier: string;
+}): Error & {
+  status?: number;
+  statusCode?: number;
+  retryable?: boolean;
+} {
+  const error = new Error(
+    `request_timeout: provider=${args.providerId} channel=${args.channel} timeoutMs=${args.timeoutMs} recipient=${args.recipientIdentifier}`
+  ) as Error & {
+    status?: number;
+    statusCode?: number;
+    retryable?: boolean;
+  };
+  error.status = 408;
+  error.statusCode = 408;
+  error.retryable = true;
+  return error;
+}
+
+async function withProviderSendTimeout<T>(args: {
+  operation: () => Promise<T>;
+  timeoutMs: number;
+  providerId: string;
+  channel: string;
+  recipientIdentifier: string;
+}): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race<T>([
+      args.operation(),
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            buildProviderSendTimeoutError({
+              timeoutMs: args.timeoutMs,
+              providerId: args.providerId,
+              channel: args.channel,
+              recipientIdentifier: args.recipientIdentifier,
+            })
+          );
+        }, args.timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
 
 /**
  * Get all configured channel bindings for an org.

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyKanzleiPromptInputMinimization,
   computeAgentSpecHash,
+  isKanzleiExternalDispatchToolName,
+  KANZLEI_PROMPT_INPUT_MINIMIZATION_CONTRACT_VERSION,
   normalizeAgentSpecV1,
+  resolveKanzleiPromptInputMinimizationContract,
   resolveAgentRuntimeModuleCapabilities,
   resolveAgentRuntimeModuleMetadataFromConfig,
   SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
@@ -42,6 +46,11 @@ describe("agent spec registry contract", () => {
             ],
           },
         ],
+        runtimeTopology: {
+          contractVersion: "oar_runtime_topology_v1",
+          profile: "evaluator_loop",
+          adapter: "evaluator_loop_adapter_v1",
+        },
         policyProfiles: {
           orgPolicyRef: " org_policy_default_v3 ",
           channelPolicyRef: " native_guest_policy_v2 ",
@@ -88,6 +97,11 @@ describe("agent spec registry contract", () => {
             ],
           },
         ],
+        runtimeTopology: {
+          contractVersion: "oar_runtime_topology_v1",
+          profile: "evaluator_loop",
+          adapter: "evaluator_loop_adapter_v1",
+        },
         policyProfiles: {
           orgPolicyRef: "org_policy_default_v3",
           channelPolicyRef: "native_guest_policy_v2",
@@ -102,6 +116,11 @@ describe("agent spec registry contract", () => {
           runtimePolicyRef: "runtime_fail_closed_v5",
           channelPolicyRef: "native_guest_policy_v2",
           orgPolicyRef: "org_policy_default_v3",
+        },
+        runtimeTopology: {
+          contractVersion: "oar_runtime_topology_v1",
+          profile: "evaluator_loop",
+          adapter: "evaluator_loop_adapter_v1",
         },
         capabilities: [
           {
@@ -136,6 +155,11 @@ describe("agent spec registry contract", () => {
           identity: { displayName: "S", role: "r", bad: true },
           channels: { allowed: ["webchat"], defaults: { primary: "webchat" } },
           capabilities: [],
+          runtimeTopology: {
+            contractVersion: "oar_runtime_topology_v1",
+            profile: "single_agent_loop",
+            adapter: "single_agent_loop_adapter_v1",
+          },
           policyProfiles: {
             orgPolicyRef: "org",
             channelPolicyRef: "channel",
@@ -167,6 +191,11 @@ describe("agent spec registry contract", () => {
             ],
           },
         ],
+        runtimeTopology: {
+          contractVersion: "oar_runtime_topology_v1",
+          profile: "pipeline_router",
+          adapter: "pipeline_router_adapter_v1",
+        },
         runtimeModule: {
           contractVersion: "agent_runtime_module_metadata_v1",
           key: " concierge_runtime_module_v1 ",
@@ -242,6 +271,11 @@ describe("agent spec registry contract", () => {
           identity: { displayName: "S", role: "r" },
           channels: { allowed: ["webchat"], defaults: { primary: "webchat" } },
           capabilities: [],
+          runtimeTopology: {
+            contractVersion: "oar_runtime_topology_v1",
+            profile: "single_agent_loop",
+            adapter: "single_agent_loop_adapter_v1",
+          },
           runtimeModule: {
             contractVersion: "agent_runtime_module_metadata_v1",
             key: "custom_runtime_module_v1",
@@ -266,6 +300,95 @@ describe("agent spec registry contract", () => {
         },
       }),
     ).toThrow(/unsupported hook name/);
+  });
+
+  it("fails closed when topology declaration is missing", () => {
+    expect(() =>
+      normalizeAgentSpecV1({
+        contractVersion: "agent_spec_v1",
+        agent: {
+          key: "x",
+          identity: { displayName: "S", role: "r" },
+          channels: { allowed: ["webchat"], defaults: { primary: "webchat" } },
+          capabilities: [],
+          policyProfiles: {
+            orgPolicyRef: "org_policy_default_v3",
+            channelPolicyRef: "webchat_policy_v1",
+            runtimePolicyRef: "runtime_fail_closed_v5",
+          },
+        },
+      }),
+    ).toThrow(/runtimeTopology/);
+  });
+
+  it("fails closed when topology adapter does not match profile", () => {
+    expect(() =>
+      normalizeAgentSpecV1({
+        contractVersion: "agent_spec_v1",
+        agent: {
+          key: "x",
+          identity: { displayName: "S", role: "r" },
+          channels: { allowed: ["webchat"], defaults: { primary: "webchat" } },
+          capabilities: [],
+          runtimeTopology: {
+            contractVersion: "oar_runtime_topology_v1",
+            profile: "pipeline_router",
+            adapter: "single_agent_loop_adapter_v1",
+          },
+          policyProfiles: {
+            orgPolicyRef: "org_policy_default_v3",
+            channelPolicyRef: "webchat_policy_v1",
+            runtimePolicyRef: "runtime_fail_closed_v5",
+          },
+        },
+      }),
+    ).toThrow(/incompatible with profile/);
+  });
+
+  it("fails closed when topology profile is incompatible with runtime module contract", () => {
+    expect(() =>
+      normalizeAgentSpecV1({
+        contractVersion: "agent_spec_v1",
+        agent: {
+          key: "one_of_one_samantha_warm",
+          identity: { displayName: "Samantha", role: "consultant" },
+          channels: {
+            allowed: ["webchat", "native_guest"],
+            defaults: { primary: "native_guest" },
+          },
+          capabilities: [],
+          runtimeTopology: {
+            contractVersion: "oar_runtime_topology_v1",
+            profile: "single_agent_loop",
+            adapter: "single_agent_loop_adapter_v1",
+          },
+          runtimeModule: {
+            contractVersion: "agent_runtime_module_metadata_v1",
+            key: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
+            prompt: {
+              profileRef: "samantha_lead_capture_prompt_v1",
+              templateRoles: [],
+            },
+            hooks: {
+              contractVersion: "agent_runtime_hooks_v1",
+              enabled: ["preRoute"],
+            },
+            toolManifest: {
+              contractVersion: "agent_runtime_tool_manifest_v1",
+              requiredTools: ["generate_audit_workflow_deliverable"],
+              optionalTools: [],
+              deniedTools: [],
+            },
+            capabilities: [],
+          },
+          policyProfiles: {
+            orgPolicyRef: "org_policy_default_v3",
+            channelPolicyRef: "native_guest_policy_v2",
+            runtimePolicyRef: "runtime_fail_closed_v5",
+          },
+        },
+      }),
+    ).toThrow(/runtimeTopology.profile does not match runtimeModule topology contract/);
   });
 
   it("resolves runtime module metadata from config declarations and legacy fallback", () => {
@@ -313,5 +436,59 @@ describe("agent spec registry contract", () => {
       runtimeModuleKey: "unknown_runtime_module_v1",
     });
     expect(unknownModule).toBeNull();
+  });
+
+  it("identifies Kanzlei external dispatch tool names deterministically", () => {
+    expect(isKanzleiExternalDispatchToolName("manage_sequences")).toBe(true);
+    expect(isKanzleiExternalDispatchToolName("request_audit_deliverable_email")).toBe(
+      true,
+    );
+    expect(isKanzleiExternalDispatchToolName("create_form")).toBe(false);
+  });
+
+  it("resolves Kanzlei prompt-input minimization contract and trims non-required fields deterministically", () => {
+    const contract = resolveKanzleiPromptInputMinimizationContract({
+      modeTokens: ["kanzlei_mvp_customer_telephony_template"],
+    });
+    expect(contract).toMatchObject({
+      contractVersion: KANZLEI_PROMPT_INPUT_MINIMIZATION_CONTRACT_VERSION,
+      mode: "need_to_know",
+      requiresExplicitFieldMapping: true,
+      onDeniedField: "drop_and_audit",
+    });
+
+    const minimization = applyKanzleiPromptInputMinimization(
+      {
+        urgency: "hoch",
+        matterType: "erstberatung",
+        mandantName: "Max Mustermann",
+        taxId: "DE123",
+        freeFormNotes: "Bitte ruft nach 17 Uhr an.",
+      },
+      contract!,
+    );
+
+    expect(minimization.minimizedPayload).toEqual({
+      matterType: "erstberatung",
+      urgency: "hoch",
+    });
+    expect(minimization.retainedFields).toEqual(["matterType", "urgency"]);
+    expect(minimization.droppedFields).toEqual([
+      "freeFormNotes",
+      "mandantName",
+      "taxId",
+    ]);
+    expect(minimization.droppedDeniedFields).toEqual([
+      "mandantName",
+      "taxId",
+    ]);
+  });
+
+  it("skips minimization contract outside Kanzlei policy modes", () => {
+    expect(
+      resolveKanzleiPromptInputMinimizationContract({
+        modeTokens: ["customer_support"],
+      }),
+    ).toBeNull();
   });
 });

@@ -506,6 +506,30 @@ export interface RuntimeTurnTelemetryDimensions {
   admissionReasonCode: string;
 }
 
+export type RuntimeReceiptRetryDisposition =
+  | "safe_retry"
+  | "blocked_processing"
+  | "terminal_completed";
+
+export type RuntimeReceiptRetryBlockReasonCode =
+  | "none"
+  | "runtime_processing_lock"
+  | "terminal_receipt";
+
+export type RuntimeReceiptRetryUnblockActor =
+  | "none"
+  | "runtime_worker"
+  | "org_operator";
+
+export interface RuntimeReceiptRetryGuidance {
+  retryDisposition: RuntimeReceiptRetryDisposition;
+  retrySafe: boolean;
+  blockReasonCode: RuntimeReceiptRetryBlockReasonCode;
+  blockReason: string;
+  unblockActor: RuntimeReceiptRetryUnblockActor;
+  retryHint: string;
+}
+
 const TRUST_SEVERITY_RANK: Record<TrustKpiSeverity, number> = {
   ok: 0,
   warning: 1,
@@ -703,6 +727,73 @@ export function buildRuntimeTurnTelemetryDimensions(args: {
       args.admissionReasonCode,
       "admission_reason:unspecified",
     ).toLowerCase(),
+  };
+}
+
+export function resolveRuntimeReceiptRetryDisposition(args: {
+  status?: unknown;
+  duplicateCount?: unknown;
+}): RuntimeReceiptRetryDisposition {
+  const status = normalizeTelemetryToken(args.status)?.toLowerCase();
+  if (status === "processing") {
+    return "blocked_processing";
+  }
+  if (status === "completed") {
+    return "terminal_completed";
+  }
+  if (status === "duplicate") {
+    return "safe_retry";
+  }
+  if (typeof args.duplicateCount === "number" && args.duplicateCount > 0) {
+    return "safe_retry";
+  }
+  return "safe_retry";
+}
+
+export function buildRuntimeReceiptRetryGuidance(args: {
+  status?: unknown;
+  duplicateCount?: unknown;
+  retryDisposition?: unknown;
+}): RuntimeReceiptRetryGuidance {
+  const retryDisposition =
+    args.retryDisposition === "safe_retry"
+    || args.retryDisposition === "blocked_processing"
+    || args.retryDisposition === "terminal_completed"
+      ? args.retryDisposition
+      : resolveRuntimeReceiptRetryDisposition({
+        status: args.status,
+        duplicateCount: args.duplicateCount,
+      });
+
+  if (retryDisposition === "blocked_processing") {
+    return {
+      retryDisposition,
+      retrySafe: false,
+      blockReasonCode: "runtime_processing_lock",
+      blockReason: "Receipt is still processing; replay stays fail-closed.",
+      unblockActor: "runtime_worker",
+      retryHint: "Wait for terminal status or investigate worker stall before retry.",
+    };
+  }
+  if (retryDisposition === "terminal_completed") {
+    return {
+      retryDisposition,
+      retrySafe: false,
+      blockReasonCode: "terminal_receipt",
+      blockReason: "Receipt is already terminal; replay should remain blocked.",
+      unblockActor: "org_operator",
+      retryHint:
+        "Open Action Center and issue a new approved action/retry instead of replaying this receipt.",
+    };
+  }
+
+  return {
+    retryDisposition,
+    retrySafe: true,
+    blockReasonCode: "none",
+    blockReason: "No active block detected for replay-safe retry.",
+    unblockActor: "none",
+    retryHint: "Replay-safe retry can be queued by an org operator.",
   };
 }
 
@@ -1322,6 +1413,361 @@ export function evaluateWaeEvalBudget(
     severity: "critical",
     thresholdValue: definition.criticalThreshold,
     scoreRatio: 0,
+  };
+}
+
+export type OarRuntimeSloMetricKey =
+  | "stuck_turn_rate"
+  | "delivery_terminalization_rate"
+  | "runtime_error_rate"
+  | "p95_turn_latency_ms"
+  | "avg_cost_usd_per_turn";
+
+export interface OarRuntimeSloDefinition {
+  displayName: string;
+  unit: "ratio" | "ms" | "usd";
+  direction: "min" | "max";
+  warningThreshold: number;
+  criticalThreshold: number;
+}
+
+export interface OarRuntimeSloEvaluation {
+  metric: OarRuntimeSloMetricKey;
+  status: "observed" | "missing";
+  observedValue: number | null;
+  severity: TrustKpiSeverity;
+  thresholdValue: number | null;
+}
+
+export interface OarRuntimeSloGateDecision {
+  status: "proceed" | "hold" | "rollback";
+  evaluations: OarRuntimeSloEvaluation[];
+  missingMetrics: OarRuntimeSloMetricKey[];
+  warningMetrics: OarRuntimeSloMetricKey[];
+  criticalMetrics: OarRuntimeSloMetricKey[];
+}
+
+export const OAR_RUNTIME_SLO_DEFINITIONS: Record<
+  OarRuntimeSloMetricKey,
+  OarRuntimeSloDefinition
+> = {
+  stuck_turn_rate: {
+    displayName: "Stuck turn rate",
+    unit: "ratio",
+    direction: "max",
+    warningThreshold: 0.03,
+    criticalThreshold: 0.08,
+  },
+  delivery_terminalization_rate: {
+    displayName: "Delivery terminalization rate",
+    unit: "ratio",
+    direction: "min",
+    warningThreshold: 0.97,
+    criticalThreshold: 0.9,
+  },
+  runtime_error_rate: {
+    displayName: "Runtime error rate",
+    unit: "ratio",
+    direction: "max",
+    warningThreshold: 0.04,
+    criticalThreshold: 0.09,
+  },
+  p95_turn_latency_ms: {
+    displayName: "P95 turn latency",
+    unit: "ms",
+    direction: "max",
+    warningThreshold: 20_000,
+    criticalThreshold: 45_000,
+  },
+  avg_cost_usd_per_turn: {
+    displayName: "Average cost per turn",
+    unit: "usd",
+    direction: "max",
+    warningThreshold: 0.03,
+    criticalThreshold: 0.06,
+  },
+};
+
+export const OAR_RUNTIME_SLO_REQUIRED_METRICS = [
+  "stuck_turn_rate",
+  "delivery_terminalization_rate",
+  "runtime_error_rate",
+  "p95_turn_latency_ms",
+  "avg_cost_usd_per_turn",
+] as const satisfies readonly OarRuntimeSloMetricKey[];
+
+export function evaluateOarRuntimeSloMetric(
+  metric: OarRuntimeSloMetricKey,
+  observedValue: number,
+): OarRuntimeSloEvaluation {
+  const definition = OAR_RUNTIME_SLO_DEFINITIONS[metric];
+  if (!isFiniteNumber(observedValue)) {
+    return {
+      metric,
+      status: "missing",
+      observedValue: null,
+      severity: "critical",
+      thresholdValue: null,
+    };
+  }
+
+  if (definition.direction === "min") {
+    if (observedValue < definition.criticalThreshold) {
+      return {
+        metric,
+        status: "observed",
+        observedValue,
+        severity: "critical",
+        thresholdValue: definition.criticalThreshold,
+      };
+    }
+    if (observedValue < definition.warningThreshold) {
+      return {
+        metric,
+        status: "observed",
+        observedValue,
+        severity: "warning",
+        thresholdValue: definition.warningThreshold,
+      };
+    }
+    return {
+      metric,
+      status: "observed",
+      observedValue,
+      severity: "ok",
+      thresholdValue: null,
+    };
+  }
+
+  if (observedValue > definition.criticalThreshold) {
+    return {
+      metric,
+      status: "observed",
+      observedValue,
+      severity: "critical",
+      thresholdValue: definition.criticalThreshold,
+    };
+  }
+  if (observedValue > definition.warningThreshold) {
+    return {
+      metric,
+      status: "observed",
+      observedValue,
+      severity: "warning",
+      thresholdValue: definition.warningThreshold,
+    };
+  }
+  return {
+    metric,
+    status: "observed",
+    observedValue,
+    severity: "ok",
+    thresholdValue: null,
+  };
+}
+
+export function evaluateOarRuntimeSloGate(
+  observations: Partial<Record<OarRuntimeSloMetricKey, number>>,
+  requiredMetrics: readonly OarRuntimeSloMetricKey[] = OAR_RUNTIME_SLO_REQUIRED_METRICS,
+): OarRuntimeSloGateDecision {
+  const evaluations = requiredMetrics.map((metric) =>
+    evaluateOarRuntimeSloMetric(metric, observations[metric] as number),
+  );
+  const missingMetrics = evaluations
+    .filter((evaluation) => evaluation.status === "missing")
+    .map((evaluation) => evaluation.metric);
+  const warningMetrics = evaluations
+    .filter((evaluation) => evaluation.severity === "warning")
+    .map((evaluation) => evaluation.metric);
+  const criticalMetrics = evaluations
+    .filter((evaluation) => evaluation.severity === "critical")
+    .map((evaluation) => evaluation.metric);
+
+  if (criticalMetrics.length > 0) {
+    return {
+      status: "rollback",
+      evaluations,
+      missingMetrics,
+      warningMetrics,
+      criticalMetrics,
+    };
+  }
+  if (missingMetrics.length > 0 || warningMetrics.length > 0) {
+    return {
+      status: "hold",
+      evaluations,
+      missingMetrics,
+      warningMetrics,
+      criticalMetrics,
+    };
+  }
+  return {
+    status: "proceed",
+    evaluations,
+    missingMetrics,
+    warningMetrics,
+    criticalMetrics,
+  };
+}
+
+export const OAR_PRODUCTION_GATE_EVIDENCE_VERSION =
+  "oar_production_gate_v1" as const;
+
+export type OarProductionGateDecision = "proceed" | "hold" | "rollback";
+export type OarEvalScoreStatus = "pass" | "hold" | "rollback" | "missing";
+
+export interface OarProductionGateEvidence {
+  contractVersion: typeof OAR_PRODUCTION_GATE_EVIDENCE_VERSION;
+  generatedAt: number;
+  decision: OarProductionGateDecision;
+  blockedReasonCodes: string[];
+  eval: {
+    score: number | null;
+    scoreStatus: OarEvalScoreStatus;
+    passThreshold: number;
+    holdThreshold: number;
+    latencyBudget: WaeEvalBudgetEvaluation | null;
+    costBudget: WaeEvalBudgetEvaluation | null;
+  };
+  runtimeSlo: OarRuntimeSloGateDecision;
+}
+
+function normalizeEvalThreshold(value: unknown, fallback: number): number {
+  if (!isFiniteNumber(value)) {
+    return fallback;
+  }
+  const clamped = Math.min(1, Math.max(0, value));
+  return Math.round(clamped * 10_000) / 10_000;
+}
+
+export function buildOarProductionGateEvidence(args: {
+  runtimeObservations: Partial<Record<OarRuntimeSloMetricKey, number>>;
+  evalScore?: number;
+  evalPassThreshold?: number;
+  evalHoldThreshold?: number;
+  evalLatencyMs?: number;
+  evalCostUsd?: number;
+  requiredRuntimeMetrics?: readonly OarRuntimeSloMetricKey[];
+  generatedAt?: number;
+}): OarProductionGateEvidence {
+  const passThreshold = normalizeEvalThreshold(
+    args.evalPassThreshold,
+    WAE_EVAL_SCORING_PASS_THRESHOLD,
+  );
+  const holdThreshold = normalizeEvalThreshold(
+    args.evalHoldThreshold,
+    WAE_EVAL_SCORING_HOLD_THRESHOLD,
+  );
+  if (holdThreshold > passThreshold) {
+    throw new Error("OAR production gate requires holdThreshold <= passThreshold.");
+  }
+
+  const runtimeSlo = evaluateOarRuntimeSloGate(
+    args.runtimeObservations,
+    args.requiredRuntimeMetrics,
+  );
+  const blockedReasonCodes = new Set<string>();
+
+  let scoreStatus: OarEvalScoreStatus = "missing";
+  let scoreValue: number | null = null;
+  if (!isFiniteNumber(args.evalScore)) {
+    blockedReasonCodes.add("missing_eval_score");
+  } else {
+    scoreValue = Math.round(args.evalScore * 10_000) / 10_000;
+    if (scoreValue < holdThreshold) {
+      scoreStatus = "rollback";
+      blockedReasonCodes.add("eval_score_below_hold_threshold");
+    } else if (scoreValue < passThreshold) {
+      scoreStatus = "hold";
+      blockedReasonCodes.add("eval_score_below_pass_threshold");
+    } else {
+      scoreStatus = "pass";
+    }
+  }
+
+  const latencyBudget = isFiniteNumber(args.evalLatencyMs)
+    ? evaluateWaeEvalBudget("latency", args.evalLatencyMs)
+    : null;
+  const costBudget = isFiniteNumber(args.evalCostUsd)
+    ? evaluateWaeEvalBudget("cost", args.evalCostUsd)
+    : null;
+  if (!latencyBudget) {
+    blockedReasonCodes.add("missing_eval_latency_budget");
+  } else if (latencyBudget.severity === "critical") {
+    blockedReasonCodes.add("eval_latency_budget_critical");
+  } else if (latencyBudget.severity === "warning") {
+    blockedReasonCodes.add("eval_latency_budget_warning");
+  }
+  if (!costBudget) {
+    blockedReasonCodes.add("missing_eval_cost_budget");
+  } else if (costBudget.severity === "critical") {
+    blockedReasonCodes.add("eval_cost_budget_critical");
+  } else if (costBudget.severity === "warning") {
+    blockedReasonCodes.add("eval_cost_budget_warning");
+  }
+
+  for (const metric of runtimeSlo.missingMetrics) {
+    blockedReasonCodes.add(`runtime_${metric}_missing`);
+  }
+  for (const metric of runtimeSlo.warningMetrics) {
+    blockedReasonCodes.add(`runtime_${metric}_warning`);
+  }
+  for (const metric of runtimeSlo.criticalMetrics) {
+    blockedReasonCodes.add(`runtime_${metric}_critical`);
+  }
+
+  const decisionRank = {
+    proceed: 0,
+    hold: 1,
+    rollback: 2,
+  } as const;
+  let decision: OarProductionGateDecision = "proceed";
+  if (
+    scoreStatus === "rollback"
+    || latencyBudget?.severity === "critical"
+    || costBudget?.severity === "critical"
+    || runtimeSlo.status === "rollback"
+  ) {
+    decision = "rollback";
+  } else if (
+    scoreStatus === "missing"
+    || scoreStatus === "hold"
+    || !latencyBudget
+    || !costBudget
+    || latencyBudget.severity === "warning"
+    || costBudget.severity === "warning"
+    || runtimeSlo.status === "hold"
+  ) {
+    decision = "hold";
+  }
+
+  if (decision === "proceed" && blockedReasonCodes.size > 0) {
+    decision = "hold";
+  }
+
+  if (runtimeSlo.status !== "proceed") {
+    const runtimeRank = decisionRank[runtimeSlo.status];
+    if (runtimeRank > decisionRank[decision]) {
+      decision = runtimeSlo.status;
+    }
+  }
+
+  return {
+    contractVersion: OAR_PRODUCTION_GATE_EVIDENCE_VERSION,
+    generatedAt: args.generatedAt ?? Date.now(),
+    decision,
+    blockedReasonCodes: Array.from(blockedReasonCodes).sort(
+      (left, right) => left.localeCompare(right),
+    ),
+    eval: {
+      score: scoreValue,
+      scoreStatus,
+      passThreshold,
+      holdThreshold,
+      latencyBudget,
+      costBudget,
+    },
+    runtimeSlo,
   };
 }
 

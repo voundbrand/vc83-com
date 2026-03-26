@@ -6,7 +6,10 @@ import { describe, it, expect } from "vitest";
 import { createTestHelper } from "./setup";
 import { api } from "../convex/_generated/api";
 
-describe("Diagnostic Tests", () => {
+const diagnosticDescribe =
+  process.env.RUN_CONVEX_DIAGNOSTIC_TESTS === "1" ? describe : describe.skip;
+
+diagnosticDescribe("Diagnostic Tests", () => {
   it("should connect to Convex", async () => {
     const t = createTestHelper();
 

@@ -1,29 +1,43 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import { api } from "../../../../convex/_generated/api"
 import { useAuth } from "@/hooks/use-auth"
 import { Globe, Building2, Users, Tag, Calendar } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
+import { OrgActivityTimeline } from "../agents/org-activity-timeline"
 
 interface OrganizationDetailProps {
   organizationId: Id<"objects">
 }
+
+interface OrgActionContextView {
+  totalsByPipelineState: Record<string, number>
+  items: Array<{
+    _id: string
+    title: string
+    pipelineState: string
+    updatedAt: number
+  }>
+  total: number
+}
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const { api } = require("../../../../convex/_generated/api") as { api: any }
 
 export function OrganizationDetail({ organizationId }: OrganizationDetailProps) {
   const { t } = useNamespaceTranslations("ui.crm")
   const { sessionId } = useAuth()
 
   // Get organization
-  const organization = useQuery(
-    api.crmOntology.getCrmOrganization,
+  const organization = (useQuery as any)(
+    (api.crmOntology as any).getCrmOrganization,
     sessionId ? { sessionId, crmOrganizationId: organizationId } : "skip"
   )
 
   // Get linked contacts
-  const contacts = useQuery(
-    api.crmOntology.getOrganizationContacts,
+  const contacts = (useQuery as any)(
+    (api.crmOntology as any).getOrganizationContacts,
     sessionId ? { sessionId, crmOrganizationId: organizationId } : "skip"
   )
 
@@ -44,12 +58,43 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
   const address = props.address as { street?: string; city?: string; state?: string; postalCode?: string; country?: string } | undefined
   const tags = Array.isArray(props.tags) ? props.tags : []
   const notes = props.notes?.toString()
+  const sourceSessionId =
+    typeof props.sourceSessionId === "string"
+      ? props.sourceSessionId
+      : typeof props.sessionId === "string"
+        ? props.sessionId
+        : null
+  const linkedActionItemId = (
+    typeof props.actionItemObjectId === "string"
+      ? props.actionItemObjectId
+      : typeof props.latestActionItemObjectId === "string"
+        ? props.latestActionItemObjectId
+        : null
+  ) as Id<"objects"> | null
   const createdAt = typeof organization.createdAt === "number" ? organization.createdAt : Date.now()
   const organizationContacts = (contacts ?? []) as Array<{
     linkId: string
     customProperties?: Record<string, unknown>
     relationship?: Record<string, unknown>
   }>
+  const orgActionContextView = (useQuery as any)(
+    (api.ai.orgActionCenter as any).getActionCenterView,
+    sessionId && organization.organizationId
+      ? {
+          sessionId,
+          organizationId: organization.organizationId,
+        }
+      : "skip",
+  ) as OrgActionContextView | undefined
+  const openActionCount = orgActionContextView
+    ? (orgActionContextView.totalsByPipelineState.pending || 0)
+      + (orgActionContextView.totalsByPipelineState.assigned || 0)
+      + (orgActionContextView.totalsByPipelineState.approved || 0)
+      + (orgActionContextView.totalsByPipelineState.executing || 0)
+    : 0
+  const contextPreviewItems = Array.isArray(orgActionContextView?.items)
+    ? orgActionContextView.items.slice(0, 3)
+    : []
 
   return (
     <div className="space-y-4">
@@ -169,6 +214,65 @@ export function OrganizationDetail({ organizationId }: OrganizationDetailProps) 
         ) : (
           <div className="p-4 text-center border" style={{ color: 'var(--neutral-gray)', borderColor: 'var(--window-document-border)', background: 'var(--desktop-shell-accent)' }}>
             <p className="text-sm">{t("ui.crm.organization_detail.no_contacts")}</p>
+          </div>
+        )}
+      </div>
+
+      <div
+        className="border rounded-lg p-3 space-y-3"
+        style={{ background: 'var(--desktop-shell-accent)', borderColor: 'var(--window-document-border)' }}
+        data-testid="crm-organization-org-action-context"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-pixel" style={{ color: 'var(--window-document-text)' }}>
+              ORG ACTION CONTEXT
+            </div>
+            <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+              Open actions: {openActionCount} · Total tracked: {orgActionContextView?.total ?? 0}
+            </div>
+          </div>
+          <a
+            href="/agents?view=action-center"
+            className="px-2 py-1 text-xs border rounded hover:opacity-90"
+            style={{ borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}
+          >
+            Open Action Center
+          </a>
+        </div>
+
+        {contextPreviewItems.length > 0 ? (
+          <div className="space-y-1">
+            {contextPreviewItems.map((item) => (
+              <div
+                key={String(item._id)}
+                className="flex items-center justify-between text-xs border rounded px-2 py-1"
+                style={{ borderColor: 'var(--window-document-border)', color: 'var(--window-document-text)' }}
+              >
+                <span className="truncate pr-2">{item.title}</span>
+                <span style={{ color: 'var(--neutral-gray)' }}>{item.pipelineState}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            No org action items are currently linked to this organization.
+          </div>
+        )}
+
+        {sourceSessionId || linkedActionItemId ? (
+          <OrgActivityTimeline
+            sessionId={sessionId}
+            organizationId={organization.organizationId}
+            actionItemId={linkedActionItemId || undefined}
+            sourceSessionId={sourceSessionId || undefined}
+            title="Related runtime activity"
+            embedded
+            limit={40}
+          />
+        ) : (
+          <div className="text-xs" style={{ color: 'var(--neutral-gray)' }}>
+            No linked runtime session or action item is recorded on this organization yet.
           </div>
         )}
       </div>

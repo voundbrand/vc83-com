@@ -16,6 +16,14 @@ const generatedApi: any = require("./_generated/api");
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
+export function normalizeCrmConnectorKey(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
 /**
  * Get or create system user for internal operations (guest checkout, etc.)
  */

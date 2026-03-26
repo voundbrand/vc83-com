@@ -107,6 +107,7 @@ export const objects = defineTable({
   .index("by_org_type", ["organizationId", "type"])
   .index("by_org_type_name", ["organizationId", "type", "name"])
   .index("by_org_type_subtype", ["organizationId", "type", "subtype"])
+  .index("by_org_type_subtype_status", ["organizationId", "type", "subtype", "status"])
   .index("by_type", ["type"])
   .index("by_type_subtype", ["type", "subtype"])
   .index("by_status", ["status"])
@@ -181,6 +182,7 @@ export const objectActions = defineTable({
   performedAt: v.number(),
 })
   .index("by_object", ["objectId"])
+  .index("by_object_action_type", ["objectId", "actionType"])
   .index("by_org_action_type", ["organizationId", "actionType"])
   .index("by_performer", ["performedBy"])
   .index("by_performed_at", ["performedAt"]);

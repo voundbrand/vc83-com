@@ -8,11 +8,91 @@
  * PDFs are stored in the organizationMedia table for access in the Media Library.
  */
 
-import { action, query, internalMutation, internalQuery } from "./_generated/server";
+import { action, query, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { KANZLEI_COMPLIANCE_AUDIT_CONTRACT_VERSION } from "./ai/agentSpecRegistry";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const generatedApi: any = require("./_generated/api");
+
+export const COMPLIANCE_EVIDENCE_LIFECYCLE_AUDIT_CONTRACT_VERSION =
+  "compliance_evidence_lifecycle_audit_v1";
+export const COMPLIANCE_GATE_GUARDRAIL_AUDIT_CONTRACT_VERSION =
+  "compliance_gate_guardrail_audit_v1";
+
+export type ComplianceEvidenceLifecycleEventType =
+  | "upload"
+  | "link"
+  | "inherit"
+  | "supersede"
+  | "deprecate";
+export type ComplianceGateGuardrailAuditEventType =
+  | "blocked_go_attempt"
+  | "missing_evidence_state"
+  | "inheritance_misuse_attempt";
+
+export async function insertComplianceEvidenceLifecycleAuditEvent(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+    evidenceObjectId: Id<"objects">;
+    eventType: ComplianceEvidenceLifecycleEventType;
+    occurredAt?: number;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const occurredAt =
+    typeof args.occurredAt === "number" && Number.isFinite(args.occurredAt)
+      ? args.occurredAt
+      : Date.now();
+
+  await ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.userId,
+    action: `compliance_evidence_${args.eventType}`,
+    resource: "compliance_evidence",
+    resourceId: String(args.evidenceObjectId),
+    success: true,
+    metadata: {
+      contractVersion: COMPLIANCE_EVIDENCE_LIFECYCLE_AUDIT_CONTRACT_VERSION,
+      eventType: args.eventType,
+      evidenceObjectId: String(args.evidenceObjectId),
+      ...(args.metadata && typeof args.metadata === "object" ? args.metadata : {}),
+    },
+    createdAt: occurredAt,
+  });
+}
+
+export async function insertComplianceGateGuardrailAuditEvent(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+    eventType: ComplianceGateGuardrailAuditEventType;
+    occurredAt?: number;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const occurredAt =
+    typeof args.occurredAt === "number" && Number.isFinite(args.occurredAt)
+      ? args.occurredAt
+      : Date.now();
+
+  await ctx.db.insert("auditLogs", {
+    organizationId: args.organizationId,
+    userId: args.userId,
+    action: `compliance_guardrail_${args.eventType}`,
+    resource: "compliance_release_gate",
+    success: false,
+    metadata: {
+      contractVersion: COMPLIANCE_GATE_GUARDRAIL_AUDIT_CONTRACT_VERSION,
+      eventType: args.eventType,
+      ...(args.metadata && typeof args.metadata === "object" ? args.metadata : {}),
+    },
+    createdAt: occurredAt,
+  });
+}
 
 /**
  * Convert markdown content to PDF and store in media library
@@ -225,6 +305,118 @@ export const saveCompliancePdf = internalMutation({
       mediaId,
       url,
     };
+  },
+});
+
+export const recordComplianceEvidenceLifecycleAuditEvent = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    evidenceObjectId: v.id("objects"),
+    eventType: v.union(
+      v.literal("upload"),
+      v.literal("link"),
+      v.literal("inherit"),
+      v.literal("supersede"),
+      v.literal("deprecate"),
+    ),
+    occurredAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    await insertComplianceEvidenceLifecycleAuditEvent(ctx, args);
+  },
+});
+
+export const recordComplianceGateGuardrailAuditEvent = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    eventType: v.union(
+      v.literal("blocked_go_attempt"),
+      v.literal("missing_evidence_state"),
+      v.literal("inheritance_misuse_attempt"),
+    ),
+    occurredAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    await insertComplianceGateGuardrailAuditEvent(ctx, args);
+  },
+});
+
+/**
+ * Persist structured Kanzlei runtime compliance events.
+ *
+ * This mutation is used by AI runtime guardrails to create auditable records for:
+ * 1) approval decisions,
+ * 2) blocked actions,
+ * 3) external dispatch attempts.
+ */
+export const recordKanzleiRuntimeAuditEvent = internalMutation({
+  args: {
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    agentId: v.optional(v.id("objects")),
+    sessionId: v.optional(v.id("agentSessions")),
+    turnId: v.optional(v.string()),
+    eventType: v.union(
+      v.literal("approval_decision"),
+      v.literal("action_blocked"),
+      v.literal("external_dispatch_attempt"),
+    ),
+    toolName: v.optional(v.string()),
+    decision: v.optional(v.string()),
+    reasonCode: v.optional(v.string()),
+    outcome: v.optional(v.string()),
+    occurredAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const occurredAt =
+      typeof args.occurredAt === "number" && Number.isFinite(args.occurredAt)
+        ? args.occurredAt
+        : Date.now();
+    const action =
+      args.eventType === "approval_decision"
+        ? "kanzlei_approval_decision"
+        : args.eventType === "action_blocked"
+          ? "kanzlei_action_blocked"
+          : "kanzlei_external_dispatch_attempt";
+    const success =
+      args.eventType === "approval_decision"
+        ? args.decision === "approved"
+        : args.eventType === "action_blocked"
+          ? false
+          : args.outcome === "success";
+
+    await ctx.db.insert("auditLogs", {
+      organizationId: args.organizationId,
+      userId: args.userId,
+      action,
+      resource: "kanzlei_agent_runtime",
+      resourceId: args.turnId || args.sessionId ? `${args.turnId || "turn_unknown"}:${args.sessionId || "session_unknown"}` : undefined,
+      success,
+      errorMessage:
+        args.eventType === "action_blocked"
+          ? args.reasonCode || "kanzlei_action_blocked"
+          : undefined,
+      metadata: {
+        contractVersion: KANZLEI_COMPLIANCE_AUDIT_CONTRACT_VERSION,
+        eventType: args.eventType,
+        agentId: args.agentId,
+        sessionId: args.sessionId,
+        turnId: args.turnId,
+        toolName: args.toolName,
+        decision: args.decision,
+        reasonCode: args.reasonCode,
+        outcome: args.outcome,
+        ...(args.metadata && typeof args.metadata === "object"
+          ? args.metadata
+          : {}),
+      },
+      createdAt: occurredAt,
+    });
   },
 });
 

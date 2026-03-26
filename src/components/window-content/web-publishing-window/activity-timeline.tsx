@@ -18,9 +18,11 @@ import {
 } from "lucide-react";
 import { InteriorButton } from "@/components/ui/interior-button";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import type { Id } from "../../../../convex/_generated/dataModel";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const apiAny: any = require("../../../../convex/_generated/api").api;
 
 interface ActivityTimelineProps {
   applicationId: Id<"objects">;
@@ -79,8 +81,9 @@ export function ActivityTimeline({
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Query activity events
-  const eventsResult = useQuery(
-    api.activityProtocol.getActivityEvents,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const eventsResult = (useQuery as any)(
+    apiAny.activityProtocol.getActivityEvents,
     sessionId
       ? {
           sessionId,
@@ -91,7 +94,7 @@ export function ActivityTimeline({
           limit: 100,
         }
       : "skip"
-  );
+  ) as { events?: ActivityEvent[]; hasMore?: boolean } | undefined;
 
   const events = eventsResult?.events as ActivityEvent[] | undefined;
 
@@ -222,6 +225,10 @@ export function ActivityTimeline({
         </div>
 
         <div className="flex-1" />
+
+        <div className="text-[10px]" style={{ color: "var(--neutral-gray)" }}>
+          Immutable protocol log; mutable workflow state stays in Action Center.
+        </div>
 
         <button
           onClick={() => setAutoRefresh(!autoRefresh)}

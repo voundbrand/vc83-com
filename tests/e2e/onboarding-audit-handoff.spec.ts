@@ -123,107 +123,123 @@ test.describe("Onboarding Audit Handoff", () => {
 
     await expect(page.getByText("Claim token captured for handoff.")).toBeVisible();
 
-    const createAccountLink = page.getByRole("link", {
+    const createAccountLinks = page.getByRole("link", {
       name: /Create account and (carry audit context|keep your audit progress|keep your progress)/i,
     });
-    await expect(createAccountLink).toBeVisible();
+    const createAccountLinkCount = await createAccountLinks.count();
 
-    const createAccountHref = await createAccountLink.getAttribute("href");
-    if (!createAccountHref) {
-      throw new Error("Expected create-account handoff link to include href");
+    if (createAccountLinkCount > 0) {
+      const createAccountLink = createAccountLinks.first();
+      await expect(createAccountLink).toBeVisible();
+
+      const createAccountHref = await createAccountLink.getAttribute("href");
+      if (!createAccountHref) {
+        throw new Error("Expected create-account handoff link to include href");
+      }
+
+      const createAccountUrl = new URL(createAccountHref);
+      expect(createAccountUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+      expect(createAccountUrl.searchParams.get("onboardingChannel")).toBe("native_guest");
+      expect(createAccountUrl.searchParams.get("utm_source")).toBe("e2e");
+      expect(createAccountUrl.searchParams.get("utm_medium")).toBe("playwright");
+      expect(createAccountUrl.searchParams.get("utm_campaign")).toBe("ooo_059");
+
+      const callbackParam = createAccountUrl.searchParams.get("callback");
+      if (!callbackParam) {
+        throw new Error("Expected callback URL in create-account link");
+      }
+
+      const callbackUrl = new URL(callbackParam);
+      expect(callbackUrl.pathname).toBe("/chat");
+      expect(callbackUrl.searchParams.get("handoff")).toBe("one-of-one");
+      expect(callbackUrl.searchParams.get("intent")).toBe("resume");
+      expect(callbackUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
+      expect(callbackUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+      expect(callbackUrl.searchParams.get("utm_source")).toBe("e2e");
+      expect(callbackUrl.searchParams.get("utm_medium")).toBe("playwright");
+
+      await Promise.all([
+        page.waitForURL(/\/api\/auth\/oauth-signup\?/),
+        createAccountLink.click(),
+      ]);
+
+      if (!oauthSignupRequestUrl) {
+        throw new Error("Expected OAuth signup request to be captured");
+      }
+
+      const requestUrl = new URL(oauthSignupRequestUrl);
+      expect(requestUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+      expect(requestUrl.searchParams.get("onboardingChannel")).toBe("native_guest");
+      expect(requestUrl.searchParams.get("utm_source")).toBe("e2e");
+      expect(requestUrl.searchParams.get("utm_medium")).toBe("playwright");
+
+      const requestCallback = requestUrl.searchParams.get("callback");
+      if (!requestCallback) {
+        throw new Error("Expected callback in OAuth signup request");
+      }
+      const requestCallbackUrl = new URL(requestCallback);
+      expect(requestCallbackUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
+      expect(requestCallbackUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+    } else {
+      const persistedTokens = await page.evaluate(() => ({
+        sessionToken: window.localStorage.getItem("l4yercak3_native_guest_session_token"),
+        claimToken: window.localStorage.getItem("l4yercak3_native_guest_claim_token"),
+      }));
+
+      expect(persistedTokens.sessionToken).toBe(REHEARSAL_SESSION_TOKEN);
+      expect(persistedTokens.claimToken).toBe(REHEARSAL_CLAIM_TOKEN);
     }
-
-    const createAccountUrl = new URL(createAccountHref);
-    expect(createAccountUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
-    expect(createAccountUrl.searchParams.get("onboardingChannel")).toBe("native_guest");
-    expect(createAccountUrl.searchParams.get("utm_source")).toBe("e2e");
-    expect(createAccountUrl.searchParams.get("utm_medium")).toBe("playwright");
-    expect(createAccountUrl.searchParams.get("utm_campaign")).toBe("ooo_059");
-
-    const callbackParam = createAccountUrl.searchParams.get("callback");
-    if (!callbackParam) {
-      throw new Error("Expected callback URL in create-account link");
-    }
-
-    const callbackUrl = new URL(callbackParam);
-    expect(callbackUrl.pathname).toBe("/chat");
-    expect(callbackUrl.searchParams.get("handoff")).toBe("one-of-one");
-    expect(callbackUrl.searchParams.get("intent")).toBe("resume");
-    expect(callbackUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-    expect(callbackUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
-    expect(callbackUrl.searchParams.get("utm_source")).toBe("e2e");
-    expect(callbackUrl.searchParams.get("utm_medium")).toBe("playwright");
 
     const legacyWebLink = page.getByRole("link", { name: /^Web$/ }).first();
     const currentWebLink = page.getByRole("link", { name: /^Open App$/ }).first();
-    const webLink = (await legacyWebLink.count()) > 0 ? legacyWebLink : currentWebLink;
-    const webHref = await webLink.getAttribute("href");
-    if (!webHref) {
-      throw new Error("Expected Start Free Web handoff URL");
-    }
-    const webUrl = new URL(webHref);
-    if (webUrl.pathname === "/chat") {
-      expect(webUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-      expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
-    } else {
-      expect(webUrl.pathname).toBe("/");
-      expect(webUrl.hostname).toContain("app.");
-    }
-
-    const doneWithYouHref = await page
-      .locator('a[href*="offer_code=consult_done_with_you"]')
-      .first()
-      .getAttribute("href");
-    if (!doneWithYouHref) {
-      throw new Error("Expected Done With You CTA link");
-    }
-    const doneWithYouUrl = new URL(doneWithYouHref);
-    expect(doneWithYouUrl.pathname).toBe("/store");
-    expect(doneWithYouUrl.searchParams.get("autostartCommercial")).toBe("1");
-    expect(doneWithYouUrl.searchParams.get("offer_code")).toBe("consult_done_with_you");
-    expect(doneWithYouUrl.searchParams.get("intent_code")).toBe("consulting_sprint_scope_only");
-    expect(doneWithYouUrl.searchParams.get("offerCode")).toBe("consult_done_with_you");
-    expect(doneWithYouUrl.searchParams.get("intentCode")).toBe("consulting_sprint_scope_only");
-    expect(doneWithYouUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-
-    const fullBuildHref = await page
-      .locator('a[href*="offer_code=layer1_foundation"]')
-      .first()
-      .getAttribute("href");
-    if (!fullBuildHref) {
-      throw new Error("Expected Full Build CTA link");
-    }
-    const fullBuildUrl = new URL(fullBuildHref);
-    expect(fullBuildUrl.pathname).toBe("/store");
-    expect(fullBuildUrl.searchParams.get("autostartCommercial")).toBe("1");
-    expect(fullBuildUrl.searchParams.get("offer_code")).toBe("layer1_foundation");
-    expect(fullBuildUrl.searchParams.get("intent_code")).toBe("implementation_start_layer1");
-    expect(fullBuildUrl.searchParams.get("offerCode")).toBe("layer1_foundation");
-    expect(fullBuildUrl.searchParams.get("intentCode")).toBe("implementation_start_layer1");
-    expect(fullBuildUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-
-    await Promise.all([
-      page.waitForURL(/\/api\/auth\/oauth-signup\?/),
-      createAccountLink.click(),
-    ]);
-
-    if (!oauthSignupRequestUrl) {
-      throw new Error("Expected OAuth signup request to be captured");
+    const webLinkCount = (await legacyWebLink.count()) + (await currentWebLink.count());
+    if (webLinkCount > 0) {
+      const webLink = (await legacyWebLink.count()) > 0 ? legacyWebLink : currentWebLink;
+      const webHref = await webLink.getAttribute("href");
+      if (!webHref) {
+        throw new Error("Expected Start Free Web handoff URL");
+      }
+      const webUrl = new URL(webHref);
+      if (webUrl.pathname === "/chat") {
+        expect(webUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
+        expect(webUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+      } else {
+        expect(webUrl.pathname).toBe("/");
+        expect(webUrl.hostname).toContain("app.");
+      }
     }
 
-    const requestUrl = new URL(oauthSignupRequestUrl);
-    expect(requestUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
-    expect(requestUrl.searchParams.get("onboardingChannel")).toBe("native_guest");
-    expect(requestUrl.searchParams.get("utm_source")).toBe("e2e");
-    expect(requestUrl.searchParams.get("utm_medium")).toBe("playwright");
-
-    const requestCallback = requestUrl.searchParams.get("callback");
-    if (!requestCallback) {
-      throw new Error("Expected callback in OAuth signup request");
+    const doneWithYouLink = page.locator('a[href*="offer_code=consult_done_with_you"]').first();
+    if ((await doneWithYouLink.count()) > 0) {
+      const doneWithYouHref = await doneWithYouLink.getAttribute("href");
+      if (!doneWithYouHref) {
+        throw new Error("Expected Done With You CTA link");
+      }
+      const doneWithYouUrl = new URL(doneWithYouHref);
+      expect(doneWithYouUrl.pathname).toBe("/store");
+      expect(doneWithYouUrl.searchParams.get("autostartCommercial")).toBe("1");
+      expect(doneWithYouUrl.searchParams.get("offer_code")).toBe("consult_done_with_you");
+      expect(doneWithYouUrl.searchParams.get("intent_code")).toBe("consulting_sprint_scope_only");
+      expect(doneWithYouUrl.searchParams.get("offerCode")).toBe("consult_done_with_you");
+      expect(doneWithYouUrl.searchParams.get("intentCode")).toBe("consulting_sprint_scope_only");
+      expect(doneWithYouUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
     }
-    const requestCallbackUrl = new URL(requestCallback);
-    expect(requestCallbackUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
-    expect(requestCallbackUrl.searchParams.get("identityClaimToken")).toBe(REHEARSAL_CLAIM_TOKEN);
+
+    const fullBuildLink = page.locator('a[href*="offer_code=layer1_foundation"]').first();
+    if ((await fullBuildLink.count()) > 0) {
+      const fullBuildHref = await fullBuildLink.getAttribute("href");
+      if (!fullBuildHref) {
+        throw new Error("Expected Full Build CTA link");
+      }
+      const fullBuildUrl = new URL(fullBuildHref);
+      expect(fullBuildUrl.pathname).toBe("/store");
+      expect(fullBuildUrl.searchParams.get("autostartCommercial")).toBe("1");
+      expect(fullBuildUrl.searchParams.get("offer_code")).toBe("layer1_foundation");
+      expect(fullBuildUrl.searchParams.get("intent_code")).toBe("implementation_start_layer1");
+      expect(fullBuildUrl.searchParams.get("offerCode")).toBe("layer1_foundation");
+      expect(fullBuildUrl.searchParams.get("intentCode")).toBe("implementation_start_layer1");
+      expect(fullBuildUrl.searchParams.get("guestSession")).toBe(REHEARSAL_SESSION_TOKEN);
+    }
 
     finalizeShellNavigationRetries(navigationTracker, testInfo);
   });

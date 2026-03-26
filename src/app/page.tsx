@@ -1281,6 +1281,7 @@ export default function HomePage() {
     finder: requireAuth(openFinderWindow),
     "text-editor": requireAuth(() => openTextEditorWindow()),
     terminal: requireAuth(openTerminalWindow),
+    compliance: requireAuth(openComplianceWindow),
     crm: requireAuth(openCRMWindow),
     projects: requireAuth(openProjectsWindow),
     events: requireAuth(openEventsWindow),

@@ -1,6 +1,10 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import {
+  ORG_ACTION_RUNTIME_MIGRATION_CONTRACT_VERSION,
+  resolveOrgActionRuntimeRolloutFlags,
+} from "./backfillOrgAgentActionRuntime";
 
 type JsonObject = Record<string, unknown>;
 
@@ -19,6 +23,20 @@ type NormalizedLineItem = {
   attendeeEmail?: string;
   ticketNumber?: string;
 };
+
+export function buildOrgActionRuntimeMigrationRolloutFlags(args: {
+  migratedTransactions: number;
+  skippedAlreadyMigrated: number;
+}): ReturnType<typeof resolveOrgActionRuntimeRolloutFlags> {
+  const hasCanonicalHistory =
+    args.migratedTransactions > 0 || args.skippedAlreadyMigrated > 0;
+  return resolveOrgActionRuntimeRolloutFlags({
+    captureEnabled: true,
+    ownerWorkflowEnabled: true,
+    connectorSyncEnabled: hasCanonicalHistory,
+    externalExecutionEnabled: false,
+  });
+}
 
 function asRecord(value: unknown): JsonObject {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -142,6 +160,8 @@ export const backfillTransactions = internalMutation({
     migratedTickets: number;
     skippedAlreadyMigrated: number;
     skippedInvalid: number;
+    rolloutFlags: ReturnType<typeof resolveOrgActionRuntimeRolloutFlags>;
+    migrationContractVersion: typeof ORG_ACTION_RUNTIME_MIGRATION_CONTRACT_VERSION;
     nextCursor: string | null;
     hasNextPage: boolean;
   }> => {
@@ -285,12 +305,19 @@ export const backfillTransactions = internalMutation({
       }
     }
 
+    const rolloutFlags = buildOrgActionRuntimeMigrationRolloutFlags({
+      migratedTransactions,
+      skippedAlreadyMigrated,
+    });
+
     return {
       processed: page.page.length,
       migratedTransactions,
       migratedTickets,
       skippedAlreadyMigrated,
       skippedInvalid,
+      rolloutFlags,
+      migrationContractVersion: ORG_ACTION_RUNTIME_MIGRATION_CONTRACT_VERSION,
       nextCursor: page.continueCursor ?? null,
       hasNextPage: !page.isDone,
     };

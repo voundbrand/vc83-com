@@ -15,6 +15,12 @@ import {
   resolveCmsCopyRegistry,
   type FlattenedCmsCopyField,
 } from "@/lib/web-publishing/cms-copy-field-registry";
+import {
+  addAIWritebackEventListener,
+  CMS_COPY_REWRITE_SUGGESTION_CONTRACT_VERSION,
+  CMS_COPY_REWRITE_SUGGESTION_EVENT,
+  type CmsCopyRewriteSuggestionEventDetail,
+} from "@/lib/ai/ui-writeback-bridge";
 
 // Dynamic require avoids TS2589 deep type instantiation in window surface components.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -365,6 +371,80 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
     return pages;
   }, [flattenedFields]);
 
+  const fieldIdByLookupKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const field of flattenedFields) {
+      map.set(
+        getFieldLookupKey({
+          page: field.page,
+          section: field.section,
+          key: field.key,
+        }),
+        field.id
+      );
+    }
+    return map;
+  }, [flattenedFields]);
+
+  useEffect(() => {
+    const unsubscribe = addAIWritebackEventListener<CmsCopyRewriteSuggestionEventDetail>(
+      CMS_COPY_REWRITE_SUGGESTION_EVENT,
+      (detail) => {
+        if (!detail || typeof detail !== "object") {
+          return;
+        }
+        if (detail.contractVersion !== CMS_COPY_REWRITE_SUGGESTION_CONTRACT_VERSION) {
+          return;
+        }
+        if (detail.applicationId !== String(applicationId)) {
+          return;
+        }
+        if (
+          typeof detail.locale === "string"
+          && detail.locale.trim().length > 0
+          && detail.locale !== locale
+        ) {
+          return;
+        }
+        if (
+          typeof detail.page !== "string"
+          || typeof detail.section !== "string"
+          || typeof detail.key !== "string"
+        ) {
+          return;
+        }
+
+        const fieldLookupKey = getFieldLookupKey({
+          page: detail.page,
+          section: detail.section,
+          key: detail.key,
+        });
+        const fieldId = fieldIdByLookupKey.get(fieldLookupKey);
+        if (!fieldId) {
+          return;
+        }
+
+        const suggestion =
+          typeof detail.suggestion === "string" ? detail.suggestion.trim() : "";
+        if (!suggestion) {
+          return;
+        }
+
+        setSuggestionByFieldId((prev) => ({
+          ...prev,
+          [fieldId]: suggestion,
+        }));
+        setOpenSuggestionFieldId(fieldId);
+        notification.success(
+          "Suggestion Imported",
+          "AI rewrite added to the suggestion box. Review and confirm apply."
+        );
+      }
+    );
+
+    return unsubscribe;
+  }, [applicationId, fieldIdByLookupKey, locale, notification]);
+
   if (!sessionId) {
     return (
       <div className="p-4 text-xs" style={{ color: "var(--neutral-gray)" }}>
@@ -408,7 +488,7 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
     );
   }
 
-  const handleRewriteWithOneOfOne = (field: FlattenedCmsCopyField, currentValue: string) => {
+  const handleRewriteWithAi = (field: FlattenedCmsCopyField, currentValue: string) => {
     const payload = {
       contractVersion: "cms_copy_rewrite_v1",
       application: {
@@ -424,13 +504,14 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
       },
       currentText: currentValue,
       instruction:
-        "Rewrite this CMS field for One-of-One tone while preserving factual meaning. Return 3 options and a recommended option.",
+        "Rewrite this CMS field with clear, conversion-focused copy while preserving factual meaning. Return 3 options and a recommended option.",
       requestedAt: Date.now(),
     };
 
     const encodedPayload = encodeUtf8Base64(JSON.stringify(payload));
     const openContext = `cms_rewrite:${encodedPayload}`;
     const windowContract = getVoiceAssistantWindowContract("ai-assistant");
+    setOpenSuggestionFieldId(field.id);
 
     openWindow(
       windowContract.windowId,
@@ -459,7 +540,7 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
 
     notification.info(
       "Rewrite Started",
-      "One-of-One Assistant opened with field context. Review a suggestion there, then apply it here with confirmation."
+      "AI Assistant opened with field context. The next assistant reply will auto-fill the suggestion box."
     );
   };
 
@@ -747,11 +828,11 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
                               <InteriorButton
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => handleRewriteWithOneOfOne(field, effectiveValue)}
+                                onClick={() => handleRewriteWithAi(field, effectiveValue)}
                                 className="flex items-center gap-1"
                               >
                                 <Sparkles size={12} />
-                                Rewrite with One-of-One
+                                Rewrite with AI
                               </InteriorButton>
                               <InteriorButton
                                 variant="secondary"
@@ -786,7 +867,7 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
                               }}
                             >
                               <p className="text-[11px] font-semibold" style={{ color: "var(--window-document-text)" }}>
-                                Paste suggestion from One-of-One, review, then confirm apply.
+                                AI suggestions sync here automatically. You can also paste manually, then confirm apply.
                               </p>
                               <textarea
                                 value={suggestionByFieldId[field.id] || ""}
@@ -803,7 +884,7 @@ export function CmsCopyTab({ applicationId, applicationName }: CmsCopyTabProps) 
                                   background: "white",
                                   color: "var(--window-document-text)",
                                 }}
-                                placeholder="Paste rewrite suggestion here"
+                                placeholder="AI rewrite suggestion appears here"
                               />
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <div

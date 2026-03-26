@@ -24,9 +24,17 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 }));
 
 import {
+  acknowledgeTemplateCertificationAlertDispatch,
   evaluateTemplateCertificationForTemplateVersion,
+  getTemplateCertificationAlertDispatchControl,
+  getTemplateCertificationAutomationPolicy,
+  getTemplateCertificationRiskPolicy,
+  processTemplateCertificationAlertDispatchQueueNow,
   recordTemplateCertificationEvidenceBundle,
+  setTemplateCertificationAlertDispatchControl,
+  setTemplateCertificationAutomationPolicy,
   setTemplateCertificationRiskPolicy,
+  throttleTemplateCertificationAlertDispatch,
 } from "../../../convex/ai/agentCatalogAdmin";
 
 type FakeRow = Record<string, any> & { _id: string };
@@ -213,6 +221,55 @@ function seedTemplateWithTwoVersions(
   } as any);
 }
 
+async function queueAlertDispatchForChannel(args: {
+  ctx: any;
+  channel: "slack" | "pagerduty" | "email";
+  target: string;
+  maxAttempts?: number;
+  retryDelayMs?: number;
+}) {
+  await (setTemplateCertificationAlertDispatchControl as any)._handler(args.ctx, {
+    sessionId: SUPER_ADMIN_SESSION_ID,
+    policy: {
+      maxAttempts: args.maxAttempts ?? 3,
+      retryDelayMs: args.retryDelayMs ?? 1_000,
+      channels: {
+        [args.channel]: {
+          enabled: true,
+          target: args.target,
+        },
+      },
+    },
+  });
+  await (setTemplateCertificationAutomationPolicy as any)._handler(args.ctx, {
+    sessionId: SUPER_ADMIN_SESSION_ID,
+    templateFamily: SALES_TEMPLATE_ROLE,
+    policy: {
+      ownerUserIds: ["users_sales_owner"],
+      alertChannels: [args.channel],
+      alertOnCertificationBlocked: true,
+      alertOnMissingDefaultEvidence: false,
+    },
+  });
+  const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(args.ctx, {
+    sessionId: SUPER_ADMIN_SESSION_ID,
+    templateId: TEMPLATE_ID,
+    templateVersionId: TEMPLATE_VERSION_V2_ID,
+    templateVersionTag: "v2",
+    evaluationOutputs: [
+      {
+        sourceType: "runtime_smoke_eval",
+        outcome: "pass",
+        summary: "Runtime smoke passed.",
+        runId: `ci_runtime_${args.channel}`,
+      },
+    ],
+  });
+  return recorded.summary.alertDispatches.find(
+    (entry: any) => entry.channel === args.channel && entry.deliveryStatus === "queued",
+  );
+}
+
 describe("template certification risk policy and CI evidence ingestion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -246,6 +303,50 @@ describe("template certification risk policy and CI evidence ingestion", () => {
     });
     expect(remappedEvaluation.riskAssessment?.tier).toBe("low");
     expect(remappedEvaluation.autoCertificationEligible).toBe(true);
+  });
+
+  it("applies deterministic requirement authoring standards for risk-tier verification rules", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db);
+    const ctx = createCtx(db);
+
+    const write = await (setTemplateCertificationRiskPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      policy: {
+        requiredVerificationByTier: {
+          medium: ["manifest_integrity", "risk_assessment"],
+          high: ["manifest_integrity", "risk_assessment", "tool_contract_eval"],
+        },
+      },
+    });
+
+    expect(write.requirementAuthoring.byTier.medium.foundationalSatisfied).toBe(true);
+    expect(write.requirementAuthoring.byTier.medium.operationalEvidenceSatisfied).toBe(true);
+    expect(write.requirementAuthoring.byTier.high.operationalEvidenceSatisfied).toBe(true);
+    expect(write.policy.requiredVerificationByTier.medium).toEqual([
+      "manifest_integrity",
+      "risk_assessment",
+      "wae_eval",
+    ]);
+    expect(write.policy.requiredVerificationByTier.high).toEqual([
+      "manifest_integrity",
+      "risk_assessment",
+      "tool_contract_eval",
+    ]);
+
+    const read = await (getTemplateCertificationRiskPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+    });
+    expect(read.requirementAuthoring.standards.foundationalRequirements).toEqual([
+      "manifest_integrity",
+      "risk_assessment",
+    ]);
+    expect(read.requirementAuthoring.byTier.medium.requirements).toEqual([
+      "manifest_integrity",
+      "risk_assessment",
+      "wae_eval",
+    ]);
   });
 
   it("applies family overlays without mutating unrelated template families", async () => {
@@ -304,6 +405,235 @@ describe("template certification risk policy and CI evidence ingestion", () => {
     expect(overlaySales.autoCertificationEligible).toBe(true);
     expect(overlaySupport.riskAssessment?.tier).toBe("medium");
     expect(overlaySupport.autoCertificationEligible).toBe(false);
+  });
+
+  it("supports per-family automation ownership and adoption policy overlays", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateId: TEMPLATE_ID,
+      versionV1Id: TEMPLATE_VERSION_V1_ID,
+      versionV2Id: TEMPLATE_VERSION_V2_ID,
+      templateRole: SALES_TEMPLATE_ROLE,
+      name: "Sales Template",
+    });
+    seedTemplateWithTwoVersions(db, {
+      templateId: SUPPORT_TEMPLATE_ID,
+      versionV1Id: SUPPORT_TEMPLATE_VERSION_V1_ID,
+      versionV2Id: SUPPORT_TEMPLATE_VERSION_V2_ID,
+      templateRole: SUPPORT_TEMPLATE_ROLE,
+      name: "Support Template",
+    });
+    const ctx = createCtx(db);
+
+    const baselineGlobal = await (getTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SUPPORT_TEMPLATE_ROLE,
+    });
+    expect(baselineGlobal.scope).toBe("global");
+    expect(baselineGlobal.policy.adoptionMode).toBe("shadow");
+
+    const familyOverlayWrite = await (setTemplateCertificationAutomationPolicy as any)._handler(
+      ctx,
+      {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateFamily: SALES_TEMPLATE_ROLE,
+        policy: {
+          adoptionMode: "enforced",
+          ownerUserIds: ["users_sales_owner", "users_sales_delegate"],
+          ownerTeamIds: ["team_certification_ops"],
+          alertChannels: ["pagerduty", "slack"],
+          alertOnCertificationBlocked: true,
+          alertOnMissingDefaultEvidence: true,
+        },
+      },
+    );
+    expect(familyOverlayWrite.scope).toBe("family");
+    expect(familyOverlayWrite.templateFamily).toBe("sales_specialist_template");
+    expect(familyOverlayWrite.policy.adoptionMode).toBe("enforced");
+    expect(familyOverlayWrite.policy.ownerUserIds).toEqual([
+      "users_sales_delegate",
+      "users_sales_owner",
+    ]);
+    expect(familyOverlayWrite.policy.alertChannels).toEqual(["pagerduty", "slack"]);
+
+    const salesFamilyPolicy = await (getTemplateCertificationAutomationPolicy as any)._handler(
+      ctx,
+      {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateFamily: SALES_TEMPLATE_ROLE,
+      },
+    );
+    const supportFamilyPolicy = await (getTemplateCertificationAutomationPolicy as any)._handler(
+      ctx,
+      {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateFamily: SUPPORT_TEMPLATE_ROLE,
+      },
+    );
+
+    expect(salesFamilyPolicy.scope).toBe("family");
+    expect(salesFamilyPolicy.policy.adoptionMode).toBe("enforced");
+    expect(salesFamilyPolicy.policy.ownerTeamIds).toEqual(["team_certification_ops"]);
+    expect(supportFamilyPolicy.scope).toBe("global");
+    expect(supportFamilyPolicy.policy.adoptionMode).toBe("shadow");
+    expect(supportFamilyPolicy.policy.ownerUserIds).toEqual([]);
+  });
+
+  it("emits family-routed alert recommendations when certification evidence is blocked", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+
+    await (setTemplateCertificationRiskPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        requiredVerificationByTier: {
+          medium: [
+            "manifest_integrity",
+            "risk_assessment",
+            "behavioral_eval",
+            "tool_contract_eval",
+            "policy_compliance_eval",
+          ],
+        },
+      },
+    });
+    await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        adoptionMode: "enforced",
+        ownerUserIds: ["users_sales_owner"],
+        ownerTeamIds: ["team_certification_ops"],
+        alertChannels: ["slack", "pagerduty"],
+      },
+    });
+
+    const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      templateVersionTag: "v2",
+      evaluationOutputs: [
+        {
+          sourceType: "runtime_smoke_eval",
+          outcome: "pass",
+          summary: "Runtime smoke passed.",
+          runId: "ci_runtime_alert_1",
+        },
+      ],
+    });
+
+    expect(recorded.artifact.status).toBe("rejected");
+    expect(recorded.summary.templateFamily).toBe("sales_specialist_template");
+    expect(recorded.summary.automationPolicyScope).toBe("family");
+    expect(recorded.summary.automationAdoptionMode).toBe("enforced");
+    expect(recorded.summary.automationOwnerUserIds).toEqual(["users_sales_owner"]);
+    expect(recorded.summary.automationOwnerTeamIds).toEqual(["team_certification_ops"]);
+    expect(recorded.summary.automationAlertChannels).toEqual(["pagerduty", "slack"]);
+    expect(recorded.summary.alertRecommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "certification_blocked",
+          severity: "critical",
+          ownerUserIds: ["users_sales_owner"],
+          ownerTeamIds: ["team_certification_ops"],
+          alertChannels: ["pagerduty", "slack"],
+        }),
+        expect.objectContaining({
+          code: "default_evidence_missing",
+          severity: "warning",
+        }),
+      ]),
+    );
+    expect(recorded.summary.alertDispatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: "slack",
+          deliveryStatus: "queued",
+          recommendationCode: "certification_blocked",
+        }),
+        expect.objectContaining({
+          channel: "pagerduty",
+          deliveryStatus: "queued",
+          recommendationCode: "default_evidence_missing",
+        }),
+      ]),
+    );
+  });
+
+  it("suppresses duplicate alert dispatches for the same version digest + channel + recommendation", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+
+    await (setTemplateCertificationRiskPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        requiredVerificationByTier: {
+          medium: [
+            "manifest_integrity",
+            "risk_assessment",
+            "behavioral_eval",
+            "tool_contract_eval",
+            "policy_compliance_eval",
+          ],
+        },
+      },
+    });
+    await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        adoptionMode: "enforced",
+        ownerUserIds: ["users_sales_owner"],
+        alertChannels: ["slack", "email"],
+      },
+    });
+
+    const first = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      templateVersionTag: "v2",
+      evaluationOutputs: [
+        {
+          sourceType: "runtime_smoke_eval",
+          outcome: "pass",
+          summary: "Runtime smoke passed.",
+          runId: "ci_runtime_alert_dedupe_1",
+        },
+      ],
+    });
+    expect(first.summary.alertDispatches.some((entry: any) => entry.deliveryStatus === "queued")).toBe(
+      true,
+    );
+
+    const second = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      templateVersionTag: "v2",
+      evaluationOutputs: [
+        {
+          sourceType: "runtime_smoke_eval",
+          outcome: "pass",
+          summary: "Runtime smoke passed again.",
+          runId: "ci_runtime_alert_dedupe_2",
+        },
+      ],
+    });
+    expect(
+      second.summary.alertDispatches.every(
+        (entry: any) => entry.deliveryStatus === "suppressed_duplicate",
+      ),
+    ).toBe(true);
   });
 
   it("ingests CI evaluation outputs with medium-tier defaults and certifies non-WAE bundles", async () => {
@@ -541,5 +871,799 @@ describe("template certification risk policy and CI evidence ingestion", () => {
     ]);
     expect(recorded.summary.missingRequiredVerification).toEqual([]);
     expect(recorded.evaluation.allowed).toBe(true);
+  });
+
+  it("reads and updates alert dispatch worker control policy", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db);
+    const ctx = createCtx(db);
+
+    const baseline = await (getTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+    });
+    expect(baseline.policy.maxAttempts).toBe(3);
+    expect(baseline.policy.channels.slack.enabled).toBe(true);
+    expect(baseline.policy.strictMode.enabled).toBe(false);
+    expect(baseline.policy.credentialGovernance.slack.allowInlineTargetCredentials).toBe(true);
+    expect(baseline.credentialHealth.slack.ready).toBe(false);
+    expect(baseline.policyDrift.detected).toBe(false);
+
+    const updated = await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      policy: {
+        maxAttempts: 4,
+        retryDelayMs: 120_000,
+        channels: {
+          slack: {
+            enabled: true,
+            target: "ops-alerts",
+          },
+        },
+        throttle: {
+          slack: {
+            windowMs: 600_000,
+            maxDispatches: 2,
+          },
+        },
+        credentialGovernance: {
+          slack: {
+            requireDedicatedCredentials: true,
+            allowInlineTargetCredentials: false,
+            runbookUrl:
+              "docs/reference_docs/topic_collections/implementation/template-certification-and-org-preflight/TRANSPORT_CREDENTIAL_RUNBOOK.md#slack",
+          },
+          email: {
+            requireDedicatedCredentials: true,
+          },
+        },
+      },
+    });
+    expect(updated.policy.maxAttempts).toBe(4);
+    expect(updated.policy.retryDelayMs).toBe(120_000);
+    expect(updated.policy.channels.slack.target).toBe("ops-alerts");
+    expect(updated.policy.throttle.slack.maxDispatches).toBe(2);
+    expect(updated.policy.credentialGovernance.slack.requireDedicatedCredentials).toBe(true);
+    expect(updated.policy.credentialGovernance.slack.allowInlineTargetCredentials).toBe(false);
+    expect(updated.credentialHealth.slack.policyCompliant).toBe(false);
+    expect(updated.credentialHealth.slack.reasonCode).toBe(
+      "slack_transport_not_configured",
+    );
+    expect(updated.policy.strictMode.enabled).toBe(false);
+    expect(updated.policyDrift.detected).toBe(false);
+  });
+
+  it("auto-promotes strict credential governance for ready channels and emits policy drift recommendations", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const originalDedicatedSlackToken = process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN;
+    const originalFallbackSlackToken = process.env.SLACK_BOT_TOKEN;
+    const originalPagerDutyGlobalKey = process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY;
+    const originalPagerDutyMap = process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON;
+    const originalDedicatedEmailKey = process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+    const originalDedicatedEmailFrom = process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+    const originalFallbackEmailKey = process.env.RESEND_API_KEY;
+    const originalFallbackEmailFrom = process.env.AUTH_RESEND_FROM;
+
+    process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN = "xoxb_strict_mode_token";
+    delete process.env.SLACK_BOT_TOKEN;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.AUTH_RESEND_FROM;
+
+    try {
+      await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateFamily: SALES_TEMPLATE_ROLE,
+        policy: {
+          ownerUserIds: ["users_sales_owner"],
+          alertChannels: ["slack"],
+          alertOnCertificationBlocked: true,
+          alertOnMissingDefaultEvidence: false,
+        },
+      });
+
+      const updated = await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        policy: {
+          channels: {
+            slack: {
+              enabled: true,
+              target: "certification-alerts",
+            },
+            pagerduty: {
+              enabled: true,
+              target: "template-certification",
+            },
+            email: {
+              enabled: true,
+              target: "alerts@example.com",
+            },
+          },
+          credentialGovernance: {
+            slack: {
+              requireDedicatedCredentials: false,
+              allowInlineTargetCredentials: true,
+            },
+            pagerduty: {
+              allowInlineTargetCredentials: true,
+            },
+            email: {
+              requireDedicatedCredentials: false,
+            },
+          },
+          strictMode: {
+            enabled: true,
+            rolloutMode: "auto_promote_ready_channels",
+            guardrailMode: "advisory",
+            notifyOnPolicyDrift: true,
+          },
+        },
+      });
+
+      expect(updated.policy.strictMode.enabled).toBe(true);
+      expect(updated.policy.credentialGovernance.slack.requireDedicatedCredentials).toBe(true);
+      expect(updated.policy.credentialGovernance.slack.allowInlineTargetCredentials).toBe(false);
+      expect(updated.strictModeRollout.promotedChannels).toEqual(["slack"]);
+      expect(updated.strictModeRollout.blockedChannels.length).toBeGreaterThanOrEqual(1);
+      expect(updated.policyDrift.detected).toBe(true);
+      expect(
+        updated.policyDrift.issues.some(
+          (issue: any) => issue.code === "email_credential_governance_drift",
+        ),
+      ).toBe(true);
+
+      const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateId: TEMPLATE_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+        templateVersionTag: "v2",
+        evaluationOutputs: [
+          {
+            sourceType: "runtime_smoke_eval",
+            outcome: "pass",
+            summary: "Runtime smoke passed.",
+            runId: "ci_runtime_strict_mode_1",
+          },
+        ],
+      });
+      expect(recorded.summary.policyDrift.detected).toBe(true);
+      expect(recorded.summary.strictModeRollout.enabled).toBe(true);
+      expect(recorded.summary.alertRecommendations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "policy_drift_detected",
+          }),
+        ]),
+      );
+      expect(recorded.summary.alertDispatches).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            recommendationCode: "policy_drift_detected",
+            channel: "slack",
+          }),
+        ]),
+      );
+    } finally {
+      if (originalDedicatedSlackToken === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN = originalDedicatedSlackToken;
+      }
+      if (originalFallbackSlackToken === undefined) {
+        delete process.env.SLACK_BOT_TOKEN;
+      } else {
+        process.env.SLACK_BOT_TOKEN = originalFallbackSlackToken;
+      }
+      if (originalPagerDutyGlobalKey === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_KEY = originalPagerDutyGlobalKey;
+      }
+      if (originalPagerDutyMap === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_PAGERDUTY_ROUTING_MAP_JSON = originalPagerDutyMap;
+      }
+      if (originalDedicatedEmailKey === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY = originalDedicatedEmailKey;
+      }
+      if (originalDedicatedEmailFrom === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM = originalDedicatedEmailFrom;
+      }
+      if (originalFallbackEmailKey === undefined) {
+        delete process.env.RESEND_API_KEY;
+      } else {
+        process.env.RESEND_API_KEY = originalFallbackEmailKey;
+      }
+      if (originalFallbackEmailFrom === undefined) {
+        delete process.env.AUTH_RESEND_FROM;
+      } else {
+        process.env.AUTH_RESEND_FROM = originalFallbackEmailFrom;
+      }
+    }
+  });
+
+  it("enforces strict credential governance guardrails when strict mode is enforced", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db);
+    const ctx = createCtx(db);
+    const originalDedicatedSlackToken = process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN;
+    process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN = "xoxb_guardrail_token";
+
+    try {
+      const updated = await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        policy: {
+          channels: {
+            slack: {
+              enabled: true,
+              target: "certification-alerts",
+            },
+            pagerduty: {
+              enabled: false,
+              target: "template-certification",
+            },
+            email: {
+              enabled: false,
+              target: "certification-alerts@ops.local",
+            },
+          },
+          credentialGovernance: {
+            slack: {
+              requireDedicatedCredentials: false,
+              allowInlineTargetCredentials: true,
+            },
+          },
+          strictMode: {
+            enabled: true,
+            rolloutMode: "manual",
+            guardrailMode: "enforced",
+            notifyOnPolicyDrift: true,
+          },
+        },
+      });
+
+      expect(updated.policy.strictMode.guardrailMode).toBe("enforced");
+      expect(updated.policy.credentialGovernance.slack.requireDedicatedCredentials).toBe(true);
+      expect(updated.policy.credentialGovernance.slack.allowInlineTargetCredentials).toBe(false);
+      expect(updated.strictModeRollout.promotedChannels).toContain("slack");
+      expect(updated.policyDrift.detected).toBe(false);
+    } finally {
+      if (originalDedicatedSlackToken === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_SLACK_BOT_TOKEN = originalDedicatedSlackToken;
+      }
+    }
+  });
+
+  it("processes queued dispatches, then supports acknowledgement lifecycle", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: async () => "ok",
+    }));
+    vi.stubGlobal("fetch", fetchMock as any);
+
+    try {
+      await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        policy: {
+          channels: {
+            slack: {
+              enabled: true,
+              target: "https://hooks.slack.com/services/T000/B000/XXXXXXXXXXXXXXXXXXXXXXXX",
+            },
+          },
+        },
+      });
+      await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateFamily: SALES_TEMPLATE_ROLE,
+        policy: {
+          ownerUserIds: ["users_sales_owner"],
+          alertChannels: ["slack"],
+          alertOnCertificationBlocked: true,
+          alertOnMissingDefaultEvidence: false,
+        },
+      });
+
+      const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateId: TEMPLATE_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+        templateVersionTag: "v2",
+        evaluationOutputs: [
+          {
+            sourceType: "runtime_smoke_eval",
+            outcome: "pass",
+            summary: "Runtime smoke passed.",
+            runId: "ci_runtime_worker_1",
+          },
+        ],
+      });
+      const queuedDispatch = recorded.summary.alertDispatches.find(
+        (entry: any) => entry.channel === "slack" && entry.deliveryStatus === "queued",
+      );
+      expect(queuedDispatch).toBeTruthy();
+
+      const run = await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      expect(run.dispatched).toBeGreaterThanOrEqual(1);
+
+      const dispatchRow = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(dispatchRow?.actionData?.deliveryStatus).toBe("dispatched");
+      expect(dispatchRow?.actionData?.workerStatus).toBe("dispatched");
+      expect(dispatchRow?.actionData?.attemptCount).toBe(1);
+
+      await (acknowledgeTemplateCertificationAlertDispatch as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+        dedupeKey: queuedDispatch.dedupeKey,
+        acknowledgementNote: "Acknowledged by certification owner",
+      });
+
+      const rerun = await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      expect(rerun.processed).toBe(0);
+
+      const acknowledgedRow = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(acknowledgedRow?.actionData?.deliveryStatus).toBe("acknowledged");
+      expect(acknowledgedRow?.actionData?.workerStatus).toBe("acknowledged");
+      expect(acknowledgedRow?.actionData?.acknowledgedByUserId).toBe(SUPER_ADMIN_USER_ID);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("supports manual throttle controls and defers worker execution until throttle window", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+
+    await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        ownerUserIds: ["users_sales_owner"],
+        alertChannels: ["slack"],
+        alertOnCertificationBlocked: true,
+        alertOnMissingDefaultEvidence: false,
+      },
+    });
+
+    const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      templateVersionTag: "v2",
+      evaluationOutputs: [
+        {
+          sourceType: "runtime_smoke_eval",
+          outcome: "pass",
+          summary: "Runtime smoke passed.",
+          runId: "ci_runtime_throttle_1",
+        },
+      ],
+    });
+    const queuedDispatch = recorded.summary.alertDispatches.find(
+      (entry: any) => entry.channel === "slack" && entry.deliveryStatus === "queued",
+    );
+    expect(queuedDispatch).toBeTruthy();
+
+    const throttled = await (throttleTemplateCertificationAlertDispatch as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      dedupeKey: queuedDispatch.dedupeKey,
+      throttleMinutes: 60,
+      reason: "incident_noise_control",
+    });
+    expect(throttled.deliveryStatus).toBe("throttled");
+    expect(throttled.workerStatus).toBe("throttled");
+    expect(throttled.throttleReason).toBe("incident_noise_control");
+    expect(throttled.nextAttemptAt).toBeGreaterThan(0);
+
+    const run = await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      now: (throttled.nextAttemptAt ?? 0) - 10_000,
+    });
+    expect(run.processed).toBe(0);
+    expect(run.pending).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps retry behavior fail-closed and transitions to terminal failure when attempts exhaust", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+
+    await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      policy: {
+        maxAttempts: 2,
+        retryDelayMs: 1_000,
+        channels: {
+          slack: {
+            enabled: true,
+            target: "simulate_retryable_failure",
+          },
+        },
+      },
+    });
+    await (setTemplateCertificationAutomationPolicy as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateFamily: SALES_TEMPLATE_ROLE,
+      policy: {
+        ownerUserIds: ["users_sales_owner"],
+        alertChannels: ["slack"],
+        alertOnCertificationBlocked: true,
+        alertOnMissingDefaultEvidence: false,
+      },
+    });
+
+    const recorded = await (recordTemplateCertificationEvidenceBundle as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateId: TEMPLATE_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      templateVersionTag: "v2",
+      evaluationOutputs: [
+        {
+          sourceType: "runtime_smoke_eval",
+          outcome: "pass",
+          summary: "Runtime smoke passed.",
+          runId: "ci_runtime_retry_1",
+        },
+      ],
+    });
+    const queuedDispatch = recorded.summary.alertDispatches.find(
+      (entry: any) => entry.channel === "slack" && entry.deliveryStatus === "queued",
+    );
+    expect(queuedDispatch).toBeTruthy();
+
+    await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+    });
+    const firstFailure = db
+      .rows("objectActions")
+      .find((row) =>
+        row.actionType === "template_certification.alert_dispatch"
+        && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+      );
+    expect(firstFailure?.actionData?.deliveryStatus).toBe("dispatch_failed");
+    expect(firstFailure?.actionData?.workerStatus).toBe("retry_scheduled");
+    expect(firstFailure?.actionData?.attemptCount).toBe(1);
+    expect(firstFailure?.actionData?.nextAttemptAt).toBeGreaterThan(0);
+
+    await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+      sessionId: SUPER_ADMIN_SESSION_ID,
+      templateVersionId: TEMPLATE_VERSION_V2_ID,
+      now: (firstFailure?.actionData?.nextAttemptAt ?? 0) + 1,
+    });
+    const terminalFailure = db
+      .rows("objectActions")
+      .find((row) =>
+        row.actionType === "template_certification.alert_dispatch"
+        && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+      );
+    expect(terminalFailure?.actionData?.deliveryStatus).toBe("dispatch_failed");
+    expect(terminalFailure?.actionData?.workerStatus).toBe("failed_terminal");
+    expect(terminalFailure?.actionData?.attemptCount).toBe(2);
+  });
+
+  it("dispatches queued Slack alerts through external transport adapters", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: async () => "ok",
+    }));
+    vi.stubGlobal("fetch", fetchMock as any);
+
+    try {
+      const queuedDispatch = await queueAlertDispatchForChannel({
+        ctx,
+        channel: "slack",
+        target: "https://hooks.slack.com/services/T000/B000/XXXXXXXXXXXXXXXXXXXXXXXX",
+      });
+      expect(queuedDispatch).toBeTruthy();
+
+      const run = await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      expect(run.dispatched).toBeGreaterThanOrEqual(1);
+      expect(fetchMock).toHaveBeenCalled();
+
+      const dispatched = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(dispatched?.actionData?.deliveryStatus).toBe("dispatched");
+      expect(dispatched?.actionData?.workerStatus).toBe("dispatched");
+      expect(dispatched?.actionData?.attemptCount).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps PagerDuty adapter retry behavior deterministic and terminal after max attempts", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      headers: { get: () => null },
+      json: async () => ({ status: "error", message: "pagerduty unavailable" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock as any);
+
+    try {
+      const queuedDispatch = await queueAlertDispatchForChannel({
+        ctx,
+        channel: "pagerduty",
+        target: "routing_key:pd_routing_key_12345678901234567890",
+        maxAttempts: 2,
+        retryDelayMs: 1_000,
+      });
+      expect(queuedDispatch).toBeTruthy();
+
+      await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      const firstFailure = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(firstFailure?.actionData?.deliveryStatus).toBe("dispatch_failed");
+      expect(firstFailure?.actionData?.workerStatus).toBe("retry_scheduled");
+      expect(firstFailure?.actionData?.lastErrorCode).toBe("pagerduty_http_500");
+
+      await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+        now: (firstFailure?.actionData?.nextAttemptAt ?? 0) + 1,
+      });
+      const terminalFailure = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(terminalFailure?.actionData?.deliveryStatus).toBe("dispatch_failed");
+      expect(terminalFailure?.actionData?.workerStatus).toBe("failed_terminal");
+      expect(terminalFailure?.actionData?.attemptCount).toBe(2);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("dispatches queued email alerts through resend adapter", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const originalResendApiKey = process.env.RESEND_API_KEY;
+    const originalAuthResendFrom = process.env.AUTH_RESEND_FROM;
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({ id: "email_dispatch_1" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock as any);
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.AUTH_RESEND_FROM = "alerts@example.com";
+
+    try {
+      const queuedDispatch = await queueAlertDispatchForChannel({
+        ctx,
+        channel: "email",
+        target: "ops@example.com",
+      });
+      expect(queuedDispatch).toBeTruthy();
+
+      await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      const dispatched = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(dispatched?.actionData?.deliveryStatus).toBe("dispatched");
+      expect(dispatched?.actionData?.workerStatus).toBe("dispatched");
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://api.resend.com/emails",
+        expect.objectContaining({ method: "POST" }),
+      );
+    } finally {
+      if (originalResendApiKey === undefined) {
+        delete process.env.RESEND_API_KEY;
+      } else {
+        process.env.RESEND_API_KEY = originalResendApiKey;
+      }
+      if (originalAuthResendFrom === undefined) {
+        delete process.env.AUTH_RESEND_FROM;
+      } else {
+        process.env.AUTH_RESEND_FROM = originalAuthResendFrom;
+      }
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("fails closed when email credential governance requires dedicated env secrets", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const originalDedicatedApiKey = process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+    const originalDedicatedFrom = process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+    const originalResendApiKey = process.env.RESEND_API_KEY;
+    const originalAuthResendFrom = process.env.AUTH_RESEND_FROM;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+    delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+    process.env.RESEND_API_KEY = "fallback_resend_key";
+    process.env.AUTH_RESEND_FROM = "alerts-fallback@example.com";
+
+    try {
+      const queuedDispatch = await queueAlertDispatchForChannel({
+        ctx,
+        channel: "email",
+        target: "ops@example.com",
+        maxAttempts: 1,
+      });
+      expect(queuedDispatch).toBeTruthy();
+
+      await (setTemplateCertificationAlertDispatchControl as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        policy: {
+          credentialGovernance: {
+            email: {
+              requireDedicatedCredentials: true,
+            },
+          },
+        },
+      });
+
+      await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      const failedClosed = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(failedClosed?.actionData?.deliveryStatus).toBe("dispatch_failed");
+      expect(failedClosed?.actionData?.workerStatus).toBe("failed_terminal");
+      expect(failedClosed?.actionData?.lastErrorCode).toBe(
+        "email_transport_credential_policy_violation",
+      );
+      expect(failedClosed?.actionData?.lastErrorMessage).toContain(
+        "TRANSPORT_CREDENTIAL_RUNBOOK.md#email",
+      );
+    } finally {
+      if (originalDedicatedApiKey === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_API_KEY = originalDedicatedApiKey;
+      }
+      if (originalDedicatedFrom === undefined) {
+        delete process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM;
+      } else {
+        process.env.TEMPLATE_CERTIFICATION_ALERT_EMAIL_FROM = originalDedicatedFrom;
+      }
+      if (originalResendApiKey === undefined) {
+        delete process.env.RESEND_API_KEY;
+      } else {
+        process.env.RESEND_API_KEY = originalResendApiKey;
+      }
+      if (originalAuthResendFrom === undefined) {
+        delete process.env.AUTH_RESEND_FROM;
+      } else {
+        process.env.AUTH_RESEND_FROM = originalAuthResendFrom;
+      }
+    }
+  });
+
+  it("fails closed for queued email alerts when resend transport credentials are missing", async () => {
+    const db = new FakeDb();
+    seedTemplateWithTwoVersions(db, {
+      templateRole: SALES_TEMPLATE_ROLE,
+    });
+    const ctx = createCtx(db);
+    const originalResendApiKey = process.env.RESEND_API_KEY;
+    const originalAuthResendFrom = process.env.AUTH_RESEND_FROM;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.AUTH_RESEND_FROM;
+
+    try {
+      const queuedDispatch = await queueAlertDispatchForChannel({
+        ctx,
+        channel: "email",
+        target: "ops@example.com",
+        maxAttempts: 1,
+      });
+      expect(queuedDispatch).toBeTruthy();
+
+      await (processTemplateCertificationAlertDispatchQueueNow as any)._handler(ctx, {
+        sessionId: SUPER_ADMIN_SESSION_ID,
+        templateVersionId: TEMPLATE_VERSION_V2_ID,
+      });
+      const failedClosed = db
+        .rows("objectActions")
+        .find((row) =>
+          row.actionType === "template_certification.alert_dispatch"
+          && row.actionData?.dedupeKey === queuedDispatch.dedupeKey,
+        );
+      expect(failedClosed?.actionData?.deliveryStatus).toBe("dispatch_failed");
+      expect(failedClosed?.actionData?.workerStatus).toBe("failed_terminal");
+      expect(failedClosed?.actionData?.lastErrorCode).toBe("email_transport_not_configured");
+    } finally {
+      if (originalResendApiKey === undefined) {
+        delete process.env.RESEND_API_KEY;
+      } else {
+        process.env.RESEND_API_KEY = originalResendApiKey;
+      }
+      if (originalAuthResendFrom === undefined) {
+        delete process.env.AUTH_RESEND_FROM;
+      } else {
+        process.env.AUTH_RESEND_FROM = originalAuthResendFrom;
+      }
+    }
   });
 });

@@ -81,6 +81,7 @@ export function EditorRouter({
         <FinderPreview
           file={file}
           onClose={noop}
+          sessionId={sessionId}
           onOpenInBuilder={
             file.fileKind === "builder_ref" && file.builderAppId
               ? () => window.open("/builder", "_blank")

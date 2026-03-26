@@ -38,6 +38,11 @@ function buildSpecA() {
           ],
         },
       ],
+      runtimeTopology: {
+        contractVersion: "oar_runtime_topology_v1",
+        profile: "evaluator_loop",
+        adapter: "evaluator_loop_adapter_v1",
+      },
       policyProfiles: {
         orgPolicyRef: "org_policy_default_v3",
         channelPolicyRef: "native_guest_policy_v2",
@@ -79,6 +84,11 @@ function buildSpecB() {
           key: "audit_delivery",
         },
       ],
+      runtimeTopology: {
+        contractVersion: "oar_runtime_topology_v1",
+        profile: "evaluator_loop",
+        adapter: "evaluator_loop_adapter_v1",
+      },
       policyProfiles: {
         runtimePolicyRef: "runtime_fail_closed_v5",
         orgPolicyRef: "org_policy_default_v3",

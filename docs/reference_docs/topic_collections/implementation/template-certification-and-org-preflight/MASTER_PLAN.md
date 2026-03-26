@@ -1,6 +1,6 @@
 # Template Certification And Org Preflight Master Plan
 
-**Date:** 2026-03-24  
+**Date:** 2026-03-25  
 **Scope:** Replace time-based WAE rollout gating with reusable exact-version certification plus deploy-time org preflight.
 
 ---
@@ -60,10 +60,12 @@ Ship an operating model where:
 
 ## Remaining risks
 
-1. Per-template-family risk policy overlays now exist, but policy governance and change-review workflow for overlay updates is still manual.
-2. CI/admin evidence ingestion now records runtime/tool/policy defaults plus explicit missing/failed requirement payloads, but family-by-family rollout ownership and alert routing still need to be formalized.
-3. Org preflight adapters now cover domain, billing/credits, and vertical contract requirements, but template-level requirement authoring standards need hardening before broad rollout.
+1. Per-template-family policy overlays remain operator-managed; no automated approval workflow exists for risky policy deltas.
+2. Strict credential governance remains opt-in for backward compatibility; channels without ready dedicated credentials still require manual remediation before enforced posture can be universal.
+3. Policy-drift recommendations currently emit during status/evidence flows; there is no standalone scheduled drift notifier for idle templates.
+4. Org-preflight requirement authoring outside certification risk policy still depends on template author discipline and lacks dedicated lint automation.
 
 ## Next execution slice
 
-1. `TCP-013` (next): operationalize per-family CI adoption, owner mapping, and alerting around the new certification evidence-ingestion contract.
+1. `TCP-018` (complete 2026-03-25): strict-mode credential-governance rollout automation, policy-drift recommendation routing, and guardrail telemetry are now live for Slack/PagerDuty/Email alert worker transports.
+2. `TCP-019` (candidate): add scheduled drift sweeps + owner escalation workflows so drift alerts are emitted without requiring fresh evidence writes.

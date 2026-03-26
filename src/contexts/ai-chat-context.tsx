@@ -5,6 +5,7 @@ import { Id } from "../../convex/_generated/dataModel"
 import {
   useAIChat,
   type AIChatComposerMode,
+  type AIChatPromptContext,
   type AIChatReasoningEffort,
   type AIChatSuperAdminQaMode,
 } from "@/hooks/use-ai-chat"
@@ -76,17 +77,23 @@ export function AIChatProvider({
   children,
   superAdminQaMode,
   targetAgentId,
+  initialLayerWorkflowId,
+  chatContext,
+  forcePrimaryAgent,
 }: {
   children: ReactNode
   superAdminQaMode?: AIChatSuperAdminQaMode
   targetAgentId?: Id<"objects">
+  initialLayerWorkflowId?: Id<"objects"> | null
+  chatContext?: AIChatPromptContext
+  forcePrimaryAgent?: boolean
 }) {
   const [currentConversationId, setCurrentConversationId] = useState<
     Id<"aiConversations"> | undefined
   >(undefined)
   const [activeLayerWorkflowId, setActiveLayerWorkflowId] = useState<
     Id<"objects"> | undefined
-  >(undefined)
+  >(initialLayerWorkflowId ?? undefined)
   const [isSending, setIsSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined)
   const [composerMode, setComposerMode] = useState<AIChatComposerMode>("auto")
@@ -104,6 +111,8 @@ export function AIChatProvider({
     superAdminQaMode,
     activeLayerWorkflowId,
     targetAgentId,
+    chatContext,
+    forcePrimaryAgent,
   )
 
   // Get current user's organization ID
@@ -137,6 +146,13 @@ export function AIChatProvider({
       setActiveLayerWorkflowId(storedActiveLayerWorkflowId as Id<"objects">)
     }
   }, [])
+
+  useEffect(() => {
+    if (initialLayerWorkflowId === undefined) {
+      return
+    }
+    setActiveLayerWorkflowId(initialLayerWorkflowId ?? undefined)
+  }, [initialLayerWorkflowId])
 
   useEffect(() => {
     if (typeof window === "undefined") {

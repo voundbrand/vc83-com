@@ -14,7 +14,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { useCurrentOrganization, useAuth } from "@/hooks/use-auth";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -47,6 +47,16 @@ import {
   useReducedMotionPreference,
 } from "@/lib/motion";
 import { requestTextEditorWindow } from "../text-editor-window/bridge";
+import { useWindowManager } from "@/hooks/use-window-manager";
+import { useNotification } from "@/hooks/use-notification";
+import { AIChatWindow } from "../ai-chat-window";
+import { getVoiceAssistantWindowContract } from "../ai-chat-window/voice-assistant-contract";
+import {
+  KNOWLEDGE_CONTEXT_CONTRACT_VERSION,
+  encodeKnowledgeContextOpenContext,
+  type KnowledgeContextKickoffPayload,
+  type KnowledgeContextReferencePayload,
+} from "@/lib/ai/knowledge-context-contract";
 import type { ProjectFile, FinderMode, ContextMenuState } from "./finder-types";
 
 function buildSaveAsDefaultName(name: string): string {
@@ -57,11 +67,89 @@ function buildSaveAsDefaultName(name: string): string {
   return `${base}-copy${extension}`;
 }
 
+const FINDER_SIDEBAR_WIDTH_STORAGE_KEY = "finder_sidebar_width";
+const FINDER_SIDEBAR_DEFAULT_WIDTH = 224;
+const FINDER_SIDEBAR_MIN_WIDTH = 200;
+const FINDER_SIDEBAR_MAX_WIDTH = 520;
+const KNOWLEDGE_CONTEXT_SELECTION_LIMIT = 8;
+const KNOWLEDGE_CONTEXT_TOTAL_CONTENT_CHAR_LIMIT = 36000;
+const KNOWLEDGE_CONTEXT_REFERENCE_CONTENT_CHAR_LIMIT = 8000;
+
+type ResolvedFileContent = {
+  type: "virtual" | "uploaded" | "media" | "builder_ref" | "layer_ref" | "unknown";
+  content?: string;
+  url?: string | null;
+  mimeType?: string;
+  sizeBytes?: number;
+};
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(Math.max(width, FINDER_SIDEBAR_MIN_WIDTH), FINDER_SIDEBAR_MAX_WIDTH);
+}
+
+function getLowerExtension(name: string): string {
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot < 0) return "";
+  return name.slice(lastDot + 1).toLowerCase();
+}
+
+function shouldFetchTextPreview(file: ProjectFile, resolved: ResolvedFileContent): boolean {
+  if (!resolved.url) return false;
+  const extension = getLowerExtension(file.name || "");
+  const mimeType = (file.mimeType || resolved.mimeType || "").toLowerCase();
+  if (mimeType.startsWith("text/")) return true;
+  if (mimeType.includes("json")) return true;
+  if (mimeType.includes("markdown")) return true;
+  if (extension === "txt" || extension === "md" || extension === "mdx" || extension === "markdown") return true;
+  return false;
+}
+
+function shouldParseDocxPreview(file: ProjectFile, resolved: ResolvedFileContent): boolean {
+  if (!resolved.url) return false;
+  const extension = getLowerExtension(file.name || "");
+  const mimeType = (file.mimeType || resolved.mimeType || "").toLowerCase();
+  return (
+    extension === "docx"
+    || mimeType.includes("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+  );
+}
+
+async function extractDocxPreviewFromUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Could not read DOCX file (${response.status}).`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const mammoth = await import("mammoth");
+  const result = await (mammoth as { extractRawText: (args: { arrayBuffer: ArrayBuffer }) => Promise<{ value?: string }> }).extractRawText({ arrayBuffer });
+  return typeof result?.value === "string" ? result.value : "";
+}
+
+function buildKnowledgeReferenceUrl(
+  file: ProjectFile,
+  resolved: ResolvedFileContent
+): string {
+  if (resolved.url && typeof resolved.url === "string" && resolved.url.trim().length > 0) {
+    return resolved.url;
+  }
+  return `finder://projectFiles/${String(file._id)}`;
+}
+
+function clipKnowledgeContent(content: string, limit: number): string {
+  if (content.length <= limit) {
+    return content;
+  }
+  return `${content.slice(0, limit)}\n...[truncated]`;
+}
+
 export function FinderWindow() {
   // Auth
   const currentOrg = useCurrentOrganization();
   const activeOrgId = currentOrg?.id || null;
   const { sessionId } = useAuth();
+  const convex = useConvex();
+  const { openWindow } = useWindowManager();
+  const notification = useNotification();
 
   // Navigation state
   const [mode, setMode] = useState<FinderMode>("project");
@@ -73,11 +161,16 @@ export function FinderWindow() {
   const [sortBy, setSortBy] = useState<SortOption>("name");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(FINDER_SIDEBAR_DEFAULT_WIDTH);
+  const [hasSidebarWidthLoaded, setHasSidebarWidthLoaded] = useState(false);
+  const [isOpeningKnowledgeAssistant, setIsOpeningKnowledgeAssistant] = useState(false);
   const prefersReducedMotion = useReducedMotionPreference();
 
   // Preview panel
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const [previewWidth, setPreviewWidth] = useState(320);
+  const isSidebarResizing = useRef(false);
+  const sidebarCleanupRef = useRef<(() => void) | null>(null);
   const isResizing = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
 
@@ -91,6 +184,7 @@ export function FinderWindow() {
   const [createFileTarget, setCreateFileTarget] = useState<"finder" | "text-editor">("finder");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTargets, setDeleteTargets] = useState<ProjectFile[]>([]);
   const [showTagManager, setShowTagManager] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingOpenFileId, setPendingOpenFileId] = useState<Id<"projectFiles"> | null>(null);
@@ -309,26 +403,34 @@ export function FinderWindow() {
 
   const handleDelete = useCallback(() => {
     if (selection.selectedFiles.length === 0) return;
+    setDeleteTargets(selection.selectedFiles);
     setShowDeleteConfirm(true);
   }, [selection.selectedFiles]);
 
+  const handleDeleteFile = useCallback((file: ProjectFile) => {
+    setDeleteTargets([file]);
+    setShowDeleteConfirm(true);
+  }, []);
+
   const handleConfirmDelete = useCallback(async () => {
-    if (!sessionId || selection.selectedFiles.length === 0) return;
+    const targets = deleteTargets.length > 0 ? deleteTargets : selection.selectedFiles;
+    if (!sessionId || targets.length === 0) return;
     setIsDeleting(true);
     try {
       await deleteFilesMutation({
         sessionId,
-        fileIds: selection.selectedFiles.map((f) => f._id as Id<"projectFiles">),
+        fileIds: targets.map((f) => f._id as Id<"projectFiles">),
       });
       selection.clearSelection();
       setPreviewFile(null);
+      setDeleteTargets([]);
       setShowDeleteConfirm(false);
     } catch (err) {
       console.error("Delete failed:", err);
     } finally {
       setIsDeleting(false);
     }
-  }, [sessionId, selection, deleteFilesMutation]);
+  }, [sessionId, deleteTargets, selection, deleteFilesMutation]);
 
   const handleDuplicate = useCallback(async () => {
     if (!sessionId) return;
@@ -371,11 +473,229 @@ export function FinderWindow() {
     }
   }, [sessionId, activeOrgId, selection.selectedFiles, toggleBookmarkMutation]);
 
-  const handleOpenFileFromSidebar = useCallback((fileId: string) => {
-    // When clicking a file in sidebar (favorites/recents), we need to open it
-    // For now, open the file in an editor tab if we can get the file data
-    // The sidebar already has the file info from its query results
-  }, []);
+  const handleOpenFileFromSidebar = useCallback((file: ProjectFile) => {
+    setPreviewFile(file);
+    handleFileOpen(file);
+  }, [handleFileOpen]);
+
+  const handleEditFileFromPreview = useCallback((file: ProjectFile) => {
+    if (!canOpenInTextEditor(file)) return;
+    handleFileOpen(file);
+  }, [canOpenInTextEditor, handleFileOpen]);
+
+  const collectKnowledgeContextReferences = useCallback(
+    async (files: ProjectFile[]): Promise<KnowledgeContextReferencePayload[]> => {
+      if (!sessionId) {
+        return [];
+      }
+
+      const candidates = files
+        .filter((file) => file.fileKind !== "folder")
+        .slice(0, KNOWLEDGE_CONTEXT_SELECTION_LIMIT);
+      const references: KnowledgeContextReferencePayload[] = [];
+      let usedChars = 0;
+
+      for (const file of candidates) {
+        const reference: KnowledgeContextReferencePayload = {
+          fileId: String(file._id),
+          name: file.name,
+          path: file.path,
+          fileKind: file.fileKind,
+          mimeType: file.mimeType,
+          language: file.language,
+          source: file.source,
+          sizeBytes: file.sizeBytes,
+          status: "error",
+          error: "No readable preview available for this file type.",
+        };
+
+        try {
+          const resolved = await (convex as {
+            query: (queryRef: unknown, args: unknown) => Promise<unknown>;
+          }).query(api.projectFileSystem.getFileContent, {
+            sessionId,
+            fileId: file._id,
+          }) as ResolvedFileContent;
+
+          reference.retrievalUrl = buildKnowledgeReferenceUrl(file, resolved);
+
+          let rawContent = "";
+          if (resolved.type === "virtual" && typeof resolved.content === "string") {
+            rawContent = resolved.content;
+          } else if (shouldFetchTextPreview(file, resolved)) {
+            const response = await fetch(String(resolved.url));
+            if (!response.ok) {
+              throw new Error(`Could not read file preview (${response.status}).`);
+            }
+            rawContent = await response.text();
+          } else if (shouldParseDocxPreview(file, resolved)) {
+            rawContent = await extractDocxPreviewFromUrl(String(resolved.url));
+          }
+
+          const remainingChars = Math.max(0, KNOWLEDGE_CONTEXT_TOTAL_CONTENT_CHAR_LIMIT - usedChars);
+          if (rawContent.trim().length > 0 && remainingChars > 0) {
+            const clipped = clipKnowledgeContent(
+              rawContent.trim(),
+              Math.min(KNOWLEDGE_CONTEXT_REFERENCE_CONTENT_CHAR_LIMIT, remainingChars)
+            );
+            reference.status = "ready";
+            reference.content = clipped;
+            reference.error = undefined;
+            usedChars += clipped.length;
+          } else if (rawContent.trim().length > 0) {
+            reference.status = "error";
+            reference.error = "Context size limit reached; reduce selected files.";
+          } else if (resolved.type === "uploaded" || resolved.type === "media") {
+            reference.error = "Binary document selected without text preview support.";
+          } else if (resolved.type === "builder_ref" || resolved.type === "layer_ref") {
+            reference.error = "Reference pointer selected; no text preview available.";
+          }
+        } catch (error) {
+          reference.status = "error";
+          reference.error = error instanceof Error ? error.message : "Failed to resolve file preview.";
+        }
+
+        references.push(reference);
+      }
+
+      return references;
+    },
+    [convex, sessionId]
+  );
+
+  const knowledgeContextSelection = useMemo(() => {
+    const dedupe = new Map<string, ProjectFile>();
+    for (const file of selection.selectedFiles) {
+      if (file.fileKind === "folder") continue;
+      dedupe.set(String(file._id), file);
+    }
+    if (dedupe.size === 0 && previewFile && previewFile.fileKind !== "folder") {
+      dedupe.set(String(previewFile._id), previewFile);
+    }
+    return Array.from(dedupe.values()).slice(0, KNOWLEDGE_CONTEXT_SELECTION_LIMIT);
+  }, [previewFile, selection.selectedFiles]);
+
+  const knowledgeAssistScopeLabel = useMemo(() => {
+    if (mode === "project") {
+      return "scope:project";
+    }
+    if (mode === "org") {
+      return "scope:org";
+    }
+    return "scope:shared";
+  }, [mode]);
+
+  const knowledgeAssistAuthorityLabel = useMemo(() => {
+    if (mode === "project") {
+      return "authority:project_read";
+    }
+    return "authority:org_read";
+  }, [mode]);
+
+  const knowledgeAssistCitationQualityLabel = useMemo(() => {
+    if (knowledgeContextSelection.length === 0) {
+      return "citation:pending_selection";
+    }
+    const hasNonTextLikelyFile = knowledgeContextSelection.some((file) =>
+      file.fileKind !== "virtual"
+      || (file.mimeType ? !file.mimeType.toLowerCase().startsWith("text/") : false)
+    );
+    return hasNonTextLikelyFile
+      ? "citation:mixed_preview"
+      : "citation:advisory_preview";
+  }, [knowledgeContextSelection]);
+
+  const handleLaunchKnowledgeAssistant = useCallback(async () => {
+    if (!sessionId || !activeOrgId) {
+      return;
+    }
+
+    if (knowledgeContextSelection.length === 0) {
+      notification.info("No documents selected", "Select at least one file in Finder, then open AI context.");
+      return;
+    }
+
+    setIsOpeningKnowledgeAssistant(true);
+    try {
+      const references = await collectKnowledgeContextReferences(knowledgeContextSelection);
+      if (references.length === 0) {
+        notification.error("No eligible files", "The current selection does not include readable files.");
+        return;
+      }
+      const readyReferenceCount = references.filter((reference) => reference.status === "ready").length;
+      const citationQualityLabel =
+        readyReferenceCount === 0
+          ? "citation:unreadable_selection"
+          : readyReferenceCount < references.length
+            ? "citation:mixed_preview"
+            : "citation:advisory_preview";
+
+      const payload: KnowledgeContextKickoffPayload = {
+        contractVersion: KNOWLEDGE_CONTEXT_CONTRACT_VERSION,
+        contextSource: "finder",
+        organizationId: String(activeOrgId),
+        projectId: selectedProjectId || undefined,
+        projectScope: mode === "project" ? "project" : "org",
+        scopeLabel: knowledgeAssistScopeLabel,
+        authorityLabel: knowledgeAssistAuthorityLabel,
+        citationQualityLabel,
+        requestedAt: Date.now(),
+        referenceCount: references.length,
+        references,
+      };
+      const openContext = encodeKnowledgeContextOpenContext(payload);
+      const aiAssistantWindowContract = getVoiceAssistantWindowContract("ai-assistant");
+      const sourceOrganizationId = String(activeOrgId);
+
+      openWindow(
+        aiAssistantWindowContract.windowId,
+        aiAssistantWindowContract.title,
+        <AIChatWindow
+          initialLayoutMode="slick"
+          initialPanel="knowledge-context"
+          openContext={openContext}
+          sourceSessionId={sessionId}
+          sourceOrganizationId={sourceOrganizationId}
+        />,
+        aiAssistantWindowContract.position,
+        aiAssistantWindowContract.size,
+        aiAssistantWindowContract.titleKey,
+        aiAssistantWindowContract.iconId,
+        {
+          openContext,
+          initialLayoutMode: "slick",
+          initialPanel: "knowledge-context",
+          sourceSessionId: sessionId,
+          sourceOrganizationId,
+        }
+      );
+
+      if (!references.some((reference) => reference.status === "ready")) {
+        notification.info(
+          "Limited context",
+          "Selected files were attached as references, but no inline text preview could be extracted."
+        );
+      }
+    } catch (error) {
+      notification.error(
+        "Knowledge context failed",
+        error instanceof Error ? error.message : "Could not build AI knowledge context."
+      );
+    } finally {
+      setIsOpeningKnowledgeAssistant(false);
+    }
+  }, [
+    activeOrgId,
+    collectKnowledgeContextReferences,
+    knowledgeContextSelection,
+    mode,
+    notification,
+    openWindow,
+    selectedProjectId,
+    sessionId,
+    knowledgeAssistScopeLabel,
+    knowledgeAssistAuthorityLabel,
+  ]);
 
   // ---- CONTEXT MENU ----
   const handleContextMenu = useCallback((e: React.MouseEvent, file?: ProjectFile) => {
@@ -460,9 +780,84 @@ export function FinderWindow() {
     [previewWidth]
   );
 
+  const handleSidebarResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isSidebarResizing.current = true;
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!isSidebarResizing.current) return;
+        const delta = moveEvent.clientX - startX;
+        const newWidth = clampSidebarWidth(startWidth + delta);
+        setSidebarWidth(newWidth);
+      };
+
+      const handleMouseUp = () => {
+        isSidebarResizing.current = false;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        sidebarCleanupRef.current = null;
+      };
+
+      sidebarCleanupRef.current = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [sidebarWidth]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const storedWidth = window.localStorage.getItem(FINDER_SIDEBAR_WIDTH_STORAGE_KEY);
+      if (!storedWidth) {
+        setHasSidebarWidthLoaded(true);
+        return;
+      }
+
+      const parsedWidth = Number(storedWidth);
+      if (!Number.isFinite(parsedWidth)) {
+        setHasSidebarWidthLoaded(true);
+        return;
+      }
+
+      setSidebarWidth(clampSidebarWidth(parsedWidth));
+      setHasSidebarWidthLoaded(true);
+    } catch {
+      setHasSidebarWidthLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasSidebarWidthLoaded) return;
+
+    try {
+      window.localStorage.setItem(
+        FINDER_SIDEBAR_WIDTH_STORAGE_KEY,
+        String(clampSidebarWidth(sidebarWidth))
+      );
+    } catch {
+      // Ignore localStorage write failures (private mode / denied storage).
+    }
+  }, [sidebarWidth, hasSidebarWidthLoaded]);
+
   useEffect(() => {
     return () => {
       cleanupRef.current?.();
+      sidebarCleanupRef.current?.();
     };
   }, []);
 
@@ -484,7 +879,18 @@ export function FinderWindow() {
     >
       {/* Left Sidebar */}
       <div
-        className="w-56 flex-shrink-0 border-r-2 flex flex-col finder-sidebar-divider"
+        className="flex-shrink-0 border-r-2 flex flex-col finder-sidebar-divider"
+        style={{
+          width: sidebarWidth,
+          minWidth: sidebarWidth,
+          transition: isSidebarResizing.current
+            ? "none"
+            : buildShellTransition(
+              "width",
+              SHELL_MOTION.durationMs.fast,
+              prefersReducedMotion,
+            ),
+        }}
       >
         <FinderSidebar
           mode={mode}
@@ -500,6 +906,28 @@ export function FinderWindow() {
           onTagFilter={setActiveTagFilter}
           activeTagFilter={activeTagFilter}
         />
+      </div>
+
+      {/* Sidebar Resize Handle */}
+      <div
+        onMouseDown={handleSidebarResizeStart}
+        className="w-1.5 flex-shrink-0 cursor-col-resize group relative finder-resize-handle"
+      >
+        <div className="absolute inset-y-0 -left-1 -right-1 z-10" title="Drag to resize sidebar" />
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100"
+          style={{
+            transition: buildShellTransition(
+              "opacity",
+              SHELL_MOTION.durationMs.fast,
+              prefersReducedMotion,
+            ),
+          }}
+        >
+          <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
+          <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
+          <div className="w-1 h-1 rounded-full finder-resize-handle-dot" />
+        </div>
       </div>
 
       {/* Main Content */}
@@ -523,6 +951,21 @@ export function FinderWindow() {
             onUploadFile={upload.openFilePicker}
             onShareProject={isProjectMode ? () => setShowShareDialog(true) : undefined}
             onOpenTagManager={() => setShowTagManager(true)}
+            onLaunchKnowledgeAssist={handleLaunchKnowledgeAssistant}
+            knowledgeAssistDisabled={
+              isOpeningKnowledgeAssistant
+              || knowledgeContextSelection.length === 0
+            }
+            knowledgeAssistLabel={
+              isOpeningKnowledgeAssistant
+                ? "Preparing..."
+                : knowledgeContextSelection.length > 1
+                  ? `Ask AI (${knowledgeContextSelection.length})`
+                  : "Ask AI"
+            }
+            knowledgeAssistScopeLabel={knowledgeAssistScopeLabel}
+            knowledgeAssistAuthorityLabel={knowledgeAssistAuthorityLabel}
+            knowledgeAssistCitationQualityLabel={knowledgeAssistCitationQualityLabel}
             searchInputRef={searchInputRef}
             mode={mode}
           />
@@ -647,6 +1090,13 @@ export function FinderWindow() {
                       <FinderPreview
                         file={previewFile}
                         onClose={() => setPreviewFile(null)}
+                        sessionId={sessionId}
+                        onEditFile={
+                          canOpenInTextEditor(previewFile)
+                            ? () => handleEditFileFromPreview(previewFile)
+                            : undefined
+                        }
+                        onDeleteFile={() => handleDeleteFile(previewFile)}
                         onOpenInBuilder={
                           previewFile?.fileKind === "builder_ref" && previewFile?.builderAppId
                             ? () => window.open(`/builder`, "_blank")
@@ -792,9 +1242,12 @@ export function FinderWindow() {
 
       {showDeleteConfirm && (
         <DeleteConfirmationModal
-          files={selection.selectedFiles}
+          files={deleteTargets.length > 0 ? deleteTargets : selection.selectedFiles}
           onConfirm={handleConfirmDelete}
-          onClose={() => setShowDeleteConfirm(false)}
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setDeleteTargets([]);
+          }}
           isDeleting={isDeleting}
         />
       )}

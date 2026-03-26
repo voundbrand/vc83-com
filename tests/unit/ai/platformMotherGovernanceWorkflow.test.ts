@@ -772,6 +772,10 @@ describe("platform Mother governance workflow contracts", () => {
       mode: "support",
       runtimeRole: PLATFORM_MOTHER_SUPPORT_RUNTIME_ROLE,
     });
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_ID,
+      name: "Customer A",
+    });
     seedManagedClone(db, {
       organizationId: CUSTOMER_ORG_ID,
       id: "objects_customer_clone",
@@ -813,8 +817,8 @@ describe("platform Mother governance workflow contracts", () => {
     );
     expect(result.artifact.rolloutGateRequirements).toEqual(
       expect.objectContaining({
-        requiredEvidence: ["wae_rollout_gate"],
-        satisfiedEvidence: ["wae_rollout_gate"],
+        requiredEvidence: ["template_certification"],
+        satisfiedEvidence: ["template_certification"],
         status: "satisfied_for_review",
         dryRunCorrelationId: result.dryRun?.distributionJobId,
       }),
@@ -1178,6 +1182,14 @@ describe("platform Mother governance workflow contracts", () => {
       id: MOTHER_GOVERNANCE_ID,
       mode: "governance",
       runtimeRole: PLATFORM_MOTHER_GOVERNANCE_RUNTIME_ROLE,
+    });
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_ID,
+      name: "Customer A",
+    });
+    seedOrganization(db, {
+      id: CUSTOMER_ORG_B_ID,
+      name: "Customer B",
     });
     seedManagedClone(db, {
       organizationId: CUSTOMER_ORG_ID,
