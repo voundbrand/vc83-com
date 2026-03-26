@@ -7,6 +7,7 @@ import { MapPin, Clock, Mail, Phone, Globe, Building2, Monitor, Trash2 } from "l
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useNotification } from "@/hooks/use-notification"
 import { useState } from "react"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface LocationDetailProps {
   locationId: Id<"objects">
@@ -15,6 +16,7 @@ interface LocationDetailProps {
 export function LocationDetail({ locationId }: LocationDetailProps) {
   const { sessionId } = useAuth()
   const notification = useNotification()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const location = useQuery(
@@ -29,7 +31,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   if (!sessionId) {
     return (
       <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">Please log in</p>
+        <p className="font-pixel text-sm">{tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}</p>
       </div>
     )
   }
@@ -37,7 +39,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   if (!location) {
     return (
       <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="text-sm">Loading location details...</p>
+        <p className="text-sm">{tWithFallback("ui.app.booking.location.detail.loading", "Loading location details...")}</p>
       </div>
     )
   }
@@ -70,18 +72,20 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     if (!operatingHours) return null
     const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     const dayLabels: Record<string, string> = {
-      monday: "Mon",
-      tuesday: "Tue",
-      wednesday: "Wed",
-      thursday: "Thu",
-      friday: "Fri",
-      saturday: "Sat",
-      sunday: "Sun"
+      monday: tWithFallback("ui.app.booking.days.short.monday", "Mon"),
+      tuesday: tWithFallback("ui.app.booking.days.short.tuesday", "Tue"),
+      wednesday: tWithFallback("ui.app.booking.days.short.wednesday", "Wed"),
+      thursday: tWithFallback("ui.app.booking.days.short.thursday", "Thu"),
+      friday: tWithFallback("ui.app.booking.days.short.friday", "Fri"),
+      saturday: tWithFallback("ui.app.booking.days.short.saturday", "Sat"),
+      sunday: tWithFallback("ui.app.booking.days.short.sunday", "Sun"),
     }
 
     return days.map(day => {
       const hours = operatingHours[day]
-      if (!hours || !hours.open || !hours.close) return { day: dayLabels[day], hours: "Closed" }
+      if (!hours || !hours.open || !hours.close) {
+        return { day: dayLabels[day], hours: tWithFallback("ui.app.booking.location.detail.closed", "Closed") }
+      }
       return { day: dayLabels[day], hours: `${hours.open} - ${hours.close}` }
     })
   }
@@ -89,10 +93,16 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
   const handleArchive = async () => {
     try {
       await archiveLocation({ sessionId, locationId })
-      notification.success("Location archived", "The location has been archived.")
+      notification.success(
+        tWithFallback("ui.app.booking.location.notifications.archived_title", "Location archived"),
+        tWithFallback("ui.app.booking.location.notifications.archived_body", "The location has been archived."),
+      )
       setShowDeleteDialog(false)
     } catch {
-      notification.error("Error", "Failed to archive location.")
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        tWithFallback("ui.app.booking.location.notifications.archive_failed", "Failed to archive location."),
+      )
     }
   }
 
@@ -105,13 +115,39 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
     }
   }
 
+  const getSubtypeLabel = (subtype?: string | null) => {
+    switch (subtype) {
+      case "branch": return tWithFallback("ui.app.booking.location.subtype.branch", "Branch")
+      case "venue": return tWithFallback("ui.app.booking.location.subtype.venue", "Venue")
+      case "virtual": return tWithFallback("ui.app.booking.location.subtype.virtual", "Virtual")
+      default: return tWithFallback("ui.app.booking.location.subtype.location", "Location")
+    }
+  }
+
+  const getStatusLabel = (status?: string | null) => {
+    switch (status) {
+      case "active": return tWithFallback("ui.app.booking.location.status.active", "Active")
+      case "inactive": return tWithFallback("ui.app.booking.location.status.inactive", "Inactive")
+      case "archived": return tWithFallback("ui.app.booking.location.status.archived", "Archived")
+      default: return tWithFallback("ui.app.booking.location.status.active", "Active")
+    }
+  }
+
+  const detailPanelStyle = {
+    background: "var(--desktop-shell-accent)",
+    borderColor: "var(--window-document-border)",
+  } as const
+
+  const actionButtonClassName =
+    "desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+
   const formattedAddress = formatAddress()
   const formattedHours = formatOperatingHours()
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3" style={detailPanelStyle}>
         <div className="flex items-center gap-3 min-w-0">
           <div
             className="p-3 rounded-lg"
@@ -123,7 +159,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
             {getSubtypeIcon(location.subtype || "venue")}
           </div>
           <h2 className="font-pixel text-sm truncate">{location.name}</h2>
-          <span className="text-xs opacity-70 capitalize shrink-0">{location.subtype?.replace("_", " ") || "Location"}</span>
+          <span className="text-xs opacity-70 capitalize shrink-0">{getSubtypeLabel(location.subtype)}</span>
         </div>
         <span
           className="px-3 py-1 text-xs font-medium rounded-lg capitalize"
@@ -132,7 +168,7 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
             color: 'white'
           }}
         >
-          {location.status || "active"}
+          {getStatusLabel(location.status)}
         </span>
       </div>
 
@@ -140,15 +176,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {formattedAddress && (
         <div
           className="p-3 rounded-lg border"
-          style={{
-            background: 'var(--desktop-shell-accent)',
-            borderColor: 'var(--window-document-border)'
-          }}
+          style={detailPanelStyle}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin size={16} />
-            <span className="font-medium text-sm">Address</span>
-          </div>
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin size={16} />
+          <span className="font-medium text-sm">
+            {tWithFallback("ui.app.booking.location.detail.address", "Address")}
+          </span>
+        </div>
           {formattedAddress.map((line: string, i: number) => (
             <p key={i} className="text-sm">{line}</p>
           ))}
@@ -159,14 +194,13 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {typeof props.timezone === "string" && props.timezone ? (
         <div
           className="p-3 rounded-lg border"
-          style={{
-            background: 'var(--desktop-shell-accent)',
-            borderColor: 'var(--window-document-border)'
-          }}
+          style={detailPanelStyle}
         >
           <div className="flex items-center gap-2">
             <Globe size={16} />
-            <span className="text-sm">Timezone: <strong>{props.timezone}</strong></span>
+            <span className="text-sm">
+              {tWithFallback("ui.app.booking.location.detail.timezone", "Timezone:")} <strong>{props.timezone}</strong>
+            </span>
           </div>
         </div>
       ) : null}
@@ -175,16 +209,15 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {formattedHours && (
         <div
           className="p-3 rounded-lg border"
-          style={{
-            background: 'var(--desktop-shell-accent)',
-            borderColor: 'var(--window-document-border)'
-          }}
+          style={detailPanelStyle}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Clock size={16} />
-            <span className="font-medium text-sm">Operating Hours</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1 text-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={16} />
+          <span className="font-medium text-sm">
+            {tWithFallback("ui.app.booking.location.detail.operating_hours", "Operating Hours")}
+          </span>
+        </div>
+          <div className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
             {formattedHours.map(({ day, hours }) => (
               <div key={day} className="flex justify-between">
                 <span className="opacity-70">{day}</span>
@@ -199,15 +232,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
       {(typeof props.contactEmail === "string" || typeof props.contactPhone === "string") ? (
         <div
           className="p-3 rounded-lg border"
-          style={{
-            background: 'var(--desktop-shell-accent)',
-            borderColor: 'var(--window-document-border)'
-          }}
+          style={detailPanelStyle}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <Mail size={16} />
-            <span className="font-medium text-sm">Contact</span>
-          </div>
+        <div className="flex items-center gap-2 mb-2">
+          <Mail size={16} />
+          <span className="font-medium text-sm">
+            {tWithFallback("ui.app.booking.location.detail.contact", "Contact")}
+          </span>
+        </div>
           {typeof props.contactEmail === "string" && props.contactEmail ? (
             <p className="text-sm flex items-center gap-2">
               <Mail size={12} /> {props.contactEmail}
@@ -223,13 +255,14 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
 
       {/* Actions */}
       {location.status !== "archived" && (
-        <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--window-document-border)' }}>
+        <div className="flex gap-2 border-t pt-3" style={{ borderColor: 'var(--window-document-border)' }}>
           <button
+            type="button"
             onClick={() => setShowDeleteDialog(true)}
-            className="desktop-interior-button px-3 py-1.5 flex items-center gap-1 text-xs"
+            className={actionButtonClassName}
             style={{ background: 'var(--error-bg)', color: 'white' }}
           >
-            <Trash2 size={14} /> Archive
+            <Trash2 size={14} /> {tWithFallback("ui.app.booking.location.actions.archive", "Archive")}
           </button>
         </div>
       )}
@@ -247,26 +280,37 @@ export function LocationDetail({ locationId }: LocationDetailProps) {
               background: 'var(--window-document-bg)',
               borderColor: 'var(--window-document-border)'
             }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="location-archive-dialog-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-pixel text-sm mb-3">Archive Location</h3>
+            <h3 id="location-archive-dialog-title" className="font-pixel text-sm mb-3">
+              {tWithFallback("ui.app.booking.location.archive_dialog.title", "Archive Location")}
+            </h3>
             <p className="text-sm mb-4">
-              Are you sure you want to archive "{location.name}"? This location will no longer be available for new bookings.
+              {tWithFallback(
+                "ui.app.booking.location.archive_dialog.body",
+                "Are you sure you want to archive \"{name}\"? This location will no longer be available for new bookings.",
+                { name: location.name },
+              )}
             </p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleArchive}
-                className="desktop-interior-button px-4 py-2 text-xs flex-1"
+                className="desktop-interior-button px-4 py-2 text-xs flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
                 style={{ background: 'var(--error-bg)', color: 'white' }}
               >
-                Archive Location
+                {tWithFallback("ui.app.booking.location.archive_dialog.confirm", "Archive Location")}
               </button>
               <button
+                type="button"
                 onClick={() => setShowDeleteDialog(false)}
-                className="desktop-interior-button px-4 py-2 text-xs"
+                className="desktop-interior-button px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
                 style={{ background: 'var(--shell-button-surface)' }}
               >
-                Cancel
+                {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
               </button>
             </div>
           </div>

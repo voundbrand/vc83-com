@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { X, MapPin, Building2, Monitor, Globe } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface LocationFormModalProps {
   onClose: () => void
@@ -18,6 +19,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id as Id<"organizations">
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
   const [name, setName] = useState("")
   const [subtype, setSubtype] = useState<LocationSubtype>("venue")
@@ -39,12 +41,12 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
     setError("")
 
     if (!sessionId || !currentOrganizationId) {
-      setError("Please log in to create a location")
+      setError(tWithFallback("ui.app.booking.location.form.errors.login_required", "Please log in to create a location"))
       return
     }
 
     if (!name) {
-      setError("Location name is required")
+      setError(tWithFallback("ui.app.booking.location.form.errors.name_required", "Location name is required"))
       return
     }
 
@@ -72,7 +74,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
 
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create location")
+      setError(err instanceof Error ? err.message : tWithFallback("ui.app.booking.location.form.errors.create_failed", "Failed to create location"))
     } finally {
       setIsSubmitting(false)
     }
@@ -109,7 +111,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
         >
           <span className="font-pixel text-sm text-white flex items-center gap-2">
             <MapPin size={16} />
-            New Location
+            {tWithFallback("ui.app.booking.location.form.title", "New Location")}
           </span>
           <button
             onClick={onClose}
@@ -123,12 +125,14 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="text-xs font-medium block mb-1">Location Name *</label>
+            <label className="text-xs font-medium block mb-1">
+              {tWithFallback("ui.app.booking.location.form.name", "Location Name *")}
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Main Office, Downtown Studio, etc."
+              placeholder={tWithFallback("ui.app.booking.location.form.name_placeholder", "Main Office, Downtown Studio, etc.")}
               className="w-full px-2 py-1.5 border-2 text-sm"
               style={{
                 borderColor: 'var(--shell-border)',
@@ -141,7 +145,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
 
           {/* Type */}
           <div>
-            <label className="text-xs font-medium block mb-1">Location Type</label>
+            <label className="text-xs font-medium block mb-1">
+              {tWithFallback("ui.app.booking.location.form.type", "Location Type")}
+            </label>
             <div className="flex gap-2">
               {(["branch", "venue", "virtual"] as LocationSubtype[]).map((type) => (
                 <button
@@ -157,7 +163,11 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   }}
                 >
                   {getSubtypeIcon(type)}
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {type === "branch"
+                    ? tWithFallback("ui.app.booking.location.subtype.branch", "Branch")
+                    : type === "venue"
+                      ? tWithFallback("ui.app.booking.location.subtype.venue", "Venue")
+                      : tWithFallback("ui.app.booking.location.subtype.virtual", "Virtual")}
                 </button>
               ))}
             </div>
@@ -168,10 +178,10 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <MapPin size={14} />
-                Address
+                {tWithFallback("ui.app.booking.location.detail.address", "Address")}
               </div>
               <div>
-                <label className="text-xs block mb-1">Street</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.location.form.street", "Street")}</label>
                 <input
                   type="text"
                   value={street}
@@ -186,7 +196,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs block mb-1">City</label>
+                  <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.location.form.city", "City")}</label>
                   <input
                     type="text"
                     value={city}
@@ -200,7 +210,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1">State/Province</label>
+                  <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.location.form.state", "State/Province")}</label>
                   <input
                     type="text"
                     value={state}
@@ -216,7 +226,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs block mb-1">Postal Code</label>
+                  <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.location.form.postal_code", "Postal Code")}</label>
                   <input
                     type="text"
                     value={postalCode}
@@ -230,7 +240,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                   />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1">Country</label>
+                  <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.location.form.country", "Country")}</label>
                   <input
                     type="text"
                     value={country}
@@ -251,7 +261,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
           <div>
             <label className="text-xs font-medium block mb-1 flex items-center gap-1">
               <Globe size={12} />
-              Timezone
+              {tWithFallback("ui.app.booking.location.detail.timezone", "Timezone")}
             </label>
             <select
               value={timezone}
@@ -280,7 +290,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
           {/* Contact Info */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium block mb-1">Contact Email</label>
+              <label className="text-xs font-medium block mb-1">
+                {tWithFallback("ui.app.booking.location.form.contact_email", "Contact Email")}
+              </label>
               <input
                 type="email"
                 value={contactEmail}
@@ -294,7 +306,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               />
             </div>
             <div>
-              <label className="text-xs font-medium block mb-1">Contact Phone</label>
+              <label className="text-xs font-medium block mb-1">
+                {tWithFallback("ui.app.booking.location.form.contact_phone", "Contact Phone")}
+              </label>
               <input
                 type="tel"
                 value={contactPhone}
@@ -328,7 +342,9 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
                 opacity: isSubmitting ? 0.5 : 1
               }}
             >
-              {isSubmitting ? "Creating..." : "Create Location"}
+              {isSubmitting
+                ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
+                : tWithFallback("ui.app.booking.location.form.create", "Create Location")}
             </button>
             <button
               type="button"
@@ -336,7 +352,7 @@ export function LocationFormModal({ onClose, onSuccess }: LocationFormModalProps
               className="desktop-interior-button px-4 py-2 text-sm"
               style={{ background: 'var(--shell-button-surface)' }}
             >
-              Cancel
+              {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
             </button>
           </div>
         </form>

@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { X, Calendar, User, Clock, DollarSign, Info } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 // Bookable subtypes that can be booked
 const BOOKABLE_SUBTYPES = [
@@ -42,6 +43,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id as Id<"organizations">
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
   const [subtype, setSubtype] = useState<BookingSubtype>("appointment")
   const [customerName, setCustomerName] = useState("")
@@ -115,22 +117,22 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
     setError("")
 
     if (!sessionId || !currentOrganizationId) {
-      setError("Please log in to create a booking")
+      setError(tWithFallback("ui.app.booking.form.errors.login_required", "Please log in to create a booking"))
       return
     }
 
     if (!customerName || !customerEmail) {
-      setError("Customer name and email are required")
+      setError(tWithFallback("ui.app.booking.form.errors.customer_required", "Customer name and email are required"))
       return
     }
 
     if (!startDate || !startTime) {
-      setError("Date and time are required")
+      setError(tWithFallback("ui.app.booking.form.errors.date_time_required", "Date and time are required"))
       return
     }
 
     if (!selectedResourceId) {
-      setError("Please select a resource")
+      setError(tWithFallback("ui.app.booking.form.errors.resource_required", "Please select a resource"))
       return
     }
 
@@ -160,7 +162,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create booking")
+      setError(err instanceof Error ? err.message : tWithFallback("ui.app.booking.form.errors.create_failed", "Failed to create booking"))
     } finally {
       setIsSubmitting(false)
     }
@@ -189,7 +191,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
         >
           <span className="font-pixel text-sm text-white flex items-center gap-2">
             <Calendar size={16} />
-            New Booking
+            {tWithFallback("ui.app.booking.form.title", "New Booking")}
           </span>
           <button
             onClick={onClose}
@@ -203,7 +205,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Booking Type */}
           <div>
-            <label className="text-xs font-medium block mb-1">Booking Type</label>
+            <label className="text-xs font-medium block mb-1">
+              {tWithFallback("ui.app.booking.form.booking_type", "Booking Type")}
+            </label>
             <select
               value={subtype}
               onChange={(e) => setSubtype(e.target.value as BookingSubtype)}
@@ -214,10 +218,10 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 color: 'var(--shell-input-text)'
               }}
             >
-              <option value="appointment">Appointment</option>
-              <option value="reservation">Reservation</option>
-              <option value="rental">Rental</option>
-              <option value="class_enrollment">Class Enrollment</option>
+              <option value="appointment">{tWithFallback("ui.app.booking.subtype.appointment", "Appointment")}</option>
+              <option value="reservation">{tWithFallback("ui.app.booking.subtype.reservation", "Reservation")}</option>
+              <option value="rental">{tWithFallback("ui.app.booking.subtype.rental", "Rental")}</option>
+              <option value="class_enrollment">{tWithFallback("ui.app.booking.subtype.class_enrollment_long", "Class Enrollment")}</option>
             </select>
           </div>
 
@@ -225,11 +229,11 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <User size={14} />
-              Customer Information
+              {tWithFallback("ui.app.booking.form.customer_information", "Customer Information")}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="text-xs block mb-1">Name *</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.customer_name", "Name *")}</label>
                 <input
                   type="text"
                   value={customerName}
@@ -244,7 +248,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 />
               </div>
               <div>
-                <label className="text-xs block mb-1">Email *</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.customer_email", "Email *")}</label>
                 <input
                   type="email"
                   value={customerEmail}
@@ -259,7 +263,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 />
               </div>
               <div>
-                <label className="text-xs block mb-1">Phone</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.customer_phone", "Phone")}</label>
                 <input
                   type="tel"
                   value={customerPhone}
@@ -279,11 +283,11 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Clock size={14} />
-              Date & Time
+              {tWithFallback("ui.app.booking.detail.date_time", "Date & Time")}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-xs block mb-1">Date *</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.date", "Date *")}</label>
                 <input
                   type="date"
                   value={startDate}
@@ -298,7 +302,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 />
               </div>
               <div>
-                <label className="text-xs block mb-1">Time *</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.time", "Time *")}</label>
                 <input
                   type="time"
                   value={startTime}
@@ -313,7 +317,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 />
               </div>
               <div>
-                <label className="text-xs block mb-1">Duration (min)</label>
+                <label className="text-xs block mb-1">{tWithFallback("ui.app.booking.form.duration_minutes", "Duration (min)")}</label>
                 <input
                   type="number"
                   value={duration}
@@ -333,7 +337,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Resource */}
           <div>
-            <label className="text-xs font-medium block mb-1">Resource *</label>
+            <label className="text-xs font-medium block mb-1">{tWithFallback("ui.app.booking.form.resource", "Resource *")}</label>
             <select
               value={selectedResourceId}
               onChange={(e) => setSelectedResourceId(e.target.value as Id<"objects"> | "")}
@@ -345,7 +349,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               }}
               required
             >
-              <option value="">Select a resource...</option>
+              <option value="">{tWithFallback("ui.app.booking.form.select_resource", "Select a resource...")}</option>
               {bookableResources.map((resource: { _id: string; name?: string | null; subtype?: string | null }) => (
                 <option key={resource._id} value={resource._id}>
                   {resource.name} ({resource.subtype?.replace("_", " ")})
@@ -365,7 +369,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
             >
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Info size={14} />
-                Resource Details
+                {tWithFallback("ui.app.booking.form.resource_details", "Resource Details")}
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {/* Price Info */}
@@ -374,7 +378,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   <span>
                     {resourceConfig.pricePerUnit > 0
                       ? `${(resourceConfig.pricePerUnit / 100).toFixed(2)} / ${resourceConfig.priceUnit}`
-                      : "Free"
+                      : tWithFallback("ui.app.booking.form.free", "Free")
                     }
                   </span>
                 </div>
@@ -384,8 +388,8 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   <User size={12} style={{ color: 'var(--primary)' }} />
                   <span>
                     {resourceConfig.capacity > 1
-                      ? `Up to ${resourceConfig.capacity} participants`
-                      : "1 participant"
+                      ? tWithFallback("ui.app.booking.form.capacity_multiple", "Up to {count} participants", { count: resourceConfig.capacity })
+                      : tWithFallback("ui.app.booking.form.capacity_single", "1 participant")
                     }
                   </span>
                 </div>
@@ -405,7 +409,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 {resourceConfig.confirmationRequired && (
                   <div className="flex items-center gap-1">
                     <Calendar size={12} style={{ color: 'var(--error-bg)' }} />
-                    <span>Requires confirmation</span>
+                    <span>{tWithFallback("ui.app.booking.form.requires_confirmation", "Requires confirmation")}</span>
                   </div>
                 )}
 
@@ -414,7 +418,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                   <div className="flex items-center gap-1 col-span-2">
                     <DollarSign size={12} style={{ color: 'var(--warning-bg)' }} />
                     <span>
-                      Deposit: {resourceConfig.depositPercent > 0
+                      {tWithFallback("ui.app.booking.detail.deposit", "Deposit")}: {resourceConfig.depositPercent > 0
                         ? `${resourceConfig.depositPercent}%`
                         : `${(resourceConfig.depositAmountCents / 100).toFixed(2)}`
                       }
@@ -427,7 +431,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Location */}
           <div>
-            <label className="text-xs font-medium block mb-1">Location</label>
+            <label className="text-xs font-medium block mb-1">{tWithFallback("ui.app.booking.location.detail.location", "Location")}</label>
             <select
               value={selectedLocationId}
               onChange={(e) => setSelectedLocationId(e.target.value as Id<"objects"> | "")}
@@ -438,7 +442,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 color: 'var(--shell-input-text)'
               }}
             >
-              <option value="">No location</option>
+              <option value="">{tWithFallback("ui.app.booking.form.no_location", "No location")}</option>
               {activeLocations.map((location) => (
                 <option key={location._id} value={location._id}>
                   {location.name}
@@ -449,7 +453,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Participants */}
           <div>
-            <label className="text-xs font-medium block mb-1">Number of Participants</label>
+            <label className="text-xs font-medium block mb-1">
+              {tWithFallback("ui.app.booking.form.participants", "Number of Participants")}
+            </label>
             <input
               type="number"
               value={participants}
@@ -466,7 +472,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium block mb-1">Notes</label>
+            <label className="text-xs font-medium block mb-1">{tWithFallback("ui.app.booking.detail.notes", "Notes")}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -488,7 +494,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               onChange={(e) => setConfirmationRequired(e.target.checked)}
               className="w-4 h-4"
             />
-            Require admin confirmation
+            {tWithFallback("ui.app.booking.form.require_admin_confirmation", "Require admin confirmation")}
           </label>
 
           {/* Error */}
@@ -510,7 +516,9 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
                 opacity: isSubmitting ? 0.5 : 1
               }}
             >
-              {isSubmitting ? "Creating..." : "Create Booking"}
+              {isSubmitting
+                ? tWithFallback("ui.app.booking.actions.creating", "Creating...")
+                : tWithFallback("ui.app.booking.form.create_booking", "Create Booking")}
             </button>
             <button
               type="button"
@@ -518,7 +526,7 @@ export function BookingFormModal({ onClose, onSuccess }: BookingFormModalProps) 
               className="desktop-interior-button px-4 py-2 text-sm"
               style={{ background: 'var(--shell-button-surface)' }}
             >
-              Cancel
+              {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
             </button>
           </div>
         </form>

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react"
 import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { useWindowManager } from "@/hooks/use-window-manager"
 import { Calendar, Plus, Globe, Mail, RefreshCw, MoreHorizontal, Trash2, AlertTriangle } from "lucide-react"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 // Workaround for Convex deep type instantiation issue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,6 +83,7 @@ export function CalendarSettings() {
   const currentOrganization = useCurrentOrganization()
   const organizationId = currentOrganization?.id
   const { openWindow } = useWindowManager()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -260,10 +262,10 @@ export function CalendarSettings() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-pixel text-sm" style={{ color: 'var(--shell-text)' }}>
-            Calendars
+            {tWithFallback("ui.app.booking.settings.calendar.title", "Calendars")}
           </h2>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            Configure how your bookings interact with your calendars
+            {tWithFallback("ui.app.booking.settings.calendar.subtitle", "Configure how your bookings interact with your calendars")}
           </p>
         </div>
         <button
@@ -272,7 +274,9 @@ export function CalendarSettings() {
           style={{ color: 'var(--shell-text)' }}
         >
           <Plus size={12} />
-          <span className="font-pixel text-xs">Add calendar</span>
+          <span className="font-pixel text-xs">
+            {tWithFallback("ui.app.booking.settings.calendar.actions.add_calendar", "Add calendar")}
+          </span>
         </button>
       </div>
 
@@ -286,10 +290,10 @@ export function CalendarSettings() {
       >
         <div>
           <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
-            Add to calendar
+            {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.title", "Add to calendar")}
           </h3>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            Select where to add events when you&apos;re booked.
+            {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.subtitle", "Select where to add events when you're booked.")}
           </p>
         </div>
 
@@ -302,7 +306,10 @@ export function CalendarSettings() {
               color: 'var(--neutral-gray)',
             }}
           >
-            Connect Google Calendar to push confirmed bookings to an external calendar.
+            {tWithFallback(
+              "ui.app.booking.settings.calendar.add_to_calendar.connect_google_hint",
+              "Connect Google Calendar to push confirmed bookings to an external calendar.",
+            )}
           </div>
         )}
 
@@ -324,7 +331,7 @@ export function CalendarSettings() {
 
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
-            Add events to
+            {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.select_target", "Add events to")}
           </label>
           <select
             className="w-full px-3 py-2 text-xs border-2"
@@ -337,7 +344,9 @@ export function CalendarSettings() {
             value={pushCalendarId || ""}
             onChange={(e) => handleSetPushCalendar(e.target.value)}
           >
-            <option value="">None (do not add to calendar)</option>
+            <option value="">
+              {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.none", "None (do not add to calendar)")}
+            </option>
             {(subCalendars ?? []).map((sc) => (
               <option key={sc.calendarId} value={sc.calendarId}>
                 {sc.summary}{sc.primary ? " (primary)" : ""} — {googleCalendarConnection?.email}
@@ -346,25 +355,28 @@ export function CalendarSettings() {
             {googleConnectionId && (!subCalendars || subCalendars.length === 0) && (
               <option value="" disabled>
                 {googleSubCalendarCacheReady
-                  ? "No Google calendars available"
-                  : "No calendars loaded — use \"Fetch calendars\" below"}
+                  ? tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.no_google_calendars", "No Google calendars available")
+                  : tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.no_calendars_loaded", "No calendars loaded — use \"Fetch calendars\" below")}
               </option>
             )}
           </select>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            Clearing this keeps booking records native-only even when Google sync stays enabled.
+            {tWithFallback(
+              "ui.app.booking.settings.calendar.add_to_calendar.clear_hint",
+              "Clearing this keeps booking records native-only even when Google sync stays enabled.",
+            )}
           </p>
         </div>
 
         {googleLastSyncError && (
           <p className="text-xs" style={{ color: 'var(--warning)' }}>
-            Last Google sync error: {googleLastSyncError}
+            {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.last_sync_error", "Last Google sync error:")} {googleLastSyncError}
           </p>
         )}
 
         <div>
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--shell-text)' }}>
-            Default reminder
+            {tWithFallback("ui.app.booking.settings.calendar.add_to_calendar.default_reminder", "Default reminder")}
           </label>
           <select
             className="w-full px-3 py-2 text-xs border-2"
@@ -374,14 +386,17 @@ export function CalendarSettings() {
               color: 'var(--shell-input-text)',
             }}
           >
-            <option value="">Use default reminders</option>
-            <option value="0">No reminder</option>
-            <option value="10">10 minutes before</option>
-            <option value="30">30 minutes before</option>
-            <option value="60">60 minutes before</option>
+            <option value="">{tWithFallback("ui.app.booking.settings.calendar.reminder.use_default", "Use default reminders")}</option>
+            <option value="0">{tWithFallback("ui.app.booking.settings.calendar.reminder.none", "No reminder")}</option>
+            <option value="10">{tWithFallback("ui.app.booking.settings.calendar.reminder.minutes_10", "10 minutes before")}</option>
+            <option value="30">{tWithFallback("ui.app.booking.settings.calendar.reminder.minutes_30", "30 minutes before")}</option>
+            <option value="60">{tWithFallback("ui.app.booking.settings.calendar.reminder.minutes_60", "60 minutes before")}</option>
           </select>
           <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-            Set the default reminder time for events added to your calendar.
+            {tWithFallback(
+              "ui.app.booking.settings.calendar.reminder.hint",
+              "Set the default reminder time for events added to your calendar.",
+            )}
           </p>
         </div>
       </div>
@@ -397,10 +412,13 @@ export function CalendarSettings() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-pixel text-xs font-bold" style={{ color: 'var(--shell-text)' }}>
-              Check for conflicts
+              {tWithFallback("ui.app.booking.settings.calendar.conflicts.title", "Check for conflicts")}
             </h3>
             <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
-              Select which calendars you want to check to prevent double bookings.
+              {tWithFallback(
+                "ui.app.booking.settings.calendar.conflicts.subtitle",
+                "Select which calendars you want to check to prevent double bookings.",
+              )}
             </p>
           </div>
           <button
@@ -409,7 +427,7 @@ export function CalendarSettings() {
             style={{ color: 'var(--shell-text)' }}
           >
             <Plus size={10} />
-            <span className="text-xs">Add</span>
+            <span className="text-xs">{tWithFallback("ui.app.booking.actions.add", "Add")}</span>
           </button>
         </div>
 
@@ -419,9 +437,9 @@ export function CalendarSettings() {
             style={{ color: 'var(--neutral-gray)' }}
           >
             <Calendar size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">No calendars connected</p>
+            <p className="text-xs">{tWithFallback("ui.app.booking.settings.calendar.conflicts.empty_title", "No calendars connected")}</p>
             <p className="text-xs mt-1">
-              Connect Google or Microsoft to check for conflicts.
+              {tWithFallback("ui.app.booking.settings.calendar.conflicts.empty_hint", "Connect Google or Microsoft to check for conflicts.")}
             </p>
           </div>
         ) : (
@@ -461,16 +479,16 @@ export function CalendarSettings() {
                       <div className="flex items-center gap-1.5 mt-1">
                         <AlertTriangle size={10} style={{ color: 'var(--warning)' }} />
                         <span className="text-xs" style={{ color: 'var(--warning)' }}>
-                          {cal.status === "expired" && "Connection expired"}
-                          {cal.status === "error" && "Connection error"}
-                          {cal.status === "revoked" && "Access revoked"}
+                          {cal.status === "expired" && tWithFallback("ui.app.booking.settings.calendar.connection.expired", "Connection expired")}
+                          {cal.status === "error" && tWithFallback("ui.app.booking.settings.calendar.connection.error", "Connection error")}
+                          {cal.status === "revoked" && tWithFallback("ui.app.booking.settings.calendar.connection.revoked", "Access revoked")}
                         </span>
                         <button
                           onClick={() => handleAddCalendar()}
                           className="text-xs underline ml-1"
                           style={{ color: 'var(--warning)' }}
                         >
-                          Reconnect
+                          {tWithFallback("ui.app.booking.settings.calendar.actions.reconnect", "Reconnect")}
                         </button>
                       </div>
                     )}
@@ -480,7 +498,7 @@ export function CalendarSettings() {
                       onClick={() => setMenuOpenFor(menuOpenFor === cal.connectionId ? null : cal.connectionId)}
                       className="desktop-interior-button p-1.5"
                       style={{ color: 'var(--shell-text)' }}
-                      title="Options"
+                      title={tWithFallback("ui.app.booking.settings.calendar.options", "Options")}
                     >
                       <MoreHorizontal size={14} />
                     </button>
@@ -498,7 +516,7 @@ export function CalendarSettings() {
                           style={{ color: 'var(--danger, #e53e3e)' }}
                         >
                           <Trash2 size={12} />
-                          Remove connection
+                          {tWithFallback("ui.app.booking.settings.calendar.actions.remove_connection", "Remove connection")}
                         </button>
                       </div>
                     )}
@@ -511,7 +529,7 @@ export function CalendarSettings() {
                     <div className="flex items-center justify-between gap-3 py-2">
                       <div>
                         <p className="text-xs font-semibold" style={{ color: 'var(--shell-text)' }}>
-                          Sync Google conflict data
+                          {tWithFallback("ui.app.booking.settings.calendar.conflicts.sync_google_title", "Sync Google conflict data")}
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'var(--neutral-gray)' }}>
                           Conflict checks fail closed when sync is off, the connection is inactive, or Google read scope is missing.
@@ -600,16 +618,20 @@ export function CalendarSettings() {
 
                         {googleConnectionId && (
                           <button
-                            onClick={handleRefreshSubCalendars}
-                            disabled={refreshing || googleBlockingControlsDisabled}
-                            className="flex items-center gap-1 mt-2 text-xs hover:opacity-80 disabled:opacity-60"
-                            style={{ color: 'var(--neutral-gray)' }}
-                            title="Refresh calendar list from Google"
-                          >
-                            <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
-                            <span>{refreshing ? "Refreshing..." : "Refresh calendars"}</span>
-                          </button>
-                        )}
+                          onClick={handleRefreshSubCalendars}
+                          disabled={refreshing || googleBlockingControlsDisabled}
+                          className="flex items-center gap-1 mt-2 text-xs hover:opacity-80 disabled:opacity-60"
+                          style={{ color: 'var(--neutral-gray)' }}
+                          title={tWithFallback("ui.app.booking.settings.calendar.actions.refresh_calendars", "Refresh calendar list from Google")}
+                        >
+                          <RefreshCw size={10} className={refreshing ? "animate-spin" : ""} />
+                          <span>
+                            {refreshing
+                              ? tWithFallback("ui.app.booking.actions.refreshing", "Refreshing...")
+                              : tWithFallback("ui.app.booking.settings.calendar.actions.refresh_calendars_short", "Refresh calendars")}
+                          </span>
+                        </button>
+                      )}
                       </>
                     ) : (
                       <div className="py-2">
@@ -625,7 +647,9 @@ export function CalendarSettings() {
                           >
                             <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
                             <span className="text-xs font-pixel">
-                              {refreshing ? "Fetching..." : "Fetch calendars"}
+                              {refreshing
+                                ? tWithFallback("ui.app.booking.actions.fetching", "Fetching...")
+                                : tWithFallback("ui.app.booking.settings.calendar.actions.fetch_calendars", "Fetch calendars")}
                             </span>
                           </button>
                           <button
@@ -634,7 +658,9 @@ export function CalendarSettings() {
                             style={{ color: 'var(--shell-text)' }}
                           >
                             <Globe size={12} />
-                            <span className="text-xs font-pixel">Reconnect</span>
+                            <span className="text-xs font-pixel">
+                              {tWithFallback("ui.app.booking.settings.calendar.actions.reconnect", "Reconnect")}
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -666,7 +692,7 @@ export function CalendarSettings() {
                           />
                         </button>
                         <span className="text-xs" style={{ color: 'var(--shell-text)' }}>
-                          Check Outlook for conflicts
+                          {tWithFallback("ui.app.booking.settings.calendar.conflicts.check_outlook", "Check Outlook for conflicts")}
                         </span>
                       </label>
                     </div>

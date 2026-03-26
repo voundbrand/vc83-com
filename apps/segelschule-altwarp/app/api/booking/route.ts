@@ -5,6 +5,7 @@ import type { Id } from "../../../../../convex/_generated/dataModel"
 import {
   getConvexClient,
   getOrganizationId,
+  queryInternal,
   mutateInternal,
   actionInternal,
 } from "@/lib/server-convex"
@@ -17,6 +18,16 @@ import {
   buildBookingNotificationHtml,
   type BookingEmailData,
 } from "@/lib/email"
+import {
+  normalizeSeatSelections,
+  parseBookingStartTimestamp,
+  resolveSegelschuleRuntimeConfig,
+} from "@/lib/booking-platform-bridge"
+import {
+  buildCheckoutMetadata,
+  buildSeatInventoryFromBoats,
+  mapToResourceSeatSelections,
+} from "@/lib/booking-runtime-contracts"
 
 // Dynamic require avoids excessively deep Convex API type instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +44,7 @@ interface BookingPayload {
   course: { id: string; title: string; price: string; isMultiDay: boolean }
   date: string
   time: string
-  seats: { boatName: string; seatNumbers: number[] }[]
+  seats: { boatId?: string; boatName: string; seatNumbers: number[] }[]
   totalSeats: number
   formData: {
     name: string
@@ -46,6 +57,15 @@ interface BookingPayload {
   paymentMethod: string
   totalAmount: number
   language: string
+}
+
+interface BridgeCheckoutSessionResult {
+  sessionId: string
+  clientSecret: string | null
+  amount: number
+  currency: string
+  expiresAt: number
+  checkoutUrl: string | null
 }
 
 function validateBookingPayload(
@@ -183,6 +203,44 @@ export async function POST(request: Request) {
     }
 
     const convex = getConvexClient()
+    const runtimeResolution = await resolveSegelschuleRuntimeConfig({
+      convex,
+      queryInternalFn: queryInternal,
+      generatedInternalApi,
+      organizationId,
+    })
+    const bookingRuntimeConfig = runtimeResolution.runtimeConfig
+    const selectedCourseRuntime = bookingRuntimeConfig.courses[data.course.id]
+    if (!selectedCourseRuntime) {
+      return NextResponse.json(
+        { error: "Unknown course for selected booking surface" },
+        { status: 404 }
+      )
+    }
+
+    const normalizedSeatSelection = normalizeSeatSelections({
+      selections: data.seats,
+      boats: bookingRuntimeConfig.boats,
+    })
+    if (normalizedSeatSelection.errors.length > 0) {
+      return NextResponse.json(
+        { error: normalizedSeatSelection.errors[0] },
+        { status: 400 }
+      )
+    }
+    if (normalizedSeatSelection.totalSeats < 1) {
+      return NextResponse.json(
+        { error: "At least one seat must be selected." },
+        { status: 400 }
+      )
+    }
+    if (normalizedSeatSelection.totalSeats !== data.totalSeats) {
+      return NextResponse.json(
+        { error: "Selected seats do not match participant count." },
+        { status: 400 }
+      )
+    }
+
     const now = Date.now()
 
     // Split name for CRM (first word → firstName, rest → lastName)
@@ -210,8 +268,8 @@ export async function POST(request: Request) {
           isMultiDay: data.course.isMultiDay,
           date: data.date,
           time: data.time,
-          seats: data.seats,
-          totalSeats: data.totalSeats,
+          seats: normalizedSeatSelection.selections,
+          totalSeats: normalizedSeatSelection.totalSeats,
           customerName: data.formData.name,
           customerEmail: data.formData.email,
           customerPhone: data.formData.phone,
@@ -251,12 +309,296 @@ export async function POST(request: Request) {
           source: "segelschule_landing",
           sourceRef: `booking:${data.course.id}`,
           tags: ["segelschule_landing", "booking", data.course.id],
-          notes: `Booked ${data.course.title} on ${data.date} at ${data.time}. ${data.totalSeats} seat(s).`,
+          notes: `Booked ${data.course.title} on ${data.date} at ${data.time}. ${normalizedSeatSelection.totalSeats} seat(s).`,
         },
         createdAt: now,
         updatedAt: now,
       }
     )
+
+    // -----------------------------------------------------------------
+    // Mother repo bridge: frontend account + optional booking/checkout
+    // -----------------------------------------------------------------
+    const bridgeWarnings: string[] = [...runtimeResolution.warnings]
+    let frontendUserId: Id<"objects"> | null = null
+    let platformBookingId: Id<"objects"> | null = null
+    let checkoutSession: BridgeCheckoutSessionResult | null = null
+    let resourceBookingBridgeError: string | null = null
+
+    try {
+      frontendUserId = await mutateInternal(
+        convex,
+        generatedInternalApi.auth.createOrGetGuestUser,
+        {
+          email: data.formData.email.toLowerCase(),
+          firstName,
+          lastName: lastName || undefined,
+          organizationId: organizationId as Id<"organizations">,
+        }
+      )
+
+      await mutateInternal(
+        convex,
+        generatedInternalApi.auth.linkFrontendUserToCRM,
+        {
+          userId: frontendUserId,
+          email: data.formData.email.toLowerCase(),
+          organizationId: organizationId as Id<"organizations">,
+        }
+      )
+    } catch (bridgeError) {
+      bridgeWarnings.push("frontend_account_bridge_failed")
+      console.error("[Booking Bridge] frontend account wiring failed:", bridgeError)
+    }
+
+    if (selectedCourseRuntime.bookingResourceId) {
+      const startDateTime = parseBookingStartTimestamp(data.date, data.time)
+      if (!startDateTime) {
+        bridgeWarnings.push("invalid_booking_datetime")
+      } else {
+        const bookingDurationMinutes =
+          selectedCourseRuntime.bookingDurationMinutes
+
+        try {
+          const resourceSeatSelections = mapToResourceSeatSelections(
+            normalizedSeatSelection.selections
+          )
+          const platformBookingResult = await mutateInternal(
+            convex,
+            generatedInternalApi.api.v1.resourceBookingsInternal
+              .customerCheckoutInternal,
+            {
+              organizationId: organizationId as Id<"organizations">,
+              resourceId: selectedCourseRuntime.bookingResourceId as Id<"objects">,
+              startDateTime,
+              endDateTime:
+                startDateTime + bookingDurationMinutes * 60_000,
+              timezone: bookingRuntimeConfig.timezone,
+              customer: {
+                firstName,
+                lastName: lastName || firstName,
+                email: data.formData.email,
+                phone: data.formData.phone,
+              },
+              participants: normalizedSeatSelection.totalSeats,
+              notes: data.formData.message,
+              source: "segelschule_landing",
+              seatSelections: resourceSeatSelections,
+              seatInventory: buildSeatInventoryFromBoats({
+                boats: bookingRuntimeConfig.boats,
+                strictSeatSelection: true,
+              }),
+            }
+          )
+
+          platformBookingId = (platformBookingResult?.bookingId ||
+            null) as Id<"objects"> | null
+        } catch (bridgeError) {
+          bridgeWarnings.push("resource_booking_bridge_failed")
+          resourceBookingBridgeError =
+            bridgeError instanceof Error
+              ? bridgeError.message
+              : "No availability for the selected slot"
+          console.error(
+            "[Booking Bridge] resource booking checkout failed:",
+            bridgeError
+          )
+        }
+      }
+    }
+
+    if (selectedCourseRuntime.bookingResourceId && !platformBookingId) {
+      try {
+        await mutateInternal(
+          convex,
+          generatedInternalApi.channels.router.patchObjectInternal,
+          {
+            objectId: bookingId,
+            status: "cancelled",
+            updatedAt: Date.now(),
+          }
+        )
+      } catch (patchError) {
+        console.error(
+          "[Booking Bridge] failed to cancel local booking after resource booking failure:",
+          patchError
+        )
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            resourceBookingBridgeError ||
+            "No availability for the selected date/time and seats.",
+          bookingId,
+          warnings: bridgeWarnings,
+        },
+        { status: 409 }
+      )
+    }
+
+    if (selectedCourseRuntime.checkoutProductId) {
+      try {
+        const checkoutMetadata = buildCheckoutMetadata({
+          bookingId: String(bookingId),
+          courseId: data.course.id,
+          courseName: data.course.title,
+          date: data.date,
+          time: data.time,
+          participants: normalizedSeatSelection.totalSeats,
+          language: data.language,
+          seatSelections: normalizedSeatSelection.selections,
+          frontendUserId: frontendUserId ? String(frontendUserId) : null,
+          platformBookingId: platformBookingId ? String(platformBookingId) : null,
+        })
+
+        const checkoutResult = (await actionInternal(
+          convex,
+          generatedInternalApi.api.v1.checkoutInternal
+            .createCheckoutSessionInternal,
+          {
+            organizationId: organizationId as Id<"organizations">,
+            productId: selectedCourseRuntime.checkoutProductId as Id<"objects">,
+            quantity: Math.max(1, normalizedSeatSelection.totalSeats),
+            customerEmail: data.formData.email,
+            customerName: data.formData.name,
+            customerPhone: data.formData.phone,
+            metadata: checkoutMetadata,
+          }
+        )) as {
+          sessionId: unknown
+          clientSecret?: unknown
+          amount?: unknown
+          currency?: unknown
+          expiresAt?: unknown
+          checkoutUrl?: unknown
+        }
+
+        const checkoutUrlFromSession =
+          typeof checkoutResult.checkoutUrl === "string" &&
+          checkoutResult.checkoutUrl.trim().length > 0
+            ? checkoutResult.checkoutUrl.trim()
+            : null
+
+        checkoutSession = {
+          sessionId: String(checkoutResult.sessionId),
+          clientSecret:
+            typeof checkoutResult.clientSecret === "string" &&
+            checkoutResult.clientSecret.trim().length > 0
+              ? checkoutResult.clientSecret
+              : null,
+          amount:
+            typeof checkoutResult.amount === "number"
+              ? checkoutResult.amount
+              : 0,
+          currency:
+            typeof checkoutResult.currency === "string"
+              ? checkoutResult.currency
+              : "eur",
+          expiresAt:
+            typeof checkoutResult.expiresAt === "number"
+              ? checkoutResult.expiresAt
+              : Date.now() + 24 * 60 * 60 * 1000,
+          checkoutUrl:
+            checkoutUrlFromSession
+            || selectedCourseRuntime.checkoutPublicUrl
+            || null,
+        }
+        if (!checkoutSession.checkoutUrl) {
+          bridgeWarnings.push("checkout_url_missing")
+        }
+      } catch (bridgeError) {
+        bridgeWarnings.push("checkout_bridge_failed")
+        console.error(
+          "[Booking Bridge] checkout session creation failed:",
+          bridgeError
+        )
+      }
+    }
+
+    try {
+      const localBooking = (await queryInternal(
+        convex,
+        generatedInternalApi.channels.router.getObjectByIdInternal,
+        { objectId: bookingId }
+      )) as { customProperties?: Record<string, unknown> } | null
+      const localBookingProps = localBooking?.customProperties || {}
+      await mutateInternal(
+        convex,
+        generatedInternalApi.channels.router.patchObjectInternal,
+        {
+          objectId: bookingId,
+          customProperties: {
+            ...localBookingProps,
+            seats: normalizedSeatSelection.selections,
+            totalSeats: normalizedSeatSelection.totalSeats,
+            frontendUserId: frontendUserId ? String(frontendUserId) : null,
+            platformBookingId: platformBookingId
+              ? String(platformBookingId)
+              : null,
+            checkoutSessionId: checkoutSession
+              ? String(checkoutSession.sessionId)
+              : null,
+            checkoutSessionUrl: checkoutSession?.checkoutUrl || null,
+            runtimeConfigSource: runtimeResolution.source,
+            runtimeConfigBindingId: runtimeResolution.bindingId,
+            runtimeSurfaceAppSlug: runtimeResolution.identity.appSlug,
+            runtimeSurfaceType: runtimeResolution.identity.surfaceType,
+            runtimeSurfaceKey: runtimeResolution.identity.surfaceKey,
+            bridgeWarnings,
+          },
+          updatedAt: Date.now(),
+        }
+      )
+    } catch (linkingError) {
+      bridgeWarnings.push("local_booking_context_link_failed")
+      console.error(
+        "[Booking Bridge] local booking context link failed:",
+        linkingError
+      )
+    }
+
+    if (platformBookingId) {
+      try {
+        const platformBooking = (await queryInternal(
+          convex,
+          generatedInternalApi.channels.router.getObjectByIdInternal,
+          { objectId: platformBookingId }
+        )) as { customProperties?: Record<string, unknown> } | null
+        const platformBookingProps = platformBooking?.customProperties || {}
+
+        await mutateInternal(
+          convex,
+          generatedInternalApi.channels.router.patchObjectInternal,
+          {
+            objectId: platformBookingId,
+            customProperties: {
+              ...platformBookingProps,
+              source: "segelschule_landing_booking",
+              sourceBookingId: String(bookingId),
+              linkedFrontendUserId: frontendUserId
+                ? String(frontendUserId)
+                : null,
+              seatSelections: mapToResourceSeatSelections(
+                normalizedSeatSelection.selections
+              ),
+              checkoutSessionId: checkoutSession
+                ? String(checkoutSession.sessionId)
+                : null,
+              runtimeConfigSource: runtimeResolution.source,
+              runtimeConfigBindingId: runtimeResolution.bindingId,
+            },
+            updatedAt: Date.now(),
+          }
+        )
+      } catch (linkingError) {
+        bridgeWarnings.push("platform_booking_context_link_failed")
+        console.error(
+          "[Booking Bridge] platform booking context link failed:",
+          linkingError
+        )
+      }
+    }
 
     // -----------------------------------------------------------------
     // Emails (non-fatal, parallel)
@@ -282,8 +624,8 @@ export async function POST(request: Request) {
       coursePrice: data.course.price,
       date: data.date,
       time: data.time,
-      seats: data.seats,
-      totalSeats: data.totalSeats,
+      seats: normalizedSeatSelection.selections,
+      totalSeats: normalizedSeatSelection.totalSeats,
       totalAmount: data.totalAmount,
       tshirtSize: data.formData.tshirtSize,
       needsAccommodation: data.formData.needsAccommodation,
@@ -343,7 +685,18 @@ export async function POST(request: Request) {
     await Promise.all(emailPromises)
 
     return NextResponse.json(
-      { ok: true, bookingId, contactId },
+      {
+        ok: true,
+        bookingId,
+        contactId,
+        frontendUserId,
+        platformBookingId,
+        checkoutSession,
+        runtimeConfigSource: runtimeResolution.source,
+        runtimeConfigBindingId: runtimeResolution.bindingId,
+        runtimeSurfaceIdentity: runtimeResolution.identity,
+        warnings: bridgeWarnings,
+      },
       { status: 200, headers: { "Cache-Control": "no-store" } }
     )
   } catch (error) {

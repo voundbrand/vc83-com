@@ -160,10 +160,10 @@ export async function resolveEditorSessionState(
     return null;
   }
 
-  const convex = getConvexClient();
-  const siteOrganizationId = await getCmsOrganizationId(scope);
-
   try {
+    const convex = getConvexClient();
+    const siteOrganizationId = await getCmsOrganizationId(scope);
+
     const auth = await queryInternal(
       convex,
       generatedInternalApi.rbacHelpers.requireAuthenticatedUserQuery,

@@ -8,6 +8,7 @@ import { useNotification } from "@/hooks/use-notification"
 import { ArrowLeft, Edit3, Trash2, Plus, Copy, X, Globe, Info } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { CopyTimesPopover } from "./copy-times-popover"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface AvailabilityScheduleEditorProps {
   scheduleId: Id<"objects"> | null
@@ -63,9 +64,16 @@ function getTimezoneList(): string[] {
   }
 }
 
-function buildHoursSummary(days: DayConfig[]): string {
+function buildHoursSummary(
+  days: DayConfig[],
+  labels?: {
+    noAvailability: string
+    dayConfigured: string
+    daysConfigured: string
+  }
+): string {
   const activeDays = days.filter((d) => d.isAvailable)
-  if (activeDays.length === 0) return "No availability set"
+  if (activeDays.length === 0) return labels?.noAvailability ?? "No availability set"
 
   const allSame = activeDays.every(
     (d) =>
@@ -95,15 +103,20 @@ function buildHoursSummary(days: DayConfig[]): string {
     return `${activeDays.map((d) => DAYS[d.dayOfWeek].slice(0, 3)).join(", ")}, ${rangeStr}`
   }
 
-  return `${activeDays.length} day${activeDays.length !== 1 ? "s" : ""} configured`
+  return `${activeDays.length} ${activeDays.length === 1
+    ? (labels?.dayConfigured ?? "day configured")
+    : (labels?.daysConfigured ?? "days configured")}`
 }
 
 export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityScheduleEditorProps) {
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const notification = useNotification()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
-  const [scheduleName, setScheduleName] = useState("New Schedule")
+  const [scheduleName, setScheduleName] = useState(
+    tWithFallback("ui.app.booking.availability.editor.default_schedule_name", "New Schedule")
+  )
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [isDefault, setIsDefault] = useState(false)
   const [isEditingName, setIsEditingName] = useState(false)
@@ -203,7 +216,10 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
   const handleSave = async () => {
     if (!sessionId || !currentOrganization) return
     if (!scheduleName.trim()) {
-      notification.error("Error", "Please enter a schedule name")
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        tWithFallback("ui.app.booking.availability.editor.validation_name_required", "Please enter a schedule name"),
+      )
       return
     }
 
@@ -222,7 +238,10 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
             isAvailable: d.isAvailable,
           })),
         })
-        notification.success("Success", "Schedule created")
+        notification.success(
+          tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+          tWithFallback("ui.app.booking.availability.notifications.created", "Schedule created"),
+        )
       } else {
         await updateSchedule({
           sessionId,
@@ -246,12 +265,18 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
             }
           }
         }
-        notification.success("Success", "Schedule updated")
+        notification.success(
+          tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+          tWithFallback("ui.app.booking.availability.notifications.updated", "Schedule updated"),
+        )
       }
       setIsDirty(false)
       onBack()
     } catch (err) {
-      notification.error("Error", (err as Error).message)
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        (err as Error).message,
+      )
     } finally {
       setIsSaving(false)
     }
@@ -259,14 +284,22 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
 
   const handleDelete = async () => {
     if (!scheduleId || !sessionId) return
-    const confirmed = window.confirm("Are you sure you want to delete this schedule?")
+    const confirmed = window.confirm(
+      tWithFallback("ui.app.booking.availability.delete_dialog.confirm_native", "Are you sure you want to delete this schedule?")
+    )
     if (!confirmed) return
     try {
       await deleteSchedule({ sessionId, scheduleId })
-      notification.success("Success", "Schedule deleted")
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        tWithFallback("ui.app.booking.availability.notifications.deleted", "Schedule deleted"),
+      )
       onBack()
     } catch (err) {
-      notification.error("Error", (err as Error).message)
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        (err as Error).message,
+      )
     }
   }
 
@@ -276,6 +309,19 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
     color: "var(--shell-input-text)",
   }
 
+  const getDayLabel = (dayIndex: number) => {
+    switch (dayIndex) {
+      case 0: return tWithFallback("ui.app.booking.days.sunday", "Sunday")
+      case 1: return tWithFallback("ui.app.booking.days.monday", "Monday")
+      case 2: return tWithFallback("ui.app.booking.days.tuesday", "Tuesday")
+      case 3: return tWithFallback("ui.app.booking.days.wednesday", "Wednesday")
+      case 4: return tWithFallback("ui.app.booking.days.thursday", "Thursday")
+      case 5: return tWithFallback("ui.app.booking.days.friday", "Friday")
+      case 6: return tWithFallback("ui.app.booking.days.saturday", "Saturday")
+      default: return DAYS[dayIndex] || ""
+    }
+  }
+
   return (
     <div className="h-full flex flex-col" style={{ background: "var(--shell-surface)" }}>
       {/* Header Bar */}
@@ -283,7 +329,11 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
         className="p-4 border-b-2 flex items-center gap-3"
         style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
       >
-        <button className="desktop-interior-button p-1.5" onClick={onBack} title="Back">
+        <button
+          className="desktop-interior-button p-1.5"
+          onClick={onBack}
+          title={tWithFallback("ui.app.booking.nav.back", "Back")}
+        >
           <ArrowLeft size={14} />
         </button>
 
@@ -315,7 +365,11 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
             )}
           </div>
           <p className="font-pixel text-xs mt-0.5" style={{ color: "var(--neutral-gray)" }}>
-            {buildHoursSummary(days)}
+            {buildHoursSummary(days, {
+              noAvailability: tWithFallback("ui.app.booking.availability.editor.summary.none", "No availability set"),
+              dayConfigured: tWithFallback("ui.app.booking.availability.editor.summary.day_configured", "day configured"),
+              daysConfigured: tWithFallback("ui.app.booking.availability.editor.summary.days_configured", "days configured"),
+            })}
           </p>
         </div>
 
@@ -328,11 +382,15 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
               setIsDirty(true)
             }}
           />
-          Set as default
+          {tWithFallback("ui.app.booking.availability.actions.set_default", "Set as default")}
         </label>
 
         {scheduleId && (
-          <button className="desktop-interior-button p-1.5" onClick={handleDelete} title="Delete schedule">
+          <button
+            className="desktop-interior-button p-1.5"
+            onClick={handleDelete}
+            title={tWithFallback("ui.app.booking.availability.actions.delete_schedule", "Delete schedule")}
+          >
             <Trash2 size={14} />
           </button>
         )}
@@ -346,7 +404,9 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
           onClick={handleSave}
           disabled={isSaving || !isDirty}
         >
-          {isSaving ? "Saving..." : "Save"}
+          {isSaving
+            ? tWithFallback("ui.app.booking.actions.saving", "Saving...")
+            : tWithFallback("ui.app.booking.actions.save", "Save")}
         </button>
       </div>
 
@@ -395,7 +455,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                   <span
                     className={`font-pixel text-xs w-20 shrink-0 pt-0.5 ${!day.isAvailable ? "opacity-40" : ""}`}
                   >
-                    {DAYS[dayIndex]}
+                    {getDayLabel(dayIndex)}
                   </span>
 
                   {/* Time Ranges */}
@@ -436,7 +496,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                               <button
                                 className="desktop-interior-button p-1"
                                 onClick={() => addTimeRange(dayIndex)}
-                                title="Add time range"
+                                title={tWithFallback("ui.app.booking.availability.editor.add_time_range", "Add time range")}
                               >
                                 <Plus size={12} />
                               </button>
@@ -446,7 +506,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                                   onClick={() =>
                                     setCopyPopoverDay(copyPopoverDay === dayIndex ? null : dayIndex)
                                   }
-                                  title="Copy times to other days"
+                                  title={tWithFallback("ui.app.booking.availability.editor.copy_times", "Copy times to other days")}
                                 >
                                   <Copy size={12} />
                                 </button>
@@ -463,7 +523,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                             <button
                               className="desktop-interior-button p-1"
                               onClick={() => removeTimeRange(dayIndex, rangeIndex)}
-                              title="Remove time range"
+                              title={tWithFallback("ui.app.booking.availability.editor.remove_time_range", "Remove time range")}
                             >
                               <X size={12} />
                             </button>
@@ -472,7 +532,9 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                       ))}
                     </div>
                   ) : (
-                    <span className="font-pixel text-xs opacity-40 pt-0.5">Unavailable</span>
+                    <span className="font-pixel text-xs opacity-40 pt-0.5">
+                      {tWithFallback("ui.app.booking.availability.editor.unavailable", "Unavailable")}
+                    </span>
                   )}
                 </div>
               ))}
@@ -484,19 +546,21 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
               style={{ borderColor: "var(--shell-border)", background: "var(--shell-surface-elevated)" }}
             >
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-pixel text-xs font-bold">Date overrides</h3>
+                <h3 className="font-pixel text-xs font-bold">
+                  {tWithFallback("ui.app.booking.availability.editor.date_overrides", "Date overrides")}
+                </h3>
                 <Info size={12} style={{ color: "var(--neutral-gray)" }} />
               </div>
               <p className="font-pixel text-xs mb-3" style={{ color: "var(--neutral-gray)" }}>
-                Add dates when your availability changes from your daily hours.
+                {tWithFallback("ui.app.booking.availability.editor.date_overrides_hint", "Add dates when your availability changes from your daily hours.")}
               </p>
               <button
                 className="desktop-interior-button px-3 py-1.5 font-pixel text-xs opacity-50 cursor-not-allowed"
                 disabled
-                title="Coming soon"
+                title={tWithFallback("ui.app.booking.availability.editor.coming_soon", "Coming soon")}
               >
                 <Plus size={12} className="inline mr-1" />
-                Add an override
+                {tWithFallback("ui.app.booking.availability.editor.add_override", "Add an override")}
               </button>
             </div>
           </div>
@@ -509,7 +573,7 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
             >
               <label className="font-pixel text-xs font-bold flex items-center gap-1.5 mb-2">
                 <Globe size={12} />
-                Timezone
+                {tWithFallback("ui.app.booking.availability.editor.timezone", "Timezone")}
               </label>
               <select
                 className="w-full border-2 font-pixel text-xs px-2 py-1.5 rounded-none"
@@ -520,14 +584,14 @@ export function AvailabilityScheduleEditor({ scheduleId, onBack }: AvailabilityS
                   setIsDirty(true)
                 }}
               >
-                <optgroup label="Common">
+                <optgroup label={tWithFallback("ui.app.booking.availability.editor.timezone_common", "Common")}>
                   {COMMON_TIMEZONES.map((tz) => (
                     <option key={tz} value={tz}>
                       {tz.replace(/_/g, " ")}
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="All Timezones">
+                <optgroup label={tWithFallback("ui.app.booking.availability.editor.timezone_all", "All Timezones")}>
                   {timezoneList
                     .filter((tz) => !COMMON_TIMEZONES.includes(tz))
                     .map((tz) => (

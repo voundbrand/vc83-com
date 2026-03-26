@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface CopyTimesPopoverProps {
   sourceDayIndex: number
@@ -11,7 +12,21 @@ interface CopyTimesPopoverProps {
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimesPopoverProps) {
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([sourceDayIndex]))
+
+  const getDayLabel = (dayIndex: number) => {
+    switch (dayIndex) {
+      case 0: return tWithFallback("ui.app.booking.days.sunday", "Sunday")
+      case 1: return tWithFallback("ui.app.booking.days.monday", "Monday")
+      case 2: return tWithFallback("ui.app.booking.days.tuesday", "Tuesday")
+      case 3: return tWithFallback("ui.app.booking.days.wednesday", "Wednesday")
+      case 4: return tWithFallback("ui.app.booking.days.thursday", "Thursday")
+      case 5: return tWithFallback("ui.app.booking.days.friday", "Friday")
+      case 6: return tWithFallback("ui.app.booking.days.saturday", "Saturday")
+      default: return DAYS[dayIndex] || ""
+    }
+  }
 
   const isAllSelected = selectedDays.size === 7
 
@@ -48,7 +63,7 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
     >
       {/* Header */}
       <div className="font-pixel text-xs font-bold mb-2" style={{ color: 'var(--shell-text)' }}>
-        COPY TIMES TO
+        {tWithFallback("ui.app.booking.availability.copy_popover.title", "COPY TIMES TO")}
       </div>
 
       {/* Select All */}
@@ -58,7 +73,9 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
           checked={isAllSelected}
           onChange={toggleAll}
         />
-        <span className="font-pixel text-xs">Select all</span>
+        <span className="font-pixel text-xs">
+          {tWithFallback("ui.app.booking.availability.copy_popover.select_all", "Select all")}
+        </span>
       </label>
 
       {/* Divider */}
@@ -79,7 +96,7 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
             disabled={index === sourceDayIndex}
             onChange={() => toggleDay(index)}
           />
-          <span className="font-pixel text-xs">{day}</span>
+          <span className="font-pixel text-xs">{getDayLabel(index)}</span>
         </label>
       ))}
 
@@ -89,7 +106,7 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
           className="desktop-interior-button px-3 py-1 font-pixel text-xs"
           onClick={onClose}
         >
-          Cancel
+          {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
         </button>
         <button
           className="desktop-interior-button px-3 py-1 font-pixel text-xs"
@@ -99,7 +116,7 @@ export function CopyTimesPopover({ sourceDayIndex, onApply, onClose }: CopyTimes
           }}
           onClick={handleApply}
         >
-          Apply
+          {tWithFallback("ui.app.booking.actions.apply", "Apply")}
         </button>
       </div>
     </div>

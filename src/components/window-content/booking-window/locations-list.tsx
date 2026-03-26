@@ -8,6 +8,7 @@ import { Search, Filter, Plus, MapPin, Building2, Globe, Monitor } from "lucide-
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { LocationFormModal } from "./location-form-modal"
 import { useNotification } from "@/hooks/use-notification"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface LocationsListProps {
   selectedId: Id<"objects"> | null
@@ -22,6 +23,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
   const currentOrganization = useCurrentOrganization()
   const currentOrganizationId = currentOrganization?.id
   const notification = useNotification()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<LocationStatus>("")
@@ -45,8 +47,12 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
   if (!sessionId || !currentOrganizationId) {
     return (
       <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-        <p className="font-pixel text-sm">Please log in</p>
-        <p className="text-xs mt-2">Login required to view locations</p>
+        <p className="font-pixel text-sm">
+          {tWithFallback("ui.app.booking.auth.login_required_title", "Please log in")}
+        </p>
+        <p className="text-xs mt-2">
+          {tWithFallback("ui.app.booking.auth.login_required_locations_hint", "Login required to view locations")}
+        </p>
       </div>
     )
   }
@@ -76,17 +82,17 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
 
   const getSubtypeLabel = (subtype: string) => {
     switch (subtype) {
-      case "branch": return "Branch"
-      case "venue": return "Venue"
-      case "virtual": return "Virtual"
+      case "branch": return tWithFallback("ui.app.booking.location.subtype.branch", "Branch")
+      case "venue": return tWithFallback("ui.app.booking.location.subtype.venue", "Venue")
+      case "virtual": return tWithFallback("ui.app.booking.location.subtype.virtual", "Virtual")
       default: return subtype
     }
   }
 
   const formatAddress = (address: { street?: string; city?: string; state?: string } | undefined) => {
-    if (!address) return "No address"
+    if (!address) return tWithFallback("ui.app.booking.location.list.no_address", "No address")
     const parts = [address.street, address.city, address.state].filter(Boolean)
-    return parts.join(", ") || "No address"
+    return parts.join(", ") || tWithFallback("ui.app.booking.location.list.no_address", "No address")
   }
 
   return (
@@ -99,7 +105,8 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--neutral-gray)' }} />
             <input
               type="text"
-              placeholder="Search locations..."
+              placeholder={tWithFallback("ui.app.booking.location.list.search_placeholder", "Search locations...")}
+              aria-label={tWithFallback("ui.app.booking.location.list.search_aria_label", "Search locations")}
               className="w-full pl-8 pr-2 py-1.5 border-2 focus:outline-none text-sm"
               style={{
                 borderColor: 'var(--shell-border)',
@@ -111,10 +118,14 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             />
           </div>
           <button
+            type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`desktop-interior-button px-3 py-1.5 flex items-center gap-1 ${
               showFilters ? "shadow-inner" : ""
             }`}
+            aria-pressed={showFilters}
+            aria-label={tWithFallback("ui.app.booking.location.filters.toggle", "Toggle location filters")}
+            title={tWithFallback("ui.app.booking.location.filters.toggle", "Toggle location filters")}
             style={{
               background: showFilters ? 'var(--shell-selection-bg)' : 'var(--shell-button-surface)',
               color: showFilters ? 'var(--shell-selection-text)' : 'var(--shell-text)'
@@ -123,15 +134,17 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             <Filter size={14} />
           </button>
           <button
+            type="button"
             onClick={() => setShowAddModal(true)}
             className="desktop-interior-button px-3 py-1.5 flex items-center gap-1"
+            title={tWithFallback("ui.app.booking.location.actions.new", "Create location")}
             style={{
               background: 'var(--shell-button-surface)',
               color: 'var(--shell-text)'
             }}
           >
             <Plus size={14} />
-            <span className="text-xs">New</span>
+            <span className="text-xs">{tWithFallback("ui.app.booking.actions.new", "New")}</span>
           </button>
         </div>
 
@@ -141,6 +154,7 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as LocationStatus)}
+              aria-label={tWithFallback("ui.app.booking.location.filters.status", "Filter by location status")}
               className="px-2 py-1 border-2 text-xs"
               style={{
                 borderColor: 'var(--shell-border)',
@@ -148,14 +162,15 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                 color: 'var(--shell-input-text)'
               }}
             >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="archived">Archived</option>
+              <option value="">{tWithFallback("ui.app.booking.location.filters.all_status", "All Status")}</option>
+              <option value="active">{tWithFallback("ui.app.booking.location.status.active", "Active")}</option>
+              <option value="inactive">{tWithFallback("ui.app.booking.location.status.inactive", "Inactive")}</option>
+              <option value="archived">{tWithFallback("ui.app.booking.location.status.archived", "Archived")}</option>
             </select>
             <select
               value={subtypeFilter}
               onChange={(e) => setSubtypeFilter(e.target.value as LocationSubtype)}
+              aria-label={tWithFallback("ui.app.booking.location.filters.subtype", "Filter by location type")}
               className="px-2 py-1 border-2 text-xs"
               style={{
                 borderColor: 'var(--shell-border)',
@@ -163,34 +178,53 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                 color: 'var(--shell-input-text)'
               }}
             >
-              <option value="">All Types</option>
-              <option value="branch">Branch</option>
-              <option value="venue">Venue</option>
-              <option value="virtual">Virtual</option>
+              <option value="">{tWithFallback("ui.app.booking.filters.all_types", "All Types")}</option>
+              <option value="branch">{tWithFallback("ui.app.booking.location.subtype.branch", "Branch")}</option>
+              <option value="venue">{tWithFallback("ui.app.booking.location.subtype.venue", "Venue")}</option>
+              <option value="virtual">{tWithFallback("ui.app.booking.location.subtype.virtual", "Virtual")}</option>
             </select>
           </div>
         )}
+        <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
+          {tWithFallback(
+            "ui.app.booking.location.list.result_count",
+            "{count} locations",
+            { count: filteredLocations?.length ?? 0 },
+          )}
+        </p>
       </div>
 
       {/* Locations list */}
       <div className="flex-1 overflow-y-auto">
         {!locations ? (
           <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
-            <p className="text-sm">Loading locations...</p>
+            <p className="text-sm">{tWithFallback("ui.app.booking.location.list.loading", "Loading locations...")}</p>
           </div>
         ) : filteredLocations?.length === 0 ? (
           <div className="p-4 text-center" style={{ color: 'var(--neutral-gray)' }}>
             <MapPin size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No locations found</p>
-            <p className="text-xs mt-1">Create a new location to get started</p>
+            <p className="text-sm">{tWithFallback("ui.app.booking.location.list.empty", "No locations found")}</p>
+            <p className="text-xs mt-1">
+              {tWithFallback("ui.app.booking.location.list.empty_hint", "Create a new location to get started")}
+            </p>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
             {filteredLocations?.map((location) => (
               <button
                 key={location._id}
+                type="button"
                 onClick={() => onSelect(location._id)}
-                className="w-full p-3 text-left hover:opacity-80 transition-opacity"
+                className="w-full p-3 text-left hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+                aria-pressed={selectedId === location._id}
+                aria-label={tWithFallback(
+                  "ui.app.booking.location.list.row_aria_label",
+                  "{name} in {city}",
+                  {
+                    name: location.name || tWithFallback("ui.app.booking.location.list.unknown_name", "Unnamed location"),
+                    city: (location.customProperties?.address as { city?: string } | undefined)?.city || tWithFallback("ui.app.booking.location.list.unknown_city", "unknown city"),
+                  },
+                )}
                 style={{
                   background: selectedId === location._id ? 'var(--shell-selection-bg)' : 'transparent',
                   color: selectedId === location._id ? 'var(--shell-selection-text)' : 'var(--shell-text)'
@@ -217,7 +251,11 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
                             color: 'white'
                           }}
                         >
-                          {location.status}
+                          {location.status === "inactive"
+                            ? tWithFallback("ui.app.booking.location.status.inactive", "Inactive")
+                            : location.status === "archived"
+                              ? tWithFallback("ui.app.booking.location.status.archived", "Archived")
+                              : location.status}
                         </span>
                       )}
                     </div>
@@ -254,7 +292,10 @@ export function LocationsList({ selectedId, onSelect }: LocationsListProps) {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false)
-            notification.success("Location created", "Your location has been created successfully.")
+            notification.success(
+              tWithFallback("ui.app.booking.location.notifications.created_title", "Location created"),
+              tWithFallback("ui.app.booking.location.notifications.created_body", "Your location has been created successfully."),
+            )
           }}
         />
       )}

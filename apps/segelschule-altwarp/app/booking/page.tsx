@@ -28,24 +28,75 @@ interface Boat {
   seats: SeatStatus[]
 }
 
-// Mock booked seats data - in production this would come from a database
-const getMockedBookedSeats = (date: string, time: string): { fraukje: number[]; rose: number[] } => {
-  // Simulate different bookings for different date/time combinations
-  const hash = (date + time).split("").reduce((a, b) => a + b.charCodeAt(0), 0)
-  const bookings: { fraukje: number[]; rose: number[] } = { fraukje: [], rose: [] }
+interface BookingCheckoutSessionPayload {
+  checkoutUrl?: string | null
+}
 
-  if (hash % 5 === 0) {
-    bookings.fraukje = [0, 1]
-  } else if (hash % 5 === 1) {
-    bookings.fraukje = [2]
-    bookings.rose = [0, 1, 2]
-  } else if (hash % 5 === 2) {
-    bookings.rose = [1, 3]
-  } else if (hash % 5 === 3) {
-    bookings.fraukje = [0, 1, 2, 3]
+interface BookingApiSuccessPayload {
+  error?: string
+  bookingId?: string
+  checkoutSession?: BookingCheckoutSessionPayload | null
+  warnings?: string[]
+}
+
+interface AvailabilityTimeSlotPayload {
+  time: string
+  isAvailable: boolean
+  availableSeats: number
+  totalSeats: number
+}
+
+interface AvailabilityBoatPayload {
+  boatId: string
+  boatName: string
+  totalSeats: number
+  availableSeats: number
+  seats: Array<{
+    seatNumber: number
+    status: "available" | "booked"
+  }>
+}
+
+interface BookingAvailabilityApiPayload {
+  error?: string
+  availableTimes?: AvailabilityTimeSlotPayload[]
+  selectedBoatAvailability?: AvailabilityBoatPayload[] | null
+}
+
+const DEFAULT_BOATS: Boat[] = [
+  { id: "fraukje", name: "Fraukje", seats: ["available", "available", "available", "available"] },
+  { id: "rose", name: "Rose", seats: ["available", "available", "available", "available"] },
+]
+
+function toBoatState(
+  boats: AvailabilityBoatPayload[],
+  previousBoats: Boat[]
+): Boat[] {
+  const previousSelectedSeats = new Map<string, Set<number>>()
+  for (const boat of previousBoats) {
+    const selectedSeats = new Set<number>()
+    boat.seats.forEach((status, index) => {
+      if (status === "selected") {
+        selectedSeats.add(index + 1)
+      }
+    })
+    previousSelectedSeats.set(boat.id, selectedSeats)
   }
 
-  return bookings
+  return boats.map((boatPayload) => {
+    const selectedSeats = previousSelectedSeats.get(boatPayload.boatId) || new Set<number>()
+    const seats: SeatStatus[] = boatPayload.seats.map((seat) => {
+      if (seat.status === "booked") {
+        return "booked"
+      }
+      return selectedSeats.has(seat.seatNumber) ? "selected" : "available"
+    })
+    return {
+      id: boatPayload.boatId,
+      name: boatPayload.boatName,
+      seats,
+    }
+  })
 }
 
 // Boat Seat Component
@@ -212,10 +263,10 @@ function BookingPageContent() {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [boats, setBoats] = useState<Boat[]>([
-    { id: "fraukje", name: "Fraukje", seats: ["available", "available", "available", "available"] },
-    { id: "rose", name: "Rose", seats: ["available", "available", "available", "available"] },
-  ])
+  const [boats, setBoats] = useState<Boat[]>(DEFAULT_BOATS)
+  const [availableTimes, setAvailableTimes] = useState<AvailabilityTimeSlotPayload[]>([])
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -243,31 +294,6 @@ function BookingPageContent() {
     description: string
     isMultiDay: boolean
   } | null>(null)
-
-  // Update boat availability when date/time changes
-  useEffect(() => {
-    if (selectedDate && selectedTime) {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const bookedSeats = getMockedBookedSeats(dateStr, selectedTime)
-
-      setBoats([
-        {
-          id: "fraukje",
-          name: "Fraukje",
-          seats: [0, 1, 2, 3].map(i =>
-            bookedSeats.fraukje.includes(i) ? "booked" : "available"
-          ) as SeatStatus[],
-        },
-        {
-          id: "rose",
-          name: "Rose",
-          seats: [0, 1, 2, 3].map(i =>
-            bookedSeats.rose.includes(i) ? "booked" : "available"
-          ) as SeatStatus[],
-        },
-      ])
-    }
-  }, [selectedDate, selectedTime])
 
   // Handle seat selection
   const handleSeatClick = (boatId: string, seatIndex: number) => {
@@ -333,14 +359,6 @@ function BookingPageContent() {
       description: t.courses.intensiv.description,
       isMultiDay: t.courses.intensiv.isMultiDay,
     },
-    {
-      id: t.courses.praxis.id,
-      title: t.courses.praxis.title,
-      duration: t.courses.praxis.duration,
-      price: t.courses.praxis.price,
-      description: t.courses.praxis.description,
-      isMultiDay: t.courses.praxis.isMultiDay,
-    },
   ], [t])
 
   useEffect(() => {
@@ -354,7 +372,92 @@ function BookingPageContent() {
     }
   }, [searchParams, courses])
 
-  const availableTimes = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"]
+  const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null
+
+  useEffect(() => {
+    setSelectedTime(null)
+    setBoats(DEFAULT_BOATS)
+    setAvailabilityError(null)
+  }, [selectedCourseData?.id, selectedDateKey])
+
+  useEffect(() => {
+    if (!selectedCourseData || !selectedDateKey) {
+      setAvailableTimes([])
+      setIsLoadingAvailability(false)
+      return
+    }
+
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const loadAvailability = async () => {
+      setIsLoadingAvailability(true)
+      setAvailabilityError(null)
+      try {
+        const response = await fetch("/api/booking/availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: selectedCourseData.id,
+            date: selectedDateKey,
+            time: selectedTime || undefined,
+            isMultiDayCourse: selectedCourseData.isMultiDay,
+          }),
+          signal: controller.signal,
+        })
+
+        const payload = (await response.json()) as BookingAvailabilityApiPayload
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load availability")
+        }
+        if (isCancelled) {
+          return
+        }
+
+        if (Array.isArray(payload.availableTimes) && payload.availableTimes.length > 0) {
+          setAvailableTimes(payload.availableTimes)
+          if (selectedTime) {
+            const selectedTimeSlot = payload.availableTimes.find((slot) => slot.time === selectedTime)
+            if (!selectedTimeSlot || !selectedTimeSlot.isAvailable) {
+              setSelectedTime(null)
+              setBoats(DEFAULT_BOATS)
+              return
+            }
+          }
+        } else {
+          setAvailableTimes([])
+        }
+
+        if (selectedTime && Array.isArray(payload.selectedBoatAvailability)) {
+          setBoats((previousBoats) => toBoatState(payload.selectedBoatAvailability || [], previousBoats))
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+        if (error instanceof Error && error.name === "AbortError") {
+          return
+        }
+        setAvailabilityError(
+          error instanceof Error ? error.message : "Failed to load availability"
+        )
+        setAvailableTimes([])
+        setSelectedTime(null)
+        setBoats(DEFAULT_BOATS)
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingAvailability(false)
+        }
+      }
+    }
+
+    void loadAvailability()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [selectedCourseData, selectedDateKey, selectedTime])
 
   const parsedPrice = selectedCourseData
     ? Number.parseFloat(selectedCourseData.price.replace("€", ""))
@@ -369,6 +472,7 @@ function BookingPageContent() {
       const seatPayload = boats
         .filter((boat) => boat.seats.some((s) => s === "selected"))
         .map((boat) => ({
+          boatId: boat.id,
           boatName: boat.name,
           seatNumbers: boat.seats
             .map((s, i) => (s === "selected" ? i + 1 : null))
@@ -403,10 +507,24 @@ function BookingPageContent() {
         }),
       })
 
-      const result = await response.json()
+      const result = (await response.json()) as BookingApiSuccessPayload
 
       if (!response.ok) {
         throw new Error(result.error || "Booking failed")
+      }
+
+      const checkoutUrl =
+        typeof result.checkoutSession?.checkoutUrl === "string"
+          ? result.checkoutSession.checkoutUrl.trim()
+          : ""
+
+      if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+        console.warn("[Booking Bridge] warnings:", result.warnings)
+      }
+
+      if (checkoutUrl) {
+        window.location.assign(checkoutUrl)
+        return
       }
 
       setBookingId(result.bookingId ?? null)
@@ -707,17 +825,33 @@ function BookingPageContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-3 gap-3">
-                        {availableTimes.map((time) => (
+                        {availableTimes.map((timeSlot) => (
                           <Button
-                            key={time}
-                            variant={selectedTime === time ? "default" : "outline"}
-                            onClick={() => setSelectedTime(time)}
+                            key={timeSlot.time}
+                            variant={selectedTime === timeSlot.time ? "default" : "outline"}
+                            onClick={() => setSelectedTime(timeSlot.time)}
                             className="w-full"
+                            disabled={!timeSlot.isAvailable || isLoadingAvailability}
                           >
-                            {time}
+                            {timeSlot.time}
                           </Button>
                         ))}
                       </div>
+                      {availabilityError && (
+                        <p className="text-xs text-destructive mt-3">
+                          {availabilityError}
+                        </p>
+                      )}
+                      {isLoadingAvailability && (
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Loading real-time availability...
+                        </p>
+                      )}
+                      {!isLoadingAvailability && !availabilityError && selectedDate && availableTimes.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-3">
+                          No available time slots found for this date.
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

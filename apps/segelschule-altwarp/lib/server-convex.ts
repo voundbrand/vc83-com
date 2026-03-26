@@ -163,8 +163,8 @@ export async function resolveSegelschuleOrganizationId(
   const generatedInternalApi: any =
     require("../../../convex/_generated/api").internal;
 
-  const convex = getConvexClient();
   try {
+    const convex = getConvexClient();
     const resolution = (await queryInternal(
       convex,
       generatedInternalApi.frontendOidcInternal
@@ -185,7 +185,7 @@ export async function resolveSegelschuleOrganizationId(
     }
   } catch (error) {
     console.error(
-      "[segelschule-org-scope] Failed to resolve organization from host",
+      "[segelschule-org-scope] Failed to resolve organization from host; falling back to env org scope",
       requestHost,
       error
     );

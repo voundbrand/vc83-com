@@ -22,7 +22,6 @@ let _internalCache: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getInternal(): any {
   if (!_internalCache) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     _internalCache = require("../../_generated/api").internal;
   }
   return _internalCache;
@@ -225,6 +224,127 @@ export const connectWebAppDataTool: AITool = {
       return {
         success: false,
         error: `Connection failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+};
+
+// ============================================================================
+// TOOL: list_connected_apps
+// ============================================================================
+
+export const listConnectedAppsTool: AITool = {
+  name: "list_connected_apps",
+  description:
+    "List connected applications in the current organization. " +
+    "Use this when the user asks which apps are connected, app status, or recent app activity.",
+  status: "ready",
+  readOnly: true,
+  parameters: {
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        description:
+          "Optional status filter (for example: 'active' or 'archived').",
+      },
+      limit: {
+        type: "number",
+        description: "Optional max number of apps to return (default 20, max 100).",
+      },
+      offset: {
+        type: "number",
+        description: "Optional pagination offset (default 0).",
+      },
+    },
+  },
+  execute: async (
+    ctx: ToolExecutionContext,
+    args: {
+      status?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ) => {
+    const internal = getInternal();
+
+    const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 100);
+    const offset = Math.max(Math.floor(args.offset ?? 0), 0);
+    const status = typeof args.status === "string" ? args.status.trim() : "";
+
+    try {
+      const result = await ctx.runQuery(
+        internal.applicationOntology.listApplicationsInternal,
+        {
+          organizationId: ctx.organizationId,
+          status: status.length > 0 ? status : undefined,
+          limit,
+          offset,
+        }
+      );
+
+      const applications = (result.applications || []).map(
+        (app: {
+          _id: Id<"objects">;
+          name: string;
+          status?: string;
+          subtype?: string;
+          createdAt?: number;
+          updatedAt?: number;
+          customProperties?: Record<string, unknown>;
+        }) => {
+          const props = (app.customProperties || {}) as Record<string, unknown>;
+          const source = (props.source || {}) as Record<string, unknown>;
+          const connection = (props.connection || {}) as Record<string, unknown>;
+          const cli = (props.cli || {}) as Record<string, unknown>;
+          const features = Array.isArray(connection.features)
+            ? connection.features.filter(
+              (feature): feature is string => typeof feature === "string"
+            )
+            : [];
+          const lastActivityAt =
+            typeof cli.lastActivityAt === "number" ? cli.lastActivityAt : null;
+
+          return {
+            applicationId: app._id,
+            name: app.name,
+            status: app.status || "unknown",
+            subtype: app.subtype || null,
+            framework:
+              typeof source.framework === "string" ? source.framework : null,
+            features,
+            createdAt:
+              typeof app.createdAt === "number"
+                ? new Date(app.createdAt).toISOString()
+                : null,
+            updatedAt:
+              typeof app.updatedAt === "number"
+                ? new Date(app.updatedAt).toISOString()
+                : null,
+            lastActivityAt:
+              typeof lastActivityAt === "number"
+                ? new Date(lastActivityAt).toISOString()
+                : null,
+          };
+        }
+      );
+
+      return {
+        success: true,
+        total: result.total,
+        returned: applications.length,
+        hasMore: result.hasMore === true,
+        nextOffset: result.hasMore === true ? offset + applications.length : null,
+        applications,
+        message:
+          applications.length > 0
+            ? `Found ${applications.length} connected app${applications.length === 1 ? "" : "s"}.`
+            : "No connected apps found for this organization.",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Could not list connected apps: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },

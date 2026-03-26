@@ -7,6 +7,7 @@ import { useAuth, useCurrentOrganization } from "@/hooks/use-auth"
 import { useNotification } from "@/hooks/use-notification"
 import { Clock, Plus, MoreHorizontal, Globe, Trash2, Star, Edit3 } from "lucide-react"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { useNamespaceTranslations } from "@/hooks/use-namespace-translations"
 
 interface AvailabilitySchedulesListProps {
   onEdit: (scheduleId: Id<"objects">) => void
@@ -17,6 +18,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
   const { sessionId } = useAuth()
   const currentOrganization = useCurrentOrganization()
   const notification = useNotification()
+  const { tWithFallback } = useNamespaceTranslations("ui.app.booking")
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -50,9 +52,15 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
     setOpenMenuId(null)
     try {
       await setDefault({ sessionId, scheduleId })
-      notification.success("Success", "Default schedule updated.")
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        tWithFallback("ui.app.booking.availability.notifications.default_updated", "Default schedule updated."),
+      )
     } catch (err) {
-      notification.error("Error", "Failed to set default schedule.")
+      notification.error(
+        tWithFallback("ui.app.booking.notifications.error_title", "Error"),
+        tWithFallback("ui.app.booking.availability.notifications.default_failed", "Failed to set default schedule."),
+      )
     }
   }
 
@@ -62,13 +70,16 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
     setOpenMenuId(null)
     try {
       await deleteSchedule({ sessionId, scheduleId })
-      notification.success("Success", "Schedule deleted.")
+      notification.success(
+        tWithFallback("ui.app.booking.notifications.success_title", "Success"),
+        tWithFallback("ui.app.booking.availability.notifications.deleted", "Schedule deleted."),
+      )
     } catch (err: any) {
       const message =
         err?.message?.includes("in use")
-          ? "Cannot delete a schedule that is currently in use."
-          : "Failed to delete schedule."
-      notification.error("Error", message)
+          ? tWithFallback("ui.app.booking.availability.notifications.delete_in_use", "Cannot delete a schedule that is currently in use.")
+          : tWithFallback("ui.app.booking.availability.notifications.delete_failed", "Failed to delete schedule.")
+      notification.error(tWithFallback("ui.app.booking.notifications.error_title", "Error"), message)
     }
   }
 
@@ -80,15 +91,19 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
       <div className="flex items-center justify-between px-4 py-3 border-b-2" style={{ borderColor: "var(--shell-border)" }}>
         <div>
           <h2 className="font-pixel text-base" style={{ color: "var(--shell-text)" }}>
-            Availability
+            {tWithFallback("ui.app.booking.availability.title", "Availability")}
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "var(--shell-text)", opacity: 0.6 }}>
-            Configure times when you are available for bookings.
+            {tWithFallback("ui.app.booking.availability.subtitle", "Configure times when you are available for bookings.")}
           </p>
         </div>
-        <button className="desktop-interior-button flex items-center gap-1 text-xs" onClick={onCreate}>
+        <button
+          type="button"
+          className="desktop-interior-button flex items-center gap-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+          onClick={onCreate}
+        >
           <Plus size={14} />
-          New
+          {tWithFallback("ui.app.booking.actions.new", "New")}
         </button>
       </div>
 
@@ -98,7 +113,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
         {schedules === undefined && (
           <div className="flex items-center justify-center py-12">
             <p className="font-pixel text-xs" style={{ color: "var(--shell-text)", opacity: 0.5 }}>
-              Loading schedules...
+              {tWithFallback("ui.app.booking.availability.loading", "Loading schedules...")}
             </p>
           </div>
         )}
@@ -108,14 +123,18 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Clock size={48} style={{ color: "var(--shell-text)", opacity: 0.3 }} />
             <p className="font-pixel text-sm" style={{ color: "var(--shell-text)" }}>
-              No availability schedules
+              {tWithFallback("ui.app.booking.availability.empty_title", "No availability schedules")}
             </p>
             <p className="text-xs text-center max-w-[280px]" style={{ color: "var(--shell-text)", opacity: 0.6 }}>
-              Create your first schedule to set when you&apos;re available for bookings.
+              {tWithFallback("ui.app.booking.availability.empty_hint", "Create your first schedule to set when you're available for bookings.")}
             </p>
-            <button className="desktop-interior-button flex items-center gap-1 text-xs mt-2" onClick={onCreate}>
+            <button
+              type="button"
+              className="desktop-interior-button flex items-center gap-1 text-xs mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
+              onClick={onCreate}
+            >
               <Plus size={14} />
-              Create Schedule
+              {tWithFallback("ui.app.booking.availability.actions.create_schedule", "Create Schedule")}
             </button>
           </div>
         )}
@@ -127,6 +146,13 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
               <div
                 key={schedule._id}
                 className="border-2 px-3 py-2.5 flex items-center justify-between cursor-pointer transition-colors"
+                role="button"
+                tabIndex={0}
+                aria-label={tWithFallback(
+                  "ui.app.booking.availability.schedule_row_aria_label",
+                  "Edit schedule {name}",
+                  { name: schedule.name },
+                )}
                 style={{
                   background: "var(--shell-surface-elevated)",
                   borderColor: "var(--shell-border)",
@@ -138,6 +164,12 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                   e.currentTarget.style.background = "var(--shell-surface-elevated)"
                 }}
                 onClick={() => onEdit(schedule._id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onEdit(schedule._id)
+                  }
+                }}
               >
                 {/* Left side */}
                 <div className="flex flex-col gap-1 min-w-0">
@@ -153,7 +185,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                           color: "var(--shell-selection-text)",
                         }}
                       >
-                        Default
+                        {tWithFallback("ui.app.booking.availability.badge.default", "Default")}
                       </span>
                     )}
                   </div>
@@ -173,7 +205,11 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                 {/* Right side - 3-dot menu */}
                 <div className="relative shrink-0 ml-2">
                   <button
+                    type="button"
                     className="desktop-interior-button p-1"
+                    aria-label={tWithFallback("ui.app.booking.availability.actions.open_schedule_menu", "Open schedule actions")}
+                    aria-haspopup="menu"
+                    aria-expanded={openMenuId === schedule._id}
                     onClick={(e) => {
                       e.stopPropagation()
                       setOpenMenuId(openMenuId === schedule._id ? null : schedule._id)
@@ -185,12 +221,16 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                   {openMenuId === schedule._id && (
                     <div
                       className="absolute right-0 top-full mt-1 z-50 border-2 shadow-md min-w-[140px]"
+                      role="menu"
+                      aria-label={tWithFallback("ui.app.booking.availability.actions.menu_label", "Schedule actions")}
                       style={{
                         background: "var(--shell-surface-elevated)",
                         borderColor: "var(--shell-border)",
                       }}
                     >
                       <button
+                        type="button"
+                        role="menuitem"
                         className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
                         style={{ color: "var(--shell-text)" }}
                         onClick={(e) => {
@@ -200,10 +240,12 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                         }}
                       >
                         <Edit3 size={12} />
-                        Edit
+                        {tWithFallback("ui.app.booking.actions.edit", "Edit")}
                       </button>
                       {!schedule.isDefault && (
                         <button
+                          type="button"
+                          role="menuitem"
                           className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
                           style={{ color: "var(--shell-text)" }}
                           onClick={(e) => {
@@ -212,10 +254,12 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                           }}
                         >
                           <Star size={12} />
-                          Set as Default
+                          {tWithFallback("ui.app.booking.availability.actions.set_default", "Set as Default")}
                         </button>
                       )}
                       <button
+                        type="button"
+                        role="menuitem"
                         className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:opacity-80"
                         style={{ color: "var(--shell-text)" }}
                         onClick={(e) => {
@@ -225,7 +269,7 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
                         }}
                       >
                         <Trash2 size={12} />
-                        Delete
+                        {tWithFallback("ui.app.booking.actions.delete", "Delete")}
                       </button>
                     </div>
                   )}
@@ -245,25 +289,33 @@ export function AvailabilitySchedulesList({ onEdit, onCreate }: AvailabilitySche
               background: "var(--shell-surface)",
               borderColor: "var(--shell-border)",
             }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="availability-delete-dialog-title"
           >
-            <p className="font-pixel text-sm mb-1" style={{ color: "var(--shell-text)" }}>
-              Delete Schedule
+            <p id="availability-delete-dialog-title" className="font-pixel text-sm mb-1" style={{ color: "var(--shell-text)" }}>
+              {tWithFallback("ui.app.booking.availability.delete_dialog.title", "Delete Schedule")}
             </p>
             <p className="text-xs mb-4" style={{ color: "var(--shell-text)", opacity: 0.7 }}>
-              Are you sure you want to delete this availability schedule? This action cannot be undone.
+              {tWithFallback(
+                "ui.app.booking.availability.delete_dialog.body",
+                "Are you sure you want to delete this availability schedule? This action cannot be undone.",
+              )}
             </p>
             <div className="flex justify-end gap-2">
               <button
-                className="desktop-interior-button text-xs px-3 py-1"
+                type="button"
+                className="desktop-interior-button text-xs px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
                 onClick={() => setConfirmDeleteId(null)}
               >
-                Cancel
+                {tWithFallback("ui.app.booking.actions.cancel", "Cancel")}
               </button>
               <button
-                className="desktop-interior-button text-xs px-3 py-1"
+                type="button"
+                className="desktop-interior-button text-xs px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-inset"
                 onClick={() => handleDelete(confirmDeleteId as Id<"objects">)}
               >
-                Delete
+                {tWithFallback("ui.app.booking.actions.delete", "Delete")}
               </button>
             </div>
           </div>

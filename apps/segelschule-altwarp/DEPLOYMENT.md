@@ -76,6 +76,11 @@ export NEXT_PUBLIC_APP_URL="<https://your-main-platform-host>"
 export RESEND_API_KEY="<your-resend-api-key>"
 export BOOKING_FROM_EMAIL="<from-address>"
 export BOOKING_NOTIFICATION_EMAIL="<team-booking-address>"
+export SEGELSCHULE_SURFACE_APP_SLUG="<frontend-app-slug>"
+export SEGELSCHULE_SURFACE_TYPE="<surface-type>"
+export SEGELSCHULE_SURFACE_KEY="<surface-key>"
+export SEGELSCHULE_BOOKING_CATALOG_JSON="<json-catalog>"
+export SEGELSCHULE_COURSE_BINDINGS_JSON="<legacy-json-bindings>"
 export CONTACT_FROM_EMAIL="<from-address>"
 export CONTACT_NOTIFICATION_EMAIL="<team-contact-address>"
 
@@ -96,6 +101,21 @@ printf '%s' "$BOOKING_FROM_EMAIL" | npx vercel@latest env add BOOKING_FROM_EMAIL
 
 printf '%s' "$BOOKING_NOTIFICATION_EMAIL" | npx vercel@latest env add BOOKING_NOTIFICATION_EMAIL preview
 printf '%s' "$BOOKING_NOTIFICATION_EMAIL" | npx vercel@latest env add BOOKING_NOTIFICATION_EMAIL production
+
+printf '%s' "$SEGELSCHULE_SURFACE_APP_SLUG" | npx vercel@latest env add SEGELSCHULE_SURFACE_APP_SLUG preview
+printf '%s' "$SEGELSCHULE_SURFACE_APP_SLUG" | npx vercel@latest env add SEGELSCHULE_SURFACE_APP_SLUG production
+
+printf '%s' "$SEGELSCHULE_SURFACE_TYPE" | npx vercel@latest env add SEGELSCHULE_SURFACE_TYPE preview
+printf '%s' "$SEGELSCHULE_SURFACE_TYPE" | npx vercel@latest env add SEGELSCHULE_SURFACE_TYPE production
+
+printf '%s' "$SEGELSCHULE_SURFACE_KEY" | npx vercel@latest env add SEGELSCHULE_SURFACE_KEY preview
+printf '%s' "$SEGELSCHULE_SURFACE_KEY" | npx vercel@latest env add SEGELSCHULE_SURFACE_KEY production
+
+printf '%s' "$SEGELSCHULE_BOOKING_CATALOG_JSON" | npx vercel@latest env add SEGELSCHULE_BOOKING_CATALOG_JSON preview
+printf '%s' "$SEGELSCHULE_BOOKING_CATALOG_JSON" | npx vercel@latest env add SEGELSCHULE_BOOKING_CATALOG_JSON production
+
+printf '%s' "$SEGELSCHULE_COURSE_BINDINGS_JSON" | npx vercel@latest env add SEGELSCHULE_COURSE_BINDINGS_JSON preview
+printf '%s' "$SEGELSCHULE_COURSE_BINDINGS_JSON" | npx vercel@latest env add SEGELSCHULE_COURSE_BINDINGS_JSON production
 
 printf '%s' "$CONTACT_FROM_EMAIL" | npx vercel@latest env add CONTACT_FROM_EMAIL preview
 printf '%s' "$CONTACT_FROM_EMAIL" | npx vercel@latest env add CONTACT_FROM_EMAIL production
@@ -125,12 +145,71 @@ Optional / conditional:
   - Optional; booking emails fall back to a default sender string.
 - `BOOKING_NOTIFICATION_EMAIL`
   - Optional; enables internal booking notification emails.
+- `SEGELSCHULE_SURFACE_APP_SLUG`, `SEGELSCHULE_SURFACE_TYPE`, `SEGELSCHULE_SURFACE_KEY`
+  - Optional but recommended.
+  - Identify which backend `frontend_surface_binding` should be resolved for this app surface.
+  - Defaults are `segelschule-altwarp` / `booking` / `default`.
+- `SEGELSCHULE_BOOKING_CATALOG_JSON`
+  - Optional fallback only.
+  - Used when no backend surface binding is found or backend lookup fails.
+- `SEGELSCHULE_COURSE_BINDINGS_JSON`
+  - Legacy optional bridge mapping (`courseId -> bookingResourceId/checkoutProductId`) still supported for backward compatibility.
 - `CONTACT_FROM_EMAIL`
   - Optional; contact emails fall back to a default sender string.
 - `CONTACT_NOTIFICATION_EMAIL`
   - Optional; enables internal contact notification emails.
 - `ORG_API_KEY`
   - Currently unused by this app and not required for deployment.
+
+Booking catalog example:
+
+```json
+{
+  "timezone": "Europe/Berlin",
+  "defaultAvailableTimes": ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"],
+  "boats": [
+    { "id": "fraukje", "name": "Fraukje", "seatCount": 4 },
+    { "id": "rose", "name": "Rose", "seatCount": 4 }
+  ],
+  "courses": [
+    {
+      "courseId": "schnupper",
+      "bookingDurationMinutes": 180,
+      "availableTimes": ["09:00", "13:00"],
+      "bookingResourceId": "obj_resource_taster",
+      "checkoutProductId": "obj_checkout_taster",
+      "checkoutPublicUrl": "https://vc83.com/checkout/taster"
+    },
+    {
+      "courseId": "grund",
+      "bookingDurationMinutes": 480,
+      "bookingResourceId": "obj_resource_weekend",
+      "checkoutProductId": "obj_checkout_weekend",
+      "checkoutPublicUrl": "https://vc83.com/checkout/weekend"
+    },
+    {
+      "courseId": "intensiv",
+      "bookingDurationMinutes": 480,
+      "bookingResourceId": "obj_resource_intensive",
+      "checkoutProductId": "obj_checkout_intensive",
+      "checkoutPublicUrl": "https://vc83.com/checkout/intensive"
+    }
+  ]
+}
+```
+
+Agent-assisted setup from mother repo:
+
+- The mother agent can generate an org-specific setup blueprint via tool action:
+  - `configure_booking_workflow` with `action: "generate_booking_setup_blueprint"`
+- The mother agent can also persist this directly as backend surface binding:
+  - `configure_booking_workflow` with `action: "upsert_booking_surface_binding"`
+- This returns:
+  - `bookingCatalogJson` (`SEGELSCHULE_BOOKING_CATALOG_JSON`)
+  - `legacyBindingsJson` (`SEGELSCHULE_COURSE_BINDINGS_JSON`)
+  - per-course mapping diagnostics and Google calendar readiness snapshot (if session has access)
+- A commit-safe env template is available at:
+  - `apps/segelschule-altwarp/.env.example`
 
 ## Validation
 

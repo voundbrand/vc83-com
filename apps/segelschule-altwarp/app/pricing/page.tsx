@@ -14,53 +14,57 @@ import { WaveDivider } from "@/components/wave-divider"
 export default function PricingPage() {
   const { language, setLanguage } = useLanguage()
   const t = translations[language]
+  const navT = t.nav
+  const coursesT = t.courses
+  const pricingT = t.pricing
+  const footerT = t.footer
 
   const pricingDetails = [
     {
-      id: t.courses.schnupper.id,
-      title: t.courses.schnupper.title,
-      duration: t.courses.schnupper.duration,
-      price: t.courses.schnupper.price,
-      description: t.courses.schnupper.description,
-      features: t.courses.schnupper.features,
-      badge: t.pricing.badges.starter,
-      included: t.pricing.schnupperIncluded,
+      id: coursesT.schnupper.id,
+      title: coursesT.schnupper.title,
+      duration: coursesT.schnupper.duration,
+      price: coursesT.schnupper.price,
+      description: coursesT.schnupper.description,
+      features: coursesT.schnupper.features,
+      badge: pricingT.badges.starter,
+      included: pricingT.schnupperIncluded,
     },
     {
-      id: t.courses.grund.id,
-      title: t.courses.grund.title,
-      duration: t.courses.grund.duration,
-      price: t.courses.grund.price,
-      description: t.courses.grund.description,
-      features: t.courses.grund.features,
-      badge: t.pricing.badges.popular,
-      included: t.pricing.grundIncluded,
+      id: coursesT.grund.id,
+      title: coursesT.grund.title,
+      duration: coursesT.grund.duration,
+      price: coursesT.grund.price,
+      description: coursesT.grund.description,
+      features: coursesT.grund.features,
+      badge: pricingT.badges.popular,
+      included: pricingT.grundIncluded,
     },
     {
-      id: t.courses.intensiv.id,
-      title: t.courses.intensiv.title,
-      duration: t.courses.intensiv.duration,
-      price: t.courses.intensiv.price,
-      description: t.courses.intensiv.description,
-      features: t.courses.intensiv.features,
-      badge: t.pricing.badges.intensive,
-      included: t.pricing.intensivIncluded,
+      id: coursesT.intensiv.id,
+      title: coursesT.intensiv.title,
+      duration: coursesT.intensiv.duration,
+      price: coursesT.intensiv.price,
+      description: coursesT.intensiv.description,
+      features: coursesT.intensiv.features,
+      badge: pricingT.badges.intensive,
+      included: pricingT.intensivIncluded,
     },
     {
-      id: t.courses.praxis.id,
-      title: t.courses.praxis.title,
-      duration: t.courses.praxis.duration,
-      price: t.courses.praxis.price,
-      description: t.courses.praxis.description,
-      features: t.courses.praxis.features,
-      badge: t.pricing.badges.individual,
-      included: t.pricing.praxisIncluded,
+      id: coursesT.praxis.id,
+      title: coursesT.praxis.title,
+      duration: coursesT.praxis.duration,
+      price: coursesT.praxis.price,
+      description: coursesT.praxis.description,
+      features: coursesT.praxis.features,
+      badge: pricingT.badges.individual,
+      included: pricingT.praxisIncluded,
     },
   ]
 
   return (
     <>
-      <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={t.nav} forceScrolledStyle />
+      <Header currentLanguage={language} onLanguageChange={setLanguage} navLinks={navT} forceScrolledStyle />
 
       <main className="min-h-screen pt-20">
         <section
@@ -69,10 +73,10 @@ export default function PricingPage() {
         >
           <div className="container mx-auto max-w-7xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-6 text-balance">
-              {t.pricing.pageTitle}
+              {pricingT.pageTitle}
             </h1>
             <p className="text-xl text-white/90 max-w-3xl mx-auto text-balance">
-              {t.pricing.pageSubtitle}
+              {pricingT.pageSubtitle}
             </p>
           </div>
         </section>
@@ -106,10 +110,10 @@ export default function PricingPage() {
                 <CardContent className="flex-grow space-y-6">
                   <div>
                     <h4 className="font-semibold text-base uppercase tracking-wide mb-4 text-primary">
-                      {t.pricing.courseContent}
+                      {pricingT.courseContent}
                     </h4>
                     <ul className="space-y-3">
-                      {course.features.map((feature, i) => (
+                      {course.features.map((feature: string, i: number) => (
                         <li key={i} className="flex items-start gap-3">
                           <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                           <span className="text-base text-foreground/80">{feature}</span>
@@ -119,10 +123,10 @@ export default function PricingPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-base uppercase tracking-wide mb-4 text-primary">
-                      {t.pricing.included}
+                      {pricingT.included}
                     </h4>
                     <ul className="space-y-3">
-                      {course.included.map((item, i) => (
+                      {course.included.map((item: string, i: number) => (
                         <li key={i} className="flex items-start gap-3">
                           <Check className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
                           <span className="text-base text-foreground/70">{item}</span>
@@ -136,7 +140,7 @@ export default function PricingPage() {
                     <Button
                       className="w-full text-lg py-6 bg-accent hover:bg-[#AA2023] text-accent-foreground shimmer-button"
                     >
-                      {t.courses.button}
+                      {coursesT.button}
                     </Button>
                   </Link>
                 </CardFooter>
@@ -150,10 +154,10 @@ export default function PricingPage() {
                 <Info className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
                 <div>
                   <CardTitle className="text-xl font-serif mb-2">
-                    {t.pricing.allPricesTitle}
+                    {pricingT.allPricesTitle}
                   </CardTitle>
                   <CardDescription className="text-base">
-                    {t.pricing.allPricesDesc}
+                    {pricingT.allPricesDesc}
                   </CardDescription>
                 </div>
               </div>
@@ -166,7 +170,7 @@ export default function PricingPage() {
         <WaveDivider fillColor="#1E3926" bgColor="#FFF6C3" />
       </main>
 
-      <Footer content={t.footer} />
+      <Footer content={footerT} />
     </>
   )
 }
