@@ -2,6 +2,9 @@
   "name": "l4yercak3-com",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -25,6 +28,11 @@
     "mobile:voice-latency:evidence:check:real": "node scripts/mobile/voice-latency-evidence-refresh-check.mjs --max-age-days 7 --require-real-network",
     "lint": "eslint src/ convex/ scripts/i18n/ --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
+    "release:status": "npx @changesets/cli status --verbose",
+    "release:version": "npx @changesets/cli version",
+    "release:publish:canary": "npx @changesets/cli publish --tag canary",
+    "release:publish:latest": "npx @changesets/cli publish --tag latest",
+    "release:build:packages": "npm --prefix packages/sdk run build && npm --prefix packages/cms run build && npm --prefix packages/cli run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -128,6 +136,7 @@
     "jspdf": "^3.0.3",
     "libphonenumber-js": "^1.12.38",
     "lucide-react": "^0.544.0",
+    "mammoth": "^1.12.0",
     "next": "15.5.9",
     "next-auth": "^4.24.13",
     "next-intl": "^4.3.11",

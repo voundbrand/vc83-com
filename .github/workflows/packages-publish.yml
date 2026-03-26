@@ -1,0 +1,113 @@
+name: packages-publish
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".changeset/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/packages-publish.yml"
+  workflow_dispatch:
+    inputs:
+      promote_latest:
+        description: "Promote current workspace package versions to npm latest dist-tag"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: packages-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-canary:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_CONFIG_PROVENANCE: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build publishable packages
+        run: npm run release:build:packages
+
+      - name: Create release PR or publish canary
+        uses: changesets/action@v1
+        with:
+          version: npm run release:version
+          publish: npm run release:publish:canary
+          title: "chore(release): version packages"
+          commit: "chore(release): version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  promote-latest:
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_latest
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Promote workspace package versions to latest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t PACKAGE_SPECS < <(
+            node -e '
+              const fs = require("fs");
+              const path = require("path");
+              const packagesDir = path.resolve(process.cwd(), "packages");
+              const dirs = fs.readdirSync(packagesDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+              for (const dir of dirs) {
+                const pkgPath = path.join(packagesDir, dir.name, "package.json");
+                if (!fs.existsSync(pkgPath)) continue;
+                const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+                if (pkg.private) continue;
+                if (!pkg.name || !pkg.version) continue;
+                process.stdout.write(`${pkg.name}@${pkg.version}\n`);
+              }
+            '
+          )
+
+          if [[ "${#PACKAGE_SPECS[@]}" -eq 0 ]]; then
+            echo "No publishable workspace packages found under packages/*."
+            exit 0
+          fi
+
+          for spec in "${PACKAGE_SPECS[@]}"; do
+            npm view "$spec" version >/dev/null
+            npm dist-tag add "$spec" latest
+            echo "Promoted $spec -> latest"
+          done

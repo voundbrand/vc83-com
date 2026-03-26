@@ -1,0 +1,26 @@
+{
+  "name": "@sevenlayers/cli",
+  "version": "2.0.0-alpha.0",
+  "description": "SevenLayers CLI for app wiring, CMS, booking, and agent setup",
+  "author": "SevenLayers",
+  "license": "MIT",
+  "bin": {
+    "sevenlayers": "dist/bin/sevenlayers.js",
+    "l4yercak3": "dist/bin/sevenlayers.js",
+    "icing": "dist/bin/sevenlayers.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test dist/tests/**/*.test.js",
+    "prepublishOnly": "npm run clean && npm run build && npm run test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

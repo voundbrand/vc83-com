@@ -1,7 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Terminal, LogIn, FolderPlus, X } from "lucide-react";
+import {
+  Bot,
+  CalendarCheck2,
+  Check,
+  Copy,
+  LayoutTemplate,
+  Link2,
+  Rocket,
+  RotateCcw,
+  Settings2,
+  ShieldCheck,
+  Terminal,
+  X,
+} from "lucide-react";
 import { InteriorButton } from "@/components/ui/interior-button";
 
 interface CLISetupGuideProps {
@@ -62,6 +75,14 @@ function CopyableCommand({ command }: { command: string }) {
   );
 }
 
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--tone-accent)" }}>
+      {title}
+    </h4>
+  );
+}
+
 function Step({ number, title, description, command, icon, note }: StepProps) {
   return (
     <div className="flex gap-3">
@@ -99,44 +120,111 @@ function Step({ number, title, description, command, icon, note }: StepProps) {
 }
 
 /**
- * CLI Setup Guide - Step-by-step instructions for connecting an app via CLI
+ * CLI Setup Guide - Safe setup + rollout runbook for SevenLayers CLI
  *
  * Can be used in:
  * - Empty state when no applications are connected
  * - Modal for "Connect Another App" action
  */
-export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetupGuideProps) {
+export function CLISetupGuide({ variant = "full", showInstall = true, onDocsClick }: CLISetupGuideProps) {
   const steps: StepProps[] = [];
-
-  if (showInstall) {
+  const addStep = (step: Omit<StepProps, "number">) => {
     steps.push({
       number: steps.length + 1,
+      ...step,
+    });
+  };
+
+  if (showInstall) {
+    addStep({
       title: "Install the CLI",
-      description: "Install the L4YERCAK3 CLI globally using npm, yarn, or pnpm.",
-      command: "npm install -g @l4yercak3/cli",
+      description: "Install the compatibility package. Primary command is sevenlayers; legacy aliases remain available.",
+      command: "npm install -g @sevenlayers/cli",
       icon: <Terminal size={16} />,
-      note: "Or use: yarn global add @l4yercak3/cli / pnpm add -g @l4yercak3/cli",
+      note: "Aliases preserved: sevenlayers, l4yercak3, and icing.",
     });
   }
 
-  steps.push(
+  addStep({
+    title: "Configure staging target profile",
+    description: "Define explicit backend/org/app defaults before any mutating command.",
+    command:
+      "sevenlayers env set staging --backend-url https://<backend-url> --org-id <org_id> --app-id <app_id>",
+    icon: <Settings2 size={16} />,
+    note: "Use staging first; avoid direct prod bootstrap until rollout gates pass.",
+  });
+
+  addStep({
+    title: "Activate and validate target context",
+    description: "Fail closed on target mismatch using the built-in doctor diagnostics.",
+    command: "sevenlayers env use staging && sevenlayers doctor target --env staging --json",
+    icon: <ShieldCheck size={16} />,
+    note: "All mutating flows require resolved env+org+app tuple.",
+  });
+
+  addStep({
+    title: "Initialize safely (non-destructive by default)",
+    description: "Preview env changes before writing managed keys.",
+    command: "sevenlayers app init --env staging --dry-run --json",
+    icon: <ShieldCheck size={16} />,
+    note: "Apply with explicit flags only after reviewing dry-run output.",
+  });
+
+  addStep({
+    title: "Wire app metadata and pages",
+    description: "Register/link app metadata and sync page declarations for CMS-aware routing.",
+    command: "sevenlayers app register --env staging --name \"<app-name>\" --framework next --json",
+    icon: <Link2 size={16} />,
+    note: "Follow with: sevenlayers app link ..., sevenlayers app pages sync ..., sevenlayers app sync ...",
+  });
+
+  addStep({
+    title: "Run CMS parity + binding checks",
+    description: "Validate CMS schema parity and page binding contracts before publish.",
+    command: "sevenlayers cms doctor --in .sevenlayers/cms-content.json --json",
+    icon: <LayoutTemplate size={16} />,
+    note: "Use cms registry pull/push and cms bind for scoped registry + page object binding updates.",
+  });
+
+  addStep({
+    title: "Run booking + agent governance preflight",
+    description: "Validate booking prerequisites and template governance before cutover.",
+    command: "sevenlayers booking check --env staging --event-id <event_id> --product-id <product_id> --json",
+    icon: <Bot size={16} />,
+    note: "Also run: booking smoke --dry-run, agent permissions check, agent drift, and agent catalog telemetry.",
+  });
+
+  const rolloutSteps: StepProps[] = [
     {
-      number: steps.length + 1,
-      title: "Authenticate",
-      description: "Log in to your L4YERCAK3 account. This opens a browser window for secure authentication.",
-      command: "l4yercak3 login",
-      icon: <LogIn size={16} />,
-      note: "Your credentials are stored securely in your system keychain.",
+      number: 1,
+      title: "Preflight quality gates",
+      description: "Block rollout if repo health checks fail.",
+      command: "npm run typecheck && npm run docs:guard",
+      icon: <ShieldCheck size={16} />,
     },
     {
-      number: steps.length + 2,
-      title: "Initialize Your Project",
-      description: "Navigate to your project directory and run init. This connects your app to L4YERCAK3.",
-      command: "l4yercak3 init",
-      icon: <FolderPlus size={16} />,
-      note: "The CLI will detect your framework and guide you through the setup.",
-    }
-  );
+      number: 2,
+      title: "Alpha/canary publish confirmation",
+      description: "Canary publish runs via packages-publish workflow on main merges.",
+      command: "npm view @sevenlayers/cli dist-tags --json",
+      icon: <Rocket size={16} />,
+      note: "Confirm canary points to expected version before stable promotion.",
+    },
+    {
+      number: 3,
+      title: "Promote stable latest",
+      description: "Promote current workspace package versions to latest after canary validation.",
+      command: "gh workflow run packages-publish.yml -f promote_latest=true",
+      icon: <CalendarCheck2 size={16} />,
+      note: "Requires GitHub CLI auth and repository write permissions.",
+    },
+  ];
+
+  const rollbackCommands = [
+    "npm dist-tag add @sevenlayers/cli@<previous_version> latest",
+    "npm dist-tag add @l4yercak3/sdk@<previous_version> latest",
+    "npm dist-tag add @l4yercak3/cms@<previous_version> latest",
+  ];
 
   if (variant === "compact") {
     return (
@@ -162,10 +250,10 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
           <Terminal size={32} style={{ color: "#0f0f0f" }} />
         </div>
         <h3 className="text-sm font-bold mb-1" style={{ color: "var(--window-document-text)" }}>
-          Connect Your App via CLI
+          SevenLayers CLI Safe Setup Runbook
         </h3>
         <p className="text-xs" style={{ color: "var(--neutral-gray)" }}>
-          Follow these steps to connect your application to L4YERCAK3
+          Use this flow for staged setup, guarded rollout, and deterministic rollback.
         </p>
       </div>
 
@@ -176,7 +264,7 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
         ))}
       </div>
 
-      {/* Supported Frameworks */}
+      {/* Alias compatibility */}
       <div
         className="mt-6 p-3 border-2 text-xs"
         style={{
@@ -185,19 +273,16 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
         }}
       >
         <p className="font-bold mb-2" style={{ color: "var(--window-document-text)" }}>
-          Supported Frameworks
+          Compatibility Aliases
         </p>
         <div className="flex flex-wrap gap-2">
           {[
-            { name: "Next.js", icon: "▲" },
-            { name: "Remix", icon: "R" },
-            { name: "Astro", icon: "A" },
-            { name: "Vite", icon: "V" },
-            { name: "Nuxt", icon: "N" },
-            { name: "SvelteKit", icon: "S" },
-          ].map((fw) => (
+            { name: "sevenlayers", command: "sevenlayers --help" },
+            { name: "l4yercak3", command: "l4yercak3 --help" },
+            { name: "icing", command: "icing --help" },
+          ].map((item) => (
             <span
-              key={fw.name}
+              key={item.name}
               className="px-2 py-1 flex items-center gap-1"
               style={{
                 background: "white",
@@ -205,9 +290,41 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
                 color: "var(--window-document-text)",
               }}
             >
-              <span>{fw.icon}</span>
-              <span>{fw.name}</span>
+              <Terminal size={12} />
+              <span>{item.command}</span>
             </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Alpha -> stable cutover */}
+      <div className="mt-6 space-y-4">
+        <SectionTitle title="Alpha -> Stable Cutover" />
+        <div className="space-y-5">
+          {rolloutSteps.map((step, index) => (
+            <Step key={index} {...step} number={index + 1} />
+          ))}
+        </div>
+      </div>
+
+      {/* Rollback */}
+      <div
+        className="mt-6 p-3 border-2 text-xs"
+        style={{
+          borderColor: "var(--window-document-border)",
+          background: "var(--window-document-bg-elevated)",
+        }}
+      >
+        <p className="font-bold mb-2 flex items-center gap-2" style={{ color: "var(--window-document-text)" }}>
+          <RotateCcw size={14} style={{ color: "var(--tone-accent)" }} />
+          Rollback Runbook (dist-tag revert)
+        </p>
+        <p className="mb-2" style={{ color: "var(--neutral-gray)" }}>
+          If stable promotion causes regressions, immediately repoint latest to the last known-good versions:
+        </p>
+        <div className="space-y-2">
+          {rollbackCommands.map((command) => (
+            <CopyableCommand key={command} command={command} />
           ))}
         </div>
       </div>
@@ -220,6 +337,7 @@ export function CLISetupGuide({ variant = "full", showInstall = true }: CLISetup
             href="https://docs.sevenlayers.io/cli"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onDocsClick}
             className="underline hover:no-underline"
             style={{ color: "var(--tone-accent)" }}
           >

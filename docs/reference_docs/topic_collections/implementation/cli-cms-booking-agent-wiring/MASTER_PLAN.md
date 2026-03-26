@@ -1,58 +1,86 @@
-# CLI + CMS/Booking/Agent Wiring Master Plan
+# SevenLayers CLI Rebuild Master Plan
 
 **Date:** 2026-03-24  
-**Scope:** Define and implement a production CLI in this repo with safe environment targeting and first-class workflows for app linking, CMS binding, booking setup, and agent bootstrap.
+**Scope:** Rebuild the CLI from scratch (reference-only reuse from static CLI snapshot), adopt `sevenlayers` branding, and ship safe production workflows for app wiring, CMS, booking, and agent setup.
 
 ---
 
 ## Mission
 
-Ship a production-grade CLI package owned in `packages/` that is safe by default and operationally complete for web publishing, CMS, booking, and agents.
+Ship a production CLI that is safer and clearer than the prior generation.
 
-Definition of done:
+Required outcomes:
 
-1. CLI source is repo-owned and publishable (`packages/cli`).
-2. Release flow is automated, reproducible, and rollback-capable.
-3. Every mutation command is fail-closed on org/app/env targeting.
-4. CMS, booking, and agent setup can be executed through deterministic CLI commands with machine-readable output.
+1. Fresh implementation in `packages/cli` (no runtime dependency on docs snapshot code).
+2. Primary command: `sevenlayers`, with legacy aliases preserved during migration.
+3. Non-destructive `.env*` handling by default.
+4. Explicit target guardrails for every mutating operation.
+5. Domain commands for app wiring, CMS, booking, and agent setup.
+6. Release workflow with provenance, versioning discipline, and rollback playbook.
+
+---
+
+## Design principles (non-negotiable)
+
+1. Fail closed: ambiguous target context must stop execution.
+2. No silent destructive file writes: default mode is additive/upsert only.
+3. Human review first: mutation commands support `--dry-run` and diff previews.
+4. Deterministic command output: support JSON mode for CI/automation.
+5. Backward compatibility with controlled migration: keep legacy aliases while steering to new namespace.
 
 ---
 
 ## Current state in this codebase
 
-### What exists
+### Verified existing assets
 
-1. Snapshot CLI implementation with useful command primitives lives in local-only reference docs (`docs/reference_projects/l4yercak3-cli`).
-2. Snapshot already includes auth, app connect, manifest sync, and page detection/sync commands.
-3. Backend/UI already support app-scoped CMS copy registries and legacy-to-scoped migration paths.
-4. Booking runtime and endpoints exist in Convex/app code and are suitable for CLI health checks + bootstrap contracts.
-5. Agent bootstrap logic exists via script + Convex action and can be wrapped by a production CLI command surface.
+1. Static CLI reference exists in `docs/reference_projects/l4yercak3-cli`.
+2. Platform already supports app-scoped CMS copy registry and migration contracts in Convex.
+3. Booking APIs and flows already exist in app + Convex runtime.
+4. Agent bootstrap actions already exist and are script-consumable.
+5. Existing package namespace has publishable packages under `packages/sdk` and `packages/cms`.
 
-### What is missing
+### Verified gaps
 
-1. No production CLI package under `packages/`.
-2. No workspace-level package release orchestration for `cli` + `sdk` + `cms`.
-3. No npm publish workflow with provenance.
-4. No explicit local/staging/prod targeting model with hard safety rails.
-5. No unified command namespace for CMS binding, booking setup, and agent bootstrap.
+1. This workstream's implementation scope is complete (`SLCLI-001` through `SLCLI-016`).
+2. Remaining effort is operational follow-through (canary/stable execution telemetry and incremental UX refinements as needed).
 
-### What is risky today
+### Verified risk from previous behavior
 
-1. Hardcoded production backend/app URLs in snapshot CLI can cause accidental prod writes.
-2. Inconsistent command UX (`spread`, `connect`, `sync`) obscures safe operational intent.
-3. Manual script paths for agent/bootstrap and booking ops are hard to standardize and audit.
-4. No versioned release mechanism means weak rollback and uncertain provenance.
+1. Prior CLI behavior could fully rewrite `.env.local`, which is unacceptable for production operations.
+2. Snapshot includes hardcoded production URL defaults and therefore weak targeting safety.
+
+### Progress checkpoint (2026-03-25)
+
+1. `SLCLI-001` completed: architecture and safety contracts are locked in queue/plan docs.
+2. `SLCLI-002` completed: `packages/cli` scaffolded from scratch with `sevenlayers` primary bin + compatibility aliases.
+3. `SLCLI-003` completed: safe env mutation subsystem implemented with dry-run, backup, and atomic write behavior.
+4. `SLCLI-004` completed: app init/connect and legacy spread/connect paths now use safe env writer (no destructive default rewrite).
+5. `SLCLI-005` completed: profile model shipped with `env list/use/set` command surface and explicit profile metadata.
+6. `SLCLI-006` completed: target guardrails enforced for mutating app commands, including profile mismatch fail-close and confirm-gated target protection.
+7. `SLCLI-007` completed: app wiring suite shipped (`app register`, `app link`, `app sync`, `app pages sync`) with deterministic JSON output and unit coverage.
+8. `SLCLI-008` completed: legacy bridges (`spread`, `connect`, `sync`, `pages`) now route through rebuilt command internals with migration-safe messaging.
+9. `SLCLI-009` completed: CMS registry pull/push + bind commands shipped with app-scoped registry metadata wiring and page binding updates.
+10. `SLCLI-010` completed: CMS migrate/seed/doctor suite shipped with locale + field parity diagnostics and dry-run/apply workflow gates.
+11. `SLCLI-011` completed: booking setup/check commands shipped with endpoint reachability checks and required event/product validation before mutation.
+12. `SLCLI-012` completed: booking smoke command shipped with dry-run default and explicit `--allow-prod-smoke` production gate.
+13. `SLCLI-013` completed: agent init/template/permissions commands shipped with scoped non-interactive wrappers around existing Convex bootstrap and patch flows.
+14. `SLCLI-014` completed: agent drift/catalog governance commands shipped with deterministic `--json` outputs for CI, covering drift reports plus rollout/lifecycle/telemetry catalog modes.
+15. `SLCLI-015` completed: release foundation landed with root npm workspaces, Changesets configuration, and a `packages-publish` GitHub workflow using npm provenance for canary publish plus manual `latest` dist-tag promotion.
+16. `SLCLI-016` completed: Web Publishing CLI setup guide and docs now cover full guarded setup workflows plus explicit alpha/stable cutover and dist-tag rollback runbook commands.
 
 ---
 
-## Assumptions (explicit)
+## Naming and migration strategy
 
-1. Inferred: package scope remains `@l4yercak3/*` for near-term compatibility.
-2. Inferred: GitHub Actions is the release automation platform.
-3. Inferred: npm public publishing is desired for CLI distribution.
-4. Inferred: existing Convex endpoints used by snapshot/scripts remain valid integration points for first release.
-
-If any assumption is wrong, adjust before starting `CLI-001` and update this file.
+1. Primary binary name: `sevenlayers`.
+2. Compatibility binaries: `l4yercak3`, `icing` (same executable target during migration window).
+3. Package naming decision:
+   - Approved direction: publish CLI as `@sevenlayers/cli`.
+   - Keep binary compatibility aliases (`l4yercak3`, `icing`) during migration.
+4. Branding update:
+   - Replace old logo text with `sevenlayers`.
+   - Keep style family but use orange palette.
 
 ---
 
@@ -61,167 +89,136 @@ If any assumption is wrong, adjust before starting `CLI-001` and update this fil
 ### Package layout
 
 1. `packages/cli`
-   - End-user binary package (`l4yercak3`, `icing`).
-   - Commander command registration, UX output, top-level command shims.
-2. `packages/cli-core`
-   - Pure services: API client, config/profile store, guardrails, validators, serializers.
-   - Reusable by CLI + tests.
-3. `packages/cli-contracts` (optional if needed)
-   - Shared zod/JSON-schema contracts for command outputs and request payloads.
+   - Commander entrypoint, command registration, terminal UX, logo.
+2. `packages/cli-core` (or internal `src/core/*` if kept single-package initially)
+   - API client, profile/target resolution, safety guards, env writer.
+3. Optional `packages/cli-contracts`
+   - shared zod/json-schema for deterministic machine output.
 
-### Internal module structure (`packages/cli/src`)
+### Command groups
 
-1. `bin/l4yercak3.ts` command entry.
-2. `commands/auth/*`
-3. `commands/app/*`
-4. `commands/cms/*`
-5. `commands/booking/*`
-6. `commands/agent/*`
-7. `commands/env/*`
-8. `commands/doctor/*`
-9. `legacy/*` shim wrappers for old commands.
-
-### Backward compatibility
-
-1. Keep `spread` aliasing to new `app init` flow for at least one major cycle.
-2. Keep `connect`, `sync`, and `pages` as wrappers with migration hints.
-3. Preserve config migration path from existing `~/.l4yercak3/config.json`.
+1. `auth`: login/logout/status.
+2. `env`: profile management (`local`, `staging`, `prod`).
+3. `app`: register/link/sync/pages.
+4. `cms`: registry/bind/migrate/seed/doctor.
+5. `booking`: setup/check/smoke.
+6. `agent`: init/template/permissions/drift.
+7. `doctor`: global and target diagnostics.
+8. `legacy`: `spread`, `connect`, `sync`, `pages` wrappers.
 
 ---
 
-## Release and publish design
+## Safe env write subsystem
 
-### Naming and versions
+### Required behaviors
 
-1. Package name: `@l4yercak3/cli`.
-2. Dist-tags:
-   - `canary` for prereleases,
-   - `latest` for stable.
-3. Semver policy:
-   - Patch: bugfix/no behavior change,
-   - Minor: additive command/options,
-   - Major: breaking command/contract changes.
+1. Parse and preserve existing `.env*` structure (comments and unknown keys retained where feasible).
+2. Default write mode: `upsert-managed-keys` only.
+3. Existing keys changed only when explicitly allowed (`--replace-key` or confirmation step).
+4. Full rewrite only with explicit destructive flag (`--allow-full-rewrite`) and warning confirmation.
+5. Always support:
+   - `--dry-run` (show diff only),
+   - backup generation (`.bak` or custom path),
+   - atomic write (temp file + rename).
 
-### CI/CD
+### Anti-regression contract
 
-1. `release-pr` workflow (changesets) creates version PR.
-2. `publish` workflow on merge/tag:
-   - install,
-   - build/test,
-   - `npm publish --provenance`.
-3. Required permissions: `id-token: write`, `contents: write` (release notes), `packages: write` if needed.
-4. Auth:
-   - npm automation token in repo secrets,
-   - OIDC provenance enabled.
-
-### Rollback and incident playbook
-
-1. Fast rollback: repoint `latest` to last good version with `npm dist-tag add @l4yercak3/cli@<prev> latest`.
-2. Hotfix: ship patch release from rollback branch.
-3. Credential response: revoke compromised npm token and rotate secret.
-4. Do not unpublish stable versions unless legal/security emergency.
+1. Unknown keys must never be removed in default mode.
+2. A unit test suite must cover non-destructive behavior before release.
 
 ---
 
-## Environment targeting model
+## Environment/org/app targeting model
 
-### Profiles
-
-1. `local`: local Convex/dev endpoints only.
-2. `staging`: pre-prod verification environment.
-3. `prod`: production endpoints.
-
-### Profile record
-
-Each profile persists:
-
-1. `name`,
-2. `backendUrl`,
-3. `appUrl`,
-4. `defaultOrgId` (optional),
-5. `defaultAppId` (optional),
-6. `requiresConfirmation` (true for prod),
-7. `lastUsedAt`.
-
-### Safety rails
-
-1. All mutation commands require resolved target tuple: `(env, orgId, appId)`.
-2. `prod` mutations require explicit confirmation phrase unless `--yes --confirm-prod <token>` provided.
-3. Cross-target mismatch (CLI args vs saved profile vs backend lookup) hard-fails.
-4. `--dry-run` supported everywhere possible and default for smoke/check commands.
+1. Profile records include endpoint + default org/app metadata.
+2. Mutating commands require resolved tuple `(env, orgId, appId)`.
+3. `prod` requires explicit confirmation token/phrase.
+4. Conflicts between CLI flags, saved profile, and discovered app metadata fail closed.
+5. Every mutating command supports structured preflight output in `--json` mode.
 
 ---
 
-## Domain command strategy
+## Domain strategy
+
+### App wiring
+
+1. Rebuild register/connect/sync/pages on clean command internals.
+2. Keep compatibility wrappers for previous command names.
 
 ### CMS
 
-1. `cms registry sync` pulls/pushes field registry manifests.
-2. `cms bind` links app -> registry metadata (`cmsCopyRegistryId`).
-3. `cms migrate legacy` runs legacy-to-scoped key migration with summary.
-4. `cms seed` seeds registry fields/locales from app source.
-5. `cms doctor` validates locale parity, missing keys, and scoped-name consistency.
+1. Implement commands aligned with existing backend contracts for scoped registry binding and legacy migration.
+2. Add doctor + seed commands for locale/field parity.
 
 ### Booking
 
-1. `booking setup` validates required resources and wiring.
-2. `booking check` asserts runtime prerequisites/env vars/integration endpoints.
-3. `booking smoke` runs non-prod lifecycle smoke and emits structured result JSON.
+1. Add setup/check commands validating required entities and env contracts.
+2. Add smoke command with non-prod default and explicit prod override gate.
 
 ### Agent
 
-1. `agent init` bootstraps agent for org/app scope.
-2. `agent template apply` applies known template with permission checks.
-3. `agent permissions check` reports missing grants.
-4. `agent drift` compares desired template config with runtime state.
+1. Wrap existing bootstrap/template permission flows in stable commands.
+2. Add drift checks for governance and CI safety.
 
 ---
 
-## Phased execution (queue-aligned)
+## Release and publishing design
 
-### Phase 0: Foundation and safety
+1. Add workspace-aware release management (changesets).
+2. Publish via GitHub Actions with npm provenance.
+3. Use dist-tags for staged rollout (`canary`, `latest`).
+4. Publish rollback runbook with exact dist-tag and patch/hotfix actions.
 
-- Queue rows: `CLI-001`..`CLI-007`.
-- Exit criteria:
-  1. Production package exists and builds/tests,
-  2. release scaffolding exists,
-  3. env/org/app safety rails block ambiguous operations.
+---
 
-### Phase 1: Domain commands
+## Phased plan and acceptance criteria
 
-- Queue rows: `CLI-008`..`CLI-013`.
-- Exit criteria:
-  1. CMS bind/migrate/seed/doctor commands available,
-  2. booking setup/check/smoke available,
-  3. agent init/template/permissions available.
+### Phase 0 (Safety + Foundation)
 
-### Phase 2: Rollout and cutover
+Scope: `SLCLI-001` to `SLCLI-006`.
 
-- Queue rows: `CLI-014`..`CLI-016`.
-- Exit criteria:
-  1. web publishing UI guidance updated,
-  2. alpha release dogfooded in staging,
-  3. stable release with rollback playbook and deprecation timeline.
+Acceptance:
+
+1. CLI skeleton builds and runs as `sevenlayers`.
+2. Non-destructive env writer is implemented and tested.
+3. Target guardrails are mandatory for mutating commands.
+
+### Phase 1 (Operational command suites)
+
+Scope: `SLCLI-007` to `SLCLI-014`.
+
+Acceptance:
+
+1. App wiring commands operational with JSON output.
+2. CMS commands support bind/migrate/seed/doctor safely.
+3. Booking commands support setup/check/smoke with prod guards.
+4. Agent commands support bootstrap/template/permissions/drift.
+
+### Phase 2 (Release + rollout)
+
+Scope: `SLCLI-015` to `SLCLI-016`.
+
+Acceptance:
+
+1. Automated publish flow with provenance is active.
+2. Web publishing UI/docs are updated to new command surface.
+3. Alpha rollout completes with rollback criteria documented.
 
 ---
 
 ## Risks and mitigations
 
-1. Risk: accidental prod mutations.
-   - Mitigation: mandatory target tuple + prod confirmation + dry-run defaults.
-2. Risk: command drift between docs and shipped CLI.
-   - Mitigation: `CLI-014` updates UI/docs only after command surface lands.
-3. Risk: release process regressions.
-   - Mitigation: changesets + provenance + dist-tag rollback.
-4. Risk: domain-specific setup differs by app.
-   - Mitigation: app-scoped templates and doctor checks with explicit unsupported markers.
+1. Risk: brand/package rename creates install confusion.
+   - Mitigation: keep alias bins and phased package migration strategy.
+2. Risk: env safety regressions recur.
+   - Mitigation: non-destructive contract tests are release blockers.
+3. Risk: production targeting mistakes.
+   - Mitigation: required target tuple + prod confirmation + dry-run defaults.
+4. Risk: scope creep across domains.
+   - Mitigation: queue lane boundaries and strict `P0`/`P1` ordering.
 
 ---
 
-## Acceptance criteria summary
+## Immediate execution recommendation
 
-1. `@l4yercak3/cli` can be built, tested, packed, and published from this repo.
-2. CLI can safely target `local/staging/prod` without ambiguity.
-3. CLI provides deterministic workflows for CMS, booking, and agent setup.
-4. Release path includes provenance and documented rollback steps.
-5. Existing users retain functional legacy command paths during transition.
+Phase complete: continue with release operations and monitor canary/stable adoption telemetry.

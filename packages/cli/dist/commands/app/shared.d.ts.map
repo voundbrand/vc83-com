@@ -1,0 +1,1 @@
+{"version":3,"file":"shared.d.ts","sourceRoot":"","sources":["../../../src/commands/app/shared.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,KAAK,UAAU,EAAqC,MAAM,iBAAiB,CAAC;AAUrF,UAAU,4BAA4B;IACpC,MAAM,EAAE,UAAU,CAAC;IACnB,WAAW,EAAE,MAAM,CAAC;IACpB,YAAY,CAAC,EAAE,MAAM,CAAC;CACvB;AAiED,wBAAsB,sBAAsB,CAC1C,MAAM,EAAE,4BAA4B,GACnC,OAAO,CAAC,MAAM,CAAC,CAgEjB"}

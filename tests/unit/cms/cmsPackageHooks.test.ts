@@ -232,7 +232,7 @@ describe("packages/cms hooks", () => {
       usage: "home_about_image",
       file,
       alt: "Panorama",
-      locale: undefined,
+      locale: "de",
     });
 
     await waitFor(() => {
