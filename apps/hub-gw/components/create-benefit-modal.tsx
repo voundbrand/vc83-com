@@ -24,24 +24,32 @@ export function CreateBenefitModal({ open, onOpenChange }: CreateBenefitModalPro
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
   const [discount, setDiscount] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !description.trim() || !category.trim()) return
+    if (isSubmitting) return
 
-    addBenefit({
-      title,
-      description,
-      category,
-      discount: discount || undefined,
-      provider: { name: "Julia Schneider", type: "person" },
-    })
+    setIsSubmitting(true)
+    try {
+      const created = await addBenefit({
+        title,
+        description,
+        category,
+        discount: discount || undefined,
+        provider: { name: "Julia Schneider", type: "person" },
+      })
+      if (!created) return
 
-    setTitle("")
-    setDescription("")
-    setCategory("")
-    setDiscount("")
-    onOpenChange(false)
+      setTitle("")
+      setDescription("")
+      setCategory("")
+      setDiscount("")
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -97,10 +105,17 @@ export function CreateBenefitModal({ open, onOpenChange }: CreateBenefitModalPro
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Abbrechen
             </Button>
-            <Button type="submit">Erstellen</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Erstelle..." : "Erstellen"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

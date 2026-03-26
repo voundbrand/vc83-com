@@ -1,7 +1,7 @@
 # Hub-GW OAuth Workstream Index
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/apps/hub-gw/docs/workstreams/hub-gw-oauth`  
-**Last updated:** 2026-03-24  
+**Last updated:** 2026-03-25  
 **Source request:** Read through `PROMPT_HUB_GW_OAUTH.md`, check whether it matches the repo, and convert it into a realistic implementation plan whose final outcome is reusable org-level OIDC, not a Hub-GW one-off.
 
 ---
@@ -10,12 +10,12 @@
 
 This workstream replaces an optimistic OAuth prompt with a repo-grounded execution plan for `apps/hub-gw` that ends in a reusable org-level OIDC integration.
 
-The key correction is that Hub-GW auth is not just "add NextAuth":
+The key correction is that Hub-GW auth was not just "add NextAuth":
 
-1. the frontend is still mock-auth and mock-ownership based,
+1. the frontend started mock-auth and mock-ownership based,
 2. the existing Convex auth HTTP file is incomplete and not routed,
-3. seller write routes already bypass auth entirely through the deploy key,
-4. current UI types conflate login identity with enriched business profile data,
+3. seller write routes started deploy-key-open without browser auth,
+4. UI types originally conflated login identity with enriched business profile data,
 5. the final product goal is broader than Hub-GW and should become reusable for future org portals.
 
 ---
@@ -47,17 +47,20 @@ The key correction is that Hub-GW auth is not just "add NextAuth":
 8. The workstream is intentionally choosing a phased implementation instead of a one-shot.
 9. Hub-GW is the proving ground, not the permanent special-case architecture.
 10. Workstream artifacts are now consolidated under `apps/hub-gw/docs/workstreams/hub-gw-oauth`.
-11. `HGO-006` is now `IN_PROGRESS` with first-pass Auth.js route and custom GW OIDC wiring landed.
+11. `HGO-006` through `HGO-013` are now `DONE`; reusable onboarding and identity-policy contract is codified in docs and Convex guardrails.
+12. `HGO-015` is now `DONE`; rollout smoke matrix is published with deterministic `PASS/FAIL/BLOCKED` outcomes and live endpoint evidence.
+13. Next deterministic row is `HGO-014` (`PENDING`) for legacy endpoint fate and docs alignment.
+14. Frontend OIDC state cleanup now uses bounded paginated batches with telemetry to keep hourly cron runs safe under growth.
 
 ---
 
 ## Core repo facts captured by this plan
 
-1. `apps/hub-gw/lib/user-context.tsx` is mock auth and starts logged in.
-2. `apps/hub-gw/app/api/*` seller mutation routes currently write through `CONVEX_DEPLOY_KEY` without session checks.
-3. `convex/api/v1/auth.ts` exists but is not routed in `convex/http.ts` and is not Hub-GW ready.
-4. `convex/auth.ts` has a partial `syncFrontendUser`, but its CRM link logic and seller-context return shape are incomplete.
-5. `apps/hub-gw/lib/data-context.tsx` still uses `CURRENT_USER_ID` mock ownership semantics.
+1. `apps/hub-gw/lib/user-context.tsx` now derives identity from session and uses a separate enrichment endpoint for optional business/profile data.
+2. `apps/hub-gw/app/api/*` seller mutation routes now enforce seller auth and org scope server-side.
+3. `convex/api/v1/auth.ts` still exists but is not routed in `convex/http.ts` and remains out-of-band for Hub-GW.
+4. `convex/auth.ts` seller-context work from `HGO-004` is implemented but row closeout remains blocked by cross-repo typecheck policy coupling.
+5. `apps/hub-gw/lib/data-context.tsx` now uses session owner context in non-mock mode and routes non-mock create/delete through protected Hub-GW APIs.
 
 ---
 
@@ -66,10 +69,10 @@ The key correction is that Hub-GW auth is not just "add NextAuth":
 - [x] Lane `A` planning kickoff: `HGO-001`
 - [x] Lane `A` auth foundation: `HGO-002`
 - [~] Lane `B` backend sync and seller context: `HGO-003` done, `HGO-004` implemented but blocked on verification, `HGO-005` pending
-- [~] Lane `C` frontend OAuth/session integration: `HGO-006` in progress, `HGO-007` pending
-- [ ] Lane `D` seller hardening and ownership cleanup: `HGO-008`..`HGO-009`
-- [ ] Lane `E` reusable org-level OIDC generalization: `HGO-010`..`HGO-013`
-- [ ] Lane `F` endpoint fate, rollout docs, and smoke matrix: `HGO-014`..`HGO-015`
+- [x] Lane `C` frontend OAuth/session integration: `HGO-006`, `HGO-007` done
+- [x] Lane `D` seller hardening and ownership cleanup: `HGO-008`, `HGO-009` done
+- [x] Lane `E` reusable org-level OIDC generalization: `HGO-010` through `HGO-013` done
+- [~] Lane `F` endpoint fate, rollout docs, and smoke matrix: `HGO-015` done, `HGO-014` pending
 
 ---
 

@@ -26,32 +26,40 @@ export function CreateServiceModal({ open, onOpenChange }: CreateServiceModalPro
   const [skills, setSkills] = useState("")
   const [hourlyRate, setHourlyRate] = useState("")
   const [location, setLocation] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !description.trim() || !category.trim() || !location.trim()) return
+    if (isSubmitting) return
 
-    addLeistung({
-      title,
-      description,
-      category,
-      skills: skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      hourlyRate: hourlyRate || undefined,
-      location,
-      provider: { name: "Julia Schneider", type: "person" },
-      rating: 5.0,
-    })
+    setIsSubmitting(true)
+    try {
+      const created = await addLeistung({
+        title,
+        description,
+        category,
+        skills: skills
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        hourlyRate: hourlyRate || undefined,
+        location,
+        provider: { name: "Julia Schneider", type: "person" },
+        rating: 5.0,
+      })
+      if (!created) return
 
-    setTitle("")
-    setDescription("")
-    setCategory("")
-    setSkills("")
-    setHourlyRate("")
-    setLocation("")
-    onOpenChange(false)
+      setTitle("")
+      setDescription("")
+      setCategory("")
+      setSkills("")
+      setHourlyRate("")
+      setLocation("")
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -126,10 +134,17 @@ export function CreateServiceModal({ open, onOpenChange }: CreateServiceModalPro
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Abbrechen
             </Button>
-            <Button type="submit">Erstellen</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Erstelle..." : "Erstellen"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

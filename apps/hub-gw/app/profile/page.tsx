@@ -29,8 +29,10 @@ export default function ProfilePage() {
     .join("")
     .toUpperCase()
 
-  const foundedDate = user.business.foundedDate
-    ? new Date(user.business.foundedDate)
+  const business = user.business
+
+  const foundedDate = business?.foundedDate
+    ? new Date(business.foundedDate)
     : null
   const hasValidFoundedDate = Boolean(
     foundedDate && !Number.isNaN(foundedDate.getTime())
@@ -59,7 +61,7 @@ export default function ProfilePage() {
               </Avatar>
               <h2 className="text-xl font-semibold text-foreground">{user.name}</h2>
               <p className="text-sm text-muted-foreground">
-                {user.business.industry || "Mitglied"}
+                {business?.industry || "Mitglied"}
               </p>
 
               <div className="mt-6 w-full space-y-3 text-left">
@@ -74,9 +76,9 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="text-foreground">
-                    {user.business.address.city || "Unbekannt"}
-                    {user.business.address.country
-                      ? `, ${user.business.address.country}`
+                    {business?.address.city || "Unbekannt"}
+                    {business?.address.country
+                      ? `, ${business.address.country}`
                       : ""}
                   </span>
                 </div>
@@ -104,7 +106,7 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">
-                      {user.business.legalName || "Nicht hinterlegt"}
+                      {business?.legalName || "Nicht hinterlegt"}
                     </p>
                   </div>
                 </div>
@@ -112,21 +114,21 @@ export default function ProfilePage() {
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Handelsregister</p>
                   <p className="text-sm text-foreground">
-                    {user.business.registerNumber || "Nicht hinterlegt"}
+                    {business?.registerNumber || "Nicht hinterlegt"}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Steuernummer</p>
                   <p className="text-sm text-foreground">
-                    {user.business.taxId || "Nicht hinterlegt"}
+                    {business?.taxId || "Nicht hinterlegt"}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Branche</p>
                   <p className="text-sm text-foreground">
-                    {user.business.industry || "Nicht hinterlegt"}
+                    {business?.industry || "Nicht hinterlegt"}
                   </p>
                 </div>
 
@@ -149,12 +151,12 @@ export default function ProfilePage() {
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Adresse</p>
                   <p className="text-sm text-foreground">
-                    {user.business.address.street || "Nicht hinterlegt"}
+                    {business?.address.street || "Nicht hinterlegt"}
                     <br />
-                    {user.business.address.postalCode || ""}
-                    {user.business.address.city ? ` ${user.business.address.city}` : ""}
+                    {business?.address.postalCode || ""}
+                    {business?.address.city ? ` ${business.address.city}` : ""}
                     <br />
-                    {user.business.address.country || ""}
+                    {business?.address.country || ""}
                   </p>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import type {
   FunctionReturnType,
 } from "convex/server";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { UserBusinessProfile } from "./types";
 
 // Dynamic require avoids excessively deep Convex API type instantiation in Next.js.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +48,13 @@ export interface HubGwOidcIntegrationConfig {
 export interface HubGwOrganizationScope {
   organizationId?: string | null;
   requestHost?: string | null;
+}
+
+export interface HubGwUserProfileEnrichment {
+  crmContactId: string | null;
+  crmOrganizationId: string | null;
+  phone: string | null;
+  business: UserBusinessProfile | null;
 }
 
 export function getConvexClient(): ConvexHttpClient {
@@ -102,6 +110,120 @@ function normalizeRequestHost(value: string | null | undefined): string | null {
 
   normalized = normalized.split("/")[0].split(":")[0].replace(/\.$/, "");
   return normalized || null;
+}
+
+function resolveFallbackHubGwOrganizationIdFromEnv(): string | null {
+  return (
+    normalizeOptionalString(process.env.PLATFORM_ORG_ID) ||
+    normalizeOptionalString(process.env.NEXT_PUBLIC_PLATFORM_ORG_ID)
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function firstNonEmptyString(
+  source: Record<string, unknown>,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = normalizeOptionalString(source[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function mapBusinessFromCrmOrganization(
+  organizationObject: Record<string, unknown> | null
+): UserBusinessProfile | null {
+  if (!organizationObject) {
+    return null;
+  }
+
+  const props = asRecord(organizationObject.customProperties);
+  const address = asRecord(props.address);
+
+  const business: UserBusinessProfile = {
+    legalName:
+      firstNonEmptyString(props, ["legalName", "companyName", "name"]) ||
+      normalizeOptionalString(organizationObject.name) ||
+      "",
+    registerNumber:
+      firstNonEmptyString(props, [
+        "registerNumber",
+        "commercialRegisterNumber",
+        "handelsregister",
+      ]) || "",
+    taxId: firstNonEmptyString(props, ["taxId", "vatId", "ustId"]) || "",
+    address: {
+      street:
+        firstNonEmptyString(address, ["street"]) ||
+        firstNonEmptyString(props, ["street"]) ||
+        "",
+      city:
+        firstNonEmptyString(address, ["city"]) ||
+        firstNonEmptyString(props, ["city"]) ||
+        "",
+      postalCode:
+        firstNonEmptyString(address, ["postalCode", "zip"]) ||
+        firstNonEmptyString(props, ["postalCode", "zip"]) ||
+        "",
+      country:
+        firstNonEmptyString(address, ["country"]) ||
+        firstNonEmptyString(props, ["country"]) ||
+        "",
+    },
+    foundedDate:
+      firstNonEmptyString(props, ["foundedDate", "foundedAt", "foundationDate"]) ||
+      "",
+    industry: firstNonEmptyString(props, ["industry", "sector"]) || "",
+  };
+
+  const hasAnyField = Boolean(
+    business.legalName ||
+      business.registerNumber ||
+      business.taxId ||
+      business.address.street ||
+      business.address.city ||
+      business.address.postalCode ||
+      business.address.country ||
+      business.foundedDate ||
+      business.industry
+  );
+
+  return hasAnyField ? business : null;
+}
+
+async function getObjectByIdSafe(
+  convex: ConvexHttpClient,
+  objectId: string | null
+): Promise<Record<string, unknown> | null> {
+  if (!objectId) {
+    return null;
+  }
+
+  try {
+    const object = await queryInternal(
+      convex,
+      generatedInternalApi.channels.router.getObjectByIdInternal,
+      { objectId }
+    );
+    return object && typeof object === "object"
+      ? (object as Record<string, unknown>)
+      : null;
+  } catch (error) {
+    console.error("[hub-gw-profile] Failed to load object by id", {
+      objectId,
+      error,
+    });
+    return null;
+  }
 }
 
 export async function queryInternal<QueryRef extends InternalQueryRef>(
@@ -210,6 +332,41 @@ export async function getHubGwOidcIntegrationConfig(
   return integrationConfig;
 }
 
+export async function getHubGwUserProfileEnrichment(args: {
+  crmContactId?: string | null;
+  crmOrganizationId?: string | null;
+}): Promise<HubGwUserProfileEnrichment> {
+  const crmContactId = normalizeOptionalString(args.crmContactId);
+  const crmOrganizationId = normalizeOptionalString(args.crmOrganizationId);
+
+  if (!crmContactId && !crmOrganizationId) {
+    return {
+      crmContactId: null,
+      crmOrganizationId: null,
+      phone: null,
+      business: null,
+    };
+  }
+
+  const convex = getConvexClient();
+  const [contactObject, organizationObject] = await Promise.all([
+    getObjectByIdSafe(convex, crmContactId),
+    getObjectByIdSafe(convex, crmOrganizationId),
+  ]);
+
+  const contactProps = asRecord(contactObject?.customProperties);
+  const phone =
+    firstNonEmptyString(contactProps, ["phone", "mobile", "telephone", "tel"]) ||
+    null;
+
+  return {
+    crmContactId,
+    crmOrganizationId,
+    phone,
+    business: mapBusinessFromCrmOrganization(organizationObject),
+  };
+}
+
 export async function resolveHubGwOrganizationId(
   scope: HubGwOrganizationScope = {}
 ): Promise<string | null> {
@@ -218,9 +375,10 @@ export async function resolveHubGwOrganizationId(
     return explicitOrganizationId;
   }
 
+  const fallbackOrganizationId = resolveFallbackHubGwOrganizationIdFromEnv();
   const requestHost = normalizeRequestHost(scope.requestHost);
   if (!requestHost) {
-    return null;
+    return fallbackOrganizationId;
   }
 
   const convex = getConvexClient();
@@ -250,6 +408,14 @@ export async function resolveHubGwOrganizationId(
       requestHost,
       error
     );
+  }
+
+  if (fallbackOrganizationId) {
+    console.warn(
+      "[hub-gw-org-scope] Falling back to PLATFORM_ORG_ID/NEXT_PUBLIC_PLATFORM_ORG_ID for host",
+      requestHost
+    );
+    return fallbackOrganizationId;
   }
 
   return null;

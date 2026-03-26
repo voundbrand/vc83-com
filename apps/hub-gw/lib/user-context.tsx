@@ -1,10 +1,17 @@
 "use client"
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 import type { Session } from "next-auth"
 import { signIn, signOut, useSession } from "next-auth/react"
 import type { HubGwResolvedAuthMode } from "@/lib/auth"
-import type { UserProfile } from "./types"
+import type { UserBusinessProfile, UserProfile } from "./types"
 import { mockUser } from "./mock-data"
 
 interface LoginOptions {
@@ -21,6 +28,7 @@ interface LoginResult {
 interface UserContextType {
   authMode: HubGwResolvedAuthMode
   authProviderId: string | null
+  authContext: Session["auth"] | null
   user: UserProfile | null
   isLoggedIn: boolean
   isLoading: boolean
@@ -30,21 +38,69 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null)
 
-const EMPTY_BUSINESS_PROFILE: UserProfile["business"] = {
-  legalName: "",
-  registerNumber: "",
-  taxId: "",
-  address: {
-    street: "",
-    city: "",
-    postalCode: "",
-    country: "",
-  },
-  foundedDate: "",
-  industry: "",
+interface EnrichmentPayload {
+  phone: string | null
+  business: UserBusinessProfile | null
 }
 
-function mapSessionToUser(session: Session | null): UserProfile | null {
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function normalizeBusinessProfile(value: unknown): UserBusinessProfile | null {
+  const source = asRecord(value)
+  if (!Object.keys(source).length) return null
+
+  const addressRecord = asRecord(source.address)
+  const business: UserBusinessProfile = {
+    legalName: normalizeOptionalString(source.legalName) || "",
+    registerNumber: normalizeOptionalString(source.registerNumber) || "",
+    taxId: normalizeOptionalString(source.taxId) || "",
+    address: {
+      street: normalizeOptionalString(addressRecord.street) || "",
+      city: normalizeOptionalString(addressRecord.city) || "",
+      postalCode: normalizeOptionalString(addressRecord.postalCode) || "",
+      country: normalizeOptionalString(addressRecord.country) || "",
+    },
+    foundedDate: normalizeOptionalString(source.foundedDate) || "",
+    industry: normalizeOptionalString(source.industry) || "",
+  }
+
+  const hasAnyField = Boolean(
+    business.legalName ||
+      business.registerNumber ||
+      business.taxId ||
+      business.address.street ||
+      business.address.city ||
+      business.address.postalCode ||
+      business.address.country ||
+      business.foundedDate ||
+      business.industry
+  )
+  return hasAnyField ? business : null
+}
+
+function normalizeEnrichmentPayload(payload: unknown): EnrichmentPayload {
+  const source = asRecord(payload)
+  return {
+    phone: normalizeOptionalString(source.phone),
+    business: normalizeBusinessProfile(source.business),
+  }
+}
+
+function mapSessionToUser(
+  session: Session | null,
+  enrichment: EnrichmentPayload
+): UserProfile | null {
   const sessionUser = session?.user
   const email = sessionUser?.email?.trim()
   if (!email) return null
@@ -52,9 +108,9 @@ function mapSessionToUser(session: Session | null): UserProfile | null {
   return {
     name: sessionUser?.name?.trim() || email,
     email,
-    phone: "",
+    phone: enrichment.phone || undefined,
     avatar: sessionUser?.image || undefined,
-    business: EMPTY_BUSINESS_PROFILE,
+    business: enrichment.business,
   }
 }
 
@@ -86,9 +142,85 @@ export function UserProvider({
 }) {
   const { data: session, status } = useSession()
   const usesSessionAuth = authMode === "oidc" || authMode === "platform"
-  const isLoading = usesSessionAuth ? status === "loading" : false
+  const authContext = usesSessionAuth && session ? session.auth : null
 
-  const sessionUser = useMemo(() => mapSessionToUser(session), [session])
+  const [enrichment, setEnrichment] = useState<EnrichmentPayload>({
+    phone: null,
+    business: null,
+  })
+  const [isEnrichmentLoading, setIsEnrichmentLoading] = useState(false)
+
+  useEffect(() => {
+    if (!usesSessionAuth || !session) {
+      setEnrichment({ phone: null, business: null })
+      setIsEnrichmentLoading(false)
+      return
+    }
+
+    const hasIdentityContext = Boolean(
+      authContext?.crmContactId || authContext?.crmOrganizationId
+    )
+    if (!hasIdentityContext) {
+      setEnrichment({ phone: null, business: null })
+      setIsEnrichmentLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    let mounted = true
+
+    const loadEnrichment = async () => {
+      setIsEnrichmentLoading(true)
+      try {
+        const response = await fetch("/api/auth/enrichment", {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        })
+
+        if (!mounted) return
+
+        if (!response.ok) {
+          setEnrichment({ phone: null, business: null })
+          return
+        }
+
+        const payload = await response.json()
+        if (!mounted) return
+
+        setEnrichment(normalizeEnrichmentPayload(payload))
+      } catch (error) {
+        if (
+          mounted &&
+          !(error instanceof DOMException && error.name === "AbortError")
+        ) {
+          console.error("[hub-gw-profile] Failed to load enrichment", error)
+          setEnrichment({ phone: null, business: null })
+        }
+      } finally {
+        if (mounted) {
+          setIsEnrichmentLoading(false)
+        }
+      }
+    }
+
+    void loadEnrichment()
+
+    return () => {
+      mounted = false
+      controller.abort()
+    }
+  }, [
+    authContext?.crmContactId,
+    authContext?.crmOrganizationId,
+    session,
+    usesSessionAuth,
+  ])
+
+  const sessionUser = useMemo(
+    () => mapSessionToUser(session, enrichment),
+    [enrichment, session]
+  )
 
   const [mockLoggedIn, setMockLoggedIn] = useState(true)
   const [currentUser, setCurrentUser] = useState<UserProfile>(mockUser)
@@ -156,7 +288,12 @@ export function UserProvider({
     setMockLoggedIn(false)
   }
 
-  const isLoggedIn = usesSessionAuth ? Boolean(sessionUser) : mockLoggedIn
+  const isLoggedIn = usesSessionAuth
+    ? Boolean(session?.user?.email && sessionUser)
+    : mockLoggedIn
+  const isLoading = usesSessionAuth
+    ? status === "loading" || isEnrichmentLoading
+    : false
   const user = usesSessionAuth ? sessionUser : (isLoggedIn ? currentUser : null)
 
   return (
@@ -164,6 +301,7 @@ export function UserProvider({
       value={{
         authMode,
         authProviderId,
+        authContext,
         user,
         isLoggedIn,
         isLoading,

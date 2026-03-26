@@ -3131,6 +3131,7 @@ export default function ConversationScreen() {
     preview: conv.messages[conv.messages.length - 1]?.content.substring(0, 50) || t('drawer.noMessages'),
     updatedAt: new Date(conv.updatedAt),
   }));
+  const showSendAction = isLoading || inputText.trim().length > 0;
 
   return (
     <>
@@ -3408,7 +3409,7 @@ export default function ConversationScreen() {
                   </XStack>
 
                   <XStack alignItems="center" gap="$2">
-                    {inputText.trim() ? (
+                    {showSendAction ? (
                       <Pressable
                         onPress={handleSend}
                         disabled={isLoading}

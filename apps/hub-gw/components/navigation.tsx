@@ -130,7 +130,7 @@ export function Navigation() {
                   <span>Meine Anfragen</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem disabled>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Einstellungen</span>
               </DropdownMenuItem>
@@ -155,7 +155,7 @@ export function Navigation() {
               : authMode === "oidc"
                 ? "Mitgliedslogin"
                 : authMode === "platform"
-                  ? "Admin Login"
+                  ? "Anmelden"
                   : "Anmelden"}
           </Button>
         )}

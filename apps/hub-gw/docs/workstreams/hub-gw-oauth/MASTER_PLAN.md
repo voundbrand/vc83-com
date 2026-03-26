@@ -1,7 +1,7 @@
 # Hub-GW OAuth Master Plan
 
 **Workstream root:** `/Users/foundbrand_001/Development/vc83-com/apps/hub-gw/docs/workstreams/hub-gw-oauth`  
-**Last updated:** 2026-03-24
+**Last updated:** 2026-03-25
 
 ---
 
@@ -21,12 +21,12 @@ Deliver real Hub-GW member authentication and seller authorization in a way that
 
 The previous OAuth prompt was not reality-based.
 
-Current repo state:
+Initial repo state (now mostly remediated by `HGO-006` through `HGO-009`):
 
-1. Hub-GW auth is mocked and starts signed in.
-2. Seller write routes already mutate data with the deploy key and no auth checks.
+1. Hub-GW auth was mocked and started signed in.
+2. Seller write routes mutated data with the deploy key and no auth checks.
 3. The Convex auth HTTP file is incomplete for Hub-GW and not registered in `convex/http.ts`.
-4. Existing UI types expect a rich business profile that OAuth does not provide.
+4. UI types expected a rich business profile that OAuth does not provide.
 5. The desired product end-state is broader than Hub-GW alone.
 
 Because of those facts, "just install NextAuth and wire a provider" would leave the app partially authenticated, still insecure, and stranded as a one-off.
@@ -60,16 +60,20 @@ Because of those facts, "just install NextAuth and wire a provider" would leave 
 1. Auth.js dependency placement is now frozen at the repo root so `apps/hub-gw` can keep using the shared install and lockfile.
 2. `apps/hub-gw/app/layout.tsx` now routes through `app/providers.tsx`, which is the client boundary for future Auth.js session wiring.
 3. `apps/hub-gw/tsconfig.json` now includes `types/**/*.d.ts`, and `apps/hub-gw/types/next-auth.d.ts` defines the stage-1 session contract.
-4. `apps/hub-gw/.env.local.example` now documents the `HUB_GW_AUTH_MODE=auto|mock|oidc` contract that preserves mock mode when OAuth variables are absent.
-5. `apps/hub-gw/lib/user-context.tsx` and `apps/hub-gw/lib/data-context.tsx` still encode mock assumptions that must be unwound.
+4. `apps/hub-gw/.env.local.example` now documents the `HUB_GW_AUTH_MODE=auto|mock|platform|oidc` contract that preserves mock mode when OAuth variables are absent.
+5. `apps/hub-gw/lib/user-context.tsx` and `apps/hub-gw/lib/data-context.tsx` now use session identity in non-mock mode, split enrichment from session identity, and route non-mock create/delete through protected Hub-GW APIs.
 
 ### Backend
 
 1. `convex/api/v1/auth.ts` only allows `google` or `microsoft`, uses `getDefaultOrganization()`, and is not registered in `convex/http.ts`.
-2. The chosen Hub-GW stage-1 sync boundary is now `apps/hub-gw/lib/server-convex.ts::syncHubGwFrontendIdentity`, which calls `internal.auth.syncFrontendUser` through the existing admin Convex client.
-3. `convex/auth.ts::syncFrontendUser` still does not resolve seller context.
-4. `convex/auth.ts::linkFrontendUserToCRM` traverses `belongs_to_organization`, while current CRM internals use `works_at`.
-5. `frontendSessions` exists, but Hub-GW is not currently built around it.
+2. The reusable per-org OIDC model now exists in `convex/frontendOidc.ts` and `convex/frontendOidcInternal.ts` (settings CRUD, encrypted secret storage, host-to-org resolution, runtime binding).
+3. Reusable OIDC start/callback/state handling now exists in `convex/frontendOidc.ts`, `convex/frontendOidcInternal.ts`, `convex/api/v1/frontendOidc.ts`, and `convex/http.ts` with PKCE + nonce/state validation, one-time expiry-aware state consume, claim mapping, and normalized bridge output.
+4. Hub-GW OIDC now consumes the reusable Convex bridge contracts: start redirect goes through `/api/v1/frontend-oidc/start`, callback completion goes through `/api/v1/frontend-oidc/callback`, and sync input is sourced from `bridge.frontendSyncInput` / `bridge.hubGwSyncInput`.
+5. The Hub-GW sync boundary remains `apps/hub-gw/lib/server-convex.ts::syncHubGwFrontendIdentity`, which calls `internal.auth.syncFrontendUser` through the existing admin Convex client.
+6. `convex/frontendOidc.ts` now includes lifecycle cleanup for one-time state rows (`cleanupExpiredFrontendOidcStateInternal`) and `convex/crons.ts` schedules hourly cleanup.
+7. `convex/auth.ts::syncFrontendUser` implementation now returns `crmContactId`, `crmOrganizationId`, `subOrgId`, and `isSeller`; closeout is still policy-blocked by `HGO-004` verification coupling.
+8. CRM traversal now resolves via `works_at` with a logged `belongs_to_organization` compatibility fallback, and `crm_organization.customProperties.platformSubOrgId` is the explicit mapping contract.
+9. `frontendSessions` exists, but Hub-GW is not currently built around it.
 
 ---
 
@@ -82,6 +86,56 @@ Because of those facts, "just install NextAuth and wire a provider" would leave 
 5. CRM-organization-to-sub-org mapping should prefer an explicit stored mapping field.
 6. The final OIDC abstraction must be reusable by any org-operated frontend portal.
 7. Do not reuse the existing platform OAuth application system for frontend member login.
+
+---
+
+## Reusable OIDC Policy Contract (`HGO-013`)
+
+This policy applies to reusable frontend OIDC flows, not Hub-GW-only behavior.
+
+1. Stable subject requirement:
+1. `subClaim` must resolve in ID token claims; callback fails with `subject_claim_missing` when absent.
+2. If userinfo also contains mapped `subClaim`, it must match ID token value; callback fails with `subject_claim_mismatch` on divergence.
+3. The canonical synced subject is always the ID token mapped subject (stable source), not a merged override.
+
+2. Verified-email policy:
+1. Defaults are `requireVerifiedEmail=true` and `emailVerifiedClaim=email_verified`.
+2. When `requireVerifiedEmail=true`, mapped `emailClaim` is required (`email_claim_missing`) and mapped `emailVerifiedClaim` must be `true` (`email_not_verified`).
+3. Policy is org-configurable through frontend OIDC settings (`requireVerifiedEmail`, `emailVerifiedClaim`) for future non-email-linking consumers.
+
+3. Deterministic claim-mapping failure handling:
+1. Callback returns deterministic contract errors, not partial/implicit fallbacks, for required identity claims.
+2. Existing state/token failures remain deterministic (`invalid_state`, `state_not_found`, `missing_code`, `missing_id_token`, etc.).
+3. Success payload remains additive and reusable (`bridge.frontendSyncInput`, `bridge.hubGwSyncInput`) only when policy checks pass.
+
+---
+
+## Cleanup Scalability Contract (Post-`HGO-012`)
+
+`cleanupExpiredFrontendOidcStateInternal` now scales safely for growth:
+
+1. Uses paginated batches (`batchSize`, `maxBatches`, `cursor`) instead of a single `take(limit)` pass.
+2. Keeps hourly cron bounded (`limit:1000`, `batchSize:250`, `maxBatches:8`).
+3. Emits telemetry for operations and observability:
+1. totals: `scanned`, `markedExpired`, `deleted`, `errorCount`
+2. batch progress: `batchProgress[]` with per-batch counts and remaining limit
+3. continuation: `hasMore`, `nextCursor`, `reachedScanLimit`
+4. error details: per-object operation errors with deterministic message capture.
+
+---
+
+## Rollout Smoke Matrix (`HGO-015`)
+
+| Scenario | Mode | Seller / Non-seller | Org | Result | Evidence / blocker |
+|---|---|---|---|---|---|
+| Local dev no credentials path compiles | `mock` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck`; `.env.local.example` keeps `HUB_GW_AUTH_MODE=auto|mock|platform|oidc` and mock fallback contract. |
+| Platform auth path compiles | `platform` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck`; `npm run typecheck`; `apps/hub-gw/lib/auth.ts` includes `platform` mode branch with typed callbacks. |
+| OIDC start by explicit Hub-GW org | `oidc` | seller + non-seller path pre-auth | Hub-GW org `kn7ec6jb5dpxyf3bt3y3g20x61816466` | `BLOCKED` | Live `curl` to `/api/v1/frontend-oidc/start` returned 400: `No active frontend OIDC integration is configured for the resolved organization`. |
+| OIDC callback deterministic invalid state | `oidc` | seller + non-seller path pre-auth | reusable callback contract | `PASS` | Live `curl` to `/api/v1/frontend-oidc/callback` with `state=badstate` returned `{ code: "invalid_state" }`; with org-scoped fake state returned `{ code: "state_not_found" }`. |
+| Auto mode compile and fallback wiring | `auto` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck`; mode resolver in `apps/hub-gw/lib/auth.ts` keeps `auto -> oidc or platform` behavior without removing mock fallback contract. |
+| Seller gate enforcement in app routes | `auto|platform|oidc` | seller | Hub-GW | `PASS` | Prior hardening still present; verified via seller gate grep and typecheck (`rg -n "401|403|getServerSession|auth\\(|redirect\\(" apps/hub-gw/app/api apps/hub-gw/app`). |
+| Non-seller blocked from seller-only areas | `auto|platform|oidc` | non-seller | Hub-GW | `PASS` | Middleware + route guard contracts still active in `apps/hub-gw/middleware.ts` and `apps/hub-gw/lib/route-auth.ts`; verification command above unchanged. |
+| Second org OIDC integration path by host | `oidc|auto` | seller + non-seller path pre-auth | Segelschule (`segelschule-altwarp.de`) | `BLOCKED` | Live `curl` to `/api/v1/frontend-oidc/start?requestHost=segelschule-altwarp.de` returned 400: `Unable to resolve organization for frontend OIDC start flow`. |
 
 ---
 
@@ -120,8 +174,8 @@ Because of those facts, "just install NextAuth and wire a provider" would leave 
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Login is added but seller mutations remain deploy-key-open | high | Treat `HGO-008` as release-blocking |
-| Session shape is overloaded with business data | medium | Split identity vs enrichment in `HGO-007` |
+| Seller mutation routes regress to deploy-key-open behavior | high | Keep `requireSellerAuth` and route-level checks as non-negotiable in code review |
+| Session shape is overloaded with business data | medium | Keep identity vs enrichment split from `HGO-007` and reject session-bloat changes |
 | CRM org traversal uses the wrong link type and seller lookup silently fails | high | Correct traversal in `HGO-004` and prefer explicit mapping in `HGO-005` |
 | Auth.js types do not load due to current TS include config | medium | Resolve include coverage in `HGO-002` before auth implementation |
 | Dead public auth endpoints keep misleading docs alive | medium | Resolve endpoint fate explicitly in `HGO-014` |

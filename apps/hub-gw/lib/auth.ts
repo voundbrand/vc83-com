@@ -4,7 +4,9 @@ import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { JWT } from "next-auth/jwt";
 import {
   getHubGwOidcIntegrationConfig,
+  resolveHubGwOrganizationId,
   syncHubGwFrontendIdentity,
+  type HubGwFrontendIdentitySyncInput,
   type HubGwOidcIntegrationConfig,
   type HubGwOrganizationScope,
 } from "@/lib/server-convex";
@@ -18,6 +20,10 @@ const DEFAULT_EMAIL_CLAIM = "email";
 const DEFAULT_NAME_CLAIM = "name";
 const DEFAULT_OIDC_PROVIDER_ID = "frontend_oidc";
 const DEFAULT_OIDC_PROVIDER_NAME = "Organization OIDC";
+const FRONTEND_OIDC_CONTRACT_VERSION = "frontend_oidc_v1";
+const FRONTEND_OIDC_BRIDGE_CLIENT_ID = "frontend_oidc_bridge";
+const FRONTEND_OIDC_BRIDGE_CLIENT_SECRET = "frontend_oidc_bridge";
+const FRONTEND_OIDC_BRIDGE_TOKEN_KEY = "frontend_oidc_bridge_payload";
 const PLATFORM_PROVIDER_ID = "platform";
 const PLATFORM_PROVIDER_NAME = "Platform Account";
 const PLATFORM_OAUTH_PROVIDER_KEY = "platform_email";
@@ -37,6 +43,8 @@ interface HubGwAuthUser extends NextAuthUser {
   platformSessionId?: string;
   platformSessionExpiresAt?: number;
   platformUserId?: string;
+  frontendOidcBridgeSyncInput?: HubGwFrontendIdentitySyncInput | null;
+  frontendOidcProviderId?: string | null;
 }
 
 interface HubGwAuthToken extends JWT {
@@ -75,6 +83,35 @@ interface PlatformSignInResponse {
   error?: string;
 }
 
+interface FrontendOidcCallbackError {
+  code?: string;
+  message?: string;
+  providerError?: string;
+}
+
+interface FrontendOidcCallbackResult {
+  success?: boolean;
+  contractVersion?: string;
+  organizationId?: string;
+  provider?: unknown;
+  identity?: unknown;
+  bridge?: unknown;
+  returnUrl?: string;
+  error?: FrontendOidcCallbackError;
+}
+
+interface FrontendOidcBridgeTokenPayload {
+  contractVersion: string;
+  organizationId: string | null;
+  providerId: string;
+  providerName: string | null;
+  subject: string;
+  email: string;
+  displayName: string;
+  frontendSyncInput: HubGwFrontendIdentitySyncInput;
+  returnUrl: string | null;
+}
+
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -89,10 +126,235 @@ function normalizeEmail(value: unknown): string | null {
 }
 
 function toObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
   return value as Record<string, unknown>;
+}
+
+function normalizeRequestHost(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  let normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes("://")) {
+    try {
+      normalized = new URL(normalized).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+
+  normalized = normalized.split("/")[0].split(":")[0].replace(/\.$/, "");
+  return normalized || null;
+}
+
+function getConvexBaseUrl(env: NodeJS.ProcessEnv): string {
+  const apiEndpointUrl = normalizeOptionalString(env.NEXT_PUBLIC_API_ENDPOINT_URL);
+  if (apiEndpointUrl) {
+    return apiEndpointUrl.replace(/\/+$/, "");
+  }
+
+  const convexUrl = normalizeOptionalString(env.NEXT_PUBLIC_CONVEX_URL);
+  if (!convexUrl) {
+    throw new Error(
+      "NEXT_PUBLIC_API_ENDPOINT_URL or NEXT_PUBLIC_CONVEX_URL is required for Hub-GW OIDC bridge"
+    );
+  }
+
+  const normalizedConvexUrl = convexUrl.replace(/\/+$/, "");
+  try {
+    const parsed = new URL(normalizedConvexUrl);
+    if (parsed.hostname.endsWith(".convex.cloud")) {
+      parsed.hostname = parsed.hostname.replace(/\.convex\.cloud$/, ".convex.site");
+      return parsed.toString().replace(/\/+$/, "");
+    }
+  } catch {
+    // ignore parse errors and fall back to raw value
+  }
+
+  return normalizedConvexUrl;
+}
+
+function normalizeCallbackParam(
+  params: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = params[key];
+  if (Array.isArray(value)) {
+    return normalizeOptionalString(value[0]);
+  }
+  return normalizeOptionalString(value);
+}
+
+function normalizeHubGwFrontendSyncInput(
+  value: unknown
+): HubGwFrontendIdentitySyncInput | null {
+  const source = toObject(value);
+  const email = normalizeEmail(source.email);
+  const oauthProvider = normalizeOptionalString(source.oauthProvider);
+  const oauthId = normalizeOptionalString(source.oauthId);
+
+  if (!email || !oauthProvider || !oauthId) {
+    return null;
+  }
+
+  return {
+    email,
+    name: normalizeOptionalString(source.name),
+    oauthProvider,
+    oauthId,
+  };
+}
+
+function encodeFrontendOidcBridgeTokenPayload(
+  payload: FrontendOidcBridgeTokenPayload
+): string {
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+function decodeFrontendOidcBridgeTokenPayload(
+  value: unknown
+): FrontendOidcBridgeTokenPayload | null {
+  const encodedPayload = normalizeOptionalString(value);
+  if (!encodedPayload) {
+    return null;
+  }
+
+  try {
+    const decodedJson = Buffer.from(encodedPayload, "base64url").toString("utf8");
+    const parsed = JSON.parse(decodedJson);
+    const source = toObject(parsed);
+
+    const frontendSyncInput = normalizeHubGwFrontendSyncInput(
+      source.frontendSyncInput
+    );
+    const providerId = normalizeOptionalString(source.providerId);
+    const subject = normalizeOptionalString(source.subject);
+    const email = normalizeEmail(source.email);
+
+    if (!frontendSyncInput || !providerId || !subject || !email) {
+      return null;
+    }
+
+    return {
+      contractVersion:
+        normalizeOptionalString(source.contractVersion) ||
+        FRONTEND_OIDC_CONTRACT_VERSION,
+      organizationId: normalizeOptionalString(source.organizationId),
+      providerId,
+      providerName: normalizeOptionalString(source.providerName),
+      subject,
+      email,
+      displayName:
+        normalizeOptionalString(source.displayName) || frontendSyncInput.name || email,
+      frontendSyncInput,
+      returnUrl: normalizeOptionalString(source.returnUrl),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function completeFrontendOidcCallbackThroughBridge(args: {
+  env: NodeJS.ProcessEnv;
+  callbackParams: Record<string, unknown>;
+}): Promise<FrontendOidcBridgeTokenPayload> {
+  const state = normalizeCallbackParam(args.callbackParams, "state");
+  if (!state) {
+    throw new Error("Missing state parameter in OIDC callback");
+  }
+
+  const callbackBody = {
+    state,
+    code: normalizeCallbackParam(args.callbackParams, "code") || undefined,
+    error: normalizeCallbackParam(args.callbackParams, "error") || undefined,
+    errorDescription:
+      normalizeCallbackParam(args.callbackParams, "error_description") || undefined,
+    errorUri:
+      normalizeCallbackParam(args.callbackParams, "error_uri") || undefined,
+  };
+
+  const response = await fetch(
+    `${getConvexBaseUrl(args.env)}/api/v1/frontend-oidc/callback`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify(callbackBody),
+    }
+  );
+
+  const callbackResult = (await response.json().catch(() => null)) as
+    | FrontendOidcCallbackResult
+    | null;
+  if (!callbackResult || typeof callbackResult !== "object") {
+    throw new Error("OIDC callback bridge returned an invalid payload");
+  }
+
+  if (callbackResult.success !== true) {
+    const error = callbackResult.error || {};
+    const message =
+      normalizeOptionalString(error.message) || "OIDC callback bridge failed";
+    const code = normalizeOptionalString(error.code);
+    throw new Error(code ? `${code}: ${message}` : message);
+  }
+
+  const contractVersion =
+    normalizeOptionalString(callbackResult.contractVersion) ||
+    FRONTEND_OIDC_CONTRACT_VERSION;
+  if (contractVersion !== FRONTEND_OIDC_CONTRACT_VERSION) {
+    console.warn("[hub-gw-auth] Unexpected frontend OIDC bridge contract version", {
+      expected: FRONTEND_OIDC_CONTRACT_VERSION,
+      received: contractVersion,
+    });
+  }
+
+  const provider = toObject(callbackResult.provider);
+  const identity = toObject(callbackResult.identity);
+  const bridge = toObject(callbackResult.bridge);
+  const frontendSyncInput =
+    normalizeHubGwFrontendSyncInput(bridge.hubGwSyncInput) ||
+    normalizeHubGwFrontendSyncInput(bridge.frontendSyncInput);
+
+  if (!frontendSyncInput) {
+    throw new Error(
+      "OIDC callback bridge did not provide bridge.frontendSyncInput/hubGwSyncInput"
+    );
+  }
+
+  const subject =
+    normalizeOptionalString(identity.subject) || frontendSyncInput.oauthId;
+  const email = normalizeEmail(identity.email) || frontendSyncInput.email;
+  const displayName =
+    normalizeOptionalString(identity.displayName) ||
+    frontendSyncInput.name ||
+    email ||
+    subject;
+
+  if (!subject || !email) {
+    throw new Error("OIDC callback bridge returned incomplete identity payload");
+  }
+
+  return {
+    contractVersion,
+    organizationId: normalizeOptionalString(callbackResult.organizationId),
+    providerId:
+      normalizeOptionalString(provider.id) || frontendSyncInput.oauthProvider,
+    providerName: normalizeOptionalString(provider.name),
+    subject,
+    email,
+    displayName,
+    frontendSyncInput,
+    returnUrl: normalizeOptionalString(callbackResult.returnUrl),
+  };
 }
 
 function getApiBaseUrl(env: NodeJS.ProcessEnv): string {
@@ -278,14 +540,6 @@ export async function resolveHubGwAuthClientConfig(
   };
 }
 
-function getClaim(profile: Record<string, unknown>, claimName: string): string | null {
-  const value = profile[claimName];
-  if (typeof value === "string" && value.trim()) {
-    return value.trim();
-  }
-  return null;
-}
-
 function createDefaultAuthContext(
   mode: HubGwResolvedAuthMode,
   providerId: string | null
@@ -302,50 +556,103 @@ function createDefaultAuthContext(
 }
 
 function buildOidcProvider(
-  config: ResolvedHubGwOidcConfig
+  config: ResolvedHubGwOidcConfig,
+  env: NodeJS.ProcessEnv,
+  scope: HubGwOrganizationScope
 ): OAuthConfig<Record<string, unknown>> {
+  const convexBaseUrl = getConvexBaseUrl(env);
+  const requestHost = normalizeRequestHost(scope.requestHost);
+  const resolvedOrganizationId = normalizeOptionalString(scope.organizationId);
+  const callbackUrl = `${convexBaseUrl}/api/v1/frontend-oidc/callback`;
+
   const provider: OAuthConfig<Record<string, unknown>> = {
     id: config.providerId,
     name: config.providerName,
     type: "oauth",
-    clientId: config.clientId,
-    clientSecret: config.clientSecret,
-    checks: ["pkce", "state"],
-    idToken: true,
+    clientId: FRONTEND_OIDC_BRIDGE_CLIENT_ID,
+    clientSecret: FRONTEND_OIDC_BRIDGE_CLIENT_SECRET,
+    checks: ["none"],
+    idToken: false,
+    authorization: {
+      url: `${convexBaseUrl}/api/v1/frontend-oidc/start`,
+      params: {
+        responseMode: "redirect",
+        ...(resolvedOrganizationId ? { organizationId: resolvedOrganizationId } : {}),
+        ...(requestHost ? { requestHost } : {}),
+      },
+    },
+    token: {
+      url: callbackUrl,
+      async request(context) {
+        const bridgePayload = await completeFrontendOidcCallbackThroughBridge({
+          env,
+          callbackParams: context.params as Record<string, unknown>,
+        });
+
+        return {
+          tokens: {
+            access_token: `frontend_oidc_bridge_${Date.now()}`,
+            token_type: "Bearer",
+            expires_at: Math.floor(Date.now() / 1000) + 60,
+            [FRONTEND_OIDC_BRIDGE_TOKEN_KEY]:
+              encodeFrontendOidcBridgeTokenPayload(bridgePayload),
+          },
+        };
+      },
+    },
+    userinfo: {
+      url: callbackUrl,
+      async request(context) {
+        const bridgePayload = decodeFrontendOidcBridgeTokenPayload(
+          toObject(context.tokens)[FRONTEND_OIDC_BRIDGE_TOKEN_KEY]
+        );
+        if (!bridgePayload) {
+          throw new Error("Missing OIDC bridge payload in token response");
+        }
+
+        return {
+          sub: bridgePayload.subject,
+          email: bridgePayload.email,
+          name: bridgePayload.displayName,
+          bridge: {
+            contractVersion: bridgePayload.contractVersion,
+            organizationId: bridgePayload.organizationId,
+            providerId: bridgePayload.providerId,
+            providerName: bridgePayload.providerName,
+            frontendSyncInput: bridgePayload.frontendSyncInput,
+            hubGwSyncInput: bridgePayload.frontendSyncInput,
+            returnUrl: bridgePayload.returnUrl,
+          },
+        };
+      },
+    },
     profile(profile) {
-      const subject = getClaim(profile, config.subClaim);
-      const email = getClaim(profile, config.emailClaim);
-      const name = getClaim(profile, config.nameClaim);
+      const profileObject = toObject(profile);
+      const bridge = toObject(profileObject.bridge);
+      const bridgeSyncInput =
+        normalizeHubGwFrontendSyncInput(bridge.hubGwSyncInput) ||
+        normalizeHubGwFrontendSyncInput(bridge.frontendSyncInput);
+      const subject =
+        normalizeOptionalString(profileObject.sub) ||
+        bridgeSyncInput?.oauthId ||
+        "unknown";
+      const email = normalizeEmail(profileObject.email) || bridgeSyncInput?.email;
+      const name =
+        normalizeOptionalString(profileObject.name) ||
+        bridgeSyncInput?.name ||
+        email ||
+        subject;
+
       return {
-        id: subject || email || "unknown",
+        id: subject,
         email: email || null,
-        name: name || email || subject || "Mitglied",
+        name,
+        frontendOidcBridgeSyncInput: bridgeSyncInput,
+        frontendOidcProviderId:
+          normalizeOptionalString(bridge.providerId) || config.providerId,
       };
     },
   };
-
-  if (config.issuer) {
-    const normalizedIssuer = config.issuer.replace(/\/$/, "");
-    provider.issuer = normalizedIssuer;
-    provider.wellKnown = `${normalizedIssuer}/.well-known/openid-configuration`;
-  }
-
-  if (config.authorizationUrl) {
-    provider.authorization = {
-      url: config.authorizationUrl,
-      params: { scope: config.scope },
-    };
-  } else {
-    provider.authorization = { params: { scope: config.scope } };
-  }
-
-  if (config.tokenUrl) {
-    provider.token = { url: config.tokenUrl };
-  }
-
-  if (config.userinfoUrl) {
-    provider.userinfo = { url: config.userinfoUrl };
-  }
 
   return provider;
 }
@@ -454,7 +761,16 @@ export async function getHubGwAuthOptions(
   env: NodeJS.ProcessEnv = process.env,
   scope: HubGwOrganizationScope = {}
 ): Promise<NextAuthOptions> {
-  const runtime = await resolveHubGwAuthRuntime(env, scope);
+  const resolvedOrganizationId = await resolveHubGwOrganizationId(scope);
+  const effectiveScope =
+    resolvedOrganizationId && !normalizeOptionalString(scope.organizationId)
+      ? {
+          ...scope,
+          organizationId: resolvedOrganizationId,
+        }
+      : scope;
+
+  const runtime = await resolveHubGwAuthRuntime(env, effectiveScope);
   const mode = runtime.mode;
   const oidcConfig = runtime.oidcConfig;
 
@@ -471,7 +787,7 @@ export async function getHubGwAuthOptions(
     session: { strategy: "jwt" },
     providers:
       mode === "oidc" && oidcConfig
-        ? [buildOidcProvider(oidcConfig)]
+        ? [buildOidcProvider(oidcConfig, env, effectiveScope)]
         : mode === "platform"
           ? [buildPlatformProvider(env)]
           : [],
@@ -485,28 +801,36 @@ export async function getHubGwAuthOptions(
             return false;
           }
 
-          const email = user.email?.trim().toLowerCase();
-          const oauthId = account?.providerAccountId?.trim();
-          const provider = account?.provider || providerId || DEFAULT_OIDC_PROVIDER_ID;
-          if (!email || !oauthId) {
+          const oidcUser = user as HubGwAuthUser;
+          const bridgeSyncInput = normalizeHubGwFrontendSyncInput(
+            oidcUser.frontendOidcBridgeSyncInput
+          );
+          if (!bridgeSyncInput) {
             console.error(
-              "[hub-gw-auth] Missing required email/providerAccountId in OIDC callback"
+              "[hub-gw-auth] Missing required bridge sync input in OIDC callback"
             );
             return false;
           }
 
+          const provider =
+            normalizeOptionalString(oidcUser.frontendOidcProviderId) ||
+            normalizeOptionalString(bridgeSyncInput.oauthProvider) ||
+            account?.provider ||
+            providerId ||
+            DEFAULT_OIDC_PROVIDER_ID;
+
           try {
             const synced = await syncHubGwFrontendIdentity(
               {
-                email,
-                name: user.name,
-                oauthProvider: provider,
-                oauthId,
+                email: bridgeSyncInput.email,
+                name: bridgeSyncInput.name,
+                oauthProvider: bridgeSyncInput.oauthProvider,
+                oauthId: bridgeSyncInput.oauthId,
               },
               scope
             );
 
-            (user as HubGwAuthUser).auth = {
+            oidcUser.auth = {
               mode: "oidc",
               provider,
               frontendUserId: synced.frontendUserId,

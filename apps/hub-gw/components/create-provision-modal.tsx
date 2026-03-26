@@ -24,24 +24,32 @@ export function CreateProvisionModal({ open, onOpenChange }: CreateProvisionModa
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
   const [commission, setCommission] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !description.trim() || !category.trim() || !commission.trim()) return
+    if (isSubmitting) return
 
-    addProvision({
-      title,
-      description,
-      category,
-      commission,
-      provider: { name: "Julia Schneider", type: "person" },
-    })
+    setIsSubmitting(true)
+    try {
+      const created = await addProvision({
+        title,
+        description,
+        category,
+        commission,
+        provider: { name: "Julia Schneider", type: "person" },
+      })
+      if (!created) return
 
-    setTitle("")
-    setDescription("")
-    setCategory("")
-    setCommission("")
-    onOpenChange(false)
+      setTitle("")
+      setDescription("")
+      setCategory("")
+      setCommission("")
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -98,10 +106,17 @@ export function CreateProvisionModal({ open, onOpenChange }: CreateProvisionModa
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Abbrechen
             </Button>
-            <Button type="submit">Erstellen</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Erstelle..." : "Erstellen"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

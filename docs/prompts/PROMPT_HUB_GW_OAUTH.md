@@ -24,13 +24,13 @@ Final target:
 
 ### Frontend (`apps/hub-gw`)
 
-- Auth is fully mocked in `apps/hub-gw/lib/user-context.tsx`.
-- The mock context starts logged in by default and exposes a rich `UserProfile` shape that includes business metadata not available from OAuth alone.
-- `apps/hub-gw/components/navigation.tsx` uses mock `login()` / `logout()` and currently shows seller routes without any real authorization.
+- Auth.js is now wired in `apps/hub-gw` with typed session auth context and sign-in flow, while mock mode remains supported for no-credential local development.
+- `apps/hub-gw/lib/user-context.tsx` now separates session identity from optional profile enrichment (`/api/auth/enrichment`) instead of forcing business metadata into the session contract.
+- `apps/hub-gw/components/navigation.tsx` reads real auth state from `useUser`; seller route access is middleware-gated.
 - `apps/hub-gw/app/layout.tsx` is a server component and now routes through `app/providers.tsx`, which is the correct client boundary for Auth.js session wiring.
 - Auth.js dependency placement is now root-managed in `/Users/foundbrand_001/Development/vc83-com/package.json` (`next-auth@^4.24.13`), while `apps/hub-gw/package.json` remains a thin app manifest.
 - `apps/hub-gw/tsconfig.json` now includes `types/**/*.d.ts`, so `apps/hub-gw/types/next-auth.d.ts` can carry the Hub-GW session augmentation contract.
-- `apps/hub-gw/.env.local.example` now exists and documents the `HUB_GW_AUTH_MODE=auto|mock|oidc` fallback contract.
+- `apps/hub-gw/.env.local.example` now exists and documents the `HUB_GW_AUTH_MODE=auto|mock|platform|oidc` fallback contract.
 
 ### Existing seller and mutation surface
 
@@ -38,13 +38,13 @@ Final target:
 - `apps/hub-gw/app/api/leistungen/route.ts`
 - `apps/hub-gw/app/api/provisionen/route.ts`
 
-All three route handlers currently use `CONVEX_DEPLOY_KEY` directly and perform writes with no session or role check. Adding login alone would not secure seller actions. These routes must be hardened as part of the auth stream.
+All three route handlers now require seller auth server-side via `requireSellerAuth`, and delete operations patch existing objects (`patchObjectInternal`) with org-scope checks. Adding login alone would not have been sufficient; route hardening is now part of the landed stream.
 
 ### Current data assumptions
 
-- `apps/hub-gw/lib/data-context.tsx` still uses `CURRENT_USER_ID` from mock data to decide what counts as "my" offers.
-- `apps/hub-gw/app/profile/page.tsx` assumes the auth context already contains legal entity and business profile details.
-- In reality, OAuth gives identity. Seller/business details need a separate backend enrichment step keyed off CRM links and seller/sub-org context.
+- `apps/hub-gw/lib/data-context.tsx` now uses `session.auth.frontendUserId` in non-mock mode and routes non-mock create/delete through protected Hub-GW API routes.
+- `apps/hub-gw/app/profile/page.tsx` now tolerates missing business enrichment data.
+- OAuth still gives identity first; seller/business details remain a separate enrichment step keyed off CRM links and seller/sub-org context.
 
 ### Backend (`convex/`)
 
@@ -52,13 +52,21 @@ All three route handlers currently use `CONVEX_DEPLOY_KEY` directly and perform 
   - it only accepts `google` or `microsoft`,
   - it uses `getDefaultOrganization()` instead of `GW_ORG_ID`,
   - it is not registered in `convex/http.ts`,
-  - it does not resolve seller/sub-org context,
+  - it is not the active Hub-GW browser auth boundary,
   - its `validate-token` path validates a `frontend_user` object ID, not a Hub-GW browser session.
-- `convex/auth.ts` contains `syncFrontendUser`, but it is also incomplete for this stream:
-  - no custom provider support,
-  - no Hub-GW parent-org scoping contract,
-  - no seller/sub-org lookup,
-  - `linkFrontendUserToCRM` uses `belongs_to_organization`, while current CRM creation flows use `works_at`.
+- `convex/auth.ts::syncFrontendUser` is now largely Hub-GW-ready:
+  - provider IDs are no longer limited to Google/Microsoft,
+  - parent-org scoping and seller-context return fields are implemented,
+  - CRM traversal now resolves via `works_at` with compatibility fallback.
+- Reusable org-level OIDC model is already implemented in `convex/frontendOidc.ts` and `convex/frontendOidcInternal.ts`:
+  - per-org settings CRUD,
+  - encrypted client secret storage,
+  - issuer-or-explicit-endpoint validation,
+  - claim field configuration (`subClaim`, `emailClaim`, `nameClaim`),
+  - host/domain-to-org runtime binding resolution.
+- Reusable OIDC start/callback flow is now implemented in `convex/frontendOidc.ts`, `convex/frontendOidcInternal.ts`, and `convex/api/v1/frontendOidc.ts`, and routed in `convex/http.ts` (`/api/v1/frontend-oidc/start`, `/api/v1/frontend-oidc/callback`) with PKCE, one-time state consume, nonce validation, token exchange, userinfo fetch, and normalized bridge output.
+- Hub-GW now consumes that reusable bridge in Auth.js: OIDC sign-in starts through `/api/v1/frontend-oidc/start`, callback completion is delegated to `/api/v1/frontend-oidc/callback`, and frontend identity sync input comes from `bridge.frontendSyncInput` / `bridge.hubGwSyncInput`.
+- Reusable lifecycle cleanup now exists for one-time frontend OIDC state rows (`cleanupExpiredFrontendOidcStateInternal` in `convex/frontendOidc.ts`) and is scheduled hourly in `convex/crons.ts`.
 - `frontendSessions` exists in schema and customer-auth code, but the current Hub-GW flow does not use it. The older docs claiming "backend ready" overstate the current state.
 
 ### Existing docs that need skepticism
@@ -146,6 +154,43 @@ Do not reuse the existing platform OAuth application system for this. That code 
 
 ---
 
+## Reusable Onboarding + Identity Policy Contract (`HGO-013`)
+
+This is the org-reusable policy for frontend OIDC, independent of Hub-GW specifics.
+
+1. Stable subject (`sub`) requirement:
+- `subClaim` must resolve from ID token claims; callback fails with `subject_claim_missing` otherwise.
+- If userinfo also includes the mapped `subClaim`, it must match the ID token value; callback fails with `subject_claim_mismatch` on mismatch.
+- Canonical synced subject is the ID token-mapped value to avoid merged-claim drift.
+
+2. Verified email requirement and policy:
+- Default policy is strict: `requireVerifiedEmail=true`, `emailVerifiedClaim=email_verified`.
+- When strict mode is enabled, callback fails with `email_claim_missing` if mapped email is absent.
+- Callback fails with `email_not_verified` if mapped email verification claim is not `true`.
+- Policy fields are reusable org settings (`requireVerifiedEmail`, `emailVerifiedClaim`) for future consumers that need different rules.
+
+3. Deterministic claim-mapping failure handling:
+- Required identity policy failures return deterministic callback codes, not best-effort sync.
+- Existing deterministic callback errors remain contract-stable (`invalid_state`, `state_not_found`, `missing_code`, `missing_id_token`, etc.).
+- Bridge sync input (`frontendSyncInput` / `hubGwSyncInput`) is emitted only after identity policy checks pass.
+
+---
+
+## Rollout Smoke Matrix (`HGO-015`)
+
+| scenario | mode | seller/non-seller | org | result | evidence/blocker |
+|---|---|---|---|---|---|
+| Local mock contract compile | `mock` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck`; env contract in `apps/hub-gw/.env.local.example` |
+| Platform auth compile path | `platform` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck`; `npm run typecheck` |
+| Hub-GW org OIDC start live probe | `oidc` | seller+non-seller pre-auth | `kn7ec6jb5dpxyf3bt3y3g20x61816466` | `BLOCKED` | `curl` returned `No active frontend OIDC integration is configured for the resolved organization` |
+| Callback deterministic state errors live probe | `oidc` | seller+non-seller pre-auth | reusable callback contract | `PASS` | `curl` callback with invalid state returned `{ code: "invalid_state" }`; fake org-scoped state returned `{ code: "state_not_found" }` |
+| Auto mode fallback wiring compile | `auto` | non-seller | Hub-GW | `PASS` | `npm run hub-gw:typecheck` and mode-resolution code path in `apps/hub-gw/lib/auth.ts` |
+| Seller route hardening retained | `auto|platform|oidc` | seller | Hub-GW | `PASS` | `rg -n "401|403|getServerSession|auth\\(|redirect\\(" apps/hub-gw/app/api apps/hub-gw/app` |
+| Non-seller gating retained | `auto|platform|oidc` | non-seller | Hub-GW | `PASS` | same route/middleware guard evidence as above |
+| Second org host-based OIDC start probe | `oidc|auto` | seller+non-seller pre-auth | `segelschule-altwarp.de` | `BLOCKED` | `curl` returned `Unable to resolve organization for frontend OIDC start flow` |
+
+---
+
 ## External Prerequisites
 
 Need from Gründungswerft IT:
@@ -193,15 +238,15 @@ Need from platform/product side:
 
 ### Phase 5: Generalize to reusable org-level OIDC
 
-- Add a dedicated reusable org-level OIDC provider config model.
-- Store client secrets securely and support discovery URL or explicit endpoints.
-- Add claim mapping and normalized external-identity handling.
+- Use the already-landed reusable org-level OIDC provider config model.
+- Keep secure secret storage and discovery-or-explicit-endpoint validation as baseline invariants.
+- Keep claim mapping and normalized external-identity handling in the reusable contract.
 - Build reusable start/callback/state handling that any org-specific frontend can adopt.
 - Keep seller/sub-org resolution downstream from identity proof.
 
 ### Phase 6: Migration, cleanup, and rollout
 
-- Migrate Hub-GW from the stage-1 bridge to the reusable OIDC layer or make the bridge a thin compatibility wrapper over it.
+- Hub-GW migration from stage-1 direct OIDC ownership to the reusable Convex bridge is complete (`HGO-012`); keep Hub-GW as a consumer-only layer.
 - Replace `CURRENT_USER_ID` filtering with real backend ownership/seller scope.
 - Split profile enrichment from session identity.
 - Decide whether the old public auth endpoint file should be wired or deprecated.

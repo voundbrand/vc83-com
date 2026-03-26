@@ -31,6 +31,7 @@ export default function MeineAngebotePage() {
   } = useData()
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string; id: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [showCreateBenefit, setShowCreateBenefit] = useState(false)
   const [showCreateProvision, setShowCreateProvision] = useState(false)
   const [showCreateLeistung, setShowCreateLeistung] = useState(false)
@@ -39,12 +40,23 @@ export default function MeineAngebotePage() {
   const myProvisionen = getMyProvisionen()
   const myLeistungen = getMyLeistungen()
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteConfirm) return
-    if (deleteConfirm.type === "benefit") deleteBenefit(deleteConfirm.id)
-    else if (deleteConfirm.type === "provision") deleteProvision(deleteConfirm.id)
-    else if (deleteConfirm.type === "leistung") deleteLeistung(deleteConfirm.id)
-    setDeleteConfirm(null)
+    if (isDeleting) return
+
+    setIsDeleting(true)
+    try {
+      let deleted = false
+      if (deleteConfirm.type === "benefit") deleted = await deleteBenefit(deleteConfirm.id)
+      else if (deleteConfirm.type === "provision") deleted = await deleteProvision(deleteConfirm.id)
+      else if (deleteConfirm.type === "leistung") deleted = await deleteLeistung(deleteConfirm.id)
+
+      if (deleted) {
+        setDeleteConfirm(null)
+      }
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -283,14 +295,19 @@ export default function MeineAngebotePage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm(null)}
+              disabled={isDeleting}
+            >
               Abbrechen
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
+              disabled={isDeleting}
             >
-              Löschen
+              {isDeleting ? "Lösche..." : "Löschen"}
             </Button>
           </DialogFooter>
         </DialogContent>

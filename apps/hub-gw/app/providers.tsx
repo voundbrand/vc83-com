@@ -21,7 +21,9 @@ export function Providers({
   return (
     <SessionProvider session={null}>
       <UserProvider authMode={authMode} authProviderId={authProviderId}>
-        <DataProvider initialData={initialData}>{children}</DataProvider>
+        <DataProvider initialData={initialData} authMode={authMode}>
+          {children}
+        </DataProvider>
       </UserProvider>
     </SessionProvider>
   )
