@@ -1,106 +1,3 @@
-# Phase 0 — Vermittlungsvereinbarung (Vorlage)
-
-| Field | Value |
-|---|---|
-| **Document** | 08 — Vermittlungsvereinbarung gemäß § 652 BGB |
-| **Date** | 2026-03-15 |
-| **Updated** | 2026-03-25 (nach anwaltlichem Feedback) |
-| **Author** | Remington Splettstoesser |
-| **Classification** | Internal — Template |
-| **Status** | ENTWURF — anwaltliche Prüfung vor Einsatz erforderlich |
-| **Rechtsgrundlage** | § 652 BGB (Vermittlungsmaklervertrag), NICHT § 84 HGB (Handelsvertreter) |
-| **Format** | Copy below the line, fill in the blanks, send as PDF or email |
-
-> **⚠ ACHTUNG:** Dieser Entwurf wurde am 25.03.2026 auf Basis anwaltlichen Feedbacks überarbeitet. Die Kernprobleme (Vermischung Nachweismakler/Vermittlungsmakler, problematische Doppelvermittlungsklausel) wurden adressiert. **Vor erstmaliger Verwendung muss dieser Vertrag anwaltlich geprüft und finalisiert werden.** Geschätzter Aufwand laut Rechtsberatung: 5–8 Stunden (Zeithonorar empfohlen, nicht Gegenstandswert). Die Gründungswerft ist als nächster Schritt vorgesehen.
-
----
-
-## Nutzungshinweise
-
-- Alles unterhalb von **--- VEREINBARUNG BEGINN ---** ist die Vorlage.
-- Felder in `[ECKIGEN KLAMMERN]` ausfüllen.
-- **Variante A** (Privatperson) oder **Variante B** (Gewerbetreibender) in § 4 wählen, die andere streichen.
-- Als PDF exportieren oder per E-Mail senden.
-- Unterschrift digital (DocuSign, handschriftlich gescannt, oder einfache E-Mail-Bestätigung).
-- Bei rein informellen Partnern reicht eine WhatsApp-Bestätigung (siehe `07_REFERRAL_COMMISSION.md`).
-
-## Rechtliche Einordnung (intern — nicht Teil der Vereinbarung)
-
-### Nachweismakler vs. Vermittlungsmakler — die entscheidende Unterscheidung
-
-> **Anwaltliches Feedback (25.03.2026):** Die ursprüngliche Fassung hat Nachweismakler und Vermittlungsmakler vermischt. Das ist ein erhebliches Risiko. Unsere Partner sind **Vermittlungsmakler**, nicht Nachweismakler. Der Vertrag muss das sauber abbilden.
-
-§ 652 BGB kennt zwei Typen von Maklern:
-
-| | **Nachweismakler** | **Vermittlungsmakler** (unser Fall) |
-|---|---|---|
-| **Leistung** | Nennt nur einen Namen / eine Adresse | Stellt aktiv den Kontakt her, führt ggf. Gespräche ein |
-| **Provisionsanspruch** | Entsteht schon durch bloßen Namensnachweis | Entsteht erst durch aktive Vermittlungstätigkeit |
-| **Risiko für uns** | Jemand sagt „ich habe dir den Namen genannt" → Provision fällig, auch wenn wir den Kontakt schon kannten | Gering — der Vermittler muss nachweisbar mehr geleistet haben |
-| **Aufwand des Maklers** | Minimal | Substantiell — Kontaktherstellung, Einleitung, ggf. Begleitung |
-
-**Konsequenz:** Der Vertrag definiert ausschließlich **Vermittlungsleistungen** (aktive Kontaktherstellung). Das bloße Nennen eines Namens reicht nicht aus. Das schützt uns davor, dass jemand nur einen Namen zuruft und dann Provision verlangt.
-
-### Warum § 652 BGB (Maklervertrag) und nicht § 84 HGB (Handelsvertreter)
-
-Die Abgrenzung ist entscheidend. Ein Handelsvertreter (§ 84 HGB) ist **ständig betraut**, Geschäfte zu vermitteln oder abzuschließen. Das löst umfangreiche Schutzrechte aus — insbesondere den **Ausgleichsanspruch nach § 89b HGB**, der bei Vertragsende eine Abfindung von bis zu einer Jahresprovision vorsieht.
-
-Ein Vermittler nach § 652 BGB (Makler) ist dagegen:
-- **nicht ständig betraut** — er vermittelt gelegentlich, wenn sich Gelegenheiten ergeben
-- **nicht weisungsgebunden** — keine Berichtspflichten, keine Gebiets- oder Kundenbindung
-- **erfolgsabhängig vergütet** — kein Anspruch auf Provision ohne Vertragsabschluss
-- **ohne Ausgleichsanspruch** — bei Beendigung keine Abfindungspflicht
-
-**Wichtig (anwaltliches Feedback):** Es reicht nicht, in der Überschrift zu schreiben „kein Handelsvertretervertrag". Wenn der Vertragsinhalt dennoch typische Handelsvertreter-Elemente enthält, kann die Rechtsprechung trotzdem die §§ 84 ff. HGB anwenden (Substanz vor Form). Deshalb muss der gesamte Vertrag als sauberer Vermittlungsmaklervertrag aufgebaut sein — mit den Abgrenzungsklauseln am Ende, nicht als Kern des Vertrags.
-
-Unsere Vertriebspartner sind Makler, keine Handelsvertreter. Die Vereinbarung muss das unmissverständlich klarstellen. Quellen:
-
-- [Abgrenzung Makler vs. Handelsvertreter — handelsvertreter-rechtsanwalt.de](https://www.handelsvertreter-rechtsanwalt.de/unterscheidung-abgrenzung/makler/)
-- [Abgrenzung Handelsvertreter vom Gelegenheitsvermittler — CDH](https://cdh.de/urteil/abgrenzung-handelsvertreter-vom-gelegenheitsvermittler/)
-- [§ 652 BGB — dejure.org](https://dejure.org/gesetze/BGB/652.html)
-
-### Steuerliche Behandlung der Provision
-
-**Variante A — Privatperson (kein Gewerbe):**
-
-Die Provision fällt unter **§ 22 Nr. 3 EStG** („Einkünfte aus sonstigen Leistungen"). Die Privatperson ist nicht umsatzsteuerpflichtig für gelegentliche Vermittlungstätigkeiten.
-
-| Aspekt | Behandlung |
-|---|---|
-| Einkunftsart | § 22 Nr. 3 EStG — sonstige Einkünfte |
-| Freigrenze | 256 € pro Kalenderjahr (Freigrenze, nicht Freibetrag — bei Überschreitung ist der **gesamte** Betrag steuerpflichtig) |
-| Umsatzsteuer | Keine. Privatperson ist nicht USt-pflichtig für gelegentliche Vermittlung. |
-| Lohnsteuer / Sozialversicherung | Keine. Es ist kein Arbeitsverhältnis. Keine Abführungspflicht durch sevenlayers. |
-| Auszahlung | Bruttobetrag an den Vermittler. Keine Abzüge durch sevenlayers. |
-| Abrechnung | sevenlayers erstellt eine **Provisionsabrechnung** (kein Lohnzettel, keine Gutschrift im umsatzsteuerlichen Sinne). |
-| Nachweis für Finanzamt | Provisionsabrechnung + Kontoauszug (Überweisung). Zusätzlich empfohlen: vom Vermittler unterzeichnete Empfangsbestätigung. |
-| Steuererklärung | Der Vermittler erklärt die Einkünfte selbst in der **Anlage SO** seiner Einkommensteuererklärung. |
-
-Quellen:
-- [§ 22 Nr. 3 EStG — smartsteuer.de](https://www.smartsteuer.de/online/lexikon/e/einkuenfte-aus-leistungen-im-sinne-des-%C2%A7-22-nr-3-estg/)
-- [Steuerpflicht von Provisionen an Tippgeber — iww.de](https://www.iww.de/wvv/steuergestaltung/tippgeber-steuerpflicht-von-provisionen-an-tippgeber-f94388)
-- [Provisionszahlungen im Visier des Finanzamts — dhz.net](https://www.deutsche-handwerks-zeitung.de/provisionszahlungen-im-visier-des-finanzamts-140862/)
-
-**Variante B — Gewerbetreibender / Freiberufler / UG / GmbH:**
-
-Der Vermittler stellt eine ordnungsgemäße **Rechnung gemäß § 14 UStG** an sevenlayers.
-
-| Aspekt | Behandlung |
-|---|---|
-| Einkunftsart | § 15 EStG (Gewerbebetrieb) oder § 18 EStG (Freiberufler), je nach Tätigkeit des Partners |
-| Umsatzsteuer | 19% USt auf der Rechnung, sofern regelbesteuert. Keine USt bei Kleinunternehmer (§ 19 UStG). |
-| Rechnungsanforderungen | Name, Anschrift, Steuernummer oder USt-IdNr., Leistungsbeschreibung, Nettobetrag, USt-Betrag, Bruttobetrag, Rechnungsdatum, Zahlungsziel |
-| Vorsteuerabzug | sevenlayers zieht die ausgewiesene USt als Vorsteuer ab (§ 15 UStG) |
-| Nachweis | Rechnung des Partners + Kontoauszug (Überweisung) |
-
-**Zusammenfassung:** Privatperson → sevenlayers zahlt brutto, erstellt Provisionsabrechnung, kein Steuerabzug. Gewerbetreibender → Partner schreibt Rechnung, sevenlayers zahlt und zieht Vorsteuer.
-
----
-
---- VEREINBARUNG BEGINN ---
-
----
-
 # Vermittlungsvereinbarung
 
 gemäß § 652 BGB (Vermittlungsmaklervertrag)
@@ -118,11 +15,11 @@ handelnd unter der Marke **sevenlayers**
 
 **und**
 
-`[VOLLSTÄNDIGER NAME]`
-`[FIRMA, FALLS VORHANDEN — ANDERNFALLS: „Privatperson"]`
-`[STRASSE, HAUSNUMMER]`
-`[PLZ, ORT]`
-`[STEUERNUMMER ODER UST-IDNR., FALLS VORHANDEN]`
+[VOLLSTÄNDIGER NAME]
+[FIRMA, FALLS VORHANDEN — ANDERNFALLS: „Privatperson"]
+[STRASSE, HAUSNUMMER]
+[PLZ, ORT]
+[STEUERNUMMER ODER UST-IDNR., FALLS VORHANDEN]
 
 — nachfolgend **„Vermittler"** —
 
@@ -203,12 +100,12 @@ handelnd unter der Marke **sevenlayers**
 
 (5) Die Auszahlung erfolgt innerhalb von **7 Werktagen** nach Eingang der jeweiligen Kundenzahlung auf folgendes Konto:
 
-Kontoinhaber: `[NAME]`
-IBAN: `[IBAN]`
-BIC: `[BIC]`
-Bank: `[BANK]`
+Kontoinhaber: [NAME]
+IBAN: [IBAN]
+BIC: [BIC]
+Bank: [BANK]
 
-Alternativ per PayPal an: `[PAYPAL-ADRESSE]` *(sofern gewünscht — andernfalls streichen)*
+Alternativ per PayPal an: [PAYPAL-ADRESSE] *(sofern gewünscht — andernfalls streichen)*
 
 ### Variante B — Vermittler ist Gewerbetreibender / Unternehmer
 
@@ -325,82 +222,4 @@ Remington Splettstoesser (Geschäftsführer): \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
 Ort, Datum: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
 
-`[NAME]`: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
-
----
-
---- VEREINBARUNG ENDE ---
-
----
-
-## Interne Anmerkungen (nicht Teil der Vereinbarung)
-
-### Checkliste vor Versand
-
-1. Partnerdaten ausfüllen (Name, Adresse, ggf. Steuernummer)
-2. **Variante A oder B in § 4 wählen**, die andere komplett streichen
-3. Bankverbindung / PayPal eintragen
-4. Als PDF exportieren
-5. Per E-Mail senden:
-
-> „Anbei die Vermittlungsvereinbarung wie besprochen. Kurz durchlesen, unterschreiben, zurückschicken — gerne auch als Scan oder Foto. Bei Fragen meld dich einfach."
-
-6. Unterschriebene Kopie ablegen
-
-### Wann dieses Dokument verwenden
-
-- Jemand fragt explizit nach einem Vertrag oder einer schriftlichen Vereinbarung
-- Ein aktiver Seller bringt mehrere Leads und will Klarheit
-- Du willst professionell wirken, weil der Partner selbst unternehmerisch denkt
-
-### Wann NICHT verwenden
-
-- Kumpel schickt dir einen Namen per WhatsApp → WhatsApp-Bestätigung reicht (siehe `07_REFERRAL_COMMISSION.md`)
-- Einmaliger Tipp ohne weitere Erwartung → formloses Danke + Zahlung bei Erfolg
-- Jemand fragt beiläufig auf einer BNI-Veranstaltung → erst DM-Script, Vereinbarung nur bei Nachfrage
-
-### Anwaltliches Feedback (25.03.2026) — Zusammenfassung
-
-Telefonat mit Rechtsberater. Kernpunkte:
-
-| # | Problem | Status | Lösung in dieser Version |
-|---|---|---|---|
-| 1 | Nachweismakler und Vermittlungsmakler wurden vermischt | **Behoben** | § 1 Abs. 2–3 definiert jetzt klar Vermittlungsleistung; bloßes Benennen explizit ausgeschlossen |
-| 2 | Risiko: jemand sagt „ich habe dir den Namen gesagt" → Provision fällig | **Behoben** | § 1 Abs. 3 + § 2 Abs. 2(a): aktive Kontaktherstellung erforderlich |
-| 3 | Doppelvermittlungsklausel (alter § 6) war verwirrend und problematisch | **Behoben** | Neuer § 6 basiert auf Vorkenntnis-Einwand, keine parallele Provision |
-| 4 | Vertragsinhalt darf nicht HV-typische Elemente enthalten (Substanz vor Form) | **Teilweise** | HV-Ausschluss nach hinten verschoben (§ 1 Abs. 5), Vertrag als Vermittlungsmaklervertrag aufgebaut |
-| 5 | Empfehlung: anwaltliche Finalisierung (5–8h Zeithonorar) | **Offen** | Nächster Schritt: Gründungswerft-Anwalt beauftragen |
-| 6 | Vermittlertätigkeiten müssen konkretisiert werden | **Behoben** | § 1 Abs. 2 listet konkrete Vermittlungshandlungen auf |
-
-**Generelle Einschätzung des Anwalts:** Vieles im Vertrag ist brauchbar und richtig (Steuerseite, DSGVO, Gerichtsstand). Aber die Grundstruktur musste „vom Kopf auf die Füße" gestellt werden. Wichtig: Anwalt haftet für sein Werk (Vermögensschadenhaftpflicht min. 1 Mio €), KI-generierte Verträge nicht.
-
-### Stärken des Vertrags (bestätigt)
-
-| Element | Warum es da ist |
-|---|---|
-| § 652 BGB explizit genannt | Rechtsgrundlage ist sofort klar — kein Rätselraten über Vertragstyp |
-| § 84 HGB explizit ausgeschlossen | Schließt den teuersten Fehler aus: Handelsvertreterstatus mit Ausgleichsanspruch (§ 89b HGB) |
-| Keine Bemühenspflicht, kein Weisungsrecht | Untermauert die Makler-Einordnung — Gelegenheitsvermittler, nicht ständig Beauftragter |
-| § 22 Nr. 3 EStG + 256€ Freigrenze | Zeigt, dass du die Steuerseite für Privatpersonen verstanden hast |
-| § 14 UStG Rechnungsanforderungen | B2B-Variante ist sauber — Rechnung rein, Vorsteuer raus |
-| Keine Gutschrift im USt-Sinne | Häufiger Fehler vermieden — Gutschriftverfahren (§ 14 Abs. 2 S. 2 UStG) erfordert Vorvereinbarung und gilt nur zwischen Unternehmern |
-| Art. 6 DSGVO bei Datenweitergabe | DSGVO-Konformität der Kontaktvermittlung adressiert |
-| Salvatorische Klausel (§ 11 Abs. 4) | Standard, aber notwendig |
-| Gerichtsstand Pasewalk (nur bei Kaufmann) | Korrekt nach § 38 ZPO — bei Verbrauchern greifen die gesetzlichen Regelungen |
-| Kein Ausgleichsanspruch (§ 7 Abs. 5) | Belt-and-suspenders: nochmal explizit ausgeschlossen, falls jemand trotzdem § 89b HGB versucht |
-
-### Nächste Schritte
-
-1. **Gründungswerft-Anwalt kontaktieren** — diesen Entwurf als Basis vorlegen
-2. **Zeithonorar vereinbaren** (nicht Gegenstandswert) — geschätzt 5–8 Stunden
-3. **Anwalt prüft und finalisiert** — haftet dann auch für das Ergebnis (Vermögensschadenhaftpflicht)
-4. **Finalisierte Version hier ablegen** und Status auf „Operative" setzen
-
----
-
-*Companion to: `07_REFERRAL_COMMISSION.md`, `06_PITCH_SCRIPTS.md`*
-*Created: March 2026*
-*Updated: 25.03.2026 — anwaltliches Feedback eingearbeitet*
-*Status: ENTWURF — anwaltliche Finalisierung ausstehend*
-*Quelle Feedback: Telefonat 25.03.2026 (transkribiert in `Rec_25._Mar_2026_at_17:00.txt`)*
-*Hinweis: Diese Vorlage wurde auf Basis der einschlägigen Rechtsgrundlagen (§ 652 BGB, § 22 Nr. 3 EStG, § 14 UStG, Art. 6 DSGVO) erstellt und anschließend auf Basis anwaltlichen Feedbacks überarbeitet. Sie ersetzt keine individuelle Rechtsberatung. Anwaltliche Prüfung und Finalisierung vor erstmaliger Verwendung ist erforderlich.*
+[NAME]: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_

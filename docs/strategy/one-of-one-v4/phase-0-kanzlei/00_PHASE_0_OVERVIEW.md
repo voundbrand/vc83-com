@@ -1,120 +1,120 @@
-# Phase 0 — Kanzlei Proof: Executive Overview
+# Phase 0 — Kanzlei-Nachweis: Strategieübersicht
 
-| Field | Value |
+| Feld | Wert |
 |---|---|
-| **Document** | Phase 0 Overview — Law Firm Proof Track |
-| **Date** | 2026-03-18 |
-| **Author** | Remington |
-| **Classification** | Internal — Founder's Eyes Only |
-| **Status** | Operative — Phase 0 tactical playbook, companion to v4 strategy |
+| **Dokument** | Phase 0 Übersicht — Kanzlei-Nachweis-Track |
+| **Datum** | 2026-03-18 |
+| **Autor** | Remington |
+| **Klassifizierung** | Intern — Nur für den Gründer |
+| **Status** | Operativ — Phase 0 taktisches Playbook, Begleitdokument zur v4-Strategie |
 
 ---
 
-## One-Sentence Strategy
+## Strategie in einem Satz
 
-**Sign 10 law firm customers in 90 days to prove the vertical thesis, generate case studies, and earn the right to expand to Steuerberater.**
+**10 Kanzleien als Kunden in 90 Tagen gewinnen, um die Vertikal-These zu beweisen, Fallstudien zu generieren und die Berechtigung für die Expansion auf Steuerberater zu verdienen.**
 
 ---
 
-## Phase Gate Framework
+## Phase-Gate-Framework
 
-### Phase 0 — Proof (now → 10 customers, ~90 days)
+### Phase 0 — Nachweis (jetzt → 10 Kunden, ~90 Tage)
 
 | Dimension | Detail |
 |---|---|
-| **Goal** | 10 paying Kanzlei customers, €5-8K MRR |
-| **Pricing** | €0 audit, €299 pilot, €499-999/month paid |
-| **Motion** | Call audit → pilot → paid. legalXchange as launch event. Warm network + cold outreach. |
-| **Product** | Clara + Jonas + Maren. Phone intake + qualification + booking. Dashboard MVP. |
-| **Success** | 5+ firms that would be upset if we disappeared + real before/after data |
-| **Fundraise** | No. |
+| **Ziel** | 10 zahlende Kanzlei-Kunden, €5-8K MRR |
+| **Preise** | €0 Audit, €299 Pilot, €499-999/Monat bezahlt |
+| **Vertriebsbewegung** | Anruf-Audit → Pilot → Bezahlt. legalXchange als Launch-Event. Warmes Netzwerk + Kaltakquise. |
+| **Produkt** | Clara + Jonas + Maren. Telefonempfang + Qualifizierung + Terminbuchung. Dashboard-MVP. |
+| **Erfolg** | 5+ Kanzleien, die unzufrieden wären, wenn wir verschwinden + echte Vorher/Nachher-Daten |
+| **Fundraise** | Nein. |
 
-### Phase 1 — Repeatable (10 → 30 customers, ~6 months)
-
-| Dimension | Detail |
-|---|---|
-| **Goal** | Repeatable sales, €15-25K MRR |
-| **Pricing** | Full v4 tiers (€499-1,999/month) |
-| **Motion** | Case studies sell. Templates reduce onboarding. First hire handles ops. |
-| **Product** | Dashboard matures. Practice area templates hardened. RA-MICRO CSV export. |
-| **Success** | New firms find us (inbound from events, DAV, Legal Tech Verband) |
-| **Fundraise** | Only if it accelerates something already working. |
-
-### Phase 2 — Expand (30+ customers)
+### Phase 1 — Wiederholbar (10 → 30 Kunden, ~6 Monate)
 
 | Dimension | Detail |
 |---|---|
-| **Goal** | Multi-vertical. Steuerberater launched. Own the category. |
-| **Pricing** | v4 tiers + vertical-specific add-ons |
-| **Motion** | Multi-vertical team, event presence, DAV/DStV partnerships |
-| **Success** | Revenue funds growth OR raise from strength |
+| **Ziel** | Wiederholbarer Vertrieb, €15-25K MRR |
+| **Preise** | Volle v4-Stufen (€499-1.999/Monat) |
+| **Vertriebsbewegung** | Fallstudien verkaufen. Templates verkürzen das Onboarding. Erste Einstellung übernimmt Ops. |
+| **Produkt** | Dashboard reift. Rechtsgebiet-Templates gehärtet. RA-MICRO CSV-Export. |
+| **Erfolg** | Neue Kanzleien finden uns (Inbound von Events, DAV, Legal Tech Verband) |
+| **Fundraise** | Nur wenn es etwas beschleunigt, das bereits funktioniert. |
+
+### Phase 2 — Expansion (30+ Kunden)
+
+| Dimension | Detail |
+|---|---|
+| **Ziel** | Multi-Vertikal. Steuerberater gestartet. Kategorie dominieren. |
+| **Preise** | v4-Stufen + vertikalspezifische Add-ons |
+| **Vertriebsbewegung** | Multi-Vertikal-Team, Event-Präsenz, DAV/DStV-Partnerschaften |
+| **Erfolg** | Umsatz finanziert Wachstum ODER Raise aus der Stärke heraus |
 
 ---
 
-## What Phase 0 IS
+## Was Phase 0 IST
 
-- A bootstrapped proof phase where every Kanzlei deployment is a data point.
-- Law firm customers who close in 4-6 weeks with one decision-maker.
-- Cheap, fast delivery — no procurement, no IT review, no Fachabteilungen.
-- Founder does everything: sells, configures, supports, monitors, iterates.
-- The minimum viable business that proves the vertical thesis.
+- Eine bootstrapped Nachweisphase, in der jede Kanzlei-Installation ein Datenpunkt ist.
+- Kanzlei-Kunden, die in 4-6 Wochen mit einem Entscheider abschließen.
+- Günstiger, schneller Einsatz — kein Beschaffungsprozess, keine IT-Prüfung, keine Fachabteilungen.
+- Der Gründer macht alles: verkaufen, konfigurieren, supporten, monitoren, iterieren.
+- Das Minimum Viable Business, das die Vertikal-These beweist.
 
-## What Phase 0 IS NOT
+## Was Phase 0 NICHT IST
 
-- The long-term strategy. This is a bridge, not a destination.
-- Pricing we're proud of. €499/month is intentionally below full value.
-- Scalable operations. Founder-led everything breaks at 12-15 customers. That's fine — we need 10.
-- A generic play. We are going after Kanzleien specifically, not "any business with a phone."
-
----
-
-## How Phase 0 Feeds v4
-
-Every law firm customer generates four things the expansion strategy needs:
-
-1. **Case study** — Real before/after data (missed calls, booked Erstberatungen, revenue recovered).
-2. **Practice area template** — Each Arbeitsrecht deployment tunes the Arbeitsrecht template. By firm 5, onboarding drops from 10 hours to 4 hours.
-3. **ElevenLabs credibility** — Real platform usage proves we drive revenue to ElevenLabs. This strengthens the CPA negotiation.
-4. **RA-MICRO conversation starter** — "We have 10 Kanzleien running our AI phone. They all use RA-MICRO. Let's talk integration."
-
-Phase 0 customers are the proof layer that makes Steuerberater expansion credible. Without them, the multi-vertical pitch is a slide deck. With them, it's a track record.
+- Die langfristige Strategie. Das ist eine Brücke, kein Ziel.
+- Preise, auf die wir stolz sind. €499/Monat ist bewusst unter dem vollen Wert.
+- Skalierbare Abläufe. Gründergeführtes Alles bricht bei 12-15 Kunden zusammen. Das ist in Ordnung — wir brauchen 10.
+- Ein generisches Konzept. Wir gehen gezielt auf Kanzleien, nicht auf „jedes Unternehmen mit einem Telefon."
 
 ---
 
-## 90-Day Timeline
+## Wie Phase 0 v4 nährt
 
-| Weeks | Focus | Target |
+Jeder Kanzlei-Kunde generiert vier Dinge, die die Expansionsstrategie braucht:
+
+1. **Fallstudie** — Echte Vorher/Nachher-Daten (verpasste Anrufe, gebuchte Erstberatungen, wiedergewonnener Umsatz).
+2. **Rechtsgebiet-Template** — Jede Arbeitsrecht-Installation verbessert das Arbeitsrecht-Template. Ab Kanzlei 5 sinkt das Onboarding von 10 Stunden auf 4 Stunden.
+3. **ElevenLabs-Glaubwürdigkeit** — Echte Plattformnutzung beweist, dass wir Umsatz für ElevenLabs generieren. Das stärkt die CPA-Verhandlung.
+4. **RA-MICRO-Gesprächseinstieg** — „Wir haben 10 Kanzleien, die unsere KI-Telefonassistenz nutzen. Alle arbeiten mit RA-MICRO. Lassen Sie uns über eine Integration sprechen."
+
+Phase-0-Kunden sind die Beweisschicht, die die Steuerberater-Expansion glaubwürdig macht. Ohne sie ist der Multi-Vertikal-Pitch eine Folienpräsentation. Mit ihnen ist es eine Erfolgsbilanz.
+
+---
+
+## 90-Tage-Zeitplan
+
+| Wochen | Fokus | Ziel |
 |---|---|---|
-| 1-2 | Wire Clara+Jonas+Maren to booking engine. Test 50+ scenarios. Register legalXchange. | Product ready for demo |
-| 3-4 | legalXchange Munich (Apr 28-30). First 5-8 demo calls. | 3-5 call audit agreements |
-| 5-8 | Run 3-5 call audits. Convert 2-3 to pilots. Start cold outreach to 20 firms. | 2-3 pilots running |
-| 9-12 | Convert pilots to paid. Start new audits from pipeline. Attend Anwaltstag. | 8-10 paying customers |
+| 1-2 | Clara+Jonas+Maren an Buchungsmaschine anbinden. 50+ Szenarien testen. legalXchange anmelden. | Produkt bereit für Demo |
+| 3-4 | legalXchange München (28.-30. Apr). Erste 5-8 Demo-Calls. | 3-5 Anruf-Audit-Vereinbarungen |
+| 5-8 | 3-5 Anruf-Audits durchführen. 2-3 zu Piloten konvertieren. Kaltakquise an 20 Kanzleien starten. | 2-3 laufende Piloten |
+| 9-12 | Piloten zu Bezahlt konvertieren. Neue Audits aus Pipeline starten. Anwaltstag besuchen. | 8-10 zahlende Kunden |
 
 ---
 
-## Honest Constraints
+## Ehrliche Einschränkungen
 
-- **Solo founder.** Every hour is either building, selling, or supporting. There is no fourth category.
-- **Zero law firm customers.** No social proof in legal vertical. The demo and the call audit carry all the weight.
-- **Zero budget.** legalXchange registration is the biggest spend. No paid ads, no SDRs, no PR.
-- **Product at 3/10 production quality.** Agents work. Booking engine exists. They're not wired together yet. Week 1-2 is for wiring.
-- **Hallo Kira exists.** Direct competitor at 3-5x lower price. We win on outcome depth, not price.
+- **Solo-Gründer.** Jede Stunde wird entweder gebaut, verkauft oder supportet. Es gibt keine vierte Kategorie.
+- **Null Kanzlei-Kunden.** Kein Social Proof im Rechtsvertrieb. Die Demo und der Anruf-Audit tragen das gesamte Gewicht.
+- **Null Budget.** Die legalXchange-Anmeldung ist die größte Ausgabe. Keine bezahlte Werbung, keine SDRs, keine PR.
+- **Produkt auf 3/10 Produktionsqualität.** Agenten funktionieren. Buchungsmaschine existiert. Sie sind noch nicht verbunden. Woche 1-2 ist für die Verbindung.
+- **Hallo Kira existiert.** Direkter Wettbewerber mit 3-5x niedrigerem Preis. Wir gewinnen über Ergebnistiefe, nicht über Preis.
 
 ---
 
-## Connection to v4 Strategy Documents
+## Verbindung zu v4-Strategiedokumenten
 
-| Document | How Phase 0 Uses It |
+| Dokument | Wie Phase 0 es nutzt |
 |----------|-------------------|
-| 02_SALES_MOTION.md | Call audit → pilot → paid cycle is the Phase 0 sales process |
-| 03_DEMO_KIT_SPEC.md | "Schröder & Partner" demo is the Phase 0 demo |
-| 04_TRIAL_PLAYBOOK.md | 2-week audit + 2-week pilot is the Phase 0 trial structure |
-| 05_PRICING_V4.md | Phase 0 uses Basis + Professional tiers |
-| TECHNICAL_PRODUCT_PLAN.md | Layer 1 (MVP wire-up) must complete in weeks 1-2 of Phase 0 |
+| 02_SALES_MOTION.md | Anruf-Audit → Pilot → Bezahlt-Zyklus ist der Phase-0-Vertriebsprozess |
+| 03_DEMO_KIT_SPEC.md | „Schröder & Partner"-Demo ist die Phase-0-Demo |
+| 04_TRIAL_PLAYBOOK.md | 2-Wochen-Audit + 2-Wochen-Pilot ist die Phase-0-Teststruktur |
+| 05_PRICING_V4.md | Phase 0 nutzt Basis + Professional Stufen |
+| TECHNICAL_PRODUCT_PLAN.md | Layer 1 (MVP-Verkabelung) muss in Woche 1-2 von Phase 0 abgeschlossen sein |
 
-Phase 0 is the tactical layer beneath the strategic layer. Every Phase 0 decision should be evaluated against one question: **does this get us closer to 10 law firm customers and €5K MRR?**
+Phase 0 ist die taktische Ebene unter der strategischen Ebene. Jede Phase-0-Entscheidung sollte anhand einer Frage bewertet werden: **Bringt uns das näher an 10 Kanzlei-Kunden und €5K MRR?**
 
 ---
 
-*Created: March 2026*
-*Status: Operative — Phase 0 begins immediately with product wire-up*
+*Erstellt: März 2026*
+*Status: Operativ — Phase 0 beginnt sofort mit Produkt-Verkabelung*

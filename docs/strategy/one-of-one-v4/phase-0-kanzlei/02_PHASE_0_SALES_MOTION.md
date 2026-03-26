@@ -1,101 +1,101 @@
-# Phase 0 — Kanzlei Proof: Sales Motion
+# Phase 0 — Kanzlei-Nachweis: Vertriebsbewegung
 
-| Field | Value |
+| Feld | Wert |
 |---|---|
-| **Document** | Phase 0 Sales Motion — 90-Day Execution Plan |
-| **Date** | 2026-03-18 |
-| **Classification** | Internal — Founder's Eyes Only |
+| **Dokument** | Phase 0 Vertriebsbewegung — 90-Tage-Ausführungsplan |
+| **Datum** | 2026-03-18 |
+| **Klassifizierung** | Intern — Nur für den Gründer |
 
 ---
 
-## 90-Day Plan
+## 90-Tage-Plan
 
-> "Ship the product. Get in rooms. Run audits. Convert to paid. Every week, every day."
+> „Produkt ausliefern. In Räume kommen. Audits durchführen. In zahlende Kunden konvertieren. Jede Woche, jeden Tag."
 
 ---
 
-## Week-by-Week Execution
+## Woche-für-Woche-Ausführung
 
-### Weeks 1-2: Ship & Prepare (Mar 18 - Mar 31)
+### Wochen 1-2: Ausliefern & Vorbereiten (18. März - 31. März)
 
-| Day | Task |
+| Tag | Aufgabe |
 |-----|------|
-| Mon-Tue | Wire Clara+Jonas+Maren to booking engine (TECHNICAL_PRODUCT_PLAN.md Layer 1) |
-| Wed-Thu | Test 50+ scenarios with "Schröder & Partner" demo (03_DEMO_KIT_SPEC.md) |
-| Fri | Register for legalXchange Munich. Prepare booth/presentation materials. |
-| Mon-Tue | Build audit report template. Configure Clara "audit mode" (no booking). |
-| Wed-Thu | Build 1-pager PDF (German). Build ROI calculator spreadsheet. |
-| Fri | Prepare 20-firm target list (01_PHASE_0_ICP.md). Draft outreach messages. |
+| Mo-Di | Clara+Jonas+Maren an Buchungsmaschine anbinden (TECHNICAL_PRODUCT_PLAN.md Layer 1) |
+| Mi-Do | 50+ Szenarien mit „Schröder & Partner"-Demo testen (03_DEMO_KIT_SPEC.md) |
+| Fr | Für legalXchange München anmelden. Stand-/Präsentationsmaterialien vorbereiten. |
+| Mo-Di | Audit-Berichtsvorlage erstellen. Clara „Audit-Modus" konfigurieren (ohne Buchung). |
+| Mi-Do | 1-Seiter-PDF erstellen (deutsch). ROI-Rechner-Tabelle erstellen. |
+| Fr | 20-Kanzleien-Zielliste vorbereiten (01_PHASE_0_ICP.md). Outreach-Nachrichten entwerfen. |
 
-### Weeks 3-4: legalXchange + First Outreach (Apr 1-15)
+### Wochen 3-4: legalXchange + Erste Kontaktaufnahme (1.-15. Apr)
 
-| Activity | Target |
+| Aktivität | Ziel |
 |----------|--------|
-| LinkedIn outreach to target firms | 20 DMs sent |
-| Email outreach to target firms | 20 emails sent |
-| BNI / Anwaltsverein warm intros | 5 introductions requested |
-| Demo calls booked | 5-8 |
-| Call audits started | 2-3 |
+| LinkedIn-Outreach an Zielkanzleien | 20 DMs gesendet |
+| E-Mail-Outreach an Zielkanzleien | 20 E-Mails gesendet |
+| BNI / Anwaltsverein Warm-Intros | 5 Vorstellungen angefragt |
+| Demo-Calls gebucht | 5-8 |
+| Anruf-Audits gestartet | 2-3 |
 
-### Week 5: legalXchange Munich (Apr 28-30)
+### Woche 5: legalXchange München (28.-30. Apr)
 
-| Day | Activity |
+| Tag | Aktivität |
 |-----|----------|
-| Apr 28 | Networking day. Meet managing partners. Hand out demo cards. |
-| Apr 29 | Main conference day. Present if slot available. Demo at booth. |
-| Apr 30 | Follow-up meetings with interested firms. Close audit agreements. |
+| 28. Apr | Networking-Tag. Geschäftsführende Partner treffen. Demo-Karten verteilen. |
+| 29. Apr | Haupt-Konferenztag. Vortragen, falls Slot verfügbar. Demo am Stand. |
+| 30. Apr | Follow-up-Meetings mit interessierten Kanzleien. Audit-Vereinbarungen abschließen. |
 
-**legalXchange goal:** 10-15 meaningful conversations → 5-8 demo calls → 3-5 audit agreements.
+**legalXchange-Ziel:** 10-15 substanzielle Gespräche → 5-8 Demo-Calls → 3-5 Audit-Vereinbarungen.
 
-### Weeks 6-8: Run Audits + Pipeline (May)
+### Wochen 6-8: Audits durchführen + Pipeline (Mai)
 
-| Activity | Target |
+| Aktivität | Ziel |
 |----------|--------|
-| Active call audits running | 3-5 |
-| New demo calls from pipeline | 3-5 per week |
-| New audit agreements | 2-3 per week |
-| Audit report delivery | 2-3 |
-| Pilot conversions | 2-3 |
+| Laufende Anruf-Audits | 3-5 |
+| Neue Demo-Calls aus Pipeline | 3-5 pro Woche |
+| Neue Audit-Vereinbarungen | 2-3 pro Woche |
+| Audit-Berichte liefern | 2-3 |
+| Pilot-Konversionen | 2-3 |
 
-### Weeks 9-10: Convert + Anwaltstag Prep (June 1-15)
+### Wochen 9-10: Konvertieren + Anwaltstag-Vorbereitung (1.-15. Juni)
 
-| Activity | Target |
+| Aktivität | Ziel |
 |----------|--------|
-| Pilot → paid conversions | 3-5 |
-| Active paying customers | 5-8 |
-| New audits from pipeline | 2-3 |
-| Anwaltstag Freiburg preparation | Materials, networking plan |
+| Pilot → Bezahlt-Konversionen | 3-5 |
+| Aktive zahlende Kunden | 5-8 |
+| Neue Audits aus Pipeline | 2-3 |
+| Anwaltstag Freiburg Vorbereitung | Materialien, Networking-Plan |
 
-### Weeks 11-12: Anwaltstag + Scale (June 8-30)
+### Wochen 11-12: Anwaltstag + Skalieren (8.-30. Juni)
 
-| Activity | Target |
+| Aktivität | Ziel |
 |----------|--------|
-| Deutscher Anwaltstag Freiburg (Jun 8-12) | Network, demo, collect leads |
-| Total paying customers | 8-10 |
+| Deutscher Anwaltstag Freiburg (8.-12. Juni) | Netzwerken, Demo, Leads sammeln |
+| Gesamte zahlende Kunden | 8-10 |
 | MRR | €5-8K |
-| Case studies documented | 2-3 |
-| ElevenLabs CPA discussion | Active |
+| Dokumentierte Fallstudien | 2-3 |
+| ElevenLabs CPA-Gespräch | Aktiv |
 
 ---
 
-## Founder Weekly Rhythm
+## Wöchentlicher Gründer-Rhythmus
 
-| Day | Morning (8-12) | Afternoon (13-17) | Evening (18-20) |
+| Tag | Vormittag (8-12) | Nachmittag (13-17) | Abend (18-20) |
 |-----|---------------|-------------------|-----------------|
-| **Mon** | Customer monitoring + tuning | Demo calls + outreach | Product work |
-| **Tue** | Customer monitoring | Demo calls + follow-ups | Product work |
-| **Wed** | Audit report writing | Demo calls | LinkedIn content |
-| **Thu** | Customer monitoring | Demo calls + follow-ups | Product work |
-| **Fri** | Weekly metrics review | Pipeline planning + outreach | Off |
-| **Sat** | Product work (4 hours) | Off | Off |
+| **Mo** | Kunden-Monitoring + Feintuning | Demo-Calls + Outreach | Produktarbeit |
+| **Di** | Kunden-Monitoring | Demo-Calls + Follow-ups | Produktarbeit |
+| **Mi** | Audit-Berichte schreiben | Demo-Calls | LinkedIn-Content |
+| **Do** | Kunden-Monitoring | Demo-Calls + Follow-ups | Produktarbeit |
+| **Fr** | Wöchentliche Kennzahlen-Überprüfung | Pipeline-Planung + Outreach | Frei |
+| **Sa** | Produktarbeit (4 Stunden) | Frei | Frei |
 
-**Split:** ~40% selling, ~30% supporting customers, ~30% building product.
+**Aufteilung:** ~40% Vertrieb, ~30% Kundensupport, ~30% Produkt bauen.
 
 ---
 
-## Outreach Scripts (German)
+## Outreach-Skripte
 
-### LinkedIn DM (cold)
+### LinkedIn-DM (kalt)
 
 > Herr Dr. [Name],
 >
@@ -110,19 +110,19 @@
 > Beste Grüße,
 > Remington
 
-### Follow-up DM (after no response, 5 days)
+### Follow-up-DM (nach keiner Antwort, 5 Tage)
 
 > Herr Dr. [Name],
 >
 > nur ein kurzer Nachfolger — ich weiß, der Kanzleialltag lässt wenig Raum.
 >
-> Falls Sie neugierig sind: Rufen Sie einfach [Demo-Nummer] an und sagen Sie "Ich wurde gekündigt." Das sagt mehr als jede E-Mail.
+> Falls Sie neugierig sind: Rufen Sie einfach [Demo-Nummer] an und sagen Sie „Ich wurde gekündigt." Das sagt mehr als jede E-Mail.
 >
 > Schöne Woche!
 
-### Email (cold)
+### E-Mail (kalt)
 
-**Subject:** 59% Ihrer Anrufer legen bei Mailbox auf — und rufen nie wieder an.
+**Betreff:** 59% Ihrer Anrufer legen bei Mailbox auf — und rufen nie wieder an.
 
 > Sehr geehrter Herr Dr. [Name],
 >
@@ -144,11 +144,11 @@
 >
 > Mit freundlichen Grüßen,
 > Remington
-> One-of-One | AI Kanzleiassistenz
+> One-of-One | KI-Kanzleiassistenz
 
-### BNI 45-Second Pitch
+### BNI 45-Sekunden-Pitch
 
-> "Mein Name ist Remington, ich bin der Gründer von One-of-One. Wir bauen die KI-Kanzleiassistenz für deutsche Rechtsanwaltskanzleien.
+> „Mein Name ist Remington, ich bin der Gründer von One-of-One. Wir bauen die KI-Kanzleiassistenz für deutsche Rechtsanwaltskanzleien.
 >
 > 59% aller Anrufer bei Kanzleien legen bei Mailbox auf und rufen nie wieder an. Die rufen den nächsten Anwalt an.
 >
@@ -160,36 +160,36 @@
 
 ---
 
-## Pipeline Tracking
+## Pipeline-Tracking
 
-Track in a simple spreadsheet or CRM:
+In einer einfachen Tabelle oder CRM nachverfolgen:
 
-| Column | Purpose |
+| Spalte | Zweck |
 |--------|---------|
-| Firm name | |
-| Managing partner | |
-| Practice area | Arbeitsrecht / Familienrecht / Other |
-| Firm size (lawyers) | |
-| Source | legalXchange / LinkedIn / BNI / Email / Referral |
-| Stage | Lead / Demo Scheduled / Demo Done / Audit Running / Pilot / Paid / Lost |
-| Date entered stage | |
-| Next action | |
-| Notes | |
+| Kanzleiname | |
+| Geschäftsführender Partner | |
+| Rechtsgebiet | Arbeitsrecht / Familienrecht / Sonstige |
+| Kanzleigröße (Anwälte) | |
+| Quelle | legalXchange / LinkedIn / BNI / E-Mail / Empfehlung |
+| Stufe | Lead / Demo geplant / Demo durchgeführt / Audit läuft / Pilot / Bezahlt / Verloren |
+| Datum Stufeneintritt | |
+| Nächste Aktion | |
+| Notizen | |
 
-### Stage definitions
+### Stufendefinitionen
 
-| Stage | Meaning | Exit criteria |
+| Stufe | Bedeutung | Exit-Kriterien |
 |-------|---------|---------------|
-| Lead | Have their contact info | Demo scheduled |
-| Demo Scheduled | Call booked | Demo completed |
-| Demo Done | They've seen the product | Audit agreement signed |
-| Audit Running | Call forwarding active, data collecting | Audit report delivered |
-| Pilot | Booking enabled, €299/month | 2 weeks complete, conversion call scheduled |
-| Paid | Full tier, paying monthly | Ongoing |
-| Lost | Not proceeding | Reason documented |
+| Lead | Kontaktdaten vorhanden | Demo geplant |
+| Demo geplant | Call gebucht | Demo durchgeführt |
+| Demo durchgeführt | Produkt gesehen | Audit-Vereinbarung unterzeichnet |
+| Audit läuft | Rufumleitung aktiv, Daten werden gesammelt | Audit-Bericht geliefert |
+| Pilot | Buchung aktiviert, €299/Monat | 2 Wochen abgeschlossen, Konversions-Call geplant |
+| Bezahlt | Volle Stufe, monatliche Zahlung | Laufend |
+| Verloren | Kein Fortschritt | Grund dokumentiert |
 
 ---
 
-*Created: March 2026*
-*Status: Operative — begin Week 1 execution immediately*
-*Next step: Wire Clara+Jonas+Maren to booking engine (TECHNICAL_PRODUCT_PLAN.md Layer 1)*
+*Erstellt: März 2026*
+*Status: Operativ — Woche 1 Ausführung sofort beginnen*
+*Nächster Schritt: Clara+Jonas+Maren an Buchungsmaschine anbinden (TECHNICAL_PRODUCT_PLAN.md Layer 1)*

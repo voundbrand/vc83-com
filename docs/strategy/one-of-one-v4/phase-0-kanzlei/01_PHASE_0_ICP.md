@@ -1,124 +1,124 @@
-# Phase 0 — Kanzlei Proof: ICP
+# Phase 0 — Kanzlei-Nachweis: ICP
 
-| Field | Value |
+| Feld | Wert |
 |---|---|
-| **Document** | Phase 0 ICP — Law Firm Target Profile |
-| **Date** | 2026-03-18 |
-| **Classification** | Internal — Founder's Eyes Only |
+| **Dokument** | Phase 0 ICP — Kanzlei-Zielprofil |
+| **Datum** | 2026-03-18 |
+| **Klassifizierung** | Intern — Nur für den Gründer |
 
 ---
 
-## Phase 0 ICP: Arbeitsrecht & Familienrecht Kanzleien
+## Phase 0 ICP: Arbeitsrecht- & Familienrecht-Kanzleien
 
-> "We don't sell to 'law firms.' We sell to Arbeitsrecht firms where someone got fired yesterday and can't reach a lawyer."
+> „Wir verkaufen nicht an ‚Kanzleien.' Wir verkaufen an Arbeitsrecht-Kanzleien, bei denen gestern jemand gekündigt wurde und keinen Anwalt erreichen kann."
 
 ---
 
-## Primary Target
+## Primäre Zielgruppe
 
-| Attribute | Specification |
+| Attribut | Spezifikation |
 |-----------|---------------|
-| **Practice area** | Arbeitsrecht (first priority) or Familienrecht (second priority) |
-| **Firm size** | 5-20 lawyers |
-| **Revenue** | €1M-€5M |
-| **Locations** | 1-2 |
-| **Decision-maker** | Managing partner (Kanzleiinhaber) |
-| **Phone volume** | 20-60 calls/day |
-| **Current solution** | Part-time Empfang, shared Sekretärin, or nothing (Mailbox) |
-| **Software** | RA-MICRO (preferred, shows market fit), DATEV (acceptable) |
-| **Geography** | NRW, Bayern, Berlin, Hamburg (highest density of mid-size firms) |
+| **Rechtsgebiet** | Arbeitsrecht (erste Priorität) oder Familienrecht (zweite Priorität) |
+| **Kanzleigröße** | 5-20 Anwälte |
+| **Umsatz** | €1M-€5M |
+| **Standorte** | 1-2 |
+| **Entscheider** | Geschäftsführender Partner (Kanzleiinhaber) |
+| **Anrufvolumen** | 20-60 Anrufe/Tag |
+| **Aktuelle Lösung** | Teilzeit-Empfang, geteilte Sekretärin oder nichts (Mailbox) |
+| **Software** | RA-MICRO (bevorzugt, zeigt Marktpassung), DATEV (akzeptabel) |
+| **Geografie** | NRW, Bayern, Berlin, Hamburg (höchste Dichte mittelgroßer Kanzleien) |
 
 ---
 
-## Why Arbeitsrecht First
+## Warum Arbeitsrecht zuerst
 
-| Factor | Detail |
+| Faktor | Detail |
 |--------|--------|
-| **Extreme urgency** | 3-Wochen-Frist for Kündigungsschutzklage. Caller MUST reach a lawyer within days or loses their case. |
-| **High call volume** | Job terminations happen year-round. Q1 peak (New Year restructurings), Q3 peak (Probezeit-Kündigungen). |
-| **Standardized intake** | Every Arbeitsrecht call asks the same questions: Kündigung? Wann? Frist? Arbeitgeber? Betriebszugehörigkeit? RSV? |
-| **Easy ROI math** | Missed Arbeitsrecht call = lost Mandat = lost €3,000-20,000 in fees. One recovered Mandat/month pays for our service 3-6x over. |
-| **Template leverage** | First firm → template. Second firm → 60% faster onboarding. Fifth firm → 80% faster. |
+| **Extreme Dringlichkeit** | 3-Wochen-Frist für Kündigungsschutzklage. Anrufer MUSS innerhalb von Tagen einen Anwalt erreichen oder verliert seinen Fall. |
+| **Hohes Anrufvolumen** | Kündigungen passieren das ganze Jahr. Q1-Spitze (Neujahrs-Umstrukturierungen), Q3-Spitze (Probezeit-Kündigungen). |
+| **Standardisierte Aufnahme** | Jeder Arbeitsrecht-Anruf stellt dieselben Fragen: Kündigung? Wann? Frist? Arbeitgeber? Betriebszugehörigkeit? RSV? |
+| **Einfache ROI-Rechnung** | Verpasster Arbeitsrecht-Anruf = verlorenes Mandat = verlorene €3.000-20.000 an Honorar. Ein wiedergewonnenes Mandat/Monat zahlt unseren Service 3-6x. |
+| **Template-Hebelwirkung** | Erste Kanzlei → Template. Zweite Kanzlei → 60% schnelleres Onboarding. Fünfte Kanzlei → 80% schneller. |
 
 ---
 
-## Why Familienrecht Second
+## Warum Familienrecht als Zweites
 
-| Factor | Detail |
+| Faktor | Detail |
 |--------|--------|
-| **Emotional urgency** | Separation, divorce, custody — callers are stressed, need reassurance, won't wait. |
-| **Trennungsjahr** | Once the decision to separate is made, the clock starts. Legal advice is time-sensitive. |
-| **High volume** | Family law is one of the highest-volume practice areas in Germany. |
-| **Complementary to Arbeitsrecht** | Many firms do both. Deploying for Arbeitsrecht and adding Familienrecht is a natural upsell. |
+| **Emotionale Dringlichkeit** | Trennung, Scheidung, Sorgerecht — Anrufer sind gestresst, brauchen Beruhigung, werden nicht warten. |
+| **Trennungsjahr** | Sobald die Entscheidung zur Trennung gefallen ist, beginnt die Uhr zu ticken. Rechtsberatung ist zeitkritisch. |
+| **Hohes Volumen** | Familienrecht ist eines der voluminösesten Rechtsgebiete in Deutschland. |
+| **Komplementär zu Arbeitsrecht** | Viele Kanzleien machen beides. Arbeitsrecht-Deployment und Familienrecht-Erweiterung ist ein natürliches Upselling. |
 
 ---
 
-## Pain Signals (ranked by close probability)
+## Pain-Signale (nach Abschlusswahrscheinlichkeit sortiert)
 
-| Signal | Close Probability | How to Detect |
+| Signal | Abschlusswahrscheinlichkeit | Wie erkennen |
 |--------|-------------------|---------------|
-| "Wir verlieren Mandate, weil niemand rangeht" | 90% | Direct statement in first conversation |
-| "Unsere Empfangsdame ist alleine und überfordert" | 80% | Ask about current phone handling |
-| "Mittagspause ist ein Problem" | 75% | Ask when calls are missed |
-| "Abends und Samstags gehen Anrufe auf die Mailbox" | 75% | Ask about after-hours coverage |
-| "Wir haben es schon mit ebuero probiert" | 70% | Shows they've tried to solve the problem |
-| "Ich weiß, dass wir Anrufe verpassen" | 60% | Awareness without action — audit will create urgency |
-| "Wir sind eigentlich ganz gut erreichbar" | 20% | Likely no pain. Audit might reveal hidden problem, but don't count on it. |
+| „Wir verlieren Mandate, weil niemand rangeht" | 90% | Direkte Aussage im ersten Gespräch |
+| „Unsere Empfangsdame ist alleine und überfordert" | 80% | Fragen zur aktuellen Telefon-Abwicklung |
+| „Mittagspause ist ein Problem" | 75% | Fragen, wann Anrufe verpasst werden |
+| „Abends und Samstags gehen Anrufe auf die Mailbox" | 75% | Fragen zur Erreichbarkeit außerhalb der Geschäftszeiten |
+| „Wir haben es schon mit ebuero probiert" | 70% | Zeigt, dass sie versucht haben, das Problem zu lösen |
+| „Ich weiß, dass wir Anrufe verpassen" | 60% | Bewusstsein ohne Handlung — Audit schafft Dringlichkeit |
+| „Wir sind eigentlich ganz gut erreichbar" | 20% | Wahrscheinlich kein Leidensdruck. Audit könnte verstecktes Problem aufdecken, aber nicht darauf setzen. |
 
 ---
 
-## Buyer Persona: Der Kanzleiinhaber (Arbeitsrecht)
+## Käufer-Persona: Der Kanzleiinhaber (Arbeitsrecht)
 
 | Dimension | Detail |
 |-----------|--------|
-| **Name archetype** | Dr. Thomas Schröder, 52, Senior Partner |
-| **Background** | 20+ years Fachanwalt für Arbeitsrecht. Built the firm from 3 to 12 lawyers. |
-| **Daily frustration** | Spends 30 min/day dealing with phone chaos. "Wer hat den Herrn Müller nicht zurückgerufen?" |
-| **What they want** | "Ich will, dass jeder Anruf professionell angenommen wird. Rund um die Uhr. Ohne dass ich eine weitere Mitarbeiterin einstellen muss." |
-| **What they fear** | "Wenn die KI Mist baut, ruiniert das unseren Ruf." → Address with: 2-week audit (no risk), caller never realizes it's AI, BRAO-compliant. |
-| **How they decide** | See it work once → "Zeigen Sie mir das nochmal" → Show it to partner → "Machen wir." |
-| **Budget tolerance** | €500-1,000/month is a Rundungsfehler in a €2M Kanzlei. Not a budget discussion. |
+| **Name-Archetyp** | Dr. Thomas Schröder, 52, Senior Partner |
+| **Hintergrund** | 20+ Jahre Fachanwalt für Arbeitsrecht. Hat die Kanzlei von 3 auf 12 Anwälte aufgebaut. |
+| **Tägliche Frustration** | Verbringt 30 Min/Tag mit Telefon-Chaos. „Wer hat den Herrn Müller nicht zurückgerufen?" |
+| **Was er will** | „Ich will, dass jeder Anruf professionell angenommen wird. Rund um die Uhr. Ohne dass ich eine weitere Mitarbeiterin einstellen muss." |
+| **Was er fürchtet** | „Wenn die KI Mist baut, ruiniert das unseren Ruf." → Adressieren mit: 2-Wochen-Audit (kein Risiko), Anrufer merkt nicht, dass es KI ist, BRAO-konform. |
+| **Wie er entscheidet** | Einmal sehen, dass es funktioniert → „Zeigen Sie mir das nochmal" → Partner zeigen → „Machen wir." |
+| **Budget-Toleranz** | €500-1.000/Monat ist ein Rundungsfehler in einer €2M-Kanzlei. Keine Budgetdiskussion. |
 
 ---
 
-## Disqualification Criteria (Phase 0 specific)
+## Disqualifizierungskriterien (Phase 0 spezifisch)
 
-| Signal | Action |
+| Signal | Maßnahme |
 |--------|--------|
-| Einzelanwalt or 2-person firm | Too small. Hallo Kira is better fit at €99. Move on. |
-| "Wir wollen erst RA-MICRO-Integration" | Can't deliver yet. Defer. Revisit at Phase 1. |
-| Practice area with no urgency (Vertragsrecht, IP) | Slower sales cycle. Prioritize Arbeitsrecht/Familienrecht for Phase 0. |
-| Doesn't answer phone at all (fully digital intake) | No phone pain = no sale. |
-| 30+ lawyers | Too large for Phase 0. Complex org, multiple stakeholders. Revisit at Phase 2. |
-| Located outside Germany | Not Phase 0 territory. DACH expansion later. |
+| Einzelanwalt oder 2-Personen-Kanzlei | Zu klein. Hallo Kira passt besser bei €99. Weiter. |
+| „Wir wollen erst RA-MICRO-Integration" | Noch nicht lieferbar. Zurückstellen. In Phase 1 erneut ansprechen. |
+| Rechtsgebiet ohne Dringlichkeit (Vertragsrecht, IP) | Längerer Verkaufszyklus. Arbeitsrecht/Familienrecht für Phase 0 priorisieren. |
+| Nimmt gar keine Anrufe entgegen (komplett digitale Aufnahme) | Kein Telefon-Leidensdruck = kein Verkauf. |
+| 30+ Anwälte | Zu groß für Phase 0. Komplexe Organisation, mehrere Stakeholder. In Phase 2 erneut ansprechen. |
+| Standort außerhalb Deutschlands | Nicht Phase-0-Gebiet. DACH-Expansion später. |
 
 ---
 
-## Target Firm List (build 20 firms)
+## Ziel-Kanzlei-Liste (20 Kanzleien aufbauen)
 
-### How to find them
+### Wie man sie findet
 
-| Method | Detail |
+| Methode | Detail |
 |--------|--------|
-| **anwalt.de** | Search "Fachanwalt für Arbeitsrecht" + city. Filter by firm size. |
-| **Google Maps** | "Rechtsanwalt Arbeitsrecht [Stadt]" → check firm websites for team size. |
-| **DAV member directory** | Search by practice area and region. |
-| **BRAK Anwaltsverzeichnis** | Official directory. Less detailed but comprehensive. |
-| **LinkedIn** | Search "Kanzleiinhaber" + "Arbeitsrecht" + region. |
-| **BNI network** | Ask for introductions to lawyers in the chapter or their contacts. |
-| **legalXchange attendees** | Attendee list from the conference (if available). |
+| **anwalt.de** | Suche „Fachanwalt für Arbeitsrecht" + Stadt. Nach Kanzleigröße filtern. |
+| **Google Maps** | „Rechtsanwalt Arbeitsrecht [Stadt]" → Kanzlei-Websites auf Teamgröße prüfen. |
+| **DAV-Mitgliederverzeichnis** | Suche nach Rechtsgebiet und Region. |
+| **BRAK-Anwaltsverzeichnis** | Offizielles Verzeichnis. Weniger detailliert, aber umfassend. |
+| **LinkedIn** | Suche „Kanzleiinhaber" + „Arbeitsrecht" + Region. |
+| **BNI-Netzwerk** | Um Vorstellungen von Anwälten im Chapter oder deren Kontakten bitten. |
+| **legalXchange-Teilnehmer** | Teilnehmerliste der Konferenz (falls verfügbar). |
 
-### Target regions (Phase 0)
+### Zielregionen (Phase 0)
 
-| Region | Why |
+| Region | Warum |
 |--------|-----|
-| **NRW (Düsseldorf, Köln, Essen)** | Highest density of mid-size firms. Industrial heartland = high Arbeitsrecht volume. |
-| **Bayern (München, Nürnberg)** | Wealthy firms, tech-open managing partners. |
-| **Berlin** | Startup-adjacent, higher tech adoption. |
-| **Hamburg** | Strong Arbeitsrecht scene, port/logistics industry drives volume. |
+| **NRW (Düsseldorf, Köln, Essen)** | Höchste Dichte mittelgroßer Kanzleien. Industrielles Kernland = hohes Arbeitsrecht-Volumen. |
+| **Bayern (München, Nürnberg)** | Wohlhabende Kanzleien, technikoffene geschäftsführende Partner. |
+| **Berlin** | Startup-nah, höhere Technologie-Akzeptanz. |
+| **Hamburg** | Starke Arbeitsrecht-Szene, Hafen-/Logistik-Industrie treibt Volumen. |
 
 ---
 
-*Created: March 2026*
-*Status: Operative — build target list of 20 firms this week*
-*Next step: Research 20 Arbeitsrecht Kanzleien in NRW + Bayern, prepare outreach messages*
+*Erstellt: März 2026*
+*Status: Operativ — Zielliste von 20 Kanzleien diese Woche aufbauen*
+*Nächster Schritt: 20 Arbeitsrecht-Kanzleien in NRW + Bayern recherchieren, Outreach-Nachrichten vorbereiten*
