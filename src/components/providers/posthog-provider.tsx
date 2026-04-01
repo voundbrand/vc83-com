@@ -1,43 +1,42 @@
 "use client";
 
-import posthog from "posthog-js";
-import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useEffect, useState } from "react";
+import React from "react";
 import {
   buildShellTelemetryPayload,
   type ShellTelemetryEventName,
 } from "@/lib/shell/telemetry";
+import { isAnalyticsConsentGranted } from "@/lib/cookie-consent";
 
 export { buildShellTelemetryPayload, type ShellTelemetryEventName } from "@/lib/shell/telemetry";
+
+type AnalyticsClient = {
+  capture: (event: string, payload?: Record<string, unknown>) => void;
+  identify: (distinctId: string, payload?: Record<string, unknown>) => void;
+} | null;
+
+/**
+ * PostHog has been removed from runtime telemetry.
+ * Keep this hook to avoid touching every callsite in one sweep.
+ */
+export function usePostHog(): AnalyticsClient {
+  return null;
+}
 
 export function captureShellTelemetry(
   event: ShellTelemetryEventName,
   payload: Record<string, unknown>
 ): void {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !isAnalyticsConsentGranted()) {
     return;
   }
 
-  posthog.capture(event, buildShellTelemetryPayload(event, payload));
+  // Analytics runtime intentionally removed (GDPR fail-closed posture).
+  // Keep payload construction as a stable contract for future providers.
+  void event;
+  void payload;
+  buildShellTelemetryPayload(event, payload);
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && !isInitialized) {
-      posthog.init("phc_jwqoOV8cMTeNZU4AMBBFs5Ss8d80ofM1C8soOAYfPit", {
-        api_host: "https://eu.i.posthog.com",
-        person_profiles: "identified_only",
-        capture_pageview: false, // We'll track pageviews manually
-        capture_pageleave: true,
-      });
-      setIsInitialized(true);
-    }
-  }, [isInitialized]);
-
-  // If you want to temporarily bypass PostHog to debug, uncomment the next line:
-  // return <>{children}</>;
-
-  return <PHProvider client={posthog}>{children}</PHProvider>;
+  return <>{children}</>;
 }

@@ -10,6 +10,7 @@ import { PermissionProvider } from "@/contexts/permission-context";
 import { TranslationProvider } from "@/contexts/translation-context";
 import { MediaSelectionProvider } from "@/contexts/media-selection-context";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { ShoppingCartProvider } from "@/contexts/shopping-cart-context";
 import { UpgradeModalProvider } from "@/components/ui/upgrade-prompt";
 
@@ -93,6 +94,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                       <MediaSelectionProvider>
                         <ShoppingCartProvider>
                           {children}
+                          <CookieConsentBanner />
                         </ShoppingCartProvider>
                       </MediaSelectionProvider>
                     </UpgradeModalProvider>

@@ -59,6 +59,9 @@ export function AgentTileExpanded({
   isPlayingVoice,
   isLoadingVoice,
   onPlayVoice,
+  showLanguages = true,
+  voiceVisual,
+  toneVisual,
 }: {
   agent: AgentTileData
   labels: AgentTileLabels
@@ -69,6 +72,9 @@ export function AgentTileExpanded({
   isPlayingVoice?: boolean
   isLoadingVoice?: boolean
   onPlayVoice?: () => void
+  showLanguages?: boolean
+  voiceVisual?: React.ReactNode
+  toneVisual?: React.ReactNode
 }) {
   const [showAllLanguages, setShowAllLanguages] = useState(false)
 
@@ -92,10 +98,10 @@ export function AgentTileExpanded({
           </div>
         ) : (
           <div
-            className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shrink-0 text-lg md:text-xl font-bold text-white"
+            className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shrink-0 text-white"
             style={{ backgroundColor: agent.avatarColor }}
           >
-            {agent.personaName.slice(0, 2).toUpperCase()}
+            <agent.icon className="w-8 h-8 md:w-10 md:h-10" />
           </div>
         )}
         <div className="flex-1">
@@ -263,9 +269,11 @@ export function AgentTileExpanded({
               >
                 {labels.voiceLabel}
               </h4>
-              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                {agent.voiceDesc}
-              </p>
+              {voiceVisual || (
+                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                  {agent.voiceDesc}
+                </p>
+              )}
             </div>
             <div>
               <h4
@@ -274,72 +282,78 @@ export function AgentTileExpanded({
               >
                 {labels.toneLabel}
               </h4>
-              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-                {agent.toneDesc}
-              </p>
+              {toneVisual || (
+                <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                  {agent.toneDesc}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Languages */}
-          <div className="mb-6">
-            <h4
-              className="text-xs font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              {labels.languagesLabel}
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {primaryLanguages.map((lang) => (
-                <span key={lang} className="language-badge">
-                  {lang}
-                </span>
-              ))}
-              {showAllLanguages && remainingLanguages.map((lang) => (
-                <span key={lang} className="language-badge">
-                  {lang}
-                </span>
-              ))}
+          {showLanguages && (
+            <div className="mb-6">
+              <h4
+                className="text-xs font-semibold uppercase tracking-wider mb-3"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {labels.languagesLabel}
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {primaryLanguages.map((lang) => (
+                  <span key={lang} className="language-badge">
+                    {lang}
+                  </span>
+                ))}
+                {showAllLanguages && remainingLanguages.map((lang) => (
+                  <span key={lang} className="language-badge">
+                    {lang}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-2 flex items-center gap-1.5 text-xs transition-colors cursor-pointer py-3"
+                style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
+                onClick={() => setShowAllLanguages((v) => !v)}
+              >
+                <ArrowRight
+                  className={`w-3 h-3 transition-transform ${showAllLanguages ? "rotate-90" : ""}`}
+                />
+                {showAllLanguages
+                  ? labels.languagesLessLabel
+                  : labels.languagesMoreLabel.replace("{count}", String(remainingLanguages.length))}
+              </button>
             </div>
-            <button
-              type="button"
-              className="mt-2 flex items-center gap-1.5 text-xs transition-colors cursor-pointer py-3"
-              style={{ color: "var(--color-text-secondary)", minHeight: "44px" }}
-              onClick={() => setShowAllLanguages((v) => !v)}
-            >
-              <ArrowRight
-                className={`w-3 h-3 transition-transform ${showAllLanguages ? "rotate-90" : ""}`}
-              />
-              {showAllLanguages
-                ? labels.languagesLessLabel
-                : labels.languagesMoreLabel.replace("{count}", String(remainingLanguages.length))}
-            </button>
-          </div>
+          )}
 
           {/* Channels */}
-          <div>
-            <h4
-              className="text-xs font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              {labels.channelsLabel}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {agent.channels.map((ch) => (
-                <span
-                  key={ch.label}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-                  style={{
-                    backgroundColor: "var(--color-accent-subtle)",
-                    color: "var(--color-accent)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  <ch.icon className="w-3.5 h-3.5" />
-                  {ch.label}
-                </span>
-              ))}
+          {agent.channels.length > 0 && (
+            <div>
+              <h4
+                className="text-xs font-semibold uppercase tracking-wider mb-3"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {labels.channelsLabel}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {agent.channels.map((ch) => (
+                  <span
+                    key={ch.label}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                    style={{
+                      backgroundColor: "var(--color-accent-subtle)",
+                      color: "var(--color-accent)",
+                      border: "1px solid var(--color-border)",
+                    }}
+                  >
+                    <ch.icon className="w-3.5 h-3.5" />
+                    {ch.label}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

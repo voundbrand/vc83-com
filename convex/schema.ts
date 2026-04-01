@@ -43,6 +43,7 @@ import {
   platformSettings,
   authPrefillTokens,
 } from "./schemas/coreSchemas";
+import { consentRecords } from "./schemas/consentSchemas";
 // NOTE: apiKeyDomains table removed - now using unified domain configurations in objects table
 import { apps, appInstallations, snapshots, snapshotLoads, purchases, appAvailabilities } from "./schemas/appStoreSchemas";
 // import { app_podcasting } from "./schemas/appDataSchemas"; // Not yet used
@@ -269,6 +270,7 @@ export default defineSchema({
   // ⚙️ PLATFORM SETTINGS: Global configuration
   platformSettings,        // Platform-wide settings (beta access toggle, feature flags, etc.)
   authPrefillTokens,       // One-time opaque auth prefill tokens for email deep-links
+  consentRecords,          // GDPR/DSGVO consent decision history for audits
 
   // 🔐 RBAC: Role-Based Access Control
   roles,

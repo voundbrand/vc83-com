@@ -4,13 +4,26 @@ import { useState } from "react"
 import { ContentPageLayout } from "@/components/content-page-layout"
 import { pagesTranslations } from "@/content/pages-content"
 import type { Language } from "@/components/language-switcher"
-import { SUPPORT_EMAIL } from "@/lib/constants"
+import { companyInfo } from "@/lib/constants"
 import Link from "next/link"
 
 export default function CookiesPage() {
   const [language, setLanguage] = useState<Language>("en")
   const t = pagesTranslations[language].cookies
   const tc = pagesTranslations[language].common
+  const labels = language === "de"
+    ? {
+        controllerTitle: "Verantwortlicher und Kontakt",
+        managingDirector: "Geschäftsführer",
+        registerCourt: "Registergericht",
+        vatId: "UST-ID",
+      }
+    : {
+        controllerTitle: "Controller and contact",
+        managingDirector: "Managing Director",
+        registerCourt: "Register Court",
+        vatId: "VAT ID",
+      }
 
   return (
     <ContentPageLayout language={language} onLanguageChange={setLanguage}>
@@ -138,10 +151,30 @@ export default function CookiesPage() {
             </h2>
             <p>
               {t.questionsText}
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--color-accent)" }}>
-                {SUPPORT_EMAIL}
+              <a href={`mailto:${companyInfo.email}`} className="underline" style={{ color: "var(--color-accent)" }}>
+                {companyInfo.email}
               </a>
             </p>
+          </section>
+
+          {/* Controller and contact */}
+          <section>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--color-text)" }}>
+              {labels.controllerTitle}
+            </h2>
+            <div
+              className="p-4 rounded-lg"
+              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <p className="font-semibold" style={{ color: "var(--color-text)" }}>{companyInfo.name}</p>
+              <p>{companyInfo.street}</p>
+              <p>{companyInfo.zip} {companyInfo.city}</p>
+              <p>{companyInfo.country}</p>
+              <p>{labels.managingDirector}: {companyInfo.managingDirector}</p>
+              <p>{labels.registerCourt}: {companyInfo.registerCourt}, {companyInfo.registerNumber}</p>
+              <p>{labels.vatId}: {companyInfo.vatId}</p>
+              <p>Email: {companyInfo.email}</p>
+            </div>
           </section>
         </div>
 
@@ -159,6 +192,7 @@ export default function CookiesPage() {
           <div className="flex flex-wrap gap-4">
             <Link href="/privacy" className="text-sm underline" style={{ color: "var(--color-text-secondary)" }}>{t.seeAlsoPrivacy}</Link>
             <Link href="/terms" className="text-sm underline" style={{ color: "var(--color-text-secondary)" }}>{t.seeAlsoTerms}</Link>
+            <Link href="/data-deletion" className="text-sm underline" style={{ color: "var(--color-text-secondary)" }}>{t.seeAlsoDataDeletion}</Link>
           </div>
         </div>
       </article>

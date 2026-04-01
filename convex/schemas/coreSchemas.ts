@@ -542,6 +542,15 @@ export const userPreferences = defineTable({
   // Region Preferences
   language: v.optional(v.string()), // ISO 639-1 language code: "en", "de", "pl", "es", "fr", "ja"
 
+  // GDPR cookie consent snapshot (latest decision; full history lives in consentRecords).
+  cookieConsent: v.optional(v.object({
+    analytics: v.boolean(),
+    marketing: v.boolean(),
+    policyVersion: v.string(),
+    source: v.string(),
+    updatedAt: v.number(),
+  })),
+
   // Voice runtime preferences
   voiceRuntimeProviderId: v.optional(
     v.union(v.literal("browser"), v.literal("elevenlabs")),
@@ -794,6 +803,8 @@ export const oauthStates = defineTable({
 
   // Optional return URL - where to redirect after OAuth completes
   returnUrl: v.optional(v.string()),
+  requestedScopes: v.optional(v.array(v.string())),
+  allScopes: v.optional(v.array(v.string())),
 
   // Expiration (short-lived: 10 minutes)
   createdAt: v.number(),

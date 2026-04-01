@@ -11,6 +11,19 @@ export default function TermsPage() {
   const [language, setLanguage] = useState<Language>("en")
   const t = pagesTranslations[language].terms
   const tc = pagesTranslations[language].common
+  const labels = language === "de"
+    ? {
+        contractingParty: "Vertragspartner (Diensteanbieter)",
+        managingDirector: "Geschäftsführer",
+        registerCourt: "Registergericht",
+        vatId: "UST-ID",
+      }
+    : {
+        contractingParty: "Contracting Party (Service Provider)",
+        managingDirector: "Managing Director",
+        registerCourt: "Register Court",
+        vatId: "VAT ID",
+      }
 
   return (
     <ContentPageLayout language={language} onLanguageChange={setLanguage}>
@@ -35,6 +48,23 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-10 text-sm leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+          <section>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--color-text)" }}>
+              {labels.contractingParty}
+            </h2>
+            <div
+              className="p-4 rounded-lg"
+              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <p className="font-semibold" style={{ color: "var(--color-text)" }}>{companyInfo.name}</p>
+              <p>{companyInfo.street}, {companyInfo.zip} {companyInfo.city}, {companyInfo.country}</p>
+              <p>{labels.managingDirector}: {companyInfo.managingDirector}</p>
+              <p>{labels.registerCourt}: {companyInfo.registerCourt}, {companyInfo.registerNumber}</p>
+              <p>{labels.vatId}: {companyInfo.vatId}</p>
+              <p>Email: {companyInfo.email}</p>
+            </div>
+          </section>
+
           {/* 1. Introduction */}
           <section>
             <h2 className="text-lg font-semibold mb-3" style={{ color: "var(--color-text)" }}>
@@ -173,6 +203,9 @@ export default function TermsPage() {
               <p>{companyInfo.street}</p>
               <p>{companyInfo.zip} {companyInfo.city}</p>
               <p>{companyInfo.country}</p>
+              <p>{labels.managingDirector}: {companyInfo.managingDirector}</p>
+              <p>{labels.registerCourt}: {companyInfo.registerCourt}, {companyInfo.registerNumber}</p>
+              <p>{labels.vatId}: {companyInfo.vatId}</p>
               <p>Email: {companyInfo.email}</p>
             </div>
           </section>

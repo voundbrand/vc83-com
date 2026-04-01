@@ -650,6 +650,138 @@
     50% { transform: scale(1.08); opacity: 0.85; }
   }
 
+  /* Workflow chain — vertical pipeline with traveling ball */
+  .wf-node {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+
+  .wf-label {
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--color-text-secondary);
+  }
+
+  .wf-connector {
+    position: relative;
+    width: 1px;
+    height: 14px;
+    margin-left: 12px;
+    background-color: var(--color-border);
+  }
+
+  .wf-connector::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--wf-color);
+    box-shadow: 0 0 6px var(--wf-color);
+    animation: wf-ball 2s ease-in-out infinite;
+    animation-delay: var(--wf-delay, 0s);
+  }
+
+  @keyframes wf-ball {
+    0% { top: -2px; opacity: 0; }
+    15% { opacity: 0.8; }
+    85% { opacity: 0.8; }
+    100% { top: calc(100% - 3px); opacity: 0; }
+  }
+
+  /* Escalation tree — condition → action with shimmer arrows */
+  .esc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+
+  .esc-node {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid;
+  }
+
+  .esc-condition {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+    flex-shrink: 0;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .esc-arrow {
+    position: relative;
+    flex: 1;
+    height: 1px;
+    min-width: 20px;
+    background-color: var(--color-border);
+    overflow: visible;
+  }
+
+  .esc-arrow::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -3px;
+    border-left: 5px solid var(--color-border);
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+  }
+
+  .esc-arrow::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -40%;
+    width: 40%;
+    height: 3px;
+    border-radius: 1.5px;
+    background: linear-gradient(90deg, transparent, var(--esc-color), transparent);
+    opacity: 0.6;
+    animation: esc-shimmer 2.5s ease-in-out infinite;
+    animation-delay: var(--esc-delay, 0s);
+  }
+
+  @keyframes esc-shimmer {
+    0% { left: -40%; }
+    100% { left: 100%; }
+  }
+
+  .esc-action {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .wf-connector::after,
+    .esc-arrow::after {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
   /* Language badge grid */
   .language-badge {
     display: inline-flex;

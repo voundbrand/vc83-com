@@ -11,6 +11,15 @@ export default function PrivacyPage() {
   const [language, setLanguage] = useState<Language>("en")
   const t = pagesTranslations[language].privacy
   const tc = pagesTranslations[language].common
+  const labels = language === "de"
+    ? {
+        managingDirector: "Geschäftsführer",
+        registerCourt: "Registergericht",
+      }
+    : {
+        managingDirector: "Managing Director",
+        registerCourt: "Register Court",
+      }
 
   return (
     <ContentPageLayout language={language} onLanguageChange={setLanguage}>
@@ -59,6 +68,8 @@ export default function PrivacyPage() {
               <p>{companyInfo.street}</p>
               <p>{companyInfo.zip} {companyInfo.city}</p>
               <p>{companyInfo.country}</p>
+              <p>{labels.managingDirector}: {companyInfo.managingDirector}</p>
+              <p>{labels.registerCourt}: {companyInfo.registerCourt}, {companyInfo.registerNumber}</p>
               <p>Email: {companyInfo.email}</p>
               <p>UST-ID: {companyInfo.vatId}</p>
             </div>
@@ -117,6 +128,7 @@ export default function PrivacyPage() {
                 <li key={item.label}><strong style={{ color: "var(--color-text)" }}>{item.label}</strong>: {item.desc}</li>
               ))}
             </ul>
+            <p className="mt-3">{t.s6UpdateText}</p>
           </section>
 
           {/* 7. International Transfers */}
@@ -188,6 +200,11 @@ export default function PrivacyPage() {
               style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}
             >
               <p className="font-semibold" style={{ color: "var(--color-text)" }}>{companyInfo.name}</p>
+              <p>{companyInfo.street}</p>
+              <p>{companyInfo.zip} {companyInfo.city}</p>
+              <p>{companyInfo.country}</p>
+              <p>{labels.managingDirector}: {companyInfo.managingDirector}</p>
+              <p>{labels.registerCourt}: {companyInfo.registerCourt}, {companyInfo.registerNumber}</p>
               <p>Email: {companyInfo.email}</p>
             </div>
           </section>

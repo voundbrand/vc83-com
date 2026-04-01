@@ -14,6 +14,9 @@ export const companyInfo = {
   zip: "17309",
   city: "Pasewalk",
   country: "Germany",
+  managingDirector: "Remington Splettstoesser",
+  registerCourt: "Amtsgericht Neubrandenburg",
+  registerNumber: "HRB 7675",
   vatId: "DE293728593",
   email: SUPPORT_EMAIL,
 }
