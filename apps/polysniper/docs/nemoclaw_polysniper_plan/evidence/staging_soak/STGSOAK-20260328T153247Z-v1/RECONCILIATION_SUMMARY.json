@@ -1,0 +1,37 @@
+{
+  "runId": "STGSOAK-20260328T153247Z-v1",
+  "intendedDecisionCycles": 115,
+  "placeOrderDecisions": 100,
+  "holdDecisions": 15,
+  "ledgerTradesCount": 0,
+  "openPositionsCount": 0,
+  "dailyVolumeByUtcDate": {},
+  "finalStatus": {
+    "mode": "staging_synth",
+    "killSwitchActive": false,
+    "limits": {
+      "maxTradeNotionalUsd": 15,
+      "maxDailyNotionalUsd": 60,
+      "maxOpenRiskUsd": 45,
+      "maxOpenPositions": 4,
+      "minEdgePct": 3,
+      "minConfidence": 62,
+      "reserveFloorUsd": 40,
+      "prepaidBalanceUsd": 300
+    },
+    "todayVolumeUsd": 0,
+    "openRiskUsd": 0,
+    "openPositions": 0,
+    "prepaidBalanceUsd": 300,
+    "reserveFloorUsd": 40,
+    "modelTarget": "claude-opus-2.4",
+    "updatedAt": "2026-03-28T15:32:44.500Z"
+  },
+  "eventTypeCounts": {
+    "server_started": 1,
+    "mode_changed": 1,
+    "signal_evaluated": 115,
+    "kill_switch_activated": 5,
+    "kill_switch_cleared": 5
+  }
+}

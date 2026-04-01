@@ -1,0 +1,12 @@
+{
+  "runId": "STGSOAK-20260328T153247Z-v1",
+  "queueRow": "PSNP-031",
+  "startedAtUtc": "2026-03-28T14:20:01.766Z",
+  "finishedAtUtc": "2026-03-28T15:32:44.501Z",
+  "totalCycles": 115,
+  "nominalCycles": 100,
+  "faultInjectionCycles": 15,
+  "targetMode": "staging_synth",
+  "vmId": 1536978,
+  "serviceBaseUrl": "http://127.0.0.1:8787"
+}

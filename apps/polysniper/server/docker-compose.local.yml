@@ -1,0 +1,27 @@
+services:
+  polysniper-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: polysniper-server:local
+    container_name: polysniper-server-local
+    env_file:
+      - path: ./.env.local
+        required: false
+    environment:
+      PSNP_SERVER_HOST: 0.0.0.0
+      PSNP_SERVER_PORT: 8787
+      PSNP_RUNTIME_MODE: paper_sim
+      PSNP_TRADING_KILL_SWITCH: "0"
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ./data:/app/server/data
+      - ../.runtime:/app/.runtime
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8787/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

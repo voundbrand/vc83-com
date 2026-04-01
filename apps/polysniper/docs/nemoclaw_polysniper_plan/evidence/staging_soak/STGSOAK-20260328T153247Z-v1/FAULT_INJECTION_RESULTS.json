@@ -1,0 +1,11 @@
+{
+  "runId": "STGSOAK-20260328T153247Z-v1",
+  "counts": {
+    "providerFaultCycles": 5,
+    "providerFaultPass": 5,
+    "modelConfidenceFaultCycles": 5,
+    "modelConfidenceFaultPass": 5,
+    "killSwitchCycles": 5,
+    "killSwitchPass": 5
+  }
+}

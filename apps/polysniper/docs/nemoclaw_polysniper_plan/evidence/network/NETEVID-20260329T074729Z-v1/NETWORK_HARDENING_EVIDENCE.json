@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-03-29T07:47:30.246Z",
+  "target": {
+    "host": "187.124.179.41",
+    "user": "root",
+    "authMode": "password",
+    "expectedOpenPorts": [
+      22,
+      443
+    ]
+  },
+  "remoteResults": [
+    {
+      "id": "identity",
+      "remoteCommand": "echo USER=$(whoami); echo HOST=$(hostname); date -u +%Y-%m-%dT%H:%M:%SZ",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "os_release",
+      "remoteCommand": "cat /etc/os-release || uname -a",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "listening_sockets",
+      "remoteCommand": "ss -tulpen 2>/dev/null || ss -tulpn",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "ufw_status",
+      "remoteCommand": "ufw status verbose 2>&1 || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "nft_ruleset",
+      "remoteCommand": "command -v nft >/dev/null && nft list ruleset 2>&1 || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "iptables_s",
+      "remoteCommand": "iptables -S 2>&1 || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "iptables_lv",
+      "remoteCommand": "iptables -L -n -v 2>&1 || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "sshd_config_key_lines",
+      "remoteCommand": "grep -E '^(PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|ChallengeResponseAuthentication|UsePAM)' /etc/ssh/sshd_config 2>/dev/null || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "ssh_service_state",
+      "remoteCommand": "systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    },
+    {
+      "id": "ssh_service_enabled",
+      "remoteCommand": "systemctl is-enabled ssh 2>/dev/null || systemctl is-enabled sshd 2>/dev/null || true",
+      "exitCode": 255,
+      "stdout": "",
+      "stderr": "ssh: connect to host 187.124.179.41 port 22: Operation not permitted\r\n"
+    }
+  ],
+  "localProbe": [
+    {
+      "port": 22,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 80,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 443,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 3000,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 5432,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 8080,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    }
+  ]
+}

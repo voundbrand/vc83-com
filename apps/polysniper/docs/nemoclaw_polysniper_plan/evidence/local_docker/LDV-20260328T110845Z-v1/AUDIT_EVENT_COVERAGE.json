@@ -1,0 +1,14 @@
+{
+  "runId": "LDV-20260328T110845Z-v1",
+  "auditFile": "/Users/foundbrand_001/Development/vc83-com/apps/polysniper/server/data/LDV-20260328T110845Z-v1/audit.jsonl",
+  "totalEvents": 52,
+  "eventCounts": {
+    "server_started": 1,
+    "mode_changed": 1,
+    "kill_switch_cleared": 2,
+    "signal_evaluated": 31,
+    "kill_switch_activated": 1,
+    "paper_trade_execute": 8,
+    "position_close": 8
+  }
+}

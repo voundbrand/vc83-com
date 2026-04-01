@@ -1,0 +1,123 @@
+NAME                        IMAGE                       COMMAND                  SERVICE             CREATED             STATUS                       PORTS
+polysniper-server-staging   polysniper-server:staging   "docker-entrypoint.s…"   polysniper-server   About an hour ago   Up About an hour (healthy)   127.0.0.1:8787->8787/tcp
+---
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | node:fs:2430
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | node:fs:2430
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | node:fs:2430
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | node:fs:2430
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | node:fs:2430
+polysniper-server-staging  |     return binding.writeFileUtf8(
+polysniper-server-staging  |                    ^
+polysniper-server-staging  | 
+polysniper-server-staging  | Error: EACCES: permission denied, open '/app/server/data/ledger.json'
+polysniper-server-staging  |     at Object.writeFileSync (node:fs:2430:20)
+polysniper-server-staging  |     at #saveState (file:///app/server/lib/riskManager.mjs:48:8)
+polysniper-server-staging  |     at #loadState (file:///app/server/lib/riskManager.mjs:41:20)
+polysniper-server-staging  |     at new RiskManager (file:///app/server/lib/riskManager.mjs:16:33)
+polysniper-server-staging  |     at file:///app/server/server.mjs:8:14
+polysniper-server-staging  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+polysniper-server-staging  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+polysniper-server-staging  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+polysniper-server-staging  |   errno: -13,
+polysniper-server-staging  |   code: 'EACCES',
+polysniper-server-staging  |   syscall: 'open',
+polysniper-server-staging  |   path: '/app/server/data/ledger.json'
+polysniper-server-staging  | }
+polysniper-server-staging  | 
+polysniper-server-staging  | Node.js v22.22.2
+polysniper-server-staging  | polysniper-server listening on http://0.0.0.0:8787

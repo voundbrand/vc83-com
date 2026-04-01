@@ -1,0 +1,2 @@
+{"eventId":"b40b732a-257e-4a89-960f-4cb1882f516d","timestampUtc":"2026-03-28T11:06:48.799Z","eventType":"server_started","mode":"paper_sim","killSwitchActive":false,"host":"0.0.0.0","port":8787,"ledgerPath":"/app/server/data/ledger.json","auditPath":"/app/server/data/audit.jsonl","killSwitchFlagPath":"/app/.runtime/kill-switch.flag"}
+{"eventId":"aec440c4-621b-451e-8fb7-4962c4eb18bb","timestampUtc":"2026-03-28T11:45:22.157Z","eventType":"server_stopping","mode":"paper_sim","killSwitchActive":false,"signal":"SIGTERM"}

@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-03-29T07:58:10.613Z",
+  "target": {
+    "host": "187.124.179.41",
+    "user": "root",
+    "authMode": "password",
+    "expectedOpenPorts": [
+      22,
+      443
+    ]
+  },
+  "remoteResults": [
+    {
+      "id": "identity",
+      "remoteCommand": "echo USER=$(whoami); echo HOST=$(hostname); date -u +%Y-%m-%dT%H:%M:%SZ",
+      "exitCode": 0,
+      "stdout": "USER=root\nHOST=srv1536978\n2026-03-29T07:57:52Z\n",
+      "stderr": ""
+    },
+    {
+      "id": "os_release",
+      "remoteCommand": "cat /etc/os-release || uname -a",
+      "exitCode": 0,
+      "stdout": "PRETTY_NAME=\"Ubuntu 24.04.4 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.4 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+      "stderr": ""
+    },
+    {
+      "id": "listening_sockets",
+      "remoteCommand": "ss -tulpen 2>/dev/null || ss -tulpn",
+      "exitCode": 0,
+      "stdout": "Netid State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                                                                              \nudp   UNCONN 0      0         127.0.0.54:53        0.0.0.0:*    users:((\"systemd-resolve\",pid=541,fd=16)) uid:991 ino:6187 sk:1 cgroup:/system.slice/systemd-resolved.service <->   \nudp   UNCONN 0      0      127.0.0.53%lo:53        0.0.0.0:*    users:((\"systemd-resolve\",pid=541,fd=14)) uid:991 ino:6185 sk:2 cgroup:/system.slice/systemd-resolved.service <->   \ntcp   LISTEN 0      4096       127.0.0.1:8787      0.0.0.0:*    users:((\"docker-proxy\",pid=8522,fd=8)) ino:38380 sk:1001 cgroup:/system.slice/docker.service <->                    \ntcp   LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:((\"systemd-resolve\",pid=541,fd=17)) uid:991 ino:6188 sk:1002 cgroup:/system.slice/systemd-resolved.service <->\ntcp   LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:((\"systemd-resolve\",pid=541,fd=15)) uid:991 ino:6186 sk:1003 cgroup:/system.slice/systemd-resolved.service <->\ntcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:((\"sshd\",pid=1091,fd=3),(\"systemd\",pid=1,fd=105)) ino:6584 sk:1004 cgroup:/system.slice/ssh.socket <->        \ntcp   LISTEN 0      4096            [::]:22           [::]:*    users:((\"sshd\",pid=1091,fd=4),(\"systemd\",pid=1,fd=106)) ino:6586 sk:1005 cgroup:/system.slice/ssh.socket v6only:1 <->\n",
+      "stderr": ""
+    },
+    {
+      "id": "ufw_status",
+      "remoteCommand": "ufw status verbose 2>&1 || true",
+      "exitCode": 0,
+      "stdout": "Status: inactive\n",
+      "stderr": ""
+    },
+    {
+      "id": "nft_ruleset",
+      "remoteCommand": "command -v nft >/dev/null && nft list ruleset 2>&1 || true",
+      "exitCode": 0,
+      "stdout": "# Warning: table ip nat is managed by iptables-nft, do not touch!\ntable ip nat {\n\tchain DOCKER {\n\t\tip daddr 127.0.0.1 iifname != \"br-d0b4a976f7e1\" tcp dport 8787 counter packets 0 bytes 0 dnat to 172.18.0.2:8787\n\t}\n\n\tchain PREROUTING {\n\t\ttype nat hook prerouting priority dstnat; policy accept;\n\t\tfib daddr type local counter packets 6726 bytes 439714 jump DOCKER\n\t}\n\n\tchain OUTPUT {\n\t\ttype nat hook output priority dstnat; policy accept;\n\t\tip daddr != 127.0.0.0/8 fib daddr type local counter packets 0 bytes 0 jump DOCKER\n\t}\n\n\tchain POSTROUTING {\n\t\ttype nat hook postrouting priority srcnat; policy accept;\n\t\tip saddr 172.18.0.0/16 oifname != \"br-d0b4a976f7e1\" counter packets 0 bytes 0 masquerade\n\t\tip saddr 172.17.0.0/16 oifname != \"docker0\" counter packets 0 bytes 0 masquerade\n\t}\n}\n# Warning: table ip filter is managed by iptables-nft, do not touch!\ntable ip filter {\n\tchain DOCKER {\n\t\tip daddr 172.18.0.2 iifname != \"br-d0b4a976f7e1\" oifname \"br-d0b4a976f7e1\" tcp dport 8787 counter packets 0 bytes 0 accept\n\t\tiifname != \"docker0\" oifname \"docker0\" counter packets 0 bytes 0 drop\n\t\tiifname != \"br-d0b4a976f7e1\" oifname \"br-d0b4a976f7e1\" counter packets 0 bytes 0 drop\n\t}\n\n\tchain DOCKER-FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-CT\n\t\tcounter packets 0 bytes 0 jump DOCKER-INTERNAL\n\t\tcounter packets 0 bytes 0 jump DOCKER-BRIDGE\n\t\tiifname \"docker0\" counter packets 0 bytes 0 accept\n\t\tiifname \"br-d0b4a976f7e1\" counter packets 0 bytes 0 accept\n\t}\n\n\tchain DOCKER-BRIDGE {\n\t\toifname \"docker0\" counter packets 0 bytes 0 jump DOCKER\n\t\toifname \"br-d0b4a976f7e1\" counter packets 0 bytes 0 jump DOCKER\n\t}\n\n\tchain DOCKER-CT {\n\t\toifname \"docker0\" ct state related,established counter packets 0 bytes 0 accept\n\t\toifname \"br-d0b4a976f7e1\" ct state related,established counter packets 0 bytes 0 accept\n\t}\n\n\tchain DOCKER-INTERNAL {\n\t}\n\n\tchain FORWARD {\n\t\ttype filter hook forward priority filter; policy drop;\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tcounter packets 0 bytes 0 jump DOCKER-FORWARD\n\t}\n\n\tchain DOCKER-USER {\n\t}\n}\n# Warning: table ip6 nat is managed by iptables-nft, do not touch!\ntable ip6 nat {\n\tchain DOCKER {\n\t}\n\n\tchain PREROUTING {\n\t\ttype nat hook prerouting priority dstnat; policy accept;\n\t\tfib daddr type local counter packets 0 bytes 0 jump DOCKER\n\t}\n\n\tchain OUTPUT {\n\t\ttype nat hook output priority dstnat; policy accept;\n\t\tip6 daddr != ::1 fib daddr type local counter packets 0 bytes 0 jump DOCKER\n\t}\n}\ntable ip6 filter {\n\tchain DOCKER {\n\t}\n\n\tchain DOCKER-FORWARD {\n\t\tcounter packets 0 bytes 0 jump DOCKER-CT\n\t\tcounter packets 0 bytes 0 jump DOCKER-INTERNAL\n\t\tcounter packets 0 bytes 0 jump DOCKER-BRIDGE\n\t}\n\n\tchain DOCKER-BRIDGE {\n\t}\n\n\tchain DOCKER-CT {\n\t}\n\n\tchain DOCKER-INTERNAL {\n\t}\n\n\tchain FORWARD {\n\t\ttype filter hook forward priority filter; policy accept;\n\t\tcounter packets 0 bytes 0 jump DOCKER-USER\n\t\tcounter packets 0 bytes 0 jump DOCKER-FORWARD\n\t}\n\n\tchain DOCKER-USER {\n\t}\n}\ntable ip raw {\n\tchain PREROUTING {\n\t\ttype filter hook prerouting priority raw; policy accept;\n\t\tip daddr 172.18.0.2 iifname != \"br-d0b4a976f7e1\" counter packets 0 bytes 0 drop\n\t\tip daddr 127.0.0.1 iifname != \"lo\" tcp dport 8787 counter packets 0 bytes 0 drop\n\t}\n}\n",
+      "stderr": ""
+    },
+    {
+      "id": "iptables_s",
+      "remoteCommand": "iptables -S 2>&1 || true",
+      "exitCode": 0,
+      "stdout": "-P INPUT ACCEPT\n-P FORWARD DROP\n-P OUTPUT ACCEPT\n-N DOCKER\n-N DOCKER-BRIDGE\n-N DOCKER-CT\n-N DOCKER-FORWARD\n-N DOCKER-INTERNAL\n-N DOCKER-USER\n-A FORWARD -j DOCKER-USER\n-A FORWARD -j DOCKER-FORWARD\n-A DOCKER -d 172.18.0.2/32 ! -i br-d0b4a976f7e1 -o br-d0b4a976f7e1 -p tcp -m tcp --dport 8787 -j ACCEPT\n-A DOCKER ! -i docker0 -o docker0 -j DROP\n-A DOCKER ! -i br-d0b4a976f7e1 -o br-d0b4a976f7e1 -j DROP\n-A DOCKER-BRIDGE -o docker0 -j DOCKER\n-A DOCKER-BRIDGE -o br-d0b4a976f7e1 -j DOCKER\n-A DOCKER-CT -o docker0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n-A DOCKER-CT -o br-d0b4a976f7e1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n-A DOCKER-FORWARD -j DOCKER-CT\n-A DOCKER-FORWARD -j DOCKER-INTERNAL\n-A DOCKER-FORWARD -j DOCKER-BRIDGE\n-A DOCKER-FORWARD -i docker0 -j ACCEPT\n-A DOCKER-FORWARD -i br-d0b4a976f7e1 -j ACCEPT\n",
+      "stderr": ""
+    },
+    {
+      "id": "iptables_lv",
+      "remoteCommand": "iptables -L -n -v 2>&1 || true",
+      "exitCode": 0,
+      "stdout": "Chain INPUT (policy ACCEPT 0 packets, 0 bytes)\n pkts bytes target     prot opt in     out     source               destination         \n\nChain FORWARD (policy DROP 0 packets, 0 bytes)\n pkts bytes target     prot opt in     out     source               destination         \n    0     0 DOCKER-USER  0    --  *      *       0.0.0.0/0            0.0.0.0/0           \n    0     0 DOCKER-FORWARD  0    --  *      *       0.0.0.0/0            0.0.0.0/0           \n\nChain OUTPUT (policy ACCEPT 0 packets, 0 bytes)\n pkts bytes target     prot opt in     out     source               destination         \n\nChain DOCKER (2 references)\n pkts bytes target     prot opt in     out     source               destination         \n    0     0 ACCEPT     6    --  !br-d0b4a976f7e1 br-d0b4a976f7e1  0.0.0.0/0            172.18.0.2           tcp dpt:8787\n    0     0 DROP       0    --  !docker0 docker0  0.0.0.0/0            0.0.0.0/0           \n    0     0 DROP       0    --  !br-d0b4a976f7e1 br-d0b4a976f7e1  0.0.0.0/0            0.0.0.0/0           \n\nChain DOCKER-BRIDGE (1 references)\n pkts bytes target     prot opt in     out     source               destination         \n    0     0 DOCKER     0    --  *      docker0  0.0.0.0/0            0.0.0.0/0           \n    0     0 DOCKER     0    --  *      br-d0b4a976f7e1  0.0.0.0/0            0.0.0.0/0           \n\nChain DOCKER-CT (1 references)\n pkts bytes target     prot opt in     out     source               destination         \n    0     0 ACCEPT     0    --  *      docker0  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED\n    0     0 ACCEPT     0    --  *      br-d0b4a976f7e1  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED\n\nChain DOCKER-FORWARD (1 references)\n pkts bytes target     prot opt in     out     source               destination         \n    0     0 DOCKER-CT  0    --  *      *       0.0.0.0/0            0.0.0.0/0           \n    0     0 DOCKER-INTERNAL  0    --  *      *       0.0.0.0/0            0.0.0.0/0           \n    0     0 DOCKER-BRIDGE  0    --  *      *       0.0.0.0/0            0.0.0.0/0           \n    0     0 ACCEPT     0    --  docker0 *       0.0.0.0/0            0.0.0.0/0           \n    0     0 ACCEPT     0    --  br-d0b4a976f7e1 *       0.0.0.0/0            0.0.0.0/0           \n\nChain DOCKER-INTERNAL (1 references)\n pkts bytes target     prot opt in     out     source               destination         \n\nChain DOCKER-USER (1 references)\n pkts bytes target     prot opt in     out     source               destination         \n",
+      "stderr": ""
+    },
+    {
+      "id": "sshd_config_key_lines",
+      "remoteCommand": "grep -E '^(PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|ChallengeResponseAuthentication|UsePAM)' /etc/ssh/sshd_config 2>/dev/null || true",
+      "exitCode": 0,
+      "stdout": "UsePAM yes\nPermitRootLogin yes\n",
+      "stderr": ""
+    },
+    {
+      "id": "ssh_service_state",
+      "remoteCommand": "systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null || true",
+      "exitCode": 0,
+      "stdout": "active\n",
+      "stderr": ""
+    },
+    {
+      "id": "ssh_service_enabled",
+      "remoteCommand": "systemctl is-enabled ssh 2>/dev/null || systemctl is-enabled sshd 2>/dev/null || true",
+      "exitCode": 0,
+      "stdout": "disabled\nnot-found\n",
+      "stderr": ""
+    }
+  ],
+  "localProbe": [
+    {
+      "port": 22,
+      "status": "open",
+      "exitCode": 0,
+      "stderr": "Connection to 187.124.179.41 port 22 [tcp/ssh] succeeded!"
+    },
+    {
+      "port": 80,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 443,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 3000,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 5432,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    },
+    {
+      "port": 8080,
+      "status": "closed_or_filtered",
+      "exitCode": 1,
+      "stderr": ""
+    }
+  ]
+}

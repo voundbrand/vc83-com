@@ -1,0 +1,7 @@
+{
+  "runId": "LDR-20260401T143817Z-v1",
+  "generatedAt": "2026-04-01T14:38:17.788Z",
+  "scenarioCount": 30,
+  "mode": "paper_sim",
+  "script": "apps/polysniper/server/tools/run-local-dry-run-evidence.mjs"
+}

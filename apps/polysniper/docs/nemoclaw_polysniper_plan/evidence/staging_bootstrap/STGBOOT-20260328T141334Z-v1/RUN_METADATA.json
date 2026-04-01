@@ -1,0 +1,26 @@
+{
+  "runId": "STGBOOT-20260328T141334Z-v1",
+  "queueRow": "PSNP-030",
+  "startedAtUtc": "2026-03-28T14:13:34Z",
+  "finishedAtUtc": "2026-03-28T15:27:02Z",
+  "provisioningMode": "manual_hostinger_then_agent_deploy",
+  "vm": {
+    "id": 1536978,
+    "ipv4": "187.124.179.41",
+    "hostname": "srv1536978.hstgr.cloud",
+    "plan": "KVM 2",
+    "dataCenterId": 19,
+    "templateId": 1077
+  },
+  "runtime": {
+    "composeFile": "/opt/polysniper/server/docker-compose.staging.yml",
+    "mode": "staging_synth",
+    "containerName": "polysniper-server-staging",
+    "portBinding": "127.0.0.1:8787->8787/tcp"
+  },
+  "notes": [
+    "Initial deploy attempt failed due build context mismatch; fixed by setting compose build context to parent path.",
+    "Service startup initially failed due volume write permissions; fixed by chown to container user uid=100 gid=101.",
+    "Final container state is healthy and service endpoints return expected payloads."
+  ]
+}

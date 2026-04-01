@@ -1,0 +1,128 @@
+{
+  "runId": "STGSOAK-20260328T153247Z-v1",
+  "totals": {
+    "nominalCycles": 100,
+    "nominalPlaceOrder": 100,
+    "nominalHold": 0
+  },
+  "samples": {
+    "first": {
+      "cycle": 1,
+      "scenario": "nominal",
+      "response": {
+        "action": "PLACE_ORDER",
+        "requestedNotionalUsd": 5,
+        "approvedNotionalUsd": 5,
+        "mode": "staging_synth",
+        "checks": {
+          "killSwitch": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "providerHealth": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "modelConfidence": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "minimumEdge": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "minimumConfidence": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxTradeNotional": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxDailyNotional": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxOpenRisk": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxOpenPositions": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "reserveFloor": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "prepaidBalance": {
+            "pass": true,
+            "reason": "ok"
+          }
+        },
+        "failedReasons": [],
+        "modelTarget": "claude-opus-2.4",
+        "auditEventId": "3a92bcb6-a1c2-4256-bb9f-fe94c2d0bd79"
+      }
+    },
+    "last": {
+      "cycle": 100,
+      "scenario": "nominal",
+      "response": {
+        "action": "PLACE_ORDER",
+        "requestedNotionalUsd": 5,
+        "approvedNotionalUsd": 5,
+        "mode": "staging_synth",
+        "checks": {
+          "killSwitch": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "providerHealth": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "modelConfidence": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "minimumEdge": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "minimumConfidence": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxTradeNotional": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxDailyNotional": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxOpenRisk": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "maxOpenPositions": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "reserveFloor": {
+            "pass": true,
+            "reason": "ok"
+          },
+          "prepaidBalance": {
+            "pass": true,
+            "reason": "ok"
+          }
+        },
+        "failedReasons": [],
+        "modelTarget": "claude-opus-2.4",
+        "auditEventId": "d96505f2-4f78-4335-b40a-abcfdac9d34e"
+      }
+    }
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "runId": "LDV-20260328T110845Z-v1",
+  "summary": {
+    "total": 31,
+    "passCount": 31,
+    "failCount": 0
+  },
+  "scenarios": [
+    {
+      "id": "S-NOM-1",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-2",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-3",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-4",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-5",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-6",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-7",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-8",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-9",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-NOM-10",
+      "class": "nominal_allow",
+      "expectedAction": "PLACE_ORDER",
+      "expectedReasonContains": null,
+      "actualAction": "PLACE_ORDER",
+      "failedReasons": [],
+      "pass": true
+    },
+    {
+      "id": "S-EDGE-1",
+      "class": "edge_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "edge_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "edge_below_minimum:1"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-EDGE-2",
+      "class": "edge_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "edge_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "edge_below_minimum:1"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-EDGE-3",
+      "class": "edge_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "edge_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "edge_below_minimum:1"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-EDGE-4",
+      "class": "edge_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "edge_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "edge_below_minimum:1"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-EDGE-5",
+      "class": "edge_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "edge_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "edge_below_minimum:1"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-CONF-1",
+      "class": "confidence_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "confidence_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "confidence_below_minimum:40"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-CONF-2",
+      "class": "confidence_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "confidence_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "confidence_below_minimum:40"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-CONF-3",
+      "class": "confidence_below_minimum",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "confidence_below_minimum",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "confidence_below_minimum:40"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-PROV-1",
+      "class": "provider_unhealthy",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "provider_unhealthy",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "provider_unhealthy"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-PROV-2",
+      "class": "provider_unhealthy",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "provider_unhealthy",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "provider_unhealthy"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-PROV-3",
+      "class": "provider_unhealthy",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "provider_unhealthy",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "provider_unhealthy"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-MODEL-1",
+      "class": "model_confidence_below_threshold",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "model_confidence_below_threshold",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "model_confidence_below_threshold:0.4"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-MODEL-2",
+      "class": "model_confidence_below_threshold",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "model_confidence_below_threshold",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "model_confidence_below_threshold:0.4"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-MODEL-3",
+      "class": "model_confidence_below_threshold",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "model_confidence_below_threshold",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "model_confidence_below_threshold:0.4"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-TRCAP-1",
+      "class": "max_trade_notional",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "requested_above_max_trade",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "requested_above_max_trade:30"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-TRCAP-2",
+      "class": "max_trade_notional",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "requested_above_max_trade",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "requested_above_max_trade:30"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-TRCAP-3",
+      "class": "max_trade_notional",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "requested_above_max_trade",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "requested_above_max_trade:30"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-KILL-1",
+      "class": "kill_switch_active",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "kill_switch_active",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "kill_switch_active"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-MXPOS-1",
+      "class": "max_open_positions",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "max_open_positions_reached",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "max_open_positions_reached:4"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-MXRISK-1",
+      "class": "max_open_risk",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "open_risk_cap_exceeded",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "open_risk_cap_exceeded:46"
+      ],
+      "pass": true
+    },
+    {
+      "id": "S-DAILY-1",
+      "class": "max_daily_notional",
+      "expectedAction": "HOLD",
+      "expectedReasonContains": "daily_cap_exceeded",
+      "actualAction": "HOLD",
+      "failedReasons": [
+        "daily_cap_exceeded:61"
+      ],
+      "pass": true
+    }
+  ]
+}

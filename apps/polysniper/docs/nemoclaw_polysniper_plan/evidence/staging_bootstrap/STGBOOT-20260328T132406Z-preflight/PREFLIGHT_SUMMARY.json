@@ -1,0 +1,46 @@
+{
+  "runId": "STGBOOT-20260328T132406Z-preflight",
+  "generatedAtUtc": "2026-03-28T13:24:06Z",
+  "queueRow": "PSNP-030",
+  "modeTarget": "staging_synth",
+  "manifestSource": "apps/polysniper/docs/nemoclaw_polysniper_plan/evidence/hostinger/HOSTINGER_PROVISIONING_MANIFEST_2026-03-28.json",
+  "hostingerPreflight": {
+    "virtualMachinesCount": 0,
+    "paymentMethods": [
+      {
+        "id": 41895294,
+        "paymentMethod": "paypal",
+        "isDefault": true,
+        "isExpired": false,
+        "isSuspended": false
+      },
+      {
+        "id": 37903127,
+        "paymentMethod": "card",
+        "isDefault": false,
+        "isExpired": false,
+        "isSuspended": false
+      }
+    ],
+    "selectedPriceItemId": "hostingerde-vps-kvm2-eur-1m",
+    "selectedCatalogItemId": "hostingerde-vps-kvm2",
+    "selectedTemplateId": 1077,
+    "selectedDataCenterId": 17,
+    "selectedHostname": "psnp-stg-bos-01"
+  },
+  "sshKeyCandidate": {
+    "path": "/Users/foundbrand_001/.ssh/id_ed25519.pub",
+    "fingerprint": "SHA256:98xMRCeD9r+Bhwx+eWXsdk2eWULyakVgKath8oHJHhQ"
+  },
+  "executionReadiness": {
+    "requiresSpendApproval": true,
+    "requiresLiveProvisionCall": true,
+    "requiresRuntimeDeployStep": true
+  },
+  "blocker": {
+    "id": "BLK-PSNP-030-01",
+    "reason": "VPS purchase/deploy mutates paid infrastructure and requires explicit spend approval before execution.",
+    "owner": "operator",
+    "unblockCondition": "Approve execution of Hostinger purchase + setup + staging deploy sequence for PSNP-030."
+  }
+}

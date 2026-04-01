@@ -1,0 +1,28 @@
+[project]
+name = "polysniper"
+version = "0.1.0"
+description = "Opus 4.6-powered Polymarket arbitrage engine — S12, S18, S05 strategies"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.42.0",
+    "py-clob-client>=0.18.0",
+    "web3>=7.0.0",
+    "requests>=2.31.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+    "schedule>=1.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.5.0",
+]
+
+[project.scripts]
+polysniper = "polysniper.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

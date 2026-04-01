@@ -1,0 +1,303 @@
+{
+  "timestampUtc": "2026-03-28T09:13:47.996Z",
+  "hostLabel": "local",
+  "config": {
+    "iterations": 12,
+    "timeoutMs": 6000,
+    "delayMs": 100,
+    "node": "v22.19.0"
+  },
+  "targets": [
+    {
+      "label": "clob_api",
+      "url": "https://clob.polymarket.com/",
+      "dns": {
+        "hostname": "clob.polymarket.com",
+        "durationMs": 26.61,
+        "addresses": [
+          "172.64.153.51",
+          "104.18.34.205"
+        ]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "ok": true,
+          "status": 200,
+          "durationMs": 160.99
+        },
+        {
+          "index": 2,
+          "ok": true,
+          "status": 200,
+          "durationMs": 51.48
+        },
+        {
+          "index": 3,
+          "ok": true,
+          "status": 200,
+          "durationMs": 50.07
+        },
+        {
+          "index": 4,
+          "ok": true,
+          "status": 200,
+          "durationMs": 57.71
+        },
+        {
+          "index": 5,
+          "ok": true,
+          "status": 200,
+          "durationMs": 58.38
+        },
+        {
+          "index": 6,
+          "ok": true,
+          "status": 200,
+          "durationMs": 67.13
+        },
+        {
+          "index": 7,
+          "ok": true,
+          "status": 200,
+          "durationMs": 52.9
+        },
+        {
+          "index": 8,
+          "ok": true,
+          "status": 200,
+          "durationMs": 54.55
+        },
+        {
+          "index": 9,
+          "ok": true,
+          "status": 200,
+          "durationMs": 59.24
+        },
+        {
+          "index": 10,
+          "ok": true,
+          "status": 200,
+          "durationMs": 51.12
+        },
+        {
+          "index": 11,
+          "ok": true,
+          "status": 200,
+          "durationMs": 53.3
+        },
+        {
+          "index": 12,
+          "ok": true,
+          "status": 200,
+          "durationMs": 52.06
+        }
+      ],
+      "summary": {
+        "totalCount": 12,
+        "successCount": 12,
+        "failureCount": 0,
+        "count": 12,
+        "minMs": 50.07,
+        "maxMs": 160.99,
+        "avgMs": 64.08,
+        "p50Ms": 53.3,
+        "p95Ms": 160.99
+      }
+    },
+    {
+      "label": "gamma_api",
+      "url": "https://gamma-api.polymarket.com/",
+      "dns": {
+        "hostname": "gamma-api.polymarket.com",
+        "durationMs": 31.78,
+        "addresses": [
+          "104.18.34.205",
+          "172.64.153.51"
+        ]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "ok": true,
+          "status": 200,
+          "durationMs": 122.72
+        },
+        {
+          "index": 2,
+          "ok": true,
+          "status": 200,
+          "durationMs": 48.17
+        },
+        {
+          "index": 3,
+          "ok": true,
+          "status": 200,
+          "durationMs": 46.97
+        },
+        {
+          "index": 4,
+          "ok": true,
+          "status": 200,
+          "durationMs": 50.21
+        },
+        {
+          "index": 5,
+          "ok": true,
+          "status": 200,
+          "durationMs": 46.69
+        },
+        {
+          "index": 6,
+          "ok": true,
+          "status": 200,
+          "durationMs": 51.9
+        },
+        {
+          "index": 7,
+          "ok": true,
+          "status": 200,
+          "durationMs": 62.07
+        },
+        {
+          "index": 8,
+          "ok": true,
+          "status": 200,
+          "durationMs": 49.93
+        },
+        {
+          "index": 9,
+          "ok": true,
+          "status": 200,
+          "durationMs": 54.37
+        },
+        {
+          "index": 10,
+          "ok": true,
+          "status": 200,
+          "durationMs": 49.33
+        },
+        {
+          "index": 11,
+          "ok": true,
+          "status": 200,
+          "durationMs": 48.41
+        },
+        {
+          "index": 12,
+          "ok": true,
+          "status": 200,
+          "durationMs": 48.92
+        }
+      ],
+      "summary": {
+        "totalCount": 12,
+        "successCount": 12,
+        "failureCount": 0,
+        "count": 12,
+        "minMs": 46.69,
+        "maxMs": 122.72,
+        "avgMs": 56.64,
+        "p50Ms": 49.33,
+        "p95Ms": 122.72
+      }
+    },
+    {
+      "label": "ws_edge_https_probe",
+      "url": "https://ws-subscriptions-clob.polymarket.com/",
+      "dns": {
+        "hostname": "ws-subscriptions-clob.polymarket.com",
+        "durationMs": 27.32,
+        "addresses": [
+          "172.64.153.51",
+          "104.18.34.205"
+        ]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "ok": true,
+          "status": 404,
+          "durationMs": 138.1
+        },
+        {
+          "index": 2,
+          "ok": true,
+          "status": 404,
+          "durationMs": 51.01
+        },
+        {
+          "index": 3,
+          "ok": true,
+          "status": 404,
+          "durationMs": 47.74
+        },
+        {
+          "index": 4,
+          "ok": true,
+          "status": 404,
+          "durationMs": 58.98
+        },
+        {
+          "index": 5,
+          "ok": true,
+          "status": 404,
+          "durationMs": 52.78
+        },
+        {
+          "index": 6,
+          "ok": true,
+          "status": 404,
+          "durationMs": 52.28
+        },
+        {
+          "index": 7,
+          "ok": true,
+          "status": 404,
+          "durationMs": 57.49
+        },
+        {
+          "index": 8,
+          "ok": true,
+          "status": 404,
+          "durationMs": 53.67
+        },
+        {
+          "index": 9,
+          "ok": true,
+          "status": 404,
+          "durationMs": 50.72
+        },
+        {
+          "index": 10,
+          "ok": true,
+          "status": 404,
+          "durationMs": 53.79
+        },
+        {
+          "index": 11,
+          "ok": true,
+          "status": 404,
+          "durationMs": 48.55
+        },
+        {
+          "index": 12,
+          "ok": true,
+          "status": 404,
+          "durationMs": 51.55
+        }
+      ],
+      "summary": {
+        "totalCount": 12,
+        "successCount": 12,
+        "failureCount": 0,
+        "count": 12,
+        "minMs": 47.74,
+        "maxMs": 138.1,
+        "avgMs": 59.72,
+        "p50Ms": 52.28,
+        "p95Ms": 138.1
+      }
+    }
+  ]
+}

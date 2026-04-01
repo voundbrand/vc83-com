@@ -1,0 +1,10 @@
+{
+  "totalFailedReasons": 62,
+  "failedReasonHistogram": {
+    "open_risk_cap_exceeded:50": 21,
+    "max_open_positions_reached:4": 26,
+    "requested_above_max_trade:20": 5,
+    "open_risk_cap_exceeded:55": 5,
+    "provider_unhealthy": 5
+  }
+}

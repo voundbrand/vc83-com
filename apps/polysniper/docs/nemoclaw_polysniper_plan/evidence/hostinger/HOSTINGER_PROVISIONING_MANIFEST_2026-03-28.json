@@ -1,0 +1,54 @@
+{
+  "manifestVersion": 1,
+  "generatedAtUtc": "2026-03-28T12:30:00Z",
+  "workstream": "nemoclaw_polysniper_plan",
+  "purpose": "PSNP-029 non-destructive provisioning manifest and API validation",
+  "discoveryEvidence": {
+    "source": "apps/polysniper/docs/nemoclaw_polysniper_plan/evidence/hostinger/HOSTINGER_DISCOVERY_RECHECK_2026-03-28.json",
+    "validatedAtUtc": "2026-03-28T12:29:17.123Z",
+    "dataCentersCount": 10,
+    "templatesCount": 116,
+    "vpsCatalogItemsCount": 8
+  },
+  "selection": {
+    "primaryRegion": {
+      "id": 17,
+      "name": "bos",
+      "city": "Boston",
+      "countryCode": "us"
+    },
+    "fallbackRegion": {
+      "id": 19,
+      "name": "fra",
+      "city": "Frankfurt",
+      "countryCode": "de"
+    },
+    "template": {
+      "id": 1077,
+      "name": "Ubuntu 24.04 LTS"
+    },
+    "plan": {
+      "id": "hostingerde-vps-kvm2",
+      "name": "KVM 2"
+    }
+  },
+  "runtimeContract": {
+    "mode": "staging_synth",
+    "servicePort": 8787,
+    "hostRoot": "/opt/polysniper",
+    "dataRoot": "/opt/polysniper/data",
+    "containerImage": "polysniper-server:local"
+  },
+  "securityContract": {
+    "sshKeyOnly": true,
+    "disableRootLogin": true,
+    "restrictedInbound": true,
+    "stagingSecretsOnly": true,
+    "liveSecretsForbidden": true
+  },
+  "executionPolicy": {
+    "nonDestructive": true,
+    "purchaseOrProvisionExecuted": false,
+    "nextRow": "PSNP-030"
+  }
+}

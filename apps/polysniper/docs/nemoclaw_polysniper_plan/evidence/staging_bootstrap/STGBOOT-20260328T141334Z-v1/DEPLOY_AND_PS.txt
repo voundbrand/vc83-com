@@ -1,0 +1,50 @@
+ Image polysniper-server:staging Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 539B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 583B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:22-alpine
+#3 DONE 1.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [2/4] WORKDIR /app
+#6 CACHED
+
+#7 [3/4] COPY server ./server
+#7 ERROR: failed to calculate checksum of ref yu9ytwbzvfo4r4t09zrn2gmwn::viukpn813tkcssg0uydof9bee: "/server": not found
+
+#8 [1/4] FROM docker.io/library/node:22-alpine@sha256:4d64b49e6c891c8fc821007cb1cdc6c0db7773110ac2c34bf2e6960adef62ed3
+#8 resolve docker.io/library/node:22-alpine@sha256:4d64b49e6c891c8fc821007cb1cdc6c0db7773110ac2c34bf2e6960adef62ed3 0.0s done
+#8 CANCELED
+------
+ > [3/4] COPY server ./server:
+------
+Dockerfile:7
+
+--------------------
+
+   5 |     
+
+   6 |     # Copy only polysniper app content needed for the standalone server runtime
+
+   7 | >>> COPY server ./server
+
+   8 |     
+
+   9 |     # Prepare runtime paths and drop root privileges
+
+--------------------
+
+failed to solve: failed to compute cache key: failed to calculate checksum of ref yu9ytwbzvfo4r4t09zrn2gmwn::viukpn813tkcssg0uydof9bee: "/server": not found
+

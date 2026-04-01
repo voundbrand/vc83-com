@@ -1,0 +1,12 @@
+{
+  "runId": "LDV-20260328T110845Z-v1",
+  "scenarioSetId": "LDV-20260328-v1",
+  "startedAtUtc": "2026-03-28T12:25:34.254Z",
+  "finishedAtUtc": "2026-03-28T12:25:34.349Z",
+  "mode": "paper_sim",
+  "imageTag": "polysniper-server:local",
+  "serviceBaseUrl": "http://127.0.0.1:8787",
+  "totalScenarios": 31,
+  "passCount": 31,
+  "failCount": 0
+}

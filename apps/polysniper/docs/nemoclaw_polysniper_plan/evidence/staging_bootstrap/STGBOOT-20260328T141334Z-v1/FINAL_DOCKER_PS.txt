@@ -1,0 +1,2 @@
+NAME                        IMAGE                       COMMAND                  SERVICE             CREATED             STATUS                       PORTS
+polysniper-server-staging   polysniper-server:staging   "docker-entrypoint.s…"   polysniper-server   About an hour ago   Up About an hour (healthy)   127.0.0.1:8787->8787/tcp

@@ -1,0 +1,52 @@
+# PolySniper — Sandboxed Polymarket arbitrage engine
+# Network is restricted to ONLY the endpoints we need.
+#
+# Usage:
+#   docker compose run sniper s12          # Run S12 scan (paper mode)
+#   docker compose run sniper s18          # Run S18 scan (paper mode)
+#   docker compose run sniper --mode live s12  # LIVE mode (real money)
+#   docker compose run sniper status       # Check portfolio
+#   docker compose run sniper monitor      # Continuous monitoring
+
+services:
+  sniper:
+    build: .
+    container_name: polysniper
+    env_file: .env
+    volumes:
+      # Persist data (trades, logs, causal graph) across container restarts
+      - ./data:/app/data
+    networks:
+      - sniper_net
+    # Resource limits — prevent runaway processes
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    # Read-only filesystem except for /app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    # No privileged access
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  sniper_net:
+    driver: bridge
+    # In production, use iptables or a firewall to restrict outbound traffic
+    # to ONLY these destinations:
+    #   - api.anthropic.com (Opus 4.6)
+    #   - gamma-api.polymarket.com (market data)
+    #   - clob.polymarket.com (trading)
+    #   - polygon-mainnet.core.chainstack.com (Polygon RPC)
+    #
+    # Example iptables rules (run on host):
+    #   iptables -A DOCKER-USER -o eth0 -p tcp --dport 443 -d api.anthropic.com -j ACCEPT
+    #   iptables -A DOCKER-USER -o eth0 -p tcp --dport 443 -d gamma-api.polymarket.com -j ACCEPT
+    #   iptables -A DOCKER-USER -o eth0 -p tcp --dport 443 -d clob.polymarket.com -j ACCEPT
+    #   iptables -A DOCKER-USER -o eth0 -p tcp --dport 443 -j DROP  # Block everything else

@@ -1,0 +1,23 @@
+{
+  "ai": {
+    "provider": "anthropic",
+    "model": "claude-opus-4-6-20260214",
+    "apiKey": "sk-ant-REPLACE_WITH_YOUR_ANTHROPIC_API_KEY"
+  },
+  "skills": {
+    "entries": {
+      "polyclaw": {
+        "enabled": true,
+        "env": {
+          "CHAINSTACK_NODE": "https://polygon-mainnet.core.chainstack.com/REPLACE_WITH_YOUR_CHAINSTACK_KEY",
+          "POLYCLAW_PRIVATE_KEY": "0xREPLACE_WITH_YOUR_WALLET_PRIVATE_KEY",
+          "OPENROUTER_API_KEY": "sk-or-v1-REPLACE_WITH_YOUR_OPENROUTER_KEY",
+          "MAX_POSITION_SIZE": "100",
+          "MAX_DAILY_VOLUME": "1000",
+          "STOP_LOSS_PERCENT": "15",
+          "MIN_EDGE_THRESHOLD": "3"
+        }
+      }
+    }
+  }
+}

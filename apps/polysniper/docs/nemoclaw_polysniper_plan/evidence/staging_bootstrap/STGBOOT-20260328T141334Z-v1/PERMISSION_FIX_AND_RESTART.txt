@@ -1,0 +1,5 @@
+ Container polysniper-server-staging Starting 
+ Container polysniper-server-staging Started 
+NAME                        IMAGE                       COMMAND                  SERVICE             CREATED         STATUS                          PORTS
+polysniper-server-staging   polysniper-server:staging   "docker-entrypoint.s…"   polysniper-server   3 minutes ago   Restarting (1) 20 seconds ago   
+uid=100 gid=101

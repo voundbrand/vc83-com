@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "mode": "paper_sim",
+  "killSwitchManual": false,
+  "dailyVolumeByUtcDate": {
+    "2026-03-28": 60
+  },
+  "openPositions": [],
+  "trades": [
+    {
+      "tradeId": "11500469-ade1-4164-98ce-70bbe27878aa",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.328Z",
+      "marketId": "mxpos-open-1",
+      "side": "YES",
+      "notionalUsd": 1,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxpos-setup"
+    },
+    {
+      "tradeId": "b9b81eab-bdd1-47e2-80e6-138138410d20",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.330Z",
+      "marketId": "mxpos-open-2",
+      "side": "YES",
+      "notionalUsd": 1,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxpos-setup"
+    },
+    {
+      "tradeId": "3eb5919c-8148-4ed9-b0ed-7f3fed84b367",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.331Z",
+      "marketId": "mxpos-open-3",
+      "side": "YES",
+      "notionalUsd": 1,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxpos-setup"
+    },
+    {
+      "tradeId": "c73eb916-a9ba-4a38-b096-9bc9c1f90361",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.332Z",
+      "marketId": "mxpos-open-4",
+      "side": "YES",
+      "notionalUsd": 1,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxpos-setup"
+    },
+    {
+      "tradeId": "7ac8c5ff-b819-48b4-8143-c4f511011ffe",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.338Z",
+      "marketId": "mxrisk-open-1",
+      "side": "YES",
+      "notionalUsd": 15,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxrisk-setup"
+    },
+    {
+      "tradeId": "45965930-d4c7-4f84-a104-bbb632d2b30d",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.339Z",
+      "marketId": "mxrisk-open-2",
+      "side": "YES",
+      "notionalUsd": 15,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxrisk-setup"
+    },
+    {
+      "tradeId": "2d85c99a-b832-4d73-81b3-0ca330c3c886",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.340Z",
+      "marketId": "mxrisk-open-3",
+      "side": "YES",
+      "notionalUsd": 15,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "mxrisk-setup"
+    },
+    {
+      "tradeId": "020206e3-f95a-4236-b4ff-f571da7b8306",
+      "mode": "paper_sim",
+      "status": "paper_filled",
+      "executionAt": "2026-03-28T12:25:34.346Z",
+      "marketId": "daily-topup-11",
+      "side": "YES",
+      "notionalUsd": 11,
+      "edgePct": 6,
+      "confidencePct": 80,
+      "strategy": "daily-topup"
+    }
+  ],
+  "createdAt": "2026-03-28T11:45:22.681Z",
+  "updatedAt": "2026-03-28T12:25:34.347Z"
+}
