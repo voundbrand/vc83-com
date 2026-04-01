@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentSystemPrompt } from "../../../convex/ai/agentExecution";
+import { buildAgentSystemPrompt } from "../../../convex/ai/kernel/agentExecution";
 import { composeKnowledgeContract } from "../../../convex/ai/systemKnowledge";
 
 describe("knowledge composition integration", () => {

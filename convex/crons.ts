@@ -70,7 +70,7 @@ crons.daily(
     hourUTC: 4, // 4 AM UTC (after other cleanup jobs)
     minuteUTC: 0,
   },
-  generatedApi.internal.ai.modelDiscovery.fetchAvailableModels
+  generatedApi.internal.ai.model.modelDiscovery.fetchAvailableModels
 );
 
 /**
@@ -211,6 +211,12 @@ crons.interval(
   }
 );
 
+crons.interval(
+  "Dispatch scheduled Layers workflows",
+  { minutes: 60 },
+  generatedApi.internal.bookingWorkflowAutomation.dispatchScheduledLayerWorkflows
+);
+
 /**
  * Sync External Calendar Events
  *
@@ -282,14 +288,15 @@ crons.interval(
 );
 
 /**
- * Process queued template certification alert dispatches
+ * Backstop queued template certification alert dispatches
  *
- * Runs every 2 minutes to execute queued Slack/PagerDuty/Email certification
- * alert dispatches with deterministic ordering, retry bounds, and throttle policy.
+ * Normal dispatch and retry execution is driven by per-template `scheduler.runAfter`
+ * workers. This cron is only a recovery sweep for missed jobs after deploys/restarts,
+ * so it runs less frequently to avoid repeated full-table scans of `objectActions`.
  */
 crons.interval(
   "Process template certification alert dispatch queue",
-  { minutes: 2 },
+  { minutes: 30 },
   generatedApi.internal.ai.agentCatalogAdmin.processTemplateCertificationAlertDispatchQueueSweep,
   {
     limit: 15,

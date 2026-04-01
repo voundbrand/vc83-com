@@ -9,7 +9,7 @@ import {
   type SamanthaAuditRoutingAuditChannel,
   type SamanthaAuditSourceContext,
 } from "../../samanthaAuditContract";
-import type { AgentToolResult } from "../../agentToolOrchestration";
+import type { AgentToolResult } from "../../kernel/agentToolOrchestration";
 
 function normalizeOptionalString(value: unknown): string | null {
   if (typeof value !== "string") {

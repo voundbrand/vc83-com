@@ -1066,7 +1066,7 @@ export const handleWebchatMessage = internalAction({
           idempotencyKey: args.idempotencyKey || null,
         });
       }
-      const result = await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
+      const result = await (ctx as any).runAction(generatedApi.api["ai/kernel/agentExecution"].processInboundMessage, {
         organizationId: args.organizationId,
         channel,
         externalContactIdentifier: sessionToken!,

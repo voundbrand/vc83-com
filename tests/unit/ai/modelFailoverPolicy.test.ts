@@ -3,7 +3,7 @@ import {
   buildModelFailoverCandidates,
   buildModelFailoverPlan,
   inferModelProviderId,
-} from "../../../convex/ai/modelFailoverPolicy";
+} from "../../../convex/ai/model/modelFailoverPolicy";
 
 describe("model failover policy", () => {
   it("builds a deterministic fallback chain from dynamic inputs", () => {

@@ -1,12 +1,12 @@
-import { query } from "../_generated/server";
+import { query } from "../../_generated/server";
 import { v } from "convex/values";
-import type { AiProviderId } from "../channels/types";
+import type { AiProviderId } from "../../channels/types";
 import { detectProvider } from "./modelAdapters";
 import type {
   AiProviderBindingSource,
   ProviderBindingFallbackMetadata,
   ResolvedAiProviderBinding,
-} from "./providerRegistry";
+} from "../providerRegistry";
 
 export interface ModelPricingRates {
   promptPerMToken: number;

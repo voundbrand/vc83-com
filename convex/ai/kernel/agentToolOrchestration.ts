@@ -1,27 +1,27 @@
-import type { Id } from "../_generated/dataModel";
-import type { ToolExecutionContext } from "./tools/registry";
+import type { Id } from "../../_generated/dataModel";
+import type { ToolExecutionContext } from "../tools/registry";
 import {
   TOOL_REGISTRY,
   VC83_NATIVE_RUNTIME_AUTHORITY_PRECEDENCE,
   VC83_NATIVE_TOOL_REGISTRY_ROUTE,
   executeTool,
-} from "./tools/registry";
-import { parseToolCallArguments } from "./toolBroker";
+} from "../tools/registry";
+import { parseToolCallArguments } from "../toolBroker";
 import {
   shouldRequireToolApproval,
   type ToolApprovalAutonomyLevel,
-} from "./escalation";
+} from "../escalation";
 import {
   MEETING_CONCIERGE_STAGE_CONTRACT_VERSION,
   MEETING_CONCIERGE_STAGE_SEQUENCE,
   isBookingConciergeToolAction,
   type MeetingConciergeFlowMode,
-} from "./tools/bookingTool";
-import { isKanzleiFailClosedModeToken } from "./agentSpecRegistry";
+} from "../tools/bookingTool";
+import { isKanzleiFailClosedModeToken } from "../agentSpecRegistry";
 import {
   getExternalSendSkillToolNames,
   resolveKanzleiApprovedExternalToolNames,
-} from "./skills";
+} from "../skills";
 
 export type AgentToolExecutionStatus =
   | "success"

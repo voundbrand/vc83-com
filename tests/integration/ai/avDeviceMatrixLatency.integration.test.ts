@@ -7,7 +7,7 @@ import {
   VC83_NATIVE_TOOL_REGISTRY_ROUTE,
   resolveInboundMeetingConciergeIntent,
   resolveInboundIngressEnvelope,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import { MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION } from "../../../convex/ai/mobileRuntimeHardening";
 import {
   createDesktopCaptureAdapter,

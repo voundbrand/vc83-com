@@ -5,7 +5,7 @@ import {
   buildInboundComposerRuntimeContext,
   resolveInboundComposerRuntimeControls,
   scorePlanSoftStepReadiness,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 describe("agentExecution composer runtime controls", () => {
   it("defaults to auto/medium with no references", () => {

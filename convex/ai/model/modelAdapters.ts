@@ -8,7 +8,7 @@
  * - provider error classes.
  */
 
-import type { AiProviderId } from "../channels/types";
+import type { AiProviderId } from "../../channels/types";
 
 const CANONICAL_PROVIDER_ALIAS: Record<string, AiProviderId> = {
   openrouter: "openrouter",

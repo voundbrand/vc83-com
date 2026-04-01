@@ -38,6 +38,8 @@ export const AGENT_RUNTIME_MODULE_HOOK_NAMES = [
 ] as const;
 export const SAMANTHA_AGENT_RUNTIME_MODULE_KEY =
   "one_of_one_samantha_runtime_module_v1" as const;
+export const HELENA_AGENT_RUNTIME_MODULE_KEY =
+  "helena_backoffice_runtime_module_v1" as const;
 export const KANZLEI_FAIL_CLOSED_ORG_POLICY_REF =
   "org_policy_kanzlei_fail_closed_v1" as const;
 export const KANZLEI_COMPLIANCE_AUDIT_CONTRACT_VERSION =
@@ -134,7 +136,8 @@ const AGENT_SPEC_RUNTIME_MODULE_TOPOLOGY_PROFILE_BY_KEY: Record<
   string,
   AgentRuntimeTopologyProfile
 > = {
-  one_of_one_samantha_runtime_module_v1: "evaluator_loop",
+  [SAMANTHA_AGENT_RUNTIME_MODULE_KEY]: "evaluator_loop",
+  [HELENA_AGENT_RUNTIME_MODULE_KEY]: "pipeline_router",
   der_terminmacher_runtime_module_v1: "pipeline_router",
   david_ogilvy_runtime_module_v1: "single_agent_loop",
 };
@@ -177,6 +180,37 @@ const BUILTIN_AGENT_RUNTIME_MODULE_REGISTRY: Record<
             preconditions: {
               requiredFields: [...SAMANTHA_AUDIT_REQUIRED_FIELDS],
             },
+          },
+        ],
+      },
+    ],
+  },
+  [HELENA_AGENT_RUNTIME_MODULE_KEY]: {
+    contractVersion: AGENT_RUNTIME_MODULE_METADATA_CONTRACT_VERSION,
+    key: HELENA_AGENT_RUNTIME_MODULE_KEY,
+    prompt: {
+      profileRef: "helena_backoffice_prompt_v1",
+      templateRoles: [
+        "helena_backoffice_worker_template",
+      ],
+    },
+    hooks: {
+      contractVersion: AGENT_RUNTIME_MODULE_HOOKS_CONTRACT_VERSION,
+      enabled: ["preRoute", "preLLM", "preTool", "postTool", "completionPolicy"],
+    },
+    toolManifest: {
+      contractVersion: AGENT_RUNTIME_MODULE_TOOL_MANIFEST_CONTRACT_VERSION,
+      requiredTools: ["create_contact", "search_contacts", "update_contact"],
+      optionalTools: ["manage_bookings", "escalate_to_human"],
+      deniedTools: [],
+    },
+    capabilities: [
+      {
+        key: "booking_followup",
+        outcomes: [
+          {
+            outcomeKey: "booking_created",
+            requiredTools: ["manage_bookings"],
           },
         ],
       },

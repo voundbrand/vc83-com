@@ -1,9 +1,9 @@
-import type { Id } from "../_generated/dataModel";
+import type { Id } from "../../_generated/dataModel";
 import {
   type AgentRuntimeTopologyAdapter,
   type AgentRuntimeTopologyProfile,
   resolveAgentRuntimeTopologyAdapter,
-} from "../schemas/aiSchemas";
+} from "../../schemas/aiSchemas";
 
 export const INBOUND_RUNTIME_KERNEL_STAGE_ORDER = [
   "ingress",

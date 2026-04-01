@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRequiredScopeToolManifestContract } from "../../../convex/ai/agentExecution";
+import { buildRequiredScopeToolManifestContract } from "../../../convex/ai/kernel/agentExecution";
 
 describe("required scope tool manifest contract", () => {
   it("normalizes ordering and emits deterministic manifest hashes", () => {

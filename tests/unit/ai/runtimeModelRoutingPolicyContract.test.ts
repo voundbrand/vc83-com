@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveRuntimeModelRoutingPolicyContract } from "../../../convex/ai/agentExecution";
-import { buildModelRoutingMatrix } from "../../../convex/ai/modelPolicy";
+import { resolveRuntimeModelRoutingPolicyContract } from "../../../convex/ai/kernel/agentExecution";
+import { buildModelRoutingMatrix } from "../../../convex/ai/model/modelPolicy";
 
 describe("runtime model routing policy contract", () => {
   it("blocks routes when local-only privacy is enabled and only cloud models are available", () => {

@@ -1,5 +1,5 @@
 import { SAFE_FALLBACK_MODEL_ID } from "./modelPolicy";
-import type { AiProviderId } from "../channels/types";
+import type { AiProviderId } from "../../channels/types";
 
 const CANONICAL_PROVIDER_ALIAS: Record<string, AiProviderId> = {
   openrouter: "openrouter",

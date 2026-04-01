@@ -6,7 +6,7 @@ import {
   orderAuthProfilesForSession,
   type ResolvedAuthProfile,
 } from "./authProfilePolicy";
-import { buildModelFailoverCandidates } from "./modelFailoverPolicy";
+import { buildModelFailoverCandidates } from "./model/modelFailoverPolicy";
 import { LLM_RETRY_POLICY, withRetry } from "./retryPolicy";
 import { executeTwoStageFailover } from "./twoStageFailoverExecutor";
 

@@ -4,7 +4,7 @@ import {
   sortControlCenterThreadRows,
   type ControlCenterThreadRow,
 } from "../../../convex/ai/agentSessions";
-import { resolveThreadDeliveryState } from "../../../convex/ai/agentExecution";
+import { resolveThreadDeliveryState } from "../../../convex/ai/kernel/agentExecution";
 
 const baseRow: ControlCenterThreadRow = {
   threadId: "thread-a",

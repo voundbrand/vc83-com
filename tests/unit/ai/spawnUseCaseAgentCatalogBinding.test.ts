@@ -33,7 +33,7 @@ vi.mock("../../../convex/_generated/api", () => ({
   },
 }));
 
-import { spawn_use_case_agent } from "../../../convex/ai/agentExecution";
+import { spawn_use_case_agent } from "../../../convex/ai/kernel/agentExecution";
 
 type ActionCtx = {
   runQuery: ReturnType<typeof vi.fn>;

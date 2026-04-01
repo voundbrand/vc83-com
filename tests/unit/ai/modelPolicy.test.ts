@@ -15,7 +15,7 @@ import {
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
-} from "../../../convex/ai/modelPolicy";
+} from "../../../convex/ai/model/modelPolicy";
 
 describe("modelPolicy", () => {
   it("resolves default model from llm.defaultModelId when present in enabled list", () => {

@@ -4,7 +4,7 @@ import {
   resolveCrossOrgEnrichmentRequestDecision,
   buildCrossOrgEnrichmentTelemetryLabels,
 } from "../../../convex/lib/layerScope";
-import { resolveCrossOrgPersonalWorkspaceEnrichmentOptIn } from "../../../convex/ai/agentExecution";
+import { resolveCrossOrgPersonalWorkspaceEnrichmentOptIn } from "../../../convex/ai/kernel/agentExecution";
 
 describe("cross-org enrichment policy hardening", () => {
   it("allows personal-workspace enrichment only when explicit opt-in is enabled", () => {

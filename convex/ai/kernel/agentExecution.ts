@@ -11,55 +11,58 @@
  * 9. Update stats → 10. Return response
  */
 
-import { action, internalAction, internalMutation } from "../_generated/server";
+import { action, internalAction, internalMutation } from "../../_generated/server";
 import { v } from "convex/values";
-import { OpenRouterClient } from "./openrouter";
+import { OpenRouterClient } from "../openrouter";
 import {
   getAllToolDefinitions,
   getToolSchemasForNames,
-} from "./tools/registry";
-import type { ToolExecutionContext } from "./tools/registry";
+} from "../tools/registry";
+import type { ToolExecutionContext } from "../tools/registry";
 import {
   buildVacationDecisionResponse,
-} from "./tools/bookingTool";
+} from "../tools/bookingTool";
 import {
   DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
   buildRuntimeModuleIntentRoutingContext,
   resolveInboundRuntimeModuleIntentRoute,
   type DerTerminmacherRuntimeContract,
-} from "./agents/der_terminmacher/runtimeModule";
+} from "../agents/der_terminmacher/runtimeModule";
 import {
   DAVID_OGILVY_AGENT_RUNTIME_MODULE_KEY,
-} from "./agents/david_ogilvy/runtimeModule";
+} from "../agents/david_ogilvy/runtimeModule";
+import {
+  QUINN_AGENT_RUNTIME_MODULE_KEY,
+} from "../agents/quinn/runtimeModule";
 import {
   buildInboundMeetingConciergeRuntimeContext,
   buildMeetingConciergeDecisionTelemetry,
-} from "./agents/der_terminmacher/tools";
+} from "../agents/der_terminmacher/tools";
 import {
   resolveInboundMeetingConciergeIntent,
-} from "./agents/der_terminmacher/meetingConcierge";
+} from "../agents/der_terminmacher/meetingConcierge";
 import {
   buildInboundLanguageLockRuntimeContext,
   resolveInboundConversationLanguageLock,
-} from "./agents/der_terminmacher/languageLock";
+} from "../agents/der_terminmacher/languageLock";
 import {
   applyDerTerminmacherToolCallAdjustments,
   resolveDerTerminmacherToolScopeManifest,
-} from "./agents/der_terminmacher/orchestration";
+} from "../agents/der_terminmacher/orchestration";
 import {
   buildSamanthaAuditDeliverableGracefulDegradationMessage,
   buildSamanthaAuditDeliverableVerificationFallbackMessage,
   countTrailingSamanthaFailClosedAssistantMessages,
   countTrailingSamanthaMissingFieldRecoveryMessages,
   sanitizeSamanthaEmailOnlyAssistantContent,
-} from "./agents/samantha/prompt";
+} from "../agents/samantha/prompt";
 import {
   isSamanthaLeadCaptureRuntime,
   resolveSamanthaAuditLookupTarget,
   resolveSamanthaAuditSessionContextFailure,
   resolveSamanthaAuditSourceContext,
   resolveSamanthaRoutingAgentSnapshot,
-} from "./agents/samantha/policy";
+} from "../agents/samantha/policy";
 import {
   buildSamanthaMissingFieldRecoveryMessage,
   isLikelyAuditDeliverableInvocationRequest,
@@ -68,24 +71,25 @@ import {
   resolveSamanthaAuditDispatchDecision,
   resolveSamanthaClaimRecoveryDecision,
   shouldAttemptSamanthaClaimRecoveryAutoDispatch,
-} from "./agents/samantha/tools";
+} from "../agents/samantha/tools";
 import {
   executeSamanthaAutoDispatchRuntimeFlow,
   executeSamanthaCapabilityGapUnavailableHandling,
   executeSamanthaPostOutputGuardrails,
   executeSamanthaPostDispatchTelemetryFinalization,
   executeSamanthaSourceContextRuntimeInitialization,
-} from "./agents/samantha/runtimeModule";
-import { createSamanthaDispatchTraceScaffolding } from "./agents/samantha/trace";
+} from "../agents/samantha/runtimeModule";
+import { createSamanthaDispatchTraceScaffolding } from "../agents/samantha/trace";
 import {
   resolveAgentModuleFromConfig,
-} from "./agents/runtimeModuleRegistry";
-import type { Id } from "../_generated/dataModel";
-import { getToolCreditCost } from "../credits/index";
-import { composeKnowledgeContract } from "./systemKnowledge/index";
-import { LLM_RETRY_POLICY, withRetry } from "./retryPolicy";
-import { getUserErrorMessage, classifyError } from "./errorMessages";
+} from "../agents/runtimeModuleRegistry";
+import type { Id } from "../../_generated/dataModel";
+import { getToolCreditCost } from "../../credits/index";
+import { composeKnowledgeContract } from "../systemKnowledge/index";
+import { LLM_RETRY_POLICY, withRetry } from "../retryPolicy";
+import { getUserErrorMessage, classifyError } from "../errorMessages";
 import {
+  AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES,
   AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION,
   AGENT_RUNTIME_TOPOLOGY_PROFILE_DEFAULT,
   AI_AGENT_MEMORY_RUNTIME_CONTRACT_VERSION,
@@ -96,16 +100,21 @@ import {
   KNOWLEDGE_CONTEXT_PROVENANCE_CONTRACT_VERSION,
   KNOWLEDGE_CONTEXT_SCOPE_CONTRACT_VERSION,
   RUN_ATTEMPT_CONTRACT_VERSION,
+  STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION,
   TURN_QUEUE_CONTRACT_VERSION,
   assertAgentExecutionBundleContract,
   assertAgentRuntimeTopologyContract,
+  assertStructuredHandoffPacketContract,
   assertRuntimeIdempotencyContract,
   assertTurnQueueContract,
   isAgentRuntimeTopologyProfile,
+  resolveStructuredHandoffPacketContract,
   resolveAgentRuntimeTopologyAdapter,
   type AgentExecutionBundleContract,
+  type AgentRuntimeTopologyAdapter,
   type AgentRuntimeTopologyContract,
   type AgentRuntimeTopologyProfile,
+  type StructuredHandoffPacket,
   type AgentTurnRunAttemptContract,
   type IdempotencyIntentType,
   type KnowledgeContextConfidenceBand,
@@ -115,7 +124,7 @@ import {
   type RuntimeIdempotencyContract,
   type TurnQueueConflictLabel,
   type TurnQueueContract,
-} from "../schemas/aiSchemas";
+} from "../../schemas/aiSchemas";
 import {
   AGENT_TOOL_SCOPE_RESOLUTION_CONTRACT_VERSION,
   getPlatformBlockedTools,
@@ -127,7 +136,7 @@ import {
   type RequiredSpecialistScopeContract,
   type RequiredSpecialistScopeGap,
   SUBTYPE_DEFAULT_PROFILES,
-} from "./toolScoping";
+} from "../toolScoping";
 import {
   composeAdaptiveRecentContextWindow,
   composeSessionContactMemoryContext,
@@ -144,7 +153,7 @@ import {
   type SessionRollingSummaryMemoryRecord,
   type OperatorPinnedNoteContextRecord,
   type KnowledgeContextDocument,
-} from "./memoryComposer";
+} from "../memoryComposer";
 import {
   buildAuthProfileFailureCountMap,
   getAuthProfileCooldownMs,
@@ -152,13 +161,13 @@ import {
   orderAuthProfilesForSession,
   type ResolvedAuthProfile,
   resolveAuthProfilesForProvider,
-} from "./authProfilePolicy";
+} from "../authProfilePolicy";
 import {
   calculateCostFromUsage,
   convertUsdToCredits,
   estimateCreditsFromPricing,
-} from "./modelPricing";
-import { toDeployableTelephonyConfig } from "../../src/lib/telephony/agent-telephony";
+} from "../model/modelPricing";
+import { toDeployableTelephonyConfig } from "../../../src/lib/telephony/agent-telephony";
 import {
   buildEnvApiKeysByProvider,
   detectProvider,
@@ -170,8 +179,8 @@ import {
   type ProviderReasoningParamKind,
   type PrivacyMode,
   resolveAuthProfileBaseUrl,
-} from "./modelAdapters";
-import { resolveOrganizationProviderBindingForProvider } from "./providerRegistry";
+} from "../model/modelAdapters";
+import { resolveOrganizationProviderBindingForProvider } from "../providerRegistry";
 import {
   buildModelRoutingMatrix,
   determineModelSelectionSource,
@@ -185,18 +194,18 @@ import {
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
-} from "./modelPolicy";
-import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
+} from "../model/modelPolicy";
+import { evaluateRoutingCapabilityRequirements } from "../model/modelEnablementGates";
 import {
   normalizeVoiceRuntimeProviderId,
   resolveVoiceRuntimeAdapter,
   type VoiceRuntimeProviderId,
-} from "./voiceRuntimeAdapter";
+} from "../voiceRuntimeAdapter";
 import {
   canUsePlatformMotherCustomerFacingSupport,
   isPlatformMotherAuthorityRecord,
-} from "../platformMother";
-import { resolveDeterministicVoiceDefaults } from "./voiceDefaults";
+} from "../../platformMother";
+import { resolveDeterministicVoiceDefaults } from "../voiceDefaults";
 import {
   checkPreLLMEscalation,
   checkPostLLMEscalation,
@@ -206,21 +215,21 @@ import {
   resolvePolicy,
   type EscalationCounters,
   type EscalationPolicy,
-} from "./escalation";
+} from "../escalation";
 import {
   brokerTools,
   detectIntents,
   extractRecentToolNames,
   type BrokerMetrics,
-} from "./toolBroker";
-import { deliverAssistantResponseWithFallback } from "./outboundDelivery";
-import { evaluateSessionRoutingPinUpdate } from "./sessionRoutingPolicy";
+} from "../toolBroker";
+import { deliverAssistantResponseWithFallback } from "../outboundDelivery";
+import { evaluateSessionRoutingPinUpdate } from "../sessionRoutingPolicy";
 import {
   normalizeAutonomyLevel,
   resolveDomainAutonomyLevel,
   type AutonomyLevel,
   type AutonomyLevelInput,
-} from "./autonomy";
+} from "../autonomy";
 import {
   isDreamTeamSpecialistContractInWorkspaceScope,
   buildHarnessContext,
@@ -230,35 +239,35 @@ import {
   resolveUnifiedPersonalityFlag,
   type CrossOrgSoulReadOnlyEnrichmentSummary,
   type DreamTeamWorkspaceType,
-} from "./harness";
-import { resolveTeamSpecialistSelection } from "./tools/teamTools";
+} from "../harness";
+import { resolveTeamSpecialistSelection } from "../tools/teamTools";
 import {
   resolveActiveArchetypeRuntimeContract,
   resolveSensitiveArchetypeRuntimeConstraint,
-} from "./archetypes";
+} from "../archetypes";
 import {
   buildAgentSystemPrompt,
   mapSemanticChunksToKnowledgeDocuments,
   resolveKnowledgeRetrieval,
   type SemanticKnowledgeChunkSearchResult,
-} from "./agentPromptAssembly";
+} from "../agentPromptAssembly";
 import {
   resolveModeScopedAutonomyLevel,
   resolveSoulModeRuntimeContract,
-} from "./soulModes";
-import { resolveWeekendModeRuntimeContract } from "./weekendMode";
+} from "../soulModes";
+import { resolveWeekendModeRuntimeContract } from "../weekendMode";
 import {
   buildSupportRuntimePolicy,
   resolveSupportRuntimeContext,
-} from "./prompts/supportRuntimePolicy";
+} from "../prompts/supportRuntimePolicy";
 import {
   buildLayeredContextSystemPrompt,
   buildLayeredContextSystemPromptFromBundles,
-} from "./prompts/layeredContextSystem";
+} from "../prompts/layeredContextSystem";
 import {
   buildConfigureAgentFieldsProposalEnvelope,
   CONFIGURE_AGENT_FIELDS_TOOL_NAME,
-} from "./tools/configureAgentFieldsTool";
+} from "../tools/configureAgentFieldsTool";
 import {
   type AgentRuntimeToolHooks,
   collectSuccessfulToolNames,
@@ -273,7 +282,7 @@ import {
   createAndDispatchEscalation,
   recordEscalationCheckpoint,
   resolveEscalationAgentName,
-} from "./agentEscalationOrchestration";
+} from "../agentEscalationOrchestration";
 import {
   assertInboundRuntimeKernelContract,
   createInboundRuntimeKernelHooks,
@@ -294,25 +303,26 @@ import {
   executeTwoStageFailover,
   TwoStageFailoverError,
   type TwoStageFailoverModelSkipReason,
-} from "./twoStageFailoverExecutor";
+} from "../twoStageFailoverExecutor";
 import {
   resolveMobileSourceAttestationContract,
   type MobileSourceAttestationContract,
-} from "./mobileRuntimeHardening";
+} from "../mobileRuntimeHardening";
 import {
   TRUST_EVENT_NAMESPACE,
   TRUST_EVENT_TAXONOMY_VERSION,
   buildTrustTimelineCorrelationId,
-} from "./trustEvents";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+} from "../trustEvents";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../model/modelDefaults";
 import {
+  HELENA_AGENT_RUNTIME_MODULE_KEY,
   KANZLEI_COMPLIANCE_AUDIT_CONTRACT_VERSION,
   SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
   isKanzleiExternalDispatchToolName,
   isKanzleiFailClosedModeToken,
   resolveFailClosedApprovalToolNames,
   resolveAgentRuntimeModuleMetadataFromConfig,
-} from "./agentSpecRegistry";
+} from "../agentSpecRegistry";
 import {
   ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
@@ -331,46 +341,52 @@ import {
   type SamanthaAutoDispatchSkipReasonCode,
   type SamanthaClaimRecoveryDecision,
   type SamanthaPreflightReasonCode,
-} from "./samanthaAuditContract";
+} from "../samanthaAuditContract";
 import {
   enforceRuntimeGovernorCost,
   enforceRuntimeGovernorStepAndTime,
   resolveRuntimeGovernorContract,
   type RuntimeGovernorContract,
   type RuntimeGovernorLimit,
-} from "./runtimeGovernor";
+} from "../runtimeGovernor";
 import {
   buildCrossOrgEnrichmentTelemetryLabels,
   resolveCrossOrgEnrichmentCandidateDecision,
   resolveCrossOrgEnrichmentRequestDecision,
   type CrossOrgEnrichmentCandidateDecision,
   type CrossOrgEnrichmentTelemetryLabels,
-} from "../lib/layerScope";
-import { buildRuntimeIncidentThreadDeepLink } from "./runtimeIncidentAlerts";
+} from "../../lib/layerScope";
+import { buildRuntimeIncidentThreadDeepLink } from "../runtimeIncidentAlerts";
+import {
+  resolveLegalFrontOfficeComplianceEvaluatorGate,
+} from "../../complianceControlPlane";
 import {
   buildAdmissionDenial,
   type AdmissionDecisionStage,
   type AdmissionDenialReasonCode,
   type AdmissionDenialV1,
   type AdmissionIngressChannel,
-} from "./admissionController";
+} from "../admissionController";
 import {
   buildDeterministicIdempotencyPayloadHash,
   evaluateInboundIdempotencyTuple,
-} from "./idempotencyCoordinator";
+} from "../idempotencyCoordinator";
 import {
   buildActionCompletionQaDiagnostics,
   buildSuperAdminAgentQaTurnTelemetryEnvelope,
   SUPER_ADMIN_AGENT_QA_MODE_VERSION,
   type ActionCompletionQaDiagnostics,
-} from "./qaModeContracts";
+} from "../qaModeContracts";
+import {
+  resolveLegalFrontOfficeOutwardCommitmentIntent,
+} from "../orgActionPolicy";
 
 export {
   buildAgentSystemPrompt,
   mapSemanticChunksToKnowledgeDocuments,
   rankKnowledgeDocsForSemanticRetrieval,
   resolveKnowledgeRetrieval,
-} from "./agentPromptAssembly";
+} from "../agentPromptAssembly";
 export {
   DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
   DER_TERMINMACHER_MUTATION_POLICY_CONTRACT_VERSION,
@@ -380,49 +396,70 @@ export {
   buildRuntimeModuleIntentRoutingContext,
   resolveDerTerminmacherRuntimeContract,
   resolveInboundRuntimeModuleIntentRoute,
-} from "./agents/der_terminmacher/runtimeModule";
+} from "../agents/der_terminmacher/runtimeModule";
 export type {
   DerTerminmacherRuntimeContract,
   RuntimeModuleIntentRoutingCandidate,
   RuntimeModuleIntentRoutingDecision,
-} from "./agents/der_terminmacher/runtimeModule";
+} from "../agents/der_terminmacher/runtimeModule";
 export {
   buildDerTerminmacherRuntimeContext,
-} from "./agents/der_terminmacher/prompt";
+} from "../agents/der_terminmacher/prompt";
 export {
   buildInboundMeetingConciergeRuntimeContext,
   buildMeetingConciergeDecisionTelemetry,
   enforceDerTerminmacherPreviewFirstToolPolicy,
-} from "./agents/der_terminmacher/tools";
+} from "../agents/der_terminmacher/tools";
 export {
   injectAutoPreviewMeetingConciergeToolCall,
   resolveInboundMeetingConciergeIntent,
-} from "./agents/der_terminmacher/meetingConcierge";
+} from "../agents/der_terminmacher/meetingConcierge";
 export type {
   InboundMeetingConciergeIntent,
-} from "./agents/der_terminmacher/meetingConcierge";
+} from "../agents/der_terminmacher/meetingConcierge";
 export {
   buildInboundLanguageLockRuntimeContext,
   resolveInboundConversationLanguageLock,
-} from "./agents/der_terminmacher/languageLock";
+} from "../agents/der_terminmacher/languageLock";
 export {
   applyDerTerminmacherToolCallAdjustments,
   resolveDerTerminmacherToolScopeManifest,
-} from "./agents/der_terminmacher/orchestration";
+} from "../agents/der_terminmacher/orchestration";
+export {
+  HELENA_RUNTIME_CONTRACT_VERSION,
+  resolveHelenaRuntimeContract,
+} from "../agents/helena/runtimeModule";
+export type {
+  HelenaRuntimeContract,
+} from "../agents/helena/runtimeModule";
+export {
+  buildHelenaRuntimeContext,
+} from "../agents/helena/prompt";
+export {
+  QUINN_AGENT_RUNTIME_MODULE_KEY,
+  QUINN_RUNTIME_CONTRACT_VERSION,
+  resolveQuinnRuntimeContract,
+} from "../agents/quinn/runtimeModule";
+export type {
+  QuinnRuntimeContract,
+} from "../agents/quinn/runtimeModule";
+export {
+  buildQuinnRuntimeContext,
+} from "../agents/quinn/prompt";
 export {
   buildSamanthaAuditDeliverableGracefulDegradationMessage,
   buildSamanthaAuditDeliverableVerificationFallbackMessage,
   countTrailingSamanthaFailClosedAssistantMessages,
   countTrailingSamanthaMissingFieldRecoveryMessages,
   sanitizeSamanthaEmailOnlyAssistantContent,
-} from "./agents/samantha/prompt";
+} from "../agents/samantha/prompt";
 export {
   isSamanthaLeadCaptureRuntime,
   resolveSamanthaAuditLookupTarget,
   resolveSamanthaAuditSessionContextFailure,
   resolveSamanthaAuditSourceContext,
   resolveSamanthaRoutingAgentSnapshot,
-} from "./agents/samantha/policy";
+} from "../agents/samantha/policy";
 export {
   buildSamanthaMissingFieldRecoveryMessage,
   isLikelyAuditDeliverableInvocationRequest,
@@ -433,7 +470,7 @@ export {
   resolveSamanthaClaimRecoveryDecision,
   resolveSamanthaDispatchTerminalReasonCode,
   shouldAttemptSamanthaClaimRecoveryAutoDispatch,
-} from "./agents/samantha/tools";
+} from "../agents/samantha/tools";
 export type {
   SamanthaAuditAutoDispatchPlan,
   SamanthaAuditAutoDispatchToolArgs,
@@ -441,7 +478,7 @@ export type {
   SamanthaAutoDispatchInvocationStatus,
   SamanthaAutoDispatchSkipReasonCode,
   SamanthaClaimRecoveryDecision,
-} from "./samanthaAuditContract";
+} from "../samanthaAuditContract";
 
 // Lazy-load api/internal to avoid TS2589 deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -449,7 +486,7 @@ let _apiCache: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getApi(): any {
   if (!_apiCache) {
-    _apiCache = require("../_generated/api");
+    _apiCache = require("../../_generated/api");
   }
   return _apiCache;
 }
@@ -548,9 +585,14 @@ const RUNTIME_MODULE_TOPOLOGY_PROFILE_BY_KEY: Record<
   AgentRuntimeTopologyProfile
 > = {
   [DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY]: "pipeline_router",
+  [HELENA_AGENT_RUNTIME_MODULE_KEY]: "pipeline_router",
   [SAMANTHA_AGENT_RUNTIME_MODULE_KEY]: "evaluator_loop",
   [DAVID_OGILVY_AGENT_RUNTIME_MODULE_KEY]: "single_agent_loop",
+  [QUINN_AGENT_RUNTIME_MODULE_KEY]: "single_agent_loop",
 };
+const KNOWN_RUNTIME_TOPOLOGY_ADAPTERS = new Set<string>(
+  AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES as readonly string[],
+);
 
 function resolveTemplateRoleTopologyProfile(
   templateRole: string | null,
@@ -624,6 +666,16 @@ function resolveRuntimeModuleTopologyProfile(
   return RUNTIME_MODULE_TOPOLOGY_PROFILE_BY_KEY[runtimeModuleKey] ?? null;
 }
 
+function resolveExplicitRuntimeTopologyAdapter(
+  value: unknown,
+): AgentRuntimeTopologyAdapter | null {
+  const token = normalizeExecutionString(value);
+  if (!token || !KNOWN_RUNTIME_TOPOLOGY_ADAPTERS.has(token)) {
+    return null;
+  }
+  return token as AgentRuntimeTopologyAdapter;
+}
+
 export function resolveAgentRuntimeTopologyContractFromConfig(args: {
   config: Record<string, unknown> | null | undefined;
   runtimeModuleKey?: string | null;
@@ -634,6 +686,12 @@ export function resolveAgentRuntimeTopologyContractFromConfig(args: {
   const explicitProfileToken = firstInboundString(
     config?.runtimeTopologyProfile,
     config?.topologyProfile,
+  );
+  const explicitAdapterToken = normalizeExecutionString(
+    config?.runtimeTopologyAdapter,
+  );
+  const explicitAdapter = resolveExplicitRuntimeTopologyAdapter(
+    config?.runtimeTopologyAdapter,
   );
   const runtimeModuleKey =
     normalizeExecutionString(args.runtimeModuleKey)
@@ -667,6 +725,31 @@ export function resolveAgentRuntimeTopologyContractFromConfig(args: {
         source: "agent_config",
         enforcement: "blocked",
         reasonCode: "topology_profile_runtime_module_mismatch",
+        resolvedAt: now,
+      };
+    }
+    if (explicitAdapterToken && !explicitAdapter) {
+      return {
+        contractVersion: AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION,
+        profile: explicitProfileToken,
+        adapter: resolveAgentRuntimeTopologyAdapter(explicitProfileToken),
+        source: "agent_config",
+        enforcement: "blocked",
+        reasonCode: "topology_adapter_invalid",
+        resolvedAt: now,
+      };
+    }
+    if (
+      explicitAdapter
+      && explicitAdapter !== resolveAgentRuntimeTopologyAdapter(explicitProfileToken)
+    ) {
+      return {
+        contractVersion: AGENT_RUNTIME_TOPOLOGY_CONTRACT_VERSION,
+        profile: explicitProfileToken,
+        adapter: resolveAgentRuntimeTopologyAdapter(explicitProfileToken),
+        source: "agent_config",
+        enforcement: "blocked",
+        reasonCode: "topology_profile_adapter_mismatch",
         resolvedAt: now,
       };
     }
@@ -6064,6 +6147,20 @@ export const processInboundMessage = action({
         reasonCodes: runtimeModuleIntentRouting.reasonCodes,
       },
     });
+    const structuredHandoffPacketCandidatePresent =
+      hasInboundStructuredHandoffPacketCandidate(metadata);
+    const structuredHandoffPacket =
+      resolveInboundStructuredHandoffPacket(metadata);
+    if (structuredHandoffPacketCandidatePresent && !structuredHandoffPacket) {
+      return {
+        status: "error",
+        message:
+          "Structured handoff packet is invalid or incomplete for voice-to-worker transfer (fail-closed).",
+      };
+    }
+    if (structuredHandoffPacket) {
+      inboundMetadata.structuredHandoffPacket = structuredHandoffPacket;
+    }
     const inboundAttachmentInputs = Array.isArray(metadata.attachments)
       ? [...metadata.attachments]
       : [];
@@ -6113,6 +6210,7 @@ export const processInboundMessage = action({
       buildInboundVoiceTurnVisionRuntimeContext(metadata),
       buildRuntimeModuleIntentRoutingContext(runtimeModuleIntentRouting),
       resolvedRuntimeModulePromptContext,
+      buildInboundStructuredHandoffPacketRuntimeContext(structuredHandoffPacket),
       buildInboundMeetingConciergeRuntimeContext(meetingConciergeIntent),
       buildActionCompletionRuntimeContext(actionCompletionContractConfig),
     ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
@@ -8590,6 +8688,90 @@ export const processInboundMessage = action({
       console.warn("[AgentExecution] Runtime governor cost estimation failed", governorCostError);
     }
 
+    const legalFrontOfficePlannedToolNames = (toolCalls as Array<{
+      function?: { name?: unknown };
+    }>)
+      .map((toolCall) => normalizeExecutionString(toolCall?.function?.name))
+      .filter((toolName): toolName is string => Boolean(toolName));
+    const legalFrontOfficeOutwardCommitmentIntent =
+      resolveLegalFrontOfficeOutwardCommitmentIntent({
+        structuredHandoffPacket,
+        plannedToolNames: legalFrontOfficePlannedToolNames,
+        assistantContent,
+      });
+    const legalFrontOfficeCommitmentToolNames = legalFrontOfficePlannedToolNames
+      .filter((toolName) =>
+        toolName === "manage_bookings"
+        || toolName === "send_email_from_template"
+        || toolName === "escalate_to_human",
+      )
+      .sort((left, right) => left.localeCompare(right));
+    const complianceShadowSurface = resolveComplianceShadowModeSurfaceForInbound({
+      channel: args.channel,
+      metadata: inboundMetadata,
+    });
+    let complianceShadowModeEvaluation: ComplianceShadowModeEvaluationResult | null = null;
+    try {
+      const evaluation = await ctx.runQuery(
+        (getInternal() as any).complianceControlPlane
+          .evaluateNonComplianceSurfaceShadowModeInternal,
+        {
+          organizationId: args.organizationId,
+          surface: complianceShadowSurface,
+        },
+      );
+      if (evaluation && typeof evaluation === "object") {
+        complianceShadowModeEvaluation =
+          evaluation as ComplianceShadowModeEvaluationResult;
+      }
+    } catch (complianceShadowModeError) {
+      console.error(
+        "[AgentExecution] Failed to evaluate compliance shadow mode",
+        {
+          organizationId: args.organizationId,
+          channel: args.channel,
+          error: complianceShadowModeError,
+        },
+      );
+    }
+    const legalFrontOfficeComplianceGateDecision =
+      resolveLegalFrontOfficeComplianceEvaluatorGate({
+        evaluation: complianceShadowModeEvaluation as Parameters<
+          typeof resolveLegalFrontOfficeComplianceEvaluatorGate
+        >[0]["evaluation"],
+        evaluatorRequired:
+          legalFrontOfficeOutwardCommitmentIntent.requiresComplianceEvaluator,
+        evaluatedAt: Date.now(),
+      });
+    const legalFrontOfficeComplianceGateBlocked =
+      legalFrontOfficeOutwardCommitmentIntent.requiresComplianceEvaluator
+      && legalFrontOfficeComplianceGateDecision.status === "blocked";
+    if (legalFrontOfficeComplianceGateBlocked) {
+      assistantContent = buildLegalFrontOfficeComplianceGateBlockedMessage(
+        actionCompletionResponseLanguage,
+      );
+      toolCalls = [];
+    }
+    const legalFrontOfficeComplianceGateTelemetry = {
+      contractVersion: legalFrontOfficeComplianceGateDecision.contractVersion,
+      intentContractVersion: legalFrontOfficeOutwardCommitmentIntent.contractVersion,
+      pathDetected: legalFrontOfficeOutwardCommitmentIntent.pathDetected,
+      commitmentDetected: legalFrontOfficeOutwardCommitmentIntent.commitmentDetected,
+      requiresComplianceEvaluator:
+        legalFrontOfficeOutwardCommitmentIntent.requiresComplianceEvaluator,
+      intentReasonCodes: legalFrontOfficeOutwardCommitmentIntent.reasonCodes,
+      commitmentToolNames: legalFrontOfficeCommitmentToolNames,
+      status: legalFrontOfficeComplianceGateDecision.status,
+      failClosed: legalFrontOfficeComplianceGateDecision.failClosed,
+      reasonCode: legalFrontOfficeComplianceGateDecision.reasonCode,
+      effectiveGateStatus:
+        legalFrontOfficeComplianceGateDecision.effectiveGateStatus,
+      evaluationStatus:
+        legalFrontOfficeComplianceGateDecision.evaluationStatus,
+      evaluatedAt: legalFrontOfficeComplianceGateDecision.evaluatedAt,
+      blockedByFailClosedGate: legalFrontOfficeComplianceGateBlocked,
+    };
+
     let voiceSynthesisResult:
       | {
           success: boolean;
@@ -10367,25 +10549,7 @@ export const processInboundMessage = action({
       demoOutcomeTargetMs: 20_000,
       demoOutcomeIngestBudgetMs: 4_000,
     });
-    let complianceShadowModeEvaluation: ComplianceShadowModeEvaluationResult | null = null;
     try {
-      const complianceShadowSurface = resolveComplianceShadowModeSurfaceForInbound({
-        channel: args.channel,
-        metadata: inboundMetadata,
-      });
-      const evaluation = await ctx.runQuery(
-        (getInternal() as any).complianceControlPlane
-          .evaluateNonComplianceSurfaceShadowModeInternal,
-        {
-          organizationId: args.organizationId,
-          surface: complianceShadowSurface,
-        },
-      );
-      if (evaluation && typeof evaluation === "object") {
-        complianceShadowModeEvaluation =
-          evaluation as ComplianceShadowModeEvaluationResult;
-      }
-
       if (shouldEmitComplianceShadowModeWouldBlockTelemetry(complianceShadowModeEvaluation)) {
         await ctx.runMutation(
           (getInternal() as any).complianceControlPlane
@@ -10418,7 +10582,7 @@ export const processInboundMessage = action({
       }
     } catch (complianceShadowModeError) {
       console.error(
-        "[AgentExecution] Failed to evaluate/record compliance shadow mode telemetry",
+        "[AgentExecution] Failed to record compliance shadow mode telemetry",
         {
           organizationId: args.organizationId,
           channel: args.channel,
@@ -10530,6 +10694,7 @@ export const processInboundMessage = action({
               reasonCode: complianceShadowModeEvaluation.reasonCode,
             }
           : undefined,
+        legalFrontOfficeComplianceGate: legalFrontOfficeComplianceGateTelemetry,
         meetingConcierge: meetingConciergeIntent.enabled
           ? {
               enabled: true,
@@ -10719,6 +10884,7 @@ export const processInboundMessage = action({
       ...(complianceShadowModeEvaluation ? {
         complianceShadowModeEvaluation,
       } : {}),
+      legalFrontOfficeComplianceGate: legalFrontOfficeComplianceGateTelemetry,
       ...(voiceRuntimeMetadata ? {
         voiceRuntime: {
           ...voiceRuntimeMetadata,
@@ -15416,6 +15582,97 @@ function resolveInboundVoiceTurnVisionUnavailableDetail(args: {
     return "Vision frame attachment was blocked by policy or retention constraints.";
   }
   return "Turn-time vision frame resolution failed before an attachment could be created.";
+}
+
+function resolveInboundStructuredHandoffPacketCandidate(
+  metadata: Record<string, unknown>,
+): unknown {
+  const voiceRuntime = normalizeInboundObjectValue(metadata.voiceRuntime);
+  return (
+    metadata.structuredHandoffPacket
+    ?? metadata.structured_handoff_packet
+    ?? voiceRuntime?.structuredHandoffPacket
+    ?? voiceRuntime?.structured_handoff_packet
+    ?? metadata.handoffPacket
+    ?? metadata.handoff_packet
+  );
+}
+
+function hasInboundStructuredHandoffPacketCandidate(
+  metadata: Record<string, unknown>,
+): boolean {
+  return typeof resolveInboundStructuredHandoffPacketCandidate(metadata) !== "undefined";
+}
+
+export function resolveInboundStructuredHandoffPacket(
+  metadata: Record<string, unknown>,
+): StructuredHandoffPacket | null {
+  const candidate = resolveInboundStructuredHandoffPacketCandidate(metadata);
+  const packet = resolveStructuredHandoffPacketContract(candidate);
+  if (!packet) {
+    return null;
+  }
+  try {
+    assertStructuredHandoffPacketContract(packet);
+    return packet;
+  } catch {
+    return null;
+  }
+}
+
+export function buildInboundStructuredHandoffPacketRuntimeContext(
+  packet: StructuredHandoffPacket | null | undefined,
+): string | null {
+  if (!packet) {
+    return null;
+  }
+  const lines = [
+    "--- STRUCTURED HANDOFF PACKET ---",
+    `Contract version: ${STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION}`,
+    `Source agent: ${packet.sourceAgent}`,
+    `Target agent: ${packet.targetAgent}`,
+    `Caller identity: ${packet.callerIdentity.callerId}`,
+    `Urgency level: ${packet.urgency.level}`,
+    `Requested next step: ${packet.requestedNextStep}`,
+    `Disclosure evidence: identityConfirmed=${packet.disclosureEvidence.identityConfirmed}, conflictCheckDisclosed=${packet.disclosureEvidence.conflictCheckDisclosed}, consentToCallback=${packet.disclosureEvidence.consentToCallback}, recordingDisclosureGiven=${packet.disclosureEvidence.recordingDisclosureGiven}`,
+  ];
+  if (packet.callerIdentity.callerDisplayName) {
+    lines.push(`Caller display name: ${packet.callerIdentity.callerDisplayName}`);
+  }
+  if (packet.callerIdentity.callbackNumber) {
+    lines.push(`Callback number: ${packet.callerIdentity.callbackNumber}`);
+  }
+  if (typeof packet.callerIdentity.existingClient === "boolean") {
+    lines.push(`Existing client: ${packet.callerIdentity.existingClient}`);
+  }
+  if (typeof packet.urgency.deadlineAtMs === "number") {
+    lines.push(`Deadline (epoch ms): ${packet.urgency.deadlineAtMs}`);
+  }
+  if (packet.urgency.deadlineLabel) {
+    lines.push(`Deadline label: ${packet.urgency.deadlineLabel}`);
+  }
+  if (packet.intakeSummary) {
+    lines.push(`Intake summary: ${packet.intakeSummary}`);
+  }
+  lines.push("--- END STRUCTURED HANDOFF PACKET ---");
+  return lines.join("\n");
+}
+
+function buildLegalFrontOfficeComplianceGateBlockedMessage(
+  language: "en" | "de",
+): string {
+  if (language === "de") {
+    return [
+      "Ich kann diese Zusage jetzt nicht nach außen bestätigen.",
+      "Die verbindliche Freigabe wurde vom Compliance-Evaluator blockiert (Fail-Closed).",
+      "Bitte eskaliere an einen menschlichen Ansprechpartner oder führe zuerst die erforderliche Freigabe durch.",
+    ].join(" ");
+  }
+  return [
+    "I cannot confirm this commitment externally right now.",
+    "The mandatory compliance evaluator blocked release (fail-closed).",
+    "Please escalate to a human operator or complete the required approval first.",
+  ].join(" ");
 }
 
 export function buildInboundVoiceTurnVisionRuntimeContext(

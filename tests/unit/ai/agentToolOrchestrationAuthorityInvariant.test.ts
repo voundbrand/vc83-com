@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE,
   executeToolCallsWithApproval,
-} from "../../../convex/ai/agentToolOrchestration";
+} from "../../../convex/ai/kernel/agentToolOrchestration";
 import { ORG_BOOKING_CONCIERGE_TOOL_ACTION } from "../../../convex/ai/tools/bookingTool";
 import { TOOL_REGISTRY, type AITool } from "../../../convex/ai/tools/registry";
 

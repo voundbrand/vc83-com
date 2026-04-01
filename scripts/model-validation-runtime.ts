@@ -6,7 +6,7 @@ import {
   type ModelSelectionSource,
   type OrgModelPolicySettings,
   selectFirstPlatformEnabledModel,
-} from "../convex/ai/modelPolicy";
+} from "../convex/ai/model/modelPolicy";
 
 export interface ModelResolutionSnapshot {
   requestedModel?: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectRequiredScopeFallbackSpecialistType } from "../../../convex/ai/agentExecution";
+import { selectRequiredScopeFallbackSpecialistType } from "../../../convex/ai/kernel/agentExecution";
 
 describe("required scope delegation fallback selection", () => {
   it("selects an in-scope specialist subtype with highest missing-tool profile coverage", () => {

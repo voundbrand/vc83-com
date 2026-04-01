@@ -8,6 +8,7 @@ import {
   resolveKanzleiPromptInputMinimizationContract,
   resolveAgentRuntimeModuleCapabilities,
   resolveAgentRuntimeModuleMetadataFromConfig,
+  HELENA_AGENT_RUNTIME_MODULE_KEY,
   SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
 } from "../../../convex/ai/agentSpecRegistry";
 
@@ -396,6 +397,16 @@ describe("agent spec registry contract", () => {
       runtimeModuleKey: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
     });
     expect(fromExplicitKey?.key).toBe(SAMANTHA_AGENT_RUNTIME_MODULE_KEY);
+
+    const helenaModule = resolveAgentRuntimeModuleMetadataFromConfig({
+      runtimeModuleKey: HELENA_AGENT_RUNTIME_MODULE_KEY,
+    });
+    expect(helenaModule?.key).toBe(HELENA_AGENT_RUNTIME_MODULE_KEY);
+    expect(helenaModule?.toolManifest.requiredTools).toEqual([
+      "create_contact",
+      "search_contacts",
+      "update_contact",
+    ]);
 
     const fromInlineMetadata = resolveAgentRuntimeModuleMetadataFromConfig({
       runtimeModule: {

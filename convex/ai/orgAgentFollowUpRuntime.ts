@@ -17,7 +17,7 @@ import {
   ORG_ACTION_FOLLOW_UP_REENTRY_CONTRACT_VERSION,
   buildOrgActionFollowUpReentryContract,
   type OrgActionFollowUpTrigger,
-} from "./agentTurnOrchestration";
+} from "./kernel/agentTurnOrchestration";
 
 export const ORG_ACTION_FOLLOW_UP_RUNTIME_CONTRACT_VERSION =
   "org_action_follow_up_runtime_v1" as const;

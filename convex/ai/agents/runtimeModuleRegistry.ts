@@ -12,8 +12,18 @@ import {
 } from "./der_terminmacher/runtimeModule";
 import { buildDerTerminmacherRuntimeContext } from "./der_terminmacher/prompt";
 import {
+  HELENA_AGENT_RUNTIME_MODULE_KEY,
   SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
 } from "../agentSpecRegistry";
+import {
+  QUINN_AGENT_RUNTIME_MODULE_KEY,
+  resolveQuinnRuntimeContract,
+  type QuinnRuntimeContract,
+} from "./quinn/runtimeModule";
+import {
+  resolveHelenaRuntimeContract,
+  type HelenaRuntimeContract,
+} from "./helena/runtimeModule";
 import {
   AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES,
   isAgentRuntimeTopologyProfile,
@@ -26,11 +36,15 @@ import {
   type SamanthaRuntimeContract,
 } from "./samantha/runtimeModule";
 import { buildSamanthaRuntimeContext } from "./samantha/prompt";
+import { buildQuinnRuntimeContext } from "./quinn/prompt";
+import { buildHelenaRuntimeContext } from "./helena/prompt";
 
 export type KnownRuntimeModuleContract =
   | DerTerminmacherRuntimeContract
   | DavidOgilvyRuntimeContract
-  | SamanthaRuntimeContract;
+  | SamanthaRuntimeContract
+  | QuinnRuntimeContract
+  | HelenaRuntimeContract;
 
 type KnownRuntimeModule = AgentModule<KnownRuntimeModuleContract>;
 
@@ -59,6 +73,22 @@ const KNOWN_MODULES: KnownRuntimeModule[] = [
         ? buildDavidOgilvyRuntimeContext(contract)
         : null,
   },
+  {
+    key: QUINN_AGENT_RUNTIME_MODULE_KEY,
+    resolveContract: (config) => resolveQuinnRuntimeContract(config),
+    buildPromptContext: (contract) =>
+      contract.moduleKey === QUINN_AGENT_RUNTIME_MODULE_KEY
+        ? buildQuinnRuntimeContext(contract)
+        : null,
+  },
+  {
+    key: HELENA_AGENT_RUNTIME_MODULE_KEY,
+    resolveContract: (config) => resolveHelenaRuntimeContract(config),
+    buildPromptContext: (contract) =>
+      contract.moduleKey === HELENA_AGENT_RUNTIME_MODULE_KEY
+        ? buildHelenaRuntimeContext(contract)
+        : null,
+  },
 ];
 
 const EXPECTED_RUNTIME_TOPOLOGY_PROFILE_BY_MODULE_KEY: Record<
@@ -66,8 +96,10 @@ const EXPECTED_RUNTIME_TOPOLOGY_PROFILE_BY_MODULE_KEY: Record<
   AgentRuntimeTopologyProfile
 > = {
   [DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY]: "pipeline_router",
+  [HELENA_AGENT_RUNTIME_MODULE_KEY]: "pipeline_router",
   [SAMANTHA_AGENT_RUNTIME_MODULE_KEY]: "evaluator_loop",
   [DAVID_OGILVY_AGENT_RUNTIME_MODULE_KEY]: "single_agent_loop",
+  [QUINN_AGENT_RUNTIME_MODULE_KEY]: "single_agent_loop",
 };
 const KNOWN_RUNTIME_TOPOLOGY_ADAPTERS = new Set<string>(
   AGENT_RUNTIME_TOPOLOGY_ADAPTER_VALUES as readonly string[],

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateModelConformance,
   evaluateModelConformanceGate,
-} from "../../../convex/ai/modelConformance";
+} from "../../../convex/ai/model/modelConformance";
 
 describe("model conformance harness", () => {
   it("passes when all measurable thresholds are satisfied", () => {

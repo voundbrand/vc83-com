@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import {
   evaluateModelEnablementReleaseGates,
   type ModelValidationTestResults,
-} from "../modelEnablementGates";
+} from "../model/modelEnablementGates";
 import {
   WAE_EVAL_SCORING_HOLD_THRESHOLD,
   WAE_EVAL_SCORING_PASS_THRESHOLD,

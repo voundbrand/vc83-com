@@ -24,7 +24,11 @@ import type { Id } from "../_generated/dataModel";
 import type { InterviewTemplate } from "../schemas/interviewSchemas";
 import { SEED_TEMPLATES } from "../seeds/interviewTemplates";
 import { requireAuthenticatedUser, getUserContext, checkPermission } from "../rbacHelpers";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/model/modelDefaults";
+import {
+  resolveAgentRuntimeTopologyAdapter,
+  type AgentRuntimeTopologyProfile,
+} from "../schemas/aiSchemas";
 import {
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,
   AUDIT_DELIVERABLE_OUTCOME_KEY,
@@ -220,6 +224,16 @@ function normalizeOptionalString(value: unknown): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildRuntimeTopologyDeclaration(profile: AgentRuntimeTopologyProfile): {
+  runtimeTopologyProfile: AgentRuntimeTopologyProfile;
+  runtimeTopologyAdapter: string;
+} {
+  return {
+    runtimeTopologyProfile: profile,
+    runtimeTopologyAdapter: resolveAgentRuntimeTopologyAdapter(profile),
+  };
 }
 
 const TEMPLATE_LIFECYCLE_CONTRACT_VERSION = "ath_template_lifecycle_v1";
@@ -1264,6 +1278,7 @@ export const QUINN_CUSTOM_PROPERTIES = {
   totalCostUsd: 0,
   // System bot protection: template is the frozen canonical reference
   protected: true,
+  ...buildRuntimeTopologyDeclaration("single_agent_loop"),
   authorityRole: PLATFORM_MOTHER_AUTHORITY_ROLE,
   identityRole: PLATFORM_MOTHER_IDENTITY_ROLE,
   runtimeMode: PLATFORM_MOTHER_RUNTIME_MODE_ONBOARDING,
@@ -1330,6 +1345,7 @@ export const MOTHER_SUPPORT_RUNTIME_SEED = {
     toolProfile: "support",
     enabledTools: [],
     disabledTools: [],
+    ...buildRuntimeTopologyDeclaration("single_agent_loop"),
     channelBindings: [
       { channel: "telegram", enabled: false },
       { channel: "webchat", enabled: true },
@@ -1367,6 +1383,7 @@ export const MOTHER_GOVERNANCE_RUNTIME_SEED = {
     toolProfile: "readonly",
     enabledTools: [],
     disabledTools: [],
+    ...buildRuntimeTopologyDeclaration("single_agent_loop"),
     channelBindings: [
       { channel: "telegram", enabled: false },
       { channel: "webchat", enabled: false },
@@ -1440,6 +1457,7 @@ const SAMANTHA_CANONICAL_SYSTEM_PROMPT = [
 const SAMANTHA_LEAD_CAPTURE_CUSTOM_PROPERTIES = {
   displayName: SAMANTHA_CANONICAL_DISPLAY_NAME,
   runtimeModuleKey: SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
+  ...buildRuntimeTopologyDeclaration("evaluator_loop"),
   personality: SAMANTHA_CANONICAL_PERSONALITY,
   language: "en",
   additionalLanguages: [...UNIVERSAL_AGENT_LANGUAGES],
@@ -1794,6 +1812,7 @@ function buildPersonalOperatorTemplateCustomProperties(): Record<string, unknown
       "protected_template",
     ],
     toolProfile: "personal_operator",
+    ...buildRuntimeTopologyDeclaration("multi_agent_dag"),
     enabledTools: [
       "configure_agent_fields",
       "check_slack_calendar_onboarding_readiness",
@@ -1885,6 +1904,7 @@ function buildAgencyChildOrgPmTemplateCustomProperties(): Record<string, unknown
       "protected_template",
     ],
     toolProfile: "general",
+    ...buildRuntimeTopologyDeclaration("single_agent_loop"),
     enabledTools: [
       "create_contact",
       "search_contacts",
@@ -1956,6 +1976,7 @@ function buildAgencyChildOrgCustomerServiceTemplateCustomProperties(): Record<st
       "protected_template",
     ],
     toolProfile: "support",
+    ...buildRuntimeTopologyDeclaration("single_agent_loop"),
     enabledTools: [
       "create_contact",
       "search_contacts",
@@ -2046,6 +2067,7 @@ function buildDavidOgilvyCopywriterTemplateCustomProperties(): Record<string, un
       "research-first",
     ],
     toolProfile: "readonly",
+    ...buildRuntimeTopologyDeclaration("single_agent_loop"),
     enabledTools: [],
     disabledTools: [],
     autonomyLevel: "draft_only",
@@ -2129,6 +2151,7 @@ function buildProtectedCustomerTelephonyTemplateCustomProperties(args: {
     faqEntries: [],
     knowledgeBaseTags: args.knowledgeBaseTags,
     toolProfile: "booking",
+    ...buildRuntimeTopologyDeclaration("pipeline_router"),
     enabledTools: args.enabledTools,
     disabledTools: [],
     autonomyLevel: "supervised",

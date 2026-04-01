@@ -12,15 +12,15 @@ import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 import {
   evaluateModelEnablementReleaseGates,
   REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT,
-} from "./modelEnablementGates";
+} from "./model/modelEnablementGates";
 import type { ModelReleaseGateSnapshot } from "./modelReleaseGateAudit";
 import {
   evaluateModelConformance,
   type ModelConformanceSample,
   type ModelConformanceSummary,
-} from "./modelConformance";
+} from "./model/modelConformance";
 import { OpenRouterClient } from "./openrouter";
-import { detectProvider, buildEnvApiKeysByProvider } from "./modelAdapters";
+import { detectProvider, buildEnvApiKeysByProvider } from "./model/modelAdapters";
 import { CRITICAL_TOOL_NAMES } from "./tools/contracts";
 import { getToolSchemas } from "./tools/registry";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1733,7 +1733,7 @@ export const manualRefreshModels = action({
     }
 
     // Trigger the model discovery
-    const result = await (ctx as any).runAction(generatedApi.internal.ai.modelDiscovery.fetchAvailableModels);
+    const result = await (ctx as any).runAction(generatedApi.internal.ai.model.modelDiscovery.fetchAvailableModels);
 
     return {
       success: true,

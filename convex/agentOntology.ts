@@ -26,7 +26,7 @@ import { query, mutation, internalMutation, internalQuery, type MutationCtx, typ
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getUserContext, requireAuthenticatedUser } from "./rbacHelpers";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./ai/modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./ai/model/modelDefaults";
 import {
   ensureTemplateVersionCertificationForLifecycle,
   evaluateTemplateCertificationForTemplateVersion,

@@ -153,7 +153,7 @@ export function useAIConfig() {
     organization ? { organizationId: organization.id as Id<"organizations"> } : "skip"
   ) as AIBillingStatus | undefined
 
-  const models = useQueryAny(apiAny.ai.modelDiscovery.getModelsByProvider) as ModelsByProvider | undefined
+  const models = useQueryAny(apiAny.ai.model.modelDiscovery.getModelsByProvider) as ModelsByProvider | undefined
 
   const credits = useQueryAny(
     apiAny.credits.index.getCreditBalance,
@@ -177,7 +177,7 @@ export function useAIConfig() {
 
   // Mutations
   const upsertSettingsMutation = useMutationAny(apiAny.ai.settings.upsertAISettings)
-  const refreshModelsAction = useActionAny(apiAny.ai.modelDiscovery.refreshModels)
+  const refreshModelsAction = useActionAny(apiAny.ai.model.modelDiscovery.refreshModels)
 
   /**
    * Update AI settings for the organization

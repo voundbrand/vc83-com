@@ -664,6 +664,259 @@ export function assertAgentRuntimeTopologyContract(
   }
 }
 
+export const STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION =
+  "structured_handoff_packet_v1" as const;
+export const STRUCTURED_HANDOFF_PACKET_URGENCY_LEVEL_VALUES = [
+  "low",
+  "medium",
+  "high",
+  "critical",
+] as const;
+export type StructuredHandoffPacketUrgencyLevel =
+  (typeof STRUCTURED_HANDOFF_PACKET_URGENCY_LEVEL_VALUES)[number];
+
+export const structuredHandoffPacketUrgencyLevelValidator = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("critical"),
+);
+
+export interface StructuredHandoffPacket {
+  contractVersion: typeof STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION;
+  sourceAgent: string;
+  targetAgent: string;
+  callerIdentity: {
+    callerId: string;
+    callerDisplayName?: string;
+    callbackNumber?: string;
+    existingClient?: boolean;
+  };
+  urgency: {
+    level: StructuredHandoffPacketUrgencyLevel;
+    deadlineAtMs?: number;
+    deadlineLabel?: string;
+  };
+  requestedNextStep: string;
+  intakeSummary?: string;
+  disclosureEvidence: {
+    identityConfirmed: boolean;
+    conflictCheckDisclosed: boolean;
+    consentToCallback: boolean;
+    recordingDisclosureGiven: boolean;
+  };
+  createdAt: number;
+}
+
+export const structuredHandoffPacketValidator = v.object({
+  contractVersion: v.literal(STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION),
+  sourceAgent: v.string(),
+  targetAgent: v.string(),
+  callerIdentity: v.object({
+    callerId: v.string(),
+    callerDisplayName: v.optional(v.string()),
+    callbackNumber: v.optional(v.string()),
+    existingClient: v.optional(v.boolean()),
+  }),
+  urgency: v.object({
+    level: structuredHandoffPacketUrgencyLevelValidator,
+    deadlineAtMs: v.optional(v.number()),
+    deadlineLabel: v.optional(v.string()),
+  }),
+  requestedNextStep: v.string(),
+  intakeSummary: v.optional(v.string()),
+  disclosureEvidence: v.object({
+    identityConfirmed: v.boolean(),
+    conflictCheckDisclosed: v.boolean(),
+    consentToCallback: v.boolean(),
+    recordingDisclosureGiven: v.boolean(),
+  }),
+  createdAt: v.number(),
+});
+
+function normalizeStructuredHandoffPacketString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStructuredHandoffPacketDeadline(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
+function normalizeStructuredHandoffPacketUrgencyLevel(
+  value: unknown,
+): StructuredHandoffPacketUrgencyLevel | null {
+  const normalized = normalizeStructuredHandoffPacketString(value)?.toLowerCase();
+  if (
+    normalized === "low"
+    || normalized === "medium"
+    || normalized === "high"
+    || normalized === "critical"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function asStructuredHandoffPacketRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+export function resolveStructuredHandoffPacketContract(
+  value: unknown,
+): StructuredHandoffPacket | null {
+  const record = asStructuredHandoffPacketRecord(value);
+  if (!record) {
+    return null;
+  }
+  const callerIdentityRecord = asStructuredHandoffPacketRecord(
+    record.callerIdentity ?? record.caller_identity,
+  );
+  const urgencyRecord = asStructuredHandoffPacketRecord(record.urgency);
+  const disclosureEvidenceRecord = asStructuredHandoffPacketRecord(
+    record.disclosureEvidence ?? record.disclosure_evidence,
+  );
+  if (!callerIdentityRecord || !urgencyRecord || !disclosureEvidenceRecord) {
+    return null;
+  }
+
+  const contractVersion = normalizeStructuredHandoffPacketString(
+    record.contractVersion ?? record.contract_version,
+  );
+  if (contractVersion !== STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION) {
+    return null;
+  }
+
+  const sourceAgent = normalizeStructuredHandoffPacketString(
+    record.sourceAgent ?? record.source_agent,
+  );
+  const targetAgent = normalizeStructuredHandoffPacketString(
+    record.targetAgent ?? record.target_agent,
+  );
+  const callerId = normalizeStructuredHandoffPacketString(
+    callerIdentityRecord.callerId
+      ?? callerIdentityRecord.caller_id
+      ?? callerIdentityRecord.callerIdentifier
+      ?? callerIdentityRecord.caller_identifier,
+  );
+  const urgencyLevel = normalizeStructuredHandoffPacketUrgencyLevel(
+    urgencyRecord.level ?? urgencyRecord.urgencyLevel ?? urgencyRecord.urgency_level,
+  );
+  const requestedNextStep = normalizeStructuredHandoffPacketString(
+    record.requestedNextStep ?? record.requested_next_step,
+  );
+  const createdAtRaw = record.createdAt ?? record.created_at;
+  const createdAt =
+    typeof createdAtRaw === "number" && Number.isFinite(createdAtRaw) && createdAtRaw > 0
+      ? Math.floor(createdAtRaw)
+      : null;
+  if (
+    !sourceAgent
+    || !targetAgent
+    || !callerId
+    || !urgencyLevel
+    || !requestedNextStep
+    || !createdAt
+  ) {
+    return null;
+  }
+
+  const identityConfirmed = disclosureEvidenceRecord.identityConfirmed;
+  const conflictCheckDisclosed = disclosureEvidenceRecord.conflictCheckDisclosed;
+  const consentToCallback = disclosureEvidenceRecord.consentToCallback;
+  const recordingDisclosureGiven = disclosureEvidenceRecord.recordingDisclosureGiven;
+  if (
+    typeof identityConfirmed !== "boolean"
+    || typeof conflictCheckDisclosed !== "boolean"
+    || typeof consentToCallback !== "boolean"
+    || typeof recordingDisclosureGiven !== "boolean"
+  ) {
+    return null;
+  }
+
+  const deadlineAtMs = normalizeStructuredHandoffPacketDeadline(
+    urgencyRecord.deadlineAtMs ?? urgencyRecord.deadline_at_ms,
+  );
+  const deadlineLabel = normalizeStructuredHandoffPacketString(
+    urgencyRecord.deadlineLabel ?? urgencyRecord.deadline_label,
+  );
+  const callerDisplayName = normalizeStructuredHandoffPacketString(
+    callerIdentityRecord.callerDisplayName ?? callerIdentityRecord.caller_display_name,
+  );
+  const callbackNumber = normalizeStructuredHandoffPacketString(
+    callerIdentityRecord.callbackNumber
+      ?? callerIdentityRecord.callback_number
+      ?? callerIdentityRecord.phone,
+  );
+  const existingClient =
+    typeof callerIdentityRecord.existingClient === "boolean"
+      ? callerIdentityRecord.existingClient
+      : typeof callerIdentityRecord.existing_client === "boolean"
+        ? callerIdentityRecord.existing_client
+        : undefined;
+  const intakeSummary = normalizeStructuredHandoffPacketString(
+    record.intakeSummary ?? record.intake_summary,
+  );
+
+  return {
+    contractVersion: STRUCTURED_HANDOFF_PACKET_CONTRACT_VERSION,
+    sourceAgent,
+    targetAgent,
+    callerIdentity: {
+      callerId,
+      ...(callerDisplayName ? { callerDisplayName } : {}),
+      ...(callbackNumber ? { callbackNumber } : {}),
+      ...(typeof existingClient === "boolean" ? { existingClient } : {}),
+    },
+    urgency: {
+      level: urgencyLevel,
+      ...(typeof deadlineAtMs === "number" ? { deadlineAtMs } : {}),
+      ...(deadlineLabel ? { deadlineLabel } : {}),
+    },
+    requestedNextStep,
+    ...(intakeSummary ? { intakeSummary } : {}),
+    disclosureEvidence: {
+      identityConfirmed,
+      conflictCheckDisclosed,
+      consentToCallback,
+      recordingDisclosureGiven,
+    },
+    createdAt,
+  };
+}
+
+export function assertStructuredHandoffPacketContract(
+  packet: StructuredHandoffPacket,
+) {
+  const sourceAgent = normalizeStructuredHandoffPacketString(packet.sourceAgent);
+  const targetAgent = normalizeStructuredHandoffPacketString(packet.targetAgent);
+  const callerId = normalizeStructuredHandoffPacketString(packet.callerIdentity.callerId);
+  const requestedNextStep = normalizeStructuredHandoffPacketString(packet.requestedNextStep);
+  if (!sourceAgent || !targetAgent || !callerId || !requestedNextStep) {
+    throw new Error("structured_handoff_packet requires non-empty source/target/caller/next-step.");
+  }
+  if (!Number.isFinite(packet.createdAt) || packet.createdAt <= 0) {
+    throw new Error("structured_handoff_packet requires positive createdAt.");
+  }
+  if (
+    typeof packet.urgency.deadlineAtMs !== "undefined"
+    && (!Number.isFinite(packet.urgency.deadlineAtMs) || packet.urgency.deadlineAtMs <= 0)
+  ) {
+    throw new Error("structured_handoff_packet deadlineAtMs must be positive when provided.");
+  }
+}
+
 export const AGENT_PACKAGE_CONTRACT_VERSION =
   "oar_agent_package_v1" as const;
 export const AGENT_PACKAGE_MEMORY_MODE_VALUES = [

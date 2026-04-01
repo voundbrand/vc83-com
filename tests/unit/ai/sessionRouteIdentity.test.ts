@@ -10,7 +10,7 @@ import {
 import {
   resolveInboundChannelRouteIdentity,
   resolveInboundDispatchRouteSelectors,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 describe("session route identity", () => {
   it("uses explicit route keys as canonical routing keys", () => {

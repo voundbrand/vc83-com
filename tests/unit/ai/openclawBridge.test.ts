@@ -6,7 +6,7 @@ import {
   validateOpenClawCompatibilityAdapterDecision,
   type OpenClawCompatibilityAdapterDecision,
 } from "../../../convex/ai/openclawBridge";
-import { OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG } from "../../../convex/ai/modelPolicy";
+import { OPENCLAW_COMPATIBILITY_ORG_FEATURE_FLAG } from "../../../convex/ai/model/modelPolicy";
 
 describe("openclaw bridge import plan", () => {
   it("maps allowed auth profiles and private model definitions", () => {

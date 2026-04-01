@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentSystemPrompt } from "../../../convex/ai/agentExecution";
+import { buildAgentSystemPrompt } from "../../../convex/ai/kernel/agentExecution";
 
 describe("team handoff continuity integration", () => {
   it("injects standardized handoff payload fields into specialist prompt context", () => {

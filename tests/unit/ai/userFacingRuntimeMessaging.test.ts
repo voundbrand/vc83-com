@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sanitizeUserFacingRuntimeFailureMessage } from "../../../convex/ai/agentExecution";
+import { sanitizeUserFacingRuntimeFailureMessage } from "../../../convex/ai/kernel/agentExecution";
 
 describe("user-facing runtime failure messaging", () => {
   it("rewrites internal error codes into plain English", () => {

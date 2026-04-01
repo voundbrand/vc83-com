@@ -4,7 +4,7 @@ import {
   assertInboundMutationAuthorityInvariant,
   resolveInboundIngressEnvelope,
   resolveInboundMutationAuthorityContract,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   buildMobileSourceAttestationChallenge,
   computeMobileSourceAttestationSignature,

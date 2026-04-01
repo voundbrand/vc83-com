@@ -13,7 +13,7 @@ import {
   calculateCostFromUsage,
   type ModelPricingRates,
   resolveModelPricingFromRecord,
-} from "./modelPricing";
+} from "./model/modelPricing";
 import {
   detectProvider,
   getProviderConfig,
@@ -21,7 +21,7 @@ import {
   normalizeProviderCompletionResponse,
   normalizeProviderError,
   resolveProviderBaseUrl,
-} from "./modelAdapters";
+} from "./model/modelAdapters";
 
 interface ToolCallLike {
   id: string;
@@ -115,9 +115,13 @@ export class OpenRouterClient {
   constructor(apiKey: string, options: ProviderClientOptions = {}) {
     this.apiKey = apiKey;
     this.providerId = detectProvider(options.providerId ?? "openrouter");
+    const isOpenRouterProvider = this.providerId === "openrouter";
+    const envOpenRouterBaseUrl = isOpenRouterProvider
+      ? process.env.OPENROUTER_BASE_URL
+      : undefined;
     this.baseUrl = resolveProviderBaseUrl({
       providerId: this.providerId,
-      baseUrl: options.baseUrl,
+      baseUrl: options.baseUrl ?? envOpenRouterBaseUrl,
       envOpenAiCompatibleBaseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL,
     });
     this.customHeaders = options.customHeaders ?? {};

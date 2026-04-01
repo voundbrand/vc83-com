@@ -5,7 +5,7 @@ import {
   INBOUND_RUNTIME_KERNEL_TERMINAL_PHASE_VALUES,
   assertInboundRuntimeKernelContract,
   resolveInboundRuntimeKernelContract,
-} from "../../../convex/ai/agentTurnOrchestration";
+} from "../../../convex/ai/kernel/agentTurnOrchestration";
 
 describe("org action kernel contract", () => {
   it("resolves frozen kernel contract with canonical stage + terminal phases", () => {

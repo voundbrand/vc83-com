@@ -205,7 +205,7 @@ async function startBridge() {
         // Send through agent pipeline
         console.log(`${c.dim}[Harness] Routing to agent pipeline...${c.reset}`);
 
-        const result = await convex.action(api.ai.agentExecution.processInboundMessage, {
+        const result = await convex.action(api["ai/kernel/agentExecution"].processInboundMessage, {
           organizationId: orgId as any,
           channel: "whatsapp",
           externalContactIdentifier: senderPhone,

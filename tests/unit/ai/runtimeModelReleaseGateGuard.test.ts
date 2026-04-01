@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasReleaseReadyToolRoutingCandidate } from "../../../convex/ai/agentExecution";
+import { hasReleaseReadyToolRoutingCandidate } from "../../../convex/ai/kernel/agentExecution";
 
 describe("runtime model release gate guard", () => {
   it("accepts routing pools that include at least one tools+json capable release-ready model", () => {

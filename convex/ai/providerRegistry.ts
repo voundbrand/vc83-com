@@ -10,7 +10,7 @@ import {
   getProviderAdapterContractConformanceIssues,
   getProviderAdapterContractSnapshot,
   type ProviderAdapterContractSnapshot,
-} from "./modelAdapters";
+} from "./model/modelAdapters";
 
 export interface AiProviderRegistryEntry {
   id: AiProviderId;

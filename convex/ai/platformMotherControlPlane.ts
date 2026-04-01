@@ -246,7 +246,7 @@ export const dispatchPlatformMotherGovernanceMessageInternal = internalAction({
         ? (args.metadata as Record<string, unknown>)
         : {};
 
-    return await ctx.runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
+    return await ctx.runAction(generatedApi.api["ai/kernel/agentExecution"].processInboundMessage, {
       organizationId: target.organizationId,
       channel: "api_test",
       externalContactIdentifier: buildPlatformMotherDispatchExternalContactIdentifier({

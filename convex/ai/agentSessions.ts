@@ -57,11 +57,11 @@ import {
   normalizeCollaborationSyncCheckpointContract,
   resolveThreadDeliveryState,
   type ThreadDeliveryState,
-} from "./agentExecution";
+} from "./kernel/agentExecution";
 import {
   assertInboundRuntimeKernelContract,
   type InboundRuntimeKernelContract,
-} from "./agentTurnOrchestration";
+} from "./kernel/agentTurnOrchestration";
 import {
   buildTrustTimelineCorrelationId,
   resolveTrustTimelineSurfaceFromWorkflow,

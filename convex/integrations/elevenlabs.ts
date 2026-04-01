@@ -1,7 +1,7 @@
 import { action, internalQuery, mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAuthenticatedUser } from "../rbacHelpers";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/model/modelDefaults";
 import {
   type AiProviderBindingSource,
   getAiBillingSourceContract,

@@ -161,7 +161,7 @@ async function chatLoop(rl: readline.Interface) {
       try {
         console.log(`${c.dim}[Processing...]${c.reset}`);
 
-        const result = await client.action(api.ai.agentExecution.processInboundMessage, {
+        const result = await client.action(api["ai/kernel/agentExecution"].processInboundMessage, {
           organizationId: orgId as any,
           channel: "api_test",
           externalContactIdentifier: contactId,
@@ -235,7 +235,7 @@ async function main() {
   console.log(`\n${c.dim}[Checking for active agent...]${c.reset}`);
 
   try {
-    const probe = await client.action(api.ai.agentExecution.processInboundMessage, {
+    const probe = await client.action(api["ai/kernel/agentExecution"].processInboundMessage, {
       organizationId: orgId as any,
       channel: "api_test",
       externalContactIdentifier: contactId,

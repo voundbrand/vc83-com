@@ -6,7 +6,7 @@ import type {
   ToolCapabilityGapBlockedPayload,
   ToolFoundryCapabilityGapMissingKind,
   ToolSpecProposalDraftArtifact,
-} from "../agentToolOrchestration";
+} from "../kernel/agentToolOrchestration";
 import {
   TRUST_EVENT_NAMESPACE,
   TRUST_EVENT_TAXONOMY_VERSION,

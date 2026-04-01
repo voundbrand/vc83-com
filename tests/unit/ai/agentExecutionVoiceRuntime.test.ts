@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInboundStructuredHandoffPacketRuntimeContext,
   buildInboundVoiceTurnVisionRuntimeContext,
   buildInboundLanguageLockRuntimeContext,
+  resolveInboundStructuredHandoffPacket,
   resolveInboundConversationLanguageLock,
   resolveInboundVoiceRuntimeRequest,
   resolveVoiceRuntimeLanguage,
   resolveVoiceRuntimeVoiceId,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
+import { resolveLegalFrontOfficeOutwardCommitmentIntent } from "../../../convex/ai/orgActionPolicy";
+import {
+  SYNTHETIC_LEGAL_FRONT_OFFICE_HANDOFF_PACKETS,
+  SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS,
+} from "../../fixtures/legal-front-office-synthetic-org";
 
 describe("agentExecution voice runtime request parsing", () => {
   it("returns null when voice runtime metadata is absent", () => {
@@ -48,6 +55,161 @@ describe("agentExecution voice runtime request parsing", () => {
     expect(result?.requestedProviderId).toBe("elevenlabs");
     expect(result?.synthesizeResponse).toBe(true);
     expect(result?.audioBase64).toBeUndefined();
+  });
+
+  it("returns null when structured handoff packet is absent", () => {
+    expect(resolveInboundStructuredHandoffPacket({})).toBeNull();
+  });
+
+  it("parses structured handoff packet from voice runtime metadata", () => {
+    const packet = resolveInboundStructuredHandoffPacket({
+      voiceRuntime: {
+        structuredHandoffPacket:
+          SYNTHETIC_LEGAL_FRONT_OFFICE_HANDOFF_PACKETS.urgentCallback,
+      },
+    });
+
+    expect(packet).toMatchObject({
+      sourceAgent: "Clara",
+      targetAgent: "Helena",
+      callerIdentity: {
+        callerId: "+49-170-111-2233",
+      },
+      urgency: {
+        level: "high",
+      },
+      requestedNextStep: "schedule_callback",
+    });
+
+    const context = buildInboundStructuredHandoffPacketRuntimeContext(packet);
+    expect(context).toContain("STRUCTURED HANDOFF PACKET");
+    expect(context).toContain("Source agent: Clara");
+    expect(context).toContain("Target agent: Helena");
+  });
+
+  it("fails closed for malformed structured handoff packets", () => {
+    const packet = resolveInboundStructuredHandoffPacket({
+      structuredHandoffPacket: {
+        contractVersion: "structured_handoff_packet_v1",
+        sourceAgent: "Clara",
+        targetAgent: "Helena",
+        callerIdentity: {
+          callerId: "+491701112233",
+        },
+        urgency: {
+          level: "high",
+        },
+        requestedNextStep: "schedule_callback",
+        disclosureEvidence: {
+          identityConfirmed: true,
+          conflictCheckDisclosed: true,
+          consentToCallback: true,
+          // missing recordingDisclosureGiven
+        },
+        createdAt: 1774472400000,
+      },
+    });
+    expect(packet).toBeNull();
+  });
+
+  it("requires compliance evaluator for clara-to-helena commitment tool plans", () => {
+    const scenario =
+      SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS.commitmentRequiresGate;
+    const intent = resolveLegalFrontOfficeOutwardCommitmentIntent({
+      structuredHandoffPacket: scenario.packet,
+      plannedToolNames: [...scenario.plannedToolNames],
+      assistantContent: scenario.assistantContent,
+    });
+
+    expect(intent.pathDetected).toBe(true);
+    expect(intent.commitmentDetected).toBe(true);
+    expect(intent.requiresComplianceEvaluator).toBe(true);
+    expect(intent.reasonCodes).toContain("clara_to_helena_path_detected");
+    expect(intent.reasonCodes).toContain("tool_commitment_signal");
+  });
+
+  it("does not require compliance evaluator when clara-to-helena path is not present", () => {
+    const scenario =
+      SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS.informationalOnlyNoGate;
+    const intent = resolveLegalFrontOfficeOutwardCommitmentIntent({
+      structuredHandoffPacket: {
+        sourceAgent: "Samantha",
+        targetAgent: "Helena",
+      },
+      plannedToolNames: [...scenario.plannedToolNames],
+      assistantContent: scenario.assistantContent,
+    });
+
+    expect(intent.pathDetected).toBe(false);
+    expect(intent.commitmentDetected).toBe(false);
+    expect(intent.requiresComplianceEvaluator).toBe(false);
+  });
+
+  it("keeps synthetic legal-front-office intent matrix deterministic", () => {
+    const matrix = [
+      {
+        scenario:
+          SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS.commitmentRequiresGate,
+        expected: {
+          pathDetected: true,
+          commitmentDetected: true,
+          requiresComplianceEvaluator: true,
+        },
+      },
+      {
+        scenario:
+          SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS.commitmentBlockedAtNoGo,
+        expected: {
+          pathDetected: true,
+          commitmentDetected: true,
+          requiresComplianceEvaluator: true,
+        },
+      },
+      {
+        scenario:
+          SYNTHETIC_LEGAL_FRONT_OFFICE_SCENARIOS.informationalOnlyNoGate,
+        expected: {
+          pathDetected: true,
+          commitmentDetected: false,
+          requiresComplianceEvaluator: false,
+        },
+      },
+    ] as const;
+
+    const result = matrix.map(({ scenario }) => {
+      const intent = resolveLegalFrontOfficeOutwardCommitmentIntent({
+        structuredHandoffPacket: scenario.packet,
+        plannedToolNames: [...scenario.plannedToolNames],
+        assistantContent: scenario.assistantContent,
+      });
+      return {
+        scenarioId: scenario.scenarioId,
+        pathDetected: intent.pathDetected,
+        commitmentDetected: intent.commitmentDetected,
+        requiresComplianceEvaluator: intent.requiresComplianceEvaluator,
+      };
+    });
+
+    expect(result).toEqual([
+      {
+        scenarioId: "urgent_callback_commitment",
+        pathDetected: true,
+        commitmentDetected: true,
+        requiresComplianceEvaluator: true,
+      },
+      {
+        scenarioId: "outbound_confirmation_with_blockers",
+        pathDetected: true,
+        commitmentDetected: true,
+        requiresComplianceEvaluator: true,
+      },
+      {
+        scenarioId: "informational_intake_only",
+        pathDetected: true,
+        commitmentDetected: false,
+        requiresComplianceEvaluator: false,
+      },
+    ]);
   });
 
   it("falls back to browser provider for unknown provider ids", () => {

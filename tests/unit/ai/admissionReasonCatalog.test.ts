@@ -5,7 +5,7 @@ import {
   ADMISSION_DENIAL_STAGE_TAXONOMY,
   buildAdmissionDenial,
 } from "../../../convex/ai/admissionController";
-import { buildDeniedTurnAdmissionPayload } from "../../../convex/ai/agentExecution";
+import { buildDeniedTurnAdmissionPayload } from "../../../convex/ai/kernel/agentExecution";
 
 describe("admission reason catalog + stage taxonomy", () => {
   it("keeps the denial reason catalog deterministic", () => {

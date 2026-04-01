@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   assembleRuntimeSystemMessages,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   evaluateOperatorPinnedNotesAccess,
   evaluateSessionContactMemoryWriteScope,

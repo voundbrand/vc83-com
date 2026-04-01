@@ -3,12 +3,12 @@ import {
   buildAgentSystemPrompt,
   mapSemanticChunksToKnowledgeDocuments,
   resolveKnowledgeRetrieval,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   createInboundRuntimeKernelHooks,
   enterInboundRuntimeKernelStage,
   INBOUND_RUNTIME_KERNEL_STAGE_ORDER,
-} from "../../../convex/ai/agentTurnOrchestration";
+} from "../../../convex/ai/kernel/agentTurnOrchestration";
 
 describe("agent execution hotspot characterization", () => {
   it("preserves prompt section ordering across resume, handoff, and degraded mode blocks", () => {

@@ -8,7 +8,7 @@ import {
 } from "../../../convex/ai/agents/der_terminmacher/runtimeModule";
 import {
   buildRuntimeModuleIntentRoutingContext as buildRuntimeModuleIntentRoutingContextFromAgentExecution,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 function buildDecision(
   overrides: Partial<RuntimeModuleIntentRoutingDecision>,

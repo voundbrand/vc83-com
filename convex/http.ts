@@ -7280,7 +7280,7 @@ const directTelephonyWebhookHandler = httpAction(async (ctx, request) => {
         } else {
           try {
             await (ctx as any).runAction(
-              generatedApi.api.ai.agentExecution.processInboundMessage,
+              generatedApi.api["ai/kernel/agentExecution"].processInboundMessage,
               {
                 organizationId: organizationId as Id<"organizations">,
                 channel: "phone_call",
@@ -7612,7 +7612,7 @@ http.route({
       ) {
         // If this is a new user routed to System Bot, send a greeting
         if (routeToSystemBot && isNew) {
-          await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
+          await (ctx as any).runAction(generatedApi.api["ai/kernel/agentExecution"].processInboundMessage, {
             organizationId,
             channel: "telegram",
             externalContactIdentifier: chatId,
@@ -7648,7 +7648,7 @@ http.route({
 
       // 2. Feed into agent pipeline
       // Step 13 of the pipeline auto-sends the reply via channels.router → telegramProvider
-      await (ctx as any).runAction(generatedApi.api.ai.agentExecution.processInboundMessage, {
+      await (ctx as any).runAction(generatedApi.api["ai/kernel/agentExecution"].processInboundMessage, {
         organizationId,
         channel: "telegram",
         externalContactIdentifier: chatId,

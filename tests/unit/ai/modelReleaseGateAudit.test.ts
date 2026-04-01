@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
+import { evaluateModelConformance } from "../../../convex/ai/model/modelConformance";
 import {
   buildModelReleaseGateAuditReport,
   evaluateModelReleaseGateSnapshot,

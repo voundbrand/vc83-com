@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { buildCapabilityGapBlockedPayload } from "../../../convex/ai/agentToolOrchestration";
+import { buildCapabilityGapBlockedPayload } from "../../../convex/ai/kernel/agentToolOrchestration";
 import {
   evaluateToolExecutionAuthorization,
   evaluateToolVersionPromotion,

@@ -2,7 +2,7 @@ import {
   SAMANTHA_AGENT_RUNTIME_MODULE_KEY,
   resolveAgentRuntimeModuleMetadataFromConfig,
 } from "../../agentSpecRegistry";
-import type { AgentToolResult } from "../../agentToolOrchestration";
+import type { AgentToolResult } from "../../kernel/agentToolOrchestration";
 import type { SessionContactMemoryRecord } from "../../memoryComposer";
 import {
   AUDIT_DELIVERABLE_OUTCOME_KEY,

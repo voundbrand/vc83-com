@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { convertUsdToCredits } from "../../../convex/ai/modelPricing";
+import { convertUsdToCredits } from "../../../convex/ai/model/modelPricing";
 import {
   meterNonChatAiUsage,
   type NonChatAiUsageMeteringRunners,

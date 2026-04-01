@@ -3,7 +3,7 @@ import {
   mergeDiscoveredModelCandidates,
   normalizeDiscoveredModelId,
   type OpenRouterModel,
-} from "../../../convex/ai/modelDiscovery";
+} from "../../../convex/ai/model/modelDiscovery";
 
 function mockModel(id: string, name = id): OpenRouterModel {
   return {

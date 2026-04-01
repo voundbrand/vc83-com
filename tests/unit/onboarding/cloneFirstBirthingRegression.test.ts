@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATALOG_CLONE_CAPABILITY_LIMITS_BLOCKED_MESSAGE } from "../../../convex/ai/agentExecution";
+import { CATALOG_CLONE_CAPABILITY_LIMITS_BLOCKED_MESSAGE } from "../../../convex/ai/kernel/agentExecution";
 import { NO_FIT_CONCIERGE_TERMS } from "../../../convex/ai/agentStoreCatalog";
 import { hasPrimaryForOperator } from "../../../convex/ai/workerPool";
 import { ONBOARDING_INTERVIEW_TEMPLATE } from "../../../convex/onboarding/seedPlatformAgents";

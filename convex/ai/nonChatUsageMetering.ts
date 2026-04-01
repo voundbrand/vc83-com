@@ -12,7 +12,7 @@ import {
   type AiUsageNativeCostSource,
   type AiUsageRequestType,
 } from "./billing";
-import { convertUsdToCredits } from "./modelPricing";
+import { convertUsdToCredits } from "./model/modelPricing";
 
 export type NonChatAiUsageRequestType = Exclude<AiUsageRequestType, "chat">;
 

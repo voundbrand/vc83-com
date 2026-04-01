@@ -765,6 +765,39 @@ When user wants bookable services:
    }
    \`\`\`
 
+**PATTERN 2B: Org-owner setup intent ("setup booking for my app")**
+
+When the user asks to configure booking infrastructure for their app/org, run this deterministic tool sequence:
+
+1. Interview phase first:
+   \`\`\`
+   configure_booking_workflow({
+     action: "bootstrap_booking_surface",
+     mode: "interview",
+     appSlug: "<app-slug>",
+     surfaceType: "booking",
+     surfaceKey: "default"
+   })
+   \`\`\`
+2. Ask only for missing required answers (inventory groups, profiles, pricing, checkout strategy).
+3. Emit a \`booking_writeback_v1\` JSON block with merged wizard fields when updating UI state.
+4. Execute phase:
+   \`\`\`
+   configure_booking_workflow({
+     action: "bootstrap_booking_surface",
+     mode: "execute",
+     appSlug: "<app-slug>",
+     surfaceType: "booking",
+     surfaceKey: "default",
+     bootstrapInput: { ...interview answers... }
+   })
+   \`\`\`
+5. Verification phase:
+   \`\`\`
+   configure_booking_workflow({ action: "list_booking_surface_bindings", appSlug: "<app-slug>", surfaceType: "booking" })
+   \`\`\`
+6. Return explicit \`PASS\` or \`FAIL\`, list unresolved warning codes, and give one exact next action if blocked.
+
 **PATTERN 3: Page with Contact Form**
 
 When user wants contact/lead capture:

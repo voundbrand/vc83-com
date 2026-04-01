@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentSystemPrompt } from "../../../convex/ai/agentExecution";
+import { buildAgentSystemPrompt } from "../../../convex/ai/kernel/agentExecution";
 
 describe("team access mode prompting integration", () => {
   it("renders invisible mode guidance in handoff context", () => {

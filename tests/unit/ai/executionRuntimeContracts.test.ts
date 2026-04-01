@@ -15,12 +15,12 @@ import {
   validateAgentRuntimeHookExecutionOrder,
   validateAgentRuntimeHookPayload,
   shouldAllowScopePayloadHashReplayMatch,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   TOOL_FOUNDRY_RUNTIME_CAPABILITY_GAP_CODE,
   buildCapabilityGapBlockedPayload,
   validateAgentRuntimeToolHookPayload,
-} from "../../../convex/ai/agentToolOrchestration";
+} from "../../../convex/ai/kernel/agentToolOrchestration";
 
 const ORG_ID = "org_1" as Id<"organizations">;
 

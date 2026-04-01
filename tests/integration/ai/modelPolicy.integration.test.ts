@@ -5,7 +5,7 @@ import {
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
-} from "../../../convex/ai/modelPolicy";
+} from "../../../convex/ai/model/modelPolicy";
 
 describe("model policy integration scenarios", () => {
   it("prefers explicit model request when enabled for the org", () => {

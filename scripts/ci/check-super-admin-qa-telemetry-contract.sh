@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_NAME="check-super-admin-qa-telemetry-contract"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-EMITTER_FILE="$ROOT_DIR/convex/ai/agentExecution.ts"
+EMITTER_FILE="$ROOT_DIR/convex/ai/kernel/agentExecution.ts"
 CONTRACT_FILE="$ROOT_DIR/convex/ai/qaModeContracts.ts"
 FORMATTER_FILE="$ROOT_DIR/scripts/ai/super-admin-agent-qa-log-formatter.mjs"
 

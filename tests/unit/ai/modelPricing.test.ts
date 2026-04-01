@@ -7,7 +7,7 @@ import {
   estimateCreditsFromPricing,
   normalizeOpenRouterPricingToPerMillion,
   resolveModelPricingFromRecord,
-} from "../../../convex/ai/modelPricing";
+} from "../../../convex/ai/model/modelPricing";
 
 describe("modelPricing", () => {
   it("resolves pricing from aiModels records when present", () => {

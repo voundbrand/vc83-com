@@ -12,10 +12,10 @@ import {
 } from "../../../convex/ai/agents/der_terminmacher/runtimeModule";
 import {
   resolveAgentRuntimeTopologyContractFromConfig,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   resolveInboundRuntimeTopologyAdapterSelection,
-} from "../../../convex/ai/agentTurnOrchestration";
+} from "../../../convex/ai/kernel/agentTurnOrchestration";
 
 describe("org action runtime topology contract", () => {
   it("exposes canonical topology profile catalog with single-agent explicit default", () => {
@@ -110,5 +110,29 @@ describe("org action runtime topology contract", () => {
       "tool_dispatch",
       "delivery",
     ]);
+  });
+
+  it("fails closed when explicit adapter does not match the profile", () => {
+    const contract = resolveAgentRuntimeTopologyContractFromConfig({
+      config: {
+        runtimeTopologyProfile: "pipeline_router",
+        runtimeTopologyAdapter: "single_agent_loop_adapter_v1",
+      },
+      now: 1774465200004,
+    });
+    expect(contract.enforcement).toBe("blocked");
+    expect(contract.reasonCode).toBe("topology_profile_adapter_mismatch");
+  });
+
+  it("fails closed when explicit adapter token is invalid", () => {
+    const contract = resolveAgentRuntimeTopologyContractFromConfig({
+      config: {
+        runtimeTopologyProfile: "pipeline_router",
+        runtimeTopologyAdapter: "unsupported_adapter",
+      },
+      now: 1774465200005,
+    });
+    expect(contract.enforcement).toBe("blocked");
+    expect(contract.reasonCode).toBe("topology_adapter_invalid");
   });
 });

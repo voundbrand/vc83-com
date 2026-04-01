@@ -23,7 +23,7 @@ import {
 } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { AiBillingSource } from "../channels/types";
-import { CREDITS_PER_USD } from "./modelPricing";
+import { CREDITS_PER_USD } from "./model/modelPricing";
 import { requireAuthenticatedUser, getUserContext } from "../rbacHelpers";
 import {
   resolveAiCreditBillingPolicy,

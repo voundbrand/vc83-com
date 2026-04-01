@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   resolveInboundVoiceRuntimeRequest,
   resolveInboundVoiceTurnVisionFrameAttachmentInput,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import { buildOpenRouterMessages } from "../../../convex/ai/chatRuntimeOrchestration";
 import type { WebChatVisionFrameCandidate } from "../../../convex/ai/mediaRetention";
 import { resolveWebChatVisionFrameDecision } from "../../../convex/ai/mediaRetention";

@@ -3,12 +3,12 @@ import type {
   AiCapabilityMatrix,
   AiProviderId,
 } from "../channels/types";
-import { normalizeModelForProvider } from "./modelAdapters";
+import { normalizeModelForProvider } from "./model/modelAdapters";
 import {
   isOpenClawAuthorityContractSatisfied,
   resolveOpenClawCompatibilityMode,
   type OpenClawCompatibilityModeDecision,
-} from "./modelPolicy";
+} from "./model/modelPolicy";
 
 export interface OpenClawAuthProfileImportInput {
   profileId: string;

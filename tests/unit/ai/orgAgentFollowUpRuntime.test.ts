@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { resolveInboundRuntimeContracts } from "../../../convex/ai/agentExecution";
+import { resolveInboundRuntimeContracts } from "../../../convex/ai/kernel/agentExecution";
 import {
   ORG_ACTION_FOLLOW_UP_REENTRY_CONTRACT_VERSION,
-} from "../../../convex/ai/agentTurnOrchestration";
+} from "../../../convex/ai/kernel/agentTurnOrchestration";
 import {
   ORG_ACTION_FOLLOW_UP_RUNTIME_SOURCE,
   buildOrgActionFollowUpRuntimeMetadata,

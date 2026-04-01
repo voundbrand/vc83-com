@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
-import { evaluateModelEnablementReleaseGates } from "../../../convex/ai/modelEnablementGates";
+import { evaluateModelConformance } from "../../../convex/ai/model/modelConformance";
+import { evaluateModelEnablementReleaseGates } from "../../../convex/ai/model/modelEnablementGates";
 import { getProviderPluginManifestConformanceIssues } from "../../../convex/ai/providerRegistry";
 
 describe("model conformance + enablement integration", () => {

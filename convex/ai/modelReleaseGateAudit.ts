@@ -1,8 +1,8 @@
 import {
   evaluateModelEnablementReleaseGates,
   type ModelValidationTestResults,
-} from "./modelEnablementGates";
-import type { ModelConformanceThresholds } from "./modelConformance";
+} from "./model/modelEnablementGates";
+import type { ModelConformanceThresholds } from "./model/modelConformance";
 
 export type ModelReleaseGateAuditMode = "audit" | "enforce";
 

@@ -5,7 +5,7 @@ import {
   type AiCapability,
   type AiCapabilityMatrix,
   type AiProviderId,
-} from "../channels/types";
+} from "../../channels/types";
 import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
 
 export const SAFE_FALLBACK_MODEL_ID = "anthropic/claude-3-5-sonnet";

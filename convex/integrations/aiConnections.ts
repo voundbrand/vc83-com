@@ -6,7 +6,7 @@ import { getLicenseInternal } from "../licensing/helpers";
 import { resolveByokCommercialPolicyForTier } from "../stripe/byokCommercialPolicy";
 import { aiBillingSourceValidator, aiProviderIdValidator } from "../schemas/coreSchemas";
 import { getAllAiProviders, getAiProvider } from "../ai/providerRegistry";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "../ai/model/modelDefaults";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
@@ -967,7 +967,7 @@ export const testAIConnection = action({
 
     if (verificationAction === "test_auth" || verificationAction === "list_models") {
       const modelProbe = (await ctx.runAction(
-        generatedApi.internal.ai.modelDiscovery.probeProviderModelCatalog,
+        generatedApi.internal.ai.model.modelDiscovery.probeProviderModelCatalog,
         {
           providerId: args.providerId,
           baseUrl,
@@ -999,7 +999,7 @@ export const testAIConnection = action({
     }
 
     const textProbe = (await ctx.runAction(
-      generatedApi.internal.ai.modelDiscovery.probeProviderTextGeneration,
+      generatedApi.internal.ai.model.modelDiscovery.probeProviderTextGeneration,
       {
         providerId: args.providerId,
         baseUrl,

@@ -6,7 +6,7 @@ vi.mock("../../../convex/rbacHelpers", () => ({
 }));
 
 import type { Id } from "../../../convex/_generated/dataModel";
-import { buildCapabilityGapBlockedPayload } from "../../../convex/ai/agentToolOrchestration";
+import { buildCapabilityGapBlockedPayload } from "../../../convex/ai/kernel/agentToolOrchestration";
 import {
   CORE_TOOL_CLASS_ALLOWLIST,
   TOOL_FOUNDRY_TOOL_CLASSES,

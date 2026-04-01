@@ -1,6 +1,6 @@
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/max";
 
-import type { AgentToolResult } from "../../agentToolOrchestration";
+import type { AgentToolResult } from "../../kernel/agentToolOrchestration";
 import {
   extractSessionContactMemoryCandidates,
   type SessionContactMemoryRecord,

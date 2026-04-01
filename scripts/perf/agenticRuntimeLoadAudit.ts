@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const agentExecutionModule = require("../../convex/ai/agentExecution.ts");
+const agentExecutionModule = require("../../convex/ai/kernel/agentExecution.ts");
 const handler = (agentExecutionModule as any).processInboundMessage._handler as (
   ctx: any,
   args: Record<string, unknown>

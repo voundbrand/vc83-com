@@ -16,7 +16,7 @@ import {
 import {
   applyDerTerminmacherToolCallAdjustments as applyDerTerminmacherToolCallAdjustmentsFromAgentExecution,
   resolveDerTerminmacherToolScopeManifest as resolveDerTerminmacherToolScopeManifestFromAgentExecution,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import { MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION } from "../../../convex/ai/mobileRuntimeHardening";
 
 const ORG_ID = "org_1" as Id<"organizations">;

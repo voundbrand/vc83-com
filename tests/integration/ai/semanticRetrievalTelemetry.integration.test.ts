@@ -4,7 +4,7 @@ import {
   mapSemanticChunksToKnowledgeDocuments,
   rankKnowledgeDocsForSemanticRetrieval,
   resolveKnowledgeRetrieval,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import { aggregateAgentRetrievalTelemetry } from "../../../convex/ai/agentSessions";
 
 describe("semantic retrieval telemetry integration", () => {

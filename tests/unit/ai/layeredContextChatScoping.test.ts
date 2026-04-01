@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const AI_CHAT_CONTEXT_PATH = resolve(process.cwd(), "src/contexts/ai-chat-context.tsx");
 const USE_AI_CHAT_PATH = resolve(process.cwd(), "src/hooks/use-ai-chat.ts");
 const AI_CHAT_ACTION_PATH = resolve(process.cwd(), "convex/ai/chat.ts");
-const AGENT_EXECUTION_PATH = resolve(process.cwd(), "convex/ai/agentExecution.ts");
+const AGENT_EXECUTION_PATH = resolve(process.cwd(), "convex/ai/kernel/agentExecution.ts");
 
 describe("layered context chat scoping contracts", () => {
   it("persists activeLayerWorkflowId in AIChatContext localStorage", () => {

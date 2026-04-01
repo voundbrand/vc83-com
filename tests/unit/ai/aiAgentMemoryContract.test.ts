@@ -3,7 +3,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   buildRuntimeMemoryLaneTelemetry,
   evaluateAiAgentMemoryRuntimeContract,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 const ORG_A = "org_a" as Id<"organizations">;
 const ORG_B = "org_b" as Id<"organizations">;

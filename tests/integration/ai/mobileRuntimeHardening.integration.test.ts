@@ -4,8 +4,8 @@ import {
   buildMeetingConciergeDecisionTelemetry,
   resolveInboundIngressEnvelope,
   resolveInboundMeetingConciergeIntent,
-} from "../../../convex/ai/agentExecution";
-import { executeToolCallsWithApproval } from "../../../convex/ai/agentToolOrchestration";
+} from "../../../convex/ai/kernel/agentExecution";
+import { executeToolCallsWithApproval } from "../../../convex/ai/kernel/agentToolOrchestration";
 import {
   buildMobileSourceAttestationChallenge,
   computeMobileSourceAttestationSignature,

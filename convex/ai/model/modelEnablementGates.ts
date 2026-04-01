@@ -1,5 +1,5 @@
-import { CRITICAL_TOOL_NAMES } from "./tools/contracts";
-import type { AiCapability, AiCapabilityMatrix } from "../channels/types";
+import { CRITICAL_TOOL_NAMES } from "../tools/contracts";
+import type { AiCapability, AiCapabilityMatrix } from "../../channels/types";
 import {
   evaluateModelConformanceGate,
   type ModelConformanceSummary,

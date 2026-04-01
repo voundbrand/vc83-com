@@ -299,7 +299,7 @@ async function startBridge() {
                 console.log(`${c.blue}[Group] ${groupSenderName}: ${groupText}${c.reset}`);
 
                 const result = await convex.action(
-                  api.ai.agentExecution.processInboundMessage,
+                  api["ai/kernel/agentExecution"].processInboundMessage,
                   {
                     organizationId: orgMapping.organizationId as any,
                     channel: "telegram",
@@ -421,7 +421,7 @@ async function startBridge() {
           console.log(`${c.dim}[Pipeline] Routing to agent...${c.reset}`);
 
           const result = await convex.action(
-            api.ai.agentExecution.processInboundMessage,
+            api["ai/kernel/agentExecution"].processInboundMessage,
             {
               organizationId: orgId as any,
               channel: "telegram",

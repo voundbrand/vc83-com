@@ -45,7 +45,7 @@ chat_completion_metering_requirement() {
       echo "meterSelfHealAnalyzeUsage("
       return 0
       ;;
-    "convex/ai/agentExecution.ts")
+    "convex/ai/kernel/agentExecution.ts")
       echo "api.ai.billing.recordUsage"
       return 0
       ;;

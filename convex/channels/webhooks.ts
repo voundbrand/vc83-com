@@ -678,7 +678,7 @@ export const processWhatsAppWebhook = internalAction({
     // which routes back through whatsappProvider.sendMessage.
     try {
       const result = (await (ctx.runAction as Function)(
-        api.ai.agentExecution.processInboundMessage,
+        api["ai/kernel/agentExecution"].processInboundMessage,
         {
           organizationId,
           channel: normalized.channel,
@@ -793,7 +793,7 @@ export const processChatwootWebhook = internalAction({
 
     // 5. Feed into agent execution pipeline
     const result = (await (ctx.runAction as Function)(
-      api.ai.agentExecution.processInboundMessage,
+      api["ai/kernel/agentExecution"].processInboundMessage,
       {
         organizationId,
         channel: normalized.channel,
@@ -1463,7 +1463,7 @@ export const processSlackEvent = internalAction({
 
     try {
       const result = (await (ctx.runAction as Function)(
-        api.ai.agentExecution.processInboundMessage,
+        api["ai/kernel/agentExecution"].processInboundMessage,
         {
           organizationId,
           channel: normalized.channel,
@@ -1890,7 +1890,7 @@ export const processSlackSlashCommand = internalAction({
         });
 
       const result = (await (ctx.runAction as Function)(
-        api.ai.agentExecution.processInboundMessage,
+        api["ai/kernel/agentExecution"].processInboundMessage,
         {
           organizationId,
           channel: normalized.channel,
@@ -2161,7 +2161,7 @@ export const processInfobipWebhook = internalAction({
     // Feed into agent pipeline
     try {
       const result = (await (ctx.runAction as Function)(
-        api.ai.agentExecution.processInboundMessage,
+        api["ai/kernel/agentExecution"].processInboundMessage,
         {
           organizationId,
           channel: normalized.channel,

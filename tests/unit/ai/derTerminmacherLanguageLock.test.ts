@@ -7,7 +7,7 @@ import {
 import {
   buildInboundLanguageLockRuntimeContext as buildInboundLanguageLockRuntimeContextFromAgentExecution,
   resolveInboundConversationLanguageLock as resolveInboundConversationLanguageLockFromAgentExecution,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 describe("Der Terminmacher language lock helpers", () => {
   it("prefers explicit conversation runtime language lock first", () => {

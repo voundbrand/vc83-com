@@ -6,7 +6,7 @@ import {
   resolveHitlWaitpointTokenValidationError,
   resolveInboundHitlWaitpointToken,
   toPublicHitlWaitpointState,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 const SESSION_ID = "agent_session_1" as Id<"agentSessions">;
 const TURN_ID = "agent_turn_1" as Id<"agentTurns">;

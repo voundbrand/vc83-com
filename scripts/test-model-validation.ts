@@ -15,13 +15,13 @@ import { ConvexHttpClient } from "convex/browser";
 import { api, internal } from "../convex/_generated/api";
 import { CRITICAL_TOOL_NAMES } from "../convex/ai/tools/contracts";
 import { OpenRouterClient } from "../convex/ai/openrouter";
-import { detectProvider, buildEnvApiKeysByProvider } from "../convex/ai/modelAdapters";
+import { detectProvider, buildEnvApiKeysByProvider } from "../convex/ai/model/modelAdapters";
 import { getToolSchemas } from "../convex/ai/tools/registry";
 import {
   evaluateModelConformance,
   type ModelConformanceSample,
   type ModelConformanceSummary,
-} from "../convex/ai/modelConformance";
+} from "../convex/ai/model/modelConformance";
 import {
   parseToolCallArguments,
   validateToolCallAgainstContract,

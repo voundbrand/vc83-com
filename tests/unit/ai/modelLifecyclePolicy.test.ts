@@ -4,7 +4,7 @@ import {
   deriveLifecycleState,
   validateRetirementSafety,
 } from "../../../convex/ai/platformModelManagement";
-import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
+import { evaluateModelConformance } from "../../../convex/ai/model/modelConformance";
 
 describe("model lifecycle policy", () => {
   it("derives lifecycle state for enable/default/deprecate/retire transitions", () => {

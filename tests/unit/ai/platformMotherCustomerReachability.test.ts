@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveExplicitInboundAgentEligibility } from "../../../convex/ai/agentExecution";
+import { resolveExplicitInboundAgentEligibility } from "../../../convex/ai/kernel/agentExecution";
 import {
   PLATFORM_MOTHER_ALIAS_COMPATIBILITY_MODE_QUINN_REQUIRED,
   PLATFORM_MOTHER_AUTHORITY_ROLE,

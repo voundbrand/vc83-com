@@ -10,7 +10,7 @@ import { v, ConvexError } from "convex/values";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const generatedApi: any = require("../_generated/api");
 import { getToolSchemas, executeTool, type ToolExecutionContext } from "./tools/registry";
-import { calculateCostFromUsage } from "./modelPricing";
+import { calculateCostFromUsage } from "./model/modelPricing";
 import { getAgentMessageCost } from "../credits/index";
 import {
   buildEnvApiKeysByProvider,
@@ -19,7 +19,7 @@ import {
   formatToolError,
   getProviderConfig,
   resolveAuthProfileBaseUrl,
-} from "./modelAdapters";
+} from "./model/modelAdapters";
 import {
   SAFE_FALLBACK_MODEL_ID,
   determineModelSelectionSource,
@@ -28,8 +28,8 @@ import {
   resolveOrgDefaultModel,
   resolveRequestedModel,
   selectFirstPlatformEnabledModel,
-} from "./modelPolicy";
-import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
+} from "./model/modelPolicy";
+import { evaluateRoutingCapabilityRequirements } from "./model/modelEnablementGates";
 import {
   buildAuthProfileFailureCountMap,
   resolveAuthProfilesForProvider,
@@ -75,7 +75,7 @@ import {
   type VoiceRuntimeTelemetryContract,
   type VoiceRuntimeTelemetryEvent,
 } from "./trustTelemetry";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./model/modelDefaults";
 import { canUsePlatformMotherCustomerFacingSupport } from "../platformMother";
 import {
   SUPER_ADMIN_AGENT_QA_MODE_VERSION,
@@ -4242,7 +4242,7 @@ export const sendMessage = action({
 
       const runInboundAgentExecution = async (): Promise<DesktopAgentExecutionResult> =>
         await (ctx as any).runAction(
-          generatedApi.api.ai.agentExecution.processInboundMessage,
+          generatedApi.api["ai/kernel/agentExecution"].processInboundMessage,
           {
             organizationId: args.organizationId,
             channel: "desktop",

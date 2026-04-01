@@ -359,7 +359,7 @@ export const postSupportChat = httpAction(async (ctx, request) => {
 
   try {
     const runtimeResult = await (ctx as any).runAction(
-      generatedApi.internal.ai.agentExecution.processInboundMessage,
+      generatedApi.internal.ai.kernel.agentExecution.processInboundMessage,
       {
         organizationId: authResult.context.organizationId,
         channel: "desktop",

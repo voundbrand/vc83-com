@@ -11,7 +11,7 @@ import {
   resolveDerTerminmacherRuntimeContract,
   resolveInboundMeetingConciergeIntent,
   resolveInboundRuntimeModuleIntentRoute,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   buildMobileSourceAttestationChallenge,
   computeMobileSourceAttestationSignature,

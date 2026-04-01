@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDelegationAuthorityRuntimeContract } from "../../../convex/ai/agentExecution";
+import { resolveDelegationAuthorityRuntimeContract } from "../../../convex/ai/kernel/agentExecution";
 
 describe("delegation authority runtime contract", () => {
   it("keeps tool/autonomy/approval authority anchored to the primary agent in direct mode", () => {

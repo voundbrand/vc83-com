@@ -47,7 +47,7 @@ import {
   createNonChatAiUsageMeteringRunners,
   meterNonChatAiUsage,
 } from "./nonChatUsageMetering";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./model/modelDefaults";
 import {
   UNIVERSAL_WORKSPACE_CONTEXT_QUESTION_FIELDS,
   resolveWorkspaceProfileFromExtractedData,

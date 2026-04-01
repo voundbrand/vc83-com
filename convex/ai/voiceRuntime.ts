@@ -4,7 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { requireAuthenticatedUser } from "../rbacHelpers";
 import { getLicenseInternal } from "../licensing/helpers";
 import { resolveOrganizationProviderBindingForProvider } from "./providerRegistry";
-import { convertUsdToCredits } from "./modelPricing";
+import { convertUsdToCredits } from "./model/modelPricing";
 import {
   assertMediaSessionIngressContract,
   mediaSessionIngressContractValidator,

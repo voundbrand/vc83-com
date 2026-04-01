@@ -4,7 +4,7 @@ import {
   buildActionCompletionEvidenceContract,
   resolveActionCompletionContractEnforcement,
   verifyActionCompletionEvidenceContract,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 describe("action completion evidence contract", () => {
   it("builds deterministic action_completion_evidence_v1 records", () => {

@@ -4,7 +4,7 @@ import {
   assembleRuntimeSystemMessages,
   buildRuntimeMemoryLaneTelemetry,
   evaluateAiAgentMemoryRuntimeContract,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 
 const ORG_A = "org_a" as Id<"organizations">;
 

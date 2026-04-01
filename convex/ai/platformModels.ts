@@ -13,13 +13,13 @@ import {
   normalizeCanonicalProviderId,
   selectFirstPlatformEnabledModel,
   toCanonicalCapabilityMatrix,
-} from "./modelPolicy";
-import { evaluateRoutingCapabilityRequirements } from "./modelEnablementGates";
+} from "./model/modelPolicy";
+import { evaluateRoutingCapabilityRequirements } from "./model/modelEnablementGates";
 import {
   evaluateModelReleaseGateSnapshot,
   type ModelReleaseGateSnapshot,
 } from "./modelReleaseGateAudit";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./model/modelDefaults";
 
 function buildRoutingGates(capabilityMatrix: ReturnType<typeof toCanonicalCapabilityMatrix>) {
   return {

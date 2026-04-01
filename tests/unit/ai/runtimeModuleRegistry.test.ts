@@ -13,6 +13,12 @@ import {
 import {
   DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
 } from "../../../convex/ai/agents/der_terminmacher/runtimeModule";
+import {
+  QUINN_AGENT_RUNTIME_MODULE_KEY,
+} from "../../../convex/ai/agents/quinn/runtimeModule";
+import {
+  HELENA_AGENT_RUNTIME_MODULE_KEY,
+} from "../../../convex/ai/agentSpecRegistry";
 
 describe("runtime module registry", () => {
   it("resolves Der Terminmacher contract by runtime module key", () => {
@@ -48,6 +54,36 @@ describe("runtime module registry", () => {
     expect(resolved?.module.key).toBe(DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY);
     expect((resolved?.contract as { moduleKey?: string } | undefined)?.moduleKey).toBe(
       DER_TERMINMACHER_AGENT_RUNTIME_MODULE_KEY,
+    );
+  });
+
+  it("resolves Quinn contract only when explicit runtime module key is set", () => {
+    const unresolved = resolveKnownRuntimeModuleContractFromConfig({
+      displayName: "Quinn",
+    });
+    expect(unresolved).toBeNull();
+
+    const resolved = resolveKnownRuntimeModuleContractFromConfig({
+      runtimeModuleKey: QUINN_AGENT_RUNTIME_MODULE_KEY,
+    });
+    expect(resolved?.moduleKey).toBe(QUINN_AGENT_RUNTIME_MODULE_KEY);
+    expect((resolved?.contract as { moduleKey?: string } | undefined)?.moduleKey).toBe(
+      QUINN_AGENT_RUNTIME_MODULE_KEY,
+    );
+  });
+
+  it("resolves Helena contract only when explicit runtime module key is set", () => {
+    const unresolved = resolveKnownRuntimeModuleContractFromConfig({
+      displayName: "Helena",
+    });
+    expect(unresolved).toBeNull();
+
+    const resolved = resolveKnownRuntimeModuleContractFromConfig({
+      runtimeModuleKey: HELENA_AGENT_RUNTIME_MODULE_KEY,
+    });
+    expect(resolved?.moduleKey).toBe(HELENA_AGENT_RUNTIME_MODULE_KEY);
+    expect((resolved?.contract as { moduleKey?: string } | undefined)?.moduleKey).toBe(
+      HELENA_AGENT_RUNTIME_MODULE_KEY,
     );
   });
 });

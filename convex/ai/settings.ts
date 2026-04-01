@@ -12,7 +12,7 @@ import {
   aiCredentialSourceValidator,
   aiProviderIdValidator,
 } from "../schemas/coreSchemas";
-import { ONBOARDING_DEFAULT_MODEL_ID } from "./modelDefaults";
+import { ONBOARDING_DEFAULT_MODEL_ID } from "./model/modelDefaults";
 import { evaluateModelReleaseGateSnapshot } from "./modelReleaseGateAudit";
 
 const PROVIDER_AGNOSTIC_SETTINGS_MIGRATION_KEY =

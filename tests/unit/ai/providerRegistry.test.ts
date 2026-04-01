@@ -7,7 +7,7 @@ import {
   resolveOrganizationProviderBindings,
   stripApiKeyFromBinding,
 } from "../../../convex/ai/providerRegistry";
-import { getProviderAdapterContractSnapshot } from "../../../convex/ai/modelAdapters";
+import { getProviderAdapterContractSnapshot } from "../../../convex/ai/model/modelAdapters";
 
 describe("providerRegistry", () => {
   it("returns canonical built-in providers", () => {

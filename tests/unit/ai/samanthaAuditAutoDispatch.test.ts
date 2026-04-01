@@ -7,7 +7,7 @@ import {
   resolveSamanthaAuditAutoDispatchPlan,
   sanitizeSamanthaEmailOnlyAssistantContent,
   shouldAttemptSamanthaClaimRecoveryAutoDispatch,
-} from "../../../convex/ai/agentExecution";
+} from "../../../convex/ai/kernel/agentExecution";
 import {
   ACTION_COMPLETION_CLAIM_CONTRACT_VERSION,
   ACTION_COMPLETION_TEMPLATE_CONTRACT_VERSION,

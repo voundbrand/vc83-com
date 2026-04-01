@@ -7,7 +7,7 @@ import {
 } from "../../tools/bookingTool";
 import { DER_TERMINMACHER_CRM_TOOL_MANIFEST } from "../../tools/crmTool";
 import { MOBILE_NODE_COMMAND_POLICY_CONTRACT_VERSION } from "../../mobileRuntimeHardening";
-import type { AgentToolResult } from "../../agentToolOrchestration";
+import type { AgentToolResult } from "../../kernel/agentToolOrchestration";
 import type {
   DerTerminmacherRuntimeContract,
 } from "./runtimeModule";

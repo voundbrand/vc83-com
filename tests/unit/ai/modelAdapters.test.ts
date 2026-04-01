@@ -13,7 +13,7 @@ import {
   resolveProviderReasoningContract,
   resolveProviderReasoningResolution,
   resolveAuthProfileBaseUrl,
-} from "../../../convex/ai/modelAdapters";
+} from "../../../convex/ai/model/modelAdapters";
 
 describe("model adapter normalization", () => {
   it("normalizes provider aliases and fallback provider hints", () => {

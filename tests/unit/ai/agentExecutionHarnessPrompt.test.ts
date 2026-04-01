@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentSystemPrompt } from "../../../convex/ai/agentExecution";
+import { buildAgentSystemPrompt } from "../../../convex/ai/kernel/agentExecution";
 import { buildHarnessContext, determineAgentLayer } from "../../../convex/ai/harness";
 
 describe("agent execution harness wiring", () => {

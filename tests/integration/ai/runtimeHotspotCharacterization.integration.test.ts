@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildAgentSystemPrompt,
   resolveAuditDeliverableInvocationGuardrail,
-} from "../../../convex/ai/agentExecution";
-import { persistRuntimeTurnArtifacts } from "../../../convex/ai/agentTurnOrchestration";
+} from "../../../convex/ai/kernel/agentExecution";
+import { persistRuntimeTurnArtifacts } from "../../../convex/ai/kernel/agentTurnOrchestration";
 import {
   buildModelResolutionPayload,
   resolveChatToolApprovalPolicy,

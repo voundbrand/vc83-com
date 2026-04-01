@@ -18,6 +18,8 @@ export const ORG_ACTION_POLICY_RESOLVER_CONTRACT_VERSION =
   "org_action_policy_resolver_v1" as const;
 export const COMPLIANCE_ACTION_RUNTIME_CONTRACT_VERSION =
   "compliance_action_runtime_v1" as const;
+export const LEGAL_FRONT_OFFICE_OUTWARD_COMMITMENT_CONTRACT_VERSION =
+  "legal_front_office_outward_commitment_v1" as const;
 export const COMPLIANCE_ACTION_LIFECYCLE_STAGE_VALUES = [
   "plan",
   "gate",
@@ -31,6 +33,13 @@ export const COMPLIANCE_ACTION_APPROVAL_CHECKPOINT_VALUES = [
   "org_owner_outbound_confirmation",
   "org_owner_gate_decision",
 ] as const;
+const LEGAL_FRONT_OFFICE_COMMITMENT_TOOL_NAMES = new Set([
+  "manage_bookings",
+  "send_email_from_template",
+  "escalate_to_human",
+]);
+const LEGAL_FRONT_OFFICE_COMMITMENT_CONTENT_PATTERN =
+  /\b(termin (ist )?(gebucht|best[äa]tigt)|appointment (is )?(booked|confirmed)|callback (is )?confirmed|r(?:u|ue)ckruf (ist )?best[äa]tigt)\b/i;
 
 export interface OrgActionPolicyScopeConfig {
   ownerOnlyActionFamilies?: string[];
@@ -110,6 +119,14 @@ export interface ComplianceActionLifecycleAuditSnapshot {
   failClosed: boolean;
 }
 
+export interface LegalFrontOfficeOutwardCommitmentIntent {
+  contractVersion: typeof LEGAL_FRONT_OFFICE_OUTWARD_COMMITMENT_CONTRACT_VERSION;
+  pathDetected: boolean;
+  commitmentDetected: boolean;
+  requiresComplianceEvaluator: boolean;
+  reasonCodes: string[];
+}
+
 const COMPLIANCE_ACTION_POLICY_MAP_ENTRIES: ReadonlyArray<ComplianceActionPolicyMapEntryV1> = [
   {
     contractVersion: COMPLIANCE_ACTION_POLICY_MAP_CONTRACT_VERSION,
@@ -172,6 +189,11 @@ function normalizeNonEmptyString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeLowercaseToken(value: unknown): string | null {
+  const normalized = normalizeNonEmptyString(value);
+  return normalized ? normalized.toLowerCase() : null;
+}
+
 function normalizeStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -184,6 +206,55 @@ function normalizeStringList(value: unknown): string[] {
         .map((entry) => entry.toLowerCase()),
     ),
   ).sort((left, right) => left.localeCompare(right));
+}
+
+export function resolveLegalFrontOfficeOutwardCommitmentIntent(args: {
+  structuredHandoffPacket?: {
+    sourceAgent?: string;
+    targetAgent?: string;
+  } | null;
+  plannedToolNames?: string[];
+  assistantContent?: string | null;
+}): LegalFrontOfficeOutwardCommitmentIntent {
+  const sourceAgent = normalizeLowercaseToken(args.structuredHandoffPacket?.sourceAgent);
+  const targetAgent = normalizeLowercaseToken(args.structuredHandoffPacket?.targetAgent);
+  const pathDetected =
+    Boolean(sourceAgent?.includes("clara"))
+    && Boolean(targetAgent?.includes("helena"));
+
+  const plannedToolNames = normalizeStringList(args.plannedToolNames).map((toolName) =>
+    toolName.toLowerCase(),
+  );
+  const toolCommitmentSignal = plannedToolNames.some((toolName) =>
+    LEGAL_FRONT_OFFICE_COMMITMENT_TOOL_NAMES.has(toolName),
+  );
+  const assistantContent =
+    normalizeNonEmptyString(args.assistantContent ?? null) ?? "";
+  const contentCommitmentSignal =
+    assistantContent.length > 0
+      && LEGAL_FRONT_OFFICE_COMMITMENT_CONTENT_PATTERN.test(assistantContent);
+  const commitmentDetected = toolCommitmentSignal || contentCommitmentSignal;
+  const reasonCodes: string[] = [];
+  if (pathDetected) {
+    reasonCodes.push("clara_to_helena_path_detected");
+  }
+  if (toolCommitmentSignal) {
+    reasonCodes.push("tool_commitment_signal");
+  }
+  if (contentCommitmentSignal) {
+    reasonCodes.push("content_commitment_signal");
+  }
+  if (reasonCodes.length === 0) {
+    reasonCodes.push("no_legal_commitment_signal");
+  }
+
+  return {
+    contractVersion: LEGAL_FRONT_OFFICE_OUTWARD_COMMITMENT_CONTRACT_VERSION,
+    pathDetected,
+    commitmentDetected,
+    requiresComplianceEvaluator: pathDetected && commitmentDetected,
+    reasonCodes: reasonCodes.sort((left, right) => left.localeCompare(right)),
+  };
 }
 
 function normalizeRiskLevel(value: unknown): OrgActionPolicyRiskLevel {

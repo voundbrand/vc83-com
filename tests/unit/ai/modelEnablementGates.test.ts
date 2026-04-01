@@ -3,8 +3,8 @@ import {
   evaluateRoutingCapabilityRequirements,
   evaluateModelEnablementReleaseGates,
   REQUIRED_CRITICAL_TOOL_CONTRACT_COUNT,
-} from "../../../convex/ai/modelEnablementGates";
-import { evaluateModelConformance } from "../../../convex/ai/modelConformance";
+} from "../../../convex/ai/model/modelEnablementGates";
+import { evaluateModelConformance } from "../../../convex/ai/model/modelConformance";
 
 const passingConformanceSummary = evaluateModelConformance({
   samples: [
