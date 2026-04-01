@@ -4,7 +4,7 @@
 
 - Workstream root: `docs/strategy/one-of-one-v3/phase-0-proof`
 - This queue governs proof-phase demo alignment work for the Track A phone demo.
-- The canonical ElevenLabs source files remain under `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents`.
+- The canonical ElevenLabs source files remain under `convex/ai/agents/elevenlabs/landing-demo-agents`.
 - Prefer 1-2 hour tasks with direct verification commands.
 - A task can move to `DONE` only after its listed verification passes.
 - Status flow is dependency-based: `PENDING` -> `READY` -> `IN_PROGRESS` -> `DONE`.

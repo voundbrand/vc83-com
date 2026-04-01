@@ -1,0 +1,48 @@
+# Agent Topologies
+
+This page documents the core topology patterns for orchestrating agents and tools in one combined diagram.
+
+## Combined Topology Diagram
+
+```mermaid
+graph TD
+    subgraph T1 [Single Agent LLM to Tool]
+        SA_I[Input] --> SA_A[Single Agent / LLM]
+        SA_A --> SA_T[Tool]
+        SA_T --> SA_A
+        SA_A --> SA_O[Output]
+    end
+
+    subgraph T2 [Pipeline Input Process Store]
+        PL_I[Input] --> PL_P[Process]
+        PL_P --> PL_S[Store]
+        PL_S --> PL_O[Output / Retrieval]
+    end
+
+    subgraph T3 [Router to Specialist Agents]
+        RT_I[Input] --> RT_R[Router]
+        RT_R --> RT_A[Agent A]
+        RT_R --> RT_B[Agent B]
+        RT_R --> RT_C[Agent C]
+        RT_A --> RT_M[Merge / Response Builder]
+        RT_B --> RT_M
+        RT_C --> RT_M
+        RT_M --> RT_O[Output]
+    end
+
+    subgraph T4 [Evaluator Generation Validation Loop]
+        EV_I[Input] --> EV_G[Agent]
+        EV_G --> EV_E[Evaluator]
+        EV_E -->|Pass| EV_O[Output]
+        EV_E -->|Needs Revision| EV_G
+    end
+```
+
+## Suggested Mapping to Current Agent Catalog
+
+| Topology | Example Agents |
+|---|---|
+| Single Agent | `coder` + tool calls |
+| Pipeline | `researcher` -> `coder` -> `swarm-memory-manager` |
+| Router | `planner` or `task-orchestrator` -> `backend-dev` / `mobile-dev` / `api-docs` |
+| Evaluator | `coder` -> `reviewer` / `tester` -> `production-validator` |

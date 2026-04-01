@@ -771,6 +771,9 @@ BLOCK_RAW_SHADOW='box-shadow:\s*\d'
 # Block disallowed utility classes
 BLOCK_UTILS='(bg-black|bg-white|text-black|text-white|border-gray-\d|shadow-[^(])'
 
+# Block modal overlays inside window-content surfaces (use in-window navigation/panels instead)
+BLOCK_WINDOW_MODAL='(fixed\s+inset-0|inset-0\s+fixed|aria-modal=|modal-overlay-bg)'
+
 # Block uppercase brand name
 BLOCK_BRAND='sevenlayers|sevenlayers|sevenlayers'
 ```

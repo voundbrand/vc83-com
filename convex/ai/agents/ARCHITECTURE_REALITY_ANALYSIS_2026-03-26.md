@@ -11,6 +11,17 @@ Requested priorities addressed here:
 3. Move to strict topology contracts with module-folder ownership where appropriate.
 4. Improve the legal phone demo into a production-grade intake + back-office + compliance flow.
 
+## Canonical Legal Front-Office Role Contract
+
+This section is the canonical target contract for the legal front-office flow:
+
+1. `Clara` is the caller-facing voice concierge only (`single_agent_loop`).
+2. `Helena` is the back-office execution worker only (`pipeline_router`).
+3. `Compliance Evaluator` is a mandatory fail-closed gate (`evaluator_loop`) before external commitments.
+4. `Quinn` remains onboarding/system-only and is not a legal back-office worker.
+5. `Clara -> structured_handoff_packet -> Helena -> Compliance Evaluator` is the required path for legal intake execution.
+6. If compliance cannot approve, the flow blocks or routes to human escalation; no outward commitments are emitted.
+
 ---
 
 ## 1) Current Reality (Codebase-Grounded)
@@ -87,14 +98,14 @@ Implication:
 Canonical ElevenLabs source-of-truth currently includes:
 
 - `clara`, `maren`, `jonas`, `tobias`, `lina`, `kai`, `nora`, `samantha`, `veronica`, `anne_becker`
-- Source: `apps/one-of-one-landing/scripts/elevenlabs/lib/catalog.ts`
+- Source: `scripts/ai/elevenlabs/lib/catalog.ts`
 
 Public rollout docs confirm:
 
 - `Clara` as public entry
 - star topology specialist routing
 - `Veronica` as separate office receptionist
-- Source: `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/README.md`
+- Source: `convex/ai/agents/elevenlabs/landing-demo-agents/README.md`
 
 Platform deploy actions exist for:
 
@@ -153,7 +164,7 @@ Implication:
 
 ## 3) Recommended Target Architecture
 
-### 3.1 Production legal front-office flow
+### 3.1 Production legal front-office flow (canonical)
 
 ```mermaid
 flowchart LR
@@ -167,17 +178,17 @@ flowchart LR
   CLARA --> RESP[Spoken Confirmation + Next Step]
 ```
 
-Recommendation:
+Canonical assignment:
 
-- Keep `Clara` as caller-facing voice concierge.
-- Use `Helena` as the separate back-office execution worker (not direct caller dialog orchestration).
-- Keep compliance as mandatory evaluator gate before externally meaningful commitments.
+- Keep `Clara` as caller-facing voice concierge only.
+- Use `Helena` as the separate back-office execution worker (no direct caller dialog orchestration).
+- Keep `Compliance Evaluator` as mandatory evaluator gate before externally meaningful commitments.
 
-### 3.2 Quinn + Helena separation (recommended)
+### 3.2 Quinn + Helena separation (required)
 
-Use two explicit roles:
+Use two explicit non-overlapping roles:
 
-1. `Quinn Onboarding` (existing mission)
+1. `Quinn Onboarding` (existing mission; onboarding/system only)
 2. `Helena Backoffice` (new legal/front-office execution mission)
 
 Why:

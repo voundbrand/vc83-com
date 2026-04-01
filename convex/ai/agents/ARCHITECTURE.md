@@ -24,6 +24,16 @@ Move from a single monolithic runtime file to a composable model:
 - `convex/ai/agents/david_ogilvy/`
   - `runtimeModule.ts`, `prompt.ts`, `policy.ts`, `tools.ts`.
 
+## Canonical Legal Front-Office Contract
+
+The legal front-office runtime is intentionally role-separated:
+
+1. `Clara` is the caller-facing concierge (`single_agent_loop`).
+2. `Helena` is the back-office worker (`pipeline_router`).
+3. `Compliance Evaluator` is the mandatory fail-closed gate (`evaluator_loop`) before external commitments.
+4. `Quinn` remains onboarding/system-focused and is excluded from the legal back-office execution rail.
+5. The legal execution sequence is `Clara -> structured_handoff_packet -> Helena -> Compliance Evaluator`.
+
 ## Integration Pattern
 
 1. Keep `agentExecution.ts` as the shared orchestration kernel.

@@ -30,7 +30,7 @@ Notes:
    The direct ingress path in [`convex/http.ts`](/Users/foundbrand_001/Development/vc83-com/convex/http.ts) can invoke `api.ai.agentExecution.processInboundMessage` with tenant-safe fail-closed rules.
 
 4. A dedicated single-agent Kanzlei telephony template now exists in code.
-   The canonical source is [`template.ts`](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts), seeded through [`seedPlatformAgents.ts`](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts), and deployable through [`telephony.ts`](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
+   The canonical source is [`template.ts`](/Users/foundbrand_001/Development/vc83-com/convex/ai/agents/elevenlabs/templates/kanzlei_mvp/template.ts), seeded through [`seedPlatformAgents.ts`](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts), and deployable through [`telephony.ts`](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
 
 ## Remaining live-smoke blockers
 

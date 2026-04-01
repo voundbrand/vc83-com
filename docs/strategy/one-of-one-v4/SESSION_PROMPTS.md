@@ -75,7 +75,7 @@ Your job is to make the live Kanzlei MVP reuse the same protected-template telep
 
 Focus on:
 
-- the live template source in [template.ts](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts)
+- the live template source in [template.ts](/Users/foundbrand_001/Development/vc83-com/convex/ai/agents/elevenlabs/templates/kanzlei_mvp/template.ts)
 - protected platform template seeding for the new single-agent Kanzlei path
 - target-org deployment plus remote Eleven agent sync
 - telephony metadata that stays compatible with the inbound bridge

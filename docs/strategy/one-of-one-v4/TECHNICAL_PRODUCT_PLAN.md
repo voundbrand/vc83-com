@@ -21,7 +21,7 @@
 
 | Component | Key Files | Status |
 |-----------|----------|--------|
-| **ElevenLabs Multi-Agent System** | `apps/one-of-one-landing/scripts/elevenlabs/lib/catalog.ts` | 7 agents, star topology handoff, test fixtures, simulation engine |
+| **ElevenLabs Multi-Agent System** | `scripts/ai/elevenlabs/lib/catalog.ts` | 7 agents, star topology handoff, test fixtures, simulation engine |
 | **Booking Engine** | `convex/bookingOntology.ts` | Full CRUD: appointment types, status workflow (pending→confirmed→completed), timezone support, buffer times, conflict detection |
 | **Calendar Sync** | `convex/calendarSyncOntology.ts`, `convex/calendarSyncSubcalendars.ts` | Google + Outlook OAuth, sub-calendar support, retry logic with exponential backoff |
 | **CRM Contacts** | `convex/crmOntology.ts` | Contact types (customer, lead, prospect), addresses, outreach preferences, extensible customProperties |
@@ -81,7 +81,7 @@
 | Task | Files to Modify | Effort | Priority |
 |------|----------------|--------|----------|
 | **2.1** Auto-create CRM contact from qualified call (name, phone, email, practice area) | `convex/crmOntology.ts`, `convex/ai/tools/bookingTool.ts` | 1 day | P0 |
-| **2.2** Build Clara "audit mode" — qualify calls but don't book (for free call audit phase) | `apps/one-of-one-landing/scripts/elevenlabs/lib/catalog.ts` | 0.5 day | P0 |
+| **2.2** Build Clara "audit mode" — qualify calls but don't book (for free call audit phase) | `scripts/ai/elevenlabs/lib/catalog.ts` | 0.5 day | P0 |
 | **2.3** Build call log storage (store each call: timestamp, caller, practice area, urgency, duration, outcome) | New: `convex/callLogOntology.ts` or extend existing objects | 1 day | P1 |
 | **2.4** Build audit report data aggregation (calls by time, practice area, urgency) | New query in `convex/` | 1 day | P1 |
 | **2.5** Build audit report PDF/email generator | New: template in `src/` or email template | 2 days | P1 |
@@ -215,8 +215,8 @@ Context injection happens via the ElevenLabs `dynamic_variables` or `system_prom
 
 | Purpose | File Path |
 |---------|----------|
-| ElevenLabs agent catalog | `apps/one-of-one-landing/scripts/elevenlabs/lib/catalog.ts` |
-| ElevenLabs simulation/test | `apps/one-of-one-landing/scripts/elevenlabs/simulate-elevenlabs-flow.ts` |
+| ElevenLabs agent catalog | `scripts/ai/elevenlabs/lib/catalog.ts` |
+| ElevenLabs simulation/test | `scripts/ai/elevenlabs/simulate-elevenlabs-flow.ts` |
 | Booking engine | `convex/bookingOntology.ts` |
 | Booking AI tool | `convex/ai/tools/bookingTool.ts` |
 | Tool registry | `convex/ai/tools/registry.ts` |

@@ -21,7 +21,7 @@ Source references used for this audit:
 - current runtime overview: [`landing-demo-agents/README.md`](../../reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/README.md)
 - current shared demo business: [`demo-business-core.md`](../../reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/demo-business-core.md)
 - current agent coverage: [`v2/test-coverage.md`](../../reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/v2/test-coverage.md)
-- current harness scope: [`apps/one-of-one-landing/scripts/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/scripts/elevenlabs/README.md)
+- current harness scope: [`scripts/ai/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/scripts/ai/elevenlabs/README.md)
 
 ## What Is Already Aligned
 
@@ -99,7 +99,7 @@ Current runtime:
 
 Evidence:
 - [`v2/test-coverage.md`](../../reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents/v2/test-coverage.md)
-- [`apps/one-of-one-landing/scripts/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/scripts/elevenlabs/README.md)
+- [`scripts/ai/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/scripts/ai/elevenlabs/README.md)
 - [`apps/one-of-one-landing/fixtures/elevenlabs`](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/fixtures/elevenlabs)
 
 Impact:
@@ -124,7 +124,7 @@ Current runtime:
 - there is no proof QA matrix or recorded persona checklist in this workstream
 
 Evidence:
-- [`apps/one-of-one-landing/scripts/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/scripts/elevenlabs/README.md)
+- [`scripts/ai/elevenlabs/README.md`](/Users/foundbrand_001/Development/vc83-com/scripts/ai/elevenlabs/README.md)
 - [`04_PROOF_PHASE_DEMO.md`](./04_PROOF_PHASE_DEMO.md)
 
 Impact:

@@ -13,7 +13,7 @@ Turn the current telephony bridge, booking primitives, and protected-template li
 - The phone-first Kanzlei path no longer hard-requires customer email when caller phone identity is present.
 - Structured legal intake fields and best-effort internal firm notification email already exist on the booking path.
 - The platform already has a protected template seed/bootstrap path for customer telephony in [convex/onboarding/seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts).
-- The platform now has a dedicated single-agent Kanzlei telephony template in [template.ts](/Users/foundbrand_001/Development/vc83-com/apps/one-of-one-landing/elevenlabs/agents/kanzlei-mvp/template.ts), seeded through [seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts) and deployable through [telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
+- The platform now has a dedicated single-agent Kanzlei telephony template in [template.ts](/Users/foundbrand_001/Development/vc83-com/convex/ai/agents/elevenlabs/templates/kanzlei_mvp/template.ts), seeded through [seedPlatformAgents.ts](/Users/foundbrand_001/Development/vc83-com/convex/onboarding/seedPlatformAgents.ts) and deployable through [telephony.ts](/Users/foundbrand_001/Development/vc83-com/convex/integrations/telephony.ts).
 - The current branch includes unit coverage for the new Kanzlei template seed plus the existing telephony provisioning path.
 
 ## What Is Not Yet True

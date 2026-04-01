@@ -37,7 +37,7 @@ Focus on:
 - avoiding persona leakage or broken handoffs
 
 Constraints:
-- edit only the canonical source files under `docs/reference_projects/elevenlabs/implementation-eleven-agents-rollout/landing-demo-agents`
+- edit only the canonical source files under `convex/ai/agents/elevenlabs/landing-demo-agents`
 - sync staging after meaningful changes
 - hand off immediately to `LANE-C` for verification
 

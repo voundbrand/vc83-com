@@ -134,6 +134,14 @@ flowchart LR
   V --> RESP[Spoken Confirmation / Next Steps]
 ```
 
+Canonical legal role boundary contract:
+
+1. `Clara` is caller-facing intake/reception only (`single_agent_loop`).
+2. `Helena` is back-office worker execution only (`pipeline_router`).
+3. `Compliance Evaluator` is a mandatory fail-closed gate (`evaluator_loop`) before commitments.
+4. `Quinn` stays onboarding/system-only and is out of the legal back-office chain.
+5. The legal execution rail is `Clara -> structured_handoff_packet -> Helena -> Compliance Evaluator`.
+
 ## Voice-Specific Decision
 
 Should one voice agent also do all execution work?
